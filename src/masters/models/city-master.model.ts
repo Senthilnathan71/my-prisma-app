@@ -2,7 +2,7 @@ import { Table, Column, Model, DataType, ForeignKey, BelongsTo } from 'sequelize
 import { StateMaster } from './state-master.model';
 import { CountryMaster } from './country-master.model';
 
-@Table({ tableName: 'CityMaster', timestamps: false })
+@Table({ tableName: 'CityMaster', timestamps: true })
 export class CityMaster extends Model {
   @Column({ primaryKey: true, autoIncrement: true })
   CityMasterSid: number;
@@ -24,14 +24,8 @@ export class CityMaster extends Model {
   @Column({ type: DataType.INTEGER })
   LoginSid: number;
 
-  @Column({ type: DataType.DATE })
-  CreatedOn: Date;
-
   @Column({ type: DataType.STRING(100) })
   CreatedBy: string;
-
-  @Column({ type: DataType.DATE })
-  UpdatedOn: Date;
 
   @Column({ type: DataType.STRING(100) })
   UpdatedBy: string;

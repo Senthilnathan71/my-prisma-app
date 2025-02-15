@@ -6,7 +6,7 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   app.enableCors();
-  
+
   // swagger setup
   const options = new DocumentBuilder()
     .setTitle('CRM-MOBILE-API')
@@ -19,6 +19,6 @@ async function bootstrap() {
   SwaggerModule.setup('api', app, document)
 
   app.enableCors();
-  await app.listen(process.env.PORT ?? 3000);
+  await app.listen(process.env.PORT ?? 3008);
 }
 bootstrap();

@@ -3,7 +3,7 @@ import { CountryMaster } from './country-master.model';
 import { CityMaster } from './city-master.model';
 import { PortMaster } from './port-master.model';
 
-@Table({ tableName: 'StateMaster', timestamps: false })
+@Table({ tableName: 'StateMaster', timestamps: true })
 export class StateMaster extends Model {
   @Column({ primaryKey: true, autoIncrement: true })
   StateMasterSid: number;
@@ -24,14 +24,8 @@ export class StateMaster extends Model {
   @Column({ type: DataType.INTEGER })
   LoginSid: number;
 
-  @Column({ type: DataType.DATE })
-  CreatedOn: Date;
-
   @Column({ type: DataType.STRING(100) })
   CreatedBy: string;
-
-  @Column({ type: DataType.DATE })
-  UpdatedOn: Date;
 
   @Column({ type: DataType.STRING(100) })
   UpdatedBy: string;
