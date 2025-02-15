@@ -6,13 +6,12 @@ import * as fs from 'fs';
 async function bootstrap() {
   // const app = await NestFactory.create(AppModule);
   const httpsOptions = {
-    key: fs.readFileSync('/etc/letsencrypt/live/app.dofi.co/privkey.pem'),  // Update path
-    cert: fs.readFileSync('/etc/letsencrypt/live/app.dofi.co/fullchain.pem'),   // Update path
+    key: fs.readFileSync('/var/opt/npm-ssl/privkey.pem'),  // Update path
+    cert: fs.readFileSync('/var/opt/npm-ssl/fullchain.pem'),   // Update path
   };
   console.log("httpOptions::",httpsOptions);
 
-//   SSLCertificateFile /etc/letsencrypt/live/app.dofi.co/fullchain.pem
-// SSLCertificateKeyFile /etc/letsencrypt/live/app.dofi.co/privkey.pem
+
 
   const app = await NestFactory.create(AppModule, { httpsOptions });
 
