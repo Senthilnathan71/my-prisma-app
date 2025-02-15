@@ -9,6 +9,7 @@ async function bootstrap() {
     key: fs.readFileSync('/etc/letsencrypt/live/app.dofi.co/privkey.pem'),  // Update path
     cert: fs.readFileSync('/etc/letsencrypt/live/app.dofi.co/fullchain.pem'),   // Update path
   };
+  console.log("httpOptions::",httpsOptions);
 
 //   SSLCertificateFile /etc/letsencrypt/live/app.dofi.co/fullchain.pem
 // SSLCertificateKeyFile /etc/letsencrypt/live/app.dofi.co/privkey.pem
