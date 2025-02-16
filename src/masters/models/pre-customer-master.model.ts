@@ -30,6 +30,9 @@ export class PreCustomerMaster extends Model {
   @Column({ type: DataType.INTEGER })
   BranchMasterSid: number;
 
+  @Column({ type: DataType.STRING(200) })
+  PreCustomerName: string;
+
   @Column({ type: DataType.STRING(300) })
   PreCustomerAddress1: string;
 
@@ -55,7 +58,7 @@ export class PreCustomerMaster extends Model {
   PreCustomerType: string;
 
   @Column({ type: DataType.STRING(20) })
-  LeadReferredOn: string;
+  LeadFrom: string;
 
   @Column({ type: DataType.STRING(20) })
   LeadReferredBy: string;
@@ -80,7 +83,6 @@ export class PreCustomerMaster extends Model {
 
   @Column({ type: DataType.CHAR(1) })
   Status: string;
-
 
   @BelongsTo(() => CompanyMaster)
   company: CompanyMaster;

@@ -22,6 +22,8 @@ import { UserBranch } from './models/user-branch-master.model';
 import { UserController } from './controllers/user/user.controller';
 import { PrecustomerController } from './controllers/precustomer/precustomer.controller';
 import { PrecustomerService } from './services/precustomer/precustomer.service';
+import { CityService } from './services/city/city.service';
+import { RegionController } from './controllers/region/region.controller';
 
 @Module({
     imports:[
@@ -49,8 +51,8 @@ import { PrecustomerService } from './services/precustomer/precustomer.service';
             ],
         )
     ],
-    providers: [UserService,PrecustomerService],
-    controllers:[UserController, PrecustomerController],
+    providers: [UserService,PrecustomerService,CityService],
+    controllers:[UserController, PrecustomerController,RegionController],
     exports:[UserService]
 })
 export class MastersModule {}

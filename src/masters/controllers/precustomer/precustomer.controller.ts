@@ -1,7 +1,8 @@
-import { BadRequestException, Controller, Get, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Param, ParseIntPipe, Post, Put, UnauthorizedException } from '@nestjs/common';
 import { Auth } from 'src/common/decorators/auth.decorator';
 import { UserData } from 'src/common/decorators/user.decorator';
 import { ResponseData } from 'src/common/response-data';
+import { CreatePrecustomerDto } from 'src/masters/DTO/create-Precustomer.dto';
 import { PrecustomerService } from 'src/masters/services/precustomer/precustomer.service';
 
 @Controller('precustomer')
@@ -29,6 +30,55 @@ export class PrecustomerController {
         }
         return output;
     }
+
+    @Get(':id')
+    async getPrecustomerById(@Param('id',ParseIntPipe)PreCustomerMasterSid:number){
+        const  output = new ResponseData;
+        try {
+           output.data =await this.precustomerSer.findOne({PreCustomerMasterSid : PreCustomerMasterSid})
+        } catch (error) {
+           output.status = false;
+           output.message = error
+        }
+        return output;
+    }
+
+    @Put()
+    async createPrecustomer(@Body() body : CreatePrecustomerDto, @UserData() user :any){
+        let output = new ResponseData
+        try {
+
+            //check customer name already exist or not
+            let leadName = body.PreCustomerName.trim();
+            let existingLead = await this.precustomerSer.findOne({
+                PreCustomerName : leadName
+            });
+
+            if(existingLead){
+                throw 'Lead already exist.'
+            }
+            console.log("userData::", user);
+            let preCustomer = await this.precustomerSer.createPrecustomer(body,user);
+            if(!preCustomer){
+                throw 'Something went wrong'
+            }
+            output.data = preCustomer;
+            output.message = "Lead created successfully"
+            
+        } catch (error) {
+            console.log("controler error::", error);
+            output.status = false;
+            // Handle error message based on the type of error
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                output.message = error.message;
+            } else {
+                output.message = error;
+            }
+        }
+        return output
+    }
+
+
 }
 
 

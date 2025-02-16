@@ -7,7 +7,7 @@ export class CityMaster extends Model {
   @Column({ primaryKey: true, autoIncrement: true })
   CityMasterSid: number;
 
-  @Column({ type: DataType.CHAR(2), allowNull: false })
+  @Column({ type: DataType.CHAR(3), allowNull: false })
   CityCode: string;
 
   @Column({ type: DataType.STRING(100), allowNull: false })
