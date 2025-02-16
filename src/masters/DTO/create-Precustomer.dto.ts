@@ -1,4 +1,4 @@
-import { IsNumber, IsOptional, IsString } from "class-validator";
+import { IsDate, IsNumber, IsOptional, IsString } from "class-validator";
 
 export class CreatePrecustomerDto {
     @IsNumber()
@@ -47,5 +47,21 @@ export class CreatePrecustomerDto {
     @IsString()
     @IsOptional()
     Status : string
+
+    @IsDate()
+    @IsOptional()
+    CreatedOn : Date
+
+    @IsDate()
+    @IsOptional()
+    UpdatedOn : Date
+
+    @IsString()
+    @IsOptional()
+    CreatedBy : string
+
+    @IsString()
+    @IsOptional()
+    UpdatedBy : string
 
 }

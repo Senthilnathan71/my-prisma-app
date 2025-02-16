@@ -47,23 +47,13 @@ export class PrecustomerController {
     async createPrecustomer(@Body() body : CreatePrecustomerDto, @UserData() user :any){
         let output = new ResponseData
         try {
-
-            //check customer name already exist or not
-            let leadName = body.PreCustomerName.trim();
-            let existingLead = await this.precustomerSer.findOne({
-                PreCustomerName : leadName
-            });
-
-            if(existingLead){
-                throw 'Lead already exist.'
-            }
-            console.log("userData::", user);
             let preCustomer = await this.precustomerSer.createPrecustomer(body,user);
             if(!preCustomer){
                 throw 'Something went wrong'
             }
-            output.data = preCustomer;
-            output.message = "Lead created successfully"
+            output.data = preCustomer.data;
+            output.message = preCustomer.message;
+            output.status = true
             
         } catch (error) {
             console.log("controler error::", error);

@@ -27,7 +27,7 @@ export class PrecustomerService {
 
     async createPrecustomer(params : CreatePrecustomerDto, user){
         try {
-            const payload ={
+            const payload : any ={
                 CompanyMasterSid : user['userBranch'][0].CompanyMasterSid,
                 CityMasterSid : params.CityMasterSid,
                 CountryMasterSid : params.CountryMasterSid,
@@ -42,17 +42,32 @@ export class PrecustomerService {
                 LeadFrom : params.LeadFrom,
                 LeadReferredBy : params.LeadReferredBy,
                 CreatedBy : user['UserEmail'],
-                CreatedOn : new Date(),
-                UpdatedOn :  new Date(),
                 Status : params.Status || 'A'
             };
 
             if(params.PreCustomerMasterSid){
+                 // Update existing record 
+                const existingLead = await this.preCustomer.findOne({
+                    where: { PreCustomerMasterSid: params.PreCustomerMasterSid },
+                });
 
+                if (!existingLead) {
+                    throw new Error('Lead not found');
+                }
+                payload.UpdatedOn = new Date(); // Only update UpdatedOn
+                payload.UpdatedBy = user['UserEmail']
+                await this.preCustomer.update(payload, {
+                    where: { PreCustomerMasterSid: params.PreCustomerMasterSid },
+                });
+                return { message: 'Lead updated successfully', data: params };
+                
             }else{
-                params = await this.preCustomer.create(payload);
+                payload.CreatedOn = new Date();
+                payload.UpdatedOn = new Date();
+                payload.CreatedBy = user['UserEmail']; // Only used when creating
+                const newLead = await this.preCustomer.create(payload);
+                return { message: 'Lead created successfully', data: newLead };
             }
-            return params
         } catch (error) {
             throw error
         }
