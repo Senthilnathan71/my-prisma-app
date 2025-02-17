@@ -62,6 +62,15 @@ export class PrecustomerService {
                 return { message: 'Lead updated successfully', data: params };
                 
             }else{
+                //check customer name already exist or not
+                let leadName = payload.PreCustomerName.trim();
+                let existingLead = await this.findOne({
+                    PreCustomerName : leadName
+                });
+
+                if(existingLead){
+                    throw 'Lead already exist.'
+                }
                 payload.CreatedOn = new Date();
                 payload.UpdatedOn = new Date();
                 payload.CreatedBy = user['UserEmail']; // Only used when creating
