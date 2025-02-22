@@ -35,7 +35,7 @@ export class PrecustomerController {
     async getPrecustomerById(@Param('id',ParseIntPipe)PreCustomerMasterSid:number){
         const  output = new ResponseData;
         try {
-           output.data =await this.precustomerSer.findOne({PreCustomerMasterSid : PreCustomerMasterSid})
+           output.data =await this.precustomerSer.findOne(PreCustomerMasterSid)
         } catch (error) {
            output.status = false;
            output.message = error

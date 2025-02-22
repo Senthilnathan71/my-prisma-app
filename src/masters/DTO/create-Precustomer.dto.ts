@@ -21,47 +21,47 @@ export class CreatePrecustomerDto {
     StateMasterSid : number
 
     @IsString()
-    PreCustomerName : string
+    preCustomerName : string
 
     @IsString()
-    PreCustomerAddress1 :string
+    preCustomerAddress1 :string
 
     @IsString()
-    PreCustomerAddress2 : string
+    preCustomerAddress2 : string
 
     @IsString()
-    ContactPerson :string
+    contactPerson :string
 
     @IsString()
-    Email : string
+    email : string
 
     @IsString()
-    Phone :string
+    phone :string
 
     @IsString()
-    LeadFrom : string
+    leadFrom : string
 
     @IsString()
-    LeadReferredBy :string
+    leadReferredBy :string
 
     @IsString()
     @IsOptional()
-    Status : string
+    status : string
 
     @IsDate()
     @IsOptional()
-    CreatedOn : Date
+    createdOn : Date
 
     @IsDate()
     @IsOptional()
-    UpdatedOn : Date
+    updatedOn : Date
 
     @IsString()
     @IsOptional()
-    CreatedBy : string
+    createdBy : string
 
     @IsString()
     @IsOptional()
-    UpdatedBy : string
+    updatedBy : string
 
 }

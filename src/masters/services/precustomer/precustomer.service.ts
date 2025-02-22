@@ -35,16 +35,16 @@ export class PrecustomerService {
                 CountryMasterSid : params.CountryMasterSid,
                 StateMasterSid : params.StateMasterSid,
                 BranchMasterSid : user['userBranch'][0].BranchMasterSid,
-                PreCustomerName : params.PreCustomerName,
-                PreCustomerAddress1 : params.PreCustomerAddress1,
-                PreCustomerAddress2 : params.PreCustomerAddress2,
-                ContactPerson : params.ContactPerson,
-                Email : params.Email,
-                Phone : params.Phone,
-                LeadFrom : params.LeadFrom,
-                LeadReferredBy : params.LeadReferredBy,
-                CreatedBy : user['UserEmail'],
-                Status : params.Status || 'A'
+                preCustomerName : params.preCustomerName,
+                preCustomerAddress1 : params.preCustomerAddress1,
+                preCustomerAddress2 : params.preCustomerAddress2,
+            contactPerson : params.contactPerson,
+                email : params.email,
+                phone : params.phone,
+                leadFrom : params.leadFrom,
+                leadReferredBy : params.leadReferredBy,
+                createdBy : user['userEmail'],
+                status : params.status || 'A'
             };
 
             if(params.PreCustomerMasterSid){
@@ -56,8 +56,8 @@ export class PrecustomerService {
                 if (!existingLead) {
                     throw new Error('Lead not found');
                 }
-                payload.UpdatedOn = new Date(); // Only update UpdatedOn
-                payload.UpdatedBy = user['UserEmail']
+                payload.updatedOn = new Date(); // Only update UpdatedOn
+                payload.updatedBy = user['userEmail']
                 await this._db.preCustomerMaster.update({
                     where:{
                         PreCustomerMasterSid: params.PreCustomerMasterSid,
@@ -70,16 +70,18 @@ export class PrecustomerService {
             }else{
                 //check customer name already exist or not
                 let leadName = payload.PreCustomerName.trim();
-                let existingLead = await this.findOne({
-                    PreCustomerName : leadName
+                let existingLead = await this._db.preCustomerMaster.findFirst({
+                    where:{
+                        preCustomerName:leadName
+                    }
                 });
 
                 if(existingLead){
                     throw 'Lead already exist.'
                 }
-                payload.CreatedOn = new Date();
-                payload.UpdatedOn = new Date();
-                payload.CreatedBy = user['UserEmail']; // Only used when creating
+                payload.createdOn = new Date();
+                payload.updatedOn = new Date();
+                payload.createdBy = user['userEmail']; // Only used when creating
                 const newLead = await this._db.preCustomerMaster.create(payload);
                 return { message: 'Lead created successfully', data: newLead };
             }
@@ -88,10 +90,12 @@ export class PrecustomerService {
         }
     }
 
-    async findOne(where : any){
+    async findOne(PreCustomerMasterSid : any){
         try {
             return await this._db.preCustomerMaster.findUnique({
-                where : where
+                where : {
+                    PreCustomerMasterSid: PreCustomerMasterSid
+                }
             });
         } catch (error) {
             throw error;
