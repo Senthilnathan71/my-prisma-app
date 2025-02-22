@@ -24,6 +24,8 @@ import { PrecustomerController } from './controllers/precustomer/precustomer.con
 import { PrecustomerService } from './services/precustomer/precustomer.service';
 import { CityService } from './services/city/city.service';
 import { RegionController } from './controllers/region/region.controller';
+import { PreCustomerMeetingService } from './services/precustomer/precustomer-meeting.service';
+import { PreCustomerMeetingController } from './controllers/precustomer/precustomer-meeting.controller';
 
 @Module({
     imports:[
@@ -51,8 +53,8 @@ import { RegionController } from './controllers/region/region.controller';
         //     ],
         // )
     ],
-    providers: [UserService,PrecustomerService,CityService],
-    controllers:[UserController, PrecustomerController,RegionController],
+    providers: [UserService,PrecustomerService,PreCustomerMeetingService,CityService],
+    controllers:[UserController,PreCustomerMeetingController, PrecustomerController,RegionController],
     exports:[UserService]
 })
 export class MastersModule {}

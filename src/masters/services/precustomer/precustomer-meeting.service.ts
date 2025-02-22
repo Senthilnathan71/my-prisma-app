@@ -1,0 +1,80 @@
+import { Injectable } from '@nestjs/common';
+import { InjectModel } from '@nestjs/sequelize';
+import { DatabaseService } from 'src/database/database.service';
+import { CreatePreCustomerMeetingDto } from 'src/masters/DTO/create-precustomer-meeting.dto';
+import { CreatePrecustomerDto } from 'src/masters/DTO/create-Precustomer.dto';
+import { PreCustomerMaster } from 'src/masters/models/pre-customer-master.model';
+
+@Injectable()
+export class PreCustomerMeetingService {
+    constructor(
+        // @InjectModel(PreCustomerMaster)
+        // private readonly preCustomer : typeof PreCustomerMaster
+        private _db: DatabaseService
+    ) { }
+
+
+    async getPreCustomerMastersWithoutMeetings() {
+        const result = await this._db.preCustomerMaster.findMany({
+            where: {
+                preCustomerMeeting: {
+                    none: {} // Ensures no related PreCustomerMeeting exists
+                }
+            },
+            include: {
+                preCustomerMeeting: true, // Include if needed for debugging, otherwise remove,
+                cityMaster: true
+            }
+        });
+        return result;
+    }
+
+
+    async CreateAndUpdatePreCustomerMeeting(params: CreatePreCustomerMeetingDto, user) {
+        try {
+            const payload: any = {
+                CompanyMasterSid: user['userBranch'][0].CompanyMasterSid,
+                BranchMasterSid: user['userBranch'][0].BranchMasterSid,
+                PreCustomerMasterSid: params.PreCustomerMasterSid,
+                meetingDate: params.meetingDate,
+                meetingType: params.meetingType,
+                leadAssignTo: user['UserMasterSid'],
+                meetingStatus: params.meetingStatus,
+                customerProfile: params.customerProfile,
+                followupDate: params.followupDate,
+                createdBy: user['userEmail'],
+                status: params.status || 'A'
+            };
+
+            if (params.PreCustomerMeetingSid) {
+                // Update existing record 
+                const existingLead = await this._db.preCustomerMeeting.findUnique({
+                    where: { PreCustomerMeetingSid: params.PreCustomerMeetingSid },
+                });
+
+                if (!existingLead) {
+                    throw new Error('Meeting not found');
+                }
+                payload.updatedOn = new Date(); // Only update UpdatedOn
+                payload.updatedBy = user['userEmail']
+                await this._db.preCustomerMeeting.update({
+                    where: {
+                        PreCustomerMeetingSid: params.PreCustomerMeetingSid,
+                    },
+                    data: payload
+
+                })
+                return { message: 'Meeting updated successfully', data: params };
+
+            } else {
+                payload.createdOn = new Date();
+                payload.updatedOn = new Date();
+                payload.createdBy = user['userEmail']; // Only used when creating
+                const newMeeeting = await this._db.preCustomerMeeting.create(payload);
+                return { message: 'Meeting created successfully', data: newMeeeting };
+            }
+        } catch (error) {
+            throw error
+        }
+    }
+}

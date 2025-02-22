@@ -9,14 +9,14 @@ import { PrecustomerService } from 'src/masters/services/precustomer/precustomer
 @Auth()
 export class PrecustomerController {
 
-    constructor( private precustomerSer : PrecustomerService){}
+    constructor(private precustomerSer: PrecustomerService) { }
 
     @Get()
-    async getAllPrecustomer(@UserData() UserData : any){
+    async getAllPrecustomer(@UserData() UserData: any) {
         const output = new ResponseData
         try {
-            const customers = await this.precustomerSer.getAllPrecustomer(UserData.userBranch[0])
-            console.log("customer",customers);
+            const customers = await this.precustomerSer.getAllPrecustomer(UserData.userBranchMaster[0])
+            console.log("customer", customers);
             output.data = customers;
         } catch (error) {
             console.log("controler error::", error);
@@ -32,29 +32,29 @@ export class PrecustomerController {
     }
 
     @Get(':id')
-    async getPrecustomerById(@Param('id',ParseIntPipe)PreCustomerMasterSid:number){
-        const  output = new ResponseData;
+    async getPrecustomerById(@Param('id', ParseIntPipe) PreCustomerMasterSid: number) {
+        const output = new ResponseData;
         try {
-           output.data =await this.precustomerSer.findOne(PreCustomerMasterSid)
+            output.data = await this.precustomerSer.findOne(PreCustomerMasterSid)
         } catch (error) {
-           output.status = false;
-           output.message = error
+            output.status = false;
+            output.message = error
         }
         return output;
     }
 
     @Put()
-    async createPrecustomer(@Body() body : CreatePrecustomerDto, @UserData() user :any){
+    async createPrecustomer(@Body() body: CreatePrecustomerDto, @UserData() user: any) {
         let output = new ResponseData
         try {
-            let preCustomer = await this.precustomerSer.createPrecustomer(body,user);
-            if(!preCustomer){
+            let preCustomer = await this.precustomerSer.createPrecustomer(body, user);
+            if (!preCustomer) {
                 throw 'Something went wrong'
             }
             output.data = preCustomer.data;
             output.message = preCustomer.message;
             output.status = true
-            
+
         } catch (error) {
             console.log("controler error::", error);
             output.status = false;
@@ -70,25 +70,12 @@ export class PrecustomerController {
 
 
 
-    @Get('pendingMeetings')
-    async getPendingMeetings(@UserData() UserData : any){
-        const output = new ResponseData
-        try {
-            const customers = await this.precustomerSer.getPreCustomerMastersWithoutMeetings()
-            console.log("customer",customers);
-            output.data = customers;
-        } catch (error) {
-            console.log("controler error::", error);
-            output.status = false;
-            // Handle error message based on the type of error
-            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
-                output.message = error.message;
-            } else {
-                output.message = 'Internal Server Error';
-            }
-        }
-        return output;
-    }
+
+
+
+
+
+
 
 
 }
