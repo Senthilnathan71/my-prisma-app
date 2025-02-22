@@ -1,22 +1,24 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/sequelize';
+import { DatabaseService } from 'src/database/database.service';
 import { CreatePrecustomerDto } from 'src/masters/DTO/create-Precustomer.dto';
 import { PreCustomerMaster } from 'src/masters/models/pre-customer-master.model';
 
 @Injectable()
 export class PrecustomerService {
     constructor(
-        @InjectModel(PreCustomerMaster)
-        private readonly preCustomer : typeof PreCustomerMaster
+        // @InjectModel(PreCustomerMaster)
+        // private readonly preCustomer : typeof PreCustomerMaster
+        private _db: DatabaseService
     ){}
 
     async getAllPrecustomer(user){
         try {
-            const customer = await this.preCustomer.findAll({
+            const customer = await this._db.preCustomerMaster.findMany({
                 where:{
                     CompanyMasterSid : user.CompanyMasterSid,
                     BranchMasterSid : user.BranchMasterSid,
-                    Status : "A"
+                    status : "A"
                 }
             });
             return customer;
@@ -47,7 +49,7 @@ export class PrecustomerService {
 
             if(params.PreCustomerMasterSid){
                  // Update existing record 
-                const existingLead = await this.preCustomer.findOne({
+                const existingLead = await this._db.preCustomerMaster.findUnique({
                     where: { PreCustomerMasterSid: params.PreCustomerMasterSid },
                 });
 
@@ -56,9 +58,13 @@ export class PrecustomerService {
                 }
                 payload.UpdatedOn = new Date(); // Only update UpdatedOn
                 payload.UpdatedBy = user['UserEmail']
-                await this.preCustomer.update(payload, {
-                    where: { PreCustomerMasterSid: params.PreCustomerMasterSid },
-                });
+                await this._db.preCustomerMaster.update({
+                    where:{
+                        PreCustomerMasterSid: params.PreCustomerMasterSid,
+                    },
+                    data:payload
+                    
+                })
                 return { message: 'Lead updated successfully', data: params };
                 
             }else{
@@ -74,7 +80,7 @@ export class PrecustomerService {
                 payload.CreatedOn = new Date();
                 payload.UpdatedOn = new Date();
                 payload.CreatedBy = user['UserEmail']; // Only used when creating
-                const newLead = await this.preCustomer.create(payload);
+                const newLead = await this._db.preCustomerMaster.create(payload);
                 return { message: 'Lead created successfully', data: newLead };
             }
         } catch (error) {
@@ -84,7 +90,7 @@ export class PrecustomerService {
 
     async findOne(where : any){
         try {
-            return await this.preCustomer.findOne({
+            return await this._db.preCustomerMaster.findUnique({
                 where : where
             });
         } catch (error) {

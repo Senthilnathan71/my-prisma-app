@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "UserMaster" ALTER COLUMN "userPassword" SET DATA TYPE VARCHAR(100),
+ALTER COLUMN "createdBy" DROP NOT NULL;
