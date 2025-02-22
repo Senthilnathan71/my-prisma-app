@@ -97,4 +97,22 @@ export class PrecustomerService {
             throw error;
         }
     }
+
+
+
+    async getPreCustomerMastersWithoutMeetings() {
+        const result = await this._db.preCustomerMaster.findMany({
+            where: {
+                preCustomerMeeting: {
+                    none: {} // Ensures no related PreCustomerMeeting exists
+                }
+            },
+            include: {
+                preCustomerMeeting: true, // Include if needed for debugging, otherwise remove
+            }
+        });
+        return result;
+    }
+    
 }
+
