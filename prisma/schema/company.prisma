@@ -171,7 +171,7 @@ model StateMaster {
     StateMasterSid   Int       @id @default(autoincrement()) @map("StateMasterSid") // Primary key
     stateCode        String    @db.Char(2)
     stateName        String    @db.VarChar(100)
-    stateGSTCode     String    @db.Char(5)
+    stateGSTCode     String?   @db.Char(5)
     CountryMasterSid Int
     createdOn        DateTime  @default(now()) @db.Timestamptz()
     updatedOn        DateTime  @updatedAt @db.Timestamptz()
@@ -191,7 +191,7 @@ model StateMaster {
 
 model CityMaster {
     CityMasterSid    Int       @id @default(autoincrement()) @map("CityMasterSid")
-    cityCode         String    @db.Char(2)
+    cityCode         String    @db.Char(3)
     cityName         String    @db.VarChar(100)
     StateMasterSid   Int
     CountryMasterSid Int

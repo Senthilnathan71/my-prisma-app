@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { SequelizeModule } from '@nestjs/sequelize';
+// import { SequelizeModule } from '@nestjs/sequelize';
 import { CountryMaster } from './models/country-master.model';
 import { StateMaster } from './models/state-master.model';
 import { CityMaster } from './models/city-master.model';
@@ -27,29 +27,29 @@ import { RegionController } from './controllers/region/region.controller';
 
 @Module({
     imports:[
-        SequelizeModule.forFeature(
-            [
-                CountryMaster,
-                StateMaster,
-                CityMaster,
-                BranchMaster,
-                ChargeGroup,
-                ChargeMaster,
-                ChargeTaxMaster,
-                CompanyMaster,
-                CurrencyMaster,
-                CustomerBranch,
-                CustomerMaster,
-                DepartmentMaster,
-                PortMaster,
-                PreCustomerMaster,
-                SectorMaster,
-                UnitMaster,
-                UserMaster,
-                UserBranch
+        // SequelizeModule.forFeature(
+        //     [
+        //         CountryMaster,
+        //         StateMaster,
+        //         CityMaster,
+        //         BranchMaster,
+        //         ChargeGroup,
+        //         ChargeMaster,
+        //         ChargeTaxMaster,
+        //         CompanyMaster,
+        //         CurrencyMaster,
+        //         CustomerBranch,
+        //         CustomerMaster,
+        //         DepartmentMaster,
+        //         PortMaster,
+        //         PreCustomerMaster,
+        //         SectorMaster,
+        //         UnitMaster,
+        //         UserMaster,
+        //         UserBranch
 
-            ],
-        )
+        //     ],
+        // )
     ],
     providers: [UserService,PrecustomerService,CityService],
     controllers:[UserController, PrecustomerController,RegionController],

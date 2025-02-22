@@ -17,9 +17,12 @@ export class UserService {
     ){}
 
     async findUserById(where:any){
+        console.log(where)
         // return this.userModel.findOne({where:where})
         const userData = await this._db.userMaster.findFirst({
-            where:where
+            where:{
+                userEmail:where.UserEmail
+            }
           })
           return userData
     }

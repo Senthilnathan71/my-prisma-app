@@ -33,7 +33,7 @@ export class AuthController {
 
             const isPasswordMatching = checkPassword(
                 loginData.password,
-                user.UserPassword
+                user.userPassword
             )
 
             if(!isPasswordMatching){
