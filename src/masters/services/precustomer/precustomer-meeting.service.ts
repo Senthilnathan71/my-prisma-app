@@ -90,6 +90,11 @@ export class PreCustomerMeetingService {
     async getPreCustomerMeetingDate() {
         const result = await this._db.preCustomerMeeting.findMany({
             select: {
+                preCustomerMaster: {
+                    select: {
+                        preCustomerName: true
+                    }
+                },
                 meetingDate: true
             }
         })
