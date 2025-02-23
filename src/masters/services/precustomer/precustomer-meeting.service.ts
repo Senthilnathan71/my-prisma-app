@@ -30,7 +30,7 @@ export class PreCustomerMeetingService {
         try {
             const payload: any = {
                 meetingType: params.meetingType,
-                leadAssignTo: Number(user['UserMasterSid']),
+                leadAssignTo: params.salesperson,
                 meetingStatus: params.meetingStatus || "A",
                 customerProfile: params.customerProfile,
                 createdBy: user['userEmail'],
@@ -102,10 +102,10 @@ export class PreCustomerMeetingService {
         return result;
     }
 
-    async getPreCustomer(id) {
+    async getPreCustomer(PreCustomerMeetingSid: any) {
         const result = await this._db.preCustomerMeeting.findUnique({
             where: {
-                PreCustomerMeetingSid: id
+                PreCustomerMeetingSid: Number(PreCustomerMeetingSid)
             },
             include: {
                 preCustomerMaster: true
