@@ -11,31 +11,6 @@ import { PreCustomerMeetingService } from './services/precustomer/precustomer-me
 import { PreCustomerMeetingController } from './controllers/precustomer/precustomer-meeting.controller';
 
 @Module({
-    imports: [
-        // SequelizeModule.forFeature(
-        //     [
-        //         CountryMaster,
-        //         StateMaster,
-        //         CityMaster,
-        //         BranchMaster,
-        //         ChargeGroup,
-        //         ChargeMaster,
-        //         ChargeTaxMaster,
-        //         CompanyMaster,
-        //         CurrencyMaster,
-        //         CustomerBranch,
-        //         CustomerMaster,
-        //         DepartmentMaster,
-        //         PortMaster,
-        //         PreCustomerMaster,
-        //         SectorMaster,
-        //         UnitMaster,
-        //         UserMaster,
-        //         UserBranch
-
-        //     ],
-        // )
-    ],
     providers: [UserService, PrecustomerService, PreCustomerMeetingService, CityService],
     controllers: [UserController, PreCustomerMeetingController, PrecustomerController, RegionController],
     exports: [UserService]
