@@ -1,8 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import { InjectModel } from '@nestjs/sequelize';
 import { DatabaseService } from 'src/database/database.service';
 import { CreatePrecustomerDto } from 'src/masters/DTO/create-Precustomer.dto';
-import { PreCustomerMaster } from 'src/masters/models/pre-customer-master.model';
 
 @Injectable()
 export class PrecustomerService {
