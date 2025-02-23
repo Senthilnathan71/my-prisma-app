@@ -5,8 +5,6 @@ import { CreatePrecustomerDto } from 'src/masters/DTO/create-Precustomer.dto';
 @Injectable()
 export class PrecustomerService {
     constructor(
-        // @InjectModel(PreCustomerMaster)
-        // private readonly preCustomer : typeof PreCustomerMaster
         private _db: DatabaseService
     ) { }
 
