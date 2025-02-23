@@ -1,15 +1,11 @@
 import { Injectable } from '@nestjs/common';
-import { InjectModel } from '@nestjs/sequelize';
 import { DatabaseService } from 'src/database/database.service';
 import { CreatePreCustomerMeetingDto } from 'src/masters/DTO/create-precustomer-meeting.dto';
 import { CreatePrecustomerDto } from 'src/masters/DTO/create-Precustomer.dto';
-import { PreCustomerMaster } from 'src/masters/models/pre-customer-master.model';
 
 @Injectable()
 export class PreCustomerMeetingService {
     constructor(
-        // @InjectModel(PreCustomerMaster)
-        // private readonly preCustomer : typeof PreCustomerMaster
         private _db: DatabaseService
     ) { }
 
@@ -95,7 +91,24 @@ export class PreCustomerMeetingService {
                         preCustomerName: true
                     }
                 },
+                PreCustomerMeetingSid: true,
                 meetingDate: true
+            }
+        })
+            .catch((error) => {
+                console.error("Error fetching meetings:", error);
+                return []; // Return an empty array or handle it appropriately
+            });
+        return result;
+    }
+
+    async getPreCustomer(id) {
+        const result = await this._db.preCustomerMeeting.findUnique({
+            where: {
+                PreCustomerMeetingSid: id
+            },
+            include: {
+                preCustomerMaster: true
             }
         })
             .catch((error) => {

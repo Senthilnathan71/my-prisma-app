@@ -79,4 +79,24 @@ export class PreCustomerMeetingController {
         }
         return output;
     }
+
+
+    @Get(':id')
+    async getPreCustomer(@Param('id') id: string, @UserData() UserData: any) {
+        const output = new ResponseData
+        try {
+            const result = await this.preCustomerMeetingService.getPreCustomer(id)
+            output.data = result;
+        } catch (error) {
+            console.log("controler error::", error);
+            output.status = false;
+            // Handle error message based on the type of error
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                output.message = error.message;
+            } else {
+                output.message = 'Internal Server Error';
+            }
+        }
+        return output;
+    }
 }
