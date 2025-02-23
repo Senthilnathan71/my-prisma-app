@@ -33,15 +33,10 @@ export class PreCustomerMeetingService {
     async CreateAndUpdatePreCustomerMeeting(params: CreatePreCustomerMeetingDto, user) {
         try {
             const payload: any = {
-                CompanyMasterSid: user['userBranch'][0].CompanyMasterSid,
-                BranchMasterSid: user['userBranch'][0].BranchMasterSid,
-                PreCustomerMasterSid: params.PreCustomerMasterSid,
-                meetingDate: params.meetingDate,
                 meetingType: params.meetingType,
-                leadAssignTo: user['UserMasterSid'],
-                meetingStatus: params.meetingStatus,
+                leadAssignTo: Number(user['UserMasterSid']),
+                meetingStatus: params.meetingStatus || "A",
                 customerProfile: params.customerProfile,
-                followupDate: params.followupDate,
                 createdBy: user['userEmail'],
                 status: params.status || 'A'
             };
@@ -69,9 +64,22 @@ export class PreCustomerMeetingService {
             } else {
                 payload.createdOn = new Date();
                 payload.updatedOn = new Date();
-                payload.createdBy = user['userEmail']; // Only used when creating
-                const newMeeeting = await this._db.preCustomerMeeting.create(payload);
-                return { message: 'Meeting created successfully', data: newMeeeting };
+                payload.meetingDate = new Date(params.meetingDate)
+                const newMeeting = await this._db.preCustomerMeeting.create({
+                    data: {
+                        ...payload,
+                        companyMaster: {
+                            connect: { CompanyMasterSid: user['userBranchMaster'][0].CompanyMasterSid }
+                        },
+                        branchMaster: {
+                            connect: { BranchMasterSid: user['userBranchMaster'][0].BranchMasterSid }
+                        },
+                        preCustomerMaster: {
+                            connect: { PreCustomerMasterSid: params.PreCustomerMasterSid }
+                        }
+                    }
+                });
+                return { message: 'Meeting created successfully', data: newMeeting };
             }
         } catch (error) {
             throw error

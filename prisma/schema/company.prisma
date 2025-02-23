@@ -353,7 +353,7 @@ model PreCustomerMeeting {
     CompanyMasterSid      Int
     BranchMasterSid       Int
     PreCustomerMasterSid  Int
-    meetingDate           DateTime?
+    meetingDate           DateTime
     meetingType           String    @db.VarChar(10)
     leadAssignTo          Int
     meetingStatus         String    @db.VarChar(10)
