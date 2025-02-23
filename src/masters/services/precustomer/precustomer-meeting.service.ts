@@ -85,4 +85,18 @@ export class PreCustomerMeetingService {
             throw error
         }
     }
+
+
+    async getPreCustomerMeetingDate() {
+        const result = await this._db.preCustomerMeeting.findMany({
+            select: {
+                meetingDate: true
+            }
+        })
+            .catch((error) => {
+                console.error("Error fetching meetings:", error);
+                return []; // Return an empty array or handle it appropriately
+            });
+        return result;
+    }
 }

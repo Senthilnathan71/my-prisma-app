@@ -21,7 +21,7 @@ export class CreatePreCustomerMeetingDto {
   meetingType: string;
 
   @IsInt()
-  leadAssignTo: number;
+  salesperson: number;
 
   @IsString()
   meetingStatus: string;
