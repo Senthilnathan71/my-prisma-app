@@ -1,15 +1,11 @@
 import { Injectable } from '@nestjs/common';
-import { InjectModel } from '@nestjs/sequelize';
 import { DatabaseService } from 'src/database/database.service';
 import { CreatePreCustomerMeetingDto } from 'src/masters/DTO/create-precustomer-meeting.dto';
 import { CreatePrecustomerDto } from 'src/masters/DTO/create-Precustomer.dto';
-import { PreCustomerMaster } from 'src/masters/models/pre-customer-master.model';
 
 @Injectable()
 export class PreCustomerMeetingService {
     constructor(
-        // @InjectModel(PreCustomerMaster)
-        // private readonly preCustomer : typeof PreCustomerMaster
         private _db: DatabaseService
     ) { }
 
@@ -34,7 +30,7 @@ export class PreCustomerMeetingService {
         try {
             const payload: any = {
                 meetingType: params.meetingType,
-                leadAssignTo: Number(user['UserMasterSid']),
+                leadAssignTo: params.salesperson,
                 meetingStatus: params.meetingStatus || "A",
                 customerProfile: params.customerProfile,
                 createdBy: user['userEmail'],
@@ -90,7 +86,29 @@ export class PreCustomerMeetingService {
     async getPreCustomerMeetingDate() {
         const result = await this._db.preCustomerMeeting.findMany({
             select: {
+                preCustomerMaster: {
+                    select: {
+                        preCustomerName: true
+                    }
+                },
+                PreCustomerMeetingSid: true,
                 meetingDate: true
+            }
+        })
+            .catch((error) => {
+                console.error("Error fetching meetings:", error);
+                return []; // Return an empty array or handle it appropriately
+            });
+        return result;
+    }
+
+    async getPreCustomer(PreCustomerMeetingSid: any) {
+        const result = await this._db.preCustomerMeeting.findUnique({
+            where: {
+                PreCustomerMeetingSid: Number(PreCustomerMeetingSid)
+            },
+            include: {
+                preCustomerMaster: true
             }
         })
             .catch((error) => {

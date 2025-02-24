@@ -1,10 +1,4 @@
 import { Injectable } from '@nestjs/common';
-import { InjectModel } from '@nestjs/sequelize';
-import { UserMaster } from '../models/user-master.model';
-import { Model, where } from 'sequelize';
-import { UserBranch } from '../models/user-branch-master.model';
-import { BranchMaster } from '../models/branch-master.model';
-import { CompanyMaster } from '../models/company-master.model';
 import { DatabaseService } from 'src/database/database.service';
 
 @Injectable()
