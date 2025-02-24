@@ -65,8 +65,9 @@ export class PreCustomerMeetingController {
     async getPreCustomerMeetings(@UserData() UserData: any) {
         const output = new ResponseData
         try {
-            const meetingDate = await this.preCustomerMeetingService.getPreCustomerMeetingDate()
-            output.data = meetingDate;
+            const customers = await this.preCustomerMeetingService.getPreCustomerMeetingDate()
+            console.log("customer", customers);
+            output.data = customers;
         } catch (error) {
             console.log("controler error::", error);
             output.status = false;
