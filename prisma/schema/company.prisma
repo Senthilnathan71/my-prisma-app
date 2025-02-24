@@ -356,9 +356,11 @@ model PreCustomerMeeting {
     meetingDate           DateTime
     meetingType           String    @db.VarChar(10)
     leadAssignTo          Int
-    meetingStatus         String    @db.VarChar(10)
+    meetingStatus         String    @db.Char(1)
+    meetingNote           String?   @db.VarChar(100)
     customerProfile       String    @db.VarChar(100)
-    followupDate          DateTime?
+    followUpDate          DateTime?
+    followUpNote          String?   @db.VarChar(100)
     remarks               String?   @db.VarChar(100)
     createdOn             DateTime  @default(now()) @db.Timestamptz()
     updatedOn             DateTime  @updatedAt @db.Timestamptz()

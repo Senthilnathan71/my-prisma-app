@@ -31,10 +31,12 @@ export class PreCustomerMeetingService {
             const payload: any = {
                 meetingType: params.meetingType,
                 leadAssignTo: params.salesperson,
-                meetingStatus: params.meetingStatus || "A",
+                meetingStatus: params.meetingStatus,
                 customerProfile: params.customerProfile,
+                meetingNote: params.meetingNote,
+                followUpNote: params.followUpNote,
                 createdBy: user['userEmail'],
-                status: params.status || 'A'
+                status: params.status
             };
 
             if (params.PreCustomerMeetingSid) {
@@ -48,6 +50,9 @@ export class PreCustomerMeetingService {
                 }
                 payload.updatedOn = new Date(); // Only update UpdatedOn
                 payload.updatedBy = user['userEmail']
+                payload.followUpDate = params.followUpDate ? new Date(params.followUpDate + "Z") : null
+                payload.meetingDate = new Date(params.meetingDate + "Z")
+
                 await this._db.preCustomerMeeting.update({
                     where: {
                         PreCustomerMeetingSid: params.PreCustomerMeetingSid,
@@ -60,7 +65,7 @@ export class PreCustomerMeetingService {
             } else {
                 payload.createdOn = new Date();
                 payload.updatedOn = new Date();
-                payload.meetingDate = new Date(params.meetingDate)
+                payload.meetingDate = new Date(params.meetingDate + "Z")
                 const newMeeting = await this._db.preCustomerMeeting.create({
                     data: {
                         ...payload,

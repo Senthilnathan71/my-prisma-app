@@ -20,6 +20,12 @@ export class CreatePreCustomerMeetingDto {
   @IsString()
   meetingType: string;
 
+  @IsString()
+  meetingNote: string;
+
+  @IsString()
+  followUpNote: string;
+
   @IsInt()
   salesperson: number;
 
@@ -32,7 +38,7 @@ export class CreatePreCustomerMeetingDto {
 
   @IsOptional()
   @IsDateString()
-  followupDate?: Date;
+  followUpDate: Date;
 
   @IsString()
   remarks?: string;
