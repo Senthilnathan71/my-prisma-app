@@ -1,400 +1,380 @@
 model CompanyMaster {
-    CompanyMasterSid  Int       @id @default(autoincrement()) @map("CompanyMasterSid")
-    companyName       String    @db.VarChar(100)
-    companyCode       String    @db.Char(10)
-    CityMasterSid     Int
-    CountryMasterSid  Int
-    StateMasterSid    Int
-    CurrencyMasterSid Int
-    addressLine1      String    @db.VarChar(500)
-    addressLine2      String?   @db.VarChar(500)
-    postal_code       String    @db.VarChar(10)
-    webSite           String?   @db.VarChar(100)
-    phoneNumber       String?   @db.VarChar(20)
-    email             String?   @db.VarChar(100)
-    isHo              String    @db.Char(1)
-    remarks           String?   @db.VarChar(500)
-    companyLogo       Bytes?
-    reportLogo        Bytes?
-    createdOn         DateTime  @default(now()) @db.Timestamptz()
-    updatedOn         DateTime  @updatedAt @db.Timestamptz()
-    deletedAt         DateTime?
-    createdBy         String    @db.VarChar(100)
-    updatedBy         String?   @db.VarChar(100)
-    LoginSid          Int?
-    status            String    @db.Char(1)
-
-    cityMaster     CityMaster     @relation(fields: [CityMasterSid], references: [CityMasterSid])
-    stateMaster    StateMaster    @relation(fields: [StateMasterSid], references: [StateMasterSid])
-    countryMaster  CountryMaster  @relation(fields: [CountryMasterSid], references: [CountryMasterSid])
-    currencyMaster CurrencyMaster @relation(fields: [CurrencyMasterSid], references: [CurrencyMasterSid])
-
+    companyName        String               @db.VarChar(100)
+    companyCode        String               @db.Char(10)
+    createdBy          String               @db.VarChar(100)
+    createdOn          DateTime             @default(now()) @db.Timestamptz(6)
+    updatedOn          DateTime             @updatedAt @db.Timestamptz(6)
+    deletedAt          DateTime?
+    updatedBy          String?              @db.VarChar(100)
+    addressLine1       String               @db.VarChar(500)
+    addressLine2       String?              @db.VarChar(500)
+    postal_code        String               @db.VarChar(10)
+    webSite            String?              @db.VarChar(100)
+    phoneNumber        String?              @db.VarChar(20)
+    email              String?              @db.VarChar(100)
+    isHo               String               @db.Char(1)
+    remarks            String?              @db.VarChar(500)
+    companyLogo        Bytes?
+    reportLogo         Bytes?
+    status             String               @db.Char(1)
+    CityMasterSid      Int
+    CompanyMasterSid   Int                  @id @default(autoincrement()) @map("CompanyMasterSid")
+    CountryMasterSid   Int
+    CurrencyMasterSid  Int
+    LoginSid           Int?
+    StateMasterSid     Int
     branchMaster       BranchMaster[]
-    chargeTaxMaster    ChargeTaxMaster[]
-    departmentMaster   DepartmentMaster[]
     chargeMaster       ChargeMaster[]
+    chargeTaxMaster    ChargeTaxMaster[]
+    cityMaster         CityMaster           @relation(fields: [CityMasterSid], references: [CityMasterSid])
+    countryMaster      CountryMaster        @relation(fields: [CountryMasterSid], references: [CountryMasterSid])
+    currencyMaster     CurrencyMaster       @relation(fields: [CurrencyMasterSid], references: [CurrencyMasterSid])
+    stateMaster        StateMaster          @relation(fields: [StateMasterSid], references: [StateMasterSid])
+    departmentMaster   DepartmentMaster[]
     preCustomerMaster  PreCustomerMaster[]
     preCustomerMeeting PreCustomerMeeting[]
     userBranchMaster   UserBranchMaster[]
 }
 
 model BranchMaster {
-    BranchMasterSid   Int       @id @default(autoincrement()) @map("BranchMasterSid")
-    branchName        String    @db.VarChar(100)
-    branchCode        String    @db.Char(10)
-    CompanyMasterSid  Int
-    CityMasterSid     Int
-    CountryMasterSid  Int
-    StateMasterSid    Int
-    CurrencyMasterSid Int
-    taxRegistrationNo String?   @db.VarChar(50)
-    CISN              String?   @db.VarChar(50)
-    addressLine1      String    @db.VarChar(500)
-    addressLine2      String?   @db.VarChar(500)
-    postalCode        String    @db.VarChar(10)
-    webSite           String?   @db.VarChar(100)
-    phoneNumber       String?   @db.VarChar(20)
-    email             String?   @db.VarChar(100)
-    timeZone          String?   @db.Char(6)
-    remarks           String?   @db.VarChar(500)
-    companyLogo       Bytes?
-    reportLogo        Bytes?
-    createdOn         DateTime  @default(now()) @db.Timestamptz()
-    updatedOn         DateTime  @updatedAt @db.Timestamptz()
-    deletedAt         DateTime?
-    createdBy         String    @db.VarChar(100)
-    updatedBy         String?   @db.VarChar(100)
-    LoginSid          Int?
-    status            String    @db.Char(1)
-
-    company        CompanyMaster  @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
-    cityMaster     CityMaster     @relation(fields: [CityMasterSid], references: [CityMasterSid])
-    stateMaster    StateMaster    @relation(fields: [StateMasterSid], references: [StateMasterSid])
-    countryMaster  CountryMaster  @relation(fields: [CountryMasterSid], references: [CountryMasterSid])
-    currencyMaster CurrencyMaster @relation(fields: [CurrencyMasterSid], references: [CurrencyMasterSid])
-
+    branchName         String               @db.VarChar(100)
+    branchCode         String               @db.Char(10)
+    createdOn          DateTime             @default(now()) @db.Timestamptz(6)
+    updatedOn          DateTime             @updatedAt @db.Timestamptz(6)
+    deletedAt          DateTime?
+    createdBy          String               @db.VarChar(100)
+    updatedBy          String?              @db.VarChar(100)
+    taxRegistrationNo  String?              @db.VarChar(50)
+    CISN               String?              @db.VarChar(50)
+    addressLine1       String               @db.VarChar(500)
+    addressLine2       String?              @db.VarChar(500)
+    postalCode         String               @db.VarChar(10)
+    webSite            String?              @db.VarChar(100)
+    phoneNumber        String?              @db.VarChar(20)
+    email              String?              @db.VarChar(100)
+    timeZone           String?              @db.Char(6)
+    remarks            String?              @db.VarChar(500)
+    companyLogo        Bytes?
+    reportLogo         Bytes?
+    status             String               @db.Char(1)
+    BranchMasterSid    Int                  @id @default(autoincrement()) @map("BranchMasterSid")
+    CityMasterSid      Int
+    CompanyMasterSid   Int
+    CountryMasterSid   Int
+    CurrencyMasterSid  Int
+    LoginSid           Int?
+    StateMasterSid     Int
+    cityMaster         CityMaster           @relation(fields: [CityMasterSid], references: [CityMasterSid])
+    company            CompanyMaster        @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+    countryMaster      CountryMaster        @relation(fields: [CountryMasterSid], references: [CountryMasterSid])
+    currencyMaster     CurrencyMaster       @relation(fields: [CurrencyMasterSid], references: [CurrencyMasterSid])
+    stateMaster        StateMaster          @relation(fields: [StateMasterSid], references: [StateMasterSid])
     preCustomerMaster  PreCustomerMaster[]
     preCustomerMeeting PreCustomerMeeting[]
     userBranchMaster   UserBranchMaster[]
 }
 
 model UserMaster {
-    UserMasterSid    Int       @id @default(autoincrement()) @map("UserMasterSid")
-    userCode         String    @db.Char(3)
-    userName         String    @db.VarChar(100)
-    userEmail        String    @db.VarChar(50)
-    userLogin        String    @db.VarChar(50)
-    userPassword     String    @db.VarChar(100)
-    CountryMasterSid Int
-    isSalesperson    String    @db.Char(1)
-    contactNumber    String?   @db.VarChar(20)
-    department       String?   @db.VarChar(20)
-    designation      String?   @db.VarChar(20)
-    createdOn        DateTime  @default(now()) @db.Timestamptz()
-    updatedOn        DateTime  @updatedAt @db.Timestamptz()
-    createdBy        String?   @db.VarChar(100)
+    userCode         String             @db.Char(3)
+    userName         String             @db.VarChar(100)
+    userEmail        String             @db.VarChar(50)
+    userLogin        String             @db.VarChar(50)
+    userPassword     String             @db.VarChar(100)
+    isSalesperson    String             @db.Char(1)
+    contactNumber    String?            @db.VarChar(20)
+    department       String?            @db.VarChar(20)
+    designation      String?            @db.VarChar(20)
+    createdBy        String?            @db.VarChar(100)
+    createdOn        DateTime           @default(now()) @db.Timestamptz(6)
+    updatedOn        DateTime           @updatedAt @db.Timestamptz(6)
     deletedAt        DateTime?
-    updatedBy        String?   @db.VarChar(100)
+    updatedBy        String?            @db.VarChar(100)
+    status           String             @db.Char(1)
+    CountryMasterSid Int
     LoginSid         Int?
-    status           String    @db.Char(1)
-
-    countryMaster    CountryMaster      @relation(fields: [CountryMasterSid], references: [CountryMasterSid])
+    UserMasterSid    Int                @id @default(autoincrement()) @map("UserMasterSid")
     userBranchMaster UserBranchMaster[]
+    countryMaster    CountryMaster      @relation(fields: [CountryMasterSid], references: [CountryMasterSid])
 }
 
 model UserBranchMaster {
-    UserBranchMasterSid Int       @id @default(autoincrement()) @map("UserBranchMasterSid")
+    UserBranchMasterSid Int           @id @default(autoincrement()) @map("UserBranchMasterSid")
     UserMasterSid       Int
     CompanyMasterSid    Int
     BranchMasterSid     Int
-    createdOn           DateTime  @default(now()) @db.Timestamptz()
-    updatedOn           DateTime  @updatedAt @db.Timestamptz()
+    createdOn           DateTime      @default(now()) @db.Timestamptz(6)
+    updatedOn           DateTime      @updatedAt @db.Timestamptz(6)
     deletedAt           DateTime?
-    createdBy           String    @db.VarChar(100)
-    updatedBy           String?   @db.VarChar(100)
+    createdBy           String        @db.VarChar(100)
+    updatedBy           String?       @db.VarChar(100)
     LoginSid            Int?
-    status              String    @db.Char(1)
-
-    userMaster    UserMaster    @relation(fields: [UserMasterSid], references: [UserMasterSid])
-    companyMaster CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
-    branchMaster  BranchMaster  @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
+    status              String        @db.Char(1)
+    branchMaster        BranchMaster  @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
+    companyMaster       CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+    userMaster          UserMaster    @relation(fields: [UserMasterSid], references: [UserMasterSid])
 }
 
 model CurrencyMaster {
-    CurrencyMasterSid Int       @id @default(autoincrement()) @map("CurrencyMasterSid") // Primary key
-    currencyCode      String    @db.Char(3)
-    currencyName      String    @db.VarChar(100)
-    currencyID        String    @db.Char(1)
-    currencyFirstName String    @db.VarChar(50)
-    currencyLastName  String    @db.VarChar(50)
+    currencyCode      String          @db.Char(3)
+    currencyName      String          @db.VarChar(100)
+    currencyID        String          @db.Char(1)
+    currencyFirstName String          @db.VarChar(50)
+    currencyLastName  String          @db.VarChar(50)
     currencyRatio     Int
     amountDecimal     Int
     exchangeDecimal   Int
-    CountryMasterSid  Int
-    createdOn         DateTime  @default(now()) @db.Timestamptz()
-    updatedOn         DateTime  @updatedAt @db.Timestamptz()
+    createdBy         String          @db.VarChar(100)
+    createdOn         DateTime        @default(now()) @db.Timestamptz(6)
+    updatedOn         DateTime        @updatedAt @db.Timestamptz(6)
     deletedAt         DateTime?
-    createdBy         String    @db.VarChar(100)
-    updatedBy         String?   @db.VarChar(100)
+    updatedBy         String?         @db.VarChar(100)
+    status            String          @db.Char(1)
+    CountryMasterSid  Int
+    CurrencyMasterSid Int             @id @default(autoincrement()) @map("CurrencyMasterSid")
     LoginSid          Int?
-    status            String    @db.Char(1)
-
-    countryMaster CountryMaster @relation(fields: [CountryMasterSid], references: [CountryMasterSid])
-
-    chargeMaster  ChargeMaster[]
-    companyMaster CompanyMaster[]
-    branchMaster  BranchMaster[]
+    branchMaster      BranchMaster[]
+    chargeMaster      ChargeMaster[]
+    companyMaster     CompanyMaster[]
+    countryMaster     CountryMaster   @relation(fields: [CountryMasterSid], references: [CountryMasterSid])
 }
 
 model CountryMaster {
-    CountryMasterSid  Int                 @id @default(autoincrement()) @map("CountryMasterSid") // Primary key
     countryCode       String              @db.Char(2)
     countryName       String              @db.VarChar(100)
-    createdOn         DateTime            @default(now()) @db.Timestamptz()
-    updatedOn         DateTime            @updatedAt @db.Timestamptz()
+    createdOn         DateTime            @default(now()) @db.Timestamptz(6)
+    updatedOn         DateTime            @updatedAt @db.Timestamptz(6)
     deletedAt         DateTime?
     createdBy         String              @db.VarChar(100)
     updatedBy         String?             @db.VarChar(100)
-    LoginSid          Int?
     status            String              @db.Char(1)
-    stateMaster       StateMaster[]
+    CountryMasterSid  Int                 @id @default(autoincrement()) @map("CountryMasterSid")
+    LoginSid          Int?
+    branchMaster      BranchMaster[]
     cityMaster        CityMaster[]
     companyMaster     CompanyMaster[]
-    branchMaster      BranchMaster[]
-    userMaster        UserMaster[]
     currencyMaster    CurrencyMaster[]
     portMaster        PortMaster[]
     preCustomerMaster PreCustomerMaster[]
+    stateMaster       StateMaster[]
+    userMaster        UserMaster[]
 }
 
 model StateMaster {
-    StateMasterSid   Int       @id @default(autoincrement()) @map("StateMasterSid") // Primary key
-    stateCode        String    @db.Char(2)
-    stateName        String    @db.VarChar(100)
-    stateGSTCode     String?   @db.Char(5)
-    CountryMasterSid Int
-    createdOn        DateTime  @default(now()) @db.Timestamptz()
-    updatedOn        DateTime  @updatedAt @db.Timestamptz()
-    deletedAt        DateTime?
-    createdBy        String    @db.VarChar(100)
-    updatedBy        String?   @db.VarChar(100)
-    LoginSid         Int?
-    status           String    @db.Char(1)
-
-    countryMaster     CountryMaster       @relation(fields: [CountryMasterSid], references: [CountryMasterSid])
+    stateCode         String              @db.Char(2)
+    stateName         String              @db.VarChar(100)
+    stateGSTCode      String?             @db.Char(5)
+    createdOn         DateTime            @default(now()) @db.Timestamptz(6)
+    updatedOn         DateTime            @updatedAt @db.Timestamptz(6)
+    deletedAt         DateTime?
+    createdBy         String              @db.VarChar(100)
+    updatedBy         String?             @db.VarChar(100)
+    status            String              @db.Char(1)
+    CountryMasterSid  Int
+    LoginSid          Int?
+    StateMasterSid    Int                 @id @default(autoincrement()) @map("StateMasterSid")
+    branchMaster      BranchMaster[]
     cityMaster        CityMaster[]
     companyMaster     CompanyMaster[]
-    branchMaster      BranchMaster[]
     portMaster        PortMaster[]
     PreCustomerMaster PreCustomerMaster[]
+    countryMaster     CountryMaster       @relation(fields: [CountryMasterSid], references: [CountryMasterSid])
 }
 
 model CityMaster {
-    CityMasterSid    Int       @id @default(autoincrement()) @map("CityMasterSid")
-    cityCode         String    @db.Char(3)
-    cityName         String    @db.VarChar(100)
-    StateMasterSid   Int
-    CountryMasterSid Int
-    LoginSid         Int?
-    createdOn        DateTime  @default(now()) @db.Timestamptz()
-    updatedOn        DateTime  @updatedAt @db.Timestamptz()
-    deletedAt        DateTime?
-    createdBy        String    @db.VarChar(100)
-    updatedBy        String?   @db.VarChar(100)
-    status           String    @db.Char(1)
-
-    countryMaster CountryMaster @relation(fields: [CountryMasterSid], references: [CountryMasterSid])
-    stateMaster   StateMaster   @relation(fields: [StateMasterSid], references: [StateMasterSid])
-
-    companyMaster     CompanyMaster[]
+    cityCode          String              @db.Char(3)
+    cityName          String              @db.VarChar(100)
+    createdOn         DateTime            @default(now()) @db.Timestamptz(6)
+    updatedOn         DateTime            @updatedAt @db.Timestamptz(6)
+    deletedAt         DateTime?
+    createdBy         String              @db.VarChar(100)
+    updatedBy         String?             @db.VarChar(100)
+    status            String              @db.Char(1)
+    CityMasterSid     Int                 @id @default(autoincrement()) @map("CityMasterSid")
+    CountryMasterSid  Int
+    LoginSid          Int?
+    StateMasterSid    Int
     branchMaster      BranchMaster[]
+    countryMaster     CountryMaster       @relation(fields: [CountryMasterSid], references: [CountryMasterSid])
+    stateMaster       StateMaster         @relation(fields: [StateMasterSid], references: [StateMasterSid])
+    companyMaster     CompanyMaster[]
     PreCustomerMaster PreCustomerMaster[]
 }
 
 model DepartmentMaster {
-    DepartmentMasterSid Int       @id @default(autoincrement()) @map("DepartmentMasterSid") // Primary key
-    CompanyMasterSid    Int
-    departmentName      String    @db.VarChar(20)
-    departmentCode      String    @db.VarChar(5)
-    departmentType      String    @db.VarChar(10)
-    ExportImport        String    @db.VarChar(6)
-    FCLLCL              String    @db.VarChar(6)
-    createdOn           DateTime  @default(now()) @db.Timestamptz()
-    updatedOn           DateTime  @updatedAt @db.Timestamptz()
+    createdOn           DateTime       @default(now()) @db.Timestamptz(6)
+    updatedOn           DateTime       @updatedAt @db.Timestamptz(6)
     deletedAt           DateTime?
-    createdBy           String    @db.VarChar(100)
-    updatedBy           String?   @db.VarChar(100)
+    createdBy           String         @db.VarChar(100)
+    updatedBy           String?        @db.VarChar(100)
+    Status              String         @db.Char(1)
+    departmentName      String         @db.VarChar(20)
+    departmentCode      String         @db.VarChar(5)
+    departmentType      String         @db.VarChar(10)
+    ExportImport        String         @db.VarChar(6)
+    FCLLCL              String         @db.VarChar(6)
+    CompanyMasterSid    Int
+    DepartmentMasterSid Int            @id @default(autoincrement()) @map("DepartmentMasterSid")
     LoginSid            Int?
-    Status              String    @db.Char(1)
-
-    companyMaster CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
-
-    chargeMaster ChargeMaster[]
+    chargeMaster        ChargeMaster[]
+    companyMaster       CompanyMaster  @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
 }
 
 model PortMaster {
-    PortMasterSid     Int       @id @default(autoincrement()) @map("PortMasterSid") // Primary key
-    PortCode          String    @db.VarChar(5)
-    PortName          String    @db.VarChar(50)
-    CountryMasterSid  Int
-    StateMasterSid    Int
-    SectorMasterSid   Int
-    TimeZone          String    @db.VarChar(10)
-    EdiPortCode       String    @db.VarChar(10)
-    ExportRestriction String    @db.VarChar(100)
-    ImportRestriction String    @db.VarChar(100)
-    PortType          String    @db.VarChar(10)
-    TerminalCode      String    @db.VarChar(10)
-    Remarks           String    @db.VarChar(100)
-    CBMRequire        String    @db.Char(1)
-    SCMTPortCode      String    @db.VarChar(10)
-    createdOn         DateTime  @default(now()) @db.Timestamptz()
-    updatedOn         DateTime  @updatedAt @db.Timestamptz()
+    createdOn         DateTime      @default(now()) @db.Timestamptz(6)
+    updatedOn         DateTime      @updatedAt @db.Timestamptz(6)
     deletedAt         DateTime?
-    createdBy         String    @db.VarChar(100)
-    updatedBy         String?   @db.VarChar(100)
+    createdBy         String        @db.VarChar(100)
+    updatedBy         String?       @db.VarChar(100)
+    status            String        @db.Char(1)
+    PortCode          String        @db.VarChar(5)
+    PortName          String        @db.VarChar(50)
+    SectorMasterSid   Int
+    TimeZone          String        @db.VarChar(10)
+    EdiPortCode       String        @db.VarChar(10)
+    ExportRestriction String        @db.VarChar(100)
+    ImportRestriction String        @db.VarChar(100)
+    PortType          String        @db.VarChar(10)
+    TerminalCode      String        @db.VarChar(10)
+    Remarks           String        @db.VarChar(100)
+    CBMRequire        String        @db.Char(1)
+    SCMTPortCode      String        @db.VarChar(10)
+    CountryMasterSid  Int
     LoginSid          Int?
-    status            String    @db.Char(1)
-
-    countryMaster CountryMaster @relation(fields: [CountryMasterSid], references: [CountryMasterSid])
-    stateMaster   StateMaster   @relation(fields: [StateMasterSid], references: [StateMasterSid])
+    PortMasterSid     Int           @id @default(autoincrement()) @map("PortMasterSid")
+    StateMasterSid    Int
+    countryMaster     CountryMaster @relation(fields: [CountryMasterSid], references: [CountryMasterSid])
+    stateMaster       StateMaster   @relation(fields: [StateMasterSid], references: [StateMasterSid])
 }
 
 model UnitMaster {
-    UnitMasterSid   Int       @id @default(autoincrement()) @map("UnitMasterSid") // Primary key
     unitCode        String    @db.VarChar(4)
     unitName        String    @db.VarChar(100)
     jobType         String    @db.VarChar(10)
     measurementType String    @db.VarChar(10)
-    createdOn       DateTime  @default(now()) @db.Timestamptz()
-    updatedOn       DateTime  @updatedAt @db.Timestamptz()
+    createdOn       DateTime  @default(now()) @db.Timestamptz(6)
+    updatedOn       DateTime  @updatedAt @db.Timestamptz(6)
     deletedAt       DateTime?
+    UnitMasterSid   Int       @id @default(autoincrement()) @map("UnitMasterSid")
 }
 
 model ChargeMaster {
-    ChargeMasterSid     Int       @id @default(autoincrement()) @map("ChargeMasterSid") // Primary key
-    chargeCode          String    @db.VarChar(5)
-    chargeName          String    @db.VarChar(100)
-    DepartmentMasterSid Int
+    chargeCode          String           @db.VarChar(5)
+    chargeName          String           @db.VarChar(100)
     UOM                 Int
-    CurrencyMasterSid   Int
-    ChargeGroupSid      Int
-    CompanyMasterSid    Int
-    Remarks             String    @db.VarChar(100)
-    createdOn           DateTime  @default(now()) @db.Timestamptz()
-    updatedOn           DateTime  @updatedAt @db.Timestamptz()
+    createdOn           DateTime         @default(now()) @db.Timestamptz(6)
+    updatedOn           DateTime         @updatedAt @db.Timestamptz(6)
     deletedAt           DateTime?
-    createdBy           String    @db.VarChar(100)
-    updatedBy           String?   @db.VarChar(100)
-    Status              String    @db.Char(1)
-
-    companyMaster    CompanyMaster    @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
-    currencyMaster   CurrencyMaster   @relation(fields: [CurrencyMasterSid], references: [CurrencyMasterSid])
-    departmentMaster DepartmentMaster @relation(fields: [DepartmentMasterSid], references: [DepartmentMasterSid])
-    chargeGroup      ChargeGroup      @relation(fields: [ChargeGroupSid], references: [ChargeGroupSid])
+    createdBy           String           @db.VarChar(100)
+    updatedBy           String?          @db.VarChar(100)
+    Remarks             String           @db.VarChar(100)
+    Status              String           @db.Char(1)
+    ChargeGroupSid      Int
+    ChargeMasterSid     Int              @id @default(autoincrement()) @map("ChargeMasterSid")
+    CompanyMasterSid    Int
+    CurrencyMasterSid   Int
+    DepartmentMasterSid Int
+    chargeGroup         ChargeGroup      @relation(fields: [ChargeGroupSid], references: [ChargeGroupSid])
+    companyMaster       CompanyMaster    @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+    currencyMaster      CurrencyMaster   @relation(fields: [CurrencyMasterSid], references: [CurrencyMasterSid])
+    departmentMaster    DepartmentMaster @relation(fields: [DepartmentMasterSid], references: [DepartmentMasterSid])
 }
 
 model ChargeTaxMaster {
-    ChargeTaxMasterSid Int       @id @default(autoincrement()) @map("ChargeTaxMasterSid") // Primary key
-    HSNCode            String    @db.VarChar(10)
-    description        String    @db.VarChar(100)
-    TaxGroup           String    @db.VarChar(10)
-    TaxRate            Decimal   @db.Decimal(4, 2)
-    CompanyMasterSid   Int
-    Remarks            String    @db.VarChar(100)
-    createdOn          DateTime  @default(now()) @db.Timestamptz()
-    updatedOn          DateTime  @updatedAt @db.Timestamptz()
+    HSNCode            String        @db.VarChar(10)
+    description        String        @db.VarChar(100)
+    TaxGroup           String        @db.VarChar(10)
+    TaxRate            Decimal       @db.Decimal(4, 2)
+    createdOn          DateTime      @default(now()) @db.Timestamptz(6)
+    updatedOn          DateTime      @updatedAt @db.Timestamptz(6)
     deletedAt          DateTime?
-    CreatedBy          String    @db.VarChar(100)
-    UpdatedBy          String    @db.VarChar(100)
-    Status             String    @db.Char(1)
-
-    companyMaster CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+    CreatedBy          String        @db.VarChar(100)
+    UpdatedBy          String        @db.VarChar(100)
+    Remarks            String        @db.VarChar(100)
+    Status             String        @db.Char(1)
+    ChargeTaxMasterSid Int           @id @default(autoincrement()) @map("ChargeTaxMasterSid")
+    CompanyMasterSid   Int
+    companyMaster      CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
 }
 
 model PreCustomerMaster {
-    PreCustomerMasterSid Int       @id @default(autoincrement()) @map("PreCustomerMasterSid") // Primary key
-    CompanyMasterSid     Int
-    BranchMasterSid      Int
-    preCustomerName      String    @db.VarChar(100)
-    preCustomerAddress1  String    @db.VarChar(300)
-    preCustomerAddress2  String?   @db.VarChar(300)
-    leadAssignTo         Int
-    customerType         String?   @db.VarChar(10)
-    CityMasterSid        Int
-    CountryMasterSid     Int
-    StateMasterSid       Int
-    contactPerson        String    @db.VarChar(50)
-    email                String    @db.VarChar(100)
-    phone                String    @db.VarChar(50)
-    preCustomerType      String?   @db.VarChar(10)
-    leadFrom             String    @db.VarChar(20)
-    leadReferredBy       String    @db.VarChar(20)
-    panVat               String?   @db.VarChar(20)
-    remarks              String?   @db.VarChar(500)
-    createdOn            DateTime  @default(now()) @db.Timestamptz()
-    updatedOn            DateTime  @updatedAt @db.Timestamptz()
+    createdOn            DateTime             @default(now()) @db.Timestamptz(6)
+    updatedOn            DateTime             @updatedAt @db.Timestamptz(6)
     deletedAt            DateTime?
-    createdBy            String    @db.VarChar(100)
-    updatedBy            String?   @db.VarChar(100)
-    status               String    @db.Char(1)
-
-    companyMaster CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
-    branchMaster  BranchMaster  @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
-    cityMaster    CityMaster    @relation(fields: [CityMasterSid], references: [CityMasterSid])
-    stateMaster   StateMaster   @relation(fields: [StateMasterSid], references: [StateMasterSid])
-    countryMaster CountryMaster @relation(fields: [CountryMasterSid], references: [CountryMasterSid])
-
-    preCustomerMeeting PreCustomerMeeting[]
+    createdBy            String               @db.VarChar(100)
+    updatedBy            String?              @db.VarChar(100)
+    status               String               @db.Char(1)
+    preCustomerAddress1  String               @db.VarChar(300)
+    preCustomerAddress2  String?              @db.VarChar(300)
+    leadAssignTo         Int
+    customerType         String?              @db.VarChar(10)
+    contactPerson        String               @db.VarChar(50)
+    phone                String               @db.VarChar(50)
+    preCustomerType      String?              @db.VarChar(10)
+    leadReferredBy       String               @db.VarChar(20)
+    panVat               String?              @db.VarChar(20)
+    remarks              String?              @db.VarChar(500)
+    BranchMasterSid      Int
+    CityMasterSid        Int
+    CompanyMasterSid     Int
+    CountryMasterSid     Int
+    PreCustomerMasterSid Int                  @id @default(autoincrement()) @map("PreCustomerMasterSid")
+    StateMasterSid       Int
+    preCustomerName      String               @db.VarChar(100)
+    leadFrom             String               @db.VarChar(20)
+    email                String               @db.VarChar(100)
+    branchMaster         BranchMaster         @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
+    cityMaster           CityMaster           @relation(fields: [CityMasterSid], references: [CityMasterSid])
+    companyMaster        CompanyMaster        @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+    countryMaster        CountryMaster        @relation(fields: [CountryMasterSid], references: [CountryMasterSid])
+    stateMaster          StateMaster          @relation(fields: [StateMasterSid], references: [StateMasterSid])
+    preCustomerMeeting   PreCustomerMeeting[]
 }
 
 model PreCustomerMeeting {
-    PreCustomerMeetingSid Int       @id @default(autoincrement()) @map("PreCustomerMeetingSid") // Primary key
-    CompanyMasterSid      Int
-    BranchMasterSid       Int
-    PreCustomerMasterSid  Int
-    meetingDate           DateTime
-    meetingType           String    @db.VarChar(10)
-    leadAssignTo          Int
-    meetingStatus         String    @db.Char(1)
-    meetingNote           String?   @db.VarChar(100)
-    customerProfile       String    @db.VarChar(100)
-    followUpDate          DateTime?
-    followUpNote          String?   @db.VarChar(100)
-    remarks               String?   @db.VarChar(100)
-    createdOn             DateTime  @default(now()) @db.Timestamptz()
-    updatedOn             DateTime  @updatedAt @db.Timestamptz()
+    createdOn             DateTime          @default(now()) @db.Timestamptz(6)
+    updatedOn             DateTime          @updatedAt @db.Timestamptz(6)
     deletedAt             DateTime?
-    createdBy             String    @db.VarChar(100)
-    updatedBy             String?   @db.VarChar(100)
+    createdBy             String            @db.VarChar(100)
+    updatedBy             String?           @db.VarChar(100)
+    meetingDate           DateTime
+    meetingType           String            @db.VarChar(10)
+    leadAssignTo          Int
+    meetingStatus         String            @db.Char(1)
+    customerProfile       String            @db.VarChar(100)
+    remarks               String?           @db.VarChar(100)
+    status                String            @db.VarChar(10)
+    BranchMasterSid       Int
+    CompanyMasterSid      Int
     LoginSid              Int?
-    status                String    @db.VarChar(10)
-
-    companyMaster     CompanyMaster     @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
-    branchMaster      BranchMaster      @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
-    preCustomerMaster PreCustomerMaster @relation(fields: [PreCustomerMasterSid], references: [PreCustomerMasterSid])
+    PreCustomerMasterSid  Int
+    PreCustomerMeetingSid Int               @id @default(autoincrement()) @map("PreCustomerMeetingSid")
+    followUpDate          DateTime?
+    followUpNote          String?           @db.VarChar(100)
+    meetingNote           String?           @db.VarChar(100)
+    branchMaster          BranchMaster      @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
+    companyMaster         CompanyMaster     @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+    preCustomerMaster     PreCustomerMaster @relation(fields: [PreCustomerMasterSid], references: [PreCustomerMasterSid])
 }
 
 model ChargeGroup {
-    ChargeGroupSid Int       @id @default(autoincrement()) @map("ChargeGroupSid") // Primary key
-    createdOn      DateTime  @default(now()) @db.Timestamptz()
-    updatedOn      DateTime  @updatedAt @db.Timestamptz()
+    createdOn      DateTime       @default(now()) @db.Timestamptz(6)
+    updatedOn      DateTime       @updatedAt @db.Timestamptz(6)
     deletedAt      DateTime?
-    createdBy      String    @db.VarChar(100)
-    updatedBy      String?   @db.VarChar(100)
-    status         String    @db.Char(1)
-
-    chargeMaster ChargeMaster[]
+    createdBy      String         @db.VarChar(100)
+    updatedBy      String?        @db.VarChar(100)
+    status         String         @db.Char(1)
+    ChargeGroupSid Int            @id @default(autoincrement()) @map("ChargeGroupSid")
+    chargeMaster   ChargeMaster[]
 }
 
 model SectorMaster {
-    SectorMasterSid Int       @id @default(autoincrement()) @map("SectorMasterSid") // Primary key
     sectorName      String    @db.VarChar(50)
-    createdOn       DateTime  @default(now()) @db.Timestamptz()
-    updatedOn       DateTime  @updatedAt @db.Timestamptz()
+    createdOn       DateTime  @default(now()) @db.Timestamptz(6)
+    updatedOn       DateTime  @updatedAt @db.Timestamptz(6)
     deletedAt       DateTime?
     createdBy       String    @db.VarChar(100)
     updatedBy       String?   @db.VarChar(100)
-    LoginSid        Int?
     status          String    @db.Char(1)
+    LoginSid        Int?
+    SectorMasterSid Int       @id @default(autoincrement()) @map("SectorMasterSid")
 }
