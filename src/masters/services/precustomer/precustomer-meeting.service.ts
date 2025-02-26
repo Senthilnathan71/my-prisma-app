@@ -61,16 +61,39 @@ export class PreCustomerMeetingService {
 
                 // })
 
-                await this._db.$transaction([
-                    this._db.preCustomerMeeting.update({
-                        where: { PreCustomerMeetingSid: params.PreCustomerMeetingSid },
-                        data: payload
-                    }),
-                    this._db.meetingFollowup.create({
+                const data = await this._db.preCustomerMeeting.update({
+                    where: { PreCustomerMeetingSid: params.PreCustomerMeetingSid },
+                    data: payload,
+                    include: {
+                        preCustomerMaster: true
+                    }
+                })
+
+                const customerPayload = {
+                    PreCustomerMasterSid: data.preCustomerMaster.PreCustomerMasterSid,
+                    CountryMasterSid: data.preCustomerMaster.CountryMasterSid,
+                    CompanyMasterSid: data.preCustomerMaster.CompanyMasterSid,
+                    CustomerName: data.preCustomerMaster.preCustomerName,
+                    PreCustomerAddress1: data.preCustomerMaster.preCustomerAddress1,
+                    createdBy: data.preCustomerMaster.createdBy,
+                    createdOn: new Date()
+                }
+
+                if (params.meetingStatus === 'confirmed') {
+                    await this._db.customerMaster.create({
+                        data: {
+                            ...customerPayload
+                        }
+                    })
+                }
+
+
+                if (params.followUpDate) {
+                    await this._db.meetingFollowup.create({
                         data: {
                             PreCustomerMeetingSid: params.PreCustomerMeetingSid,
-                            CompanyMasterSid: user['userBranchMaster'][0].CompanyMasterSid,
-                            BranchMasterSid: user['userBranchMaster'][0].BranchMasterSid,
+                            CompanyMasterSid: data.CompanyMasterSid,
+                            BranchMasterSid: data.BranchMasterSid,
                             DepartmentMasterSid: params.DepartmentMasterSid,
                             OpportunitySector: params.OpportunitySector,
                             FollowupDate: new Date(params.followUpDate + "Z"),
@@ -82,9 +105,9 @@ export class PreCustomerMeetingService {
                             updatedOn: new Date()
                         }
                     })
-                ]);
+                }
 
-                return { message: 'Meeting updated successfully', data: params };
+                return { message: 'Meeting updated successfully', data: data };
 
             } else {
                 payload.createdOn = new Date();
