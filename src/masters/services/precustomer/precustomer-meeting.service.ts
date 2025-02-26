@@ -53,13 +53,37 @@ export class PreCustomerMeetingService {
                 payload.followUpDate = params.followUpDate ? new Date(params.followUpDate + "Z") : null
                 payload.meetingDate = new Date(params.meetingDate + "Z")
 
-                await this._db.preCustomerMeeting.update({
-                    where: {
-                        PreCustomerMeetingSid: params.PreCustomerMeetingSid,
-                    },
-                    data: payload
+                // await this._db.preCustomerMeeting.update({
+                //     where: {
+                //         PreCustomerMeetingSid: params.PreCustomerMeetingSid,
+                //     },
+                //     data: payload
 
-                })
+                // })
+
+                await this._db.$transaction([
+                    this._db.preCustomerMeeting.update({
+                        where: { PreCustomerMeetingSid: params.PreCustomerMeetingSid },
+                        data: payload
+                    }),
+                    this._db.meetingFollowup.create({
+                        data: {
+                            PreCustomerMeetingSid: params.PreCustomerMeetingSid,
+                            CompanyMasterSid: user['userBranchMaster'][0].CompanyMasterSid,
+                            BranchMasterSid: user['userBranchMaster'][0].BranchMasterSid,
+                            DepartmentMasterSid: params.DepartmentMasterSid,
+                            OpportunitySector: params.OpportunitySector,
+                            FollowupDate: new Date(params.followUpDate + "Z"),
+                            FollowupNote: params.followUpNote,
+                            MeetingNote: params.meetingNote,
+                            Remarks: params.remarks ?? null,
+                            createdBy: user['userEmail'],
+                            createdOn: new Date(),
+                            updatedOn: new Date()
+                        }
+                    })
+                ]);
+
                 return { message: 'Meeting updated successfully', data: params };
 
             } else {

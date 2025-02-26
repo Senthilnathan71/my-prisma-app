@@ -378,3 +378,22 @@ model SectorMaster {
     LoginSid        Int?
     SectorMasterSid Int       @id @default(autoincrement()) @map("SectorMasterSid")
 }
+
+model MeetingFollowup {
+    MeetingFollowupSid    Int       @id @default(autoincrement()) @map("MeetingFollowupSid")
+    PreCustomerMeetingSid Int
+    CompanyMasterSid      Int
+    BranchMasterSid       Int
+    DepartmentMasterSid   Int?
+    OpportunitySector     String?   @db.VarChar(20)
+    FollowupDate          DateTime
+    FollowupNote          String    @db.VarChar(200)
+    MeetingNote           String    @db.VarChar(200)
+    Remarks               String?   @db.VarChar(100)
+    createdOn             DateTime  @default(now()) @db.Timestamptz(6)
+    updatedOn             DateTime  @updatedAt @db.Timestamptz(6)
+    deletedAt             DateTime?
+    createdBy             String    @db.VarChar(100)
+    updatedBy             String?   @db.VarChar(100)
+    Status                String    @default("A") @db.Char(1)
+}
