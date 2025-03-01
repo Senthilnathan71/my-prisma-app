@@ -236,29 +236,29 @@ model DepartmentMaster {
 
 model PortMaster {
     createdOn         DateTime      @default(now()) @db.Timestamptz(6)
-    updatedOn         DateTime      @updatedAt @db.Timestamptz(6)
+    updatedOn         DateTime?     @updatedAt @db.Timestamptz(6)
     deletedAt         DateTime?
     createdBy         String        @db.VarChar(100)
     updatedBy         String?       @db.VarChar(100)
-    status            String        @db.Char(1)
+    status            String?       @default("A") @db.Char(1)
     PortCode          String        @db.VarChar(5)
     PortName          String        @db.VarChar(50)
-    SectorMasterSid   Int
-    TimeZone          String        @db.VarChar(10)
-    EdiPortCode       String        @db.VarChar(10)
-    ExportRestriction String        @db.VarChar(100)
-    ImportRestriction String        @db.VarChar(100)
-    PortType          String        @db.VarChar(10)
-    TerminalCode      String        @db.VarChar(10)
-    Remarks           String        @db.VarChar(100)
-    CBMRequire        String        @db.Char(1)
-    SCMTPortCode      String        @db.VarChar(10)
+    SectorMasterSid   Int?
+    TimeZone          String?       @db.VarChar(10)
+    EdiPortCode       String?       @db.VarChar(10)
+    ExportRestriction String?       @db.VarChar(100)
+    ImportRestriction String?       @db.VarChar(100)
+    PortType          String?       @db.VarChar(10)
+    TerminalCode      String?       @db.VarChar(10)
+    Remarks           String?       @db.VarChar(100)
+    CBMRequire        String?       @db.Char(1)
+    SCMTPortCode      String?       @db.VarChar(10)
     CountryMasterSid  Int
     LoginSid          Int?
     PortMasterSid     Int           @id @default(autoincrement()) @map("PortMasterSid")
-    StateMasterSid    Int
+    StateMasterSid    Int?
     countryMaster     CountryMaster @relation(fields: [CountryMasterSid], references: [CountryMasterSid])
-    stateMaster       StateMaster   @relation(fields: [StateMasterSid], references: [StateMasterSid])
+    stateMaster       StateMaster?  @relation(fields: [StateMasterSid], references: [StateMasterSid])
 }
 
 model UnitMaster {
