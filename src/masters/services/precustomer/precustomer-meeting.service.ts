@@ -61,6 +61,7 @@ export class PreCustomerMeetingService {
 
                 // })
 
+
                 const data = await this._db.preCustomerMeeting.update({
                     where: { PreCustomerMeetingSid: params.PreCustomerMeetingSid },
                     data: payload,
@@ -79,7 +80,7 @@ export class PreCustomerMeetingService {
                     createdOn: new Date()
                 }
 
-                if (params.meetingStatus === 'confirmed') {
+                if (data.meetingStatus === 'confirmed') {
                     await this._db.customerMaster.create({
                         data: {
                             ...customerPayload

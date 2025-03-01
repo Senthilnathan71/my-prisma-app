@@ -44,10 +44,10 @@ export class PrecustomerService {
         try {
             const payload: any = {
                 CompanyMasterSid: user['userBranchMaster'][0].CompanyMasterSid,
+                BranchMasterSid: user['userBranchMaster'][0].BranchMasterSid,
                 CityMasterSid: Number(params.CityMasterSid),
                 CountryMasterSid: params.CountryMasterSid,
                 StateMasterSid: params.StateMasterSid,
-                BranchMasterSid: user['userBranchMaster'][0].BranchMasterSid,
                 preCustomerName: params.preCustomerName,
                 preCustomerAddress1: params.preCustomerAddress1,
                 preCustomerAddress2: params.preCustomerAddress2,

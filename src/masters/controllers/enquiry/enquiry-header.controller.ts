@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Post, UnauthorizedException } from "@nestjs/common";
+import { BadRequestException, Body, Controller, Get, Post, UnauthorizedException } from "@nestjs/common";
 import { Auth } from "src/common/decorators/auth.decorator";
 import { UserData } from "src/common/decorators/user.decorator";
 import { ResponseData } from "src/common/response-data";
@@ -35,5 +35,56 @@ export class EnquiryHeaderController {
     }
 
 
+    @Get('department')
+    async getAllDepartments(@UserData() UserData: any) {
+        const output = new ResponseData
+        try {
+            const department = await this.enquiryHeaderService.getAllDepartment()
+            output.data = department;
+        } catch (error) {
+            output.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                output.message = error.message;
+            } else {
+                output.message = 'Internal Server Error';
+            }
+        }
+        return output;
+    }
 
+
+    @Get('package-type')
+    async getAllCargoTypes(@UserData() UserData: any) {
+        const output = new ResponseData
+        try {
+            const cargoType = await this.enquiryHeaderService.getAllCargoTypes()
+            output.data = cargoType;
+        } catch (error) {
+            output.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                output.message = error.message;
+            } else {
+                output.message = 'Internal Server Error';
+            }
+        }
+        return output;
+    }
+
+
+    @Get('ports')
+    async getAllPorts(@UserData() UserData: any) {
+        const output = new ResponseData
+        try {
+            const ports = await this.enquiryHeaderService.getAllPorts()
+            output.data = ports;
+        } catch (error) {
+            output.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                output.message = error.message;
+            } else {
+                output.message = 'Internal Server Error';
+            }
+        }
+        return output;
+    }
 }

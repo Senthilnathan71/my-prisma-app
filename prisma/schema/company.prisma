@@ -1,31 +1,33 @@
 model CompanyMaster {
-    companyName        String               @db.VarChar(100)
-    companyCode        String               @db.Char(10)
-    createdBy          String               @db.VarChar(100)
-    createdOn          DateTime             @default(now()) @db.Timestamptz(6)
-    updatedOn          DateTime             @updatedAt @db.Timestamptz(6)
-    deletedAt          DateTime?
-    updatedBy          String?              @db.VarChar(100)
-    addressLine1       String               @db.VarChar(500)
-    addressLine2       String?              @db.VarChar(500)
-    postal_code        String               @db.VarChar(10)
-    webSite            String?              @db.VarChar(100)
-    phoneNumber        String?              @db.VarChar(20)
-    email              String?              @db.VarChar(100)
-    isHo               String               @db.Char(1)
-    remarks            String?              @db.VarChar(500)
-    companyLogo        Bytes?
-    reportLogo         Bytes?
-    status             String               @db.Char(1)
-    CityMasterSid      Int
-    CompanyMasterSid   Int                  @id @default(autoincrement()) @map("CompanyMasterSid")
-    CountryMasterSid   Int
-    CurrencyMasterSid  Int
-    LoginSid           Int?
-    StateMasterSid     Int
-    branchMaster       BranchMaster[]
-    chargeMaster       ChargeMaster[]
-    chargeTaxMaster    ChargeTaxMaster[]
+    companyName       String              @db.VarChar(100)
+    companyCode       String              @db.Char(10)
+    createdBy         String              @db.VarChar(100)
+    createdOn         DateTime            @default(now()) @db.Timestamptz(6)
+    updatedOn         DateTime            @updatedAt @db.Timestamptz(6)
+    deletedAt         DateTime?
+    updatedBy         String?             @db.VarChar(100)
+    addressLine1      String              @db.VarChar(500)
+    addressLine2      String?             @db.VarChar(500)
+    postal_code       String              @db.VarChar(10)
+    webSite           String?             @db.VarChar(100)
+    phoneNumber       String?             @db.VarChar(20)
+    email             String?             @db.VarChar(100)
+    isHo              String              @db.Char(1)
+    remarks           String?             @db.VarChar(500)
+    companyLogo       Bytes?
+    reportLogo        Bytes?
+    status            String              @db.Char(1)
+    CityMasterSid     Int
+    CompanyMasterSid  Int                 @id @default(autoincrement()) @map("CompanyMasterSid")
+    CountryMasterSid  Int
+    CurrencyMasterSid Int
+    LoginSid          Int?
+    StateMasterSid    Int
+    branchMaster      BranchMaster[]
+    chargeMaster      ChargeMaster[]
+    chargeTaxMaster   ChargeTaxMaster[]
+    packageTypeMaster PackageTypeMaster[]
+
     cityMaster         CityMaster           @relation(fields: [CityMasterSid], references: [CityMasterSid])
     countryMaster      CountryMaster        @relation(fields: [CountryMasterSid], references: [CountryMasterSid])
     currencyMaster     CurrencyMaster       @relation(fields: [CurrencyMasterSid], references: [CurrencyMasterSid])
@@ -421,7 +423,7 @@ model MeetingFollowup {
 
 model EnquiryHeader {
     EnquiryHeaderSid     Int       @id @default(autoincrement()) @map("EnquiryHeaderSid")
-    EnquiryDate          DateTime
+    EnquiryDate          DateTime?
     CompanyMasterSid     Int
     BranchMasterSid      Int
     DepartmentMasterSid  Int?
@@ -429,29 +431,29 @@ model EnquiryHeader {
     CustomerAddressSid   Int?
     UserMasterSid        Int
     CustomerName         String    @db.VarChar(100)
-    CustomerAddress      String    @db.VarChar(300)
+    CustomerAddress      String?   @db.VarChar(300)
     AgentMasterSid       Int?
     AgentAddressSid      Int?
-    EnquiryType          String    @db.VarChar(10)
-    EnquiryBy            String    @db.VarChar(10)
+    EnquiryType          String?   @db.VarChar(10)
+    EnquiryBy            String?   @db.VarChar(10)
     IncoTerms            String    @db.VarChar(50)
-    ShipmentExpectedDate DateTime?
-    ClearanceBy          String    @db.VarChar(10)
-    TransportBy          String    @db.VarChar(10)
-    DestinationClearance String    @db.VarChar(20)
-    DestinationTransport String    @db.VarChar(20)
+    ShipmentExpectedDate DateTime
+    ClearanceBy          String?   @db.VarChar(10)
+    TransportBy          String?   @db.VarChar(10)
+    DestinationClearance String?   @db.VarChar(20)
+    DestinationTransport String?   @db.VarChar(20)
     ShipmentType         String    @db.VarChar(20)
-    RoutingNo            String    @db.VarChar(20)
-    ShipperRef           String    @db.VarChar(20)
-    Remarks              String    @db.VarChar(100)
+    RoutingNo            String?   @db.VarChar(20)
+    ShipperRef           String?   @db.VarChar(20)
+    Remarks              String?   @db.VarChar(100)
     MoveType             String?   @db.VarChar(10)
-    Email                String    @db.VarChar(200)
+    Email                String?   @db.VarChar(200)
     createdOn            DateTime  @default(now()) @db.Timestamptz(6)
-    updatedOn            DateTime  @updatedAt @db.Timestamptz(6)
+    updatedOn            DateTime? @updatedAt @db.Timestamptz(6)
     deletedAt            DateTime?
-    createdBy            String    @db.VarChar(100)
+    createdBy            String?   @db.VarChar(100)
     updatedBy            String?   @db.VarChar(100)
-    status               String    @db.Char(1)
+    status               String?   @default("A") @db.Char(1)
     LoginSid             Int?
 
     companyMaster    CompanyMaster     @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
@@ -493,24 +495,24 @@ model EnquiryCargo {
     EnquiryHeaderSid Int
     EnquiryRouteSid  Int
     CargoType        String    @db.VarChar(10)
-    WeightUnitSid    Int
+    WeightUnitSid    Int?
     GrossWeight      Decimal   @db.Decimal(10, 3)
-    NetWeight        Decimal   @db.Decimal(10, 3)
+    NetWeight        Decimal?  @db.Decimal(10, 3)
     Volume           Decimal   @db.Decimal(10, 3)
-    ChargeableWeight Decimal   @db.Decimal(10, 3)
-    ContainerType    String    @db.VarChar(10)
+    ChargeableWeight Decimal?  @db.Decimal(10, 3)
+    ContainerType    String?   @db.VarChar(10)
     Qty              Decimal   @db.Decimal(5, 0)
-    ShipmentTerms    String    @db.VarChar(10)
-    ProductName      String    @db.VarChar(20)
-    PackageType      String    @db.VarChar(5)
-    PackageQty       Decimal   @db.Decimal(5, 0)
-    CargoDescription String    @db.VarChar(100)
+    ShipmentTerms    String?   @db.VarChar(10)
+    ProductName      String?   @db.VarChar(20)
+    PackageType      String?   @db.VarChar(5)
+    PackageQty       Decimal?  @db.Decimal(5, 0)
+    CargoDescription String?   @db.VarChar(100)
     createdOn        DateTime  @default(now()) @db.Timestamptz(6)
-    updatedOn        DateTime  @updatedAt @db.Timestamptz(6)
+    updatedOn        DateTime? @updatedAt @db.Timestamptz(6)
     deletedAt        DateTime?
     createdBy        String    @db.VarChar(100)
     updatedBy        String?   @db.VarChar(100)
-    status           String    @db.Char(1)
+    status           String?   @default("A") @db.Char(1)
     LoginSid         Int?
 
     companyMaster CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
@@ -520,7 +522,7 @@ model EnquiryCargo {
 }
 
 model CustomerMaster {
-    CustomerMasterSid    Int       @id @default(autoincrement()) @map("EnquiryCargoSid")
+    CustomerMasterSid    Int       @id @default(autoincrement()) @map("CustomerMasterSid")
     CompanyMasterSid     Int
     PreCustomerMasterSid Int
     CountryMasterSid     Int
@@ -552,4 +554,19 @@ model CustomerMaster {
     companyMaster     CompanyMaster     @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
     preCustomerMaster PreCustomerMaster @relation(fields: [PreCustomerMasterSid], references: [PreCustomerMasterSid])
     countryMaster     CountryMaster     @relation(fields: [CountryMasterSid], references: [CountryMasterSid])
+}
+
+model PackageTypeMaster {
+    PackageTypeMasterSid Int       @id @default(autoincrement()) @map("PackageTypeMasterSid")
+    CompanyMasterSid     Int
+    PackageName          String    @db.VarChar(100)
+    PackageCode          String    @db.VarChar(3)
+    createdOn            DateTime  @default(now()) @db.Timestamptz(6)
+    updatedOn            DateTime? @updatedAt @db.Timestamptz(6)
+    deletedAt            DateTime?
+    createdBy            String    @db.VarChar(100)
+    updatedBy            String?   @db.VarChar(100)
+    status               String?   @default("A") @db.Char(1)
+
+    companyMaster CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
 }
