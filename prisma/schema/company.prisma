@@ -436,13 +436,13 @@ model EnquiryHeader {
     AgentAddressSid      Int?
     EnquiryType          String?   @db.VarChar(10)
     EnquiryBy            String?   @db.VarChar(10)
-    IncoTerms            String    @db.VarChar(50)
+    IncoTerms            String?   @db.VarChar(50)
     ShipmentExpectedDate DateTime
     ClearanceBy          String?   @db.VarChar(10)
     TransportBy          String?   @db.VarChar(10)
     DestinationClearance String?   @db.VarChar(20)
     DestinationTransport String?   @db.VarChar(20)
-    ShipmentType         String    @db.VarChar(20)
+    ShipmentType         String    @db.VarChar(200)
     RoutingNo            String?   @db.VarChar(20)
     ShipperRef           String?   @db.VarChar(20)
     Remarks              String?   @db.VarChar(100)
@@ -494,16 +494,16 @@ model EnquiryCargo {
     BranchMasterSid  Int
     EnquiryHeaderSid Int
     EnquiryRouteSid  Int
-    CargoType        String    @db.VarChar(10)
+    CargoType        String    @db.VarChar(50)
     WeightUnitSid    Int?
     GrossWeight      Decimal   @db.Decimal(10, 3)
     NetWeight        Decimal?  @db.Decimal(10, 3)
     Volume           Decimal   @db.Decimal(10, 3)
     ChargeableWeight Decimal?  @db.Decimal(10, 3)
-    ContainerType    String?   @db.VarChar(10)
+    ContainerType    String?   @db.VarChar(50)
     Qty              Decimal   @db.Decimal(5, 0)
     ShipmentTerms    String?   @db.VarChar(10)
-    ProductName      String?   @db.VarChar(20)
+    ProductName      String?   @db.VarChar(50)
     PackageType      String?   @db.VarChar(5)
     PackageQty       Decimal?  @db.Decimal(5, 0)
     CargoDescription String?   @db.VarChar(100)

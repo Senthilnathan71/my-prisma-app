@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { DatabaseService } from 'src/database/database.service';
 
 @Injectable()
@@ -123,53 +124,66 @@ export class EnquiryHeaderService {
 
 
     async createEnquiry(payload, user) {
+        console.log(user);
         try {
             return await this._db.$transaction(async (prisma) => {
+                // Step 1: Create Enquiry Header
                 const enquiryHeaderPayload: any = {
-                    CustomerName: payload.CustomerName,
-                    ShipmentExpectedDate: new Date(payload.ShipmentExpectedDate + "Z"),
-                    ShipmentType: payload.ShipmentType,
+                    CustomerName: payload.customerName,
+                    ShipmentExpectedDate: new Date(payload.shipmentDate + "Z"),
+                    ShipmentType: payload.Segment,
                     status: payload.status || "A",
                     CompanyMasterSid: user['userBranchMaster'][0].CompanyMasterSid,
                     BranchMasterSid: user['userBranchMaster'][0].BranchMasterSid,
-                    DepartmentMasterSid: payload.DepartmentMasterSid,
-                    CustomerMasterSid: payload.CustomerMasterSid,
-                    UserMasterSid: user['userBranchMaster'][0].UserMasterSid
+                    UserMasterSid: user['userBranchMaster'][0].UserMasterSid,
+                    createdBy: user['userEmail']
                 };
 
                 const enquiryHeader = await prisma.enquiryHeader.create({
                     data: enquiryHeaderPayload
                 });
 
-                // enquiryRoute Payload (Single or Multiple)
-                const enquiryRoutePayload = payload.EnquiryRoutes.map(route => ({
-                    PORSid: route.PORSid,
-                    POLSid: route.POLSid,
-                    PODSid: route.PODSid,
-                    FDPSid: route.FDPSid,
-                    CompanyMasterSid: enquiryHeader.CompanyMasterSid,
-                    BranchMasterSid: enquiryHeader.BranchMasterSid,
-                    EnquiryHeaderSid: enquiryHeader.EnquiryHeaderSid
-                }));
+                // Step 2: Create Enquiry Routes One by One (to get EnquiryRouteSid)
+                const enquiryRoutes = await Promise.all(
+                    payload.routes.map(async (route) => {
+                        return await prisma.enquiryRoute.create({
+                            data: {
+                                PORSid: Number(route.POO),
+                                POLSid: Number(route.POL),
+                                PODSid: Number(route.POD),
+                                FDPSid: Number(route.FDC),
+                                CompanyMasterSid: enquiryHeader.CompanyMasterSid,
+                                BranchMasterSid: enquiryHeader.BranchMasterSid,
+                                EnquiryHeaderSid: enquiryHeader.EnquiryHeaderSid,
+                                createdBy: user['userEmail']
+                            }
+                        });
+                    })
+                );
 
-                const enquiryRoutes = await prisma.enquiryRoute.createMany({
-                    data: enquiryRoutePayload,
-                });
+                // Step 3: Create Enquiry Cargo (Mapping Cargo to Routes)
+                const enquiryCargoPayload = enquiryRoutes.flatMap((enquiryRoute, index) =>
+                    payload.routes[index].cargo.map(cargo => ({
+                        CompanyMasterSid: enquiryHeader.CompanyMasterSid,
+                        BranchMasterSid: enquiryHeader.BranchMasterSid,
+                        EnquiryHeaderSid: enquiryHeader.EnquiryHeaderSid,
+                        EnquiryRouteSid: enquiryRoute.EnquiryRouteSid, // Correctly linked route ID
+                        CargoType: cargo.cargoType,
+                        ProductName: cargo.product,
+                        GrossWeight: new Prisma.Decimal(cargo.Weight),  // Convert to Decimal
+                        Volume: new Prisma.Decimal(cargo.cbm),  // Convert to Decimal
+                        Qty: new Prisma.Decimal(cargo.Qty),  // Convert to Decimal
+                        ContainerType: cargo.contentType,
+                        createdBy: user['userEmail']
+                    }))
+                );
 
-                // enquiryCargo Payload (Single or Multiple)
-                const enquiryCargoPayload = payload.EnquiryCargos.map(cargo => ({
-                    CompanyMasterSid: enquiryHeader.CompanyMasterSid,
-                    BranchMasterSid: enquiryHeader.BranchMasterSid,
-                    EnquiryHeaderSid: enquiryHeader.EnquiryHeaderSid,
-                    CargoType: cargo.CargoType,
-                    GrossWeight: cargo.GrossWeight,
-                    Volume: cargo.Volume
-                }));
-
+                // Step 4: Bulk Insert Cargo Data
                 const enquiryCargos = await prisma.enquiryCargo.createMany({
-                    data: enquiryCargoPayload,
+                    data: enquiryCargoPayload
                 });
 
+                // Return Success Response
                 return {
                     message: 'Enquiry created successfully',
                     data: {
@@ -180,9 +194,10 @@ export class EnquiryHeaderService {
                 };
             });
         } catch (error) {
-            throw new Error(`Transaction failed: ${error.message}`);
+            throw new Error(`Transaction failed: ${error.stack}`);
         }
     }
+
 
 
     async getAllEnquiries() {
