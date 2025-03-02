@@ -1,0 +1,20 @@
+-- DropForeignKey
+ALTER TABLE "PortMaster" DROP CONSTRAINT "PortMaster_StateMasterSid_fkey";
+
+-- AlterTable
+ALTER TABLE "PortMaster" ALTER COLUMN "status" DROP NOT NULL,
+ALTER COLUMN "status" SET DEFAULT 'A',
+ALTER COLUMN "SectorMasterSid" DROP NOT NULL,
+ALTER COLUMN "TimeZone" DROP NOT NULL,
+ALTER COLUMN "EdiPortCode" DROP NOT NULL,
+ALTER COLUMN "ExportRestriction" DROP NOT NULL,
+ALTER COLUMN "ImportRestriction" DROP NOT NULL,
+ALTER COLUMN "PortType" DROP NOT NULL,
+ALTER COLUMN "TerminalCode" DROP NOT NULL,
+ALTER COLUMN "Remarks" DROP NOT NULL,
+ALTER COLUMN "CBMRequire" DROP NOT NULL,
+ALTER COLUMN "SCMTPortCode" DROP NOT NULL,
+ALTER COLUMN "StateMasterSid" DROP NOT NULL;
+
+-- AddForeignKey
+ALTER TABLE "PortMaster" ADD CONSTRAINT "PortMaster_StateMasterSid_fkey" FOREIGN KEY ("StateMasterSid") REFERENCES "StateMaster"("StateMasterSid") ON DELETE SET NULL ON UPDATE CASCADE;

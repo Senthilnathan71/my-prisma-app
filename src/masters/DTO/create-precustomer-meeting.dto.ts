@@ -14,6 +14,12 @@ export class CreatePreCustomerMeetingDto {
   @IsInt()
   PreCustomerMasterSid: number;
 
+  @IsOptional()
+  DepartmentMasterSid: number
+
+  @IsOptional()
+  OpportunitySector: string
+
   @IsDateString()
   meetingDate: Date;
 

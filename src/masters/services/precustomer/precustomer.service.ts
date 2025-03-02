@@ -8,6 +8,23 @@ export class PrecustomerService {
         private _db: DatabaseService
     ) { }
 
+    async getAllCustomer(user) {
+        try {
+            const customer = await this._db.customerMaster.findMany({
+                include: {
+                    preCustomerMaster: {
+                        include: {
+                            preCustomerMeeting: true
+                        }
+                    }
+                }
+            });
+            return customer;
+        } catch (error) {
+            console.log("cutomerError", error)
+        }
+    }
+
     async getAllPrecustomer(user) {
         try {
             const customer = await this._db.preCustomerMaster.findMany({
@@ -27,10 +44,10 @@ export class PrecustomerService {
         try {
             const payload: any = {
                 CompanyMasterSid: user['userBranchMaster'][0].CompanyMasterSid,
+                BranchMasterSid: user['userBranchMaster'][0].BranchMasterSid,
                 CityMasterSid: Number(params.CityMasterSid),
                 CountryMasterSid: params.CountryMasterSid,
                 StateMasterSid: params.StateMasterSid,
-                BranchMasterSid: user['userBranchMaster'][0].BranchMasterSid,
                 preCustomerName: params.preCustomerName,
                 preCustomerAddress1: params.preCustomerAddress1,
                 preCustomerAddress2: params.preCustomerAddress2,

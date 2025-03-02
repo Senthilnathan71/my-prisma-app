@@ -53,14 +53,62 @@ export class PreCustomerMeetingService {
                 payload.followUpDate = params.followUpDate ? new Date(params.followUpDate + "Z") : null
                 payload.meetingDate = new Date(params.meetingDate + "Z")
 
-                await this._db.preCustomerMeeting.update({
-                    where: {
-                        PreCustomerMeetingSid: params.PreCustomerMeetingSid,
-                    },
-                    data: payload
+                // await this._db.preCustomerMeeting.update({
+                //     where: {
+                //         PreCustomerMeetingSid: params.PreCustomerMeetingSid,
+                //     },
+                //     data: payload
 
+                // })
+
+
+                const data = await this._db.preCustomerMeeting.update({
+                    where: { PreCustomerMeetingSid: params.PreCustomerMeetingSid },
+                    data: payload,
+                    include: {
+                        preCustomerMaster: true
+                    }
                 })
-                return { message: 'Meeting updated successfully', data: params };
+
+                const customerPayload = {
+                    PreCustomerMasterSid: data.preCustomerMaster.PreCustomerMasterSid,
+                    CountryMasterSid: data.preCustomerMaster.CountryMasterSid,
+                    CompanyMasterSid: data.preCustomerMaster.CompanyMasterSid,
+                    CustomerName: data.preCustomerMaster.preCustomerName,
+                    PreCustomerAddress1: data.preCustomerMaster.preCustomerAddress1,
+                    createdBy: data.preCustomerMaster.createdBy,
+                    createdOn: new Date()
+                }
+
+                if (data.meetingStatus === 'confirmed') {
+                    await this._db.customerMaster.create({
+                        data: {
+                            ...customerPayload
+                        }
+                    })
+                }
+
+
+                if (params.followUpDate) {
+                    await this._db.meetingFollowup.create({
+                        data: {
+                            PreCustomerMeetingSid: params.PreCustomerMeetingSid,
+                            CompanyMasterSid: data.CompanyMasterSid,
+                            BranchMasterSid: data.BranchMasterSid,
+                            DepartmentMasterSid: params.DepartmentMasterSid,
+                            OpportunitySector: params.OpportunitySector,
+                            FollowupDate: new Date(params.followUpDate + "Z"),
+                            FollowupNote: params.followUpNote,
+                            MeetingNote: params.meetingNote,
+                            Remarks: params.remarks ?? null,
+                            createdBy: user['userEmail'],
+                            createdOn: new Date(),
+                            updatedOn: new Date()
+                        }
+                    })
+                }
+
+                return { message: 'Meeting updated successfully', data: data };
 
             } else {
                 payload.createdOn = new Date();
