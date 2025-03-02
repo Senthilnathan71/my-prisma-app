@@ -30,7 +30,7 @@ export class PreCustomerMeetingService {
         try {
             const payload: any = {
                 meetingType: params.meetingType,
-                leadAssignTo: params.salesperson,
+                leadAssignTo: Number(params.salesperson),
                 meetingStatus: params.meetingStatus,
                 customerProfile: params.customerProfile,
                 meetingNote: params.meetingNote,

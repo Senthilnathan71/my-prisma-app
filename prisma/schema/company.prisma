@@ -355,7 +355,7 @@ model PreCustomerMeeting {
     meetingDate           DateTime
     meetingType           String            @db.VarChar(10)
     leadAssignTo          Int
-    meetingStatus         String            @db.VarChar(10)
+    meetingStatus         String?           @db.VarChar(10)
     customerProfile       String            @db.VarChar(100)
     remarks               String?           @db.VarChar(100)
     status                String            @db.VarChar(10)

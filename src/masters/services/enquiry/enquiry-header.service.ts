@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { DatabaseService } from 'src/database/database.service';
 
 @Injectable()
@@ -185,6 +185,127 @@ export class EnquiryHeaderService {
     }
 
 
+    async getAllEnquiries() {
+        try {
+            const enquiries = await this._db.enquiryHeader.findMany({
+                include: {
+                    enquiryRoute: {
+                        include: {
+                            enquiryCargo: true
+                        }
+                    }
+                }
+            });
+            return enquiries;
+        } catch (error) {
+            console.log("cutomerError", error)
+        }
+    }
+
+
+    async findOne(enquiryId: any) {
+        try {
+            return await this._db.enquiryHeader.findUnique({
+                where: {
+                    EnquiryHeaderSid: enquiryId
+                },
+                include: {
+                    enquiryRoute: {
+                        include: {
+                            enquiryCargo: true
+                        }
+                    }
+                }
+            });
+        } catch (error) {
+            throw error;
+        }
+    }
+
+
+    // async editEnquiry(id,payload, user) {
+    //     try {
+    //         return await this._db.$transaction(async (prisma) => {
+    //             const enquiryHeaderPayload: any = {
+    //                 CustomerName: payload.CustomerName,
+    //                 ShipmentExpectedDate: new Date(payload.ShipmentExpectedDate + "Z"),
+    //                 ShipmentType: payload.ShipmentType,
+    //                 status: payload.status || "A",
+    //                 CompanyMasterSid: user['userBranchMaster'][0].CompanyMasterSid,
+    //                 BranchMasterSid: user['userBranchMaster'][0].BranchMasterSid,
+    //                 DepartmentMasterSid: payload.DepartmentMasterSid,
+    //                 CustomerMasterSid: payload.CustomerMasterSid,
+    //                 UserMasterSid: user['userBranchMaster'][0].UserMasterSid
+    //             };
+
+    //             const enquiryHeader = await prisma.enquiryHeader.create({
+    //                 data: enquiryHeaderPayload
+    //             });
+
+    //             // enquiryRoute Payload (Single or Multiple)
+    //             const enquiryRoutePayload = payload.EnquiryRoutes.map(route => ({
+    //                 PORSid: route.PORSid,
+    //                 POLSid: route.POLSid,
+    //                 PODSid: route.PODSid,
+    //                 FDPSid: route.FDPSid,
+    //                 CompanyMasterSid: enquiryHeader.CompanyMasterSid,
+    //                 BranchMasterSid: enquiryHeader.BranchMasterSid,
+    //                 EnquiryHeaderSid: enquiryHeader.EnquiryHeaderSid
+    //             }));
+
+    //             const enquiryRoutes = await prisma.enquiryRoute.createMany({
+    //                 data: enquiryRoutePayload,
+    //             });
+
+    //             // enquiryCargo Payload (Single or Multiple)
+    //             const enquiryCargoPayload = payload.EnquiryCargos.map(cargo => ({
+    //                 CompanyMasterSid: enquiryHeader.CompanyMasterSid,
+    //                 BranchMasterSid: enquiryHeader.BranchMasterSid,
+    //                 EnquiryHeaderSid: enquiryHeader.EnquiryHeaderSid,
+    //                 CargoType: cargo.CargoType,
+    //                 GrossWeight: cargo.GrossWeight,
+    //                 Volume: cargo.Volume
+    //             }));
+
+    //             const enquiryCargos = await prisma.enquiryCargo.createMany({
+    //                 data: enquiryCargoPayload,
+    //             });
+
+    //             return {
+    //                 message: 'Enquiry created successfully',
+    //                 data: {
+    //                     enquiryHeader,
+    //                     enquiryRoutes,
+    //                     enquiryCargos
+    //                 }
+    //             };
+    //         });
+    //     } catch (error) {
+    //         throw new Error(`Transaction failed: ${error.message}`);
+    //     }
+    // }
+
+
+    async softDelete(id: number) {
+        // Check if the enquiry exists and is not already deleted
+        const existingEnquiry = await this._db.enquiryHeader.findUnique({
+            where: { EnquiryHeaderSid: id }
+        });
+
+        if (!existingEnquiry) {
+            throw new NotFoundException(`Enquiry with ID ${id} not found`);
+        }
+
+        if (existingEnquiry.deletedAt) {
+            throw new Error(`Enquiry with ID ${id} is already deleted`);
+        }
+
+        // Perform soft delete by updating deletedAt field
+        return this._db.enquiryHeader.update({
+            where: { EnquiryHeaderSid: id },
+            data: { deletedAt: new Date() }
+        });
+    }
 
     async getAllDepartment() {
         try {
