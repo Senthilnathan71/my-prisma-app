@@ -65,30 +65,30 @@ export class EnquiryHeaderController {
 
 
 
-    // @Patch('header/:id')
-    // async editEnquiry( @Param('id', ParseIntPipe) id: number,@Body() body: any, @UserData() user: any) {
-    //     let output = new ResponseData
-    //     try {
-    //         let enquiry = await this.enquiryHeaderService.editEnquiry(id,body, user);
-    //         if (!enquiry) {
-    //             throw 'Something went wrong'
-    //         }
-    //         output.data = enquiry.data;
-    //         output.message = enquiry.message;
-    //         output.status = true
+    @Patch('header/:id')
+    async editEnquiry(@Param('id', ParseIntPipe) id: number, @Body() body: any, @UserData() user: any) {
+        let output = new ResponseData
+        try {
+            let enquiry = await this.enquiryHeaderService.updateEnquiry(id, body, user);
+            if (!enquiry) {
+                throw 'Something went wrong'
+            }
+            output.data = enquiry.data;
+            output.message = enquiry.message;
+            output.status = true
 
-    //     } catch (error) {
-    //         console.log("controler error::", error);
-    //         output.status = false;
-    //         // Handle error message based on the type of error
-    //         if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
-    //             output.message = error.message;
-    //         } else {
-    //             output.message = error;
-    //         }
-    //     }
-    //     return output
-    // }
+        } catch (error) {
+            console.log("controler error::", error);
+            output.status = false;
+            // Handle error message based on the type of error
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                output.message = error.message;
+            } else {
+                output.message = error;
+            }
+        }
+        return output
+    }
 
 
     @Delete('header/:id')

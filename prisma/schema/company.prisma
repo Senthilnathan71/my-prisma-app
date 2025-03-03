@@ -498,7 +498,7 @@ model EnquiryCargo {
     WeightUnitSid    Int?
     GrossWeight      Decimal   @db.Decimal(10, 3)
     NetWeight        Decimal?  @db.Decimal(10, 3)
-    Volume           Decimal   @db.Decimal(10, 3)
+    Volume           Decimal?  @db.Decimal(10, 3)
     ChargeableWeight Decimal?  @db.Decimal(10, 3)
     ContainerType    String?   @db.VarChar(50)
     Qty              Decimal   @db.Decimal(5, 0)
