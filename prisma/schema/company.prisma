@@ -436,6 +436,7 @@ model EnquiryHeader {
     AgentAddressSid      Int?
     EnquiryType          String?   @db.VarChar(10)
     EnquiryBy            String?   @db.VarChar(10)
+    EnquiryNumber        String?   @db.VarChar(200)
     IncoTerms            String?   @db.VarChar(50)
     ShipmentExpectedDate DateTime
     ClearanceBy          String?   @db.VarChar(10)
