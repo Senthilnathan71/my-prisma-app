@@ -292,6 +292,8 @@ model ChargeMaster {
     companyMaster       CompanyMaster    @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
     currencyMaster      CurrencyMaster   @relation(fields: [CurrencyMasterSid], references: [CurrencyMasterSid])
     departmentMaster    DepartmentMaster @relation(fields: [DepartmentMasterSid], references: [DepartmentMasterSid])
+
+    tariffDetail TariffDetail[]
 }
 
 model ChargeTaxMaster {
@@ -570,4 +572,55 @@ model PackageTypeMaster {
     status               String?   @default("A") @db.Char(1)
 
     companyMaster CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+}
+
+model TariffHeader {
+    TariffHeaderSid  Int       @id @default(autoincrement()) @map("TariffHeaderSid")
+    SegmentMasterSid Int
+    POOSid           Int
+    POLSid           Int
+    PODSid           Int
+    POLTerminal      String    @db.VarChar(5)
+    PODTerminal      String    @db.VarChar(5)
+    ViaPortSid       Int
+    FDCSid           Int
+    Carrier          Int
+    ServiceLevel     String    @db.VarChar(10)
+    CargoType        String    @db.VarChar(10)
+    StuffingAt       String    @db.VarChar(10)
+    EffectiveDate    DateTime
+    AgentSid         Int
+    IncoTerms        String    @db.VarChar(10)
+    Remarks          String    @db.VarChar(100)
+    createdOn        DateTime  @default(now()) @db.Timestamptz(6)
+    updatedOn        DateTime? @updatedAt @db.Timestamptz(6)
+    deletedAt        DateTime?
+    createdBy        String    @db.VarChar(100)
+    updatedBy        String?   @db.VarChar(100)
+    status           String?   @default("A") @db.Char(1)
+    IsSlabApplicable String    @db.Char(1)
+}
+
+model TariffDetail {
+    TariffDetailSid   Int       @id @default(autoincrement()) @map("TariffDetailSid")
+    ChargeMasterSid   Int
+    ChargeCode        String    @db.VarChar(5)
+    Description       String    @db.VarChar(100)
+    UOMSid            Int
+    CurrencyMasterSid Int
+    SaleCurrency      Int
+    SalePerUnitPrice  Decimal   @db.Decimal(10, 5)
+    CostCurrency      Int
+    CostPerUnitPrice  Decimal   @db.Decimal(10, 5)
+    SlabFrom          Decimal   @db.Decimal(4, 0)
+    SlabTo            Decimal   @db.Decimal(4, 0)
+    createdOn         DateTime  @default(now()) @db.Timestamptz(6)
+    updatedOn         DateTime? @updatedAt @db.Timestamptz(6)
+    deletedAt         DateTime?
+    createdBy         String    @db.VarChar(100)
+    updatedBy         String?   @db.VarChar(100)
+    status            String?   @default("A") @db.Char(1)
+    Remarks           String    @db.VarChar(100)
+
+    chargeMaster ChargeMaster @relation(fields: [ChargeMasterSid], references: [ChargeMasterSid])
 }
