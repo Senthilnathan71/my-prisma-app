@@ -101,6 +101,7 @@ export class EnquiryHeaderService {
         try {
             const enquiries = await this._db.enquiryHeader.findMany({
                 select: {
+                    EnquiryHeaderSid: true,
                     EnquiryNumber: true,
                     CustomerName: true,
                     ShipmentExpectedDate: true,
