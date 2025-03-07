@@ -25,7 +25,9 @@ export class EnquiryHeaderService {
                 const enquiryNumber = `enquiry-${dateString}-${(count + 1).toString().padStart(3, '0')}`
                 // Step 1: Create Enquiry Header
                 const enquiryHeaderPayload: any = {
-                    CustomerName: payload.customerName,
+                    CustomerName: payload.CustomerName,
+                    DepartmentMasterSid: Number(payload.DepartmentMasterSid),
+                    CustomerMasterSid: Number(payload.CustomerMasterSid),
                     ShipmentExpectedDate: new Date(payload.shipmentDate + "Z"),
                     ShipmentType: payload.Segment,
                     status: payload.status || "A",
@@ -33,7 +35,8 @@ export class EnquiryHeaderService {
                     BranchMasterSid: user['userBranchMaster'][0].BranchMasterSid,
                     UserMasterSid: user['userBranchMaster'][0].UserMasterSid,
                     createdBy: user['userEmail'],
-                    EnquiryNumber: enquiryNumber
+                    EnquiryNumber: enquiryNumber,
+                    EnquiryDate: new Date()
                 };
 
                 const enquiryHeader = await prisma.enquiryHeader.create({
@@ -105,7 +108,8 @@ export class EnquiryHeaderService {
                     EnquiryNumber: true,
                     CustomerName: true,
                     ShipmentExpectedDate: true,
-                    ShipmentType: true
+                    ShipmentType: true,
+                    status: true
                 }
             });
             return enquiries;

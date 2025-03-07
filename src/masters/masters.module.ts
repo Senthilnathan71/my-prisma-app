@@ -11,10 +11,12 @@ import { PreCustomerMeetingService } from './services/precustomer/precustomer-me
 import { PreCustomerMeetingController } from './controllers/precustomer/precustomer-meeting.controller';
 import { EnquiryHeaderController } from './controllers/enquiry/enquiry-header.controller';
 import { EnquiryHeaderService } from './services/enquiry/enquiry-header.service';
+import { QuotationService } from './services/quotation/quotation.service';
+import { QuotationController } from './controllers/quotation/quotation.controller';
 
 @Module({
-    providers: [UserService, PrecustomerService, PreCustomerMeetingService, CityService, EnquiryHeaderService],
-    controllers: [UserController, PreCustomerMeetingController, PrecustomerController, RegionController, EnquiryHeaderController],
+    providers: [UserService, PrecustomerService, PreCustomerMeetingService, CityService, EnquiryHeaderService, QuotationService],
+    controllers: [UserController, PreCustomerMeetingController, PrecustomerController, RegionController, EnquiryHeaderController, QuotationController],
     exports: [UserService]
 })
 export class MastersModule { }
