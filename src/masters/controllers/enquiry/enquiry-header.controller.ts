@@ -75,7 +75,7 @@ export class EnquiryHeaderController {
             }
             output.data = enquiry.data;
             output.message = enquiry.message;
-            output.status = true
+            output.status = enquiry.status
 
         } catch (error) {
             console.log("controler error::", error);
