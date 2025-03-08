@@ -651,42 +651,41 @@ model QuoteHeader {
     QuoteDate           DateTime
     CompanyMasterSid    Int
     BranchMasterSid     Int
-    EnquirySid          Int
+    EnquirySid          Int?
     DepartmentMasterSid Int
     CustomerMasterSid   Int
     CustomerName        String    @db.VarChar(100)
     CustomerAddress     String    @db.VarChar(300)
-    AgentMasterSid      Int
-    AgentName           String    @db.VarChar(100)
-    AgentAddress        String    @db.VarChar(300)
-    SalesmanSid         Int
-    QuoteSource         String    @db.VarChar(20)
-    IncoTerms           String    @db.VarChar(10)
-    Remarks             String    @db.VarChar(100)
-    EnquiryRemarks      String    @db.VarChar(100)
+    AgentMasterSid      Int?
+    AgentName           String?   @db.VarChar(100)
+    AgentAddress        String?   @db.VarChar(300)
+    SalesmanSid         Int?
+    QuoteSource         String?   @db.VarChar(20)
+    IncoTerms           String?   @db.VarChar(10)
+    Remarks             String?   @db.VarChar(100)
+    EnquiryRemarks      String?   @db.VarChar(100)
     CarrierPrint        String?   @db.Char(1)
-    RoutingSid          Int
-    ShipperRefNo        String    @db.VarChar(20)
-    TransportType       String    @db.VarChar(10)
-    CustomerRef         String    @db.VarChar(20)
+    RoutingHeaderSid    Int
+    ShipperRefNo        String?   @db.VarChar(20)
+    TransportType       String?   @db.VarChar(10)
+    CustomerRef         String?   @db.VarChar(20)
     QuoteValidFrom      DateTime
     QuoteValidTo        DateTime
-    InternalApprovedBy  Int
-    InternalApprovedOn  DateTime
-    CustomerApprovedBy  String    @db.VarChar(20)
-    CustomerApprovedOn  DateTime
-    Email               String    @db.VarChar(200)
+    InternalApprovedBy  Int?
+    InternalApprovedOn  DateTime?
+    CustomerApprovedBy  String?   @db.VarChar(20)
+    CustomerApprovedOn  DateTime?
+    Email               String?   @db.VarChar(200)
     createdOn           DateTime  @default(now()) @db.Timestamptz(6)
     updatedOn           DateTime? @updatedAt @db.Timestamptz(6)
     deletedAt           DateTime?
     createdBy           String    @db.VarChar(100)
     updatedBy           String?   @db.VarChar(100)
     status              String?   @default("A") @db.Char(1)
-    LoginSid            Int?
 
     companyMaster    CompanyMaster    @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
     branchMaster     BranchMaster     @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
-    enquiryHeader    EnquiryHeader    @relation(fields: [EnquirySid], references: [EnquiryHeaderSid])
+    enquiryHeader    EnquiryHeader?   @relation(fields: [EnquirySid], references: [EnquiryHeaderSid])
     departmentMaster DepartmentMaster @relation(fields: [DepartmentMasterSid], references: [DepartmentMasterSid])
     customerMaster   CustomerMaster   @relation(fields: [CustomerMasterSid], references: [CustomerMasterSid])
 
@@ -699,27 +698,26 @@ model QuoteRoute {
     QuoteRouteSid       Int       @id @default(autoincrement()) @map("QuoteRouteSid")
     QuoteHeaderSid      Int
     DepartmentMasterSid Int
-    CargoType           String    @db.VarChar(10)
-    POLFreeDays         Decimal   @db.Decimal(2, 0)
-    PODFreeDays         Decimal   @db.Decimal(2, 0)
+    CargoType           String?   @db.VarChar(10)
+    POLFreeDays         Decimal?  @db.Decimal(2, 0)
+    PODFreeDays         Decimal?  @db.Decimal(2, 0)
     PORSid              Int
     POLSid              Int
     PODSid              Int
     FDPSid              Int
-    Remarks             String    @db.VarChar(100)
+    Remarks             String?   @db.VarChar(100)
     CompanyMasterSid    Int
     BranchMasterSid     Int
     CarrierName         String    @db.VarChar(100)
-    IsHaz               String    @db.Char(1)
-    ServiceLevel        String    @db.VarChar(10)
-    TransitDays         Decimal   @db.Decimal(3, 0)
+    IsHaz               String?   @db.Char(1)
+    ServiceLevel        String?   @db.VarChar(10)
+    TransitDays         Decimal?  @db.Decimal(3, 0)
     createdOn           DateTime  @default(now()) @db.Timestamptz(6)
     updatedOn           DateTime? @updatedAt @db.Timestamptz(6)
     deletedAt           DateTime?
     createdBy           String    @db.VarChar(100)
     updatedBy           String?   @db.VarChar(100)
     status              String?   @default("A") @db.Char(1)
-    LoginSid            Int?
 
     departmentMaster DepartmentMaster @relation(fields: [DepartmentMasterSid], references: [DepartmentMasterSid])
     quoteHeader      QuoteHeader      @relation(fields: [QuoteHeaderSid], references: [QuoteHeaderSid])
@@ -738,10 +736,6 @@ model QuoteCarrier {
     CarrierName      String    @db.VarChar(100)
     CompanyMasterSid Int
     BranchMasterSid  Int
-    CreatedOn        DateTime
-    CreatedBy        String    @db.VarChar(100)
-    UpdatedOn        DateTime
-    UpdatedBy        String    @db.VarChar(100)
     ApprovalStatus   String    @default("A") @db.Char(1)
     ApprovedBy       String    @db.VarChar(20)
     Remarks          String    @db.VarChar(100)
@@ -751,7 +745,6 @@ model QuoteCarrier {
     createdBy        String    @db.VarChar(100)
     updatedBy        String?   @db.VarChar(100)
     status           String?   @default("A") @db.Char(1)
-    LoginSid         Int?
 
     quoteHeader   QuoteHeader   @relation(fields: [QuoteHeaderSid], references: [QuoteHeaderSid])
     quoteRoute    QuoteRoute    @relation(fields: [QuoteRouteSid], references: [QuoteRouteSid])

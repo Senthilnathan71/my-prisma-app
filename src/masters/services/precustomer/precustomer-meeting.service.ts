@@ -145,7 +145,8 @@ export class PreCustomerMeetingService {
                     }
                 },
                 PreCustomerMeetingSid: true,
-                meetingDate: true
+                meetingDate: true,
+                followUpDate: true
             }
         })
             .catch((error) => {
