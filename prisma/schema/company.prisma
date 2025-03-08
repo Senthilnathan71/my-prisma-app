@@ -649,6 +649,7 @@ model TariffDetail {
 model QuoteHeader {
     QuoteHeaderSid      Int       @id @default(autoincrement()) @map("QuoteHeaderSid")
     QuoteDate           DateTime
+    QuoteNumber         String    @db.VarChar(200)
     CompanyMasterSid    Int
     BranchMasterSid     Int
     EnquirySid          Int?
@@ -665,12 +666,12 @@ model QuoteHeader {
     Remarks             String?   @db.VarChar(100)
     EnquiryRemarks      String?   @db.VarChar(100)
     CarrierPrint        String?   @db.Char(1)
-    RoutingHeaderSid    Int
+    RoutingHeaderSid    Int?
     ShipperRefNo        String?   @db.VarChar(20)
     TransportType       String?   @db.VarChar(10)
     CustomerRef         String?   @db.VarChar(20)
-    QuoteValidFrom      DateTime
-    QuoteValidTo        DateTime
+    QuoteValidFrom      DateTime?
+    QuoteValidTo        DateTime?
     InternalApprovedBy  Int?
     InternalApprovedOn  DateTime?
     CustomerApprovedBy  String?   @db.VarChar(20)

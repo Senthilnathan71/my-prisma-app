@@ -37,7 +37,7 @@ export class QuotationController {
     async getAllEnquiries(@UserData() UserData: any) {
         const output = new ResponseData
         try {
-            const enquiries = await this.quotationService.getAllEnquiries()
+            const enquiries = await this.quotationService.getAllQuotations()
             output.data = enquiries;
         } catch (error) {
             output.status = false;

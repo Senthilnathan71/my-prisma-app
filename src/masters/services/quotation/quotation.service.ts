@@ -22,50 +22,50 @@ export class QuotationService {
                 })
                 const quoteNumber = `quotation-${dateString}-${(count + 1).toString().padStart(3, '0')}`
                 // Step 1: Create Enquiry Header
-                const enquiryHeaderPayload: any = {
+                const quoteHeaderPayload: any = {
                     CustomerName: payload.CustomerName,
                     DepartmentMasterSid: Number(payload.DepartmentMasterSid),
                     CustomerMasterSid: Number(payload.CustomerMasterSid),
-                    ShipmentExpectedDate: new Date(payload.shipmentDate + "Z"),
-                    ShipmentType: payload.Segment,
+                    QuoteDate: new Date(),
+                    CustomerAddress: payload.CustomerAddress,
                     status: payload.status || "A",
                     CompanyMasterSid: user['userBranchMaster'][0].CompanyMasterSid,
                     BranchMasterSid: user['userBranchMaster'][0].BranchMasterSid,
-                    UserMasterSid: user['userBranchMaster'][0].UserMasterSid,
+                    quoteNumber: quoteNumber,
                     createdBy: user['userEmail'],
-                    // EnquiryNumber: enquiryNumber,
-                    EnquiryDate: new Date()
                 };
 
-                const enquiryHeader = await prisma.enquiryHeader.create({
-                    data: enquiryHeaderPayload
+                const quoteHeader = await prisma.quoteHeader.create({
+                    data: quoteHeaderPayload
                 });
 
-                // Step 2: Create Enquiry Routes One by One (to get EnquiryRouteSid)
-                const enquiryRoutes = await Promise.all(
+                // Step 2: Create Quote Routes One by One (to get QuoteRouteSid)
+                const quoteRoutes = await Promise.all(
                     payload.routes.map(async (route) => {
-                        return await prisma.enquiryRoute.create({
+                        return await prisma.quoteRoute.create({
                             data: {
                                 PORSid: Number(route.POO),
                                 POLSid: Number(route.POL),
                                 PODSid: Number(route.POD),
                                 FDPSid: Number(route.FDC),
-                                CompanyMasterSid: enquiryHeader.CompanyMasterSid,
-                                BranchMasterSid: enquiryHeader.BranchMasterSid,
-                                EnquiryHeaderSid: enquiryHeader.EnquiryHeaderSid,
+                                DepartmentMasterSid: quoteHeader.DepartmentMasterSid,
+                                CompanyMasterSid: quoteHeader.CompanyMasterSid,
+                                BranchMasterSid: quoteHeader.BranchMasterSid,
+                                QuoteHeaderSid: quoteHeader.QuoteHeaderSid,
+                                CarrierName: route.Carrier,
                                 createdBy: user['userEmail']
                             }
                         });
                     })
                 );
 
-                // Step 3: Create Enquiry Cargo (Mapping Cargo to Routes)
-                const enquiryCargoPayload = enquiryRoutes.flatMap((enquiryRoute, index) =>
+                // Step 3: Create Quote Charge (Mapping Charge to Routes)
+                const quoteCargoPayload = quoteRoutes.flatMap((quoteRoute, index) =>
                     payload.routes[index].cargo.map(cargo => ({
-                        CompanyMasterSid: enquiryHeader.CompanyMasterSid,
-                        BranchMasterSid: enquiryHeader.BranchMasterSid,
-                        EnquiryHeaderSid: enquiryHeader.EnquiryHeaderSid,
-                        EnquiryRouteSid: enquiryRoute.EnquiryRouteSid, // Correctly linked route ID
+                        CompanyMasterSid: quoteHeader.CompanyMasterSid,
+                        BranchMasterSid: quoteHeader.BranchMasterSid,
+                        QuoteHeaderSid: quoteHeader.QuoteHeaderSid,
+                        QuoteRouteSid: quoteRoute.QuoteRouteSid, // Correctly linked route ID
                         CargoType: cargo.cargoType,
                         ProductName: cargo.product,
                         GrossWeight: new Prisma.Decimal(cargo.Weight),  // Convert to Decimal
@@ -77,17 +77,17 @@ export class QuotationService {
                 );
 
                 // Step 4: Bulk Insert Cargo Data
-                const enquiryCargos = await prisma.enquiryCargo.createMany({
-                    data: enquiryCargoPayload
+                const quoteCharge = await prisma.quoteCharge.createMany({
+                    data: quoteCargoPayload
                 });
 
                 // Return Success Response
                 return {
-                    message: 'Enquiry created successfully',
+                    message: 'Quote created successfully',
                     data: {
-                        enquiryHeader,
-                        enquiryRoutes,
-                        enquiryCargos
+                        quoteHeader,
+                        quoteRoutes,
+                        quoteCharge
                     }
                 };
             });
@@ -98,35 +98,35 @@ export class QuotationService {
 
 
 
-    async getAllEnquiries() {
+    async getAllQuotations() {
         try {
-            const enquiries = await this._db.enquiryHeader.findMany({
+            const quotations = await this._db.quoteHeader.findMany({
                 select: {
-                    EnquiryHeaderSid: true,
-                    EnquiryNumber: true,
+                    QuoteHeaderSid: true,
+                    QuoteNumber: true,
                     CustomerName: true,
-                    ShipmentExpectedDate: true,
-                    ShipmentType: true,
+                    CustomerAddress: true,
+                    QuoteDate: true,
                     status: true
                 }
             });
-            return enquiries;
+            return quotations;
         } catch (error) {
             console.log("cutomerError", error)
         }
     }
 
 
-    async findOne(enquiryId: any) {
+    async findOne(quoteId: any) {
         try {
-            return await this._db.enquiryHeader.findUnique({
+            return await this._db.quoteHeader.findUnique({
                 where: {
-                    EnquiryHeaderSid: enquiryId
+                    QuoteHeaderSid: quoteId
                 },
                 include: {
-                    enquiryRoute: {
+                    quoteRoute: {
                         include: {
-                            enquiryCargo: true
+                            quoteCharge: true
                         }
                     }
                 }
@@ -136,17 +136,16 @@ export class QuotationService {
         }
     }
 
-
-    async updateEnquiry(enquiryHeaderSid: number, payload, user) {
+    async updateEnquiry(QuoteHeaderSid: number, payload, user) {
         try {
             // Step 1: Update Enquiry Header
-            const statusUpdate = payload.status === "Active" ? "A" : "IA";
-            const updatedEnquiryHeader = await this._db.enquiryHeader.update({
-                where: { EnquiryHeaderSid: enquiryHeaderSid },
+            const statusUpdate = payload.status === "Active" ? "A" : "S";
+            const updatedEnquiryHeader = await this._db.quoteHeader.update({
+                where: { QuoteHeaderSid: QuoteHeaderSid },
                 data: {
                     CustomerName: payload.customerName,
-                    ShipmentExpectedDate: new Date(payload.shipmentDate + "Z"),
-                    ShipmentType: payload.Segment,
+                    QuoteDate: new Date(payload.shipmentDate + "Z"),
+                    CustomerAddress: payload.CustomerAddress,
                     status: statusUpdate,
                     updatedBy: user['userEmail'],
                     updatedOn: new Date()
@@ -181,7 +180,7 @@ export class QuotationService {
                             FDPSid: Number(route.FDC),
                             CompanyMasterSid: updatedEnquiryHeader.CompanyMasterSid,
                             BranchMasterSid: updatedEnquiryHeader.BranchMasterSid,
-                            EnquiryHeaderSid: enquiryHeaderSid,
+                            EnquiryHeaderSid: QuoteHeaderSid,
                             createdBy: user['userEmail'],
                         }
                     });
@@ -219,7 +218,7 @@ export class QuotationService {
                                     Qty: Number(cargoItem.Qty),
                                     GrossWeight: Number(cargoItem.Weight),
                                     Volume: Number(cargoItem.cbm),
-                                    EnquiryHeaderSid: enquiryHeaderSid,
+                                    EnquiryHeaderSid: QuoteHeaderSid,
                                     EnquiryRouteSid: routeData.EnquiryRouteSid, // Link to the correct route
                                     createdBy: user['userEmail'],
                                     CompanyMasterSid: updatedEnquiryHeader.CompanyMasterSid,
@@ -247,32 +246,23 @@ export class QuotationService {
         }
     }
 
-
-
-
-
-
-
-
-
-
     async softDelete(id: number) {
-        // Check if the enquiry exists and is not already deleted
-        const existingEnquiry = await this._db.enquiryHeader.findUnique({
-            where: { EnquiryHeaderSid: id }
+        // Check if the quote exists and is not already deleted
+        const existingQuote = await this._db.quoteHeader.findUnique({
+            where: { QuoteHeaderSid: id }
         });
 
-        if (!existingEnquiry) {
-            throw new NotFoundException(`Enquiry with ID ${id} not found`);
+        if (!existingQuote) {
+            throw new NotFoundException(`Quote with ID ${id} not found`);
         }
 
-        if (existingEnquiry.deletedAt) {
-            throw new Error(`Enquiry with ID ${id} is already deleted`);
+        if (existingQuote.deletedAt) {
+            throw new Error(`Quote with ID ${id} is already deleted`);
         }
 
         // Perform soft delete by updating deletedAt field
-        return this._db.enquiryHeader.update({
-            where: { EnquiryHeaderSid: id },
+        return this._db.quoteHeader.update({
+            where: { QuoteHeaderSid: id },
             data: { deletedAt: new Date() }
         });
     }
