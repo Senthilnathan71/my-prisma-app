@@ -22,16 +22,17 @@ export class QuotationService {
                 })
                 const quoteNumber = `quotation-${dateString}-${(count + 1).toString().padStart(3, '0')}`
                 // Step 1: Create Enquiry Header
+                const quoteDate = payload.quoteDate ? new Date(payload.quoteDate) : new Date();
                 const quoteHeaderPayload: any = {
                     CustomerName: payload.CustomerName,
                     DepartmentMasterSid: Number(payload.DepartmentMasterSid),
                     CustomerMasterSid: Number(payload.CustomerMasterSid),
-                    QuoteDate: new Date(),
+                    QuoteDate: quoteDate,
                     CustomerAddress: payload.CustomerAddress,
                     status: payload.status || "A",
                     CompanyMasterSid: user['userBranchMaster'][0].CompanyMasterSid,
                     BranchMasterSid: user['userBranchMaster'][0].BranchMasterSid,
-                    quoteNumber: quoteNumber,
+                    QuoteNumber: quoteNumber,
                     createdBy: user['userEmail'],
                 };
 
@@ -44,15 +45,19 @@ export class QuotationService {
                     payload.routes.map(async (route) => {
                         return await prisma.quoteRoute.create({
                             data: {
-                                PORSid: Number(route.POO),
+                                PORSid: Number(route.POR),
                                 POLSid: Number(route.POL),
                                 PODSid: Number(route.POD),
-                                FDPSid: Number(route.FDC),
+                                FDPSid: Number(route.FPOD),
                                 DepartmentMasterSid: quoteHeader.DepartmentMasterSid,
                                 CompanyMasterSid: quoteHeader.CompanyMasterSid,
                                 BranchMasterSid: quoteHeader.BranchMasterSid,
                                 QuoteHeaderSid: quoteHeader.QuoteHeaderSid,
                                 CarrierName: route.Carrier,
+                                effDate: new Date(route.effDate),
+                                expdate: new Date(route.expDate),
+                                twentyft: Number(route.twentyft) || null,
+                                fortyft: Number(route.fortyft) || null,
                                 createdBy: user['userEmail']
                             }
                         });
@@ -66,12 +71,12 @@ export class QuotationService {
                         BranchMasterSid: quoteHeader.BranchMasterSid,
                         QuoteHeaderSid: quoteHeader.QuoteHeaderSid,
                         QuoteRouteSid: quoteRoute.QuoteRouteSid, // Correctly linked route ID
-                        CargoType: cargo.cargoType,
-                        ProductName: cargo.product,
-                        GrossWeight: new Prisma.Decimal(cargo.Weight),  // Convert to Decimal
-                        Volume: new Prisma.Decimal(cargo.cbm),  // Convert to Decimal
-                        Qty: new Prisma.Decimal(cargo.Qty),  // Convert to Decimal
-                        ContainerType: cargo.contentType,
+                        CustomerMasterSid: quoteHeader.CustomerMasterSid,
+                        ChargeDisplayName: cargo.charge,
+                        CurrencyMasterSid: Number(cargo.currency),
+                        UnitMasterSid: Number(cargo.unit),
+                        twentyft: cargo.twentyft,  // Convert to Decimal
+                        fortyft: cargo.fortyft,  // Convert to Decimal
                         createdBy: user['userEmail']
                     }))
                 );
@@ -136,7 +141,7 @@ export class QuotationService {
         }
     }
 
-    async updateEnquiry(QuoteHeaderSid: number, payload, user) {
+    async updateQuote(QuoteHeaderSid: number, payload, user) {
         try {
             // Step 1: Update Enquiry Header
             const statusUpdate = payload.status === "Active" ? "A" : "S";
@@ -266,4 +271,21 @@ export class QuotationService {
             data: { deletedAt: new Date() }
         });
     }
+
+
+    async getAllMasters() {
+        try {
+            const [charges, units, currencies] = await this._db.$transaction([
+                this._db.chargeMaster.findMany(),
+                this._db.unitMaster.findMany(),
+                this._db.currencyMaster.findMany(),
+            ]);
+
+            return { charges, units, currencies };
+        } catch (error) {
+            console.error("Error fetching masters:", error);
+            throw new Error("Failed to fetch master data.");
+        }
+    }
+
 }
