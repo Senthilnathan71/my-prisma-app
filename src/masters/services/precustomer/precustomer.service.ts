@@ -31,7 +31,6 @@ export class PrecustomerService {
                 where: {
                     CompanyMasterSid: user.CompanyMasterSid,
                     BranchMasterSid: user.BranchMasterSid,
-                    status: "A"
                 }
             });
             return customer;
