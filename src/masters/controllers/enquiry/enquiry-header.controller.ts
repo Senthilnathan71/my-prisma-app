@@ -52,7 +52,7 @@ export class EnquiryHeaderController {
 
 
     @Get('header/:id')
-    async getPrecustomerById(@Param('id', ParseIntPipe) enquiryId: number) {
+    async getEnquiryById(@Param('id', ParseIntPipe) enquiryId: number) {
         const output = new ResponseData;
         try {
             output.data = await this.enquiryHeaderService.findOne(enquiryId)

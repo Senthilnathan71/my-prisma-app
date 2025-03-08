@@ -10,7 +10,7 @@ export class QuotationController {
     constructor(private quotationService: QuotationService) { }
 
     @Post()
-    async createEnquiryHeader(@Body() body: any, @UserData() user: any) {
+    async createQuoteHeader(@Body() body: any, @UserData() user: any) {
         let output = new ResponseData
         try {
             let quote = await this.quotationService.createQuotation(body, user);
@@ -37,7 +37,7 @@ export class QuotationController {
     async getAllEnquiries(@UserData() UserData: any) {
         const output = new ResponseData
         try {
-            const enquiries = await this.quotationService.getAllEnquiries()
+            const enquiries = await this.quotationService.getAllQuotations()
             output.data = enquiries;
         } catch (error) {
             output.status = false;
@@ -52,30 +52,31 @@ export class QuotationController {
 
 
     @Get('header/:id')
-    async getPrecustomerById(@Param('id', ParseIntPipe) enquiryId: number) {
+    async getQuoterHeaderById(@Param('id', ParseIntPipe) quoteId: number) {
         const output = new ResponseData;
         try {
-            output.data = await this.quotationService.findOne(enquiryId)
+            output.data = await this.quotationService.findOne(quoteId)
         } catch (error) {
             output.status = false;
             output.message = error
         }
+        console.log(output, 'getQuoterHeaderById')
         return output;
     }
 
 
 
     @Patch('header/:id')
-    async editEnquiry(@Param('id', ParseIntPipe) id: number, @Body() body: any, @UserData() user: any) {
+    async editQuote(@Param('id', ParseIntPipe) id: number, @Body() body: any, @UserData() user: any) {
         let output = new ResponseData
         try {
-            let enquiry = await this.quotationService.updateEnquiry(id, body, user);
-            if (!enquiry) {
+            let quote = await this.quotationService.updateQuote(id, body, user);
+            if (!quote) {
                 throw 'Something went wrong'
             }
-            output.data = enquiry.data;
-            output.message = enquiry.message;
-            output.status = enquiry.status
+            output.data = quote.data;
+            output.message = quote.message;
+            output.status = quote.status
 
         } catch (error) {
             console.log("controler error::", error);
@@ -96,5 +97,23 @@ export class QuotationController {
         return this.quotationService.softDelete(id);
     }
 
+
+
+    @Get('unit-currency-charge')
+    async getAllDepartments(@UserData() UserData: any) {
+        const output = new ResponseData
+        try {
+            const department = await this.quotationService.getAllMasters()
+            output.data = department;
+        } catch (error) {
+            output.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                output.message = error.message;
+            } else {
+                output.message = 'Internal Server Error';
+            }
+        }
+        return output;
+    }
 
 }
