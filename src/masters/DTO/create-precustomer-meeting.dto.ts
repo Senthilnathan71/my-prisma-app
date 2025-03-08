@@ -33,7 +33,7 @@ export class CreatePreCustomerMeetingDto {
   followUpNote: string;
 
   @IsInt()
-  salesperson: number;
+  leadAssignTo: number;
 
   @IsString()
   meetingStatus: string;
