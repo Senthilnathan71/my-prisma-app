@@ -146,7 +146,7 @@ export class EnquiryHeaderService {
             const updatedEnquiryHeader = await this._db.enquiryHeader.update({
                 where: { EnquiryHeaderSid: enquiryHeaderSid },
                 data: {
-                    CustomerName: payload.customerName,
+                    CustomerName: payload.CustomerName,
                     ShipmentExpectedDate: new Date(payload.shipmentDate + "Z"),
                     ShipmentType: payload.Segment,
                     status: statusUpdate,
