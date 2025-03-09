@@ -145,12 +145,13 @@ export class QuotationService {
         try {
             // Step 1: Update Enquiry Header
             const statusUpdate = payload.status === "Active" ? "A" : "S";
-            const updatedEnquiryHeader = await this._db.quoteHeader.update({
+            const quoteDate = payload.quoteDate ? new Date(payload.quoteDate) : new Date();
+
+            const updatedQuoteHeader = await this._db.quoteHeader.update({
                 where: { QuoteHeaderSid: QuoteHeaderSid },
                 data: {
-                    CustomerName: payload.customerName,
-                    QuoteDate: new Date(payload.shipmentDate + "Z"),
-                    CustomerAddress: payload.CustomerAddress,
+                    CustomerName: payload.CustomerName,
+                    QuoteDate: quoteDate,
                     status: statusUpdate,
                     updatedBy: user['userEmail'],
                     updatedOn: new Date()
@@ -164,28 +165,39 @@ export class QuotationService {
             for (const route of payload.routes) {
                 let updateData, createData;
 
-                if (route.EnquiryRouteSid) {
-                    updateData = await this._db.enquiryRoute.update({
-                        where: { EnquiryRouteSid: route.EnquiryRouteSid },
+                if (route.QuoteRouteSid) {
+                    updateData = await this._db.quoteRoute.update({
+                        where: { QuoteRouteSid: route.QuoteRouteSid },
                         data: {
-                            PORSid: Number(route.POO),
+                            PORSid: Number(route.POR),
                             POLSid: Number(route.POL),
                             PODSid: Number(route.POD),
-                            FDPSid: Number(route.FDC),
+                            FDPSid: Number(route.FPOD),
+                            CarrierName: route.Carrier,
+                            effDate: new Date(route.effDate),
+                            expdate: new Date(route.expDate),
+                            twentyft: Number(route.twentyft) || null,
+                            fortyft: Number(route.fortyft) || null,
                             updatedBy: user['userEmail'],
                             updatedOn: new Date(),
                         }
                     });
                 } else {
-                    createData = await this._db.enquiryRoute.create({
+                    createData = await this._db.quoteRoute.create({
                         data: {
-                            PORSid: Number(route.POO),
+                            PORSid: Number(route.POR),
                             POLSid: Number(route.POL),
                             PODSid: Number(route.POD),
-                            FDPSid: Number(route.FDC),
-                            CompanyMasterSid: updatedEnquiryHeader.CompanyMasterSid,
-                            BranchMasterSid: updatedEnquiryHeader.BranchMasterSid,
-                            EnquiryHeaderSid: QuoteHeaderSid,
+                            FDPSid: Number(route.FPOD),
+                            CarrierName: route.Carrier,
+                            effDate: new Date(route.effDate),
+                            expdate: new Date(route.expDate),
+                            twentyft: Number(route.twentyft) || null,
+                            fortyft: Number(route.fortyft) || null,
+                            DepartmentMasterSid: updatedQuoteHeader.DepartmentMasterSid,
+                            CompanyMasterSid: updatedQuoteHeader.CompanyMasterSid,
+                            BranchMasterSid: updatedQuoteHeader.BranchMasterSid,
+                            QuoteHeaderSid: QuoteHeaderSid,
                             createdBy: user['userEmail'],
                         }
                     });
@@ -200,34 +212,33 @@ export class QuotationService {
                         let updateCargoData;
                         let createCargoData;
 
-                        if (cargoItem.EnquiryCargoSid) {
-                            updateCargoData = await this._db.enquiryCargo.update({
-                                where: { EnquiryCargoSid: cargoItem.EnquiryCargoSid },
+                        if (cargoItem.QuoteChargeSid) {
+                            updateCargoData = await this._db.quoteCharge.update({
+                                where: { QuoteChargeSid: cargoItem.QuoteChargeSid },
                                 data: {
-                                    CargoType: cargoItem.cargoType,
-                                    ContainerType: cargoItem.contentType,
-                                    ProductName: cargoItem.product,
-                                    Qty: Number(cargoItem.Qty),
-                                    GrossWeight: Number(cargoItem.Weight),
-                                    Volume: Number(cargoItem.cbm),
+                                    ChargeDisplayName: cargoItem.charge,
+                                    CurrencyMasterSid: Number(cargoItem.currency),
+                                    UnitMasterSid: Number(cargoItem.unit),
+                                    twentyft: cargoItem.twentyft,  // Convert to Decimal
+                                    fortyft: cargoItem.fortyft,  // Convert to Decimal 
                                     updatedBy: user['userEmail'],
                                     updatedOn: new Date(),
                                 }
                             });
                         } else {
-                            createCargoData = await this._db.enquiryCargo.create({
+                            createCargoData = await this._db.quoteCharge.create({
                                 data: {
-                                    CargoType: cargoItem.cargoType,
-                                    ContainerType: cargoItem.contentType,
-                                    ProductName: cargoItem.product,
-                                    Qty: Number(cargoItem.Qty),
-                                    GrossWeight: Number(cargoItem.Weight),
-                                    Volume: Number(cargoItem.cbm),
-                                    EnquiryHeaderSid: QuoteHeaderSid,
-                                    EnquiryRouteSid: routeData.EnquiryRouteSid, // Link to the correct route
+                                    ChargeDisplayName: cargoItem.charge,
+                                    CurrencyMasterSid: Number(cargoItem.currency),
+                                    UnitMasterSid: Number(cargoItem.unit),
+                                    twentyft: cargoItem.twentyft,  // Convert to Decimal
+                                    fortyft: cargoItem.fortyft,
+                                    QuoteHeaderSid: QuoteHeaderSid,
+                                    QuoteRouteSid: routeData.QuoteRouteSid, // Link to the correct route
                                     createdBy: user['userEmail'],
-                                    CompanyMasterSid: updatedEnquiryHeader.CompanyMasterSid,
-                                    BranchMasterSid: updatedEnquiryHeader.BranchMasterSid,
+                                    CompanyMasterSid: updatedQuoteHeader.CompanyMasterSid,
+                                    BranchMasterSid: updatedQuoteHeader.BranchMasterSid,
+                                    CustomerMasterSid: updatedQuoteHeader.CustomerMasterSid,
                                 }
                             });
                         }
@@ -241,7 +252,7 @@ export class QuotationService {
                 status: true,
                 message: 'Enquiry updated successfully',
                 data: {
-                    updatedEnquiryHeader: updatedEnquiryHeader,
+                    updatedEnquiryHeader: updatedQuoteHeader,
                     finalRouteData: finalRouteData, // Now an array
                     finalCargoData: finalCargoData  // Now an array
                 }
