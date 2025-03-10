@@ -13,10 +13,12 @@ import { EnquiryHeaderController } from './controllers/enquiry/enquiry-header.co
 import { EnquiryHeaderService } from './services/enquiry/enquiry-header.service';
 import { QuotationService } from './services/quotation/quotation.service';
 import { QuotationController } from './controllers/quotation/quotation.controller';
+import { PortService } from './services/port/port-master.service';
+import { PortMasterController } from './controllers/port/port-master.controller';
 
 @Module({
-    providers: [UserService, PrecustomerService, PreCustomerMeetingService, CityService, EnquiryHeaderService, QuotationService],
-    controllers: [UserController, PreCustomerMeetingController, PrecustomerController, RegionController, EnquiryHeaderController, QuotationController],
+    providers: [UserService, PrecustomerService, PreCustomerMeetingService, CityService, EnquiryHeaderService, QuotationService, PortService],
+    controllers: [UserController, PreCustomerMeetingController, PrecustomerController, RegionController, EnquiryHeaderController, QuotationController, PortMasterController],
     exports: [UserService]
 })
 export class MastersModule { }

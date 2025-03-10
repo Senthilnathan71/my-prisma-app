@@ -299,14 +299,6 @@ export class EnquiryHeaderService {
     }
 
 
-    async getAllPorts() {
-        try {
-            const customer = await this._db.portMaster.findMany({});
-            return customer;
-        } catch (error) {
-            console.log("cutomerError", error)
-        }
-    }
 
 
 }

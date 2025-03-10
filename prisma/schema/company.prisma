@@ -275,6 +275,7 @@ model PortMaster {
     StateMasterSid    Int?
     countryMaster     CountryMaster @relation(fields: [CountryMasterSid], references: [CountryMasterSid])
     stateMaster       StateMaster?  @relation(fields: [StateMasterSid], references: [StateMasterSid])
+    sectorMaster      SectorMaster? @relation(fields: [SectorMasterSid], references: [SectorMasterSid])
 }
 
 model UnitMaster {
@@ -406,15 +407,16 @@ model ChargeGroup {
 }
 
 model SectorMaster {
-    sectorName      String    @db.VarChar(50)
-    createdOn       DateTime  @default(now()) @db.Timestamptz(6)
-    updatedOn       DateTime  @updatedAt @db.Timestamptz(6)
+    sectorName      String       @db.VarChar(50)
+    createdOn       DateTime     @default(now()) @db.Timestamptz(6)
+    updatedOn       DateTime     @updatedAt @db.Timestamptz(6)
     deletedAt       DateTime?
-    createdBy       String    @db.VarChar(100)
-    updatedBy       String?   @db.VarChar(100)
-    status          String    @db.Char(1)
+    createdBy       String       @db.VarChar(100)
+    updatedBy       String?      @db.VarChar(100)
+    status          String       @db.Char(1)
     LoginSid        Int?
-    SectorMasterSid Int       @id @default(autoincrement()) @map("SectorMasterSid")
+    SectorMasterSid Int          @id @default(autoincrement()) @map("SectorMasterSid")
+    portMaster      PortMaster[]
 }
 
 model MeetingFollowup {

@@ -134,20 +134,5 @@ export class EnquiryHeaderController {
     }
 
 
-    @Get('ports')
-    async getAllPorts(@UserData() UserData: any) {
-        const output = new ResponseData
-        try {
-            const ports = await this.enquiryHeaderService.getAllPorts()
-            output.data = ports;
-        } catch (error) {
-            output.status = false;
-            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
-                output.message = error.message;
-            } else {
-                output.message = 'Internal Server Error';
-            }
-        }
-        return output;
-    }
+
 }
