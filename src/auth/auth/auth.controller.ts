@@ -1,3 +1,5 @@
+import { jwtConstants } from './constants';
+import { UserService } from './../../masters/services/user.service';
 import { BadRequestException, Body, Controller, Get, Post, Req, UnauthorizedException } from '@nestjs/common';
 import { ResponseData } from '../../common/response-data';
 import { AuthService } from './auth.service';
@@ -7,13 +9,18 @@ import { ApiBody, ApiCreatedResponse, ApiOperation, ApiTags } from '@nestjs/swag
 import { JwtStrategy } from './jwt.strategy';
 import { JwtService } from '@nestjs/jwt';
 import { UserData } from 'src/common/decorators/user.decorator';
+import { ConfigService } from '@nestjs/config';
+import { EmailService } from 'src/email/email.service';
 
 @Controller('auth')
 @ApiTags('Auth')
 export class AuthController {
     constructor(
         private authService: AuthService,
-        private readonly jwtService: JwtService
+        private readonly jwtService: JwtService,
+        private userService: UserService,
+        private emailService: EmailService,
+        private configService: ConfigService
     ) { }
 
     @ApiOperation({ summary: 'Login' })
@@ -57,9 +64,6 @@ export class AuthController {
     //     return output;
     // }
 
-
-
-
     @Post('login')
     async login(@Body() loginData: LoginRequest) {
         let output = new ResponseData();
@@ -83,6 +87,56 @@ export class AuthController {
             output.data = {
                 user: await this.authService.getUser(user.UserMasterSid),
                 token: await this.jwtService.sign({ id: user.UserMasterSid })
+            };
+
+        } catch (error) {
+            console.error("Login error:", error);
+
+            output.status = false;
+            output.message = error.message || 'Internal Server Error';
+        }
+        return output;
+    }
+
+
+    @ApiOperation({ summary: 'Forgot Password and send a reset password link to the user email' })
+    @ApiCreatedResponse({
+        description: 'User data',
+        type: ResponseData
+    })
+    @Post('forgot-password')
+    async forgotPassword(@Body() loginData: any) {
+        console.log(loginData)
+        let output = new ResponseData();
+        try {
+            if (!loginData.email) {
+                throw new BadRequestException('Email are required.');
+            }
+
+            const user: any = await this.userService.findUserById({ UserEmail: loginData.email.email });
+            const token = this.jwtService.sign({
+                userId: user.id,
+                secret: jwtConstants.secret, expires: '1hr'
+            })
+
+            const resetPasswordLink = `${this.configService.get('WEB_URL')}reset-password?token=${token}`
+
+            const emailSent = await this.emailService.sendForgotPasswordMail({
+                email: user.email,
+                id: user.id,
+                name: `${user.firstName} ${user.lastName}`,
+                link: resetPasswordLink
+            })
+
+            if (!emailSent) {
+                throw 'Failed to send password reset email'
+            }
+
+            output.status = true;
+            output.message = 'Password reset email sent successful';
+            output.data = {
+                email: user.email,
+                resetLink: resetPasswordLink
             };
 
         } catch (error) {

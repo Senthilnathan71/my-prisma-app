@@ -5,10 +5,14 @@ import { DatabaseModule } from './database/database.module';
 import { MastersModule } from './masters/masters.module';
 import { AuthModule } from './auth/auth.module';
 import { SalesModule } from './sales/sales.module';
+import { ConfigModule } from '@nestjs/config';
+import { EmailModule } from './email/email.module';
 
 @Module({
-  imports: [DatabaseModule, MastersModule, AuthModule, SalesModule],
+  imports: [
+    ConfigModule.forRoot({ isGlobal: true }),
+    DatabaseModule, MastersModule, AuthModule, SalesModule],
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule {}
+export class AppModule { }
