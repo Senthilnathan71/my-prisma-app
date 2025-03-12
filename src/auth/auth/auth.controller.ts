@@ -122,16 +122,16 @@ export class AuthController {
 
             const resetPasswordLink = `${this.configService.get('WEB_URL')}reset-password?token=${token}`
 
-            const emailSent = await this.emailService.sendForgotPasswordMail({
-                email: user.email,
-                id: user.id,
-                name: `${user.firstName} ${user.lastName}`,
-                link: resetPasswordLink
-            })
+            // const emailSent = await this.emailService.sendForgotPasswordMail({
+            //     email: user.email,
+            //     id: user.id,
+            //     name: `${user.firstName} ${user.lastName}`,
+            //     link: resetPasswordLink
+            // })
 
-            if (!emailSent) {
-                throw 'Failed to send password reset email'
-            }
+            // if (!emailSent) {
+            //     throw 'Failed to send password reset email'
+            // }
 
             output.status = true;
             output.message = 'Password reset email sent successful';
