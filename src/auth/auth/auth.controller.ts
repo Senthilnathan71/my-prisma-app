@@ -197,4 +197,9 @@ export class AuthController {
     async generateHashPassword() {
         return encodePassword('admin@123')
     }
+
+    @Get('TestEmail')
+    async TestEmail() {
+        return this.emailService.sendEmail('gowthamkpy@gmail.com',"TestMail","TestEmail")
+    }
 }
