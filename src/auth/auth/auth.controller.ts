@@ -114,7 +114,7 @@ export class AuthController {
                 throw new BadRequestException('Email are required.');
             }
 
-            const user: any = await this.userService.findUserById({ UserEmail: loginData.email.email });
+            const user: any = await this.userService.findUserById({ UserEmail: loginData.email });
             const token = this.jwtService.sign({
                 userId: user.id,
                 secret: jwtConstants.secret, expires: '1hr'
@@ -122,16 +122,16 @@ export class AuthController {
 
             const resetPasswordLink = `${this.configService.get('WEB_URL')}reset-password?token=${token}`
 
-            // const emailSent = await this.emailService.sendForgotPasswordMail({
-            //     email: user.email,
-            //     id: user.id,
-            //     name: `${user.firstName} ${user.lastName}`,
-            //     link: resetPasswordLink
-            // })
+            const emailSent = await this.emailService.sendForgotPasswordMail({
+                email: user.userEmail,
+                id: user.UserMasterSid,
+                name: `${user.userName}`,
+                link: resetPasswordLink
+            })
 
-            // if (!emailSent) {
-            //     throw 'Failed to send password reset email'
-            // }
+            if (!emailSent) {
+                throw 'Failed to send password reset email'
+            }
 
             output.status = true;
             output.message = 'Password reset email sent successful';
@@ -198,8 +198,8 @@ export class AuthController {
         return encodePassword('admin@123')
     }
 
-    @Get('TestEmail')
-    async TestEmail() {
-        return this.emailService.sendEmail('gowthamkpy@gmail.com',"TestMail","TestEmail")
-    }
+    // @Get('TestEmail')
+    // async TestEmail() {
+    //     return this.emailService.sendEmail('gowthamkpy@gmail.com',"TestMail","TestEmail")
+    // }
 }
