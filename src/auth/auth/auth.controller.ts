@@ -1,6 +1,6 @@
 import { jwtConstants } from './constants';
 import { UserService } from './../../masters/services/user.service';
-import { BadRequestException, Body, Controller, Get, Post, Req, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, HttpException, Patch, Post, Req, UnauthorizedException } from '@nestjs/common';
 import { ResponseData } from '../../common/response-data';
 import { AuthService } from './auth.service';
 import { checkPassword, encodePassword } from 'src/common/helper';
@@ -11,6 +11,7 @@ import { JwtService } from '@nestjs/jwt';
 import { UserData } from 'src/common/decorators/user.decorator';
 import { ConfigService } from '@nestjs/config';
 import { EmailService } from 'src/email/email.service';
+import { TokenPayload } from 'src/common/decorators/token-payload.decorator';
 
 @Controller('auth')
 @ApiTags('Auth')
@@ -142,6 +143,49 @@ export class AuthController {
         } catch (error) {
             console.error("Login error:", error);
 
+            output.status = false;
+            output.message = error.message || 'Internal Server Error';
+        }
+        return output;
+    }
+
+
+
+    @ApiOperation({ summary: 'Reset user password by id' })
+    @ApiCreatedResponse({
+        description: 'User data',
+        type: ResponseData
+    })
+    @Patch('reset-password')
+    async resetPassword(@Body() passwordData: any, @TokenPayload() tokenPayload) {
+        let output = new ResponseData();
+        try {
+            if (!tokenPayload) {
+                throw new UnauthorizedException('No token provided');
+            }
+
+            const user: any = await this.userService.getUserById(tokenPayload.id);
+
+            if (passwordData.confirmPassword !== passwordData.password) {
+                throw new BadRequestException('Confirm Password does not match')
+            }
+
+            const newPassword = passwordData.password
+
+            const result = await this.userService.updatePassword(
+                tokenPayload.userId,
+                newPassword
+            )
+
+            if (result instanceof HttpException) {
+                throw result
+            }
+
+            output.status = true;
+            output.message = 'Password update Successfully';
+            output.data = result
+
+        } catch (error) {
             output.status = false;
             output.message = error.message || 'Internal Server Error';
         }

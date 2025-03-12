@@ -1,4 +1,5 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, InternalServerErrorException } from '@nestjs/common';
+import { encodePassword } from 'src/common/helper';
 import { DatabaseService } from 'src/database/database.service';
 
 @Injectable()
@@ -81,6 +82,34 @@ export class UserService {
             return salesPerson;
         } catch (error) {
             console.log("UserServiceError", error);
+        }
+    }
+
+
+    async updatePassword(userId: number, password: string) {
+        try {
+            const data: any = {}
+            if (!userId) return new BadRequestException('User Id is required')
+
+            const userExists: any = await this._db.userMaster.findUnique({
+                where: { UserMasterSid: userId }
+            })
+
+            if (!userExists) return new BadRequestException('User not found')
+
+            if (password !== '*******') data.userPassword = await encodePassword(password)
+
+            await this._db.userMaster.update({
+                where: { UserMasterSid: userId },
+                data: data
+            })
+
+            delete userExists.userPassword
+
+            return userExists
+
+        } catch (error) {
+            throw new InternalServerErrorException("UpdatePassword error: Something went wrong.")
         }
     }
 }
