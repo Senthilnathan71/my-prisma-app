@@ -114,13 +114,13 @@ export class AuthController {
                 throw new BadRequestException('Email are required.');
             }
 
-            const user: any = await this.userService.findUserById({ UserEmail: loginData.email });
+            const user: any = await this.userService.findUserById({ UserEmail: loginData.email.email });
             const token = this.jwtService.sign({
                 userId: user.id,
                 secret: jwtConstants.secret, expires: '1hr'
             })
 
-            const resetPasswordLink = `${this.configService.get('WEB_URL')}reset-password?token=${token}`
+            const resetPasswordLink = `${this.configService.get('WEB_URL')}auth/reset-password?token=${token}`
 
             const emailSent = await this.emailService.sendForgotPasswordMail({
                 email: user.userEmail,
@@ -159,6 +159,7 @@ export class AuthController {
     @Patch('reset-password')
     async resetPassword(@Body() passwordData: any, @TokenPayload() tokenPayload) {
         let output = new ResponseData();
+        console.log(tokenPayload)
         try {
             if (!tokenPayload) {
                 throw new UnauthorizedException('No token provided');
@@ -173,7 +174,7 @@ export class AuthController {
             const newPassword = passwordData.password
 
             const result = await this.userService.updatePassword(
-                tokenPayload.userId,
+                tokenPayload.id,
                 newPassword
             )
 
