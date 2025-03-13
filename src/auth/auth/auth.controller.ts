@@ -125,8 +125,22 @@ export class AuthController {
             const emailSent = await this.emailService.sendForgotPasswordMail({
                 email: user.userEmail,
                 id: user.UserMasterSid,
-                name: `${user.userName}`,
-                link: resetPasswordLink
+                subject: `Hello ${user.userName}, Reset Your Password for CRM`,
+                html: `
+                    <p>Hello <strong>${user.userName}</strong>,</p>
+                
+                    <p>We received a request to reset the password for your <span style="color: #2e477c;">CRM</span> account. You can reset your password by clicking the link below:</p>
+                
+                    <p><a href="${resetPasswordLink}" style="color: #FD8024;">Reset Password</a></p>
+                
+                    <p>Please note that this link will expire in 1 hour. If you did not request a password reset, please ignore this email or contact our support team.</p>
+                
+                    <br />
+                
+                    <p>Thank you,</p>
+                
+                    <p>The <span style="color: #2e477c;">CRM</span> Team</p>
+                `
             })
 
             if (!emailSent) {

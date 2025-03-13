@@ -1,6 +1,6 @@
+
 import { HttpException, HttpStatus, Injectable } from "@nestjs/common";
 import * as nodemailer from 'nodemailer'
-import nodemailerHbs from 'nodemailer-express-handlebars'; // Correct import
 @Injectable()
 
 export class EmailService {
@@ -25,18 +25,7 @@ export class EmailService {
             logger: true, // Log everything
         });
 
-        const hbsConfig = {
-            viewEngine: {
-                extName: '.hbs',
-                partialsDir: 'src/email/templates/',
-                layoutsDir: 'src/email/templates/',
-                defaultLayout: '',
-            },
-            viewPath: 'src/email/templates/',
-            extName: '.hbs',
-        };
 
-        this.transporter.use('compile', nodemailerHbs(hbsConfig)); // Use the correct function
     }
 
     async sendForgotPasswordMail(data: any): Promise<boolean> {
@@ -44,9 +33,8 @@ export class EmailService {
             const mailOptions = {
                 from: '"Dofi-Infosys" <noreply@dofi.co>',
                 to: data.email,
-                subject: `Hello ${data.name}, Reset Your Password for CRM`,
-                template: 'forgot-password',
-                context: { name: data.name, resetLink: data.link },
+                subject: data.subject,
+                html: data.html
             };
 
             const info = await this.transporter.sendMail(mailOptions);
