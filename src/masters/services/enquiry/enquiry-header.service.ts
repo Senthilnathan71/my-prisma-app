@@ -70,9 +70,9 @@ export class EnquiryHeaderService {
                         EnquiryRouteSid: enquiryRoute.EnquiryRouteSid, // Correctly linked route ID
                         CargoType: cargo.cargoType,
                         ProductName: cargo.product,
-                        GrossWeight: new Prisma.Decimal(cargo.Weight),  // Convert to Decimal
-                        Volume: new Prisma.Decimal(cargo.cbm),  // Convert to Decimal
-                        Qty: new Prisma.Decimal(cargo.Qty),  // Convert to Decimal
+                        GrossWeight: Number(cargo.Weight),  // Convert to Decimal
+                        Volume: Number(cargo.cbm),  // Convert to Decimal
+                        Qty: Number(cargo.Qty),  // Convert to Decimal
                         ContainerType: cargo.contentType,
                         createdBy: user['userEmail']
                     }))

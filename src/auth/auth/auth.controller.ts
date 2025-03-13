@@ -116,7 +116,7 @@ export class AuthController {
 
             const user: any = await this.userService.findUserById({ UserEmail: loginData.email.email });
             const token = this.jwtService.sign({
-                userId: user.id,
+                userId: user.UserMasterSid,
                 secret: jwtConstants.secret, expires: '1hr'
             })
 
@@ -179,7 +179,7 @@ export class AuthController {
                 throw new UnauthorizedException('No token provided');
             }
 
-            const user: any = await this.userService.getUserById(tokenPayload.id);
+            const user: any = await this.userService.getUserById(tokenPayload.userId);
 
             if (passwordData.confirmPassword !== passwordData.password) {
                 throw new BadRequestException('Confirm Password does not match')
@@ -188,7 +188,7 @@ export class AuthController {
             const newPassword = passwordData.password
 
             const result = await this.userService.updatePassword(
-                tokenPayload.id,
+                tokenPayload.userId,
                 newPassword
             )
 
