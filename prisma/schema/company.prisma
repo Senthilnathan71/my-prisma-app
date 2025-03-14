@@ -746,9 +746,9 @@ model QuoteCarrier {
     CarrierName      String    @db.VarChar(100)
     CompanyMasterSid Int
     BranchMasterSid  Int
-    ApprovalStatus   String    @default("A") @db.Char(1)
-    ApprovedBy       String    @db.VarChar(20)
-    Remarks          String    @db.VarChar(100)
+    ApprovalStatus   String?   @default("A") @db.Char(1)
+    ApprovedBy       String?   @db.VarChar(20)
+    Remarks          String?   @db.VarChar(100)
     createdOn        DateTime  @default(now()) @db.Timestamptz(6)
     updatedOn        DateTime? @updatedAt @db.Timestamptz(6)
     deletedAt        DateTime?

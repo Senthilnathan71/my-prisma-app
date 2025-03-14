@@ -1,0 +1,4 @@
+-- AlterTable
+ALTER TABLE "QuoteCarrier" ALTER COLUMN "ApprovalStatus" DROP NOT NULL,
+ALTER COLUMN "ApprovedBy" DROP NOT NULL,
+ALTER COLUMN "Remarks" DROP NOT NULL;
