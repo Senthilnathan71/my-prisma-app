@@ -110,6 +110,9 @@ export class EnquiryHeaderService {
                     ShipmentExpectedDate: true,
                     ShipmentType: true,
                     status: true
+                },
+                orderBy: {
+                    EnquiryHeaderSid: 'desc'  // Sorting by 'EnquiryHeaderSid' in descending order
                 }
             });
             return enquiries;

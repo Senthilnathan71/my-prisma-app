@@ -17,6 +17,9 @@ export class PrecustomerService {
                             preCustomerMeeting: true
                         }
                     }
+                },
+                orderBy: {
+                    CustomerMasterSid: 'desc'  // Sorting by 'CustomerMasterSid' in descending order
                 }
             });
             return customer;
@@ -31,6 +34,9 @@ export class PrecustomerService {
                 where: {
                     CompanyMasterSid: user.CompanyMasterSid,
                     BranchMasterSid: user.BranchMasterSid,
+                },
+                orderBy: {
+                    PreCustomerMasterSid: 'desc'  
                 }
             });
             return customer;

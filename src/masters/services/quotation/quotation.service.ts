@@ -113,6 +113,9 @@ export class QuotationService {
                     CustomerAddress: true,
                     QuoteDate: true,
                     status: true
+                },
+                orderBy:{
+                    QuoteHeaderSid : 'desc'
                 }
             });
             return quotations;
