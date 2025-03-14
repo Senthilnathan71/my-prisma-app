@@ -658,7 +658,7 @@ model QuoteHeader {
     CompanyMasterSid    Int
     BranchMasterSid     Int
     EnquirySid          Int?
-    DepartmentMasterSid Int
+    DepartmentMasterSid Int?
     CustomerMasterSid   Int
     CustomerName        String    @db.VarChar(100)
     CustomerAddress     String    @db.VarChar(300)
@@ -692,7 +692,7 @@ model QuoteHeader {
     companyMaster    CompanyMaster    @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
     branchMaster     BranchMaster     @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
     enquiryHeader    EnquiryHeader?   @relation(fields: [EnquirySid], references: [EnquiryHeaderSid])
-    departmentMaster DepartmentMaster @relation(fields: [DepartmentMasterSid], references: [DepartmentMasterSid])
+    departmentMaster DepartmentMaster? @relation(fields: [DepartmentMasterSid], references: [DepartmentMasterSid])
     customerMaster   CustomerMaster   @relation(fields: [CustomerMasterSid], references: [CustomerMasterSid])
 
     quoteRoute   QuoteRoute[]

@@ -25,7 +25,7 @@ export class QuotationService {
                 const quoteDate = payload.quoteDate ? new Date(payload.quoteDate) : new Date();
                 const quoteHeaderPayload: any = {
                     CustomerName: payload.CustomerName,
-                    DepartmentMasterSid: Number(payload.DepartmentMasterSid),
+                    // DepartmentMasterSid: Number(payload.DepartmentMasterSid),
                     CustomerMasterSid: Number(payload.CustomerMasterSid),
                     QuoteDate: quoteDate,
                     CustomerAddress: payload.CustomerAddress,
@@ -49,7 +49,7 @@ export class QuotationService {
                                 POLSid: Number(route.POL),
                                 PODSid: Number(route.POD),
                                 FDPSid: Number(route.FPOD),
-                                DepartmentMasterSid: quoteHeader.DepartmentMasterSid,
+                                DepartmentMasterSid: Number(route.DepartmentMasterSid),
                                 CompanyMasterSid: quoteHeader.CompanyMasterSid,
                                 BranchMasterSid: quoteHeader.BranchMasterSid,
                                 QuoteHeaderSid: quoteHeader.QuoteHeaderSid,
@@ -197,7 +197,7 @@ export class QuotationService {
                             expdate: new Date(route.expDate),
                             twentyft: Number(route.twentyft) || null,
                             fortyft: Number(route.fortyft) || null,
-                            DepartmentMasterSid: updatedQuoteHeader.DepartmentMasterSid,
+                            DepartmentMasterSid: Number(route.DepartmentMasterSid),
                             CompanyMasterSid: updatedQuoteHeader.CompanyMasterSid,
                             BranchMasterSid: updatedQuoteHeader.BranchMasterSid,
                             QuoteHeaderSid: QuoteHeaderSid,
