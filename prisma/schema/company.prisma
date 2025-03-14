@@ -841,16 +841,16 @@ model EnquiryProduct {
 }
 
 model ContainerMaster {
-    ContainerMasterSid  Int       @id @default(autoincrement()) @map("ContainerMasterSid")
-    CompanyMasterSid    Int
-    ContainerMasterName String    @db.VarChar(100)
-    ContainerMasterCode String    @db.VarChar(3)
-    createdOn           DateTime  @default(now()) @db.Timestamptz(6)
-    updatedOn           DateTime? @updatedAt @db.Timestamptz(6)
-    deletedAt           DateTime?
-    createdBy           String    @db.VarChar(100)
-    updatedBy           String?   @db.VarChar(100)
-    status              String?   @default("A") @db.Char(1)
+    ContainerMasterSid Int       @id @default(autoincrement()) @map("ContainerMasterSid")
+    CompanyMasterSid   Int
+    ContainerName      String    @db.VarChar(100)
+    ContainerCode      String    @db.VarChar(10)
+    createdOn          DateTime  @default(now()) @db.Timestamptz(6)
+    updatedOn          DateTime? @updatedAt @db.Timestamptz(6)
+    deletedAt          DateTime?
+    createdBy          String    @db.VarChar(100)
+    updatedBy          String?   @db.VarChar(100)
+    status             String?   @default("A") @db.Char(1)
 
     companyMaster CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
 }
