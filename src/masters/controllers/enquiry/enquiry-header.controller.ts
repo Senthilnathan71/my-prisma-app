@@ -134,5 +134,22 @@ export class EnquiryHeaderController {
     }
 
 
+    @Get('container-type')
+    async getAllContainers(@UserData() UserData: any) {
+        const output = new ResponseData
+        try {
+            const containerType = await this.enquiryHeaderService.getAllContainerTypes()
+            output.data = containerType;
+        } catch (error) {
+            output.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                output.message = error.message;
+            } else {
+                output.message = 'Internal Server Error';
+            }
+        }
+        return output;
+    }
+
 
 }

@@ -299,6 +299,14 @@ export class EnquiryHeaderService {
     }
 
 
+    async getAllContainerTypes() {
+        try {
+            const container = await this._db.containerMaster.findMany({});
+            return container;
+        } catch (error) {
+            console.log("cutomerError", error)
+        }
+    }
 
 
 }
