@@ -115,6 +115,9 @@ export class AuthController {
             }
 
             const user: any = await this.userService.findUserById({ UserEmail: loginData.email.email });
+            if(!user){
+                throw new BadRequestException('The email address provided is not registered.');
+            }
             const token = this.jwtService.sign({
                 userId: user.UserMasterSid,
                 secret: jwtConstants.secret, expires: '1hr'
