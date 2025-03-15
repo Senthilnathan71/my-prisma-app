@@ -115,7 +115,7 @@ export class AuthController {
             }
 
             const user: any = await this.userService.findUserById({ UserEmail: loginData.email.email });
-            if(!user){
+            if (!user) {
                 throw new BadRequestException('The email address provided is not registered.');
             }
             const token = this.jwtService.sign({
@@ -123,7 +123,8 @@ export class AuthController {
                 secret: jwtConstants.secret, expires: '1hr'
             })
 
-            const resetPasswordLink = `${this.configService.get('WEB_URL')}auth/reset-password?token=${token}`
+            // const resetPasswordLink = `${this.configService.get('WEB_URL')}auth/reset-password?token=${token}`
+            const resetPasswordLink = `https://app.dofi.co/auth/reset-password?token=${token}`
 
             const emailSent = await this.emailService.sendForgotPasswordMail({
                 email: user.userEmail,
