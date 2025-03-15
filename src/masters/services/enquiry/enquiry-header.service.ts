@@ -17,7 +17,7 @@ export class EnquiryHeaderService {
                 const dateString = moment().format('YYYYMMDD')
                 const count = await this._db.enquiryHeader.count({
                     where: {
-                        CustomerName: {
+                        EnquiryNumber: {
                             contains: dateString
                         }
                     }

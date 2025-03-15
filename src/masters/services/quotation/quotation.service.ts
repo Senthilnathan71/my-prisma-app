@@ -15,7 +15,7 @@ export class QuotationService {
                 const dateString = moment().format('YYYYMMDD')
                 const count = await this._db.quoteHeader.count({
                     where: {
-                        CustomerName: {
+                        QuoteNumber: {
                             contains: dateString
                         }
                     }
