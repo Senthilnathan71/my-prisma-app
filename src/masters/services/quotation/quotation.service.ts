@@ -12,20 +12,16 @@ export class QuotationService {
     async createQuotation(payload, user) {
         try {
             return await this._db.$transaction(async (prisma) => {
-                const dateString = moment().format('YYYYMMDD')
+                const dateString = moment().format('YYYYMMDD');
                 const count = await this._db.quoteHeader.count({
-                    where: {
-                        QuoteNumber: {
-                            contains: dateString
-                        }
-                    }
-                })
-                const quoteNumber = `quotation-${dateString}-${(count + 1).toString().padStart(3, '0')}`
-                // Step 1: Create Enquiry Header
+                    where: { QuoteNumber: { contains: dateString } }
+                });
+                const quoteNumber = `quotation-${dateString}-${(count + 1).toString().padStart(3, '0')}`;
+
+                // Step 1: Create Quote Header
                 const quoteDate = payload.quoteDate ? new Date(payload.quoteDate) : new Date();
                 const quoteHeaderPayload: any = {
                     CustomerName: payload.CustomerName,
-                    // DepartmentMasterSid: Number(payload.DepartmentMasterSid),
                     CustomerMasterSid: Number(payload.CustomerMasterSid),
                     QuoteDate: quoteDate,
                     CustomerAddress: payload.CustomerAddress,
@@ -36,14 +32,12 @@ export class QuotationService {
                     createdBy: user['userEmail'],
                 };
 
-                const quoteHeader = await prisma.quoteHeader.create({
-                    data: quoteHeaderPayload
-                });
+                const quoteHeader = await prisma.quoteHeader.create({ data: quoteHeaderPayload });
 
-                // Step 2: Create Quote Routes One by One (to get QuoteRouteSid)
+                // Step 2: Create Quote Routes & Quote Carriers
                 const quoteRoutes = await Promise.all(
                     payload.routes.map(async (route) => {
-                        return await prisma.quoteRoute.create({
+                        const createdQuoteRoute = await prisma.quoteRoute.create({
                             data: {
                                 PORSid: Number(route.POR),
                                 POLSid: Number(route.POL),
@@ -54,34 +48,51 @@ export class QuotationService {
                                 BranchMasterSid: quoteHeader.BranchMasterSid,
                                 QuoteHeaderSid: quoteHeader.QuoteHeaderSid,
                                 CarrierName: route.Carrier,
+                                CarrierMasterSid: route.CarrierMasterSid,
+                                segmentType: route.segmentType,
                                 effDate: new Date(route.effDate),
                                 expdate: new Date(route.expDate),
                                 twentyft: Number(route.twentyft) || null,
                                 fortyft: Number(route.fortyft) || null,
-                                createdBy: user['userEmail']
-                            }
+                                createdBy: user['userEmail'],
+                            },
                         });
+
+                        const createdQuoteCarrier = await prisma.quoteCarrier.create({
+                            data: {
+                                QuoteRouteSid: createdQuoteRoute.QuoteRouteSid,
+                                QuoteHeaderSid: quoteHeader.QuoteHeaderSid,
+                                CarrierMasterSid: route.CarrierMasterSid,
+                                CarrierName: route.Carrier,
+                                CompanyMasterSid: quoteHeader.CompanyMasterSid,
+                                BranchMasterSid: quoteHeader.BranchMasterSid,
+                                ApprovalStatus: "A",
+                                createdBy: user['userEmail'],
+                            },
+                        });
+
+                        return { createdQuoteRoute, createdQuoteCarrier };
                     })
                 );
 
-                // Step 3: Create Quote Charge (Mapping Charge to Routes)
+                // Step 3: Create Quote Charges
                 const quoteCargoPayload = quoteRoutes.flatMap((quoteRoute, index) =>
                     payload.routes[index].cargo.map(cargo => ({
                         CompanyMasterSid: quoteHeader.CompanyMasterSid,
                         BranchMasterSid: quoteHeader.BranchMasterSid,
                         QuoteHeaderSid: quoteHeader.QuoteHeaderSid,
-                        QuoteRouteSid: quoteRoute.QuoteRouteSid, // Correctly linked route ID
+                        QuoteRouteSid: quoteRoute.createdQuoteRoute.QuoteRouteSid, // Fixed reference
                         CustomerMasterSid: quoteHeader.CustomerMasterSid,
                         ChargeDisplayName: cargo.charge,
                         CurrencyMasterSid: Number(cargo.currency),
                         UnitMasterSid: Number(cargo.unit),
-                        twentyft: cargo.twentyft,  // Convert to Decimal
-                        fortyft: cargo.fortyft,  // Convert to Decimal
+                        twentyft: cargo.twentyft,
+                        fortyft: cargo.fortyft,
                         createdBy: user['userEmail']
                     }))
                 );
 
-                // Step 4: Bulk Insert Cargo Data
+                // Step 4: Bulk Insert Quote Charges
                 const quoteCharge = await prisma.quoteCharge.createMany({
                     data: quoteCargoPayload
                 });
@@ -103,6 +114,7 @@ export class QuotationService {
 
 
 
+
     async getAllQuotations() {
         try {
             const quotations = await this._db.quoteHeader.findMany({
@@ -114,8 +126,8 @@ export class QuotationService {
                     QuoteDate: true,
                     status: true
                 },
-                orderBy:{
-                    QuoteHeaderSid : 'desc'
+                orderBy: {
+                    QuoteHeaderSid: 'desc'
                 }
             });
             return quotations;
@@ -177,6 +189,7 @@ export class QuotationService {
                             PODSid: Number(route.POD),
                             FDPSid: Number(route.FPOD),
                             CarrierName: route.Carrier,
+                            CarrierMasterSid: route.CarrierMasterSid,
                             effDate: new Date(route.effDate),
                             expdate: new Date(route.expDate),
                             twentyft: Number(route.twentyft) || null,
@@ -193,6 +206,7 @@ export class QuotationService {
                             PODSid: Number(route.POD),
                             FDPSid: Number(route.FPOD),
                             CarrierName: route.Carrier,
+                            CarrierMasterSid: route.CarrierMasterSid,
                             effDate: new Date(route.effDate),
                             expdate: new Date(route.expDate),
                             twentyft: Number(route.twentyft) || null,
@@ -301,5 +315,24 @@ export class QuotationService {
             throw new Error("Failed to fetch master data.");
         }
     }
+
+
+
+    async getAllCustomer() {
+        try {
+            const customers = await this._db.customerMaster.findMany();
+
+            const filteredCustomers = customers.filter(customer =>
+                customer.CompanyType &&
+                Object.values(customer.CompanyType).includes("isTrue")
+            );
+
+            return filteredCustomers;
+        } catch (error) {
+            console.log("customerError", error);
+        }
+    }
+
+
 
 }

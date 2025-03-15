@@ -116,4 +116,25 @@ export class QuotationController {
         return output;
     }
 
+
+    @Get('carrier')
+    async getAllCustomer(@UserData() UserData: any) {
+        const output = new ResponseData
+        try {
+            const customers = await this.quotationService.getAllCustomer()
+            console.log("customer", customers);
+            output.data = customers;
+        } catch (error) {
+            console.log("controler error::", error);
+            output.status = false;
+            // Handle error message based on the type of error
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                output.message = error.message;
+            } else {
+                output.message = 'Internal Server Error';
+            }
+        }
+        return output;
+    }
+
 }

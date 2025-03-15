@@ -559,7 +559,7 @@ model CustomerMaster {
     PreCustomerAddress1  String    @db.VarChar(300)
     PreCustomerAddress2  String?   @db.VarChar(300)
     Registered           String?   @db.VarChar(20)
-    CompanyType          String?   @db.VarChar(20)
+    CompanyType          Json?
     PanVatNo             String?   @db.VarChar(20)
     PanName              String?   @db.VarChar(100)
     CINNo                String?   @db.VarChar(20)
@@ -583,6 +583,7 @@ model CustomerMaster {
     countryMaster     CountryMaster     @relation(fields: [CountryMasterSid], references: [CountryMasterSid])
     quoteHeader       QuoteHeader[]
     quoteCharge       QuoteCharge[]
+    quoteRoute        QuoteRoute[]
 }
 
 model PackageTypeMaster {
@@ -689,11 +690,11 @@ model QuoteHeader {
     updatedBy           String?   @db.VarChar(100)
     status              String?   @default("A") @db.Char(1)
 
-    companyMaster    CompanyMaster    @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
-    branchMaster     BranchMaster     @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
-    enquiryHeader    EnquiryHeader?   @relation(fields: [EnquirySid], references: [EnquiryHeaderSid])
+    companyMaster    CompanyMaster     @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+    branchMaster     BranchMaster      @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
+    enquiryHeader    EnquiryHeader?    @relation(fields: [EnquirySid], references: [EnquiryHeaderSid])
     departmentMaster DepartmentMaster? @relation(fields: [DepartmentMasterSid], references: [DepartmentMasterSid])
-    customerMaster   CustomerMaster   @relation(fields: [CustomerMasterSid], references: [CustomerMasterSid])
+    customerMaster   CustomerMaster    @relation(fields: [CustomerMasterSid], references: [CustomerMasterSid])
 
     quoteRoute   QuoteRoute[]
     quoteCarrier QuoteCarrier[]
@@ -715,10 +716,12 @@ model QuoteRoute {
     fortyft             Int?
     effDate             DateTime?
     expdate             DateTime?
+    segmentType         String?   @db.VarChar(20)
     Remarks             String?   @db.VarChar(100)
     CompanyMasterSid    Int
     BranchMasterSid     Int
     CarrierName         String    @db.VarChar(100)
+    CarrierMasterSid    Int?
     IsHaz               String?   @db.Char(1)
     ServiceLevel        String?   @db.VarChar(10)
     TransitDays         Decimal?  @db.Decimal(3, 0)
@@ -733,6 +736,7 @@ model QuoteRoute {
     quoteHeader      QuoteHeader      @relation(fields: [QuoteHeaderSid], references: [QuoteHeaderSid])
     companyMaster    CompanyMaster    @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
     branchMaster     BranchMaster     @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
+    customerMaster   CustomerMaster?  @relation(fields: [CarrierMasterSid], references: [CustomerMasterSid])
 
     quoteCarrier QuoteCarrier[]
     quoteCharge  QuoteCharge[]
