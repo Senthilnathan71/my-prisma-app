@@ -145,8 +145,15 @@ export class QuotationService {
                 },
                 include: {
                     quoteRoute: {
+                        where: {
+                            deletedAt: null
+                        },
                         include: {
-                            quoteCharge: true
+                            quoteCharge: {
+                                where: {
+                                    deletedAt: null
+                                }
+                            }
                         }
                     }
                 }
@@ -300,6 +307,48 @@ export class QuotationService {
         });
     }
 
+
+    async deleteRoute(id: number) {
+        // Check if the quote exists and is not already deleted
+        const existingQuote = await this._db.quoteRoute.findUnique({
+            where: { QuoteRouteSid: id }
+        });
+
+        if (!existingQuote) {
+            throw new NotFoundException(`Quote with ID ${id} not found`);
+        }
+
+        if (existingQuote.deletedAt) {
+            throw new Error(`Quote with ID ${id} is already deleted`);
+        }
+
+        // Perform soft delete by updating deletedAt field
+        return this._db.quoteRoute.update({
+            where: { QuoteRouteSid: id },
+            data: { deletedAt: new Date() }
+        });
+    }
+
+    async deleteCharge(id: number) {
+        // Check if the quote exists and is not already deleted
+        const existingQuote = await this._db.quoteCharge.findUnique({
+            where: { QuoteChargeSid: id }
+        });
+
+        if (!existingQuote) {
+            throw new NotFoundException(`Quote with ID ${id} not found`);
+        }
+
+        if (existingQuote.deletedAt) {
+            throw new Error(`Quote with ID ${id} is already deleted`);
+        }
+
+        // Perform soft delete by updating deletedAt field
+        return this._db.quoteCharge.update({
+            where: { QuoteChargeSid: id },
+            data: { deletedAt: new Date() }
+        });
+    }
 
     async getAllMasters() {
         try {

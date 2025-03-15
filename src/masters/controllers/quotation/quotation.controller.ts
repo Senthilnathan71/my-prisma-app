@@ -98,6 +98,17 @@ export class QuotationController {
     }
 
 
+    @Delete('route/:id')
+    async deleteRoute(@Param('id', ParseIntPipe) id: number) {
+        return this.quotationService.deleteRoute(id);
+    }
+
+    @Delete('charge/:id')
+    async deleteCharge(@Param('id', ParseIntPipe) id: number) {
+        return this.quotationService.deleteCharge(id);
+    }
+
+
 
     @Get('unit-currency-charge')
     async getAllDepartments(@UserData() UserData: any) {
