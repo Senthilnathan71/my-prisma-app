@@ -55,6 +55,8 @@ export class QuotationService {
                                 twentyft: Number(route.twentyft) || null,
                                 fortyft: Number(route.fortyft) || null,
                                 createdBy: user['userEmail'],
+                                cargoType: route.cargoType,
+                                TransitDays: route.transit || null
                             },
                         });
 
@@ -86,8 +88,10 @@ export class QuotationService {
                         ChargeDisplayName: cargo.charge,
                         CurrencyMasterSid: Number(cargo.currency),
                         UnitMasterSid: Number(cargo.unit),
-                        twentyft: cargo.twentyft,
-                        fortyft: cargo.fortyft,
+                        perUnit: cargo.perUnit,
+                        costUnit: cargo.costUnit,
+                        costCurrency: cargo.costCurrency,
+                        costPerUnit: cargo.costPerUnit,
                         createdBy: user['userEmail']
                     }))
                 );
@@ -203,6 +207,8 @@ export class QuotationService {
                             fortyft: Number(route.fortyft) || null,
                             updatedBy: user['userEmail'],
                             updatedOn: new Date(),
+                            cargoType: route.cargoType,
+                            TransitDays: Number(route.transit) || null
                         }
                     });
                 } else {
@@ -218,6 +224,8 @@ export class QuotationService {
                             expdate: new Date(route.expDate),
                             twentyft: Number(route.twentyft) || null,
                             fortyft: Number(route.fortyft) || null,
+                            cargoType: route.cargoType,
+                            TransitDays: Number(route.transit) || null,
                             DepartmentMasterSid: Number(route.DepartmentMasterSid),
                             CompanyMasterSid: updatedQuoteHeader.CompanyMasterSid,
                             BranchMasterSid: updatedQuoteHeader.BranchMasterSid,
@@ -243,8 +251,10 @@ export class QuotationService {
                                     ChargeDisplayName: cargoItem.charge,
                                     CurrencyMasterSid: Number(cargoItem.currency),
                                     UnitMasterSid: Number(cargoItem.unit),
-                                    twentyft: cargoItem.twentyft,  // Convert to Decimal
-                                    fortyft: cargoItem.fortyft,  // Convert to Decimal 
+                                    perUnit: cargoItem.perUnit,
+                                    costUnit: cargoItem.costUnit,
+                                    costCurrency: cargoItem.costCurrency,
+                                    costPerUnit: cargoItem.costPerUnit,
                                     updatedBy: user['userEmail'],
                                     updatedOn: new Date(),
                                 }
@@ -255,8 +265,10 @@ export class QuotationService {
                                     ChargeDisplayName: cargoItem.charge,
                                     CurrencyMasterSid: Number(cargoItem.currency),
                                     UnitMasterSid: Number(cargoItem.unit),
-                                    twentyft: cargoItem.twentyft,  // Convert to Decimal
-                                    fortyft: cargoItem.fortyft,
+                                    perUnit: cargoItem.perUnit,
+                                    costUnit: cargoItem.costUnit,
+                                    costCurrency: cargoItem.costCurrency,
+                                    costPerUnit: cargoItem.costPerUnit,
                                     QuoteHeaderSid: QuoteHeaderSid,
                                     QuoteRouteSid: routeData.QuoteRouteSid, // Link to the correct route
                                     createdBy: user['userEmail'],

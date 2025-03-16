@@ -722,6 +722,7 @@ model QuoteRoute {
     BranchMasterSid     Int
     CarrierName         String    @db.VarChar(100)
     CarrierMasterSid    Int?
+    cargoType           String?   @db.VarChar(100)
     IsHaz               String?   @db.Char(1)
     ServiceLevel        String?   @db.VarChar(10)
     TransitDays         Decimal?  @db.Decimal(3, 0)
@@ -779,8 +780,12 @@ model QuoteCharge {
     CurrencyMasterSid Int
     CostRevenue       String?   @db.VarChar(10)
     ChargeDisplayName String    @db.VarChar(50)
-    twentyft          Int
-    fortyft           Int
+    twentyft          Int?
+    fortyft           Int?
+    perUnit           Int?
+    costUnit          String?   @db.VarChar(10)
+    costCurrency      String?   @db.VarChar(10)
+    costPerUnit       Int?
     UnitMasterSid     Int
     ExchangeRate      Decimal?  @db.Decimal(6, 3)
     Rate              Decimal?  @db.Decimal(15, 3)
