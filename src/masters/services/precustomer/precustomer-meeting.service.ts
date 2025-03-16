@@ -36,7 +36,7 @@ export class PreCustomerMeetingService {
                 meetingNote: params.meetingNote,
                 followUpNote: params.followUpNote,
                 createdBy: user['userEmail'],
-                status: params.status
+                status: params.status || "A"
             };
 
             if (params.PreCustomerMeetingSid) {
