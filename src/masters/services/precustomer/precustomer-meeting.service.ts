@@ -124,7 +124,12 @@ export class PreCustomerMeetingService {
                             connect: { BranchMasterSid: user['userBranchMaster'][0].BranchMasterSid }
                         },
                         preCustomerMaster: {
-                            connect: { PreCustomerMasterSid: params.PreCustomerMasterSid }
+                            connect: {
+                                PreCustomerMasterSid:
+                                    typeof params.PreCustomerMasterSid === 'number' && !isNaN(params.PreCustomerMasterSid)
+                                        ? params.PreCustomerMasterSid
+                                        : params.PreCustomerMeetingid
+                            }
                         }
                     }
                 });

@@ -145,7 +145,7 @@ export class EnquiryHeaderService {
     async updateEnquiry(enquiryHeaderSid: number, payload, user) {
         try {
             // Step 1: Update Enquiry Header
-            const statusUpdate = payload.status === "Active" ? "A" : "IA";
+            const statusUpdate = payload.status === "Active" ? "A" : "S";
             const updatedEnquiryHeader = await this._db.enquiryHeader.update({
                 where: { EnquiryHeaderSid: enquiryHeaderSid },
                 data: {

@@ -5,6 +5,9 @@ export class CreatePreCustomerMeetingDto {
   @IsNumber()
   @IsOptional()
   PreCustomerMeetingSid: number;
+  @IsNumber()
+  @IsOptional()
+  PreCustomerMeetingid: number;
   @IsInt()
   CompanyMasterSid: number;
 
