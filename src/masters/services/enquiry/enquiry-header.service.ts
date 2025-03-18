@@ -103,13 +103,12 @@ export class EnquiryHeaderService {
     async getAllEnquiries() {
         try {
             const enquiries = await this._db.enquiryHeader.findMany({
-                select: {
-                    EnquiryHeaderSid: true,
-                    EnquiryNumber: true,
-                    CustomerName: true,
-                    ShipmentExpectedDate: true,
-                    ShipmentType: true,
-                    status: true
+                include: {
+                    enquiryRoute: {
+                        include: {
+                            enquiryCargo: true
+                        }
+                    }
                 },
                 orderBy: {
                     EnquiryHeaderSid: 'desc'  // Sorting by 'EnquiryHeaderSid' in descending order
@@ -310,6 +309,5 @@ export class EnquiryHeaderService {
             console.log("cutomerError", error)
         }
     }
-
 
 }
