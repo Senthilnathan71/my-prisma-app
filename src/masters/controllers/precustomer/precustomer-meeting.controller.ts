@@ -100,4 +100,25 @@ export class PreCustomerMeetingController {
         }
         return output;
     }
+
+
+
+    @Get('lead/todo')
+    async todoMeetings(@UserData() UserData: any) {
+        const output = new ResponseData
+        try {
+            const todo = await this.preCustomerMeetingService.todoMeetings()
+            output.data = todo;
+        } catch (error) {
+            output.status = false;
+            // Handle error message based on the type of error
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                output.message = error.message;
+            } else {
+                output.message = 'Internal Server Error';
+            }
+        }
+        return output;
+    }
+
 }
