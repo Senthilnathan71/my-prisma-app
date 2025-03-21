@@ -224,6 +224,27 @@ export class PreCustomerMeetingService {
             }
         })
 
+
+
+        result.toMeet = await this._db.preCustomerMeeting.findMany({
+            where: {
+                followUpDate: null
+            },
+            select: {
+                meetingDate: true,
+                preCustomerMaster: {
+                    select: {
+                        preCustomerName: true,
+                    }
+                }
+            },
+            orderBy: {
+                preCustomerMaster: {
+                    preCustomerName: 'desc'
+                }
+            }
+        })
+
         return result;
     }
 
