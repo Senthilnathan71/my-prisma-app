@@ -182,31 +182,6 @@ export class PreCustomerMeetingService {
     async todoMeetings() {
         let result: any = {};
 
-        const startOfToday = new Date();
-        startOfToday.setHours(0, 0, 0, 0);
-
-        const records = await this._db.preCustomerMaster.findMany({
-            where: {
-                createdOn: {
-                    lt: startOfToday, // Fetch records where createdOn is before today
-                },
-            },
-            select: {
-                createdOn: true,
-                preCustomerName: true
-            },
-        });
-
-        // Calculate days since createdOn
-        result.neverMet = records.map(record => ({
-            name: record.preCustomerName,
-            createdOn: record.createdOn,
-            daysAgo: Math.floor((startOfToday.getTime() - new Date(record.createdOn).getTime()) / (1000 * 60 * 60 * 24)), // Convert milliseconds to days
-        }));
-
-
-
-
         result.inActive = await this._db.preCustomerMaster.findMany({
             where: {
                 status: 'S'
@@ -223,8 +198,6 @@ export class PreCustomerMeetingService {
                 }
             }
         })
-
-
 
         result.toMeet = await this._db.preCustomerMeeting.findMany({
             where: {
