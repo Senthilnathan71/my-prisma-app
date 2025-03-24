@@ -104,7 +104,7 @@ model UserMaster {
     userEmail        String             @db.VarChar(50)
     userLogin        String             @db.VarChar(50)
     userPassword     String             @db.VarChar(100)
-    isSalesperson    String             @db.Char(1)
+    isSalesperson    String?            @db.Char(1)
     contactNumber    String?            @db.VarChar(20)
     department       String?            @db.VarChar(20)
     designation      String?            @db.VarChar(20)

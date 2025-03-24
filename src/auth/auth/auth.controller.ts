@@ -12,6 +12,7 @@ import { UserData } from 'src/common/decorators/user.decorator';
 import { ConfigService } from '@nestjs/config';
 import { EmailService } from 'src/email/email.service';
 import { TokenPayload } from 'src/common/decorators/token-payload.decorator';
+import { CreateUserDto } from '../dto/create-user.dto';
 
 @Controller('auth')
 @ApiTags('Auth')
@@ -221,4 +222,29 @@ export class AuthController {
     // async TestEmail() {
     //     return this.emailService.sendEmail('gowthamkpy@gmail.com',"TestMail","TestEmail")
     // }
+
+    @Get('country')
+    async getCountries() {
+        return this.userService.getAllCountries()
+            .then(data => ({ data }))
+            .catch(() => ({ message: "Countries not found" }));
+    }
+
+
+    @Post('signUp')
+    async createUser(@Body() createUserDto: CreateUserDto) {
+        const output = new ResponseData();
+        try {
+            const user = await this.userService.signUp(createUserDto)
+            if (user instanceof HttpException) {
+                throw user
+            }
+            output.status = true;
+            output.message = 'User Created Successfully';
+            output.data = user
+        } catch (error) {
+            output.status = false;
+            output.message = error.message || 'Internal Server Error';
+        }
+    }
 }

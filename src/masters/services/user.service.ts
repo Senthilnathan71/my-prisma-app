@@ -1,19 +1,16 @@
 import { BadRequestException, Injectable, InternalServerErrorException } from '@nestjs/common';
+import { CreateUserDto } from 'src/auth/dto/create-user.dto';
 import { encodePassword } from 'src/common/helper';
 import { DatabaseService } from 'src/database/database.service';
 
 @Injectable()
 export class UserService {
     constructor(
-        // @InjectModel(UserMaster) 
-        // private readonly userModel : typeof UserMaster
         private _db: DatabaseService
 
     ) { }
 
     async findUserById(where: any) {
-        console.log(where)
-        // return this.userModel.findOne({where:where})
         const userData = await this._db.userMaster.findFirst({
             where: {
                 userEmail: where.UserEmail
@@ -24,27 +21,6 @@ export class UserService {
 
     async getUserById(userId: number) {
         try {
-            // const user = await this.userModel.findOne({
-            //     where:{UserMasterSid: userId},
-            //     attributes: {exclude:['UserPassword']},
-            //     include:[
-            //         {
-            //             model: UserBranch,
-            //             include:[
-            //                 {
-            //                     model : BranchMaster,
-            //                     required: true,
-            //                 },
-            //                 {
-            //                     model : CompanyMaster,
-            //                     required : true
-            //                 }
-            //             ]
-            //         }
-            //     ]
-            // });
-
-
             const user = await this._db.userMaster.findUnique({
                 where: {
                     UserMasterSid: userId
@@ -111,5 +87,33 @@ export class UserService {
         } catch (error) {
             throw new InternalServerErrorException("UpdatePassword error: Something went wrong.")
         }
+    }
+
+
+    async signUp(user: CreateUserDto) {
+        try {
+            const createCode = user.userName.toLowerCase().split(' ').join('_')
+            const userPassword = await encodePassword(user.userPassword)
+            const output: any = await this._db.userMaster.create({
+                data: {
+                    userName: user.userName,
+                    userEmail: user.userEmail,
+                    userLogin: user.userEmail,
+                    userPassword: userPassword,
+                    CountryMasterSid: user.CountryMasterSid,
+                    userCode: createCode,
+                    status: "A"
+                }
+            })
+            delete output.userPassword
+            return output
+
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    async getAllCountries() {
+        return this._db.countryMaster.findMany().catch(err => { throw err });
     }
 }
