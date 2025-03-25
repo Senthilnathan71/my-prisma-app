@@ -231,7 +231,7 @@ export class AuthController {
     }
 
 
-    @Post('signUp')
+    @Post('user/create')
     async createUser(@Body() createUserDto: CreateUserDto) {
         const output = new ResponseData();
         try {
@@ -246,5 +246,6 @@ export class AuthController {
             output.status = false;
             output.message = error.message || 'Internal Server Error';
         }
+        return output
     }
 }

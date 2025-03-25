@@ -99,7 +99,7 @@ model BranchMaster {
 }
 
 model UserMaster {
-    userCode         String             @db.Char(3)
+    userCode         String             @db.Char(100)
     userName         String             @db.VarChar(100)
     userEmail        String             @db.VarChar(50)
     userLogin        String             @db.VarChar(50)
