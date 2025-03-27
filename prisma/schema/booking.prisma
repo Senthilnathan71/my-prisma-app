@@ -1,0 +1,48 @@
+model BookingHeader {
+    BookingHeaderSid   Int       @id @default(autoincrement()) @map("BookingHeaderSid")
+    BookingNo          String    @db.VarChar(2)
+    BookingDateTime    DateTime?
+    CompanyMasterSid   Int
+    BranchMasterSid    Int
+    CustomerMasterSid  Int
+    CustomerName       String    @db.VarChar(100)
+    CustomerAddress    String    @db.VarChar(300)
+    SalesmanSid        Int
+    CargoExpectedon    DateTime
+    FreightTerms       String    @db.VarChar(10)
+    POO                String    @db.VarChar(100)
+    POL                String    @db.VarChar(100)
+    POD                String    @db.VarChar(100)
+    FPD                String    @db.VarChar(100)
+    TsPortSid          Int?
+    POLTerminal        String?   @db.VarChar(100)
+    VoyageMasterSid    Int?
+    VesselName         String?   @db.VarChar(100)
+    VoyageNo           String?   @db.VarChar(10)
+    ETD                DateTime?
+    ETA                DateTime?
+    IncoTerms          String?   @db.VarChar(10)
+    BLLocation         Int?
+    ShipperName        String?   @db.VarChar(100)
+    ShipperAddress     String?   @db.VarChar(300)
+    ConsigneeName      String?   @db.VarChar(100)
+    ConsigneeAddress   String?   @db.VarChar(300)
+    ClearanceRequire   String?   @db.Char(1)
+    ShipmentType       String    @db.VarChar(10) //--Nomination/Freehand
+    DestinationAgent   Int?
+    AgentName          String?   @db.VarChar(100)
+    AgentAddress       String?   @db.VarChar(300)
+    HouseNo            String?   @db.VarChar(20)
+    MasterNoSid        Int?
+    QuotationHeaderSid Int?
+    EnquiryHeaderSid   Int?
+    MovementType       String?   @db.VarChar(10)
+    DoValid            DateTime?
+    IsServiceJob       String?   @db.Char(1) //Y/N
+    createdOn          DateTime  @default(now()) @db.Timestamptz(6)
+    updatedOn          DateTime? @updatedAt @db.Timestamptz(6)
+    deletedAt          DateTime?
+    createdBy          String    @db.VarChar(100)
+    updatedBy          String?   @db.VarChar(100)
+    status             String?   @default("A") @db.Char(1)
+}
