@@ -15,10 +15,16 @@ import { QuotationService } from './services/quotation/quotation.service';
 import { QuotationController } from './controllers/quotation/quotation.controller';
 import { PortService } from './services/port/port-master.service';
 import { PortMasterController } from './controllers/port/port-master.controller';
+import { CountryController } from './controllers/country/country.controller';
+import { CountryService } from './services/country/country.service';
+import { StateController } from './controllers/state/state.controller';
+import { StateService } from './services/state/state.service';
+import { SectorController } from './controllers/sector/sector.controller';
+import { SectorService } from './services/sector/sector.service';
 
 @Module({
-    providers: [UserService, PrecustomerService, PreCustomerMeetingService, CityService, EnquiryHeaderService, QuotationService, PortService],
-    controllers: [UserController, PreCustomerMeetingController, PrecustomerController, RegionController, EnquiryHeaderController, QuotationController, PortMasterController],
+    providers: [UserService, PrecustomerService, PreCustomerMeetingService, CityService, EnquiryHeaderService, QuotationService, PortService, CountryService, StateService, SectorService],
+    controllers: [UserController, PreCustomerMeetingController, PrecustomerController, RegionController, EnquiryHeaderController, QuotationController, PortMasterController, CountryController, StateController, SectorController],
     exports: [UserService]
 })
 export class MastersModule { }

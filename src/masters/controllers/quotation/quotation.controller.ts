@@ -9,7 +9,7 @@ import { QuotationService } from "src/masters/services/quotation/quotation.servi
 export class QuotationController {
     constructor(private quotationService: QuotationService) { }
 
-    @Post()
+  /*  @Post()
     async createQuoteHeader(@Body() body: any, @UserData() user: any) {
         let output = new ResponseData
         try {
@@ -147,5 +147,6 @@ export class QuotationController {
         }
         return output;
     }
+    */
 
 }

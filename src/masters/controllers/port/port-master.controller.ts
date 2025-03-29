@@ -28,6 +28,7 @@ export class PortMasterController {
     }
     @Post()
     async createPort(@Body() body: any, @UserData() user: any) {
+        console.log("data", body,user);
         let output = new ResponseData
         try {
             let port = await this.portService.createPort(body, user);
