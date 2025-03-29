@@ -1,48 +1,229 @@
 model BookingHeader {
-    BookingHeaderSid   Int       @id @default(autoincrement()) @map("BookingHeaderSid")
-    BookingNo          String    @db.VarChar(2)
-    BookingDateTime    DateTime?
-    CompanyMasterSid   Int
-    BranchMasterSid    Int
-    CustomerMasterSid  Int
-    CustomerName       String    @db.VarChar(100)
-    CustomerAddress    String    @db.VarChar(300)
-    SalesmanSid        Int
-    CargoExpectedon    DateTime
-    FreightTerms       String    @db.VarChar(10)
-    POO                String    @db.VarChar(100)
-    POL                String    @db.VarChar(100)
-    POD                String    @db.VarChar(100)
-    FPD                String    @db.VarChar(100)
-    TsPortSid          Int?
-    POLTerminal        String?   @db.VarChar(100)
-    VoyageMasterSid    Int?
-    VesselName         String?   @db.VarChar(100)
-    VoyageNo           String?   @db.VarChar(10)
-    ETD                DateTime?
-    ETA                DateTime?
-    IncoTerms          String?   @db.VarChar(10)
-    BLLocation         Int?
-    ShipperName        String?   @db.VarChar(100)
-    ShipperAddress     String?   @db.VarChar(300)
-    ConsigneeName      String?   @db.VarChar(100)
-    ConsigneeAddress   String?   @db.VarChar(300)
-    ClearanceRequire   String?   @db.Char(1)
-    ShipmentType       String    @db.VarChar(10) //--Nomination/Freehand
-    DestinationAgent   Int?
-    AgentName          String?   @db.VarChar(100)
-    AgentAddress       String?   @db.VarChar(300)
-    HouseNo            String?   @db.VarChar(20)
-    MasterNoSid        Int?
-    QuotationHeaderSid Int?
-    EnquiryHeaderSid   Int?
-    MovementType       String?   @db.VarChar(10)
-    DoValid            DateTime?
-    IsServiceJob       String?   @db.Char(1) //Y/N
+    BookingHeaderSid    Int       @id @default(autoincrement()) @map("BookingHeaderSid")
+    BookingNo           String    @db.VarChar(2)
+    BookingDateTime     DateTime?
+    CompanyMasterSid    Int
+    BranchMasterSid     Int
+    DepartmentMasterSid Int
+    CustomerMasterSid   Int
+    CustomerName        String    @db.VarChar(100)
+    CustomerAddress     String    @db.VarChar(300)
+    SalesmanSid         Int
+    CargoExpectedon     DateTime
+    FreightTerms        String    @db.VarChar(10)
+    POO                 String    @db.VarChar(100)
+    POL                 String    @db.VarChar(100)
+    POD                 String    @db.VarChar(100)
+    FPD                 String    @db.VarChar(100)
+    TsPortSid           Int?
+    POLTerminal         String?   @db.VarChar(100)
+    VoyageMasterSid     Int?
+    VesselName          String?   @db.VarChar(100)
+    VoyageNo            String?   @db.VarChar(10)
+    ETD                 DateTime?
+    ETA                 DateTime?
+    IncoTerms           String?   @db.VarChar(10)
+    BLLocation          Int?
+    ShipperName         String?   @db.VarChar(100)
+    ShipperAddress      String?   @db.VarChar(300)
+    ConsigneeName       String?   @db.VarChar(100)
+    ConsigneeAddress    String?   @db.VarChar(300)
+    ClearanceRequire    String?   @db.Char(1)
+    ShipmentType        String    @db.VarChar(10) //--Nomination/Freehand
+    DestinationAgent    Int?
+    AgentName           String?   @db.VarChar(100)
+    AgentAddress        String?   @db.VarChar(300)
+    HouseNo             String?   @db.VarChar(20)
+    MasterNoSid         Int?
+    QuotationHeaderSid  Int?
+    EnquiryHeaderSid    Int?
+    MovementType        String?   @db.VarChar(10)
+    DoValid             DateTime?
+    IsServiceJob        String?   @db.Char(1) //Y/N
+    createdOn           DateTime  @default(now()) @db.Timestamptz(6)
+    updatedOn           DateTime? @updatedAt @db.Timestamptz(6)
+    deletedAt           DateTime?
+    createdBy           String    @db.VarChar(100)
+    updatedBy           String?   @db.VarChar(100)
+    status              String?   @default("A") @db.Char(1)
+
+    companyMaster    CompanyMaster     @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+    branchMaster     BranchMaster      @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
+    departmentMaster DepartmentMaster? @relation(fields: [DepartmentMasterSid], references: [DepartmentMasterSid])
+
+    bookingCargo BookingCargo[]
+}
+
+model BookingCargo {
+    BookingCargoSid  Int           @id @default(autoincrement()) @map("BookingCargoSid")
+    BookingHeaderSid Int
+    CompanyMasterSid Int
+    BranchMasterSid  Int
+    NoOfPackage      Int?
+    FreightAmount    String        @db.VarChar(50)
+    CargoType        String        @db.VarChar(50)
+    WeightUnitSid    Int?
+    GrossWeight      Decimal       @db.Decimal(10, 3)
+    NetWeight        Decimal?      @db.Decimal(10, 3)
+    Volume           Decimal?      @db.Decimal(10, 3)
+    ChargeableWeight Decimal?      @db.Decimal(10, 3)
+    ContainerType    String?       @db.VarChar(50)
+    Qty              Decimal       @db.Decimal(5, 0)
+    ShipmentTerms    String?       @db.VarChar(10) //LCL
+    createdOn        DateTime      @default(now()) @db.Timestamptz(6)
+    updatedOn        DateTime?     @updatedAt @db.Timestamptz(6)
+    deletedAt        DateTime?
+    createdBy        String        @db.VarChar(100)
+    updatedBy        String?       @db.VarChar(100)
+    status           String?       @default("A") @db.Char(1)
+    companyMaster    CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+    branchMaster     BranchMaster  @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
+    bookingHeader    BookingHeader @relation(fields: [BookingHeaderSid], references: [BookingHeaderSid])
+}
+
+model BookingProduct {
+    BookingProductSid  Int       @id @default(autoincrement()) @map("BookingProductSid")
+    ProductName        String    @db.VarChar(100)
+    ProductDescription String    @db.VarChar(500)
+    ShippingBillNo     String    @db.VarChar(100)
+    ShippingBillDate   DateTime?
+    ExternaPkg         String    @db.VarChar(100)
+    ExternlQty         String    @db.VarChar(100)
+    InternalPkg        String    @db.VarChar(100)
+    InternalQty        String    @db.VarChar(100)
+    GrossWeight        Decimal   @db.Decimal(10, 3)
+    NetWeight          Decimal?  @db.Decimal(10, 3)
+    Volume             Decimal?  @db.Decimal(10, 3)
     createdOn          DateTime  @default(now()) @db.Timestamptz(6)
     updatedOn          DateTime? @updatedAt @db.Timestamptz(6)
     deletedAt          DateTime?
     createdBy          String    @db.VarChar(100)
     updatedBy          String?   @db.VarChar(100)
     status             String?   @default("A") @db.Char(1)
+}
+
+model BookingConnection {
+    BookingConnectionSid Int       @id @default(autoincrement()) @map("BookingConnectionSid")
+    POL                  String    @db.VarChar(100)
+    POD                  String    @db.VarChar(100)
+    VesselName           String    @db.VarChar(100)
+    VoyageNo             String    @db.VarChar(10)
+    ETD                  DateTime?
+    ETA                  DateTime?
+    Remarks              String    @db.VarChar(200)
+    createdOn            DateTime  @default(now()) @db.Timestamptz(6)
+    updatedOn            DateTime? @updatedAt @db.Timestamptz(6)
+    deletedAt            DateTime?
+    createdBy            String    @db.VarChar(100)
+    updatedBy            String?   @db.VarChar(100)
+    status               String?   @default("A") @db.Char(1)
+}
+
+model BookingOthers {
+    BookingOthersSid    Int       @id @default(autoincrement()) @map("BookingOthersSid")
+    CustomerRefNo       String    @db.VarChar(20)
+    OperationUser       String    @db.VarChar(100)
+    DocumentationUser   String    @db.VarChar(100)
+    CustomerServiceuser String    @db.VarChar(100)
+    NotifyParty         String    @db.VarChar(100)
+    NotifyPartyAddress  String    @db.VarChar(200)
+    CHAName             String    @db.VarChar(100)
+    PickupMode          String    @db.VarChar(10)
+    YardCFS             String    @db.VarChar(100)
+    LocalTransport      String?   @db.Char(1)
+    OverseasTransport   String?   @db.Char(1)
+    OverseasClearance   String?   @db.Char(100)
+    PickupPlace         String    @db.VarChar(100)
+    PickupDate          DateTime?
+    PickupAddress       String    @db.VarChar(200)
+    DeliveryPlace       String    @db.VarChar(100)
+    DeliveryDate        String    @db.VarChar(100)
+    DeliveryAddress     String    @db.VarChar(200)
+    CargoCurrency       String    @db.VarChar(3)
+    CargoValue          Decimal   @db.Decimal(12, 2)
+    DeliveryMode        String    @db.VarChar(10)
+    ExternalRemarks     String    @db.VarChar(200)
+    SwitchBL            String?   @db.Char(1)
+    TransporterName     String    @db.VarChar(100)
+    createdOn           DateTime  @default(now()) @db.Timestamptz(6)
+    updatedOn           DateTime? @updatedAt @db.Timestamptz(6)
+    deletedAt           DateTime?
+    createdBy           String    @db.VarChar(100)
+    updatedBy           String?   @db.VarChar(100)
+    status              String?   @default("A") @db.Char(1)
+}
+
+model VesselMaster {
+    VesselMasterSid    Int                  @id @default(autoincrement()) @map("VesselMasterSid")
+    VesselName         String               @db.VarChar(100)
+    VesselShortCode    String               @db.VarChar(5)
+    IMOCode            String               @db.VarChar(10)
+    CallSignIn         String               @db.VarChar(10)
+    MMSINo             Int
+    GRT                Int
+    NRT                Int
+    YearofBuilt        Int
+    VesselOperator     String               @db.VarChar(100) //( from party master)
+    VesselType         String               @db.VarChar(10) //( Container,Tank,Bulk,General)
+    LengthinMtr        Int
+    BreadthinMtr       Int
+    Remarks            String               @db.VarChar(200)
+    createdOn          DateTime             @default(now()) @db.Timestamptz(6)
+    updatedOn          DateTime?            @updatedAt @db.Timestamptz(6)
+    deletedAt          DateTime?
+    createdBy          String               @db.VarChar(100)
+    updatedBy          String?              @db.VarChar(100)
+    status             String?              @default("A") @db.Char(1)
+    voyageMasterHeader VoyageMasterHeader[]
+}
+
+model VoyageMasterHeader {
+    VoyageMasterHeaderSid Int          @id @default(autoincrement()) @map("VoyageMasterHeaderSid")
+    VesselMasterSid       Int
+    VoyageNo              String       @db.VarChar(10)
+    ViaNumber             String       @db.VarChar(10)
+    RotationNumber        String       @db.VarChar(10)
+    Remarks               String       @db.VarChar(200)
+    SCMETA                DateTime
+    SCMETD                DateTime
+    SCMTCargoDescription  String       @db.VarChar(200)
+    ShipIRN               String       @db.VarChar(10)
+    CrewIRN               String       @db.VarChar(10)
+    createdOn             DateTime     @default(now()) @db.Timestamptz(6)
+    updatedOn             DateTime?    @updatedAt @db.Timestamptz(6)
+    deletedAt             DateTime?
+    createdBy             String       @db.VarChar(100)
+    updatedBy             String?      @db.VarChar(100)
+    status                String?      @default("A") @db.Char(1)
+    vesselMaster          VesselMaster @relation(fields: [VesselMasterSid], references: [VesselMasterSid])
+}
+
+model VoyageMasterDetail {
+    VoyageMasterDetailSid Int       @id @default(autoincrement()) @map("VoyageMasterDetailSid")
+    POLSid                Int //(port master)
+    PODSid                Int //(port Master)
+    Sno                   Int       @default(1) // Ensures it starts at 1 and is editable
+    ETA                   DateTime
+    ETD                   DateTime
+    ATA                   DateTime
+    ATD                   DateTime
+    CoLoad                String?   @default("N") @db.Char(1)
+    Coloader              String    @db.VarChar(100) //(from Partymaster)
+    PortCutoff            DateTime
+    VoyageType            String    @db.VarChar(10) //( Air, Sea, Road )
+    TransitDays           Int
+    Carrier               Int //(from party Master)
+    RotationNo            String    @db.VarChar(10)
+    RotationDate          DateTime
+    IGMNo                 String    @db.VarChar(10)
+    IFMDate               DateTime
+    EGMNo                 String    @db.VarChar(10)
+    EGMDate               DateTime
+    Remarks               String    @db.VarChar(100)
+    createdOn             DateTime  @default(now()) @db.Timestamptz(6)
+    updatedOn             DateTime? @updatedAt @db.Timestamptz(6)
+    deletedAt             DateTime?
+    createdBy             String    @db.VarChar(100)
+    updatedBy             String?   @db.VarChar(100)
+    status                String?   @default("A") @db.Char(1)
 }

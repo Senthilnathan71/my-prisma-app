@@ -48,6 +48,8 @@ model CompanyMaster {
     routingHeader      RoutingHeader[]
     enquiryProduct     EnquiryProduct[]
     containerMaster    ContainerMaster[]
+    bookingHeader      BookingHeader[]
+    bookingCargo       BookingCargo[]
 }
 
 model BranchMaster {
@@ -96,6 +98,8 @@ model BranchMaster {
     quoteCharge        QuoteCharge[]
     routingHeader      RoutingHeader[]
     enquiryProduct     EnquiryProduct[]
+    bookingHeader      BookingHeader[]
+    bookingCargo       BookingCargo[]
 }
 
 model UserMaster {
@@ -249,6 +253,7 @@ model DepartmentMaster {
     enquiryHeader       EnquiryHeader[]
     quoteHeader         QuoteHeader[]
     quoteRoute          QuoteRoute[]
+    bookingHeader       BookingHeader[]
 }
 
 model PortMaster {
