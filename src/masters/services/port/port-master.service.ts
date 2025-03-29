@@ -26,7 +26,17 @@ export class PortService {
 
     async getAllPorts() {
         try {
-            const customer = await this._db.portMaster.findMany({});
+            const customer = await this._db.portMaster.findMany({include: {
+                countryMaster: { select: {
+                    countryName: true, 
+                  }}, 
+                sectorMaster : { select: {
+                    sectorName: true, 
+                  }},
+                stateMaster : { select: {
+                    stateName: true, 
+                  }}
+              }});
             return customer;
         } catch (error) {
             console.log("portError", error)
@@ -37,6 +47,17 @@ export class PortService {
     async findOne(PortMasterSid: any) {
         try {
             return await this._db.portMaster.findUnique({
+                include: {
+                    countryMaster: { select: {
+                        countryName: true, 
+                      }}, 
+                    sectorMaster : { select: {
+                        sectorName: true, 
+                      }},
+                    stateMaster : { select: {
+                        stateName: true, 
+                      }}
+                  },
                 where: {
                     PortMasterSid: PortMasterSid
                 }
