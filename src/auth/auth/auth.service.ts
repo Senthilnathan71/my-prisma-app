@@ -1,26 +1,25 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { UserService } from 'src/masters/services/user.service';
 
 @Injectable()
 export class AuthService {
     loggedInUserData: any = {};
     constructor(
-        private readonly userService : UserService
-    ){
+        private readonly userService: UserService
+    ) {
 
     }
 
-    async login(where : any): Promise <any>{
+    async login(where: any): Promise<any> {
         return await this.userService.findUserById(where)
     }
 
-    async getUser(userId:number){
+    async getUser(userId: number) {
         try {
-            const userData =  await this.userService.getUserById(userId);
-            console.log("userData::",userData);
+            const userData = await this.userService.getUserById(userId);
+
             return userData
         } catch (error) {
-            console.log("authSerError",error);
             throw error;
         }
     }

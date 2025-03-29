@@ -1,5 +1,5 @@
 
-import { HttpException, HttpStatus, Injectable } from "@nestjs/common";
+import { HttpException, HttpStatus, Injectable, Logger } from "@nestjs/common";
 import * as nodemailer from 'nodemailer'
 @Injectable()
 
@@ -9,7 +9,7 @@ export class EmailService {
 
     private transporter: nodemailer.Transporter
 
-    constructor() {
+    constructor(private logger: Logger) {
         this.transporter = nodemailer.createTransport({
             host: 'smtp.zoho.com',
             port: 587,
@@ -38,10 +38,10 @@ export class EmailService {
             };
 
             const info = await this.transporter.sendMail(mailOptions);
-            console.log('Email sent:', info.response);
+            this.logger.log(`sendForgotPasswordMail: ${JSON.stringify(info)}`)
             return true;
         } catch (err) {
-            console.error('Error sending email:', err);
+            this.logger.warn(`sendForgotPasswordMail: ${JSON.stringify(err)}`)
             throw new HttpException(
                 { message: `Error in sending forgot password email: ${err.message}` },
                 HttpStatus.EXPECTATION_FAILED

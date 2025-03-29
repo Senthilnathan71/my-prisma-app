@@ -39,7 +39,7 @@ export class PortService {
               }});
             return customer;
         } catch (error) {
-            console.log("portError", error)
+            throw error
         }
     }
 

@@ -1,6 +1,6 @@
 import { jwtConstants } from './constants';
 import { UserService } from './../../masters/services/user.service';
-import { BadRequestException, Body, Controller, Get, HttpException, Patch, Post, Req, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, HttpCode, HttpException, HttpStatus, Logger, Patch, Post, Req, UnauthorizedException } from '@nestjs/common';
 import { ResponseData } from '../../common/response-data';
 import { AuthService } from './auth.service';
 import { checkPassword, encodePassword } from 'src/common/helper';
@@ -17,70 +17,42 @@ import { CreateUserDto } from '../dto/create-user.dto';
 @Controller('auth')
 @ApiTags('Auth')
 export class AuthController {
+
     constructor(
         private authService: AuthService,
         private readonly jwtService: JwtService,
         private userService: UserService,
         private emailService: EmailService,
-        private configService: ConfigService
+        private configService: ConfigService,
+        private logger: Logger
     ) { }
 
     @ApiOperation({ summary: 'Login' })
     @ApiBody({ type: LoginRequest })
     @ApiCreatedResponse({
-        description: 'User data',
+        description: 'User logged in successfully',
         type: ResponseData
     })
-    // @Post('login')
-    // async login(@Body() loginData: LoginRequest){
-    //     let output = new ResponseData;
-    //     try {
-    //         const user = await this.authService.login({UserEmail: loginData.email})
-    //         if(!user){
-    //             throw 'User does not exit'
-    //         }
-
-    //         const isPasswordMatching = checkPassword(
-    //             loginData.password,
-    //             user.userPassword
-    //         )
-
-    //         if(!isPasswordMatching){
-    //             throw 'Incorrect password'
-    //         }
-
-    //         output.data.user = await this.authService.getUser(user.UserMasterSid);
-    //         output.data.token = await this.jwtService.sign({id:user.UserMasterSid});
-    //         console.log("token::",  output.data.token);
-    //     } catch (error) {
-    //         console.log("controler error::", error);
-    //         output.status = false;
-    //         // Handle error message based on the type of error
-    //         // if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
-    //         //     output.message = error.message;
-    //         // } else {
-    //         //     output.message = 'Internal Server Error';
-    //         // }
-
-    //     }
-    //     return output;
-    // }
-
+    @HttpCode(HttpStatus.OK)
     @Post('login')
     async login(@Body() loginData: LoginRequest) {
         let output = new ResponseData();
         try {
             if (!loginData.email || !loginData.password) {
+                this.logger.warn('Login attempt with missing email or password');
                 throw new BadRequestException('Email and password are required.');
             }
+            this.logger.log(`Attempting login for email: ${loginData.email}`);
 
             const user = await this.authService.login({ UserEmail: loginData.email });
             if (!user) {
+                this.logger.warn(`Login failed: User does not exist - ${loginData.email}`);
                 throw new UnauthorizedException('User does not exist.');
             }
 
             const isPasswordMatching = checkPassword(loginData.password, user.userPassword);
             if (!isPasswordMatching) {
+                this.logger.warn(`Login failed: Incorrect password - ${loginData.email}`);
                 throw new UnauthorizedException('Incorrect password.');
             }
 
@@ -90,10 +62,10 @@ export class AuthController {
                 user: await this.authService.getUser(user.UserMasterSid),
                 token: await this.jwtService.sign({ id: user.UserMasterSid })
             };
+            this.logger.log(`Login successful for email: ${loginData.email}`);
 
         } catch (error) {
-            console.error("Login error:", error);
-
+            this.logger.error(`Login error for email: ${loginData.email || 'unknown'} - ${error.message}`);
             output.status = false;
             output.message = error.message || 'Internal Server Error';
         }
@@ -108,15 +80,16 @@ export class AuthController {
     })
     @Post('forgot-password')
     async forgotPassword(@Body() loginData: any) {
-        console.log(loginData)
         let output = new ResponseData();
         try {
             if (!loginData.email) {
+                this.logger.warn(`forgotPassword failed: Email are required - ${loginData.email}`);
                 throw new BadRequestException('Email are required.');
             }
 
             const user: any = await this.userService.findUserById({ UserEmail: loginData.email.email });
             if (!user) {
+                this.logger.warn(`The email address provided is not registered. - ${loginData.email.email}`);
                 throw new BadRequestException('The email address provided is not registered.');
             }
             const token = this.jwtService.sign({
@@ -149,6 +122,7 @@ export class AuthController {
             })
 
             if (!emailSent) {
+                this.logger.warn(`Failed to send password reset email`);
                 throw 'Failed to send password reset email'
             }
 
@@ -158,10 +132,10 @@ export class AuthController {
                 email: user.email,
                 resetLink: resetPasswordLink
             };
+            this.logger.log(`forgotPassword: ${output.data}`);
 
         } catch (error) {
-            console.error("Login error:", error);
-
+            this.logger.warn(`forgotPassword failed: Internal Server Error`);
             output.status = false;
             output.message = error.message || 'Internal Server Error';
         }
@@ -178,15 +152,17 @@ export class AuthController {
     @Patch('reset-password')
     async resetPassword(@Body() passwordData: any, @TokenPayload() tokenPayload) {
         let output = new ResponseData();
-        console.log(tokenPayload)
+        this.logger.log(`resetPassword: Token payload ${tokenPayload}`)
         try {
             if (!tokenPayload) {
+                this.logger.warn(`resetPassword failed: No token provided - ${tokenPayload}`);
                 throw new UnauthorizedException('No token provided');
             }
 
             const user: any = await this.userService.getUserById(tokenPayload.userId);
 
             if (passwordData.confirmPassword !== passwordData.password) {
+                this.logger.warn(`resetPassword failed: Confirm Password does not match - ${passwordData.confirmPassword}`);
                 throw new BadRequestException('Confirm Password does not match')
             }
 
@@ -197,6 +173,9 @@ export class AuthController {
                 newPassword
             )
 
+            this.logger.log(`resetPassword: result ${JSON.stringify(result)}`)
+
+
             if (result instanceof HttpException) {
                 throw result
             }
@@ -206,22 +185,13 @@ export class AuthController {
             output.data = result
 
         } catch (error) {
+            this.logger.warn(`resetPassword failed: Internal Server Error - ${error}`);
             output.status = false;
             output.message = error.message || 'Internal Server Error';
         }
         return output;
     }
 
-
-    @Get('test')
-    async generateHashPassword() {
-        return encodePassword('admin@123')
-    }
-
-    // @Get('TestEmail')
-    // async TestEmail() {
-    //     return this.emailService.sendEmail('gowthamkpy@gmail.com',"TestMail","TestEmail")
-    // }
 
     @Get('country')
     async getCountries() {
@@ -237,12 +207,16 @@ export class AuthController {
         try {
             const user = await this.userService.signUp(createUserDto)
             if (user instanceof HttpException) {
+                this.logger.warn(`createUser failed: ${user}`);
                 throw user
             }
             output.status = true;
             output.message = 'User Created Successfully';
             output.data = user
+            this.logger.log(`createUser: user Creation ${JSON.stringify(user)}`)
+
         } catch (error) {
+            this.logger.warn(`createUser failed: ${error}`);
             output.status = false;
             output.message = error.message || 'Internal Server Error';
         }

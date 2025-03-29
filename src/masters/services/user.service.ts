@@ -40,7 +40,7 @@ export class UserService {
 
             return user;
         } catch (error) {
-            console.log("UserServiceError", error);
+            throw error
         }
 
     }
@@ -53,11 +53,9 @@ export class UserService {
                     isSalesperson: '1'
                 }
             })
-            console.log("Salespersons:", salesPerson);
-
             return salesPerson;
         } catch (error) {
-            console.log("UserServiceError", error);
+            throw error
         }
     }
 

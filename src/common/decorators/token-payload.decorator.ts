@@ -14,7 +14,6 @@ export const TokenPayload = createParamDecorator(
                 const payload = jwt.verify(token, jwtConstants.secret);
                 return payload;
             } catch (error) {
-                console.error("Invalid token:", error.message);
                 return null;
             }
         }

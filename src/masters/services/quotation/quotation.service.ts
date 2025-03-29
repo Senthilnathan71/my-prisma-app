@@ -136,7 +136,7 @@ export class QuotationService {
             });
             return quotations;
         } catch (error) {
-            console.log("cutomerError", error)
+            throw error
         }
     }
 
@@ -372,7 +372,6 @@ export class QuotationService {
 
             return { charges, units, currencies };
         } catch (error) {
-            console.error("Error fetching masters:", error);
             throw new Error("Failed to fetch master data.");
         }
     }
@@ -390,7 +389,7 @@ export class QuotationService {
 
             return filteredCustomers;
         } catch (error) {
-            console.log("customerError", error);
+            throw error
         }
     }
 

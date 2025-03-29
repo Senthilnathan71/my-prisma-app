@@ -1,30 +1,24 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { DatabaseService } from 'src/database/database.service';
 
 @Injectable()
 export class CityService {
     constructor(
-        // @InjectModel(CityMaster)
-        // private readonly cityMaster : typeof CityMaster
-        private _db: DatabaseService
+        private _db: DatabaseService,
+        private logger: Logger
     ) { }
 
     async getAllCity() {
         try {
-
-            // const cityList = await this.cityMaster.findAll({
-            //         where:{
-            //             Status : 'A'
-            //         }
-            //     })
             const cityList = await this._db.cityMaster.findMany({
                 where: {
                     status: 'A'
                 }
             })
+            this.logger.debug(`getAllCity: ${JSON.stringify(cityList)}`)
             return cityList;
         } catch (error) {
-            console.log("cutomerError", error)
+            this.logger.warn(`getAllCity: ${JSON.stringify(error)}`)
             throw error
         }
     }

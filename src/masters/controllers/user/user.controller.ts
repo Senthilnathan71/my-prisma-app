@@ -1,4 +1,5 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, HttpCode, HttpStatus, Logger } from '@nestjs/common';
+import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
 import { Auth } from 'src/common/decorators/auth.decorator';
 import { UserData } from 'src/common/decorators/user.decorator';
 import { ResponseData } from 'src/common/response-data';
@@ -8,15 +9,26 @@ import { UserService } from 'src/masters/services/user.service';
 @Auth()
 export class UserController {
 
-    constructor(private userService: UserService) { }
+    constructor(private userService: UserService,
+        private logger: Logger
+    ) { }
 
+    @ApiOperation({ summary: 'Get user Token from data' })
+    @ApiCreatedResponse({
+        description: 'Get user token from data',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
     @Get('sign-in-token')
     async getUserByToken(@UserData() user: any): Promise<any> {
-        console.log("controller-user", user)
+
         const output = new ResponseData();
         try {
-            output.data = user;
+            const result = user;
+            this.logger.debug(`getUserByToken: ${JSON.stringify(result)}`)
+            output.data = result
         } catch (error) {
+            this.logger.warn(`getUserByToken: ${JSON.stringify(error)}`)
             output.status = false;
             output.message = typeof error == 'string' ? error : ''
         }
@@ -25,13 +37,21 @@ export class UserController {
 
 
 
+    @ApiOperation({ summary: 'Get salesperson' })
+    @ApiCreatedResponse({
+        description: 'Get salesperson',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
     @Get('salesperson')
     async getSalesPerson(@UserData() user: any): Promise<any> {
-        console.log("controller-user", user)
         const output = new ResponseData();
         try {
-            output.data = await this.userService.getSalesPerson();
+            const salesPerson = await this.userService.getSalesPerson();
+            this.logger.debug(`getSalesPerson: ${JSON.stringify(salesPerson)}`)
+            output.data = salesPerson
         } catch (error) {
+            this.logger.debug(`getSalesPerson: ${JSON.stringify(error)}`)
             output.status = false;
             output.message = typeof error == 'string' ? error : ''
         }

@@ -156,7 +156,6 @@ export class PreCustomerMeetingService {
             }
         })
             .catch((error) => {
-                console.error("Error fetching meetings:", error);
                 return []; // Return an empty array or handle it appropriately
             });
         return result;
@@ -172,7 +171,6 @@ export class PreCustomerMeetingService {
             }
         })
             .catch((error) => {
-                console.error("Error fetching meetings:", error);
                 return []; // Return an empty array or handle it appropriately
             });
         return result;

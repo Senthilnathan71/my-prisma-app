@@ -24,7 +24,7 @@ export class PrecustomerService {
             });
             return customer;
         } catch (error) {
-            console.log("cutomerError", error)
+            throw error
         }
     }
 
@@ -36,12 +36,12 @@ export class PrecustomerService {
                     BranchMasterSid: user.BranchMasterSid,
                 },
                 orderBy: {
-                    PreCustomerMasterSid: 'desc'  
+                    PreCustomerMasterSid: 'desc'
                 }
             });
             return customer;
         } catch (error) {
-            console.log("cutomerError", error)
+            throw error
         }
     }
 

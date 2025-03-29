@@ -1,5 +1,6 @@
 import { CreatePreCustomerMeetingDto } from './../../DTO/create-precustomer-meeting.dto';
-import { BadRequestException, Body, Controller, Get, Param, ParseIntPipe, Post, Put, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Post, Put, UnauthorizedException } from '@nestjs/common';
+import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
 import { Auth } from 'src/common/decorators/auth.decorator';
 import { UserData } from 'src/common/decorators/user.decorator';
 import { ResponseData } from 'src/common/response-data';
@@ -11,17 +12,23 @@ import { PrecustomerService } from 'src/masters/services/precustomer/precustomer
 @Auth()
 export class PreCustomerMeetingController {
 
-    constructor(private preCustomerMeetingService: PreCustomerMeetingService) { }
+    constructor(private preCustomerMeetingService: PreCustomerMeetingService, private logger: Logger) { }
 
+    @ApiOperation({ summary: 'Pending Meetings' })
+    @ApiCreatedResponse({
+        description: 'Get Pending Meetings',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
     @Get('pendingMeetings')
     async getPendingMeetings(@UserData() UserData: any) {
         const output = new ResponseData
         try {
             const customers = await this.preCustomerMeetingService.getPreCustomerMastersWithoutMeetings()
-            console.log("customer", customers);
+            this.logger.debug(`getPendingMeetings: ${JSON.stringify(customers)}`)
             output.data = customers;
         } catch (error) {
-            console.log("controler error::", error);
+            this.logger.warn(`getPendingMeetings: ${JSON.stringify(error)}`)
             output.status = false;
             // Handle error message based on the type of error
             if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
@@ -34,12 +41,23 @@ export class PreCustomerMeetingController {
     }
 
 
+    @ApiOperation({ summary: 'Create And Update PreCustomer' })
+    @ApiCreatedResponse({
+        description: 'Create and update PreCustomer',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
     @Put()
     async createPrecustomer(@Body() body: CreatePreCustomerMeetingDto, @UserData() user: any) {
+        this.logger.log(`createPrecustomer: ${JSON.stringify(body)}`)
         let output = new ResponseData
         try {
             let preCustomer = await this.preCustomerMeetingService.CreateAndUpdatePreCustomerMeeting(body, user);
+            this.logger.log(`createPrecustomer: ${JSON.stringify(preCustomer)}`)
+
             if (!preCustomer) {
+                this.logger.log(`createPrecustomer: ${JSON.stringify(preCustomer)}`)
+
                 throw 'Something went wrong'
             }
             output.data = preCustomer.data;
@@ -47,7 +65,8 @@ export class PreCustomerMeetingController {
             output.status = true
 
         } catch (error) {
-            console.log("controler error::", error);
+            this.logger.warn(`createPrecustomer: ${JSON.stringify(error)}`)
+
             output.status = false;
             // Handle error message based on the type of error
             if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
@@ -60,16 +79,22 @@ export class PreCustomerMeetingController {
     }
 
 
-
+    @ApiOperation({ summary: 'Get All PreCustomerMeetings' })
+    @ApiCreatedResponse({
+        description: 'Get All PreCustomerMeetings',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
     @Get('meetingDate')
     async getPreCustomerMeetings(@UserData() UserData: any) {
         const output = new ResponseData
         try {
             const customers = await this.preCustomerMeetingService.getPreCustomerMeetingDate()
-            console.log("customer", customers);
+            this.logger.log(`getPreCustomerMeetings: ${JSON.stringify(customers)}`)
             output.data = customers;
         } catch (error) {
-            console.log("controler error::", error);
+            this.logger.warn(`getPreCustomerMeetings: ${JSON.stringify(error)}`)
+
             output.status = false;
             // Handle error message based on the type of error
             if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
@@ -82,14 +107,21 @@ export class PreCustomerMeetingController {
     }
 
 
+    @ApiOperation({ summary: 'Get PreCustomer by id' })
+    @ApiCreatedResponse({
+        description: 'Get PreCustomer By Id',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
     @Get(':id')
     async getPreCustomer(@Param('id') id: string, @UserData() UserData: any) {
         const output = new ResponseData
         try {
             const result = await this.preCustomerMeetingService.getPreCustomer(id)
+            this.logger.log(`getPreCustomer: ${JSON.stringify(result)}`)
             output.data = result;
         } catch (error) {
-            console.log("controler error::", error);
+            this.logger.warn(`getPreCustomer: ${JSON.stringify(error)}`)
             output.status = false;
             // Handle error message based on the type of error
             if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
@@ -103,13 +135,21 @@ export class PreCustomerMeetingController {
 
 
 
+    @ApiOperation({ summary: 'Get Todo Meetings' })
+    @ApiCreatedResponse({
+        description: 'Get All Todo Meetings',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
     @Get('lead/todo')
     async todoMeetings(@UserData() UserData: any) {
         const output = new ResponseData
         try {
             const todo = await this.preCustomerMeetingService.todoMeetings()
+            this.logger.debug(`todoMeetings: ${JSON.stringify(todo)}`)
             output.data = todo;
         } catch (error) {
+            this.logger.debug(`todoMeetings: ${JSON.stringify(error)}`)
             output.status = false;
             // Handle error message based on the type of error
             if (error instanceof BadRequestException || error instanceof UnauthorizedException) {

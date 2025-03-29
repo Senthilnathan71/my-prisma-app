@@ -37,7 +37,6 @@ export class PortMasterController {
             }
             output.data = port
         } catch (error) {
-            console.log("controler error::", error);
             output.status = false;
             // Handle error message based on the type of error
             if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
@@ -76,7 +75,6 @@ export class PortMasterController {
             output.data = port;
 
         } catch (error) {
-            console.log("controler error::", error);
             output.status = false;
             // Handle error message based on the type of error
             if (error instanceof BadRequestException || error instanceof UnauthorizedException) {

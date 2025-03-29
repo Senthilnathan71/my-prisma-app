@@ -1,6 +1,4 @@
-import { Module } from '@nestjs/common';
-// import { SequelizeModule } from '@nestjs/sequelize';
-
+import { Logger, Module } from '@nestjs/common';
 import { UserService } from './services/user.service';
 import { UserController } from './controllers/user/user.controller';
 import { PrecustomerController } from './controllers/precustomer/precustomer.controller';
@@ -23,7 +21,7 @@ import { SectorController } from './controllers/sector/sector.controller';
 import { SectorService } from './services/sector/sector.service';
 
 @Module({
-    providers: [UserService, PrecustomerService, PreCustomerMeetingService, CityService, EnquiryHeaderService, QuotationService, PortService, CountryService, StateService, SectorService],
+    providers: [UserService, Logger, PrecustomerService, PreCustomerMeetingService, CityService, EnquiryHeaderService, QuotationService, PortService, CountryService, StateService, SectorService],
     controllers: [UserController, PreCustomerMeetingController, PrecustomerController, RegionController, EnquiryHeaderController, QuotationController, PortMasterController, CountryController, StateController, SectorController],
     exports: [UserService]
 })

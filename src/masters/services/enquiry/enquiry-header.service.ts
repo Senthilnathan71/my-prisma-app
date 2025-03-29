@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import * as moment from 'moment-timezone';
 import { DatabaseService } from 'src/database/database.service';
@@ -6,9 +6,8 @@ import { DatabaseService } from 'src/database/database.service';
 @Injectable()
 export class EnquiryHeaderService {
     constructor(
-        // @InjectModel(CityMaster)
-        // private readonly cityMaster : typeof CityMaster
-        private _db: DatabaseService
+        private _db: DatabaseService,
+        private logger: Logger
     ) { }
 
     async createEnquiry(payload, user) {
@@ -116,7 +115,7 @@ export class EnquiryHeaderService {
             });
             return enquiries;
         } catch (error) {
-            console.log("cutomerError", error)
+            throw error
         }
     }
 
@@ -286,7 +285,7 @@ export class EnquiryHeaderService {
             const customer = await this._db.departmentMaster.findMany({});
             return customer;
         } catch (error) {
-            console.log("cutomerError", error)
+            throw error
         }
     }
 
@@ -296,7 +295,7 @@ export class EnquiryHeaderService {
             const customer = await this._db.packageTypeMaster.findMany({});
             return customer;
         } catch (error) {
-            console.log("cutomerError", error)
+            throw error
         }
     }
 
@@ -306,7 +305,7 @@ export class EnquiryHeaderService {
             const container = await this._db.containerMaster.findMany({});
             return container;
         } catch (error) {
-            console.log("cutomerError", error)
+            throw error
         }
     }
 

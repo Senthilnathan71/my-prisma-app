@@ -1,4 +1,5 @@
-import { BadRequestException, Body, Controller, Get, Param, ParseIntPipe, Post, Put, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Post, Put, UnauthorizedException } from '@nestjs/common';
+import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
 import { Auth } from 'src/common/decorators/auth.decorator';
 import { UserData } from 'src/common/decorators/user.decorator';
 import { ResponseData } from 'src/common/response-data';
@@ -9,17 +10,23 @@ import { PrecustomerService } from 'src/masters/services/precustomer/precustomer
 @Auth()
 export class PrecustomerController {
 
-    constructor(private precustomerSer: PrecustomerService) { }
+    constructor(private precustomerSer: PrecustomerService, private logger: Logger) { }
 
+    @ApiOperation({ summary: 'Get All Customer' })
+    @ApiCreatedResponse({
+        description: 'Get All Customer',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
     @Get('customer')
     async getAllCustomer(@UserData() UserData: any) {
         const output = new ResponseData
         try {
             const customers = await this.precustomerSer.getAllCustomer(UserData)
-            console.log("customer", customers);
             output.data = customers;
+            this.logger.log(`getAllCustomer: ${JSON.stringify(customers)}`)
         } catch (error) {
-            console.log("controler error::", error);
+            this.logger.warn(`getAllCustomers ${error}`)
             output.status = false;
             // Handle error message based on the type of error
             if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
@@ -31,15 +38,21 @@ export class PrecustomerController {
         return output;
     }
 
+    @ApiOperation({ summary: 'Get All PreCustomer' })
+    @ApiCreatedResponse({
+        description: 'Get All PreCustomer',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
     @Get()
     async getAllPrecustomer(@UserData() UserData: any) {
         const output = new ResponseData
         try {
             const customers = await this.precustomerSer.getAllPrecustomer(UserData.userBranchMaster[0])
-            console.log("customer", customers);
+            this.logger.log(`getAllPrecustomer: ${JSON.stringify(customers)}`)
             output.data = customers;
         } catch (error) {
-            console.log("controler error::", error);
+            this.logger.warn(`getAllPreCustomer: ${error}`)
             output.status = false;
             // Handle error message based on the type of error
             if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
@@ -51,24 +64,42 @@ export class PrecustomerController {
         return output;
     }
 
+    @ApiOperation({ summary: 'Get PreCustomer By Id' })
+    @ApiCreatedResponse({
+        description: 'Get PreCustomer By Id',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
     @Get(':id')
     async getPrecustomerById(@Param('id', ParseIntPipe) PreCustomerMasterSid: number) {
         const output = new ResponseData;
         try {
-            output.data = await this.precustomerSer.findOne(PreCustomerMasterSid)
+            const preCustomer = await this.precustomerSer.findOne(PreCustomerMasterSid)
+            this.logger.log(`getPrecustomerById: ${JSON.stringify(preCustomer)}`)
+            output.data = preCustomer
         } catch (error) {
+            this.logger.warn(`getPrecustomerById: ${JSON.stringify(error)}`)
             output.status = false;
             output.message = error
         }
         return output;
     }
 
+
+    @ApiOperation({ summary: 'Create PreCustomer' })
+    @ApiCreatedResponse({
+        description: 'Create PreCustomer',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
     @Put()
     async createPrecustomer(@Body() body: CreatePrecustomerDto, @UserData() user: any) {
         let output = new ResponseData
         try {
             let preCustomer = await this.precustomerSer.createPrecustomer(body, user);
+            this.logger.log(`createPrecustomer: ${JSON.stringify(preCustomer)}`)
             if (!preCustomer) {
+                this.logger.warn(`createPrecustomer: ${JSON.stringify(preCustomer)}`)
                 throw 'Something went wrong'
             }
             output.data = preCustomer.data;
@@ -76,7 +107,7 @@ export class PrecustomerController {
             output.status = true
 
         } catch (error) {
-            console.log("controler error::", error);
+            this.logger.warn(`createPrecustomer: ${JSON.stringify(error)}`)
             output.status = false;
             // Handle error message based on the type of error
             if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
@@ -87,16 +118,6 @@ export class PrecustomerController {
         }
         return output
     }
-
-
-
-
-
-
-
-
-
-
 
 }
 
