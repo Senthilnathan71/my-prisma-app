@@ -17,7 +17,6 @@ export class CountryService {
             })
             return countryList;
         } catch (error) {
-            console.log("countryError", error)
             throw error
         }
     }

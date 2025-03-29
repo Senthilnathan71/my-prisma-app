@@ -6,8 +6,6 @@ import { DatabaseService } from 'src/database/database.service';
 @Injectable()
 export class PortService {
     constructor(
-        // @InjectModel(CityMaster)
-        // private readonly cityMaster : typeof CityMaster
         private _db: DatabaseService
     ) { }
 
@@ -26,17 +24,25 @@ export class PortService {
 
     async getAllPorts() {
         try {
-            const customer = await this._db.portMaster.findMany({include: {
-                countryMaster: { select: {
-                    countryName: true, 
-                  }}, 
-                sectorMaster : { select: {
-                    sectorName: true, 
-                  }},
-                stateMaster : { select: {
-                    stateName: true, 
-                  }}
-              }});
+            const customer = await this._db.portMaster.findMany({
+                include: {
+                    countryMaster: {
+                        select: {
+                            countryName: true,
+                        }
+                    },
+                    sectorMaster: {
+                        select: {
+                            sectorName: true,
+                        }
+                    },
+                    stateMaster: {
+                        select: {
+                            stateName: true,
+                        }
+                    }
+                }
+            });
             return customer;
         } catch (error) {
             throw error
@@ -48,16 +54,22 @@ export class PortService {
         try {
             return await this._db.portMaster.findUnique({
                 include: {
-                    countryMaster: { select: {
-                        countryName: true, 
-                      }}, 
-                    sectorMaster : { select: {
-                        sectorName: true, 
-                      }},
-                    stateMaster : { select: {
-                        stateName: true, 
-                      }}
-                  },
+                    countryMaster: {
+                        select: {
+                            countryName: true,
+                        }
+                    },
+                    sectorMaster: {
+                        select: {
+                            sectorName: true,
+                        }
+                    },
+                    stateMaster: {
+                        select: {
+                            stateName: true,
+                        }
+                    }
+                },
                 where: {
                     PortMasterSid: PortMasterSid
                 }
@@ -87,11 +99,11 @@ export class PortService {
         });
 
         if (!existingPort) {
-            throw new NotFoundException(`Enquiry with ID ${id} not found`);
+            throw new NotFoundException(`Port with ID ${id} not found`);
         }
 
         if (existingPort.deletedAt) {
-            throw new Error(`Enquiry with ID ${id} is already deleted`);
+            throw new Error(`Port with ID ${id} is already deleted`);
         }
 
         // Perform soft delete by updating deletedAt field

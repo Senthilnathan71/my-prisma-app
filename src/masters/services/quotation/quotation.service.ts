@@ -8,7 +8,7 @@ export class QuotationService {
     constructor(
         private _db: DatabaseService
     ) { }
-/*
+
     async createQuotation(payload, user) {
         try {
             return await this._db.$transaction(async (prisma) => {
@@ -393,6 +393,6 @@ export class QuotationService {
         }
     }
 
-*/
+
 
 }

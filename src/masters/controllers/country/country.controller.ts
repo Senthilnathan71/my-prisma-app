@@ -1,4 +1,4 @@
-import { BadRequestException, Controller, Get, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, Controller, Get, Logger, UnauthorizedException } from '@nestjs/common';
 import { Auth } from 'src/common/decorators/auth.decorator';
 import { ResponseData } from 'src/common/response-data';
 import { CountryService } from 'src/masters/services/country/country.service';
@@ -7,18 +7,19 @@ import { CountryService } from 'src/masters/services/country/country.service';
 @Auth()
 export class CountryController {
 
-    constructor(private countryService : CountryService){}
+    constructor(private countryService: CountryService, private logger: Logger
+    ) { }
 
     @Get()
-    async getAllCountry(){
+    async getAllCountry() {
         let output = new ResponseData;
         try {
             let countryData = await this.countryService.getAllCountry();
+            this.logger.log(`getAllCountry: ${JSON.stringify(countryData)}`)
             output.data = countryData;
         } catch (error) {
-             console.log("controler error::", error);
+            this.logger.warn(`getAllCountry: ${JSON.stringify(error)}`)
             output.status = false;
-            // Handle error message based on the type of error
             if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
                 output.message = error.message;
             } else {

@@ -5,7 +5,6 @@ import { DatabaseService } from 'src/database/database.service';
 export class CityService {
     constructor(
         private _db: DatabaseService,
-        private logger: Logger
     ) { }
 
     async getAllCity() {
@@ -15,10 +14,8 @@ export class CityService {
                     status: 'A'
                 }
             })
-            this.logger.debug(`getAllCity: ${JSON.stringify(cityList)}`)
             return cityList;
         } catch (error) {
-            this.logger.warn(`getAllCity: ${JSON.stringify(error)}`)
             throw error
         }
     }

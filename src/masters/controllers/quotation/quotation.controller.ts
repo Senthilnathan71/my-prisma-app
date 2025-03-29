@@ -127,17 +127,32 @@ export class QuotationController {
     }
 
 
+    @ApiOperation({ summary: 'Delete Header By Id' })
+    @ApiCreatedResponse({
+        description: 'Delete Header By Id',
+        type: ResponseData
+    })
     @Delete('header/:id')
     async softDelete(@Param('id', ParseIntPipe) id: number) {
         return this.quotationService.softDelete(id);
     }
 
 
+    @ApiOperation({ summary: 'Delete Route By Id' })
+    @ApiCreatedResponse({
+        description: 'Delete Route By Id',
+        type: ResponseData
+    })
     @Delete('route/:id')
     async deleteRoute(@Param('id', ParseIntPipe) id: number) {
         return this.quotationService.deleteRoute(id);
     }
 
+    @ApiOperation({ summary: 'Delete Charge By Id' })
+    @ApiCreatedResponse({
+        description: 'Delete Charge By Id',
+        type: ResponseData
+    })
     @Delete('charge/:id')
     async deleteCharge(@Param('id', ParseIntPipe) id: number) {
         return this.quotationService.deleteCharge(id);

@@ -17,7 +17,6 @@ export class SectorService {
             })
             return sectorList;
         } catch (error) {
-            console.log("sectorError", error)
             throw error
         }
     }

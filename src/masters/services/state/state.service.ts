@@ -9,7 +9,6 @@ export class StateService {
 
     async getAllState(CountryMasterSid: any) {
         try {
-
             const stateList = await this._db.stateMaster.findMany({
                 where: {
                     CountryMasterSid: CountryMasterSid,
@@ -18,7 +17,6 @@ export class StateService {
             })
             return stateList;
         } catch (error) {
-            console.log("stateError", error)
             throw error
         }
     }
