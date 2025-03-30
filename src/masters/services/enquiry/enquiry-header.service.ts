@@ -7,7 +7,6 @@ import { DatabaseService } from 'src/database/database.service';
 export class EnquiryHeaderService {
     constructor(
         private _db: DatabaseService,
-        private logger: Logger
     ) { }
 
     async createEnquiry(payload, user) {

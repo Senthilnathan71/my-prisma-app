@@ -5,14 +5,16 @@ import * as fs from 'fs';
 
 async function bootstrap() {
   // const app = await NestFactory.create(AppModule);
-  const httpsOptions = {
-    key: fs.readFileSync('/var/opt/npm-ssl/privkey.pem'),  // Update path
-    cert: fs.readFileSync('/var/opt/npm-ssl/fullchain.pem'),   // Update path
-  };
+  // const httpsOptions = {
+  //   key: fs.readFileSync('/var/opt/npm-ssl/privkey.pem'),  // Update path
+  //   cert: fs.readFileSync('/var/opt/npm-ssl/fullchain.pem'),   // Update path
+  // };
 
 
 
-  const app = await NestFactory.create(AppModule, { httpsOptions });
+  const app = await NestFactory.create(AppModule,
+    // { httpsOptions }
+  );
 
   app.enableCors();
 
@@ -22,10 +24,11 @@ async function bootstrap() {
     .setDescription('CRM mobile application API')
     .addBearerAuth()
     .setVersion('1.0')
+    .addTag('crm')
     .build()
 
-  const document = SwaggerModule.createDocument(app,options);
-  SwaggerModule.setup('api', app, document)
+  const document = SwaggerModule.createDocument(app, options);
+  SwaggerModule.setup('documentation', app, document)
 
   app.enableCors();
   await app.listen(process.env.PORT ?? 3008);
