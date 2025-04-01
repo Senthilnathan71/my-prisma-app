@@ -81,11 +81,22 @@ export class PreCustomerMeetingService {
                 }
 
                 if (data.meetingStatus === 'confirmed') {
-                    await this._db.customerMaster.create({
-                        data: {
-                            ...customerPayload
+
+                    const existCustomer = await this._db.customerMaster.findFirst({
+                        where: {
+                            CustomerName: data.preCustomerMaster.preCustomerName
                         }
                     })
+
+                    if (!existCustomer) {
+                        await this._db.customerMaster.create({
+                            data: {
+                                ...customerPayload
+                            }
+                        })
+                    } else {
+                        throw new Error('Customer already exists!');
+                    }
                 }
 
 
