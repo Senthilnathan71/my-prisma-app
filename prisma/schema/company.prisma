@@ -172,12 +172,22 @@ model CurrencyMaster {
 model CountryMaster {
     countryCode       String              @db.Char(2)
     countryName       String              @db.VarChar(100)
+    dialingCode       String              @db.VarChar(10)
+    ISO3DigitCode     String              @db.VarChar(10)
+    UNM49Code         String              @db.VarChar(10)
+    ShortName         String              @db.VarChar(100)
+    LocalCurrencyCode String              @db.VarChar(10)
+    LocalCurrencyName String              @db.VarChar(100)
+    AWBCurrencyCode   String              @db.VarChar(10)
+    AWBCurrencyName   String              @db.VarChar(100)
+    region            String              @db.VarChar(100)
     createdOn         DateTime            @default(now()) @db.Timestamptz(6)
     updatedOn         DateTime            @updatedAt @db.Timestamptz(6)
     deletedAt         DateTime?
     createdBy         String              @db.VarChar(100)
     updatedBy         String?             @db.VarChar(100)
     status            String              @db.Char(1)
+    Remarks           String?             @db.VarChar(100)
     CountryMasterSid  Int                 @id @default(autoincrement()) @map("CountryMasterSid")
     LoginSid          Int?
     branchMaster      BranchMaster[]
@@ -195,12 +205,15 @@ model StateMaster {
     stateCode         String              @db.Char(2)
     stateName         String              @db.VarChar(100)
     stateGSTCode      String?             @db.Char(5)
+    region            String              @db.VarChar(100)
+    zone              Int                
     createdOn         DateTime            @default(now()) @db.Timestamptz(6)
     updatedOn         DateTime            @updatedAt @db.Timestamptz(6)
     deletedAt         DateTime?
     createdBy         String              @db.VarChar(100)
     updatedBy         String?             @db.VarChar(100)
     status            String              @db.Char(1)
+    Remarks           String?             @db.VarChar(100)
     CountryMasterSid  Int
     LoginSid          Int?
     StateMasterSid    Int                 @id @default(autoincrement()) @map("StateMasterSid")
@@ -867,4 +880,28 @@ model ContainerMaster {
     status             String?   @default("A") @db.Char(1)
 
     companyMaster CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+}
+
+model UOMMaster {
+    UOMMasterSid    Int       @id @default(autoincrement()) @map("UOMMasterSid")
+    UOMCode 	   String    @db.VarChar(3)   @unique
+    UOMName		   String    @db.VarChar(20)   @unique
+    UOMType		    String    @db.VarChar(10)
+    EdiCode          String?   @db.Char(3)
+    DimensionReq	 String   @db.Char(1)
+    WeightReq	    String   @db.Char(1)
+    VolumeReq       String   @db.Char(1)
+    ShipmentType	 String    @db.VarChar(5)
+    CostPerUnitPrice  Decimal   @db.Decimal(10, 5)
+    SlabFrom          Decimal   @db.Decimal(4, 0)
+    SlabTo            Decimal   @db.Decimal(4, 0)
+    createdOn         DateTime  @default(now()) @db.Timestamptz(6)
+    updatedOn         DateTime? @updatedAt @db.Timestamptz(6)
+    deletedAt         DateTime?
+    createdBy         String    @db.VarChar(100)
+    updatedBy         String?   @db.VarChar(100)
+    status            String   @default("A") @db.Char(1)
+    Remarks           String?    @db.VarChar(300)
+
+    @@index([status])
 }
