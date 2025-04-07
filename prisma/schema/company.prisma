@@ -172,15 +172,15 @@ model CurrencyMaster {
 model CountryMaster {
     countryCode       String              @db.Char(2)
     countryName       String              @db.VarChar(100)
-    dialingCode       String              @db.VarChar(10)
-    ISO3DigitCode     String              @db.VarChar(10)
-    UNM49Code         String              @db.VarChar(10)
-    ShortName         String              @db.VarChar(100)
-    LocalCurrencyCode String              @db.VarChar(10)
-    LocalCurrencyName String              @db.VarChar(100)
-    AWBCurrencyCode   String              @db.VarChar(10)
-    AWBCurrencyName   String              @db.VarChar(100)
-    region            String              @db.VarChar(100)
+    dialingCode       String?              @db.VarChar(10)
+    ISO3DigitCode     String?              @db.VarChar(10)
+    UNM49Code         String?              @db.VarChar(10)
+    ShortName         String?              @db.VarChar(100)
+    LocalCurrencyCode String?              @db.VarChar(10)
+    LocalCurrencyName String?              @db.VarChar(100)
+    AWBCurrencyCode   String?              @db.VarChar(10)
+    AWBCurrencyName   String?              @db.VarChar(100)
+    region            String?              @db.VarChar(100)
     createdOn         DateTime            @default(now()) @db.Timestamptz(6)
     updatedOn         DateTime            @updatedAt @db.Timestamptz(6)
     deletedAt         DateTime?
@@ -205,8 +205,8 @@ model StateMaster {
     stateCode         String              @db.Char(2)
     stateName         String              @db.VarChar(100)
     stateGSTCode      String?             @db.Char(5)
-    region            String              @db.VarChar(100)
-    zone              Int                
+    region            String?              @db.VarChar(100)
+    zone              Int?                
     createdOn         DateTime            @default(now()) @db.Timestamptz(6)
     updatedOn         DateTime            @updatedAt @db.Timestamptz(6)
     deletedAt         DateTime?
