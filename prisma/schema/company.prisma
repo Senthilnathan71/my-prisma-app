@@ -50,6 +50,12 @@ model CompanyMaster {
     containerMaster    ContainerMaster[]
     bookingHeader      BookingHeader[]
     bookingCargo       BookingCargo[]
+    customerBranch     CustomerBranch[]
+    cusBranchContact   CusBranchContact[]
+    customerBrEmail    CustomerBrEmail[]
+    customerLogin      CustomerLogin[]
+    customerSalesTeam  CustomerSalesTeam[]
+    customerSupport    CustomerSupport[]
 }
 
 model BranchMaster {
@@ -124,6 +130,7 @@ model UserMaster {
     userBranchMaster UserBranchMaster[]
     enquiryHeader    EnquiryHeader[]
     countryMaster    CountryMaster      @relation(fields: [CountryMasterSid], references: [CountryMasterSid])
+    customerSupport  CustomerSupport[]
 }
 
 model UserBranchMaster {
@@ -172,15 +179,15 @@ model CurrencyMaster {
 model CountryMaster {
     countryCode       String              @db.Char(2)
     countryName       String              @db.VarChar(100)
-    dialingCode       String?              @db.VarChar(10)
-    ISO3DigitCode     String?              @db.VarChar(10)
-    UNM49Code         String?              @db.VarChar(10)
-    ShortName         String?              @db.VarChar(100)
-    LocalCurrencyCode String?              @db.VarChar(10)
-    LocalCurrencyName String?              @db.VarChar(100)
-    AWBCurrencyCode   String?              @db.VarChar(10)
-    AWBCurrencyName   String?              @db.VarChar(100)
-    region            String?              @db.VarChar(100)
+    dialingCode       String?             @db.VarChar(10)
+    ISO3DigitCode     String?             @db.VarChar(10)
+    UNM49Code         String?             @db.VarChar(10)
+    ShortName         String?             @db.VarChar(100)
+    LocalCurrencyCode String?             @db.VarChar(10)
+    LocalCurrencyName String?             @db.VarChar(100)
+    AWBCurrencyCode   String?             @db.VarChar(10)
+    AWBCurrencyName   String?             @db.VarChar(100)
+    region            String?             @db.VarChar(100)
     createdOn         DateTime            @default(now()) @db.Timestamptz(6)
     updatedOn         DateTime            @updatedAt @db.Timestamptz(6)
     deletedAt         DateTime?
@@ -205,8 +212,8 @@ model StateMaster {
     stateCode         String              @db.Char(2)
     stateName         String              @db.VarChar(100)
     stateGSTCode      String?             @db.Char(5)
-    region            String?              @db.VarChar(100)
-    zone              Int?                
+    region            String?             @db.VarChar(100)
+    zone              Int?
     createdOn         DateTime            @default(now()) @db.Timestamptz(6)
     updatedOn         DateTime            @updatedAt @db.Timestamptz(6)
     deletedAt         DateTime?
@@ -223,6 +230,7 @@ model StateMaster {
     portMaster        PortMaster[]
     PreCustomerMaster PreCustomerMaster[]
     countryMaster     CountryMaster       @relation(fields: [CountryMasterSid], references: [CountryMasterSid])
+    customerBranch    CustomerBranch[]
 }
 
 model CityMaster {
@@ -243,30 +251,34 @@ model CityMaster {
     stateMaster       StateMaster         @relation(fields: [StateMasterSid], references: [StateMasterSid])
     companyMaster     CompanyMaster[]
     preCustomerMaster PreCustomerMaster[]
+    customerBranch    CustomerBranch[]
 }
 
 model DepartmentMaster {
-    createdOn           DateTime          @default(now()) @db.Timestamptz(6)
-    updatedOn           DateTime          @updatedAt @db.Timestamptz(6)
+    createdOn           DateTime            @default(now()) @db.Timestamptz(6)
+    updatedOn           DateTime            @updatedAt @db.Timestamptz(6)
     deletedAt           DateTime?
-    createdBy           String            @db.VarChar(100)
-    updatedBy           String?           @db.VarChar(100)
-    Status              String            @db.Char(1)
-    departmentName      String            @db.VarChar(20)
-    departmentCode      String            @db.VarChar(5)
-    departmentType      String            @db.VarChar(10)
-    ExportImport        String            @db.VarChar(6)
-    FCLLCL              String            @db.VarChar(6)
+    createdBy           String              @db.VarChar(100)
+    updatedBy           String?             @db.VarChar(100)
+    Status              String              @db.Char(1)
+    departmentName      String              @db.VarChar(20)
+    departmentCode      String              @db.VarChar(5)
+    departmentType      String              @db.VarChar(10)
+    ExportImport        String              @db.VarChar(6)
+    FCLLCL              String              @db.VarChar(6)
     CompanyMasterSid    Int
-    DepartmentMasterSid Int               @id @default(autoincrement()) @map("DepartmentMasterSid")
+    DepartmentMasterSid Int                 @id @default(autoincrement()) @map("DepartmentMasterSid")
     LoginSid            Int?
     chargeMaster        ChargeMaster[]
     meetingFollowUp     MeetingFollowup[]
-    companyMaster       CompanyMaster     @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+    companyMaster       CompanyMaster       @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
     enquiryHeader       EnquiryHeader[]
     quoteHeader         QuoteHeader[]
     quoteRoute          QuoteRoute[]
     bookingHeader       BookingHeader[]
+    customerBrEmail     CustomerBrEmail[]
+    customerSalesTeam   CustomerSalesTeam[]
+    customerSupport     CustomerSupport[]
 }
 
 model PortMaster {
@@ -596,12 +608,15 @@ model CustomerMaster {
     status               String?   @default("A") @db.Char(1)
     LoginSid             Int?
 
-    companyMaster     CompanyMaster     @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
-    preCustomerMaster PreCustomerMaster @relation(fields: [PreCustomerMasterSid], references: [PreCustomerMasterSid])
-    countryMaster     CountryMaster     @relation(fields: [CountryMasterSid], references: [CountryMasterSid])
+    companyMaster     CompanyMaster      @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+    preCustomerMaster PreCustomerMaster  @relation(fields: [PreCustomerMasterSid], references: [PreCustomerMasterSid])
+    countryMaster     CountryMaster      @relation(fields: [CountryMasterSid], references: [CountryMasterSid])
     quoteHeader       QuoteHeader[]
     quoteCharge       QuoteCharge[]
     quoteRoute        QuoteRoute[]
+    CustomerBranch    CustomerBranch[]
+    CusBranchContact  CusBranchContact[]
+    CustomerLogin     CustomerLogin[]
 }
 
 model PackageTypeMaster {
@@ -883,25 +898,160 @@ model ContainerMaster {
 }
 
 model UOMMaster {
-    UOMMasterSid    Int       @id @default(autoincrement()) @map("UOMMasterSid")
-    UOMCode 	   String    @db.VarChar(3)   @unique
-    UOMName		   String    @db.VarChar(20)   @unique
-    UOMType		    String    @db.VarChar(10)
+    UOMMasterSid     Int       @id @default(autoincrement()) @map("UOMMasterSid")
+    UOMCode          String    @unique @db.VarChar(3)
+    UOMName          String    @unique @db.VarChar(20)
+    UOMType          String    @db.VarChar(10)
     EdiCode          String?   @db.Char(3)
-    DimensionReq	 String   @db.Char(1)
-    WeightReq	    String   @db.Char(1)
-    VolumeReq       String   @db.Char(1)
-    ShipmentType	 String    @db.VarChar(5)
-    CostPerUnitPrice  Decimal   @db.Decimal(10, 5)
-    SlabFrom          Decimal   @db.Decimal(4, 0)
-    SlabTo            Decimal   @db.Decimal(4, 0)
+    DimensionReq     String    @db.Char(1)
+    WeightReq        String    @db.Char(1)
+    VolumeReq        String    @db.Char(1)
+    ShipmentType     String    @db.VarChar(5)
+    CostPerUnitPrice Decimal   @db.Decimal(10, 5)
+    SlabFrom         Decimal   @db.Decimal(4, 0)
+    SlabTo           Decimal   @db.Decimal(4, 0)
+    createdOn        DateTime  @default(now()) @db.Timestamptz(6)
+    updatedOn        DateTime? @updatedAt @db.Timestamptz(6)
+    deletedAt        DateTime?
+    createdBy        String    @db.VarChar(100)
+    updatedBy        String?   @db.VarChar(100)
+    status           String    @default("A") @db.Char(1)
+    Remarks          String?   @db.VarChar(300)
+
+    @@index([status])
+}
+
+model CustomerBranch {
+    CustomerBranchSid Int       @id @default(autoincrement()) @map("CustomerBranchSid")
+    CustomerMasterSid Int
+    CompanyMasterSid  Int
+    StateMasterSid    Int
+    CityMasterSid     Int
+    BranchName        String    @db.VarChar(20)
+    Zip_PostBox       String?   @db.VarChar(10)
+    TanNo             String?   @db.VarChar(20)
+    Address           String    @db.VarChar(200)
+    Email             String    @db.VarChar(200)
+    Registered        String    @db.Char(1)
+    CustomerGstType   String?   @db.VarChar(10)
+    VendorGstType     String?   @db.VarChar(10)
+    GSTNo             String?   @db.VarChar(15)
+    ContactNo         String?   @db.VarChar(20)
     createdOn         DateTime  @default(now()) @db.Timestamptz(6)
     updatedOn         DateTime? @updatedAt @db.Timestamptz(6)
     deletedAt         DateTime?
     createdBy         String    @db.VarChar(100)
     updatedBy         String?   @db.VarChar(100)
-    status            String   @default("A") @db.Char(1)
-    Remarks           String?    @db.VarChar(300)
+    status            String?   @default("A") @db.Char(1)
 
-    @@index([status])
+    customerMaster    CustomerMaster      @relation(fields: [CustomerMasterSid], references: [CustomerMasterSid])
+    companyMaster     CompanyMaster       @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+    stateMaster       StateMaster         @relation(fields: [StateMasterSid], references: [StateMasterSid])
+    cityMaster        CityMaster          @relation(fields: [CityMasterSid], references: [CityMasterSid])
+    cusBranchContact  CusBranchContact[]
+    customerBrEmail   CustomerBrEmail[]
+    customerLogin     CustomerLogin[]
+    customerSalesTeam CustomerSalesTeam[]
+    customerSupport   CustomerSupport[]
+}
+
+model CusBranchContact {
+    CusBranchContactSid Int            @id @default(autoincrement()) @map("CusBranchContactSid")
+    CustomerMasterSid   Int
+    CustomerBranchSid   Int
+    CompanyMasterSid    Int
+    ContactType         String         @db.VarChar(10)
+    ContactName         String         @db.VarChar(50)
+    ContactNo           String?        @db.VarChar(15)
+    MobileNo            String?        @db.VarChar(15)
+    Email               String?        @db.VarChar(100)
+    createdOn           DateTime       @default(now()) @db.Timestamptz(6)
+    updatedOn           DateTime?      @updatedAt @db.Timestamptz(6)
+    deletedAt           DateTime?
+    createdBy           String         @db.VarChar(100)
+    updatedBy           String?        @db.VarChar(100)
+    status              String?        @default("A") @db.Char(1)
+    customerMaster      CustomerMaster @relation(fields: [CustomerMasterSid], references: [CustomerMasterSid])
+    companyMaster       CompanyMaster  @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+    customerBranch      CustomerBranch @relation(fields: [CustomerBranchSid], references: [CustomerBranchSid])
+}
+
+model CustomerBrEmail {
+    CustomerBrEmailSid  Int       @id @default(autoincrement()) @map("CustomerBrEmailSid")
+    MenuMasterSid       Int
+    CustomerBranchSid   Int
+    DepartmentMasterSid Int
+    CompanyMasterSid    Int
+    Toemail             String    @db.VarChar(100)
+    CCemail             String?   @db.VarChar(100)
+    createdOn           DateTime  @default(now()) @db.Timestamptz(6)
+    updatedOn           DateTime? @updatedAt @db.Timestamptz(6)
+    deletedAt           DateTime?
+    createdBy           String    @db.VarChar(100)
+    updatedBy           String?   @db.VarChar(100)
+    status              String?   @default("A") @db.Char(1)
+
+    customerBranch   CustomerBranch   @relation(fields: [CustomerBranchSid], references: [CustomerBranchSid])
+    companyMaster    CompanyMaster    @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+    departmentMaster DepartmentMaster @relation(fields: [DepartmentMasterSid], references: [DepartmentMasterSid])
+}
+
+model CustomerLogin {
+    CustomerLoginSid  Int       @id @default(autoincrement()) @map("CustomerLoginSid")
+    CustomerMasterSid Int
+    CustomerBranchSid Int
+    CompanyMasterSid  Int
+    LoginName         String    @db.VarChar(50)
+    LoginEmail        String    @db.VarChar(50)
+    LoginPassword     String    @db.VarChar(10)
+    createdOn         DateTime  @default(now()) @db.Timestamptz(6)
+    updatedOn         DateTime? @updatedAt @db.Timestamptz(6)
+    deletedAt         DateTime?
+    createdBy         String    @db.VarChar(100)
+    updatedBy         String?   @db.VarChar(100)
+    status            String?   @default("A") @db.Char(1)
+
+    customerMaster CustomerMaster @relation(fields: [CustomerMasterSid], references: [CustomerMasterSid])
+    companyMaster  CompanyMaster  @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+    customerBranch CustomerBranch @relation(fields: [CustomerBranchSid], references: [CustomerBranchSid])
+}
+
+model CustomerSalesTeam {
+    CustomerSalesSid    Int       @id @default(autoincrement()) @map("CustomerSalesSid")
+    Salesman            Int
+    DepartmentMasterSid Int
+    CustomerBranchSid   Int
+    CompanyMasterSid    Int
+    EffectiveFrom       DateTime
+    createdOn           DateTime  @default(now()) @db.Timestamptz(6)
+    updatedOn           DateTime? @updatedAt @db.Timestamptz(6)
+    deletedAt           DateTime?
+    createdBy           String    @db.VarChar(100)
+    updatedBy           String?   @db.VarChar(100)
+    status              String?   @default("A") @db.Char(1)
+
+    customerBranch   CustomerBranch   @relation(fields: [CustomerBranchSid], references: [CustomerBranchSid])
+    companyMaster    CompanyMaster    @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+    departmentMaster DepartmentMaster @relation(fields: [DepartmentMasterSid], references: [DepartmentMasterSid])
+}
+
+model CustomerSupport {
+    CustomerSupportSid  Int       @id @default(autoincrement()) @map("CustomerSupportSid")
+    UserMasterSid       Int
+    ContactType         String    @db.VarChar(15)
+    DepartmentMasterSid Int
+    CustomerBranchSid   Int
+    CompanyMasterSid    Int
+    EffectiveFrom       DateTime
+    createdOn           DateTime  @default(now()) @db.Timestamptz(6)
+    updatedOn           DateTime? @updatedAt @db.Timestamptz(6)
+    deletedAt           DateTime?
+    createdBy           String    @db.VarChar(100)
+    updatedBy           String?   @db.VarChar(100)
+    status              String?   @default("A") @db.Char(1)
+
+    userMaster       UserMaster       @relation(fields: [UserMasterSid], references: [UserMasterSid])
+    customerBranch   CustomerBranch   @relation(fields: [CustomerBranchSid], references: [CustomerBranchSid])
+    companyMaster    CompanyMaster    @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+    departmentMaster DepartmentMaster @relation(fields: [DepartmentMasterSid], references: [DepartmentMasterSid])
 }

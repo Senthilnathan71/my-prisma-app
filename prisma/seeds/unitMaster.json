@@ -1,0 +1,110 @@
+[
+    {
+        "unitCode": "PER",
+        "unitName": "PER SHIPMENT",
+        "jobType": "P",
+        "measurementType": "P"
+    },
+    {
+        "unitCode": "PACK",
+        "unitName": "PACK",
+        "jobType": "P",
+        "measurementType": "P"
+    },
+    {
+        "unitCode": "PCS",
+        "unitName": "PIECS",
+        "jobType": "P",
+        "measurementType": "P"
+    },
+    {
+        "unitCode": "CBM",
+        "unitName": "CBM",
+        "jobType": "P",
+        "measurementType": "P"
+    },
+    {
+        "unitCode": "CNTR",
+        "unitName": "PER CONTAINER",
+        "jobType": "P",
+        "measurementType": "P"
+    },
+    {
+        "unitCode": "TON",
+        "unitName": "TONNE(S)",
+        "jobType": "P",
+        "measurementType": "P"
+    },
+    {
+        "unitCode": "SHP",
+        "unitName": "SHIPMENT(S)",
+        "jobType": "P",
+        "measurementType": "P"
+    },
+    {
+        "unitCode": "M3",
+        "unitName": "M3",
+        "jobType": "P",
+        "measurementType": "P"
+    },
+    {
+        "unitCode": "W/M",
+        "unitName": "W/M",
+        "jobType": "P",
+        "measurementType": "P"
+    },
+    {
+        "unitCode": "TRIP",
+        "unitName": "PER TRIP",
+        "jobType": "P",
+        "measurementType": "P"
+    },
+    {
+        "unitCode": "LBS",
+        "unitName": "LBS",
+        "jobType": "P",
+        "measurementType": "P"
+    },
+    {
+        "unitCode": "KGS",
+        "unitName": "KG(S)",
+        "jobType": "P",
+        "measurementType": "P"
+    },
+    {
+        "unitCode": "PKG",
+        "unitName": "PKG",
+        "jobType": "P",
+        "measurementType": "P"
+    },
+    {
+        "unitCode": "SET",
+        "unitName": "SET(S)",
+        "jobType": "P",
+        "measurementType": "P"
+    },
+    {
+        "unitCode": "BOX",
+        "unitName": "BOX",
+        "jobType": "P",
+        "measurementType": "P"
+    },
+    {
+        "unitCode": "PAL",
+        "unitName": "PALLET",
+        "jobType": "P",
+        "measurementType": "P"
+    },
+    {
+        "unitCode": "TEU",
+        "unitName": "TEU",
+        "jobType": "P",
+        "measurementType": "P"
+    },
+    {
+        "unitCode": "Days",
+        "unitName": "Days",
+        "jobType": "P",
+        "measurementType": "P"
+    }
+]
