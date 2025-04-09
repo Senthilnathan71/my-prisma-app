@@ -1003,7 +1003,7 @@ model CustomerLogin {
     CompanyMasterSid  Int
     LoginName         String    @db.VarChar(50)
     LoginEmail        String    @db.VarChar(50)
-    LoginPassword     String    @db.VarChar(10)
+    LoginPassword     String    @db.VarChar(100)
     createdOn         DateTime  @default(now()) @db.Timestamptz(6)
     updatedOn         DateTime? @updatedAt @db.Timestamptz(6)
     deletedAt         DateTime?
