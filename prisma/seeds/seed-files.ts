@@ -11,4 +11,12 @@ export const SEED_FILES: { name: string; table: string }[] = [
         name: 'countries',
         table: 'CountryMaster'
     },
+    {
+        name: 'port',
+        table: 'PortMaster'
+    },
+    {
+        name: 'packageType',
+        table: 'PackageTypeMaster'
+    },
 ]

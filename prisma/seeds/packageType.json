@@ -1,0 +1,122 @@
+[
+    {
+        "PackageCode": "BAR",
+        "PackageName": "BAR",
+        "CompanyMasterSid": 2,
+        "createdBy": "admin@crm.com"
+    },
+    {
+        "PackageCode": "BB",
+        "PackageName": "BULK BAGS",
+        "CompanyMasterSid": 2,
+        "createdBy": "admin@crm.com"
+    },
+    {
+        "PackageCode": "CTB",
+        "PackageName": "CARTON BOXES",
+        "CompanyMasterSid": 2,
+        "createdBy": "admin@crm.com"
+    },
+    {
+        "PackageCode": "CAR",
+        "PackageName": "CARTRIDGES",
+        "CompanyMasterSid": 2,
+        "createdBy": "admin@crm.com"
+    },
+    {
+        "PackageCode": "CSE",
+        "PackageName": "CASTER OIL",
+        "CompanyMasterSid": 2,
+        "createdBy": "admin@crm.com"
+    },
+    {
+        "PackageCode": "CLS",
+        "PackageName": "COILS",
+        "CompanyMasterSid": 2,
+        "createdBy": "admin@crm.com"
+    },
+    {
+        "PackageCode": "CNT",
+        "PackageName": "CONTAINER",
+        "CompanyMasterSid": 2,
+        "createdBy": "admin@crm.com"
+    },
+    {
+        "PackageCode": "DZM",
+        "PackageName": "DOZENS",
+        "CompanyMasterSid": 2,
+        "createdBy": "admin@crm.com"
+    },
+    {
+        "PackageCode": "DRU",
+        "PackageName": "DRUM",
+        "CompanyMasterSid": 2,
+        "createdBy": "admin@crm.com"
+    },
+    {
+        "PackageCode": "DRF",
+        "PackageName": "DRY FRUITS",
+        "CompanyMasterSid": 2,
+        "createdBy": "admin@crm.com"
+    },
+    {
+        "PackageCode": "MTY",
+        "PackageName": "EMPTY",
+        "CompanyMasterSid": 2,
+        "createdBy": "admin@crm.com"
+    },
+    {
+        "PackageCode": "FLX",
+        "PackageName": "FLEXI TANK",
+        "CompanyMasterSid": 2,
+        "createdBy": "admin@crm.com"
+    },
+    {
+        "PackageCode": "FBG",
+        "PackageName": "FLEXIBAG",
+        "CompanyMasterSid": 2,
+        "createdBy": "admin@crm.com"
+    },
+    {
+        "PackageCode": "FXI",
+        "PackageName": "FXIB",
+        "CompanyMasterSid": 2,
+        "createdBy": "admin@crm.com"
+    },
+    {
+        "PackageCode": "GOV",
+        "PackageName": "GOVT. CARGO",
+        "CompanyMasterSid": 2,
+        "createdBy": "admin@crm.com"
+    },
+    {
+        "PackageCode": "GBG",
+        "PackageName": "GUNNY BAGS",
+        "CompanyMasterSid": 2,
+        "createdBy": "admin@crm.com"
+    },
+    {
+        "PackageCode": "HAZ",
+        "PackageName": "HAZARDOUS",
+        "CompanyMasterSid": 2,
+        "createdBy": "admin@crm.com"
+    },
+    {
+        "PackageCode": "HDB",
+        "PackageName": "HDPE BAGS",
+        "CompanyMasterSid": 2,
+        "createdBy": "admin@crm.com"
+    },
+    {
+        "PackageCode": "HDP",
+        "PackageName": "HDPE CANS",
+        "CompanyMasterSid": 2,
+        "createdBy": "admin@crm.com"
+    },
+    {
+        "PackageCode": "NGT",
+        "PackageName": "INGOTS",
+        "CompanyMasterSid": 2,
+        "createdBy": "admin@crm.com"
+    }
+]
