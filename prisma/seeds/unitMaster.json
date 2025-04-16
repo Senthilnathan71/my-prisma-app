@@ -3,108 +3,162 @@
         "unitCode": "PER",
         "unitName": "PER SHIPMENT",
         "jobType": "P",
-        "measurementType": "P"
+        "measurementType": "P",
+        "Remarks": "No Remarks",
+        "containerType": "20ft",
+        "createdBy": "admin@crm.com"
     },
     {
         "unitCode": "PACK",
         "unitName": "PACK",
         "jobType": "P",
-        "measurementType": "P"
+        "measurementType": "P",
+        "Remarks": "No Remarks",
+        "containerType": "20ft",
+        "createdBy": "admin@crm.com"
     },
     {
         "unitCode": "PCS",
         "unitName": "PIECS",
         "jobType": "P",
-        "measurementType": "P"
+        "measurementType": "P",
+        "Remarks": "No Remarks",
+        "containerType": "20ft",
+        "createdBy": "admin@crm.com"
     },
     {
         "unitCode": "CBM",
         "unitName": "CBM",
         "jobType": "P",
-        "measurementType": "P"
+        "measurementType": "P",
+        "Remarks": "No Remarks",
+        "containerType": "20ft",
+        "createdBy": "admin@crm.com"
     },
     {
         "unitCode": "CNTR",
         "unitName": "PER CONTAINER",
         "jobType": "P",
-        "measurementType": "P"
+        "measurementType": "P",
+        "Remarks": "No Remarks",
+        "containerType": "20ft",
+        "createdBy": "admin@crm.com"
     },
     {
         "unitCode": "TON",
         "unitName": "TONNE(S)",
         "jobType": "P",
-        "measurementType": "P"
+        "measurementType": "P",
+        "Remarks": "No Remarks",
+        "containerType": "20ft",
+        "createdBy": "admin@crm.com"
     },
     {
         "unitCode": "SHP",
         "unitName": "SHIPMENT(S)",
         "jobType": "P",
-        "measurementType": "P"
+        "measurementType": "P",
+        "Remarks": "No Remarks",
+        "containerType": "20ft",
+        "createdBy": "admin@crm.com"
     },
     {
         "unitCode": "M3",
         "unitName": "M3",
         "jobType": "P",
-        "measurementType": "P"
+        "measurementType": "P",
+        "Remarks": "No Remarks",
+        "containerType": "20ft",
+        "createdBy": "admin@crm.com"
     },
     {
         "unitCode": "W/M",
         "unitName": "W/M",
         "jobType": "P",
-        "measurementType": "P"
+        "measurementType": "P",
+        "Remarks": "No Remarks",
+        "containerType": "20ft",
+        "createdBy": "admin@crm.com"
     },
     {
         "unitCode": "TRIP",
         "unitName": "PER TRIP",
         "jobType": "P",
-        "measurementType": "P"
+        "measurementType": "P",
+        "Remarks": "No Remarks",
+        "containerType": "20ft",
+        "createdBy": "admin@crm.com"
     },
     {
         "unitCode": "LBS",
         "unitName": "LBS",
         "jobType": "P",
-        "measurementType": "P"
+        "measurementType": "P",
+        "Remarks": "No Remarks",
+        "containerType": "20ft",
+        "createdBy": "admin@crm.com"
     },
     {
         "unitCode": "KGS",
         "unitName": "KG(S)",
         "jobType": "P",
-        "measurementType": "P"
+        "measurementType": "P",
+        "Remarks": "No Remarks",
+        "containerType": "20ft",
+        "createdBy": "admin@crm.com"
     },
     {
         "unitCode": "PKG",
         "unitName": "PKG",
         "jobType": "P",
-        "measurementType": "P"
+        "measurementType": "P",
+        "Remarks": "No Remarks",
+        "containerType": "20ft",
+        "createdBy": "admin@crm.com"
     },
     {
         "unitCode": "SET",
         "unitName": "SET(S)",
         "jobType": "P",
-        "measurementType": "P"
+        "measurementType": "P",
+        "Remarks": "No Remarks",
+        "containerType": "20ft",
+        "createdBy": "admin@crm.com"
     },
     {
         "unitCode": "BOX",
         "unitName": "BOX",
         "jobType": "P",
-        "measurementType": "P"
+        "measurementType": "P",
+        "Remarks": "No Remarks",
+        "containerType": "20ft",
+        "createdBy": "admin@crm.com"
     },
     {
         "unitCode": "PAL",
         "unitName": "PALLET",
         "jobType": "P",
-        "measurementType": "P"
+        "measurementType": "P",
+        "Remarks": "No Remarks",
+        "containerType": "20ft",
+        "createdBy": "admin@crm.com"
     },
     {
         "unitCode": "TEU",
         "unitName": "TEU",
         "jobType": "P",
-        "measurementType": "P"
+        "measurementType": "P",
+        "Remarks": "No Remarks",
+        "containerType": "20ft",
+        "createdBy": "admin@crm.com"
     },
     {
         "unitCode": "Days",
         "unitName": "Days",
         "jobType": "P",
-        "measurementType": "P"
+        "measurementType": "P",
+        "Remarks": "No Remarks",
+        "containerType": "20ft",
+        "createdBy": "admin@crm.com"
     }
 ]
