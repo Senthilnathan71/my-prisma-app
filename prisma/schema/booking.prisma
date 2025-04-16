@@ -10,7 +10,7 @@ model BookingHeader {
     CustomerAddress     String?   @db.VarChar(300)
     SalesmanSid         Int?
     CargoExpectedon     DateTime?
-    FreightTerms        String    @db.VarChar(100)
+    FreightTerms        String?   @db.VarChar(100)
     POO                 String?   @db.VarChar(100)
     POL                 String    @db.VarChar(100)
     POD                 String    @db.VarChar(100)
@@ -206,8 +206,8 @@ model VoyageMasterDetail {
     Sno                   Int       @default(1) // Ensures it starts at 1 and is editable
     ETA                   DateTime
     ETD                   DateTime
-    ATA                   DateTime
-    ATD                   DateTime
+    ATA                   DateTime?
+    ATD                   DateTime?
     CoLoad                String?   @default("N") @db.Char(1)
     Coloader              String    @db.VarChar(100) //(from Partymaster)
     PortCutoff            DateTime
