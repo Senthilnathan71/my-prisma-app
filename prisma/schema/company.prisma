@@ -314,9 +314,14 @@ model UnitMaster {
     unitName        String    @db.VarChar(100)
     jobType         String    @db.VarChar(10)
     measurementType String    @db.VarChar(10)
+    containerType   String    @db.VarChar(20)  
     createdOn       DateTime  @default(now()) @db.Timestamptz(6)
     updatedOn       DateTime  @updatedAt @db.Timestamptz(6)
     deletedAt       DateTime?
+    createdBy           String           @db.VarChar(100)
+    updatedBy           String?          @db.VarChar(100)
+    Remarks             String           @db.VarChar(100)
+    status              String           @db.Char(1)
     UnitMasterSid   Int       @id @default(autoincrement()) @map("UnitMasterSid")
 
     quoteCharge QuoteCharge[]
