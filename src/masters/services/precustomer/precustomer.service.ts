@@ -32,7 +32,7 @@ export class PrecustomerService {
         try {
             const customer = await this._db.preCustomerMaster.findMany({
                 where: {
-                   // CompanyMasterSid: user.CompanyMasterSid,
+                    // CompanyMasterSid: user.CompanyMasterSid,
                     BranchMasterSid: user.BranchMasterSid,
                 },
                 orderBy: {
@@ -54,8 +54,8 @@ export class PrecustomerService {
                 CountryMasterSid: params.CountryMasterSid,
                 StateMasterSid: params.StateMasterSid,
                 preCustomerName: params.preCustomerName,
-                preCustomerAddress1: params.preCustomerAddress1,
-                preCustomerAddress2: params.preCustomerAddress2,
+                CustomerAddress1: params.preCustomerAddress1,
+                CustomerAddress2: params.preCustomerAddress2,
                 contactPerson: params.contactPerson,
                 email: params.email,
                 phone: params.phone,

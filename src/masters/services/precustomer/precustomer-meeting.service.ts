@@ -75,7 +75,7 @@ export class PreCustomerMeetingService {
                     CountryMasterSid: data.preCustomerMaster.CountryMasterSid,
                     CompanyMasterSid: data.preCustomerMaster.CompanyMasterSid,
                     CustomerName: data.preCustomerMaster.preCustomerName,
-                    PreCustomerAddress1: data.preCustomerMaster.preCustomerAddress1,
+                    CustomerAddress1: data.preCustomerMaster.preCustomerAddress1,
                     createdBy: data.preCustomerMaster.createdBy,
                     createdOn: new Date()
                 }
