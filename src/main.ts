@@ -4,17 +4,17 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import * as fs from 'fs';
 
 async function bootstrap() {
-  // const app = await NestFactory.create(AppModule);
-  // const httpsOptions = {
-  //   key: fs.readFileSync('/var/opt/npm-ssl/privkey.pem'),  // Update path
-  //   cert: fs.readFileSync('/var/opt/npm-ssl/fullchain.pem'),   // Update path
-  // };
+  const app = await NestFactory.create(AppModule);
+  const httpsOptions = {
+    key: fs.readFileSync('/var/opt/npm-ssl/privkey.pem'),  // Update path
+    cert: fs.readFileSync('/var/opt/npm-ssl/fullchain.pem'),   // Update path
+  };
 
 
 
-  const app = await NestFactory.create(AppModule,
-    // { httpsOptions }
-  );
+  // const app = await NestFactory.create(AppModule,
+  //   // { httpsOptions }
+  // );
 
   app.enableCors();
 
