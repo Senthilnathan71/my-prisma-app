@@ -19,10 +19,15 @@ import { StateController } from './controllers/state/state.controller';
 import { StateService } from './services/state/state.service';
 import { SectorController } from './controllers/sector/sector.controller';
 import { SectorService } from './services/sector/sector.service';
+import { UomService } from './services/uom/uom-master.service';
+import { UomMasterController } from './controllers/uom/uom-master.controller';
+import { UnitController } from './controllers/unit/unit.controller';
+import { UnitService } from './services/unit/unit.service';
+
 
 @Module({
-    providers: [UserService, Logger, PrecustomerService, PreCustomerMeetingService, CityService, EnquiryHeaderService, QuotationService, PortService, CountryService, StateService, SectorService],
-    controllers: [UserController, PreCustomerMeetingController, PrecustomerController, RegionController, EnquiryHeaderController, QuotationController, PortMasterController, CountryController, StateController, SectorController],
+    providers: [UserService, Logger, PrecustomerService, PreCustomerMeetingService, CityService, EnquiryHeaderService, QuotationService, PortService, CountryService, StateService, SectorService, UomService, UnitService],
+    controllers: [UserController, PreCustomerMeetingController, PrecustomerController, RegionController, EnquiryHeaderController, QuotationController, PortMasterController, CountryController, StateController, SectorController, UomMasterController, UnitController],
     exports: [UserService]
 })
 export class MastersModule { }

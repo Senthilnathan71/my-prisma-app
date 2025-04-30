@@ -7,9 +7,10 @@ export class StateService {
         private _db: DatabaseService
     ) { }
 
-    async getAllState(CountryMasterSid: any) {
+    async getAllStateByCountry(CountryMasterSid: any) {
         try {
             const stateList = await this._db.stateMaster.findMany({
+                
                 where: {
                     CountryMasterSid: CountryMasterSid,
                     status: 'A'
@@ -20,4 +21,27 @@ export class StateService {
             throw error
         }
     }
+
+    async getAllStates() {
+        try {
+            const stateList = await this._db.stateMaster.findMany({
+                include: {
+                    countryMaster: {
+                        select: {
+                            countryName: true,
+                        }
+                    }
+                },
+                where: {
+                    status: 'A'
+                }
+            })
+            return stateList;
+        } catch (error) {
+            throw error
+        }
+    }
+
+
+
 }
