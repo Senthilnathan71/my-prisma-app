@@ -54,8 +54,8 @@ export class PrecustomerService {
                 CountryMasterSid: params.CountryMasterSid,
                 StateMasterSid: params.StateMasterSid,
                 preCustomerName: params.preCustomerName,
-                CustomerAddress1: params.preCustomerAddress1,
-                CustomerAddress2: params.preCustomerAddress2,
+                preCustomerAddress1: params.preCustomerAddress1,
+                preCustomerAddress2: params.preCustomerAddress2,
                 contactPerson: params.contactPerson,
                 email: params.email,
                 phone: params.phone,
@@ -107,6 +107,7 @@ export class PrecustomerService {
                 return { message: 'Lead created successfully', data: newLead };
             }
         } catch (error) {
+            console.log(error.stack)
             throw error
         }
     }
