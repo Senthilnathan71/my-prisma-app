@@ -45,23 +45,25 @@ export class PortMasterController {
     @HttpCode(HttpStatus.CREATED)
     @Post()
     async createPort(@Body() body: any, @UserData() user: any) {
-        this.logger.log(`createPort: ${JSON.stringify(body)}`)
+        this.logger.log(`createPortdata: ${JSON.stringify(body)}`)
         let output = new ResponseData
         try {
             let port = await this.portService.createPort(body, user);
-            this.logger.debug(`createPort: ${JSON.stringify(port)}`)
+            this.logger.debug(`createPorttry: ${JSON.stringify(port)}`)
             if (!port) {
-                this.logger.warn(`createPort: ${JSON.stringify(port)}`)
+                this.logger.warn(`createPorterror!!: ${JSON.stringify(port)}`)
                 throw 'Something went wrong'
             }
             output.data = port
         } catch (error) {
-            this.logger.warn(`createPort: ${JSON.stringify(error)}`)
+            this.logger.warn(`createporterror: ${error}`)
             output.status = false;
             // Handle error message based on the type of error
             if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
                 output.message = error.message;
+                this.logger.warn(`createportexception: ${error.message}`)
             } else {
+                this.logger.warn(`createportelse: ${error}`)
                 output.message = error;
             }
         }
@@ -101,28 +103,32 @@ export class PortMasterController {
     @HttpCode(HttpStatus.OK)
     @Patch(':id')
     async editPort(@Param('id', ParseIntPipe) id: number, @Body() body: any, @UserData() user: any) {
-        this.logger.log(`editPort: ${JSON.stringify(body)}`)
+        this.logger.log(`editPortbody: ${JSON.stringify(body)}`)
         let output = new ResponseData
         try {
             let port = await this.portService.updatePort(id, body, user);
             this.logger.log(`editPort: ${JSON.stringify(port)}`)
 
             if (!port) {
-                this.logger.log(`editPort: ${JSON.stringify(port)}`)
+                this.logger.log(`editPort!!: ${JSON.stringify(port)}`)
                 throw 'Something went wrong'
+            }else{
+                this.logger.log(`editPortelse: ${port}`)
             }
             output.data = port;
 
         } catch (error) {
-            this.logger.warn(`editPort: ${JSON.stringify(error)}`)
+            this.logger.warn(`editPorterror: ${JSON.stringify(error),error}`)
             output.status = false;
             // Handle error message based on the type of error
             if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                  this.logger.warn(`editPortbadrequest: ${error}`)
                 output.message = error.message;
             } else {
                 output.message = error;
             }
         }
+        this.logger.warn(`editPortmessage: ${output.message}`)
         return output
     }
 

@@ -96,7 +96,6 @@ export class UserService {
                 data: {
                     userName: user.userName,
                     userEmail: user.userEmail,
-                    userLogin: user.userEmail,
                     userPassword: userPassword,
                     CountryMasterSid: user.CountryMasterSid,
                     userCode: createCode,

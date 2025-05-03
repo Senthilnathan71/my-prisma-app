@@ -1,0 +1,1544 @@
+[
+  {
+    "countryCode": "BD",
+    "countryName": "BANGLADESH",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "IN",
+    "countryName": "INDIA",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "CH",
+    "countryName": "CHINA",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "CC",
+    "countryName": "COCOS (KEELING) ISLANDS",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "CG",
+    "countryName": "CONGO",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "CD",
+    "countryName": "CONGO THE DEMOCRATIC REPUBLIC OF THE",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "CI",
+    "countryName": "COTE D'IVOIRE (IVORY COAST)",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "HR",
+    "countryName": "CROATIA (HRVATSKA)",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "XA",
+    "countryName": "EXTERNAL TERRITORIES OF AUSTRALIA",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "FJ",
+    "countryName": "FIJI ISLANDS",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "GF",
+    "countryName": "FRENCH GUIANA",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "TF",
+    "countryName": "FRENCH SOUTHERN TERRITORIES",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "GM",
+    "countryName": "GAMBIA THE",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "GP",
+    "countryName": "GUADELOUPE",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "XU",
+    "countryName": "GUERNSEY AND ALDERNEY",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "HM",
+    "countryName": "HEARD AND MCDONALD ISLANDS",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "HK",
+    "countryName": "HONG KONG S.A.R.",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "KP",
+    "countryName": "KOREA NORTH",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "KR",
+    "countryName": "KOREA SOUTH",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "MO",
+    "countryName": "MACAU S.A.R.",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "XM",
+    "countryName": "MAN (ISLE OF)",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "MQ",
+    "countryName": "MARTINIQUE",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "NF",
+    "countryName": "NORFOLK ISLAND",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "PS",
+    "countryName": "PALESTINIAN TERRITORY OCCUPIED",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "PN",
+    "countryName": "PITCAIRN ISLAND",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "XG",
+    "countryName": "SMALLER TERRITORIES OF THE UK",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "GS",
+    "countryName": "SOUTH GEORGIA",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "MK",
+    "countryName": "MACEDONIA",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "ML",
+    "countryName": "MALI",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "SJ",
+    "countryName": "SVALBARD AND JAN MAYEN ISLANDS",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "UM",
+    "countryName": "UNITED STATES MINOR OUTLYING ISLANDS",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "BS",
+    "countryName": "BAHAMAS THE",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "BV",
+    "countryName": "BOUVET ISLAND",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "VA",
+    "countryName": "VATICAN CITY STATE (HOLY SEE)",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "VG",
+    "countryName": "VIRGIN ISLANDS (BRITISH)",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "VI",
+    "countryName": "VIRGIN ISLANDS (US)",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "WF",
+    "countryName": "WALLIS AND FUTUNA ISLANDS",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "YU",
+    "countryName": "YUGOSLAVIA",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "AX",
+    "countryName": "ALAND ISLANDS",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "BQ",
+    "countryName": "BONAIRE, SINT EUSTATIUS AND SABA",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "MF",
+    "countryName": "SAINT MARTIN (FRENCH PART)",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "SX",
+    "countryName": "SINT MAARTEN (DUTCH PART)",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "TL",
+    "countryName": "TIMOR-LESTE",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "XZ",
+    "countryName": "INTERNATIONAL WATERS",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "AL",
+    "countryName": "ALBANIA",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "DZ",
+    "countryName": "ALGERIA",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "AS",
+    "countryName": "AMERICAN SAMOA",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "AD",
+    "countryName": "ANDORRA",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "AO",
+    "countryName": "ANGOLA",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "AQ",
+    "countryName": "ANTARCTICA",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "AG",
+    "countryName": "ANTIGUA AND BARBUDA",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "AR",
+    "countryName": "ARGENTINA",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "AM",
+    "countryName": "ARMENIA",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "AW",
+    "countryName": "ARUBA",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "AU",
+    "countryName": "AUSTRALIA",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "AT",
+    "countryName": "AUSTRIA",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "AZ",
+    "countryName": "AZERBAIJAN",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "BB",
+    "countryName": "BARBADOS",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "BY",
+    "countryName": "BELARUS",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "BE",
+    "countryName": "BELGIUM",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "BZ",
+    "countryName": "BELIZE",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "BJ",
+    "countryName": "BENIN",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "BM",
+    "countryName": "BERMUDA",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "BT",
+    "countryName": "BHUTAN",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "BO",
+    "countryName": "BOLIVIA",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "BA",
+    "countryName": "BOSNIA AND HERZEGOVINA",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "BW",
+    "countryName": "BOTSWANA",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "BR",
+    "countryName": "BRAZIL",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "IO",
+    "countryName": "BRITISH INDIAN OCEAN TERRITORY",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "BN",
+    "countryName": "BRUNEI",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "BG",
+    "countryName": "BULGARIA",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "AI",
+    "countryName": "ANGUILLA",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "BF",
+    "countryName": "BURKINA FASO",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "BI",
+    "countryName": "BURUNDI",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "BH",
+    "countryName": "BAHRAIN",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "KH",
+    "countryName": "CAMBODIA",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "CM",
+    "countryName": "CAMEROON",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "CA",
+    "countryName": "CANADA",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "CV",
+    "countryName": "CAPE VERDE",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "KY",
+    "countryName": "CAYMAN ISLANDS",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "CF",
+    "countryName": "CENTRAL AFRICAN REPUBLIC",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "TD",
+    "countryName": "CHAD",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "CL",
+    "countryName": "CHILE",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "CX",
+    "countryName": "CHRISTMAS ISLAND",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "CO",
+    "countryName": "COLOMBIA",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "KM",
+    "countryName": "COMOROS",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "CK",
+    "countryName": "COOK ISLANDS",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "CR",
+    "countryName": "COSTA RICA",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "CU",
+    "countryName": "CUBA",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "CW",
+    "countryName": "CURACAO",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "CY",
+    "countryName": "CYPRUS",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "CZ",
+    "countryName": "CZECH REPUBLIC",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "DK",
+    "countryName": "DENMARK",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "DM",
+    "countryName": "DOMINICA",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "DO",
+    "countryName": "DOMINICAN REPUBLIC",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "TP",
+    "countryName": "EAST TIMOR",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "EC",
+    "countryName": "ECUADOR",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "EG",
+    "countryName": "EGYPT",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "GG",
+    "countryName": "GUERNSEY",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "SV",
+    "countryName": "EL SALVADOR",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "GQ",
+    "countryName": "EQUATORIAL GUINEA",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "ER",
+    "countryName": "ERITREA",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "EE",
+    "countryName": "ESTONIA",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "ET",
+    "countryName": "ETHIOPIA",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "FK",
+    "countryName": "FALKLAND ISLANDS",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "FO",
+    "countryName": "FAROE ISLANDS",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "FI",
+    "countryName": "FINLAND",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "FR",
+    "countryName": "FRANCE",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "PF",
+    "countryName": "FRENCH POLYNESIA",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "GA",
+    "countryName": "GABON",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "GE",
+    "countryName": "GEORGIA",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "DE",
+    "countryName": "GERMANY",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "GH",
+    "countryName": "GHANA",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "GI",
+    "countryName": "GIBRALTAR",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "GR",
+    "countryName": "GREECE",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "GL",
+    "countryName": "GREENLAND",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "GD",
+    "countryName": "GRENADA",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "GU",
+    "countryName": "GUAM",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "GT",
+    "countryName": "GUATEMALA",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "GN",
+    "countryName": "GUINEA",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "GW",
+    "countryName": "GUINEA-BISSAU",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "GY",
+    "countryName": "GUYANA",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "HT",
+    "countryName": "HAITI",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "HN",
+    "countryName": "HONDURAS",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "HU",
+    "countryName": "HUNGARY",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "IS",
+    "countryName": "ICELAND",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "ID",
+    "countryName": "INDONESIA",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "IR",
+    "countryName": "IRAN",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "IE",
+    "countryName": "IRELAND",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "IM",
+    "countryName": "ISLE OF MAN",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "IL",
+    "countryName": "ISRAEL",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "IT",
+    "countryName": "ITALY",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "JM",
+    "countryName": "JAMAICA",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "JP",
+    "countryName": "JAPAN",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "JE",
+    "countryName": "JERSEY",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "JO",
+    "countryName": "JORDAN",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "KZ",
+    "countryName": "KAZAKHSTAN",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "KE",
+    "countryName": "KENYA",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "KI",
+    "countryName": "KIRIBATI",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "KG",
+    "countryName": "KYRGYZSTAN",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "LA",
+    "countryName": "LAOS",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "LV",
+    "countryName": "LATVIA",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "LS",
+    "countryName": "LESOTHO",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "LR",
+    "countryName": "LIBERIA",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "LY",
+    "countryName": "LIBYA",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "LI",
+    "countryName": "LIECHTENSTEIN",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "LT",
+    "countryName": "LITHUANIA",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "LU",
+    "countryName": "LUXEMBOURG",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "IQ",
+    "countryName": "IRAQ",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "MG",
+    "countryName": "MADAGASCAR",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "MW",
+    "countryName": "MALAWI",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "MV",
+    "countryName": "MALDIVES",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "MT",
+    "countryName": "MALTA",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "MH",
+    "countryName": "MARSHALL ISLANDS",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "MR",
+    "countryName": "MAURITANIA",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "MU",
+    "countryName": "MAURITIUS",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "YT",
+    "countryName": "MAYOTTE",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "MX",
+    "countryName": "MEXICO",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "FM",
+    "countryName": "MICRONESIA",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "MD",
+    "countryName": "MOLDOVA",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "MC",
+    "countryName": "MONACO",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "MN",
+    "countryName": "MONGOLIA",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "ME",
+    "countryName": "MONTENEGRO",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "MS",
+    "countryName": "MONTSERRAT",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "MA",
+    "countryName": "MOROCCO",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "MZ",
+    "countryName": "MOZAMBIQUE",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "MM",
+    "countryName": "MYANMAR",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "NA",
+    "countryName": "NAMIBIA",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "NR",
+    "countryName": "NAURU",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "NP",
+    "countryName": "NEPAL",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "AN",
+    "countryName": "NETHERLANDS ANTILLES",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "NC",
+    "countryName": "NEW CALEDONIA",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "NZ",
+    "countryName": "NEW ZEALAND",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "NI",
+    "countryName": "NICARAGUA",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "NE",
+    "countryName": "NIGER",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "NG",
+    "countryName": "NIGERIA",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "NU",
+    "countryName": "NIUE",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "MP",
+    "countryName": "NORTHERN MARIANA ISLANDS",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "NO",
+    "countryName": "NORWAY",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "PK",
+    "countryName": "PAKISTAN",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "PW",
+    "countryName": "PALAU",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "PA",
+    "countryName": "PANAMA",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "PG",
+    "countryName": "PAPUA NEW GUINEA",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "PY",
+    "countryName": "PARAGUAY",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "PE",
+    "countryName": "PERU",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "PH",
+    "countryName": "PHILIPPINES",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "PL",
+    "countryName": "POLAND",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "PT",
+    "countryName": "PORTUGAL",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "PR",
+    "countryName": "PUERTO RICO",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "RE",
+    "countryName": "REUNION",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "RO",
+    "countryName": "ROMANIA",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "RU",
+    "countryName": "RUSSIA",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "RW",
+    "countryName": "RWANDA",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "BL",
+    "countryName": "SAINT BARTHELEMY",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "SH",
+    "countryName": "SAINT HELENA",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "KN",
+    "countryName": "SAINT KITTS AND NEVIS",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "LC",
+    "countryName": "SAINT LUCIA",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "PM",
+    "countryName": "SAINT PIERRE AND MIQUELON",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "VC",
+    "countryName": "SAINT VINCENT AND THE GRENADINES",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "WS",
+    "countryName": "SAMOA",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "SM",
+    "countryName": "SAN MARINO",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "ST",
+    "countryName": "SAO TOME AND PRINCIPE",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "SN",
+    "countryName": "SENEGAL",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "RS",
+    "countryName": "SERBIA",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "SC",
+    "countryName": "SEYCHELLES",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "SL",
+    "countryName": "SIERRA LEONE",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "SK",
+    "countryName": "SLOVAKIA",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "SI",
+    "countryName": "SLOVENIA",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "SB",
+    "countryName": "SOLOMON ISLANDS",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "SS",
+    "countryName": "SOUTH SUDAN",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "ES",
+    "countryName": "SPAIN",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "LK",
+    "countryName": "SRI LANKA",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "SD",
+    "countryName": "SUDAN",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "ZA",
+    "countryName": "SOUTH AFRICA",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "SO",
+    "countryName": "SOMALIA",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "SR",
+    "countryName": "SURINAME",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "SZ",
+    "countryName": "SWAZILAND",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "SE",
+    "countryName": "SWEDEN",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "SY",
+    "countryName": "SYRIA",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "TW",
+    "countryName": "TAIWAN",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "TJ",
+    "countryName": "TAJIKISTAN",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "TZ",
+    "countryName": "TANZANIA",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "TH",
+    "countryName": "THAILAND",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "TG",
+    "countryName": "TOGO",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "TK",
+    "countryName": "TOKELAU",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "TO",
+    "countryName": "TONGA",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "TT",
+    "countryName": "TRINIDAD AND TOBAGO",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "TN",
+    "countryName": "TUNISIA",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "TM",
+    "countryName": "TURKMENISTAN",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "TC",
+    "countryName": "TURKS AND CAICOS ISLANDS",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "TV",
+    "countryName": "TUVALU",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "UG",
+    "countryName": "UGANDA",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "UA",
+    "countryName": "UKRAINE",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "GB",
+    "countryName": "UNITED KINGDOM",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "UY",
+    "countryName": "URUGUAY",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "UZ",
+    "countryName": "UZBEKISTAN",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "VU",
+    "countryName": "VANUATU",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "VE",
+    "countryName": "VENEZUELA",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "VN",
+    "countryName": "VIETNAM",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "EH",
+    "countryName": "WESTERN SAHARA",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "YE",
+    "countryName": "YEMEN",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "ZM",
+    "countryName": "ZAMBIA",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "ZW",
+    "countryName": "ZIMBABWE",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "SA",
+    "countryName": "SAUDI ARABIA",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "NL",
+    "countryName": "NETHERLANDS THE",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "DJ",
+    "countryName": "DJIBOUTI",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "TR",
+    "countryName": "TURKEY",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "MY",
+    "countryName": "MALAYSIA",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "KW",
+    "countryName": "KUWAIT",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "LB",
+    "countryName": "LEBANON",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "OM",
+    "countryName": "OMAN",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "QA",
+    "countryName": "QATAR",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "AE",
+    "countryName": "UNITED ARAB EMIRATES",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "US",
+    "countryName": "UNITED STATES",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "SG",
+    "countryName": "SINGAPORE",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "AF",
+    "countryName": "AFGHANISTAN",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  },
+  {
+    "countryCode": "BU",
+    "countryName": "BURMA",
+    "status": "A",
+    "createdBy": "admin@crm.com"
+  }
+]

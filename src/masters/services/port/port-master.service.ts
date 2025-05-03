@@ -1,30 +1,64 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import * as moment from 'moment-timezone';
 import { DatabaseService } from 'src/database/database.service';
 
 @Injectable()
 export class PortService {
+    logger: any;
     constructor(
         private _db: DatabaseService
     ) { }
 
     async createPort(payload, user) {
+       // this.logger.warn(`createPortUser: ${payload}`);
+
+
+        const existing = await this._db.portMaster.findFirst({
+            where: {
+                OR:  [
+                    {
+                        PortName: {
+                            equals: payload.PortName.trim(),
+                            mode: 'insensitive',
+                          }
+                    },
+                    {
+                        PortCode: {
+                            equals: payload.PortCode.trim(),
+                            mode: 'insensitive',
+                          }
+                    }
+                ]
+            },
+        });
+
+        if (existing) {
+          
+            if (existing.PortName === payload.PortName) {
+                throw new BadRequestException('Port name already exists');
+            }
+            if (existing.PortCode === payload.PortCode) {
+                throw new BadRequestException('Port code already exists');
+            }
+        }
+       
         try {
             const port = await this._db.portMaster.create({
                 data: payload
             });
+           
             return port;
         } catch (error) {
-            throw new Error(`creation failed: ${error.stack}`);
-        }
+            throw new Error(`Error creating port: ${error.message}`);
+        } 
     }
 
 
 
     async getAllPorts() {
         try {
-            const customer = await this._db.portMaster.findMany({
+            const port = await this._db.portMaster.findMany({
                 include: {
                     countryMaster: {
                         select: {
@@ -41,9 +75,14 @@ export class PortService {
                             stateName: true,
                         }
                     }
+                },
+                where: {
+                    deletedAt: {
+                        equals: null
+                      }
                 }
             });
-            return customer;
+            return port;
         } catch (error) {
             throw error
         }
@@ -81,6 +120,45 @@ export class PortService {
 
 
     async updatePort(PortMasterSid: number, payload, user) {
+
+        const existing = await this._db.portMaster.findFirst({
+            where: {
+                AND: [
+                    {
+                        OR:  [
+                            {
+                                PortName: {
+                                    equals: payload.PortName.trim(),
+                                    mode: 'insensitive',
+                                  }
+                            },
+                            {
+                                PortCode: {
+                                    equals: payload.PortCode.trim(),
+                                    mode: 'insensitive',
+                                  }
+                            }
+                        ]
+                    },
+                    {
+                        NOT: {
+                            PortMasterSid: PortMasterSid, 
+                          }
+                    }
+            ]
+            },
+        });
+
+        if (existing) {
+            if (existing.PortName === payload.PortName) {
+            //throw new Error('Port name already exists');
+            throw new BadRequestException('Port name already exists');
+            }
+            if (existing.PortCode === payload.PortCode) {
+                throw new BadRequestException('Port code already exists');
+            }
+        }
+
         try {
             const port = await this._db.portMaster.update({
                 where: {

@@ -32,7 +32,7 @@ export class PrecustomerService {
         try {
             const customer = await this._db.preCustomerMaster.findMany({
                 where: {
-                   // CompanyMasterSid: user.CompanyMasterSid,
+                    // CompanyMasterSid: user.CompanyMasterSid,
                     BranchMasterSid: user.BranchMasterSid,
                 },
                 orderBy: {
@@ -107,6 +107,7 @@ export class PrecustomerService {
                 return { message: 'Lead created successfully', data: newLead };
             }
         } catch (error) {
+            console.log(error.stack)
             throw error
         }
     }

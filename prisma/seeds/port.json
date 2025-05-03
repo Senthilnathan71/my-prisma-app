@@ -1,0 +1,152 @@
+[
+    {
+        "PortName": "WAGETHE",
+        "PortCode": "WET",
+        "createdBy": "admin@crm.com",
+        "CountryMasterSid": 3
+    },
+    {
+        "PortName": "Alnwick",
+        "PortCode": "GBALW",
+        "createdBy": "admin@crm.com",
+        "CountryMasterSid": 3
+    },
+    {
+        "PortName": "TIKAPUR",
+        "PortCode": "TPU",
+        "createdBy": "admin@crm.com",
+        "CountryMasterSid": 3
+    },
+    {
+        "PortName": "Alphington",
+        "PortCode": "GBAPH",
+        "createdBy": "admin@crm.com",
+        "CountryMasterSid": 3
+    },
+    {
+        "PortName": "PARINTINS",
+        "PortCode": "PIN",
+        "createdBy": "admin@crm.com",
+        "CountryMasterSid": 3
+    },
+    {
+        "PortName": "BAIDOA",
+        "PortCode": "BIB",
+        "createdBy": "admin@crm.com",
+        "CountryMasterSid": 3
+    },
+    {
+        "PortName": "TAU",
+        "PortCode": "TAV",
+        "createdBy": "admin@crm.com",
+        "CountryMasterSid": 3
+    },
+    {
+        "PortName": "HOMESTEAD",
+        "PortCode": "HST",
+        "createdBy": "admin@crm.com",
+        "CountryMasterSid": 3
+    },
+    {
+        "PortName": "SAINT CLOUD",
+        "PortCode": "STC",
+        "createdBy": "admin@crm.com",
+        "CountryMasterSid": 3
+    },
+    {
+        "PortName": "Alsager",
+        "PortCode": "GBALG",
+        "createdBy": "admin@crm.com",
+        "CountryMasterSid": 3
+    },
+    {
+        "PortName": "Alsancak",
+        "PortCode": "TRANC",
+        "createdBy": "admin@crm.com",
+        "CountryMasterSid": 3
+    },
+    {
+        "PortName": "OTTO",
+        "PortCode": "OTO",
+        "createdBy": "admin@crm.com",
+        "CountryMasterSid": 3
+    },
+    {
+        "PortName": "Alston",
+        "PortCode": "GBALS",
+        "createdBy": "admin@crm.com",
+        "CountryMasterSid": 3
+    },
+    {
+        "PortName": "Altamonte Springs",
+        "PortCode": "USASP",
+        "createdBy": "admin@crm.com",
+        "CountryMasterSid": 3
+    },
+    {
+        "PortName": "Altham",
+        "PortCode": "GBAHM",
+        "createdBy": "admin@crm.com",
+        "CountryMasterSid": 3
+    },
+    {
+        "PortName": "Alto Rio Senguerr",
+        "PortCode": "ARARR",
+        "createdBy": "admin@crm.com",
+        "CountryMasterSid": 3
+    },
+    {
+        "PortName": "WEASUA",
+        "PortCode": "WES",
+        "createdBy": "admin@crm.com",
+        "CountryMasterSid": 3
+    },
+    {
+        "PortName": "Altrincham",
+        "PortCode": "GBACM",
+        "createdBy": "admin@crm.com",
+        "CountryMasterSid": 3
+    },
+    {
+        "PortName": "Alva",
+        "PortCode": "GBALA",
+        "createdBy": "admin@crm.com",
+        "CountryMasterSid": 3
+    },
+    {
+        "PortName": "Alvarado",
+        "PortCode": "USAZB",
+        "createdBy": "admin@crm.com",
+        "CountryMasterSid": 3
+    },
+    {
+        "PortName": "Alveston",
+        "PortCode": "GBALV",
+        "createdBy": "admin@crm.com",
+        "CountryMasterSid": 3
+    },
+    {
+        "PortName": "Alyth",
+        "PortCode": "GBALT",
+        "createdBy": "admin@crm.com",
+        "CountryMasterSid": 3
+    },
+    {
+        "PortName": "PADERBORN",
+        "PortCode": "PAD",
+        "createdBy": "admin@crm.com",
+        "CountryMasterSid": 3
+    },
+    {
+        "PortName": "Ambarli",
+        "PortCode": "TRPAM",
+        "createdBy": "admin@crm.com",
+        "CountryMasterSid": 3
+    },
+    {
+        "PortName": "Ambergate",
+        "PortCode": "GBAMG",
+        "createdBy": "admin@crm.com",
+        "CountryMasterSid": 3
+    }
+]

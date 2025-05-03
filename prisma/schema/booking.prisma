@@ -1,20 +1,20 @@
 model BookingHeader {
     BookingHeaderSid    Int       @id @default(autoincrement()) @map("BookingHeaderSid")
-    BookingNo           String    @db.VarChar(2)
+    BookingNo           String    @db.VarChar(50)
     BookingDateTime     DateTime?
     CompanyMasterSid    Int
-    BranchMasterSid     Int
+    BranchMasterSid     Int?
     DepartmentMasterSid Int
     CustomerMasterSid   Int
-    CustomerName        String    @db.VarChar(100)
-    CustomerAddress     String    @db.VarChar(300)
-    SalesmanSid         Int
-    CargoExpectedon     DateTime
-    FreightTerms        String    @db.VarChar(10)
-    POO                 String    @db.VarChar(100)
+    CustomerName        String?   @db.VarChar(100)
+    CustomerAddress     String?   @db.VarChar(300)
+    SalesmanSid         Int?
+    CargoExpectedon     DateTime?
+    FreightTerms        String?   @db.VarChar(100)
+    POO                 String?   @db.VarChar(100)
     POL                 String    @db.VarChar(100)
     POD                 String    @db.VarChar(100)
-    FPD                 String    @db.VarChar(100)
+    FPD                 String?   @db.VarChar(100)
     TsPortSid           Int?
     POLTerminal         String?   @db.VarChar(100)
     VoyageMasterSid     Int?
@@ -29,7 +29,7 @@ model BookingHeader {
     ConsigneeName       String?   @db.VarChar(100)
     ConsigneeAddress    String?   @db.VarChar(300)
     ClearanceRequire    String?   @db.Char(1)
-    ShipmentType        String    @db.VarChar(10) //--Nomination/Freehand
+    ShipmentType        String?   @db.VarChar(10) //--Nomination/Freehand
     DestinationAgent    Int?
     AgentName           String?   @db.VarChar(100)
     AgentAddress        String?   @db.VarChar(300)
@@ -48,7 +48,7 @@ model BookingHeader {
     status              String?   @default("A") @db.Char(1)
 
     companyMaster    CompanyMaster     @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
-    branchMaster     BranchMaster      @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
+    branchMaster     BranchMaster?     @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
     departmentMaster DepartmentMaster? @relation(fields: [DepartmentMasterSid], references: [DepartmentMasterSid])
 
     bookingCargo BookingCargo[]
@@ -58,9 +58,9 @@ model BookingCargo {
     BookingCargoSid  Int           @id @default(autoincrement()) @map("BookingCargoSid")
     BookingHeaderSid Int
     CompanyMasterSid Int
-    BranchMasterSid  Int
+    BranchMasterSid  Int?
     NoOfPackage      Int?
-    FreightAmount    String        @db.VarChar(50)
+    FreightAmount    String?       @db.VarChar(50)
     CargoType        String        @db.VarChar(50)
     WeightUnitSid    Int?
     GrossWeight      Decimal       @db.Decimal(10, 3)
@@ -70,6 +70,7 @@ model BookingCargo {
     ContainerType    String?       @db.VarChar(50)
     Qty              Decimal       @db.Decimal(5, 0)
     ShipmentTerms    String?       @db.VarChar(10) //LCL
+    pkgType          String?       @db.VarChar(50)
     createdOn        DateTime      @default(now()) @db.Timestamptz(6)
     updatedOn        DateTime?     @updatedAt @db.Timestamptz(6)
     deletedAt        DateTime?
@@ -77,7 +78,7 @@ model BookingCargo {
     updatedBy        String?       @db.VarChar(100)
     status           String?       @default("A") @db.Char(1)
     companyMaster    CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
-    branchMaster     BranchMaster  @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
+    branchMaster     BranchMaster? @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
     bookingHeader    BookingHeader @relation(fields: [BookingHeaderSid], references: [BookingHeaderSid])
 }
 
@@ -205,8 +206,8 @@ model VoyageMasterDetail {
     Sno                   Int       @default(1) // Ensures it starts at 1 and is editable
     ETA                   DateTime
     ETD                   DateTime
-    ATA                   DateTime
-    ATD                   DateTime
+    ATA                   DateTime?
+    ATD                   DateTime?
     CoLoad                String?   @default("N") @db.Char(1)
     Coloader              String    @db.VarChar(100) //(from Partymaster)
     PortCutoff            DateTime

@@ -16,15 +16,15 @@ export class StateController {
         type: ResponseData
     })
     @HttpCode(HttpStatus.OK)
-    @Get('/:CountryMasterSid')
-    async getAllStates(@Param('CountryMasterSid', ParseIntPipe) CountryMasterSid: number) {
+    @Get('/statesbyCountry/:CountryMasterSid')
+    async getAllStateByCountry(@Param('CountryMasterSid', ParseIntPipe) CountryMasterSid: number) {
         const output = new ResponseData;
         try {
-            const state = await this.stateService.getAllState(CountryMasterSid)
-            this.logger.log(`getAllStates: ${JSON.stringify(state)}`)
+            const state = await this.stateService.getAllStateByCountry(CountryMasterSid)
+            this.logger.log(`getAllStateByCountry: ${JSON.stringify(state)}`)
             output.data = state
         } catch (error) {
-            this.logger.warn(`getAllStates: ${JSON.stringify(error)}`)
+            this.logger.warn(`getAllStateByCountry: ${JSON.stringify(error)}`)
             output.status = false;
             if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
                 output.message = error.message;
@@ -33,7 +33,31 @@ export class StateController {
             }
         }
         return output;
-    }
+    } 
 
+    @ApiOperation({ summary: 'Get All State' })
+    @ApiCreatedResponse({
+        description: 'Get All States',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Get()
+        async getAllStates() {
+            let output = new ResponseData;
+            try {
+                let stateData = await this.stateService.getAllStates();
+                this.logger.log(`getAllStates: ${JSON.stringify(stateData)}`)
+                output.data = stateData;
+            } catch (error) {
+                this.logger.warn(`getAllStates: ${JSON.stringify(error)}`)
+                output.status = false;
+                if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                    output.message = error.message;
+                } else {
+                    output.message = 'Internal Server Error';
+                }
+            }
+            return output
+        } 
 
 }
