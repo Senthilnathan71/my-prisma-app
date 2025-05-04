@@ -290,7 +290,7 @@ model CityMaster {
     deletedAt         DateTime?
     createdBy         String              @db.VarChar(100)
     updatedBy         String?             @db.VarChar(100)
-    status            String              @db.Char(1)
+    status            String              @default("A") @db.Char(1)
     CityMasterSid     Int                 @id @default(autoincrement()) @map("CityMasterSid")
     CountryMasterSid  Int
     LoginSid          Int?
@@ -309,7 +309,7 @@ model DepartmentMaster {
     deletedAt           DateTime?
     createdBy           String              @db.VarChar(100)
     updatedBy           String?             @db.VarChar(100)
-    Status              String              @db.Char(1)
+    Status              String              @default("A") @db.Char(1)
     departmentName      String              @db.VarChar(20)
     departmentCode      String              @db.VarChar(5)
     departmentType      String              @db.VarChar(10)
