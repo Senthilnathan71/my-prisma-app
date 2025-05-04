@@ -1,7 +1,9 @@
-import { BadRequestException, Controller, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, Post, UnauthorizedException } from '@nestjs/common';
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
 import { Auth } from 'src/common/decorators/auth.decorator';
+import { UserData } from 'src/common/decorators/user.decorator';
 import { ResponseData } from 'src/common/response-data';
+import { CreateStateDto, UpdateStateDto } from 'src/masters/DTO/create-state.dto';
 import { StateService } from 'src/masters/services/state/state.service';
 
 @Controller('state')
@@ -9,6 +11,43 @@ import { StateService } from 'src/masters/services/state/state.service';
 export class StateController {
 
     constructor(private stateService: StateService, private logger: Logger) { }
+
+    @ApiOperation({ summary: 'State Creation' })
+    @ApiCreatedResponse({
+        description: 'State Creation',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.CREATED)
+    @Post('create')
+    async createState(@Body() body: CreateStateDto, @UserData() user: any) {
+        this.logger.log(`createStatedata: ${JSON.stringify(body)}`)
+        let output = new ResponseData
+        try {
+            let state = await this.stateService.createState(body, user);
+            this.logger.debug(`createState: ${JSON.stringify(state)}`)
+            if (!state) {
+                this.logger.warn(`createState!!: ${JSON.stringify(state)}`)
+                throw 'Something went wrong'
+            }
+            output.data = state
+        } catch (error) {
+            this.logger.warn(`createStateError: ${error}`)
+            output.status = false;
+            // Handle error message based on the type of error
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                output.message = error.message;
+                this.logger.warn(`createStateError: ${error.message}`)
+            } else {
+                this.logger.warn(`createStateError: ${error}`)
+                output.message = error;
+            }
+        }
+        return output
+    }
+
+
+
+
 
     @ApiOperation({ summary: 'Get states by CountryMasterSid' })
     @ApiCreatedResponse({
@@ -33,7 +72,7 @@ export class StateController {
             }
         }
         return output;
-    } 
+    }
 
     @ApiOperation({ summary: 'Get All State' })
     @ApiCreatedResponse({
@@ -42,22 +81,95 @@ export class StateController {
     })
     @HttpCode(HttpStatus.OK)
     @Get()
-        async getAllStates() {
-            let output = new ResponseData;
-            try {
-                let stateData = await this.stateService.getAllStates();
-                this.logger.log(`getAllStates: ${JSON.stringify(stateData)}`)
-                output.data = stateData;
-            } catch (error) {
-                this.logger.warn(`getAllStates: ${JSON.stringify(error)}`)
-                output.status = false;
-                if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
-                    output.message = error.message;
-                } else {
-                    output.message = 'Internal Server Error';
-                }
+    async getAllStates() {
+        let output = new ResponseData;
+        try {
+            let stateData = await this.stateService.getAllStates();
+            this.logger.log(`getAllStates: ${JSON.stringify(stateData)}`)
+            output.data = stateData;
+        } catch (error) {
+            this.logger.warn(`getAllStates: ${JSON.stringify(error)}`)
+            output.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                output.message = error.message;
+            } else {
+                output.message = 'Internal Server Error';
             }
-            return output
-        } 
+        }
+        return output
+    }
+
+
+    @ApiOperation({ summary: 'Get State By Id' })
+    @ApiCreatedResponse({
+        description: 'Get State By Id',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Get('fetch/:id')
+    async getStateById(@Param('id', ParseIntPipe) stateId: number) {
+        const output = new ResponseData;
+        try {
+            const state = await this.stateService.findOne(stateId)
+            this.logger.log(`getStateById: ${JSON.stringify(state)}`)
+            output.data = state
+        } catch (error) {
+            this.logger.warn(`getStateById: ${JSON.stringify(error)}`)
+            output.status = false;
+            output.message = error
+        }
+        return output;
+    }
+
+
+
+    @ApiOperation({ summary: 'Update State By Id' })
+    @ApiCreatedResponse({
+        description: 'Update State By Id',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Patch('update/:id')
+    async editState(@Param('id', ParseIntPipe) id: number, @Body() body: UpdateStateDto, @UserData() user: any) {
+        this.logger.log(`editStatebody: ${JSON.stringify(body)}`)
+        let output = new ResponseData
+        try {
+            let state = await this.stateService.updateState(id, body, user);
+            this.logger.log(`editState: ${JSON.stringify(state)}`)
+
+            if (!state) {
+                this.logger.log(`editState!!: ${JSON.stringify(state)}`)
+                throw 'Something went wrong'
+            } else {
+                this.logger.log(`editStateelse: ${state}`)
+            }
+            output.data = state;
+
+        } catch (error) {
+            this.logger.warn(`editStateerror: ${JSON.stringify(error), error}`)
+            output.status = false;
+            // Handle error message based on the type of error
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                this.logger.warn(`editStatebadrequest: ${error}`)
+                output.message = error.message;
+            } else {
+                output.message = error;
+            }
+        }
+        this.logger.warn(`editStatemessage: ${output.message}`)
+        return output
+    }
+
+
+    @ApiOperation({ summary: 'Delete State By Id' })
+    @ApiCreatedResponse({
+        description: 'Delete State By Id',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Delete('delete/:id')
+    async softDelete(@Param('id', ParseIntPipe) id: number) {
+        return this.stateService.softDelete(id);
+    }
 
 }
