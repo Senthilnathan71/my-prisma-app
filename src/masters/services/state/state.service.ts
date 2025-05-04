@@ -1,6 +1,5 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { DatabaseService } from 'src/database/database.service';
-import { CreateStateDto, UpdateStateDto } from 'src/masters/DTO/create-state.dto';
 
 @Injectable()
 export class StateService {
@@ -10,7 +9,7 @@ export class StateService {
     ) { }
 
 
-    async createState(payload: CreateStateDto, user) {
+    async createState(payload: any, user) {
         this.logger.warn(`createStateUser: ${payload}`);
 
 
@@ -45,7 +44,10 @@ export class StateService {
 
         try {
             const state = await this._db.stateMaster.create({
-                data: payload
+                data: {
+                    ...payload,
+                    createdBy: "admin@crm.com"
+                }
             });
 
             return state;
@@ -107,44 +109,16 @@ export class StateService {
     }
 
 
-    async updateState(StateMasterSid: number, payload: UpdateStateDto, user) {
+    async updateState(StateMasterSid: number, payload: any, user) {
 
-        const existing = await this._db.stateMaster.findFirst({
+        const existing = await this._db.stateMaster.findUnique({
             where: {
-                AND: [
-                    {
-                        OR: [
-                            {
-                                stateName: {
-                                    equals: payload.stateName.trim(),
-                                    mode: 'insensitive',
-                                }
-                            },
-                            {
-                                stateCode: {
-                                    equals: payload.stateCode.trim(),
-                                    mode: 'insensitive',
-                                }
-                            }
-                        ]
-                    },
-                    {
-                        NOT: {
-                            StateMasterSid: StateMasterSid,
-                        }
-                    }
-                ]
-            },
+                StateMasterSid: StateMasterSid
+            }
         });
 
-        if (existing) {
-            if (existing.stateName === payload.stateName) {
-                //throw new Error('State name already exists');
-                throw new BadRequestException('State name already exists');
-            }
-            if (existing.stateCode === payload.stateCode) {
-                throw new BadRequestException('State code already exists');
-            }
+        if (!existing) {
+            throw new Error('State is not exists');
         }
 
         try {

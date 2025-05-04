@@ -3,7 +3,6 @@ import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
 import { Auth } from 'src/common/decorators/auth.decorator';
 import { UserData } from 'src/common/decorators/user.decorator';
 import { ResponseData } from 'src/common/response-data';
-import { CreateStateDto, UpdateStateDto } from 'src/masters/DTO/create-state.dto';
 import { StateService } from 'src/masters/services/state/state.service';
 
 @Controller('state')
@@ -19,7 +18,7 @@ export class StateController {
     })
     @HttpCode(HttpStatus.CREATED)
     @Post('create')
-    async createState(@Body() body: CreateStateDto, @UserData() user: any) {
+    async createState(@Body() body: any, @UserData() user: any) {
         this.logger.log(`createStatedata: ${JSON.stringify(body)}`)
         let output = new ResponseData
         try {
@@ -130,7 +129,7 @@ export class StateController {
     })
     @HttpCode(HttpStatus.OK)
     @Patch('update/:id')
-    async editState(@Param('id', ParseIntPipe) id: number, @Body() body: UpdateStateDto, @UserData() user: any) {
+    async editState(@Param('id', ParseIntPipe) id: number, @Body() body: any, @UserData() user: any) {
         this.logger.log(`editStatebody: ${JSON.stringify(body)}`)
         let output = new ResponseData
         try {
