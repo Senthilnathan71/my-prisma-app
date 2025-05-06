@@ -11,8 +11,12 @@ import { EmailModule } from './email/email.module';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
-    DatabaseModule, MastersModule, AuthModule, SalesModule],
+    DatabaseModule,
+    MastersModule,
+    AuthModule,
+    SalesModule,
+  ],
   controllers: [AppController],
   providers: [AppService, Logger],
 })
-export class AppModule { }
+export class AppModule {}
