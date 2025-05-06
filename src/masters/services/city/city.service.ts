@@ -4,7 +4,7 @@ import { DatabaseService } from 'src/database/database.service';
 
 @Injectable()
 export class CityService {
-  constructor(private _db: DatabaseService) {}
+  constructor(private _db: DatabaseService) { }
 
   async getAllCity() {
     try {
@@ -48,7 +48,10 @@ export class CityService {
   async addCity(cityData: any) {
     try {
       const addedData = await this._db.cityMaster.create({
-        data: { ...cityData },
+        data: {
+          ...cityData,
+          createdBy: 'admin@crm.com'
+        }
       });
       return addedData;
     } catch (error) {
@@ -63,13 +66,13 @@ export class CityService {
     try {
       const existCity = await this._db.cityMaster.findUnique({
         where: {
-          CityMasterSid,
+          CityMasterSid: CityMasterSid,
         },
       });
       if (!existCity) throw new Error('Problem with Finding City with ID');
       const updatedData = await this._db.cityMaster.update({
         where: {
-          CityMasterSid,
+          CityMasterSid: CityMasterSid,
         },
         data: newData,
       });
@@ -83,16 +86,16 @@ export class CityService {
     try {
       const existCity = await this._db.cityMaster.findUnique({
         where: {
-          CityMasterSid,
+          CityMasterSid: CityMasterSid,
         },
       });
       if (!existCity) throw new Error('Problem with Finding City with ID');
-      const deletedCity = await this._db.cityMaster.delete({
-        where: {
-          CityMasterSid,
-        },
+
+      // Perform soft delete by updating deletedAt field
+      return this._db.cityMaster.update({
+        where: { CityMasterSid: CityMasterSid },
+        data: { deletedAt: new Date() }
       });
-      return deletedCity;
     } catch (error) {
       throw error;
     }

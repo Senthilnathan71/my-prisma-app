@@ -24,6 +24,10 @@ import { UomMasterController } from './controllers/uom/uom-master.controller';
 import { UnitController } from './controllers/unit/unit.controller';
 import { UnitService } from './services/unit/unit.service';
 import { CityController } from './controllers/city/city.controller';
+import { DepartmentController } from './controllers/department/department.controller';
+import { ContainerTypeController } from './controllers/container-type/container-type.controller';
+import { DepartmentService } from 'src/masters/services/department/department.service';
+import { ContainerTypeService } from './services/container-type/container-type.service';
 
 @Module({
   providers: [
@@ -40,6 +44,8 @@ import { CityController } from './controllers/city/city.controller';
     SectorService,
     UomService,
     UnitService,
+    DepartmentService,
+    ContainerTypeService
   ],
   controllers: [
     UserController,
@@ -55,7 +61,9 @@ import { CityController } from './controllers/city/city.controller';
     SectorController,
     UomMasterController,
     UnitController,
+    DepartmentController,
+    ContainerTypeController
   ],
   exports: [UserService],
 })
-export class MastersModule {}
+export class MastersModule { }
