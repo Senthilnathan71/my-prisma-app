@@ -301,7 +301,7 @@ export class EnquiryHeaderService {
 
     async getAllContainerTypes() {
         try {
-            const container = await this._db.containerMaster.findMany({});
+            const container = await this._db.containerTypeMaster.findMany({});
             return container;
         } catch (error) {
             throw error

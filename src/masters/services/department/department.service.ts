@@ -1,5 +1,5 @@
-import { Prisma } from './../../../../node_modules/.prisma/client/index.d';
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { DatabaseService } from 'src/database/database.service';
 
 @Injectable()

@@ -47,7 +47,6 @@ model CompanyMaster {
     quoteCharge         QuoteCharge[]
     routingHeader       RoutingHeader[]
     enquiryProduct      EnquiryProduct[]
-    containerMaster     ContainerMaster[]
     bookingHeader       BookingHeader[]
     bookingCargo        BookingCargo[]
     customerBranch      CustomerBranch[]
@@ -943,21 +942,6 @@ model EnquiryProduct {
     branchMaster  BranchMaster  @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
     enquiryHeader EnquiryHeader @relation(fields: [EnquiryHeaderSid], references: [EnquiryHeaderSid])
     enquiryRoute  EnquiryRoute  @relation(fields: [EnquiryRouteSid], references: [EnquiryRouteSid])
-}
-
-model ContainerMaster {
-    ContainerMasterSid Int       @id @default(autoincrement()) @map("ContainerMasterSid")
-    CompanyMasterSid   Int
-    ContainerName      String    @db.VarChar(100)
-    ContainerCode      String    @db.VarChar(10)
-    createdOn          DateTime  @default(now()) @db.Timestamptz(6)
-    updatedOn          DateTime? @updatedAt @db.Timestamptz(6)
-    deletedAt          DateTime?
-    createdBy          String    @db.VarChar(100)
-    updatedBy          String?   @db.VarChar(100)
-    status             String?   @default("A") @db.Char(1)
-
-    companyMaster CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
 }
 
 model UOMMaster {
