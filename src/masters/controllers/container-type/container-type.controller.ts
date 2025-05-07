@@ -117,6 +117,7 @@ export class ContainerTypeController {
       this.logger.warn(
         `gettingContainerTypeWithId failed: ${(JSON.stringify(error), error)}`,
       );
+      resp.status = false;
       if (
         error instanceof BadRequestException ||
         error instanceof UnauthorizedException

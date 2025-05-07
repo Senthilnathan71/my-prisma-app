@@ -28,6 +28,12 @@ import { DepartmentController } from './controllers/department/department.contro
 import { ContainerTypeController } from './controllers/container-type/container-type.controller';
 import { DepartmentService } from 'src/masters/services/department/department.service';
 import { ContainerTypeService } from './services/container-type/container-type.service';
+import { VesselController } from './controllers/vessel/vessel.controller';
+import { VesselService } from './services/vessel/vessel.service';
+import { VoyageController } from './controllers/voyage/voyage.controller';
+import { VoyageService } from './services/voyage/voyage.service';
+import { CurrencyService } from './services/currency/currency.service';
+import { CurrencyController } from './controllers/currency/currency.controller';
 
 @Module({
   providers: [
@@ -45,7 +51,10 @@ import { ContainerTypeService } from './services/container-type/container-type.s
     UomService,
     UnitService,
     DepartmentService,
-    ContainerTypeService
+    ContainerTypeService,
+    VesselService,
+    VoyageService,
+    CurrencyService,
   ],
   controllers: [
     UserController,
@@ -62,8 +71,11 @@ import { ContainerTypeService } from './services/container-type/container-type.s
     UomMasterController,
     UnitController,
     DepartmentController,
-    ContainerTypeController
+    ContainerTypeController,
+    VesselController,
+    VoyageController,
+    CurrencyController,
   ],
   exports: [UserService],
 })
-export class MastersModule { }
+export class MastersModule {}
