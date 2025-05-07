@@ -1181,3 +1181,15 @@ model ContainerTypeMaster {
 
     companyMaster CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
 }
+
+model ZoneMaster {
+    ZoneMasterSid Int       @id @default(autoincrement()) @map("ZoneMasterSid")
+    ZoneCode      String    @db.Char(2)
+    ZoneName      String    @db.VarChar(100)
+    createdOn     DateTime  @default(now()) @db.Timestamptz(6)
+    updatedOn     DateTime? @updatedAt @db.Timestamptz(6)
+    deletedAt     DateTime?
+    createdBy     String    @db.VarChar(100)
+    updatedBy     String?   @db.VarChar(100)
+    status        String?   @default("A") @db.Char(1)
+}
