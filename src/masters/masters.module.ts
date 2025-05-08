@@ -34,6 +34,10 @@ import { VoyageController } from './controllers/voyage/voyage.controller';
 import { VoyageService } from './services/voyage/voyage.service';
 import { CurrencyService } from './services/currency/currency.service';
 import { CurrencyController } from './controllers/currency/currency.controller';
+import { ZoneService } from './services/zone/zone.service';
+import { ZoneController } from './controllers/zone/zone.controller';
+import { PackageTypeService } from './services/package-type/package-type.service';
+import { PackageTypeController } from './controllers/package-type/package-type.controller';
 
 @Module({
   providers: [
@@ -55,6 +59,8 @@ import { CurrencyController } from './controllers/currency/currency.controller';
     VesselService,
     VoyageService,
     CurrencyService,
+    ZoneService,
+    PackageTypeService,
   ],
   controllers: [
     UserController,
@@ -75,6 +81,8 @@ import { CurrencyController } from './controllers/currency/currency.controller';
     VesselController,
     VoyageController,
     CurrencyController,
+    ZoneController,
+    PackageTypeController,
   ],
   exports: [UserService],
 })

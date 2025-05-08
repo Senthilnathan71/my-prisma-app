@@ -41,7 +41,7 @@ export class ContainerTypeService {
     try {
       const ourContainerType = await this._db.containerTypeMaster.findUnique({
         where: {
-          ContainerTypeMasterSid,
+          ContainerTypeMasterSid: ContainerTypeMasterSid,
         },
       });
       if (!ourContainerType)
@@ -61,7 +61,7 @@ export class ContainerTypeService {
     try {
       const ourContainerType = await this._db.containerTypeMaster.findUnique({
         where: {
-          ContainerTypeMasterSid,
+          ContainerTypeMasterSid: ContainerTypeMasterSid,
         },
       });
       if (!ourContainerType)
@@ -70,7 +70,7 @@ export class ContainerTypeService {
         );
       const updatedContainerType = await this._db.containerTypeMaster.update({
         where: {
-          ContainerTypeMasterSid,
+          ContainerTypeMasterSid: ContainerTypeMasterSid,
         },
         data: newData,
       });
@@ -83,16 +83,21 @@ export class ContainerTypeService {
     try {
       const ourContainerType = await this._db.containerTypeMaster.findUnique({
         where: {
-          ContainerTypeMasterSid,
+          ContainerTypeMasterSid: ContainerTypeMasterSid,
         },
       });
       if (!ourContainerType)
         throw new BadRequestException(
           `Container Type with Id : ${ContainerTypeMasterSid} not found`,
         );
+      if (ourContainerType.deletedAt)
+        throw new BadRequestException(
+          `Container Type with Id : ${ContainerTypeMasterSid} is already deleted`,
+        );
+
       const deletedContainerType = await this._db.containerTypeMaster.update({
         where: {
-          ContainerTypeMasterSid,
+          ContainerTypeMasterSid: ContainerTypeMasterSid,
         },
         data: {
           deletedAt: new Date(),
