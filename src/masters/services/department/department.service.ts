@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { DatabaseService } from 'src/database/database.service';
+import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 
 @Injectable()
 export class DepartmentService {
@@ -127,5 +128,41 @@ export class DepartmentService {
             where: { DepartmentMasterSid: id },
             data: { deletedAt: new Date() }
         });
+    }
+
+
+    async searchList(dto: SearchListDto) {
+        const { searchType, filterValue } = dto;
+
+        // Whitelist allowed fields to prevent SQL injection or invalid column access
+        //write column names
+        const allowedFields = [
+            'departmentName',
+            'departmentCode',
+            'departmentType',
+            'ExportImport',
+            'FCLLCL',
+            'Status',
+        ];
+
+        if (!allowedFields.includes(searchType)) {
+            throw new BadRequestException('Invalid search type');
+        }
+
+        // Dynamically build query
+        const departments = await this._db.departmentMaster.findMany({
+            where: {
+                [searchType]: {
+                    contains: filterValue,
+                    mode: 'insensitive',
+                },
+                deletedAt: null,
+            },
+        }).catch(err => {
+            throw new Error(`Error Search Department: ${err}`);
+        });
+        return departments;
+
+
     }
 }
