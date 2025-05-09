@@ -23,11 +23,67 @@ import { UomService } from './services/uom/uom-master.service';
 import { UomMasterController } from './controllers/uom/uom-master.controller';
 import { UnitController } from './controllers/unit/unit.controller';
 import { UnitService } from './services/unit/unit.service';
-
+import { CityController } from './controllers/city/city.controller';
+import { DepartmentController } from './controllers/department/department.controller';
+import { ContainerTypeController } from './controllers/container-type/container-type.controller';
+import { DepartmentService } from 'src/masters/services/department/department.service';
+import { ContainerTypeService } from './services/container-type/container-type.service';
+import { VesselController } from './controllers/vessel/vessel.controller';
+import { VesselService } from './services/vessel/vessel.service';
+import { VoyageController } from './controllers/voyage/voyage.controller';
+import { VoyageService } from './services/voyage/voyage.service';
+import { CurrencyService } from './services/currency/currency.service';
+import { CurrencyController } from './controllers/currency/currency.controller';
+import { ZoneService } from './services/zone/zone.service';
+import { ZoneController } from './controllers/zone/zone.controller';
+import { PackageTypeService } from './services/package-type/package-type.service';
+import { PackageTypeController } from './controllers/package-type/package-type.controller';
 
 @Module({
-    providers: [UserService, Logger, PrecustomerService, PreCustomerMeetingService, CityService, EnquiryHeaderService, QuotationService, PortService, CountryService, StateService, SectorService, UomService, UnitService],
-    controllers: [UserController, PreCustomerMeetingController, PrecustomerController, RegionController, EnquiryHeaderController, QuotationController, PortMasterController, CountryController, StateController, SectorController, UomMasterController, UnitController],
-    exports: [UserService]
+  providers: [
+    UserService,
+    Logger,
+    PrecustomerService,
+    PreCustomerMeetingService,
+    CityService,
+    EnquiryHeaderService,
+    QuotationService,
+    PortService,
+    CountryService,
+    StateService,
+    SectorService,
+    UomService,
+    UnitService,
+    DepartmentService,
+    ContainerTypeService,
+    VesselService,
+    VoyageService,
+    CurrencyService,
+    ZoneService,
+    PackageTypeService,
+  ],
+  controllers: [
+    UserController,
+    CityController,
+    PreCustomerMeetingController,
+    PrecustomerController,
+    RegionController,
+    EnquiryHeaderController,
+    QuotationController,
+    PortMasterController,
+    CountryController,
+    StateController,
+    SectorController,
+    UomMasterController,
+    UnitController,
+    DepartmentController,
+    ContainerTypeController,
+    VesselController,
+    VoyageController,
+    CurrencyController,
+    ZoneController,
+    PackageTypeController,
+  ],
+  exports: [UserService],
 })
-export class MastersModule { }
+export class MastersModule {}
