@@ -167,8 +167,21 @@ export class StateController {
     })
     @HttpCode(HttpStatus.OK)
     @Delete('delete/:id')
-    async softDelete(@Param('id', ParseIntPipe) id: number) {
-        return this.stateService.softDelete(id);
+async softDelete(@Param('id', ParseIntPipe) id: number) {
+    const output = new ResponseData;
+    try {
+        const result = await this.stateService.softDelete(id);
+        output.data = result;
+    } catch (error) {
+        this.logger.warn(`softDeleteError: ${error}`);
+        output.status = false;
+        if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+            output.message = error.message;
+        } else {
+            output.message = 'Failed to delete state';
+        }
     }
+    return output;
+}
 
 }
