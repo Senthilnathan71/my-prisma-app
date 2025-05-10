@@ -641,8 +641,8 @@ model EnquiryCargo {
 
 model CustomerMaster {
     CustomerMasterSid    Int       @id @default(autoincrement()) @map("CustomerMasterSid")
-    CompanyMasterSid     Int
-    PreCustomerMasterSid Int
+    CompanyMasterSid     Int?
+    PreCustomerMasterSid Int?
     CountryMasterSid     Int
     CustomerName         String    @db.VarChar(100)
     CustomerShortCode    String?   @db.VarChar(50)
@@ -651,8 +651,8 @@ model CustomerMaster {
     CustomerAddress2     String?   @db.VarChar(300)
     LocalLanguage        String?   @db.VarChar(100)
     Registered           String?   @db.VarChar(20)
-    CompanyType          Json?
-    PanVatNo             String?   @db.VarChar(20)
+    CustomerType         Json?
+    PanType              String?   @db.VarChar(20)
     PanName              String?   @db.VarChar(100)
     CINNo                String?   @db.VarChar(20)
     CashCredit           String?   @db.VarChar(6)
@@ -670,8 +670,8 @@ model CustomerMaster {
     status               String?   @default("A") @db.Char(1)
     LoginSid             Int?
 
-    companyMaster     CompanyMaster      @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
-    preCustomerMaster PreCustomerMaster  @relation(fields: [PreCustomerMasterSid], references: [PreCustomerMasterSid])
+    companyMaster     CompanyMaster?     @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+    preCustomerMaster PreCustomerMaster? @relation(fields: [PreCustomerMasterSid], references: [PreCustomerMasterSid])
     countryMaster     CountryMaster      @relation(fields: [CountryMasterSid], references: [CountryMasterSid])
     quoteHeader       QuoteHeader[]
     quoteCharge       QuoteCharge[]

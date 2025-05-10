@@ -383,8 +383,8 @@ export class QuotationService {
             const customers = await this._db.customerMaster.findMany();
 
             const filteredCustomers = customers.filter(customer =>
-                customer.CompanyType &&
-                Object.values(customer.CompanyType).includes("isTrue")
+                customer.CustomerType &&
+                Object.values(customer.CustomerType).includes("isTrue")
             );
 
             return filteredCustomers;
