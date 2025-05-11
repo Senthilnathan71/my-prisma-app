@@ -500,6 +500,7 @@ model ChargeGroup {
 
 model SectorMaster {
     sectorName      String       @db.VarChar(50)
+    sectorCode      String       @db.VarChar(10)
     createdOn       DateTime     @default(now()) @db.Timestamptz(6)
     updatedOn       DateTime     @updatedAt @db.Timestamptz(6)
     deletedAt       DateTime?
@@ -965,6 +966,8 @@ model UOMMaster {
     status           String    @default("A") @db.Char(1)
     Remarks          String?   @db.VarChar(300)
 
+    commodityMaster CommodityMaster[]
+
     @@index([status])
 }
 
@@ -1192,4 +1195,47 @@ model ZoneMaster {
     createdBy     String    @db.VarChar(100)
     updatedBy     String?   @db.VarChar(100)
     status        String?   @default("A") @db.Char(1)
+}
+
+model HSSACMaster {
+    HSSACMasterSid Int       @id @default(autoincrement()) @map("HSSACMasterSid")
+    HSSACCode      String    @db.VarChar(9)
+    HSSACName      String    @db.VarChar(30)
+    ServiceName    String    @db.VarChar(100)
+    TaxRate        Decimal   @db.Decimal(3, 1)
+    TaxType        String    @db.VarChar(10) //VAT,UGST,CGST,IGST,Default
+    EffectiveFrom  DateTime
+    createdOn      DateTime  @default(now()) @db.Timestamptz(6)
+    updatedOn      DateTime? @updatedAt @db.Timestamptz(6)
+    deletedAt      DateTime?
+    createdBy      String    @db.VarChar(100)
+    updatedBy      String?   @db.VarChar(100)
+    status         String?   @default("A") @db.Char(1)
+    Remarks        String    @db.VarChar(300)
+
+    commodityMaster CommodityMaster[]
+}
+
+model CommodityMaster {
+    CommodityMasterSid Int       @id @default(autoincrement()) @map("CommodityMasterSid")
+    CommodityCode      String    @db.VarChar(10)
+    CommodityName      String    @db.VarChar(50)
+    CommodityNameLL    String?   @db.VarChar(50)
+    UOMSid             Int?
+    ImcoName           String?   @db.VarChar(10)
+    UNNo               String?   @db.VarChar(10)
+    PackingGroup       String?   @db.VarChar(10)
+    CommodityType      String?   @db.VarChar(10) // General, Haz, Reefer,
+    HSSACCode          Int?
+    FlashPoint         String?   @db.VarChar(5)
+    createdOn          DateTime  @default(now()) @db.Timestamptz(6)
+    updatedOn          DateTime? @updatedAt @db.Timestamptz(6)
+    deletedAt          DateTime?
+    createdBy          String    @db.VarChar(100)
+    updatedBy          String?   @db.VarChar(100)
+    status             String?   @default("A") @db.Char(1)
+    Remarks            String    @db.VarChar(300)
+
+    UOMMaster   UOMMaster?   @relation(fields: [UOMSid], references: [UOMMasterSid])
+    HSSACMaster HSSACMaster? @relation(fields: [HSSACCode], references: [HSSACMasterSid])
 }
