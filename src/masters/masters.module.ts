@@ -40,6 +40,8 @@ import { PackageTypeService } from './services/package-type/package-type.service
 import { PackageTypeController } from './controllers/package-type/package-type.controller';
 import { CustomerService } from './services/customer/customer.service';
 import { CustomerController } from './controllers/customer/customer.controller';
+import { CustomerBranchService } from './services/customer-branch/customer-branch.service';
+import { CustomerBranchController } from './controllers/customer-branch/customer-branch.controller';
 
 @Module({
   providers: [
@@ -63,7 +65,8 @@ import { CustomerController } from './controllers/customer/customer.controller';
     CurrencyService,
     ZoneService,
     PackageTypeService,
-    CustomerService
+    CustomerService,
+    CustomerBranchService
   ],
   controllers: [
     UserController,
@@ -86,7 +89,8 @@ import { CustomerController } from './controllers/customer/customer.controller';
     CurrencyController,
     ZoneController,
     PackageTypeController,
-    CustomerController
+    CustomerController,
+    CustomerBranchController
   ],
   exports: [UserService],
 })
