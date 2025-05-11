@@ -3,6 +3,7 @@ import { ApiCreatedResponse, ApiOperation } from "@nestjs/swagger";
 import { Auth } from "src/common/decorators/auth.decorator";
 import { UserData } from "src/common/decorators/user.decorator";
 import { ResponseData } from "src/common/response-data";
+import { SearchListDto } from "src/masters/DTO/search-list.dto";
 import { EnquiryHeaderService } from "src/masters/services/enquiry/enquiry-header.service";
 
 @Controller('enquiry')
@@ -214,5 +215,29 @@ export class EnquiryHeaderController {
         return output;
     }
 
-
+    @ApiOperation({ summary: 'Search List of Enquiry' })
+    @ApiCreatedResponse({
+        description: 'Search List of Enquiry',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Post('search-list')
+    async searchEnquiry(@Body() body: SearchListDto) {
+        let resp = new ResponseData();
+        try {
+            let res = await this.enquiryHeaderService.searchEnquiry(body);
+            this.logger.log(`Enquiry Search Data : ${JSON.stringify(res)}`);
+            resp.data = res;
+            resp.message = "Enquiry Search is successfully fetched";
+        } catch (error) {
+            this.logger.warn(`Enquiry Search Error : ${error}`);
+            resp.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                resp.message = error.message;
+            } else {
+                resp.message = "Internal Server Error";
+            }
+        }
+        return resp;
+    }
 }

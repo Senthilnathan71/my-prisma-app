@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { DatabaseService } from 'src/database/database.service';
+import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 
 @Injectable()
 export class PackageTypeService {
@@ -100,5 +101,26 @@ export class PackageTypeService {
     } catch (error) {
       throw error;
     }
+  }
+
+  async searchPackageType(data: SearchListDto) {
+    const { searchType, filterValue } = data;
+    const acceptedType = ['PackageName', 'PackageCode', 'status'];
+    if (!acceptedType.includes(searchType)) {
+      throw new BadRequestException('Invalid Search Type');
+    }
+    const searchResults = await this._db.packageTypeMaster
+      .findMany({
+        where: {
+          [searchType]: {
+            contains: filterValue,
+            mode: 'insensitive',
+          },
+        },
+      })
+      .catch((err) => {
+        throw new Error(`Error Occured: ${err}`);
+      });
+    return searchResults;
   }
 }

@@ -4,6 +4,7 @@ import { Auth } from 'src/common/decorators/auth.decorator';
 import { UserData } from 'src/common/decorators/user.decorator';
 import { ResponseData } from 'src/common/response-data';
 import { CreatePrecustomerDto } from 'src/masters/DTO/create-Precustomer.dto';
+import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { PrecustomerService } from 'src/masters/services/precustomer/precustomer.service';
 
 @Controller('precustomer')
@@ -117,6 +118,33 @@ export class PrecustomerController {
             }
         }
         return output
+    }
+
+
+    @ApiOperation({ summary: 'Search List of PreCustomers' })
+    @ApiCreatedResponse({
+        description: 'Search List of PreCustomers',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Post('search-list')
+    async searchPreCustomer(@Body() body: SearchListDto) {
+        let resp = new ResponseData();
+        try {
+            let res = await this.precustomerSer.searchPrecustomer(body);
+            this.logger.log(`PreCustomer Search Results : ${JSON.stringify(res)}`);
+            resp.data = res;
+            resp.message = "PreCustomer Search is successfully fetched";
+        } catch (error) {
+            this.logger.warn(`PreCustomer Search Error ${error}`);
+            resp.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                resp.message = error.message;
+            } else {
+                resp.message = "Internal Server Error"
+            }
+        }
+        return resp;
     }
 
 }

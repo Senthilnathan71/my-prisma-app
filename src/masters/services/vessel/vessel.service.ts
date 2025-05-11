@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { DatabaseService } from 'src/database/database.service';
+import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 
 @Injectable()
 export class VesselService {
@@ -89,7 +90,7 @@ export class VesselService {
         });
 
         if (!existing) {
-            throw new Error('Vessel is not exists');
+            throw new BadRequestException('Vessel is not exists');
         }
 
         try {
@@ -125,6 +126,40 @@ export class VesselService {
             where: { VesselMasterSid: id },
             data: { deletedAt: new Date() }
         });
+    }
+
+
+    async searchVessel(data:SearchListDto){
+        const {searchType,filterValue}=data;
+        const acceptedType = [
+            "VesselName",
+            "VesselShortCode",
+            "IMOCode",
+            "CallSignIn",
+            "MMSINo",
+            "GRT",
+            "NRT",
+            "YearofBuilt",
+            "VesselOperator",
+            "VesselType",
+            "LengthinMtr",
+            "BreadthinMtr",
+            "status"
+        ];
+        if(!acceptedType.includes(searchType)){
+            throw new BadRequestException('Invalid Search Type');
+        }
+        const searchResults=await this._db.vesselMaster.findMany({
+            where : {
+                [searchType]:{
+                    contains:filterValue,
+                    mode : "insensitive"
+                }
+            }
+        }).catch((err)=>{
+            throw new Error(`Error Occured : ${err}`);
+        })
+        return searchResults;
     }
 
 }

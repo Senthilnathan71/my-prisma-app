@@ -1,7 +1,8 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { DatabaseService } from "src/database/database.service";
 import * as moment from 'moment-timezone';
+import { SearchListDto } from "src/masters/DTO/search-list.dto";
 
 @Injectable()
 export class QuotationService {
@@ -393,6 +394,37 @@ export class QuotationService {
         }
     }
 
-
+    async searchQuotation(data: SearchListDto) {
+        const { searchType, filterValue } = data;
+        const acceptedTypes = [
+            "QuoteNumber",
+            "CustomerName",
+            "CustomerAddress",
+            "QuoteDate",
+            "status"
+        ];
+        if (!acceptedTypes.includes(searchType)) {
+            return new BadRequestException('Invalid Search Type');
+        }
+        const searchResults = await this._db.quoteHeader.findMany({
+            select: {
+                QuoteHeaderSid: true,
+                QuoteNumber: true,
+                CustomerName: true,
+                CustomerAddress: true,
+                QuoteDate: true,
+                status: true
+            },
+            where: {
+                [searchType]: {
+                    contains: filterValue,
+                    mode: 'insensitive'
+                }
+            }
+        }).catch((err) => {
+            throw new Error(`Error Occured : ${err}`)
+        })
+        return searchResults;
+    }
 
 }

@@ -16,6 +16,7 @@ import {
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
 import { Prisma } from '@prisma/client';
 import { ResponseData } from 'src/common/response-data';
+import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { ZoneService } from 'src/masters/services/zone/zone.service';
 
 @Controller('zone')
@@ -23,7 +24,7 @@ export class ZoneController {
   constructor(
     private logger: Logger,
     private zoneService: ZoneService,
-  ) {}
+  ) { }
 
   @ApiOperation({ summary: 'Create new Zone' })
   @ApiCreatedResponse({
@@ -198,6 +199,33 @@ export class ZoneController {
         resp.message = error.message;
       } else {
         resp.message = 'Internal Server Error';
+      }
+    }
+    return resp;
+  }
+
+
+  @ApiOperation({ summary: 'Search list of Zone' })
+  @ApiCreatedResponse({
+    description: 'Search List of Zone',
+    type: ResponseData
+  })
+  @HttpCode(HttpStatus.OK)
+  @Post('search-list')
+  async searchZone(@Body() body: SearchListDto) {
+    let resp = new ResponseData();
+    try {
+      let res = await this.zoneService.searchZone(body);
+      this.logger.log(`Zone Search Result ${JSON.stringify(res)}`);
+      resp.data = res;
+      resp.message = "Zone Search is successfully fetched"
+    } catch (error) {
+      this.logger.warn(`Zone Search Error ${error}`);
+      resp.status = false;
+      if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+        resp.message = error.message;
+      } else {
+        resp.message = "Internal Server Error";
       }
     }
     return resp;

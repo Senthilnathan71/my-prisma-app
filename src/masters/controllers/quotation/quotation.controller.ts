@@ -3,6 +3,7 @@ import { ApiCreatedResponse, ApiOperation } from "@nestjs/swagger";
 import { Auth } from "src/common/decorators/auth.decorator";
 import { UserData } from "src/common/decorators/user.decorator";
 import { ResponseData } from "src/common/response-data";
+import { SearchListDto } from "src/masters/DTO/search-list.dto";
 import { QuotationService } from "src/masters/services/quotation/quotation.service";
 
 @Controller('quotation')
@@ -200,4 +201,29 @@ export class QuotationController {
         return output;
     }
 
+    @ApiOperation({ summary: 'Search List of Quotation' })
+    @ApiCreatedResponse({
+        description: 'Search List of Quotations',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Post('search-list')
+    async searchQuotation(@Body() body: SearchListDto) {
+        let resp = new ResponseData();
+        try {
+            let res = await this.quotationService.searchQuotation(body);
+            this.logger.log(`Quotation Search Result : ${JSON.stringify(res)}`);
+            resp.data = res;
+            resp.message = "Quotation Search is successfully fetched";
+        } catch (error) {
+            this.logger.warn(`Quotation Search Error : ${error}`)
+            resp.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                resp.message = error.message;
+            } else {
+                resp.message = "Internal Server Error";
+            }
+        }
+        return resp;
+    }
 }

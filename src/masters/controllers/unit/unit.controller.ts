@@ -4,6 +4,7 @@ import { UserData } from "src/common/decorators/user.decorator";
 import { ResponseData } from 'src/common/response-data';
 import { UnitService } from 'src/masters/services/unit/unit.service';
 import { ApiCreatedResponse, ApiOperation } from "@nestjs/swagger";
+import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 
 @Controller('unit')
 @Auth()
@@ -135,5 +136,31 @@ export class UnitController {
         @HttpCode(HttpStatus.OK) @Delete(':id')
         async softDelete(@Param('id', ParseIntPipe) id: number) {
             return this.unitService.softDelete(id);
+        }
+
+        @ApiOperation({summary:'Search List of Unit'})
+        @ApiCreatedResponse({
+            description:'Search List of Unit',
+            type:ResponseData
+        })
+        @HttpCode(HttpStatus.OK)
+        @Post('search-list')
+        async searchUnit(@Body() body:SearchListDto){
+            let resp=new ResponseData();
+            try {
+                let res=await this.unitService.searchUnit(body);
+                this.logger.log(`Unit Search Data : ${JSON.stringify(res)}`);
+                resp.data=res;
+                resp.message='Unit Search is successfully fetched';
+            } catch (error) {
+                this.logger.warn(`Unit Search Error : ${error}`);
+                resp.status=false;
+                if(error instanceof BadRequestException || error instanceof UnauthorizedException){
+                    resp.message=error.message
+                } else {
+                    resp.message='Internal Server Error;'
+                }
+            }
+            return resp;
         }
 }

@@ -38,6 +38,8 @@ import { ZoneService } from './services/zone/zone.service';
 import { ZoneController } from './controllers/zone/zone.controller';
 import { PackageTypeService } from './services/package-type/package-type.service';
 import { PackageTypeController } from './controllers/package-type/package-type.controller';
+import { DivisionService } from './services/division/division.service';
+import { DivisionController } from './controllers/division/division.controller';
 
 @Module({
   providers: [
@@ -61,6 +63,7 @@ import { PackageTypeController } from './controllers/package-type/package-type.c
     CurrencyService,
     ZoneService,
     PackageTypeService,
+    DivisionService
   ],
   controllers: [
     UserController,
@@ -83,7 +86,8 @@ import { PackageTypeController } from './controllers/package-type/package-type.c
     CurrencyController,
     ZoneController,
     PackageTypeController,
+    DivisionController
   ],
   exports: [UserService],
 })
-export class MastersModule {}
+export class MastersModule { }

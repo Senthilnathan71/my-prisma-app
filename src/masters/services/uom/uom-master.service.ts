@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { Prisma } from '@prisma/client';
 import * as moment from 'moment-timezone';
 import { DatabaseService } from 'src/database/database.service';
+import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 
 @Injectable()
 export class UomService {
@@ -155,7 +156,37 @@ export class UomService {
     }   
 
 
-
+    async searchUOM(data:SearchListDto){
+        const {searchType,filterValue}=data;
+        const acceptedType=[
+            "UOMCode",
+            "UOMName",
+            "UOMType",
+            "EdiCode",
+            "DimensionReq",
+            "WeightReq",
+            "VolumeReq",
+            "ShipmentType",
+            "CostPerUnitPrice",
+            "SlabFrom",
+            "SlabTo",
+            "status",
+        ];
+        if(!acceptedType.includes(searchType)){
+            throw new BadRequestException('Invalid Search Type')
+        }
+        const searchResults = await this._db.uOMMaster.findMany({
+            where : {
+                [searchType]:{
+                    contains : filterValue,
+                    mode : 'insensitive'
+                }
+            }
+        }).catch((res)=>{
+            throw new Error(`Error Occurred : ${res}`);
+        })
+        return searchResults;
+    }
 
 
 

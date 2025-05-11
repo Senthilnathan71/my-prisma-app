@@ -1,7 +1,8 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import * as moment from 'moment-timezone';
 import { DatabaseService } from 'src/database/database.service';
+import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 
 @Injectable()
 export class EnquiryHeaderService {
@@ -308,4 +309,41 @@ export class EnquiryHeaderService {
         }
     }
 
+
+    async searchEnquiry(data: SearchListDto) {
+        const { searchType, filterValue } = data;
+        const acceptedType = [
+            "CustomerName",
+            "CustomerAddress",
+            "EnquiryType",
+            "EnquiryBy",
+            "EnquiryNumber",
+            "IncoTerms",
+            "ShipmentExpectedDate",
+            "ClearanceBy",
+            "TransportBy",
+            "DestinationClearance",
+            "DestinationTransport",
+            "ShipmentType",
+            "RoutingNo",
+            "ShipperRef",
+            "MoveType",
+            "Email",
+            "status"
+        ];
+        if (!acceptedType.includes(searchType)) {
+            throw new BadRequestException('Invalid Search Type');
+        }
+        const searchResults = await this._db.enquiryHeader.findMany({
+            where: {
+                [searchType]: {
+                    contains: filterValue,
+                    mode: 'insensitive'
+                }
+            }
+        }).catch((error) => {
+            throw new Error(`Error Occured :${error}`);
+        })
+        return searchResults;
+    }
 }

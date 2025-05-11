@@ -16,6 +16,7 @@ import {
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
 import { Prisma } from '@prisma/client';
 import { ResponseData } from 'src/common/response-data';
+import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { PackageTypeService } from 'src/masters/services/package-type/package-type.service';
 
 @Controller('package-type')
@@ -189,6 +190,37 @@ export class PackageTypeController {
     } catch (error) {
       this.logger.warn(
         `deletingPackageType failed : ${(JSON.stringify(error), error)}`,
+      );
+      resp.status = false;
+      if (
+        error instanceof BadRequestException ||
+        error instanceof UnauthorizedException
+      ) {
+        resp.message = error.message;
+      } else {
+        resp.message = 'Internal Server Error';
+      }
+    }
+    return resp;
+  }
+
+  @ApiOperation({ summary: 'Search List for Package Type' })
+  @ApiCreatedResponse({
+    description: 'Search Type for Package Type',
+    type: ResponseData,
+  })
+  @HttpCode(HttpStatus.OK)
+  @Post('search-list')
+  async searchPackageType(@Body() body: SearchListDto) {
+    let resp = new ResponseData();
+    try {
+      let res = await this.packageTypeService.searchPackageType(body);
+      this.logger.log(`Package Type SearchData : ${JSON.stringify(res)}`);
+      resp.data = res;
+      resp.message = 'PackageType Search is successfully fetched';
+    } catch (error) {
+      this.logger.warn(
+        `PackageType Search Error : ${(JSON.stringify(error), error)}`,
       );
       resp.status = false;
       if (
