@@ -3,6 +3,7 @@ import { ApiCreatedResponse, ApiOperation } from "@nestjs/swagger";
 import { Auth } from "src/common/decorators/auth.decorator";
 import { UserData } from "src/common/decorators/user.decorator";
 import { ResponseData } from "src/common/response-data";
+import { SearchListDto } from "src/masters/DTO/search-list.dto";
 import { EnquiryHeaderService } from "src/masters/services/enquiry/enquiry-header.service";
 import { UomService } from "src/masters/services/uom/uom-master.service";
 
@@ -135,6 +136,33 @@ export class UomMasterController {
     @HttpCode(HttpStatus.OK) @Delete(':id')
     async softDelete(@Param('id', ParseIntPipe) id: number) {
         return this.UomService.softDelete(id);
+    }
+
+
+    @ApiOperation({summary : 'Search List of UOM'})
+    @ApiCreatedResponse({
+        description:'Search List of UOM',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Post('search-list')
+    async searchUOM(@Body() body:SearchListDto){
+        let resp=new ResponseData();
+        try {
+            let res=await this.UomService.searchUOM(body);
+            this.logger.log(`UOM Search Results : ${JSON.stringify(res)}`);
+            resp.data=res;
+            resp.message="UOM search is successfully fetched";
+        } catch (error) {
+            this.logger.warn(`UOM Search Error : ${error}`);
+            resp.status=false;
+            if(error instanceof BadRequestException || error instanceof UnauthorizedException){
+                resp.message=error.message;
+            } else {
+                resp.message = "Internal Server Error"
+            }
+        }
+        return resp;
     }
 
 }

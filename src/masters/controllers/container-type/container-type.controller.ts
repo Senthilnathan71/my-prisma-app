@@ -16,6 +16,7 @@ import {
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
 import { Prisma } from '@prisma/client';
 import { ResponseData } from 'src/common/response-data';
+import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { ContainerTypeService } from 'src/masters/services/container-type/container-type.service';
 
 @Controller('container-type')
@@ -203,6 +204,36 @@ export class ContainerTypeController {
         resp.message = error.message;
       } else {
         error.message = 'Internal Server Error';
+      }
+    }
+    return resp;
+  }
+
+  // Search Container Type
+  @ApiOperation({ summary: 'Search List of Container Type' })
+  @ApiCreatedResponse({
+    description: 'Search list of Container Type',
+    type: ResponseData,
+  })
+  @HttpCode(HttpStatus.OK)
+  @Post('search-list')
+  async searchContainerType(@Body() body: SearchListDto) {
+    let resp = new ResponseData();
+    try {
+      this.logger.log(`Search Container Type : ${JSON.stringify(body)}`);
+      let res = await this.containerTypeService.searchContainerType(body);
+      resp.data = res;
+      resp.message = 'Container Type search is Successfully fetched';
+    } catch (error) {
+      this.logger.warn(`Search Container Type Failed: ${error}`);
+      resp.data = false;
+      if (
+        error instanceof BadRequestException ||
+        error instanceof UnauthorizedException
+      ) {
+        resp.message = error.message;
+      } else {
+        resp.message = 'Internal Server Error';
       }
     }
     return resp;

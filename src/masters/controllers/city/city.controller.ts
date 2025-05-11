@@ -16,6 +16,7 @@ import {
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
 import { Prisma } from '@prisma/client';
 import { ResponseData } from 'src/common/response-data';
+import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { CityService } from 'src/masters/services/city/city.service';
 
 @Controller('city')
@@ -176,6 +177,35 @@ export class CityController {
       this.logger.warn(`cityDeletionFailed : ${JSON.stringify(error)}`);
       resp.status = false;
       if (error instanceof UnauthorizedException) {
+        resp.message = error.message;
+      } else {
+        resp.message = 'Internal Server Error';
+      }
+    }
+    return resp;
+  }
+
+  @ApiOperation({ summary: 'Search List of City' })
+  @ApiCreatedResponse({
+    description: 'Search List of City',
+    type: ResponseData,
+  })
+  @HttpCode(HttpStatus.OK)
+  @Post('search-list')
+  async searchCity(@Body() body: SearchListDto) {
+    let resp = new ResponseData();
+    try {
+      this.logger.log(`Search cities : ${JSON.stringify(body)}`);
+      let res = await this.cityService.searchList(body);
+      resp.data = res;
+      resp.message = 'Department List fetched Successfully';
+    } catch (error) {
+      this.logger.warn(`Department Search Failed : ${JSON.stringify(error)}`);
+      resp.status = false;
+      if (
+        error instanceof BadRequestException ||
+        error instanceof UnauthorizedException
+      ) {
         resp.message = error.message;
       } else {
         resp.message = 'Internal Server Error';

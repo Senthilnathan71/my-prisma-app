@@ -3,6 +3,7 @@ import { ApiOperation, ApiCreatedResponse } from '@nestjs/swagger';
 import { Prisma } from '@prisma/client';
 import { UserData } from 'src/common/decorators/user.decorator';
 import { ResponseData } from 'src/common/response-data';
+import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { VoyageService } from 'src/masters/services/voyage/voyage.service';
 
 @Controller('voyage')
@@ -139,5 +140,31 @@ export class VoyageController {
     @Delete('delete/:id')
     async softDelete(@Param('id', ParseIntPipe) id: number) {
         return this.voyageService.softDelete(id);
+    }
+
+    @ApiOperation({summary:'Search list of Voyage'})
+    @ApiCreatedResponse({
+        description:'Search List of Voyage',
+        type:ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Post('search-list')
+    async searchVoyage(@Body() body:SearchListDto){
+        let resp=new ResponseData();
+        try {
+            let res=await this.voyageService.searchVoyage(body);
+            this.logger.log(`Voyage Search Data : ${JSON.stringify(res)}`);
+            resp.data=res;
+            resp.message='Voyage Search is successfully fetched'
+        } catch (error) {
+            this.logger.warn(`Voyage Search Error : ${error}`)
+            resp.status=false;
+            if(error instanceof BadRequestException || error instanceof UnauthorizedException){
+                resp.message=error.message;
+            } else {
+                resp.message="Internal Server Error"
+            }
+        }
+        return resp;
     }
 }

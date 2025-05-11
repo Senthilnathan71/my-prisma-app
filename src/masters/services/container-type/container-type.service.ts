@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { DatabaseService } from 'src/database/database.service';
+import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 
 @Injectable()
 export class ContainerTypeService {
@@ -107,5 +108,37 @@ export class ContainerTypeService {
     } catch (error) {
       throw error;
     }
+  }
+
+  async searchContainerType(data: SearchListDto) {
+    const { searchType, filterValue } = data;
+    const allowedTypes = [
+      'ContainerCode',
+      'ContainerSize',
+      'ContainerIsoCode',
+      'ContainerName',
+      'ContainerCateory',
+      'MaxVolume',
+      'TareWeight',
+      'GrossWeight',
+      'NoofTeu',
+      'status',
+    ];
+    if (!allowedTypes.includes(searchType)) {
+      throw new BadRequestException('Search Type Invalid');
+    }
+    const searchResults = await this._db.containerTypeMaster
+      .findMany({
+        where: {
+          [searchType]: {
+            contains: filterValue,
+            mode: 'insensitive',
+          },
+        },
+      })
+      .catch((error) => {
+        throw new Error(`Search ContainerType Failed : ${error}`);
+      });
+    return searchResults;
   }
 }

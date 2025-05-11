@@ -1,6 +1,7 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { DatabaseService } from 'src/database/database.service';
 import { CreatePrecustomerDto } from 'src/masters/DTO/create-Precustomer.dto';
+import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 
 @Injectable()
 export class PrecustomerService {
@@ -125,7 +126,38 @@ export class PrecustomerService {
     }
 
 
-
+    async searchPrecustomer(data: SearchListDto) {
+        const { searchType, filterValue } = data;
+        const acceptedTypes = [
+            "status",
+            "preCustomerAddress1",
+            "preCustomerAddress2",
+            "leadAssignTo",
+            "customerType",
+            "contactPerson",
+            "phone",
+            "preCustomerType",
+            "leadReferredBy",
+            "panVat",
+            "preCustomerName",
+            "leadFrom",
+            "email"
+        ];
+        if (!acceptedTypes.includes(searchType)) {
+            throw new BadRequestException('Invalid Search Type');
+        }
+        const searchResults = await this._db.preCustomerMaster.findMany({
+            where: {
+                [searchType]: {
+                    contains: filterValue,
+                    mode: 'insensitive'
+                }
+            }
+        }).catch((err) => {
+            throw new Error(`Error Occured ${err}`)
+        })
+        return searchResults;
+    }
 
 
 }

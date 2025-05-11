@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { DatabaseService } from 'src/database/database.service';
+import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 
 @Injectable()
 export class UnitService {
@@ -150,5 +151,30 @@ export class UnitService {
             });
         }  
 
+        async searchUnit(data:SearchListDto){
+            const {searchType,filterValue}=data;
+            const acceptedType=[
+                "unitCode",
+                "unitName",
+                "jobType",
+                "measurementType",
+                "containerType",
+                "status"
+            ];
+            if(!acceptedType.includes(searchType)){
+                throw new BadRequestException('Invalid Search Type');
+            }
+            const searchResult=await this._db.unitMaster.findMany({
+                where:{
+                    [searchType]:{
+                        contains:filterValue,
+                        mode : "insensitive"
+                    }
+                }
+            }).catch((err)=>{
+                throw new Error(`Error Occured : ${err}`)
+            })
+            return searchResult;
+        }
 
 }

@@ -40,6 +40,8 @@ import { PackageTypeService } from './services/package-type/package-type.service
 import { PackageTypeController } from './controllers/package-type/package-type.controller';
 import { CustomerService } from './services/customer/customer.service';
 import { CustomerController } from './controllers/customer/customer.controller';
+import { DivisionController } from './controllers/division/division.controller';
+import { DivisionService } from './services/division/division.service';
 
 @Module({
   providers: [
@@ -63,7 +65,8 @@ import { CustomerController } from './controllers/customer/customer.controller';
     CurrencyService,
     ZoneService,
     PackageTypeService,
-    CustomerService
+    CustomerService,
+    DivisionService
   ],
   controllers: [
     UserController,
@@ -86,8 +89,9 @@ import { CustomerController } from './controllers/customer/customer.controller';
     CurrencyController,
     ZoneController,
     PackageTypeController,
-    CustomerController
-  ],
-  exports: [UserService],
+    CustomerController,
+    DivisionController
+  ]
 })
+
 export class MastersModule { }

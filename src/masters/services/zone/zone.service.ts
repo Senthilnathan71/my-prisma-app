@@ -1,10 +1,11 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { DatabaseService } from 'src/database/database.service';
+import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 
 @Injectable()
 export class ZoneService {
-  constructor(private _db: DatabaseService) {}
+  constructor(private _db: DatabaseService) { }
 
   async createNewZone(newData: Prisma.ZoneMasterCreateInput) {
     try {
@@ -100,5 +101,28 @@ export class ZoneService {
     } catch (error) {
       throw error;
     }
+  }
+
+  async searchZone(data: SearchListDto) {
+    const { searchType, filterValue } = data;
+    const acceptedType = [
+      "ZoneCode",
+      "ZoneName",
+      "status"
+    ];
+    if (!acceptedType.includes(searchType)) {
+      throw new BadRequestException('Invalid Search Type');
+    }
+    const searchResults = await this._db.zoneMaster.findMany({
+      where: {
+        [searchType]: {
+          contains: filterValue,
+          mode: 'insensitive'
+        }
+      }
+    }).catch((err) => {
+      throw new Error(`Error Occurred : ${err}`);
+    })
+    return searchResults
   }
 }

@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { DatabaseService } from 'src/database/database.service';
+import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 
 @Injectable()
 export class VoyageService {
@@ -120,4 +121,29 @@ export class VoyageService {
         });
     }
 
+    async searchVoyage(data:SearchListDto){
+        const {searchType,filterValue}=data;
+        const acceptedType=[
+            "VoyageNo",
+            "ViaNumber",
+            "RotationNumber",
+            "ShipIRN",
+            "CrewIRN",
+            "status"
+        ];
+        if(!acceptedType.includes(searchType)){
+            throw new BadRequestException('Invalid Search Type');
+        }
+        const searchResult=await this._db.voyageMasterHeader.findMany({
+            where : {
+                [searchType]:{
+                    contains:filterValue,
+                    mode : "insensitive"
+                }
+            }
+        }).catch((err)=>{
+            throw new Error(`Error Occured : ${err}`)
+        })
+        return searchResult
+    }
 }

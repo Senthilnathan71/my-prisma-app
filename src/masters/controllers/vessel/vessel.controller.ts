@@ -4,6 +4,7 @@ import { Prisma } from '@prisma/client';
 import { Auth } from 'src/common/decorators/auth.decorator';
 import { UserData } from 'src/common/decorators/user.decorator';
 import { ResponseData } from 'src/common/response-data';
+import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { VesselService } from 'src/masters/services/vessel/vessel.service';
 
 @Controller('vessel')
@@ -141,5 +142,31 @@ export class VesselController {
     @Delete('delete/:id')
     async softDelete(@Param('id', ParseIntPipe) id: number) {
         return this.vesselService.softDelete(id);
+    }
+
+    @ApiOperation({summary:'Search List of Vessels'})
+    @ApiCreatedResponse({
+        description:'Search List of Vessels',
+        type:ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Post('search-list')
+    async searchVessel(@Body() body:SearchListDto){
+        let resp=new ResponseData();
+        try {
+            let res=await this.vesselService.searchVessel(body);
+            this.logger.log(`Vessel Search Data : ${JSON.stringify(res)}`);
+            resp.data=res;
+            resp.message="Vessel Search is successfully fetched"
+        } catch (error) {
+            this.logger.warn(`Search Vessel Error : ${error}`);
+            resp.status=false;
+            if(error instanceof BadRequestException || error instanceof UnauthorizedException){
+                resp.message=error.message;
+            } else {
+                resp.message='Internal Server Error';
+            }
+        }
+        return resp;
     }
 }

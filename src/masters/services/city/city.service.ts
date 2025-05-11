@@ -1,10 +1,11 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { DatabaseService } from 'src/database/database.service';
+import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 
 @Injectable()
 export class CityService {
-  constructor(private _db: DatabaseService) { }
+  constructor(private _db: DatabaseService) {}
 
   async getAllCity() {
     try {
@@ -50,8 +51,8 @@ export class CityService {
       const addedData = await this._db.cityMaster.create({
         data: {
           ...cityData,
-          createdBy: 'admin@crm.com'
-        }
+          createdBy: 'admin@crm.com',
+        },
       });
       return addedData;
     } catch (error) {
@@ -94,10 +95,32 @@ export class CityService {
       // Perform soft delete by updating deletedAt field
       return this._db.cityMaster.update({
         where: { CityMasterSid: CityMasterSid },
-        data: { deletedAt: new Date() }
+        data: { deletedAt: new Date() },
       });
     } catch (error) {
       throw error;
     }
+  }
+
+  async searchList(data: SearchListDto) {
+    const { searchType, filterValue } = data;
+    const allowedFields = ['cityCode', 'cityName', 'status'];
+    if (!allowedFields.includes(searchType)) {
+      throw new BadRequestException('Invalid Search Types');
+    }
+
+    const cities = await this._db.cityMaster
+      .findMany({
+        where: {
+          [searchType]: {
+            contains: filterValue,
+            mode: 'insensitive',
+          },
+        },
+      })
+      .catch((error) => {
+        throw new Error(`Error on Searching City : ${error}`);
+      });
+    return cities;
   }
 }
