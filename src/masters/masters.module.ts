@@ -42,6 +42,14 @@ import { CustomerService } from './services/customer/customer.service';
 import { CustomerController } from './controllers/customer/customer.controller';
 import { DivisionController } from './controllers/division/division.controller';
 import { DivisionService } from './services/division/division.service';
+import { CommodityController } from './controllers/commodity/commodity.controller';
+import { CommodityService } from './services/commodity/commodity.service';
+import { CustomerBranchContactController } from './controllers/customer-branch-contact/customer-branch-contact.controller';
+import { CustomerBranchContactService } from './services/customer-branch-contact/customer-branch-contact.service';
+import { CustomerBranchEmailController } from './controllers/customer-branch-email/customer-branch-email.controller';
+import { CustomerBranchEmailService } from './services/customer-branch-email/customer-branch-email.service';
+import { CustomerLoginController } from './controllers/customer-login/customer-login.controller';
+import { CustomerLoginService } from './services/customer-login/customer-login.service';
 
 @Module({
   providers: [
@@ -66,7 +74,11 @@ import { DivisionService } from './services/division/division.service';
     ZoneService,
     PackageTypeService,
     CustomerService,
-    DivisionService
+    DivisionService,
+    CommodityService,
+    CustomerBranchContactService,
+    CustomerBranchEmailService,
+    CustomerLoginService
   ],
   controllers: [
     UserController,
@@ -90,8 +102,13 @@ import { DivisionService } from './services/division/division.service';
     ZoneController,
     PackageTypeController,
     CustomerController,
-    DivisionController
-  ]
+    DivisionController,
+    CommodityController,
+    CustomerBranchContactController,
+    CustomerBranchEmailController,
+    CustomerLoginController
+  ],
+  exports: [UserService]
 })
 
 export class MastersModule { }
