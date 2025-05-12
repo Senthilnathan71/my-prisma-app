@@ -322,12 +322,12 @@ model DepartmentMaster {
     departmentType      String              @db.VarChar(10)
     ExportImport        String              @db.VarChar(6)
     FCLLCL              String              @db.VarChar(6)
-    CompanyMasterSid    Int
+    CompanyMasterSid    Int?
     DepartmentMasterSid Int                 @id @default(autoincrement()) @map("DepartmentMasterSid")
     LoginSid            Int?
     chargeMaster        ChargeMaster[]
     meetingFollowUp     MeetingFollowup[]
-    companyMaster       CompanyMaster       @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+    companyMaster       CompanyMaster?      @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
     enquiryHeader       EnquiryHeader[]
     quoteHeader         QuoteHeader[]
     quoteRoute          QuoteRoute[]
@@ -1044,6 +1044,7 @@ model CustomerBrEmail {
     customerBranch   CustomerBranch   @relation(fields: [CustomerBranchSid], references: [CustomerBranchSid])
     companyMaster    CompanyMaster    @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
     departmentMaster DepartmentMaster @relation(fields: [DepartmentMasterSid], references: [DepartmentMasterSid])
+    menuMaster       MenuMaster       @relation(fields: [MenuMasterSid], references: [MenuMasterSid])
 }
 
 model CustomerLogin {

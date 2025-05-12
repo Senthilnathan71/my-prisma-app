@@ -45,7 +45,8 @@ model MenuMaster {
 
     moduleMaster ModuleMaster @relation(fields: [ModuleMasterSid], references: [ModuleMasterSid])
 
-    roleMenuMaster RoleMenuMaster[]
+    roleMenuMaster  RoleMenuMaster[]
+    customerBrEmail CustomerBrEmail[]
 }
 
 model RoleMaster {
