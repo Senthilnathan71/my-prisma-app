@@ -30,6 +30,7 @@ export class DepartmentController {
                 throw 'Something went wrong'
             }
             output.data = department
+            output.message = 'Department Created Successfully'
         } catch (error) {
             this.logger.warn(`createDepartmentError: ${error}`)
             output.status = false;
@@ -115,7 +116,7 @@ export class DepartmentController {
                 this.logger.log(`editDepartmentelse: ${Department}`)
             }
             output.data = Department;
-
+            output.message = 'Department Updated Successfully'
         } catch (error) {
             this.logger.warn(`editDepartmenterror: ${JSON.stringify(error), error}`)
             output.status = false;
@@ -127,7 +128,7 @@ export class DepartmentController {
                 output.message = error;
             }
         }
-        this.logger.warn(`editDepartmentmessage: ${output.message}`)
+        this.logger.log(`editDepartmentmessage: ${output.message}`)
         return output
     }
 
