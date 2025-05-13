@@ -660,6 +660,7 @@ model CustomerMaster {
     GroupName            String?   @db.VarChar(20)
     Network              String?   @db.VarChar(20)
     Website              String?   @db.VarChar(50)
+    CompanyType          String?   @db.VarChar(50)
     IsMSME               String?   @db.Char(1)
     Remarks              String?   @db.VarChar(100)
     RegistrationNo       String?   @db.VarChar(20)
