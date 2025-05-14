@@ -50,6 +50,8 @@ import { CustomerBranchEmailController } from './controllers/customer-branch-ema
 import { CustomerBranchEmailService } from './services/customer-branch-email/customer-branch-email.service';
 import { CustomerLoginController } from './controllers/customer-login/customer-login.controller';
 import { CustomerLoginService } from './services/customer-login/customer-login.service';
+import { CustomerBranchService } from './services/customer-branch/customer-branch.service';
+import { CustomerBranchController } from './controllers/customer-branch/customer-branch.controller';
 
 @Module({
   providers: [
@@ -79,6 +81,7 @@ import { CustomerLoginService } from './services/customer-login/customer-login.s
     CustomerBranchContactService,
     CustomerBranchEmailService,
     CustomerLoginService
+    CustomerBranchService
   ],
   controllers: [
     UserController,
@@ -107,6 +110,7 @@ import { CustomerLoginService } from './services/customer-login/customer-login.s
     CustomerBranchContactController,
     CustomerBranchEmailController,
     CustomerLoginController
+    CustomerBranchController
   ],
   exports: [UserService]
 })
