@@ -975,7 +975,7 @@ model UOMMaster {
 model CustomerBranch {
     CustomerBranchSid Int       @id @default(autoincrement()) @map("CustomerBranchSid")
     CustomerMasterSid Int
-    CompanyMasterSid  Int
+    CompanyMasterSid  Int?
     StateMasterSid    Int
     CityMasterSid     Int
     BranchName        String    @db.VarChar(20)
@@ -996,7 +996,7 @@ model CustomerBranch {
     status            String?   @default("A") @db.Char(1)
 
     customerMaster    CustomerMaster      @relation(fields: [CustomerMasterSid], references: [CustomerMasterSid])
-    companyMaster     CompanyMaster       @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+    companyMaster     CompanyMaster?      @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
     stateMaster       StateMaster         @relation(fields: [StateMasterSid], references: [StateMasterSid])
     cityMaster        CityMaster          @relation(fields: [CityMasterSid], references: [CityMasterSid])
     cusBranchContact  CusBranchContact[]
