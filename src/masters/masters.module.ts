@@ -52,6 +52,12 @@ import { CustomerLoginController } from './controllers/customer-login/customer-l
 import { CustomerLoginService } from './services/customer-login/customer-login.service';
 import { CustomerBranchService } from './services/customer-branch/customer-branch.service';
 import { CustomerBranchController } from './controllers/customer-branch/customer-branch.controller';
+import { BranchController } from './controllers/branch/branch.controller';
+import { BranchService } from './services/branch/branch.service';
+import { CurrencyExchangeController } from './controllers/currency-exchange/currency-exchange.controller';
+import { CurrencyExchangeService } from './services/currency-exchange/currency-exchange.service';
+import { CompanyService } from './services/company/company.service';
+import { CompanyController } from './controllers/company/company.controller';
 
 @Module({
   providers: [
@@ -80,8 +86,11 @@ import { CustomerBranchController } from './controllers/customer-branch/customer
     CommodityService,
     CustomerBranchContactService,
     CustomerBranchEmailService,
-    CustomerLoginService
-    CustomerBranchService
+    CustomerLoginService,
+    CustomerBranchService,
+    BranchService,
+    CurrencyExchangeService,
+    CompanyService
   ],
   controllers: [
     UserController,
@@ -109,8 +118,11 @@ import { CustomerBranchController } from './controllers/customer-branch/customer
     CommodityController,
     CustomerBranchContactController,
     CustomerBranchEmailController,
-    CustomerLoginController
-    CustomerBranchController
+    CustomerLoginController,
+    CustomerBranchController,
+    BranchController,
+    CurrencyExchangeController,
+    CompanyController
   ],
   exports: [UserService]
 })
