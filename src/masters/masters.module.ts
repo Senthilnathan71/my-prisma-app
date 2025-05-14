@@ -50,6 +50,12 @@ import { CustomerBranchEmailController } from './controllers/customer-branch-ema
 import { CustomerBranchEmailService } from './services/customer-branch-email/customer-branch-email.service';
 import { CustomerLoginController } from './controllers/customer-login/customer-login.controller';
 import { CustomerLoginService } from './services/customer-login/customer-login.service';
+import { BranchController } from './controllers/branch/branch.controller';
+import { BranchService } from './services/branch/branch.service';
+import { CurrencyExchangeController } from './controllers/currency-exchange/currency-exchange.controller';
+import { CurrencyExchangeService } from './services/currency-exchange/currency-exchange.service';
+import { CompanyService } from './services/company/company.service';
+import { CompanyController } from './controllers/company/company.controller';
 
 @Module({
   providers: [
@@ -78,7 +84,10 @@ import { CustomerLoginService } from './services/customer-login/customer-login.s
     CommodityService,
     CustomerBranchContactService,
     CustomerBranchEmailService,
-    CustomerLoginService
+    CustomerLoginService,
+    BranchService,
+    CurrencyExchangeService,
+    CompanyService
   ],
   controllers: [
     UserController,
@@ -106,7 +115,10 @@ import { CustomerLoginService } from './services/customer-login/customer-login.s
     CommodityController,
     CustomerBranchContactController,
     CustomerBranchEmailController,
-    CustomerLoginController
+    CustomerLoginController,
+    BranchController,
+    CurrencyExchangeController,
+    CompanyController
   ],
   exports: [UserService]
 })
