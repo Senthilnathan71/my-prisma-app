@@ -22,7 +22,7 @@ export class CustomerBranchController {
             let res = await this.customerBranchService.createNewCustomerBranch(body);
             this.logger.log(`New Customer Branch Created :${JSON.stringify(res)}`);
             resp.data = res;
-            resp.message = "New Customer is successfully created";
+            resp.message = "New Customer Branch is successfully created";
         } catch (error) {
             this.logger.warn(`Customer branch Creation Error : ${JSON.stringify(error), error}`)
             resp.status = false;

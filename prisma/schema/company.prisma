@@ -1010,7 +1010,7 @@ model CusBranchContact {
     CusBranchContactSid Int            @id @default(autoincrement()) @map("CusBranchContactSid")
     CustomerMasterSid   Int
     CustomerBranchSid   Int
-    CompanyMasterSid    Int
+    CompanyMasterSid    Int?
     ContactType         String         @db.VarChar(10)
     ContactName         String         @db.VarChar(50)
     ContactNo           String?        @db.VarChar(15)
@@ -1023,16 +1023,16 @@ model CusBranchContact {
     updatedBy           String?        @db.VarChar(100)
     status              String?        @default("A") @db.Char(1)
     customerMaster      CustomerMaster @relation(fields: [CustomerMasterSid], references: [CustomerMasterSid])
-    companyMaster       CompanyMaster  @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+    companyMaster       CompanyMaster? @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
     customerBranch      CustomerBranch @relation(fields: [CustomerBranchSid], references: [CustomerBranchSid])
 }
 
 model CustomerBrEmail {
     CustomerBrEmailSid  Int       @id @default(autoincrement()) @map("CustomerBrEmailSid")
-    MenuMasterSid       Int
+    MenuMasterSid       Int?
     CustomerBranchSid   Int
     DepartmentMasterSid Int
-    CompanyMasterSid    Int
+    CompanyMasterSid    Int?
     Toemail             String    @db.VarChar(100)
     CCemail             String?   @db.VarChar(100)
     createdOn           DateTime  @default(now()) @db.Timestamptz(6)
@@ -1043,16 +1043,16 @@ model CustomerBrEmail {
     status              String?   @default("A") @db.Char(1)
 
     customerBranch   CustomerBranch   @relation(fields: [CustomerBranchSid], references: [CustomerBranchSid])
-    companyMaster    CompanyMaster    @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+    companyMaster    CompanyMaster?   @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
     departmentMaster DepartmentMaster @relation(fields: [DepartmentMasterSid], references: [DepartmentMasterSid])
-    menuMaster       MenuMaster       @relation(fields: [MenuMasterSid], references: [MenuMasterSid])
+    menuMaster       MenuMaster?      @relation(fields: [MenuMasterSid], references: [MenuMasterSid])
 }
 
 model CustomerLogin {
     CustomerLoginSid  Int       @id @default(autoincrement()) @map("CustomerLoginSid")
     CustomerMasterSid Int
     CustomerBranchSid Int
-    CompanyMasterSid  Int
+    CompanyMasterSid  Int?
     LoginName         String    @db.VarChar(50)
     LoginEmail        String    @db.VarChar(50)
     LoginPassword     String    @db.VarChar(100)
@@ -1064,7 +1064,7 @@ model CustomerLogin {
     status            String?   @default("A") @db.Char(1)
 
     customerMaster CustomerMaster @relation(fields: [CustomerMasterSid], references: [CustomerMasterSid])
-    companyMaster  CompanyMaster  @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+    companyMaster  CompanyMaster? @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
     customerBranch CustomerBranch @relation(fields: [CustomerBranchSid], references: [CustomerBranchSid])
 }
 
@@ -1073,7 +1073,7 @@ model CustomerSalesTeam {
     Salesman            Int
     DepartmentMasterSid Int
     CustomerBranchSid   Int
-    CompanyMasterSid    Int
+    CompanyMasterSid    Int?
     EffectiveFrom       DateTime
     createdOn           DateTime  @default(now()) @db.Timestamptz(6)
     updatedOn           DateTime? @updatedAt @db.Timestamptz(6)
@@ -1083,7 +1083,7 @@ model CustomerSalesTeam {
     status              String?   @default("A") @db.Char(1)
 
     customerBranch   CustomerBranch   @relation(fields: [CustomerBranchSid], references: [CustomerBranchSid])
-    companyMaster    CompanyMaster    @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+    companyMaster    CompanyMaster?   @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
     departmentMaster DepartmentMaster @relation(fields: [DepartmentMasterSid], references: [DepartmentMasterSid])
 }
 
