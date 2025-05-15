@@ -58,6 +58,8 @@ import { CurrencyExchangeController } from './controllers/currency-exchange/curr
 import { CurrencyExchangeService } from './services/currency-exchange/currency-exchange.service';
 import { CompanyService } from './services/company/company.service';
 import { CompanyController } from './controllers/company/company.controller';
+import { TariffController } from './controllers/tariff/tariff.controller';
+import { TariffService } from './services/tariff/tariff.service';
 
 @Module({
   providers: [
@@ -90,7 +92,8 @@ import { CompanyController } from './controllers/company/company.controller';
     CustomerBranchService,
     BranchService,
     CurrencyExchangeService,
-    CompanyService
+    CompanyService,
+    TariffService
   ],
   controllers: [
     UserController,
@@ -122,7 +125,8 @@ import { CompanyController } from './controllers/company/company.controller';
     CustomerBranchController,
     BranchController,
     CurrencyExchangeController,
-    CompanyController
+    CompanyController,
+    TariffController
   ],
   exports: [UserService]
 })
