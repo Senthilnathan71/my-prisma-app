@@ -8,7 +8,7 @@ export class CustomerLoginService {
     constructor(private _db: DatabaseService) { }
 
 
-    async createNewCustomerLogin(newData: Prisma.CustomerLoginCreateInput) {
+    async createNewCustomerLogin(newData: any) {
         try {
             const createdCustomerLogin = await this._db.customerLogin.create({
                 data: {
@@ -59,7 +59,7 @@ export class CustomerLoginService {
 
 
 
-    async updateCustomerLogin(CustomerLoginSid: number, updateData: Prisma.CustomerLoginUpdateInput) {
+    async updateCustomerLogin(CustomerLoginSid: number, updateData: any) {
         try {
             const existing = await this._db.customerLogin.findUnique({
                 where: {
