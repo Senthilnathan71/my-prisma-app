@@ -1,0 +1,177 @@
+import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, Post, UnauthorizedException } from '@nestjs/common';
+import { ApiOperation, ApiCreatedResponse } from '@nestjs/swagger';
+import { Prisma } from '@prisma/client';
+import { Auth } from 'src/common/decorators/auth.decorator';
+import { UserData } from 'src/common/decorators/user.decorator';
+import { ResponseData } from 'src/common/response-data';
+import { SearchListDto } from 'src/masters/DTO/search-list.dto';
+import { MenuService } from 'src/masters/services/menu/menu.service';
+
+@Controller('menu')
+@Auth()
+export class MenuController {
+    constructor(private menuService: MenuService, private logger: Logger) { }
+
+    @ApiOperation({ summary: 'Menu Creation' })
+    @ApiCreatedResponse({
+        description: 'Menu Creation',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.CREATED)
+    @Post('create')
+    async createMenu(@Body() body: any, @UserData() user: any) {
+        this.logger.log(`createmenudata: ${JSON.stringify(body)}`)
+        let output = new ResponseData
+        try {
+            let menu = await this.menuService.createMenu(body, user);
+            this.logger.debug(`createmenu: ${JSON.stringify(menu)}`)
+            if (!menu) {
+                this.logger.warn(`createmenu!!: ${JSON.stringify(menu)}`)
+                throw 'Something went wrong'
+            }
+            output.data = menu
+            output.message = 'Menu Created Successfully'
+        } catch (error) {
+            this.logger.warn(`createmenuError: ${error}`)
+            output.status = false;
+            // Handle error message based on the type of error
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                output.message = error.message;
+                this.logger.warn(`createmenuError: ${error.message}`)
+            } else {
+                this.logger.warn(`createmenuError: ${error}`)
+                output.message = error;
+            }
+        }
+        return output
+    }
+
+
+    @ApiOperation({ summary: 'Get All Menus' })
+    @ApiCreatedResponse({
+        description: 'Get All Menus',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Get()
+    async getAllMenus() {
+        let output = new ResponseData;
+        try {
+            let menuData = await this.menuService.getAllMenus();
+            this.logger.log(`getAllmenus: ${JSON.stringify(menuData)}`)
+            output.data = menuData;
+        } catch (error) {
+            this.logger.warn(`getAllmenus: ${JSON.stringify(error)}`)
+            output.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                output.message = error.message;
+            } else {
+                output.message = 'Internal Server Error';
+            }
+        }
+        return output
+    }
+
+
+    @ApiOperation({ summary: 'Get Menu By Id' })
+    @ApiCreatedResponse({
+        description: 'Get menu By Id',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Get('fetch/:id')
+    async getMenuById(@Param('id', ParseIntPipe) menuId: number) {
+        const output = new ResponseData;
+        try {
+            const menu = await this.menuService.findOne(menuId)
+            this.logger.log(`getmenuById: ${JSON.stringify(menu)}`)
+            output.data = menu
+        } catch (error) {
+            this.logger.warn(`getmenuById: ${JSON.stringify(error)}`)
+            output.status = false;
+            output.message = error
+        }
+        return output;
+    }
+
+
+    @ApiOperation({ summary: 'Update menu By Id' })
+    @ApiCreatedResponse({
+        description: 'Update menu By Id',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Patch('update/:id')
+    async editmenu(@Param('id', ParseIntPipe) id: number, @Body() body: any, @UserData() user: any) {
+        this.logger.log(`editmenubody: ${JSON.stringify(body)}`)
+        let output = new ResponseData
+        try {
+            let menu = await this.menuService.updateMenu(id, body, user);
+            this.logger.log(`editmenu: ${JSON.stringify(menu)}`)
+
+            if (!menu) {
+                this.logger.log(`editmenu!!: ${JSON.stringify(menu)}`)
+                throw 'Something went wrong'
+            } else {
+                this.logger.log(`editmenuelse: ${menu}`)
+            }
+            output.data = menu;
+            output.message = 'menu Updated Successfully'
+        } catch (error) {
+            this.logger.warn(`editmenuerror: ${JSON.stringify(error), error}`)
+            output.status = false;
+            // Handle error message based on the type of error
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                this.logger.warn(`editmenubadrequest: ${error}`)
+                output.message = error.message;
+            } else {
+                output.message = error;
+            }
+        }
+        this.logger.log(`editmenumessage: ${output.message}`)
+        return output
+    }
+
+
+
+    @ApiOperation({ summary: 'Delete menu By Id' })
+    @ApiCreatedResponse({
+        description: 'Delete menu By Id',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Delete('delete/:id')
+    async softDelete(@Param('id', ParseIntPipe) id: number) {
+        return this.menuService.softDelete(id);
+    }
+
+
+
+    @ApiOperation({ summary: 'Search List of menu' })
+    @ApiCreatedResponse({
+        description: 'Search List',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Post('search-list')
+    async searchmenu(@Body() body: SearchListDto) {
+        let output = new ResponseData;
+        try {
+            this.logger.log(`searchmenu: ${JSON.stringify(body)}`)
+            const menuList = await this.menuService.searchList(body);
+            output.data = menuList
+            output.message = "menu List fetched Successfully"
+        } catch (err) {
+            output.status = false;
+            this.logger.warn(`searchmenu: ${JSON.stringify(err)}`)
+            output.status = false;
+            if (err instanceof BadRequestException || err instanceof UnauthorizedException) {
+                output.message = err.message;
+            } else {
+                output.message = 'Internal Server Error';
+            }
+        }
+        return output
+    }
+
+}
