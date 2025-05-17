@@ -1,11 +1,11 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 
 @Injectable()
 export class BranchService {
-    constructor(private _db: DatabaseService) { }
+    constructor(private _db: DatabaseService, private logger: Logger) { }
 
     async createNewBranch(newData: Prisma.BranchMasterCreateInput) {
         try {
@@ -100,7 +100,7 @@ export class BranchService {
 
     async searchBranch(data: SearchListDto) {
         const { searchType, filterValue } = data;
-        const acceptedType = [
+        const stringFields = [
             "branchName",
             "branchCode",
             "taxRegistrationNo",
@@ -112,18 +112,42 @@ export class BranchService {
             "phoneNumber",
             "email",
             "timeZone",
-            "companyLogo",
-            "reportLogo",
             "status"
         ];
+        const intFields = [""];
+        const acceptedType = [
+            ...stringFields,
+            ...intFields
+        ];
+        this.logger.log('Search List DTO', JSON.stringify(data))
         if (!acceptedType.includes(searchType)) {
             throw new BadRequestException(`Invalid Search Type`);
         }
+        let whereClause: any = {};
+        if (stringFields.includes(searchType)) {
+            whereClause[searchType] = {
+                contains: filterValue,
+                mode: "insensitive"
+            };
+        } else if (intFields.includes(searchType)) {
+            const numberValue = parseInt(filterValue);
+            if (isNaN(numberValue)) {
+                throw new BadRequestException(`${searchType} must be a valid number`);
+            }
+            whereClause[searchType] = numberValue;
+        }
         const searchResults = await this._db.branchMaster.findMany({
-            where: {
-                [searchType]: {
-                    contains: filterValue,
-                    mode: 'insensitive'
+            where: whereClause,
+            include: {
+                cityMaster: {
+                    select: {
+                        cityName: true
+                    }
+                },
+                company: {
+                    select: {
+                        companyName: true
+                    }
                 }
             }
         }).catch((err) => {

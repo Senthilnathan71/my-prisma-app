@@ -1,11 +1,12 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { contains } from 'class-validator';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 
 @Injectable()
 export class TariffService {
-    constructor(private _db: DatabaseService) { }
+    constructor(private _db: DatabaseService, private logger: Logger) { }
 
     async createNewTariff(newData: Prisma.TariffHeaderCreateInput) {
         try {
@@ -105,26 +106,38 @@ export class TariffService {
 
     async searchTariff(data: SearchListDto) {
         const { searchType, filterValue } = data;
-        const acceptedType = [
+        const stringFields = [
             "DepartmentName",
             "POLTerminal",
             "PODTerminal",
-            "Carrier",
             "EffectiveDate",
-            "AgentSid",
             "status"
         ];
+        const intFields = [
+            "Carrier",
+            "AgentSid",
+        ]
+        const acceptedType = [...stringFields, ...intFields];
+        this.logger.log(`Search List DTO`, JSON.stringify(data));
         if (!acceptedType.includes(searchType)) {
             throw new BadRequestException(`Invalid Search Type`);
         }
-        const searchResults = await this._db.tariffHeader.findMany({
-            where: {
-                [searchType]: {
-                    contains: filterValue,
-                    mode: 'insensitive'
-                },
-                deletedAt: null
+        let whereClause: any = {};
+
+        if (stringFields.includes(searchType)) {
+            whereClause[searchType] = {
+                contains: filterValue,
+                mode: 'insensitive'
             }
+        } else if (intFields.includes(searchType)) {
+            const numberValue = parseInt(filterValue);
+            if (isNaN(numberValue)) {
+                throw new BadRequestException(`${searchType} must be a valid number`);
+            }
+            whereClause[searchType] = numberValue;
+        }
+        const searchResults = await this._db.tariffHeader.findMany({
+            where: whereClause
         }).catch((err) => {
             throw new Error(`Error Occurred : ${JSON.stringify(err), err}`);
         })
