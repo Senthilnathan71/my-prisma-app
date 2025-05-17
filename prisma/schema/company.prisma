@@ -269,7 +269,7 @@ model StateMaster {
     stateName         String              @db.VarChar(100)
     stateGSTCode      String?             @db.Char(5)
     region            String?             @db.VarChar(100)
-    zone              Int?
+    ZoneMasterSid     Int?
     createdOn         DateTime            @default(now()) @db.Timestamptz(6)
     updatedOn         DateTime            @updatedAt @db.Timestamptz(6)
     deletedAt         DateTime?
@@ -286,7 +286,9 @@ model StateMaster {
     portMaster        PortMaster[]
     PreCustomerMaster PreCustomerMaster[]
     countryMaster     CountryMaster       @relation(fields: [CountryMasterSid], references: [CountryMasterSid])
-    customerBranch    CustomerBranch[]
+    zoneMaster        ZoneMaster?         @relation(fields: [ZoneMasterSid], references: [ZoneMasterSid])
+
+    customerBranch CustomerBranch[]
 }
 
 model CityMaster {
@@ -1197,6 +1199,8 @@ model ZoneMaster {
     createdBy     String    @db.VarChar(100)
     updatedBy     String?   @db.VarChar(100)
     status        String?   @default("A") @db.Char(1)
+
+    stateMaster StateMaster[]
 }
 
 model HSSACMaster {

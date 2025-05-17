@@ -129,37 +129,57 @@ export class VesselService {
     }
 
 
-    async searchVessel(data:SearchListDto){
-        const {searchType,filterValue}=data;
-        const acceptedType = [
+    async searchVessel(data: SearchListDto) {
+        const { searchType, filterValue } = data;
+
+        const stringFields = [
             "VesselName",
             "VesselShortCode",
             "IMOCode",
             "CallSignIn",
+            "VesselOperator",
+            "VesselType",
+            "status"
+        ];
+
+        const intFields = [
             "MMSINo",
             "GRT",
             "NRT",
             "YearofBuilt",
-            "VesselOperator",
-            "VesselType",
             "LengthinMtr",
-            "BreadthinMtr",
-            "status"
+            "BreadthinMtr"
         ];
-        if(!acceptedType.includes(searchType)){
+
+        const acceptedType = [...stringFields, ...intFields];
+
+        if (!acceptedType.includes(searchType)) {
             throw new BadRequestException('Invalid Search Type');
         }
-        const searchResults=await this._db.vesselMaster.findMany({
-            where : {
-                [searchType]:{
-                    contains:filterValue,
-                    mode : "insensitive"
-                }
+
+        let whereClause: any = {};
+
+        if (stringFields.includes(searchType)) {
+            whereClause[searchType] = {
+                contains: filterValue,
+                mode: "insensitive"
+            };
+        } else if (intFields.includes(searchType)) {
+            const numberValue = parseInt(filterValue);
+            if (isNaN(numberValue)) {
+                throw new BadRequestException(`${searchType} must be a valid number`);
             }
-        }).catch((err)=>{
-            throw new Error(`Error Occured : ${err}`);
-        })
+            whereClause[searchType] = numberValue;
+        }
+
+        const searchResults = await this._db.vesselMaster.findMany({
+            where: whereClause
+        }).catch((err) => {
+            throw new Error(`Error Occurred: ${err}`);
+        });
+
         return searchResults;
     }
+
 
 }
