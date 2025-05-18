@@ -47,6 +47,7 @@ model MenuMaster {
 
     roleMenuMaster  RoleMenuMaster[]
     customerBrEmail CustomerBrEmail[]
+    terms           TermsAndConditionsMaster[]
 }
 
 model RoleMaster {

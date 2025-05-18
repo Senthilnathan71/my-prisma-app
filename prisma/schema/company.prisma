@@ -24,10 +24,10 @@ model CompanyMaster {
     LoginSid          Int?
     StateMasterSid    Int
 
-    cityMaster          CityMaster            @relation(fields: [CityMasterSid], references: [CityMasterSid])
-    countryMaster       CountryMaster         @relation(fields: [CountryMasterSid], references: [CountryMasterSid])
-    currencyMaster      CurrencyMaster        @relation(fields: [CurrencyMasterSid], references: [CurrencyMasterSid])
-    stateMaster         StateMaster           @relation(fields: [StateMasterSid], references: [StateMasterSid])
+    cityMaster          CityMaster                 @relation(fields: [CityMasterSid], references: [CityMasterSid])
+    countryMaster       CountryMaster              @relation(fields: [CountryMasterSid], references: [CountryMasterSid])
+    currencyMaster      CurrencyMaster             @relation(fields: [CurrencyMasterSid], references: [CurrencyMasterSid])
+    stateMaster         StateMaster                @relation(fields: [StateMasterSid], references: [StateMasterSid])
     branchMaster        BranchMaster[]
     chargeMaster        ChargeMaster[]
     chargeTaxMaster     ChargeTaxMaster[]
@@ -62,41 +62,42 @@ model CompanyMaster {
     roleMenuMaster      RoleMenuMaster[]
     preCustomerEvent    PreCustomerEvent[]
     containerTypeMaster ContainerTypeMaster[]
+    terms               TermsAndConditionsMaster[]
 }
 
 model BranchMaster {
-    branchName         String               @db.VarChar(100)
-    branchCode         String               @db.Char(10)
-    createdOn          DateTime             @default(now()) @db.Timestamptz(6)
-    updatedOn          DateTime             @updatedAt @db.Timestamptz(6)
+    branchName         String                     @db.VarChar(100)
+    branchCode         String                     @db.Char(10)
+    createdOn          DateTime                   @default(now()) @db.Timestamptz(6)
+    updatedOn          DateTime                   @updatedAt @db.Timestamptz(6)
     deletedAt          DateTime?
-    createdBy          String               @db.VarChar(100)
-    updatedBy          String?              @db.VarChar(100)
-    taxRegistrationNo  String?              @db.VarChar(50)
-    CISN               String?              @db.VarChar(50)
-    addressLine1       String               @db.VarChar(500)
-    addressLine2       String?              @db.VarChar(500)
-    postalCode         String               @db.VarChar(10)
-    webSite            String?              @db.VarChar(100)
-    phoneNumber        String?              @db.VarChar(20)
-    email              String?              @db.VarChar(100)
-    timeZone           String?              @db.Char(6)
-    remarks            String?              @db.VarChar(500)
+    createdBy          String                     @db.VarChar(100)
+    updatedBy          String?                    @db.VarChar(100)
+    taxRegistrationNo  String?                    @db.VarChar(50)
+    CISN               String?                    @db.VarChar(50)
+    addressLine1       String                     @db.VarChar(500)
+    addressLine2       String?                    @db.VarChar(500)
+    postalCode         String                     @db.VarChar(10)
+    webSite            String?                    @db.VarChar(100)
+    phoneNumber        String?                    @db.VarChar(20)
+    email              String?                    @db.VarChar(100)
+    timeZone           String?                    @db.Char(6)
+    remarks            String?                    @db.VarChar(500)
     companyLogo        Bytes?
     reportLogo         Bytes?
-    status             String               @db.Char(1)
-    BranchMasterSid    Int                  @id @default(autoincrement()) @map("BranchMasterSid")
+    status             String                     @db.Char(1)
+    BranchMasterSid    Int                        @id @default(autoincrement()) @map("BranchMasterSid")
     CityMasterSid      Int
     CompanyMasterSid   Int
     CountryMasterSid   Int
     CurrencyMasterSid  Int
     LoginSid           Int?
     StateMasterSid     Int
-    cityMaster         CityMaster           @relation(fields: [CityMasterSid], references: [CityMasterSid])
-    company            CompanyMaster        @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
-    countryMaster      CountryMaster        @relation(fields: [CountryMasterSid], references: [CountryMasterSid])
-    currencyMaster     CurrencyMaster       @relation(fields: [CurrencyMasterSid], references: [CurrencyMasterSid])
-    stateMaster        StateMaster          @relation(fields: [StateMasterSid], references: [StateMasterSid])
+    cityMaster         CityMaster                 @relation(fields: [CityMasterSid], references: [CityMasterSid])
+    company            CompanyMaster              @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+    countryMaster      CountryMaster              @relation(fields: [CountryMasterSid], references: [CountryMasterSid])
+    currencyMaster     CurrencyMaster             @relation(fields: [CurrencyMasterSid], references: [CurrencyMasterSid])
+    stateMaster        StateMaster                @relation(fields: [StateMasterSid], references: [StateMasterSid])
     preCustomerMaster  PreCustomerMaster[]
     preCustomerMeeting PreCustomerMeeting[]
     userBranchMaster   UserBranchMaster[]
@@ -114,6 +115,7 @@ model BranchMaster {
     bookingCargo       BookingCargo[]
     currencyExchange   CurrencyExchange[]
     branchBank         BranchBank[]
+    terms              TermsAndConditionsMaster[]
 }
 
 model UserMaster {
@@ -337,6 +339,7 @@ model DepartmentMaster {
     customerBrEmail     CustomerBrEmail[]
     customerSalesTeam   CustomerSalesTeam[]
     customerSupport     CustomerSupport[]
+    terms               DepartmentOnTerms[] // inverse relation
 }
 
 model PortMaster {
@@ -1244,4 +1247,59 @@ model CommodityMaster {
 
     UOMMaster   UOMMaster?   @relation(fields: [UOMSid], references: [UOMMasterSid])
     HSSACMaster HSSACMaster? @relation(fields: [HSSACCode], references: [HSSACMasterSid])
+}
+
+model TermsAndConditionsMaster {
+    TermsAndConditionsMasterSid Int       @id @default(autoincrement()) @map("TermsAndConditionsMasterSid")
+    CompanyMasterSid            Int
+    BranchMasterSid             Int
+    MenuMasterSid               Int
+    PrintType                   String    @db.VarChar(20)
+    POL                         String[]  @default([])
+    POD                         String[]  @default([])
+    FDC                         String[]  @default([])
+    Carrier                     Int //– from party master type =  MLO
+    createdOn                   DateTime  @default(now()) @db.Timestamptz(6)
+    updatedOn                   DateTime? @updatedAt @db.Timestamptz(6)
+    deletedAt                   DateTime?
+    createdBy                   String    @db.VarChar(100)
+    updatedBy                   String?   @db.VarChar(100)
+    status                      String?   @default("A") @db.Char(1)
+    Remarks                     String?   @db.VarChar(500)
+
+    company CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+    branch  BranchMaster  @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
+    menu    MenuMaster    @relation(fields: [MenuMasterSid], references: [MenuMasterSid])
+
+    departments              DepartmentOnTerms[] // relation table
+    termsAndConditionsDetail TermsAndConditionsDetail[]
+}
+
+model DepartmentOnTerms {
+    DepartmentOnTermSid Int       @id @default(autoincrement()) @map("DepartmentOnTermSid")
+    termsId             Int
+    departmentId        Int
+    createdOn           DateTime  @default(now()) @db.Timestamptz(6)
+    updatedOn           DateTime? @updatedAt @db.Timestamptz(6)
+    deletedAt           DateTime?
+
+    terms      TermsAndConditionsMaster @relation(fields: [termsId], references: [TermsAndConditionsMasterSid])
+    department DepartmentMaster         @relation(fields: [departmentId], references: [DepartmentMasterSid])
+}
+
+model TermsAndConditionsDetail {
+    TermsAndConditionsDetailSid Int       @id @default(autoincrement()) @map("TermsAndConditionsDetailSid")
+    TermsAndConditionsMasterSid Int
+    TandC                       String    @db.VarChar(500)
+    Type                        String?   @db.VarChar(20) //– values Cost,IncoTerms,
+    TypeValue                   String?   @db.VarChar(20)
+    createdOn                   DateTime  @default(now()) @db.Timestamptz(6)
+    updatedOn                   DateTime? @updatedAt @db.Timestamptz(6)
+    deletedAt                   DateTime?
+    createdBy                   String    @db.VarChar(100)
+    updatedBy                   String?   @db.VarChar(100)
+    status                      String?   @default("A") @db.Char(1)
+    IsDefaut                    String    @default("A") @db.Char(1)
+
+    terms TermsAndConditionsMaster @relation(fields: [TermsAndConditionsMasterSid], references: [TermsAndConditionsMasterSid])
 }
