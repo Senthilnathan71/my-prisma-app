@@ -989,7 +989,7 @@ model CustomerBranch {
     Address           String    @db.VarChar(200)
     Email             String    @db.VarChar(200)
     Registered        String    @db.Char(1)
-    CustomerGstType   String?   @db.VarChar(10)
+    CustomerGstType   String?   @db.VarChar(20)
     VendorGstType     String?   @db.VarChar(10)
     GSTNo             String?   @db.VarChar(15)
     ContactNo         String?   @db.VarChar(20)
@@ -1016,7 +1016,7 @@ model CusBranchContact {
     CustomerMasterSid   Int
     CustomerBranchSid   Int
     CompanyMasterSid    Int?
-    ContactType         String         @db.VarChar(10)
+    ContactType         String         @db.VarChar(50)
     ContactName         String         @db.VarChar(50)
     ContactNo           String?        @db.VarChar(15)
     MobileNo            String?        @db.VarChar(15)
