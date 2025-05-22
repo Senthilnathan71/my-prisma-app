@@ -413,11 +413,11 @@ model ChargeMaster {
     Status              String           @db.Char(1)
     ChargeGroupSid      Int
     ChargeMasterSid     Int              @id @default(autoincrement()) @map("ChargeMasterSid")
-    CompanyMasterSid    Int
+    CompanyMasterSid    Int?
     CurrencyMasterSid   Int
     DepartmentMasterSid Int
     chargeGroup         ChargeGroup      @relation(fields: [ChargeGroupSid], references: [ChargeGroupSid])
-    companyMaster       CompanyMaster    @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+    companyMaster       CompanyMaster?   @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
     currencyMaster      CurrencyMaster   @relation(fields: [CurrencyMasterSid], references: [CurrencyMasterSid])
     departmentMaster    DepartmentMaster @relation(fields: [DepartmentMasterSid], references: [DepartmentMasterSid])
 
