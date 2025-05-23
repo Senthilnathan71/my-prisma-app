@@ -18,6 +18,9 @@ export class CountryService {
             equals: null,
           },
         },
+        orderBy :{
+          countryName:'asc'
+        }
       });
       return countryList;
     } catch (error) {

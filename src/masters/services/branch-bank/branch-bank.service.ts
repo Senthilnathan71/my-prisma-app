@@ -1,0 +1,143 @@
+import { BadRequestException, Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
+import { DatabaseService } from 'src/database/database.service';
+import { SearchListDto } from 'src/masters/DTO/search-list.dto';
+
+@Injectable()
+export class BranchBankService {
+    constructor(private _db:DatabaseService){}
+
+    async createNewBranchBack(newData:Prisma.BranchBankCreateInput){
+        try {
+            const newlyCreatedBank= await this._db.branchBank.create({
+                data:{
+                    ...newData,
+                    createdBy:'admin@crm.com'
+                }
+            })
+            return newlyCreatedBank;
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    async getAllBranchBanks(){
+        try {
+            const allBranchBanks = await this._db.branchBank.findMany({
+                where : {
+                    deletedAt:null
+                }
+            })
+            return allBranchBanks;
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    async getBranchBankById(BranchBankSid:number){
+        try {
+            const ourBranchBank = await this._db.branchBank.findUnique({
+                where : {
+                    BranchBankSid:BranchBankSid
+                }
+            })
+            if(!ourBranchBank){
+                throw new BadRequestException(`Branch Bank with id : ${BranchBankSid} not found`);
+            }
+            return ourBranchBank;
+        } catch (error) {
+            throw error;
+        }
+    }
+
+
+    async updateBranchBankById(BranchBankSid:number,updateData:Prisma.BranchBankUpdateInput){
+        try {
+            const exist = await this._db.branchBank.findUnique({
+                where : {
+                    BranchBankSid:BranchBankSid
+                }
+            })
+            if(!exist){
+                throw new BadRequestException(`Branch Bank with id : ${BranchBankSid} not found`);
+            }
+            const updatedBrBank = await this._db.branchBank.update({
+                where : {
+                    BranchBankSid:BranchBankSid
+                },
+                data : updateData,
+            })
+            return updatedBrBank
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    async deleteBranchBankById(BranchBankSid:number){
+        try {
+            const exist = await this._db.branchBank.findUnique({
+                where : {
+                    BranchBankSid:BranchBankSid
+                }
+            })
+            if(!exist){
+                throw new BadRequestException(`Branch Bank with id : ${BranchBankSid} not found`);
+            }
+            if(exist.deletedAt){
+                throw new BadRequestException(`Branch Bank with id:${BranchBankSid} is already deleted`)
+            }
+            const deletedBrBank = await this._db.branchBank.update({
+                where : {
+                    BranchBankSid:BranchBankSid
+                },
+                data : {
+                    deletedAt:new Date()
+                },
+            })
+            return deletedBrBank;
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    async searchBranchBank(data:SearchListDto){
+        const {searchType,filterValue}=data;
+        const intFields=[''];
+        const stringFields = [
+            'BankCode',
+            'BankName',
+            'BankAddress',
+            'IFSCCode',
+            'BankAccountNo',
+            'BeneficiaryName',
+            'status'
+        ];
+        const acceptedType = [...intFields,...stringFields];
+        if(!acceptedType.includes(searchType)){
+            throw new BadRequestException('Invalid Search Type');
+        }
+
+        const whereClause:any ={}
+
+        if(stringFields.includes(searchType)){
+            whereClause[searchType]={
+                contains:filterValue,
+                mode:'insensitive'
+            }
+        } else if(intFields.includes(searchType)){
+            const numberValue=parseInt(filterValue);
+            if (isNaN(numberValue)) {
+                throw new BadRequestException(`${searchType} must be a valid number`);
+            }
+            whereClause[searchType]=numberValue;
+        }
+
+        const searchResults = await this._db.branchBank.findMany({
+            where : whereClause
+        })
+
+        return searchResults;
+
+    }
+
+}

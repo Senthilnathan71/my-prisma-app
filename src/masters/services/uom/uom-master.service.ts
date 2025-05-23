@@ -10,29 +10,29 @@ export class UomService {
         private _db: DatabaseService
     ) { }
 
-    async createUom(payload, user) { 
+    async createUom(payload, user) {
 
-        const existing = await this._db.UOMMaster.findFirst({
+        const existing = await this._db.uOMMaster.findFirst({
             where: {
-                OR:  [
+                OR: [
                     {
                         UOMName: {
                             equals: payload.UOMName.trim(),
                             mode: 'insensitive',
-                          }
+                        }
                     },
                     {
                         UOMCode: {
                             equals: payload.UOMCode.trim(),
                             mode: 'insensitive',
-                          }
+                        }
                     }
-                ] 
+                ]
             },
         });
 
         if (existing) {
-            
+
             if (existing.UOMName === payload.UOMName) {
                 throw new BadRequestException('UOM name already exists');
             }
@@ -42,7 +42,7 @@ export class UomService {
         }
 
         try {
-            const uom = await this._db.UOMMaster.create({
+            const uom = await this._db.uOMMaster.create({
                 data: payload
             });
             return uom;
@@ -55,11 +55,11 @@ export class UomService {
 
     async getAllUom() {
         try {
-            const uom = await this._db.UOMMaster.findMany({
+            const uom = await this._db.uOMMaster.findMany({
                 where: {
                     deletedAt: {
                         equals: null
-                      }
+                    }
                 }
             });
             return uom;
@@ -69,12 +69,12 @@ export class UomService {
     }
 
 
-    async findOne(UOMMasterSid: any) {
+    async findOne(uOMMasterSid: any) {
         try {
-            return await this._db.UOMMaster.findUnique({
-                
+            return await this._db.uOMMaster.findUnique({
+
                 where: {
-                    UOMMasterSid: UOMMasterSid
+                    UOMMasterSid: uOMMasterSid
                 }
             });
         } catch (error) {
@@ -83,40 +83,40 @@ export class UomService {
     }
 
 
-    async updateUom(UOMMasterSid: number, payload, user) {
+    async updateUom(uOMMasterSid: number, payload, user) {
 
-        const existing = await this._db.UOMMaster.findFirst({
+        const existing = await this._db.uOMMaster.findFirst({
             where: {
                 AND: [
                     {
-                        OR:  [
+                        OR: [
                             {
                                 UOMName: {
                                     equals: payload.UOMName.trim(),
                                     mode: 'insensitive',
-                                  }
+                                }
                             },
                             {
                                 UOMCode: {
                                     equals: payload.UOMCode.trim(),
                                     mode: 'insensitive',
-                                  }
+                                }
                             }
-                        ] 
+                        ]
                     },
                     {
                         NOT: {
-                            UOMMasterSid: UOMMasterSid, 
-                          }
+                            UOMMasterSid: uOMMasterSid,
+                        }
                     }
-            ]
+                ]
             },
         });
 
         if (existing) {
             if (existing.UOMName === payload.UOMName) {
-            //throw new Error('Port name already exists');
-            throw new BadRequestException('UOM name already exists');
+                //throw new Error('Port name already exists');
+                throw new BadRequestException('UOM name already exists');
             }
             if (existing.UOMCode === payload.UOMCode) {
                 throw new BadRequestException('UOM code already exists');
@@ -124,9 +124,9 @@ export class UomService {
         }
 
         try {
-            const uom = await this._db.UOMMaster.update({
+            const uom = await this._db.uOMMaster.update({
                 where: {
-                    UOMMasterSid: UOMMasterSid
+                    UOMMasterSid: uOMMasterSid
                 }, data: payload
             });
             return uom;
@@ -136,7 +136,7 @@ export class UomService {
     }
 
     async softDelete(id: number) {
-        const existingUom = await this._db.UOMMaster.findUnique({
+        const existingUom = await this._db.uOMMaster.findUnique({
             where: { UOMMasterSid: id }
         });
 
@@ -149,16 +149,16 @@ export class UomService {
         }
 
         // Perform soft delete by updating deletedAt field
-        return this._db.UOMMaster.update({
+        return this._db.uOMMaster.update({
             where: { UOMMasterSid: id },
             data: { deletedAt: new Date() }
         });
-    }   
+    }
 
 
-    async searchUOM(data:SearchListDto){
-        const {searchType,filterValue}=data;
-        const acceptedType=[
+    async searchUOM(data: SearchListDto) {
+        const { searchType, filterValue } = data;
+        const acceptedType = [
             "UOMCode",
             "UOMName",
             "UOMType",
@@ -172,17 +172,17 @@ export class UomService {
             "SlabTo",
             "status",
         ];
-        if(!acceptedType.includes(searchType)){
+        if (!acceptedType.includes(searchType)) {
             throw new BadRequestException('Invalid Search Type')
         }
         const searchResults = await this._db.uOMMaster.findMany({
-            where : {
-                [searchType]:{
-                    contains : filterValue,
-                    mode : 'insensitive'
+            where: {
+                [searchType]: {
+                    contains: filterValue,
+                    mode: 'insensitive'
                 }
             }
-        }).catch((res)=>{
+        }).catch((res) => {
             throw new Error(`Error Occurred : ${res}`);
         })
         return searchResults;

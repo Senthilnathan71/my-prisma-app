@@ -60,6 +60,12 @@ import { CompanyService } from './services/company/company.service';
 import { CompanyController } from './controllers/company/company.controller';
 import { TariffController } from './controllers/tariff/tariff.controller';
 import { TariffService } from './services/tariff/tariff.service';
+import { ChargeController } from './controllers/charge/charge.controller';
+import { ChargeService } from './services/charge/charge.service';
+import { HssacController } from './controllers/hssac/hssac.controller';
+import { HssacService } from './services/hssac/hssac.service';
+import { BranchBankController } from './controllers/branch-bank/branch-bank.controller';
+import { BranchBankService } from './services/branch-bank/branch-bank.service';
 
 @Module({
   providers: [
@@ -93,7 +99,10 @@ import { TariffService } from './services/tariff/tariff.service';
     BranchService,
     CurrencyExchangeService,
     CompanyService,
-    TariffService
+    TariffService,
+    ChargeService,
+    HssacService,
+    BranchBankService,
   ],
   controllers: [
     UserController,
@@ -126,7 +135,10 @@ import { TariffService } from './services/tariff/tariff.service';
     BranchController,
     CurrencyExchangeController,
     CompanyController,
-    TariffController
+    TariffController,
+    ChargeController,
+    HssacController,
+    BranchBankController
   ],
   exports: [UserService]
 })
