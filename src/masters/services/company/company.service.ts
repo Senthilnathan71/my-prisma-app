@@ -27,6 +27,21 @@ export class CompanyService {
             const allCompanies = await this._db.companyMaster.findMany({
                 where: {
                     deletedAt: null
+                },
+                include:{
+                    branchMaster:{
+                        include:{
+                            branchBank:{
+                                where:{
+                                    deletedAt:null
+                                }
+                            }
+                        },
+                        where:{
+                            deletedAt:null
+                        }
+                    },
+                    
                 }
             })
             return allCompanies;
@@ -40,6 +55,23 @@ export class CompanyService {
             const ourCompany = await this._db.companyMaster.findUnique({
                 where: {
                     CompanyMasterSid: CompanyMasterSid
+                },
+                include :{
+                    branchMaster:{
+                        include:{
+                            cityMaster:{
+                                select:{
+                                    cityName:true
+                                }
+                            },
+                            company:{
+                                select:{
+                                    companyName:true
+                                }
+                            },
+                            branchBank:true
+                        }
+                    }
                 }
             })
             if (!ourCompany) {
@@ -125,9 +157,38 @@ export class CompanyService {
                 [searchType]: {
                     contains: filterValue,
                     mode: 'insensitive'
-                }
+                },deletedAt:null
+                },include: {
+                    branchMaster: {
+                        where: {
+                            deletedAt: null
+                        },
+                        include: {
+                            branchBank: {
+                                where: {
+                                    deletedAt: null
+                                }
+                            },
+                        }
+                    },
+                    cityMaster: {
+                        select:{
+                            cityName:true
+                        }
+                    },
+                    stateMaster:{
+                        select:{
+                            stateName:true
+                        }
+                    },
+                    countryMaster:{
+                        select:{
+                            countryName:true
+                        }
+                    }
+                },   
             }
-        }).catch((err) => {
+        ).catch((err) => {
             throw new Error(`Error Occured : ${JSON.stringify(err), err}`);
         })
         return searchResults;

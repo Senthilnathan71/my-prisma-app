@@ -86,6 +86,9 @@ export class StateService {
         where: {
           status: 'A',
         },
+        orderBy:{
+          stateName:'asc'
+        }
       });
       return stateList;
     } catch (error) {

@@ -13,7 +13,7 @@ export class BranchService {
                 data: {
                     ...newData,
                     createdBy: 'admin@crm.com'
-                }
+                },
             })
             return createdBranch;
         } catch (error) {
@@ -26,6 +26,29 @@ export class BranchService {
             const allBranches = await this._db.branchMaster.findMany({
                 where: {
                     deletedAt: null
+                },
+                include: {
+                    cityMaster: {
+                        select: {
+                            cityName: true,
+                            stateMaster: {
+                                select: {
+                                    stateName: true,
+                                    countryMaster: {
+                                        select: {
+                                            countryName: true
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    company: {
+                        select: {
+                            companyName: true
+                        }
+                    }
+
                 }
             })
             return allBranches;
@@ -39,7 +62,7 @@ export class BranchService {
             const ourBranch = await this._db.branchMaster.findUnique({
                 where: {
                     BranchMasterSid: BranchMasterSid
-                }
+                },
             })
             if (!ourBranch) {
                 throw new BadRequestException(`Branch with id : ${BranchMasterSid} not exists`);

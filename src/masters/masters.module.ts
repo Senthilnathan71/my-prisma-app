@@ -64,6 +64,8 @@ import { ChargeController } from './controllers/charge/charge.controller';
 import { ChargeService } from './services/charge/charge.service';
 import { HssacController } from './controllers/hssac/hssac.controller';
 import { HssacService } from './services/hssac/hssac.service';
+import { BranchBankController } from './controllers/branch-bank/branch-bank.controller';
+import { BranchBankService } from './services/branch-bank/branch-bank.service';
 
 @Module({
   providers: [
@@ -99,7 +101,8 @@ import { HssacService } from './services/hssac/hssac.service';
     CompanyService,
     TariffService,
     ChargeService,
-    HssacService
+    HssacService,
+    BranchBankService,
   ],
   controllers: [
     UserController,
@@ -134,7 +137,8 @@ import { HssacService } from './services/hssac/hssac.service';
     CompanyController,
     TariffController,
     ChargeController,
-    HssacController
+    HssacController,
+    BranchBankController
   ],
   exports: [UserService]
 })
