@@ -5,11 +5,11 @@ import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 
 @Injectable()
 export class ContainerTypeService {
-  constructor(private _db: DatabaseService) {}
+  constructor(private _db: DatabaseService) { }
 
   // ContainerType master create
 
-  async createNewContainerType(newData: Prisma.ContainerTypeMasterCreateInput) {
+  async createNewContainerType(newData: any) {
     try {
       const newlyAddedData = await this._db.containerTypeMaster.create({
         data: {
@@ -57,7 +57,7 @@ export class ContainerTypeService {
 
   async updateContainerTypeById(
     ContainerTypeMasterSid: number,
-    newData: Prisma.ContainerTypeMasterUpdateInput,
+    newData: any,
   ) {
     try {
       const ourContainerType = await this._db.containerTypeMaster.findUnique({

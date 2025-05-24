@@ -1217,14 +1217,17 @@ model ContainerTypeMaster {
     ContainerTypeMasterSid Int       @id @default(autoincrement()) @map("ContainerTypeMasterSid")
     CompanyMasterSid       Int
     ContainerCode          String    @db.VarChar(4)
-    ContainerSize          String    @db.Char(2)
-    ContainerIsoCode       String?   @db.VarChar(4)
+    ContainerSize          String    @db.Char(10)
+    ContainerIsoCode       String?   @db.VarChar(10)
     ContainerName          String    @db.VarChar(30)
-    ContainerCateory       String?   @db.VarChar(10)
+    ContainerCategory      String?   @db.VarChar(10)
+    Length                 Int
+    Width                  Int
+    Height                 Int
     MaxVolume              Decimal   @db.Decimal(3, 0)
     TareWeight             Decimal   @db.Decimal(6, 3)
     GrossWeight            Decimal   @db.Decimal(8, 3)
-    NoofTeu                Decimal   @db.Decimal(1, 0)
+    NoOfTeu                Decimal   @db.Decimal(1, 0)
     createdOn              DateTime  @default(now()) @db.Timestamptz(6)
     updatedOn              DateTime? @updatedAt @db.Timestamptz(6)
     deletedAt              DateTime?
