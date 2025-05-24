@@ -155,27 +155,29 @@ model BookingOthers {
 }
 
 model VesselMaster {
-    VesselMasterSid    Int                  @id @default(autoincrement()) @map("VesselMasterSid")
-    VesselName         String               @db.VarChar(100)
-    VesselShortCode    String               @db.VarChar(5)
-    IMOCode            String               @db.VarChar(10)
-    CallSignIn         String               @db.VarChar(10)
-    MMSINo             Int
-    GRT                Int
-    NRT                Int
-    YearofBuilt        Int
-    VesselOperator     String               @db.VarChar(100) //( from party master)
-    VesselType         String               @db.VarChar(10) //( Container,Tank,Bulk,General)
-    LengthinMtr        Int
-    BreadthinMtr       Int
-    Remarks            String               @db.VarChar(200)
-    createdOn          DateTime             @default(now()) @db.Timestamptz(6)
-    updatedOn          DateTime?            @updatedAt @db.Timestamptz(6)
-    deletedAt          DateTime?
-    createdBy          String               @db.VarChar(100)
-    updatedBy          String?              @db.VarChar(100)
-    status             String?              @default("A") @db.Char(1)
+    VesselMasterSid Int       @id @default(autoincrement()) @map("VesselMasterSid")
+    VesselName      String    @db.VarChar(100)
+    VesselShortCode String    @db.VarChar(5)
+    IMOCode         String    @db.VarChar(10)
+    CallSignIn      String    @db.VarChar(10)
+    MMSINo          Int
+    GRT             Int
+    NRT             Int
+    YearofBuilt     Int
+    VesselOperator  String    @db.VarChar(100) //( from party master)
+    VesselType      String    @db.VarChar(10) //( Container,Tank,Bulk,General)
+    LengthinMtr     Int
+    BreadthinMtr    Int
+    Remarks         String    @db.VarChar(200)
+    createdOn       DateTime  @default(now()) @db.Timestamptz(6)
+    updatedOn       DateTime? @updatedAt @db.Timestamptz(6)
+    deletedAt       DateTime?
+    createdBy       String    @db.VarChar(100)
+    updatedBy       String?   @db.VarChar(100)
+    status          String?   @default("A") @db.Char(1)
+
     voyageMasterHeader VoyageMasterHeader[]
+    tdsExemption       TDSExemption[]
 }
 
 model VoyageMasterHeader {
@@ -227,4 +229,7 @@ model VoyageMasterDetail {
     createdBy             String    @db.VarChar(100)
     updatedBy             String?   @db.VarChar(100)
     status                String?   @default("A") @db.Char(1)
+
+    portMasterPOL PortMaster @relation("POL", fields: [POLSid], references: [PortMasterSid])
+    portMasterPOD PortMaster @relation("POD", fields: [PODSid], references: [PortMasterSid])
 }

@@ -66,6 +66,7 @@ model CompanyMaster {
     customerGroupMaster CustomerGroupMaster[]
     tariffHeader        TariffHeader[]
     tariffDetail        TariffDetail[]
+    tdsSetHeader        TDSSetHeader[]
 }
 
 model BranchMaster {
@@ -119,6 +120,7 @@ model BranchMaster {
     currencyExchange   CurrencyExchange[]
     branchBank         BranchBank[]
     terms              TermsAndConditionsMaster[]
+    BranchLut          BranchLut[]
 }
 
 model UserMaster {
@@ -269,6 +271,7 @@ model CountryMaster {
     stateMaster       StateMaster[]
     userMaster        UserMaster[]
     customerMaster    CustomerMaster[]
+    tdsSetRate        TDSSetRate[]
 }
 
 model StateMaster {
@@ -380,6 +383,9 @@ model PortMaster {
     tariffPOL TariffHeader[] @relation("POL")
     tariffPOD TariffHeader[] @relation("POD")
     tariffFDC TariffHeader[] @relation("FDC")
+
+    VoyageMasterDetailPOL VoyageMasterDetail[] @relation("POL")
+    VoyageMasterDetailPOD VoyageMasterDetail[] @relation("POD")
 }
 
 model UnitMaster {
@@ -421,7 +427,9 @@ model ChargeMaster {
     currencyMaster      CurrencyMaster   @relation(fields: [CurrencyMasterSid], references: [CurrencyMasterSid])
     departmentMaster    DepartmentMaster @relation(fields: [DepartmentMasterSid], references: [DepartmentMasterSid])
 
-    tariffDetail TariffDetail[]
+    tariffDetail     TariffDetail[]
+    chargeTaxMapping ChargeTaxMapping[]
+    chargeTds        ChargeTds[]
 }
 
 model ChargeTaxMaster {
@@ -700,6 +708,9 @@ model CustomerMaster {
     CustomerLogin       CustomerLogin[]
     tariffHeaderCarrier TariffHeader[]     @relation("Carrier")
     tariffHeaderAgent   TariffHeader[]     @relation("Agent")
+
+    tdsExemptionCarrier     TDSExemption[] @relation("Carrier")
+    tdsExemptionTransporter TDSExemption[] @relation("Transporter")
 }
 
 model PackageTypeMaster {
@@ -1255,7 +1266,8 @@ model HSSACMaster {
     status         String?   @default("A") @db.Char(1)
     Remarks        String    @db.VarChar(300)
 
-    commodityMaster CommodityMaster[]
+    commodityMaster  CommodityMaster[]
+    chargeTaxMapping ChargeTaxMapping[]
 }
 
 model CommodityMaster {
@@ -1350,4 +1362,117 @@ model CustomerGroupMaster {
     status                 String?   @default("A") @db.Char(1)
 
     company CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+}
+
+model TDSSetHeader {
+    TDSSetHeaderSid        Int       @id @default(autoincrement()) @map("TDSSetHeaderSid")
+    CompanyMasterSid       Int
+    TDSSetName             String    @db.VarChar(50)
+    TransactionLimit       Decimal   @db.Decimal(12, 3)
+    AnnualLimit            Decimal   @db.Decimal(12, 3)
+    TDSsetTransactionLimit Decimal   @db.Decimal(12, 3)
+    TDSSetAnnualLimit      Decimal   @db.Decimal(12, 3)
+    EffectiveFrom          DateTime
+    createdOn              DateTime  @default(now()) @db.Timestamptz(6)
+    updatedOn              DateTime? @updatedAt @db.Timestamptz(6)
+    deletedAt              DateTime?
+    createdBy              String    @db.VarChar(100)
+    updatedBy              String?   @db.VarChar(100)
+    status                 String?   @default("A") @db.Char(1)
+    Remarks                String?   @db.VarChar(200)
+
+    company CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+
+    tdsSetRate   TDSSetRate[]
+    tdsExemption TDSExemption[]
+    chargeTds    ChargeTds[]
+}
+
+model TDSSetRate {
+    TDSSetRateSid    Int       @id @default(autoincrement()) @map("TDSSetRateSid")
+    TDSSetHeaderSid  Int
+    CountryMasterSid Int
+    Sno              Decimal?  @db.Decimal(2, 0)
+    CompanyType      String    @db.VarChar(50)
+    ITSectionCode    String    @db.VarChar(10)
+    TDSAmount        Decimal?  @db.Decimal(9, 0)
+    TDSRate          Decimal   @db.Decimal(2, 0)
+    EffectiveFrom    DateTime
+    createdOn        DateTime  @default(now()) @db.Timestamptz(6)
+    updatedOn        DateTime? @updatedAt @db.Timestamptz(6)
+    deletedAt        DateTime?
+    createdBy        String    @db.VarChar(100)
+    updatedBy        String?   @db.VarChar(100)
+    status           String?   @default("A") @db.Char(1)
+    Remarks          String?   @db.VarChar(200)
+
+    countryMaster CountryMaster @relation(fields: [CountryMasterSid], references: [CountryMasterSid])
+    tdsSetHeader  TDSSetHeader  @relation(fields: [TDSSetHeaderSid], references: [TDSSetHeaderSid])
+}
+
+model TDSExemption {
+    TDSExemptionSid Int       @id @default(autoincrement()) @map("TDSExemptionSid")
+    TDSSetHeaderSid Int
+    Vessel          Int
+    Carrier         Int
+    Transporter     Int
+    EffectiveFrom   DateTime
+    EffectiveTo     DateTime
+    createdOn       DateTime  @default(now()) @db.Timestamptz(6)
+    updatedOn       DateTime? @updatedAt @db.Timestamptz(6)
+    deletedAt       DateTime?
+    createdBy       String    @db.VarChar(100)
+    updatedBy       String?   @db.VarChar(100)
+    status          String?   @default("A") @db.Char(1)
+    Remarks         String?   @db.VarChar(200)
+
+    tdsSetHeader TDSSetHeader @relation(fields: [TDSSetHeaderSid], references: [TDSSetHeaderSid])
+    vesselMaster VesselMaster @relation(fields: [Vessel], references: [VesselMasterSid])
+
+    customerCarrier     CustomerMaster @relation("Carrier", fields: [Carrier], references: [CustomerMasterSid])
+    customerTransporter CustomerMaster @relation("Transporter", fields: [Transporter], references: [CustomerMasterSid])
+}
+
+model ChargeTaxMapping {
+    ChargeTaxMappingSid Int       @id @default(autoincrement()) @map("ChargeTaxMappingSid")
+    ChargeMasterSid     Int
+    HSSACMasterSid      Int
+    createdOn           DateTime  @default(now()) @db.Timestamptz(6)
+    updatedOn           DateTime? @updatedAt @db.Timestamptz(6)
+    deletedAt           DateTime?
+    createdBy           String    @db.VarChar(100)
+    updatedBy           String?   @db.VarChar(100)
+    status              String?   @default("A") @db.Char(1)
+
+    chargeMaster ChargeMaster @relation(fields: [ChargeMasterSid], references: [ChargeMasterSid])
+    hSSACMaster  HSSACMaster  @relation(fields: [HSSACMasterSid], references: [HSSACMasterSid])
+}
+
+model ChargeTds {
+    ChargeTdsSid    Int       @id @default(autoincrement()) @map("ChargeTdsSid")
+    ChargeMasterSid Int
+    TDSSet          Int
+    createdOn       DateTime  @default(now()) @db.Timestamptz(6)
+    updatedOn       DateTime? @updatedAt @db.Timestamptz(6)
+    deletedAt       DateTime?
+    createdBy       String    @db.VarChar(100)
+    updatedBy       String?   @db.VarChar(100)
+    status          String?   @default("A") @db.Char(1)
+
+    chargeMaster ChargeMaster @relation(fields: [ChargeMasterSid], references: [ChargeMasterSid])
+    tdsSetHeader TDSSetHeader @relation(fields: [TDSSet], references: [TDSSetHeaderSid])
+}
+
+model BranchLut {
+    BranchLutSid    Int       @id @default(autoincrement()) @map("BranchLutSid")
+    Lut_Valid       DateTime
+    BranchMasterSid Int
+    createdOn       DateTime  @default(now()) @db.Timestamptz(6)
+    updatedOn       DateTime? @updatedAt @db.Timestamptz(6)
+    deletedAt       DateTime?
+    createdBy       String    @db.VarChar(100)
+    updatedBy       String?   @db.VarChar(100)
+    status          String?   @default("A") @db.Char(1)
+
+    branchMaster BranchMaster @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
 }
