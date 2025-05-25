@@ -14,8 +14,8 @@ model CompanyMaster {
     email             String?   @db.VarChar(100)
     isHo              String    @db.Char(1)
     remarks           String?   @db.VarChar(500)
-    companyLogo       Bytes?
-    reportLogo        Bytes?
+    companyLogo       String?
+    reportLogo        String?
     status            String    @db.Char(1)
     CityMasterSid     Int
     CompanyMasterSid  Int       @id @default(autoincrement()) @map("CompanyMasterSid")
@@ -87,8 +87,8 @@ model BranchMaster {
     email              String?                    @db.VarChar(100)
     timeZone           String?                    @db.Char(6)
     remarks            String?                    @db.VarChar(500)
-    companyLogo        Bytes?
-    reportLogo         Bytes?
+    companyLogo        String?
+    reportLogo         String?
     status             String                     @db.Char(1)
     BranchMasterSid    Int                        @id @default(autoincrement()) @map("BranchMasterSid")
     CityMasterSid      Int

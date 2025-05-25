@@ -7,7 +7,7 @@ import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 export class BranchService {
     constructor(private _db: DatabaseService, private logger: Logger) { }
 
-    async createNewBranch(newData: Prisma.BranchMasterCreateInput) {
+    async createNewBranch(newData: any, logo) {
         try {
             const createdBranch = await this._db.branchMaster.create({
                 data: {

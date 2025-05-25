@@ -1,25 +1,30 @@
-import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, Post, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, Post, Res, UnauthorizedException, UploadedFiles } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
 import { Prisma } from '@prisma/client';
+import { FilesUploadInterceptor } from 'src/common/decorators/file-upload.decorator';
+import { UserData } from 'src/common/decorators/user.decorator';
+import { checkIfFileExists } from 'src/common/helper';
 import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { CompanyService } from 'src/masters/services/company/company.service';
 
 @Controller('company')
 export class CompanyController {
-    constructor(private companyService: CompanyService, private logger: Logger) { }
+    constructor(private companyService: CompanyService, private logger: Logger, private configService: ConfigService) { }
 
     @ApiOperation({ summary: 'Create new Company' })
     @ApiCreatedResponse({
         description: "Create new Company",
         type: ResponseData
     })
+    @FilesUploadInterceptor('logo', 'COMPANY_LOGO')
     @HttpCode(HttpStatus.OK)
     @Post('Create')
-    async createNewCompany(@Body() newData: Prisma.CompanyMasterCreateInput) {
+    async createNewCompany(@UserData() userInfo, @Body() newData: any, @UploadedFiles() logo: Express.Multer.File[] | undefined) {
         let resp = new ResponseData();
         try {
-            let res = await this.companyService.createCompany(newData);
+            let res = await this.companyService.createCompany(newData, userInfo, logo);
             this.logger.log(`New Company Added : ${JSON.stringify(res)}`);
             resp.data = res;
             resp.message = "New Company is successfully created";
@@ -99,6 +104,7 @@ export class CompanyController {
         type: ResponseData
     })
     @HttpCode(HttpStatus.OK)
+    @FilesUploadInterceptor('files', 'COMPANY_LOGO')
     @Patch('update/:CompanyMasterSid')
     async updateCompanyById(@Param('CompanyMasterSid', ParseIntPipe) CompanyMasterSid: number, @Body() updateData: Prisma.CompanyMasterUpdateInput) {
         let resp = new ResponseData();
@@ -176,5 +182,20 @@ export class CompanyController {
             }
         }
         return resp;
+    }
+
+
+    @Get('logo')
+    async getCompanyLogo(
+        @Param('logoId') logoId,
+        @Res() res,
+    ): Promise<any> {
+        const companyLogoPath = this.configService.get('COMPANY_LOGO')
+        if (checkIfFileExists(`${companyLogoPath}/` + logoId)) {
+            res.sendFile(logoId, { root: companyLogoPath });
+        } else {
+            logoId = logoId.replace('.jpg', '.png', '.pdf', '.PDF', '.doc')
+            res.sendFile(logoId, { root: companyLogoPath })
+        }
     }
 }

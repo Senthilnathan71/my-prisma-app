@@ -1,25 +1,29 @@
-import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, Post, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, Post, Res, UnauthorizedException, UploadedFiles } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
 import { Prisma } from '@prisma/client';
+import { FilesUploadInterceptor } from 'src/common/decorators/file-upload.decorator';
+import { checkIfFileExists } from 'src/common/helper';
 import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { BranchService } from 'src/masters/services/branch/branch.service';
 
 @Controller('branch')
 export class BranchController {
-    constructor(private branchService: BranchService, private logger: Logger) { }
+    constructor(private branchService: BranchService, private logger: Logger, private configService: ConfigService) { }
 
     @ApiOperation({ summary: 'Create new Branch' })
     @ApiCreatedResponse({
         description: "Create new Branch",
         type: ResponseData
     })
+    @FilesUploadInterceptor('logo', 'BRANCH_LOGO')
     @HttpCode(HttpStatus.OK)
     @Post('Create')
-    async createNewBranch(@Body() newData: Prisma.BranchMasterCreateInput) {
+    async createNewBranch(@Body() newData: any, @UploadedFiles() logo: Express.Multer.File[] | undefined) {
         let resp = new ResponseData();
         try {
-            let res = await this.branchService.createNewBranch(newData);
+            let res = await this.branchService.createNewBranch(newData, logo);
             this.logger.log(`Branch Created : ${JSON.stringify(res)}`);
             resp.data = res;
             resp.message = "New Branch is successfully created";
@@ -178,6 +182,20 @@ export class BranchController {
         return resp;
     }
 
+
+    @Get('logo')
+    async getBranchLogo(
+        @Param('logoId') logoId,
+        @Res() res,
+    ): Promise<any> {
+        const branchLogoPath = this.configService.get('BRANCH_LOGO')
+        if (checkIfFileExists(`${branchLogoPath}/` + logoId)) {
+            res.sendFile(logoId, { root: branchLogoPath });
+        } else {
+            logoId = logoId.replace('.jpg', '.png', '.pdf', '.PDF', '.doc')
+            res.sendFile(logoId, { root: branchLogoPath })
+        }
+    }
 
 
 }
