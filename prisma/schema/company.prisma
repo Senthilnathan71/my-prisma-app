@@ -738,7 +738,7 @@ model TariffHeader {
     FDCSid              Int
     POLTerminal         String    @db.VarChar(5)
     PODTerminal         String    @db.VarChar(5)
-    ViaPortSid          Int
+    ViaPortSid          Int?
     Carrier             Int
     ServiceLevel        String    @db.VarChar(10) //BreakBulk, OOG, Tanker
     CargoType           String    @db.VarChar(10)
