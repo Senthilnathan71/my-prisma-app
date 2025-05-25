@@ -1,6 +1,7 @@
 model ModuleMaster {
     ModuleMasterSid Int       @id @default(autoincrement()) @map("ModuleMasterSid")
     ModuleName      String    @db.VarChar(20)
+    ModuleCode      String    @db.VarChar(20)
     createdOn       DateTime  @default(now()) @db.Timestamptz(6)
     updatedOn       DateTime? @updatedAt @db.Timestamptz(6)
     deletedAt       DateTime?
@@ -63,7 +64,7 @@ model RoleMaster {
     status           String?   @default("A") @db.Char(1)
     Remarks          String?   @db.VarChar(300)
 
-    companyMaster  CompanyMaster    @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+    companyMaster  CompanyMaster?   @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
     userRoleMaster UserRoleMaster[]
     roleMenuMaster RoleMenuMaster[]
 }
