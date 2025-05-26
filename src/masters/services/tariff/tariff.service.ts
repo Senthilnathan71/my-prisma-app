@@ -27,6 +27,13 @@ export class TariffService {
             let allTariff = await this._db.tariffHeader.findMany({
                 where: {
                     deletedAt: null
+                },
+                include : {
+                    departmentMaster:{
+                        select:{
+                            departmentName:true
+                        }
+                    }
                 }
             })
             return allTariff;
@@ -137,7 +144,27 @@ export class TariffService {
             whereClause[searchType] = numberValue;
         }
         const searchResults = await this._db.tariffHeader.findMany({
-            where: whereClause
+            where: {
+                ...whereClause,
+                deletedAt:null
+            },
+            include : {
+                departmentMaster:{
+                    select:{
+                        departmentName:true,
+                    }
+                },
+                customerCarrier:{
+                    select:{
+                        CustomerName:true
+                    }
+                },
+                customerAgent:{
+                    select:{
+                        CustomerName:true
+                    }
+                }
+            }
         }).catch((err) => {
             throw new Error(`Error Occurred : ${JSON.stringify(err), err}`);
         })
