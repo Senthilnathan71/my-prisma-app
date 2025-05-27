@@ -1479,3 +1479,34 @@ model BranchLut {
 
     branchMaster BranchMaster @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
 }
+
+model ImcoMaster {
+    ImcoMasterSid Int       @id @default(autoincrement()) @map("ImcoMasterSid")
+    ImcoClass     String    @db.VarChar(10)
+    ImcoName      String    @db.VarChar(20)
+    Description   String    @db.VarChar(100)
+    ImcoUn        Decimal?  @db.Decimal(6, 0)
+    ImcoPageNo    Decimal?  @db.Decimal(4, 0)
+    PackingGroup  String?   @db.VarChar(10)
+    createdOn     DateTime  @default(now()) @db.Timestamptz(6)
+    updatedOn     DateTime? @updatedAt @db.Timestamptz(6)
+    deletedAt     DateTime?
+    createdBy     String    @db.VarChar(100)
+    updatedBy     String?   @db.VarChar(100)
+    status        String?   @default("A") @db.Char(1)
+    Remarks       String?   @db.VarChar(100)
+}
+
+model BLClauseMaster {
+    BLClauseMasterSid Int       @id @default(autoincrement()) @map("BLClauseMasterSid")
+    ClauseDescription String    @db.VarChar(500)
+    Keyword           String    @db.VarChar(5)
+    Sortorder         Decimal?  @db.Decimal(2, 0)
+    DefaultClause     Decimal?  @db.Decimal(3, 0)
+    createdOn         DateTime  @default(now()) @db.Timestamptz(6)
+    updatedOn         DateTime? @updatedAt @db.Timestamptz(6)
+    deletedAt         DateTime?
+    createdBy         String    @db.VarChar(100)
+    updatedBy         String?   @db.VarChar(100)
+    status            String?   @default("A") @db.Char(1)
+}
