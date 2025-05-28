@@ -128,9 +128,8 @@ export class ModuleService {
         //write column names
         const allowedFields = [
             'ModuleName',
-            'MenuName',
-            'MenuCode',
-            'MenuType',
+            'ModuleCode',
+            'Remarks',
             'status',
         ];
 

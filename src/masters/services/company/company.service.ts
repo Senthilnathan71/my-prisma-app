@@ -7,7 +7,7 @@ import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 export class CompanyService {
     constructor(private _db: DatabaseService) { }
 
-    async createCompany(newData: Prisma.CompanyMasterCreateInput) {
+    async createCompany(newData: any, user, files) {
         try {
             const createdCompany = await this._db.companyMaster.create({
                 data: {
@@ -28,20 +28,20 @@ export class CompanyService {
                 where: {
                     deletedAt: null
                 },
-                include:{
-                    branchMaster:{
-                        include:{
-                            branchBank:{
-                                where:{
-                                    deletedAt:null
+                include: {
+                    branchMaster: {
+                        include: {
+                            branchBank: {
+                                where: {
+                                    deletedAt: null
                                 }
                             }
                         },
-                        where:{
-                            deletedAt:null
+                        where: {
+                            deletedAt: null
                         }
                     },
-                    
+
                 }
             })
             return allCompanies;
@@ -56,20 +56,20 @@ export class CompanyService {
                 where: {
                     CompanyMasterSid: CompanyMasterSid
                 },
-                include :{
-                    branchMaster:{
-                        include:{
-                            cityMaster:{
-                                select:{
-                                    cityName:true
+                include: {
+                    branchMaster: {
+                        include: {
+                            cityMaster: {
+                                select: {
+                                    cityName: true
                                 }
                             },
-                            company:{
-                                select:{
-                                    companyName:true
+                            company: {
+                                select: {
+                                    companyName: true
                                 }
                             },
-                            branchBank:true
+                            branchBank: true
                         }
                     }
                 }
@@ -157,37 +157,37 @@ export class CompanyService {
                 [searchType]: {
                     contains: filterValue,
                     mode: 'insensitive'
-                },deletedAt:null
-                },include: {
-                    branchMaster: {
-                        where: {
-                            deletedAt: null
+                }, deletedAt: null
+            }, include: {
+                branchMaster: {
+                    where: {
+                        deletedAt: null
+                    },
+                    include: {
+                        branchBank: {
+                            where: {
+                                deletedAt: null
+                            }
                         },
-                        include: {
-                            branchBank: {
-                                where: {
-                                    deletedAt: null
-                                }
-                            },
-                        }
-                    },
-                    cityMaster: {
-                        select:{
-                            cityName:true
-                        }
-                    },
-                    stateMaster:{
-                        select:{
-                            stateName:true
-                        }
-                    },
-                    countryMaster:{
-                        select:{
-                            countryName:true
-                        }
                     }
-                },   
-            }
+                },
+                cityMaster: {
+                    select: {
+                        cityName: true
+                    }
+                },
+                stateMaster: {
+                    select: {
+                        stateName: true
+                    }
+                },
+                countryMaster: {
+                    select: {
+                        countryName: true
+                    }
+                }
+            },
+        }
         ).catch((err) => {
             throw new Error(`Error Occured : ${JSON.stringify(err), err}`);
         })

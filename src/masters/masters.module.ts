@@ -66,6 +66,16 @@ import { HssacController } from './controllers/hssac/hssac.controller';
 import { HssacService } from './services/hssac/hssac.service';
 import { BranchBankController } from './controllers/branch-bank/branch-bank.controller';
 import { BranchBankService } from './services/branch-bank/branch-bank.service';
+import { TariffDetailController } from './controllers/tariff-detail/tariff-detail.controller';
+import { TariffDetailService } from './services/tariff-detail/tariff-detail.service';
+import { ModuleService } from './services/module/module.service';
+import { ModuleController } from './controllers/module/module.controller';
+import { RoleService } from './services/role/role.service';
+import { RoleController } from './controllers/role/role.controller';
+import { ImcoController } from './controllers/imco/imco.controller';
+import { ImcoService } from './services/imco/imco.service';
+import { BlclauseController } from './controllers/blclause/blclause.controller';
+import { BlclauseService } from './services/blclause/blclause.service';
 
 @Module({
   providers: [
@@ -103,6 +113,11 @@ import { BranchBankService } from './services/branch-bank/branch-bank.service';
     ChargeService,
     HssacService,
     BranchBankService,
+    TariffDetailService,
+    ModuleService,
+    RoleService,
+    ImcoService,
+    BlclauseService
   ],
   controllers: [
     UserController,
@@ -138,7 +153,12 @@ import { BranchBankService } from './services/branch-bank/branch-bank.service';
     TariffController,
     ChargeController,
     HssacController,
-    BranchBankController
+    BranchBankController,
+    TariffDetailController,
+    ModuleController,
+    RoleController,
+    ImcoController,
+    BlclauseController
   ],
   exports: [UserService]
 })

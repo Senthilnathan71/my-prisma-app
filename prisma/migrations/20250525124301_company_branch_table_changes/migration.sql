@@ -1,0 +1,7 @@
+-- AlterTable
+ALTER TABLE "BranchMaster" ALTER COLUMN "companyLogo" SET DATA TYPE TEXT,
+ALTER COLUMN "reportLogo" SET DATA TYPE TEXT;
+
+-- AlterTable
+ALTER TABLE "CompanyMaster" ALTER COLUMN "companyLogo" SET DATA TYPE TEXT,
+ALTER COLUMN "reportLogo" SET DATA TYPE TEXT;

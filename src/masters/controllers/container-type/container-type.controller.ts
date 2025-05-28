@@ -24,7 +24,7 @@ export class ContainerTypeController {
   constructor(
     private containerTypeService: ContainerTypeService,
     private logger: Logger,
-  ) {}
+  ) { }
 
   // Create a new ContainerType
 
@@ -36,7 +36,7 @@ export class ContainerTypeController {
   @HttpCode(HttpStatus.OK)
   @Post('create')
   async addNewContainerType(
-    @Body() newData: Prisma.ContainerTypeMasterCreateInput,
+    @Body() newData: any,
   ) {
     let resp = new ResponseData();
     this.logger.log(`newContainerTypeData: ${JSON.stringify(newData)}`);
