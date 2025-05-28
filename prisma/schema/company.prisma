@@ -67,6 +67,8 @@ model CompanyMaster {
     tariffHeader        TariffHeader[]
     tariffDetail        TariffDetail[]
     tdsSetHeader        TDSSetHeader[]
+    categoryMaster      CategoryMaster[]
+    productMaster       ProductMaster[]
 }
 
 model BranchMaster {
@@ -272,6 +274,7 @@ model CountryMaster {
     userMaster        UserMaster[]
     customerMaster    CustomerMaster[]
     tdsSetRate        TDSSetRate[]
+    categoryMaster    CategoryMaster[]
 }
 
 model StateMaster {
@@ -711,6 +714,8 @@ model CustomerMaster {
 
     tdsExemptionCarrier     TDSExemption[] @relation("Carrier")
     tdsExemptionTransporter TDSExemption[] @relation("Transporter")
+
+    productMaster ProductMaster[]
 }
 
 model PackageTypeMaster {
@@ -1509,4 +1514,59 @@ model BLClauseMaster {
     createdBy         String    @db.VarChar(100)
     updatedBy         String?   @db.VarChar(100)
     status            String?   @default("A") @db.Char(1)
+}
+
+model CategoryMaster {
+    CategoryMasterSId Int       @id @default(autoincrement()) @map("CategoryMasterSId")
+    CategoryCode      String    @db.VarChar(20)
+    CategoryName      String    @db.VarChar(100)
+    CategoryType      String    @db.VarChar(10)
+    SupplierName      String    @db.VarChar(100)
+    CountryMasterSId  Int?
+    CompanyMasterSId  Int
+    InventoryMethod   String?   @db.VarChar(10)
+    createdOn         DateTime  @default(now()) @db.Timestamptz(6)
+    updatedOn         DateTime? @updatedAt @db.Timestamptz(6)
+    deletedAt         DateTime?
+    createdBy         String    @db.VarChar(100)
+    updatedBy         String?   @db.VarChar(100)
+    status            String?   @default("A") @db.Char(1)
+
+    country CountryMaster? @relation(fields: [CountryMasterSId], references: [CountryMasterSid])
+    company CompanyMaster  @relation(fields: [CompanyMasterSId], references: [CompanyMasterSid])
+
+    productMaster ProductMaster[]
+}
+
+model ProductMaster {
+    ProductMasterSId  Int       @id @default(autoincrement()) @map("ProductMasterSId")
+    CategoryMasterSId Int?
+    CustomerMasterSid Int
+    CompanyMasterSid  Int
+    ProductCode       String    @db.VarChar(20)
+    ProductName       String    @db.VarChar(100)
+    Product_LL        String?   @db.VarChar(100)
+    HSNCode           String?   @db.VarChar(10)
+    Description       String?   @db.VarChar(200)
+    UOMCode           String?   @db.VarChar(10)
+    ProductId         String?   @db.VarChar(10)
+    ImcoName          String?   @db.VarChar(10)
+    UNo               String?   @db.VarChar(5)
+    PackingGroup      String?   @db.VarChar(10)
+    ProductType       String?   @db.Char(1)
+    UNNo              Int?
+    IMOClass          String?   @db.VarChar(5)
+    IMOSubClass       String?   @db.VarChar(5)
+    UNPackingCode     String?   @db.VarChar(5)
+    FlashPoint        String?   @db.VarChar(10)
+    createdOn         DateTime  @default(now()) @db.Timestamptz(6)
+    updatedOn         DateTime? @updatedAt @db.Timestamptz(6)
+    deletedAt         DateTime?
+    createdBy         String    @db.VarChar(100)
+    updatedBy         String?   @db.VarChar(100)
+    status            String?   @default("A") @db.Char(1)
+
+    category CategoryMaster? @relation(fields: [CategoryMasterSId], references: [CategoryMasterSId])
+    customer CustomerMaster  @relation(fields: [CustomerMasterSid], references: [CustomerMasterSid])
+    company  CompanyMaster   @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
 }
