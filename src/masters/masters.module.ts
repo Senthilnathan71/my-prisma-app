@@ -72,6 +72,10 @@ import { ModuleService } from './services/module/module.service';
 import { ModuleController } from './controllers/module/module.controller';
 import { RoleService } from './services/role/role.service';
 import { RoleController } from './controllers/role/role.controller';
+import { ImcoController } from './controllers/imco/imco.controller';
+import { ImcoService } from './services/imco/imco.service';
+import { BlclauseController } from './controllers/blclause/blclause.controller';
+import { BlclauseService } from './services/blclause/blclause.service';
 
 @Module({
   providers: [
@@ -111,7 +115,9 @@ import { RoleController } from './controllers/role/role.controller';
     BranchBankService,
     TariffDetailService,
     ModuleService,
-    RoleService
+    RoleService,
+    ImcoService,
+    BlclauseService
   ],
   controllers: [
     UserController,
@@ -150,7 +156,9 @@ import { RoleController } from './controllers/role/role.controller';
     BranchBankController,
     TariffDetailController,
     ModuleController,
-    RoleController
+    RoleController,
+    ImcoController,
+    BlclauseController
   ],
   exports: [UserService]
 })
