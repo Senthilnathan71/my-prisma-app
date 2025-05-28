@@ -117,42 +117,14 @@ export class PortService {
   }
 
   async updatePort(PortMasterSid: number, payload, user) {
-    const existing = await this._db.portMaster.findFirst({
-      where: {
-        AND: [
-          {
-            OR: [
-              {
-                PortName: {
-                  equals: payload.PortName.trim(),
-                  mode: 'insensitive',
-                },
-              },
-              {
-                PortCode: {
-                  equals: payload.PortCode.trim(),
-                  mode: 'insensitive',
-                },
-              },
-            ],
-          },
-          {
-            NOT: {
-              PortMasterSid: PortMasterSid,
-            },
-          },
-        ],
-      },
+    const existing = await this._db.portMaster.findUnique({
+      where :{
+        PortMasterSid:PortMasterSid
+      }
     });
 
-    if (existing) {
-      if (existing.PortName === payload.PortName) {
-        //throw new Error('Port name already exists');
-        throw new BadRequestException('Port name already exists');
-      }
-      if (existing.PortCode === payload.PortCode) {
-        throw new BadRequestException('Port code already exists');
-      }
+    if(!existing) {
+      throw new BadRequestException(`Port Master with Id : ${PortMasterSid} not exists`)
     }
 
     try {
@@ -160,7 +132,10 @@ export class PortService {
         where: {
           PortMasterSid: PortMasterSid,
         },
-        data: payload,
+        data: {
+          ...payload,
+          updatedBy:'admin@crm.com'
+        }
       });
       return port;
     } catch (error) {
@@ -214,6 +189,19 @@ export class PortService {
             mode: 'insensitive',
           },
         },
+        include : {
+          countryMaster:{
+            select:{
+              countryName:true
+            }
+          },
+          sectorMaster:{
+            select:{
+              sectorName:true
+            }
+          },
+          
+        }
       })
       .catch((err) => {
         throw new Error(`Error Occured ${err}`);
