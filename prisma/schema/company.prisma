@@ -1263,7 +1263,7 @@ model HSSACMaster {
     HSSACCode      String    @db.VarChar(9)
     HSSACName      String    @db.VarChar(30)
     ServiceName    String    @db.VarChar(100)
-    TaxRate        Decimal   @db.Decimal(3, 1)
+    TaxRate        Decimal   @db.Decimal(10, 3)
     TaxType        String    @db.VarChar(10) //VAT,UGST,CGST,IGST,Default
     EffectiveFrom  DateTime
     createdOn      DateTime  @default(now()) @db.Timestamptz(6)
