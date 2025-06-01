@@ -1,6 +1,5 @@
 import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, Post, UnauthorizedException } from '@nestjs/common';
 import { ApiOperation, ApiCreatedResponse } from '@nestjs/swagger';
-import { Prisma } from '@prisma/client';
 import { Auth } from 'src/common/decorators/auth.decorator';
 import { UserData } from 'src/common/decorators/user.decorator';
 import { ResponseData } from 'src/common/response-data';
@@ -19,7 +18,7 @@ export class VesselController {
     })
     @HttpCode(HttpStatus.CREATED)
     @Post('create')
-    async createVessel(@Body() body: Prisma.VesselMasterCreateInput, @UserData() user: any) {
+    async createVessel(@Body() body:any, @UserData() user: any) {
         this.logger.log(`createVesselData: ${JSON.stringify(body)}`)
         let output = new ResponseData
         try {
@@ -101,7 +100,7 @@ export class VesselController {
     })
     @HttpCode(HttpStatus.OK)
     @Patch('update/:id')
-    async editVessel(@Param('id', ParseIntPipe) id: number, @Body() body: Prisma.VesselMasterUpdateInput, @UserData() user: any) {
+    async editVessel(@Param('id', ParseIntPipe) id: number, @Body() body: any, @UserData() user: any) {
         this.logger.log(`editVesselBody: ${JSON.stringify(body)}`)
         let output = new ResponseData
         try {

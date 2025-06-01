@@ -14,7 +14,6 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
-import { Prisma } from '@prisma/client';
 import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { PackageTypeService } from 'src/masters/services/package-type/package-type.service';
@@ -35,7 +34,7 @@ export class PackageTypeController {
   @HttpCode(HttpStatus.OK)
   @Post('create')
   async createNewPackageType(
-    @Body() newData: Prisma.PackageTypeMasterCreateInput,
+    @Body() newData:any,
   ) {
     let resp = new ResponseData();
     this.logger.log(`createPackageTypeData: ${JSON.stringify(newData)}`);
@@ -139,7 +138,7 @@ export class PackageTypeController {
   @Patch('update/:id')
   async updatePackageTypeById(
     @Param('id', ParseIntPipe) id: number,
-    @Body() newData: Prisma.PackageTypeMasterUpdateInput,
+    @Body() newData:any,
   ) {
     let resp = new ResponseData();
     this.logger.log(`Going to Update Package Type with id : ${id}`);

@@ -1,6 +1,5 @@
 import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, Post, UnauthorizedException } from '@nestjs/common';
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
-import { Prisma } from '@prisma/client';
 import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { CommodityService } from 'src/masters/services/commodity/commodity.service';
@@ -16,7 +15,7 @@ export class CommodityController {
     })
     @HttpCode(HttpStatus.OK)
     @Post('create')
-    async createNewCommodity(@Body() newData: Prisma.CommodityMasterCreateInput) {
+    async createNewCommodity(@Body() newData:any) {
         let resp = new ResponseData();
         try {
             let res = await this.commodityService.createNewCommodity(newData);

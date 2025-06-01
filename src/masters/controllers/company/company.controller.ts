@@ -1,7 +1,6 @@
 import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, Post, Res, UnauthorizedException, UploadedFiles } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
-import { Prisma } from '@prisma/client';
 import { FilesUploadInterceptor } from 'src/common/decorators/file-upload.decorator';
 import { UserData } from 'src/common/decorators/user.decorator';
 import { checkIfFileExists } from 'src/common/helper';
@@ -106,7 +105,7 @@ export class CompanyController {
     @HttpCode(HttpStatus.OK)
     @FilesUploadInterceptor('files', 'COMPANY_LOGO')
     @Patch('update/:CompanyMasterSid')
-    async updateCompanyById(@Param('CompanyMasterSid', ParseIntPipe) CompanyMasterSid: number, @Body() updateData: Prisma.CompanyMasterUpdateInput) {
+    async updateCompanyById(@Param('CompanyMasterSid', ParseIntPipe) CompanyMasterSid: number, @Body() updateData:any) {
         let resp = new ResponseData();
         try {
             this.logger.log(`Updating Company with id:${CompanyMasterSid}`);

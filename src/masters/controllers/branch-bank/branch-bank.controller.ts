@@ -1,6 +1,5 @@
 import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, Post, UnauthorizedException } from '@nestjs/common';
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
-import { Prisma } from '@prisma/client';
 import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { BranchBankService } from 'src/masters/services/branch-bank/branch-bank.service';
@@ -16,7 +15,7 @@ export class BranchBankController {
     })
     @HttpCode(HttpStatus.OK)
     @Post('create')
-    async createNewBranchBank(@Body() payload:Prisma.BranchBankCreateInput){
+    async createNewBranchBank(@Body() payload:any){
         let resp = new ResponseData();
         try {
             this.logger.log('Creating new Branch Bank');
@@ -97,7 +96,7 @@ export class BranchBankController {
     })
     @HttpCode(HttpStatus.OK)
     @Patch('update/:BranchBankSid')
-    async updateBranchBankById(@Param('BranchBankSid',ParseIntPipe) BranchBankSid:number,@Body() payload:Prisma.BranchBankUpdateInput){
+    async updateBranchBankById(@Param('BranchBankSid',ParseIntPipe) BranchBankSid:number,@Body() payload:any){
         let resp = new ResponseData();
         try {
             this.logger.log(`Updating Branch Bank with id:${BranchBankSid}`);

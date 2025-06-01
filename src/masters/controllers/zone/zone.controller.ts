@@ -14,7 +14,6 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
-import { Prisma } from '@prisma/client';
 import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { ZoneService } from 'src/masters/services/zone/zone.service';
@@ -33,7 +32,7 @@ export class ZoneController {
   })
   @HttpCode(HttpStatus.OK)
   @Post('create')
-  async createNewZone(@Body() newData: Prisma.ZoneMasterCreateInput) {
+  async createNewZone(@Body() newData:any) {
     let resp = new ResponseData();
     this.logger.log(`createNewZone data : ${JSON.stringify(newData)}`);
     try {
@@ -137,7 +136,7 @@ export class ZoneController {
   @Patch('update/:id')
   async updateZoneById(
     @Param('id', ParseIntPipe) id: number,
-    @Body() newData: Prisma.ZoneMasterUpdateInput,
+    @Body() newData: any,
   ) {
     let resp = new ResponseData();
     this.logger.log(

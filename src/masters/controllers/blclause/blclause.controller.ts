@@ -1,6 +1,5 @@
 import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, Post, UnauthorizedException } from '@nestjs/common';
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
-import { Prisma } from '@prisma/client';
 import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { BlclauseService } from 'src/masters/services/blclause/blclause.service';
@@ -18,7 +17,7 @@ export class BlclauseController {
     })
     @HttpCode(HttpStatus.OK)
     @Post('create')
-    async createNewBlClause(@Body() newData: Prisma.BLClauseMasterCreateInput) {
+    async createNewBlClause(@Body() newData: any) {
         let resp = new ResponseData();
         try {
             let res = await this.blClauseService.createNewBlclause(newData);
@@ -103,7 +102,7 @@ export class BlclauseController {
     })
     @HttpCode(HttpStatus.OK)
     @Patch('update/:BLClauseMasterSid')
-    async updateBlClauseById(@Param('BLClauseMasterSid', ParseIntPipe) BLClauseMasterSid: number, @Body() payload: Prisma.BLClauseMasterUpdateInput) {
+    async updateBlClauseById(@Param('BLClauseMasterSid', ParseIntPipe) BLClauseMasterSid: number, @Body() payload: any) {
         let resp = new ResponseData();
         try {
             this.logger.log(`Updating BlClause with id : ${BLClauseMasterSid}`);

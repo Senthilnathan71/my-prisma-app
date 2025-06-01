@@ -1,6 +1,5 @@
 import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, Post, UnauthorizedException } from '@nestjs/common';
 import { ApiOperation, ApiCreatedResponse } from '@nestjs/swagger';
-import { Prisma } from '@prisma/client';
 import { UserData } from 'src/common/decorators/user.decorator';
 import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
@@ -17,7 +16,7 @@ export class VoyageController {
     })
     @HttpCode(HttpStatus.CREATED)
     @Post('create')
-    async createVoyage(@Body() body: Prisma.VoyageMasterHeaderCreateInput, @UserData() user: any) {
+    async createVoyage(@Body() body:any, @UserData() user: any) {
         this.logger.log(`createVoyagedata: ${JSON.stringify(body)}`)
         let output = new ResponseData
         try {
@@ -99,7 +98,7 @@ export class VoyageController {
     })
     @HttpCode(HttpStatus.OK)
     @Patch('update/:id')
-    async editVoyage(@Param('id', ParseIntPipe) id: number, @Body() body: Prisma.VoyageMasterHeaderUpdateInput, @UserData() user: any) {
+    async editVoyage(@Param('id', ParseIntPipe) id: number, @Body() body: any, @UserData() user: any) {
         this.logger.log(`editVoyagebody: ${JSON.stringify(body)}`)
         let output = new ResponseData
         try {

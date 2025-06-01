@@ -1,6 +1,5 @@
 import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, Post, UnauthorizedException } from '@nestjs/common';
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
-import { Prisma } from '@prisma/client';
 import { Auth } from 'src/common/decorators/auth.decorator';
 import { UserData } from 'src/common/decorators/user.decorator';
 import { ResponseData } from 'src/common/response-data';
@@ -19,7 +18,7 @@ export class DepartmentController {
     })
     @HttpCode(HttpStatus.CREATED)
     @Post('create')
-    async createDepartment(@Body() body: Prisma.DepartmentMasterCreateInput, @UserData() user: any) {
+    async createDepartment(@Body() body:any, @UserData() user: any) {
         this.logger.log(`createDepartmentdata: ${JSON.stringify(body)}`)
         let output = new ResponseData
         try {
@@ -102,7 +101,7 @@ export class DepartmentController {
     })
     @HttpCode(HttpStatus.OK)
     @Patch('update/:id')
-    async editDepartment(@Param('id', ParseIntPipe) id: number, @Body() body: Prisma.DepartmentMasterUpdateInput, @UserData() user: any) {
+    async editDepartment(@Param('id', ParseIntPipe) id: number, @Body() body: any, @UserData() user: any) {
         this.logger.log(`editDepartmentbody: ${JSON.stringify(body)}`)
         let output = new ResponseData
         try {

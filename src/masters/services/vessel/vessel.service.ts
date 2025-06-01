@@ -1,5 +1,4 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 
@@ -8,7 +7,7 @@ export class VesselService {
     constructor(private _db: DatabaseService, private logger: Logger) { }
 
 
-    async createVessel(payload: Prisma.VesselMasterCreateInput, user) {
+    async createVessel(payload: any, user) {
         this.logger.warn(`createVessel: ${payload}`);
         const existing = await this._db.vesselMaster.findFirst({
             where: {
@@ -81,7 +80,7 @@ export class VesselService {
     }
 
 
-    async updateVessel(VesselMasterSid: number, payload: Prisma.VesselMasterUpdateInput, user) {
+    async updateVessel(VesselMasterSid: number, payload: any, user) {
 
         const existing = await this._db.vesselMaster.findUnique({
             where: {

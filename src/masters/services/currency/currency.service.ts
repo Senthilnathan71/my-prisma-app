@@ -4,7 +4,6 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 
@@ -15,7 +14,7 @@ export class CurrencyService {
     private logger: Logger,
   ) {}
 
-  async createCurrency(payload: Prisma.CurrencyMasterCreateInput, user) {
+  async createCurrency(payload:any, user) {
     this.logger.warn(`createCurrency: ${payload}`);
 
     const existing = await this._db.currencyMaster.findFirst({
@@ -87,7 +86,7 @@ export class CurrencyService {
 
   async updateCurrency(
     CurrencyMasterSid: number,
-    payload: Prisma.CurrencyMasterUpdateInput,
+    payload: any,
     user,
   ) {
     const existing = await this._db.currencyMaster.findUnique({

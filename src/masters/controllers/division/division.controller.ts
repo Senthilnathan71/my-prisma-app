@@ -1,6 +1,5 @@
 import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, Post, UnauthorizedException } from '@nestjs/common';
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
-import { Prisma } from '@prisma/client';
 import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { DivisionService } from 'src/masters/services/division/division.service';
@@ -16,7 +15,7 @@ export class DivisionController {
     })
     @HttpCode(HttpStatus.OK)
     @Post('create')
-    async createNewDivision(@Body() newData: Prisma.DivisionMasterCreateInput) {
+    async createNewDivision(@Body() newData: any) {
         let resp = new ResponseData();
         try {
             let res = await this.divisionService.createNewDivision(newData);
@@ -95,7 +94,7 @@ export class DivisionController {
     })
     @HttpCode(HttpStatus.OK)
     @Patch('update/:DivisionMasterSid')
-    async updateDivisionById(@Param('DivisionMasterSid', ParseIntPipe) DivisionMasterSid: number, @Body() body: Prisma.DivisionMasterUpdateInput) {
+    async updateDivisionById(@Param('DivisionMasterSid', ParseIntPipe) DivisionMasterSid: number, @Body() body: any) {
         let resp = new ResponseData();
         try {
             this.logger.log(`Updating Division with Id : ${DivisionMasterSid}`);

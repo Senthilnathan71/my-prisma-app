@@ -1,5 +1,4 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 
@@ -7,7 +6,7 @@ import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 @Injectable()
 export class DivisionService {
     constructor(private _db: DatabaseService) { }
-    async createNewDivision(newData: Prisma.DivisionMasterCreateInput) {
+    async createNewDivision(newData: any) {
         try {
             const newlyCreated = await this._db.divisionMaster.create({
                 data: {
@@ -50,7 +49,7 @@ export class DivisionService {
         }
     }
 
-    async editDivisionById(divisionId: number, newData: Prisma.DivisionMasterUpdateInput) {
+    async editDivisionById(divisionId: number, newData: any) {
         try {
             const existing = await this._db.divisionMaster.findUnique({
                 where: {

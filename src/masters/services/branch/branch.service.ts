@@ -1,5 +1,4 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 
@@ -73,7 +72,7 @@ export class BranchService {
         }
     }
 
-    async updateBranchById(BranchMasterSid: number, updateData: Prisma.BranchMasterUpdateInput) {
+    async updateBranchById(BranchMasterSid: number, updateData: any) {
         try {
             const exist = await this._db.branchMaster.findUnique({
                 where: {

@@ -1,6 +1,5 @@
 import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, Post, UnauthorizedException } from '@nestjs/common';
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
-import { Prisma } from '@prisma/client';
 import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { ImcoService } from 'src/masters/services/imco/imco.service';
@@ -17,7 +16,7 @@ export class ImcoController {
     })
     @HttpCode(HttpStatus.OK)
     @Post('create')
-    async createNewImco(@Body() newData: Prisma.ImcoMasterCreateInput) {
+    async createNewImco(@Body() newData: any) {
         let resp = new ResponseData();
         try {
             let res = await this.imcoService.createNewIMCO(newData);
@@ -102,7 +101,7 @@ export class ImcoController {
     })
     @HttpCode(HttpStatus.OK)
     @Patch('update/:ImcoMasterSid')
-    async updateIMCOById(@Param('ImcoMasterSid', ParseIntPipe) ImcoMasterSid: number, @Body() payload: Prisma.ImcoMasterUpdateInput) {
+    async updateIMCOById(@Param('ImcoMasterSid', ParseIntPipe) ImcoMasterSid: number, @Body() payload: any) {
         let resp = new ResponseData();
         try {
             this.logger.log(`Updating IMCO with id : ${ImcoMasterSid}`);
