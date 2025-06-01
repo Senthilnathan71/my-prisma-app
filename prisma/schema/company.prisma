@@ -180,6 +180,7 @@ model CurrencyMaster {
     currencyName      String          @db.VarChar(100)
     CurrencyUnit      String?         @db.VarChar(50) // Rupee
     CurrencySubUnit   String?         @db.VarChar(50) // Paise
+    SubUnitIn         String?          @db.VarChar(30)
     ShortCode         String?         @db.Char(3) // Rs
     Symbol            String?         @db.Char(1) // symb
     amountDecimal     Int
@@ -740,10 +741,10 @@ model TariffHeader {
     TariffHeaderSid     Int       @id @default(autoincrement()) @map("TariffHeaderSid")
     DepartmentMasterSid Int
     CompanyMasterSid    Int?
-    POOSid              Int
+    POOSid              Int?
     POLSid              Int
     PODSid              Int
-    FDCSid              Int
+    FDCSid              Int?
     POLTerminal         String    @db.VarChar(5)
     PODTerminal         String    @db.VarChar(5)
     ViaPortSid          Int?
@@ -751,9 +752,9 @@ model TariffHeader {
     MovementType        String?   @db.VarChar(10)
     StuffingAt          String    @db.VarChar(10) //(Dock, Factory, Both)
     EffectiveDate       DateTime
-    AgentSid            Int
-    IncoTerms           String    @db.VarChar(10)
-    Remarks             String    @db.VarChar(100)
+    AgentSid            Int?
+    IncoTerms           String?    @db.VarChar(10)
+    Remarks             String?    @db.VarChar(100)
     createdOn           DateTime  @default(now()) @db.Timestamptz(6)
     updatedOn           DateTime? @updatedAt @db.Timestamptz(6)
     deletedAt           DateTime?
@@ -763,13 +764,13 @@ model TariffHeader {
 
     departmentMaster DepartmentMaster @relation(fields: [DepartmentMasterSid], references: [DepartmentMasterSid])
     companyMaster    CompanyMaster?   @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
-    portPOO          PortMaster       @relation("POO", fields: [POOSid], references: [PortMasterSid])
+    portPOO          PortMaster?       @relation("POO", fields: [POOSid], references: [PortMasterSid])
     portPOL          PortMaster       @relation("POL", fields: [POLSid], references: [PortMasterSid])
     portPOD          PortMaster       @relation("POD", fields: [PODSid], references: [PortMasterSid])
-    portFDC          PortMaster       @relation("FDC", fields: [FDCSid], references: [PortMasterSid])
+    portFDC          PortMaster?       @relation("FDC", fields: [FDCSid], references: [PortMasterSid])
 
     customerCarrier CustomerMaster @relation("Carrier", fields: [Carrier], references: [CustomerMasterSid])
-    customerAgent   CustomerMaster @relation("Agent", fields: [AgentSid], references: [CustomerMasterSid])
+    customerAgent   CustomerMaster? @relation("Agent", fields: [AgentSid], references: [CustomerMasterSid])
 
     tariffDetail TariffDetail[]
 }
@@ -790,6 +791,8 @@ model TariffDetail {
     BuyPerUnitPrice  Decimal   @db.Decimal(10, 5)
     SlabFrom         Decimal?  @db.Decimal(4, 0)
     SlabTo           Decimal?  @db.Decimal(4, 0)
+    ExpiredOn        DateTime?
+    MinSale          String    @db.VarChar(20)
     createdOn        DateTime  @default(now()) @db.Timestamptz(6)
     updatedOn        DateTime? @updatedAt @db.Timestamptz(6)
     deletedAt        DateTime?
@@ -1006,15 +1009,15 @@ model UOMMaster {
     UOMMasterSid     Int       @id @default(autoincrement()) @map("UOMMasterSid")
     UOMCode          String    @unique @db.VarChar(3)
     UOMName          String    @unique @db.VarChar(20)
-    UOMType          String    @db.VarChar(10)
+    UOMType          String?    @db.VarChar(10)
     EdiCode          String?   @db.Char(3)
     DimensionReq     String    @db.Char(1)
     WeightReq        String    @db.Char(1)
     VolumeReq        String    @db.Char(1)
     ShipmentType     String    @db.VarChar(5)
-    CostPerUnitPrice Decimal   @db.Decimal(10, 5)
-    SlabFrom         Decimal   @db.Decimal(4, 0)
-    SlabTo           Decimal   @db.Decimal(4, 0)
+    CostPerUnitPrice Decimal?   @db.Decimal(10, 5)
+    SlabFrom         Decimal?   @db.Decimal(4, 0)
+    SlabTo           Decimal?   @db.Decimal(4, 0)
     createdOn        DateTime  @default(now()) @db.Timestamptz(6)
     updatedOn        DateTime? @updatedAt @db.Timestamptz(6)
     deletedAt        DateTime?
