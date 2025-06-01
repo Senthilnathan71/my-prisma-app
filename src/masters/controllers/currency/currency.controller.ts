@@ -14,7 +14,6 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { ApiOperation, ApiCreatedResponse } from '@nestjs/swagger';
-import { Prisma } from '@prisma/client';
 import e from 'express';
 import { UserData } from 'src/common/decorators/user.decorator';
 import { ResponseData } from 'src/common/response-data';
@@ -36,7 +35,7 @@ export class CurrencyController {
   @HttpCode(HttpStatus.CREATED)
   @Post('create')
   async createCurrency(
-    @Body() body: Prisma.CurrencyMasterCreateInput,
+    @Body() body: any,
     @UserData() user: any,
   ) {
     this.logger.log(`createCurrencyData: ${JSON.stringify(body)}`);
@@ -125,7 +124,7 @@ export class CurrencyController {
   @Patch('update/:id')
   async editCurrency(
     @Param('id', ParseIntPipe) id: number,
-    @Body() body: Prisma.CurrencyMasterUpdateInput,
+    @Body() body: any,
     @UserData() user: any,
   ) {
     this.logger.log(`editCurrencybody: ${JSON.stringify(body)}`);

@@ -1,0 +1,158 @@
+import { BadRequestException, Injectable } from '@nestjs/common';
+import { DatabaseService } from 'src/database/database.service';
+import { SearchListDto } from 'src/masters/DTO/search-list.dto';
+
+@Injectable()
+export class ProductService {
+    constructor(private _db:DatabaseService){}
+
+    async getAllProducts(){
+        try {
+            const allProducts = await this._db.productMaster.findMany({
+                where : {
+                    deletedAt:null
+                }
+            })
+            return allProducts;
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    async createNewProduct(payload){
+        try {
+            const createdProduct = await this._db.productMaster.create({
+                data :{
+                    ...payload,
+                    createdBy :'admin@crm.com'
+                }
+            })
+            return createdProduct;
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    async fetchProductById(ProductMasterSid:number){
+        try {
+            const ourProducts =await this._db.productMaster.findUnique({
+                where : {
+                    ProductMasterSId:ProductMasterSid
+                }
+            })
+            if(!ourProducts){
+                throw new BadRequestException(`Product with Id : ${ProductMasterSid} not exists`);
+            }
+            return ourProducts;
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    async updateProductById(ProductMasterSid:number,payload){
+        try {
+             const exist =await this._db.productMaster.findUnique({
+                where : {
+                    ProductMasterSId:ProductMasterSid
+                }
+            })
+            if(!exist){
+                throw new BadRequestException(`Product with Id : ${ProductMasterSid} not exists`);
+            }
+            const updatedProduct = this._db.productMaster.update({
+                where : {
+                    ProductMasterSId : ProductMasterSid
+                },
+                data : payload
+            })
+            return updatedProduct;
+        } catch (error) {
+            throw error;
+        }
+    }
+
+
+    async deleteProduct(ProductMasterSid:number){
+        try {
+            const exist = await this._db.productMaster.findUnique({
+                where: {
+                    ProductMasterSId: ProductMasterSid
+                }
+            })
+            if (!exist) {
+                throw new BadRequestException(`Product with Id : ${ProductMasterSid} not exists`);
+            }
+            if (exist.deletedAt) {
+                throw new BadRequestException(`Product with Id :${ProductMasterSid} is already deleted`)
+            }
+            const deletedProduct = this._db.productMaster.update({
+                where: {
+                    ProductMasterSId: ProductMasterSid
+                },
+                data: {
+                    deletedAt: new Date()
+                }
+            })
+            return deletedProduct;
+        } catch(error) {
+            throw error;
+        }
+    }
+
+
+    async searchProducts(data:SearchListDto){
+        const {searchType,filterValue}=data;
+        const intFields=[
+            "CategoryMasterSId",
+            "CustomerMasterSid",
+            "CompanyMasterSid",
+            "UNNo",
+        ];
+        const stringFields = [
+            "ProductCode",
+            "ProductName",
+            "Product_LL",
+            "HSNCode",
+            "UOMCode",
+            "ProductId",
+            "ImcoName",
+            "UNo",
+            "PackingGroup",
+            "ProductType",
+            "IMOClass",
+            "IMOSubClass",
+            "UNPackingCode",
+            "FlashPoint",
+            "Status"
+        ];
+        const acceptedType = [...intFields,...stringFields];
+        if(!acceptedType.includes(searchType)){
+            throw new BadRequestException('Invalid Search Type');
+        }
+
+        const whereClause:any ={}
+
+        if(stringFields.includes(searchType)){
+            whereClause[searchType]={
+                contains:filterValue,
+                mode:'insensitive'
+            }
+        } else if(intFields.includes(searchType)){
+            const numberValue=parseInt(filterValue);
+            if (isNaN(numberValue)) {
+                throw new BadRequestException(`${searchType} must be a valid number`);
+            }
+            whereClause[searchType]=numberValue;
+        }
+
+        const searchResults = await this._db.productMaster.findMany({
+            where : whereClause
+        }).catch((err) => {
+            throw new Error(`Error Occured : ${JSON.stringify(err), err}`);
+        })
+
+        return searchResults;
+
+    }
+
+}

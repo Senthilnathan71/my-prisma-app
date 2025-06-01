@@ -1,5 +1,4 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 
@@ -84,7 +83,7 @@ export class CompanyService {
     }
 
 
-    async updateCompanyById(CompanyMasterSid: number, updateData: Prisma.CompanyMasterUpdateInput) {
+    async updateCompanyById(CompanyMasterSid: number, updateData: any) {
         try {
             const existing = await this._db.companyMaster.findUnique({
                 where: {

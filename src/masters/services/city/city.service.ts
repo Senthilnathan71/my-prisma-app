@@ -1,5 +1,4 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 
@@ -65,7 +64,7 @@ export class CityService {
 
   async updateCityById(
     CityMasterSid: number,
-    newData: Prisma.CityMasterUpdateInput,
+    newData: any,
   ) {
     try {
       const existCity = await this._db.cityMaster.findUnique({

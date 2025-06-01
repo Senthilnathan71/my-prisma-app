@@ -1,5 +1,4 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 
@@ -7,7 +6,7 @@ import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 export class PackageTypeService {
   constructor(private _db: DatabaseService) {}
 
-  async createPackageType(newData: Prisma.PackageTypeMasterCreateInput) {
+  async createPackageType(newData: any) {
     try {
       const newlyAddedPackageType = await this._db.packageTypeMaster.create({
         data: { ...newData, createdBy: 'admin@crm.com' },
@@ -51,7 +50,7 @@ export class PackageTypeService {
 
   async editPackageTypeById(
     id: number,
-    newData: Prisma.PackageTypeMasterUpdateInput,
+    newData: any,
   ) {
     try {
       const existing = await this._db.packageTypeMaster.findUnique({

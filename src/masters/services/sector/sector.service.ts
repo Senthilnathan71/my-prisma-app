@@ -4,7 +4,6 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 
@@ -15,7 +14,7 @@ export class SectorService {
     private logger: Logger,
   ) {}
 
-  async createSector(payload: Prisma.SectorMasterCreateInput, user) {
+  async createSector(payload: any, user) {
     this.logger.warn(`createSector: ${payload}`);
 
     const existing = await this._db.sectorMaster.findFirst({
@@ -78,7 +77,7 @@ export class SectorService {
 
   async updateSector(
     SectorMasterSid: number,
-    payload: Prisma.SectorMasterUpdateInput,
+    payload: any,
     user,
   ) {
     const existing = await this._db.sectorMaster.findUnique({

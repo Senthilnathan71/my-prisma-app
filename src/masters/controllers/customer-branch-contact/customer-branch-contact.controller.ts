@@ -1,6 +1,5 @@
 import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, Post, UnauthorizedException } from '@nestjs/common';
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
-import { Prisma } from '@prisma/client';
 import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { CustomerBranchContactService } from 'src/masters/services/customer-branch-contact/customer-branch-contact.service';
@@ -17,7 +16,7 @@ export class CustomerBranchContactController {
     })
     @HttpCode(HttpStatus.OK)
     @Post('create')
-    async createNewCustomerBrContact(@Body() newData: Prisma.CusBranchContactCreateInput) {
+    async createNewCustomerBrContact(@Body() newData:any) {
         let resp = new ResponseData();
         try {
             let res = await this.customerBrContactServ.createNewCustomerBrContact(newData);
@@ -99,7 +98,7 @@ export class CustomerBranchContactController {
     })
     @HttpCode(HttpStatus.OK)
     @Patch('update/:CusBranchContactSid')
-    async updateCustomerBrContactById(@Param('CusBranchContactSid', ParseIntPipe) CusBranchContactSid: number, @Body() updateData: Prisma.CusBranchContactUpdateInput) {
+    async updateCustomerBrContactById(@Param('CusBranchContactSid', ParseIntPipe) CusBranchContactSid: number, @Body() updateData:any) {
         let resp = new ResponseData();
         try {
             this.logger.log(`Updating Customer Branch with id : ${CusBranchContactSid}`)

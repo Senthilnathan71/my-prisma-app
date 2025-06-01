@@ -14,7 +14,6 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
-import { Prisma } from '@prisma/client';
 import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { CityService } from 'src/masters/services/city/city.service';
@@ -95,7 +94,7 @@ export class CityController {
   })
   @HttpCode(HttpStatus.CREATED)
   @Post('add')
-  async addNewCity(@Body() cityObj: Prisma.CityMasterCreateInput) {
+  async addNewCity(@Body() cityObj: any) {
     this.logger.log(`createCityData : ${JSON.stringify(cityObj)}`);
     const resp = new ResponseData();
     try {
@@ -131,7 +130,7 @@ export class CityController {
   @Patch('update/:id')
   async updateCityByID(
     @Param('id', ParseIntPipe) id: number,
-    @Body() newData: Prisma.CityMasterUpdateInput,
+    @Body() newData: any,
   ) {
     let resp = new ResponseData();
     this.logger.log(`updateCityData : ${JSON.stringify(newData)}`);

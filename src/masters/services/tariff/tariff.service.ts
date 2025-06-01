@@ -1,6 +1,4 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
-import { contains } from 'class-validator';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 
@@ -8,7 +6,7 @@ import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 export class TariffService {
     constructor(private _db: DatabaseService, private logger: Logger) { }
 
-    async createNewTariff(newData: Prisma.TariffHeaderCreateInput) {
+    async createNewTariff(newData: any) {
         try {
             let createdTariff = await this._db.tariffHeader.create({
                 data: {
@@ -60,7 +58,7 @@ export class TariffService {
     }
 
 
-    async updateTariffById(TariffHeaderSid: number, updateData: Prisma.TariffHeaderUpdateInput) {
+    async updateTariffById(TariffHeaderSid: number, updateData: any) {
         try {
             let exists = await this._db.tariffHeader.findUnique({
                 where: {

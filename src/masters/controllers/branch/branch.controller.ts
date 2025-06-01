@@ -1,7 +1,6 @@
 import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, Post, Res, UnauthorizedException, UploadedFiles } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
-import { Prisma } from '@prisma/client';
 import { FilesUploadInterceptor } from 'src/common/decorators/file-upload.decorator';
 import { checkIfFileExists } from 'src/common/helper';
 import { ResponseData } from 'src/common/response-data';
@@ -104,7 +103,7 @@ export class BranchController {
     })
     @HttpCode(HttpStatus.OK)
     @Patch('update/:BranchMasterSid')
-    async updateBranchById(@Param('BranchMasterSid', ParseIntPipe) BranchMasterSid: number, @Body() updateData: Prisma.BranchMasterUpdateInput) {
+    async updateBranchById(@Param('BranchMasterSid', ParseIntPipe) BranchMasterSid: number, @Body() updateData: any) {
         let resp = new ResponseData();
         try {
             this.logger.log(`Updating Branch with id : ${BranchMasterSid}`)

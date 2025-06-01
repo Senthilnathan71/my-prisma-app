@@ -76,6 +76,14 @@ import { ImcoController } from './controllers/imco/imco.controller';
 import { ImcoService } from './services/imco/imco.service';
 import { BlclauseController } from './controllers/blclause/blclause.controller';
 import { BlclauseService } from './services/blclause/blclause.service';
+import { ProductController } from './controllers/product/product.controller';
+import { ProductService } from './services/product/product.service';
+import { TermsAndConditionsService } from './services/terms-and-conditions/terms-and-conditions.service';
+import { TermsAndConditionsDetailService } from './services/terms-and-conditions-detail/terms-and-conditions-detail.service';
+import { TermsAndConditionsController } from './controllers/terms-and-conditions/terms-and-conditions.controller';
+import { TermsAndConditionsDetailController } from './controllers/terms-and-conditions-detail/terms-and-conditions-detail.controller';
+import { MenuController } from './controllers/menu/menu.controller';
+import { MenuService } from './services/menu/menu.service';
 
 @Module({
   providers: [
@@ -117,7 +125,11 @@ import { BlclauseService } from './services/blclause/blclause.service';
     ModuleService,
     RoleService,
     ImcoService,
-    BlclauseService
+    BlclauseService,
+    ProductService,
+    TermsAndConditionsService,
+    TermsAndConditionsDetailService,
+    MenuService
   ],
   controllers: [
     UserController,
@@ -158,7 +170,11 @@ import { BlclauseService } from './services/blclause/blclause.service';
     ModuleController,
     RoleController,
     ImcoController,
-    BlclauseController
+    BlclauseController,
+    ProductController,
+    TermsAndConditionsController,
+    TermsAndConditionsDetailController,
+    MenuController
   ],
   exports: [UserService]
 })

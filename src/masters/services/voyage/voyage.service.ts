@@ -1,5 +1,4 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 
@@ -8,7 +7,7 @@ export class VoyageService {
     constructor(private _db: DatabaseService, private logger: Logger) { }
 
 
-    async createVoyage(payload: Prisma.VoyageMasterHeaderCreateInput, user) {
+    async createVoyage(payload: any, user) {
         this.logger.warn(`createVoyage: ${payload}`);
 
 
@@ -74,7 +73,7 @@ export class VoyageService {
     }
 
 
-    async updateVoyage(VoyageMasterSid: number, payload: Prisma.VoyageMasterHeaderUpdateInput, user) {
+    async updateVoyage(VoyageMasterSid: number, payload: any, user) {
 
         const existing = await this._db.voyageMasterHeader.findUnique({
             where: {

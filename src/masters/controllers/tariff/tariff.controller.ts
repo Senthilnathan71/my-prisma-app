@@ -1,6 +1,5 @@
 import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, Post, UnauthorizedException } from '@nestjs/common';
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
-import { Prisma } from '@prisma/client';
 import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { TariffService } from 'src/masters/services/tariff/tariff.service';
@@ -17,7 +16,7 @@ export class TariffController {
     })
     @HttpCode(HttpStatus.OK)
     @Post('create')
-    async createNewTariff(@Body() newData: Prisma.TariffHeaderCreateInput) {
+    async createNewTariff(@Body() newData: any) {
         let resp = new ResponseData();
         try {
             let res = await this.tariffServ.createNewTariff(newData);
@@ -102,7 +101,7 @@ export class TariffController {
     })
     @HttpCode(HttpStatus.OK)
     @Patch('update/:TariffHeaderSid')
-    async updateTariffById(@Param('TariffHeaderSid', ParseIntPipe) TariffHeaderSid: number, @Body() payload: Prisma.TariffHeaderUpdateInput) {
+    async updateTariffById(@Param('TariffHeaderSid', ParseIntPipe) TariffHeaderSid: number, @Body() payload: any) {
         let resp = new ResponseData();
         try {
             this.logger.log(`Updating Tariff with id : ${TariffHeaderSid}`);
