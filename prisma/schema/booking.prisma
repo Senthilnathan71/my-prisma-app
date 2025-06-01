@@ -184,7 +184,10 @@ model VoyageMasterHeader {
     VoyageMasterHeaderSid Int          @id @default(autoincrement()) @map("VoyageMasterHeaderSid")
     VesselMasterSid       Int
     VoyageNo              String       @db.VarChar(10)
-    ViaNumber             String       @db.VarChar(10)
+    ViaNumber             String?      @db.VarChar(10)
+    CoLoad                String?      @default("N") @db.Char(1)
+    Carrier               Int? //(from party Master)
+    VoyageType            String?      @db.VarChar(10) //( Air, Sea, Road )
     RotationNumber        String       @db.VarChar(10)
     Remarks               String       @db.VarChar(200)
     SCMETA                DateTime
@@ -205,24 +208,20 @@ model VoyageMasterDetail {
     VoyageMasterDetailSid Int       @id @default(autoincrement()) @map("VoyageMasterDetailSid")
     POLSid                Int //(port master)
     PODSid                Int //(port Master)
-    Sno                   Int       @default(1) // Ensures it starts at 1 and is editable
     ETA                   DateTime
     ETD                   DateTime
     ATA                   DateTime?
     ATD                   DateTime?
-    CoLoad                String?   @default("N") @db.Char(1)
-    Coloader              String    @db.VarChar(100) //(from Partymaster)
+    Coloader              String?   @db.VarChar(100) //(from Partymaster)
     PortCutoff            DateTime
-    VoyageType            String    @db.VarChar(10) //( Air, Sea, Road )
     TransitDays           Int
-    Carrier               Int //(from party Master)
     RotationNo            String    @db.VarChar(10)
     RotationDate          DateTime
     IGMNo                 String    @db.VarChar(10)
-    IFMDate               DateTime
+    IGMDate               DateTime?
     EGMNo                 String    @db.VarChar(10)
     EGMDate               DateTime
-    Remarks               String    @db.VarChar(100)
+    Remarks               String?   @db.VarChar(100)
     createdOn             DateTime  @default(now()) @db.Timestamptz(6)
     updatedOn             DateTime? @updatedAt @db.Timestamptz(6)
     deletedAt             DateTime?
