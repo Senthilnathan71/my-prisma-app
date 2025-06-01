@@ -4,33 +4,28 @@ import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 
 @Injectable()
 export class TariffDetailService {
-    constructor(private _db:DatabaseService){}
+    constructor(private _db: DatabaseService) { }
 
-    async getAllTariffDetails(){
+    async getAllTariffDetails() {
         try {
             const allTariffDetails = await this._db.tariffDetail.findMany({
-                where : {
-                    deletedAt:null
+                where: {
+                    deletedAt: null
                 },
-                include : {
-                    chargeMaster:{
-                        select:{
-                            chargeCode:true
+                include: {
+                    UOMMaster: {
+                        select: {
+                            UOMName: true
                         }
                     },
-                    UOMMaster:{
-                        select:{
-                            UOMName:true
+                    currencyMasterBuy: {
+                        select: {
+                            currencyCode: true
                         }
                     },
-                    currencyMasterBuy:{
-                        select:{
-                            currencyCode:true
-                        }
-                    },
-                    currencyMasterSale:{
-                        select:{
-                            currencyCode:true
+                    currencyMasterSale: {
+                        select: {
+                            currencyCode: true
                         }
                     },
                 }
@@ -41,12 +36,12 @@ export class TariffDetailService {
         }
     }
 
-    async createNewTariffDetail(payload){
+    async createNewTariffDetail(payload) {
         try {
             const createdTariffDetail = await this._db.tariffDetail.create({
-                data :{
+                data: {
                     ...payload,
-                    createdBy :'admin@crm.com'
+                    createdBy: 'admin@crm.com'
                 }
             })
             return createdTariffDetail;
@@ -55,14 +50,14 @@ export class TariffDetailService {
         }
     }
 
-    async fetchTariffDetail(TariffDetailSid:number){
+    async fetchTariffDetail(TariffDetailSid: number) {
         try {
-            const ourTariffDetail =await this._db.tariffDetail.findUnique({
-                where : {
-                    TariffDetailSid:TariffDetailSid
+            const ourTariffDetail = await this._db.tariffDetail.findUnique({
+                where: {
+                    TariffDetailSid: TariffDetailSid
                 }
             })
-            if(!ourTariffDetail){
+            if (!ourTariffDetail) {
                 throw new BadRequestException(`Tariff Detail with Id : ${TariffDetailSid} not exists`);
             }
             return ourTariffDetail;
@@ -71,21 +66,21 @@ export class TariffDetailService {
         }
     }
 
-    async updateTariffDetailById(TariffDetailSid:number,payload){
+    async updateTariffDetailById(TariffDetailSid: number, payload) {
         try {
-             const exist =await this._db.tariffDetail.findUnique({
-                where : {
-                    TariffDetailSid:TariffDetailSid
+            const exist = await this._db.tariffDetail.findUnique({
+                where: {
+                    TariffDetailSid: TariffDetailSid
                 }
             })
-            if(!exist){
+            if (!exist) {
                 throw new BadRequestException(`Tariff Detail with Id : ${TariffDetailSid} not exists`);
             }
             const updatedTariffDetail = this._db.tariffDetail.update({
-                where : {
-                    TariffDetailSid : TariffDetailSid
+                where: {
+                    TariffDetailSid: TariffDetailSid
                 },
-                data : payload
+                data: payload
             })
             return updatedTariffDetail;
         } catch (error) {
@@ -94,7 +89,7 @@ export class TariffDetailService {
     }
 
 
-    async deleteTariffDetails(TariffDetailSid:number){
+    async deleteTariffDetails(TariffDetailSid: number) {
         try {
             const exist = await this._db.tariffDetail.findUnique({
                 where: {
@@ -116,15 +111,15 @@ export class TariffDetailService {
                 }
             })
             return deletedTariffDetail;
-        } catch(error) {
+        } catch (error) {
             throw error;
         }
     }
 
 
-    async searchTariffDetail(data:SearchListDto){
-        const {searchType,filterValue}=data;
-        const intFields=[''];
+    async searchTariffDetail(data: SearchListDto) {
+        const { searchType, filterValue } = data;
+        const intFields = [''];
         const stringFields = [
             "EffectiveDate",
             "ChargeCode",
@@ -134,28 +129,28 @@ export class TariffDetailService {
             "SlabTo",
             "status"
         ];
-        const acceptedType = [...intFields,...stringFields];
-        if(!acceptedType.includes(searchType)){
+        const acceptedType = [...intFields, ...stringFields];
+        if (!acceptedType.includes(searchType)) {
             throw new BadRequestException('Invalid Search Type');
         }
 
-        const whereClause:any ={}
+        const whereClause: any = {}
 
-        if(stringFields.includes(searchType)){
-            whereClause[searchType]={
-                contains:filterValue,
-                mode:'insensitive'
+        if (stringFields.includes(searchType)) {
+            whereClause[searchType] = {
+                contains: filterValue,
+                mode: 'insensitive'
             }
-        } else if(intFields.includes(searchType)){
-            const numberValue=parseInt(filterValue);
+        } else if (intFields.includes(searchType)) {
+            const numberValue = parseInt(filterValue);
             if (isNaN(numberValue)) {
                 throw new BadRequestException(`${searchType} must be a valid number`);
             }
-            whereClause[searchType]=numberValue;
+            whereClause[searchType] = numberValue;
         }
 
         const searchResults = await this._db.tariffDetail.findMany({
-            where : whereClause
+            where: whereClause
         }).catch((err) => {
             throw new Error(`Error Occured : ${JSON.stringify(err), err}`);
         })
