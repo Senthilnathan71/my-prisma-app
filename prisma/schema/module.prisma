@@ -55,7 +55,8 @@ model RoleMaster {
     RoleMasterSid    Int       @id @default(autoincrement()) @map("RoleMasterSid")
     UserRoleCode     String    @db.Char(3)
     UserRoleName     String    @db.VarChar(50)
-    CompanyMasterSid Int
+    LicenseType      String?   @db.VarChar(50)
+    CompanyMasterSid Int?
     createdOn        DateTime  @default(now()) @db.Timestamptz(6)
     updatedOn        DateTime? @updatedAt @db.Timestamptz(6)
     deletedAt        DateTime?
@@ -73,7 +74,8 @@ model RoleMenuMaster {
     RoleMenuMasterSid Int       @id @default(autoincrement()) @map("RoleMenuMasterSid")
     RoleMasterSid     Int
     MenuMasterSid     Int
-    CompanyMasterSid  Int
+    CompanyMasterSid  Int?
+    Module            String    @db.VarChar(50)
     InsertRole        String?   @default("Y") @db.Char(1)
     ViewRole          String?   @default("Y") @db.Char(1)
     UpdateRole        String?   @default("Y") @db.Char(1)
@@ -84,8 +86,9 @@ model RoleMenuMaster {
     createdBy         String    @db.VarChar(100)
     updatedBy         String?   @db.VarChar(100)
     status            String?   @default("A") @db.Char(1)
+    Remarks           String    @db.VarChar(100)
 
-    roleMaster    RoleMaster    @relation(fields: [RoleMasterSid], references: [RoleMasterSid])
-    menuMaster    MenuMaster    @relation(fields: [MenuMasterSid], references: [MenuMasterSid])
-    companyMaster CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+    roleMaster    RoleMaster     @relation(fields: [RoleMasterSid], references: [RoleMasterSid])
+    menuMaster    MenuMaster     @relation(fields: [MenuMasterSid], references: [MenuMasterSid])
+    companyMaster CompanyMaster? @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
 }

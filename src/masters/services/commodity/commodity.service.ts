@@ -1,5 +1,4 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 
@@ -7,7 +6,7 @@ import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 export class CommodityService {
     constructor(private _db: DatabaseService) { }
 
-    async createNewCommodity(newData: Prisma.CommodityMasterCreateInput) {
+    async createNewCommodity(newData: any) {
         try {
             const newlyCreateCommodity = await this._db.commodityMaster.create({
                 data: {
@@ -51,7 +50,7 @@ export class CommodityService {
     }
 
 
-    async updateCommodityById(CommodityMasterSid: number, updateData: Prisma.CommodityMasterUpdateInput) {
+    async updateCommodityById(CommodityMasterSid: number, updateData: any) {
         try {
             const exist = await this._db.commodityMaster.findUnique({
                 where: {

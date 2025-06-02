@@ -1,6 +1,5 @@
 import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, Post, UnauthorizedException } from '@nestjs/common';
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
-import { Prisma } from '@prisma/client';
 import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { CustomerLoginService } from 'src/masters/services/customer-login/customer-login.service';
@@ -16,7 +15,7 @@ export class CustomerLoginController {
     })
     @HttpCode(HttpStatus.OK)
     @Post('create')
-    async createNewCustomerLogin(@Body() newData: Prisma.CustomerLoginCreateInput) {
+    async createNewCustomerLogin(@Body() newData: any) {
         let resp = new ResponseData();
         try {
             let res = await this.customerLoginServ.createNewCustomerLogin(newData);
@@ -107,7 +106,7 @@ export class CustomerLoginController {
     })
     @HttpCode(HttpStatus.OK)
     @Patch('update/:CustomerLoginSid')
-    async updateCustomerLoginById(@Param('CustomerLoginSid', ParseIntPipe) CustomerLoginSid: number, @Body() updateData: Prisma.CustomerLoginUpdateInput) {
+    async updateCustomerLoginById(@Param('CustomerLoginSid', ParseIntPipe) CustomerLoginSid: number, @Body() updateData: any) {
         let resp = new ResponseData();
         try {
             this.logger.log(`Updating Customer Login with id : ${CustomerLoginSid}`);

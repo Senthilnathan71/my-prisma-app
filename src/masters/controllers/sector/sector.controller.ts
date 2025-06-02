@@ -14,7 +14,6 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
-import { Prisma } from '@prisma/client';
 import { Auth } from 'src/common/decorators/auth.decorator';
 import { UserData } from 'src/common/decorators/user.decorator';
 import { ResponseData } from 'src/common/response-data';
@@ -37,7 +36,7 @@ export class SectorController {
   @HttpCode(HttpStatus.CREATED)
   @Post('create')
   async createSector(
-    @Body() body: Prisma.SectorMasterCreateInput,
+    @Body() body: any,
     @UserData() user: any,
   ) {
     this.logger.log(`createSectorData: ${JSON.stringify(body)}`);
@@ -126,7 +125,7 @@ export class SectorController {
   @Patch('update/:id')
   async editSector(
     @Param('id', ParseIntPipe) id: number,
-    @Body() body: Prisma.SectorMasterUpdateInput,
+    @Body() body: any,
     @UserData() user: any,
   ) {
     this.logger.log(`editSectorBody: ${JSON.stringify(body)}`);

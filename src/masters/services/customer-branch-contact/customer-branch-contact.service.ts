@@ -1,5 +1,4 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 
@@ -7,7 +6,7 @@ import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 export class CustomerBranchContactService {
     constructor(private _db: DatabaseService) { }
 
-    async createNewCustomerBrContact(newData: Prisma.CusBranchContactCreateInput) {
+    async createNewCustomerBrContact(newData: any) {
         try {
             const newlyCreatedCustomerBrContact = await this._db.cusBranchContact.create({
                 data: {
@@ -54,7 +53,7 @@ export class CustomerBranchContactService {
     }
 
 
-    async updateCustomerBrContactById(CusBranchContactSid: number, updateData: Prisma.CusBranchContactUpdateInput) {
+    async updateCustomerBrContactById(CusBranchContactSid: number, updateData:any) {
         try {
             const existing = await this._db.cusBranchContact.findUnique({
                 where: {

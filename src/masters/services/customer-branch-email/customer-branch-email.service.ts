@@ -1,5 +1,4 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 
@@ -7,7 +6,7 @@ import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 export class CustomerBranchEmailService {
     constructor(private _db: DatabaseService) { }
 
-    async createNewCustomerBrEmail(newData: Prisma.CustomerBrEmailCreateInput) {
+    async createNewCustomerBrEmail(newData: any) {
         try {
             const newlyCreatedCustomerBrEmail = await this._db.customerBrEmail.create({
                 data: {
@@ -54,7 +53,7 @@ export class CustomerBranchEmailService {
     }
 
 
-    async updateCustomerBrEmailById(CustomerBrEmailSid: number, updateData: Prisma.CustomerBrEmailUpdateInput) {
+    async updateCustomerBrEmailById(CustomerBrEmailSid: number, updateData: any) {
         try {
             const existing = await this._db.customerBrEmail.findUnique({
                 where: {

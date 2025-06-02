@@ -49,6 +49,7 @@ export class HssacService {
 
             return Hssac;
         } catch (error) {
+            console.log(error.stack)
             throw new Error(`Error creating Hssac: ${error.message}`);
         }
     }
@@ -138,8 +139,8 @@ export class HssacService {
         // Whitelist allowed fields to prevent SQL injection or invalid column access
         //write column names
         const allowedFields = [
-            'HssacName',
-            'HssacCode',
+            'HSSACName',
+            'HSSACCode',
             'ServiceName',
             'TaxRate',
             'TaxType',

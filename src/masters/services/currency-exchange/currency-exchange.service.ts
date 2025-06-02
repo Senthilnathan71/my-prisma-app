@@ -1,5 +1,4 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 
@@ -7,7 +6,7 @@ import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 export class CurrencyExchangeService {
     constructor(private _db: DatabaseService) { }
 
-    async createNewCurrencyEx(newData: Prisma.CurrencyExchangeCreateInput) {
+    async createNewCurrencyEx(newData: any) {
         try {
             const newlyCreatedCurrencyEx = await this._db.currencyExchange.create({
                 data: {
@@ -53,7 +52,7 @@ export class CurrencyExchangeService {
     }
 
 
-    async updateCurrencyExById(CurrencyExchangeSid: number, updateData: Prisma.CurrencyExchangeUpdateInput) {
+    async updateCurrencyExById(CurrencyExchangeSid: number, updateData: any) {
         try {
             const existing = await this._db.currencyExchange.findUnique({
                 where: {

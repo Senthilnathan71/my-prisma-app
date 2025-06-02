@@ -1,5 +1,4 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 
@@ -7,7 +6,7 @@ import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 export class BranchBankService {
     constructor(private _db:DatabaseService){}
 
-    async createNewBranchBack(newData:Prisma.BranchBankCreateInput){
+    async createNewBranchBack(newData:any){
         try {
             const newlyCreatedBank= await this._db.branchBank.create({
                 data:{
@@ -51,7 +50,7 @@ export class BranchBankService {
     }
 
 
-    async updateBranchBankById(BranchBankSid:number,updateData:Prisma.BranchBankUpdateInput){
+    async updateBranchBankById(BranchBankSid:number,updateData:any){
         try {
             const exist = await this._db.branchBank.findUnique({
                 where : {

@@ -1,5 +1,4 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 
@@ -8,7 +7,7 @@ export class DepartmentService {
     constructor(private _db: DatabaseService, private logger: Logger) { }
 
 
-    async createDepartment(payload: Prisma.DepartmentMasterCreateInput, user) {
+    async createDepartment(payload: any, user) {
         this.logger.warn(`createDepartment: ${payload}`);
 
 
@@ -83,7 +82,7 @@ export class DepartmentService {
     }
 
 
-    async updateDepartment(DepartmentMasterSid: number, payload: Prisma.DepartmentMasterUpdateInput, user) {
+    async updateDepartment(DepartmentMasterSid: number, payload: any, user) {
 
         const existing = await this._db.departmentMaster.findUnique({
             where: {

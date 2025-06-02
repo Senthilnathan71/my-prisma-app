@@ -1,5 +1,4 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 
@@ -7,7 +6,7 @@ import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 export class ZoneService {
   constructor(private _db: DatabaseService) { }
 
-  async createNewZone(newData: Prisma.ZoneMasterCreateInput) {
+  async createNewZone(newData: any) {
     try {
       const newlyAddedData = await this._db.zoneMaster.create({
         data: {
@@ -51,7 +50,7 @@ export class ZoneService {
     }
   }
 
-  async editZoneById(id: number, newData: Prisma.ZoneMasterUpdateInput) {
+  async editZoneById(id: number, newData: any) {
     try {
       const existing = await this._db.zoneMaster.findUnique({
         where: {
