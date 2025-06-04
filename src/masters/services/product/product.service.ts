@@ -146,7 +146,11 @@ export class ProductService {
         }
 
         const searchResults = await this._db.productMaster.findMany({
-            where : whereClause
+            where : 
+            {
+                ...whereClause,
+                deletedAt:null
+            }
         }).catch((err) => {
             throw new Error(`Error Occured : ${JSON.stringify(err), err}`);
         })

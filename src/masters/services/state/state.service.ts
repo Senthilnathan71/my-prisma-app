@@ -64,7 +64,7 @@ export class StateService {
       const stateList = await this._db.stateMaster.findMany({
         where: {
           CountryMasterSid: CountryMasterSid,
-          status: 'A',
+          deletedAt:null
         },
       });
       return stateList;

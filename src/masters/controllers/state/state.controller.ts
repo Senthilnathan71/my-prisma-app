@@ -70,7 +70,7 @@ export class StateController {
     type: ResponseData,
   })
   @HttpCode(HttpStatus.OK)
-  @Get('/statesbyCountry/:CountryMasterSid')
+  @Get('/fetchByCountry/:CountryMasterSid')
   async getAllStateByCountry(
     @Param('CountryMasterSid', ParseIntPipe) CountryMasterSid: number,
   ) {
