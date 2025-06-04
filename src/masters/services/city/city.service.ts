@@ -35,11 +35,11 @@ export class CityService {
     }
   }
 
-  async findCityByStateId(id: any) {
+  async findCityByStateId(StateMasterSid: any) {
     try {
       const ourCity = await this._db.cityMaster.findMany({
         where: {
-          StateMasterSid: id,
+          StateMasterSid: StateMasterSid,
         },
       });
       return ourCity;

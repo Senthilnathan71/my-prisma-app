@@ -84,6 +84,36 @@ export class CityController {
     }
     return resp;
   }
+  // Getting city by its State id
+
+  @ApiOperation({ summary: 'Get City by State ID' })
+  @ApiCreatedResponse({
+    description: 'Get City by State ID',
+    type: ResponseData,
+  })
+  @HttpCode(HttpStatus.OK)
+  @Get('fetchByState/:StateMasterSid')
+  async getCityByStateID(@Param('StateMasterSid', ParseIntPipe) stateId: number) {
+    let resp = new ResponseData();
+    try {
+      let result = await this.cityService.findCityByStateId(stateId);
+      this.logger.log(`getCityByStateData: ${JSON.stringify(result)}`);
+      resp.data = result;
+      resp.message = `Fetch All Cities with State Id : ${stateId}`
+    } catch (error) {
+      this.logger.warn(`getCityByStateError : ${JSON.stringify(error),error}`);
+      resp.status = false;
+      if (
+        error instanceof BadRequestException ||
+        error instanceof UnauthorizedException
+      ) {
+        resp.message = error.message;
+      } else {
+        resp.message = 'Internal Server Error';
+      }
+    }
+    return resp;
+  }
 
   // Post new City
 

@@ -84,6 +84,8 @@ import { TermsAndConditionsController } from './controllers/terms-and-conditions
 import { TermsAndConditionsDetailController } from './controllers/terms-and-conditions-detail/terms-and-conditions-detail.controller';
 import { MenuController } from './controllers/menu/menu.controller';
 import { MenuService } from './services/menu/menu.service';
+import { ChargeTaxController } from './controllers/charge-tax/charge-tax.controller';
+import { ChargeTaxService } from './services/charge-tax/charge-tax.service';
 
 @Module({
   providers: [
@@ -129,7 +131,8 @@ import { MenuService } from './services/menu/menu.service';
     ProductService,
     TermsAndConditionsService,
     TermsAndConditionsDetailService,
-    MenuService
+    MenuService,
+    ChargeTaxService
   ],
   controllers: [
     UserController,
@@ -174,7 +177,8 @@ import { MenuService } from './services/menu/menu.service';
     ProductController,
     TermsAndConditionsController,
     TermsAndConditionsDetailController,
-    MenuController
+    MenuController,
+    ChargeTaxController
   ],
   exports: [UserService]
 })
