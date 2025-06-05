@@ -159,6 +159,7 @@ export class CurrencyService {
             contains: filterValue,
             mode: 'insensitive',
           },
+          deletedAt:null
         },
       })
       .catch((err) => {

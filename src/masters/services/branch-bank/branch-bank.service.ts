@@ -132,7 +132,10 @@ export class BranchBankService {
         }
 
         const searchResults = await this._db.branchBank.findMany({
-            where : whereClause
+            where : {
+                ...whereClause,
+                deletedAt:null
+            }
         }).catch((err) => {
             throw new Error(`Error Occured : ${JSON.stringify(err), err}`);
         })

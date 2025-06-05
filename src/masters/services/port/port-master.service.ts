@@ -186,6 +186,7 @@ export class PortService {
             contains: filterValue,
             mode: 'insensitive',
           },
+          deletedAt:null
         },
         include : {
           countryMaster:{

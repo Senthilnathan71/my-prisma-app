@@ -339,7 +339,8 @@ export class EnquiryHeaderService {
                 [searchType]: {
                     contains: filterValue,
                     mode: 'insensitive'
-                }
+                },
+                deletedAt:null
             }
         }).catch((error) => {
             throw new Error(`Error Occured :${error}`);

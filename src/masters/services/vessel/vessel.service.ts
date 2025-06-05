@@ -172,7 +172,10 @@ export class VesselService {
         }
 
         const searchResults = await this._db.vesselMaster.findMany({
-            where: whereClause
+            where:{
+                ... whereClause,
+                deletedAt:null
+            }
         }).catch((err) => {
             throw new Error(`Error Occurred: ${err}`);
         });

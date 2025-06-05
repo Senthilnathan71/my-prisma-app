@@ -117,7 +117,8 @@ export class CustomerBranchEmailService {
                 [searchType]: {
                     contains: filterValue,
                     mode: 'insensitive'
-                }
+                },
+                deletedAt:null
             }
         }).catch((err) => {
             throw new Error(`Error Occured ${JSON.stringify(err), err}`);
