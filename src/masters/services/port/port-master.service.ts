@@ -78,6 +78,9 @@ export class PortService {
             equals: null,
           },
         },
+        orderBy :{
+          PortName : 'asc'
+        }
       });
       return port;
     } catch (error) {

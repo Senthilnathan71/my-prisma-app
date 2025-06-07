@@ -166,4 +166,29 @@ export class VoyageController {
         }
         return resp;
     }
+    @ApiOperation({summary:'Search Voyage with POL and POD'})
+    @ApiCreatedResponse({
+        description:'Search Voyage with POL and POD',
+        type:ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Post('searchBy')
+    async searchVoyageByPolPod(@Body() body:any){
+        let resp=new ResponseData();
+        try {
+            let res=await this.voyageService.specialSearch(body);
+            this.logger.log(`Voyage Special Search Data : ${JSON.stringify(res)}`);
+            resp.data=res;
+            resp.message='Voyage Special Search is successfully fetched'
+        } catch (error) {
+            this.logger.warn(`Voyage Special Search Error : ${error}`)
+            resp.status=false;
+            if(error instanceof BadRequestException || error instanceof UnauthorizedException){
+                resp.message=error.message;
+            } else {
+                resp.message="Internal Server Error"
+            }
+        }
+        return resp;
+    }
 }

@@ -49,7 +49,7 @@ export class VoyageService {
         try {
             const voyageList = await this._db.voyageMasterHeader.findMany({
                 where: {
-                    status: 'A'
+                    deletedAt:null
                 }
             })
             return voyageList;
@@ -120,30 +120,139 @@ export class VoyageService {
         });
     }
 
-    async searchVoyage(data:SearchListDto){
-        const {searchType,filterValue}=data;
-        const acceptedType=[
+    async searchVoyage(data: SearchListDto) {
+        const { searchType, filterValue } = data;
+
+        const stringFields = [
             "VoyageNo",
             "ViaNumber",
+            "CoLoad",
+            "VoyageType",
             "RotationNumber",
+            "Remarks",
+            "SCMTCargoDescription",
             "ShipIRN",
             "CrewIRN",
             "status"
         ];
-        if(!acceptedType.includes(searchType)){
+
+        const intFields = [
+            "VesselMasterSid",
+            "Carrier",
+        ];
+
+        const acceptedType = [...stringFields, ...intFields];
+
+        if (!acceptedType.includes(searchType)) {
             throw new BadRequestException('Invalid Search Type');
         }
-        const searchResult=await this._db.voyageMasterHeader.findMany({
-            where : {
-                [searchType]:{
-                    contains:filterValue,
-                    mode : "insensitive"
-                },
-                deletedAt:null
+
+        let whereClause: any = {};
+
+        if (stringFields.includes(searchType)) {
+            whereClause[searchType] = {
+                contains: filterValue,
+                mode: "insensitive"
+            };
+        } else if (intFields.includes(searchType)) {
+            const numberValue = parseInt(filterValue);
+            if (isNaN(numberValue)) {
+                throw new BadRequestException(`${searchType} must be a valid number`);
             }
-        }).catch((err)=>{
-            throw new Error(`Error Occured : ${err}`)
+            whereClause[searchType] = numberValue;
+        }
+
+        const searchResults = await this._db.voyageMasterHeader.findMany({
+            where:{
+                ... whereClause,
+                deletedAt:null,
+            },
+            orderBy: {
+                voyageMasterDetail: {
+                    _count: 'desc', 
+                },
+            },
+            include : {
+                vesselMaster:{
+                    select :{
+                        VesselName:true
+                    }
+                },
+                voyageMasterDetail : {
+                    where : {
+                      deletedAt : null  
+                    },
+                    select : {
+                        portMasterPOL:{
+                            select : {
+                                PortCode : true
+                            }
+                        },
+                        portMasterPOD : {
+                            select : {
+                                PortCode : true
+                            }
+                        },
+                        ETA : true,
+                        ETD : true
+                    }
+                },
+            }
+        }).catch((err) => {
+            throw new Error(`Error Occurred: ${err}`);
+        });
+
+        return searchResults;
+    }
+
+
+    async specialSearch(payload){
+        const {POLSid,PODSid} = payload;
+        const searchResults = await this._db.voyageMasterHeader.findMany({
+            where : {
+                voyageMasterDetail : {
+                    some : {
+                        PODSid : PODSid,
+                        POLSid : POLSid,
+                        deletedAt : null
+                    },
+                },
+            },
+            include : {
+                vesselMaster : {
+                    select : {
+                        VesselName : true
+                    }
+                },
+                voyageMasterDetail : {
+                    where : {
+                        AND : {
+                            POLSid :{
+                                equals : POLSid
+                            },
+                            PODSid : {
+                                equals : PODSid
+                            },
+                        },
+                    },
+                    include : {
+                        portMasterPOL : {
+                            select : {
+                                PortCode : true
+                            }
+                        },
+                        portMasterPOD : {
+                            select : {
+                                PortCode : true
+                            }
+                        }
+                    }
+                }
+            }
+        }).catch((error)=>{
+            throw new Error(`Error Occured : ${error}`);
         })
-        return searchResult
+
+        return searchResults;
     }
 }
