@@ -115,6 +115,7 @@ export class PackageTypeService {
             contains: filterValue,
             mode: 'insensitive',
           },
+          deletedAt:null
         },
       })
       .catch((err) => {

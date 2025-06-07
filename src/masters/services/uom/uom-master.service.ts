@@ -180,7 +180,8 @@ export class UomService {
                 [searchType]: {
                     contains: filterValue,
                     mode: 'insensitive'
-                }
+                },
+                deletedAt:null
             }
         }).catch((res) => {
             throw new Error(`Error Occurred : ${res}`);

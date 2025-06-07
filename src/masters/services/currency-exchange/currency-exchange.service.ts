@@ -123,7 +123,8 @@ export class CurrencyExchangeService {
                 [searchType]: {
                     contains: filterValue,
                     mode: 'insensitive'
-                }
+                },
+                deletedAt:null
             }
         }).catch((err) => {
             throw new Error(`Error Occurred : ${JSON.stringify(err)}`);

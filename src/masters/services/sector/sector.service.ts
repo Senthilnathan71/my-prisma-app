@@ -136,6 +136,7 @@ export class SectorService {
             contains: filterValue,
             mode: 'insensitive',
           },
+          deletedAt:null,
         },
       })
       .catch((err) => {

@@ -78,6 +78,9 @@ export class PortService {
             equals: null,
           },
         },
+        orderBy :{
+          PortName : 'asc'
+        }
       });
       return port;
     } catch (error) {
@@ -186,6 +189,7 @@ export class PortService {
             contains: filterValue,
             mode: 'insensitive',
           },
+          deletedAt:null
         },
         include : {
           countryMaster:{

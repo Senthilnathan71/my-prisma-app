@@ -86,6 +86,10 @@ import { MenuController } from './controllers/menu/menu.controller';
 import { MenuService } from './services/menu/menu.service';
 import { ChargeTaxController } from './controllers/charge-tax/charge-tax.controller';
 import { ChargeTaxService } from './services/charge-tax/charge-tax.service';
+import { ChargeGroupController } from './controllers/charge-group/charge-group.controller';
+import { ChargeGroupService } from './services/charge-group/charge-group.service';
+import { VoyageDetailController } from './controllers/voyage-detail/voyage-detail.controller';
+import { VoyageDetailService } from './services/voyage-detail/voyage-detail.service';
 
 @Module({
   providers: [
@@ -132,7 +136,9 @@ import { ChargeTaxService } from './services/charge-tax/charge-tax.service';
     TermsAndConditionsService,
     TermsAndConditionsDetailService,
     MenuService,
-    ChargeTaxService
+    ChargeTaxService,
+    ChargeGroupService,
+    VoyageDetailService
   ],
   controllers: [
     UserController,
@@ -178,7 +184,9 @@ import { ChargeTaxService } from './services/charge-tax/charge-tax.service';
     TermsAndConditionsController,
     TermsAndConditionsDetailController,
     MenuController,
-    ChargeTaxController
+    ChargeTaxController,
+    ChargeGroupController,
+    VoyageDetailController,
   ],
   exports: [UserService]
 })

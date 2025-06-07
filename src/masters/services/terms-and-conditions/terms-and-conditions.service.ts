@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
+import { log } from 'console';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 
@@ -11,6 +12,9 @@ export class TermsAndConditionsService {
             const allTermConds = await this._db.termsAndConditionsMaster.findMany({
                 where : {
                     deletedAt:null
+                },
+                include:{
+                    departments : true
                 }
             })
             return allTermConds;
@@ -21,13 +25,22 @@ export class TermsAndConditionsService {
 
     async createNewTermCond(payload){
         try {
+            // Used Rest Operator to Fix 'Unknown Argument' problem
+            const {departmentId,...termCondInput}=payload;
             const createdTermCond = await this._db.termsAndConditionsMaster.create({
                 data :{
-                    ...payload,
+                    ...termCondInput,
                     createdBy :'admin@crm.com'
                 }
             })
-            return createdTermCond;
+            const departmentOnTerms = await this._db.departmentOnTerms.create({
+                data:{
+                    departmentId:departmentId,
+                    termsId:createdTermCond.TermsAndConditionsMasterSid
+                }
+            })
+            const mergedObj = {tandCData : {...createdTermCond},departmentData : {...departmentOnTerms}}
+            return mergedObj;
         } catch (error) {
             throw error;
         }
@@ -38,6 +51,9 @@ export class TermsAndConditionsService {
             const ourTermCond =await this._db.termsAndConditionsMaster.findUnique({
                 where : {
                     TermsAndConditionsMasterSid:TermsAndConditionsMasterSid
+                },
+                include:{
+                    departments:true
                 }
             })
             if(!ourTermCond){
@@ -51,7 +67,7 @@ export class TermsAndConditionsService {
 
     async updateTermCondById(TermsAndConditionsMasterSid:number,payload){
         try {
-             const exist =await this._db.termsAndConditionsMaster.findUnique({
+            const exist =await this._db.termsAndConditionsMaster.findUnique({
                 where : {
                     TermsAndConditionsMasterSid:TermsAndConditionsMasterSid
                 }
@@ -59,11 +75,25 @@ export class TermsAndConditionsService {
             if(!exist){
                 throw new BadRequestException(`Terms and Conditions with Id : ${TermsAndConditionsMasterSid} not exists`);
             }
+
+            // Using rest operator to Fix 'Unknown Argument' error
+
+            const {departmentId,DepartmentOnTermSid,...TandCUpdateData}=payload;
             const updatedTermCond = this._db.termsAndConditionsMaster.update({
                 where : {
                     TermsAndConditionsMasterSid : TermsAndConditionsMasterSid
                 },
-                data : payload
+                data : TandCUpdateData
+            })
+
+            // 
+            const departmentOnTerms = await this._db.departmentOnTerms.update({
+                where:{
+                    DepartmentOnTermSid:DepartmentOnTermSid
+                },
+                data:{
+                    departmentId : departmentId,
+                }
             })
             return updatedTermCond;
         } catch (error) {
@@ -138,7 +168,23 @@ export class TermsAndConditionsService {
         }
 
         const searchResults = await this._db.termsAndConditionsMaster.findMany({
-            where : whereClause
+            where :{ 
+                ...whereClause,
+                deletedAt:null
+            },
+            include :{
+                branch:{
+                    select:{
+                        branchName:true
+                    }
+                },
+                menu : {
+                    select:{
+                        MenuName:true
+                    }
+                },
+                departments:true
+            }
         }).catch((err) => {
             throw new Error(`Error Occured : ${JSON.stringify(err), err}`);
         })

@@ -118,6 +118,7 @@ export class CityService {
             contains: filterValue,
             mode: 'insensitive',
           },
+          deletedAt:null
         },
       })
       .catch((error) => {

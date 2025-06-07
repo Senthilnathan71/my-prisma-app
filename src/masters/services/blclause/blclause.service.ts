@@ -132,7 +132,10 @@ export class BlclauseService {
         }
 
         const searchResults = await this._db.bLClauseMaster.findMany({
-            where : whereClause
+            where : {
+                ...whereClause,
+                deletedAt:null
+            }
         }).catch((err) => {
             throw new Error(`Error Occured : ${JSON.stringify(err), err}`);
         })

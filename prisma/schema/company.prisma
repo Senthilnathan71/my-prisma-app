@@ -1315,10 +1315,10 @@ model CommodityMaster {
 
 model TermsAndConditionsMaster {
     TermsAndConditionsMasterSid Int       @id @default(autoincrement()) @map("TermsAndConditionsMasterSid")
-    CompanyMasterSid            Int
+    CompanyMasterSid            Int?
     BranchMasterSid             Int
     MenuMasterSid               Int
-    PrintType                   String    @db.VarChar(20)
+    PrintType                   String?    @db.VarChar(20)
     POL                         String[]  @default([])
     POD                         String[]  @default([])
     FDC                         String[]  @default([])
@@ -1331,7 +1331,7 @@ model TermsAndConditionsMaster {
     status                      String?   @default("A") @db.Char(1)
     Remarks                     String?   @db.VarChar(500)
 
-    company CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+    company CompanyMaster? @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
     branch  BranchMaster  @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
     menu    MenuMaster    @relation(fields: [MenuMasterSid], references: [MenuMasterSid])
 

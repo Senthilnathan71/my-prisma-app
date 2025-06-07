@@ -159,7 +159,10 @@ export class BranchService {
             whereClause[searchType] = numberValue;
         }
         const searchResults = await this._db.branchMaster.findMany({
-            where: whereClause,
+            where: {
+                ...whereClause,
+                deletedAt:null
+            },
             include: {
                 cityMaster: {
                     select: {

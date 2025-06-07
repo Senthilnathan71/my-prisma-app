@@ -133,6 +133,7 @@ export class ContainerTypeService {
             contains: filterValue,
             mode: 'insensitive',
           },
+          deletedAt:null
         },
       })
       .catch((error) => {

@@ -175,6 +175,7 @@ export class StateService {
             contains: filterValue,
             mode: 'insensitive',
           },
+          deletedAt:null
         },
       })
       .catch((err) => {
