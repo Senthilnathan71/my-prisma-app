@@ -202,10 +202,13 @@ model VoyageMasterHeader {
     updatedBy             String?      @db.VarChar(100)
     status                String?      @default("A") @db.Char(1)
     vesselMaster          VesselMaster @relation(fields: [VesselMasterSid], references: [VesselMasterSid])
+
+    voyageMasterDetail  VoyageMasterDetail[]
 }
 
 model VoyageMasterDetail {
     VoyageMasterDetailSid Int       @id @default(autoincrement()) @map("VoyageMasterDetailSid")
+    VoyageMasterHeaderSid Int
     POLSid                Int //(port master)
     PODSid                Int //(port Master)
     ETA                   DateTime
@@ -231,4 +234,6 @@ model VoyageMasterDetail {
 
     portMasterPOL PortMaster @relation("POL", fields: [POLSid], references: [PortMasterSid])
     portMasterPOD PortMaster @relation("POD", fields: [PODSid], references: [PortMasterSid])
+    voyageMasterHeader VoyageMasterHeader @relation(fields: [VoyageMasterHeaderSid], references: [VoyageMasterHeaderSid])
+
 }
