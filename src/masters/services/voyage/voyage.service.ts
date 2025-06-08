@@ -233,6 +233,9 @@ export class VoyageService {
                             PODSid : {
                                 equals : PODSid
                             },
+                            deletedAt : {
+                                equals : null
+                            }
                         },
                     },
                     include : {
