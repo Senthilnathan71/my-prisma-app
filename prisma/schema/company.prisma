@@ -156,6 +156,7 @@ model UserMaster {
     customerSupport   CustomerSupport[]
     userCompanyMaster UserCompanyMaster[]
     userRoleMaster    UserRoleMaster[]
+    shortCut          ShortCut[]
 }
 
 model UserBranchMaster {
@@ -180,7 +181,7 @@ model CurrencyMaster {
     currencyName      String          @db.VarChar(100)
     CurrencyUnit      String?         @db.VarChar(50) // Rupee
     CurrencySubUnit   String?         @db.VarChar(50) // Paise
-    SubUnitIn         String?          @db.VarChar(30)
+    SubUnitIn         String?         @db.VarChar(30)
     ShortCode         String?         @db.Char(3) // Rs
     Symbol            String?         @db.Char(1) // symb
     amountDecimal     Int
@@ -455,7 +456,7 @@ model PreCustomerMaster {
     deletedAt            DateTime?
     createdBy            String               @db.VarChar(100)
     updatedBy            String?              @db.VarChar(100)
-    status               String?               @db.Char(1)
+    status               String?              @db.Char(1)
     preCustomerAddress1  String               @db.VarChar(300)
     preCustomerAddress2  String?              @db.VarChar(300)
     leadAssignTo         Int?
@@ -466,26 +467,26 @@ model PreCustomerMaster {
     leadReferredBy       String               @db.VarChar(20)
     panVat               String?              @db.VarChar(20)
     remarks              String?              @db.VarChar(500)
-    POBOX                String?               @db.VarChar(100)
-    PreferredContactMode String?               @db.VarChar(100)
-    LanguagePreferrence  String?               @db.VarChar(100)
-    ServiceOfInterest    String?               @db.VarChar(100)
-    PurchaseTimeline     String?               @db.VarChar(100)
-    SpecificRequirements String?               @db.VarChar(100)
-    Industry             String?               @db.VarChar(100)
+    POBOX                String?              @db.VarChar(100)
+    PreferredContactMode String?              @db.VarChar(100)
+    LanguagePreferrence  String?              @db.VarChar(100)
+    ServiceOfInterest    String?              @db.VarChar(100)
+    PurchaseTimeline     String?              @db.VarChar(100)
+    SpecificRequirements String?              @db.VarChar(100)
+    Industry             String?              @db.VarChar(100)
     CompanySize          Int?
     AnnualRevenue        Int?
-    Notes                String?               @db.VarChar(100)
+    Notes                String?              @db.VarChar(100)
     BranchMasterSid      Int?
     CityMasterSid        Int
     CompanyMasterSid     Int
     CountryMasterSid     Int
     PreCustomerMasterSid Int                  @id @default(autoincrement()) @map("PreCustomerMasterSid")
     StateMasterSid       Int
-    preCustomerName      String?               @db.VarChar(100)
+    preCustomerName      String?              @db.VarChar(100)
     leadFrom             String               @db.VarChar(20)
     email                String               @db.VarChar(100)
-    branchMaster         BranchMaster?         @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
+    branchMaster         BranchMaster?        @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
     cityMaster           CityMaster           @relation(fields: [CityMasterSid], references: [CityMasterSid])
     companyMaster        CompanyMaster        @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
     countryMaster        CountryMaster        @relation(fields: [CountryMasterSid], references: [CountryMasterSid])
@@ -763,8 +764,8 @@ model TariffHeader {
     StuffingAt          String    @db.VarChar(10) //(Dock, Factory, Both)
     EffectiveDate       DateTime
     AgentSid            Int?
-    IncoTerms           String?    @db.VarChar(10)
-    Remarks             String?    @db.VarChar(100)
+    IncoTerms           String?   @db.VarChar(10)
+    Remarks             String?   @db.VarChar(100)
     createdOn           DateTime  @default(now()) @db.Timestamptz(6)
     updatedOn           DateTime? @updatedAt @db.Timestamptz(6)
     deletedAt           DateTime?
@@ -774,12 +775,12 @@ model TariffHeader {
 
     departmentMaster DepartmentMaster @relation(fields: [DepartmentMasterSid], references: [DepartmentMasterSid])
     companyMaster    CompanyMaster?   @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
-    portPOO          PortMaster?       @relation("POO", fields: [POOSid], references: [PortMasterSid])
+    portPOO          PortMaster?      @relation("POO", fields: [POOSid], references: [PortMasterSid])
     portPOL          PortMaster       @relation("POL", fields: [POLSid], references: [PortMasterSid])
     portPOD          PortMaster       @relation("POD", fields: [PODSid], references: [PortMasterSid])
-    portFDC          PortMaster?       @relation("FDC", fields: [FDCSid], references: [PortMasterSid])
+    portFDC          PortMaster?      @relation("FDC", fields: [FDCSid], references: [PortMasterSid])
 
-    customerCarrier CustomerMaster @relation("Carrier", fields: [Carrier], references: [CustomerMasterSid])
+    customerCarrier CustomerMaster  @relation("Carrier", fields: [Carrier], references: [CustomerMasterSid])
     customerAgent   CustomerMaster? @relation("Agent", fields: [AgentSid], references: [CustomerMasterSid])
 
     tariffDetail TariffDetail[]
@@ -1019,15 +1020,15 @@ model UOMMaster {
     UOMMasterSid     Int       @id @default(autoincrement()) @map("UOMMasterSid")
     UOMCode          String    @unique @db.VarChar(3)
     UOMName          String    @unique @db.VarChar(20)
-    UOMType          String?    @db.VarChar(10)
+    UOMType          String?   @db.VarChar(10)
     EdiCode          String?   @db.Char(3)
     DimensionReq     String    @db.Char(1)
     WeightReq        String    @db.Char(1)
     VolumeReq        String    @db.Char(1)
     ShipmentType     String    @db.VarChar(5)
-    CostPerUnitPrice Decimal?   @db.Decimal(10, 5)
-    SlabFrom         Decimal?   @db.Decimal(4, 0)
-    SlabTo           Decimal?   @db.Decimal(4, 0)
+    CostPerUnitPrice Decimal?  @db.Decimal(10, 5)
+    SlabFrom         Decimal?  @db.Decimal(4, 0)
+    SlabTo           Decimal?  @db.Decimal(4, 0)
     createdOn        DateTime  @default(now()) @db.Timestamptz(6)
     updatedOn        DateTime? @updatedAt @db.Timestamptz(6)
     deletedAt        DateTime?
@@ -1328,7 +1329,7 @@ model TermsAndConditionsMaster {
     CompanyMasterSid            Int?
     BranchMasterSid             Int
     MenuMasterSid               Int
-    PrintType                   String?    @db.VarChar(20)
+    PrintType                   String?   @db.VarChar(20)
     POL                         String[]  @default([])
     POD                         String[]  @default([])
     FDC                         String[]  @default([])
@@ -1342,8 +1343,8 @@ model TermsAndConditionsMaster {
     Remarks                     String?   @db.VarChar(500)
 
     company CompanyMaster? @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
-    branch  BranchMaster  @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
-    menu    MenuMaster    @relation(fields: [MenuMasterSid], references: [MenuMasterSid])
+    branch  BranchMaster   @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
+    menu    MenuMaster     @relation(fields: [MenuMasterSid], references: [MenuMasterSid])
 
     departments              DepartmentOnTerms[] // relation table
     termsAndConditionsDetail TermsAndConditionsDetail[]
