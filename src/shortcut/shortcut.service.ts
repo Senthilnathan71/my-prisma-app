@@ -48,9 +48,13 @@ export class ShortcutService {
     
     
     
-        async findUniqueShortcut(query) {
+        async findUniqueShortcut(id) {
             try {
-                const shortcut = await this._db.shortCut.findUnique(query)
+                const shortcut = await this._db.shortCut.findUnique({
+                    where:{
+                        shortCutId:id
+                    }
+                })
                 return shortcut
             } catch (error) {
                 throw new InternalServerErrorException(`Error findUniqueShortcut: ${error.message}`);

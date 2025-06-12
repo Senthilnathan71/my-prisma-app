@@ -24,8 +24,8 @@ export class ShortcutController {
         async createShortcut(@Body() body:ShortcutDto, @TokenPayload() token) {
             this.logger.log(`createShortcutdata: ${JSON.stringify(body)}`)
             if(!token) throw new ForbiddenException('No token provided')
-            
-            if(!Object.keys(token).includes('UserMasterSid')) throw new BadRequestException('Token payload does not have UserMasterSid')
+            console.log(token)
+            if(!Object.keys(token).includes('id')) throw new BadRequestException('Token payload does not have id')
 
             let output = new ResponseData
 
@@ -33,7 +33,7 @@ export class ShortcutController {
                 ...body,
                 userMaster:{
                     connect:{
-                        UserMasterSid:token.UserMasterSid
+                        UserMasterSid:token.id
                     }
                 }
             }
@@ -41,7 +41,7 @@ export class ShortcutController {
                 let existShortCut = await this.shortCutService.findOne({
                     where:{
                         label: body.label,
-                        userId: token.UserMasterSid
+                        userId: token.id
                     }
                 })
 
@@ -77,14 +77,14 @@ export class ShortcutController {
             this.logger.log(`createShortcutdata: ${JSON.stringify(body)}`)
             if(!token) throw new ForbiddenException('No token provided')
             
-            if(!Object.keys(token).includes('UserMasterSid')) throw new BadRequestException('Token payload does not have UserMasterSid')
+            if(!Object.keys(token).includes('id')) throw new BadRequestException('Token payload does not have id')
 
             let output = new ResponseData
 
             let mappedDto: Prisma.ShortCutCreateManyInput[]
 
             if(body instanceof Array)
-                mappedDto = body.map((item:ShortcutDto)=>({...item, userId:token.UserMasterSid}))
+                mappedDto = body.map((item:ShortcutDto)=>({...item, userId:token.id}))
             else{
                 output.message = "Body payload Should be an array"
                 throw new BadRequestException(output.message)
@@ -95,7 +95,7 @@ export class ShortcutController {
                     let existShortCut = await this.shortCutService.findOne({
                         where:{
                             label: shortcut['label'],
-                            userId: shortcut['UserMasterSid']
+                            userId: shortcut['userId']
                         }
                     })
     
@@ -128,12 +128,12 @@ export class ShortcutController {
         async getAllShortcuts(@TokenPayload() token) {
             if(!token) throw new ForbiddenException('No token provided')
             
-            if(!Object.keys(token).includes('UserMasterSid')) throw new BadRequestException('Token payload does not have UserMasterSid')
+            if(!Object.keys(token).includes('id')) throw new BadRequestException('Token payload does not have id')
             let output = new ResponseData;
             try {
                 let shortcutData = await this.shortCutService.getAllShortCuts({
                     where:{
-                        userId: token.UserMasterSid
+                        userId: token.id
                     }
                 });
                 this.logger.log(`getAllShortcuts: ${JSON.stringify(shortcutData)}`)
@@ -163,12 +163,10 @@ export class ShortcutController {
         async editShortCut(@Param('id', ParseIntPipe) id: number, @Body() body: ShortCutUpdateDto, @TokenPayload() token) {
             if(!token) throw new ForbiddenException('No token provided')
             
-            if(!Object.keys(token).includes('UserMasterSid')) throw new BadRequestException('Token payload does not have UserMasterSid')
+            if(!Object.keys(token).includes('id')) throw new BadRequestException('Token payload does not have id')
             let output = new ResponseData;
             try {
-                let existShortcut = await this.shortCutService.findUniqueShortcut({
-                    where:{id}
-                })
+                let existShortcut = await this.shortCutService.findUniqueShortcut(id)
                 if(!existShortcut){
                     output.message = `Shortcut with id ${id} not found.`
                     throw new NotFoundException(output.message)
@@ -178,7 +176,7 @@ export class ShortcutController {
                     let data = await this.shortCutService.findOne({
                         where:{
                             label: body.label,
-                            userId: token.UserMasterSid
+                            userId: token.id
                         }
                     })
                     if(data){
@@ -214,9 +212,7 @@ export class ShortcutController {
         async softDelete(@Param('id', ParseIntPipe) id: number) {
             const output = new ResponseData()
             try {
-                let existShortCut = await this.shortCutService.findUniqueShortcut({
-                    where:{id}
-                })
+                let existShortCut = await this.shortCutService.findUniqueShortcut(id)
 
                 if(!existShortCut){
                     output.message = `Shortcut with id ${id} not found.`
