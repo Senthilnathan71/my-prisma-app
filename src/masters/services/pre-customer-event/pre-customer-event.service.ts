@@ -26,7 +26,7 @@ export class PreCustomerEventService {
             return await this.db.preCustomerEvent.create({
                 data: {
                     ...payload,
-                    createdBy: 'admin@crm.com'
+                    
                 },
                 include: {
                     companyMaster: true
