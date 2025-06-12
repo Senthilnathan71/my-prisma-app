@@ -26,7 +26,7 @@ export class ChargeTaxService {
         try {
             const createdChargeTax = await this._db.chargeTaxMaster.create({
                 data: {
-                    ...payload, 
+                    ...payload,
                 }
             });
             return createdChargeTax;
