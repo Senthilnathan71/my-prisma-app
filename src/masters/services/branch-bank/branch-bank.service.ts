@@ -11,7 +11,6 @@ export class BranchBankService {
             const newlyCreatedBank= await this._db.branchBank.create({
                 data:{
                     ...newData,
-                    createdBy:'admin@crm.com'
                 }
             })
             return newlyCreatedBank;

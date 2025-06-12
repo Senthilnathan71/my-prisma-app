@@ -10,7 +10,6 @@ export class CustomerBranchService {
             const createdCustomerBranch = await this._db.customerBranch.create({
                 data: {
                     ...newCustomerBranchData,
-                    createdBy: 'admin@crm.com'
                 }
             });
             return createdCustomerBranch;

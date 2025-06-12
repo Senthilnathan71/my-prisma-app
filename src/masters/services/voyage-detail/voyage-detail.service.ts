@@ -12,7 +12,6 @@ export class VoyageDetailService {
             const voyageDetail = await this._db.voyageMasterDetail.create({
                 data: {
                     ...payload,
-                    createdBy: "admin@crm.com"
                 }
             });
 

@@ -34,7 +34,6 @@ export class RoleService {
             const role = await this._db.roleMaster.create({
                 data: {
                     ...payload,
-                    createdBy: "admin@crm.com"
                 }
             });
 

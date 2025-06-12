@@ -41,7 +41,6 @@ export class VesselService {
             const vessel = await this._db.vesselMaster.create({
                 data: {
                     ...payload,
-                    createdBy: "admin@crm.com"
                 }
             });
 

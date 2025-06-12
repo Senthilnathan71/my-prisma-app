@@ -11,7 +11,6 @@ export class ZoneService {
       const newlyAddedData = await this._db.zoneMaster.create({
         data: {
           ...newData,
-          createdBy: 'admin@crm.com',
         },
       });
       return newlyAddedData;

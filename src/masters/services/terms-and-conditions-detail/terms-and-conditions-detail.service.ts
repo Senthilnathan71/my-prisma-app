@@ -24,7 +24,6 @@ export class TermsAndConditionsDetailService {
             const createdTCdetail = await this._db.termsAndConditionsDetail.create({
                 data :{
                     ...payload,
-                    createdBy :'admin@crm.com'
                 }
             })
             return createdTCdetail;

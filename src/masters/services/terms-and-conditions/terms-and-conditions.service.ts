@@ -30,7 +30,6 @@ export class TermsAndConditionsService {
             const createdTermCond = await this._db.termsAndConditionsMaster.create({
                 data :{
                     ...termCondInput,
-                    createdBy :'admin@crm.com'
                 }
             })
             const departmentOnTerms = await this._db.departmentOnTerms.create({

@@ -11,7 +11,6 @@ export class CompanyService {
             const createdCompany = await this._db.companyMaster.create({
                 data: {
                     ...newData,
-                    createdBy: 'admin@crm.com'
                 }
             })
             return createdCompany;

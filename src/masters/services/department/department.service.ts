@@ -43,7 +43,6 @@ export class DepartmentService {
             const department = await this._db.departmentMaster.create({
                 data: {
                     ...payload,
-                    createdBy: "admin@crm.com"
                 }
             });
 

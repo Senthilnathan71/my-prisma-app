@@ -49,7 +49,6 @@ export class CurrencyService {
       const currency = await this._db.currencyMaster.create({
         data: {
           ...payload,
-          createdBy: 'admin@crm.com',
         },
       });
 

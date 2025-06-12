@@ -34,7 +34,6 @@ export class ModuleService {
             const module = await this._db.moduleMaster.create({
                 data: {
                     ...payload,
-                    createdBy: "admin@crm.com"
                 }
             });
 

@@ -9,7 +9,7 @@ export class PackageTypeService {
   async createPackageType(newData: any) {
     try {
       const newlyAddedPackageType = await this._db.packageTypeMaster.create({
-        data: { ...newData, createdBy: 'admin@crm.com' },
+        data: { ...newData,  },
       });
       return newlyAddedPackageType;
     } catch (error) {

@@ -24,7 +24,6 @@ export class ImcoService {
             const createdIMCO = await this._db.imcoMaster.create({
                 data :{
                     ...payload,
-                    createdBy :'admin@crm.com'
                 }
             })
             return createdIMCO;

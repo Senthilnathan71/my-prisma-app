@@ -49,7 +49,6 @@ export class StateService {
       const state = await this._db.stateMaster.create({
         data: {
           ...payload,
-          createdBy: 'admin@crm.com',
         },
       });
 
