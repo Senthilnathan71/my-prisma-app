@@ -81,17 +81,24 @@ export class PreCustomerMeetingService {
                 }
 
                 if (data.meetingStatus === 'confirmed') {
+                    const customerName = data.preCustomerMaster.preCustomerName;
+
+                    if (!customerName) {
+                        throw new Error('Customer name is missing for confirmed meeting.');
+                    }
 
                     const existCustomer = await this._db.customerMaster.findFirst({
                         where: {
-                            CustomerName: data.preCustomerMaster.preCustomerName
+                            CustomerName: customerName
                         }
                     })
 
                     if (!existCustomer) {
                         await this._db.customerMaster.create({
                             data: {
-                                ...customerPayload
+                                ...customerPayload,
+                                CustomerName: customerName, // this is now guaranteed to be a string
+
                             }
                         })
                     } else {

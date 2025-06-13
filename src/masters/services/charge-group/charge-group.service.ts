@@ -11,7 +11,6 @@ export class ChargeGroupService {
             const newlyCreated = await this._db.chargeGroup.create({
                 data: {
                     ...newData,
-                    createdBy: 'admin@crm.com',
                     status: 'A' ,
                     CompanyMasterSid: Number(newData.CompanyMasterSid)
                 }

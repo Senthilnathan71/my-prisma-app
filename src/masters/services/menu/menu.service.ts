@@ -43,7 +43,6 @@ export class MenuService {
             const menu = await this._db.menuMaster.create({
                 data: {
                     ...payload,
-                    createdBy: "admin@crm.com"
                 }
             });
 

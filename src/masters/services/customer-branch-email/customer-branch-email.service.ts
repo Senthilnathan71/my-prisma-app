@@ -11,7 +11,6 @@ export class CustomerBranchEmailService {
             const newlyCreatedCustomerBrEmail = await this._db.customerBrEmail.create({
                 data: {
                     ...newData,
-                    createdBy: 'admin@crm.com'
                 }
             })
             return newlyCreatedCustomerBrEmail;

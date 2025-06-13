@@ -11,7 +11,6 @@ export class CurrencyExchangeService {
             const newlyCreatedCurrencyEx = await this._db.currencyExchange.create({
                 data: {
                     ...newData,
-                    createdBy: 'admin@crm.com'
                 }
             })
             return newlyCreatedCurrencyEx;

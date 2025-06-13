@@ -90,6 +90,8 @@ import { ChargeGroupController } from './controllers/charge-group/charge-group.c
 import { ChargeGroupService } from './services/charge-group/charge-group.service';
 import { VoyageDetailController } from './controllers/voyage-detail/voyage-detail.controller';
 import { VoyageDetailService } from './services/voyage-detail/voyage-detail.service';
+import { FfUserMasterController } from './controllers/ff-user-master/ff-user-master.controller';
+import { FfUserMasterService } from './services/ff-user-master/ff-user-master.service';
 
 @Module({
   providers: [
@@ -138,7 +140,8 @@ import { VoyageDetailService } from './services/voyage-detail/voyage-detail.serv
     MenuService,
     ChargeTaxService,
     ChargeGroupService,
-    VoyageDetailService
+    VoyageDetailService,
+    FfUserMasterService
   ],
   controllers: [
     UserController,
@@ -187,6 +190,7 @@ import { VoyageDetailService } from './services/voyage-detail/voyage-detail.serv
     ChargeTaxController,
     ChargeGroupController,
     VoyageDetailController,
+    FfUserMasterController,
   ],
   exports: [UserService]
 })

@@ -11,7 +11,6 @@ export class BranchService {
             const createdBranch = await this._db.branchMaster.create({
                 data: {
                     ...newData,
-                    createdBy: 'admin@crm.com'
                 },
             })
             return createdBranch;

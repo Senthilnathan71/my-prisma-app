@@ -41,7 +41,6 @@ export class TariffDetailService {
             const createdTariffDetail = await this._db.tariffDetail.create({
                 data: {
                     ...payload,
-                    createdBy: 'admin@crm.com'
                 }
             })
             return createdTariffDetail;

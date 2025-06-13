@@ -11,7 +11,6 @@ export class TariffService {
             let createdTariff = await this._db.tariffHeader.create({
                 data: {
                     ...newData,
-                    createdBy: 'admin@crm.com'
                 }
             })
             return createdTariff;

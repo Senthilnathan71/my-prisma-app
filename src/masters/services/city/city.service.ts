@@ -53,7 +53,6 @@ export class CityService {
       const addedData = await this._db.cityMaster.create({
         data: {
           ...cityData,
-          createdBy: 'admin@crm.com',
         },
       });
       return addedData;

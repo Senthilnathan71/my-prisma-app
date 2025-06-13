@@ -1,0 +1,194 @@
+import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, Post, UnauthorizedException } from '@nestjs/common';
+import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
+import { ResponseData } from 'src/common/response-data';
+import { SearchListDto } from 'src/masters/DTO/search-list.dto';
+import { FfUserMasterService } from 'src/masters/services/ff-user-master/ff-user-master.service';
+
+
+@Controller('ff-user')
+export class FfUserMasterController {
+    constructor(private ffUserMasterService: FfUserMasterService, private logger: Logger) { }
+
+
+    @ApiOperation({ summary: 'Create new User' })
+    @ApiCreatedResponse({
+        description: 'Create new User',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Post('create')
+    async createNewUser(@Body() newData: any) {
+        let resp = new ResponseData();
+        try {
+            let res = await this.ffUserMasterService.createNewFfUser(newData);
+            this.logger.log(`New User Created : ${JSON.stringify(res)}`);
+            resp.data = res;
+            resp.message = "New User is successfully created"
+        } catch (error) {
+            this.logger.warn(`User Creation Error : ${JSON.stringify(error), error}`);
+            resp.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                resp.message = error.message;
+            } else {
+                resp.message = "Internal Server Error";
+            }
+        }
+        return resp;
+    }
+
+
+
+    @ApiOperation({ summary: 'Get All User' })
+    @ApiCreatedResponse({
+        description: 'Get All User',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Get()
+    async getAllUser() {
+        let resp = new ResponseData();
+        try {
+            let res = await this.ffUserMasterService.getAllFfUser();
+            this.logger.log(`All User Fetched : ${JSON.stringify(res)}`);
+            resp.data = res;
+            resp.message = "All User are successfully fetched";
+        } catch (error) {
+            this.logger.warn(`Get All User Error : ${JSON.stringify(error), error}`);
+            resp.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                resp.message = error.message;
+            } else {
+                resp.message = "Internal Server Error";
+            }
+        }
+        return resp;
+    }
+
+
+
+    @ApiOperation({ summary: 'Get User by Id' })
+    @ApiCreatedResponse({
+        description: 'Get User by Id',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Get('fetch/:UserMasterSid')
+    async getUserById(@Param('UserMasterSid', ParseIntPipe) UserMasterSid: number) {
+        let resp = new ResponseData();
+        try {
+            this.logger.log(`Getting User with id : ${UserMasterSid}`);
+            let res = await this.ffUserMasterService.fetchFfUserById(UserMasterSid);
+            this.logger.debug(`Fetched BlClasue : ${JSON.stringify(res)}`);
+            resp.data = res;
+            resp.message = `User with id : ${UserMasterSid} is successfully fetched`;
+        } catch (error) {
+            this.logger.warn(`Get User by Id Error : ${JSON.stringify(error), error}`);
+            resp.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                resp.message = error.message;
+            } else {
+                resp.message = "Internal Server Error";
+            }
+        }
+        return resp;
+    }
+
+
+
+    @ApiOperation({ summary: 'Update User by Id' })
+    @ApiCreatedResponse({
+        description: 'Update User by Id',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Patch('update/:UserMasterSid')
+    async updateUserById(@Param('UserMasterSid', ParseIntPipe) UserMasterSid: number, @Body() payload: any) {
+        let resp = new ResponseData();
+        try {
+            this.logger.log(`Updating User with id : ${UserMasterSid}`);
+            let res = await this.ffUserMasterService.updateFfUserById(UserMasterSid, payload);
+            this.logger.debug(`Updated User : ${JSON.stringify(res)}`);
+            resp.data = res;
+            resp.message = `User with id : ${UserMasterSid} is successfully updated`;
+        } catch (error) {
+            this.logger.warn(`User Updation Error : ${JSON.stringify(error), error}`);
+            resp.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                resp.message = error.message;
+            } else {
+                resp.message = "Internal Server Error";
+            }
+        }
+        return resp;
+    }
+
+
+
+    @ApiOperation({ summary: 'Delete User by Id' })
+    @ApiCreatedResponse({
+        description: 'Delete User by Id',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Delete('delete/:UserMasterSid')
+    async deleteUserById(@Param('UserMasterSid', ParseIntPipe) UserMasterSid: number) {
+        let resp = new ResponseData();
+        try {
+            this.logger.log(`Deleting User with id : ${UserMasterSid}`);
+            let res = await this.ffUserMasterService.deleteFfUser(UserMasterSid);
+            this.logger.debug(`Deleted User : ${JSON.stringify(res)}`);
+            resp.data = res;
+            resp.message = `
+            User with id : ${UserMasterSid} is successfully deleted`;
+        } catch (error) {
+            this.logger.warn(`User Deletion Error : ${JSON.stringify(error), error}`);
+            resp.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                resp.message = error.message;
+            } else {
+                resp.message = "Internal Server Error";
+            }
+        }
+        return resp;
+    }
+
+
+
+    @ApiOperation({ summary: 'Search List of User' })
+    @ApiCreatedResponse({
+        description: 'Search List of User',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Post('search-list')
+    async searchUser(@Body() searchData: SearchListDto) {
+        let resp = new ResponseData();
+        try {
+            let res = await this.ffUserMasterService.searchFfUser(searchData);
+            this.logger.log(`User Search Results :${JSON.stringify(res)}`);
+            resp.data = res;
+            resp.message = "User Search results are successfully fetched"
+        } catch (error) {
+            this.logger.warn(`User Search Error : ${JSON.stringify(error), error}`);
+            resp.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                resp.message = error.message;
+            } else {
+                resp.message = "Internal Server Error";
+            }
+        }
+        return resp;
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+}

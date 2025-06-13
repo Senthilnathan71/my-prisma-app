@@ -24,7 +24,6 @@ export class BlclauseService {
             const createdBlclause = await this._db.bLClauseMaster.create({
                 data :{
                     ...payload,
-                    createdBy :'admin@crm.com'
                 }
             })
             return createdBlclause;

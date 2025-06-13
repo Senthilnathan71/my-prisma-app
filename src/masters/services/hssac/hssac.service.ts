@@ -43,7 +43,6 @@ export class HssacService {
             const Hssac = await this._db.hSSACMaster.create({
                 data: {
                     ...payload,
-                    createdBy: "admin@crm.com"
                 }
             });
 

@@ -13,7 +13,6 @@ export class ContainerTypeService {
       const newlyAddedData = await this._db.containerTypeMaster.create({
         data: {
           ...newData,
-          createdBy: 'admin@crm.com',
         },
       });
       return newlyAddedData;

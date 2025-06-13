@@ -43,7 +43,6 @@ export class ChargeService {
             const Charge = await this._db.chargeMaster.create({
                 data: {
                     ...payload,
-                    createdBy: "admin@crm.com"
                 }
             });
 

@@ -11,7 +11,6 @@ export class CommodityService {
             const newlyCreateCommodity = await this._db.commodityMaster.create({
                 data: {
                     ...newData,
-                    createdBy: 'admin@crm.com'
                 }
             })
             return newlyCreateCommodity;

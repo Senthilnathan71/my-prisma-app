@@ -12,7 +12,6 @@ export class CustomerLoginService {
             const createdCustomerLogin = await this._db.customerLogin.create({
                 data: {
                     ...newData,
-                    createdBy: 'admin@crm.com'
                 }
             })
             return createdCustomerLogin;

@@ -1,0 +1,13 @@
+model ShortCut{
+    shortCutId Int          @id @default(autoincrement()) @map("shortCutId")
+    userId Int
+    label String @db.VarChar(20)
+    description String? @db.VarChar(50)
+    link String
+    useRouter Boolean @default(false)
+    createdOn             DateTime     @default(now()) @db.Timestamptz(6)
+    updatedOn             DateTime?    @updatedAt @db.Timestamptz(6)
+    deletedAt             DateTime?
+
+    userMaster UserMaster @relation(fields: [userId],references: [UserMasterSid])
+}

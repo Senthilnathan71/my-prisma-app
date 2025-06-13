@@ -34,7 +34,6 @@ export class VoyageService {
             const voyage = await this._db.voyageMasterHeader.create({
                 data: {
                     ...payload,
-                    createdBy: "admin@crm.com"
                 }
             });
 
@@ -233,6 +232,9 @@ export class VoyageService {
                             PODSid : {
                                 equals : PODSid
                             },
+                            deletedAt : {
+                                equals : null
+                            }
                         },
                     },
                     include : {

@@ -43,7 +43,6 @@ export class CustomerService {
             const customer = await this._db.customerMaster.create({
                 data: {
                     ...payload,
-                    createdBy: "admin@crm.com"
                 }
             });
 

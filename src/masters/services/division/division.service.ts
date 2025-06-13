@@ -11,7 +11,6 @@ export class DivisionService {
             const newlyCreated = await this._db.divisionMaster.create({
                 data: {
                     ...newData,
-                    createdBy: 'admin@crm.com'
                 }
             })
             return newlyCreated;

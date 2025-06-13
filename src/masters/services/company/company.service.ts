@@ -11,7 +11,6 @@ export class CompanyService {
             const createdCompany = await this._db.companyMaster.create({
                 data: {
                     ...newData,
-                    createdBy: 'admin@crm.com'
                 }
             })
             return createdCompany;
@@ -157,7 +156,8 @@ export class CompanyService {
                     contains: filterValue,
                     mode: 'insensitive'
                 }, deletedAt: null
-            }, include: {
+            }, 
+            include: {
                 branchMaster: {
                     where: {
                         deletedAt: null
@@ -168,24 +168,29 @@ export class CompanyService {
                                 deletedAt: null
                             }
                         },
-                    }
+                        cityMaster: {
+                            select: {
+                                cityName: true
+                            }
+                        },
+                        stateMaster: {
+                            select: {
+                                stateName: true
+                            }
+                        },
+                        countryMaster: {
+                            select: {
+                                countryName: true
+                            }
+                        }
+                    },
                 },
-                cityMaster: {
-                    select: {
-                        cityName: true
-                    }
-                },
-                stateMaster: {
-                    select: {
-                        stateName: true
-                    }
-                },
-                countryMaster: {
-                    select: {
-                        countryName: true
-                    }
-                }
             },
+            orderBy : {
+                branchMaster : {
+                    _count : 'desc'
+                }
+            }
         }
         ).catch((err) => {
             throw new Error(`Error Occured : ${JSON.stringify(err), err}`);

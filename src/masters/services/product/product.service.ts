@@ -24,7 +24,6 @@ export class ProductService {
             const createdProduct = await this._db.productMaster.create({
                 data :{
                     ...payload,
-                    createdBy :'admin@crm.com'
                 }
             })
             return createdProduct;

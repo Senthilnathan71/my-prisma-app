@@ -135,7 +135,6 @@ export class PortService {
         },
         data: {
           ...payload,
-          updatedBy:'admin@crm.com'
         }
       });
       return port;
