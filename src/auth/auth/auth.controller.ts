@@ -50,6 +50,16 @@ export class AuthController {
                 throw new UnauthorizedException('User does not exist.');
             }
 
+
+            // Salesperson logic
+            if (loginData.projectType === 'salesperson' && user.isSalesperson !== '1') {
+                throw new UnauthorizedException('Only salesperson can log in to this app.');
+            }
+
+            if (loginData.projectType === 'freight-forwarding' && user.isSalesperson !== null) {
+                throw new UnauthorizedException('Salesperson not allowed in this app.');
+            }
+
             const isPasswordMatching = checkPassword(loginData.password, user.userPassword);
             if (!isPasswordMatching) {
                 this.logger.warn(`Login failed: Incorrect password - ${loginData.email}`);
@@ -60,7 +70,10 @@ export class AuthController {
             output.message = 'Login successful';
             output.data = {
                 user: await this.authService.getUser(user.UserMasterSid),
-                token: await this.jwtService.sign({ id: user.UserMasterSid })
+                token: await this.jwtService.sign({
+            id: user.UserMasterSid,
+            projectType: loginData.projectType
+        })
             };
             this.logger.log(`Login successful for email: ${loginData.email}`);
 

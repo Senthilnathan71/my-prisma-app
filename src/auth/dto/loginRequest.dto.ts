@@ -11,4 +11,9 @@ export class LoginRequest{
     @IsString()
     @IsNotEmpty()
     password: string;
+
+    @ApiProperty({type: String, default: ''})
+    @IsString()
+    @IsNotEmpty()
+    projectType:string
 }
