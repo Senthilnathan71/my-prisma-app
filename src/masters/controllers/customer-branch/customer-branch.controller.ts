@@ -87,6 +87,34 @@ export class CustomerBranchController {
         return resp;
     }
 
+    
+@ApiOperation({ summary: 'Get Customer Branch By CustomerMasterId' })
+    @ApiCreatedResponse({
+        description: 'Get Customer Branch by CustomerMasterId',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Get('fetch-by/:CustomerMasterId')
+    async getCustomerBranchByCustomerMasterId(@Param('CustomerMasterId', ParseIntPipe) CustomerMasterId: number) {
+        let resp = new ResponseData();
+        try {
+            this.logger.log(`Fetching CustomerBranch with id : ${CustomerMasterId} `)
+            let res = await this.customerBranchService.getCustomerBranchByCustomerMasterId(CustomerMasterId);
+            this.logger.debug(`Fetch CustomerBranch Result : ${JSON.stringify(res)}`);
+            resp.data = res;
+            resp.message = "Fetching Customer Branch is successfull"
+        } catch (error) {
+            this.logger.warn(`Getting Error in fetching CustomerBranch with Id : ${CustomerMasterId}`)
+            resp.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                resp.message = error.message;
+            } else {
+                resp.message = "Internal Server Error";
+            }
+        }
+        return resp;
+    }
+
 
     @ApiOperation({ summary: 'Updating Customer Branch with Id' })
     @ApiCreatedResponse({

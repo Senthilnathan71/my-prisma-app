@@ -47,6 +47,22 @@ export class CustomerBranchService {
         }
     }
 
+    async getCustomerBranchByCustomerMasterId(CustomerMasterId: number) {
+        try {
+            const ourCustomerBranch = await this._db.customerBranch.findMany({
+                where: {
+                    CustomerMasterSid: CustomerMasterId
+                }
+            })
+            if (!ourCustomerBranch) {
+                throw new BadRequestException(`Customer Branch with CustomerMasterId :${CustomerMasterId} is not exists`);
+            }
+            return ourCustomerBranch;
+        } catch (error) {
+            throw error;
+        }
+    }
+
     async updateCustomerBranchById(CustomerBranchSid: number, updateData: any) {
         try {
             const existing = await this._db.customerBranch.findUnique({
