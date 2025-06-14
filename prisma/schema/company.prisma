@@ -343,7 +343,6 @@ model DepartmentMaster {
     quoteRoute          QuoteRoute[]
     bookingHeader       BookingHeader[]
     customerBrEmail     CustomerBrEmail[]
-    customerSalesTeam   CustomerSalesTeam[]
     customerSupport     CustomerSupport[]
     terms               DepartmentOnTerms[] // inverse relation
     tariffHeader        TariffHeader[]
@@ -1145,7 +1144,7 @@ model CustomerLogin {
 model CustomerSalesTeam {
     CustomerSalesSid    Int       @id @default(autoincrement()) @map("CustomerSalesSid")
     Salesman            Int
-    DepartmentMasterSid Int
+    DepartmentMasterSid String[]
     CustomerBranchSid   Int
     CompanyMasterSid    Int?
     EffectiveFrom       DateTime
@@ -1158,7 +1157,6 @@ model CustomerSalesTeam {
 
     customerBranch   CustomerBranch   @relation(fields: [CustomerBranchSid], references: [CustomerBranchSid])
     companyMaster    CompanyMaster?   @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
-    departmentMaster DepartmentMaster @relation(fields: [DepartmentMasterSid], references: [DepartmentMasterSid])
 }
 
 model CustomerSupport {

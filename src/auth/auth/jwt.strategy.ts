@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, UnauthorizedException } from "@nestjs/common";
 import { PassportStrategy } from "@nestjs/passport";
 import { ExtractJwt, Strategy } from "passport-jwt";
 import { AuthService } from "./auth.service";
@@ -18,15 +18,19 @@ export class JwtStrategy extends PassportStrategy(Strategy){
         })
     }
 
-    async validate(payload: any){
-        const id = payload.id ? payload.id : 0;
-        if(this.authService.loggedInUserData[id]){  //this block need to re-verify
-            return this.authService.loggedInUserData[id]
-        }else{
-            if(id){
-                let user = await this.userService.getUserById(id);
-                return user;
-            }
-        }
+   async validate(payload: any) {
+    const user = await this.userService.getUserById(payload.id);
+    if (!user) throw new UnauthorizedException('Invalid user');
+
+    // Validate project type matches user type
+    if (payload.projectType === 'salesperson' && user.isSalesperson !== '1') {
+        throw new UnauthorizedException('Token not valid for this app (needs salesperson)');
     }
+    if (payload.projectType === 'freight-forwarding' && user.isSalesperson !== null) {
+        throw new UnauthorizedException('Token not valid for this app (salesperson not allowed)');
+    }
+
+    return user;
+}
+
 }
