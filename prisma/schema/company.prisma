@@ -581,12 +581,12 @@ model MeetingFollowup {
 model EnquiryHeader {
     EnquiryHeaderSid     Int       @id @default(autoincrement()) @map("EnquiryHeaderSid")
     EnquiryDate          DateTime?
-    CompanyMasterSid     Int
-    BranchMasterSid      Int
+    CompanyMasterSid     Int?
+    BranchMasterSid      Int?
     DepartmentMasterSid  Int?
     CustomerMasterSid    Int?
     CustomerAddressSid   Int?
-    UserMasterSid        Int
+    UserMasterSid        Int?
     CustomerName         String    @db.VarChar(100)
     CustomerAddress      String?   @db.VarChar(300)
     AgentMasterSid       Int?
@@ -614,10 +614,10 @@ model EnquiryHeader {
     status               String?   @default("A") @db.Char(1)
     LoginSid             Int?
 
-    companyMaster    CompanyMaster     @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
-    branchMaster     BranchMaster      @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
+    companyMaster    CompanyMaster?     @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+    branchMaster     BranchMaster?      @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
     departmentMaster DepartmentMaster? @relation(fields: [DepartmentMasterSid], references: [DepartmentMasterSid])
-    userMaster       UserMaster        @relation(fields: [UserMasterSid], references: [UserMasterSid])
+    userMaster       UserMaster?        @relation(fields: [UserMasterSid], references: [UserMasterSid])
 
     enquiryRoute   EnquiryRoute[]
     enquiryCargo   EnquiryCargo[]
@@ -631,8 +631,8 @@ model EnquiryRoute {
     POLSid           Int
     PODSid           Int
     FDPSid           Int
-    CompanyMasterSid Int
-    BranchMasterSid  Int
+    CompanyMasterSid Int?
+    BranchMasterSid  Int?
     EnquiryHeaderSid Int
     createdOn        DateTime  @default(now()) @db.Timestamptz(6)
     updatedOn        DateTime  @updatedAt @db.Timestamptz(6)
@@ -641,8 +641,8 @@ model EnquiryRoute {
     updatedBy        String?   @db.VarChar(100)
     LoginSid         Int?
 
-    companyMaster CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
-    branchMaster  BranchMaster  @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
+    companyMaster CompanyMaster? @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+    branchMaster  BranchMaster?  @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
     enquiryHeader EnquiryHeader @relation(fields: [EnquiryHeaderSid], references: [EnquiryHeaderSid])
 
     enquiryCargo   EnquiryCargo[]
@@ -651,8 +651,8 @@ model EnquiryRoute {
 
 model EnquiryCargo {
     EnquiryCargoSid  Int       @id @default(autoincrement()) @map("EnquiryCargoSid")
-    CompanyMasterSid Int
-    BranchMasterSid  Int
+    CompanyMasterSid Int?
+    BranchMasterSid  Int?
     EnquiryHeaderSid Int
     EnquiryRouteSid  Int
     CargoType        String    @db.VarChar(50)
@@ -676,8 +676,8 @@ model EnquiryCargo {
     status           String?   @default("A") @db.Char(1)
     LoginSid         Int?
 
-    companyMaster CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
-    branchMaster  BranchMaster  @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
+    companyMaster CompanyMaster? @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+    branchMaster  BranchMaster?  @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
     enquiryHeader EnquiryHeader @relation(fields: [EnquiryHeaderSid], references: [EnquiryHeaderSid])
     enquiryRoute  EnquiryRoute  @relation(fields: [EnquiryRouteSid], references: [EnquiryRouteSid])
 }
