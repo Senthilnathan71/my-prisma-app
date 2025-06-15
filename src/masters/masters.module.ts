@@ -92,6 +92,8 @@ import { VoyageDetailController } from './controllers/voyage-detail/voyage-detai
 import { VoyageDetailService } from './services/voyage-detail/voyage-detail.service';
 import { FfUserMasterController } from './controllers/ff-user-master/ff-user-master.controller';
 import { FfUserMasterService } from './services/ff-user-master/ff-user-master.service';
+import { CustomerSalesteamService } from './services/customer-salesteam/customer-salesteam.service';
+import { CustomerSalesteamController } from './controllers/customer-salesteam/customer-salesteam.controller';
 
 @Module({
   providers: [
@@ -141,7 +143,8 @@ import { FfUserMasterService } from './services/ff-user-master/ff-user-master.se
     ChargeTaxService,
     ChargeGroupService,
     VoyageDetailService,
-    FfUserMasterService
+    FfUserMasterService,
+    CustomerSalesteamService
   ],
   controllers: [
     UserController,
@@ -191,6 +194,7 @@ import { FfUserMasterService } from './services/ff-user-master/ff-user-master.se
     ChargeGroupController,
     VoyageDetailController,
     FfUserMasterController,
+    CustomerSalesteamController,
   ],
   exports: [UserService]
 })
