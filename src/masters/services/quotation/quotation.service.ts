@@ -25,6 +25,7 @@ export class QuotationService {
                     CustomerName: payload.CustomerName,
                     CustomerMasterSid: Number(payload.CustomerMasterSid),
                     QuoteDate: quoteDate,
+                    EnquirySid : Number(payload.EnquirySid),
                     CustomerAddress: payload.CustomerAddress,
                     status: payload.status || "A",
                     CompanyMasterSid: user['userBranchMaster'][0].CompanyMasterSid,
@@ -127,6 +128,7 @@ export class QuotationService {
                     QuoteHeaderSid: true,
                     QuoteNumber: true,
                     CustomerName: true,
+                    EnquirySid : true,
                     CustomerAddress: true,
                     QuoteDate: true,
                     status: true
@@ -179,6 +181,7 @@ export class QuotationService {
                 data: {
                     CustomerName: payload.CustomerName,
                     QuoteDate: quoteDate,
+                    EnquirySid : Number(payload.EnquirySid),
                     status: statusUpdate,
                     updatedBy: user['userEmail'],
                     updatedOn: new Date()
