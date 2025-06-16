@@ -94,6 +94,8 @@ import { FfUserMasterController } from './controllers/ff-user-master/ff-user-mas
 import { FfUserMasterService } from './services/ff-user-master/ff-user-master.service';
 import { CustomerSalesteamService } from './services/customer-salesteam/customer-salesteam.service';
 import { CustomerSalesteamController } from './controllers/customer-salesteam/customer-salesteam.controller';
+import { RoleMenuService } from './services/role-menu/role-menu.service';
+import { RoleMenuController } from './controllers/role-menu/role-menu.controller';
 
 @Module({
   providers: [
@@ -144,7 +146,8 @@ import { CustomerSalesteamController } from './controllers/customer-salesteam/cu
     ChargeGroupService,
     VoyageDetailService,
     FfUserMasterService,
-    CustomerSalesteamService
+    CustomerSalesteamService,
+    RoleMenuService
   ],
   controllers: [
     UserController,
@@ -195,6 +198,7 @@ import { CustomerSalesteamController } from './controllers/customer-salesteam/cu
     VoyageDetailController,
     FfUserMasterController,
     CustomerSalesteamController,
+    RoleMenuController
   ],
   exports: [UserService]
 })

@@ -27,7 +27,7 @@ export class EnquiryHeaderService {
                     CustomerName: payload.CustomerName,
                     DepartmentMasterSid: Number(payload.DepartmentMasterSid),
                     CustomerMasterSid: Number(payload.CustomerMasterSid),
-                    ShipmentExpectedDate: new Date(payload.shipmentDate + "Z"),
+                    ShipmentExpectedDate: payload.shipmentDate,
                     ShipmentType: payload.Segment,
                     status: payload.status || "A",
                     CompanyMasterSid: user['userBranchMaster'][0].CompanyMasterSid,
@@ -148,7 +148,7 @@ export class EnquiryHeaderService {
                 where: { EnquiryHeaderSid: enquiryHeaderSid },
                 data: {
                     CustomerName: payload.CustomerName,
-                    ShipmentExpectedDate: new Date(payload.shipmentDate + "Z"),
+                    ShipmentExpectedDate: payload.shipmentDate,
                     ShipmentType: payload.Segment,
                     status: statusUpdate,
                     updatedBy: user['userEmail'],
