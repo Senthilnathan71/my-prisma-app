@@ -71,6 +71,7 @@ model CompanyMaster {
     categoryMaster      CategoryMaster[]
     productMaster       ProductMaster[]
     chargeGroup         ChargeGroup[]
+    milestoneMaster     MilestoneMaster[]
 }
 
 model BranchMaster {
@@ -125,6 +126,7 @@ model BranchMaster {
     branchBank         BranchBank[]
     terms              TermsAndConditionsMaster[]
     BranchLut          BranchLut[]
+    milestoneMaster    MilestoneMaster[]
 }
 
 model UserMaster {
@@ -157,6 +159,7 @@ model UserMaster {
     userCompanyMaster UserCompanyMaster[]
     userRoleMaster    UserRoleMaster[]
     shortCut          ShortCut[]
+    userHistory       UserLoginHistory[]
 }
 
 model UserBranchMaster {
@@ -346,6 +349,7 @@ model DepartmentMaster {
     customerSupport     CustomerSupport[]
     terms               DepartmentOnTerms[] // inverse relation
     tariffHeader        TariffHeader[]
+    milestoneMaster     MilestoneMaster[]
 }
 
 model PortMaster {
@@ -614,10 +618,10 @@ model EnquiryHeader {
     status               String?   @default("A") @db.Char(1)
     LoginSid             Int?
 
-    companyMaster    CompanyMaster?     @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
-    branchMaster     BranchMaster?      @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
+    companyMaster    CompanyMaster?    @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+    branchMaster     BranchMaster?     @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
     departmentMaster DepartmentMaster? @relation(fields: [DepartmentMasterSid], references: [DepartmentMasterSid])
-    userMaster       UserMaster?        @relation(fields: [UserMasterSid], references: [UserMasterSid])
+    userMaster       UserMaster?       @relation(fields: [UserMasterSid], references: [UserMasterSid])
 
     enquiryRoute   EnquiryRoute[]
     enquiryCargo   EnquiryCargo[]
@@ -643,7 +647,7 @@ model EnquiryRoute {
 
     companyMaster CompanyMaster? @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
     branchMaster  BranchMaster?  @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
-    enquiryHeader EnquiryHeader @relation(fields: [EnquiryHeaderSid], references: [EnquiryHeaderSid])
+    enquiryHeader EnquiryHeader  @relation(fields: [EnquiryHeaderSid], references: [EnquiryHeaderSid])
 
     enquiryCargo   EnquiryCargo[]
     enquiryProduct EnquiryProduct[]
@@ -678,8 +682,8 @@ model EnquiryCargo {
 
     companyMaster CompanyMaster? @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
     branchMaster  BranchMaster?  @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
-    enquiryHeader EnquiryHeader @relation(fields: [EnquiryHeaderSid], references: [EnquiryHeaderSid])
-    enquiryRoute  EnquiryRoute  @relation(fields: [EnquiryRouteSid], references: [EnquiryRouteSid])
+    enquiryHeader EnquiryHeader  @relation(fields: [EnquiryHeaderSid], references: [EnquiryHeaderSid])
+    enquiryRoute  EnquiryRoute   @relation(fields: [EnquiryRouteSid], references: [EnquiryRouteSid])
 }
 
 model CustomerMaster {
@@ -1155,8 +1159,8 @@ model CustomerSalesTeam {
     updatedBy           String?   @db.VarChar(100)
     status              String?   @default("A") @db.Char(1)
 
-    customerBranch   CustomerBranch   @relation(fields: [CustomerBranchSid], references: [CustomerBranchSid])
-    companyMaster    CompanyMaster?   @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+    customerBranch CustomerBranch @relation(fields: [CustomerBranchSid], references: [CustomerBranchSid])
+    companyMaster  CompanyMaster? @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
 }
 
 model CustomerSupport {
@@ -1590,4 +1594,40 @@ model ProductMaster {
     category CategoryMaster? @relation(fields: [CategoryMasterSId], references: [CategoryMasterSId])
     customer CustomerMaster? @relation(fields: [CustomerMasterSid], references: [CustomerMasterSid])
     company  CompanyMaster?  @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+}
+
+model UserLoginHistory {
+    UserLoginHistoryId Int        @id @default(autoincrement()) @map("UserLoginHistoryId")
+    userId             Int
+    loginTime          DateTime   @default(now())
+    ipAddress          String
+    location           String?
+    createdOn          DateTime   @default(now()) @db.Timestamptz(6)
+    updatedOn          DateTime?  @updatedAt @db.Timestamptz(6)
+    deletedAt          DateTime?
+    user               UserMaster @relation(fields: [userId], references: [UserMasterSid])
+}
+
+model MilestoneMaster {
+    MilestoneMasterSid  Int       @id @default(autoincrement()) @map("MilestoneMasterSid")
+    CompanyMasterSid    Int?
+    BranchMasterSid     Int?
+    DepartmentMasterSid Int
+    MilestoneName       String    @db.VarChar(30)
+    MilestoneCode       String    @db.VarChar(30)
+    AutomailRequire     String?   @default("N") @db.Char(1) // checkbox
+    SortBy              Decimal   @db.Decimal(3, 0)
+    ShipmentType        String    @db.VarChar(100) // Export, Import, Transshipment
+    AutoCapture         String?    @default("N") @db.Char(1) // checkbox
+    createdOn           DateTime  @default(now()) @db.Timestamptz(6)
+    updatedOn           DateTime? @updatedAt @db.Timestamptz(6)
+    deletedAt           DateTime?
+    createdBy           String    @db.VarChar(100)
+    updatedBy           String?   @db.VarChar(100)
+    status              String?   @default("A") @db.Char(1)
+    Remarks             String?    @db.VarChar(500)
+
+    departmentMaster DepartmentMaster @relation(fields: [DepartmentMasterSid], references: [DepartmentMasterSid])
+    branchMaster     BranchMaster?     @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
+    companyMaster    CompanyMaster?    @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
 }
