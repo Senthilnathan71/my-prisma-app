@@ -48,7 +48,7 @@ export class ModuleService {
         try {
             const moduleList = await this._db.moduleMaster.findMany({
                 where: {
-                    status: 'A'
+                    deletedAt : null
                 }
             })
             return moduleList;

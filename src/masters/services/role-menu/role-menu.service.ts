@@ -102,12 +102,17 @@ export class RoleMenuService {
     async searchroleMenu(data:SearchListDto){
         const {searchType,filterValue}=data;
         const intFields=[
-            ''
+            'RoleMasterSid',
         ];
         const stringFields = [
-            ''
+            'Module',
+            'InsertRole',
+            'ViewRole',
+            'UpdateRole',
+            'DeleteRole',
+            'status',
         ];
-        const acceptedType = [...intFields,...stringFields];
+        const acceptedType = [...intFields,...stringFields,'MenuMasterSid'];
         if(!acceptedType.includes(searchType)){
             throw new BadRequestException('Invalid Search Type');
         }
@@ -125,12 +130,21 @@ export class RoleMenuService {
                 throw new BadRequestException(`${searchType} must be a valid number`);
             }
             whereClause[searchType]=numberValue;
+        } else if(searchType === 'MenuMasterSid'){
+            return await this.searchRoleMenuByMenu(filterValue);
         }
 
         const searchResults = await this._db.roleMenuMaster.findMany({
             where : {
                 ...whereClause,
                 deletedAt:null
+            },
+            include : {
+                menuMaster : {
+                    select : {
+                        MenuName : true
+                    }
+                }
             }
         }).catch((err) => {
             throw new Error(`Error Occured : ${JSON.stringify(err), err}`);
@@ -138,6 +152,59 @@ export class RoleMenuService {
 
         return searchResults;
 
+    }
+
+    async searchRoleMenuByMenu(filterValue){
+        try {
+            const allRoleMenu = await this._db.roleMenuMaster.findMany({
+                where: {
+                    menuMaster: {
+                        MenuName: {
+                            contains: filterValue,
+                            mode: 'insensitive',
+                        },
+                    },
+                    deletedAt: null,
+                },
+                include: {
+                    menuMaster: {
+                        select: {
+                            MenuName: true
+                        }
+                    }
+                }
+            })
+            return allRoleMenu;
+        } catch (error) {
+            throw error;
+        }
+    }
+
+
+    async roleMenuSpecialSearch(data: any) {
+        const { moduleName, role, remarks } = data;
+        const whereClause: any = {
+            deletedAt: null,
+        };
+
+        
+        if (moduleName) whereClause.Module = moduleName;
+        if (role) whereClause.RoleMasterSid = Number(role);
+        if (remarks) whereClause.Remarks = { contains: remarks, mode: 'insensitive' };
+
+        
+        const fetchedData = await this._db.roleMenuMaster.findMany({
+            where: Object.keys(whereClause).length > 0 ? whereClause : undefined,
+            include: {
+                menuMaster: {
+                    select: {
+                        MenuName: true,
+                    },
+                },
+            },
+        });
+
+        return fetchedData;
     }
 
 }
