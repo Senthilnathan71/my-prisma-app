@@ -173,4 +173,31 @@ export class MenuController {
         return output
     }
 
+    @ApiOperation({ summary: 'Get Menu By Module Id' })
+    @ApiCreatedResponse({
+        description: 'Get Menu By Module Id',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Get('fetchByModule/:ModuleMasterSid')
+    async getMenuByModuleId(@Param('ModuleMasterSid', ParseIntPipe) moduleId: number) {
+        const output = new ResponseData;
+        try {
+            this.logger.log(`Getting Menus with Module Id : ${moduleId}`)
+            const menu = await this.menuService.getMenusByModule(moduleId)
+            this.logger.debug(`getMenusByModuleId: ${JSON.stringify(menu)}`)
+            output.data = menu
+            output.message = `Menus with Module Id : ${moduleId} are successfully fetched`
+        } catch (error) {
+            this.logger.warn(`getMenusByModuleId: ${JSON.stringify(error)}`)
+            output.status = false;
+            if(error instanceof BadRequestException || error instanceof UnauthorizedException){
+                output.message = error.message
+            } else {
+            output.message = "Internal Server Error"
+            }
+        }
+        return output;
+    }
+
 }

@@ -21,3 +21,22 @@ export const checkIfFileExists = (path = '') => {
         return false
     }
 }
+
+
+
+export const getClientIp = (req: any): string => {
+  const xForwardedFor = req.headers['x-forwarded-for'];
+  if (xForwardedFor) {
+    // Sometimes contains a list: "client, proxy1, proxy2"
+    const ips = xForwardedFor.split(',').map(ip => ip.trim());
+    return ips[0]; // return the first (client IP)
+  }
+
+  return (
+    req.connection?.remoteAddress ||
+    req.socket?.remoteAddress ||
+    req.connection?.socket?.remoteAddress ||
+    'unknown'
+  );
+};
+

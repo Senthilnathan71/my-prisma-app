@@ -162,4 +162,18 @@ export class MenuService {
 
 
     }
+
+    async getMenusByModule(ModuleMasterSid){
+        try {
+            const menus = await this._db.menuMaster.findMany({
+                where : {
+                    ModuleMasterSid : ModuleMasterSid,
+                    deletedAt : null
+                }
+            })
+            return menus;
+        } catch (error) {
+            throw error;
+        }
+    }
 }

@@ -179,5 +179,36 @@ export class RoleMenuController {
         }
         return resp;
     }
+
+
+    @ApiOperation({ summary: 'Role Menu Special Search' })
+    @ApiCreatedResponse({
+        description: 'Role Menu Special Search',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Post('special-search')
+    async roleMenuSpecialSearch(@Body() body: any) {
+        let resp = new ResponseData();
+        try {
+            this.logger.log(`Getting RoleMenu by special search : ${JSON.stringify(body)}`);
+            let res = await this.RoleMenuService.roleMenuSpecialSearch(body);
+            this.logger.debug(`Fetched RoleMenus : ${JSON.stringify(res)}`);
+            resp.data = res;
+            resp.message = `RoleMenus : ${JSON.stringify(body)} is successfully fetched`;
+        } catch (error) {
+            this.logger.warn(`Get RoleMenu by special search Error : ${JSON.stringify(error), error}`);
+            resp.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                resp.message = error.message;
+            } else {
+                resp.message = "Internal Server Error";
+            }
+        }
+        return resp;
+    }
+
+
+
 }
 

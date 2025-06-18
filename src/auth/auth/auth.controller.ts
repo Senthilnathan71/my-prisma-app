@@ -35,7 +35,7 @@ export class AuthController {
     })
     @HttpCode(HttpStatus.OK)
     @Post('login')
-    async login(@Body() loginData: LoginRequest) {
+    async login(@Body() loginData: LoginRequest,@Req() req: any) {
         let output = new ResponseData();
         try {
             if (!loginData.email || !loginData.password) {
@@ -76,7 +76,7 @@ export class AuthController {
         })
             };
             this.logger.log(`Login successful for email: ${loginData.email}`);
-
+            await this.authService.userHistory(user,loginData,req)
         } catch (error) {
             this.logger.error(`Login error for email: ${loginData.email || 'unknown'} - ${error.message}`);
             output.status = false;
