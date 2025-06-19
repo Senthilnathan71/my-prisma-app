@@ -96,6 +96,8 @@ import { CustomerSalesteamService } from './services/customer-salesteam/customer
 import { CustomerSalesteamController } from './controllers/customer-salesteam/customer-salesteam.controller';
 import { RoleMenuService } from './services/role-menu/role-menu.service';
 import { RoleMenuController } from './controllers/role-menu/role-menu.controller';
+import { MilestoneController } from './controllers/milestone/milestone.controller';
+import { MilestoneService } from './services/milestone/milestone.service';
 
 @Module({
   providers: [
@@ -147,7 +149,8 @@ import { RoleMenuController } from './controllers/role-menu/role-menu.controller
     VoyageDetailService,
     FfUserMasterService,
     CustomerSalesteamService,
-    RoleMenuService
+    RoleMenuService,
+    MilestoneService
   ],
   controllers: [
     UserController,
@@ -198,7 +201,8 @@ import { RoleMenuController } from './controllers/role-menu/role-menu.controller
     VoyageDetailController,
     FfUserMasterController,
     CustomerSalesteamController,
-    RoleMenuController
+    RoleMenuController,
+    MilestoneController
   ],
   exports: [UserService]
 })
