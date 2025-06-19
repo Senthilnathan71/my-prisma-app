@@ -72,6 +72,8 @@ model CompanyMaster {
     productMaster       ProductMaster[]
     chargeGroup         ChargeGroup[]
     milestoneMaster     MilestoneMaster[]
+    authorityMaster     AuthorityMaster[]
+    authorityDetail     AuthorityDetail[]
 }
 
 model BranchMaster {
@@ -127,6 +129,8 @@ model BranchMaster {
     terms              TermsAndConditionsMaster[]
     BranchLut          BranchLut[]
     milestoneMaster    MilestoneMaster[]
+    authorityMaster    AuthorityMaster[]
+    authorityDetail    AuthorityDetail[]
 }
 
 model UserMaster {
@@ -160,6 +164,7 @@ model UserMaster {
     userRoleMaster    UserRoleMaster[]
     shortCut          ShortCut[]
     userHistory       UserLoginHistory[]
+    authorityDetail   AuthorityDetail[]
 }
 
 model UserBranchMaster {
@@ -1618,16 +1623,55 @@ model MilestoneMaster {
     AutomailRequire     String?   @default("N") @db.Char(1) // checkbox
     SortBy              Decimal   @db.Decimal(3, 0)
     ShipmentType        String    @db.VarChar(100) // Export, Import, Transshipment
-    AutoCapture         String?    @default("N") @db.Char(1) // checkbox
+    AutoCapture         String?   @default("N") @db.Char(1) // checkbox
     createdOn           DateTime  @default(now()) @db.Timestamptz(6)
     updatedOn           DateTime? @updatedAt @db.Timestamptz(6)
     deletedAt           DateTime?
     createdBy           String    @db.VarChar(100)
     updatedBy           String?   @db.VarChar(100)
     status              String?   @default("A") @db.Char(1)
-    Remarks             String?    @db.VarChar(500)
+    Remarks             String?   @db.VarChar(500)
 
     departmentMaster DepartmentMaster @relation(fields: [DepartmentMasterSid], references: [DepartmentMasterSid])
-    branchMaster     BranchMaster?     @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
-    companyMaster    CompanyMaster?    @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+    branchMaster     BranchMaster?    @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
+    companyMaster    CompanyMaster?   @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+}
+
+model AuthorityMaster {
+    AuthorityMasterSid Int       @id @default(autoincrement()) @map("AuthorityMasterSid")
+    CompanyMasterSid   Int
+    BranchMasterSid    Int
+    DepartmentMaster   String[]
+    MenuMaster         Int //-- screen name
+    createdOn          DateTime  @default(now()) @db.Timestamptz(6)
+    updatedOn          DateTime? @updatedAt @db.Timestamptz(6)
+    deletedAt          DateTime?
+    createdBy          String    @db.VarChar(100)
+    updatedBy          String?   @db.VarChar(100)
+    status             String?   @default("A") @db.Char(1)
+    Remarks            String?   @db.VarChar(500)
+
+    branchMaster  BranchMaster  @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
+    companyMaster CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+    menuMaster    MenuMaster    @relation(fields: [MenuMaster], references: [MenuMasterSid])
+}
+
+model AuthorityDetail {
+    AuthorityDetailSid Int       @id @default(autoincrement()) @map("AuthorityDetailSid")
+    CompanyMasterSid   Int
+    BranchMasterSid    Int
+    UserMasterSid      Int
+    AuthorityLevel     Int
+    FinalAuthority     String    @default("Y") @db.Char(1)
+    createdOn          DateTime  @default(now()) @db.Timestamptz(6)
+    updatedOn          DateTime? @updatedAt @db.Timestamptz(6)
+    deletedAt          DateTime?
+    createdBy          String    @db.VarChar(100)
+    updatedBy          String?   @db.VarChar(100)
+    status             String?   @default("A") @db.Char(1)
+    Remarks            String?   @db.VarChar(500)
+
+    branchMaster  BranchMaster  @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
+    companyMaster CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+    userMaster    UserMaster    @relation(fields: [UserMasterSid], references: [UserMasterSid])
 }
