@@ -98,6 +98,10 @@ import { RoleMenuService } from './services/role-menu/role-menu.service';
 import { RoleMenuController } from './controllers/role-menu/role-menu.controller';
 import { MilestoneController } from './controllers/milestone/milestone.controller';
 import { MilestoneService } from './services/milestone/milestone.service';
+import { AuthorityController } from './controllers/authority/authority.controller';
+import { AuthorityService } from './services/authority/authority.service';
+import { AuthorityDetailService } from './services/authority-detail/authority-detail.service';
+import { AuthorityDetailController } from './controllers/authority-detail/authority-detail.controller';
 
 @Module({
   providers: [
@@ -150,7 +154,9 @@ import { MilestoneService } from './services/milestone/milestone.service';
     FfUserMasterService,
     CustomerSalesteamService,
     RoleMenuService,
-    MilestoneService
+    MilestoneService,
+    AuthorityService,
+    AuthorityDetailService
   ],
   controllers: [
     UserController,
@@ -202,7 +208,9 @@ import { MilestoneService } from './services/milestone/milestone.service';
     FfUserMasterController,
     CustomerSalesteamController,
     RoleMenuController,
-    MilestoneController
+    MilestoneController,
+    AuthorityController,
+    AuthorityDetailController
   ],
   exports: [UserService]
 })
