@@ -25,55 +25,56 @@ model CompanyMaster {
     StateMasterSid    Int
     Pan               String?   @db.VarChar(20)
 
-    cityMaster          CityMaster?                @relation(fields: [CityMasterSid], references: [CityMasterSid])
-    countryMaster       CountryMaster              @relation(fields: [CountryMasterSid], references: [CountryMasterSid])
-    currencyMaster      CurrencyMaster?            @relation(fields: [CurrencyMasterSid], references: [CurrencyMasterSid])
-    stateMaster         StateMaster                @relation(fields: [StateMasterSid], references: [StateMasterSid])
-    branchMaster        BranchMaster[]
-    chargeMaster        ChargeMaster[]
-    chargeTaxMaster     ChargeTaxMaster[]
-    packageTypeMaster   PackageTypeMaster[]
-    departmentMaster    DepartmentMaster[]
-    preCustomerMaster   PreCustomerMaster[]
-    preCustomerMeeting  PreCustomerMeeting[]
-    userBranchMaster    UserBranchMaster[]
-    meetingFollowup     MeetingFollowup[]
-    enquiryHeader       EnquiryHeader[]
-    enquiryRoute        EnquiryRoute[]
-    enquiryCargo        EnquiryCargo[]
-    customerMaster      CustomerMaster[]
-    quoteHeader         QuoteHeader[]
-    quoteRoute          QuoteRoute[]
-    quoteCarrier        QuoteCarrier[]
-    quoteCharge         QuoteCharge[]
-    routingHeader       RoutingHeader[]
-    enquiryProduct      EnquiryProduct[]
-    bookingHeader       BookingHeader[]
-    bookingCargo        BookingCargo[]
-    customerBranch      CustomerBranch[]
-    cusBranchContact    CusBranchContact[]
-    customerBrEmail     CustomerBrEmail[]
-    customerLogin       CustomerLogin[]
-    customerSalesTeam   CustomerSalesTeam[]
-    customerSupport     CustomerSupport[]
-    currencyExchange    CurrencyExchange[]
-    divisionMaster      DivisionMaster[]
-    userCompanyMaster   UserCompanyMaster[]
-    roleMaster          RoleMaster[]
-    roleMenuMaster      RoleMenuMaster[]
-    preCustomerEvent    PreCustomerEvent[]
-    containerTypeMaster ContainerTypeMaster[]
-    terms               TermsAndConditionsMaster[]
-    customerGroupMaster CustomerGroupMaster[]
-    tariffHeader        TariffHeader[]
-    tariffDetail        TariffDetail[]
-    tdsSetHeader        TDSSetHeader[]
-    categoryMaster      CategoryMaster[]
-    productMaster       ProductMaster[]
-    chargeGroup         ChargeGroup[]
-    milestoneMaster     MilestoneMaster[]
-    authorityMaster     AuthorityMaster[]
-    authorityDetail     AuthorityDetail[]
+    cityMaster                              CityMaster?                @relation(fields: [CityMasterSid], references: [CityMasterSid])
+    countryMaster                           CountryMaster              @relation(fields: [CountryMasterSid], references: [CountryMasterSid])
+    currencyMaster                          CurrencyMaster?            @relation(fields: [CurrencyMasterSid], references: [CurrencyMasterSid])
+    stateMaster                             StateMaster                @relation(fields: [StateMasterSid], references: [StateMasterSid])
+    branchMaster                            BranchMaster[]
+    chargeMaster                            ChargeMaster[]
+    chargeTaxMaster                         ChargeTaxMaster[]
+    packageTypeMaster                       PackageTypeMaster[]
+    departmentMaster                        DepartmentMaster[]
+    preCustomerMaster                       PreCustomerMaster[]
+    preCustomerMeeting                      PreCustomerMeeting[]
+    userBranchMaster                        UserBranchMaster[]
+    meetingFollowup                         MeetingFollowup[]
+    enquiryHeader                           EnquiryHeader[]
+    enquiryRoute                            EnquiryRoute[]
+    enquiryCargo                            EnquiryCargo[]
+    customerMaster                          CustomerMaster[]
+    quoteHeader                             QuoteHeader[]
+    quoteRoute                              QuoteRoute[]
+    quoteCarrier                            QuoteCarrier[]
+    quoteCharge                             QuoteCharge[]
+    routingHeader                           RoutingHeader[]
+    enquiryProduct                          EnquiryProduct[]
+    bookingHeader                           BookingHeader[]
+    bookingCargo                            BookingCargo[]
+    customerBranch                          CustomerBranch[]
+    cusBranchContact                        CusBranchContact[]
+    customerBrEmail                         CustomerBrEmail[]
+    customerLogin                           CustomerLogin[]
+    customerSalesTeam                       CustomerSalesTeam[]
+    customerSupport                         CustomerSupport[]
+    currencyExchange                        CurrencyExchange[]
+    divisionMaster                          DivisionMaster[]
+    userCompanyMaster                       UserCompanyMaster[]
+    roleMaster                              RoleMaster[]
+    roleMenuMaster                          RoleMenuMaster[]
+    preCustomerEvent                        PreCustomerEvent[]
+    containerTypeMaster                     ContainerTypeMaster[]
+    terms                                   TermsAndConditionsMaster[]
+    customerGroupMaster                     CustomerGroupMaster[]
+    tariffHeader                            TariffHeader[]
+    tariffDetail                            TariffDetail[]
+    tdsSetHeader                            TDSSetHeader[]
+    categoryMaster                          CategoryMaster[]
+    productMaster                           ProductMaster[]
+    chargeGroup                             ChargeGroup[]
+    milestoneMaster                         MilestoneMaster[]
+    authorityMaster                         AuthorityMaster[]
+    authorityDetail                         AuthorityDetail[]
+    documentTypeMaster                      DocumentTypeMaster[]
 }
 
 model BranchMaster {
@@ -131,6 +132,7 @@ model BranchMaster {
     milestoneMaster    MilestoneMaster[]
     authorityMaster    AuthorityMaster[]
     authorityDetail    AuthorityDetail[]
+    documentTypeMaster DocumentTypeMaster[]
 }
 
 model UserMaster {
@@ -1674,4 +1676,22 @@ model AuthorityDetail {
     branchMaster  BranchMaster  @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
     companyMaster CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
     userMaster    UserMaster    @relation(fields: [UserMasterSid], references: [UserMasterSid])
+}
+
+model DocumentTypeMaster {
+    DocumentTypeMasterSid Int       @id @default(autoincrement()) @map("DocumentTypeMasterSid")
+    CompanyMasterSid      Int
+    BranchMasterSid       Int
+    VoucherTypeName       String    @db.VarChar(100)
+    VoucherTypeCode       String    @db.VarChar(100)
+    createdOn             DateTime  @default(now()) @db.Timestamptz(6)
+    updatedOn             DateTime? @updatedAt @db.Timestamptz(6)
+    deletedAt             DateTime?
+    createdBy             String    @db.VarChar(100)
+    updatedBy             String?   @db.VarChar(100)
+    status                String?   @default("A") @db.Char(1)
+    Remarks               String?   @db.VarChar(500)
+
+    branchMaster  BranchMaster  @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
+    companyMaster CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
 }
