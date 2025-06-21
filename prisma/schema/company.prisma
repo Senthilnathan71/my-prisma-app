@@ -142,7 +142,7 @@ model UserMaster {
     userPassword      String              @db.VarChar(100)
     isSalesperson     String?             @db.Char(1)
     contactNumber     String?             @db.VarChar(20)
-    department        String?             @db.VarChar(20)
+    department        String[]             @db.VarChar(500)
     designation       String?             @db.VarChar(20)
     DefaultDept       String?             @db.VarChar(20)
     Principal         Int?
@@ -157,16 +157,18 @@ model UserMaster {
     status            String              @default("A") @db.Char(1)
     CountryMasterSid  Int
     LoginSid          Int?
+    userTypeId        Int
     UserMasterSid     Int                 @id @default(autoincrement()) @map("UserMasterSid")
     userBranchMaster  UserBranchMaster[]
     enquiryHeader     EnquiryHeader[]
-    countryMaster     CountryMaster       @relation(fields: [CountryMasterSid], references: [CountryMasterSid])
     customerSupport   CustomerSupport[]
     userCompanyMaster UserCompanyMaster[]
     userRoleMaster    UserRoleMaster[]
     shortCut          ShortCut[]
     userHistory       UserLoginHistory[]
     authorityDetail   AuthorityDetail[]
+    countryMaster     CountryMaster       @relation(fields: [CountryMasterSid], references: [CountryMasterSid])
+    userType     UserType       @relation(fields: [userTypeId], references: [UserTypeSid])
 }
 
 model UserBranchMaster {

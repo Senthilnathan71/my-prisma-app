@@ -94,3 +94,22 @@ model RoleMenuMaster {
     menuMaster    MenuMaster     @relation(fields: [MenuMasterSid], references: [MenuMasterSid])
     companyMaster CompanyMaster? @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
 }
+
+
+model UserType{
+UserTypeSid Int       @id @default(autoincrement()) @map("UserTypeSid")
+name String @unique() @db.VarChar(50)
+code UserTypeCode @unique
+createdOn         DateTime  @default(now()) @db.Timestamptz(6)
+    updatedOn         DateTime? @updatedAt @db.Timestamptz(6)
+    deletedAt         DateTime?
+
+    userMaster UserMaster[]
+}
+
+enum UserTypeCode{
+    admin
+    manager
+    teamLead
+    user
+}
