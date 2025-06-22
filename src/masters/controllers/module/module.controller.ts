@@ -55,6 +55,7 @@ export class ModuleController {
     @Get()
     async getAllModules(@UserData() user:any) {
         let output = new ResponseData;
+        console.log(user,'userData')
         try {
             let moduleData = await this.moduleService.getAllModules();
             this.logger.log(`getAllmodules: ${JSON.stringify(moduleData)}`)
