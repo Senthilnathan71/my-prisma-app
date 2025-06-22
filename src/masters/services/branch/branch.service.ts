@@ -60,12 +60,32 @@ export class BranchService {
             const ourBranch = await this._db.branchMaster.findUnique({
                 where: {
                     BranchMasterSid: BranchMasterSid
+
                 },
             })
             if (!ourBranch) {
                 throw new BadRequestException(`Branch with id : ${BranchMasterSid} not exists`);
             }
             return ourBranch;
+        } catch (error) {
+            throw error;
+        }
+    }
+        async getBranchesByCompanyId(CompanyMasterSid: number) {
+        try {
+            const branches = await this._db.branchMaster.findMany({
+                where: {
+                    CompanyMasterSid: CompanyMasterSid,
+                    deletedAt: null
+                },
+                
+            });
+            
+            if (!branches || branches.length === 0) {
+                throw new BadRequestException(`No branches found for Company with id : ${CompanyMasterSid}`);
+            }
+            
+            return branches;
         } catch (error) {
             throw error;
         }
