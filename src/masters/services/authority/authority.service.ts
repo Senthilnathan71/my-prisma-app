@@ -15,7 +15,8 @@ export class AuthorityService {
                 include: {
                     branchMaster: true,
                     companyMaster: true,
-                    menuMaster: true
+                    menuMaster: true,
+                    
                 }
             });
             return allAuthorities;
@@ -113,7 +114,7 @@ export class AuthorityService {
                 include: {
                     branchMaster: true,
                     companyMaster: true,
-                    menuMaster: true
+                    menuMaster: true,
                 }
             });
             return deletedAuthority;
@@ -144,11 +145,17 @@ export class AuthorityService {
 
         const whereClause: any = {}
 
-        if (stringFields.includes(searchType)) {
-            whereClause[searchType] = {
-                contains: filterValue,
-                mode: 'insensitive'
-            }
+       if (searchType === 'DepartmentMaster') {
+  whereClause[searchType] = {
+    has: filterValue
+  };
+} else if (stringFields.includes(searchType)) {
+  whereClause[searchType] = {
+    contains: filterValue,
+    mode: 'insensitive'
+  };
+
+
         } else if (intFields.includes(searchType)) {
             const numberValue = parseInt(filterValue);
             if (isNaN(numberValue)) {

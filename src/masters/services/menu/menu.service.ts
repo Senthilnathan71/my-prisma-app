@@ -57,7 +57,7 @@ export class MenuService {
         try {
             const menuList = await this._db.menuMaster.findMany({
                 where: {
-                    status: 'A'
+                    deletedAt: null
                 }
             })
             return menuList;
@@ -155,6 +155,9 @@ export class MenuService {
                 },
                 deletedAt: null,
             },
+            orderBy : {
+                MenuMasterSid : 'asc'
+            }
         }).catch(err => {
             throw new Error(`Error Search menu: ${err}`);
         });
@@ -169,7 +172,7 @@ export class MenuService {
                 where : {
                     ModuleMasterSid : ModuleMasterSid,
                     deletedAt : null
-                }
+                },
             })
             return menus;
         } catch (error) {

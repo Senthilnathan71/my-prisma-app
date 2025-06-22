@@ -93,6 +93,32 @@ export class BranchController {
         }
         return resp;
     }
+        @ApiOperation({ summary: 'Get Branches by Company ID' })
+    @ApiCreatedResponse({
+        description: "Get Branches by Company ID",
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Get('company/:CompanyMasterID')
+    async getBranchesByCompanyId(@Param('CompanyMasterID', ParseIntPipe) CompanyMasterSid: number) {
+        let resp = new ResponseData();
+        try {
+            this.logger.log(`Getting Branches for Company with id : ${CompanyMasterSid}`);
+            let res = await this.branchService.getBranchesByCompanyId(CompanyMasterSid);
+            this.logger.debug(`Fetched Branches : ${JSON.stringify(res)}`);
+            resp.data = res;
+            resp.message = `Branches for Company with id : ${CompanyMasterSid} are successfully fetched`;
+        } catch (error) {
+            this.logger.warn(`Get Branches by Company ID Error : ${JSON.stringify(error), error}`)
+            resp.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                resp.message = error.message;
+            } else {
+                resp.message = "Internal Server Error";
+            }
+        }
+        return resp;
+    }
 
 
 
