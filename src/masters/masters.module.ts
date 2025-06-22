@@ -102,6 +102,8 @@ import { AuthorityController } from './controllers/authority/authority.controlle
 import { AuthorityService } from './services/authority/authority.service';
 import { AuthorityDetailService } from './services/authority-detail/authority-detail.service';
 import { AuthorityDetailController } from './controllers/authority-detail/authority-detail.controller';
+import { UserTypeController } from './controllers/user-type/user-type.controller';
+import { UserTypeService } from './services/user-type/user-type.service';
 
 @Module({
   providers: [
@@ -156,7 +158,8 @@ import { AuthorityDetailController } from './controllers/authority-detail/author
     RoleMenuService,
     MilestoneService,
     AuthorityService,
-    AuthorityDetailService
+    AuthorityDetailService,
+    UserTypeService
   ],
   controllers: [
     UserController,
@@ -210,7 +213,8 @@ import { AuthorityDetailController } from './controllers/authority-detail/author
     RoleMenuController,
     MilestoneController,
     AuthorityController,
-    AuthorityDetailController
+    AuthorityDetailController,
+    UserTypeController
   ],
   exports: [UserService]
 })

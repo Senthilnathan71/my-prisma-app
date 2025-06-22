@@ -78,7 +78,7 @@ export class FfUserMasterController {
         try {
             this.logger.log(`Getting User with id : ${UserMasterSid}`);
             let res = await this.ffUserMasterService.fetchFfUserById(UserMasterSid);
-            this.logger.debug(`Fetched BlClasue : ${JSON.stringify(res)}`);
+            this.logger.debug(`Fetched ffUser : ${JSON.stringify(res)}`);
             resp.data = res;
             resp.message = `User with id : ${UserMasterSid} is successfully fetched`;
         } catch (error) {
