@@ -53,7 +53,7 @@ export class ModuleController {
     })
     @HttpCode(HttpStatus.OK)
     @Get()
-    async getAllModules() {
+    async getAllModules(@UserData() user:any) {
         let output = new ResponseData;
         try {
             let moduleData = await this.moduleService.getAllModules();
