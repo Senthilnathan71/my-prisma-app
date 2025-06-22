@@ -75,6 +75,7 @@ model CompanyMaster {
     authorityMaster                         AuthorityMaster[]
     authorityDetail                         AuthorityDetail[]
     documentTypeMaster                      DocumentTypeMaster[]
+    yearMaster                              YearMaster[]
 }
 
 model BranchMaster {
@@ -157,7 +158,7 @@ model UserMaster {
     status            String              @default("A") @db.Char(1)
     CountryMasterSid  Int
     LoginSid          Int?
-    userTypeId        Int
+    userTypeId        Int?
     UserMasterSid     Int                 @id @default(autoincrement()) @map("UserMasterSid")
     userBranchMaster  UserBranchMaster[]
     enquiryHeader     EnquiryHeader[]
@@ -168,7 +169,7 @@ model UserMaster {
     userHistory       UserLoginHistory[]
     authorityDetail   AuthorityDetail[]
     countryMaster     CountryMaster       @relation(fields: [CountryMasterSid], references: [CountryMasterSid])
-    userType     UserType       @relation(fields: [userTypeId], references: [UserTypeSid])
+    userType     UserType?       @relation(fields: [userTypeId], references: [UserTypeSid])
 }
 
 model UserBranchMaster {
@@ -1696,4 +1697,26 @@ model DocumentTypeMaster {
 
     branchMaster  BranchMaster  @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
     companyMaster CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+}
+
+
+model YearMaster {
+  YearMasterSid     Int      @id @default(autoincrement()) @map("YearMasterSid")
+  CompanyMasterSid  Int
+  YearName          String   @db.VarChar(10) // Add input validation in backend to avoid special characters
+  YearCode          Int
+  StartDate         DateTime
+  EndDate           DateTime
+  CurrentYear       String   @db.Char(1)
+  YearEndCompleted  String   @db.Char(1)
+createdOn             DateTime  @default(now()) @db.Timestamptz(6)
+    updatedOn             DateTime? @updatedAt @db.Timestamptz(6)
+    deletedAt             DateTime?
+    createdBy             String    @db.VarChar(100)
+    updatedBy             String?   @db.VarChar(100)
+    status                String?   @default("A") @db.Char(1)
+    Remarks               String?   @db.VarChar(500)
+
+    companyMaster CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+
 }
