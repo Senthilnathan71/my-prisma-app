@@ -76,6 +76,7 @@ model CompanyMaster {
     authorityDetail     AuthorityDetail[]
     documentTypeMaster  DocumentTypeMaster[]
     yearMaster          YearMaster[]
+    tandCTransaction TandCTransaction[]
 }
 
 model BranchMaster {
@@ -1360,6 +1361,7 @@ model TermsAndConditionsMaster {
 
     departments              DepartmentOnTerms[] // relation table
     termsAndConditionsDetail TermsAndConditionsDetail[]
+    tandCTransaction TandCTransaction[]
 }
 
 model DepartmentOnTerms {
@@ -1389,6 +1391,8 @@ model TermsAndConditionsDetail {
     IsDefaut                    String    @default("A") @db.Char(1)
 
     terms TermsAndConditionsMaster @relation(fields: [TermsAndConditionsMasterSid], references: [TermsAndConditionsMasterSid])
+
+    tandCTransaction TandCTransaction[]
 }
 
 model CustomerGroupMaster {
@@ -1735,3 +1739,46 @@ model YearMaster {
 
     companyMaster CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
 }
+
+
+model TandCTransaction {
+    TandCTransactionSid Int       @id @default(autoincrement()) @map("TandCTransactionSid") 
+    CompanyMasterSid Int
+    TandCMasterSid	Int
+    TandCDetailSid  	Int
+    Terms			String    @db.VarChar(1000) 
+    DocumentSid		Int?  //Booking,enquiry,Invoice sid use here
+    createdOn        DateTime  @default(now()) @db.Timestamptz(6)
+    updatedOn        DateTime? @updatedAt @db.Timestamptz(6)
+    deletedAt        DateTime?
+    createdBy        String    @db.VarChar(100)
+    updatedBy        String?   @db.VarChar(100)
+    status           String?   @default("A") @db.Char(1)
+
+    companyMaster CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+    terms TermsAndConditionsMaster @relation(fields: [TandCMasterSid], references: [TermsAndConditionsMasterSid])
+    termDetails TermsAndConditionsDetail @relation(fields: [TandCDetailSid], references: [TermsAndConditionsDetailSid])
+
+}
+
+
+model FavouriteScreen{
+    FavScreenId Int       @id @default(autoincrement()) @map("FavScreenId")
+    path        String    @db.VarChar(255)              // Increased size
+    screenName  String?   @db.VarChar(100)              // Optional: for UI display
+    createdOn        DateTime  @default(now()) @db.Timestamptz(6)
+    createdBy        String    @db.VarChar(100)
+    userId      Int
+}
+
+
+model RecentScreen{
+    RecentScreenId Int       @id @default(autoincrement()) @map("RecentScreenId")
+    path           String  @db.VarChar(255)
+    screenName     String? @db.VarChar(100)
+    createdOn        DateTime  @default(now()) @db.Timestamptz(6)
+    createdBy        String    @db.VarChar(100)
+    userId      Int
+}
+
+
