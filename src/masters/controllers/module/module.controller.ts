@@ -78,7 +78,7 @@ export class ModuleController {
         type: ResponseData
     })
     @HttpCode(HttpStatus.OK)
-    @Get('/navigation-list')
+    @Get('navigation-list')
     async getAllModulesAndMenus(@UserData() user: any) {
         let output = new ResponseData;
         console.log(user, 'userData')

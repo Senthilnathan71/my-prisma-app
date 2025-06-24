@@ -35,7 +35,7 @@ export class AuthController {
     })
     @HttpCode(HttpStatus.OK)
     @Post('login')
-    async login(@Body() loginData: LoginRequest,@Req() req: any) {
+    async login(@Body() loginData: LoginRequest, @Req() req: any) {
         let output = new ResponseData();
         try {
             if (!loginData.email || !loginData.password) {
@@ -52,12 +52,14 @@ export class AuthController {
 
 
             // Salesperson logic
-            if (loginData.projectType === 'salesperson' && user.isSalesperson !== '1') {
-                throw new UnauthorizedException('Only salesperson can log in to this app.');
+            const isSalesperson = String(user.isSalesperson) === '1';
+
+            if (loginData.projectType === 'freight-forwarding' && isSalesperson) {
+                throw new UnauthorizedException('Salesperson not allowed in this app.');
             }
 
-            if (loginData.projectType === 'freight-forwarding' && user.isSalesperson !== null) {
-                throw new UnauthorizedException('Salesperson not allowed in this app.');
+            if (loginData.projectType === 'salesperson' && !isSalesperson) {
+                throw new UnauthorizedException('Only salesperson can log in to this app.');
             }
 
             const isPasswordMatching = checkPassword(loginData.password, user.userPassword);
@@ -71,12 +73,12 @@ export class AuthController {
             output.data = {
                 user: await this.authService.getUser(user.UserMasterSid),
                 token: await this.jwtService.sign({
-            id: user.UserMasterSid,
-            projectType: loginData.projectType
-        })
+                    id: user.UserMasterSid,
+                    projectType: loginData.projectType
+                })
             };
             this.logger.log(`Login successful for email: ${loginData.email}`);
-            await this.authService.userHistory(user,loginData,req)
+            await this.authService.userHistory(user, loginData, req)
         } catch (error) {
             this.logger.error(`Login error for email: ${loginData.email || 'unknown'} - ${error.message}`);
             output.status = false;
