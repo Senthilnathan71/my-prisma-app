@@ -96,6 +96,14 @@ import { CustomerSalesteamService } from './services/customer-salesteam/customer
 import { CustomerSalesteamController } from './controllers/customer-salesteam/customer-salesteam.controller';
 import { RoleMenuService } from './services/role-menu/role-menu.service';
 import { RoleMenuController } from './controllers/role-menu/role-menu.controller';
+import { MilestoneController } from './controllers/milestone/milestone.controller';
+import { MilestoneService } from './services/milestone/milestone.service';
+import { AuthorityController } from './controllers/authority/authority.controller';
+import { AuthorityService } from './services/authority/authority.service';
+import { AuthorityDetailService } from './services/authority-detail/authority-detail.service';
+import { AuthorityDetailController } from './controllers/authority-detail/authority-detail.controller';
+import { UserTypeController } from './controllers/user-type/user-type.controller';
+import { UserTypeService } from './services/user-type/user-type.service';
 
 @Module({
   providers: [
@@ -147,7 +155,11 @@ import { RoleMenuController } from './controllers/role-menu/role-menu.controller
     VoyageDetailService,
     FfUserMasterService,
     CustomerSalesteamService,
-    RoleMenuService
+    RoleMenuService,
+    MilestoneService,
+    AuthorityService,
+    AuthorityDetailService,
+    UserTypeService
   ],
   controllers: [
     UserController,
@@ -198,7 +210,11 @@ import { RoleMenuController } from './controllers/role-menu/role-menu.controller
     VoyageDetailController,
     FfUserMasterController,
     CustomerSalesteamController,
-    RoleMenuController
+    RoleMenuController,
+    MilestoneController,
+    AuthorityController,
+    AuthorityDetailController,
+    UserTypeController
   ],
   exports: [UserService]
 })

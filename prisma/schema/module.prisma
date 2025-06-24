@@ -2,6 +2,7 @@ model ModuleMaster {
     ModuleMasterSid Int       @id @default(autoincrement()) @map("ModuleMasterSid")
     ModuleName      String    @db.VarChar(20)
     ModuleCode      String    @db.VarChar(20)
+    icon            String?    @db.VarChar(30)
     createdOn       DateTime  @default(now()) @db.Timestamptz(6)
     updatedOn       DateTime? @updatedAt @db.Timestamptz(6)
     deletedAt       DateTime?
@@ -36,6 +37,8 @@ model MenuMaster {
     MenuType        String    @db.VarChar(50)
     ModuleMasterSid Int
     ModuleName      String    @db.VarChar(50)
+    path            String?    @db.VarChar(50)
+    icon            String?    @db.VarChar(50)
     createdOn       DateTime  @default(now()) @db.Timestamptz(6)
     updatedOn       DateTime? @updatedAt @db.Timestamptz(6)
     deletedAt       DateTime?
@@ -49,6 +52,8 @@ model MenuMaster {
     roleMenuMaster  RoleMenuMaster[]
     customerBrEmail CustomerBrEmail[]
     terms           TermsAndConditionsMaster[]
+    authorityMaster           AuthorityMaster[]
+
 }
 
 model RoleMaster {
@@ -91,4 +96,23 @@ model RoleMenuMaster {
     roleMaster    RoleMaster     @relation(fields: [RoleMasterSid], references: [RoleMasterSid])
     menuMaster    MenuMaster     @relation(fields: [MenuMasterSid], references: [MenuMasterSid])
     companyMaster CompanyMaster? @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+}
+
+
+model UserType{
+UserTypeSid Int       @id @default(autoincrement()) @map("UserTypeSid")
+name String @unique() @db.VarChar(50)
+code UserTypeCode @unique
+createdOn         DateTime  @default(now()) @db.Timestamptz(6)
+    updatedOn         DateTime? @updatedAt @db.Timestamptz(6)
+    deletedAt         DateTime?
+
+    userMaster UserMaster[]
+}
+
+enum UserTypeCode{
+    admin
+    manager
+    teamLead
+    user
 }

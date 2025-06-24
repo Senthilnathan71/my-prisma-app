@@ -72,6 +72,11 @@ model CompanyMaster {
     productMaster       ProductMaster[]
     chargeGroup         ChargeGroup[]
     milestoneMaster     MilestoneMaster[]
+    authorityMaster     AuthorityMaster[]
+    authorityDetail     AuthorityDetail[]
+    documentTypeMaster  DocumentTypeMaster[]
+    yearMaster          YearMaster[]
+    tandCTransaction TandCTransaction[]
 }
 
 model BranchMaster {
@@ -127,6 +132,9 @@ model BranchMaster {
     terms              TermsAndConditionsMaster[]
     BranchLut          BranchLut[]
     milestoneMaster    MilestoneMaster[]
+    authorityMaster    AuthorityMaster[]
+    authorityDetail    AuthorityDetail[]
+    documentTypeMaster DocumentTypeMaster[]
 }
 
 model UserMaster {
@@ -136,7 +144,7 @@ model UserMaster {
     userPassword      String              @db.VarChar(100)
     isSalesperson     String?             @db.Char(1)
     contactNumber     String?             @db.VarChar(20)
-    department        String?             @db.VarChar(20)
+    department        String[]            @db.VarChar(500)
     designation       String?             @db.VarChar(20)
     DefaultDept       String?             @db.VarChar(20)
     Principal         Int?
@@ -151,15 +159,18 @@ model UserMaster {
     status            String              @default("A") @db.Char(1)
     CountryMasterSid  Int
     LoginSid          Int?
+    userTypeId        Int?
     UserMasterSid     Int                 @id @default(autoincrement()) @map("UserMasterSid")
     userBranchMaster  UserBranchMaster[]
     enquiryHeader     EnquiryHeader[]
-    countryMaster     CountryMaster       @relation(fields: [CountryMasterSid], references: [CountryMasterSid])
     customerSupport   CustomerSupport[]
     userCompanyMaster UserCompanyMaster[]
     userRoleMaster    UserRoleMaster[]
     shortCut          ShortCut[]
     userHistory       UserLoginHistory[]
+    authorityDetail   AuthorityDetail[]
+    countryMaster     CountryMaster       @relation(fields: [CountryMasterSid], references: [CountryMasterSid])
+    userType          UserType?           @relation(fields: [userTypeId], references: [UserTypeSid])
 }
 
 model UserBranchMaster {
@@ -1350,6 +1361,7 @@ model TermsAndConditionsMaster {
 
     departments              DepartmentOnTerms[] // relation table
     termsAndConditionsDetail TermsAndConditionsDetail[]
+    tandCTransaction TandCTransaction[]
 }
 
 model DepartmentOnTerms {
@@ -1379,6 +1391,8 @@ model TermsAndConditionsDetail {
     IsDefaut                    String    @default("A") @db.Char(1)
 
     terms TermsAndConditionsMaster @relation(fields: [TermsAndConditionsMasterSid], references: [TermsAndConditionsMasterSid])
+
+    tandCTransaction TandCTransaction[]
 }
 
 model CustomerGroupMaster {
@@ -1618,16 +1632,153 @@ model MilestoneMaster {
     AutomailRequire     String?   @default("N") @db.Char(1) // checkbox
     SortBy              Decimal   @db.Decimal(3, 0)
     ShipmentType        String    @db.VarChar(100) // Export, Import, Transshipment
-    AutoCapture         String?    @default("N") @db.Char(1) // checkbox
+    AutoCapture         String?   @default("N") @db.Char(1) // checkbox
     createdOn           DateTime  @default(now()) @db.Timestamptz(6)
     updatedOn           DateTime? @updatedAt @db.Timestamptz(6)
     deletedAt           DateTime?
     createdBy           String    @db.VarChar(100)
     updatedBy           String?   @db.VarChar(100)
     status              String?   @default("A") @db.Char(1)
-    Remarks             String?    @db.VarChar(500)
+    Remarks             String?   @db.VarChar(500)
 
     departmentMaster DepartmentMaster @relation(fields: [DepartmentMasterSid], references: [DepartmentMasterSid])
-    branchMaster     BranchMaster?     @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
-    companyMaster    CompanyMaster?    @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+    branchMaster     BranchMaster?    @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
+    companyMaster    CompanyMaster?   @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
 }
+
+model AuthorityMaster {
+    AuthorityMasterSid Int       @id @default(autoincrement()) @map("AuthorityMasterSid")
+    CompanyMasterSid   Int
+    BranchMasterSid    Int
+    DepartmentMaster   String[]
+    MenuMaster         Int //-- screen name
+    createdOn          DateTime  @default(now()) @db.Timestamptz(6)
+    updatedOn          DateTime? @updatedAt @db.Timestamptz(6)
+    deletedAt          DateTime?
+    createdBy          String    @db.VarChar(100)
+    updatedBy          String?   @db.VarChar(100)
+    status             String?   @default("A") @db.Char(1)
+    Remarks            String?   @db.VarChar(500)
+
+    branchMaster  BranchMaster  @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
+    companyMaster CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+    menuMaster    MenuMaster    @relation(fields: [MenuMaster], references: [MenuMasterSid])
+}
+
+model AuthorityDetail {
+    AuthorityDetailSid Int       @id @default(autoincrement()) @map("AuthorityDetailSid")
+    CompanyMasterSid   Int
+    BranchMasterSid    Int
+    UserMasterSid      Int
+    AuthorityLevel     Int
+    FinalAuthority     String    @default("Y") @db.Char(1)
+    createdOn          DateTime  @default(now()) @db.Timestamptz(6)
+    updatedOn          DateTime? @updatedAt @db.Timestamptz(6)
+    deletedAt          DateTime?
+    createdBy          String    @db.VarChar(100)
+    updatedBy          String?   @db.VarChar(100)
+    status             String?   @default("A") @db.Char(1)
+    Remarks            String?   @db.VarChar(500)
+
+    branchMaster  BranchMaster  @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
+    companyMaster CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+    userMaster    UserMaster    @relation(fields: [UserMasterSid], references: [UserMasterSid])
+}
+
+model DocumentTypeMaster {
+    DocumentTypeMasterSid Int       @id @default(autoincrement()) @map("DocumentTypeMasterSid")
+    CompanyMasterSid      Int
+    BranchMasterSid       Int
+    DocumentTypeName      String    @db.VarChar(30)
+    DocumentTypeCode      String    @db.VarChar(5)
+    CurrencyCode          String    @db.VarChar(3)
+    COAGroup              Int?
+    COASubgroup           Int?
+    COALedger             Int?
+    Subledger             Int?
+    DocumentStartingNo    Decimal   @db.Decimal(5, 0)
+    DocumentSeparator     String    @db.Char(1) // -- /,-,:,.
+    DocumentSLNoLength    Decimal   @db.Decimal(2, 0)
+    ResetValue            String    @db.VarChar(15) // -- Year, Month, FinancialYear
+    CompanyFlag           String    @default("N") @db.Char(1)
+    CompanyValue          String?   @db.Char(3)
+    BranchFlag            String    @default("N") @db.Char(1)
+    BranchValue           String?   @db.Char(3)
+    DocumentFlag          String    @default("N") @db.Char(1)
+    DocumentValue         String?   @db.Char(3)
+    MonthFlag             String    @default("N") @db.Char(1)
+    YearFlag              String    @default("N") @db.Char(1)
+    createdOn             DateTime  @default(now()) @db.Timestamptz(6)
+    updatedOn             DateTime? @updatedAt @db.Timestamptz(6)
+    deletedAt             DateTime?
+    createdBy             String    @db.VarChar(100)
+    updatedBy             String?   @db.VarChar(100)
+    status                String?   @default("A") @db.Char(1)
+    Remarks               String?   @db.VarChar(500)
+
+    branchMaster  BranchMaster  @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
+    companyMaster CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+}
+
+model YearMaster {
+    YearMasterSid    Int       @id @default(autoincrement()) @map("YearMasterSid")
+    CompanyMasterSid Int
+    YearName         String    @db.VarChar(10) // Add input validation in backend to avoid special characters
+    YearCode         Int
+    StartDate        DateTime
+    EndDate          DateTime
+    CurrentYear      String    @db.Char(1)
+    YearEndCompleted String    @db.Char(1)
+    createdOn        DateTime  @default(now()) @db.Timestamptz(6)
+    updatedOn        DateTime? @updatedAt @db.Timestamptz(6)
+    deletedAt        DateTime?
+    createdBy        String    @db.VarChar(100)
+    updatedBy        String?   @db.VarChar(100)
+    status           String?   @default("A") @db.Char(1)
+    Remarks          String?   @db.VarChar(500)
+
+    companyMaster CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+}
+
+
+model TandCTransaction {
+    TandCTransactionSid Int       @id @default(autoincrement()) @map("TandCTransactionSid") 
+    CompanyMasterSid Int
+    TandCMasterSid	Int
+    TandCDetailSid  	Int
+    Terms			String    @db.VarChar(1000) 
+    DocumentSid		Int?  //Booking,enquiry,Invoice sid use here
+    createdOn        DateTime  @default(now()) @db.Timestamptz(6)
+    updatedOn        DateTime? @updatedAt @db.Timestamptz(6)
+    deletedAt        DateTime?
+    createdBy        String    @db.VarChar(100)
+    updatedBy        String?   @db.VarChar(100)
+    status           String?   @default("A") @db.Char(1)
+
+    companyMaster CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+    terms TermsAndConditionsMaster @relation(fields: [TandCMasterSid], references: [TermsAndConditionsMasterSid])
+    termDetails TermsAndConditionsDetail @relation(fields: [TandCDetailSid], references: [TermsAndConditionsDetailSid])
+
+}
+
+
+model FavouriteScreen{
+    FavScreenId Int       @id @default(autoincrement()) @map("FavScreenId")
+    path        String    @db.VarChar(255)              // Increased size
+    screenName  String?   @db.VarChar(100)              // Optional: for UI display
+    createdOn        DateTime  @default(now()) @db.Timestamptz(6)
+    createdBy        String    @db.VarChar(100)
+    userId      Int
+}
+
+
+model RecentScreen{
+    RecentScreenId Int       @id @default(autoincrement()) @map("RecentScreenId")
+    path           String  @db.VarChar(255)
+    screenName     String? @db.VarChar(100)
+    createdOn        DateTime  @default(now()) @db.Timestamptz(6)
+    createdBy        String    @db.VarChar(100)
+    userId      Int
+}
+
+

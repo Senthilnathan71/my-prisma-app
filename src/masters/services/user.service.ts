@@ -34,7 +34,9 @@ export class UserService {
                             branchMaster: true,
                             companyMaster: true
                         }
-                    }
+                    },
+                    userType:true,
+                    userRoleMaster:true
                 }
             })
 

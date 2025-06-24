@@ -53,10 +53,42 @@ export class ModuleController {
     })
     @HttpCode(HttpStatus.OK)
     @Get()
-    async getAllModules() {
+    async getAllModules(@UserData() user: any) {
         let output = new ResponseData;
         try {
-            let moduleData = await this.moduleService.getAllModules();
+            let moduleData = await this.moduleService.getAllModules()
+            this.logger.log(`getAllmodules: ${JSON.stringify(moduleData)}`)
+            output.data = moduleData;
+        } catch (error) {
+            this.logger.warn(`getAllmodules: ${JSON.stringify(error)}`)
+            output.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                output.message = error.message;
+            } else {
+                output.message = 'Internal Server Error';
+            }
+        }
+        return output
+    }
+
+
+    @ApiOperation({ summary: 'Get All Modules with menus for navigation' })
+    @ApiCreatedResponse({
+        description: 'Get All Modules with menus for navigation',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Get('navigation-list')
+    async getAllModulesAndMenus(@UserData() user: any) {
+        let output = new ResponseData;
+        console.log(user, 'userData')
+        try {
+            let moduleData
+            if (user.userType.code === "admin") {
+                moduleData = await this.moduleService.getAllModulesWithMenusAsRoutes();
+            } else {
+                moduleData = await this.moduleService.getModulesWithMenusByRoles(user)
+            }
             this.logger.log(`getAllmodules: ${JSON.stringify(moduleData)}`)
             output.data = moduleData;
         } catch (error) {
