@@ -79,6 +79,7 @@ model CompanyMaster {
     tandCTransaction    TandCTransaction[]
     hawbStock           HawbStock[]
     mawbStock           MawbStock[]
+    attachDocument      AttachDocument[]
 }
 
 model BranchMaster {
@@ -139,6 +140,7 @@ model BranchMaster {
     documentTypeMaster DocumentTypeMaster[]
     hawbStock          HawbStock[]
     MawbStock          MawbStock[]
+    attachDocument     AttachDocument[]
 }
 
 model UserMaster {
@@ -1829,4 +1831,29 @@ model MawbStock {
     branchMaster   BranchMaster    @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
     companyMaster  CompanyMaster   @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
     customerMaster CustomerMaster? @relation(fields: [Agent], references: [CustomerMasterSid])
+}
+
+model AttachDocument {
+    AttachDocumentSid Int       @id @default(autoincrement()) @map("AttachDocumentSid")
+    CompanyMasterSid  Int
+    BranchMasterSid   Int
+    DocumentSid       Int?
+    AttachDocmentNo   String    @db.VarChar(20)
+    DocumentDate      DateTime  @db.Date
+    FileName          String    @db.VarChar(30)
+    Documenttype      String    @db.VarChar(20)
+    ReceivedDate      DateTime? @db.Date
+    FollowupRequire   String?   @default("N") @db.Char(1)
+    FollowupDate      DateTime? @db.Date
+    Public            String    @default("N") @db.Char(1)
+    createdOn         DateTime  @default(now()) @db.Timestamptz(6)
+    updatedOn         DateTime? @updatedAt @db.Timestamptz(6)
+    deletedAt         DateTime?
+    createdBy         String    @db.VarChar(100)
+    updatedBy         String?   @db.VarChar(100)
+    status            String?   @default("A") @db.Char(1)
+    Remarks           String?   @db.VarChar(500)
+
+    branchMaster  BranchMaster  @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
+    companyMaster CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
 }
