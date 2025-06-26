@@ -104,6 +104,8 @@ import { AuthorityDetailService } from './services/authority-detail/authority-de
 import { AuthorityDetailController } from './controllers/authority-detail/authority-detail.controller';
 import { UserTypeController } from './controllers/user-type/user-type.controller';
 import { UserTypeService } from './services/user-type/user-type.service';
+import { DocumentTypeController } from './controllers/document-type/document-type.controller';
+import { DocumentTypeService } from './services/document-type/document-type.service';
 
 @Module({
   providers: [
@@ -159,7 +161,8 @@ import { UserTypeService } from './services/user-type/user-type.service';
     MilestoneService,
     AuthorityService,
     AuthorityDetailService,
-    UserTypeService
+    UserTypeService,
+    DocumentTypeService
   ],
   controllers: [
     UserController,
@@ -214,7 +217,8 @@ import { UserTypeService } from './services/user-type/user-type.service';
     MilestoneController,
     AuthorityController,
     AuthorityDetailController,
-    UserTypeController
+    UserTypeController,
+    DocumentTypeController
   ],
   exports: [UserService]
 })

@@ -282,7 +282,11 @@ export class EnquiryHeaderService {
 
     async getAllDepartment() {
         try {
-            const customer = await this._db.departmentMaster.findMany({});
+            const customer = await this._db.departmentMaster.findMany({
+                where : {
+                    deletedAt : null
+                }
+            });
             return customer;
         } catch (error) {
             throw error

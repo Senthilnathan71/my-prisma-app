@@ -181,4 +181,57 @@ export class TermsAndConditionsController {
         return resp;
     }
 
+    @ApiOperation({ summary: 'Create new Terms and Conditions Transaction' })
+  @ApiCreatedResponse({
+    description: 'Create new Terms and Conditions Transaction',
+    type: ResponseData,
+  })
+  @HttpCode(HttpStatus.OK)
+  @Post('transaction')
+  async createNewTandCTransaction(@Body() newData: any) {
+    let resp = new ResponseData();
+    try {
+      let res = await this.termsAndConditionsServ.createTandCTransaction(newData);
+      this.logger.log(`New Terms and Conditions Transaction Created : ${JSON.stringify(res)}`);
+      resp.data = res;
+      resp.message = 'New Terms and Conditions Transaction is successfully created';
+    } catch (error) {
+      this.logger.warn(`Terms and Conditions Transaction Creation Error : ${JSON.stringify(error)}`, error.stack);
+      resp.status = false;
+      if (error instanceof BadRequestException) {
+        resp.message = error.message;
+      } else {
+        resp.message = 'Internal Server Error';
+      }
+    }
+    return resp;
+  }
+
+    @ApiOperation({ summary: 'Get Terms and Conditions by Different Conditions' })
+    @ApiCreatedResponse({
+        description: 'Get Terms and Conditions by Different Conditions',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Post('fetchByCondition')
+    async getTermsAndConditionsByCondition(@Body() payload: any) {
+        let resp = new ResponseData();
+        try {
+            this.logger.log(`Getting Terms and Conditions by conditions : ${JSON.stringify(payload)}`);
+            let res = await this.termsAndConditionsServ.getTandCByCondition(payload);
+            this.logger.debug(`Fetched Terms and Conditions : ${JSON.stringify(res)}`);
+            resp.data = res;
+            resp.message = `Terms and Conditions with conditions is successfully fetched`;
+        } catch (error) {
+            this.logger.warn(`Get Terms and Conditions by Condition Error : ${JSON.stringify(error), error}`);
+            resp.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                resp.message = error.message;
+            } else {
+                resp.message = "Internal Server Error";
+            }
+        }
+        return resp;
+    }
+
 }

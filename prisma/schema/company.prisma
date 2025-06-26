@@ -76,7 +76,10 @@ model CompanyMaster {
     authorityDetail     AuthorityDetail[]
     documentTypeMaster  DocumentTypeMaster[]
     yearMaster          YearMaster[]
-    tandCTransaction TandCTransaction[]
+    tandCTransaction    TandCTransaction[]
+    hawbStock           HawbStock[]
+    mawbStock           MawbStock[]
+    attachDocument      AttachDocument[]
 }
 
 model BranchMaster {
@@ -135,6 +138,9 @@ model BranchMaster {
     authorityMaster    AuthorityMaster[]
     authorityDetail    AuthorityDetail[]
     documentTypeMaster DocumentTypeMaster[]
+    hawbStock          HawbStock[]
+    MawbStock          MawbStock[]
+    attachDocument     AttachDocument[]
 }
 
 model UserMaster {
@@ -745,6 +751,8 @@ model CustomerMaster {
     tdsExemptionTransporter TDSExemption[] @relation("Transporter")
 
     productMaster ProductMaster[]
+    hawbStock     HawbStock[]
+    mawbStock     MawbStock[]
 }
 
 model PackageTypeMaster {
@@ -1361,7 +1369,7 @@ model TermsAndConditionsMaster {
 
     departments              DepartmentOnTerms[] // relation table
     termsAndConditionsDetail TermsAndConditionsDetail[]
-    tandCTransaction TandCTransaction[]
+    tandCTransaction         TandCTransaction[]
 }
 
 model DepartmentOnTerms {
@@ -1740,45 +1748,112 @@ model YearMaster {
     companyMaster CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
 }
 
-
 model TandCTransaction {
-    TandCTransactionSid Int       @id @default(autoincrement()) @map("TandCTransactionSid") 
+    TandCTransactionSid Int       @id @default(autoincrement()) @map("TandCTransactionSid")
+    CompanyMasterSid    Int
+    TandCMasterSid      Int
+    TandCDetailSid      Int
+    Terms               String    @db.VarChar(1000)
+    DocumentSid         Int? //Booking,enquiry,Invoice sid use here
+    createdOn           DateTime  @default(now()) @db.Timestamptz(6)
+    updatedOn           DateTime? @updatedAt @db.Timestamptz(6)
+    deletedAt           DateTime?
+    createdBy           String    @db.VarChar(100)
+    updatedBy           String?   @db.VarChar(100)
+    status              String?   @default("A") @db.Char(1)
+
+    companyMaster CompanyMaster            @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+    terms         TermsAndConditionsMaster @relation(fields: [TandCMasterSid], references: [TermsAndConditionsMasterSid])
+    termDetails   TermsAndConditionsDetail @relation(fields: [TandCDetailSid], references: [TermsAndConditionsDetailSid])
+}
+
+model FavouriteScreen {
+    FavScreenId Int      @id @default(autoincrement()) @map("FavScreenId")
+    path        String   @db.VarChar(255) // Increased size
+    screenName  String?  @db.VarChar(100) // Optional: for UI display
+    createdOn   DateTime @default(now()) @db.Timestamptz(6)
+    createdBy   String   @db.VarChar(100)
+    userId      Int
+}
+
+model RecentScreen {
+    RecentScreenId Int      @id @default(autoincrement()) @map("RecentScreenId")
+    path           String   @db.VarChar(255)
+    screenName     String?  @db.VarChar(100)
+    createdOn      DateTime @default(now()) @db.Timestamptz(6)
+    createdBy      String   @db.VarChar(100)
+    userId         Int
+}
+
+model HawbStock {
+    HawbStockSid     Int       @id @default(autoincrement()) @map("HawbStockSid")
     CompanyMasterSid Int
-    TandCMasterSid	Int
-    TandCDetailSid  	Int
-    Terms			String    @db.VarChar(1000) 
-    DocumentSid		Int?  //Booking,enquiry,Invoice sid use here
+    BranchMasterSid  Int
+    AirwayBillType   String    @default("Airline") @db.VarChar(10)
+    AirwayBillNumber String    @db.VarChar(20)
+    Agent            Int? // Assuming foreign key to CustomerMaster
+    HAWBSerial       String    @db.VarChar(15)
+    NumberofHAWB     Decimal   @db.Decimal(3, 0)
+    ReceivedDate     DateTime
+    StockStatus      String    @default("Free") @db.VarChar(10)
     createdOn        DateTime  @default(now()) @db.Timestamptz(6)
     updatedOn        DateTime? @updatedAt @db.Timestamptz(6)
     deletedAt        DateTime?
     createdBy        String    @db.VarChar(100)
     updatedBy        String?   @db.VarChar(100)
     status           String?   @default("A") @db.Char(1)
+    Remarks          String?   @db.VarChar(500)
 
+    branchMaster   BranchMaster    @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
+    companyMaster  CompanyMaster   @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+    customerMaster CustomerMaster? @relation(fields: [Agent], references: [CustomerMasterSid])
+}
+
+model MawbStock {
+    MawbStockSid     Int       @id @default(autoincrement()) @map("MawbStockSid")
+    CompanyMasterSid Int
+    BranchMasterSid  Int
+    AirwayBillType   String    @default("Airline") @db.VarChar(10)
+    MasterBillNumber String    @db.VarChar(20)
+    Agent            Int?
+    MAWBSerial       String    @db.VarChar(15)
+    NumberofMAWB     Decimal   @db.Decimal(3, 0)
+    ReceivedDate     DateTime
+    StockStatus      String    @default("Free") @db.VarChar(10)
+    createdOn        DateTime  @default(now()) @db.Timestamptz(6)
+    updatedOn        DateTime? @updatedAt @db.Timestamptz(6)
+    deletedAt        DateTime?
+    createdBy        String    @db.VarChar(100)
+    updatedBy        String?   @db.VarChar(100)
+    status           String?   @default("A") @db.Char(1)
+    Remarks          String?   @db.VarChar(500)
+
+    branchMaster   BranchMaster    @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
+    companyMaster  CompanyMaster   @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+    customerMaster CustomerMaster? @relation(fields: [Agent], references: [CustomerMasterSid])
+}
+
+model AttachDocument {
+    AttachDocumentSid Int       @id @default(autoincrement()) @map("AttachDocumentSid")
+    CompanyMasterSid  Int
+    BranchMasterSid   Int
+    DocumentSid       Int?
+    AttachDocmentNo   String    @db.VarChar(20)
+    DocumentDate      DateTime  @db.Date
+    FileName          String    @db.VarChar(30)
+    Documenttype      String    @db.VarChar(20)
+    ReceivedDate      DateTime? @db.Date
+    FollowupRequire   String?   @default("N") @db.Char(1)
+    FollowupDate      DateTime? @db.Date
+    Public            String    @default("N") @db.Char(1)
+    createdOn         DateTime  @default(now()) @db.Timestamptz(6)
+    updatedOn         DateTime? @updatedAt @db.Timestamptz(6)
+    deletedAt         DateTime?
+    createdBy         String    @db.VarChar(100)
+    updatedBy         String?   @db.VarChar(100)
+    status            String?   @default("A") @db.Char(1)
+    Remarks           String?   @db.VarChar(500)
+
+    branchMaster  BranchMaster  @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
     companyMaster CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
-    terms TermsAndConditionsMaster @relation(fields: [TandCMasterSid], references: [TermsAndConditionsMasterSid])
-    termDetails TermsAndConditionsDetail @relation(fields: [TandCDetailSid], references: [TermsAndConditionsDetailSid])
-
 }
-
-
-model FavouriteScreen{
-    FavScreenId Int       @id @default(autoincrement()) @map("FavScreenId")
-    path        String    @db.VarChar(255)              // Increased size
-    screenName  String?   @db.VarChar(100)              // Optional: for UI display
-    createdOn        DateTime  @default(now()) @db.Timestamptz(6)
-    createdBy        String    @db.VarChar(100)
-    userId      Int
-}
-
-
-model RecentScreen{
-    RecentScreenId Int       @id @default(autoincrement()) @map("RecentScreenId")
-    path           String  @db.VarChar(255)
-    screenName     String? @db.VarChar(100)
-    createdOn        DateTime  @default(now()) @db.Timestamptz(6)
-    createdBy        String    @db.VarChar(100)
-    userId      Int
-}
-
-
