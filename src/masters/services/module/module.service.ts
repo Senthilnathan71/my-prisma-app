@@ -270,10 +270,12 @@ export class ModuleService {
         menuMaster: {
           select: {
             path: true,
+            MenuMasterSid : true,
             MenuName: true,
             icon: true,
             moduleMaster: {
               select: {
+                ModuleMasterSid : true,
                 ModuleName: true,
                 icon: true
               }
@@ -297,6 +299,7 @@ export class ModuleService {
       if (!grouped[moduleName]) {
         grouped[moduleName] = {
           path: '',
+          id : menu.moduleMaster.ModuleMasterSid,
           title: moduleName,
           icon: menu.moduleMaster.icon || '',
           class: '',
@@ -309,6 +312,7 @@ export class ModuleService {
 
       grouped[moduleName].submenu.push({
         path: menu.path || '',
+        id : menu.MenuMasterSid,
         title: menu.MenuName,
         icon: menu.icon || '',
         class: '',
@@ -342,6 +346,7 @@ export class ModuleService {
         deletedAt: null
       },
       select: {
+        ModuleMasterSid : true,
         ModuleName: true,
         icon: true,
         menuMaster: {
@@ -350,6 +355,7 @@ export class ModuleService {
             status: 'A'
           },
           select: {
+            MenuMasterSid : true,
             path: true,
             MenuName: true,
             icon: true
@@ -370,6 +376,7 @@ export class ModuleService {
 
       return {
         path: '',
+        id : module.ModuleMasterSid,
         title: module.ModuleName,
         icon: module.icon || '',
         class: '',
@@ -378,6 +385,7 @@ export class ModuleService {
         labelClass: '',
         submenu: sortedMenus.map(menu => ({
           path: menu.path || '',
+          id : menu.MenuMasterSid,
           title: menu.MenuName,
           icon: menu.icon || '',
           class: '',
@@ -406,6 +414,7 @@ export class ModuleService {
             if (!routeMap[module.ModuleName]) {
                 routeMap[module.ModuleName] = {
                     path: '',
+                    id : module.ModuleMasterSid,
                     title: module.ModuleName,
                     icon: module.icon || '',
                     class: '',
@@ -418,6 +427,7 @@ export class ModuleService {
 
             routeMap[module.ModuleName].submenu.push({
                 path: menu.path || '',
+                id : menu.MenuMasterSid,
                 title: menu.MenuName,
                 icon: menu.icon || '',
                 class: '',
@@ -438,6 +448,7 @@ export class ModuleService {
 
 export interface RouteInfo {
     path: string;
+    id : number;
     title: string;
     icon: string;
     class: string;
