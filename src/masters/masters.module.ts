@@ -106,6 +106,8 @@ import { UserTypeController } from './controllers/user-type/user-type.controller
 import { UserTypeService } from './services/user-type/user-type.service';
 import { DocumentTypeController } from './controllers/document-type/document-type.controller';
 import { DocumentTypeService } from './services/document-type/document-type.service';
+import { AttachDocumentController } from './controllers/attach-document/attach-document.controller';
+import { AttachDocumentService } from './services/attach-document/attach-document.service';
 
 @Module({
   providers: [
@@ -162,7 +164,8 @@ import { DocumentTypeService } from './services/document-type/document-type.serv
     AuthorityService,
     AuthorityDetailService,
     UserTypeService,
-    DocumentTypeService
+    DocumentTypeService,
+    AttachDocumentService
   ],
   controllers: [
     UserController,
@@ -218,7 +221,8 @@ import { DocumentTypeService } from './services/document-type/document-type.serv
     AuthorityController,
     AuthorityDetailController,
     UserTypeController,
-    DocumentTypeController
+    DocumentTypeController,
+    AttachDocumentController
   ],
   exports: [UserService]
 })
