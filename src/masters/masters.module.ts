@@ -108,6 +108,8 @@ import { DocumentTypeController } from './controllers/document-type/document-typ
 import { DocumentTypeService } from './services/document-type/document-type.service';
 import { GenerationController } from './controllers/generation/generation.controller';
 import { GenerationService } from './services/generation/generation.service';
+import { AttachDocumentController } from './controllers/attach-document/attach-document.controller';
+import { AttachDocumentService } from './services/attach-document/attach-document.service';
 
 @Module({
   providers: [
@@ -165,7 +167,8 @@ import { GenerationService } from './services/generation/generation.service';
     AuthorityDetailService,
     UserTypeService,
     DocumentTypeService,
-    GenerationService
+    GenerationService,
+    AttachDocumentService
   ],
   controllers: [
     UserController,
@@ -222,7 +225,8 @@ import { GenerationService } from './services/generation/generation.service';
     AuthorityDetailController,
     UserTypeController,
     DocumentTypeController,
-    GenerationController
+    GenerationController,
+    AttachDocumentController
   ],
   exports: [UserService]
 })
