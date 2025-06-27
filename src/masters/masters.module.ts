@@ -106,6 +106,8 @@ import { UserTypeController } from './controllers/user-type/user-type.controller
 import { UserTypeService } from './services/user-type/user-type.service';
 import { DocumentTypeController } from './controllers/document-type/document-type.controller';
 import { DocumentTypeService } from './services/document-type/document-type.service';
+import { YearController } from './controllers/year/year.controller';
+import { YearService } from './services/year/year.service';
 
 @Module({
   providers: [
@@ -162,7 +164,8 @@ import { DocumentTypeService } from './services/document-type/document-type.serv
     AuthorityService,
     AuthorityDetailService,
     UserTypeService,
-    DocumentTypeService
+    DocumentTypeService,
+    YearService
   ],
   controllers: [
     UserController,
@@ -218,7 +221,8 @@ import { DocumentTypeService } from './services/document-type/document-type.serv
     AuthorityController,
     AuthorityDetailController,
     UserTypeController,
-    DocumentTypeController
+    DocumentTypeController,
+    YearController
   ],
   exports: [UserService]
 })
