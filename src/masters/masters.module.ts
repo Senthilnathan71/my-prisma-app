@@ -110,6 +110,8 @@ import { GenerationController } from './controllers/generation/generation.contro
 import { GenerationService } from './services/generation/generation.service';
 import { AttachDocumentController } from './controllers/attach-document/attach-document.controller';
 import { AttachDocumentService } from './services/attach-document/attach-document.service';
+import { YearController } from './controllers/year/year.controller';
+import { YearService } from './services/year/year.service';
 
 @Module({
   providers: [
@@ -168,7 +170,8 @@ import { AttachDocumentService } from './services/attach-document/attach-documen
     UserTypeService,
     DocumentTypeService,
     GenerationService,
-    AttachDocumentService
+    AttachDocumentService,
+    YearService
   ],
   controllers: [
     UserController,
@@ -226,7 +229,8 @@ import { AttachDocumentService } from './services/attach-document/attach-documen
     UserTypeController,
     DocumentTypeController,
     GenerationController,
-    AttachDocumentController
+    AttachDocumentController,
+    YearController
   ],
   exports: [UserService]
 })
