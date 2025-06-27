@@ -80,6 +80,7 @@ model CompanyMaster {
     hawbStock           HawbStock[]
     mawbStock           MawbStock[]
     attachDocument      AttachDocument[]
+    emailLog            EmailLog[]
 }
 
 model BranchMaster {
@@ -141,6 +142,7 @@ model BranchMaster {
     hawbStock          HawbStock[]
     MawbStock          MawbStock[]
     attachDocument     AttachDocument[]
+    emailLog           EmailLog[]
 }
 
 model UserMaster {
@@ -1354,7 +1356,7 @@ model TermsAndConditionsMaster {
     POL                         String[]  @default([])
     POD                         String[]  @default([])
     FDC                         String[]  @default([])
-    Carrier                     Int //– from party master type =  MLO
+    Carrier                     Int? //– from party master type =  MLO
     createdOn                   DateTime  @default(now()) @db.Timestamptz(6)
     updatedOn                   DateTime? @updatedAt @db.Timestamptz(6)
     deletedAt                   DateTime?
@@ -1671,6 +1673,8 @@ model AuthorityMaster {
     branchMaster  BranchMaster  @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
     companyMaster CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
     menuMaster    MenuMaster    @relation(fields: [MenuMaster], references: [MenuMasterSid])
+
+    authorityDetail AuthorityDetail[]
 }
 
 model AuthorityDetail {
@@ -1679,6 +1683,7 @@ model AuthorityDetail {
     BranchMasterSid    Int
     UserMasterSid      Int
     AuthorityLevel     Int
+    AuthorityMasterSid Int?
     FinalAuthority     String    @default("Y") @db.Char(1)
     createdOn          DateTime  @default(now()) @db.Timestamptz(6)
     updatedOn          DateTime? @updatedAt @db.Timestamptz(6)
@@ -1688,9 +1693,10 @@ model AuthorityDetail {
     status             String?   @default("A") @db.Char(1)
     Remarks            String?   @db.VarChar(500)
 
-    branchMaster  BranchMaster  @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
-    companyMaster CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
-    userMaster    UserMaster    @relation(fields: [UserMasterSid], references: [UserMasterSid])
+    branchMaster    BranchMaster     @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
+    companyMaster   CompanyMaster    @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+    userMaster      UserMaster       @relation(fields: [UserMasterSid], references: [UserMasterSid])
+    authorityMaster AuthorityMaster? @relation(fields: [AuthorityMasterSid], references: [AuthorityMasterSid])
 }
 
 model DocumentTypeMaster {
@@ -1716,6 +1722,9 @@ model DocumentTypeMaster {
     DocumentValue         String?   @db.Char(3)
     MonthFlag             String    @default("N") @db.Char(1)
     YearFlag              String    @default("N") @db.Char(1)
+    Type                  String?   @db.VarChar(100)
+    ReportTitle           String?   @db.VarChar(100)
+    ReportFooter          String?   @db.VarChar(100)
     createdOn             DateTime  @default(now()) @db.Timestamptz(6)
     updatedOn             DateTime? @updatedAt @db.Timestamptz(6)
     deletedAt             DateTime?
@@ -1853,6 +1862,30 @@ model AttachDocument {
     updatedBy         String?   @db.VarChar(100)
     status            String?   @default("A") @db.Char(1)
     Remarks           String?   @db.VarChar(500)
+
+    branchMaster  BranchMaster  @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
+    companyMaster CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+}
+
+model EmailLog {
+    EmailLogSid      Int      @id @default(autoincrement()) @map("EmailLogSid")
+    CompanyMasterSid Int
+    BranchMasterSid  Int
+    CreatedOn        DateTime @default(now())
+    CreatedBy        String   @db.VarChar(100)
+    UpdatedOn        DateTime @default(now())
+    UpdatedBy        String?  @db.VarChar(100)
+    Status           String   @default("A") @db.Char(1)
+    EmailType        String   @db.VarChar(20) // Customer, Origin Agent, etc.
+    SendDate         DateTime @default(now())
+    Customer         Int? // Optional, depending on EmailType
+    EmailTo          String?  @db.VarChar(200)
+    EmailCC          String?  @db.VarChar(200)
+    Subject          String   @db.VarChar(500)
+    Mailbody         String   @db.VarChar(2000)
+    ChargeRequire    String   @default("N") @db.Char(1)
+    DocumentSid      Int
+    FollowupRequire  String   @default("N") @db.Char(1)
 
     branchMaster  BranchMaster  @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
     companyMaster CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])

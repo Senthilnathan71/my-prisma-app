@@ -106,6 +106,12 @@ import { UserTypeController } from './controllers/user-type/user-type.controller
 import { UserTypeService } from './services/user-type/user-type.service';
 import { DocumentTypeController } from './controllers/document-type/document-type.controller';
 import { DocumentTypeService } from './services/document-type/document-type.service';
+import { GenerationController } from './controllers/generation/generation.controller';
+import { GenerationService } from './services/generation/generation.service';
+import { AttachDocumentController } from './controllers/attach-document/attach-document.controller';
+import { AttachDocumentService } from './services/attach-document/attach-document.service';
+import { YearController } from './controllers/year/year.controller';
+import { YearService } from './services/year/year.service';
 
 @Module({
   providers: [
@@ -162,7 +168,10 @@ import { DocumentTypeService } from './services/document-type/document-type.serv
     AuthorityService,
     AuthorityDetailService,
     UserTypeService,
-    DocumentTypeService
+    DocumentTypeService,
+    GenerationService,
+    AttachDocumentService,
+    YearService
   ],
   controllers: [
     UserController,
@@ -218,7 +227,10 @@ import { DocumentTypeService } from './services/document-type/document-type.serv
     AuthorityController,
     AuthorityDetailController,
     UserTypeController,
-    DocumentTypeController
+    DocumentTypeController,
+    GenerationController,
+    AttachDocumentController,
+    YearController
   ],
   exports: [UserService]
 })
