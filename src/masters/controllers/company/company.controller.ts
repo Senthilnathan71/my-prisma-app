@@ -2,6 +2,7 @@ import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatu
 import { ConfigService } from '@nestjs/config';
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
 import { FilesUploadInterceptor } from 'src/common/decorators/file-upload.decorator';
+import { ImageUploadInterceptor } from 'src/common/decorators/image-upload.decorator';
 import { UserData } from 'src/common/decorators/user.decorator';
 import { checkIfFileExists } from 'src/common/helper';
 import { ResponseData } from 'src/common/response-data';
@@ -17,7 +18,7 @@ export class CompanyController {
         description: "Create new Company",
         type: ResponseData
     })
-    @FilesUploadInterceptor('logo', 'COMPANY_LOGO')
+    @ImageUploadInterceptor('images', 'UPLOAD_IMAGE_PATH')
     @HttpCode(HttpStatus.OK)
     @Post('Create')
     async createNewCompany(@UserData() userInfo, @Body() newData: any, @UploadedFiles() logo: Express.Multer.File[] | undefined) {
@@ -103,9 +104,9 @@ export class CompanyController {
         type: ResponseData
     })
     @HttpCode(HttpStatus.OK)
-    @FilesUploadInterceptor('files', 'COMPANY_LOGO')
+    @ImageUploadInterceptor('images', 'UPLOAD_IMAGE_PATH')
     @Patch('update/:CompanyMasterSid')
-    async updateCompanyById(@Param('CompanyMasterSid', ParseIntPipe) CompanyMasterSid: number, @Body() updateData:any) {
+    async updateCompanyById(@Param('CompanyMasterSid', ParseIntPipe) CompanyMasterSid: number, @Body() updateData: any) {
         let resp = new ResponseData();
         try {
             this.logger.log(`Updating Company with id:${CompanyMasterSid}`);

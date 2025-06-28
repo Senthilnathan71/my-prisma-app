@@ -2,6 +2,7 @@ import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatu
 import { ConfigService } from '@nestjs/config';
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
 import { FilesUploadInterceptor } from 'src/common/decorators/file-upload.decorator';
+import { ImageUploadInterceptor } from 'src/common/decorators/image-upload.decorator';
 import { checkIfFileExists } from 'src/common/helper';
 import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
@@ -16,7 +17,7 @@ export class BranchController {
         description: "Create new Branch",
         type: ResponseData
     })
-    @FilesUploadInterceptor('logo', 'BRANCH_LOGO')
+@ImageUploadInterceptor('images', 'UPLOAD_IMAGE_PATH')
     @HttpCode(HttpStatus.OK)
     @Post('Create')
     async createNewBranch(@Body() newData: any, @UploadedFiles() logo: Express.Multer.File[] | undefined) {

@@ -1,5 +1,6 @@
 import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, Post, UnauthorizedException } from '@nestjs/common';
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
+import { FilesUploadInterceptor } from 'src/common/decorators/file-upload.decorator';
 import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { AttachDocumentService } from 'src/masters/services/attach-document/attach-document.service';
@@ -14,6 +15,7 @@ export class AttachDocumentController {
         description: 'Create new Attach Document',
         type: ResponseData
     })
+    @FilesUploadInterceptor('documents', 'UPLOAD_DOC_PATH')
     @HttpCode(HttpStatus.OK)
     @Post('create')
     async createNewAttachDocument(@Body() newData: any) {
@@ -93,6 +95,7 @@ export class AttachDocumentController {
         description: 'Update Attach Document by Id',
         type: ResponseData
     })
+    @FilesUploadInterceptor('documents', 'UPLOAD_DOC_PATH')
     @HttpCode(HttpStatus.OK)
     @Patch('update/:AttachDocumentSid')
     async updateAttachDocumentById(@Param('AttachDocumentSid', ParseIntPipe) AttachDocumentSid: number, @Body() payload: any) {
