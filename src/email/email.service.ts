@@ -49,4 +49,32 @@ export class EmailService {
         }
     }
 
+
+    async sendEmail(data: any): Promise<boolean> {
+    try {
+        const mailOptions: any = {
+            from: '"Dofi-Infosys" <noreply@dofi.co>',
+            to: data.email,
+            subject: data.subject,
+            html: data.html
+        };
+
+        // Add CC if provided
+        if (data.cc) {
+            mailOptions.cc = data.cc;
+        }
+
+        const info = await this.transporter.sendMail(mailOptions);
+        this.logger.log(`sendEmail: ${JSON.stringify(info)}`);
+        return true;
+    } catch (err) {
+        this.logger.warn(`sendEmail error: ${JSON.stringify(err)}`);
+        throw new HttpException(
+            { message: `Error sending email: ${err.message}` },
+            HttpStatus.EXPECTATION_FAILED
+        );
+    }
+}
+
+
 }
