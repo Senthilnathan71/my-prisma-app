@@ -34,7 +34,6 @@ model MenuMaster {
     MenuMasterSid     Int       @id @default(autoincrement()) @map("MenuMasterSid")
     MenuCode          String    @db.Char(3)
     MenuName          String    @db.VarChar(50)
-    MenuType          String    @db.VarChar(50)
     ModuleMasterSid   Int
     ModuleName        String    @db.VarChar(50)
     path              String?   @db.VarChar(50)
