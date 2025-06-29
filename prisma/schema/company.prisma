@@ -1868,25 +1868,40 @@ model AttachDocument {
 }
 
 model EmailLog {
-    EmailLogSid      Int      @id @default(autoincrement()) @map("EmailLogSid")
+    EmailLogSid      Int       @id @default(autoincrement()) @map("EmailLogSid")
     CompanyMasterSid Int
     BranchMasterSid  Int
-    CreatedOn        DateTime @default(now())
-    CreatedBy        String   @db.VarChar(100)
-    UpdatedOn        DateTime @default(now())
-    UpdatedBy        String?  @db.VarChar(100)
-    Status           String   @default("A") @db.Char(1)
-    EmailType        String   @db.VarChar(20) // Customer, Origin Agent, etc.
-    SendDate         DateTime @default(now())
-    Customer         Int? // Optional, depending on EmailType
-    EmailTo          String?  @db.VarChar(200)
-    EmailCC          String?  @db.VarChar(200)
-    Subject          String   @db.VarChar(500)
-    Mailbody         String   @db.VarChar(2000)
-    ChargeRequire    String   @default("N") @db.Char(1)
-    DocumentSid      Int
-    FollowupRequire  String   @default("N") @db.Char(1)
+    CreatedOn        DateTime  @default(now())
+    CreatedBy        String    @db.VarChar(100)
+    UpdatedOn        DateTime  @default(now())
+    UpdatedBy        String?   @db.VarChar(100)
+    deletedAt        DateTime?
+    Status          String   @default("A") @db.Char(1)
+    EmailType       String   @db.VarChar(20) // Customer, Origin Agent, etc.
+    SendDate        DateTime @default(now())
+    Customer        Int? // Optional, depending on EmailType
+    EmailTo         String?  @db.VarChar(200)
+    EmailCC         String?  @db.VarChar(200)
+    Subject         String   @db.VarChar(500)
+    Mailbody        String   @db.VarChar(2000)
+    ChargeRequire   String   @default("N") @db.Char(1)
+    DocumentSid     Int
+    FollowupRequire String   @default("N") @db.Char(1)
 
     branchMaster  BranchMaster  @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
     companyMaster CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+}
+
+model IncoMaster {
+    IncoMasterSid Int       @id @default(autoincrement()) @map("IncoMasterSid")
+    CreatedOn     DateTime  @default(now()) @map("CreatedOn") @db.Timestamptz(6)
+    CreatedBy     String    @map("CreatedBy") @db.VarChar(100)
+    UpdatedOn     DateTime  @default(now()) @map("UpdatedOn") @db.Timestamptz(6)
+    UpdatedBy     String?   @map("UpdatedBy") @db.VarChar(100)
+    Status        String    @default("A") @map("Status") @db.Char(1)
+    deletedAt     DateTime?
+    IncoCode     String @map("IncoCode") @db.Char(3)
+    IncoName     String @map("IncoName") @db.VarChar(100)
+    IncoType     String @map("IncoType") @db.Char(3) // Sea/All
+    OceanFreight String @map("OceanFreight") @db.VarChar(7) // Prepaid/Collect
 }

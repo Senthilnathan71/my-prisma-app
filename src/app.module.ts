@@ -9,6 +9,7 @@ import { ConfigModule } from '@nestjs/config';
 import { EmailModule } from './email/email.module';
 import { CrmModule } from './crm/crm.module';
 import { ShortcutModule } from './shortcut/shortcut.module';
+import { CommonModule } from './common/common.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { ShortcutModule } from './shortcut/shortcut.module';
     SalesModule,
     CrmModule,
     ShortcutModule,
+    CommonModule,
   ],
   controllers: [AppController],
   providers: [AppService, Logger],

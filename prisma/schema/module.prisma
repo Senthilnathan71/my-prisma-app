@@ -2,7 +2,7 @@ model ModuleMaster {
     ModuleMasterSid Int       @id @default(autoincrement()) @map("ModuleMasterSid")
     ModuleName      String    @db.VarChar(20)
     ModuleCode      String    @db.VarChar(20)
-    icon            String?    @db.VarChar(30)
+    icon            String?   @db.VarChar(30)
     createdOn       DateTime  @default(now()) @db.Timestamptz(6)
     updatedOn       DateTime? @updatedAt @db.Timestamptz(6)
     deletedAt       DateTime?
@@ -31,29 +31,31 @@ model UserRoleMaster {
 }
 
 model MenuMaster {
-    MenuMasterSid   Int       @id @default(autoincrement()) @map("MenuMasterSid")
-    MenuCode        String    @db.Char(3)
-    MenuName        String    @db.VarChar(50)
-    MenuType        String    @db.VarChar(50)
-    ModuleMasterSid Int
-    ModuleName      String    @db.VarChar(50)
-    path            String?    @db.VarChar(50)
-    icon            String?    @db.VarChar(50)
-    createdOn       DateTime  @default(now()) @db.Timestamptz(6)
-    updatedOn       DateTime? @updatedAt @db.Timestamptz(6)
-    deletedAt       DateTime?
-    createdBy       String    @db.VarChar(100)
-    updatedBy       String?   @db.VarChar(100)
-    status          String?   @default("A") @db.Char(1)
-    Remarks         String?   @db.VarChar(300)
+    MenuMasterSid     Int       @id @default(autoincrement()) @map("MenuMasterSid")
+    MenuCode          String    @db.Char(3)
+    MenuName          String    @db.VarChar(50)
+    MenuType          String    @db.VarChar(50)
+    ModuleMasterSid   Int
+    ModuleName        String    @db.VarChar(50)
+    path              String?   @db.VarChar(50)
+    icon              String?   @db.VarChar(50)
+    createdOn         DateTime  @default(now()) @db.Timestamptz(6)
+    updatedOn         DateTime? @updatedAt @db.Timestamptz(6)
+    deletedAt         DateTime?
+    createdBy         String    @db.VarChar(100)
+    updatedBy         String?   @db.VarChar(100)
+    status            String?   @default("A") @db.Char(1)
+    Remarks           String?   @db.VarChar(300)
+    TandCRequire      String?   @default("N") @db.Char(1)
+    AttachmentRequire String?   @default("N") @db.Char(1)
+    FollowupRequire   String?   @default("N") @db.Char(1)
 
     moduleMaster ModuleMaster @relation(fields: [ModuleMasterSid], references: [ModuleMasterSid])
 
     roleMenuMaster  RoleMenuMaster[]
     customerBrEmail CustomerBrEmail[]
     terms           TermsAndConditionsMaster[]
-    authorityMaster           AuthorityMaster[]
-
+    authorityMaster AuthorityMaster[]
 }
 
 model RoleMaster {
@@ -98,19 +100,18 @@ model RoleMenuMaster {
     companyMaster CompanyMaster? @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
 }
 
-
-model UserType{
-UserTypeSid Int       @id @default(autoincrement()) @map("UserTypeSid")
-name String @unique() @db.VarChar(50)
-code UserTypeCode @unique
-createdOn         DateTime  @default(now()) @db.Timestamptz(6)
-    updatedOn         DateTime? @updatedAt @db.Timestamptz(6)
-    deletedAt         DateTime?
+model UserType {
+    UserTypeSid Int          @id @default(autoincrement()) @map("UserTypeSid")
+    name        String       @unique() @db.VarChar(50)
+    code        UserTypeCode @unique
+    createdOn   DateTime     @default(now()) @db.Timestamptz(6)
+    updatedOn   DateTime?    @updatedAt @db.Timestamptz(6)
+    deletedAt   DateTime?
 
     userMaster UserMaster[]
 }
 
-enum UserTypeCode{
+enum UserTypeCode {
     admin
     manager
     teamLead
