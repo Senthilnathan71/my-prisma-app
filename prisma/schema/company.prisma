@@ -1556,7 +1556,7 @@ model BLClauseMaster {
     ClauseDescription String    @db.VarChar(500)
     Keyword           String    @db.VarChar(5)
     Sortorder         Decimal?  @db.Decimal(2, 0)
-    DefaultClause     Decimal?  @db.Decimal(3, 0)
+    DefaultClause	  String?   @default("N") @db.Char(1)
     createdOn         DateTime  @default(now()) @db.Timestamptz(6)
     updatedOn         DateTime? @updatedAt @db.Timestamptz(6)
     deletedAt         DateTime?
