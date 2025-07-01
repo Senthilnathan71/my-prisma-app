@@ -34,7 +34,6 @@ model MenuMaster {
     MenuMasterSid     Int       @id @default(autoincrement()) @map("MenuMasterSid")
     MenuCode          String    @db.Char(3)
     MenuName          String    @db.VarChar(50)
-    MenuType          String    @db.VarChar(50)
     ModuleMasterSid   Int
     ModuleName        String    @db.VarChar(50)
     path              String?   @db.VarChar(50)
@@ -46,6 +45,10 @@ model MenuMaster {
     updatedBy         String?   @db.VarChar(100)
     status            String?   @default("A") @db.Char(1)
     Remarks           String?   @db.VarChar(300)
+    AllowAdd          String?   @default("N") @db.Char(1)
+    AllowModify       String?   @default("N") @db.Char(1)
+    AllowView         String?   @default("N") @db.Char(1)
+    AllowDelete       String?   @default("N") @db.Char(1)
     TandCRequire      String?   @default("N") @db.Char(1)
     AttachmentRequire String?   @default("N") @db.Char(1)
     FollowupRequire   String?   @default("N") @db.Char(1)
