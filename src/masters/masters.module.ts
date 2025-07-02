@@ -112,6 +112,8 @@ import { AttachDocumentController } from './controllers/attach-document/attach-d
 import { AttachDocumentService } from './services/attach-document/attach-document.service';
 import { YearController } from './controllers/year/year.controller';
 import { YearService } from './services/year/year.service';
+import { IncoService } from './services/inco/inco.service';
+import { IncoController } from './controllers/inco/inco.controller';
 
 @Module({
   providers: [
@@ -171,7 +173,8 @@ import { YearService } from './services/year/year.service';
     DocumentTypeService,
     GenerationService,
     AttachDocumentService,
-    YearService
+    YearService,
+    IncoService
   ],
   controllers: [
     UserController,
@@ -230,7 +233,8 @@ import { YearService } from './services/year/year.service';
     DocumentTypeController,
     GenerationController,
     AttachDocumentController,
-    YearController
+    YearController,
+    IncoController
   ],
   exports: [UserService]
 })
