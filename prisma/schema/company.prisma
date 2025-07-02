@@ -1905,3 +1905,32 @@ model IncoMaster {
     IncoType     String @map("IncoType") @db.Char(3) // Sea/All
     OceanFreight String @map("OceanFreight") @db.VarChar(7) // Prepaid/Collect
 }
+
+
+
+model CostCenterMaster {
+  CostCenterMasterSid Int      @id @default(autoincrement()) @map("CostCenterMasterSid")
+  CostCenterName      String   @db.VarChar(30)
+  CostCenterCode      String   @db.VarChar(30)
+  CreatedOn           DateTime @default(now()) @db.Timestamp(6)
+  CreatedBy           String   @db.VarChar(100)
+  UpdatedOn           DateTime @default(now()) @db.Timestamp(6)
+  UpdatedBy           String?  @db.VarChar(100)
+  deletedAt           DateTime?
+  Remarks             String?  @db.VarChar(100)
+  Status              String   @default("A") @db.VarChar(10)
+}
+
+
+model ProfitCenterMaster {
+  ProfitCenterMasterSid Int      @id @default(autoincrement()) @map("ProfitCenterMasterSid")
+  ProfitCenterName       String   @db.VarChar(30)
+  ProfitCenterCode       String   @db.VarChar(30)
+  CreatedOn              DateTime @default(now()) @db.Timestamp(6)
+  CreatedBy              String   @db.VarChar(100)
+  UpdatedOn              DateTime @default(now()) @db.Timestamp(6)
+  deletedAt              DateTime?
+  UpdatedBy              String?  @db.VarChar(100)
+  Remarks                String?  @db.VarChar(100)
+  Status                 String   @default("A") @db.VarChar(10)
+}
