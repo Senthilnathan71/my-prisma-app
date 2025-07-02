@@ -1,40 +1,45 @@
-import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, Post, UnauthorizedException } from '@nestjs/common';
-import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
-import { ResponseData } from 'src/common/response-data';
-import { SearchListDto } from 'src/masters/DTO/search-list.dto';
-import { IncoService } from 'src/masters/services/inco/inco.service';
+import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, Post, UnauthorizedException } from "@nestjs/common";
+import { ApiOperation, ApiCreatedResponse } from "@nestjs/swagger";
+import { UserData } from "src/common/decorators/user.decorator";
+import { ResponseData } from "src/common/response-data";
+import { SearchListDto } from "src/masters/DTO/search-list.dto";
+import { IncoService } from "src/masters/services/inco/inco.service";
 
 @Controller('inco')
 export class IncoController {
-    constructor(
-        private incoService: IncoService,
-        private logger: Logger
-    ) { }
+    constructor(private incoService: IncoService, private logger: Logger) { }
 
-   @ApiOperation({ summary: 'Create new Inco' })
+    @ApiOperation({ summary: 'Inco Creation' })
     @ApiCreatedResponse({
-        description: 'Create new Inco',
+        description: 'Inco Creation',
         type: ResponseData
     })
-    @HttpCode(HttpStatus.OK)
+    @HttpCode(HttpStatus.CREATED)
     @Post('create')
-    async createNewInco(@Body() newData: any) {
-        let resp = new ResponseData();
+    async createInco(@Body() body: any,@UserData() user: any) {
+        this.logger.log(`createIncoData: ${JSON.stringify(body)}`)
+        let output = new ResponseData
         try {
-            let res = await this.incoService.createNewInco(newData);
-            this.logger.log(`New Inco Created : ${JSON.stringify(res)}`);
-            resp.data = res;
-            resp.message = "New Inco is successfully created."
+            let Inco = await this.incoService.createInco(body, user);
+            this.logger.debug(`createInco: ${JSON.stringify(Inco)}`)
+            if (!Inco) {
+                this.logger.warn(`createInco!!: ${JSON.stringify(Inco)}`)
+                throw 'Something went wrong'
+            }
+            output.data = Inco
+            output.message = 'Inco Created Successfully'
         } catch (error) {
-            this.logger.warn(`Inco Creation Error : ${JSON.stringify(error), error}`);
-            resp.status = false;
+            this.logger.warn(`createIncoError: ${error}`)
+            output.status = false;
             if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
-                resp.message = error.message;
+                output.message = error.message;
+                this.logger.warn(`createIncoError: ${error.message}`)
             } else {
-                resp.message = "Internal Server Error";
+                this.logger.warn(`createIncoError: ${error}`)
+                output.message = error;
             }
         }
-        return resp;
+        return output
     }
 
     @ApiOperation({ summary: 'Get All Inco' })
@@ -45,138 +50,114 @@ export class IncoController {
     @HttpCode(HttpStatus.OK)
     @Get()
     async getAllInco() {
-        let resp = new ResponseData();
+        let output = new ResponseData;
         try {
-            let res = await this.incoService.getAllInco();
-            this.logger.log(`All Inco Fetched : ${JSON.stringify(res)}`);
-            resp.data = res;
-            resp.message = "All Inco are successfully fetched.";
+            let IncoData = await this.incoService.getAllInco();
+            this.logger.log(`getAllInco: ${JSON.stringify(IncoData)}`)
+            output.data = IncoData;
         } catch (error) {
-            this.logger.warn(`Get All Inco Error : ${JSON.stringify(error), error}`);
-            resp.status = false;
+            this.logger.warn(`getAllInco: ${JSON.stringify(error)}`)
+            output.status = false;
             if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
-                resp.message = error.message;
+                output.message = error.message;
             } else {
-                resp.message = "Internal Server Error";
+                output.message = 'Internal Server Error';
             }
         }
-        return resp;
+        return output
     }
 
-
-
-    @ApiOperation({ summary: 'Get Inco by Id' })
+    @ApiOperation({ summary: 'Get Inco By Id' })
     @ApiCreatedResponse({
-        description: 'Get Inco by Id',
+        description: 'Get Inco By Id',
         type: ResponseData
     })
     @HttpCode(HttpStatus.OK)
-    @Get('fetch/:IncoMasterSid')
-    async getIncoById(@Param('IncoMasterSid', ParseIntPipe) IncoMasterSid: number) {
-        let resp = new ResponseData();
+    @Get('fetch/:id')
+    async getIncoById(@Param('id', ParseIntPipe) IncoId: number) {
+        const output = new ResponseData;
         try {
-            this.logger.log(`Getting Inco with id : ${IncoMasterSid}`);
-            let res = await this.incoService.fetchIncoById(IncoMasterSid);
-            this.logger.debug(`Fetched BlClasue : ${JSON.stringify(res)}`);
-            resp.data = res;
-            resp.message = `Inco with id : ${IncoMasterSid} is successfully fetched`;
+            const Inco = await this.incoService.findOne(IncoId)
+            this.logger.log(`getIncoById: ${JSON.stringify(Inco)}`)
+            output.data = Inco
         } catch (error) {
-            this.logger.warn(`Get Inco by Id Error : ${JSON.stringify(error), error}`);
-            resp.status = false;
-            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
-                resp.message = error.message;
-            } else {
-                resp.message = "Internal Server Error";
-            }
+            this.logger.warn(`getIncoById: ${JSON.stringify(error)}`)
+            output.status = false;
+            output.message = error
         }
-        return resp;
+        return output;
     }
 
-
-
-    @ApiOperation({ summary: 'Update Inco by Id' })
+    @ApiOperation({ summary: 'Update Inco By Id' })
     @ApiCreatedResponse({
-        description: 'Update Inco by Id',
+        description: 'Update Inco By id',
         type: ResponseData
     })
     @HttpCode(HttpStatus.OK)
-    @Patch('update/:IncoMasterSid')
-    async updateIncoById(@Param('IncoMasterSid', ParseIntPipe) IncoMasterSid: number, @Body() payload: any) {
-        let resp = new ResponseData();
-        try {
-            this.logger.log(`Updating Inco with id : ${IncoMasterSid}`);
-            let res = await this.incoService.updateIncoById(IncoMasterSid, payload);
-            this.logger.debug(`Updated Inco : ${JSON.stringify(res)}`);
-            resp.data = res;
-            resp.message = `Inco with id : ${IncoMasterSid} is successfully updated`;
-        } catch (error) {
-            this.logger.warn(`Inco Updation Error : ${JSON.stringify(error), error}`);
-            resp.status = false;
-            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
-                resp.message = error.message;
+    @Patch('update/:id')
+    async editInco(@Param('id', ParseIntPipe) id: number, @Body() body: any, @UserData() user: any) {
+        this.logger.log(`editIncobody: ${JSON.stringify(body)}`)
+        let output = new ResponseData
+        try{
+            let Inco = await this.incoService.updateInco(id,body,user);
+            this.logger.log(`editInco: ${JSON.stringify(Inco)}`)
+            if (!Inco) {
+                this.logger.log(`editInco!!: ${JSON.stringify(Inco)}`)
+                throw 'Something went wrong'
             } else {
-                resp.message = "Internal Server Error";
+                this.logger.log(`editIncoelse: ${Inco}`)
+            }
+            output.data = Inco;
+            output.message = 'Inco Updated Successfully'
+        } catch (error) {
+            this.logger.warn(`editIncoError: ${JSON.stringify(error), error}`)
+            output.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                this.logger.warn(`editIncobadrequest: ${error}`)
+                output.message = error.message;
+            } else {
+                output.message = error;
             }
         }
-        return resp;
+        this.logger.log(`editIncomessage: ${output.message}`)
+        return output
     }
 
-
-
-    @ApiOperation({ summary: 'Delete Inco by Id' })
+    @ApiOperation({ summary: 'Delete Inco By Id' })
     @ApiCreatedResponse({
-        description: 'Delete Inco by Id',
+        description: 'Delete Inco By Id',
         type: ResponseData
     })
     @HttpCode(HttpStatus.OK)
-    @Delete('delete/:IncoMasterSid')
-    async deleteIncoById(@Param('IncoMasterSid', ParseIntPipe) IncoMasterSid: number) {
-        let resp = new ResponseData();
-        try {
-            this.logger.log(`Deleting Inco with id : ${IncoMasterSid}`);
-            let res = await this.incoService.deleteInco(IncoMasterSid);
-            this.logger.debug(`Deleted Inco : ${JSON.stringify(res)}`);
-            resp.data = res;
-            resp.message = `
-            Inco with id : ${IncoMasterSid} is successfully deleted`;
-        } catch (error) {
-            this.logger.warn(`Inco Deletion Error : ${JSON.stringify(error), error}`);
-            resp.status = false;
-            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
-                resp.message = error.message;
-            } else {
-                resp.message = "Internal Server Error";
-            }
-        }
-        return resp;
+    @Delete('delete/:id')
+    async softDelete(@Param('id', ParseIntPipe) id: number) {
+        return this.incoService.softDelete(id);
     }
-
-
 
     @ApiOperation({ summary: 'Search List of Inco' })
     @ApiCreatedResponse({
-        description: 'Search List of Inco',
+        description: 'Search List',
         type: ResponseData
     })
     @HttpCode(HttpStatus.OK)
     @Post('search-list')
-    async searchInco(@Body() searchData: SearchListDto) {
-        let resp = new ResponseData();
+    async searchInco(@Body() body: SearchListDto) {
+        let output = new ResponseData;
         try {
-            let res = await this.incoService.searchInco(searchData);
-            this.logger.log(`Inco Search Results :${JSON.stringify(res)}`);
-            resp.data = res;
-            resp.message = "Inco Search results are successfully fetched"
-        } catch (error) {
-            this.logger.warn(`Inco Search Error : ${JSON.stringify(error), error}`);
-            resp.status = false;
-            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
-                resp.message = error.message;
+            this.logger.log(`searchInco: ${JSON.stringify(body)}`)
+            const IncoList = await this.incoService.searchList(body);
+            output.data = IncoList
+            output.message = "Inco List fetched Successfully"
+        }  catch (err) {
+            output.status = false;
+            this.logger.warn(`searchInco: ${JSON.stringify(err)}`)
+            output.status = false;
+            if (err instanceof BadRequestException || err instanceof UnauthorizedException) {
+                output.message = err.message;
             } else {
-                resp.message = "Internal Server Error";
+                output.message = 'Internal Server Error';
             }
         }
-        return resp;
+        return output
     }
-
 }

@@ -1,145 +1,148 @@
-import {BadRequestException, Injectable } from '@nestjs/common';
-import { DatabaseService } from 'src/database/database.service';
-import { SearchListDto } from 'src/masters/DTO/search-list.dto';
+import { BadRequestException, Injectable, Logger, NotFoundException } from "@nestjs/common";
+import { DatabaseService } from "src/database/database.service";
+import { SearchListDto } from "src/masters/DTO/search-list.dto";
 
 @Injectable()
 export class IncoService {
-    constructor(private _db:DatabaseService){}
+    constructor(private _db: DatabaseService, private logger: Logger) { }
 
-    async getAllInco(){
-        try {
-            const allInco = await this._db.incoMaster.findMany({
-                where : {
-                    deletedAt:null
-                }
-            })
-            return allInco;
-        } catch (error) {
-            throw error;
+    async createInco(payload: any, user) {
+        this.logger.warn(`createInco: ${payload}`);
+
+        const existing = await this._db.incoMaster.findFirst({
+            where: {
+                OR: [
+                    {
+                        IncoName: {
+                            equals: payload.IncoName.trim(),
+                            mode: 'insensitive',
+                        }
+                    },
+                    {
+                        IncoCode: {
+                            equals: payload.IncoCode.trim(),
+                            mode: 'insensitive',
+                        }
+                    }
+                ]
+            },
+        });
+
+        if (existing) {
+            if (existing.IncoName === payload.IncoName) {
+                throw new BadRequestException('Inco name already exists');
+            }
+            if (existing.IncoCode === payload.IncoCode) {
+                throw new BadRequestException('Inco code already exists');
+            }
         }
-    }
 
-    async createNewInco(payload){
         try {
-            const createdInco = await this._db.incoMaster.create({
-                data :{
+            const Inco = await this._db.incoMaster.create({
+                data: {
                     ...payload,
                 }
-            })
-            return createdInco;
+            });
+
+            return Inco;
         } catch (error) {
-            throw error;
+            console.log(error.stack)
+            throw new Error(`Error creating Inco: ${error.message}`);
         }
     }
 
-    async fetchIncoById(IncoMasterSid:number){
+    async getAllInco() {
         try {
-            const ourInco =await this._db.incoMaster.findUnique({
-                where : {
-                    IncoMasterSid:IncoMasterSid
-                }
-            })
-            if(!ourInco){
-                throw new BadRequestException(`Inco with Id : ${IncoMasterSid} not exists`);
-            }
-            return ourInco;
-        } catch (error) {
-            throw error;
-        }
-    }
-
-    async updateIncoById(IncoMasterSid:number,payload){
-        try {
-             const exist =await this._db.incoMaster.findUnique({
-                where : {
-                    IncoMasterSid:IncoMasterSid
-                }
-            })
-            if(!exist){
-                throw new BadRequestException(`Inco with Id : ${IncoMasterSid} not exists`);
-            }
-            const updatedInco = this._db.incoMaster.update({
-                where : {
-                    IncoMasterSid : IncoMasterSid
-                },
-                data : payload
-            })
-            return updatedInco;
-        } catch (error) {
-            throw error;
-        }
-    }
-
-
-    async deleteInco(IncoMasterSid:number){
-        try {
-            const exist = await this._db.incoMaster.findUnique({
+            const IncoList = await this._db.incoMaster.findMany({
                 where: {
-                    IncoMasterSid: IncoMasterSid
+                    Status: 'A'
                 }
             })
-            if (!exist) {
-                throw new BadRequestException(`Inco with Id : ${IncoMasterSid} not exists`);
-            }
-            if (exist.deletedAt) {
-                throw new BadRequestException(`Inco with Id :${IncoMasterSid} is already deleted`)
-            }
-            const deletedInco = this._db.incoMaster.update({
+            return IncoList;
+        } catch (error) {
+            throw error
+        }
+    }
+
+    async findOne(IncoMasterSid: any) {
+        try {
+            return await this._db.incoMaster.findUnique({
                 where: {
                     IncoMasterSid: IncoMasterSid
                 },
-                data: {
-                    deletedAt: new Date()
-                }
-            })
-            return deletedInco;
-        } catch(error) {
+            });
+        } catch (error) {
             throw error;
         }
     }
 
+    async updateInco(IncoMasterSid: number, payload: any, user) {
+        const existing = await this._db.incoMaster.findUnique({
+            where: {
+                IncoMasterSid: IncoMasterSid
+            }
+        });
 
-    async searchInco(data:SearchListDto){
-        const {searchType,filterValue}=data;
-        const intFields=[
-            'Sortorder',
-            'DefaultClause',
-        ];
-        const stringFields = [
-            'ClauseDescription',
-            'Keyword',
-            'status'
-        ];
-        const acceptedType = [...intFields,...stringFields];
-        if(!acceptedType.includes(searchType)){
-            throw new BadRequestException('Invalid Search Type');
+        if (!existing) {
+            throw new Error('Inco is not exists');
         }
 
-        const whereClause:any ={}
+        try {
+            const Inco = await this._db.incoMaster.update({
+                where: {
+                    IncoMasterSid: IncoMasterSid
+                }, data: payload
+            });
+            return Inco;
+        } catch (error) {
+            throw new Error(`Error updating Inco: ${error.message}`);
+        }
+    }
 
-        if(stringFields.includes(searchType)){
-            whereClause[searchType]={
-                contains:filterValue,
-                mode:'insensitive'
-            }
-        } else if(intFields.includes(searchType)){
-            const numberValue=parseInt(filterValue);
-            if (isNaN(numberValue)) {
-                throw new BadRequestException(`${searchType} must be a valid number`);
-            }
-            whereClause[searchType]=numberValue;
+    async softDelete(id: number) {
+        const existingInco = await this._db.incoMaster.findUnique({
+            where: {IncoMasterSid: id}
+        });
+
+        if (!existingInco) {
+            throw new NotFoundException(`Inco with ID ${id} not found`);
         }
 
-        const searchResults = await this._db.incoMaster.findMany({
-            where : {
-                ...whereClause,
-                deletedAt:null
-            }
-        }).catch((err) => {
-            throw new Error(`Error Occured : ${JSON.stringify(err), err}`);
-        })
+        if (existingInco.deletedAt) {
+            throw new Error(`Inco with ID ${id} is already deleted`);
+        }
 
-        return searchResults;
+        return this._db.incoMaster.update({
+            where: { IncoMasterSid:  id},
+            data: { deletedAt: new Date()}
+        });
+    }
 
+    async searchList(dto: SearchListDto) {
+        const { searchType, filterValue} = dto;
+        const allowedFields = [
+            'IncoName',
+            'IncoCode',
+            'IncoType',
+            'OceanFreight',
+            'Status',
+        ];
+
+        if (!allowedFields.includes(searchType)) {
+            throw new BadRequestException('Invalid search type');
+        }
+
+        const Incos = this._db.incoMaster.findMany({
+            where: {
+                [searchType]: {
+                    contains: filterValue,
+                    mode: 'insensitive',
+                },
+                deletedAt: null,
+            },
+        }).catch(err => {
+            throw new Error(`Error Search Inco: ${err}`);
+        });
+        return Incos;
     }
 }
