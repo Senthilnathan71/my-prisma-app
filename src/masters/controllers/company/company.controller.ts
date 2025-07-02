@@ -1,6 +1,7 @@
 import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, Post, Res, UnauthorizedException, UploadedFiles } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
+import { Auth } from 'src/common/decorators/auth.decorator';
 import { FilesUploadInterceptor } from 'src/common/decorators/file-upload.decorator';
 import { ImageUploadInterceptor } from 'src/common/decorators/image-upload.decorator';
 import { UserData } from 'src/common/decorators/user.decorator';
@@ -10,6 +11,7 @@ import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { CompanyService } from 'src/masters/services/company/company.service';
 
 @Controller('company')
+@Auth()
 export class CompanyController {
     constructor(private companyService: CompanyService, private logger: Logger, private configService: ConfigService) { }
 
@@ -66,6 +68,31 @@ export class CompanyController {
         }
         return resp;
     }
+    @ApiOperation({ summary: 'Get All Company for search' })
+    @ApiCreatedResponse({
+        description: "Get All Company for search",
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Get('search')
+    async getAllCompanySearch() {
+        let resp = new ResponseData();
+        try {
+            let res = await this.companyService.newSearch();
+            this.logger.log(`All Companies are fetched : ${JSON.stringify(res)}`);
+            resp.data = res;
+            resp.message = "All Companies are successfully fetched";
+        } catch (error) {
+            this.logger.warn(`Get All Company Error : ${JSON.stringify(error), error}`)
+            resp.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                resp.message = error.message;
+            } else {
+                resp.message = "Internal Server Error";
+            }
+        }
+        return resp;
+    }
 
 
 
@@ -106,11 +133,11 @@ export class CompanyController {
     @HttpCode(HttpStatus.OK)
     @ImageUploadInterceptor('images', 'UPLOAD_IMAGE_PATH')
     @Patch('update/:CompanyMasterSid')
-    async updateCompanyById(@Param('CompanyMasterSid', ParseIntPipe) CompanyMasterSid: number, @Body() updateData: any) {
+    async updateCompanyById(@Param('CompanyMasterSid', ParseIntPipe) CompanyMasterSid: number, @Body() updateData: any,@UserData() user:any) {
         let resp = new ResponseData();
         try {
             this.logger.log(`Updating Company with id:${CompanyMasterSid}`);
-            let res = await this.companyService.updateCompanyById(CompanyMasterSid, updateData);
+            let res = await this.companyService.updateCompany(CompanyMasterSid, updateData,user);
             this.logger.debug(`Updated Company :${JSON.stringify(res)}`);
             resp.data = res;
             resp.message = `Company with id : ${CompanyMasterSid} is successfully updated`;

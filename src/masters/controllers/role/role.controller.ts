@@ -27,7 +27,7 @@ export class RoleController {
                 throw 'Something went wrong'
             }
             output.data = role
-            output.message = 'role Created Successfully'
+            output.message = 'Role created successfully.'
         } catch (error) {
             this.logger.warn(`createroleError: ${error}`)
             output.status = false;
@@ -113,7 +113,7 @@ export class RoleController {
                 this.logger.log(`editroleelse: ${role}`)
             }
             output.data = role;
-            output.message = 'role Updated Successfully'
+            output.message = 'Role updated successfully.'
         } catch (error) {
             this.logger.warn(`editroleerror: ${JSON.stringify(error), error}`)
             output.status = false;

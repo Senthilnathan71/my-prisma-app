@@ -197,11 +197,9 @@ export class TermsAndConditionsService {
             CompanyMasterSid,
             BranchMasterSid,
             MenuMasterSid,
-            Carrier,
             createdBy,
             TandC,
             IsDefaut,
-            departmentId,
             POL = [],
             POD = [],
             FDC = [],
@@ -209,7 +207,7 @@ export class TermsAndConditionsService {
         } = payload;
 
         // Validate required fields
-        if (!CompanyMasterSid || !BranchMasterSid || !MenuMasterSid || !Carrier || !createdBy || !TandC) {
+        if (!CompanyMasterSid || !BranchMasterSid || !MenuMasterSid || !createdBy || !TandC) {
             throw new BadRequestException('Missing required fields');
         }
 
@@ -221,7 +219,6 @@ export class TermsAndConditionsService {
                         CompanyMasterSid,
                         BranchMasterSid,
                         MenuMasterSid,
-                        Carrier,
                         POL: { set: POL },
                         POD: { set: POD },
                         FDC: { set: FDC },

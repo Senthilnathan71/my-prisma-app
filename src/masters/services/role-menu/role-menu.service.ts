@@ -167,6 +167,11 @@ export class RoleMenuService {
                     deletedAt: null,
                 },
                 include: {
+                    roleMaster : {
+                        select : {
+                            UserRoleName : true
+                        }
+                    },
                     menuMaster: {
                         select: {
                             MenuName: true
