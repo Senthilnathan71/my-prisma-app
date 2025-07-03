@@ -114,6 +114,8 @@ import { YearController } from './controllers/year/year.controller';
 import { YearService } from './services/year/year.service';
 import { IncoService } from './services/inco/inco.service';
 import { IncoController } from './controllers/inco/inco.controller';
+import { ProfitCenterController } from './controllers/profit-center/profit-center.controller';
+import { ProfitCenterService } from './services/profit-center/profit-center.service';
 
 @Module({
   providers: [
@@ -174,7 +176,8 @@ import { IncoController } from './controllers/inco/inco.controller';
     GenerationService,
     AttachDocumentService,
     YearService,
-    IncoService
+    IncoService,
+    ProfitCenterService
   ],
   controllers: [
     UserController,
@@ -234,7 +237,8 @@ import { IncoController } from './controllers/inco/inco.controller';
     GenerationController,
     AttachDocumentController,
     YearController,
-    IncoController
+    IncoController,
+    ProfitCenterController
   ],
   exports: [UserService]
 })
