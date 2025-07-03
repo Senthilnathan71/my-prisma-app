@@ -116,6 +116,8 @@ import { IncoService } from './services/inco/inco.service';
 import { IncoController } from './controllers/inco/inco.controller';
 import { ProfitCenterController } from './controllers/profit-center/profit-center.controller';
 import { ProfitCenterService } from './services/profit-center/profit-center.service';
+import { CostCenterService } from './services/cost-center/cost-center.service';
+import { CostCenterController } from './controllers/cost-center/cost-center.controller';
 
 @Module({
   providers: [
@@ -177,7 +179,8 @@ import { ProfitCenterService } from './services/profit-center/profit-center.serv
     AttachDocumentService,
     YearService,
     IncoService,
-    ProfitCenterService
+    ProfitCenterService,
+    CostCenterService
   ],
   controllers: [
     UserController,
@@ -238,7 +241,8 @@ import { ProfitCenterService } from './services/profit-center/profit-center.serv
     AttachDocumentController,
     YearController,
     IncoController,
-    ProfitCenterController
+    ProfitCenterController,
+    CostCenterController
   ],
   exports: [UserService]
 })
