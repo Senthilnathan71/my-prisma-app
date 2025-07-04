@@ -453,9 +453,11 @@ model ChargeMaster {
     tdsSetHeader        TDSSetHeader       @relation(fields: [TDSMasterSid], references: [TDSSetHeaderSid])
     chargeTaxMapping    ChargeTaxMapping[]
     chargeTds           ChargeTds[]
+    chargeTaxMaster ChargeTaxMaster[]
 }
 
 model ChargeTaxMaster {
+    chargeTaxMasterSid    Int?
     HSNCode            String        @db.VarChar(10)
     description        String        @db.VarChar(100)
     TaxGroup           String        @db.VarChar(10)
@@ -469,6 +471,8 @@ model ChargeTaxMaster {
     Status             String        @db.Char(1)
     ChargeTaxMasterSid Int           @id @default(autoincrement()) @map("ChargeTaxMasterSid")
     CompanyMasterSid   Int
+
+    chargeMaster      ChargeMaster? @relation(fields: [chargeTaxMasterSid], references: [ChargeMasterSid])
     companyMaster      CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
 }
 
