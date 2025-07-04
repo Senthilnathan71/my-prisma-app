@@ -408,6 +408,7 @@ model PortMaster {
 
     VoyageMasterDetailPOL VoyageMasterDetail[] @relation("POL")
     VoyageMasterDetailPOD VoyageMasterDetail[] @relation("POD")
+    customerMaster CustomerMaster[]
 }
 
 model UnitMaster {
@@ -714,6 +715,7 @@ model CustomerMaster {
     CompanyMasterSid     Int?
     PreCustomerMasterSid Int?
     CountryMasterSid     Int
+    PortMasterSid        Int?
     CustomerName         String    @db.VarChar(100)
     CustomerShortCode    String?   @db.VarChar(50)
     CustomerAliasName    String?   @db.VarChar(100)
@@ -744,6 +746,7 @@ model CustomerMaster {
     companyMaster       CompanyMaster?     @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
     preCustomerMaster   PreCustomerMaster? @relation(fields: [PreCustomerMasterSid], references: [PreCustomerMasterSid])
     countryMaster       CountryMaster      @relation(fields: [CountryMasterSid], references: [CountryMasterSid])
+    portMaster          PortMaster?       @relation(fields: [PortMasterSid], references: [PortMasterSid])
     quoteHeader         QuoteHeader[]
     quoteCharge         QuoteCharge[]
     quoteRoute          QuoteRoute[]
