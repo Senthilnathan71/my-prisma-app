@@ -60,13 +60,8 @@ model MenuMaster {
 model MenuPermission{
     MenuPermissionSid     Int       @id @default(autoincrement()) @map("MenuPermissionSid")
     MenuMasterSid     Int
-    AllowAdd          String?   @default("Y") @db.Char(1)
-    AllowView         String?   @default("Y") @db.Char(1)
-    AllowDelete       String?   @default("Y") @db.Char(1)
-    AllowModify       String?   @default("N") @db.Char(1)
-    TandCRequire      String?   @default("N") @db.Char(1)
-    AttachmentRequire String?   @default("N") @db.Char(1)
-    FollowupRequire   String?   @default("N") @db.Char(1)
+    permissionCode    String?   @db.VarChar(100)
+    permissionName    String    @db.VarChar(100)
     createdOn         DateTime  @default(now()) @db.Timestamptz(6)
     updatedOn         DateTime? @updatedAt @db.Timestamptz(6)
     deletedAt         DateTime?
@@ -106,6 +101,7 @@ model RoleMenuMaster {
     ViewRole          String?   @default("Y") @db.Char(1)
     UpdateRole        String?   @default("Y") @db.Char(1)
     DeleteRole        String?   @default("N") @db.Char(1)
+    MenuPermissions   Json?
     createdOn         DateTime  @default(now()) @db.Timestamptz(6)
     updatedOn         DateTime? @updatedAt @db.Timestamptz(6)
     deletedAt         DateTime?
