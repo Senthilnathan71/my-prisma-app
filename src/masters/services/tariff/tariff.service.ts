@@ -6,11 +6,28 @@ import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 export class TariffService {
     constructor(private _db: DatabaseService, private logger: Logger) { }
 
-    async createNewTariff(newData: any) {
+    async createNewTariff(newData: any,user:any) {
+
+        const existing = await this._db.tariffHeader.findFirst({
+            where: {
+                AND: [
+                    { POLSid: newData.POLSid },
+                    { PODSid: newData.PODSid },
+                    { CompanyMasterSid : user.CompanyMasterSid}
+                ]
+            },
+        });
+
+        if (existing) {
+            throw new BadRequestException('Tariff already exists for these POL and POD combinations.');
+        }
+
         try {
+
             let createdTariff = await this._db.tariffHeader.create({
                 data: {
                     ...newData,
+                    CompanyMasterSid : user.userBranchMaster[0]?.CompanyMasterSid
                 }
             })
             return createdTariff;

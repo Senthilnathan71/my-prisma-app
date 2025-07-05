@@ -81,6 +81,9 @@ export class FavouriteScreenController {
             this.logger.log(`Checking if it is an favourite Path : ${path}`);
             let res = await this.favScreenService.checkIfPathIsFav(path, user);
             this.logger.debug(`Favourite Path Check Results : ${JSON.stringify(res)}`);
+            if(!res){
+                resp.status = false;
+            }
             resp.data = res;
             resp.message = `
             Path :${path} is found to be user's favourite`;

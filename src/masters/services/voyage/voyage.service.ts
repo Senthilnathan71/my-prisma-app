@@ -20,13 +20,18 @@ export class VoyageService {
                             mode: 'insensitive',
                         }
                     },
+                    {
+                        VesselMasterSid: {
+                            equals: payload.VesselMasterSid
+                        }
+                    }
                 ]
             },
         });
 
         if (existing) {
-            if (existing.VoyageNo === payload.VoyageNo) {
-                throw new BadRequestException('Voyage no already exists');
+            if (existing.VoyageNo.toLowerCase() === payload.VoyageNo.trim().toLowerCase() && existing.VesselMasterSid === payload.VesselMasterSid) {
+                throw new BadRequestException('This vessel is already scheduled with this voyage number.');
             }
         }
 
@@ -162,40 +167,41 @@ export class VoyageService {
         }
 
         const searchResults = await this._db.voyageMasterHeader.findMany({
-            where:{
-                ... whereClause,
-                deletedAt:null,
+            where: {
+                ...whereClause,
+                deletedAt: null
             },
-            orderBy: {
+            include: {
+                vesselMaster: {
+                    select: {
+                        VesselName: true
+                    }
+                },
                 voyageMasterDetail: {
-                    _count: 'desc', 
-                },
-            },
-            include : {
-                vesselMaster:{
-                    select :{
-                        VesselName:true
-                    }
-                },
-                voyageMasterDetail : {
-                    where : {
-                      deletedAt : null  
+                    where: {
+                        deletedAt: null
                     },
-                    select : {
-                        portMasterPOL:{
-                            select : {
-                                PortCode : true
+                    orderBy: {
+                        VoyageMasterDetailSid: 'asc'
+                    },
+                    select: { 
+                        VoyageMasterDetailSid: true,
+                        POLSid: true,
+                        PODSid: true,
+                        ETA: true,
+                        ETD: true,
+                        portMasterPOL: {
+                            select: {
+                                PortCode: true
                             }
                         },
-                        portMasterPOD : {
-                            select : {
-                                PortCode : true
+                        portMasterPOD: {
+                            select: {
+                                PortCode: true
                             }
-                        },
-                        ETA : true,
-                        ETD : true
+                        }
                     }
-                },
+                }
             }
         }).catch((err) => {
             throw new Error(`Error Occurred: ${err}`);
@@ -205,56 +211,70 @@ export class VoyageService {
     }
 
 
-    async specialSearch(payload){
-        const {POLSid,PODSid} = payload;
-        const searchResults = await this._db.voyageMasterHeader.findMany({
-            where : {
-                voyageMasterDetail : {
-                    some : {
-                        PODSid : PODSid,
-                        POLSid : POLSid,
-                        deletedAt : null
-                    },
-                },
+    async specialSearch(payload) {
+    const { POLSid, PODSid } = payload;
+    const today = new Date();
+
+    const searchResults = await this._db.voyageMasterHeader.findMany({
+        where: {
+            voyageMasterDetail: {
+                some: {
+                    deletedAt: null
+                }
+            }
+        },
+        include: {
+            vesselMaster: {
+                select: {
+                    VesselName: true
+                }
             },
-            include : {
-                vesselMaster : {
-                    select : {
-                        VesselName : true
-                    }
+            voyageMasterDetail: {
+                where: {
+                    deletedAt: null
                 },
-                voyageMasterDetail : {
-                    where : {
-                        AND : {
-                            POLSid :{
-                                equals : POLSid
-                            },
-                            PODSid : {
-                                equals : PODSid
-                            },
-                            deletedAt : {
-                                equals : null
-                            }
-                        },
+                orderBy: {
+                    VoyageMasterDetailSid: 'asc'
+                },
+                include: {
+                    portMasterPOL: {
+                        select: {
+                            PortCode: true
+                        }
                     },
-                    include : {
-                        portMasterPOL : {
-                            select : {
-                                PortCode : true
-                            }
-                        },
-                        portMasterPOD : {
-                            select : {
-                                PortCode : true
-                            }
+                    portMasterPOD: {
+                        select: {
+                            PortCode: true
                         }
                     }
                 }
             }
-        }).catch((error)=>{
-            throw new Error(`Error Occured : ${error}`);
-        })
+        }
+    }).catch((error) => {
+        throw new Error(`Error Occurred: ${error}`);
+    });
 
-        return searchResults;
-    }
+    const filteredResults = searchResults.filter(header => {
+        const details = header.voyageMasterDetail;
+        
+        // Must have at least one detail
+        if (details.length === 0) return false;
+        
+        // Get first and last details (ordered by VoyageMasterDetailSid)
+        const firstDetail = details[0];
+        const lastDetail = details[details.length - 1];
+        
+        // Check POL/POD conditions
+        const validPol = firstDetail.POLSid === POLSid;
+        const validPod = lastDetail.POLSid === PODSid;
+        
+        if (!validPol || !validPod) return false;
+        
+        // Check POD's ETD date is in future
+        const podDate = lastDetail.ETD || lastDetail.ETA || new Date(0);
+        return podDate > today;
+    });
+
+    return filteredResults;
+}
 }

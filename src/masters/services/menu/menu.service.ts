@@ -41,10 +41,11 @@ export class MenuService {
 
         try {
             const result = await this._db.$transaction(async (tx) => {
+                const {permissions,...menuPayload} = payload
                 // 1. Create menu
                 const menu = await tx.menuMaster.create({
                     data: {
-                        ...payload,
+                        ...menuPayload,
                     }
                 });
 
@@ -107,7 +108,8 @@ export class MenuService {
         try {
             const menuPermissions = await this._db.menuPermission.findMany({
                 where: {
-                    MenuMasterSid: MenuMasterSid
+                    MenuMasterSid: MenuMasterSid,
+                    deletedAt : null
                 }
             })
             return menuPermissions
@@ -155,6 +157,36 @@ export class MenuService {
                     }
                 });
 
+                // Soft Delete existing records that aren't in payload
+
+                if (payload.permissions?.length) {
+                
+                const existingPerms = await this._db.menuPermission.findMany({
+                    where : {deletedAt : null}
+                });
+                const newPerms = payload.permissions;
+
+                const permsToSoftDelete = existingPerms.filter(ep => 
+                    !newPerms.some(np => 
+                        np.permissionName.trim().toLowerCase() === 
+                        ep.permissionName.toLowerCase() &&
+                        ep.deletedAt === null
+                    )
+                );
+
+                // Soft delete the permissions
+                if (permsToSoftDelete.length > 0) {
+                    await tx.menuPermission.updateMany({
+                        where: {
+                            MenuPermissionSid: {
+                                in: permsToSoftDelete.map(p => p.MenuPermissionSid)
+                            }
+                        },
+                        data: {
+                            deletedAt: new Date(),
+                        }
+                    });
+                }
                 // 2. Process permissions
                 for (const p of payload.permissions) {
                     const existingPermission = await tx.menuPermission.findFirst({
@@ -191,6 +223,8 @@ export class MenuService {
                         });
                     }
                 }
+                
+            }
 
                 return updatedMenu;
             });
