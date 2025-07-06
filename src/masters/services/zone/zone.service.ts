@@ -101,27 +101,16 @@ export class ZoneService {
     }
   }
 
-  async searchZone(data: SearchListDto) {
-    const { searchType, filterValue } = data;
-    const acceptedType = [
-      "ZoneCode",
-      "ZoneName",
-      "status"
-    ];
-    if (!acceptedType.includes(searchType)) {
-      throw new BadRequestException('Invalid Search Type');
+  async searchZone() {
+    try {
+      const searchResults = await this._db.zoneMaster.findMany({
+        where: {
+          deletedAt: null
+        }
+      })
+      return searchResults;
+    } catch (error) {
+      throw error;
     }
-    const searchResults = await this._db.zoneMaster.findMany({
-      where: {
-        [searchType]: {
-          contains: filterValue,
-          mode: 'insensitive'
-        },
-        deletedAt:null
-      }
-    }).catch((err) => {
-      throw new Error(`Error Occurred : ${err}`);
-    })
-    return searchResults
   }
 }

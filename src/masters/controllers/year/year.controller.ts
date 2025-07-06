@@ -149,10 +149,10 @@ export class YearController {
     })
     @HttpCode(HttpStatus.OK)
     @Post('search-list')
-    async searchYear(@Body() searchData: SearchListDto) {
+    async searchYear() {
         let resp = new ResponseData();
         try {
-            let res = await this.yearService.searchYear(searchData);
+            let res = await this.yearService.searchYear();
             this.logger.log(`Year Search Results :${JSON.stringify(res)}`);
             resp.data = res;
             resp.message = "Year Search results are successfully fetched"

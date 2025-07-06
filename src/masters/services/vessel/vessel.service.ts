@@ -127,60 +127,17 @@ export class VesselService {
     }
 
 
-    async searchVessel(data: SearchListDto) {
-        const { searchType, filterValue } = data;
-
-        const stringFields = [
-            "VesselName",
-            "VesselShortCode",
-            "IMOCode",
-            "CallSignIn",
-            "VesselOperator",
-            "VesselType",
-            "status"
-        ];
-
-        const intFields = [
-            "MMSINo",
-            "GRT",
-            "NRT",
-            "YearofBuilt",
-            "LengthinMtr",
-            "BreadthinMtr"
-        ];
-
-        const acceptedType = [...stringFields, ...intFields];
-
-        if (!acceptedType.includes(searchType)) {
-            throw new BadRequestException('Invalid Search Type');
+    async searchVessel() {
+        try {
+      const searchResults = await this._db.vesselMaster.findMany({
+        where: {
+          deletedAt: null
         }
-
-        let whereClause: any = {};
-
-        if (stringFields.includes(searchType)) {
-            whereClause[searchType] = {
-                contains: filterValue,
-                mode: "insensitive"
-            };
-        } else if (intFields.includes(searchType)) {
-            const numberValue = parseInt(filterValue);
-            if (isNaN(numberValue)) {
-                throw new BadRequestException(`${searchType} must be a valid number`);
-            }
-            whereClause[searchType] = numberValue;
-        }
-
-        const searchResults = await this._db.vesselMaster.findMany({
-            where:{
-                ... whereClause,
-                deletedAt:null
-            }
-        }).catch((err) => {
-            throw new Error(`Error Occurred: ${err}`);
-        });
-
-        return searchResults;
+      })
+      return searchResults;
+    } catch (error) {
+      throw error;
     }
-
-
+  }
+    
 }

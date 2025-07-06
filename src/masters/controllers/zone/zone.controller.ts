@@ -210,11 +210,11 @@ export class ZoneController {
     type: ResponseData
   })
   @HttpCode(HttpStatus.OK)
-  @Post('search-list')
-  async searchZone(@Body() body: SearchListDto) {
+  @Get('search-list')
+  async searchZone() {
     let resp = new ResponseData();
     try {
-      let res = await this.zoneService.searchZone(body);
+      let res = await this.zoneService.searchZone();
       this.logger.log(`Zone Search Result ${JSON.stringify(res)}`);
       resp.data = res;
       resp.message = "Zone Search is successfully fetched"

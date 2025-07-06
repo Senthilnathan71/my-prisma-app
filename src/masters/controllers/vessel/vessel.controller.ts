@@ -149,11 +149,11 @@ export class VesselController {
         type:ResponseData
     })
     @HttpCode(HttpStatus.OK)
-    @Post('search-list')
-    async searchVessel(@Body() body:SearchListDto){
+    @Get('search-list')
+    async searchVessel(){
         let resp=new ResponseData();
         try {
-            let res=await this.vesselService.searchVessel(body);
+            let res=await this.vesselService.searchVessel();
             this.logger.log(`Vessel Search Data : ${JSON.stringify(res)}`);
             resp.data=res;
             resp.message="Vessel Search is successfully fetched"
