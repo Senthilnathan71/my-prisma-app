@@ -210,7 +210,7 @@ model VoyageMasterDetail {
     VoyageMasterDetailSid Int       @id @default(autoincrement()) @map("VoyageMasterDetailSid")
     VoyageMasterHeaderSid Int
     POLSid                Int //(port master)
-    PODSid                Int //(port Master)
+    PODSid                Int? //(port Master)
     ETA                   DateTime
     ETD                   DateTime
     ATA                   DateTime?
@@ -233,7 +233,7 @@ model VoyageMasterDetail {
     status                String?   @default("A") @db.Char(1)
 
     portMasterPOL PortMaster @relation("POL", fields: [POLSid], references: [PortMasterSid])
-    portMasterPOD PortMaster @relation("POD", fields: [PODSid], references: [PortMasterSid])
+    portMasterPOD PortMaster? @relation("POD", fields: [PODSid], references: [PortMasterSid])
     voyageMasterHeader VoyageMasterHeader @relation(fields: [VoyageMasterHeaderSid], references: [VoyageMasterHeaderSid])
 
 }

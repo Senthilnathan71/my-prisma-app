@@ -408,6 +408,7 @@ model PortMaster {
 
     VoyageMasterDetailPOL VoyageMasterDetail[] @relation("POL")
     VoyageMasterDetailPOD VoyageMasterDetail[] @relation("POD")
+    customerMaster CustomerMaster[]
 }
 
 model UnitMaster {
@@ -453,9 +454,11 @@ model ChargeMaster {
     tdsSetHeader        TDSSetHeader       @relation(fields: [TDSMasterSid], references: [TDSSetHeaderSid])
     chargeTaxMapping    ChargeTaxMapping[]
     chargeTds           ChargeTds[]
+    chargeTaxMaster ChargeTaxMaster[]
 }
 
 model ChargeTaxMaster {
+    chargeTaxMasterSid    Int?
     HSNCode            String        @db.VarChar(10)
     description        String        @db.VarChar(100)
     TaxGroup           String        @db.VarChar(10)
@@ -469,6 +472,8 @@ model ChargeTaxMaster {
     Status             String        @db.Char(1)
     ChargeTaxMasterSid Int           @id @default(autoincrement()) @map("ChargeTaxMasterSid")
     CompanyMasterSid   Int
+
+    chargeMaster      ChargeMaster? @relation(fields: [chargeTaxMasterSid], references: [ChargeMasterSid])
     companyMaster      CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
 }
 
@@ -710,6 +715,7 @@ model CustomerMaster {
     CompanyMasterSid     Int?
     PreCustomerMasterSid Int?
     CountryMasterSid     Int
+    PortMasterSid        Int?
     CustomerName         String    @db.VarChar(100)
     CustomerShortCode    String?   @db.VarChar(50)
     CustomerAliasName    String?   @db.VarChar(100)
@@ -740,6 +746,7 @@ model CustomerMaster {
     companyMaster       CompanyMaster?     @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
     preCustomerMaster   PreCustomerMaster? @relation(fields: [PreCustomerMasterSid], references: [PreCustomerMasterSid])
     countryMaster       CountryMaster      @relation(fields: [CountryMasterSid], references: [CountryMasterSid])
+    portMaster          PortMaster?       @relation(fields: [PortMasterSid], references: [PortMasterSid])
     quoteHeader         QuoteHeader[]
     quoteCharge         QuoteCharge[]
     quoteRoute          QuoteRoute[]
@@ -1556,7 +1563,7 @@ model BLClauseMaster {
     ClauseDescription String    @db.VarChar(500)
     Keyword           String    @db.VarChar(5)
     Sortorder         Decimal?  @db.Decimal(2, 0)
-    DefaultClause     Decimal?  @db.Decimal(3, 0)
+    DefaultClause     String?   @default("N") @db.Char(1)
     createdOn         DateTime  @default(now()) @db.Timestamptz(6)
     updatedOn         DateTime? @updatedAt @db.Timestamptz(6)
     deletedAt         DateTime?
@@ -1777,21 +1784,23 @@ model TandCTransaction {
 }
 
 model FavouriteScreen {
-    FavScreenId Int      @id @default(autoincrement()) @map("FavScreenId")
-    path        String   @db.VarChar(255) // Increased size
-    screenName  String?  @db.VarChar(100) // Optional: for UI display
-    createdOn   DateTime @default(now()) @db.Timestamptz(6)
-    createdBy   String   @db.VarChar(100)
+    FavScreenId Int       @id @default(autoincrement()) @map("FavScreenId")
+    path        String    @db.VarChar(255) // Increased size
+    screenName  String?   @db.VarChar(100) // Optional: for UI display
+    createdOn   DateTime  @default(now()) @db.Timestamptz(6)
+    createdBy   String    @db.VarChar(100)
     userId      Int
+    deletedAt   DateTime?
 }
 
 model RecentScreen {
-    RecentScreenId Int      @id @default(autoincrement()) @map("RecentScreenId")
-    path           String   @db.VarChar(255)
-    screenName     String?  @db.VarChar(100)
-    createdOn      DateTime @default(now()) @db.Timestamptz(6)
-    createdBy      String   @db.VarChar(100)
+    RecentScreenId Int       @id @default(autoincrement()) @map("RecentScreenId")
+    path           String    @db.VarChar(255)
+    screenName     String?   @db.VarChar(100)
+    createdOn      DateTime  @default(now()) @db.Timestamptz(6)
+    createdBy      String    @db.VarChar(100)
     userId         Int
+    deletedAt      DateTime?
 }
 
 model HawbStock {
@@ -1876,17 +1885,17 @@ model EmailLog {
     UpdatedOn        DateTime  @default(now())
     UpdatedBy        String?   @db.VarChar(100)
     deletedAt        DateTime?
-    Status          String   @default("A") @db.Char(1)
-    EmailType       String   @db.VarChar(20) // Customer, Origin Agent, etc.
-    SendDate        DateTime @default(now())
-    Customer        Int? // Optional, depending on EmailType
-    EmailTo         String?  @db.VarChar(200)
-    EmailCC         String?  @db.VarChar(200)
-    Subject         String   @db.VarChar(500)
-    Mailbody        String   @db.VarChar(2000)
-    ChargeRequire   String   @default("N") @db.Char(1)
-    DocumentSid     Int
-    FollowupRequire String   @default("N") @db.Char(1)
+    Status           String    @default("A") @db.Char(1)
+    EmailType        String    @db.VarChar(20) // Customer, Origin Agent, etc.
+    SendDate         DateTime  @default(now())
+    Customer         Int? // Optional, depending on EmailType
+    EmailTo          String?   @db.VarChar(200)
+    EmailCC          String?   @db.VarChar(200)
+    Subject          String    @db.VarChar(500)
+    Mailbody         String    @db.VarChar(2000)
+    ChargeRequire    String    @default("N") @db.Char(1)
+    DocumentSid      Int
+    FollowupRequire  String    @default("N") @db.Char(1)
 
     branchMaster  BranchMaster  @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
     companyMaster CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
@@ -1900,8 +1909,34 @@ model IncoMaster {
     UpdatedBy     String?   @map("UpdatedBy") @db.VarChar(100)
     Status        String    @default("A") @map("Status") @db.Char(1)
     deletedAt     DateTime?
-    IncoCode     String @map("IncoCode") @db.Char(3)
-    IncoName     String @map("IncoName") @db.VarChar(100)
-    IncoType     String @map("IncoType") @db.Char(3) // Sea/All
-    OceanFreight String @map("OceanFreight") @db.VarChar(7) // Prepaid/Collect
+    IncoCode      String    @map("IncoCode") @db.Char(3)
+    IncoName      String    @map("IncoName") @db.VarChar(100)
+    IncoType      String    @map("IncoType") @db.Char(3) // Sea/All
+    OceanFreight  String    @map("OceanFreight") @db.VarChar(7) // Prepaid/Collect
+}
+
+model CostCenterMaster {
+    CostCenterMasterSid Int       @id @default(autoincrement()) @map("CostCenterMasterSid")
+    CostCenterName      String    @db.VarChar(30)
+    CostCenterCode      String    @db.VarChar(30)
+    CreatedOn           DateTime  @default(now()) @db.Timestamp(6)
+    CreatedBy           String    @db.VarChar(100)
+    UpdatedOn           DateTime  @default(now()) @db.Timestamp(6)
+    UpdatedBy           String?   @db.VarChar(100)
+    deletedAt           DateTime?
+    Remarks             String?   @db.VarChar(100)
+    Status              String    @default("A") @db.VarChar(10)
+}
+
+model ProfitCenterMaster {
+    ProfitCenterMasterSid Int       @id @default(autoincrement()) @map("ProfitCenterMasterSid")
+    ProfitCenterName      String    @db.VarChar(30)
+    ProfitCenterCode      String    @db.VarChar(30)
+    CreatedOn             DateTime  @default(now()) @db.Timestamp(6)
+    CreatedBy             String    @db.VarChar(100)
+    UpdatedOn             DateTime  @default(now()) @db.Timestamp(6)
+    deletedAt             DateTime?
+    UpdatedBy             String?   @db.VarChar(100)
+    Remarks               String?   @db.VarChar(100)
+    Status                String    @default("A") @db.VarChar(10)
 }

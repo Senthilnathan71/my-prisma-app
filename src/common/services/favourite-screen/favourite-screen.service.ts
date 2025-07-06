@@ -58,9 +58,6 @@ export class FavouriteScreenService {
           userId : user.UserMasterSid
         },
       });
-      if (!exist) {
-        throw new BadRequestException(`Path :${path} is not user's Favourite`);
-      }
       return exist;
     } catch (error) {
       throw error;

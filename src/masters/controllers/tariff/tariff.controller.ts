@@ -1,10 +1,13 @@
 import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, Post, UnauthorizedException } from '@nestjs/common';
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
+import { Auth } from 'src/common/decorators/auth.decorator';
+import { UserData } from 'src/common/decorators/user.decorator';
 import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { TariffService } from 'src/masters/services/tariff/tariff.service';
 
 @Controller('tariff')
+@Auth()
 export class TariffController {
     constructor(private tariffServ: TariffService, private logger: Logger) { }
 
@@ -16,10 +19,10 @@ export class TariffController {
     })
     @HttpCode(HttpStatus.OK)
     @Post('create')
-    async createNewTariff(@Body() newData: any) {
+    async createNewTariff(@Body() newData: any,@UserData() user:any) {
         let resp = new ResponseData();
         try {
-            let res = await this.tariffServ.createNewTariff(newData);
+            let res = await this.tariffServ.createNewTariff(newData,user);
             this.logger.log(`New Tariff Created : ${JSON.stringify(res)}`);
             resp.data = res;
             resp.message = "New Tariff is successfully created"

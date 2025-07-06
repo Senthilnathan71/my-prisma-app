@@ -94,6 +94,28 @@ export class MenuController {
     }
 
 
+     @ApiOperation({ summary: 'Get Menu Permissions By Id' })
+    @ApiCreatedResponse({
+        description: 'Get menu permissions By Id',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Get('fetch/menu-permissions/:id')
+    async getMenuPermissionsById(@Param('id', ParseIntPipe) menuId: number) {
+        const output = new ResponseData;
+        try {
+            const menu = await this.menuService.getAllMenuPermissions(menuId)
+            this.logger.log(`getMenuPermissionsById: ${JSON.stringify(menu)}`)
+            output.data = menu
+        } catch (error) {
+            this.logger.warn(`getMenuPermissionsById: ${JSON.stringify(error)}`)
+            output.status = false;
+            output.message = error
+        }
+        return output;
+    }
+
+
     @ApiOperation({ summary: 'Update menu By Id' })
     @ApiCreatedResponse({
         description: 'Update menu By Id',

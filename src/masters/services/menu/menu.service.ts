@@ -8,9 +8,9 @@ export class MenuService {
 
 
     async createMenu(payload: any, user) {
-        this.logger.warn(`createmenu: ${payload}`);
+        this.logger.warn(`createmenu: ${JSON.stringify(payload)}`);
 
-
+        // Check if MenuName or MenuCode already exists
         const existing = await this._db.menuMaster.findFirst({
             where: {
                 OR: [
@@ -32,25 +32,62 @@ export class MenuService {
 
         if (existing) {
             if (existing.MenuName === payload.MenuName) {
-                throw new BadRequestException('menu name already exists');
+                throw new BadRequestException('Menu name already exists');
             }
             if (existing.MenuCode === payload.MenuCode) {
-                throw new BadRequestException('menu code already exists');
+                throw new BadRequestException('Menu code already exists');
             }
         }
 
         try {
-            const menu = await this._db.menuMaster.create({
-                data: {
-                    ...payload,
+            const result = await this._db.$transaction(async (tx) => {
+                const {permissions,...menuPayload} = payload
+                // 1. Create menu
+                const menu = await tx.menuMaster.create({
+                    data: {
+                        ...menuPayload,
+                    }
+                });
+
+                // 2. Check if any permission already exists for this menu
+                for (const permission of payload.permissions) {
+                    const existingPermission = await tx.menuPermission.findFirst({
+                        where: {
+                            MenuMasterSid: menu.MenuMasterSid,
+                            permissionName: {
+                                equals: permission.permissionName.trim(),
+                                mode: 'insensitive',
+                            }
+                        }
+                    });
+
+                    if (existingPermission) {
+                        throw new BadRequestException(`${permission.permissionName} permission already exists`);
+                    }
                 }
+
+                // 3. Create all permissions using createMany
+                await tx.menuPermission.createMany({
+                    data: payload.permissions.map(p => ({
+                        MenuMasterSid: menu.MenuMasterSid,
+                        permissionName: p.permissionName,
+                        permissionCode: p.permissionCode,
+                        createdBy: payload.createdBy,
+                    }))
+                });
+
+                return { menu };
             });
 
-            return menu;
+            return result;
         } catch (error) {
-            throw new Error(`Error creating menu: ${error.message}`);
+            if (error instanceof BadRequestException) {
+                throw error;
+            }
+            throw new Error(`Error creating menu with permissions: ${error.message}`);
         }
     }
+
 
 
     async getAllMenus() {
@@ -61,6 +98,21 @@ export class MenuService {
                 }
             })
             return menuList;
+        } catch (error) {
+            throw error
+        }
+    }
+
+
+    async getAllMenuPermissions(MenuMasterSid) {
+        try {
+            const menuPermissions = await this._db.menuPermission.findMany({
+                where: {
+                    MenuMasterSid: MenuMasterSid,
+                    deletedAt : null
+                }
+            })
+            return menuPermissions
         } catch (error) {
             throw error
         }
@@ -82,7 +134,6 @@ export class MenuService {
 
 
     async updateMenu(menuMasterSid: number, payload: any, user) {
-
         const existing = await this._db.menuMaster.findUnique({
             where: {
                 MenuMasterSid: menuMasterSid
@@ -90,16 +141,95 @@ export class MenuService {
         });
 
         if (!existing) {
-            throw new Error('menu is not exists');
+            throw new Error('Menu does not exist');
         }
 
         try {
-            const menu = await this._db.menuMaster.update({
-                where: {
-                    MenuMasterSid: menuMasterSid
-                }, data: payload
+            const result = await this._db.$transaction(async (tx) => {
+                // 1. Update menu
+                const updatedMenu = await tx.menuMaster.update({
+                    where: {
+                        MenuMasterSid: menuMasterSid
+                    },
+                    data: {
+                        MenuName: payload.MenuName,
+                        MenuCode: payload.MenuCode,
+                    }
+                });
+
+                // Soft Delete existing records that aren't in payload
+
+                if (payload.permissions?.length) {
+                
+                const existingPerms = await this._db.menuPermission.findMany({
+                    where : {deletedAt : null}
+                });
+                const newPerms = payload.permissions;
+
+                const permsToSoftDelete = existingPerms.filter(ep => 
+                    !newPerms.some(np => 
+                        np.permissionName.trim().toLowerCase() === 
+                        ep.permissionName.toLowerCase() &&
+                        ep.deletedAt === null
+                    )
+                );
+
+                // Soft delete the permissions
+                if (permsToSoftDelete.length > 0) {
+                    await tx.menuPermission.updateMany({
+                        where: {
+                            MenuPermissionSid: {
+                                in: permsToSoftDelete.map(p => p.MenuPermissionSid)
+                            }
+                        },
+                        data: {
+                            deletedAt: new Date(),
+                        }
+                    });
+                }
+                // 2. Process permissions
+                for (const p of payload.permissions) {
+                    const existingPermission = await tx.menuPermission.findFirst({
+                        where: {
+                            MenuMasterSid: menuMasterSid,
+                            permissionName: {
+                                equals: p.permissionName.trim(),
+                                mode: 'insensitive'
+                            }
+                        }
+                    });
+
+                    if (existingPermission) {
+                        // Update existing permission
+                        await tx.menuPermission.update({
+                            where: {
+                                MenuPermissionSid: existingPermission.MenuPermissionSid
+                            },
+                            data: {
+                                permissionName: p.permissionName,
+                                permissionCode: p.permissionCode,
+                                updatedBy: payload.updatedBy,
+                            }
+                        });
+                    } else {
+                        // Create new permission
+                        await tx.menuPermission.create({
+                            data: {
+                                MenuMasterSid: menuMasterSid,
+                                permissionName: p.permissionName,
+                                permissionCode: p.permissionCode,
+                                createdBy: payload.createdBy,
+                            }
+                        });
+                    }
+                }
+                
+            }
+
+                return updatedMenu;
             });
-            return menu;
+
+            return result;
         } catch (error) {
             throw new Error(`Error updating menu: ${error.message}`);
         }
@@ -108,25 +238,50 @@ export class MenuService {
 
 
 
-    async softDelete(id: number) {
+
+    async softDelete(id: number, user?: any) {
         const existingmenu = await this._db.menuMaster.findUnique({
             where: { MenuMasterSid: id }
         });
 
         if (!existingmenu) {
-            throw new NotFoundException(`menu with ID ${id} not found`);
+            throw new NotFoundException(`Menu with ID ${id} not found`);
         }
 
         if (existingmenu.deletedAt) {
-            throw new Error(`menu with ID ${id} is already deleted`);
+            throw new Error(`Menu with ID ${id} is already deleted`);
         }
 
-        // Perform soft delete by updating deletedAt field
-        return this._db.menuMaster.update({
-            where: { MenuMasterSid: id },
-            data: { deletedAt: new Date() }
+        // Now check if any related permissions are already deleted
+        const deletedPermissions = await this._db.menuPermission.findMany({
+            where: {
+                MenuMasterSid: id,
+                NOT: {
+                    deletedAt: null
+                }
+            }
+        });
+
+        if (deletedPermissions.length > 0) {
+            throw new Error(`One or more permissions under Menu ID ${id} are already deleted`);
+        }
+
+        return await this._db.$transaction(async (tx) => {
+            await tx.menuPermission.updateMany({
+                where: { MenuMasterSid: id },
+                data: { deletedAt: new Date(), updatedBy: user?.userName || 'system' }
+            });
+
+            return tx.menuMaster.update({
+                where: { MenuMasterSid: id },
+                data: {
+                    deletedAt: new Date(),
+                    updatedBy: user?.userName || 'system'
+                }
+            });
         });
     }
+
 
 
     async searchList(dto: SearchListDto) {
@@ -155,8 +310,8 @@ export class MenuService {
                 },
                 deletedAt: null,
             },
-            orderBy : {
-                MenuMasterSid : 'asc'
+            orderBy: {
+                MenuMasterSid: 'asc'
             }
         }).catch(err => {
             throw new Error(`Error Search menu: ${err}`);
@@ -166,12 +321,12 @@ export class MenuService {
 
     }
 
-    async getMenusByModule(ModuleMasterSid){
+    async getMenusByModule(ModuleMasterSid) {
         try {
             const menus = await this._db.menuMaster.findMany({
-                where : {
-                    ModuleMasterSid : ModuleMasterSid,
-                    deletedAt : null
+                where: {
+                    ModuleMasterSid: ModuleMasterSid,
+                    deletedAt: null
                 },
             })
             return menus;
