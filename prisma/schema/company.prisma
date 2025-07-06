@@ -1886,7 +1886,7 @@ model EmailLog {
     UpdatedBy        String?   @db.VarChar(100)
     deletedAt        DateTime?
     Status           String    @default("A") @db.Char(1)
-    EmailType        String    @db.VarChar(20) // Customer, Origin Agent, etc.
+    EmailType        String?    @db.VarChar(20) // Customer, Origin Agent, etc.
     SendDate         DateTime  @default(now())
     Customer         Int? // Optional, depending on EmailType
     EmailTo          String?   @db.VarChar(200)
@@ -1894,7 +1894,7 @@ model EmailLog {
     Subject          String    @db.VarChar(500)
     Mailbody         String    @db.VarChar(2000)
     ChargeRequire    String    @default("N") @db.Char(1)
-    DocumentSid      Int
+    DocumentSid      Int?
     FollowupRequire  String    @default("N") @db.Char(1)
 
     branchMaster  BranchMaster  @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
