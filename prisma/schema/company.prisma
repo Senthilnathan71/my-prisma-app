@@ -206,7 +206,6 @@ model CurrencyMaster {
     SubUnitIn         String?         @db.VarChar(30)
     ShortCode         String?         @db.Char(3) // Rs
     Symbol            String?         @db.Char(1) // symb
-    CurrencyExchange  String?         @db.VarChar(500)
     amountDecimal     Int
     exchangeDecimal   Int
     createdBy         String          @db.VarChar(100)
@@ -235,6 +234,7 @@ model CurrencyExchange {
     SellRate            Decimal   @db.Decimal(6, 5)
     BuyRate             Decimal   @db.Decimal(6, 5)
     BankName            String    @db.VarChar(50)
+    RateFrom            String?   @db.VarChar(100)
     CompanyMasterSid    Int?
     BranchMasterSid     Int?
     createdOn           DateTime  @default(now()) @db.Timestamptz(6)
