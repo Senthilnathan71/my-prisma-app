@@ -112,58 +112,19 @@ export class YearService {
         }
     }
 
-    async searchYear(data: SearchListDto) {
-        const { searchType, filterValue } = data;
-        const intFields = [
-            'YearMasterSid',
-            'CompanyMasterSid',
-            'YearCode'
-        ];
-        const stringFields = [
-            'YearName',
-            'CurrentYear',
-            'YearEndCompleted',
-            'status',
-            'Remarks'
-        ];
-        const dateFields = [
-            'StartDate',
-            'EndDate'
-        ];
-        const acceptedType = [...intFields, ...stringFields, ...dateFields];
-        if (!acceptedType.includes(searchType)) {
-            throw new BadRequestException('Invalid Search Type');
-        }
-
-        const whereClause: any = {};
-
-        if (stringFields.includes(searchType)) {
-            whereClause[searchType] = {
-                contains: filterValue,
-                mode: 'insensitive'
-            };
-        } else if (intFields.includes(searchType)) {
-            const numberValue = parseInt(filterValue);
-            if (isNaN(numberValue)) {
-                throw new BadRequestException(`${searchType} must be a valid number`);
-            }
-            whereClause[searchType] = numberValue;
-        } else if (dateFields.includes(searchType)) {
-            whereClause[searchType] = new Date(filterValue);
-        }
-
-        const searchResults = await this._db.yearMaster.findMany({
-            where: {
-                ...whereClause,
-                deletedAt: null
-            },
-            include: {
+    async searchYear() {
+    try {
+      const searchResults = await this._db.yearMaster.findMany({
+        where: {
+          deletedAt: null
+        },
+        include: {
                 companyMaster: true
             }
-        }).catch((err) => {
-            throw new Error(`Error Occurred : ${JSON.stringify(err)}`);
-        });
-
-        return searchResults;
+      })
+      return searchResults;
+    } catch (error) {
+      throw error;
     }
+  }
 }
