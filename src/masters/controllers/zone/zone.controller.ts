@@ -16,6 +16,7 @@ import {
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
 import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
+import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 import { ZoneService } from 'src/masters/services/zone/zone.service';
 
 @Controller('zone')
@@ -225,6 +226,32 @@ export class ZoneController {
         resp.message = error.message;
       } else {
         resp.message = "Internal Server Error";
+      }
+    }
+    return resp;
+  }
+
+  @ApiOperation({ summary: 'Search List of Zones' })
+  @ApiCreatedResponse({
+    description: 'Search List of Zones',
+    type: ResponseData,
+  })
+  @HttpCode(HttpStatus.OK)
+  @Post('search-list')
+  async searchZoneNew(@Body() searchParams: SearchVesselDto) {
+    const resp = new ResponseData();
+    try {
+      const res = await this.zoneService.searchZoneNew(searchParams);
+      this.logger.log(`Zone Search Data: ${JSON.stringify(res)}`);
+      resp.data = res;
+      resp.message = 'Zone Search is successfully fetched';
+    } catch (error) {
+      this.logger.warn(`Search Zone Error: ${error}`);
+      resp.status = false;
+      if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+        resp.message = error.message;
+      } else {
+        resp.message = 'Internal Server Error';
       }
     }
     return resp;

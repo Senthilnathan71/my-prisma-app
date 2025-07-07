@@ -1,6 +1,8 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
+import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 
 @Injectable()
 export class ZoneService {
@@ -112,5 +114,39 @@ export class ZoneService {
     } catch (error) {
       throw error;
     }
+  }
+
+  async searchZoneNew(params: SearchVesselDto) {
+    const { search = '', page = 1, pageSize = 10 } = params;
+    const skip = (page - 1) * pageSize;
+
+    const where: Prisma.ZoneMasterWhereInput = {
+      deletedAt: null,
+      status: 'A',
+      ...(search
+        ? {
+          OR: [
+            { ZoneName: { contains: search, mode: 'insensitive'} },
+            { ZoneCode: { contains: search, mode: 'insensitive'} },
+            { status: { contains: search, mode: 'insensitive'} },
+          ],
+        }
+        : {}
+      ),
+    };
+    const [items, totalCount] = await this._db.$transaction([
+      this._db.zoneMaster.findMany({
+        where,
+        skip,
+        take: pageSize,
+        orderBy: { ZoneMasterSid: 'desc' },
+      }),
+      this._db.zoneMaster.count({ where }),
+    ]);
+
+    return {
+      items,
+      totalCount,
+    };
   }
 }
