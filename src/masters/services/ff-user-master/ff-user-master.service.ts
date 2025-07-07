@@ -259,34 +259,78 @@ export class FfUserMasterService {
 
 
     async deleteFfUser(UserMasterSid: number) {
-        try {
-            const exist = await this._db.userMaster.findUnique({
-                where: {
-                    UserMasterSid: UserMasterSid
-                }
-            })
-            if (!exist) {
-                throw new BadRequestException(`User with Id : ${UserMasterSid} not exists`);
+    try {
+        // Check if user exists and not already deleted
+        const exist = await this._db.userMaster.findUnique({
+            where: {
+                UserMasterSid: UserMasterSid
             }
-            if (exist.deletedAt) {
-                throw new BadRequestException(`User with Id :${UserMasterSid} is already deleted`)
-            }
-            const deletedFfUser = this._db.userMaster.update({
-                where: {
-                    UserMasterSid: UserMasterSid
-                },
+        });
+        
+        if (!exist) {
+            throw new BadRequestException(`User with Id : ${UserMasterSid} not exists`);
+        }
+        
+        if (exist.deletedAt) {
+            throw new BadRequestException(`User with Id : ${UserMasterSid} is already deleted`);
+        }
+
+        return await this._db.$transaction(async (prisma) => {
+            // Soft-delete user
+            const deletedUser = await prisma.userMaster.update({
+                where: { UserMasterSid: UserMasterSid },
                 data: {
                     deletedAt: new Date()
                 },
-                omit : {
-                    userPassword : true
+                omit: {
+                    userPassword: true
                 }
-            })
-            return deletedFfUser;
-        } catch (error) {
-            throw error;
-        }
+            });
+
+            // Soft-delete user company relations
+            const deletedUserCompanies = await prisma.userCompanyMaster.updateManyAndReturn({
+                where: {
+                    UserMasterSid: UserMasterSid,
+                    deletedAt: null
+                },
+                data: {
+                    deletedAt: new Date()
+                }
+            });
+
+            // Soft-delete user branch relations
+            const deletedUserBranches = await prisma.userBranchMaster.updateManyAndReturn({
+                where: {
+                    UserMasterSid: UserMasterSid,
+                    deletedAt: null
+                },
+                data: {
+                    deletedAt: new Date()
+                }
+            });
+
+            // Soft-delete user role relations
+            const deletedUserRoles = await prisma.userRoleMaster.updateManyAndReturn({
+                where: {
+                    UserMasterSid: UserMasterSid,
+                    deletedAt: null
+                },
+                data: {
+                    deletedAt: new Date()
+                }
+            });
+
+            return {
+                    deletedUser,
+                    deletedUserCompanies,
+                    deletedUserBranches,
+                    deletedUserRoles
+            };
+        });
+    } catch (error) {
+        throw new Error(`User deletion failed: ${error.message}`);
     }
+}
 
 
     async searchFfUser(data:SearchListDto){

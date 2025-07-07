@@ -13,7 +13,7 @@ export class VoyageService {
 
         const existing = await this._db.voyageMasterHeader.findFirst({
             where: {
-                OR: [
+                AND: [
                     {
                         VoyageNo: {
                             equals: payload.VoyageNo.trim(),
@@ -79,6 +79,33 @@ export class VoyageService {
 
     async updateVoyage(VoyageMasterSid: number, payload: any, user) {
 
+        const exists = await this._db.voyageMasterHeader.findFirst({
+            where: {
+                AND: [
+                    {
+                        VoyageMasterHeaderSid : { not : VoyageMasterSid}
+                    },
+                    {
+                        VoyageNo: {
+                            equals: payload.VoyageNo.trim(),
+                            mode: 'insensitive',
+                        }
+                    },
+                    {
+                        VesselMasterSid: {
+                            equals: payload.VesselMasterSid
+                        }
+                    }
+                ]
+            },
+        });
+
+        if (exists) {
+            if (exists.VoyageNo.toLowerCase() === payload.VoyageNo.trim().toLowerCase() && exists.VesselMasterSid === payload.VesselMasterSid) {
+                throw new BadRequestException('This vessel is already scheduled with this voyage number.');
+            }
+        }
+
         const existing = await this._db.voyageMasterHeader.findUnique({
             where: {
                 VoyageMasterHeaderSid: VoyageMasterSid
@@ -104,24 +131,50 @@ export class VoyageService {
 
 
 
-    async softDelete(id: number) {
-        const existingVoyage = await this._db.voyageMasterHeader.findUnique({
-            where: { VoyageMasterHeaderSid: id }
-        });
+    async softDelete(VoyageMasterHeaderSid: number) {
 
-        if (!existingVoyage) {
-            throw new NotFoundException(`Voyage with ID ${id} not found`);
+        try {
+            const existingVoyage = await this._db.voyageMasterHeader.findUnique({
+                where: { VoyageMasterHeaderSid: VoyageMasterHeaderSid }
+            });
+
+            if (!existingVoyage) {
+                throw new NotFoundException(`Voyage with ID ${VoyageMasterHeaderSid} not found`);
+            }
+
+            if (existingVoyage.deletedAt) {
+                throw new Error(`Voyage with ID ${VoyageMasterHeaderSid} is already deleted`);
+            }
+
+            const result = await this._db.$transaction(async (prisma)=>{
+                const deletedVoyageHeader = await prisma.voyageMasterHeader.update({
+                    where : {
+                        VoyageMasterHeaderSid : VoyageMasterHeaderSid
+                    },
+                    data : {
+                        deletedAt : new Date()
+                    }
+                })
+
+                const deletedVoyageDetail = await prisma.voyageMasterDetail.updateManyAndReturn({
+                    where : {
+                        VoyageMasterHeaderSid : VoyageMasterHeaderSid,
+                        deletedAt : null
+                    },
+                    data : {
+                        deletedAt : new Date()
+                    }
+                })
+
+                return {
+                    deletedVoyageHeader,
+                    voyageDetail : deletedVoyageDetail
+                }
+            })
+            return result;
+        } catch (error) {
+            throw error;
         }
-
-        if (existingVoyage.deletedAt) {
-            throw new Error(`Voyage with ID ${id} is already deleted`);
-        }
-
-        // Perform soft delete by updating deletedAt field
-        return this._db.voyageMasterHeader.update({
-            where: { VoyageMasterHeaderSid: id },
-            data: { deletedAt: new Date() }
-        });
     }
 
     async searchVoyage(data: SearchListDto) {

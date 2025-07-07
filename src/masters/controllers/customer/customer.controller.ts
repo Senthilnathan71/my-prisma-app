@@ -173,4 +173,54 @@ export class CustomerController {
         }
         return output
     }
+
+    @ApiOperation({ summary: 'Get All Carrier' })
+    @ApiCreatedResponse({
+        description: 'Get All Carrier',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Get('carrier')
+    async getAllCarriers() {
+        let output = new ResponseData;
+        try {
+            let customerData = await this.customerService.getAllCarriers();
+            this.logger.log(`getAllCarriers: ${JSON.stringify(customerData)}`)
+            output.data = customerData;
+        } catch (error) {
+            this.logger.warn(`getAllCarriers: ${JSON.stringify(error)}`)
+            output.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                output.message = error.message;
+            } else {
+                output.message = 'Internal Server Error';
+            }
+        }
+        return output
+    }
+    @ApiOperation({ summary: 'Get All Agent' })
+    @ApiCreatedResponse({
+        description: 'Get All Agent',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Get('agent')
+    async getAllAgents() {
+        let output = new ResponseData;
+        try {
+            let customerData = await this.customerService.getAllAgents();
+            this.logger.log(`getAllAgents: ${JSON.stringify(customerData)}`)
+            output.data = customerData;
+        } catch (error) {
+            this.logger.warn(`getAllAgents: ${JSON.stringify(error)}`)
+            output.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                output.message = error.message;
+            } else {
+                output.message = 'Internal Server Error';
+            }
+        }
+        return output
+    }
+
 }

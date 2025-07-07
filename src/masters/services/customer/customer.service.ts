@@ -109,24 +109,92 @@ export class CustomerService {
 
 
 
-    async softDelete(id: number) {
-        const existingCustomer = await this._db.customerMaster.findUnique({
-            where: { CustomerMasterSid: id }
-        });
+    async softDelete(CustomerMasterSid: number) {
+        try {
+            const existingCustomer = await this._db.customerMaster.findUnique({
+                where: { CustomerMasterSid: CustomerMasterSid }
+            });
 
-        if (!existingCustomer) {
-            throw new NotFoundException(`Customer with ID ${id} not found`);
+            if (!existingCustomer) {
+                throw new NotFoundException(`Customer with ID ${CustomerMasterSid} not found`);
+            }
+
+            if (existingCustomer.deletedAt) {
+                throw new Error(`Customer with ID ${CustomerMasterSid} is already deleted`);
+            }
+
+            const result = await this._db.$transaction(async (prisma) => {
+                const deletedCustomer = await prisma.customerMaster.update({
+                    where: {
+                        CustomerMasterSid: CustomerMasterSid,
+                        deletedAt: null
+                    },
+                    data: {
+                        deletedAt: new Date()
+                    }
+                })
+                const allCustomerBranches = await prisma.customerBranch.findMany({
+                    where: {
+                        CustomerMasterSid: CustomerMasterSid,
+                        deletedAt: null
+                    }
+                })
+
+                const allCusBranchesWithChild = await Promise.all(
+                    allCustomerBranches.map(async branch => {
+                        const deletedCusBranch = await prisma.customerBranch.update({
+                            where: {
+                                CustomerBranchSid: branch.CustomerBranchSid,
+                                deletedAt: null
+                            },
+                            data: {
+                                deletedAt: new Date()
+                            }
+                        })
+                        const deleteCusBranchContact = await prisma.cusBranchContact.updateManyAndReturn({
+                            where: {
+                                CustomerBranchSid: deletedCusBranch.CustomerBranchSid,
+                                deletedAt: null
+                            },
+                            data: {
+                                deletedAt: new Date()
+                            }
+                        })
+                        const deleteCusBranchEmail = await prisma.customerBrEmail.updateManyAndReturn({
+                            where: {
+                                CustomerBranchSid: branch.CustomerBranchSid,
+                                deletedAt: null
+                            },
+                            data: {
+                                deletedAt: new Date()
+                            }
+                        })
+                        const deleteCusBranchLogin = await prisma.customerLogin.updateManyAndReturn({
+                            where: {
+                                CustomerBranchSid: branch.CustomerBranchSid,
+                                deletedAt: null
+                            },
+                            data: {
+                                deletedAt: new Date()
+                            }
+                        })
+                        return {
+                            ...deletedCusBranch,
+                            CustomerBranchContact: deleteCusBranchContact,
+                            CustomerBranchEmail: deleteCusBranchEmail,
+                            CustomerBranchLogin: deleteCusBranchLogin
+                        }
+                    }))
+
+                return {
+                    deletedCustomer,
+                    deletedCustomerBranch: allCusBranchesWithChild
+                }
+            })
+            return result
+        } catch (error) {
+            throw error;
         }
-
-        if (existingCustomer.deletedAt) {
-            throw new Error(`Customer with ID ${id} is already deleted`);
-        }
-
-        // Perform soft delete by updating deletedAt field
-        return this._db.customerMaster.update({
-            where: { CustomerMasterSid: id },
-            data: { deletedAt: new Date() }
-        });
     }
 
 
@@ -164,4 +232,37 @@ export class CustomerService {
 
 
     }
+
+    async getAllCarriers(){
+        try {
+            const allCarriers = await this._db.customerMaster.findMany({
+                where: {
+                    CustomerType: {
+                        path: ['carrier'],
+                        equals: 'isTrue'
+                    }
+                }
+            })
+            return allCarriers;
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    async getAllAgents(){
+        try {
+            const allAgents = await this._db.customerMaster.findMany({
+                where : {
+                    CustomerType: {
+                        path: ['agent'],
+                        equals: 'isTrue'
+                    }
+                }
+            })
+            return allAgents;
+        } catch (error) {
+            throw error;
+        }
+    }
+
 }

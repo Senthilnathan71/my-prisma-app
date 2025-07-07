@@ -138,7 +138,22 @@ export class VoyageController {
     @HttpCode(HttpStatus.OK)
     @Delete('delete/:id')
     async softDelete(@Param('id', ParseIntPipe) id: number) {
-        return this.voyageService.softDelete(id);
+        let resp=new ResponseData();
+        try {
+            let res=await this.voyageService.softDelete(id);
+            this.logger.log(`Voyage Deleted Data : ${JSON.stringify(res)}`);
+            resp.data=res;
+            resp.message='Voyage is successfully deleted.'
+        } catch (error) {
+            this.logger.warn(`Voyage Deletion Error : ${error}`)
+            resp.status=false;
+            if(error instanceof BadRequestException || error instanceof UnauthorizedException){
+                resp.message=error.message;
+            } else {
+                resp.message="Internal Server Error"
+            }
+        }
+        return resp;
     }
 
     @ApiOperation({summary:'Search list of Voyage'})

@@ -101,32 +101,80 @@ export class TermsAndConditionsService {
     }
 
 
-    async deleteTermCond(TermsAndConditionsMasterSid:number){
-        try {
-            const exist = await this._db.termsAndConditionsMaster.findUnique({
-                where: {
-                    TermsAndConditionsMasterSid: TermsAndConditionsMasterSid
-                }
-            })
-            if (!exist) {
-                throw new BadRequestException(`Term and Conditions with Id : ${TermsAndConditionsMasterSid} not exists`);
+    async deleteTermCond(TermsAndConditionsMasterSid: number) {
+    try {
+
+        const exist = await this._db.termsAndConditionsMaster.findUnique({
+            where: {
+                TermsAndConditionsMasterSid: TermsAndConditionsMasterSid
             }
-            if (exist.deletedAt) {
-                throw new BadRequestException(`Terms and Conditions with Id :${TermsAndConditionsMasterSid} is already deleted`)
-            }
-            const deletedTermsAndConditions = this._db.termsAndConditionsMaster.update({
-                where: {
-                    TermsAndConditionsMasterSid: TermsAndConditionsMasterSid
+        });
+        
+        if (!exist) {
+            throw new BadRequestException(`Terms & Conditions with ID: ${TermsAndConditionsMasterSid} not exists`);
+        }
+        
+        if (exist.deletedAt) {
+            throw new BadRequestException(`Terms & Conditions with ID: ${TermsAndConditionsMasterSid} is already deleted`);
+        }
+
+        return await this._db.$transaction(async (tx) => {
+            
+            const deletedMaster = await tx.termsAndConditionsMaster.update({
+                where: { 
+                    TermsAndConditionsMasterSid: TermsAndConditionsMasterSid 
                 },
                 data: {
                     deletedAt: new Date()
                 }
-            })
-            return deletedTermsAndConditions;
-        } catch(error) {
-            throw error;
-        }
+            });
+
+            
+            const deletedDetails = await tx.termsAndConditionsDetail.updateManyAndReturn({
+                where: {
+                    TermsAndConditionsMasterSid: TermsAndConditionsMasterSid,
+                    deletedAt: null
+                },
+                data: {
+                    deletedAt: new Date()
+                }
+            });
+
+            
+            const deletedTransactions = await tx.tandCTransaction.updateManyAndReturn({
+                where: {
+                    TandCMasterSid: TermsAndConditionsMasterSid,
+                    deletedAt: null
+                },
+                data: {
+                    deletedAt: new Date()
+                }
+            });
+
+            
+            const deletedDepartmentRelations = await tx.departmentOnTerms.updateManyAndReturn({
+                where: {
+                    termsId: TermsAndConditionsMasterSid,
+                    deletedAt: null
+                },
+                data: {
+                    deletedAt: new Date()
+                }
+            });
+            
+
+            return {
+                    deletedMaster,
+                    deletedDetails,
+                    deletedTransactions,
+                    deletedDepartmentRelations
+                
+            };
+        });
+    } catch (error) {
+        throw new Error(`Terms & Conditions deletion failed: ${error.message}`);
     }
+}
 
 
     async searchTermCond(data:SearchListDto){

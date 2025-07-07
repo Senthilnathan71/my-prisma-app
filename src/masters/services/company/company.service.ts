@@ -242,6 +242,30 @@ export class CompanyService {
     // Main Update Function
     async updateCompany(companySid: number, updateData: any, user: any, files?: any) {
         try {
+
+            // Check if already name exist
+            const existing = await this._db.companyMaster.findFirst({
+                where: {
+                    AND : [
+                        {
+                            CompanyMasterSid : {
+                                not : companySid
+                            },
+                        },
+                        {
+                            companyName: {
+                                equals: updateData.companyName.trim(),
+                                mode: 'insensitive',
+                            },
+                        }
+                    ]
+                },
+            });
+
+            if (existing?.companyName === updateData.companyName) {
+                throw new BadRequestException('Company name already exists.');
+            }
+
             // 1. Prepare company payload without destructuring
             const companyPayload = {
                 companyName: updateData.companyName,
@@ -384,8 +408,7 @@ export class CompanyService {
 
             return result;
         } catch (error) {
-            console.error('Update transaction failed:', error);
-            throw new Error('Failed to update company with all related records');
+            throw error;
         }
     }
 
@@ -412,31 +435,79 @@ export class CompanyService {
 
 
     async softDeleteCompanyById(CompanyMasterSid: number) {
-        try {
-            const existing = await this._db.companyMaster.findUnique({
+    try {
+        const existing = await this._db.companyMaster.findUnique({
+            where: {
+                CompanyMasterSid: CompanyMasterSid
+            }
+        });
+        
+        if (!existing) {
+            throw new BadRequestException(`Company with id : ${CompanyMasterSid} not exists.`);
+        }
+        if (existing.deletedAt) {
+            throw new BadRequestException(`Company with id : ${CompanyMasterSid} is already deleted.`);
+        }
+
+        const result = await this._db.$transaction(async (prisma) => {
+            // Soft delete the company
+            const company = await prisma.companyMaster.update({
                 where: {
                     CompanyMasterSid: CompanyMasterSid
-                }
-            })
-            if (!existing) {
-                throw new BadRequestException(`Company with id : ${CompanyMasterSid} not exists`);
-            }
-            if (existing.deletedAt) {
-                throw new BadRequestException(`Company with id : ${CompanyMasterSid} is already deleted`);
-            }
-            const deletedCompany = await this._db.companyMaster.update({
-                where: {
-                    CompanyMasterSid: CompanyMasterSid
-                }, data: {
+                },
+                data: {
                     deletedAt: new Date()
                 }
-            })
-            return deletedCompany;
-        } catch (error) {
-            throw error;
-        }
-    }
+            });
 
+            // Find all branches for this company
+            const existingBranches = await prisma.branchMaster.findMany({
+                where: {
+                    CompanyMasterSid: CompanyMasterSid,
+                    deletedAt: null
+                }
+            });
+
+            // Soft delete all branches and their associated banks
+            const deletedBranchesWithBanks = await Promise.all(
+                existingBranches.map(async (branch) => {
+                    const deletedBranch = await prisma.branchMaster.update({
+                        where: {
+                            BranchMasterSid: branch.BranchMasterSid
+                        },
+                        data: {
+                            deletedAt: new Date()
+                        }
+                    });
+
+                    const deletedBanks = await prisma.branchBank.updateManyAndReturn({
+                        where: {
+                            BranchMasterSid: branch.BranchMasterSid,
+                            deletedAt: null
+                        },
+                        data: {
+                            deletedAt: new Date()
+                        }
+                    });
+
+                    return {
+                        ...deletedBranch,
+                        deletedBanks: deletedBanks
+                    };
+                })
+            );
+
+            return {
+                company,
+                deletedBranchesWithBanks
+            };
+        });
+
+        return result;
+    } catch (error) {
+        throw error;
+    }
+}
 
     async searchCompany(data: SearchListDto) {
         const { searchType, filterValue } = data;
