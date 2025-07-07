@@ -22,7 +22,7 @@ export class EmailLogService {
                 email: payload.EmailTo,
                 cc: payload.EmailCC,
                 subject: payload.Subject,
-                html: payload.EmailBody
+                html: payload.Mailbody
             })
 
             if (!emailSent) {

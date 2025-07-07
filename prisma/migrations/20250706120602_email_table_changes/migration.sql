@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "EmailLog" ALTER COLUMN "EmailType" DROP NOT NULL,
+ALTER COLUMN "DocumentSid" DROP NOT NULL;
