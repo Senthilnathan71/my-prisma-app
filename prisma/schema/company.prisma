@@ -206,6 +206,7 @@ model CurrencyMaster {
     SubUnitIn         String?         @db.VarChar(30)
     ShortCode         String?         @db.Char(3) // Rs
     Symbol            String?         @db.Char(1) // symb
+    CurrencyExchange  String?         @db.VarChar(500)
     amountDecimal     Int
     exchangeDecimal   Int
     createdBy         String          @db.VarChar(100)
@@ -408,7 +409,7 @@ model PortMaster {
 
     VoyageMasterDetailPOL VoyageMasterDetail[] @relation("POL")
     VoyageMasterDetailPOD VoyageMasterDetail[] @relation("POD")
-    customerMaster CustomerMaster[]
+    customerMaster        CustomerMaster[]
 }
 
 model UnitMaster {
@@ -454,27 +455,27 @@ model ChargeMaster {
     tdsSetHeader        TDSSetHeader       @relation(fields: [TDSMasterSid], references: [TDSSetHeaderSid])
     chargeTaxMapping    ChargeTaxMapping[]
     chargeTds           ChargeTds[]
-    chargeTaxMaster ChargeTaxMaster[]
+    chargeTaxMaster     ChargeTaxMaster[]
 }
 
 model ChargeTaxMaster {
-    chargeTaxMasterSid    Int?
-    HSNCode            String        @db.VarChar(10)
-    description        String        @db.VarChar(100)
-    TaxGroup           String        @db.VarChar(10)
-    TaxRate            Decimal       @db.Decimal(4, 2)
-    createdOn          DateTime      @default(now()) @db.Timestamptz(6)
-    updatedOn          DateTime      @updatedAt @db.Timestamptz(6)
+    chargeTaxMasterSid Int?
+    HSNCode            String    @db.VarChar(10)
+    description        String    @db.VarChar(100)
+    TaxGroup           String    @db.VarChar(10)
+    TaxRate            Decimal   @db.Decimal(4, 2)
+    createdOn          DateTime  @default(now()) @db.Timestamptz(6)
+    updatedOn          DateTime  @updatedAt @db.Timestamptz(6)
     deletedAt          DateTime?
-    CreatedBy          String        @db.VarChar(100)
-    UpdatedBy          String        @db.VarChar(100)
-    Remarks            String        @db.VarChar(100)
-    Status             String        @db.Char(1)
-    ChargeTaxMasterSid Int           @id @default(autoincrement()) @map("ChargeTaxMasterSid")
+    CreatedBy          String    @db.VarChar(100)
+    UpdatedBy          String    @db.VarChar(100)
+    Remarks            String    @db.VarChar(100)
+    Status             String    @db.Char(1)
+    ChargeTaxMasterSid Int       @id @default(autoincrement()) @map("ChargeTaxMasterSid")
     CompanyMasterSid   Int
 
-    chargeMaster      ChargeMaster? @relation(fields: [chargeTaxMasterSid], references: [ChargeMasterSid])
-    companyMaster      CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+    chargeMaster  ChargeMaster? @relation(fields: [chargeTaxMasterSid], references: [ChargeMasterSid])
+    companyMaster CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
 }
 
 model PreCustomerMaster {
@@ -746,7 +747,7 @@ model CustomerMaster {
     companyMaster       CompanyMaster?     @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
     preCustomerMaster   PreCustomerMaster? @relation(fields: [PreCustomerMasterSid], references: [PreCustomerMasterSid])
     countryMaster       CountryMaster      @relation(fields: [CountryMasterSid], references: [CountryMasterSid])
-    portMaster          PortMaster?       @relation(fields: [PortMasterSid], references: [PortMasterSid])
+    portMaster          PortMaster?        @relation(fields: [PortMasterSid], references: [PortMasterSid])
     quoteHeader         QuoteHeader[]
     quoteCharge         QuoteCharge[]
     quoteRoute          QuoteRoute[]
@@ -1886,7 +1887,7 @@ model EmailLog {
     UpdatedBy        String?   @db.VarChar(100)
     deletedAt        DateTime?
     Status           String    @default("A") @db.Char(1)
-    EmailType        String?    @db.VarChar(20) // Customer, Origin Agent, etc.
+    EmailType        String?   @db.VarChar(20) // Customer, Origin Agent, etc.
     SendDate         DateTime  @default(now())
     Customer         Int? // Optional, depending on EmailType
     EmailTo          String?   @db.VarChar(200)
