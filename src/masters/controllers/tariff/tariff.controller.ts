@@ -104,11 +104,11 @@ export class TariffController {
     })
     @HttpCode(HttpStatus.OK)
     @Patch('update/:TariffHeaderSid')
-    async updateTariffById(@Param('TariffHeaderSid', ParseIntPipe) TariffHeaderSid: number, @Body() payload: any) {
+    async updateTariffById(@Param('TariffHeaderSid', ParseIntPipe) TariffHeaderSid: number, @Body() payload: any,@UserData() user:any) {
         let resp = new ResponseData();
         try {
             this.logger.log(`Updating Tariff with id : ${TariffHeaderSid}`);
-            let res = await this.tariffServ.updateTariffById(TariffHeaderSid, payload);
+            let res = await this.tariffServ.updateTariffById(TariffHeaderSid, payload,user);
             this.logger.debug(`Updated Tariff : ${JSON.stringify(res)}`);
             resp.data = res;
             resp.message = `Tariff with id : ${TariffHeaderSid} is successfully updated`;

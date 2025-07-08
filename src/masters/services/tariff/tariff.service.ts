@@ -74,8 +74,22 @@ export class TariffService {
     }
 
 
-    async updateTariffById(TariffHeaderSid: number, updateData: any) {
+    async updateTariffById(TariffHeaderSid: number, updateData: any,user) {
         try {
+
+            const existing = await this._db.tariffHeader.findFirst({
+                where: {
+                    POLSid: updateData.POLSid,
+                    PODSid: updateData.PODSid,
+                    CompanyMasterSid: user.CompanyMasterSid,
+                    TariffHeaderSid: { not: TariffHeaderSid },
+                },
+            });
+
+            if (existing) {
+                throw new BadRequestException('Tariff already exists for these POL and POD combinations.');
+            }
+
             let exists = await this._db.tariffHeader.findUnique({
                 where: {
                     TariffHeaderSid: TariffHeaderSid
@@ -111,15 +125,31 @@ export class TariffService {
             if (exists.deletedAt) {
                 throw new BadRequestException(`Tariff with id : ${TariffHeaderSid} is already deleted`);
             }
-            let deletedTariff = await this._db.tariffHeader.update({
-                where: {
-                    TariffHeaderSid: TariffHeaderSid
-                },
-                data: {
-                    deletedAt: new Date()
+
+            const result = await this._db.$transaction(async (prisma)=>{
+                let deletedTariff = await prisma.tariffHeader.update({
+                    where: {
+                        TariffHeaderSid: TariffHeaderSid
+                    },
+                    data: {
+                        deletedAt: new Date()
+                    }
+                })
+                let deletedTariffDetail = await prisma.tariffDetail.updateManyAndReturn({
+                    where : {
+                        TariffHeaderSid : TariffHeaderSid,
+                        deletedAt : null
+                    },
+                    data : {
+                        deletedAt : new Date()
+                    }
+                })
+                return {
+                    deletedTariff,
+                    tariffDetail : deletedTariffDetail
                 }
             })
-            return deletedTariff;
+            return result;
         } catch (error) {
             throw error;
         }

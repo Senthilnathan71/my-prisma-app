@@ -26,6 +26,12 @@ export class SectorService {
               mode: 'insensitive',
             },
           },
+          {
+       sectorCode: {
+      equals: payload.sectorCode.trim(),
+      mode: 'insensitive',
+    },
+  }
         ],
       },
     });
@@ -34,7 +40,11 @@ export class SectorService {
       if (existing.sectorName === payload.sectorName) {
         throw new BadRequestException('Sector name already exists');
       }
+      if (existing.sectorCode === payload.sectorCode) {
+        throw new BadRequestException('Sector code already exists');
+      }
     }
+
 
     try {
       const Sector = await this._db.sectorMaster.create({
@@ -79,15 +89,43 @@ export class SectorService {
     payload: any,
     user,
   ) {
-    const existing = await this._db.sectorMaster.findUnique({
-      where: {
-        SectorMasterSid: SectorMasterSid,
+    const duplicate = await this._db.sectorMaster.findFirst({
+  where: {
+    AND: [
+      {
+        SectorMasterSid: {
+          not: SectorMasterSid,
+        },
       },
-    });
+      {
+        OR: [
+          {
+            sectorName: {
+              equals: payload.sectorName.trim(),
+              mode: 'insensitive',
+            },
+          },
+          {
+            sectorCode: {
+              equals: payload.sectorCode.trim(),
+              mode: 'insensitive',
+            },
+          },
+        ],
+      },
+    ],
+  },
+});
 
-    if (!existing) {
-      throw new Error('Sector is not exists');
-    }
+
+      if (duplicate) {
+  if (duplicate.sectorName === payload.sectorName) {
+    throw new BadRequestException('Sector name already exists');
+  }
+  if (duplicate.sectorCode === payload.sectorCode) {
+    throw new BadRequestException('Sector code already exists');
+  }
+}
 
     try {
       const Sector = await this._db.sectorMaster.update({

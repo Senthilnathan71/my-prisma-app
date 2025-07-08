@@ -96,15 +96,44 @@ export class ChargeService {
 
     async updateCharge(ChargeMasterSid: number, payload: any, user) {
 
-        const existing = await this._db.chargeMaster.findUnique({
+        const duplicate = await this._db.chargeMaster.findFirst({
             where: {
-                ChargeMasterSid: ChargeMasterSid
-            }
+                AND:[
+                    {
+                ChargeMasterSid: {
+                    not: ChargeMasterSid,
+            },
+        },
+        {
+            OR:[
+                {
+                    chargeName: {
+                            equals: payload.chargeName.trim(),
+                            mode: 'insensitive',
+                        },
+                },
+                {
+                    chargeCode: {
+                            equals: payload.chargeCode.trim(),
+                            mode: 'insensitive',
+                        },
+                },
+            ]
+        },
+    ],
+},
         });
+        if (duplicate) {
+  if (duplicate.chargeName === payload.chargeName) {
+    throw new BadRequestException('Sector name already exists');
+  }
+  if (duplicate.chargeCode === payload.chargeCode) {
+    throw new BadRequestException('Sector code already exists');
+  }
+}
 
-        if (!existing) {
-            throw new Error('Charge is not exists');
-        }
+        
+        
 
         try {
             const Charge = await this._db.chargeMaster.update({

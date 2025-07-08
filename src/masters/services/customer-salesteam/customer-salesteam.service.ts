@@ -154,6 +154,9 @@ export class CustomerSalesteamService {
             const salesPerson = await this._db.userMaster.findMany({
                 where: {
                     isSalesperson: '1'
+                },
+                omit : {
+                    userPassword : true
                 }
             })
             return salesPerson;
