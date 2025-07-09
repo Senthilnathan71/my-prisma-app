@@ -1939,3 +1939,20 @@ model ProfitCenterMaster {
     Remarks               String?   @db.VarChar(100)
     Status                String    @default("A") @db.VarChar(10)
 }
+
+model TaxMaster {
+    TaxMasterSid  Int       @id @default(autoincrement()) @map("TaxMasterSid")
+    TaxCode       String    @db.VarChar(10) // e.g., VAT, UGST, CGST, IGST, SGST
+    TaxName       String    @db.VarChar(20)
+    TaxType       String    @db.VarChar(6) // "Input" or "Output"
+    EffectiveFrom DateTime  @db.Date
+    TaxRate       Decimal   @db.Decimal(4, 2) // 5.00, 12.00, 18.00 etc.
+    TaxExempt     String    @default("N") @db.Char(1)
+    CreatedOn     DateTime  @default(now()) @db.Timestamp(6)
+    CreatedBy     String    @db.VarChar(100)
+    UpdatedOn     DateTime  @default(now()) @db.Timestamp(6)
+    deletedAt     DateTime?
+    UpdatedBy     String?   @db.VarChar(100)
+    Remarks       String?   @db.VarChar(100)
+    Status        String    @default("A") @db.VarChar(10)
+}
