@@ -1,6 +1,8 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
+import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 
 @Injectable()
 export class BlclauseService {
@@ -99,48 +101,42 @@ export class BlclauseService {
     }
 
 
-    async searchBlclause(data:SearchListDto){
-        const {searchType,filterValue}=data;
-        const intFields=[
-            'Sortorder',
-            'DefaultClause',
-        ];
-        const stringFields = [
-            'ClauseDescription',
-            'Keyword',
-            'status'
-        ];
-        const acceptedType = [...intFields,...stringFields];
-        if(!acceptedType.includes(searchType)){
-            throw new BadRequestException('Invalid Search Type');
-        }
+   async searchBlclause(params: SearchVesselDto) {
+    const { search = '', page = 1, pageSize = 10 } = params;
+    const skip = (page - 1) * pageSize;
 
-        const whereClause:any ={}
+    const where: Prisma.BLClauseMasterWhereInput = {
+        deletedAt: null,
+        ...(search 
+            ? {
+                OR: [ 
+                    { ClauseDescription: { contains: search, mode: 'insensitive' } },
+                    { Keyword: { contains: search, mode: 'insensitive' } },
+                    { status: { contains: search, mode: 'insensitive' } },
+                    // ...(!isNaN(Number(search)) 
+                    //     ? [
+                    //         { Sortorder: { equals: Number(search) } },
+                    //         { DefaultClause: { equals: Number(search) } }
+                    //       ] 
+                    //     : [])
+                ]
+            } 
+            : {})
+    };
 
-        if(stringFields.includes(searchType)){
-            whereClause[searchType]={
-                contains:filterValue,
-                mode:'insensitive'
-            }
-        } else if(intFields.includes(searchType)){
-            const numberValue=parseInt(filterValue);
-            if (isNaN(numberValue)) {
-                throw new BadRequestException(`${searchType} must be a valid number`);
-            }
-            whereClause[searchType]=numberValue;
-        }
+    const [items, totalCount] = await this._db.$transaction([
+        this._db.bLClauseMaster.findMany({
+            where,
+            skip,
+            take: pageSize,
+            orderBy: { BLClauseMasterSid: 'desc' },
+        }),
+        this._db.bLClauseMaster.count({ where }),
+    ]);
 
-        const searchResults = await this._db.bLClauseMaster.findMany({
-            where : {
-                ...whereClause,
-                deletedAt:null
-            }
-        }).catch((err) => {
-            throw new Error(`Error Occured : ${JSON.stringify(err), err}`);
-        })
-
-        return searchResults;
-
-    }
-
+    return {
+        items,
+        totalCount,
+    };
+}
 }

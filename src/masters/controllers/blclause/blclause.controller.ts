@@ -2,6 +2,7 @@ import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatu
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
 import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
+import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 import { BlclauseService } from 'src/masters/services/blclause/blclause.service';
 
 
@@ -161,7 +162,7 @@ export class BlclauseController {
     })
     @HttpCode(HttpStatus.OK)
     @Post('search-list')
-    async searchBlClause(@Body() searchData: SearchListDto) {
+    async searchBlClause(@Body() searchData: SearchVesselDto) {
         let resp = new ResponseData();
         try {
             let res = await this.blClauseService.searchBlclause(searchData);
