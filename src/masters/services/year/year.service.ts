@@ -1,6 +1,8 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
+import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 
 @Injectable()
 export class YearService {
@@ -112,19 +114,43 @@ export class YearService {
         }
     }
 
-    async searchYear() {
-    try {
-      const searchResults = await this._db.yearMaster.findMany({
-        where: {
-          deletedAt: null
-        },
-        include: {
-                companyMaster: true
+
+  async searchYearNew(params: SearchVesselDto) {
+    const { search = '', page = 1, pageSize = 10 } = params;
+    const skip = (page - 1) * pageSize;
+
+    const where: Prisma.YearMasterWhereInput = {
+        deletedAt: null,
+        status: 'A',
+        ...(search
+            ? {
+                OR: [
+                    { YearName: { contains: search, mode: 'insensitive'} },
+                    { CurrentYear: { contains: search,mode: 'insensitive'} },
+                    { YearEndCompleted: { contains: search,mode: 'insensitive'} },
+                    { status: { contains: search,mode: 'insensitive'} },
+                ],
             }
-      })
-      return searchResults;
-    } catch (error) {
-      throw error;
-    }
+            : {}
+        ),
+    };
+
+    const [items, totalCount] = await this._db.$transaction([
+        this._db.yearMaster.findMany({
+            where,
+            skip,
+            take: pageSize,
+            include: {
+                companyMaster: true,
+            },
+            orderBy: { YearMasterSid: 'desc'},
+        }),
+        this._db.yearMaster.count({ where }),
+    ]);
+
+    return {
+        items,
+        totalCount,
+    };
   }
 }
