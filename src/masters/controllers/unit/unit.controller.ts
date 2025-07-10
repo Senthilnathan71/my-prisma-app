@@ -5,6 +5,7 @@ import { ResponseData } from 'src/common/response-data';
 import { UnitService } from 'src/masters/services/unit/unit.service';
 import { ApiCreatedResponse, ApiOperation } from "@nestjs/swagger";
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
+import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 
 @Controller('unit')
 @Auth()
@@ -145,10 +146,10 @@ export class UnitController {
         })
         @HttpCode(HttpStatus.OK)
         @Post('search-list')
-        async searchUnit(@Body() body:SearchListDto){
-            let resp=new ResponseData();
+        async searchUnitNew(@Body() searchParams:SearchVesselDto){
+            const resp=new ResponseData();
             try {
-                let res=await this.unitService.searchUnit(body);
+                const res=await this.unitService.searchUnitNew(searchParams);
                 this.logger.log(`Unit Search Data : ${JSON.stringify(res)}`);
                 resp.data=res;
                 resp.message='Unit Search is successfully fetched';

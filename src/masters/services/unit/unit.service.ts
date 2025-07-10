@@ -1,6 +1,8 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
+import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 
 @Injectable()
 export class UnitService {
@@ -151,31 +153,42 @@ export class UnitService {
             });
         }  
 
-        async searchUnit(data:SearchListDto){
-            const {searchType,filterValue}=data;
-            const acceptedType=[
-                "unitCode",
-                "unitName",
-                "jobType",
-                "measurementType",
-                "containerType",
-                "status"
-            ];
-            if(!acceptedType.includes(searchType)){
-                throw new BadRequestException('Invalid Search Type');
-            }
-            const searchResult=await this._db.unitMaster.findMany({
-                where:{
-                    [searchType]:{
-                        contains:filterValue,
-                        mode : "insensitive"
-                    },
-                    deletedAt:null
+       async searchUnitNew(params: SearchVesselDto) {
+        const { search = '', page = 1, pageSize = 10} = params;
+        const skip = (page - 1) * pageSize;
+
+        const where: Prisma.UnitMasterWhereInput = {
+            deletedAt: null,
+            status: 'A',
+            ...(search
+                ? {
+                    OR: [
+                        { unitName: { contains: search, mode: 'insensitive'} },
+                        { unitCode: { contains: search, mode: 'insensitive'} },
+                        { jobType: { contains: search, mode: 'insensitive'} },
+                        { containerType: { contains: search, mode: 'insensitive'} },
+                        { measurementType: { contains: search, mode: 'insensitive'} },
+                        { status: { contains: search, mode: 'insensitive'} },
+                    ],
                 }
-            }).catch((err)=>{
-                throw new Error(`Error Occured : ${err}`)
-            })
-            return searchResult;
-        }
+                : {} 
+            ),
+        };
+
+        const [items, totalCount] = await this._db.$transaction([
+            this._db.unitMaster.findMany({
+                where,
+                skip,
+                take: pageSize,
+                orderBy: { UnitMasterSid: 'desc'},
+            }),
+            this._db.unitMaster.count({ where }),
+        ]);
+
+        return {
+            items,
+            totalCount,
+        };
+       }
 
 }
