@@ -1,6 +1,8 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
+import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 
 @Injectable()
 export class ChargeGroupService {
@@ -105,31 +107,44 @@ export class ChargeGroupService {
         }
     }
 
-    async searchChargeGroups(data: SearchListDto) {
-        const { searchType, filterValue } = data;
-        const acceptedType = [
-            "GroupName",
-            "Remarks",
-            "status",
-            "CompanyMasterSid"
-        ];
-        if (!acceptedType.includes(searchType)) {
-            throw new BadRequestException('Invalid Search Type');
-        }
-        const searchResults = await this._db.chargeGroup.findMany({
-            where: {
-                [searchType]: {
-                    contains: filterValue,
-                    mode: 'insensitive'
-                },
-                deletedAt: null
+    async searchChargeGroups(params: SearchVesselDto) {
+  const { search = '', page = 1, pageSize = 10 } = params;
+  const skip = (page - 1) * pageSize;
+
+  const where: Prisma.ChargeGroupWhereInput = {
+    deletedAt: null,
+    ...(search
+      ? {
+          OR: [
+            { GroupName: { contains: search, mode: 'insensitive' } },
+            { Remarks: { contains: search, mode: 'insensitive' } },
+            { status: { contains: search, mode: 'insensitive' } },
+            { 
+              companyMaster: {
+                companyName: { contains: search, mode: 'insensitive' }
+              }
             },
-            include: {
-                companyMaster: true
-            }
-        }).catch((err) => {
-            throw new Error(`Error Occurred: ${JSON.stringify(err)}`);
-        });
-        return searchResults;
-    }
+          ],
+        } 
+      : {}),
+  };
+
+  const [items, totalCount] = await this._db.$transaction([
+    this._db.chargeGroup.findMany({
+      where,
+      skip,
+      take: pageSize,
+      orderBy: { ChargeGroupSid: 'desc' },
+      include: {
+        companyMaster: true
+      }
+    }),
+    this._db.chargeGroup.count({ where }),
+  ]);
+
+  return {
+    items,
+    totalCount,
+  };
+}
 }

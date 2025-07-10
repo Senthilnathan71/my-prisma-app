@@ -3,6 +3,7 @@ import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
 import { ResponseData } from 'src/common/response-data';
 import { ChargeTaxService } from 'src/masters/services/charge-tax/charge-tax.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
+import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 
 @Controller('charge-tax')
 export class ChargeTaxController {
@@ -142,28 +143,28 @@ export class ChargeTaxController {
     }
 
     @ApiOperation({ summary: 'Search List of Charge Taxes' })
-    @ApiCreatedResponse({
-        description: 'Search List of Charge Taxes',
-        type: ResponseData
-    })
-    @HttpCode(HttpStatus.OK)
-    @Post('search-list')
-    async searchChargeTax(@Body() searchData: SearchListDto) {
-        let resp = new ResponseData();
-        try {
-            let res = await this.chargeTaxService.searchChargeTax(searchData);
-            this.logger.log(`Charge Tax Search Results :${JSON.stringify(res)}`);
-            resp.data = res;
-            resp.message = "Charge Tax Search results are successfully fetched"
-        } catch (error) {
-            this.logger.warn(`Charge Tax Search Error : ${JSON.stringify(error), error}`);
-            resp.status = false;
-            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
-                resp.message = error.message;
-            } else {
-                resp.message = "Internal Server Error";
-            }
+@ApiCreatedResponse({
+    description: 'Search List of Charge Taxes',
+    type: ResponseData
+})
+@HttpCode(HttpStatus.OK)
+@Post('search-list')
+async searchChargeTax(@Body() searchParams: SearchVesselDto) {
+    const resp = new ResponseData();
+    try {
+        const res = await this.chargeTaxService.searchChargeTax(searchParams);
+        this.logger.log(`Charge Tax Search Data: ${JSON.stringify(res)}`);
+        resp.data = res;
+        resp.message = 'Charge Tax Search is successfully fetched';
+    } catch (error) {
+        this.logger.warn(`Search Charge Tax Error: ${error}`);
+        resp.status = false;
+        if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+            resp.message = error.message;
+        } else {
+            resp.message = 'Internal Server Error';
         }
-        return resp;
     }
+    return resp;
+}
 }

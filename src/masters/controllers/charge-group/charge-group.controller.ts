@@ -2,6 +2,7 @@ import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatu
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
 import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
+import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 import { ChargeGroupService } from 'src/masters/services/charge-group/charge-group.service';
 
 
@@ -142,29 +143,29 @@ export class ChargeGroupController {
         return resp;
     }
 
-    @ApiOperation({ summary: 'Search List of Charge Groups' })
-    @ApiCreatedResponse({
-        description: "Search List of Charge Groups",
-        type: ResponseData
-    })
-    @HttpCode(HttpStatus.OK)
-    @Post('search-list')
-    async searchChargeGroups(@Body() body: SearchListDto) {
-        let resp = new ResponseData();
-        try {
-            let res = await this.chargeGroupService.searchChargeGroups(body);
-            this.logger.log(`Search Charge Groups results: ${JSON.stringify(res)}`);
-            resp.data = res;
-            resp.message = "Search Charge Groups is successfully fetched";
-        } catch (error) {
-            this.logger.warn(`Search Charge Groups Error: ${error}`);
-            resp.status = false;
-            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
-                resp.message = error.message;
-            } else {
-                resp.message = "Internal Server Error";
-            }
-        }
-        return resp;
+    @ApiOperation({ summary: 'Search List of Charge Groups with pagination' })
+@ApiCreatedResponse({
+  description: "Search List of Charge Groups",
+  type: ResponseData
+})
+@HttpCode(HttpStatus.OK)
+@Post('search-list')
+async searchChargeGroups(@Body() params: SearchVesselDto) {
+  let resp = new ResponseData();
+  try {
+    let res = await this.chargeGroupService.searchChargeGroups(params);
+    this.logger.log(`Search Charge Groups results: ${JSON.stringify(res)}`);
+    resp.data = res;
+    resp.message = "Search Charge Groups is successfully fetched";
+  } catch (error) {
+    this.logger.warn(`Search Charge Groups Error: ${error}`);
+    resp.status = false;
+    if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+      resp.message = error.message;
+    } else {
+      resp.message = "Internal Server Error";
     }
+  }
+  return resp;
+}
 }

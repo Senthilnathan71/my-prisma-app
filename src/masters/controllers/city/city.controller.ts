@@ -16,6 +16,7 @@ import {
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
 import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
+import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 import { CityService } from 'src/masters/services/city/city.service';
 
 @Controller('city')
@@ -214,32 +215,29 @@ export class CityController {
     return resp;
   }
 
-  @ApiOperation({ summary: 'Search List of City' })
-  @ApiCreatedResponse({
-    description: 'Search List of City',
+  @ApiOperation({ summary: 'Search List of Cities' })
+@ApiCreatedResponse({
+    description: 'Search List of Cities',
     type: ResponseData,
-  })
-  @HttpCode(HttpStatus.OK)
-  @Post('search-list')
-  async searchCity(@Body() body: SearchListDto) {
-    let resp = new ResponseData();
+})
+@HttpCode(HttpStatus.OK)
+@Post('search-list')
+async searchCity(@Body() searchParams: SearchVesselDto) {
+    const resp = new ResponseData();
     try {
-      this.logger.log(`Search cities : ${JSON.stringify(body)}`);
-      let res = await this.cityService.searchList(body);
-      resp.data = res;
-      resp.message = 'Department List fetched Successfully';
+        const res = await this.cityService.searchCityList(searchParams);
+        this.logger.log(`City Search Data: ${JSON.stringify(res)}`);
+        resp.data = res;
+        resp.message = 'City Search is successfully fetched'; 
     } catch (error) {
-      this.logger.warn(`Department Search Failed : ${JSON.stringify(error)}`);
-      resp.status = false;
-      if (
-        error instanceof BadRequestException ||
-        error instanceof UnauthorizedException
-      ) {
-        resp.message = error.message;
-      } else {
-        resp.message = 'Internal Server Error';
-      }
+        this.logger.warn(`Search City Error: ${error}`);
+        resp.status = false;
+        if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+            resp.message = error.message;
+        } else {
+            resp.message = 'Internal Server Error';
+        }
     }
     return resp;
-  }
+}
 }

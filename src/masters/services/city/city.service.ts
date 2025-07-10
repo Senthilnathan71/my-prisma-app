@@ -1,6 +1,8 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
+import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 
 @Injectable()
 export class CityService {
@@ -103,26 +105,40 @@ export class CityService {
     }
   }
 
-  async searchList(data: SearchListDto) {
-    const { searchType, filterValue } = data;
-    const allowedFields = ['cityCode', 'cityName', 'status'];
-    if (!allowedFields.includes(searchType)) {
-      throw new BadRequestException('Invalid Search Types');
-    }
+  async searchCityList(params: SearchVesselDto) {
+    const { search = '', page = 1, pageSize = 10 } = params;
+    const skip = (page - 1) * pageSize;
 
-    const cities = await this._db.cityMaster
-      .findMany({
-        where: {
-          [searchType]: {
-            contains: filterValue,
-            mode: 'insensitive',
-          },
-          deletedAt:null
-        },
-      })
-      .catch((error) => {
-        throw new Error(`Error on Searching City : ${error}`);
-      });
-    return cities;
-  }
+    const where: Prisma.CityMasterWhereInput = {
+        deletedAt: null,
+        OR: search ? [
+            { cityCode: { contains: search, mode: 'insensitive' } },
+            { cityName: { contains: search, mode: 'insensitive' } },
+            { status: { contains: search, mode: 'insensitive' } },
+            ...(!isNaN(Number(search)) ? [
+                { CityMasterSid: Number(search) },
+                { StateMasterSid: Number(search) }
+            ] : [])
+        ] : undefined
+    };
+
+    const [items, totalCount] = await this._db.$transaction([
+        this._db.cityMaster.findMany({
+            where,
+            skip,
+            take: pageSize,
+            orderBy: { cityName: 'asc' },
+            include: {
+                stateMaster: true,
+                countryMaster: true,
+            }
+        }),
+        this._db.cityMaster.count({ where }),
+    ]);
+
+    return {
+        items,
+        totalCount,
+    };  
+}
 }

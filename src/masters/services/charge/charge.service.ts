@@ -1,6 +1,8 @@
+import { Prisma } from '.prisma/client/default';
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
+import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 
 @Injectable()
 export class ChargeService {
@@ -166,40 +168,41 @@ export class ChargeService {
         // Perform soft delete by updating deletedAt field
         return this._db.chargeMaster.update({
             where: { ChargeMasterSid: id },
-            data: { deletedAt: new Date() }
+            data: { deletedAt: new Date() } 
         });
     }
 
 
-    async searchList(dto: SearchListDto) {
-        const { searchType, filterValue } = dto;
+    async searchList(params: SearchVesselDto) {
+    const { search = '', page = 1, pageSize = 10 } = params;
+    const skip = (page - 1) * pageSize;
 
-        // Whitelist allowed fields to prevent SQL injection or invalid column access
-        //write column names
-        const allowedFields = [
-            'chargeName',
-            'chargeCode',
-            'Status',
+    const where: Prisma.ChargeMasterWhereInput = {
+        deletedAt: null,
+        Status: 'A',
+    };
+
+    if (search) {
+        where.OR = [
+            { chargeName: { contains: search, mode: 'insensitive' } },
+            { chargeCode: { contains: search, mode: 'insensitive' } },
+            { Status: { contains: search, mode: 'insensitive' } },
         ];
-
-        if (!allowedFields.includes(searchType)) {
-            throw new BadRequestException('Invalid search type');
-        }
-
-        // Dynamically build query
-        const Charges = await this._db.chargeMaster.findMany({
-            where: {
-                [searchType]: {
-                    contains: filterValue,
-                    mode: 'insensitive',
-                },
-                deletedAt: null,
-            },
-        }).catch(err => {
-            throw new Error(`Error Search Charge: ${err}`);
-        });
-        return Charges;
-
-
     }
+
+    const [items, totalCount] = await this._db.$transaction([
+        this._db.chargeMaster.findMany({
+            where,
+            skip,
+            take: pageSize,
+            orderBy: { ChargeMasterSid: 'desc' },
+        }),
+        this._db.chargeMaster.count({ where }),
+    ]);
+
+    return {
+        items,
+        totalCount,
+    };
+}
 }
