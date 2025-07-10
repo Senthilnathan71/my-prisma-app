@@ -180,15 +180,31 @@ export class FfUserMasterController {
         return resp;
     }
 
-
-
-
-
-
-
-
-
-
+    @ApiOperation({ summary: 'Reset User Password' })
+    @ApiCreatedResponse({
+        description: 'Reset User Password',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Post('reset/:id')
+    async resetPassword(@Param('id',ParseIntPipe) UserMasterSid,@Body() payload: any) {
+        let resp = new ResponseData();
+        try {
+            let res = await this.ffUserMasterService.resetPassword(UserMasterSid,payload);
+            this.logger.log(`User Password Reset Results :${JSON.stringify(res)}`);
+            resp.data = res;
+            resp.message = "User Password Reset results are successfully fetched"
+        } catch (error) {
+            this.logger.warn(`User Password Reset Error : ${JSON.stringify(error), error}`);
+            resp.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                resp.message = error.message;
+            } else {
+                resp.message = "Internal Server Error";
+            }
+        }
+        return resp;
+    }
 
 
 }
