@@ -1,6 +1,8 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
+import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 
 @Injectable()
 export class ContainerTypeService {
@@ -108,36 +110,44 @@ export class ContainerTypeService {
     }
   }
 
-  async searchContainerType(data: SearchListDto) {
-    const { searchType, filterValue } = data;
-    const allowedTypes = [
-      'ContainerCode',
-      'ContainerSize',
-      'ContainerIsoCode',
-      'ContainerName',
-      'ContainerCateory',
-      'MaxVolume',
-      'TareWeight',
-      'GrossWeight',
-      'NoofTeu',
-      'status',
-    ];
-    if (!allowedTypes.includes(searchType)) {
-      throw new BadRequestException('Search Type Invalid');
-    }
-    const searchResults = await this._db.containerTypeMaster
-      .findMany({
-        where: {
-          [searchType]: {
-            contains: filterValue,
-            mode: 'insensitive',
-          },
-          deletedAt:null
-        },
-      })
-      .catch((error) => {
-        throw new Error(`Search ContainerType Failed : ${error}`);
-      });
-    return searchResults;
-  }
+  async searchContainerType(params: SearchVesselDto) {
+    const { search = '', page = 1, pageSize = 10 } = params;
+    const skip = (page - 1) * pageSize;
+
+    const where: Prisma.ContainerTypeMasterWhereInput  = {
+        deletedAt: null,
+        ...(search
+            ? {
+                OR: [
+                    { ContainerCode: { contains: search, mode: 'insensitive' } },
+                    { ContainerSize: { contains: search, mode: 'insensitive' } },
+                    { ContainerIsoCode: { contains: search, mode: 'insensitive' } },
+                    { ContainerName: { contains: search, mode: 'insensitive' } },
+                    { ContainerCategory: { contains: search, mode: 'insensitive' } },
+                    // { MaxVolume: { contains: search, mode: 'insensitive' } },
+                    // { TareWeight: { contains: search, mode: 'insensitive' } },
+                    // { GrossWeight: { contains: search, mode: 'insensitive' } },
+                    // { NoofTeu: { contains: search, mode: 'insensitive' } },
+                    { status: { contains: search, mode: 'insensitive' } },
+                ],
+            }
+            : {}
+        ),
+    };
+
+    const [items, totalCount] = await this._db.$transaction([
+        this._db.containerTypeMaster.findMany({
+            where,
+            skip,
+            take: pageSize,
+            orderBy: { ContainerTypeMasterSid: 'desc' },
+        }),
+        this._db.containerTypeMaster.count({ where }),
+    ]);
+
+    return {
+        items,
+        totalCount,
+    };
+}
 }
