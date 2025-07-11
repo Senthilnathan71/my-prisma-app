@@ -10,6 +10,7 @@ export class ImcoService {
         try {
             const allIMCO = await this._db.imcoMaster.findMany({
                 where : {
+                    status : 'A',
                     deletedAt:null
                 }
             })
