@@ -128,32 +128,32 @@ export class CoaController {
 
 
 
-    // @ApiOperation({ summary: 'Delete Coa by Id' })
-    // @ApiCreatedResponse({
-    //     description: 'Delete Coa by Id',
-    //     type: ResponseData
-    // })
-    // @HttpCode(HttpStatus.OK)
-    // @Delete('delete/:COAMasterSid')
-    // async deleteCoaById(@Param('COAMasterSid', ParseIntPipe) COAMasterSid: number) {
-    //     let resp = new ResponseData();
-    //     try {
-    //         this.logger.log(`Deleting Coa with id : ${COAMasterSid}`);
-    //         let res = await this.coaService.deleteCoa(COAMasterSid);
-    //         this.logger.debug(`Deleted Coa : ${JSON.stringify(res)}`);
-    //         resp.data = res;
-    //         resp.message = `Coa with id : ${COAMasterSid} is successfully deleted`;
-    //     } catch (error) {
-    //         this.logger.warn(`Coa Deletion Error : ${JSON.stringify(error), error}`);
-    //         resp.status = false;
-    //         if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
-    //             resp.message = error.message;
-    //         } else {
-    //             resp.message = "Internal Server Error";
-    //         }
-    //     }
-    //     return resp;
-    // }
+    @ApiOperation({ summary: 'Delete Coa by Id' })
+    @ApiCreatedResponse({
+        description: 'Delete Coa by Id',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Delete('delete/:COAMasterSid')
+    async deleteCoaById(@Param('COAMasterSid', ParseIntPipe) COAMasterSid: number) {
+        let resp = new ResponseData();
+        try {
+            this.logger.log(`Deleting Coa with id : ${COAMasterSid}`);
+            let res = await this.coaService.deleteCOA(COAMasterSid);
+            this.logger.debug(`Deleted Coa : ${JSON.stringify(res)}`);
+            resp.data = res;
+            resp.message = `Coa with id : ${COAMasterSid} is successfully deleted`;
+        } catch (error) {
+            this.logger.warn(`Coa Deletion Error : ${JSON.stringify(error), error}`);
+            resp.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                resp.message = error.message;
+            } else {
+                resp.message = "Internal Server Error";
+            }
+        }
+        return resp;
+    }
 
 
 

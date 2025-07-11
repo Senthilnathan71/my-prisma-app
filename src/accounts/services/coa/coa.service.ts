@@ -12,6 +12,7 @@ export class CoaService {
             const allCoa = await this._db.cOAMaster.findMany({
                 where : {
                     CompanyMasterSid : user.userBranchMaster[0]?.CompanyMasterSid,
+                    deletedAt : null,
                     Status : 'A'
                 }
             })
@@ -25,9 +26,9 @@ export class CoaService {
         try {
             const createdCoa = await this._db.cOAMaster.create({
                 data :{
-                    CompanyMasterSid : user.userBranchMaster[0]?.CompanyMasterSid,
                     ...payload,
-                    CreatedBy :user.userEmail
+                    CreatedBy :user.userEmail,
+                    CompanyMasterSid : user.userBranchMaster[0]?.CompanyMasterSid,
                 }
             })
             return createdCoa;
@@ -82,29 +83,32 @@ export class CoaService {
     }
 
 
-    // async deleteCOA(COAMasterSid:number){
-    //     try {
-    //         const exist = await this._db.cOAMaster.findUnique({
-    //             where: {
-    //                 COAMasterSid: COAMasterSid
-    //             }
-    //         })
-    //         if (!exist) {
-    //             throw new BadRequestException(`Coa with Id : ${COAMasterSid} not exists`);
-    //         }
-    //         const deletedCoa = this._db.cOAMaster.update({
-    //             where: {
-    //                 COAMasterSid: COAMasterSid
-    //             },
-    //             data: {
-    //                 deletedAt: new Date()
-    //             }
-    //         })
-    //         return deletedCoa;
-    //     } catch(error) {
-    //         throw error;
-    //     }
-    // }
+    async deleteCOA(COAMasterSid:number){
+        try {
+            const exist = await this._db.cOAMaster.findUnique({
+                where: {
+                    COAMasterSid: COAMasterSid
+                }
+            })
+            if (!exist) {
+                throw new BadRequestException(`Coa with Id : ${COAMasterSid} not exists`);
+            }
+            if (exist.deletedAt) {
+                throw new BadRequestException(`Coa with Id : ${COAMasterSid} is already deleted`);
+            }
+            const deletedCoa = this._db.cOAMaster.update({
+                where: {
+                    COAMasterSid: COAMasterSid
+                },
+                data: {
+                    deletedAt: new Date()
+                }
+            })
+            return deletedCoa;
+        } catch(error) {
+            throw error;
+        }
+    }
 
 
    async searchCoa(params: SearchVesselDto,user) {
@@ -112,6 +116,7 @@ export class CoaService {
     const skip = (page - 1) * pageSize;
     const where : Prisma.COAMasterWhereInput = {
         CompanyMasterSid : user.userBranchMaster[0]?.CompanyMasterSid,
+        deletedAt : null,
         ...(search
             ? {
                 OR: [
