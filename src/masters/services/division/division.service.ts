@@ -1,32 +1,63 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
+import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 
 
 @Injectable()
 export class DivisionService {
-    constructor(private _db: DatabaseService) { }
-    async createNewDivision(newData: any) {
+    constructor(private _db: DatabaseService, private logger: Logger) { }
+    async createNewDivision(payload: any, user) {
+        this.logger.warn(`createNewDivision: ${payload}`);
+
+        const existing = await this._db.divisionMaster.findFirst({
+            where: {
+                OR: [
+                    {
+                        DivisionName: {
+                            equals: payload.DivisionName.trim(),
+                            mode: 'insensitive',
+                        }
+                    },
+                    {
+                        DivisionCode: {
+                            equals: payload.DivisionCode.trim(),
+                            mode: 'insensitive',
+                        }
+                    }
+                ]
+            },
+        });
+        if (existing) {
+            if (existing.DivisionName === payload.DivisionName) {
+                throw new BadRequestException('Division name already exists');
+            }
+            if (existing.DivisionCode === payload.DivisionCode) {
+                throw new BadRequestException('Division code already exists');
+            }
+        }
         try {
-            const newlyCreated = await this._db.divisionMaster.create({
+            const Division = await this._db.divisionMaster.create({
                 data: {
-                    ...newData,
+                    ...payload,
                 }
-            })
-            return newlyCreated;
+            });
+            return Division;
         } catch (error) {
-            throw error;
+            console.log(error.stack)
+            throw new Error(`Error creating Division: ${error.message}`);
         }
     }
 
     async getAllDivisions() {
         try {
-            const allDivisions = await this._db.divisionMaster.findMany({
+            const DivisionList = await this._db.divisionMaster.findMany({
                 where: {
-                    deletedAt: null,
+                    status: 'A'
                 }
             })
-            return allDivisions;
+            return DivisionList;
         } catch (error) {
             throw error;
         }
@@ -97,27 +128,38 @@ export class DivisionService {
         }
     }
 
-    async searchDivision(data: SearchListDto) {
-        const { searchType, filterValue } = data;
-        const acceptedType = [
-            "DivisionName",
-            "DivisionCode",
-            "status"
-        ];
-        if (!acceptedType.includes(searchType)) {
-            throw new BadRequestException('Invalid Search Type');
-        }
-        const searchResults = await this._db.divisionMaster.findMany({
-            where: {
-                [searchType]: {
-                    contains: filterValue,
-                    mode: 'insensitive'
-                },
-                deletedAt:null
-            }
-        }).catch((err) => {
-            throw new Error(`Error Occurred : ${err}`);
-        })
-        return searchResults;
+    async searchDivisionNew(params: SearchVesselDto) {
+        const { search = '', page = 1, pageSize = 10 } = params;
+        const skip = (page - 1) * pageSize;
+
+        const where: Prisma.DivisionMasterWhereInput = {
+            deletedAt: null,
+            status: 'A',
+            ...(search
+                ? {
+                    OR: [
+                        { DivisionName: { contains: search, mode: 'insensitive'} },
+                        { DivisionCode: { contains: search, mode: 'insensitive'} },
+                        { status: { contains: search, mode: 'insensitive'} },
+                    ],
+                }
+                : {}
+            ),
+        };
+
+        const [items, totalCount] = await this._db.$transaction([
+            this._db.divisionMaster.findMany({
+                where,
+                skip,
+                take: pageSize,
+                orderBy: { DivisionMasterSid : 'desc'},
+            }),
+            this._db.divisionMaster.count({ where }),
+        ]);
+
+        return {
+            items,
+            totalCount,
+        };
     }
 }
