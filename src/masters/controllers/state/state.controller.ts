@@ -18,6 +18,7 @@ import { Auth } from 'src/common/decorators/auth.decorator';
 import { UserData } from 'src/common/decorators/user.decorator';
 import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
+import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 import { StateService } from 'src/masters/services/state/state.service';
 
 @Controller('state')
@@ -221,10 +222,10 @@ export class StateController {
   })
   @HttpCode(HttpStatus.OK)
   @Post('search-list')
-  async searchState(@Body() body: SearchListDto) {
-    let resp = new ResponseData();
+  async searchStateNew(@Body() searchParams: SearchVesselDto) {
+    const resp = new ResponseData();
     try {
-      let res = await this.stateService.searchState(body);
+      const res = await this.stateService.searchStateNew(searchParams);
       this.logger.log(`State Search Result : ${JSON.stringify(res)}`);
       resp.data = res;
       resp.message = 'State search is successfully fetched';

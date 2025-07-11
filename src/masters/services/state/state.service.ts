@@ -4,8 +4,10 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
+import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 
 @Injectable()
 export class StateService {
@@ -81,6 +83,11 @@ export class StateService {
               countryName: true,
             },
           },
+          zoneMaster: {
+            select: {
+              ZoneName: true,
+            }
+          }
         },
         where: {
           status: 'A',
@@ -154,32 +161,53 @@ export class StateService {
     });
   }
 
-  async searchState(data: SearchListDto) {
-    const { searchType, filterValue } = data;
-    const acceptedType = [
-      'stateCode',
-      'stateName',
-      'stateGSTCode',
-      'region',
-      'zone',
-      'status',
-    ];
-    if (!acceptedType.includes(searchType)) {
-      throw new BadRequestException('Invalid Search Type');
-    }
-    const searchResult = await this._db.stateMaster
-      .findMany({
-        where: {
-          [searchType]: {
-            contains: filterValue,
-            mode: 'insensitive',
-          },
-          deletedAt:null
+   async searchStateNew(params: SearchVesselDto) {
+  const { search = '', page = 1, pageSize = 10 } = params;
+  const skip = (page - 1) * pageSize;
+
+  const where: Prisma.StateMasterWhereInput = {
+    deletedAt: null,
+    status: 'A',
+    ...(search
+      ? {
+        OR: [
+          { stateName: { contains: search, mode: 'insensitive'} },
+          { stateCode: { contains: search, mode: 'insensitive'} },
+          { countryMaster: { countryName: { contains: search, mode: 'insensitive' } } },
+          { zoneMaster: { ZoneName: { contains: search, mode: 'insensitive' } } },
+        ],
+      }
+      : {}
+    ),
+  };
+
+  const [ items, totalCount] = await this._db.$transaction([
+    this._db.stateMaster.findMany({
+      where,
+      skip,
+      take: pageSize,
+      orderBy: { StateMasterSid: 'desc'},
+      include : {
+        countryMaster: {
+          select: { countryName: true },
         },
-      })
-      .catch((err) => {
-        throw new Error(`Error Occured : ${err}`);
-      });
-    return searchResult;
-  }
+        zoneMaster: {
+          select: { ZoneName: true },
+        },
+      },
+    }),
+    this._db.stateMaster.count({ where }),
+  ]);
+
+  const flattenedItems = items.map((state) => ({
+    ...state,
+    countryName: state.countryMaster?.countryName ?? 'N/A',
+    zoneName: state.zoneMaster?.ZoneName ?? 'N/A',
+  }));
+
+  return {
+    items: flattenedItems,
+    totalCount,
+  };
+ }
 }

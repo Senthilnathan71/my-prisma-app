@@ -18,6 +18,7 @@ import { Auth } from 'src/common/decorators/auth.decorator';
 import { UserData } from 'src/common/decorators/user.decorator';
 import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
+import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 import { SectorService } from 'src/masters/services/sector/sector.service';
 
 @Controller('sector')
@@ -177,12 +178,12 @@ export class SectorController {
   })
   @HttpCode(HttpStatus.OK)
   @Post('search-list')
-  async searchSector(@Body() body: SearchListDto) {
-    let resp = new ResponseData();
+  async searchSectorNew(@Body() searchParams: SearchVesselDto) {
+    const resp = new ResponseData();
     try {
-      let searchResult = await this.sectorService.searchSector(body);
-      this.logger.log(`SectorSearch Data : ${JSON.stringify(searchResult)}`);
-      resp.data = searchResult;
+      const res = await this.sectorService.searchSectorNew(searchParams);
+      this.logger.log(`SectorSearch Data : ${JSON.stringify(res)}`);
+      resp.data = res;
       resp.message = 'Sector Search is successfully fetched';
     } catch (error) {
       this.logger.warn(`Sector Search Error : ${error}`);

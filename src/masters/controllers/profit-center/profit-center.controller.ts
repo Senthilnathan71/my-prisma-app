@@ -3,6 +3,7 @@ import { ApiOperation, ApiCreatedResponse } from '@nestjs/swagger';
 import { UserData } from 'src/common/decorators/user.decorator';
 import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
+import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 import { ProfitCenterService } from 'src/masters/services/profit-center/profit-center.service';
 
 @Controller('profit-center')
@@ -136,28 +137,27 @@ export class ProfitCenterController {
     
         @ApiOperation({ summary: 'Search List of Profit-Center' })
         @ApiCreatedResponse({
-            description: 'Search List',
+            description: 'Search List of Profit-Center',
             type: ResponseData
         })
         @HttpCode(HttpStatus.OK)
         @Post('search-list')
-        async searchProfitCenter(@Body() body: SearchListDto) {
-            let output = new ResponseData;
+        async searchProfitCenterNew(@Body() searchParams: SearchVesselDto) {
+            const resp = new ResponseData;
             try {
-                this.logger.log(`searchProfitCenter: ${JSON.stringify(body)}`)
-                const ProfitCenterList = await this.profitCenterService.searchList(body);
-                output.data = ProfitCenterList
-                output.message = "Profit-Center List fetched Successfully"
-            }  catch (err) {
-                output.status = false;
-                this.logger.warn(`searchProfitCenter: ${JSON.stringify(err)}`)
-                output.status = false;
-                if (err instanceof BadRequestException || err instanceof UnauthorizedException) {
-                    output.message = err.message;
+                const res = await this.profitCenterService.searchProfitCenterNew(searchParams);
+                this.logger.log(`Profit-Center Search Data: ${JSON.stringify(res)}`);
+                resp.data = res;
+                resp.message = "Profit-Center List fetched Successfully"
+            }  catch (error) {
+                this.logger.warn(`searchProfitCenter: ${JSON.stringify(error)}`)
+                resp.status = false;
+                if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                    resp.message = error.message;
                 } else {
-                    output.message = 'Internal Server Error';
+                    resp.message = 'Internal Server Error';
                 }
             }
-            return output
+            return resp;
         }
 }
