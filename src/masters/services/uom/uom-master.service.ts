@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client';
 import * as moment from 'moment-timezone';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
+import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 
 @Injectable()
 export class UomService {
@@ -155,44 +156,37 @@ export class UomService {
         });
     }
 
+    async searchUomNew(params: SearchVesselDto) {
+        const { search = '', page = 1, pageSize = 10 } = params;
+        const skip = (page - 1) * pageSize;
 
-    async searchUOM(data: SearchListDto) {
-        const { searchType, filterValue } = data;
-        const acceptedType = [
-            "UOMCode",
-            "UOMName",
-            "UOMType",
-            "EdiCode",
-            "DimensionReq",
-            "WeightReq",
-            "VolumeReq",
-            "ShipmentType",
-            "CostPerUnitPrice",
-            "SlabFrom",
-            "SlabTo",
-            "status",
-        ];
-        if (!acceptedType.includes(searchType)) {
-            throw new BadRequestException('Invalid Search Type')
-        }
-        const searchResults = await this._db.uOMMaster.findMany({
-            where: {
-                [searchType]: {
-                    contains: filterValue,
-                    mode: 'insensitive'
-                },
-                deletedAt:null
-            }
-        }).catch((res) => {
-            throw new Error(`Error Occurred : ${res}`);
-        })
-        return searchResults;
+        const where: Prisma.UOMMasterWhereInput = {
+            deletedAt: null,
+            status: 'A',
+            ...(search
+                ? {
+                    OR: [
+                        { UOMName: { contains: search, mode: 'insensitive'} },
+                        { UOMCode: { contains: search, mode: 'insensitive'} },
+                    ],
+                }
+                : {}
+            ),
+        };
+
+        const [items, totalCount] = await this._db.$transaction([
+            this._db.uOMMaster.findMany({
+                where,
+                skip,
+                take: pageSize,
+                orderBy: { UOMMasterSid: 'desc'},
+            }),
+            this._db.uOMMaster.count({ where }),
+        ]);
+
+        return {
+            items,
+            totalCount,
+        };
     }
-
-
-
-
-
-
-
 }

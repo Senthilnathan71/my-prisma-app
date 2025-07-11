@@ -81,6 +81,7 @@ model CompanyMaster {
     mawbStock           MawbStock[]
     attachDocument      AttachDocument[]
     emailLog            EmailLog[]
+    COAMaster           COAMaster[]
 }
 
 model BranchMaster {
@@ -224,6 +225,7 @@ model CurrencyMaster {
     tariffDetailSale  TariffDetail[]  @relation("Sale")
     tariffDetailBuy   TariffDetail[]  @relation("Buy")
     countryMaster     CountryMaster[]
+    COAMaster         COAMaster[]
 }
 
 model CurrencyExchange {
@@ -365,7 +367,6 @@ model DepartmentMaster {
     quoteHeader         QuoteHeader[]
     quoteRoute          QuoteRoute[]
     bookingHeader       BookingHeader[]
-    customerBrEmail     CustomerBrEmail[]
     customerSupport     CustomerSupport[]
     terms               DepartmentOnTerms[] // inverse relation
     tariffHeader        TariffHeader[]
@@ -1137,7 +1138,7 @@ model CustomerBrEmail {
     CustomerBrEmailSid  Int       @id @default(autoincrement()) @map("CustomerBrEmailSid")
     MenuMasterSid       Int?
     CustomerBranchSid   Int
-    DepartmentMasterSid Int
+    DepartmentMasterSid String[]
     CompanyMasterSid    Int?
     Toemail             String    @db.VarChar(100)
     CCemail             String?   @db.VarChar(100)
@@ -1148,10 +1149,9 @@ model CustomerBrEmail {
     updatedBy           String?   @db.VarChar(100)
     status              String?   @default("A") @db.Char(1)
 
-    customerBranch   CustomerBranch   @relation(fields: [CustomerBranchSid], references: [CustomerBranchSid])
-    companyMaster    CompanyMaster?   @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
-    departmentMaster DepartmentMaster @relation(fields: [DepartmentMasterSid], references: [DepartmentMasterSid])
-    menuMaster       MenuMaster?      @relation(fields: [MenuMasterSid], references: [MenuMasterSid])
+    customerBranch CustomerBranch @relation(fields: [CustomerBranchSid], references: [CustomerBranchSid])
+    companyMaster  CompanyMaster? @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+    menuMaster     MenuMaster?    @relation(fields: [MenuMasterSid], references: [MenuMasterSid])
 }
 
 model CustomerLogin {
@@ -1903,17 +1903,19 @@ model EmailLog {
 }
 
 model IncoMaster {
-    IncoMasterSid Int       @id @default(autoincrement()) @map("IncoMasterSid")
-    CreatedOn     DateTime  @default(now()) @map("CreatedOn") @db.Timestamptz(6)
-    CreatedBy     String    @map("CreatedBy") @db.VarChar(100)
-    UpdatedOn     DateTime  @default(now()) @map("UpdatedOn") @db.Timestamptz(6)
-    UpdatedBy     String?   @map("UpdatedBy") @db.VarChar(100)
-    Status        String    @default("A") @map("Status") @db.Char(1)
-    deletedAt     DateTime?
-    IncoCode      String    @map("IncoCode") @db.Char(3)
-    IncoName      String    @map("IncoName") @db.VarChar(100)
-    IncoType      String    @map("IncoType") @db.Char(3) // Sea/All
-    OceanFreight  String    @map("OceanFreight") @db.VarChar(7) // Prepaid/Collect
+    IncoMasterSid   Int       @id @default(autoincrement()) @map("IncoMasterSid")
+    CreatedOn       DateTime  @default(now()) @db.Timestamptz(6)
+    CreatedBy       String    @db.VarChar(100)
+    UpdatedOn       DateTime  @default(now()) @db.Timestamptz(6)
+    UpdatedBy       String?   @db.VarChar(100)
+    Status          String    @default("A") @db.Char(1)
+    Remarks         String?   @db.VarChar(500)
+    IncoDescription String?   @db.VarChar(500)
+    deletedAt       DateTime?
+    IncoCode        String    @db.Char(3)
+    IncoName        String    @db.VarChar(100)
+    IncoType        String    @db.Char(3) // Sea/All
+    OceanFreight    String    @db.VarChar(7) // Prepaid/Collect
 }
 
 model CostCenterMaster {
@@ -1940,4 +1942,52 @@ model ProfitCenterMaster {
     UpdatedBy             String?   @db.VarChar(100)
     Remarks               String?   @db.VarChar(100)
     Status                String    @default("A") @db.VarChar(10)
+}
+
+model TaxMaster {
+    TaxMasterSid  Int       @id @default(autoincrement()) @map("TaxMasterSid")
+    TaxCode       String    @db.VarChar(10) // e.g., VAT, UGST, CGST, IGST, SGST
+    TaxName       String    @db.VarChar(20)
+    TaxType       String    @db.VarChar(6) // "Input" or "Output"
+    EffectiveFrom DateTime  @db.Date
+    TaxRate       Decimal   @db.Decimal(4, 2) // 5.00, 12.00, 18.00 etc.
+    TaxExempt     String    @default("N") @db.Char(1)
+    CreatedOn     DateTime  @default(now()) @db.Timestamp(6)
+    CreatedBy     String    @db.VarChar(100)
+    UpdatedOn     DateTime  @default(now()) @db.Timestamp(6)
+    deletedAt     DateTime?
+    UpdatedBy     String?   @db.VarChar(100)
+    Remarks       String?   @db.VarChar(100)
+    Status        String    @default("A") @db.VarChar(10)
+}
+
+model COAMaster {
+    COAMasterSid     Int       @id @default(autoincrement())
+    GroupName        String    @db.VarChar(50)
+    SubGroupName     String    @db.VarChar(50)
+    LedgerName       String    @db.VarChar(50)
+    SubledgerName    String?   @db.VarChar(100)
+    LedgerCode       String    @db.VarChar(12)
+    LedgerType       String    @db.VarChar(20)
+    LedgerLocation   Json? // Representing array (multi-select) from Company Branch Master
+    Ledgername2      String?   @db.VarChar(50)
+    LedgerCurrency   Int? // Foreign key to CurrencyMaster
+    JobNoRequire     String    @default("N") @db.Char(1)
+    HSNRequire       String    @default("N") @db.Char(1)
+    ProfitandLoss    String    @default("N") @db.Char(1)
+    BalanceSheet     String    @default("N") @db.Char(1)
+    Category         String?   @db.VarChar(100)
+    ReportType       String?   @db.VarChar(100)
+    Remarks          String?   @db.VarChar(100)
+    CreatedOn        DateTime  @default(now())
+    CreatedBy        String    @db.VarChar(100)
+    UpdatedOn        DateTime  @default(now())
+    UpdatedBy        String?   @db.VarChar(100)
+    deletedAt        DateTime?
+    CompanyMasterSid Int // Foreign key to CompanyMaster
+    Status           String    @default("A") @db.Char(1)
+
+    // Relations (assuming you have these models)
+    CompanyMaster  CompanyMaster   @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+    CurrencyMaster CurrencyMaster? @relation(fields: [LedgerCurrency], references: [CurrencyMasterSid])
 }

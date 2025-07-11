@@ -23,6 +23,21 @@ export class CompanyService {
                 throw new BadRequestException('Company name already exists.');
             }
 
+            if(newData.Pan){
+                const existing = await this._db.companyMaster.findFirst({
+                    where : {
+                        Pan : {
+                            equals : newData.Pan.trim(),
+                            mode : 'insensitive'
+                        }
+                    }
+                })
+
+                if (existing?.Pan === newData.Pan) {
+                    throw new BadRequestException('Provided pan number is already linked to a company.');
+                }
+            }
+
             // 1. Prepare company payload
             const companyPayload = {
                 companyName: newData.companyName,
@@ -264,6 +279,30 @@ export class CompanyService {
 
             if (existing?.companyName === updateData.companyName) {
                 throw new BadRequestException('Company name already exists.');
+            }
+
+            if(updateData.Pan){
+                const existing = await this._db.companyMaster.findFirst({
+                    where : {
+                        AND : [
+                            {
+                                Pan : {
+                                    equals : updateData.Pan.trim(),
+                                    mode : 'insensitive'
+                                }
+                            },
+                            {
+                                CompanyMasterSid : {
+                                    not : companySid
+                                }
+                            }
+                        ]
+                    }
+                })
+
+                if (existing?.Pan === updateData.Pan) {
+                    throw new BadRequestException('Provided pan number is already linked to a company.');
+                }
             }
 
             // 1. Prepare company payload without destructuring

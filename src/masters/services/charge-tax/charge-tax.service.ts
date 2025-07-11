@@ -1,6 +1,8 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
+import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 
 @Injectable()
 export class ChargeTaxService {
@@ -103,60 +105,45 @@ export class ChargeTaxService {
         }
     }
 
-    async searchChargeTax(data: SearchListDto) {
-        const { searchType, filterValue } = data;
-        const intFields = [
-            'ChargeTaxMasterSid',
-            'CompanyMasterSid',
-            'TaxRate'
-        ];
-        const stringFields = [
-            'HSNCode',
-            'description',
-            'TaxGroup',
-            'Status',
-            'Remarks'
-        ];
-        const acceptedType = [...intFields, ...stringFields];
-        if (!acceptedType.includes(searchType)) {
-            throw new BadRequestException('Invalid Search Type');
-        }
+    async searchChargeTax(params: SearchVesselDto) {
+    const { search = '', page = 1, pageSize = 10 } = params;
+    const skip = (page - 1) * pageSize;
 
-        const whereClause: any = {};
+    const where: Prisma.ChargeTaxMasterWhereInput = {
+        deletedAt: null,
+        OR: search ? [
+          
+            { HSNCode: { contains: search, mode: 'insensitive' } },
+            { description: { contains: search, mode: 'insensitive' } },
+            { TaxGroup: { contains: search, mode: 'insensitive' } },
+            { Status: { contains: search, mode: 'insensitive' } },
+            { Remarks: { contains: search, mode: 'insensitive' } },
+            
+            ...(!isNaN(Number(search)) ? [
+                { ChargeTaxMasterSid: Number(search) },
+                { CompanyMasterSid: Number(search) },
+                { TaxRate: Number(search) }
+            ] : [])
+        ] : undefined
+    };
 
-        if (stringFields.includes(searchType)) {
-            whereClause[searchType] = {
-                contains: filterValue,
-                mode: 'insensitive'
-            };
-        } else if (intFields.includes(searchType)) {
-            if (searchType === 'TaxRate') {
-                const decimalValue = parseFloat(filterValue);
-                if (isNaN(decimalValue)) {
-                    throw new BadRequestException(`${searchType} must be a valid number`);
-                }
-                whereClause[searchType] = decimalValue;
-            } else {
-                const numberValue = parseInt(filterValue);
-                if (isNaN(numberValue)) {
-                    throw new BadRequestException(`${searchType} must be a valid number`);
-                }
-                whereClause[searchType] = numberValue;
-            }
-        }
-
-        const searchResults = await this._db.chargeTaxMaster.findMany({
-            where: {
-                ...whereClause,
-                deletedAt: null
-            },
+    const [items, totalCount] = await this._db.$transaction([
+        this._db.chargeTaxMaster.findMany({
+            where,
+            skip,
+            take: pageSize,
             include: {
-                companyMaster: true
-            }
-        }).catch((err) => {
-            throw new Error(`Error Occured : ${JSON.stringify(err), err}`);
-        });
+                companyMaster: true,
+            },
+            orderBy: { ChargeTaxMasterSid: 'desc' },
+        }),
+        this._db.chargeTaxMaster.count({ where }),
+    ]);
 
-        return searchResults;
-    }
+    return {
+        items,
+        totalCount,
+    };
+}
+
 }

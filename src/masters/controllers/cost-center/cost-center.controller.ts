@@ -3,6 +3,7 @@ import { ApiOperation, ApiCreatedResponse } from '@nestjs/swagger';
 import { UserData } from 'src/common/decorators/user.decorator';
 import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
+import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 import { CostCenterService } from 'src/masters/services/cost-center/cost-center.service';
 
 @Controller('cost-center')
@@ -135,30 +136,29 @@ export class CostCenterController {
     }
 
     @ApiOperation({ summary: 'Search List of Cost-Center' })
-    @ApiCreatedResponse({
-        description: 'Search List',
-        type: ResponseData
-    })
-    @HttpCode(HttpStatus.OK)
-    @Post('search-list')
-    async searchCostCenter(@Body() body: SearchListDto) {
-        let output = new ResponseData;
-        try {
-            this.logger.log(`searchCostCenter: ${JSON.stringify(body)}`)
-            const CostCenterList = await this.costCenterService.searchList(body);
-            output.data = CostCenterList
-            output.message = "Cost-Center List fetched Successfully"
-        } catch (err) {
-            output.status = false;
-            this.logger.warn(`searchCostCenter: ${JSON.stringify(err)}`)
-            output.status = false;
-            if (err instanceof BadRequestException || err instanceof UnauthorizedException) {
-                output.message = err.message;
-            } else {
-                output.message = 'Internal Server Error';
-            }
+@ApiCreatedResponse({
+    description: 'Search List',
+    type: ResponseData
+})
+@HttpCode(HttpStatus.OK)
+@Post('search-list')
+async searchCostCenter(@Body() searchParams: SearchVesselDto) {
+    const resp = new ResponseData();
+    try {
+        const res = await this.costCenterService.searchList(searchParams);
+        this.logger.log(`Cost Center Search Data: ${JSON.stringify(res)}`);
+        resp.data = res;
+        resp.message = 'Cost Center Search is successfully fetched';
+    } catch (error) {
+        this.logger.warn(`Search Cost Center Error: ${error}`);
+        resp.status = false;
+        if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+            resp.message = error.message;
+        } else {
+            resp.message = 'Internal Server Error';
         }
-        return output
     }
+    return resp;
+}
 }
  

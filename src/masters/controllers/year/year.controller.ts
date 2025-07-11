@@ -1,7 +1,8 @@
-import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, Post, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, Post, Res, UnauthorizedException } from '@nestjs/common';
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
 import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
+import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 import { YearService } from 'src/masters/services/year/year.service';
 
 
@@ -145,24 +146,24 @@ export class YearController {
     @ApiOperation({ summary: 'Search List of Years' })
     @ApiCreatedResponse({
         description: 'Search List of Years',
-        type: ResponseData
+        type: ResponseData,
     })
     @HttpCode(HttpStatus.OK)
     @Post('search-list')
-    async searchYear() {
-        let resp = new ResponseData();
+    async searchYearNew(@Body() searchParams: SearchVesselDto) {
+        const resp = new ResponseData();
         try {
-            let res = await this.yearService.searchYear();
-            this.logger.log(`Year Search Results :${JSON.stringify(res)}`);
+            const res = await this.yearService.searchYearNew(searchParams);
+            this.logger.log(`Year Search Data: ${JSON.stringify(res)}`);
             resp.data = res;
-            resp.message = "Year Search results are successfully fetched"
+            resp.message = 'Year Search is successfully fetched';
         } catch (error) {
-            this.logger.warn(`Year Search Error : ${JSON.stringify(error)}`);
+            this.logger.warn(`Search Year Error: ${error}`);
             resp.status = false;
-            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException){
                 resp.message = error.message;
             } else {
-                resp.message = "Internal Server Error";
+                resp.message = 'Internal Server Error';
             }
         }
         return resp;

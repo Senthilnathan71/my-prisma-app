@@ -3,8 +3,10 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
+import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 
 @Injectable()
 export class CountryService {
@@ -151,38 +153,49 @@ export class CountryService {
     });
   }
 
-  async searchCountry(data: SearchListDto) {
-    const { searchType, filterValue } = data;
-    const acceptedType = [
-      'countryCode',
-      'countryName',
-      'dialingCode',
-      'ISO3DigitCode',
-      'UNM49Code',
-      'ShortName',
-      'LocalCurrencyCode',
-      'LocalCurrencyName',
-      'AWBCurrencyCode',
-      'AWBCurrencyName',
-      'region',
-      'status',
-    ];
-    if (!acceptedType.includes(searchType)) {
-      throw new BadRequestException('Invalid Search Type');
-    }
-    const searchResult = await this._db.countryMaster
-      .findMany({
-        where: {
-          [searchType]: {
-            contains: filterValue,
-            mode: 'insensitive',
-          },
-          deletedAt:null
-        },
-      })
-      .catch((error) => {
-        throw new Error(`Searching Country Failed ${JSON.stringify(error)}`);
-      });
-    return searchResult;
-  }
+  async searchCountry(params: SearchVesselDto) {
+  const { search = '', page = 1, pageSize = 10
+    
+   } = params;
+  const skip = (page - 1) * pageSize;
+
+  const where: Prisma.CountryMasterWhereInput = {
+    deletedAt: null, 
+    ...(search
+      ? {
+          OR: [
+            { countryName: { contains: search, mode: 'insensitive' } },
+            { countryCode: { contains: search, mode: 'insensitive' } },
+            // { dialingCode: { contains: search, mode: 'insensitive' } },
+            // { ISO3DigitCode: { contains: search, mode: 'insensitive' } },
+            // { UNM49Code: { contains: search, mode: 'insensitive' } },
+            // { ShortName: { contains: search, mode: 'insensitive' } },
+
+            // { LocalCurrencyCode: { contains: search, mode: 'insensitive' } },
+            // { LocalCurrencyName: { contains: search, mode: 'insensitive' } },
+            // { AWBCurrencyCode: { contains: search, mode: 'insensitive' } },
+            // { AWBCurrencyName: { contains: search, mode: 'insensitive' } },
+            // { region: { contains: search, mode: 'insensitive' } },
+            { status: { contains: search, mode: 'insensitive' } },
+          ],
+        }
+      : {}),
+  };
+
+  const [items, totalCount] = await this._db.$transaction([
+    this._db.countryMaster.findMany({
+      where,
+      skip,
+      take: pageSize,
+      orderBy: { countryName: 'asc' },
+    }),
+    this._db.countryMaster.count({ where }),
+  ]);
+
+  return {
+    items,
+    totalCount,
+  };
+}
+
 }

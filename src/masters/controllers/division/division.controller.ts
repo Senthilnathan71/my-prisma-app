@@ -1,7 +1,9 @@
 import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, Post, UnauthorizedException } from '@nestjs/common';
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
+import { UserData } from 'src/common/decorators/user.decorator';
 import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
+import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 import { DivisionService } from 'src/masters/services/division/division.service';
 
 @Controller('division')
@@ -15,10 +17,11 @@ export class DivisionController {
     })
     @HttpCode(HttpStatus.OK)
     @Post('create')
-    async createNewDivision(@Body() newData: any) {
+    async createNewDivision(@Body() body: any,@UserData() user: any) {
+        this.logger.log(`createNewDivision: ${JSON.stringify(body)}`)
         let resp = new ResponseData();
         try {
-            let res = await this.divisionService.createNewDivision(newData);
+            let res = await this.divisionService.createNewDivision(body, user);
             this.logger.log(`New Division Created : ${JSON.stringify(res)}`);
             resp.data = res;
             resp.message = "New Division is successfully created"
@@ -143,15 +146,15 @@ export class DivisionController {
 
     @ApiOperation({ summary: 'Search List of Divisions' })
     @ApiCreatedResponse({
-        description: 'Search List of Division',
+        description: 'Search List of Divisions',
         type: ResponseData
     })
     @HttpCode(HttpStatus.OK)
     @Post("search-list")
-    async searchDivision(@Body() body: SearchListDto) {
-        let resp = new ResponseData();
+    async searchDivision(@Body() seachParams: SearchVesselDto) {
+        const resp = new ResponseData();
         try {
-            let res = await this.divisionService.searchDivision(body)
+            const res = await this.divisionService.searchDivisionNew(seachParams);
             this.logger.log(`Division Search Result : ${JSON.stringify(res)}`);
             resp.data = res;
             resp.message = "Search Division is successfully fetched"

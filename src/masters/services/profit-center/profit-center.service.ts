@@ -1,6 +1,8 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
+import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 
 @Injectable()
 export class ProfitCenterService {
@@ -118,31 +120,40 @@ export class ProfitCenterService {
             });
         }
     
-        async searchList(dto: SearchListDto) {
-            const { searchType, filterValue} = dto;
-            const allowedFields = [
-                'ProfitCenterName',
-                'ProfitCenterCode',
-                'Remarks',
-                'Status',
-            ];
-    
-            if (!allowedFields.includes(searchType)) {
-                throw new BadRequestException('Invalid search type');
-            }
-    
-            const ProfitCenters = this._db.profitCenterMaster.findMany({
-                where: {
-                    [searchType]: {
-                        contains: filterValue,
-                        mode: 'insensitive',
-                    },
-                    deletedAt: null,
-                },
-            }).catch(err => {
-                throw new Error(`Error Search Profit-Center: ${err}`);
-            });
-            return ProfitCenters;
-        }
+       async searchProfitCenterNew(params: SearchVesselDto) {
+        const { search = '', page =1, pageSize = 10 } = params;
+        const skip = (page - 1) * pageSize;
+
+        const where: Prisma.ProfitCenterMasterWhereInput = {
+            deletedAt: null,
+            Status: 'A',
+            ...(search
+                ? {
+                    OR: [
+                        { ProfitCenterName: { contains: search, mode: 'insensitive'} },
+                        { ProfitCenterName: { contains: search, mode: 'insensitive'} },
+                        { Remarks: { contains: search, mode: 'insensitive'} },
+                        {Status: { contains: search, mode: 'insensitive'} },
+                    ],
+                }
+                : {}
+            ),
+        };
+
+        const [items, totalCount] = await this._db.$transaction([
+            this._db.profitCenterMaster.findMany({
+                where,
+                skip,
+                take: pageSize,
+                orderBy: { ProfitCenterMasterSid: 'desc'},
+            }),
+            this._db.profitCenterMaster.count({ where }),
+        ]);
+
+        return {
+            items,
+            totalCount,
+        };
+       }
     
 }

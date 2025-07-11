@@ -3,6 +3,7 @@ import { ApiOperation, ApiCreatedResponse } from '@nestjs/swagger';
 import { UserData } from 'src/common/decorators/user.decorator';
 import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
+import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 import { ChargeService } from 'src/masters/services/charge/charge.service';
 
 @Controller('charge')
@@ -172,30 +173,30 @@ export class ChargeController {
 
 
 
-    @ApiOperation({ summary: 'Search List of Charge' })
-    @ApiCreatedResponse({
-        description: 'Search List',
-        type: ResponseData
-    })
-    @HttpCode(HttpStatus.OK)
-    @Post('search-list')
-    async searchCharge(@Body() body: SearchListDto) {
-        let output = new ResponseData;
-        try {
-            this.logger.log(`searchCharge: ${JSON.stringify(body)}`)
-            const ChargeList = await this.chargeService.searchList(body);
-            output.data = ChargeList
-            output.message = "Charge List fetched Successfully"
-        } catch (err) {
-            output.status = false;
-            this.logger.warn(`searchCharge: ${JSON.stringify(err)}`)
-            output.status = false;
-            if (err instanceof BadRequestException || err instanceof UnauthorizedException) {
-                output.message = err.message;
-            } else {
-                output.message = 'Internal Server Error';
-            }
+    @ApiOperation({ summary: 'Search List of Charges' })
+@ApiCreatedResponse({
+    description: 'Search List of Charges',
+    type: ResponseData,
+})
+@HttpCode(HttpStatus.OK)
+@Post('search-list')
+async searchCharge(@Body() searchParams: SearchVesselDto) {
+    const resp = new ResponseData();
+    try {
+        const res = await this.chargeService.searchList(searchParams);
+        this.logger.log(`Charge Search Data : ${JSON.stringify(res)}`);
+        resp.data = res;
+        
+        resp.message = 'Charge search completed successfully';
+    } catch (error) {
+        this.logger.warn(`Search Charge Error : ${error}`);
+        resp.status = false;
+        if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+            resp.message = error.message;
+        } else {
+            resp.message = 'Internal Server Error';
         }
-        return output
     }
+    return resp;
+}
 }

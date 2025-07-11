@@ -4,8 +4,10 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
+import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 
 @Injectable()
 export class SectorService {
@@ -160,25 +162,39 @@ export class SectorService {
     });
   }
 
-  async searchSector(data: SearchListDto) {
-    const { searchType, filterValue } = data;
-    const acceptedType = ['sectorName', 'status'];
-    if (!acceptedType.includes(searchType)) {
-      throw new BadRequestException('Invalid Search Type');
-    }
-    const searchResult = await this._db.sectorMaster
-      .findMany({
-        where: {
-          [searchType]: {
-            contains: filterValue,
-            mode: 'insensitive',
-          },
-          deletedAt:null,
-        },
-      })
-      .catch((err) => {
-        throw new Error(`Error Occured: ${err}`);
-      });
-    return searchResult;
+  async searchSectorNew(params: SearchVesselDto) {
+    const { search = '', page = 1, pageSize = 10 } = params;
+    const skip = (page - 1) * pageSize;
+
+    const where: Prisma.SectorMasterWhereInput = {
+      deletedAt: null,
+      status: 'A',
+      ...(search
+        ? {
+          OR: [
+            { sectorName: { contains: search, mode: 'insensitive'} },
+            { sectorCode: { contains: search, mode: 'insensitive'} },
+            { RegionName: { contains: search, mode: 'insensitive'} },
+            { RegionCode: { contains: search, mode: 'insensitive'} },
+          ],
+        }
+        : {}
+      ),
+    };
+
+    const [ items, totalCount] = await this._db.$transaction([
+      this._db.sectorMaster.findMany({
+        where,
+        skip,
+        take: pageSize,
+        orderBy: { SectorMasterSid: 'desc'},
+      }),
+      this._db.sectorMaster.count({ where }),
+    ]);
+
+    return {
+      items,
+      totalCount
+    };
   }
 }

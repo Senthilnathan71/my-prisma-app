@@ -11,7 +11,7 @@ export class FfUserMasterService {
         try {
             const allFfUser = await this._db.userMaster.findMany({
                 where : {
-                    deletedAt:null
+                    status : 'A'
                 },
                 omit : {
                     userPassword : true
@@ -166,14 +166,15 @@ export class FfUserMasterService {
                 const existingUserCompany = await this._db.userCompanyMaster.findFirst({
                     where: {
                         UserMasterSid: ffUser.UserMasterSid,
-                        CompanyMasterSid: payload.CompanyMasterSid
+                        CompanyMasterSid: payload.CompanyMasterSid,
+                        deletedAt : null
                     }
                 });
 
                 let userCompany;
                 if (existingUserCompany) {
                     // Update existing UserCompanyMaster record
-                    userCompany = await this._db.userCompanyMaster.updateManyAndReturn({
+                    userCompany = await this._db.userCompanyMaster.updateMany({
                         where: {
                             UserMasterSid: ffUser.UserMasterSid,
                             CompanyMasterSid: payload.CompanyMasterSid
@@ -185,6 +186,17 @@ export class FfUserMasterService {
                     });
                 } else {
                     // Create new UserCompanyMaster record
+                    const deletedUser = await this._db.userCompanyMaster.updateMany({
+                        where: {
+                            UserMasterSid: ffUser.UserMasterSid,
+                            CompanyMasterSid: { not: payload.CompanyMasterSid },
+                            deletedAt : null
+                        }, data: {
+                            updatedBy : payload.updatedBy,
+                            deletedAt : new Date()
+                        }
+                    })
+
                     userCompany = await this._db.userCompanyMaster.create({
                         data: {
                             UserMasterSid: ffUser.UserMasterSid,
@@ -377,6 +389,37 @@ export class FfUserMasterService {
 
         return searchResults;
 
+    }
+
+    async resetPassword(UserMasterSid, payload) {
+        try {
+            const hashedPassword = await encodePassword(payload.password);
+            const exist = await this._db.userMaster.findFirst({
+                where: {
+                    UserMasterSid: UserMasterSid
+                }
+            })
+            if (!exist) {
+                throw new BadRequestException(`User with Id :${UserMasterSid} not exists`);
+            }
+
+            const reset = await this._db.userMaster.update({
+                where : {
+                    UserMasterSid : UserMasterSid
+                },
+                data : {
+                    userPassword : hashedPassword,
+                    updatedBy : payload.updatedBy,
+                    updatedOn : new Date()
+                },
+                omit : {
+                    userPassword : true
+                }
+            })
+            return reset;
+        } catch (error) {
+            throw error;
+        }
     }
 
 }

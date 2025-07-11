@@ -240,7 +240,8 @@ export class CustomerService {
                     CustomerType: {
                         path: ['carrier'],
                         equals: 'isTrue'
-                    }
+                    },
+                    deletedAt : null
                 }
             })
             return allCarriers;
@@ -256,7 +257,8 @@ export class CustomerService {
                     CustomerType: {
                         path: ['agent'],
                         equals: 'isTrue'
-                    }
+                    },
+                    deletedAt : null
                 }
             })
             return allAgents;
