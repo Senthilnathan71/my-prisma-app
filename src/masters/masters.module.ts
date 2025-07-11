@@ -118,6 +118,8 @@ import { ProfitCenterController } from './controllers/profit-center/profit-cente
 import { ProfitCenterService } from './services/profit-center/profit-center.service';
 import { CostCenterService } from './services/cost-center/cost-center.service';
 import { CostCenterController } from './controllers/cost-center/cost-center.controller';
+import { TaxController } from './controllers/tax/tax.controller';
+import { TaxService } from './services/tax/tax.service';
 
 @Module({
   providers: [
@@ -180,7 +182,8 @@ import { CostCenterController } from './controllers/cost-center/cost-center.cont
     YearService,
     IncoService,
     ProfitCenterService,
-    CostCenterService
+    CostCenterService,
+    TaxService
   ],
   controllers: [
     UserController,
@@ -242,7 +245,8 @@ import { CostCenterController } from './controllers/cost-center/cost-center.cont
     YearController,
     IncoController,
     ProfitCenterController,
-    CostCenterController
+    CostCenterController,
+    TaxController
   ],
   exports: [UserService]
 })

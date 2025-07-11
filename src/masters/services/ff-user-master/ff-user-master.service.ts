@@ -166,14 +166,15 @@ export class FfUserMasterService {
                 const existingUserCompany = await this._db.userCompanyMaster.findFirst({
                     where: {
                         UserMasterSid: ffUser.UserMasterSid,
-                        CompanyMasterSid: payload.CompanyMasterSid
+                        CompanyMasterSid: payload.CompanyMasterSid,
+                        deletedAt : null
                     }
                 });
 
                 let userCompany;
                 if (existingUserCompany) {
                     // Update existing UserCompanyMaster record
-                    userCompany = await this._db.userCompanyMaster.updateManyAndReturn({
+                    userCompany = await this._db.userCompanyMaster.updateMany({
                         where: {
                             UserMasterSid: ffUser.UserMasterSid,
                             CompanyMasterSid: payload.CompanyMasterSid
@@ -185,6 +186,17 @@ export class FfUserMasterService {
                     });
                 } else {
                     // Create new UserCompanyMaster record
+                    const deletedUser = await this._db.userCompanyMaster.updateMany({
+                        where: {
+                            UserMasterSid: ffUser.UserMasterSid,
+                            CompanyMasterSid: { not: payload.CompanyMasterSid },
+                            deletedAt : null
+                        }, data: {
+                            updatedBy : payload.updatedBy,
+                            deletedAt : new Date()
+                        }
+                    })
+
                     userCompany = await this._db.userCompanyMaster.create({
                         data: {
                             UserMasterSid: ffUser.UserMasterSid,
