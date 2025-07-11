@@ -19,6 +19,7 @@ import { ResponseData } from 'src/common/response-data';
 import { CountryService } from 'src/masters/services/country/country.service';
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
+import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 
 @Controller('country')
 @Auth()
@@ -161,31 +162,28 @@ export class CountryController {
   }
 
   @ApiOperation({ summary: 'Search List of Country' })
-  @ApiCreatedResponse({
-    description: 'Search List of Country',
-    type: ResponseData,
-  })
-  @HttpCode(HttpStatus.OK)
-  @Post('search-list')
-  async searchCountry(@Body() body: SearchListDto) {
-    let resp = new ResponseData();
-    try {
-      this.logger.log(`Searching Country : ${JSON.stringify(body)}`);
-      let res = await this.countryService.searchCountry(body);
-      resp.data = res;
-      resp.message = 'Country search is Successfully fetched';
-    } catch (error) {
-      this.logger.warn(`Searching Country Failed ${JSON.stringify(error)}`);
-      resp.status = false;
-      if (
-        error instanceof BadRequestException ||
-        error instanceof UnauthorizedException
-      ) {
-        resp.message = error.message;
-      } else {
-        resp.message = 'Internal Server Error';
-      }
+@ApiCreatedResponse({
+  description: 'Search List of Country',
+  type: ResponseData,
+})
+@HttpCode(HttpStatus.OK)
+@Post('search-list')
+async searchCountry(@Body() searchParams: SearchVesselDto) {
+  const resp = new ResponseData();
+  try {
+    const res = await this.countryService.searchCountry(searchParams);
+    this.logger.log(`Country Search Data: ${JSON.stringify(res)}`);
+    resp.data = res; 
+    resp.message = 'Country Search is successfully fetched';
+  } catch (error) {    
+    this.logger.warn(`Search Country Error: ${error}`);
+    resp.status = false;
+    if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+      resp.message = error.message;
+    } else {
+      resp.message = 'Internal Server Error';
     }
-    return resp;
   }
+  return resp;
+}
 }

@@ -16,6 +16,7 @@ import {
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
 import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
+import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 import { ContainerTypeService } from 'src/masters/services/container-type/container-type.service';
 
 @Controller('container-type')
@@ -210,31 +211,31 @@ export class ContainerTypeController {
 
   // Search Container Type
   @ApiOperation({ summary: 'Search List of Container Type' })
-  @ApiCreatedResponse({
+@ApiCreatedResponse({
     description: 'Search list of Container Type',
     type: ResponseData,
-  })
-  @HttpCode(HttpStatus.OK)
-  @Post('search-list')
-  async searchContainerType(@Body() body: SearchListDto) {
-    let resp = new ResponseData();
+})
+@HttpCode(HttpStatus.OK)
+@Post('search-list')
+async searchContainerType(@Body() searchParams: SearchVesselDto) {
+    const resp = new ResponseData();
     try {
-      this.logger.log(`Search Container Type : ${JSON.stringify(body)}`);
-      let res = await this.containerTypeService.searchContainerType(body);
-      resp.data = res;
-      resp.message = 'Container Type search is Successfully fetched';
+        const res = await this.containerTypeService.searchContainerType(searchParams);
+        this.logger.log(`Container Type Search Data: ${JSON.stringify(res)}`);
+        resp.data = res;
+        resp.message = 'Container Type Search is successfully fetched';
     } catch (error) {
-      this.logger.warn(`Search Container Type Failed: ${error}`);
-      resp.data = false;
-      if (
-        error instanceof BadRequestException ||
-        error instanceof UnauthorizedException
-      ) {
-        resp.message = error.message;
-      } else {
-        resp.message = 'Internal Server Error';
-      }
+        this.logger.warn(`Search Container Type Error: ${error}`);
+        resp.status = false;
+        if (
+            error instanceof BadRequestException ||
+            error instanceof UnauthorizedException
+        ) {
+            resp.message = error.message;
+        } else {
+            resp.message = 'Internal Server Error';
+        }
     }
     return resp;
-  }
+}
 }

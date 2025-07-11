@@ -1,6 +1,8 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
+import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 
 @Injectable()
 export class CostCenterService {
@@ -118,31 +120,40 @@ export class CostCenterService {
         });
     }
 
-    async searchList(dto: SearchListDto) {
-        const { searchType, filterValue} = dto;
-        const allowedFields = [
-            'CostCenterName',
-            'CostCenterCode',
-            'Remarks',
-            'Status',
-        ];
+    async searchList(params: SearchVesselDto) {
+    const { search = '', page = 1, pageSize = 10 } = params;
+    const skip = (page - 1) * pageSize;
 
+    const where: Prisma.CostCenterMasterWhereInput = {
+        deletedAt: null,
+        Status: 'A',
+        ...(search
+            ? {
+                OR: [
+                    { CostCenterName: { contains: search, mode: 'insensitive' } },
+                    { CostCenterCode: { contains: search, mode: 'insensitive' } },
+                    { Remarks: { contains: search, mode: 'insensitive' } },
+                    { Status: { contains: search, mode: 'insensitive' } },
+                ],
+            }
+            : {}
+        ),
+    };
 
-        if (!allowedFields.includes(searchType)) {
-            throw new BadRequestException('Invalid search type');
-        }
+    const [items, totalCount] = await this._db.$transaction([
+        this._db.costCenterMaster.findMany({
+            where,
+            skip,
+            take: pageSize,
+            orderBy: { CostCenterMasterSid: 'desc' },
+        }),
+        this._db.costCenterMaster.count({ where }),
+    ]);
 
-        const CostCenters = this._db.costCenterMaster.findMany({
-            where: {
-                [searchType]: {
-                    contains: filterValue,
-                    mode: 'insensitive',
-                },
-                deletedAt: null,
-            },
-        }).catch(err => {
-            throw new Error(`Error Search Cost-Center: ${err}`);
-        });
-        return CostCenters;
-    }
+    return {
+        items,
+        totalCount,
+    };
+}
+
 }
