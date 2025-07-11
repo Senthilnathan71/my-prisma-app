@@ -1962,27 +1962,30 @@ model TaxMaster {
 }
 
 model COAMaster {
-    COAMasterSid     Int      @id @default(autoincrement())
-    GroupName        String   @db.VarChar(50)
-    SubGroupName     String   @db.VarChar(50)
-    LedgerName       String   @db.VarChar(50)
-    SubledgerName    String   @db.VarChar(100)
-    LedgerCode       String   @db.VarChar(12)
-    LedgerType       String   @db.VarChar(20)
-    LedgerLocation   String[] // Representing array (multi-select) from Company Branch Master
-    Ledgername2      String?  @db.VarChar(50)
+    COAMasterSid     Int       @id @default(autoincrement())
+    GroupName        String    @db.VarChar(50)
+    SubGroupName     String    @db.VarChar(50)
+    LedgerName       String    @db.VarChar(50)
+    SubledgerName    String?   @db.VarChar(100)
+    LedgerCode       String    @db.VarChar(12)
+    LedgerType       String    @db.VarChar(20)
+    LedgerLocation   Json? // Representing array (multi-select) from Company Branch Master
+    Ledgername2      String?   @db.VarChar(50)
     LedgerCurrency   Int? // Foreign key to CurrencyMaster
-    JobNoRequire     String   @default("N") @db.Char(1)
-    HSNRequire       String   @default("N") @db.Char(1)
-    ProfitandLoss    String   @default("N") @db.Char(1)
-    BalanceSheet     String   @default("N") @db.Char(1)
-    Remarks          String?  @db.VarChar(100)
-    CreatedOn        DateTime @default(now())
-    CreatedBy        String   @db.VarChar(100)
-    UpdatedOn        DateTime @default(now())
-    UpdatedBy        String?  @db.VarChar(100)
+    JobNoRequire     String    @default("N") @db.Char(1)
+    HSNRequire       String    @default("N") @db.Char(1)
+    ProfitandLoss    String    @default("N") @db.Char(1)
+    BalanceSheet     String    @default("N") @db.Char(1)
+    Category         String?   @db.VarChar(100)
+    ReportType       String?   @db.VarChar(100)
+    Remarks          String?   @db.VarChar(100)
+    CreatedOn        DateTime  @default(now())
+    CreatedBy        String    @db.VarChar(100)
+    UpdatedOn        DateTime  @default(now())
+    UpdatedBy        String?   @db.VarChar(100)
+    deletedAt        DateTime?
     CompanyMasterSid Int // Foreign key to CompanyMaster
-    Status           String   @default("A") @db.Char(1)
+    Status           String    @default("A") @db.Char(1)
 
     // Relations (assuming you have these models)
     CompanyMaster  CompanyMaster   @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
