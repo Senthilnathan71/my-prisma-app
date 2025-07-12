@@ -4,8 +4,10 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
+import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 
 @Injectable()
 export class CurrencyService {
@@ -131,39 +133,41 @@ export class CurrencyService {
     });
   }
 
-  async searchCurrency(data: SearchListDto) {
-    const { searchType, filterValue } = data;
-    const acceptedType = [
-      'currencyCode',
-      'currencyName',
-      'currencyID',
-      'CurrencyUnit',
-      'CurrencySubUnit',
-      'ShortCode',
-      'Symbol',
-      'currencyFirstName',
-      'currencyLastName',
-      'currencyRatio',
-      'amountDecimal',
-      'exchangeDecimal',
-      'status',
-    ];
-    if (!acceptedType.includes(searchType)) {
-      throw new BadRequestException('Invalid Search Type');
-    }
-    const searchResult = await this._db.currencyMaster
-      .findMany({
-        where: {
-          [searchType]: {
-            contains: filterValue,
-            mode: 'insensitive',
-          },
-          deletedAt:null
-        },
-      })
-      .catch((err) => {
-        throw new Error(`Currency Search Error : ${err}`);
-      });
-    return searchResult;
-  }
+  async searchCurrency(params: SearchVesselDto) {
+    const { search = '', page = 1, pageSize = 10 } = params;
+    const skip = (page - 1) * pageSize;
+
+    const where: Prisma.CurrencyMasterWhereInput = {
+        deletedAt: null,
+        status: 'A',
+        ...(search
+            ? {
+                OR: [
+                    { currencyName: { contains: search, mode: 'insensitive' } },
+                    { currencyCode: { contains: search, mode: 'insensitive' } },
+                    { CurrencyUnit: { contains: search, mode: 'insensitive' } },
+                    { CurrencySubUnit: { contains: search, mode: 'insensitive' } },
+                    { ShortCode: { contains: search, mode: 'insensitive' } },
+                    { status: { contains: search, mode: 'insensitive' } },
+                ],
+            }
+            : {}
+        ),
+    };
+
+    const [items, totalCount] = await this._db.$transaction([
+        this._db.currencyMaster.findMany({
+            where,
+            skip,
+            take: pageSize,
+            orderBy: { CurrencyMasterSid: 'desc' },
+        }),
+        this._db.currencyMaster.count({ where }),
+    ]);
+
+    return {
+        items,
+        totalCount,
+    };
+}
 }

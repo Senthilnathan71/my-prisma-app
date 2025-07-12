@@ -107,6 +107,7 @@ export class BlclauseService {
 
     const where: Prisma.BLClauseMasterWhereInput = {
         deletedAt: null,
+        status: 'A',
         ...(search 
             ? {
                 OR: [ 

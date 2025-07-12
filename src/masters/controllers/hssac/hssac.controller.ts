@@ -3,6 +3,7 @@ import { ApiOperation, ApiCreatedResponse } from '@nestjs/swagger';
 import { UserData } from 'src/common/decorators/user.decorator';
 import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
+import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 import { HssacService } from 'src/masters/services/hssac/hssac.service';
 
 @Controller('hssac')
@@ -145,30 +146,29 @@ export class HssacController {
 
 
 
-    @ApiOperation({ summary: 'Search List of Hssac' })
+   @ApiOperation({ summary: 'Search List of HSSACs' })
     @ApiCreatedResponse({
-        description: 'Search List',
-        type: ResponseData
+        description: 'Search List of HSSACs',
+        type: ResponseData,
     })
     @HttpCode(HttpStatus.OK)
     @Post('search-list')
-    async searchHssac(@Body() body: SearchListDto) {
-        let output = new ResponseData;
+    async searchHssac(@Body() searchParams: SearchVesselDto) {
+        const resp = new ResponseData();
         try {
-            this.logger.log(`searchHssac: ${JSON.stringify(body)}`)
-            const HssacList = await this.hssacService.searchList(body);
-            output.data = HssacList
-            output.message = "Hssac List fetched Successfully"
-        } catch (err) {
-            output.status = false;
-            this.logger.warn(`searchHssac: ${JSON.stringify(err)}`)
-            output.status = false;
-            if (err instanceof BadRequestException || err instanceof UnauthorizedException) {
-                output.message = err.message;
+            const res = await this.hssacService.searchList(searchParams);
+            this.logger.log(`HSSAC Search Data: ${JSON.stringify(res)}`);
+            resp.data = res;
+            resp.message = 'HSSAC Search is successfully fetched';
+        } catch (error) {
+            this.logger.warn(`Search HSSAC Error: ${error}`);
+            resp.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                resp.message = error.message;
             } else {
-                output.message = 'Internal Server Error';
+                resp.message = 'Internal Server Error';
             }
         }
-        return output
+        return resp;
     }
 }

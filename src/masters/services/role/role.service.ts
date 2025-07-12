@@ -1,6 +1,8 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
+import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 
 @Injectable()
 export class RoleService {
@@ -120,33 +122,38 @@ export class RoleService {
     }
 
 
-    async searchList(dto: SearchListDto) {
-        const { searchType, filterValue } = dto;
+    async searchList(params: SearchVesselDto) {
+    const { search = '', page = 1, pageSize = 10 } = params;
+    const skip = (page - 1) * pageSize;
 
-        // Whitelist allowed fields to prevent SQL injection or invalid column access
-        //write column names
-        const allowedFields = [
-            'UserRoleName',
-            'UserRoleCode',
-            'status',
-        ];
-
-        if (!allowedFields.includes(searchType)) {
-            throw new BadRequestException('Invalid search type');
-        }
-
-        // Dynamically build query
-        const roles = await this._db.roleMaster.findMany({
-            where: {
-                [searchType]: {
-                    contains: filterValue,
-                    mode: 'insensitive',
-                },
-                deletedAt: null,
+    const where: Prisma.RoleMasterWhereInput = {
+        deletedAt: null,
+        status: 'A',
+        ...(search
+            ? {
+                OR: [
+                    { UserRoleName: { contains: search, mode: 'insensitive' } },
+                    { UserRoleCode: { contains: search, mode: 'insensitive' } },
+                    { status: { contains: search, mode: 'insensitive' } },
+                ],
             }
-        }).catch(err => {
-            throw new Error(`Error Search role: ${err}`);
-        });
-        return roles;
-    }
+            : {}
+        ),
+    };
+
+    const [items, totalCount] = await this._db.$transaction([
+        this._db.roleMaster.findMany({
+            where,
+            skip,
+            take: pageSize,
+            orderBy: { RoleMasterSid: 'desc' },
+        }),
+        this._db.roleMaster.count({ where }),
+    ]);
+
+    return {
+        items,
+        totalCount,
+    };
+}
 }

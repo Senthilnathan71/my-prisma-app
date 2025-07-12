@@ -18,6 +18,7 @@ import e from 'express';
 import { UserData } from 'src/common/decorators/user.decorator';
 import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
+import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 import { CurrencyService } from 'src/masters/services/currency/currency.service';
 
 @Controller('currency')
@@ -169,34 +170,29 @@ export class CurrencyController {
     return this.currencyService.softDelete(id);
   }
 
-  @ApiOperation({ summary: 'Search list for Currency' })
-  @ApiCreatedResponse({
-    description: 'Search List for Currency',
+  @ApiOperation({ summary: 'Search List of Currencies' })
+@ApiCreatedResponse({
+    description: 'Search List of Currencies',
     type: ResponseData,
-  })
-  @HttpCode(HttpStatus.OK)
-  @Post('search-list')
-  async searchCurrency(@Body() body: SearchListDto) {
-    let resp = new ResponseData();
+})
+@HttpCode(HttpStatus.OK)
+@Post('search-list')
+async searchCurrency(@Body() searchParams: SearchVesselDto) {
+    const resp = new ResponseData();
     try {
-      let res = await this.currencyService.searchCurrency(body);
-      this.logger.log(`Currency Search : ${JSON.stringify(res)}`);
-      resp.data = res;
-      resp.message = 'Currency Search is successfully fetched';
+        const res = await this.currencyService.searchCurrency(searchParams);
+        this.logger.log(`Currency Search Data: ${JSON.stringify(res)}`);
+        resp.data = res;
+        resp.message = 'Currency Search is successfully fetched';
     } catch (error) {
-      this.logger.warn(
-        `Searching Currency Failed : ${(JSON.stringify(error), error)}`,
-      );
-      resp.status = false;
-      if (
-        error instanceof BadRequestException ||
-        error instanceof UnauthorizedException
-      ) {
-        resp.message = error.message;
-      } else {
-        resp.message = 'Internal Server Error';
-      }
+        this.logger.warn(`Search Currency Error: ${error}`);
+        resp.status = false;
+        if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+            resp.message = error.message;
+        } else {
+            resp.message = 'Internal Server Error';
+        }
     }
     return resp;
-  }
+}
 }

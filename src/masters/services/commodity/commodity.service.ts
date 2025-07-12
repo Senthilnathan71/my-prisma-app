@@ -106,6 +106,7 @@ export class CommodityService {
 
     const where: Prisma.CommodityMasterWhereInput = {
         deletedAt: null,
+        status: 'A',
         ...(search
             ? {
                 OR: [

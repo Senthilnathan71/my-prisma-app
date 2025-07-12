@@ -4,6 +4,7 @@ import { Auth } from 'src/common/decorators/auth.decorator';
 import { UserData } from 'src/common/decorators/user.decorator';
 import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
+import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 import { ModuleService } from 'src/masters/services/module/module.service';
 
 @Controller('module')
@@ -178,30 +179,29 @@ export class ModuleController {
 
 
 
-    @ApiOperation({ summary: 'Search List of module' })
-    @ApiCreatedResponse({
-        description: 'Search List',
-        type: ResponseData
-    })
-    @HttpCode(HttpStatus.OK)
-    @Post('search-list')
-    async searchmodule(@Body() body: SearchListDto) {
-        let output = new ResponseData;
-        try {
-            this.logger.log(`searchmodule: ${JSON.stringify(body)}`)
-            const moduleList = await this.moduleService.searchList(body);
-            output.data = moduleList
-            output.message = "module List fetched Successfully"
-        } catch (err) {
-            output.status = false;
-            this.logger.warn(`searchmodule: ${JSON.stringify(err)}`)
-            output.status = false;
-            if (err instanceof BadRequestException || err instanceof UnauthorizedException) {
-                output.message = err.message;
-            } else {
-                output.message = 'Internal Server Error';
-            }
+    @ApiOperation({ summary: 'Search List of Modules' })
+@ApiCreatedResponse({
+    description: 'Search List of Modules',
+    type: ResponseData,
+})
+@HttpCode(HttpStatus.OK)
+@Post('search-list')
+async searchModule(@Body() searchParams: SearchVesselDto) {
+    const resp = new ResponseData();
+    try {
+        const res = await this.moduleService.searchList(searchParams);
+        this.logger.log(`Module Search Data: ${JSON.stringify(res)}`);
+        resp.data = res;
+        resp.message = 'Module search results fetched successfully';
+    } catch (error) {
+        this.logger.warn(`Search Module Error: ${error}`);
+        resp.status = false;
+        if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+            resp.message = error.message;
+        } else {
+            resp.message = 'Internal Server Error';
         }
-        return output
     }
+    return resp;
+}
 }
