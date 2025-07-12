@@ -266,7 +266,7 @@ export class VoyageService {
 
     async specialSearch(payload) {
     const { POLSid, PODSid } = payload;
-    const today = new Date();
+    const today = new Date().toISOString().split('T')[0];
 
     const searchResults = await this._db.voyageMasterHeader.findMany({
         where: {
@@ -306,7 +306,6 @@ export class VoyageService {
     }).catch((error) => {
         throw new Error(`Error Occurred: ${error}`);
     });
-
     const filteredResults = searchResults.filter(header => {
         const details = header.voyageMasterDetail;
         
@@ -324,8 +323,8 @@ export class VoyageService {
         if (!validPol || !validPod) return false;
         
         // Check POD's ETD date is in future
-        const podDate = lastDetail.ETD || lastDetail.ETA || new Date(0);
-        return podDate > today;
+        const podDate = lastDetail.ETD ? new Date(lastDetail.ETD).toISOString().split('T')[0] : new Date(0);
+        return podDate >= today;
     });
 
     return filteredResults;
