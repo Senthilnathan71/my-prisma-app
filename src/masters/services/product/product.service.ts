@@ -1,6 +1,8 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
+import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 
 @Injectable()
 export class ProductService {
@@ -156,6 +158,42 @@ export class ProductService {
 
         return searchResults;
 
+    }
+
+    async searchProductNew(params: SearchVesselDto) {
+        const { search = '', page = 1, pageSize = 10 } = params;
+        const skip = (page - 1) * pageSize;
+
+        const where: Prisma.ProductMasterWhereInput = {
+            deletedAt: null,
+            status: 'A',
+            ...(search
+                ? {
+                    OR: [
+                        { ProductName: { contains: search, mode: 'insensitive'}},
+                        { ProductCode: { contains: search, mode: 'insensitive'}},
+                        { ProductType: { contains: search, mode: 'insensitive'}},
+                        { UOMCode: { contains: search, mode: 'insensitive'}},
+                    ],
+                }
+                :{}
+            ),
+        };
+
+        const [ items, totalCount] = await this._db.$transaction([
+            this._db.productMaster.findMany({
+                where,
+                skip,
+                take: pageSize,
+                orderBy: { ProductMasterSId: 'desc'},
+            }),
+            this._db.productMaster.count({ where }),
+        ]);
+
+        return {
+            items,
+            totalCount,
+        };
     }
 
 }

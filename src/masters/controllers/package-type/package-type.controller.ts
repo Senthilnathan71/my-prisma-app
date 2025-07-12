@@ -16,6 +16,7 @@ import {
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
 import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
+import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 import { PackageTypeService } from 'src/masters/services/package-type/package-type.service';
 
 @Controller('package-type')
@@ -210,10 +211,10 @@ export class PackageTypeController {
   })
   @HttpCode(HttpStatus.OK)
   @Post('search-list')
-  async searchPackageType(@Body() body: SearchListDto) {
-    let resp = new ResponseData();
+  async searchPackageTypeNew(@Body() searchParams: SearchVesselDto) {
+    const resp = new ResponseData();
     try {
-      let res = await this.packageTypeService.searchPackageType(body);
+      const res = await this.packageTypeService.searchPackageTypeNew(searchParams);
       this.logger.log(`Package Type SearchData : ${JSON.stringify(res)}`);
       resp.data = res;
       resp.message = 'PackageType Search is successfully fetched';

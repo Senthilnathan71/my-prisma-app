@@ -18,6 +18,7 @@ import { Auth } from 'src/common/decorators/auth.decorator';
 import { UserData } from 'src/common/decorators/user.decorator';
 import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
+import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 import { EnquiryHeaderService } from 'src/masters/services/enquiry/enquiry-header.service';
 import { PortService } from 'src/masters/services/port/port-master.service';
 
@@ -175,10 +176,10 @@ export class PortMasterController {
   })
   @HttpCode(HttpStatus.OK)
   @Post('search-list')
-  async searchPort(@Body() body: SearchListDto) {
-    let resp = new ResponseData();
+  async searchPortNew(@Body() searchParams: SearchVesselDto) {
+    const resp = new ResponseData();
     try {
-      let res = await this.portService.searchPort(body);
+      const res = await this.portService.searchPortNew(searchParams);
       this.logger.log(`PortSearchResult : ${JSON.stringify(res)}`);
       resp.data = res;
       resp.message = 'Port Search is successfully fetched';

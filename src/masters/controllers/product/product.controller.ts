@@ -2,6 +2,7 @@ import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatu
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
 import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
+import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 import { ProductService } from 'src/masters/services/product/product.service';
 
 
@@ -161,10 +162,10 @@ export class ProductController {
     })
     @HttpCode(HttpStatus.OK)
     @Post('search-list')
-    async searchProducts(@Body() searchData: SearchListDto) {
-        let resp = new ResponseData();
+    async searchProductNew(@Body() searchParams: SearchVesselDto) {
+        const resp = new ResponseData();
         try {
-            let res = await this.productService.searchProducts(searchData);
+            const res = await this.productService.searchProductNew(searchParams);
             this.logger.log(`Products Search Results :${JSON.stringify(res)}`);
             resp.data = res;
             resp.message = "Products Search results are successfully fetched"
