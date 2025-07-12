@@ -1,6 +1,8 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
+import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 
 @Injectable()
 export class PackageTypeService {
@@ -122,5 +124,39 @@ export class PackageTypeService {
         throw new Error(`Error Occured: ${err}`);
       });
     return searchResults;
+  }
+
+  async searchPackageTypeNew(params:SearchVesselDto) {
+    const {search='',page=1,pageSize=10}=params;
+    const skip = (page-1)*pageSize;
+
+    const where: Prisma.PackageTypeMasterWhereInput = {
+      deletedAt: null,
+      status: 'A',
+      ...(search
+        ? {
+          OR:[
+            { PackageName: { contains: search, mode:'insensitive'}},
+            { PackageCode: { contains: search, mode:'insensitive'}},
+          ],
+        }
+        : {}
+      ),
+    };
+
+    const [items,totalCount ] = await this._db.$transaction([
+      this._db.packageTypeMaster.findMany({
+        where,
+        skip,
+        take: pageSize,
+        orderBy: { PackageTypeMasterSid: 'desc'},
+      }),
+      this._db.packageTypeMaster.count({where}),
+    ]);
+
+    return {
+      items,
+      totalCount,
+    };
   }
 }

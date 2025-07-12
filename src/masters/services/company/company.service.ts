@@ -1,6 +1,8 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
+import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 
 @Injectable()
 export class CompanyService {
@@ -548,72 +550,94 @@ export class CompanyService {
     }
 }
 
-    async searchCompany(data: SearchListDto) {
-        const { searchType, filterValue } = data;
-        const acceptedType = [
-            "companyName",
-            "companyCode",
-            "addressLine1",
-            "addressLine2",
-            "postal_code",
-            "webSite",
-            "phoneNumber",
-            "email",
-            "isHo",
-            "companyLogo",
-            "reportLogo",
-            "status"
-        ];
-        if (!acceptedType.includes(searchType)) {
-            throw new BadRequestException(`Invalid Search Type`);
-        }
-        const searchResults = await this._db.companyMaster.findMany({
-            where: {
-                [searchType]: {
-                    contains: filterValue,
-                    mode: 'insensitive'
-                }, deletedAt: null
-            }, 
+    async searchCompany(params: SearchVesselDto) {
+    const { search = '', page = 1, pageSize = 10 } = params;
+    const skip = (page - 1) * pageSize;
+
+    const where: Prisma.CompanyMasterWhereInput = {
+        deletedAt: null,
+        status: 'A',
+        ...(search
+            ? {
+                OR: [
+                    { companyName: { contains: search, mode: 'insensitive' } },
+                    { companyCode: { contains: search, mode: 'insensitive' } },
+                    { addressLine1: { contains: search, mode: 'insensitive' } },
+                    { email: { contains: search, mode: 'insensitive' } },
+                    { phoneNumber: { contains: search, mode: 'insensitive' } },
+                    { Pan: { contains: search, mode: 'insensitive' } },
+                    { status: { contains: search, mode: 'insensitive' } },
+                    {
+                        stateMaster: {
+                            stateName: { contains: search, mode: 'insensitive' }
+                        }
+                    },
+                    {
+                        countryMaster: {
+                            countryName: { contains: search, mode: 'insensitive' }
+                        }
+                    },
+                    {
+                        branchMaster: {
+                            some: {
+                                branchName: { contains: search, mode: 'insensitive' }
+                            }
+                        }
+                    },
+                    {
+                        branchMaster: {
+                            some: {
+                                cityMaster: {
+                                    cityName: { contains: search, mode: 'insensitive' }
+                                }
+                            }
+                        }
+                    }
+                ]
+            }
+            : {}
+        ),
+    };
+
+    const [items, totalCount] = await this._db.$transaction([
+        this._db.companyMaster.findMany({
+            where,
+            skip,
+            take: pageSize,
             include: {
                 branchMaster: {
                     where: {
-                        deletedAt: null
+                        deletedAt: null,
+                        status: 'A'
                     },
                     include: {
                         branchBank: {
                             where: {
-                                deletedAt: null
+                                deletedAt: null,
+                                status: 'A'
                             }
                         },
-                        cityMaster: {
-                            select: {
-                                cityName: true
-                            }
-                        },
-                        stateMaster: {
-                            select: {
-                                stateName: true
-                            }
-                        },
-                        countryMaster: {
-                            select: {
-                                countryName: true
-                            }
-                        }
-                    },
+                        countryMaster: true,
+                        stateMaster: true,
+                        cityMaster: true
+                    }
                 },
+                countryMaster: true,
+                stateMaster: true,
+                currencyMaster: true
             },
-            orderBy : {
-                branchMaster : {
-                    _count : 'desc'
-                }
-            }
-        }
-        ).catch((err) => {
-            throw new Error(`Error Occured : ${JSON.stringify(err), err}`);
-        })
-        return searchResults;
-    }
+            orderBy: { CompanyMasterSid: 'desc' },
+        }),
+        this._db.companyMaster.count({ where }),
+    ]);
+
+    return {
+        items,
+        totalCount,
+    };
+
+}
+ 
 }
 interface Company {
   CompanyMasterSid: number;

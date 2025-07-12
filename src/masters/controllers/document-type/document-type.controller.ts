@@ -2,6 +2,7 @@ import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatu
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
 import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
+import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 import { DocumentTypeService } from 'src/masters/services/document-type/document-type.service';
 
 
@@ -154,29 +155,29 @@ export class DocumentTypeController {
 
 
 
-    @ApiOperation({ summary: 'Search List of Document Type' })
-    @ApiCreatedResponse({
-        description: 'Search List of Document Type',
-        type: ResponseData
-    })
-    @HttpCode(HttpStatus.OK)
-    @Post('search-list')
-    async searchDocType(@Body() searchData: SearchListDto) {
-        let resp = new ResponseData();
-        try {
-            let res = await this.documentTypeService.searchDocType(searchData);
-            this.logger.log(`Document Type Search Results :${JSON.stringify(res)}`);
-            resp.data = res;
-            resp.message = "Document Type Search results are successfully fetched"
-        } catch (error) {
-            this.logger.warn(`Document Type Search Error : ${JSON.stringify(error), error}`);
-            resp.status = false;
-            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
-                resp.message = error.message;
-            } else {
-                resp.message = "Internal Server Error";
-            }
+    @ApiOperation({ summary: 'Search List of Document Types' })
+@ApiCreatedResponse({
+    description: 'Search List of Document Types',
+    type: ResponseData,
+})
+@HttpCode(HttpStatus.OK)
+@Post('search-list')
+async searchDocTypeNew(@Body() searchParams: SearchVesselDto) {
+    const resp = new ResponseData();
+    try {
+        const res = await this.documentTypeService.searchDocType(searchParams);
+        this.logger.log(`Document Type Search Data: ${JSON.stringify(res)}`);
+        resp.data = res;
+        resp.message = 'Document Type Search is successfully fetched';
+    } catch (error) {
+        this.logger.warn(`Search Document Type Error: ${error}`);
+        resp.status = false;
+        if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+            resp.message = error.message;
+        } else {
+            resp.message = 'Internal Server Error'; 
         }
-        return resp;
     }
+    return resp;
+}
 }

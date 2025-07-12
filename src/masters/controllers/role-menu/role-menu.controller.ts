@@ -2,6 +2,7 @@ import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatu
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
 import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
+import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 import { RoleMenuService } from 'src/masters/services/role-menu/role-menu.service';
 
 
@@ -161,10 +162,10 @@ export class RoleMenuController {
     })
     @HttpCode(HttpStatus.OK)
     @Post('search-list')
-    async searchRoleMenu(@Body() searchData: SearchListDto) {
+    async searchRoleMenu(@Body() searchData: SearchVesselDto) {
         let resp = new ResponseData();
         try {
-            let res = await this.RoleMenuService.searchroleMenu(searchData);
+            let res = await this.RoleMenuService.searchRoleMenu(searchData);
             this.logger.log(`RoleMenu Search Results :${JSON.stringify(res)}`);
             resp.data = res;
             resp.message = "RoleMenu Search results are successfully fetched"

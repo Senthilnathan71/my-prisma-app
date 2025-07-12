@@ -1,7 +1,9 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { encodePassword } from 'src/common/helper';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
+import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 
 @Injectable()
 export class FfUserMasterService {
@@ -345,52 +347,41 @@ export class FfUserMasterService {
 }
 
 
-    async searchFfUser(data:SearchListDto){
-        const {searchType,filterValue}=data;
-        const intFields=[
-            ''
-        ];
-        const stringFields = [
-            'userName',
-            'userEmail',
-            'isSalesperson',
-            'status'
-        ];
-        const acceptedType = [...intFields,...stringFields];
-        if(!acceptedType.includes(searchType)){
-            throw new BadRequestException('Invalid Search Type');
-        }
+    async searchFfUserNew(params: SearchVesselDto) {
+        const { search = '', page = 1, pageSize = 10 } = params;
+        const skip = (page - 1) * pageSize;
 
-        const whereClause:any ={}
+        const where: Prisma.UserMasterWhereInput = {
+            deletedAt: null,
+            status: 'A',
+            ...(search
+                ? {
+                    OR: [
+                        { userName: { contains: search, mode: 'insensitive'} },
+                        { userEmail: { contains: search, mode: 'insensitive'} },
+                        { isSalesperson: { contains: search, mode: 'insensitive'} },
+                    ],
+                }
+                : {}
+            ),
+        };
 
-        if(stringFields.includes(searchType)){
-            whereClause[searchType]={
-                contains:filterValue,
-                mode:'insensitive'
-            }
-        } else if(intFields.includes(searchType)){
-            const numberValue=parseInt(filterValue);
-            if (isNaN(numberValue)) {
-                throw new BadRequestException(`${searchType} must be a valid number`);
-            }
-            whereClause[searchType]=numberValue;
-        }
+        const [items, totalCount] = await this._db.$transaction([
+            this._db.userMaster.findMany({
+                where,
+                skip,
+                take: pageSize,
+                orderBy: { UserMasterSid: 'desc'},
+            }),
+            this._db.userMaster.count({ where }),
+        ]);
 
-        const searchResults = await this._db.userMaster.findMany({
-            where : {
-                ...whereClause,
-                deletedAt:null
-            }, omit: {
-                userPassword: true
-            },
-        }).catch((err) => {
-            throw new Error(`Error Occured : ${JSON.stringify(err), err}`);
-        })
-
-        return searchResults;
-
+        return {
+            items,
+            totalCount,
+        };
     }
-
+    
     async resetPassword(UserMasterSid, payload) {
         try {
             const hashedPassword = await encodePassword(payload.password);

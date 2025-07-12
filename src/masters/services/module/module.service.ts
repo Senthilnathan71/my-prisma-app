@@ -1,6 +1,8 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
+import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 
 @Injectable()
 export class ModuleService {
@@ -118,38 +120,43 @@ export class ModuleService {
   }
 
 
-  async searchList(dto: SearchListDto) {
-    const { searchType, filterValue } = dto;
+  async searchList(params: SearchVesselDto) {
+    const { search = '', page = 1, pageSize = 10 } = params;
+    const skip = (page - 1) * pageSize;
 
-    // Whitelist allowed fields to prevent SQL injection or invalid column access
-    //write column names
-    const allowedFields = [
-      'ModuleName',
-      'ModuleCode',
-      'Remarks',
-      'status',
-    ];
-
-    if (!allowedFields.includes(searchType)) {
-      throw new BadRequestException('Invalid search type');
-    }
-
-    // Dynamically build query
-    const modules = await this._db.moduleMaster.findMany({
-      where: {
-        [searchType]: {
-          contains: filterValue,
-          mode: 'insensitive',
-        },
+    const where: Prisma.ModuleMasterWhereInput  = {
         deletedAt: null,
-      }, include: {
-        menuMaster: true
-      }
-    }).catch(err => {
-      throw new Error(`Error Search module: ${err}`);
-    });
-    return modules;
-  }
+        ...(search
+            ? {
+                OR: [
+                    { ModuleName: { contains: search, mode: 'insensitive' } },
+                    { ModuleCode: { contains: search, mode: 'insensitive' } },
+                    { Remarks: { contains: search, mode: 'insensitive' } },
+                    { status: { contains: search, mode: 'insensitive' } },
+                ],
+            }
+            : {}
+        ),
+    };
+
+    const [items, totalCount] = await this._db.$transaction([
+        this._db.moduleMaster.findMany({
+            where,
+            skip,
+            take: pageSize,
+            include: {
+                menuMaster: true,
+            },
+            orderBy: { ModuleMasterSid: 'desc' },
+        }),
+        this._db.moduleMaster.count({ where }),
+    ]);
+
+    return {
+        items,
+        totalCount,
+    };
+}
 
 
 

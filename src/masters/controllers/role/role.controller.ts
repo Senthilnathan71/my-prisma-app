@@ -3,6 +3,7 @@ import { ApiOperation, ApiCreatedResponse } from '@nestjs/swagger';
 import { UserData } from 'src/common/decorators/user.decorator';
 import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
+import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 import { RoleService } from 'src/masters/services/role/role.service';
 
 @Controller('role')
@@ -144,30 +145,29 @@ export class RoleController {
 
 
 
-    @ApiOperation({ summary: 'Search List of role' })
-    @ApiCreatedResponse({
-        description: 'Search List',
-        type: ResponseData
-    })
-    @HttpCode(HttpStatus.OK)
-    @Post('search-list')
-    async searchRole(@Body() body: SearchListDto) {
-        let output = new ResponseData;
-        try {
-            this.logger.log(`searchrole: ${JSON.stringify(body)}`)
-            const roleList = await this.roleService.searchList(body);
-            output.data = roleList
-            output.message = "role List fetched Successfully"
-        } catch (err) {
-            output.status = false;
-            this.logger.warn(`searchrole: ${JSON.stringify(err)}`)
-            output.status = false;
-            if (err instanceof BadRequestException || err instanceof UnauthorizedException) {
-                output.message = err.message;
-            } else {
-                output.message = 'Internal Server Error';
-            }
+    @ApiOperation({ summary: 'Search List of Roles' })
+@ApiCreatedResponse({
+    description: 'Search List of Roles',
+    type: ResponseData,
+})
+@HttpCode(HttpStatus.OK)
+@Post('search-list')
+async searchRoleNew(@Body() searchParams: SearchVesselDto) {
+    const resp = new ResponseData();
+    try {
+        const res = await this.roleService.searchList(searchParams);
+        this.logger.log(`Role Search Data: ${JSON.stringify(res)}`);
+        resp.data = res;
+        resp.message = 'Role Search is successfully fetched';
+    } catch (error) {
+        this.logger.warn(`Search Role Error: ${error}`);
+        resp.status = false;
+        if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+            resp.message = error.message;
+        } else {
+            resp.message = 'Internal Server Error';
         }
-        return output
     }
+    return resp;
+}
 }

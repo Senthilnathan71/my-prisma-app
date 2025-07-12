@@ -1,6 +1,8 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
+import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 
 @Injectable()
 export class GenerationService {
@@ -122,70 +124,47 @@ export class GenerationService {
         }
     }
 
-    async searchHawbStock(data: SearchListDto) {
-        const { searchType, filterValue } = data;
-        const intFields = [
-            'HawbStockSid',
-            'CompanyMasterSid',
-            'BranchMasterSid',
-            'Agent',
-            'NumberofHAWB'
-        ];
-        const stringFields = [
-            'AirwayBillType',
-            'AirwayBillNumber',
-            'HAWBSerial',
-            'StockStatus',
-            'createdBy',
-            'updatedBy',
-            'status',
-            'Remarks'
-        ];
-        const dateFields = [
-            'ReceivedDate',
-            'createdOn',
-            'updatedOn'
-        ];
-        const acceptedType = [...intFields, ...stringFields, ...dateFields];
-        if (!acceptedType.includes(searchType)) {
-            throw new BadRequestException('Invalid Search Type');
-        }
+    async searchHawbStock(params: SearchVesselDto) {
+    const { search = '', page = 1, pageSize = 10 } = params;
+    const skip = (page - 1) * pageSize;
 
-        const whereClause: any = {}
-
-        if (stringFields.includes(searchType)) {
-            whereClause[searchType] = {
-                contains: filterValue,
-                mode: 'insensitive'
-            };
-        } else if (intFields.includes(searchType)) {
-            const numberValue = parseInt(filterValue);
-            if (isNaN(numberValue)) {
-                throw new BadRequestException(`${searchType} must be a valid number`);
+    const where: Prisma.HawbStockWhereInput = {
+        deletedAt: null,
+        status: 'A',
+        ...(search
+            ? {
+                OR: [
+                    { AirwayBillType: { contains: search, mode: 'insensitive' } },
+                    { AirwayBillNumber: { contains: search, mode: 'insensitive' } },
+                    { HAWBSerial: { contains: search, mode: 'insensitive' } },
+                    { StockStatus: { contains: search, mode: 'insensitive' } },
+                    { status: { contains: search, mode: 'insensitive' } },
+                    { Remarks: { contains: search, mode: 'insensitive' } },
+                   
+                ],
             }
-            whereClause[searchType] = numberValue;
-        } else if (dateFields.includes(searchType)) {
-            const dateValue = new Date(filterValue);
-            if (isNaN(dateValue.getTime())) {
-                throw new BadRequestException(`${searchType} must be a valid date`);
-            }
-            whereClause[searchType] = dateValue;
-        }
+            : {}
+        ),
+    };
 
-        const searchResults = await this._db.hawbStock.findMany({
-            where: {
-                ...whereClause,
-                deletedAt: null
-            },
+    const [items, totalCount] = await this._db.$transaction([
+        this._db.hawbStock.findMany({
+            where,
+            skip,
+            take: pageSize,
             include: {
                 branchMaster: true,
                 companyMaster: true,
-                customerMaster: true
-            }
-        }).catch((err) => {
-            throw new Error(`Error Occured : ${JSON.stringify(err), err}`);
-        });
+                customerMaster: true,
+            },
+            orderBy: { HawbStockSid: 'desc' },
+        }),
+        this._db.hawbStock.count({ where }),
+    ]);
 
-        return searchResults;
-    }
+    return {
+        items,
+        totalCount,
+    };
+}
 }

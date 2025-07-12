@@ -2,6 +2,7 @@ import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatu
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
 import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
+import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 import { FfUserMasterService } from 'src/masters/services/ff-user-master/ff-user-master.service';
 
 
@@ -161,10 +162,10 @@ export class FfUserMasterController {
     })
     @HttpCode(HttpStatus.OK)
     @Post('search-list')
-    async searchUser(@Body() searchData: SearchListDto) {
-        let resp = new ResponseData();
+    async searchUserNew(@Body() searchParams: SearchVesselDto) {
+        const resp = new ResponseData();
         try {
-            let res = await this.ffUserMasterService.searchFfUser(searchData);
+            const res = await this.ffUserMasterService.searchFfUserNew(searchParams);
             this.logger.log(`User Search Results :${JSON.stringify(res)}`);
             resp.data = res;
             resp.message = "User Search results are successfully fetched"

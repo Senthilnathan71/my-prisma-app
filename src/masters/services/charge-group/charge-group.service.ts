@@ -113,6 +113,7 @@ export class ChargeGroupService {
 
   const where: Prisma.ChargeGroupWhereInput = {
     deletedAt: null,
+    status: 'A',
     ...(search
       ? {
           OR: [

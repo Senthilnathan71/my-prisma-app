@@ -111,6 +111,7 @@ export class ChargeTaxService {
 
     const where: Prisma.ChargeTaxMasterWhereInput = {
         deletedAt: null,
+        Status: 'A',
         OR: search ? [
           
             { HSNCode: { contains: search, mode: 'insensitive' } },

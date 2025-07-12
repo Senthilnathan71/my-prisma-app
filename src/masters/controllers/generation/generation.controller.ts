@@ -2,6 +2,7 @@ import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatu
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
 import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
+import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 import { GenerationService } from 'src/masters/services/generation/generation.service';
 
 
@@ -143,28 +144,28 @@ export class GenerationController {
     }
 
     @ApiOperation({ summary: 'Search List of HAWB Stocks' })
-    @ApiCreatedResponse({
-        description: 'Search List of HAWB Stocks',
-        type: ResponseData
-    })
-    @HttpCode(HttpStatus.OK)
-    @Post('search-list')
-    async searchHawbStock(@Body() searchData: SearchListDto) {
-        let resp = new ResponseData();
-        try {
-            let res = await this.generationService.searchHawbStock(searchData);
-            this.logger.log(`HAWB Stock Search Results :${JSON.stringify(res)}`);
-            resp.data = res;
-            resp.message = "HAWB Stock Search results are successfully fetched"
-        } catch (error) {
-            this.logger.warn(`HAWB Stock Search Error : ${JSON.stringify(error), error}`);
-            resp.status = false;
-            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
-                resp.message = error.message;
-            } else {
-                resp.message = "Internal Server Error";
-            }
+@ApiCreatedResponse({
+    description: 'Search List of HAWB Stocks',
+    type: ResponseData,
+})
+@HttpCode(HttpStatus.OK)
+@Post('search-list')
+async searchHawbStockNew(@Body() searchParams: SearchVesselDto) {
+    const resp = new ResponseData();
+    try {
+        const res = await this.generationService.searchHawbStock(searchParams);
+        this.logger.log(`HAWB Stock Search Data: ${JSON.stringify(res)}`);
+        resp.data = res;
+        resp.message = 'HAWB Stock Search is successfully fetched';
+    } catch (error) {
+        this.logger.warn(`Search HAWB Stock Error: ${error}`);
+        resp.status = false;
+        if (error instanceof BadRequestException || error instanceof UnauthorizedException){
+            resp.message = error.message;
+        } else {
+            resp.message = 'Internal Server Error';
         }
-        return resp;
     }
+    return resp;
+}
 }
