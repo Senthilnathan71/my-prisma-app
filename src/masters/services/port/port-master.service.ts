@@ -3,8 +3,10 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
+import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 
 @Injectable()
 export class PortService {
@@ -208,5 +210,59 @@ export class PortService {
         throw new Error(`Error Occured ${err}`);
       });
     return searchResults;
+  }
+
+  async searchPortNew(params: SearchVesselDto) {
+    const { search = '',page=1,pageSize=10} = params;
+    const skip = (page-1)*pageSize;
+
+    const where: Prisma.PortMasterWhereInput = {
+      deletedAt: null,
+      status: 'A',
+      ...(search
+        ? {
+          OR: [
+            { PortName: { contains: search, mode: 'insensitive'}},
+            { PortCode: { contains: search,mode:'insensitive'}},
+            { countryMaster: { countryName: { contains: search, mode: 'insensitive'}}},
+            { sectorMaster: { sectorName: { contains: search, mode: 'insensitive'}}},
+            { stateMaster: { stateName: { contains: search, mode: 'insensitive'}}},
+            { zoneMaster: { ZoneName: { contains: search, mode: 'insensitive'}}},
+            { PortType: {contains:search, mode:'insensitive'}},
+            { TerminalCode: {contains: search, mode: 'insensitive'}},
+          ],
+        }
+        : {}
+      ),
+    };
+
+    const [items,totalCount] = await this._db.$transaction([
+      this._db.portMaster.findMany({
+        where,
+        skip,
+        take: pageSize,
+        orderBy: { PortMasterSid: 'desc'},
+        include: {
+          countryMaster: {
+            select: { countryName: true},
+          },
+          sectorMaster: {
+            select: { sectorName: true},
+          },
+          stateMaster: {
+            select: { stateName: true},
+          },
+          zoneMaster: {
+            select: { ZoneName: true},
+          },
+        },
+      }),
+      this._db.portMaster.count({where}),
+    ]);
+
+    return {
+      items,
+      totalCount,
+    }
   }
 }

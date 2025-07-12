@@ -1,6 +1,8 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
+import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 
 @Injectable()
 export class TariffService {
@@ -213,5 +215,53 @@ export class TariffService {
             throw new Error(`Error Occurred : ${JSON.stringify(err), err}`);
         })
         return searchResults;
+    }
+
+    async searchTariffNew(params: SearchVesselDto) {
+        const { search='',page=1,pageSize=10} = params;
+        const skip = (page-1)*pageSize;
+
+        const where: Prisma.TariffHeaderWhereInput = {
+            deletedAt: null,
+            status: 'A',
+            ...(search
+                ? {
+                    OR: [
+                        { departmentMaster: { departmentName: { contains: search, mode: 'insensitive'}}},
+                        { POLTerminal: { contains: search, mode: 'insensitive'}},
+                        { PODTerminal: { contains: search, mode: 'insensitive'}},
+                        { customerCarrier: { CustomerName: { contains: search, mode: 'insensitive'}}},
+                        { customerAgent: { CustomerName: { contains: search, mode: 'insensitive'}}},
+                    ],
+                }
+                : {}
+            ),
+        };
+
+        const [items,totalCount] = await this._db.$transaction([
+            this._db.tariffHeader.findMany({
+                where,
+                skip,
+                take: pageSize,
+                orderBy: { TariffHeaderSid: 'desc'},
+                include: {
+                    departmentMaster: {
+                        select: { departmentName: true },
+                    },
+                    customerCarrier: {
+                        select: { CustomerName: true},
+                    },
+                    customerAgent: {
+                        select: { CustomerName: true },
+                    },
+                },
+            }),
+            this._db.tariffHeader.count({where}),
+        ]);
+        
+        return {
+            items,
+            totalCount,
+        }
     }
 }

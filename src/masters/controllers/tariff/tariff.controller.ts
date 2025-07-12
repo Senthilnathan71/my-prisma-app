@@ -4,6 +4,7 @@ import { Auth } from 'src/common/decorators/auth.decorator';
 import { UserData } from 'src/common/decorators/user.decorator';
 import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
+import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 import { TariffService } from 'src/masters/services/tariff/tariff.service';
 
 @Controller('tariff')
@@ -162,10 +163,10 @@ export class TariffController {
     })
     @HttpCode(HttpStatus.OK)
     @Post('search-list')
-    async searchTariff(@Body() searchData: SearchListDto) {
-        let resp = new ResponseData();
+    async searchTariffNew(@Body() searchParams: SearchVesselDto) {
+        const resp = new ResponseData();
         try {
-            let res = await this.tariffServ.searchTariff(searchData);
+            const res = await this.tariffServ.searchTariffNew(searchParams);
             this.logger.log(`Tariff Search Results :${JSON.stringify(res)}`);
             resp.data = res;
             resp.message = "Tariff Search results are successfully fetched"
