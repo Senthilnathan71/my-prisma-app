@@ -145,16 +145,14 @@ export class MenuService {
         }
 
         try {
+            const {permissions,...menuPayload} =payload
             const result = await this._db.$transaction(async (tx) => {
                 // 1. Update menu
                 const updatedMenu = await tx.menuMaster.update({
                     where: {
                         MenuMasterSid: menuMasterSid
                     },
-                    data: {
-                        MenuName: payload.MenuName,
-                        MenuCode: payload.MenuCode,
-                    }
+                    data: menuPayload
                 });
 
                 // Soft Delete existing records that aren't in payload
