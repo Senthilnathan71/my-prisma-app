@@ -10,6 +10,7 @@ import { EmailModule } from './email/email.module';
 import { CrmModule } from './crm/crm.module';
 import { ShortcutModule } from './shortcut/shortcut.module';
 import { CommonModule } from './common/common.module';
+import { AccountsModule } from './accounts/accounts.module';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { CommonModule } from './common/common.module';
     CrmModule,
     ShortcutModule,
     CommonModule,
+    AccountsModule,
   ],
   controllers: [AppController],
   providers: [AppService, Logger],

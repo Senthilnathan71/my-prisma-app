@@ -1,0 +1,162 @@
+import { BadRequestException, Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
+import { DatabaseService } from 'src/database/database.service';
+import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
+
+@Injectable()
+export class CoaService {
+    constructor(private _db:DatabaseService){}
+
+    async getAllCoa(user){
+        try {
+            const allCoa = await this._db.cOAMaster.findMany({
+                where : {
+                    CompanyMasterSid : user.userBranchMaster[0]?.CompanyMasterSid,
+                    deletedAt : null,
+                    Status : 'A'
+                }
+            })
+            return allCoa;
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    async createNewCoa(payload,user){
+        try {
+            const createdCoa = await this._db.cOAMaster.create({
+                data :{
+                    ...payload,
+                    CreatedBy :user.userEmail,
+                    CompanyMasterSid : user.userBranchMaster[0]?.CompanyMasterSid,
+                }
+            })
+            return createdCoa;
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    async fetchCoaById(COAMasterSid:number,user){
+        try {
+            const ourCoa =await this._db.cOAMaster.findUnique({
+                where : {
+                    COAMasterSid:COAMasterSid,
+                    CompanyMasterSid : user.userBranchMaster[0]?.CompanyMasterSid
+                }
+            })
+            if(!ourCoa){
+                throw new BadRequestException(`Coa with Id : ${COAMasterSid} not exists`);
+            }
+            return ourCoa;
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    async updateCoaById(COAMasterSid:number,payload,user){
+        try {
+             const exist =await this._db.cOAMaster.findUnique({
+                where : {
+                    COAMasterSid:COAMasterSid,
+                    CompanyMasterSid : user.userBranchMaster[0]?.CompanyMasterSid
+                }
+            })
+            if(!exist){
+                throw new BadRequestException(`Coa with Id : ${COAMasterSid} not exists`);
+            }
+            const updatedCoa = this._db.cOAMaster.update({
+                where : {
+                    COAMasterSid : COAMasterSid,
+                    CompanyMasterSid : user.userBranchMaster[0]?.CompanyMasterSid
+                },
+                data : {
+                    UpdatedBy : user.userEmail,
+                    UpdatedOn : new Date(),
+                    ...payload,
+                }
+            })
+            return updatedCoa;
+        } catch (error) {
+            throw error;
+        }
+    }
+
+
+    async deleteCOA(COAMasterSid:number){
+        try {
+            const exist = await this._db.cOAMaster.findUnique({
+                where: {
+                    COAMasterSid: COAMasterSid
+                }
+            })
+            if (!exist) {
+                throw new BadRequestException(`Coa with Id : ${COAMasterSid} not exists`);
+            }
+            if (exist.deletedAt) {
+                throw new BadRequestException(`Coa with Id : ${COAMasterSid} is already deleted`);
+            }
+            const deletedCoa = this._db.cOAMaster.update({
+                where: {
+                    COAMasterSid: COAMasterSid
+                },
+                data: {
+                    deletedAt: new Date()
+                }
+            })
+            return deletedCoa;
+        } catch(error) {
+            throw error;
+        }
+    }
+
+
+   async searchCoa(params: SearchVesselDto,user) {
+    const { search = '', page = 1, pageSize = 10 } = params;
+    const skip = (page - 1) * pageSize;
+    const where : Prisma.COAMasterWhereInput = {
+        CompanyMasterSid : user.userBranchMaster[0]?.CompanyMasterSid,
+        deletedAt : null,
+        ...(search
+            ? {
+                OR: [
+                    { LedgerCode: { contains: search, mode: 'insensitive' } },
+                    { LedgerName: { contains: search, mode: 'insensitive' } },
+                    { GroupName: { contains: search, mode: 'insensitive' } },
+                    { SubGroupName: { contains: search, mode: 'insensitive' } },
+                    { Status: { contains: search, mode: 'insensitive' } },
+                    ...('active'.includes(search.toLowerCase()) 
+                    ? [{ Status: 'A' }]
+                    : []), 
+                    ...('suspended'.includes(search.toLowerCase()) 
+                    ? [{ Status: 'S' }]
+                    : []), 
+
+                    // { LedgerType: { contains: search, mode: 'insensitive' } },
+                    // { SubledgerName: { contains: search, mode: 'insensitive' } },
+                    // { CurrencyMaster : {currencyName : {contains : search ,mode : 'insensitive'}}},
+                    // { Remarks: { contains: search, mode: 'insensitive' } },
+                ]
+            }
+            : {}),
+    };
+
+    const [items, totalCount] = await this._db.$transaction([
+        this._db.cOAMaster.findMany({
+            where,
+            skip,
+            take: pageSize,
+            orderBy: { COAMasterSid: 'desc' },
+        }),
+        this._db.cOAMaster.count({ where }),
+    ]);
+
+    return {
+        items,
+        totalCount,
+        currentPage: page,
+        totalPages: Math.ceil(totalCount / pageSize),
+    };
+}
+}
+
