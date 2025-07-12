@@ -1,6 +1,8 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
+import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 
 @Injectable()
 export class DepartmentService {
@@ -82,29 +84,65 @@ export class DepartmentService {
 
 
     async updateDepartment(DepartmentMasterSid: number, payload: any, user) {
-
-        const existing = await this._db.departmentMaster.findUnique({
-            where: {
-                DepartmentMasterSid: DepartmentMasterSid
-            }
-        });
-
-        if (!existing) {
-            throw new Error('Department is not exists');
+    const existing = await this._db.departmentMaster.findUnique({
+        where: {
+            DepartmentMasterSid: DepartmentMasterSid
         }
+    });
 
-        try {
-            const Department = await this._db.departmentMaster.update({
-                where: {
-                    DepartmentMasterSid: DepartmentMasterSid
-                }, data: payload
-            });
-            return Department;
-        } catch (error) {
-            throw new Error(`Error updating Department: ${error.message}`);
+    if (!existing) {
+        throw new NotFoundException('Department does not exist');
+    }
+
+    const duplicate = await this._db.departmentMaster.findFirst({
+        where: {
+            AND: [
+                {
+                    DepartmentMasterSid: {
+                        not: DepartmentMasterSid
+                    }
+                },
+                {
+                    OR: [
+                        {
+                            departmentName: {
+                                equals: payload.departmentName?.trim(),
+                                mode: 'insensitive'
+                            }
+                        },
+                        {
+                            departmentCode: {
+                                equals: payload.departmentCode?.trim(),
+                                mode: 'insensitive'
+                            }
+                        }
+                    ]
+                }
+            ]
+        }
+    });
+
+    if (duplicate) {
+        if (duplicate.departmentName === payload.departmentName) {
+            throw new BadRequestException('Department name already exists');
+        }
+        if (duplicate.departmentCode === payload.departmentCode) {
+            throw new BadRequestException('Department code already exists');
         }
     }
 
+    try {
+        const Department = await this._db.departmentMaster.update({
+            where: {
+                DepartmentMasterSid: DepartmentMasterSid
+            }, 
+            data: payload
+        });
+        return Department;
+    } catch (error) {
+        throw new Error(`Error updating Department: ${error.message}`);
+    }
+}
 
 
 
@@ -129,38 +167,42 @@ export class DepartmentService {
     }
 
 
-    async searchList(dto: SearchListDto) {
-        const { searchType, filterValue } = dto;
+    async searchList(params: SearchVesselDto) {
+    const { search = '', page = 1, pageSize = 10 } = params;
+    const skip = (page - 1) * pageSize;
 
-        // Whitelist allowed fields to prevent SQL injection or invalid column access
-        //write column names
-        const allowedFields = [
-            'departmentName',
-            'departmentCode',
-            'departmentType',
-            'ExportImport',
-            'FCLLCL',
-            'Status',
-        ];
+    const where: Prisma.DepartmentMasterWhereInput = {
+        deletedAt: null,
+        Status: 'A',
+        ...(search
+            ? {
+                OR: [
+                    { departmentName: { contains: search, mode: 'insensitive' } },
+                    { departmentCode: { contains: search, mode: 'insensitive' } },
+                    { departmentType: { contains: search, mode: 'insensitive' } },
+                    { ExportImport: { contains: search, mode: 'insensitive' } },
+                    { FCLLCL: { contains: search, mode: 'insensitive' } },
+                    { Division: { contains: search, mode: 'insensitive' } },
+                    { Status: { contains: search, mode: 'insensitive' } },
+                ],
+            }
+            : {}
+        ),
+    };
 
-        if (!allowedFields.includes(searchType)) {
-            throw new BadRequestException('Invalid search type');
-        }
+    const [items, totalCount] = await this._db.$transaction([
+        this._db.departmentMaster.findMany({
+            where,
+            skip,
+            take: pageSize,
+            orderBy: { DepartmentMasterSid: 'desc' },
+        }),
+        this._db.departmentMaster.count({ where }),
+    ]);
 
-        // Dynamically build query
-        const departments = await this._db.departmentMaster.findMany({
-            where: {
-                [searchType]: {
-                    contains: filterValue,
-                    mode: 'insensitive',
-                },
-                deletedAt: null,
-            },
-        }).catch(err => {
-            throw new Error(`Error Search Department: ${err}`);
-        });
-        return departments;
-
-
-    }
+    return {
+        items,
+        totalCount,
+    };
+}
 }

@@ -1,6 +1,8 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
+import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 
 @Injectable()
 export class HssacService {
@@ -132,38 +134,41 @@ export class HssacService {
     }
 
 
-    async searchList(dto: SearchListDto) {
-        const { searchType, filterValue } = dto;
+    async searchList(params: SearchVesselDto) {
+    const { search = '', page = 1, pageSize = 10 } = params;
+    const skip = (page - 1) * pageSize;
 
-        // Whitelist allowed fields to prevent SQL injection or invalid column access
-        //write column names
-        const allowedFields = [
-            'HSSACName',
-            'HSSACCode',
-            'ServiceName',
-            'TaxRate',
-            'TaxType',
-            'Status',
-        ];
+    const where: Prisma.HSSACMasterWhereInput = {
+        deletedAt: null,
+        status: 'A',
+        ...(search
+            ? {
+                OR: [
+                    { HSSACName: { contains: search, mode: 'insensitive' } },
+                    { HSSACCode: { contains: search, mode: 'insensitive' } },
+                    { ServiceName: { contains: search, mode: 'insensitive' } },
+                    // { TaxRate: { contains: search, mode: 'insensitive' } },
+                    { TaxType: { contains: search, mode: 'insensitive' } },
+                    { status: { contains: search, mode: 'insensitive' } },
+                ],
+            }
+            : {}
+        ),
+    };
 
-        if (!allowedFields.includes(searchType)) {
-            throw new BadRequestException('Invalid search type');
-        }
+    const [items, totalCount] = await this._db.$transaction([
+        this._db.hSSACMaster.findMany({
+            where,
+            skip,
+            take: pageSize,
+            orderBy: { HSSACMasterSid: 'desc' },
+        }),
+        this._db.hSSACMaster.count({ where }),
+    ]);
 
-        // Dynamically build query
-        const Hssacs = await this._db.hSSACMaster.findMany({
-            where: {
-                [searchType]: {
-                    contains: filterValue,
-                    mode: 'insensitive',
-                },
-                deletedAt: null,
-            },
-        }).catch(err => {
-            throw new Error(`Error Search Hssac: ${err}`);
-        });
-        return Hssacs;
-
-
-    }
+    return {
+        items,
+        totalCount,
+    };
+}
 }

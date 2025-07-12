@@ -4,6 +4,7 @@ import { Auth } from 'src/common/decorators/auth.decorator';
 import { UserData } from 'src/common/decorators/user.decorator';
 import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
+import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 import { DepartmentService } from 'src/masters/services/department/department.service';
 
 @Controller('department')
@@ -147,29 +148,28 @@ export class DepartmentController {
 
 
     @ApiOperation({ summary: 'Search List of Department' })
-    @ApiCreatedResponse({
-        description: 'Search List',
-        type: ResponseData
-    })
-    @HttpCode(HttpStatus.OK)
-    @Post('search-list')
-    async searchDepartment(@Body() body: SearchListDto) {
-        let output = new ResponseData;
-        try {
-            this.logger.log(`searchDepartment: ${JSON.stringify(body)}`)
-            const departmentList = await this.departmentService.searchList(body);
-            output.data = departmentList
-            output.message = "Department List fetched Successfully"
-        } catch (err) {
-            output.status = false;
-            this.logger.warn(`searchDepartment: ${JSON.stringify(err)}`)
-            output.status = false;
-            if (err instanceof BadRequestException || err instanceof UnauthorizedException) {
-                output.message = err.message;
-            } else {
-                output.message = 'Internal Server Error';
-            }
+@ApiCreatedResponse({
+    description: 'Search List of Departments',
+    type: ResponseData,
+})
+@HttpCode(HttpStatus.OK)
+@Post('search-list')
+async searchDepartment(@Body() searchParams: SearchVesselDto) {
+    const resp = new ResponseData();
+    try {
+        const res = await this.departmentService.searchList(searchParams);
+        this.logger.log(`Department Search Data: ${JSON.stringify(res)}`);
+        resp.data = res;
+        resp.message = 'Department Search is successfully fetched';
+    } catch (error) {
+        this.logger.warn(`Search Department Error: ${error}`);
+        resp.status = false;
+        if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+            resp.message = error.message;
+        } else {
+            resp.message = 'Internal Server Error';
         }
-        return output
     }
+    return resp;
+}
 }

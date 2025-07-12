@@ -116,6 +116,7 @@ export class ContainerTypeService {
 
     const where: Prisma.ContainerTypeMasterWhereInput  = {
         deletedAt: null,
+        status: 'A',
         ...(search
             ? {
                 OR: [

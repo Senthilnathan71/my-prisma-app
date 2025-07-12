@@ -8,6 +8,7 @@ import { UserData } from 'src/common/decorators/user.decorator';
 import { checkIfFileExists } from 'src/common/helper';
 import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
+import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 import { CompanyService } from 'src/masters/services/company/company.service';
 
 @Controller('company')
@@ -186,31 +187,31 @@ export class CompanyController {
 
 
     @ApiOperation({ summary: 'Search List of Company' })
-    @ApiCreatedResponse({
-        description: "Search List of Company",
-        type: ResponseData
-    })
-    @HttpCode(HttpStatus.OK)
-    @Post('search-list')
-    async searchCompany(@Body() searchData: SearchListDto) {
-        let resp = new ResponseData();
-        try {
-            let res = await this.companyService.searchCompany(searchData);
-            this.logger.log(`Company Search Results : ${JSON.stringify(res)}`);
-            resp.data = res;
-            resp.message = "Company search is successfully implemented";
-        } catch (error) {
-            this.logger.warn(`Company Search Error : ${error}`)
-            resp.status = false;
-            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
-                resp.message = error.message;
-            } else {
-                resp.message = "Internal Server Error";
-            }
+@ApiCreatedResponse({
+    description: "Search List of Company",
+    type: ResponseData
+})
+@HttpCode(HttpStatus.OK)
+@Post('search-list')
+async searchCompanyNew(@Body() searchParams: SearchVesselDto) {
+    const resp = new ResponseData();
+    try {
+        const res = await this.companyService.searchCompany(searchParams);
+        this.logger.log(`Company Search Data: ${JSON.stringify(res)}`);
+        resp.data = res;
+        resp.message = 'Company Search is successfully fetched';
+    } catch (error) {
+        this.logger.warn(`Search Company Error: ${error}`);
+        resp.status = false;
+        if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+            resp.message = error.message;
+        } else {
+            resp.message = 'Internal Server Error';
         }
-        return resp;
     }
-
+    return resp;
+}
+ 
 
     @Get('logo')
     async getCompanyLogo(

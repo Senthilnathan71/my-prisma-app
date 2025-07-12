@@ -161,21 +161,23 @@ export class CountryService {
 
   const where: Prisma.CountryMasterWhereInput = {
     deletedAt: null, 
+    status: 'A',
     ...(search
       ? {
           OR: [
             { countryName: { contains: search, mode: 'insensitive' } },
             { countryCode: { contains: search, mode: 'insensitive' } },
-            // { dialingCode: { contains: search, mode: 'insensitive' } },
-            // { ISO3DigitCode: { contains: search, mode: 'insensitive' } },
-            // { UNM49Code: { contains: search, mode: 'insensitive' } },
-            // { ShortName: { contains: search, mode: 'insensitive' } },
+            {
+            zoneMaster: {
+              ZoneName: { contains: search, mode: 'insensitive' },
+            },
+          },
+          {
+            currencyMaster: {
+              currencyName: { contains: search, mode: 'insensitive' },
+            },
+          },
 
-            // { LocalCurrencyCode: { contains: search, mode: 'insensitive' } },
-            // { LocalCurrencyName: { contains: search, mode: 'insensitive' } },
-            // { AWBCurrencyCode: { contains: search, mode: 'insensitive' } },
-            // { AWBCurrencyName: { contains: search, mode: 'insensitive' } },
-            // { region: { contains: search, mode: 'insensitive' } },
             { status: { contains: search, mode: 'insensitive' } },
           ],
         }
@@ -188,6 +190,10 @@ export class CountryService {
       skip,
       take: pageSize,
       orderBy: { countryName: 'asc' },
+      include: {
+        zoneMaster: true,
+        currencyMaster: true,
+      },
     }),
     this._db.countryMaster.count({ where }),
   ]);

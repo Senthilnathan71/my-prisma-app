@@ -2,6 +2,7 @@ import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatu
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
 import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
+import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 import { MilestoneService } from 'src/masters/services/milestone/milestone.service';
 
 @Controller('milestone')
@@ -142,28 +143,28 @@ export class MilestoneController {
     }
 
     @ApiOperation({ summary: 'Search List of Milestones' })
-    @ApiCreatedResponse({
-        description: 'Search List of Milestones',
-        type: ResponseData
-    })
-    @HttpCode(HttpStatus.OK)
-    @Post('search-list')
-    async searchMilestone(@Body() searchData: SearchListDto) {
-        let resp = new ResponseData();
-        try {
-            let res = await this.milestoneService.searchMilestone(searchData);
-            this.logger.log(`Milestone Search Results :${JSON.stringify(res)}`);
-            resp.data = res;
-            resp.message = "Milestone Search results are successfully fetched"
-        } catch (error) {
-            this.logger.warn(`Milestone Search Error : ${JSON.stringify(error)}`);
-            resp.status = false;
-            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
-                resp.message = error.message;
-            } else {
-                resp.message = "Internal Server Error";
-            }
+@ApiCreatedResponse({
+    description: 'Search List of Milestones',
+    type: ResponseData,
+})
+@HttpCode(HttpStatus.OK)
+@Post('search-list')
+async searchMilestoneNew(@Body() searchParams: SearchVesselDto) {
+    const resp = new ResponseData();
+    try {
+        const res = await this.milestoneService.searchMilestone(searchParams);
+        this.logger.log(`Milestone Search Data: ${JSON.stringify(res)}`);
+        resp.data = res;
+        resp.message = 'Milestone Search is successfully fetched';
+    } catch (error) {
+        this.logger.warn(`Search Milestone Error: ${error}`);
+        resp.status = false;
+        if (error instanceof BadRequestException || error instanceof UnauthorizedException){
+            resp.message = error.message;
+        } else {
+            resp.message = 'Internal Server Error';
         }
-        return resp;
     }
+    return resp;
+}
 }

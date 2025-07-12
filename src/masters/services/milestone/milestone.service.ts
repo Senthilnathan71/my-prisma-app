@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
+import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 
 @Injectable()
 export class MilestoneService {
@@ -122,58 +123,45 @@ export class MilestoneService {
         }
     }
 
-    async searchMilestone(data: SearchListDto) {
-        const { searchType, filterValue } = data;
-        const intFields = [
-            'MilestoneMasterSid',
-            'CompanyMasterSid',
-            'BranchMasterSid',
-            'DepartmentMasterSid',
-            'SortBy'
-        ];
-        const stringFields = [
-            'MilestoneName',
-            'MilestoneCode',
-            'AutomailRequire',
-            'ShipmentType',
-            'AutoCapture',
-            'status',
-            'Remarks'
-        ];
-        const acceptedType = [...intFields, ...stringFields];
-        if (!acceptedType.includes(searchType)) {
-            throw new BadRequestException('Invalid Search Type');
-        }
+    async searchMilestone(params: SearchVesselDto) {
+    const { search = '', page = 1, pageSize = 10 } = params;
+    const skip = (page - 1) * pageSize;
 
-        const whereClause: any = {};
-
-        if (stringFields.includes(searchType)) {
-            whereClause[searchType] = {
-                contains: filterValue,
-                mode: 'insensitive'
-            };
-        } else if (intFields.includes(searchType)) {
-            const numberValue = parseInt(filterValue);
-            if (isNaN(numberValue)) {
-                throw new BadRequestException(`${searchType} must be a valid number`);
+    const where: any = {
+        deletedAt: null,
+        status: 'A',
+        ...(search
+            ? {
+                OR: [
+                    { MilestoneName: { contains: search, mode: 'insensitive'} },
+                    { MilestoneCode: { contains: search, mode: 'insensitive'} },
+                    { ShipmentType: { contains: search, mode: 'insensitive'} },
+                    { status: { contains: search, mode: 'insensitive'} },
+                    { Remarks: { contains: search, mode: 'insensitive'} },
+                ],
             }
-            whereClause[searchType] = numberValue;
-        }
+            : {}
+        ),
+    };
 
-        const searchResults = await this._db.milestoneMaster.findMany({
-            where: {
-                ...whereClause,
-                deletedAt: null
-            },
+    const [items, totalCount] = await this._db.$transaction([
+        this._db.milestoneMaster.findMany({
+            where,
+            skip,
+            take: pageSize,
             include: {
                 departmentMaster: true,
                 branchMaster: true,
-                companyMaster: true
-            }
-        }).catch((err) => {
-            throw new Error(`Error Occurred : ${JSON.stringify(err)}`);
-        });
+                companyMaster: true,
+            },
+            orderBy: { MilestoneMasterSid: 'desc'},
+        }),
+        this._db.milestoneMaster.count({ where }),
+    ]);
 
-        return searchResults;
-    }
+    return {
+        items,
+        totalCount,
+    };
+}
 }

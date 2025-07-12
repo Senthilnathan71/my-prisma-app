@@ -4,6 +4,7 @@ import { Auth } from 'src/common/decorators/auth.decorator';
 import { UserData } from 'src/common/decorators/user.decorator';
 import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
+import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 import { CustomerService } from 'src/masters/services/customer/customer.service';
 
 @Controller('customer')
@@ -148,31 +149,31 @@ export class CustomerController {
 
 
     @ApiOperation({ summary: 'Search List of Customer' })
-    @ApiCreatedResponse({
-        description: 'Search List',
-        type: ResponseData
-    })
-    @HttpCode(HttpStatus.OK)
-    @Post('search-list')
-    async searchCustomer(@Body() body: SearchListDto) {
-        let output = new ResponseData;
-        try {
-            this.logger.log(`searchCustomer: ${JSON.stringify(body)}`)
-            const customerList = await this.customerService.searchList(body);
-            output.data = customerList
-            output.message = "Customer List fetched Successfully"
-        } catch (err) {
-            output.status = false;
-            this.logger.warn(`searchCustomer: ${JSON.stringify(err)}`)
-            output.status = false;
-            if (err instanceof BadRequestException || err instanceof UnauthorizedException) {
-                output.message = err.message;
-            } else {
-                output.message = 'Internal Server Error';
-            }
+@ApiCreatedResponse({
+    description: 'Search List',
+    type: ResponseData
+})
+@HttpCode(HttpStatus.OK)
+@Post('search-list')
+async searchCustomer(@Body() searchParams: SearchVesselDto) {
+    let resp = new ResponseData();
+    try {
+        this.logger.log(`Searching Customers with params: ${JSON.stringify(searchParams)}`);
+        const res = await this.customerService.searchList(searchParams);
+        this.logger.log(`Customer Search Data: ${JSON.stringify(res)}`);
+        resp.data = res;
+        resp.message = 'Customer search results fetched successfully';
+    } catch (error) {
+        this.logger.warn(`Search Customer Error: ${error}`);
+        resp.status = false;
+        if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+            resp.message = error.message;
+        } else {
+            resp.message = 'Internal Server Error';
         }
-        return output
     }
+    return resp;
+}
 
     @ApiOperation({ summary: 'Get All Carrier' })
     @ApiCreatedResponse({
