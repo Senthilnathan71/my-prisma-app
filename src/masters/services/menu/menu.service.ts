@@ -134,41 +134,42 @@ export class MenuService {
 
 
     async updateMenu(menuMasterSid: number, payload: any, user) {
-        const existing = await this._db.menuMaster.findUnique({
-            where: {
-                MenuMasterSid: menuMasterSid
-            }
-        });
-
-        if (!existing) {
-            throw new Error('Menu does not exist');
+    const existing = await this._db.menuMaster.findUnique({
+        where: {
+            MenuMasterSid: menuMasterSid
         }
+    });
 
-        try {
-            const {permissions,...menuPayload} =payload
-            const result = await this._db.$transaction(async (tx) => {
-                // 1. Update menu
-                const updatedMenu = await tx.menuMaster.update({
-                    where: {
-                        MenuMasterSid: menuMasterSid
-                    },
-                    data: menuPayload
-                });
+    if (!existing) {
+        throw new Error('Menu does not exist');
+    }
 
+    try {
+        const { permissions, ...menuPayload } = payload;
+        const result = await this._db.$transaction(async (tx) => {
+            // 1. Update menu
+            const updatedMenu = await tx.menuMaster.update({
+                where: {
+                    MenuMasterSid: menuMasterSid
+                },
+                data: menuPayload
+            });
+
+            let allPermissions :any[] = [];
+            if (permissions?.length) {
                 // Soft Delete existing records that aren't in payload
-
-                if (payload.permissions?.length) {
-                
-                const existingPerms = await this._db.menuPermission.findMany({
-                    where : {deletedAt : null}
+                const existingPerms = await tx.menuPermission.findMany({
+                    where: {
+                        MenuMasterSid: menuMasterSid,
+                        deletedAt: null
+                    }
                 });
-                const newPerms = payload.permissions;
 
+                const newPerms = permissions;
                 const permsToSoftDelete = existingPerms.filter(ep => 
                     !newPerms.some(np => 
                         np.permissionName.trim().toLowerCase() === 
-                        ep.permissionName.toLowerCase() &&
-                        ep.deletedAt === null
+                        ep.permissionName.toLowerCase()
                     )
                 );
 
@@ -186,20 +187,21 @@ export class MenuService {
                     });
                 }
                 // 2. Process permissions
-                for (const p of payload.permissions) {
+                for (const p of permissions) {
                     const existingPermission = await tx.menuPermission.findFirst({
                         where: {
                             MenuMasterSid: menuMasterSid,
                             permissionName: {
                                 equals: p.permissionName.trim(),
                                 mode: 'insensitive'
-                            }
+                            },
+                            deletedAt: null
                         }
                     });
 
+                    let permission;
                     if (existingPermission) {
-                        // Update existing permission
-                        await tx.menuPermission.update({
+                        permission = await tx.menuPermission.update({
                             where: {
                                 MenuPermissionSid: existingPermission.MenuPermissionSid
                             },
@@ -210,28 +212,30 @@ export class MenuService {
                             }
                         });
                     } else {
-                        // Create new permission
-                        await tx.menuPermission.create({
+                        permission = await tx.menuPermission.create({
                             data: {
                                 MenuMasterSid: menuMasterSid,
                                 permissionName: p.permissionName,
                                 permissionCode: p.permissionCode,
-                                createdBy: payload.createdBy,
+                                createdBy: payload.createdBy
                             }
                         });
                     }
+                    allPermissions.push(permission);
                 }
-                
             }
 
-                return updatedMenu;
-            });
+            return {
+                updatedMenu,
+                permissions: allPermissions
+            };
+        });
 
-            return result;
-        } catch (error) {
-            throw new Error(`Error updating menu: ${error.message}`);
-        }
+        return result;
+    } catch (error) {
+        throw new Error(`Error updating menu: ${error.message}`);
     }
+}
 
 
 

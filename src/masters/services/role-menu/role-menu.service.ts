@@ -1,6 +1,8 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
+import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 
 @Injectable()
 export class RoleMenuService {
@@ -21,6 +23,16 @@ export class RoleMenuService {
 
     async createNewRoleMenu(payload){
         try {
+            const existing = await this._db.roleMenuMaster.findFirst({
+                where: {
+                    MenuMasterSid:  payload.MenuMasterSid,
+                    RoleMasterSid : payload.RoleMasterSid
+                },
+            });
+
+            if (existing?.MenuMasterSid === payload.MenuMasterSid && existing?.RoleMasterSid === payload.RoleMasterSid) {
+                throw new BadRequestException('Role menu has been already created for the provided role and menu.');
+            }
             const createdRoleMenu = await this._db.roleMenuMaster.create({
                 data :{
                     ...payload,
@@ -55,6 +67,18 @@ export class RoleMenuService {
                     RoleMenuMasterSid:RoleMenuMasterSid
                 }
             })
+
+            const existing = await this._db.roleMenuMaster.findFirst({
+                where: {
+                    MenuMasterSid:  payload.MenuMasterSid,
+                    RoleMasterSid : payload.RoleMasterSid,
+                    RoleMenuMasterSid : {not : RoleMenuMasterSid}
+                },
+            });
+
+            if (existing?.MenuMasterSid === payload.MenuMasterSid && existing?.RoleMasterSid === payload.RoleMasterSid) {
+                throw new BadRequestException('Role menu has been already created for the provided role and menu.');
+            }
             if(!exist){
                 throw new BadRequestException(`RoleMenu with Id : ${RoleMenuMasterSid} not exists`);
             }
@@ -98,61 +122,50 @@ export class RoleMenuService {
         }
     }
 
-
-    async searchroleMenu(data:SearchListDto){
-        const {searchType,filterValue}=data;
-        const intFields=[
-            'RoleMasterSid',
-        ];
-        const stringFields = [
-            'Module',
-            'InsertRole',
-            'ViewRole',
-            'UpdateRole',
-            'DeleteRole',
-            'status',
-        ];
-        const acceptedType = [...intFields,...stringFields,'MenuMasterSid'];
-        if(!acceptedType.includes(searchType)){
-            throw new BadRequestException('Invalid Search Type');
-        }
-
-        const whereClause:any ={}
-
-        if(stringFields.includes(searchType)){
-            whereClause[searchType]={
-                contains:filterValue,
-                mode:'insensitive'
-            }
-        } else if(intFields.includes(searchType)){
-            const numberValue=parseInt(filterValue);
-            if (isNaN(numberValue)) {
-                throw new BadRequestException(`${searchType} must be a valid number`);
-            }
-            whereClause[searchType]=numberValue;
-        } else if(searchType === 'MenuMasterSid'){
-            return await this.searchRoleMenuByMenu(filterValue);
-        }
-
-        const searchResults = await this._db.roleMenuMaster.findMany({
-            where : {
-                ...whereClause,
-                deletedAt:null
-            },
-            include : {
-                menuMaster : {
-                    select : {
-                        MenuName : true
+    async searchRoleMenu(params: SearchVesselDto) {
+        const { search = '', page = 1, pageSize = 10 } = params;
+        const skip = (page - 1) * pageSize;
+    
+        const where: Prisma.RoleMenuMasterWhereInput = {
+            deletedAt: null,
+            status : 'A',
+            OR: search ? [
+                { menuMaster:{MenuName : { contains : search, mode: 'insensitive' }}},
+                { roleMaster: {UserRoleName : { contains: search, mode: 'insensitive' }} },
+                ...(search.toLowerCase() === 'active' ? [{ status: 'A' }] : []),
+                ...(search.toLowerCase() === 'suspended' ? [{ status: 'S' }] : []),
+                 
+            ] : undefined
+        };
+    
+        const [items, totalCount] = await this._db.$transaction([
+            this._db.roleMenuMaster.findMany({
+                where,
+                skip,
+                take: pageSize,
+                orderBy: { menuMaster : {MenuName  : 'asc' }},
+                include : {
+                    menuMaster : {
+                        select : {
+                            MenuName : true
+                        }
+                    },
+                    roleMaster : {
+                        select : {
+                            UserRoleName : true
+                        }
                     }
                 }
-            }
-        }).catch((err) => {
-            throw new Error(`Error Occured : ${JSON.stringify(err), err}`);
-        })
-
-        return searchResults;
-
+            }),
+            this._db.roleMenuMaster.count({ where }),
+        ]);
+    
+        return {
+            items,
+            totalCount,
+        };  
     }
+
 
     async searchRoleMenuByMenu(filterValue){
         try {

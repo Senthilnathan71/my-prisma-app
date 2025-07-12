@@ -55,7 +55,8 @@ export class IncoService {
         try {
             const IncoList = await this._db.incoMaster.findMany({
                 where: {
-                    Status: 'A'
+                    Status: 'A',
+                    deletedAt : null
                 }
             })
             return IncoList;

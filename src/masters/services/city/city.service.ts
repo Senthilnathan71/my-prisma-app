@@ -12,6 +12,7 @@ export class CityService {
     try {
       const cityList = await this._db.cityMaster.findMany({
         where: {
+          status : 'A',
           deletedAt:null,
         },
         orderBy :{
