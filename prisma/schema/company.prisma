@@ -1546,7 +1546,7 @@ model ImcoMaster {
     ImcoMasterSid Int       @id @default(autoincrement()) @map("ImcoMasterSid")
     ImcoClass     String    @db.VarChar(10)
     ImcoName      String    @db.VarChar(20)
-    Description   String    @db.VarChar(100)
+    Description   String    @db.VarChar(500)
     ImcoUn        Decimal?  @db.Decimal(6, 0)
     ImcoPageNo    Decimal?  @db.Decimal(4, 0)
     PackingGroup  String?   @db.VarChar(10)
