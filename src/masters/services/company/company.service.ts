@@ -67,7 +67,7 @@ export class CompanyService {
                 console.log('Company created with ID:', createdCompany.CompanyMasterSid);
 
                 // 3. Create Branches and Banks
-                const createdBranches: BranchWithBanks[] = [];
+                const createdBranches: any[] = [];
 
                 if (newData.branches && newData.branches.length > 0) {
                     for (const branchData of newData.branches) {
