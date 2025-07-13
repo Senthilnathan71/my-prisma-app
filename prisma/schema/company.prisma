@@ -19,14 +19,14 @@ model CompanyMaster {
     status            String    @db.Char(1)
     CityMasterSid     Int?
     CompanyMasterSid  Int       @id @default(autoincrement()) @map("CompanyMasterSid")
-    CountryMasterSid  Int
+    CountryMasterSid  Int?
     CurrencyMasterSid Int?
     LoginSid          Int?
     StateMasterSid    Int
     Pan               String?   @db.VarChar(20)
 
     cityMaster          CityMaster?                @relation(fields: [CityMasterSid], references: [CityMasterSid])
-    countryMaster       CountryMaster              @relation(fields: [CountryMasterSid], references: [CountryMasterSid])
+    countryMaster       CountryMaster?             @relation(fields: [CountryMasterSid], references: [CountryMasterSid])
     currencyMaster      CurrencyMaster?            @relation(fields: [CurrencyMasterSid], references: [CurrencyMasterSid])
     stateMaster         StateMaster                @relation(fields: [StateMasterSid], references: [StateMasterSid])
     branchMaster        BranchMaster[]
@@ -108,13 +108,13 @@ model BranchMaster {
     BranchMasterSid    Int                        @id @default(autoincrement()) @map("BranchMasterSid")
     CityMasterSid      Int
     CompanyMasterSid   Int
-    CountryMasterSid   Int
+    CountryMasterSid   Int?
     CurrencyMasterSid  Int?
     LoginSid           Int?
     StateMasterSid     Int
     cityMaster         CityMaster                 @relation(fields: [CityMasterSid], references: [CityMasterSid])
     company            CompanyMaster              @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
-    countryMaster      CountryMaster              @relation(fields: [CountryMasterSid], references: [CountryMasterSid])
+    countryMaster      CountryMaster?             @relation(fields: [CountryMasterSid], references: [CountryMasterSid])
     currencyMaster     CurrencyMaster?            @relation(fields: [CurrencyMasterSid], references: [CurrencyMasterSid])
     stateMaster        StateMaster                @relation(fields: [StateMasterSid], references: [StateMasterSid])
     preCustomerMaster  PreCustomerMaster[]
@@ -166,7 +166,7 @@ model UserMaster {
     deletedAt         DateTime?
     updatedBy         String?             @db.VarChar(100)
     status            String              @default("A") @db.Char(1)
-    CountryMasterSid  Int
+    CountryMasterSid  Int?
     LoginSid          Int?
     userTypeId        Int?
     UserMasterSid     Int                 @id @default(autoincrement()) @map("UserMasterSid")
@@ -178,7 +178,7 @@ model UserMaster {
     shortCut          ShortCut[]
     userHistory       UserLoginHistory[]
     authorityDetail   AuthorityDetail[]
-    countryMaster     CountryMaster       @relation(fields: [CountryMasterSid], references: [CountryMasterSid])
+    countryMaster     CountryMaster?      @relation(fields: [CountryMasterSid], references: [CountryMasterSid])
     userType          UserType?           @relation(fields: [userTypeId], references: [UserTypeSid])
 }
 
@@ -308,7 +308,7 @@ model StateMaster {
     updatedBy         String?             @db.VarChar(100)
     status            String              @db.Char(1)
     Remarks           String?             @db.VarChar(100)
-    CountryMasterSid  Int
+    CountryMasterSid  Int?
     LoginSid          Int?
     StateMasterSid    Int                 @id @default(autoincrement()) @map("StateMasterSid")
     branchMaster      BranchMaster[]
@@ -316,7 +316,7 @@ model StateMaster {
     companyMaster     CompanyMaster[]
     portMaster        PortMaster[]
     PreCustomerMaster PreCustomerMaster[]
-    countryMaster     CountryMaster       @relation(fields: [CountryMasterSid], references: [CountryMasterSid])
+    countryMaster     CountryMaster?      @relation(fields: [CountryMasterSid], references: [CountryMasterSid])
     zoneMaster        ZoneMaster?         @relation(fields: [ZoneMasterSid], references: [ZoneMasterSid])
 
     customerBranch CustomerBranch[]
@@ -332,12 +332,12 @@ model CityMaster {
     updatedBy         String?             @db.VarChar(100)
     status            String              @default("A") @db.Char(1)
     CityMasterSid     Int                 @id @default(autoincrement()) @map("CityMasterSid")
-    CountryMasterSid  Int
+    CountryMasterSid  Int?
     LoginSid          Int?
-    StateMasterSid    Int
+    StateMasterSid    Int?
     branchMaster      BranchMaster[]
-    countryMaster     CountryMaster       @relation(fields: [CountryMasterSid], references: [CountryMasterSid])
-    stateMaster       StateMaster         @relation(fields: [StateMasterSid], references: [StateMasterSid])
+    countryMaster     CountryMaster?      @relation(fields: [CountryMasterSid], references: [CountryMasterSid])
+    stateMaster       StateMaster?        @relation(fields: [StateMasterSid], references: [StateMasterSid])
     companyMaster     CompanyMaster[]
     preCustomerMaster PreCustomerMaster[]
     customerBranch    CustomerBranch[]
@@ -374,33 +374,33 @@ model DepartmentMaster {
 }
 
 model PortMaster {
-    createdOn         DateTime      @default(now()) @db.Timestamptz(6)
-    updatedOn         DateTime?     @updatedAt @db.Timestamptz(6)
+    createdOn         DateTime       @default(now()) @db.Timestamptz(6)
+    updatedOn         DateTime?      @updatedAt @db.Timestamptz(6)
     deletedAt         DateTime?
-    createdBy         String        @db.VarChar(100)
-    updatedBy         String?       @db.VarChar(100)
-    status            String?       @default("A") @db.Char(1)
-    PortCode          String        @db.VarChar(5)
-    PortName          String        @db.VarChar(50)
+    createdBy         String         @db.VarChar(100)
+    updatedBy         String?        @db.VarChar(100)
+    status            String?        @default("A") @db.Char(1)
+    PortCode          String         @db.VarChar(5)
+    PortName          String         @db.VarChar(50)
     SectorMasterSid   Int?
     ZoneMasterSid     Int? //Region and Zone same
-    TimeZone          String?       @db.VarChar(10)
-    EdiPortCode       String?       @db.VarChar(10)
-    ExportRestriction String?       @db.VarChar(100)
-    ImportRestriction String?       @db.VarChar(100)
-    PortType          String?       @db.VarChar(10)
-    TerminalCode      String?       @db.VarChar(10)
-    Remarks           String?       @db.VarChar(100)
-    CBMRequire        String?       @db.Char(1)
-    SCMTPortCode      String?       @db.VarChar(10)
-    CountryMasterSid  Int
+    TimeZone          String?        @db.VarChar(10)
+    EdiPortCode       String?        @db.VarChar(10)
+    ExportRestriction String?        @db.VarChar(100)
+    ImportRestriction String?        @db.VarChar(100)
+    PortType          String?        @db.VarChar(10)
+    TerminalCode      String?        @db.VarChar(10)
+    Remarks           String?        @db.VarChar(100)
+    CBMRequire        String?        @db.Char(1)
+    SCMTPortCode      String?        @db.VarChar(10)
+    CountryMasterSid  Int?
     LoginSid          Int?
-    PortMasterSid     Int           @id @default(autoincrement()) @map("PortMasterSid")
+    PortMasterSid     Int            @id @default(autoincrement()) @map("PortMasterSid")
     StateMasterSid    Int?
-    countryMaster     CountryMaster @relation(fields: [CountryMasterSid], references: [CountryMasterSid])
-    stateMaster       StateMaster?  @relation(fields: [StateMasterSid], references: [StateMasterSid])
-    sectorMaster      SectorMaster? @relation(fields: [SectorMasterSid], references: [SectorMasterSid])
-    zoneMaster        ZoneMaster?   @relation(fields: [ZoneMasterSid], references: [ZoneMasterSid])
+    countryMaster     CountryMaster? @relation(fields: [CountryMasterSid], references: [CountryMasterSid])
+    stateMaster       StateMaster?   @relation(fields: [StateMasterSid], references: [StateMasterSid])
+    sectorMaster      SectorMaster?  @relation(fields: [SectorMasterSid], references: [SectorMasterSid])
+    zoneMaster        ZoneMaster?    @relation(fields: [ZoneMasterSid], references: [ZoneMasterSid])
 
     // Reverse relations
     tariffPOO TariffHeader[] @relation("POO")
@@ -509,7 +509,7 @@ model PreCustomerMaster {
     BranchMasterSid      Int?
     CityMasterSid        Int
     CompanyMasterSid     Int
-    CountryMasterSid     Int
+    CountryMasterSid     Int?
     PreCustomerMasterSid Int                  @id @default(autoincrement()) @map("PreCustomerMasterSid")
     StateMasterSid       Int
     preCustomerName      String?              @db.VarChar(100)
@@ -518,7 +518,7 @@ model PreCustomerMaster {
     branchMaster         BranchMaster?        @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
     cityMaster           CityMaster           @relation(fields: [CityMasterSid], references: [CityMasterSid])
     companyMaster        CompanyMaster        @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
-    countryMaster        CountryMaster        @relation(fields: [CountryMasterSid], references: [CountryMasterSid])
+    countryMaster        CountryMaster?       @relation(fields: [CountryMasterSid], references: [CountryMasterSid])
     stateMaster          StateMaster          @relation(fields: [StateMasterSid], references: [StateMasterSid])
     preCustomerMeeting   PreCustomerMeeting[]
     customerMaster       CustomerMaster[]
@@ -716,7 +716,7 @@ model CustomerMaster {
     CustomerMasterSid    Int       @id @default(autoincrement()) @map("CustomerMasterSid")
     CompanyMasterSid     Int?
     PreCustomerMasterSid Int?
-    CountryMasterSid     Int
+    CountryMasterSid     Int?
     PortMasterSid        Int?
     CustomerName         String    @db.VarChar(100)
     CustomerShortCode    String?   @db.VarChar(50)
@@ -747,7 +747,7 @@ model CustomerMaster {
 
     companyMaster       CompanyMaster?     @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
     preCustomerMaster   PreCustomerMaster? @relation(fields: [PreCustomerMasterSid], references: [PreCustomerMasterSid])
-    countryMaster       CountryMaster      @relation(fields: [CountryMasterSid], references: [CountryMasterSid])
+    countryMaster       CountryMaster?     @relation(fields: [CountryMasterSid], references: [CountryMasterSid])
     portMaster          PortMaster?        @relation(fields: [PortMasterSid], references: [PortMasterSid])
     quoteHeader         QuoteHeader[]
     quoteCharge         QuoteCharge[]
@@ -1456,7 +1456,7 @@ model TDSSetHeader {
 model TDSSetRate {
     TDSSetRateSid    Int       @id @default(autoincrement()) @map("TDSSetRateSid")
     TDSSetHeaderSid  Int
-    CountryMasterSid Int
+    CountryMasterSid Int?
     Sno              Decimal?  @db.Decimal(2, 0)
     CompanyType      String    @db.VarChar(50)
     ITSectionCode    String    @db.VarChar(10)
@@ -1471,8 +1471,8 @@ model TDSSetRate {
     status           String?   @default("A") @db.Char(1)
     Remarks          String?   @db.VarChar(200)
 
-    countryMaster CountryMaster @relation(fields: [CountryMasterSid], references: [CountryMasterSid])
-    tdsSetHeader  TDSSetHeader  @relation(fields: [TDSSetHeaderSid], references: [TDSSetHeaderSid])
+    countryMaster CountryMaster? @relation(fields: [CountryMasterSid], references: [CountryMasterSid])
+    tdsSetHeader  TDSSetHeader   @relation(fields: [TDSSetHeaderSid], references: [TDSSetHeaderSid])
 }
 
 model TDSExemption {
