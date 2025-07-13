@@ -1,0 +1,29 @@
+[
+    {
+        "ImcoClass": "3.2",
+        "ImcoName": "3.2",
+        "ImcoUn": 2985,
+        "Description": "CHLOROSILANES, FLAMMABLE, CORROSIVE, N.O.S",
+        "ImcoPageNo": 96,
+        "PackingGroup": "YN",
+        "createdBy": "ffadmin@crm.com"
+    },
+    {
+        "ImcoClass": "8",
+        "ImcoName": "8",
+        "ImcoUn": 2734,
+        "Description": "Dimethylaminopropylamine",
+        "ImcoPageNo": null,
+        "PackingGroup": null,
+        "createdBy": "ffadmin@crm.com"
+    },
+    {
+        "ImcoClass": "4",
+        "ImcoName": "Flammable solids",
+        "ImcoUn": 2776,
+        "Description": "Flammable solids, self-reactive substances, polymerizing substances and solid desensitized explosives",
+        "ImcoPageNo": 76,
+        "PackingGroup": "GROUP I",
+        "createdBy": "ffadmin@crm.com"
+    }
+]

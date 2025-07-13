@@ -1,0 +1,90 @@
+[
+    {
+        "IncoCode": "FAS",
+        "IncoName": "FAS",
+        "IncoDescription": "Free Alongside Ship - Port of Loading",
+        "IncoType": "Sea",
+        "OceanFreight": "Collect",
+        "CreatedBy": "ffadmin@crm.com"
+    },
+    {
+        "IncoCode": "FOB",
+        "IncoName": "FOB",
+        "IncoDescription": "Free on Board - Port of Loading",
+        "IncoType": "Sea",
+        "OceanFreight": "Collect",
+        "CreatedBy": "ffadmin@crm.com"
+    },
+    {
+        "IncoCode": "CFR",
+        "IncoName": "CFR",
+        "IncoDescription": "Cost and Freight - Port of Destination",
+        "IncoType": "Sea",
+        "OceanFreight": "Prepaid",
+        "CreatedBy": "ffadmin@crm.com"
+    },
+    {
+        "IncoCode": "CIF",
+        "IncoName": "CIF",
+        "IncoDescription": "Cost Insurance and Freight - Port of Destination",
+        "IncoType": "Sea",
+        "OceanFreight": "Prepaid",
+        "CreatedBy": "ffadmin@crm.com"
+    },
+    {
+        "IncoCode": "EXW",
+        "IncoName": "EXW",
+        "IncoDescription": "Ex Works - Place of Delivery",
+        "IncoType": "All",
+        "OceanFreight": "Collect",
+        "CreatedBy": "ffadmin@crm.com"
+    },
+    {
+        "IncoCode": "FCA",
+        "IncoName": "FCA",
+        "IncoDescription": "Free Carrier - Place of Delivery",
+        "IncoType": "All",
+        "OceanFreight": "Collect",
+        "CreatedBy": "ffadmin@crm.com"
+    },
+    {
+        "IncoCode": "CPT",
+        "IncoName": "CPT",
+        "IncoDescription": "Carriage Paid to - Place of Destination)",
+        "IncoType": "All",
+        "OceanFreight": "Prepaid",
+        "CreatedBy": "ffadmin@crm.com"
+    },
+    {
+        "IncoCode": "CIP",
+        "IncoName": "CIP",
+        "IncoDescription": "Carriage and Insurance Paid To",
+        "IncoType": "All",
+        "OceanFreight": "Prepaid",
+        "CreatedBy": "ffadmin@crm.com"
+    },
+    {
+        "IncoCode": "DAP",
+        "IncoName": "DAP",
+        "IncoDescription": "Delivered at Place - Place of Destination",
+        "IncoType": "All",
+        "OceanFreight": "Prepaid",
+        "CreatedBy": "ffadmin@crm.com"
+    },
+    {
+        "IncoCode": "DPU",
+        "IncoName": "DPU",
+        "IncoDescription": "Delivered at Place Unloaded - Place of Destination",
+        "IncoType": "All",
+        "OceanFreight": "Prepaid",
+        "CreatedBy": "ffadmin@crm.com"
+    },
+    {
+        "IncoCode": "DDP",
+        "IncoName": "DDP",
+        "IncoDescription": "Delivered Duty Paid - Place of Destination",
+        "IncoType": "All",
+        "OceanFreight": "Prepaid",
+        "CreatedBy": "ffadmin@crm.com"
+    }
+]
