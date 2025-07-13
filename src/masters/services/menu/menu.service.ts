@@ -71,7 +71,7 @@ export class MenuService {
                     data: payload.permissions.map(p => ({
                         MenuMasterSid: menu.MenuMasterSid,
                         permissionName: p.permissionName,
-                        permissionCode: p.permissionCode,
+                        permissionCode: this.getPermissionCode(p.permissionName),
                         createdBy: payload.createdBy,
                     }))
                 });
@@ -207,7 +207,7 @@ export class MenuService {
                             },
                             data: {
                                 permissionName: p.permissionName,
-                                permissionCode: p.permissionCode,
+                                permissionCode: this.getPermissionCode(p.permissionName),
                                 updatedBy: payload.updatedBy,
                             }
                         });
@@ -216,7 +216,7 @@ export class MenuService {
                             data: {
                                 MenuMasterSid: menuMasterSid,
                                 permissionName: p.permissionName,
-                                permissionCode: p.permissionCode,
+                                permissionCode: this.getPermissionCode(p.permissionName),
                                 createdBy: payload.createdBy
                             }
                         });
@@ -236,8 +236,12 @@ export class MenuService {
         throw new Error(`Error updating menu: ${error.message}`);
     }
 }
-
-
+getPermissionCode(permsName:string){
+    let code = permsName.replace(/[^a-zA-Z0-9]/g,'_');
+    code = code.toLowerCase();
+    code.replace(/_+/g,'_').replace(/^_|_$/g,'');
+    return code;
+}
 
 
 
