@@ -14,6 +14,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
+import { UserData } from 'src/common/decorators/user.decorator';
 import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
@@ -33,11 +34,11 @@ export class ZoneController {
   })
   @HttpCode(HttpStatus.OK)
   @Post('create')
-  async createNewZone(@Body() newData:any) {
+  async createNewZone(@Body() body: any,@UserData() user:any) {
     let resp = new ResponseData();
-    this.logger.log(`createNewZone data : ${JSON.stringify(newData)}`);
+    this.logger.log(`createNewZone data : ${JSON.stringify(body)}`);
     try {
-      let res = await this.zoneService.createNewZone(newData);
+      let res = await this.zoneService.createNewZone(body, user);
       this.logger.debug(`createdZone : ${JSON.stringify(res)}`);
       if (!res) {
         this.logger.warn(`createdZone : ${JSON.stringify(res)}`);

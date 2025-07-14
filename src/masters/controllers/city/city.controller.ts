@@ -14,6 +14,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
+import { UserData } from 'src/common/decorators/user.decorator';
 import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
@@ -125,18 +126,16 @@ export class CityController {
   })
   @HttpCode(HttpStatus.CREATED)
   @Post('add')
-  async addNewCity(@Body() cityObj: any) {
-    this.logger.log(`createCityData : ${JSON.stringify(cityObj)}`);
+  async addNewCity(@Body() body: any,@UserData() user: any) {
+    this.logger.log(`createCityData : ${JSON.stringify(body)}`);
     const resp = new ResponseData();
     try {
-      let res = await this.cityService.addCity(cityObj);
-      this.logger.debug(`createdCity : ${JSON.stringify(res)}`);
-      if (!res) {
-        this.logger.warn(`createdCityData : ${JSON.stringify(res)}`);
-        throw 'Something went wrong';
-      }
+      let res = await this.cityService.addCity(body, user);
+      this.logger.log(`createdCity : ${JSON.stringify(res)}`);
       resp.data = res;
-    } catch (error) {
+      resp.message = "New City is successfully created"
+      }
+      catch (error) {
       this.logger.warn(`createCityError : ${JSON.stringify(error)}`);
       resp.status = false;
       if (
@@ -198,11 +197,12 @@ export class CityController {
   @Delete('delete/:id')
   async deleteCityByID(@Param('id', ParseIntPipe) id: number) {
     let resp = new ResponseData();
-    this.logger.log(`City with Id=${id} is going to be Deleted`);
     try {
-      const deletedCity = await this.cityService.deleteCityById(id);
-      this.logger.debug(`CityDeleted : ${JSON.stringify(deletedCity)}`);
-      resp.data = deletedCity;
+     this.logger.log(`Deleting City with id: ${id}`);
+     let res = await this.cityService.softDeleteCity(id);
+     this.logger.debug(`City Deleted: ${JSON.stringify(res)}`);
+     resp.data = res;
+     resp.message = "City is successfully deleted"
     } catch (error) {
       this.logger.warn(`cityDeletionFailed : ${JSON.stringify(error)}`);
       resp.status = false;
