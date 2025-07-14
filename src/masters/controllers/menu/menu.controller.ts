@@ -4,6 +4,7 @@ import { Auth } from 'src/common/decorators/auth.decorator';
 import { UserData } from 'src/common/decorators/user.decorator';
 import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
+import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 import { MenuService } from 'src/masters/services/menu/menu.service';
 
 @Controller('menu')
@@ -168,32 +169,31 @@ export class MenuController {
 
 
 
-    @ApiOperation({ summary: 'Search List of menu' })
-    @ApiCreatedResponse({
-        description: 'Search List',
-        type: ResponseData
-    })
-    @HttpCode(HttpStatus.OK)
-    @Post('search-list')
-    async searchmenu(@Body() body: SearchListDto) {
-        let output = new ResponseData;
-        try {
-            this.logger.log(`searchmenu: ${JSON.stringify(body)}`)
-            const menuList = await this.menuService.searchList(body);
-            output.data = menuList
-            output.message = "menu List fetched Successfully"
-        } catch (err) {
-            output.status = false;
-            this.logger.warn(`searchmenu: ${JSON.stringify(err)}`)
-            output.status = false;
-            if (err instanceof BadRequestException || err instanceof UnauthorizedException) {
-                output.message = err.message;
-            } else {
-                output.message = 'Internal Server Error';
-            }
+    @ApiOperation({ summary: 'Search List of Menus' })
+@ApiCreatedResponse({
+    description: 'Search List of Menus',
+    type: ResponseData,
+})
+@HttpCode(HttpStatus.OK)
+@Post('search-list')
+async searchMenuNew(@Body() searchParams: SearchVesselDto) {
+    const resp = new ResponseData();
+    try {
+        const res = await this.menuService.searchList(searchParams);
+        this.logger.log(`Menu Search Data: ${JSON.stringify(res)}`);
+        resp.data = res;
+        resp.message = 'Menu Search is successfully fetched';
+    } catch (error) {
+        this.logger.warn(`Search Menu Error: ${error}`);
+        resp.status = false;
+        if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+            resp.message = error.message;
+        } else {
+            resp.message = 'Internal Server Error';
         }
-        return output
     }
+    return resp;
+}
 
     @ApiOperation({ summary: 'Get Menu By Module Id' })
     @ApiCreatedResponse({

@@ -1,6 +1,8 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
+import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 
 @Injectable()
 export class ImcoService {
@@ -100,50 +102,43 @@ export class ImcoService {
     }
 
 
-    async searchimcoMaster(data:SearchListDto){
-        const {searchType,filterValue}=data;
-        const intFields=[''];
-        const stringFields = [
-            'ImcoClass',
-            'ImcoName',
-            'Description',
-            'ImcoUn',
-            'ImcoPageNo',
-            'PackingGroup',
-            'status',
-            'Remarks'
-        ];
-        const acceptedType = [...intFields,...stringFields];
-        if(!acceptedType.includes(searchType)){
-            throw new BadRequestException('Invalid Search Type');
-        }
+    async searchimcoMaster(params: SearchVesselDto) {
+    const { search = '', page = 1, pageSize = 10 } = params;
+    const skip = (page - 1) * pageSize;
 
-        const whereClause:any ={}
-
-        if(stringFields.includes(searchType)){
-            whereClause[searchType]={
-                contains:filterValue,
-                mode:'insensitive'
+    const where: Prisma.ImcoMasterWhereInput = {
+        deletedAt: null,
+        status: 'A',
+        ...(search
+            ? {
+                OR: [
+                    { ImcoClass: { contains: search, mode: 'insensitive' } },
+                    { ImcoName: { contains: search, mode: 'insensitive' } },
+                    { Description: { contains: search, mode: 'insensitive' } },
+                    // { ImcoUn: { contains: search, mode: 'insensitive' } },
+                    // { ImcoPageNo: { contains: search, mode: 'insensitive' } }, 
+                    { PackingGroup: { contains: search, mode: 'insensitive' } },
+                    { status: { contains: search, mode: 'insensitive' } },
+                    { Remarks: { contains: search, mode: 'insensitive' } }, 
+                ],
             }
-        } else if(intFields.includes(searchType)){
-            const numberValue=parseInt(filterValue);
-            if (isNaN(numberValue)) {
-                throw new BadRequestException(`${searchType} must be a valid number`);
-            }
-            whereClause[searchType]=numberValue;
-        }
+            : {}
+        ),
+    };
 
-        const searchResults = await this._db.imcoMaster.findMany({
-            where : {
-                ...whereClause,
-                deletedAt:null
-            }
-        }).catch((err) => {
-            throw new Error(`Error Occured : ${JSON.stringify(err), err}`);
-        })
+    const [items, totalCount] = await this._db.$transaction([
+        this._db.imcoMaster.findMany({
+            where,
+            skip,
+            take: pageSize,
+            orderBy: { ImcoMasterSid: 'desc' },
+        }),
+        this._db.imcoMaster.count({ where }),
+    ]);
 
-        return searchResults;
-
-    }
-
+    return {
+        items,
+        totalCount,
+    };
+}
 }

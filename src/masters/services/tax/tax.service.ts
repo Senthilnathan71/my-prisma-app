@@ -24,18 +24,49 @@ export class TaxService {
         }
     }
 
-    async createNewTax(payload){
+    async createNewTax(payload) {
+       
+        const existing = await this._db.taxMaster.findFirst({
+            where: {
+                OR: [
+                    { 
+                        TaxCode: { 
+                            equals: payload.TaxCode.trim(),
+                            mode: 'insensitive' 
+                        } 
+                    },
+                    { 
+                        TaxName: { 
+                            equals: payload.TaxName.trim(),
+                            mode: 'insensitive' 
+                        } 
+                    }
+                ],
+                deletedAt: null
+            }
+        });
+
+        if (existing) {
+            if (existing.TaxCode === payload.TaxCode) {
+                throw new BadRequestException('Tax code already exists');
+            }
+            if (existing.TaxName === payload.TaxName) {
+                throw new BadRequestException('Tax name already exists');
+            }
+        }
+
         try {
             const createdTax = await this._db.taxMaster.create({
-                data :{
+                data: {
                     ...payload,
                 }
-            })
+            });
             return createdTax;
         } catch (error) {
             throw error;
         }
     }
+
 
     async fetchTaxById(TaxMasterSid:number){
         try {
@@ -53,22 +84,59 @@ export class TaxService {
         }
     }
 
-    async updateTaxById(TaxMasterSid:number,payload){
+    async updateTaxById(TaxMasterSid: number, payload) {
+        
+        const duplicate = await this._db.taxMaster.findFirst({
+            where: {
+                AND: [
+                    {
+                        TaxMasterSid: { not: TaxMasterSid } 
+                    },
+                    {
+                        OR: [
+                            { 
+                                TaxCode: { 
+                                    equals: payload.TaxCode?.trim(),
+                                    mode: 'insensitive' 
+                                } 
+                            },
+                            { 
+                                TaxName: { 
+                                    equals: payload.TaxName?.trim(),
+                                    mode: 'insensitive' 
+                                } 
+                            }
+                        ]
+                    }
+                ],
+                deletedAt: null
+            }
+        });
+
+        if (duplicate) {
+            if (duplicate.TaxCode === payload.TaxCode) {
+                throw new BadRequestException('Tax code already exists');
+            }
+            if (duplicate.TaxName === payload.TaxName) {
+                throw new BadRequestException('Tax name already exists');
+            }
+        }
+
         try {
-             const exist =await this._db.taxMaster.findUnique({
-                where : {
-                    TaxMasterSid:TaxMasterSid
+            const exist = await this._db.taxMaster.findUnique({
+                where: {
+                    TaxMasterSid: TaxMasterSid
                 }
-            })
-            if(!exist){
+            });
+            if (!exist) {
                 throw new BadRequestException(`Tax with Id : ${TaxMasterSid} not exists`);
             }
-            const updatedTax = this._db.taxMaster.update({
-                where : {
-                    TaxMasterSid : TaxMasterSid
+            const updatedTax = await this._db.taxMaster.update({
+                where: {
+                    TaxMasterSid: TaxMasterSid
                 },
-                data : payload
-            })
+                data: payload
+            });
             return updatedTax;
         } catch (error) {
             throw error;
@@ -109,6 +177,7 @@ export class TaxService {
     const skip = (page - 1) * pageSize;
     const where : Prisma.TaxMasterWhereInput = {
         deletedAt: null,
+        Status: 'A',
         ...(search
             ? {
                 OR: [
