@@ -550,7 +550,7 @@ export class CompanyService {
     }
 }
 
-    async searchCompany(params: SearchVesselDto) {
+    async searchCompanyOld(params: SearchVesselDto) {
     const { search = '', page = 1, pageSize = 10 } = params;
     const skip = (page - 1) * pageSize;
 
@@ -636,6 +636,82 @@ export class CompanyService {
         totalCount,
     };
 
+}
+
+
+async searchCompany(params: SearchVesselDto) {
+    const { search = '', page = 1, pageSize = 10 } = params;
+    const skip = (page - 1) * pageSize;
+
+    const branchWhere: Prisma.BranchMasterWhereInput = {
+        deletedAt: null,
+        status: 'A',
+        company: {
+            deletedAt: null,
+            status: 'A'
+        },
+        ...(search
+            ? {
+                OR: [
+                    { branchName: { contains: search, mode: 'insensitive' } },
+                    { branchCode: { contains: search, mode: 'insensitive' } },
+                    { taxRegistrationNo: { contains: search, mode: 'insensitive' } },
+                    { cityMaster: { cityName: { contains: search, mode: 'insensitive' } } },
+                    { stateMaster: { stateName: { contains: search, mode: 'insensitive' } } },
+                    { countryMaster: { countryName: { contains: search, mode: 'insensitive' } } },
+                    { 
+                        company: {
+                            OR: [
+                                { companyName: { contains: search, mode: 'insensitive' } },
+                                { companyCode: { contains: search, mode: 'insensitive' } }
+                            ]
+                        }
+                    }
+                ]
+            }
+            : {}),
+    };
+
+    const [branches, totalCount] = await this._db.$transaction([
+        this._db.branchMaster.findMany({
+            where: branchWhere,
+            include: {
+                company: true,
+                countryMaster: true,
+                stateMaster: true,
+                cityMaster: true,
+                branchBank: {
+                    where: {
+                        deletedAt: null,
+                        status: 'A',
+                    },
+                },
+            },
+            orderBy: { company : { CompanyMasterSid : 'desc'} },
+            skip,
+            take: pageSize,
+        }),
+        this._db.branchMaster.count({
+            where: branchWhere,
+        }),
+    ]);
+
+    const formattedBranches = branches.map(branch => ({
+        CompanyMasterSid: branch.company?.CompanyMasterSid,
+        companyName: branch.company?.companyName,
+        companyCode: branch.company?.companyCode,
+        branchName: branch.branchName,
+        city: branch.cityMaster?.cityName || '',
+        state: branch.stateMaster?.stateName || '',
+        country: branch.countryMaster?.countryName || '',
+        gst: branch.taxRegistrationNo,
+        status: branch.status === 'A' ? 'Active' : 'Suspended',
+    }));
+
+    return {
+        items: formattedBranches,
+        totalCount,
+    };
 }
  
 }
