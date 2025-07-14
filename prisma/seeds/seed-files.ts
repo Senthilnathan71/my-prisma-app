@@ -19,12 +19,16 @@ export const SEED_FILES: { name: string; table: string }[] = [
     //     name: 'packageType',
     //     table: 'PackageTypeMaster'
     // },
+    // {
+    //     name: 'inco',
+    //     table: "IncoMaster"
+    // },
+    // {
+    //     name: 'imco',
+    //     table: 'ImcoMaster'
+    // },
     {
-        name: 'inco',
-        table: "IncoMaster"
+        name: 'state',
+        table: 'StateMaster'
     },
-    {
-        name: 'imco',
-        table: 'ImcoMaster'
-    }
 ]

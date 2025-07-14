@@ -296,8 +296,8 @@ model CountryMaster {
 }
 
 model StateMaster {
-    stateCode         String              @db.Char(2)
-    stateName         String              @db.VarChar(100)
+    stateCode         String              @db.Char(10)
+    stateName         String              @db.VarChar(500)
     stateGSTCode      String?             @db.Char(5)
     region            String?             @db.VarChar(100)
     ZoneMasterSid     Int?
