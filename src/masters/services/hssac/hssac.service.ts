@@ -15,6 +15,7 @@ export class HssacService {
 
         const existing = await this._db.hSSACMaster.findFirst({
             where: {
+                deletedAt: null,
                 OR: [
                     {
                         HSSACName: {
@@ -60,7 +61,8 @@ export class HssacService {
         try {
             const HssacList = await this._db.hSSACMaster.findMany({
                 where: {
-                    status: 'A'
+                    status: 'A',
+                    deletedAt: null,
                 }
             })
             return HssacList;

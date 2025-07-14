@@ -13,6 +13,7 @@ export class DivisionService {
 
         const existing = await this._db.divisionMaster.findFirst({
             where: {
+                deletedAt: null,
                 OR: [
                     {
                         DivisionName: {
@@ -54,7 +55,8 @@ export class DivisionService {
         try {
             const DivisionList = await this._db.divisionMaster.findMany({
                 where: {
-                    status: 'A'
+                    status: 'A',
+                    deletedAt: null,
                 }
             })
             return DivisionList;

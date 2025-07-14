@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
@@ -6,18 +6,48 @@ import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 
 @Injectable()
 export class ZoneService {
-  constructor(private _db: DatabaseService) { }
+  constructor(private _db: DatabaseService, private logger: Logger) { }
 
-  async createNewZone(newData: any) {
+  async createNewZone(payload: any, user) {
+    this.logger.warn(`createNewZone: ${payload}`);
+
+    const existing = await this._db.zoneMaster.findFirst({
+      where: {
+        deletedAt: null,
+        OR: [
+          {
+            ZoneName: {
+              equals: payload.ZoneName.trim(),
+              mode: 'insensitive',
+            }
+          },
+          {
+            ZoneCode: {
+              equals: payload.ZoneCode.trim(),
+              mode: 'insensitive',
+            }
+          }
+        ]
+      },
+    });
+    if (existing) {
+      if (existing.ZoneName === payload.ZoneName) {
+        throw new BadRequestException('Zone name already exists');
+      }
+      if (existing.ZoneCode === payload.ZoneCode) {
+        throw new BadRequestException('Zone code already exists');
+      }
+    }
     try {
-      const newlyAddedData = await this._db.zoneMaster.create({
-        data: {
-          ...newData,
-        },
+      const Zone = await this._db.zoneMaster.create({
+        data:{
+          ...payload,
+        }
       });
-      return newlyAddedData;
+      return Zone;
     } catch (error) {
-      throw error;
+      console.log(error.stack)
+      throw new Error(`Error creating Zone: ${error.message}`);
     }
   }
 
@@ -25,9 +55,8 @@ export class ZoneService {
     try {
       const allZones = await this._db.zoneMaster.findMany({
         where: {
-          deletedAt: {
-            equals: null,
-          },
+          status: 'A',
+          deletedAt: null,
         },
       });
       return allZones;
@@ -41,10 +70,11 @@ export class ZoneService {
       const ourZone = await this._db.zoneMaster.findUnique({
         where: {
           ZoneMasterSid: id,
-        },
-      });
-      if (!ourZone)
+        }
+      })
+      if (!ourZone) {
         throw new BadRequestException(`Zone with id : ${id} not exist`);
+      }
       return ourZone;
     } catch (error) {
       throw error;
@@ -56,8 +86,8 @@ export class ZoneService {
       const existing = await this._db.zoneMaster.findUnique({
         where: {
           ZoneMasterSid: id,
-        },
-      });
+        }
+      })
       if (!existing) {
         throw new BadRequestException(`Zone with Id : ${id} not exist`);
       }
@@ -79,8 +109,8 @@ export class ZoneService {
       const existing = await this._db.zoneMaster.findUnique({
         where: {
           ZoneMasterSid: id,
-        },
-      });
+        }
+      })
       if (!existing) {
         throw new BadRequestException(`Zone Master with id : ${id} not found`);
       }
