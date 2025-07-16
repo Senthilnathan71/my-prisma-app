@@ -1463,6 +1463,7 @@ model TDSSetRate {
     TDSAmount        Decimal?  @db.Decimal(9, 0)
     TDSRate          Decimal   @db.Decimal(2, 0)
     EffectiveFrom    DateTime
+    IncomeCategory   String?   @db.VarChar(100)
     createdOn        DateTime  @default(now()) @db.Timestamptz(6)
     updatedOn        DateTime? @updatedAt @db.Timestamptz(6)
     deletedAt        DateTime?
