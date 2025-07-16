@@ -225,5 +225,24 @@ export class RoleMenuService {
         return fetchedData;
     }
 
+    async getRoleMenuPermissions(menuId: number, roleId: number) {
+  try {
+    const roleMenu = await this._db.roleMenuMaster.findFirst({
+      where: {
+        MenuMasterSid: menuId,
+        RoleMasterSid: roleId,
+        deletedAt: null
+      }, 
+      select: {
+        MenuPermissions: true
+      }
+    });
+ 
+    return roleMenu || { MenuPermissions: {} };
+  } catch (error) {
+    throw error;
+  }
+}
+
 }
 
