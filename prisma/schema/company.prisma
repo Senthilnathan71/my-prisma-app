@@ -82,6 +82,7 @@ model CompanyMaster {
     attachDocument      AttachDocument[]
     emailLog            EmailLog[]
     COAMaster           COAMaster[]
+    supplierTdsMapping  SupplierTdsMapping[]
 }
 
 model BranchMaster {
@@ -761,9 +762,10 @@ model CustomerMaster {
     tdsExemptionCarrier     TDSExemption[] @relation("Carrier")
     tdsExemptionTransporter TDSExemption[] @relation("Transporter")
 
-    productMaster ProductMaster[]
-    hawbStock     HawbStock[]
-    mawbStock     MawbStock[]
+    productMaster      ProductMaster[]
+    hawbStock          HawbStock[]
+    mawbStock          MawbStock[]
+    supplierTdsMapping SupplierTdsMapping[]
 }
 
 model PackageTypeMaster {
@@ -1102,15 +1104,16 @@ model CustomerBranch {
     updatedBy         String?   @db.VarChar(100)
     status            String?   @default("A") @db.Char(1)
 
-    customerMaster    CustomerMaster      @relation(fields: [CustomerMasterSid], references: [CustomerMasterSid])
-    companyMaster     CompanyMaster?      @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
-    stateMaster       StateMaster         @relation(fields: [StateMasterSid], references: [StateMasterSid])
-    cityMaster        CityMaster          @relation(fields: [CityMasterSid], references: [CityMasterSid])
-    cusBranchContact  CusBranchContact[]
-    customerBrEmail   CustomerBrEmail[]
-    customerLogin     CustomerLogin[]
-    customerSalesTeam CustomerSalesTeam[]
-    customerSupport   CustomerSupport[]
+    customerMaster     CustomerMaster       @relation(fields: [CustomerMasterSid], references: [CustomerMasterSid])
+    companyMaster      CompanyMaster?       @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+    stateMaster        StateMaster          @relation(fields: [StateMasterSid], references: [StateMasterSid])
+    cityMaster         CityMaster           @relation(fields: [CityMasterSid], references: [CityMasterSid])
+    cusBranchContact   CusBranchContact[]
+    customerBrEmail    CustomerBrEmail[]
+    customerLogin      CustomerLogin[]
+    customerSalesTeam  CustomerSalesTeam[]
+    customerSupport    CustomerSupport[]
+    supplierTdsMapping SupplierTdsMapping[]
 }
 
 model CusBranchContact {
@@ -1447,10 +1450,11 @@ model TDSSetHeader {
 
     company CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
 
-    tdsSetRate   TDSSetRate[]
-    tdsExemption TDSExemption[]
-    chargeTds    ChargeTds[]
-    chargeMaster ChargeMaster[]
+    tdsSetRate         TDSSetRate[]
+    tdsExemption       TDSExemption[]
+    chargeTds          ChargeTds[]
+    chargeMaster       ChargeMaster[]
+    supplierTdsMapping SupplierTdsMapping[]
 }
 
 model TDSSetRate {
@@ -1963,7 +1967,7 @@ model TaxMaster {
 }
 
 model COAMaster {
-    COAMasterSid     Int       @id @default(autoincrement())
+    COAMasterSid     Int       @id @default(autoincrement()) @map("COAMasterSid")
     GroupName        String    @db.VarChar(50)
     SubGroupName     String    @db.VarChar(50)
     LedgerName       String    @db.VarChar(50)
@@ -1991,4 +1995,51 @@ model COAMaster {
     // Relations (assuming you have these models)
     CompanyMaster  CompanyMaster   @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
     CurrencyMaster CurrencyMaster? @relation(fields: [LedgerCurrency], references: [CurrencyMasterSid])
+
+    subledgerMaster SubledgerMaster[]
+}
+
+model SubledgerMaster {
+    SubledgerMasterSid  Int       @id @default(autoincrement()) @map("SubledgerMasterSid")
+    SubledgerName       String    @db.VarChar(1000)
+    SubledgerType       String    @default("Customer") @db.VarChar(20) // Options: Customer, Charge, Others
+    SubledgerMappingSid Int? // Nullable, lookup based on SubledgerType
+    COAMasterSid        Int
+    CreatedOn           DateTime  @default(now())
+    CreatedBy           String    @db.VarChar(100)
+    UpdatedOn           DateTime  @default(now())
+    UpdatedBy           String?   @db.VarChar(100)
+    deletedAt           DateTime?
+    Remarks             String?   @db.VarChar(100)
+    Status              String    @default("A") @db.VarChar(10)
+
+    CoaMaster COAMaster @relation(fields: [COAMasterSid], references: [COAMasterSid])
+}
+
+model SupplierTdsMapping {
+    SupplierTdsMappingSid Int       @id @default(autoincrement()) @map("SupplierTdsMappingSid")
+    CreatedOn             DateTime  @default(now())
+    CreatedBy             String    @db.VarChar(100)
+    UpdatedOn             DateTime  @default(now())
+    UpdatedBy             String?   @db.VarChar(100)
+    deletedAt             DateTime?
+    Status                String    @default("A") @db.Char(1)
+    Remarks               String?   @db.VarChar(200)
+    CompanyMasterSid      Int
+    TDSSetHeaderSid       Int
+    CustomerMasterSid     Int
+    CustomerBranchSid     Int
+    CompanyType           String?   @db.VarChar(20)
+    TaxExempt             String    @default("N") @db.Char(1)
+    TransactionLimit      Decimal   @db.Decimal(8, 2)
+    CertificateNo         String?   @db.VarChar(20)
+    CertificatePercentage Decimal?  @db.Decimal(2, 2)
+    EffectiveFrom         DateTime  @db.Date
+    EffectiveTo           DateTime  @db.Date
+
+    // Relations (Assuming these models exist)
+    companyMaster  CompanyMaster  @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+    tdsSetHeader   TDSSetHeader   @relation(fields: [TDSSetHeaderSid], references: [TDSSetHeaderSid])
+    customerMaster CustomerMaster @relation(fields: [CustomerMasterSid], references: [CustomerMasterSid])
+    customerBranch CustomerBranch @relation(fields: [CustomerBranchSid], references: [CustomerBranchSid])
 }

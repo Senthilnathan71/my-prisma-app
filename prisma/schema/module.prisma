@@ -18,6 +18,9 @@ model UserRoleMaster {
     UserRoleMasterSid Int       @id @default(autoincrement()) @map("UserRoleMasterSid")
     UserMasterSid     Int
     RoleMasterSid     Int
+    GiveAccess        String?   @default("N") @db.Char(1)
+    IsDefault         String?   @default("N") @db.Char(1)
+    MenuMasterSid     Int?      @unique
     createdOn         DateTime  @default(now()) @db.Timestamptz(6)
     updatedOn         DateTime? @updatedAt @db.Timestamptz(6)
     deletedAt         DateTime?
@@ -26,39 +29,39 @@ model UserRoleMaster {
     status            String?   @default("A") @db.Char(1)
     Remarks           String?   @db.VarChar(300)
 
-    userMaster UserMaster @relation(fields: [UserMasterSid], references: [UserMasterSid])
-    roleMaster RoleMaster @relation(fields: [RoleMasterSid], references: [RoleMasterSid])
+    userMaster UserMaster  @relation(fields: [UserMasterSid], references: [UserMasterSid])
+    roleMaster RoleMaster  @relation(fields: [RoleMasterSid], references: [RoleMasterSid])
+    menuMaster MenuMaster? @relation(name: "MenuToUserRole", fields: [MenuMasterSid], references: [MenuMasterSid])
 }
 
 model MenuMaster {
-    MenuMasterSid     Int       @id @default(autoincrement()) @map("MenuMasterSid")
-    MenuCode          String    @db.Char(3)
-    MenuName          String    @db.VarChar(50)
-    ModuleMasterSid   Int
-    ModuleName        String    @db.VarChar(50)
-    path              String?   @db.VarChar(50)
-    icon              String?   @db.VarChar(50)
-    createdOn         DateTime  @default(now()) @db.Timestamptz(6)
-    updatedOn         DateTime? @updatedAt @db.Timestamptz(6)
-    deletedAt         DateTime?
-    createdBy         String    @db.VarChar(100)
-    updatedBy         String?   @db.VarChar(100)
-    status            String?   @default("A") @db.Char(1)
-    Remarks           String?   @db.VarChar(300)
+    MenuMasterSid   Int       @id @default(autoincrement()) @map("MenuMasterSid")
+    MenuCode        String    @db.Char(3)
+    MenuName        String    @db.VarChar(50)
+    ModuleMasterSid Int
+    ModuleName      String    @db.VarChar(50)
+    path            String?   @db.VarChar(50)
+    icon            String?   @db.VarChar(50)
+    createdOn       DateTime  @default(now()) @db.Timestamptz(6)
+    updatedOn       DateTime? @updatedAt @db.Timestamptz(6)
+    deletedAt       DateTime?
+    createdBy       String    @db.VarChar(100)
+    updatedBy       String?   @db.VarChar(100)
+    status          String?   @default("A") @db.Char(1)
+    Remarks         String?   @db.VarChar(300)
 
-    moduleMaster ModuleMaster @relation(fields: [ModuleMasterSid], references: [ModuleMasterSid])
+    moduleMaster   ModuleMaster    @relation(fields: [ModuleMasterSid], references: [ModuleMasterSid])
+    userRoleMaster UserRoleMaster? @relation(name: "MenuToUserRole")
 
     roleMenuMaster  RoleMenuMaster[]
     customerBrEmail CustomerBrEmail[]
     terms           TermsAndConditionsMaster[]
     authorityMaster AuthorityMaster[]
-    menuPermission MenuPermission[]
+    menuPermission  MenuPermission[]
 }
 
-
-
-model MenuPermission{
-    MenuPermissionSid     Int       @id @default(autoincrement()) @map("MenuPermissionSid")
+model MenuPermission {
+    MenuPermissionSid Int       @id @default(autoincrement()) @map("MenuPermissionSid")
     MenuMasterSid     Int
     permissionCode    String?   @db.VarChar(100)
     permissionName    String    @db.VarChar(100)
@@ -69,7 +72,6 @@ model MenuPermission{
     updatedBy         String?   @db.VarChar(100)
 
     menuMaster MenuMaster @relation(fields: [MenuMasterSid], references: [MenuMasterSid])
-
 }
 
 model RoleMaster {
