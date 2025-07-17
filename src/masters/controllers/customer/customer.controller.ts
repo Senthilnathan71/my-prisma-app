@@ -223,5 +223,29 @@ async searchCustomer(@Body() searchParams: SearchVesselDto) {
         }
         return output
     }
+    @ApiOperation({ summary: 'Get All Transporter' })
+    @ApiCreatedResponse({
+        description: 'Get All Transporter',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Get('transporter')
+    async getAllTransporters() {
+        let output = new ResponseData;
+        try {
+            let customerData = await this.customerService.getAllTransporters();
+            this.logger.log(`getAllTransporters: ${JSON.stringify(customerData)}`)
+            output.data = customerData;
+        } catch (error) {
+            this.logger.warn(`getAllTransporters: ${JSON.stringify(error)}`)
+            output.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                output.message = error.message;
+            } else {
+                output.message = 'Internal Server Error';
+            }
+        }
+        return output
+    }
 
 }

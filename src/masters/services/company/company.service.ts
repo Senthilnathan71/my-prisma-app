@@ -161,19 +161,20 @@ export class CompanyService {
         try {
             const allCompanies = await this._db.companyMaster.findMany({
                 where: {
-                    status : 'A'
+                    status : 'A',
+                    deletedAt : null
                 },
                 include: {
                     branchMaster: {
                         include: {
                             branchBank: {
                                 where: {
-                                    status : 'A'
+                                    deletedAt:null
                                 }
                             }
                         },
                         where: {
-                            status : 'A'
+                            deletedAt : null
                         }
                     },
 

@@ -271,5 +271,21 @@ export class CustomerService {
             throw error;
         }
     }
+    async getAllTransporters(){
+        try {
+            const allAgents = await this._db.customerMaster.findMany({
+                where : {
+                    CustomerType: {
+                        path: ['transporter'],
+                        equals: 'isTrue'
+                    },
+                    deletedAt : null
+                }
+            })
+            return allAgents;
+        } catch (error) {
+            throw error;
+        }
+    }
 
 }
