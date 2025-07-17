@@ -26,7 +26,8 @@ export class RoleMenuService {
             const existing = await this._db.roleMenuMaster.findFirst({
                 where: {
                     MenuMasterSid:  payload.MenuMasterSid,
-                    RoleMasterSid : payload.RoleMasterSid
+                    RoleMasterSid : payload.RoleMasterSid,
+                    deletedAt : null
                 },
             });
 
@@ -72,7 +73,8 @@ export class RoleMenuService {
                 where: {
                     MenuMasterSid:  payload.MenuMasterSid,
                     RoleMasterSid : payload.RoleMasterSid,
-                    RoleMenuMasterSid : {not : RoleMenuMasterSid}
+                    RoleMenuMasterSid : {not : RoleMenuMasterSid},
+                    deletedAt : null
                 },
             });
 
