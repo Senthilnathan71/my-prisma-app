@@ -1,0 +1,172 @@
+import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, Post, UnauthorizedException } from '@nestjs/common';
+import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
+import { SubledgermasterService } from 'src/accounts/services/subledgermaster/subledgermaster.service';
+import { ResponseData } from 'src/common/response-data';
+import { SearchListDto } from 'src/masters/DTO/search-list.dto';
+import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
+
+@Controller('subledgermaster')
+export class SubledgermasterController {
+      constructor(private SubledgermasterService: SubledgermasterService, private logger: Logger) { }
+
+
+    @ApiOperation({ summary: 'Get All SubledgerMaster' })
+    @ApiCreatedResponse({
+        description: 'Get All SubledgerMaster',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Get()
+    async getAllSuledgermaster() {
+        let resp = new ResponseData();
+        try {
+            let res = await this.SubledgermasterService.getAllSuledgermaster();
+            this.logger.log(`All SubledgerMaster Fetched : ${JSON.stringify(res)}`);
+            resp.data = res;
+            resp.message = "All SubledgerMaster are successfully fetched";
+        } catch (error) {
+            this.logger.warn(`Get All SubledgerMaster Error : ${JSON.stringify(error), error}`);
+            resp.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                resp.message = error.message;
+            } else {
+                resp.message = "Internal Server Error";
+            }
+        }
+        return resp;
+    }
+
+     @ApiOperation({ summary: 'Create new SubledgerMaster' })
+    @ApiCreatedResponse({
+        description: 'Create new SubledgerMaster',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Post('create')
+    async createNewSubledgerMaster(@Body() newData: any) {
+        let resp = new ResponseData();
+        try {
+            let res = await this.SubledgermasterService.createNewSubledgerMaster(newData);
+            this.logger.log(`New SubledgerMaster Created : ${JSON.stringify(res)}`);
+            resp.data = res;
+            resp.message = "New SubledgerMaster is successfully created"
+        } catch (error) {
+            this.logger.warn(`SubledgerMaster Creation Error : ${JSON.stringify(error), error}`);
+            resp.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                resp.message = error.message;
+            } else {
+                resp.message = "Internal Server Error";
+            }
+        }
+        return resp;
+    }
+
+    @ApiOperation({ summary: 'Get SubledgerMaster by Id' })
+    @ApiCreatedResponse({
+        description: 'Get SubledgerMaster by Id',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Get('fetch/:SubledgerMasterSid')
+    async getSubledgerMasterId(@Param('SubledgerMasterSid', ParseIntPipe) SubledgerMasterSid: number) {
+        let resp = new ResponseData();
+        try {
+            this.logger.log(`Getting SubledgerMaster with id : ${SubledgerMasterSid}`);
+            let res = await this.SubledgermasterService.fetchSubledgerMasterId(SubledgerMasterSid);
+            this.logger.debug(`Fetched SubledgerMaster : ${JSON.stringify(res)}`);
+            resp.data = res;
+            resp.message = `SubledgerMaster with id : ${SubledgerMasterSid} is successfully fetched`;
+        } catch (error) {
+            this.logger.warn(`Get SubledgerMaster by Id Error : ${JSON.stringify(error), error}`);
+            resp.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                resp.message = error.message;
+            } else {
+                resp.message = "Internal Server Error";
+            }
+        }
+        return resp;
+    }
+
+      @ApiOperation({ summary: 'Update SubledgerMaster by Id' })
+    @ApiCreatedResponse({
+        description: 'Update SubledgerMaster by Id',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Patch('update/:SubledgerMasterSid')
+    async updateSubledgerMasterById(@Param('SubledgerMasterSid', ParseIntPipe) SubledgerMasterSid: number, @Body() payload: any) {
+        let resp = new ResponseData();
+        try {
+            this.logger.log(`Updating SubledgerMaster with id : ${SubledgerMasterSid}`);
+            let res = await this.SubledgermasterService.updateSubledgerMasterById(SubledgerMasterSid, payload);
+            this.logger.debug(`Updated SubledgerMaster : ${JSON.stringify(res)}`);
+            resp.data = res;
+            resp.message = `SubledgerMaster with id : ${SubledgerMasterSid} is successfully updated`;
+        } catch (error) {
+            this.logger.warn(`SubledgerMaster Updation Error : ${JSON.stringify(error), error}`);
+            resp.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                resp.message = error.message;
+            } else {
+                resp.message = "Internal Server Error";
+            }
+        }
+        return resp;
+    }
+
+    @ApiOperation({ summary: 'Delete SubledgerMaster by Id' })
+    @ApiCreatedResponse({
+        description: 'Delete SubledgerMaster by Id',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Delete('delete/:SubledgerMasterSid')
+    async deleteSudledgerMasterById(@Param('SubledgerMasterSid', ParseIntPipe) SubledgerMasterSid: number) {
+        let resp = new ResponseData();
+        try {
+            this.logger.log(`Deleting SubledgerMaster with id : ${SubledgerMasterSid}`);
+            let res = await this.SubledgermasterService.deleteSudledgerMaster(SubledgerMasterSid);
+            this.logger.debug(`Deleted SubledgerMaster : ${JSON.stringify(res)}`);
+            resp.data = res;
+            resp.message = `
+            SubledgerMaster with id : ${SubledgerMasterSid} is successfully deleted`;
+        } catch (error) {
+            this.logger.warn(`SubledgerMaster Deletion Error : ${JSON.stringify(error), error}`);
+            resp.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                resp.message = error.message;
+            } else {
+                resp.message = "Internal Server Error";
+            }
+        }
+        return resp;
+    }
+
+    @ApiOperation({ summary: 'Search List of SubledgerMaster' })
+    @ApiCreatedResponse({
+        description: 'Search List of SubledgerMaster',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Post('search-list')
+    async searchSubledgerMaster(@Body() searchData: SearchVesselDto) {
+        let resp = new ResponseData();
+        try {
+            let res = await this.SubledgermasterService.searchSubledgerMaster(searchData);
+            this.logger.log(`SubledgerMaster Search Results :${JSON.stringify(res)}`);
+            resp.data = res;
+            resp.message = "SubledgerMaster Search results are successfully fetched"
+        } catch (error) {
+            this.logger.warn(`SubledgerMaster Search Error : ${JSON.stringify(error), error}`);
+            resp.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                resp.message = error.message;
+            } else {
+                resp.message = "Internal Server Error";
+            }
+        }
+        return resp;
+    }
+}
