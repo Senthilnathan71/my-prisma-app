@@ -20,7 +20,7 @@ model UserRoleMaster {
     RoleMasterSid     Int
     GiveAccess        String?   @default("N") @db.Char(1)
     IsDefault         String?   @default("N") @db.Char(1)
-    MenuMasterSid     Int?      @unique
+    MenuMasterSid     Int?
     createdOn         DateTime  @default(now()) @db.Timestamptz(6)
     updatedOn         DateTime? @updatedAt @db.Timestamptz(6)
     deletedAt         DateTime?
@@ -31,7 +31,7 @@ model UserRoleMaster {
 
     userMaster UserMaster  @relation(fields: [UserMasterSid], references: [UserMasterSid])
     roleMaster RoleMaster  @relation(fields: [RoleMasterSid], references: [RoleMasterSid])
-    menuMaster MenuMaster? @relation(name: "MenuToUserRole", fields: [MenuMasterSid], references: [MenuMasterSid])
+    menuMaster MenuMaster? @relation(fields: [MenuMasterSid], references: [MenuMasterSid])
 }
 
 model MenuMaster {
@@ -50,8 +50,8 @@ model MenuMaster {
     status          String?   @default("A") @db.Char(1)
     Remarks         String?   @db.VarChar(300)
 
-    moduleMaster   ModuleMaster    @relation(fields: [ModuleMasterSid], references: [ModuleMasterSid])
-    userRoleMaster UserRoleMaster? @relation(name: "MenuToUserRole")
+    moduleMaster   ModuleMaster     @relation(fields: [ModuleMasterSid], references: [ModuleMasterSid])
+    userRoleMaster UserRoleMaster[]
 
     roleMenuMaster  RoleMenuMaster[]
     customerBrEmail CustomerBrEmail[]
