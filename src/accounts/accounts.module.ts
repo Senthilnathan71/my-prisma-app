@@ -1,14 +1,22 @@
 import { Logger, Module } from '@nestjs/common';
 import { CoaController } from './controllers/coa/coa.controller';
 import { CoaService } from './services/coa/coa.service';
+import { SupplierTdsMappingController } from './controllers/supplier-tds-mapping/supplier-tds-mapping.controller';
+import { SupplierTdsMappingService } from './services/supplier-tds-mapping/supplier-tds-mapping.service';
+import { SubledgermasterController } from './controllers/subledgermaster/subledgermaster.controller';
+import { SubledgermasterService } from './services/subledgermaster/subledgermaster.service';
 
 @Module({
     controllers: [
-        CoaController
+        CoaController,
+        SupplierTdsMappingController,
+        SubledgermasterController
     ],
     providers: [
         Logger,
-        CoaService
+        CoaService,
+        SupplierTdsMappingService,
+        SubledgermasterService
     ]
 })
 export class AccountsModule { }
