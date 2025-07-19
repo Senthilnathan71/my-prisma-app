@@ -106,8 +106,7 @@ import { UserTypeController } from './controllers/user-type/user-type.controller
 import { UserTypeService } from './services/user-type/user-type.service';
 import { DocumentTypeController } from './controllers/document-type/document-type.controller';
 import { DocumentTypeService } from './services/document-type/document-type.service';
-import { GenerationController } from './controllers/generation/generation.controller';
-import { GenerationService } from './services/generation/generation.service';
+
 import { AttachDocumentController } from './controllers/attach-document/attach-document.controller';
 import { AttachDocumentService } from './services/attach-document/attach-document.service';
 import { YearController } from './controllers/year/year.controller';
@@ -126,6 +125,8 @@ import { TdsDetailController } from './controllers/tds-detail/tds-detail.control
 import { TdsDetailService } from './services/tds-detail/tds-detail.service';
 import { TdsExemptionController } from './controllers/tds-exemption/tds-exemption.controller';
 import { TdsExemptionService } from './services/tds-exemption/tds-exemption.service';
+import { HawbStockService } from './services/hawb-stock/hawb-stock.service';
+import { HawbStockController } from './controllers/hawb-stock/hawb-stock.controller';
 
 @Module({
   providers: [
@@ -183,7 +184,7 @@ import { TdsExemptionService } from './services/tds-exemption/tds-exemption.serv
     AuthorityDetailService,
     UserTypeService,
     DocumentTypeService,
-    GenerationService,
+    HawbStockService,
     AttachDocumentService,
     YearService,
     IncoService,
@@ -249,7 +250,7 @@ import { TdsExemptionService } from './services/tds-exemption/tds-exemption.serv
     AuthorityDetailController,
     UserTypeController,
     DocumentTypeController,
-    GenerationController,
+    HawbStockController,
     AttachDocumentController,
     YearController,
     IncoController,
