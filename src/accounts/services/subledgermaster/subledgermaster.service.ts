@@ -115,6 +115,8 @@ export class SubledgermasterService {
                     // { Keyword: { contains: search, mode: 'insensitive' } },
                     // { status: { contains: search, mode: 'insensitive' } },
                     {SubledgerName:{ contains: search, mode: 'insensitive' }},
+                    {SubledgerType:{ contains: search, mode: 'insensitive' }},
+                    {Status:{ contains: search, mode: 'insensitive' }},
                 ]
             } 
             : {})
