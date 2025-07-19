@@ -361,7 +361,6 @@ model DepartmentMaster {
     CompanyMasterSid    Int?
     DepartmentMasterSid Int                 @id @default(autoincrement()) @map("DepartmentMasterSid")
     LoginSid            Int?
-    chargeMaster        ChargeMaster[]
     meetingFollowUp     MeetingFollowup[]
     companyMaster       CompanyMaster?      @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
     enquiryHeader       EnquiryHeader[]
@@ -448,12 +447,11 @@ model ChargeMaster {
     ChargeMasterSid     Int                @id @default(autoincrement()) @map("ChargeMasterSid")
     CompanyMasterSid    Int?
     CurrencyMasterSid   Int?
-    DepartmentMasterSid Int
+    DepartmentMasterSid String[]
     TDSMasterSid        Int
     chargeGroup         ChargeGroup?       @relation(fields: [ChargeGroupSid], references: [ChargeGroupSid])
     companyMaster       CompanyMaster?     @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
     currencyMaster      CurrencyMaster?    @relation(fields: [CurrencyMasterSid], references: [CurrencyMasterSid])
-    departmentMaster    DepartmentMaster   @relation(fields: [DepartmentMasterSid], references: [DepartmentMasterSid])
     tdsSetHeader        TDSSetHeader       @relation(fields: [TDSMasterSid], references: [TDSSetHeaderSid])
     chargeTaxMapping    ChargeTaxMapping[]
     chargeTds           ChargeTds[]
@@ -1464,8 +1462,8 @@ model TDSSetRate {
     Sno              Decimal?  @db.Decimal(2, 0)
     CompanyType      String    @db.VarChar(50)
     ITSectionCode    String    @db.VarChar(10)
-    TDSAmount        Decimal?  @db.Decimal(9, 0)
-    TDSRate          Decimal   @db.Decimal(2, 0)
+    TDSAmount        Decimal?  @db.Decimal(12, 2)
+    TDSRate          Decimal?  @db.Decimal(8, 2)
     EffectiveFrom    DateTime
     IncomeCategory   String?   @db.VarChar(100)
     createdOn        DateTime  @default(now()) @db.Timestamptz(6)
@@ -2036,6 +2034,8 @@ model SupplierTdsMapping {
     CertificatePercentage Decimal?  @db.Decimal(2, 2)
     EffectiveFrom         DateTime  @db.Date
     EffectiveTo           DateTime  @db.Date
+    ITSecCode             String?   @db.VarChar(20)
+    CertificateAmt        String?   @db.VarChar(500)
 
     // Relations (Assuming these models exist)
     companyMaster  CompanyMaster  @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
