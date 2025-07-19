@@ -5,7 +5,7 @@ import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 
 @Injectable()
-export class GenerationService {
+export class HawbStockService {
     constructor(private _db: DatabaseService) { }
 
     async getAllHawbStocks() {
