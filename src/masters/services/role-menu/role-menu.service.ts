@@ -26,7 +26,8 @@ export class RoleMenuService {
             const existing = await this._db.roleMenuMaster.findFirst({
                 where: {
                     MenuMasterSid:  payload.MenuMasterSid,
-                    RoleMasterSid : payload.RoleMasterSid
+                    RoleMasterSid : payload.RoleMasterSid,
+                    deletedAt : null
                 },
             });
 
@@ -72,7 +73,8 @@ export class RoleMenuService {
                 where: {
                     MenuMasterSid:  payload.MenuMasterSid,
                     RoleMasterSid : payload.RoleMasterSid,
-                    RoleMenuMasterSid : {not : RoleMenuMasterSid}
+                    RoleMenuMasterSid : {not : RoleMenuMasterSid},
+                    deletedAt : null
                 },
             });
 
@@ -224,6 +226,25 @@ export class RoleMenuService {
 
         return fetchedData;
     }
+
+    async getRoleMenuPermissions(menuId: number, roleId: number) {
+  try {
+    const roleMenu = await this._db.roleMenuMaster.findFirst({
+      where: {
+        MenuMasterSid: menuId,
+        RoleMasterSid: roleId,
+        deletedAt: null
+      }, 
+      select: {
+        MenuPermissions: true
+      }
+    });
+ 
+    return roleMenu || { MenuPermissions: {} };
+  } catch (error) {
+    throw error;
+  }
+}
 
 }
 

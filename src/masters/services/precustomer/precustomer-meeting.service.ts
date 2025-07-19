@@ -20,6 +20,9 @@ export class PreCustomerMeetingService {
             include: {
                 preCustomerMeeting: true, // Include if needed for debugging, otherwise remove,
                 cityMaster: true,
+            },
+            orderBy : {
+                PreCustomerMasterSid: 'desc'
             }
         });
         return result;

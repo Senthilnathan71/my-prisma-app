@@ -2,6 +2,7 @@ import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatu
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
 import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
+import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 import { ImcoService } from 'src/masters/services/imco/imco.service';
 
 @Controller('imco')
@@ -153,30 +154,30 @@ export class ImcoController {
 
 
     @ApiOperation({ summary: 'Search List of IMCO' })
-    @ApiCreatedResponse({
-        description: 'Search List of IMCO',
-        type: ResponseData
-    })
-    @HttpCode(HttpStatus.OK)
-    @Post('search-list')
-    async searchIMCO(@Body() searchData: SearchListDto) {
-        let resp = new ResponseData();
-        try {
-            let res = await this.imcoService.searchimcoMaster(searchData);
-            this.logger.log(`IMCO Search Results :${JSON.stringify(res)}`);
-            resp.data = res;
-            resp.message = "IMCO Search results are successfully fetched"
-        } catch (error) {
-            this.logger.warn(`IMCO Search Error : ${JSON.stringify(error), error}`);
-            resp.status = false;
-            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
-                resp.message = error.message;
-            } else {
-                resp.message = "Internal Server Error";
-            }
+@ApiCreatedResponse({
+    description: 'Search List of IMCO',
+    type: ResponseData,
+})
+@HttpCode(HttpStatus.OK)
+@Post('search-list')
+async searchIMCO(@Body() searchParams: SearchVesselDto) {
+    const resp = new ResponseData();
+    try {
+        const res = await this.imcoService.searchimcoMaster(searchParams);
+        this.logger.log(`IMCO Search Data: ${JSON.stringify(res)}`);
+        resp.data = res;
+        resp.message = 'IMCO Search is successfully fetched';
+    } catch (error) {
+        this.logger.warn(`Search IMCO Error: ${error}`);
+        resp.status = false;
+        if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+            resp.message = error.message;
+        } else {
+            resp.message = 'Internal Server Error';
         }
-        return resp;
     }
+    return resp;
+}
 
 
 

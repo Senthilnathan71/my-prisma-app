@@ -3,6 +3,7 @@ import { ApiOperation, ApiCreatedResponse } from "@nestjs/swagger";
 import { UserData } from "src/common/decorators/user.decorator";
 import { ResponseData } from "src/common/response-data";
 import { SearchListDto } from "src/masters/DTO/search-list.dto";
+import { SearchVesselDto } from "src/masters/DTO/search-vessel.dto";
 import { IncoService } from "src/masters/services/inco/inco.service";
 
 @Controller('inco')
@@ -135,29 +136,28 @@ export class IncoController {
     }
 
     @ApiOperation({ summary: 'Search List of Inco' })
-    @ApiCreatedResponse({
-        description: 'Search List',
-        type: ResponseData
-    })
-    @HttpCode(HttpStatus.OK)
-    @Post('search-list')
-    async searchInco(@Body() body: SearchListDto) {
-        let output = new ResponseData;
-        try {
-            this.logger.log(`searchInco: ${JSON.stringify(body)}`)
-            const IncoList = await this.incoService.searchList(body);
-            output.data = IncoList
-            output.message = "Inco List fetched Successfully"
-        }  catch (err) {
-            output.status = false;
-            this.logger.warn(`searchInco: ${JSON.stringify(err)}`)
-            output.status = false;
-            if (err instanceof BadRequestException || err instanceof UnauthorizedException) {
-                output.message = err.message;
-            } else {
-                output.message = 'Internal Server Error';
-            }
+@ApiCreatedResponse({
+    description: 'Search List of Inco',
+    type: ResponseData,
+})
+@HttpCode(HttpStatus.OK)
+@Post('search-list')
+async searchIncoNew(@Body() searchParams: SearchVesselDto) {
+    const resp = new ResponseData();
+    try {
+        const res = await this.incoService.searchList(searchParams);
+        this.logger.log(`Inco Search Data: ${JSON.stringify(res)}`);
+        resp.data = res;
+        resp.message = 'Inco Search is successfully fetched';
+    } catch (error) {
+        this.logger.warn(`Search Inco Error: ${error}`);
+        resp.status = false;
+        if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+            resp.message = error.message;
+        } else {
+            resp.message = 'Internal Server Error';
         }
-        return output
     }
+    return resp;
+}
 }

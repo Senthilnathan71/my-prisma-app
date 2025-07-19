@@ -1,6 +1,8 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from "@nestjs/common";
+import { Prisma } from "@prisma/client";
 import { DatabaseService } from "src/database/database.service";
 import { SearchListDto } from "src/masters/DTO/search-list.dto";
+import { SearchVesselDto } from "src/masters/DTO/search-vessel.dto";
 
 @Injectable()
 export class IncoService {
@@ -28,7 +30,7 @@ export class IncoService {
             },
         });
 
-        if (existing) {
+        if (existing) { 
             if (existing.IncoName === payload.IncoName) {
                 throw new BadRequestException('Inco name already exists');
             }
@@ -119,31 +121,40 @@ export class IncoService {
         });
     }
 
-    async searchList(dto: SearchListDto) {
-        const { searchType, filterValue} = dto;
-        const allowedFields = [
-            'IncoName',
-            'IncoCode',
-            'IncoType',
-            'OceanFreight',
-            'Status',
-        ];
+    async searchList(params: SearchVesselDto) {
+    const { search = '', page = 1, pageSize = 10 } = params;
+    const skip = (page - 1) * pageSize;
 
-        if (!allowedFields.includes(searchType)) {
-            throw new BadRequestException('Invalid search type');
-        }
+    const where: Prisma.IncoMasterWhereInput = {
+        deletedAt: null,
+        Status: 'A',
+        ...(search
+            ? {
+                OR: [
+                    { IncoName: { contains: search, mode: 'insensitive' } },
+                    { IncoCode: { contains: search, mode: 'insensitive' } },
+                    { IncoType: { contains: search, mode: 'insensitive' } },
+                    { OceanFreight: { contains: search, mode: 'insensitive' } },
+                    { Status: { contains: search, mode: 'insensitive' } },
+                ],
+            }
+            : {}
+        ),
+    };
 
-        const Incos = this._db.incoMaster.findMany({
-            where: {
-                [searchType]: {
-                    contains: filterValue,
-                    mode: 'insensitive',
-                },
-                deletedAt: null,
-            },
-        }).catch(err => {
-            throw new Error(`Error Search Inco: ${err}`);
-        });
-        return Incos;
-    }
+    const [items, totalCount] = await this._db.$transaction([
+        this._db.incoMaster.findMany({
+            where,
+            skip,
+            take: pageSize,
+            orderBy: { IncoMasterSid: 'desc' },
+        }),
+        this._db.incoMaster.count({ where }),
+    ]);
+
+    return {
+        items,
+        totalCount,
+    };
+}
 }

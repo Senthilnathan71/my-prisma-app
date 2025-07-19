@@ -57,7 +57,8 @@ export class VesselService {
         try {
             const vesselList = await this._db.vesselMaster.findMany({
                 where: {
-                    status: 'A'
+                    status: 'A',
+                    deletedAt : null
                 }
             })
             return vesselList;

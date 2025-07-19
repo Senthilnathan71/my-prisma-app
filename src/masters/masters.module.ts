@@ -120,6 +120,12 @@ import { CostCenterService } from './services/cost-center/cost-center.service';
 import { CostCenterController } from './controllers/cost-center/cost-center.controller';
 import { TaxController } from './controllers/tax/tax.controller';
 import { TaxService } from './services/tax/tax.service';
+import { TdsService } from './services/tds/tds.service';
+import { TdsController } from './controllers/tds/tds.controller';
+import { TdsDetailController } from './controllers/tds-detail/tds-detail.controller';
+import { TdsDetailService } from './services/tds-detail/tds-detail.service';
+import { TdsExemptionController } from './controllers/tds-exemption/tds-exemption.controller';
+import { TdsExemptionService } from './services/tds-exemption/tds-exemption.service';
 
 @Module({
   providers: [
@@ -183,7 +189,10 @@ import { TaxService } from './services/tax/tax.service';
     IncoService,
     ProfitCenterService,
     CostCenterService,
-    TaxService
+    TaxService,
+    TdsService,
+    TdsDetailService,
+    TdsExemptionService
   ],
   controllers: [
     UserController,
@@ -246,7 +255,10 @@ import { TaxService } from './services/tax/tax.service';
     IncoController,
     ProfitCenterController,
     CostCenterController,
-    TaxController
+    TaxController,
+    TdsController,
+    TdsDetailController,
+    TdsExemptionController
   ],
   exports: [UserService]
 })

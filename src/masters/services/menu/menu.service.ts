@@ -1,6 +1,8 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
+import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 
 @Injectable()
 export class MenuService {
@@ -71,7 +73,7 @@ export class MenuService {
                     data: payload.permissions.map(p => ({
                         MenuMasterSid: menu.MenuMasterSid,
                         permissionName: p.permissionName,
-                        permissionCode: p.permissionCode,
+                        permissionCode: this.getPermissionCode(p.permissionName),
                         createdBy: payload.createdBy,
                     }))
                 });
@@ -207,7 +209,7 @@ export class MenuService {
                             },
                             data: {
                                 permissionName: p.permissionName,
-                                permissionCode: p.permissionCode,
+                                permissionCode: this.getPermissionCode(p.permissionName),
                                 updatedBy: payload.updatedBy,
                             }
                         });
@@ -216,7 +218,7 @@ export class MenuService {
                             data: {
                                 MenuMasterSid: menuMasterSid,
                                 permissionName: p.permissionName,
-                                permissionCode: p.permissionCode,
+                                permissionCode: this.getPermissionCode(p.permissionName),
                                 createdBy: payload.createdBy
                             }
                         });
@@ -236,8 +238,12 @@ export class MenuService {
         throw new Error(`Error updating menu: ${error.message}`);
     }
 }
-
-
+getPermissionCode(permsName:string){
+    let code = permsName.replace(/[^a-zA-Z0-9]/g,'_');
+    code = code.toLowerCase();
+    code.replace(/_+/g,'_').replace(/^_|_$/g,'');
+    return code;
+}
 
 
 
@@ -286,42 +292,48 @@ export class MenuService {
 
 
 
-    async searchList(dto: SearchListDto) {
-        const { searchType, filterValue } = dto;
+    async searchList(params: SearchVesselDto) {
+    const { search = '', page = 1, pageSize = 10 } = params;
+    const skip = (page - 1) * pageSize;
 
-        // Whitelist allowed fields to prevent SQL injection or invalid column access
-        //write column names
-        const allowedFields = [
-            'MenuName',
-            'MenuCode',
-            'MenuType',
-            'ModuleName',
-            'status',
-        ];
-
-        if (!allowedFields.includes(searchType)) {
-            throw new BadRequestException('Invalid search type');
-        }
-
-        // Dynamically build query
-        const menus = await this._db.menuMaster.findMany({
-            where: {
-                [searchType]: {
-                    contains: filterValue,
-                    mode: 'insensitive',
-                },
-                deletedAt: null,
-            },
-            orderBy: {
-                MenuMasterSid: 'asc'
+    const where: Prisma.MenuMasterWhereInput = {
+        deletedAt: null,
+        status: 'A',
+        ...(search
+            ? {
+                OR: [
+                    { MenuName: { contains: search, mode: 'insensitive' } },
+                    { MenuCode: { contains: search, mode: 'insensitive' } },
+                    { status: { contains: search, mode: 'insensitive' } },
+                     {
+                        moduleMaster: {
+                            ModuleName: { contains: search, mode: 'insensitive' }
+                        }
+                    },
+                ],
             }
-        }).catch(err => {
-            throw new Error(`Error Search menu: ${err}`);
-        });
-        return menus;
+            : {}
+        ),
+    };
 
+    const [items, totalCount] = await this._db.$transaction([
+        this._db.menuMaster.findMany({
+            where,
+            skip,
+            take: pageSize,
+            include: {
+                moduleMaster: true, 
+            },
+            orderBy: { ModuleMasterSid: 'desc' },  
+        }),
+        this._db.menuMaster.count({ where }),
+    ]);
 
-    }
+    return {
+        items,
+        totalCount,
+    };
+}
 
     async getMenusByModule(ModuleMasterSid) {
         try {

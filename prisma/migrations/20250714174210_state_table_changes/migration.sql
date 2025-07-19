@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "StateMaster" ALTER COLUMN "stateCode" SET DATA TYPE CHAR(10),
+ALTER COLUMN "stateName" SET DATA TYPE VARCHAR(500);

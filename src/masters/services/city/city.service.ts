@@ -6,19 +6,16 @@ import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 
 @Injectable()
 export class CityService {
-  constructor(private _db: DatabaseService) {}
+  constructor(private _db: DatabaseService, private logger: Logger) {}
 
   async getAllCity() {
     try {
       const cityList = await this._db.cityMaster.findMany({
         where: {
           status : 'A',
-          deletedAt:null,
+          deletedAt: null,
         },
-        orderBy :{
-          cityName:'asc'
-        }
-      });
+      })
       return cityList;
     } catch (error) {
       throw error;
@@ -30,8 +27,11 @@ export class CityService {
       const ourCity = await this._db.cityMaster.findUnique({
         where: {
           CityMasterSid: id,
-        },
-      });
+        }
+      })
+      if (!ourCity) {
+        throw new BadRequestException(`City with id: ${id} not exist`);
+      }
       return ourCity;
     } catch (error) {
       throw error;
@@ -51,56 +51,93 @@ export class CityService {
     }
   }
 
-  async addCity(cityData: any) {
-    try {
-      const addedData = await this._db.cityMaster.create({
-        data: {
-          ...cityData,
-        },
-      });
-      return addedData;
-    } catch (error) {
-      throw error;
+  async addCity(payload: any, user) {
+    this.logger.warn(`addCity: ${payload}`);
+
+    const existing = await this._db.cityMaster.findFirst({
+      where: {
+        deletedAt: null,
+        OR: [
+          {
+            cityName: {
+              equals: payload.cityName.trim(),
+              mode: 'insensitive',
+            }
+          },
+          {
+            cityCode: {
+              equals: payload.cityCode.trim(),
+              mode: 'insensitive',
+            }
+          }
+        ]
+      },
+    });
+    if (existing) {
+      if (existing.cityName === payload.cityName) {
+        throw new BadRequestException('City name already exists');
+      }
+      if (existing.cityCode === payload.cityCode) {
+        throw new BadRequestException('City code already exists');
+      }
     }
-  }
+    try {
+      const City = await this._db.cityMaster.create({
+        data: {
+          ...payload,
+        }
+      });
+      return City;
+    } catch (error) {
+      console.log(error.stack)
+      throw new Error(`Error creating City: ${error.message}`);
+    }
+    }
 
   async updateCityById(
     CityMasterSid: number,
     newData: any,
   ) {
     try {
-      const existCity = await this._db.cityMaster.findUnique({
+      const existing = await this._db.cityMaster.findUnique({
         where: {
           CityMasterSid: CityMasterSid,
-        },
-      });
-      if (!existCity) throw new Error('Problem with Finding City with ID');
+        }
+      })
+      if (!existing) {
+        throw new BadRequestException(`City with id: ${CityMasterSid} not exist`);
+      }
       const updatedData = await this._db.cityMaster.update({
         where: {
           CityMasterSid: CityMasterSid,
         },
         data: newData,
-      });
+      })
       return updatedData;
     } catch (error) {
       throw error;
     }
   }
 
-  async deleteCityById(CityMasterSid: number) {
+  async softDeleteCity(CityMasterSid: number) {
     try {
-      const existCity = await this._db.cityMaster.findUnique({
+      const existing = await this._db.cityMaster.findUnique({
         where: {
-          CityMasterSid: CityMasterSid,
-        },
-      });
-      if (!existCity) throw new Error('Problem with Finding City with ID');
-
+          CityMasterSid: CityMasterSid
+        }
+      })
+      if (!existing) {
+        throw new BadRequestException(`City with id: ${CityMasterSid} not exist`);
+      }
+      if (existing.deletedAt) {
+        throw new BadRequestException(`City with id: ${CityMasterSid} is already deleted`);
+      }
       // Perform soft delete by updating deletedAt field
-      return this._db.cityMaster.update({
+      const deletedCity = await this._db.cityMaster.update({
         where: { CityMasterSid: CityMasterSid },
         data: { deletedAt: new Date() },
-      });
+      })
+      return deletedCity;
     } catch (error) {
       throw error;
     }
@@ -112,6 +149,7 @@ export class CityService {
 
     const where: Prisma.CityMasterWhereInput = {
         deletedAt: null,
+        status: 'A',
         OR: search ? [
             { cityCode: { contains: search, mode: 'insensitive' } },
             { cityName: { contains: search, mode: 'insensitive' } },
