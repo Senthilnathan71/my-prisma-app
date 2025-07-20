@@ -435,7 +435,7 @@ model ChargeMaster {
     chargeCode          String             @db.VarChar(5)
     chargeName          String             @db.VarChar(100)
     UOM                 Int?
-    HSNSAC              String             @db.VarChar(100)
+    HSNSAC              String?            @db.VarChar(100)
     createdOn           DateTime           @default(now()) @db.Timestamptz(6)
     updatedOn           DateTime           @updatedAt @db.Timestamptz(6)
     deletedAt           DateTime?
@@ -448,11 +448,11 @@ model ChargeMaster {
     CompanyMasterSid    Int?
     CurrencyMasterSid   Int?
     DepartmentMasterSid String[]
-    TDSMasterSid        Int
+    TDSMasterSid        Int?
     chargeGroup         ChargeGroup?       @relation(fields: [ChargeGroupSid], references: [ChargeGroupSid])
     companyMaster       CompanyMaster?     @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
     currencyMaster      CurrencyMaster?    @relation(fields: [CurrencyMasterSid], references: [CurrencyMasterSid])
-    tdsSetHeader        TDSSetHeader       @relation(fields: [TDSMasterSid], references: [TDSSetHeaderSid])
+    tdsSetHeader        TDSSetHeader?      @relation(fields: [TDSMasterSid], references: [TDSSetHeaderSid])
     chargeTaxMapping    ChargeTaxMapping[]
     chargeTds           ChargeTds[]
     chargeTaxMaster     ChargeTaxMaster[]
@@ -462,15 +462,15 @@ model ChargeTaxMaster {
     chargeTaxMasterSid Int?
     HSNCode            String    @db.VarChar(10)
     description        String    @db.VarChar(100)
-    TaxGroup           String    @db.VarChar(10)
+    TaxGroup           String?   @db.VarChar(10)
     TaxRate            Decimal   @db.Decimal(4, 2)
     createdOn          DateTime  @default(now()) @db.Timestamptz(6)
     updatedOn          DateTime  @updatedAt @db.Timestamptz(6)
     deletedAt          DateTime?
     CreatedBy          String    @db.VarChar(100)
     UpdatedBy          String    @db.VarChar(100)
-    Remarks            String    @db.VarChar(100)
-    Status             String    @db.Char(1)
+    Remarks            String?   @db.VarChar(100)
+    Status             String?   @db.Char(1)
     ChargeTaxMasterSid Int       @id @default(autoincrement()) @map("ChargeTaxMasterSid")
     CompanyMasterSid   Int
 
@@ -1520,6 +1520,7 @@ model ChargeTds {
     ChargeTdsSid    Int       @id @default(autoincrement()) @map("ChargeTdsSid")
     ChargeMasterSid Int
     TDSSet          Int
+    EffectiveFrom   DateTime?
     createdOn       DateTime  @default(now()) @db.Timestamptz(6)
     updatedOn       DateTime? @updatedAt @db.Timestamptz(6)
     deletedAt       DateTime?
