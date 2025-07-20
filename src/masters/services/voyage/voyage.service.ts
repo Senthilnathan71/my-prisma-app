@@ -1,10 +1,11 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { GlobalConfigService } from 'src/common/config/master-config.service';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 
 @Injectable()
 export class VoyageService {
-    constructor(private _db: DatabaseService, private logger: Logger) { }
+    constructor(private _db: DatabaseService, private logger: Logger, private globalConfigService: GlobalConfigService) { }
 
 
     async createVoyage(payload: any, user) {
@@ -53,7 +54,7 @@ export class VoyageService {
         try {
             const voyageList = await this._db.voyageMasterHeader.findMany({
                 where: {
-                    deletedAt:null
+                    deletedAt: null
                 }
             })
             return voyageList;
@@ -83,7 +84,7 @@ export class VoyageService {
             where: {
                 AND: [
                     {
-                        VoyageMasterHeaderSid : { not : VoyageMasterSid}
+                        VoyageMasterHeaderSid: { not: VoyageMasterSid }
                     },
                     {
                         VoyageNo: {
@@ -146,29 +147,29 @@ export class VoyageService {
                 throw new Error(`Voyage with ID ${VoyageMasterHeaderSid} is already deleted`);
             }
 
-            const result = await this._db.$transaction(async (prisma)=>{
+            const result = await this._db.$transaction(async (prisma) => {
                 const deletedVoyageHeader = await prisma.voyageMasterHeader.update({
-                    where : {
-                        VoyageMasterHeaderSid : VoyageMasterHeaderSid
+                    where: {
+                        VoyageMasterHeaderSid: VoyageMasterHeaderSid
                     },
-                    data : {
-                        deletedAt : new Date()
+                    data: {
+                        deletedAt: new Date()
                     }
                 })
 
                 const deletedVoyageDetail = await prisma.voyageMasterDetail.updateManyAndReturn({
-                    where : {
-                        VoyageMasterHeaderSid : VoyageMasterHeaderSid,
-                        deletedAt : null
+                    where: {
+                        VoyageMasterHeaderSid: VoyageMasterHeaderSid,
+                        deletedAt: null
                     },
-                    data : {
-                        deletedAt : new Date()
+                    data: {
+                        deletedAt: new Date()
                     }
                 })
 
                 return {
                     deletedVoyageHeader,
-                    voyageDetail : deletedVoyageDetail
+                    voyageDetail: deletedVoyageDetail
                 }
             })
             return result;
@@ -237,7 +238,7 @@ export class VoyageService {
                     orderBy: {
                         VoyageMasterDetailSid: 'asc'
                     },
-                    select: { 
+                    select: {
                         VoyageMasterDetailSid: true,
                         POLSid: true,
                         PODSid: true,
@@ -264,69 +265,141 @@ export class VoyageService {
     }
 
 
-    async specialSearch(payload) {
-    const { POLSid, PODSid } = payload;
-    const today = new Date().toISOString().split('T')[0];
+    //     async specialSearch(payload) {
+    //     const { POLSid, PODSid } = payload;
+    //     const today = new Date().toISOString().split('T')[0];
 
-    const searchResults = await this._db.voyageMasterHeader.findMany({
-        where: {
-            voyageMasterDetail: {
-                some: {
-                    deletedAt: null
-                }
-            }
-        },
-        include: {
-            vesselMaster: {
-                select: {
-                    VesselName: true
-                }
+    //     const searchResults = await this._db.voyageMasterHeader.findMany({
+    //         where: {
+    //             voyageMasterDetail: {
+    //                 some: {
+    //                     deletedAt: null
+    //                 }
+    //             }
+    //         },
+    //         include: {
+    //             vesselMaster: {
+    //                 select: {
+    //                     VesselName: true
+    //                 }
+    //             },
+    //             voyageMasterDetail: {
+    //                 where: {
+    //                     deletedAt: null
+    //                 },
+    //                 orderBy: {
+    //                     VoyageMasterDetailSid: 'asc'
+    //                 },
+    //                 include: {
+    //                     portMasterPOL: {
+    //                         select: {
+    //                             PortCode: true
+    //                         }
+    //                     },
+    //                     portMasterPOD: {
+    //                         select: {
+    //                             PortCode: true
+    //                         }
+    //                     }
+    //                 }
+    //             }
+    //         }
+    //     }).catch((error) => {
+    //         throw new Error(`Error Occurred: ${error}`);
+    //     });
+    //     const filteredResults = searchResults.filter(header => {
+    //         const details = header.voyageMasterDetail;
+
+    //         // Must have at least one detail
+    //         if (details.length === 0) return false;
+
+    //         // Get first and last details (ordered by VoyageMasterDetailSid)
+    //         const firstDetail = details[0];
+    //         const lastDetail = details[details.length - 1];
+
+    //         // Check POL/POD conditions
+    //         const validPol = firstDetail.POLSid === POLSid;
+    //         const validPod = lastDetail.POLSid === PODSid;
+
+    //         if (!validPol || !validPod) return false;
+
+    //         // Check POD's ETD date is in future
+    //         const podDate = lastDetail.ETD ? new Date(lastDetail.ETD).toISOString().split('T')[0] : new Date(0);
+    //         return podDate >= today;
+    //     });
+
+    //     return filteredResults;
+    // }
+
+
+    async specialSearch(payload) {
+        const { POLSid, PODSid } = payload;
+        const today = new Date().toISOString().split('T')[0];
+
+        const headers = await this._db.voyageMasterHeader.findMany({
+            where: {
+                voyageMasterDetail: {
+                    some: {
+                        deletedAt: null,
+                    },
+                },
             },
-            voyageMasterDetail: {
+            orderBy: {
+                VoyageMasterHeaderSid: 'asc',
+            },
+        });
+
+        const validHeaders: any = [];
+
+        for (const header of headers) {
+            const details = await this._db.voyageMasterDetail.findMany({
                 where: {
-                    deletedAt: null
+                    VoyageMasterHeaderSid: header.VoyageMasterHeaderSid,
+                    deletedAt: null,
                 },
                 orderBy: {
-                    VoyageMasterDetailSid: 'asc'
+                    VoyageMasterDetailSid: 'asc',
                 },
-                include: {
-                    portMasterPOL: {
-                        select: {
-                            PortCode: true
-                        }
-                    },
-                    portMasterPOD: {
-                        select: {
-                            PortCode: true
-                        }
-                    }
-                }
+            });
+
+            if (details.length === 0) continue;
+
+            const firstDetail = details[0];
+            const lastDetail = details[details.length - 1];
+
+            const validPol = firstDetail.POLSid === POLSid;
+            const validPod = lastDetail.POLSid === PODSid;
+
+            const podDate = lastDetail.ETD
+                ? new Date(lastDetail.ETD).toISOString().split('T')[0]
+                : new Date(0).toISOString().split('T')[0];
+
+            if (validPol && validPod && podDate >= today) {
+                validHeaders.push({ ...header, details });
             }
         }
-    }).catch((error) => {
-        throw new Error(`Error Occurred: ${error}`);
-    });
-    const filteredResults = searchResults.filter(header => {
-        const details = header.voyageMasterDetail;
-        
-        // Must have at least one detail
-        if (details.length === 0) return false;
-        
-        // Get first and last details (ordered by VoyageMasterDetailSid)
-        const firstDetail = details[0];
-        const lastDetail = details[details.length - 1];
-        
-        // Check POL/POD conditions
-        const validPol = firstDetail.POLSid === POLSid;
-        const validPod = lastDetail.POLSid === PODSid;
-        
-        if (!validPol || !validPod) return false;
-        
-        // Check POD's ETD date is in future
-        const podDate = lastDetail.ETD ? new Date(lastDetail.ETD).toISOString().split('T')[0] : new Date(0);
-        return podDate >= today;
-    });
 
-    return filteredResults;
-}
+        // Enrich results with vessel name using getMasterData
+        const enrichedResults = await Promise.all(
+            validHeaders.map(async (header) => {
+                const vessel = await this.globalConfigService.getMasterData(
+                    'vessel_master', // Assuming this key exists in MASTER_CONFIG
+                    header.VesselMasterSid,
+                    header.CompanyMasterSid,
+                );
+
+                return {
+                    ...header,
+                    vesselName: vessel?.VesselName || null,
+                    voyageMasterDetail: header.details,
+                };
+            })
+        );
+
+        return {
+            items: enrichedResults,
+            totalCount: validHeaders.length,
+        };
+    }
+
 }

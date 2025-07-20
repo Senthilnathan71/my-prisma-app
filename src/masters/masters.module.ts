@@ -127,6 +127,7 @@ import { TdsExemptionController } from './controllers/tds-exemption/tds-exemptio
 import { TdsExemptionService } from './services/tds-exemption/tds-exemption.service';
 import { HawbStockService } from './services/hawb-stock/hawb-stock.service';
 import { HawbStockController } from './controllers/hawb-stock/hawb-stock.controller';
+import { GlobalConfigService } from 'src/common/config/master-config.service';
 
 @Module({
   providers: [
@@ -193,7 +194,8 @@ import { HawbStockController } from './controllers/hawb-stock/hawb-stock.control
     TaxService,
     TdsService,
     TdsDetailService,
-    TdsExemptionService
+    TdsExemptionService,
+    GlobalConfigService
   ],
   controllers: [
     UserController,
