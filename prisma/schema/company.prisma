@@ -2032,7 +2032,7 @@ model SupplierTdsMapping {
     TaxExempt             String    @default("N") @db.Char(1)
     TransactionLimit      Decimal   @db.Decimal(8, 2)
     CertificateNo         String?   @db.VarChar(20)
-    CertificatePercentage Decimal?  @db.Decimal(2, 2)
+    CertificatePercentage Decimal?  @db.Decimal(4, 2)
     EffectiveFrom         DateTime  @db.Date
     EffectiveTo           DateTime  @db.Date
     ITSecCode             String?   @db.VarChar(20)
