@@ -1,9 +1,7 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
 import { GlobalConfigService } from 'src/common/config/master-config.service';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
-import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 
 @Injectable()
 export class VoyageService {
@@ -403,76 +401,5 @@ export class VoyageService {
             totalCount: validHeaders.length,
         };
     }
-
-   async searchList(params: SearchVesselDto) {
-    const { search = '', page = 1, pageSize = 10 } = params;
-    const skip = (page - 1) * pageSize;
-    const today = new Date().toISOString(); // Use full ISO-8601 DateTime format
-
-    const where: Prisma.VoyageMasterHeaderWhereInput = {
-        deletedAt: null,
-        voyageMasterDetail: {
-            some: {
-                deletedAt: null,
-                ETD: {
-                    gte: today
-                }
-            }
-        },
-        ...(search
-            ? {
-                OR: [
-                    { VoyageNo: { contains: search, mode: 'insensitive' } },
-                    { vesselMaster: { VesselName: { contains: search, mode: 'insensitive' } } },
-                    { voyageMasterDetail: { some: { portMasterPOL: { PortCode: { contains: search, mode: 'insensitive' } } } } },
-                    { voyageMasterDetail: { some: { portMasterPOL: { PortName: { contains: search, mode: 'insensitive' } } } } },
-                ]
-            }
-            : {}
-        )
-    };
-
-    const [items, totalCount] = await this._db.$transaction([
-        this._db.voyageMasterHeader.findMany({
-            where,
-            skip,
-            take: pageSize,
-            orderBy: { VoyageMasterHeaderSid: 'desc' },
-            include: {
-                vesselMaster: {
-                    select: {
-                        VesselName: true
-                    }
-                },
-                voyageMasterDetail: {
-                    where: {
-                        deletedAt: null
-                    },
-                    orderBy: {
-                        VoyageMasterDetailSid: 'asc'
-                    },
-                    include: {
-                        portMasterPOL: {
-                            select: {
-                                PortCode: true
-                            }
-                        },
-                        portMasterPOD: {
-                            select: {
-                                PortCode: true
-                            }
-                        }
-                    }
-                }
-            }
-        }),
-        this._db.voyageMasterHeader.count({ where })
-    ]);
-
-    return {
-        items,
-        totalCount
-    };
-}
 
 }

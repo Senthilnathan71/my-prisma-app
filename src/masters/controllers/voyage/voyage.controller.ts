@@ -3,7 +3,6 @@ import { ApiOperation, ApiCreatedResponse } from '@nestjs/swagger';
 import { UserData } from 'src/common/decorators/user.decorator';
 import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
-import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 import { VoyageService } from 'src/masters/services/voyage/voyage.service';
 
 @Controller('voyage')
@@ -164,10 +163,10 @@ export class VoyageController {
     })
     @HttpCode(HttpStatus.OK)
     @Post('search-list')
-    async searchList(@Body() searchParams:SearchVesselDto){
-        const resp=new ResponseData();
+    async searchVoyage(@Body() body:SearchListDto){
+        let resp=new ResponseData();
         try {
-            const res=await this.voyageService.searchList(searchParams);
+            let res=await this.voyageService.searchVoyage(body);
             this.logger.log(`Voyage Search Data : ${JSON.stringify(res)}`);
             resp.data=res;
             resp.message='Voyage Search is successfully fetched'
