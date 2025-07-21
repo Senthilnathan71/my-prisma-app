@@ -247,5 +247,29 @@ async searchCustomer(@Body() searchParams: SearchVesselDto) {
         }
         return output
     }
+    @ApiOperation({ summary: 'Get All Suppliers' })
+    @ApiCreatedResponse({
+        description: 'Get All Suppliers',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Get('suppliers')
+    async getAllSuppliers() {
+        let output = new ResponseData();
+        try {
+            let customerData = await this.customerService.getAllSuppliers();
+            this.logger.log(`getAllSuppliers: ${JSON.stringify(customerData)}`)
+            output.data = customerData;
+        } catch (error) {
+            this.logger.warn(`getAllSuppliers: ${JSON.stringify(error)}`)
+            output.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                output.message = error.message;
+            } else {
+                output.message = 'Internal Server Error';
+            }
+        }
+        return output
+    }
 
 }

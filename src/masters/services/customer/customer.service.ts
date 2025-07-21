@@ -288,4 +288,32 @@ export class CustomerService {
         }
     }
 
+    async getAllSuppliers() {
+        try {
+            const suppliers = ['vendor', 'transporter', 'agent'];
+            const allSuppliers = await this._db.customerMaster.findMany({
+                where: {
+                    OR: suppliers.map(type => ({
+                        CustomerType: {
+                            path: [type],
+                            equals: 'isTrue',
+                        },
+                    })),
+                    deletedAt: null,
+                },
+                include : {
+                    countryMaster :{
+                        select : {
+                            countryName : true
+                        }
+                    }
+                }
+            });
+
+            return allSuppliers;
+        } catch (error) {
+            throw error;
+        }
+    }
+
 }

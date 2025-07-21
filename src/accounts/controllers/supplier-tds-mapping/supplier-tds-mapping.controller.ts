@@ -7,6 +7,7 @@ import { UserData } from 'src/common/decorators/user.decorator';
 import { ResponseData } from 'src/common/response-data';
 import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 @Controller('supplier-tds-mapping')
+@Auth()
 export class SupplierTdsMappingController {
     constructor(private logger: Logger, private suppliertdsmappingService:SupplierTdsMappingService){}
 
@@ -44,10 +45,10 @@ export class SupplierTdsMappingController {
     })
     @HttpCode(HttpStatus.OK)
     @Post('create')
-    async createNewSupptdsMapping(@Body() newData: any) {
+    async createNewSupptdsMapping(@Body() newData: any,@UserData() user:any) {
         let resp = new ResponseData();
         try {
-            let res = await this.suppliertdsmappingService.createNewSupptdsMapping(newData);
+            let res = await this.suppliertdsmappingService.createNewSupptdsMapping(newData,user);
             this.logger.log(`New Supplier TDS Mapping Created : ${JSON.stringify(res)}`);
             resp.data = res;
             resp.message = "New Supplier TDS Mapping is successfully created"

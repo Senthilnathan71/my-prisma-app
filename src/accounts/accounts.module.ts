@@ -5,6 +5,7 @@ import { SupplierTdsMappingController } from './controllers/supplier-tds-mapping
 import { SupplierTdsMappingService } from './services/supplier-tds-mapping/supplier-tds-mapping.service';
 import { SubledgermasterController } from './controllers/subledgermaster/subledgermaster.controller';
 import { SubledgermasterService } from './services/subledgermaster/subledgermaster.service';
+import { GlobalConfigService } from 'src/common/config/master-config.service';
 
 @Module({
     controllers: [
@@ -14,6 +15,7 @@ import { SubledgermasterService } from './services/subledgermaster/subledgermast
     ],
     providers: [
         Logger,
+        GlobalConfigService,
         CoaService,
         SupplierTdsMappingService,
         SubledgermasterService

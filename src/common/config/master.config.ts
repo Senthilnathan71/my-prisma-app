@@ -13,7 +13,7 @@ export const MASTER_CONFIG = {
     },
     customer_master: {
         model: 'customerMaster',
-        select: { CustomerMasterSid: true, CustomerName: true, CustomerShortCode: true },
+        select: { CustomerMasterSid: true, CustomerName: true, CustomerShortCode: true, PanName : true,CountryMasterSid:true },
         companyKey: 'CompanyMasterSid',
         primaryKey: 'CustomerMasterSid',
     },
@@ -30,5 +30,31 @@ export const MASTER_CONFIG = {
         companyKey: 'CompanyMasterSid',
         primaryKey: 'VesselMasterSid',
     },
+
+    country_master: {
+        model: 'countryMaster',
+        select: { CountryMasterSid: true, countryName: true },
+        companyKey: 'CompanyMasterSid',
+        primaryKey: 'CountryMasterSid',
+    },
+    state_master: {
+        model: 'stateMaster',
+        select: { StateMasterSid: true, StateName: true },
+        companyKey: 'CompanyMasterSid',
+        primaryKey: 'StateMasterSid',
+    },
+    city_master: {
+        model: 'cityMaster',
+        select: { CityMasterSid: true, cityName: true },
+        companyKey: 'CompanyMasterSid',
+        primaryKey: 'CityMasterSid'
+    },
+
+    branch_bank : {
+        model : 'branchBank',
+        select: { BranchBankSid: true, BankName: true },
+        companyKey: 'CompanyMasterSid',
+        primaryKey: 'BranchBankSid'
+    }
 
 };
