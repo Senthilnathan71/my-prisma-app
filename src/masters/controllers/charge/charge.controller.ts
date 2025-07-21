@@ -1,5 +1,6 @@
 import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, Post, UnauthorizedException } from '@nestjs/common';
 import { ApiOperation, ApiCreatedResponse } from '@nestjs/swagger';
+import { Auth } from 'src/common/decorators/auth.decorator';
 import { UserData } from 'src/common/decorators/user.decorator';
 import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
@@ -7,6 +8,7 @@ import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 import { ChargeService } from 'src/masters/services/charge/charge.service';
 
 @Controller('charge')
+@Auth()
 export class ChargeController {
     constructor(private chargeService: ChargeService, private logger: Logger) { }
 
