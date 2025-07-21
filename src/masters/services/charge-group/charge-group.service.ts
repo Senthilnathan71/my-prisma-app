@@ -1,12 +1,13 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { GlobalConfigService } from 'src/common/config/master-config.service';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 
 @Injectable()
 export class ChargeGroupService {
-    constructor(private _db: DatabaseService) { }
+    constructor(private _db: DatabaseService,private globalConfigService:GlobalConfigService) { }
 
     async createNewChargeGroup(newData: any) {
         try {
@@ -108,44 +109,57 @@ export class ChargeGroupService {
     }
 
     async searchChargeGroups(params: SearchVesselDto) {
-  const { search = '', page = 1, pageSize = 10 } = params;
-  const skip = (page - 1) * pageSize;
+        const { search = '', page = 1, pageSize = 10 } = params;
+        const skip = (page - 1) * pageSize;
 
-  const where: Prisma.ChargeGroupWhereInput = {
-    deletedAt: null,
-    status: 'A',
-    ...(search
-      ? {
-          OR: [
-            { GroupName: { contains: search, mode: 'insensitive' } },
-            { Remarks: { contains: search, mode: 'insensitive' } },
-            { status: { contains: search, mode: 'insensitive' } },
-            { 
-              companyMaster: {
-                companyName: { contains: search, mode: 'insensitive' }
-              }
-            },
-          ],
-        } 
-      : {}),
-  };
+        const where: Prisma.ChargeGroupWhereInput = {
+            deletedAt: null,
+            status: 'A',
+            ...(search
+                ? {
+                    OR: [
+                        { GroupName: { contains: search, mode: 'insensitive' } },
+                        { Remarks: { contains: search, mode: 'insensitive' } },
+                        { status: { contains: search, mode: 'insensitive' } },
+                        {
+                            companyMaster: {
+                                companyName: { contains: search, mode: 'insensitive' }
+                            }
+                        },
+                    ],
+                }
+                : {}),
+        };
 
-  const [items, totalCount] = await this._db.$transaction([
-    this._db.chargeGroup.findMany({
-      where,
-      skip,
-      take: pageSize,
-      orderBy: { ChargeGroupSid: 'desc' },
-      include: {
-        companyMaster: true
-      }
-    }),
-    this._db.chargeGroup.count({ where }),
-  ]);
+        const [items, totalCount] = await this._db.$transaction([
+            this._db.chargeGroup.findMany({
+                where,
+                skip,
+                take: pageSize,
+                orderBy: { ChargeGroupSid: 'desc' },
+            }),
+            this._db.chargeGroup.count({ where }),
+        ]);
 
-  return {
-    items,
-    totalCount,
-  };
-}
+        // Enrich each item with master data
+        const enrichedItems = await Promise.all(
+            items.map(async (item) => {
+                const companyMaster = await this.globalConfigService.getMasterData(
+                    'company_master',
+                    item.CompanyMasterSid,
+                    item.CompanyMasterSid
+                );
+
+                return {
+                    ...item,
+                    companyMaster,
+                };
+            })
+        );
+
+        return {
+            items : [...enrichedItems],
+            totalCount,
+        };
+    }
 }
