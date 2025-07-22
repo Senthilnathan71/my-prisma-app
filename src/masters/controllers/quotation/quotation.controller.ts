@@ -3,13 +3,14 @@ import { ApiCreatedResponse, ApiOperation } from "@nestjs/swagger";
 import { Auth } from "src/common/decorators/auth.decorator";
 import { UserData } from "src/common/decorators/user.decorator";
 import { ResponseData } from "src/common/response-data";
+import { EmailService } from "src/email/email.service";
 import { SearchListDto } from "src/masters/DTO/search-list.dto";
 import { QuotationService } from "src/masters/services/quotation/quotation.service";
 
 @Controller('quotation')
 @Auth()
 export class QuotationController {
-    constructor(private quotationService: QuotationService, private logger: Logger) { }
+    constructor(private quotationService: QuotationService, private logger: Logger, private emailService: EmailService) { }
 
     @ApiOperation({ summary: 'Quotation' })
     @ApiCreatedResponse({
@@ -226,4 +227,39 @@ export class QuotationController {
         }
         return resp;
     }
+
+
+    @ApiOperation({ summary: 'Quotation Report' })
+    @ApiCreatedResponse({
+        description: 'Quotation Report Sent successfully',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Post('send/email')
+    async quotationReport(@Body() body: any, @UserData() user: any) {
+        let output = new ResponseData();
+        try {
+            let reportPayload = {
+                email: body.EmailTo,
+                cc: body.EmailCC,
+                subject: body.Subject,
+                html: body.Mailbody
+            }
+            let res = await this.emailService.sendReportEmail(reportPayload);
+            this.logger.log(`Quotation Report Sent Successfully : ${JSON.stringify(res)}`);
+            output.data = res;
+            output.message = "Quotation Report Sent successfully";
+        } catch (error) {
+            this.logger.warn(`Quotation Report Error : ${error}`)
+            output.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                output.message = error.message;
+            } else {
+                output.message = "Internal Server Error";
+            }
+        }
+        return output;
+    }
+
+
 }

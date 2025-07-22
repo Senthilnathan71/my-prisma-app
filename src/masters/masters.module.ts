@@ -130,6 +130,7 @@ import { HawbStockController } from './controllers/hawb-stock/hawb-stock.control
 import { GlobalConfigService } from 'src/common/config/master-config.service';
 import { ChargeTdsService } from './services/charge-tds/charge-tds.service';
 import { ChargeTdsController } from './controllers/charge-tds/charge-tds.controller';
+import { EmailService } from 'src/email/email.service';
 
 @Module({
   providers: [
@@ -198,7 +199,8 @@ import { ChargeTdsController } from './controllers/charge-tds/charge-tds.control
     TdsDetailService,
     TdsExemptionService,
     GlobalConfigService,
-    ChargeTdsService
+    ChargeTdsService,
+    EmailService
   ],
   controllers: [
     UserController,
