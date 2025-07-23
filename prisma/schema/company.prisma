@@ -883,6 +883,8 @@ model QuoteHeader {
     CustomerApprovedBy  String?   @db.VarChar(20)
     CustomerApprovedOn  DateTime?
     Email               String?   @db.VarChar(200)
+    ClearanceBy         String?   @db.VarChar(200)
+    TransportBy         String?   @db.VarChar(200)
     createdOn           DateTime  @default(now()) @db.Timestamptz(6)
     updatedOn           DateTime? @updatedAt @db.Timestamptz(6)
     deletedAt           DateTime?
