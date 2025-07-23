@@ -11,6 +11,35 @@ export class ChargeService {
 
     async createCharge(payload: any, user) {
         const { chargeTaxMaster, chargeTds, ...chargeData } = payload;
+        const existing = await this._db.chargeMaster.findFirst({
+            where: {
+                OR: [
+                    {
+                        chargeName: {
+                            equals: payload.chargeName.trim(),
+                            mode: 'insensitive',
+                        }
+                    },
+                    {
+                        chargeCode: {
+                            equals: payload.chargeCode.trim(),
+                            mode: 'insensitive',
+                        }
+                    }
+                ]
+            },
+        });
+
+        if (existing) {
+            if (existing.chargeName === payload.chargeName) {
+                throw new BadRequestException('Charge name already exists');
+            }
+            if (existing.chargeCode === payload.chargeCode) {
+                throw new BadRequestException('Charge code already exists');
+            }
+        }
+        
+
 
         return this._db.$transaction(async (prisma) => {
             // 1. Create ChargeMaster
@@ -102,8 +131,21 @@ export class ChargeService {
         try {
             return await this._db.chargeMaster.findUnique({
                 where: {
-                    ChargeMasterSid: ChargeMasterSid
+                    ChargeMasterSid: ChargeMasterSid,
+                    
                 },
+                include : {
+                    chargeTaxMaster : {
+                        where : {
+                            deletedAt : null
+                        }
+                    },
+                    chargeTds : {
+                        where : {
+                            deletedAt : null
+                        }
+                    }
+                }
             });
         } catch (error) {
             throw error;
@@ -115,30 +157,42 @@ export class ChargeService {
         const { chargeTaxMaster, chargeTds, ...chargeData } = payload;
 
         // Check for duplicates
-        const duplicate = await this._db.chargeMaster.findFirst({
+       const duplicate = await this._db.chargeMaster.findFirst({
             where: {
-                AND: [
+                AND:[
                     {
-                        ChargeMasterSid: { not: ChargeMasterSid },
-                    },
-                    {
-                        OR: [
-                            { chargeName: { equals: payload.chargeName.trim(), mode: 'insensitive' } },
-                            { chargeCode: { equals: payload.chargeCode.trim(), mode: 'insensitive' } },
-                        ]
-                    },
-                ],
+                ChargeMasterSid: {
+                    not: ChargeMasterSid,
             },
+        },
+        {
+            OR:[
+                {
+                    chargeName: {
+                            equals: payload.chargeName.trim(),
+                            mode: 'insensitive',
+                        },
+                },
+                {
+                    chargeCode: {
+                            equals: payload.chargeCode.trim(),
+                            mode: 'insensitive',
+                        },
+                },
+            ]
+        },
+    ],
+},
         });
-
         if (duplicate) {
-            if (duplicate.chargeName === payload.chargeName) {
-                throw new BadRequestException('Charge name already exists');
-            }
-            if (duplicate.chargeCode === payload.chargeCode) {
-                throw new BadRequestException('Charge code already exists');
-            }
-        }
+  if (duplicate.chargeName === payload.chargeName) {
+    throw new BadRequestException('Sector name already exists');
+  }
+  if (duplicate.chargeCode === payload.chargeCode) {
+    throw new BadRequestException('Sector code already exists');
+  }
+}
+
 
         return this._db.$transaction(async (prisma) => {
             // 1. Update ChargeMaster
@@ -243,21 +297,64 @@ export class ChargeService {
             { chargeName: { contains: search, mode: 'insensitive' } },
             { chargeCode: { contains: search, mode: 'insensitive' } },
             { Status: { contains: search, mode: 'insensitive' } },
+            {
+                chargeTaxMaster: {
+                    some: {
+                        HSNCode: { contains: search, mode: 'insensitive' }
+                    }
+                }
+            },
+             { 
+                chargeTds: {
+                    some: {
+                        tdsSetHeader: {
+                            TDSSetName: { contains: search, mode: 'insensitive' }
+                        }
+                    }
+                }
+            }
         ];
     }
 
-    const [items, totalCount] = await this._db.$transaction([	
+    const [items, totalCount] = await this._db.$transaction([
         this._db.chargeMaster.findMany({
             where,
             skip,
             take: pageSize,
+            include: {
+                chargeTaxMaster: {
+                    where: {
+                        deletedAt: null
+                    },
+                    select: {
+                        HSNCode: true
+                    },
+                    take: 1 // Get just one HSN code if multiple exist
+                },
+                chargeTds: {
+                    where: {
+                        deletedAt: null
+                    },
+                    select: {
+                        tdsSetHeader: true 
+                    },
+                    take: 1 // Get just one TDS Set if multiple exist
+                }
+            },
             orderBy: { ChargeMasterSid: 'desc' },
         }),
         this._db.chargeMaster.count({ where }),
     ]);
 
+    // Format the response to include HSN and TDS Set from related tables
+    const formattedItems = items.map(item => ({
+        ...item,
+        hsnCode: item.chargeTaxMaster[0]?.HSNCode || null,
+        tdsSet: item.chargeTds[0]?.tdsSetHeader || null
+    }));
+ 
     return {
-        items,
+        items: formattedItems,
         totalCount,
     };
 }
