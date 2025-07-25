@@ -2,6 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import * as fs from 'fs';
+import { json, urlencoded } from 'express';
 
 async function bootstrap() {
   // const httpsOptions = {
@@ -33,7 +34,8 @@ async function bootstrap() {
     ); */
 
   app.enableCors();
-
+  app.use(json({ limit: '200mb' }));
+  app.use(urlencoded({ extended: true, limit: '200mb' }));
   // swagger setup
   const options = new DocumentBuilder()
     .setTitle('CRM-MOBILE-API')
