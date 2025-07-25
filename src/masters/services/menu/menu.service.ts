@@ -90,15 +90,35 @@ export class MenuService {
         }
     }
 
-
-
+    async getMainMenus() {
+    try {
+        return await this._db.menuMaster.findMany({
+            where: {
+                parentId: null,  
+                deletedAt: null,
+                   
+            },
+            select: {
+                MenuMasterSid: true,
+                MenuName: true,
+                MenuCode: true
+            },
+            orderBy: {
+                MenuName: 'asc'  // Alphabetical order
+            }
+        });
+    } catch (error) {
+        throw error;
+    }
+}
     async getAllMenus() {
         try {
             const menuList = await this._db.menuMaster.findMany({
                 where: {
                     deletedAt: null
-                }
+                },
             })
+        
             return menuList;
         } catch (error) {
             throw error
@@ -154,7 +174,10 @@ export class MenuService {
                 where: {
                     MenuMasterSid: menuMasterSid
                 },
-                data: menuPayload
+                data: {
+                    ...menuPayload,
+                    parentId: menuPayload.parentId || null 
+                }
             });
 
             let allPermissions :any[] = [];

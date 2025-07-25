@@ -83,10 +83,17 @@ export class EmailService {
             const mailOptions: any = {
                 from: '"Dofi-Infosys" <noreply@dofi.co>',
                 to: data.email,
+                cc: data.cc,
                 subject: data.subject,
-                html: data.html
+                html: data.html,
+                attachments: [
+                    {
+                        filename: data.file.originalname,
+                        content: data.file.buffer,
+                        contentType: data.file.mimetype,
+                    }
+                ]
             };
-
             const info = await this.transporter.sendMail(mailOptions);
             this.logger.log(`sendEmail: ${JSON.stringify(info)}`);
             return true;

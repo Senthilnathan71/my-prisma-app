@@ -1,4 +1,5 @@
-import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, Post, UnauthorizedException } from "@nestjs/common";
+import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, Post, UnauthorizedException, UploadedFile, UseInterceptors } from "@nestjs/common";
+import { FileInterceptor } from "@nestjs/platform-express";
 import { ApiCreatedResponse, ApiOperation } from "@nestjs/swagger";
 import { Auth } from "src/common/decorators/auth.decorator";
 import { UserData } from "src/common/decorators/user.decorator";
@@ -235,16 +236,19 @@ export class QuotationController {
         type: ResponseData
     })
     @HttpCode(HttpStatus.OK)
+    @UseInterceptors(FileInterceptor('file'))
     @Post('send/email')
-    async quotationReport(@Body() body: any, @UserData() user: any) {
+    async quotationReport(@UploadedFile() file: Express.Multer.File,
+        @Body() body: any, @UserData() user: any) {
         let output = new ResponseData();
         try {
-            let reportPayload = {
+            const reportPayload = {
                 email: body.EmailTo,
                 cc: body.EmailCC,
                 subject: body.Subject,
-                html: body.Mailbody
-            }
+                html: body.Mailbody,
+                file, // this is the PDF file from FormData
+            };
             let res = await this.emailService.sendReportEmail(reportPayload);
             this.logger.log(`Quotation Report Sent Successfully : ${JSON.stringify(res)}`);
             output.data = res;
