@@ -51,7 +51,8 @@ export class CustomerBranchService {
         try {
             const ourCustomerBranch = await this._db.customerBranch.findMany({
                 where: {
-                    CustomerMasterSid: CustomerMasterId
+                    CustomerMasterSid: CustomerMasterId,
+                    deletedAt : null
                 }
             })
             if (!ourCustomerBranch) {

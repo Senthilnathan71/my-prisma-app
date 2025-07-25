@@ -1,10 +1,11 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { GlobalConfigService } from 'src/common/config/master-config.service';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 @Injectable()
 export class SupplierTdsMappingService {
-    constructor(private _db:DatabaseService){}
+    constructor(private _db:DatabaseService,private globalConfigService : GlobalConfigService){}
 
     async getAllSupptdsMapping(){
         try {
@@ -20,11 +21,13 @@ export class SupplierTdsMappingService {
         }
     }
 
-     async createNewSupptdsMapping(payload){
+     async createNewSupptdsMapping(payload,user){
         try {
+            const CompanyMasterSid = user.userBranchMaster[0].CompanyMasterSid;
             const createdSupptdsMapping = await this._db.supplierTdsMapping.create({
                 data :{
                     ...payload,
+                    CompanyMasterSid : CompanyMasterSid
                 }
             })
             return createdSupptdsMapping;
@@ -38,6 +41,11 @@ export class SupplierTdsMappingService {
             const ourSupplierTDSMapping =await this._db.supplierTdsMapping.findUnique({
                 where : {
                     SupplierTdsMappingSid:SupplierTdsMappingSid
+                },
+                include : {
+                    customerMaster : {
+                        include : { countryMaster : { select : { countryName : true } } }
+                    }
                 }
             })
             if(!ourSupplierTDSMapping){
@@ -99,40 +107,166 @@ export class SupplierTdsMappingService {
         }
     }
 
-      async searchSuppliertdsMapping(params: SearchVesselDto) {
+    // async searchSuppliertdsMapping(params: SearchVesselDto) {
+    //     const { search = '', page = 1, pageSize = 10 } = params;
+    //     const skip = (page - 1) * pageSize;
+
+    //     const where: Prisma.SupplierTdsMappingWhereInput = {
+    //         deletedAt: null,
+    //         Status: 'A',
+    //         ...(search
+    //             ? {
+    //                 OR: [
+    //                     {
+    //                         customerMaster: {
+    //                             CustomerName: { contains: search, mode: 'insensitive' },
+    //                             OR: [
+    //                                 { CustomerType: { path: ['supplier'], equals: 'isTrue' } },
+    //                                 { CustomerType: { path: ['transporter'], equals: 'isTrue' } },
+    //                                 { CustomerType: { path: ['agent'], equals: 'isTrue' } },
+    //                             ],
+    //                         },
+    //                     },
+    //                     {
+    //                         customerMaster: { PanName: { contains: search, mode: 'insensitive' } },
+    //                     },
+    //                     {
+    //                         customerMaster: { CompanyType : { contains: search, mode: 'insensitive' } },
+    //                     },
+    //                     {
+    //                         customerMaster: { countryMaster: { countryName: { contains: search, mode: 'insensitive' } } },
+    //                     },
+    //                 ],
+    //             }
+    //             : {}),
+    //     };
+
+    //     const [items, totalCount] = await this._db.$transaction([
+    //         this._db.supplierTdsMapping.findMany({
+    //             where,
+    //             skip,
+    //             take: pageSize,
+    //             orderBy: { SupplierTdsMappingSid: 'desc' },
+                
+    //         }),
+    //         this._db.supplierTdsMapping.count({ where }),
+    //     ]);
+
+    //     // Enrich each item with master data using GlobalConfigService
+    //     const enrichedItems = await Promise.all(
+    //         items.map(async (item) => {
+    //             const customer = await this.globalConfigService.getMasterData(
+    //                 'customer_master',
+    //                 item.CustomerMasterSid,
+    //                 item.CompanyMasterSid
+    //             );
+
+    //             const country = item.CountryMasterSid
+    //                 ? await this.globalConfigService.getMasterData(
+    //                     'country_master',
+    //                     item.CountryMasterSid,
+    //                     item.CompanyMasterSid
+    //                 )
+    //                 : null;
+
+    //             return {
+    //                 ...item,
+    //                 customerMaster: customer,
+    //                 countryMaster: country,
+    //             };
+    //         })
+    //     );
+
+
+    //     return {
+    //         items,
+    //         totalCount,
+    //     };
+    // }
+
+    async searchSuppliertdsMapping(params: SearchVesselDto) {
     const { search = '', page = 1, pageSize = 10 } = params;
     const skip = (page - 1) * pageSize;
 
     const where: Prisma.SupplierTdsMappingWhereInput = {
         deletedAt: null,
         Status: 'A',
-        ...(search 
+        ...(search
             ? {
-                OR: [ 
-                    // { ClauseDescription: { contains: search, mode: 'insensitive' } },
-                    // { Keyword: { contains: search, mode: 'insensitive' } },
-                    // { status: { contains: search, mode: 'insensitive' } },
-                 
-                ]
-            } 
-            : {})
+                OR: [
+                    {
+                        customerMaster: {
+                            CustomerName: { contains: search, mode: 'insensitive' },
+                            OR: [
+                                { CustomerType: { path: ['supplier'], equals: 'isTrue' } },
+                                { CustomerType: { path: ['transporter'], equals: 'isTrue' } },
+                                { CustomerType: { path: ['agent'], equals: 'isTrue' } },
+                            ],
+                        },
+                    },
+                    {
+                        customerMaster: { PanName: { contains: search, mode: 'insensitive' } },
+                    },
+                    {
+                        customerMaster: { CompanyType: { contains: search, mode: 'insensitive' } },
+                    },
+                    {
+                        customerMaster: { countryMaster: { countryName: { contains: search, mode: 'insensitive' } } },
+                    },
+                ],
+            }
+            : {}),
     };
 
-    const [items, totalCount] = await this._db.$transaction([
-        this._db.supplierTdsMapping.findMany({
-            where,
-            skip,
-            take: pageSize,
-            orderBy: { SupplierTdsMappingSid: 'desc' },
-        }),
-        this._db.supplierTdsMapping.count({ where }),
-    ]);
+        const [items, totalCount] = await this._db.$transaction([
+            this._db.supplierTdsMapping.findMany({
+                where,
+                skip,
+                take: pageSize,
+                orderBy: { SupplierTdsMappingSid: 'desc' },
+                // include : {
+                //     customerMaster : {
+                //         include : {
+                //             countryMaster : {
+                //                 select : {
+                //                     countryName : true
+                //                 }
+                //             }
+                //         }
+                //     }
+                // }
+            }),
+            this._db.supplierTdsMapping.count({ where }),
+        ]);
 
-    return {
-        items,
-        totalCount,
-    };
-}
+        //  New global config included here
+        const enrichedItems = await Promise.all(
+            items.map(async (item) => {
+                const customer = await this.globalConfigService.getMasterData(
+                    'customer_master',
+                    item.CustomerMasterSid
+                );
+                
+                const country = await this.globalConfigService.getMasterData(
+                    'country_master',
+                    customer.CountryMasterSid
+                )
+                  await this._db.countryMaster
+                return {
+                    ...item,
+                    customerMaster: {
+                        ...customer,
+                        countryMaster : {
+                            ...country
+                        }
+                    }
+                };
+            })
+        );
 
- 
+        return {
+            items: enrichedItems,
+            totalCount,
+        };
+    }
 }

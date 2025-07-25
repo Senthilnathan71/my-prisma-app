@@ -101,23 +101,58 @@ export class SubledgermasterService {
     }
 
 
-    async searchSubledgerMaster(params: SearchVesselDto) {
+   async searchSubledgerMaster(params: SearchVesselDto) {
     const { search = '', page = 1, pageSize = 10 } = params;
     const skip = (page - 1) * pageSize;
 
     const where: Prisma.SubledgerMasterWhereInput = {
-        deletedAt: null,
-        Status: 'A',
-        ...(search 
-            ? {
-                OR: [ 
-                    // { ClauseDescription: { contains: search, mode: 'insensitive' } },
-                    // { Keyword: { contains: search, mode: 'insensitive' } },
-                    // { status: { contains: search, mode: 'insensitive' } },
-                    {SubledgerName:{ contains: search, mode: 'insensitive' }},
-                ]
-            } 
-            : {})
+    deletedAt: null,
+    Status: 'A',
+    ...(search.trim() ? {
+        OR: [
+            { CoaMaster: { LedgerCode: { contains: search, mode: 'insensitive' } } },
+            { CoaMaster: { LedgerName: { contains: search, mode: 'insensitive' } } },
+            { 
+                CoaMaster: { 
+                    CompanyMaster: { 
+                        branchMaster: { 
+                            some: {
+                                branchName: { contains: search, mode: 'insensitive' } 
+                            } 
+                        } 
+                    } 
+                } 
+            },
+            { 
+                CoaMaster: { 
+                    CurrencyMaster: { 
+                        currencyName: { contains: search, mode: 'insensitive' } 
+                    } 
+                } 
+            },
+        ]
+    } : {})
+};
+
+    const include = {
+        CoaMaster: {
+            include: {
+                CompanyMaster: {
+                    include: {
+                        branchMaster: {
+                            select: {
+                                branchName: true
+                            }
+                        }
+                    }
+                },
+                CurrencyMaster: {
+                    select: {
+                        currencyName: true
+                    }
+                }
+            }
+        }
     };
 
     const [items, totalCount] = await this._db.$transaction([
@@ -126,6 +161,7 @@ export class SubledgermasterService {
             skip,
             take: pageSize,
             orderBy: { SubledgerMasterSid: 'desc' },
+            include
         }),
         this._db.subledgerMaster.count({ where }),
     ]);
@@ -133,6 +169,9 @@ export class SubledgermasterService {
     return {
         items,
         totalCount,
+        totalPages: Math.ceil(totalCount / pageSize),
+        currentPage: page,
+        pageSize
     };
 }
 }

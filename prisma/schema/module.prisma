@@ -39,6 +39,7 @@ model MenuMaster {
     MenuCode        String    @db.Char(3)
     MenuName        String    @db.VarChar(50)
     ModuleMasterSid Int
+    parentId        Int?
     ModuleName      String    @db.VarChar(50)
     path            String?   @db.VarChar(50)
     icon            String?   @db.VarChar(50)

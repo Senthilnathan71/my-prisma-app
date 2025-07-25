@@ -10,9 +10,7 @@ export class ChargeService {
 
 
     async createCharge(payload: any, user) {
-        this.logger.warn(`createCharge: ${payload}`);
-
-
+        const { chargeTaxMaster, chargeTds, ...chargeData } = payload;
         const existing = await this._db.chargeMaster.findFirst({
             where: {
                 OR: [
@@ -40,20 +38,66 @@ export class ChargeService {
                 throw new BadRequestException('Charge code already exists');
             }
         }
+        
 
-        try {
-            const Charge = await this._db.chargeMaster.create({
+
+        return this._db.$transaction(async (prisma) => {
+            // 1. Create ChargeMaster
+            const charge = await prisma.chargeMaster.create({
                 data: {
-                    ...payload,
-                }
+                    ...chargeData,
+                    createdBy: payload.createdBy,
+                    updatedBy: payload.createdBy, // Add updatedBy
+                    CompanyMasterSid: user.userBranchMaster[0].CompanyMasterSid, // Add CompanyMasterSid
+                    Status: 'A',
+                },
             });
 
-            return Charge;
-        } catch (error) {
-            throw new Error(`Error creating Charge: ${error.message}`);
-        }
-    }
+            // 2. Create ChargeTaxMaster if provided
+            const createdChargeTaxes: any[] = [];
+            if (payload.chargeTaxMaster) {
+                const chargeTaxPayload = payload.chargeTaxMaster.map(chargeTax => ({
+                    HSNCode: chargeTax.HSNCode,
+                    description: chargeTax.description,
+                    TaxGroup: chargeTax.TaxGroup,
+                    TaxRate: chargeTax.TaxRate,
+                    CreatedBy: payload.createdBy,
+                    UpdatedBy: payload.createdBy, // Ensure updatedBy is set
+                    Status: chargeTax.Status,
+                    CompanyMasterSid: user.userBranchMaster[0].CompanyMasterSid,
+                    chargeTaxMasterSid: charge.ChargeMasterSid,
+                    
+                }));
+                const newlyCreated = await prisma.chargeTaxMaster.createManyAndReturn({
+                    data: chargeTaxPayload,
+                });
+                createdChargeTaxes.push(...newlyCreated);
+            }
 
+            // 3. Create ChargeTds if provided
+            const createdChargeTds: any[] = [];
+            if (payload.chargeTds) {
+                const chargeTdsPayload = payload.chargeTds.map(chargeTds => ({
+                    ChargeMasterSid: charge.ChargeMasterSid,
+                    TDSSet: chargeTds.TDSSet,
+                    EffectiveFrom: chargeTds.EffectiveFrom,
+                    createdBy: payload.createdBy,
+                    updatedBy: payload.createdBy, // Add updatedBy
+                
+                }));
+                const newlyCreated = await prisma.chargeTds.createManyAndReturn({
+                    data: chargeTdsPayload,
+                });
+                createdChargeTds.push(...newlyCreated);
+            }
+
+            return {
+                charge,
+                chargeTaxMaster: createdChargeTaxes,
+                chargeTds: createdChargeTds,
+            };
+        });
+    }
 
     async getAllCharges() {
         try {
@@ -87,8 +131,21 @@ export class ChargeService {
         try {
             return await this._db.chargeMaster.findUnique({
                 where: {
-                    ChargeMasterSid: ChargeMasterSid
+                    ChargeMasterSid: ChargeMasterSid,
+                    
                 },
+                include : {
+                    chargeTaxMaster : {
+                        where : {
+                            deletedAt : null
+                        }
+                    },
+                    chargeTds : {
+                        where : {
+                            deletedAt : null
+                        }
+                    }
+                }
             });
         } catch (error) {
             throw error;
@@ -97,8 +154,10 @@ export class ChargeService {
 
 
     async updateCharge(ChargeMasterSid: number, payload: any, user) {
+        const { chargeTaxMaster, chargeTds, ...chargeData } = payload;
 
-        const duplicate = await this._db.chargeMaster.findFirst({
+        // Check for duplicates
+       const duplicate = await this._db.chargeMaster.findFirst({
             where: {
                 AND:[
                     {
@@ -134,21 +193,72 @@ export class ChargeService {
   }
 }
 
-        
-        
 
-        try {
-            const Charge = await this._db.chargeMaster.update({
-                where: {
-                    ChargeMasterSid: ChargeMasterSid
-                }, data: payload
+        return this._db.$transaction(async (prisma) => {
+            // 1. Update ChargeMaster
+            const charge = await prisma.chargeMaster.update({
+                where: { ChargeMasterSid: ChargeMasterSid },
+                data: {
+                    ...chargeData,
+                    updatedBy: payload.updatedBy || user.userId,
+                },
             });
-            return Charge;
-        } catch (error) {
-            throw new Error(`Error updating Charge: ${error.message}`);
-        }
-    }
 
+            // 2. Handle ChargeTaxMaster updates
+            const updatedChargeTaxes: any[] = [];
+            if (chargeTaxMaster && chargeTaxMaster.length > 0) {
+                // Delete existing tax records
+                await prisma.chargeTaxMaster.deleteMany({
+                    where: { chargeTaxMasterSid: ChargeMasterSid }
+                });
+
+                // Create new tax records
+                const chargeTaxPayload = chargeTaxMaster.map(chargeTax => ({
+                    HSNCode: chargeTax.HSNCode,
+                    description: chargeTax.description,
+                    TaxGroup: chargeTax.TaxGroup,
+                    TaxRate: chargeTax.TaxRate,
+                    CreatedBy: payload.updatedBy || user.userId,
+                    UpdatedBy: payload.updatedBy || user.userId,
+                    Status: chargeTax.Status,
+                    CompanyMasterSid: user.userBranchMaster[0].CompanyMasterSid,
+                    chargeTaxMasterSid: ChargeMasterSid,
+                }));
+                const newlyCreated = await prisma.chargeTaxMaster.createManyAndReturn({
+                    data: chargeTaxPayload,
+                });
+                updatedChargeTaxes.push(...newlyCreated);
+            }
+
+            // 3. Handle ChargeTds updates
+            const updatedChargeTds: any[] = [];
+            if (chargeTds && chargeTds.length > 0) {
+                // Delete existing TDS records
+                await prisma.chargeTds.deleteMany({
+                    where: { ChargeMasterSid: ChargeMasterSid }
+                });
+
+                // Create new TDS records
+                const chargeTdsPayload = chargeTds.map(chargeTds => ({
+                    ChargeMasterSid: ChargeMasterSid,
+                    TDSSet: chargeTds.TDSSet,
+                    EffectiveFrom: chargeTds.EffectiveFrom,
+                    createdBy: payload.updatedBy || user.userId,
+                    updatedBy: payload.updatedBy || user.userId,
+                }));
+                const newlyCreated = await prisma.chargeTds.createManyAndReturn({
+                    data: chargeTdsPayload,
+                });
+                updatedChargeTds.push(...newlyCreated);
+            }
+
+            return {
+                charge,
+                chargeTaxMaster: updatedChargeTaxes,
+                chargeTds: updatedChargeTds,
+            };
+        });
+    }
 
 
 
@@ -187,6 +297,22 @@ export class ChargeService {
             { chargeName: { contains: search, mode: 'insensitive' } },
             { chargeCode: { contains: search, mode: 'insensitive' } },
             { Status: { contains: search, mode: 'insensitive' } },
+            {
+                chargeTaxMaster: {
+                    some: {
+                        HSNCode: { contains: search, mode: 'insensitive' }
+                    }
+                }
+            },
+             { 
+                chargeTds: {
+                    some: {
+                        tdsSetHeader: {
+                            TDSSetName: { contains: search, mode: 'insensitive' }
+                        }
+                    }
+                }
+            }
         ];
     }
 
@@ -195,13 +321,40 @@ export class ChargeService {
             where,
             skip,
             take: pageSize,
+            include: {
+                chargeTaxMaster: {
+                    where: {
+                        deletedAt: null
+                    },
+                    select: {
+                        HSNCode: true
+                    },
+                    take: 1 // Get just one HSN code if multiple exist
+                },
+                chargeTds: {
+                    where: {
+                        deletedAt: null
+                    },
+                    select: {
+                        tdsSetHeader: true 
+                    },
+                    take: 1 // Get just one TDS Set if multiple exist
+                }
+            },
             orderBy: { ChargeMasterSid: 'desc' },
         }),
         this._db.chargeMaster.count({ where }),
     ]);
 
+    // Format the response to include HSN and TDS Set from related tables
+    const formattedItems = items.map(item => ({
+        ...item,
+        hsnCode: item.chargeTaxMaster[0]?.HSNCode || null,
+        tdsSet: item.chargeTds[0]?.tdsSetHeader || null
+    }));
+ 
     return {
-        items,
+        items: formattedItems,
         totalCount,
     };
 }

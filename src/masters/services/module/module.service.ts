@@ -124,205 +124,451 @@ export class ModuleService {
     const { search = '', page = 1, pageSize = 10 } = params;
     const skip = (page - 1) * pageSize;
 
-    const where: Prisma.ModuleMasterWhereInput  = {
-        deletedAt: null,
-        ...(search
-            ? {
-                OR: [
-                    { ModuleName: { contains: search, mode: 'insensitive' } },
-                    { ModuleCode: { contains: search, mode: 'insensitive' } },
-                    { Remarks: { contains: search, mode: 'insensitive' } },
-                    { status: { contains: search, mode: 'insensitive' } },
-                ],
-            }
-            : {}
-        ),
+    const where: Prisma.ModuleMasterWhereInput = {
+      deletedAt: null,
+      ...(search
+        ? {
+          OR: [
+            { ModuleName: { contains: search, mode: 'insensitive' } },
+            { ModuleCode: { contains: search, mode: 'insensitive' } },
+            { Remarks: { contains: search, mode: 'insensitive' } },
+            { status: { contains: search, mode: 'insensitive' } },
+          ],
+        }
+        : {}
+      ),
     };
 
     const [items, totalCount] = await this._db.$transaction([
-        this._db.moduleMaster.findMany({
-            where,
-            skip,
-            take: pageSize,
-            include: {
-                menuMaster: true,
-            },
-            orderBy: { ModuleMasterSid: 'desc' },
-        }),
-        this._db.moduleMaster.count({ where }),
+      this._db.moduleMaster.findMany({
+        where,
+        skip,
+        take: pageSize,
+        include: {
+          menuMaster: true,
+        },
+        orderBy: { ModuleMasterSid: 'desc' },
+      }),
+      this._db.moduleMaster.count({ where }),
     ]);
 
     return {
-        items,
-        totalCount,
+      items,
+      totalCount,
     };
-}
+  }
 
 
 
 
 
 
- async getModulesWithMenusByRoles(user): Promise<RouteInfo[]> {
-  try {
-    const roleIds = user.userRoleMaster.map(role => role.RoleMasterSid);
+  // async getModulesWithMenusByRoles(user): Promise<RouteInfo[]> {
+  //   try {
+  //     const roleIds = user.userRoleMaster.map(role => role.RoleMasterSid);
 
-    if (!roleIds.length) {
-      throw new Error('No roles found for this user.');
-    }
+  //     if (!roleIds.length) {
+  //       throw new Error('No roles found for this user.');
+  //     }
 
-    const roleMenus = await this._db.roleMenuMaster.findMany({
-      where: {
-        RoleMasterSid: { in: roleIds }
-      },
-      select: {
-        menuMaster: {
-          select: {
-            path: true,
-            MenuMasterSid: true,
-            MenuName: true,
-            icon: true,
-            // Optional: include Sortorder if you prefer DB-based sorting
-            // Sortorder: true,
-            moduleMaster: {
-              select: {
-                ModuleMasterSid: true,
-                ModuleName: true,
-                icon: true
+  //     const roleMenus = await this._db.roleMenuMaster.findMany({
+  //       where: {
+  //         RoleMasterSid: { in: roleIds }
+  //       },
+  //       select: {
+  //         menuMaster: {
+  //           select: {
+  //             path: true,
+  //             MenuMasterSid: true,
+  //             MenuName: true,
+  //             icon: true,
+  //             // Optional: include Sortorder if you prefer DB-based sorting
+  //             // Sortorder: true,
+  //             moduleMaster: {
+  //               select: {
+  //                 ModuleMasterSid: true,
+  //                 ModuleName: true,
+  //                 icon: true
+  //               }
+  //             }
+  //           }
+  //         }
+  //       }
+  //     });
+
+  //     const flatMenus = roleMenus
+  //       .map(r => r.menuMaster)
+  //       .filter(m => m && m.moduleMaster);
+
+  //     const grouped: { [key: string]: RouteInfo } = {};
+
+  //     flatMenus.forEach(menu => {
+  //       const moduleName = menu.moduleMaster.ModuleName;
+
+  //       if (!grouped[moduleName]) {
+  //         grouped[moduleName] = {
+  //           path: '',
+  //           id: menu.moduleMaster.ModuleMasterSid,
+  //           title: moduleName,
+  //           icon: menu.moduleMaster.icon || '',
+  //           class: '',
+  //           extralink: false,
+  //           label: '',
+  //           labelClass: '',
+  //           submenu: []
+  //         };
+  //       }
+
+  //       grouped[moduleName].submenu.push({
+  //         path: menu.path || '',
+  //         id: menu.MenuMasterSid,
+  //         title: menu.MenuName,
+  //         icon: menu.icon || '',
+  //         class: '',
+  //         extralink: false,
+  //         label: '',
+  //         labelClass: '',
+  //         submenu: []
+  //       });
+  //     });
+
+  //     // Custom order for CRM submenu
+  //     const crmMenuOrder = [
+  //       'Lead',
+  //       'Lead Schedule Pending',
+  //       'Calendar',
+  //       'Meeting Update',
+  //       'Rate Request',
+  //       'Quotation',
+  //       'Todo'
+  //     ];
+
+  //     const sortedModules = Object.values(grouped)
+  //       .map(module => {
+  //         const normalize = (s: string) => s.trim().toLowerCase();
+
+  //         const sortedSubmenu = module.title === 'CRM'
+  //           ? module.submenu.sort((a, b) => {
+  //             const orderA = crmMenuOrder.map(normalize).indexOf(normalize(a.title));
+  //             const orderB = crmMenuOrder.map(normalize).indexOf(normalize(b.title));
+  //             return (orderA === -1 ? 999 : orderA) - (orderB === -1 ? 999 : orderB);
+  //           })
+  //           : module.submenu.sort((a, b) => a.title.localeCompare(b.title));
+
+  //         return {
+  //           ...module,
+  //           submenu: sortedSubmenu
+  //         };
+  //       })
+  //       .sort((a, b) => a.title.localeCompare(b.title)); // Sort modules alphabetically
+
+  //     return sortedModules;
+  //   } catch (error) {
+  //     console.error('Error fetching menus by roles:', error.message);
+  //     return []; // ✅ Ensures function always returns a value
+  //   }
+  // }
+
+
+  async getModulesWithMenusByRoles(user): Promise<RouteInfo[]> {
+    try {
+      const roleIds = user.userRoleMaster.map(role => role.RoleMasterSid);
+
+      if (!roleIds.length) {
+        throw new Error('No roles found for this user.');
+      }
+
+      const roleMenus = await this._db.roleMenuMaster.findMany({
+        where: {
+          RoleMasterSid: { in: roleIds }
+        },
+        select: {
+          menuMaster: {
+            select: {
+              MenuMasterSid: true,
+              MenuName: true,
+              path: true,
+              icon: true,
+              parentId: true,
+              moduleMaster: {
+                select: {
+                  ModuleMasterSid: true,
+                  ModuleName: true,
+                  icon: true
+                }
               }
             }
           }
         }
+      });
+
+      const flatMenus = roleMenus
+        .map(r => r.menuMaster)
+        .filter(m => m && m.moduleMaster);
+
+      // Group menus by module
+      const moduleMap = new Map<number, RouteInfo>();
+
+      for (const menu of flatMenus) {
+        const module = menu.moduleMaster;
+
+        if (!moduleMap.has(module.ModuleMasterSid)) {
+          moduleMap.set(module.ModuleMasterSid, {
+            path: '',
+            id: module.ModuleMasterSid,
+            title: module.ModuleName,
+            icon: module.icon || '',
+            class: '',
+            extralink: false,
+            label: '',
+            labelClass: '',
+            submenu: []
+          });
+        }
       }
-    });
 
-    const flatMenus = roleMenus
-      .map(r => r.menuMaster)
-      .filter(m => m && m.moduleMaster);
+      // Group menus by parentId for each module
+      const menusByModule = new Map<number, Map<number | null, any[]>>();
 
-    const grouped: { [key: string]: RouteInfo } = {};
+      for (const menu of flatMenus) {
+        const moduleId = menu.moduleMaster.ModuleMasterSid;
+        if (!menusByModule.has(moduleId)) {
+          menusByModule.set(moduleId, new Map());
+        }
 
-    flatMenus.forEach(menu => {
-      const moduleName = menu.moduleMaster.ModuleName;
+        const parentMap = menusByModule.get(moduleId)!;
+        const key = menu.parentId ?? null;
 
-      if (!grouped[moduleName]) {
-        grouped[moduleName] = {
-          path: '',
-          id: menu.moduleMaster.ModuleMasterSid,
-          title: moduleName,
-          icon: menu.moduleMaster.icon || '',
+        if (!parentMap.has(key)) {
+          parentMap.set(key, []);
+        }
+
+        parentMap.get(key)!.push(menu);
+      }
+
+      // Function to build menu tree recursively
+      const buildMenuTree = (
+        parentId: number | null,
+        parentMap: Map<number | null, any[]>
+      ): RouteInfo[] => {
+        const children = parentMap.get(parentId) || [];
+
+        return children.map(menu => ({
+          path: menu.path || '',
+          id: menu.MenuMasterSid,
+          title: menu.MenuName,
+          icon: menu.icon || '',
           class: '',
           extralink: false,
           label: '',
           labelClass: '',
-          submenu: []
-        };
-      }
+          submenu: buildMenuTree(menu.MenuMasterSid, parentMap)
+        }));
+      };
 
-      grouped[moduleName].submenu.push({
-        path: menu.path || '',
-        id: menu.MenuMasterSid,
-        title: menu.MenuName,
-        icon: menu.icon || '',
-        class: '',
-        extralink: false,
-        label: '',
-        labelClass: '',
-        submenu: []
-      });
-    });
+      // Build final module structure with nested menus
+      const moduleRoutes = Array.from(moduleMap.entries()).map(([moduleId, moduleRoute]) => {
+        const parentMap = menusByModule.get(moduleId)!;
 
-    // Custom order for CRM submenu
-    const crmMenuOrder = [
-      'Lead',
-      'Lead Schedule Pending',
-      'Calendar',
-      'Meeting Update',
-      'Rate Request',
-      'Quotation',
-      'Todo'
-    ];
+        const submenu = buildMenuTree(null, parentMap);
 
-    const sortedModules = Object.values(grouped)
-      .map(module => {
+        // CRM custom sorting
+        const crmMenuOrder = [
+          'Lead',
+          'Lead Schedule Pending',
+          'Calendar',
+          'Meeting Update',
+          'Rate Request',
+          'Quotation',
+          'Todo'
+        ];
         const normalize = (s: string) => s.trim().toLowerCase();
 
-        const sortedSubmenu = module.title === 'CRM'
-          ? module.submenu.sort((a, b) => {
+        const sortMenus = (menus: RouteInfo[]) => {
+          return moduleRoute.title === 'CRM'
+            ? menus.sort((a, b) => {
               const orderA = crmMenuOrder.map(normalize).indexOf(normalize(a.title));
               const orderB = crmMenuOrder.map(normalize).indexOf(normalize(b.title));
               return (orderA === -1 ? 999 : orderA) - (orderB === -1 ? 999 : orderB);
             })
-          : module.submenu.sort((a, b) => a.title.localeCompare(b.title));
+            : menus.sort((a, b) => a.title.localeCompare(b.title));
+        };
 
         return {
-          ...module,
-          submenu: sortedSubmenu
+          ...moduleRoute,
+          submenu: sortMenus(submenu)
         };
-      })
-      .sort((a, b) => a.title.localeCompare(b.title)); // Sort modules alphabetically
+      });
 
-    return sortedModules;
-  } catch (error) {
-    console.error('Error fetching menus by roles:', error.message);
-    return []; // ✅ Ensures function always returns a value
+      // Final sort: modules alphabetically
+      return moduleRoutes.sort((a, b) => a.title.localeCompare(b.title));
+    } catch (error) {
+      console.error('Error fetching menus by roles:', error.message);
+      return [];
+    }
   }
-}
 
 
+  // async getAllModulesWithMenusAsRoutes(): Promise<RouteInfo[]> {
+  //   try {
+  //     const modules = await this._db.moduleMaster.findMany({
+  //       where: {
+  //         deletedAt: null
+  //       },
+  //       select: {
+  //         ModuleMasterSid: true,
+  //         ModuleName: true,
+  //         icon: true,
+  //         menuMaster: {
+  //           where: {
+  //             deletedAt: null,
+  //             status: 'A'
+  //           },
+  //           select: {
+  //             MenuMasterSid: true,
+  //             path: true,
+  //             MenuName: true,
+  //             icon: true
+  //           }
+  //         }
+  //       }
+  //     });
 
-async getAllModulesWithMenusAsRoutes(): Promise<RouteInfo[]> {
-  try {
-    const modules = await this._db.moduleMaster.findMany({
-      where: {
-        deletedAt: null
-      },
-      select: {
-        ModuleMasterSid: true,
-        ModuleName: true,
-        icon: true,
-        menuMaster: {
-          where: {
-            deletedAt: null,
-            status: 'A'
-          },
-          select: {
-            MenuMasterSid: true,
-            path: true,
-            MenuName: true,
-            icon: true
+  //     // CRM Custom Menu Order
+  //     const crmMenuOrder = [
+  //       'Lead',
+  //       'Lead Schedule Pending',
+  //       'Calendar',
+  //       'Meeting Update',
+  //       'Rate Request',
+  //       'Quotation',
+  //       'Todo'
+  //     ];
+
+  //     const normalize = (s: string) => s.trim().toLowerCase();
+
+  //     const sortedModules = modules
+  //       .sort((a, b) => a.ModuleName.localeCompare(b.ModuleName))
+  //       .map(module => {
+  //         let sortedMenus = module.menuMaster;
+
+  //         if (module.ModuleName.trim().toLowerCase() === 'crm') {
+  //           sortedMenus = module.menuMaster.sort((a, b) => {
+  //             const orderA = crmMenuOrder.map(normalize).indexOf(normalize(a.MenuName));
+  //             const orderB = crmMenuOrder.map(normalize).indexOf(normalize(b.MenuName));
+  //             return (orderA === -1 ? 999 : orderA) - (orderB === -1 ? 999 : orderB);
+  //           });
+  //         } else {
+  //           sortedMenus = module.menuMaster.sort((a, b) => a.MenuName.localeCompare(b.MenuName));
+  //         }
+
+  //         return {
+  //           path: '',
+  //           id: module.ModuleMasterSid,
+  //           title: module.ModuleName,
+  //           icon: module.icon || '',
+  //           class: '',
+  //           extralink: false,
+  //           label: '',
+  //           labelClass: '',
+  //           submenu: sortedMenus.map(menu => ({
+  //             path: menu.path || '',
+  //             id: menu.MenuMasterSid,
+  //             title: menu.MenuName,
+  //             icon: menu.icon || '',
+  //             class: '',
+  //             extralink: false,
+  //             label: '',
+  //             labelClass: '',
+  //             submenu: []
+  //           }))
+  //         };
+  //       });
+
+  //     return sortedModules;
+  //   } catch (error) {
+  //     throw new Error(`Error fetching modules and menus: ${error.message}`);
+  //   }
+  // }
+
+  async getAllModulesWithMenusAsRoutes(): Promise<RouteInfo[]> {
+    try {
+      const modules = await this._db.moduleMaster.findMany({
+        where: {
+          deletedAt: null
+        },
+        select: {
+          ModuleMasterSid: true,
+          ModuleName: true,
+          icon: true,
+          menuMaster: {
+            where: {
+              deletedAt: null,
+              status: 'A'
+            },
+            select: {
+              MenuMasterSid: true,
+              MenuName: true,
+              path: true,
+              icon: true,
+              parentId: true
+            }
           }
         }
-      }
-    });
+      });
 
-    // CRM Custom Menu Order
-    const crmMenuOrder = [
-      'Lead',
-      'Lead Schedule Pending',
-      'Calendar',
-      'Meeting Update',
-      'Rate Request',
-      'Quotation',
-      'Todo'
-    ];
+      // CRM Custom Menu Order
+      const crmMenuOrder = [
+        'Lead',
+        'Lead Schedule Pending',
+        'Calendar',
+        'Meeting Update',
+        'Rate Request',
+        'Quotation',
+        'Todo'
+      ];
+      const normalize = (s: string) => s.trim().toLowerCase();
 
-    const normalize = (s: string) => s.trim().toLowerCase();
+      const sortedModules = modules.map(module => {
+        const menus = module.menuMaster;
 
-    const sortedModules = modules
-      .sort((a, b) => a.ModuleName.localeCompare(b.ModuleName))
-      .map(module => {
-        let sortedMenus = module.menuMaster;
+        // 1. Group menus by parentId
+        const menuMap = new Map<number | null, any[]>();
 
-        if (module.ModuleName.trim().toLowerCase() === 'crm') {
-          sortedMenus = module.menuMaster.sort((a, b) => {
-            const orderA = crmMenuOrder.map(normalize).indexOf(normalize(a.MenuName));
-            const orderB = crmMenuOrder.map(normalize).indexOf(normalize(b.MenuName));
-            return (orderA === -1 ? 999 : orderA) - (orderB === -1 ? 999 : orderB);
-          });
-        } else {
-          sortedMenus = module.menuMaster.sort((a, b) => a.MenuName.localeCompare(b.MenuName));
+        for (const menu of menus) {
+          const key = menu.parentId ?? null;
+          if (!menuMap.has(key)) {
+            menuMap.set(key, []);
+          }
+          menuMap.get(key)!.push(menu);
         }
+
+        // 2. Sort function (CRM has custom sort)
+        const sortMenus = (menuList: any[]) => {
+          return (module.ModuleName.trim().toLowerCase() === 'crm')
+            ? menuList.sort((a, b) => {
+              const orderA = crmMenuOrder.map(normalize).indexOf(normalize(a.MenuName));
+              const orderB = crmMenuOrder.map(normalize).indexOf(normalize(b.MenuName));
+              return (orderA === -1 ? 999 : orderA) - (orderB === -1 ? 999 : orderB);
+            })
+            : menuList.sort((a, b) => a.MenuName.localeCompare(b.MenuName));
+        };
+
+        // 3. Build submenu recursively
+        const buildMenuTree = (parentId: number | null): any[] => {
+          const children = menuMap.get(parentId) || [];
+          return sortMenus(children).map(menu => ({
+            path: menu.path || '',
+            id: menu.MenuMasterSid,
+            title: menu.MenuName,
+            icon: menu.icon || '',
+            class: '',
+            extralink: false,
+            label: '',
+            labelClass: '',
+            submenu: buildMenuTree(menu.MenuMasterSid)
+          }));
+        };
 
         return {
           path: '',
@@ -333,90 +579,19 @@ async getAllModulesWithMenusAsRoutes(): Promise<RouteInfo[]> {
           extralink: false,
           label: '',
           labelClass: '',
-          submenu: sortedMenus.map(menu => ({
-            path: menu.path || '',
-            id: menu.MenuMasterSid,
-            title: menu.MenuName,
-            icon: menu.icon || '',
-            class: '',
-            extralink: false,
-            label: '',
-            labelClass: '',
-            submenu: []
-          }))
+          submenu: buildMenuTree(null) // Top-level menus
         };
       });
 
-    return sortedModules;
-  } catch (error) {
-    throw new Error(`Error fetching modules and menus: ${error.message}`);
-  }
-}
-
-
-
- mapRoleMenusToRoutes(roleMenus): RouteInfo[] {
-  const routeMap: { [key: string]: RouteInfo } = {};
-
-  const crmMenuOrder = [
-    'Lead',
-    'Lead Schedule Pending',
-    'Calendar',
-    'Meeting Update',
-    'Rate Request',
-    'Quotation',
-    'Todo'
-  ];
-
-  const normalize = (s: string) => s.trim().toLowerCase();
-
-  for (const item of roleMenus) {
-    const menu = item.menuMaster;
-    const module = menu.moduleMaster;
-
-    if (!routeMap[module.ModuleName]) {
-      routeMap[module.ModuleName] = {
-        path: '',
-        id: module.ModuleMasterSid,
-        title: module.ModuleName,
-        icon: module.icon || '',
-        class: '',
-        extralink: false,
-        label: '',
-        labelClass: '',
-        submenu: []
-      };
+      return sortedModules;
+    } catch (error) {
+      throw new Error(`Error fetching modules and menus: ${error.message}`);
     }
-
-    routeMap[module.ModuleName].submenu.push({
-      path: menu.path || '',
-      id: menu.MenuMasterSid,
-      title: menu.MenuName,
-      icon: menu.icon || '',
-      class: '',
-      extralink: false,
-      label: '',
-      labelClass: '',
-      submenu: []
-    });
   }
 
-  // Sort CRM submenu only
-  Object.keys(routeMap).forEach(moduleName => {
-    const route = routeMap[moduleName];
-    if (moduleName.trim().toLowerCase() === 'crm') {
-      route.submenu.sort((a, b) => {
-        const orderA = crmMenuOrder.map(normalize).indexOf(normalize(a.title));
-        const orderB = crmMenuOrder.map(normalize).indexOf(normalize(b.title));
-        return (orderA === -1 ? 999 : orderA) - (orderB === -1 ? 999 : orderB);
-      });
-    } else {
-      route.submenu.sort((a, b) => a.title.localeCompare(b.title));
-    }
-  });
 
-  return Object.values(routeMap);
-}
+
+
 
 
 

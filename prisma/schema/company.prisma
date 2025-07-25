@@ -361,7 +361,6 @@ model DepartmentMaster {
     CompanyMasterSid    Int?
     DepartmentMasterSid Int                 @id @default(autoincrement()) @map("DepartmentMasterSid")
     LoginSid            Int?
-    chargeMaster        ChargeMaster[]
     meetingFollowUp     MeetingFollowup[]
     companyMaster       CompanyMaster?      @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
     enquiryHeader       EnquiryHeader[]
@@ -436,7 +435,7 @@ model ChargeMaster {
     chargeCode          String             @db.VarChar(5)
     chargeName          String             @db.VarChar(100)
     UOM                 Int?
-    HSNSAC              String             @db.VarChar(100)
+    HSNSAC              String?            @db.VarChar(100)
     createdOn           DateTime           @default(now()) @db.Timestamptz(6)
     updatedOn           DateTime           @updatedAt @db.Timestamptz(6)
     deletedAt           DateTime?
@@ -448,13 +447,12 @@ model ChargeMaster {
     ChargeMasterSid     Int                @id @default(autoincrement()) @map("ChargeMasterSid")
     CompanyMasterSid    Int?
     CurrencyMasterSid   Int?
-    DepartmentMasterSid Int
-    TDSMasterSid        Int
+    DepartmentMasterSid String[]
+    TDSMasterSid        Int?
     chargeGroup         ChargeGroup?       @relation(fields: [ChargeGroupSid], references: [ChargeGroupSid])
     companyMaster       CompanyMaster?     @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
     currencyMaster      CurrencyMaster?    @relation(fields: [CurrencyMasterSid], references: [CurrencyMasterSid])
-    departmentMaster    DepartmentMaster   @relation(fields: [DepartmentMasterSid], references: [DepartmentMasterSid])
-    tdsSetHeader        TDSSetHeader       @relation(fields: [TDSMasterSid], references: [TDSSetHeaderSid])
+    tdsSetHeader        TDSSetHeader?      @relation(fields: [TDSMasterSid], references: [TDSSetHeaderSid])
     chargeTaxMapping    ChargeTaxMapping[]
     chargeTds           ChargeTds[]
     chargeTaxMaster     ChargeTaxMaster[]
@@ -464,15 +462,15 @@ model ChargeTaxMaster {
     chargeTaxMasterSid Int?
     HSNCode            String    @db.VarChar(10)
     description        String    @db.VarChar(100)
-    TaxGroup           String    @db.VarChar(10)
+    TaxGroup           String?   @db.VarChar(10)
     TaxRate            Decimal   @db.Decimal(4, 2)
     createdOn          DateTime  @default(now()) @db.Timestamptz(6)
     updatedOn          DateTime  @updatedAt @db.Timestamptz(6)
     deletedAt          DateTime?
     CreatedBy          String    @db.VarChar(100)
     UpdatedBy          String    @db.VarChar(100)
-    Remarks            String    @db.VarChar(100)
-    Status             String    @db.Char(1)
+    Remarks            String?   @db.VarChar(100)
+    Status             String?   @db.Char(1)
     ChargeTaxMasterSid Int       @id @default(autoincrement()) @map("ChargeTaxMasterSid")
     CompanyMasterSid   Int
 
@@ -885,6 +883,8 @@ model QuoteHeader {
     CustomerApprovedBy  String?   @db.VarChar(20)
     CustomerApprovedOn  DateTime?
     Email               String?   @db.VarChar(200)
+    ClearanceBy         String?   @db.VarChar(200)
+    TransportBy         String?   @db.VarChar(200)
     createdOn           DateTime  @default(now()) @db.Timestamptz(6)
     updatedOn           DateTime? @updatedAt @db.Timestamptz(6)
     deletedAt           DateTime?
@@ -1464,8 +1464,8 @@ model TDSSetRate {
     Sno              Decimal?  @db.Decimal(2, 0)
     CompanyType      String    @db.VarChar(50)
     ITSectionCode    String    @db.VarChar(10)
-    TDSAmount        Decimal?  @db.Decimal(9, 0)
-    TDSRate          Decimal   @db.Decimal(2, 0)
+    TDSAmount        Decimal?  @db.Decimal(12, 2)
+    TDSRate          Decimal?  @db.Decimal(8, 2)
     EffectiveFrom    DateTime
     IncomeCategory   String?   @db.VarChar(100)
     createdOn        DateTime  @default(now()) @db.Timestamptz(6)
@@ -1522,6 +1522,7 @@ model ChargeTds {
     ChargeTdsSid    Int       @id @default(autoincrement()) @map("ChargeTdsSid")
     ChargeMasterSid Int
     TDSSet          Int
+    EffectiveFrom   DateTime?
     createdOn       DateTime  @default(now()) @db.Timestamptz(6)
     updatedOn       DateTime? @updatedAt @db.Timestamptz(6)
     deletedAt       DateTime?
@@ -2033,9 +2034,11 @@ model SupplierTdsMapping {
     TaxExempt             String    @default("N") @db.Char(1)
     TransactionLimit      Decimal   @db.Decimal(8, 2)
     CertificateNo         String?   @db.VarChar(20)
-    CertificatePercentage Decimal?  @db.Decimal(2, 2)
+    CertificatePercentage Decimal?  @db.Decimal(4, 2)
     EffectiveFrom         DateTime  @db.Date
     EffectiveTo           DateTime  @db.Date
+    ITSecCode             String?   @db.VarChar(20)
+    CertificateAmt        String?   @db.VarChar(500)
 
     // Relations (Assuming these models exist)
     companyMaster  CompanyMaster  @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
