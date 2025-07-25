@@ -46,6 +46,28 @@ export class MenuController {
         return output
     }
 
+    @ApiOperation({ summary: 'Get Main Menus' })
+@ApiCreatedResponse({
+    description: 'Get Main Menus',
+    type: ResponseData
+})
+@HttpCode(HttpStatus.OK)
+@Get('main-menus')
+async getMainMenus() {
+    let output = new ResponseData;
+    try {
+        let menuData = await this.menuService.getMainMenus();
+        output.data = menuData;
+        output.status = true;
+        output.message = 'Main menus fetched successfully';
+    } catch (error) {
+        output.status = false;
+        output.message = 'Error fetching main menus';
+        this.logger.error('Error in getMainMenus:', error);
+    }
+    return output;
+}
+
 
     @ApiOperation({ summary: 'Get All Menus' })
     @ApiCreatedResponse({
@@ -101,7 +123,7 @@ export class MenuController {
         type: ResponseData
     })
     @HttpCode(HttpStatus.OK)
-    @Get('fetch/menu-permissions/:id')
+    @Get('fetch/menu-permissions/:id') 
     async getMenuPermissionsById(@Param('id', ParseIntPipe) menuId: number) {
         const output = new ResponseData;
         try {
