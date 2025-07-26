@@ -43,7 +43,7 @@ export class MenuService {
 
         try {
             const result = await this._db.$transaction(async (tx) => {
-                const {permissions,...menuPayload} = payload
+                const { permissions, ...menuPayload } = payload
                 // 1. Create menu
                 const menu = await tx.menuMaster.create({
                     data: {
@@ -91,26 +91,26 @@ export class MenuService {
     }
 
     async getMainMenus() {
-    try {
-        return await this._db.menuMaster.findMany({
-            where: {
-                parentId: null,  
-                deletedAt: null,
-                   
-            },
-            select: {
-                MenuMasterSid: true,
-                MenuName: true,
-                MenuCode: true
-            },
-            orderBy: {
-                MenuName: 'asc'  // Alphabetical order
-            }
-        });
-    } catch (error) {
-        throw error;
+        try {
+            return await this._db.menuMaster.findMany({
+                where: {
+                    parentId: null,
+                    deletedAt: null,
+
+                },
+                select: {
+                    MenuMasterSid: true,
+                    MenuName: true,
+                    MenuCode: true
+                },
+                orderBy: {
+                    MenuName: 'asc'  // Alphabetical order
+                }
+            });
+        } catch (error) {
+            throw error;
+        }
     }
-}
     async getAllMenus() {
         try {
             const menuList = await this._db.menuMaster.findMany({
@@ -118,7 +118,7 @@ export class MenuService {
                     deletedAt: null
                 },
             })
-        
+
             return menuList;
         } catch (error) {
             throw error
@@ -131,7 +131,7 @@ export class MenuService {
             const menuPermissions = await this._db.menuPermission.findMany({
                 where: {
                     MenuMasterSid: MenuMasterSid,
-                    deletedAt : null
+                    deletedAt: null
                 }
             })
             return menuPermissions
@@ -156,117 +156,117 @@ export class MenuService {
 
 
     async updateMenu(menuMasterSid: number, payload: any, user) {
-    const existing = await this._db.menuMaster.findUnique({
-        where: {
-            MenuMasterSid: menuMasterSid
+        const existing = await this._db.menuMaster.findUnique({
+            where: {
+                MenuMasterSid: menuMasterSid
+            }
+        });
+
+        if (!existing) {
+            throw new Error('Menu does not exist');
         }
-    });
 
-    if (!existing) {
-        throw new Error('Menu does not exist');
-    }
-
-    try {
-        const { permissions, ...menuPayload } = payload;
-        const result = await this._db.$transaction(async (tx) => {
-            // 1. Update menu
-            const updatedMenu = await tx.menuMaster.update({
-                where: {
-                    MenuMasterSid: menuMasterSid
-                },
-                data: {
-                    ...menuPayload,
-                    parentId: menuPayload.parentId || null 
-                }
-            });
-
-            let allPermissions :any[] = [];
-            if (permissions?.length) {
-                // Soft Delete existing records that aren't in payload
-                const existingPerms = await tx.menuPermission.findMany({
+        try {
+            const { permissions, ...menuPayload } = payload;
+            const result = await this._db.$transaction(async (tx) => {
+                // 1. Update menu
+                const updatedMenu = await tx.menuMaster.update({
                     where: {
-                        MenuMasterSid: menuMasterSid,
-                        deletedAt: null
+                        MenuMasterSid: menuMasterSid
+                    },
+                    data: {
+                        ...menuPayload,
+                        parentId: menuPayload.parentId || null
                     }
                 });
 
-                const newPerms = permissions;
-                const permsToSoftDelete = existingPerms.filter(ep => 
-                    !newPerms.some(np => 
-                        np.permissionName.trim().toLowerCase() === 
-                        ep.permissionName.toLowerCase()
-                    )
-                );
-
-                // Soft delete the permissions
-                if (permsToSoftDelete.length > 0) {
-                    await tx.menuPermission.updateMany({
-                        where: {
-                            MenuPermissionSid: {
-                                in: permsToSoftDelete.map(p => p.MenuPermissionSid)
-                            }
-                        },
-                        data: {
-                            deletedAt: new Date(),
-                        }
-                    });
-                }
-                // 2. Process permissions
-                for (const p of permissions) {
-                    const existingPermission = await tx.menuPermission.findFirst({
+                let allPermissions: any[] = [];
+                if (permissions?.length) {
+                    // Soft Delete existing records that aren't in payload
+                    const existingPerms = await tx.menuPermission.findMany({
                         where: {
                             MenuMasterSid: menuMasterSid,
-                            permissionName: {
-                                equals: p.permissionName.trim(),
-                                mode: 'insensitive'
-                            },
                             deletedAt: null
                         }
                     });
 
-                    let permission;
-                    if (existingPermission) {
-                        permission = await tx.menuPermission.update({
+                    const newPerms = permissions;
+                    const permsToSoftDelete = existingPerms.filter(ep =>
+                        !newPerms.some(np =>
+                            np.permissionName.trim().toLowerCase() ===
+                            ep.permissionName.toLowerCase()
+                        )
+                    );
+
+                    // Soft delete the permissions
+                    if (permsToSoftDelete.length > 0) {
+                        await tx.menuPermission.updateMany({
                             where: {
-                                MenuPermissionSid: existingPermission.MenuPermissionSid
+                                MenuPermissionSid: {
+                                    in: permsToSoftDelete.map(p => p.MenuPermissionSid)
+                                }
                             },
                             data: {
-                                permissionName: p.permissionName,
-                                permissionCode: this.getPermissionCode(p.permissionName),
-                                updatedBy: payload.updatedBy,
-                            }
-                        });
-                    } else {
-                        permission = await tx.menuPermission.create({
-                            data: {
-                                MenuMasterSid: menuMasterSid,
-                                permissionName: p.permissionName,
-                                permissionCode: this.getPermissionCode(p.permissionName),
-                                createdBy: payload.createdBy
+                                deletedAt: new Date(),
                             }
                         });
                     }
-                    allPermissions.push(permission);
+                    // 2. Process permissions
+                    for (const p of permissions) {
+                        const existingPermission = await tx.menuPermission.findFirst({
+                            where: {
+                                MenuMasterSid: menuMasterSid,
+                                permissionName: {
+                                    equals: p.permissionName.trim(),
+                                    mode: 'insensitive'
+                                },
+                                deletedAt: null
+                            }
+                        });
+
+                        let permission;
+                        if (existingPermission) {
+                            permission = await tx.menuPermission.update({
+                                where: {
+                                    MenuPermissionSid: existingPermission.MenuPermissionSid
+                                },
+                                data: {
+                                    permissionName: p.permissionName,
+                                    permissionCode: this.getPermissionCode(p.permissionName),
+                                    updatedBy: payload.updatedBy,
+                                }
+                            });
+                        } else {
+                            permission = await tx.menuPermission.create({
+                                data: {
+                                    MenuMasterSid: menuMasterSid,
+                                    permissionName: p.permissionName,
+                                    permissionCode: this.getPermissionCode(p.permissionName),
+                                    createdBy: payload.createdBy
+                                }
+                            });
+                        }
+                        allPermissions.push(permission);
+                    }
                 }
-            }
 
-            return {
-                updatedMenu,
-                permissions: allPermissions
-            };
-        });
+                return {
+                    updatedMenu,
+                    permissions: allPermissions
+                };
+            });
 
-        return result;
-    } catch (error) {
-        throw new Error(`Error updating menu: ${error.message}`);
+            return result;
+        } catch (error) {
+            throw new Error(`Error updating menu: ${error.message}`);
+        }
     }
-}
-getPermissionCode(permsName:string){
-    let code = permsName.replace(/[^a-zA-Z0-9]/g,'_');
-    code = code.toLowerCase();
-    code.replace(/_+/g,'_').replace(/^_|_$/g,'');
-    return code;
-}
+    getPermissionCode(permsName: string) {
+        let code = permsName.replace(/[^a-zA-Z0-9]/g, '_');
+        code = code.toLowerCase();
+        code.replace(/_+/g, '_').replace(/^_|_$/g, '');
+        return code;
+    }
 
 
 
@@ -316,47 +316,47 @@ getPermissionCode(permsName:string){
 
 
     async searchList(params: SearchVesselDto) {
-    const { search = '', page = 1, pageSize = 10 } = params;
-    const skip = (page - 1) * pageSize;
+        const { search = '', page = 1, pageSize = 10 } = params;
+        const skip = (page - 1) * pageSize;
 
-    const where: Prisma.MenuMasterWhereInput = {
-        deletedAt: null,
-        status: 'A',
-        ...(search
-            ? {
-                OR: [
-                    { MenuName: { contains: search, mode: 'insensitive' } },
-                    { MenuCode: { contains: search, mode: 'insensitive' } },
-                    { status: { contains: search, mode: 'insensitive' } },
-                     {
-                        moduleMaster: {
-                            ModuleName: { contains: search, mode: 'insensitive' }
-                        }
-                    },
-                ],
-            }
-            : {}
-        ),
-    };
+        const where: Prisma.MenuMasterWhereInput = {
+            deletedAt: null,
+            status: 'A',
+            ...(search
+                ? {
+                    OR: [
+                        { MenuName: { contains: search, mode: 'insensitive' } },
+                        { MenuCode: { contains: search, mode: 'insensitive' } },
+                        { status: { contains: search, mode: 'insensitive' } },
+                        {
+                            moduleMaster: {
+                                ModuleName: { contains: search, mode: 'insensitive' }
+                            }
+                        },
+                    ],
+                }
+                : {}
+            ),
+        };
 
-    const [items, totalCount] = await this._db.$transaction([
-        this._db.menuMaster.findMany({
-            where,
-            skip,
-            take: pageSize,
-            include: {
-                moduleMaster: true, 
-            },
-            orderBy: { ModuleMasterSid: 'desc' },  
-        }),
-        this._db.menuMaster.count({ where }),
-    ]);
+        const [items, totalCount] = await this._db.$transaction([
+            this._db.menuMaster.findMany({
+                where,
+                skip,
+                take: pageSize,
+                include: {
+                    moduleMaster: true,
+                },
+                orderBy: { ModuleMasterSid: 'desc' },
+            }),
+            this._db.menuMaster.count({ where }),
+        ]);
 
-    return {
-        items,
-        totalCount,
-    };
-}
+        return {
+            items,
+            totalCount,
+        };
+    }
 
     async getMenusByModule(ModuleMasterSid) {
         try {
@@ -367,6 +367,21 @@ getPermissionCode(permsName:string){
                 },
             })
             return menus;
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    async getSubMenuList(moduleId) {
+        try {
+            const submenus = await this._db.menuMaster.findMany({
+                where: {
+                    ModuleMasterSid: moduleId,
+                    parentId: null,
+                    deletedAt: null
+                },
+            })
+            return submenus;
         } catch (error) {
             throw error;
         }

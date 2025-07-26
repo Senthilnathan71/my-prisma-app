@@ -47,26 +47,26 @@ export class MenuController {
     }
 
     @ApiOperation({ summary: 'Get Main Menus' })
-@ApiCreatedResponse({
-    description: 'Get Main Menus',
-    type: ResponseData
-})
-@HttpCode(HttpStatus.OK)
-@Get('main-menus')
-async getMainMenus() {
-    let output = new ResponseData;
-    try {
-        let menuData = await this.menuService.getMainMenus();
-        output.data = menuData;
-        output.status = true;
-        output.message = 'Main menus fetched successfully';
-    } catch (error) {
-        output.status = false;
-        output.message = 'Error fetching main menus';
-        this.logger.error('Error in getMainMenus:', error);
+    @ApiCreatedResponse({
+        description: 'Get Main Menus',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Get('main-menus')
+    async getMainMenus() {
+        let output = new ResponseData;
+        try {
+            let menuData = await this.menuService.getMainMenus();
+            output.data = menuData;
+            output.status = true;
+            output.message = 'Main menus fetched successfully';
+        } catch (error) {
+            output.status = false;
+            output.message = 'Error fetching main menus';
+            this.logger.error('Error in getMainMenus:', error);
+        }
+        return output;
     }
-    return output;
-}
 
 
     @ApiOperation({ summary: 'Get All Menus' })
@@ -117,13 +117,13 @@ async getMainMenus() {
     }
 
 
-     @ApiOperation({ summary: 'Get Menu Permissions By Id' })
+    @ApiOperation({ summary: 'Get Menu Permissions By Id' })
     @ApiCreatedResponse({
         description: 'Get menu permissions By Id',
         type: ResponseData
     })
     @HttpCode(HttpStatus.OK)
-    @Get('fetch/menu-permissions/:id') 
+    @Get('fetch/menu-permissions/:id')
     async getMenuPermissionsById(@Param('id', ParseIntPipe) menuId: number) {
         const output = new ResponseData;
         try {
@@ -192,30 +192,30 @@ async getMainMenus() {
 
 
     @ApiOperation({ summary: 'Search List of Menus' })
-@ApiCreatedResponse({
-    description: 'Search List of Menus',
-    type: ResponseData,
-})
-@HttpCode(HttpStatus.OK)
-@Post('search-list')
-async searchMenuNew(@Body() searchParams: SearchVesselDto) {
-    const resp = new ResponseData();
-    try {
-        const res = await this.menuService.searchList(searchParams);
-        this.logger.log(`Menu Search Data: ${JSON.stringify(res)}`);
-        resp.data = res;
-        resp.message = 'Menu Search is successfully fetched';
-    } catch (error) {
-        this.logger.warn(`Search Menu Error: ${error}`);
-        resp.status = false;
-        if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
-            resp.message = error.message;
-        } else {
-            resp.message = 'Internal Server Error';
+    @ApiCreatedResponse({
+        description: 'Search List of Menus',
+        type: ResponseData,
+    })
+    @HttpCode(HttpStatus.OK)
+    @Post('search-list')
+    async searchMenuNew(@Body() searchParams: SearchVesselDto) {
+        const resp = new ResponseData();
+        try {
+            const res = await this.menuService.searchList(searchParams);
+            this.logger.log(`Menu Search Data: ${JSON.stringify(res)}`);
+            resp.data = res;
+            resp.message = 'Menu Search is successfully fetched';
+        } catch (error) {
+            this.logger.warn(`Search Menu Error: ${error}`);
+            resp.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                resp.message = error.message;
+            } else {
+                resp.message = 'Internal Server Error';
+            }
         }
+        return resp;
     }
-    return resp;
-}
 
     @ApiOperation({ summary: 'Get Menu By Module Id' })
     @ApiCreatedResponse({
@@ -235,13 +235,34 @@ async searchMenuNew(@Body() searchParams: SearchVesselDto) {
         } catch (error) {
             this.logger.warn(`getMenusByModuleId: ${JSON.stringify(error)}`)
             output.status = false;
-            if(error instanceof BadRequestException || error instanceof UnauthorizedException){
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
                 output.message = error.message
             } else {
-            output.message = "Internal Server Error"
+                output.message = "Internal Server Error"
             }
         }
         return output;
     }
 
+
+    @ApiOperation({ summary: 'Get Sub Menus' })
+    @ApiCreatedResponse({
+        description: 'Get sub menus',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Get('sub-menu/list/:ModuleMasterSid')
+    async getSubMenuList(@Param('ModuleMasterSid', ParseIntPipe) moduleId: number) {
+        const output = new ResponseData;
+        try {
+            const menu = await this.menuService.getSubMenuList(moduleId)
+            this.logger.log(`getSubMenuList: ${JSON.stringify(menu)}`)
+            output.data = menu
+        } catch (error) {
+            this.logger.warn(`getSubMenuList: ${JSON.stringify(error)}`)
+            output.status = false;
+            output.message = error
+        }
+        return output;
+    }
 }
