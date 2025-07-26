@@ -195,6 +195,8 @@ model UserBranchMaster {
     updatedBy           String?       @db.VarChar(100)
     LoginSid            Int?
     status              String        @db.Char(1)
+    GiveAccess          String?       @default("N") @db.Char(1)
+    IsDefault           String?       @default("N") @db.Char(1)
     branchMaster        BranchMaster  @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
     companyMaster       CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
     userMaster          UserMaster    @relation(fields: [UserMasterSid], references: [UserMasterSid])
@@ -615,6 +617,7 @@ model EnquiryHeader {
     DepartmentMasterSid  Int?
     CustomerMasterSid    Int?
     CustomerAddressSid   Int?
+    CustomerBranchSid    Int?
     UserMasterSid        Int?
     CustomerName         String    @db.VarChar(100)
     CustomerAddress      String?   @db.VarChar(300)
@@ -647,6 +650,7 @@ model EnquiryHeader {
     branchMaster     BranchMaster?     @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
     departmentMaster DepartmentMaster? @relation(fields: [DepartmentMasterSid], references: [DepartmentMasterSid])
     userMaster       UserMaster?       @relation(fields: [UserMasterSid], references: [UserMasterSid])
+    customerBranch   CustomerBranch?   @relation(fields: [CustomerBranchSid], references: [CustomerBranchSid])
 
     enquiryRoute   EnquiryRoute[]
     enquiryCargo   EnquiryCargo[]
@@ -861,6 +865,7 @@ model QuoteHeader {
     EnquirySid          Int?
     DepartmentMasterSid Int?
     CustomerMasterSid   Int
+    CustomerBranchSid   Int?
     CustomerName        String    @db.VarChar(100)
     CustomerAddress     String    @db.VarChar(300)
     AgentMasterSid      Int?
@@ -897,6 +902,7 @@ model QuoteHeader {
     enquiryHeader    EnquiryHeader?    @relation(fields: [EnquirySid], references: [EnquiryHeaderSid])
     departmentMaster DepartmentMaster? @relation(fields: [DepartmentMasterSid], references: [DepartmentMasterSid])
     customerMaster   CustomerMaster    @relation(fields: [CustomerMasterSid], references: [CustomerMasterSid])
+    customerBranch   CustomerBranch?   @relation(fields: [CustomerBranchSid], references: [CustomerBranchSid])
 
     quoteRoute   QuoteRoute[]
     quoteCarrier QuoteCarrier[]
@@ -1114,6 +1120,9 @@ model CustomerBranch {
     customerSalesTeam  CustomerSalesTeam[]
     customerSupport    CustomerSupport[]
     supplierTdsMapping SupplierTdsMapping[]
+    bookingHeader      BookingHeader[]
+    enquiryHeader      EnquiryHeader[]
+    quoteHeader        QuoteHeader[]
 }
 
 model CusBranchContact {
