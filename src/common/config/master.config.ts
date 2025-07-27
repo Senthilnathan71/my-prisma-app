@@ -39,7 +39,7 @@ export const MASTER_CONFIG = {
     },
     state_master: {
         model: 'stateMaster',
-        select: { StateMasterSid: true, StateName: true },
+        select: { StateMasterSid: true, stateName: true },
         companyKey: 'CompanyMasterSid',
         primaryKey: 'StateMasterSid',
     },
@@ -49,12 +49,25 @@ export const MASTER_CONFIG = {
         companyKey: 'CompanyMasterSid',
         primaryKey: 'CityMasterSid'
     },
+    zone_master: {
+        model: 'zoneMaster',
+        select: { ZoneMasterSid: true, ZoneName: true },
+        companyKey: 'CompanyMasterSid',
+        primaryKey: 'ZoneMasterSid'
+    },
 
     branch_bank : {
         model : 'branchBank',
         select: { BranchBankSid: true, BankName: true },
         companyKey: 'CompanyMasterSid',
         primaryKey: 'BranchBankSid'
+    },
+
+    user_master : {
+        model : 'userMaster',
+        select: { UserMasterSid: true, userName: true },
+        companyKey: 'CompanyMasterSid',
+        primaryKey: 'UserMasterSid'
     }
 
 };

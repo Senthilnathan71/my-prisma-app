@@ -72,7 +72,10 @@ export class SupplierTdsMappingService {
                 where : {
                     SupplierTdsMappingSid : SupplierTdsMappingSid
                 },
-                data : payload
+                data : {
+                    ...payload,
+                    UpdatedOn : new Date()
+                }
             })
             return updatedSupplierTdsMappingSid;
         } catch (error) {

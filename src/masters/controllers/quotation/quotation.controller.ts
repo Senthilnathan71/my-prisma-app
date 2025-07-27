@@ -6,6 +6,7 @@ import { UserData } from "src/common/decorators/user.decorator";
 import { ResponseData } from "src/common/response-data";
 import { EmailService } from "src/email/email.service";
 import { SearchListDto } from "src/masters/DTO/search-list.dto";
+import { SearchVesselDto } from "src/masters/DTO/search-vessel.dto";
 import { QuotationService } from "src/masters/services/quotation/quotation.service";
 
 @Controller('quotation')
@@ -35,7 +36,7 @@ export class QuotationController {
             output.status = true
 
         } catch (error) {
-            this.logger.warn(`createQuoteHeader: ${JSON.stringify(error)}`)
+            this.logger.warn(`createQuoteHeader: ${JSON.stringify(error),error}`)
             output.status = false;
             // Handle error message based on the type of error
             if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
@@ -117,7 +118,7 @@ export class QuotationController {
             output.status = quote.status
 
         } catch (error) {
-            this.logger.warn(`editQuote: ${JSON.stringify(error)}`)
+            this.logger.warn(`editQuote: ${JSON.stringify(error),error}`)
             output.status = false;
             // Handle error message based on the type of error
             if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
@@ -210,7 +211,7 @@ export class QuotationController {
     })
     @HttpCode(HttpStatus.OK)
     @Post('search-list')
-    async searchQuotation(@Body() body: SearchListDto) {
+    async searchQuotation(@Body() body: SearchVesselDto) {
         let resp = new ResponseData();
         try {
             let res = await this.quotationService.searchQuotation(body);
@@ -249,6 +250,7 @@ export class QuotationController {
                 html: body.Mailbody,
                 file, // this is the PDF file from FormData
             };
+            console.log(reportPayload);
             let res = await this.emailService.sendReportEmail(reportPayload);
             this.logger.log(`Quotation Report Sent Successfully : ${JSON.stringify(res)}`);
             output.data = res;
@@ -260,6 +262,58 @@ export class QuotationController {
                 output.message = error.message;
             } else {
                 output.message = "Internal Server Error";
+            }
+        }
+        return output;
+    }
+
+    @ApiOperation({ summary: 'Get All Salesman' })
+    @ApiCreatedResponse({
+        description: 'Getting All Salesman',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Get('salesman')
+    async getAllSalesman(@UserData() UserData: any) {
+        const output = new ResponseData
+        try {
+            const salesperson = await this.quotationService.getAllSalesperson()
+            this.logger.debug(`getAllSalesperson: ${JSON.stringify(salesperson)}`)
+            output.data = salesperson;
+        } catch (error) {
+            this.logger.warn(`getAllSalesperson: ${JSON.stringify(error),error}`)
+
+            output.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                output.message = error.message;
+            } else {
+                output.message = 'Internal Server Error';
+            }
+        }
+        return output;
+    }
+
+    @ApiOperation({ summary: 'Get Customer Branch Email' })
+    @ApiCreatedResponse({
+        description: 'Getting Customer Branch Email',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Get('customer-branch-email/:CustomerBranchSid')
+    async getCustomerBranchEmail(@Param('CustomerBranchSid',ParseIntPipe) CustomerBranchSid : number) {
+        const output = new ResponseData
+        try {
+            const cusBranch = await this.quotationService.getCustomerBranchEmail(CustomerBranchSid)
+            this.logger.debug(`getCustomerBranchEmail: ${JSON.stringify(cusBranch)}`)
+            output.data = cusBranch;
+        } catch (error) {
+            this.logger.warn(`getCustomerBranchEmail: ${JSON.stringify(error),error}`)
+
+            output.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                output.message = error.message;
+            } else {
+                output.message = 'Internal Server Error';
             }
         }
         return output;

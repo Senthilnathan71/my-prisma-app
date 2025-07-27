@@ -153,7 +153,8 @@ export class CustomerSalesteamService {
         try {
             const salesPerson = await this._db.userMaster.findMany({
                 where: {
-                    isSalesperson: '1'
+                    isSalesperson: '1',
+                    deletedAt : null
                 },
                 omit : {
                     userPassword : true
