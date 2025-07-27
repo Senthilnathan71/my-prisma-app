@@ -10,6 +10,40 @@ export class UserService {
 
     ) { }
 
+    async getUserData(user: any) {
+        console.log(user)
+        try {
+            const result = await this._db.userMaster.findUnique({
+                where: {
+                    UserMasterSid: user.UserMasterSid
+                }, include: {
+                    countryMaster: {
+                        include: {
+                            stateMaster: {
+                                include: {
+                                    cityMaster: true
+                                }
+                            }
+                        }
+                    },
+                    userRoleMaster: true,
+                    userCompanyMaster: {
+                        include: {
+                            companyMaster: {
+                                include: {
+                                    branchMaster: true
+                                }
+                            }
+                        }
+                    }
+                }
+            })
+            return result
+        } catch (error) {
+            throw error
+        }
+    }
+
     async findUserById(where: any) {
         const userData = await this._db.userMaster.findFirst({
             where: {

@@ -4,6 +4,7 @@ import { Auth } from 'src/common/decorators/auth.decorator';
 import { UserData } from 'src/common/decorators/user.decorator';
 import { ResponseData } from 'src/common/response-data';
 import { UserService } from 'src/masters/services/user.service';
+import { resourceLimits } from 'worker_threads';
 
 @Controller('user')
 @Auth()
@@ -24,7 +25,8 @@ export class UserController {
 
         const output = new ResponseData();
         try {
-            const result = user;
+            const result = await this.userService.getUserData(user);
+            console.log(result)
             this.logger.debug(`getUserByToken: ${JSON.stringify(result)}`)
             output.data = result
         } catch (error) {
