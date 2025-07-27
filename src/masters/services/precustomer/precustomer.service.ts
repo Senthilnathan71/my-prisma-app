@@ -12,6 +12,9 @@ export class PrecustomerService {
     async getAllCustomer(user) {
         try {
             const customer = await this._db.customerMaster.findMany({
+                where : {
+                    deletedAt : null
+                },
                 include: {
                     preCustomerMaster: {
                         include: {
