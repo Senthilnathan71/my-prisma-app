@@ -4,6 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { GlobalConfigService } from 'src/common/config/master-config.service';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
@@ -11,7 +12,7 @@ import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 @Injectable()
 export class PortService {
   logger: any;
-  constructor(private _db: DatabaseService) {}
+  constructor(private _db: DatabaseService,private globalConfigService:GlobalConfigService) {}
 
   async createPort(payload, user) {
     // this.logger.warn(`createPortUser: ${payload}`);
@@ -236,30 +237,39 @@ export class PortService {
       ),
     };
 
-    const [items,totalCount] = await this._db.$transaction([
+    let items;
+    let totalCount;
+    [items,totalCount] = await this._db.$transaction([
       this._db.portMaster.findMany({
         where,
         skip,
         take: pageSize,
         orderBy: { PortMasterSid: 'desc'},
-        include: {
-          countryMaster: {
-            select: { countryName: true},
-          },
-          sectorMaster: {
-            select: { sectorName: true},
-          },
-          stateMaster: {
-            select: { stateName: true},
-          },
-          zoneMaster: {
-            select: { ZoneName: true},
-          },
-        },
       }),
       this._db.portMaster.count({where}),
     ]);
 
+    items = await Promise.all(items.map(async (item) => {
+
+        const [countryMaster,sectorMaster] = await Promise.all([
+          item.CountryMasterSid != null ? 
+          this.globalConfigService.getMasterData('country_master',item.CountryMasterSid,item.CompanyMasterSid) : 
+          { CountryMasterSid: null, countryName: '' },
+
+          item.ZoneMasterSid != null ? 
+          this.globalConfigService.getMasterData('zone_master',item.ZoneMasterSid,item.CompanyMasterSid) : 
+          { ZoneMasterSid: null, zoneName: '' },
+        ]);
+
+        return {
+          ...item,
+          countryMaster,
+          sectorMaster,
+        };
+      })
+    );
+
+ 
     return {
       items,
       totalCount,

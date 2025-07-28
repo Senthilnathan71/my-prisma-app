@@ -3,11 +3,14 @@ import { Prisma } from "@prisma/client";
 import { DatabaseService } from "src/database/database.service";
 import * as moment from 'moment-timezone';
 import { SearchListDto } from "src/masters/DTO/search-list.dto";
+import { SearchVesselDto } from "src/masters/DTO/search-vessel.dto";
+import { GlobalConfigService } from "src/common/config/master-config.service";
 
 @Injectable()
 export class QuotationService {
     constructor(
-        private _db: DatabaseService
+        private _db: DatabaseService,
+        private globalConfigService:GlobalConfigService
     ) { }
 
     async createQuotation(payload, user) {
@@ -24,9 +27,16 @@ export class QuotationService {
                 const quoteHeaderPayload: any = {
                     CustomerName: payload.CustomerName,
                     CustomerMasterSid: Number(payload.CustomerMasterSid),
+                    CustomerBranchSid : payload.CustomerBranchSid,
                     QuoteDate: quoteDate,
-                    EnquirySid : Number(payload.EnquirySid),
+                    EnquirySid : payload.EnquirySid ? Number(payload.EnquirySid) : null,
                     CustomerAddress: payload.CustomerAddress,
+                    Email : payload.Email,
+                    IncoTerms : payload.IncoTerms,
+                    ClearanceBy : payload.ClearanceBy,
+                    TransportBy : payload.TransportBy,
+                    SalesmanSid : payload.SalesmanSid,
+                    Remarks : payload.Remarks,
                     status: payload.status || "A",
                     CompanyMasterSid: user['userBranchMaster'][0].CompanyMasterSid,
                     BranchMasterSid: user['userBranchMaster'][0].BranchMasterSid,
@@ -58,7 +68,9 @@ export class QuotationService {
                                 fortyft: Number(route.fortyft) || null,
                                 createdBy: user['userEmail'],
                                 cargoType: route.cargoType,
-                                TransitDays: route.transit || null
+                                POLFreeDays : Number(route.POLFreeDays),
+                                PODFreeDays : Number(route.PODFreeDays),
+                                TransitDays : Number(route.TransitDays) || Number(route.transit) || null,
                             },
                         });
 
@@ -90,6 +102,7 @@ export class QuotationService {
                         ChargeDisplayName: cargo.charge,
                         CurrencyMasterSid: Number(cargo.currency),
                         UnitMasterSid: Number(cargo.unit),
+                        Qty : Number(cargo.Qty),
                         perUnit: cargo.perUnit,
                         costUnit: cargo.costUnit,
                         costCurrency: cargo.costCurrency,
@@ -180,8 +193,17 @@ export class QuotationService {
                 where: { QuoteHeaderSid: QuoteHeaderSid },
                 data: {
                     CustomerName: payload.CustomerName,
+                    CustomerMasterSid: payload.CustomerMasterSid,
+                    CustomerAddress : payload.CustomerAddress,
+                    CustomerBranchSid : payload.CustomerBranchSid,
+                    Email : payload.Email,
+                    IncoTerms : payload.IncoTerms,
+                    ClearanceBy : payload.ClearanceBy,
+                    TransportBy : payload.TransportBy,
+                    Remarks : payload.Remarks,
+                    SalesmanSid : payload.SalesmanSid,
                     QuoteDate: quoteDate,
-                    EnquirySid : Number(payload.EnquirySid),
+                    EnquirySid :payload.EnquirySid ?  Number(payload.EnquirySid) : null,
                     status: statusUpdate,
                     updatedBy: user['userEmail'],
                     updatedOn: new Date()
@@ -212,7 +234,9 @@ export class QuotationService {
                             updatedBy: user['userEmail'],
                             updatedOn: new Date(),
                             cargoType: route.cargoType,
-                            TransitDays: Number(route.transit) || null
+                            POLFreeDays: Number(route.POLFreeDays),
+                            PODFreeDays: Number(route.PODFreeDays),
+                            TransitDays: Number(route.TransitDays) || Number(route.transit) || null,
                         }
                     });
                 } else {
@@ -229,7 +253,9 @@ export class QuotationService {
                             twentyft: Number(route.twentyft) || null,
                             fortyft: Number(route.fortyft) || null,
                             cargoType: route.cargoType,
-                            TransitDays: Number(route.transit) || null,
+                            POLFreeDays: Number(route.POLFreeDays),
+                            PODFreeDays: Number(route.PODFreeDays),
+                            TransitDays: Number(route.TransitDays) || Number(route.transit) || null,
                             DepartmentMasterSid: Number(route.DepartmentMasterSid),
                             CompanyMasterSid: updatedQuoteHeader.CompanyMasterSid,
                             BranchMasterSid: updatedQuoteHeader.BranchMasterSid,
@@ -255,6 +281,7 @@ export class QuotationService {
                                     ChargeDisplayName: cargoItem.charge,
                                     CurrencyMasterSid: Number(cargoItem.currency),
                                     UnitMasterSid: Number(cargoItem.unit),
+                                    Qty : Number(cargoItem.Qty),
                                     perUnit: cargoItem.perUnit,
                                     costUnit: cargoItem.costUnit,
                                     costCurrency: cargoItem.costCurrency,
@@ -269,6 +296,7 @@ export class QuotationService {
                                     ChargeDisplayName: cargoItem.charge,
                                     CurrencyMasterSid: Number(cargoItem.currency),
                                     UnitMasterSid: Number(cargoItem.unit),
+                                    Qty : Number(cargoItem.Qty),
                                     perUnit: cargoItem.perUnit,
                                     costUnit: cargoItem.costUnit,
                                     costCurrency: cargoItem.costCurrency,
@@ -384,51 +412,143 @@ export class QuotationService {
 
     async getAllCustomer() {
         try {
-            const customers = await this._db.customerMaster.findMany();
+            const customers = await this._db.customerMaster.findMany({
+                where : {
+                    CustomerType: {
+                        path: ['carrier'],
+                        equals: 'isTrue'
+                    },
+                    deletedAt : null
+                }
+            });
 
-            const filteredCustomers = customers.filter(customer =>
-                customer.CustomerType &&
-                Object.values(customer.CustomerType).includes("isTrue")
-            );
 
-            return filteredCustomers;
+            return customers;
         } catch (error) {
             throw error
         }
     }
 
-    async searchQuotation(data: SearchListDto) {
-        const { searchType, filterValue } = data;
-        const acceptedTypes = [
-            "QuoteNumber",
-            "CustomerName",
-            "CustomerAddress",
-            "QuoteDate",
-            "status"
-        ];
-        if (!acceptedTypes.includes(searchType)) {
-            return new BadRequestException('Invalid Search Type');
-        }
-        const searchResults = await this._db.quoteHeader.findMany({
-            select: {
-                QuoteHeaderSid: true,
-                QuoteNumber: true,
-                CustomerName: true,
-                CustomerAddress: true,
-                QuoteDate: true,
-                status: true
-            },
-            where: {
-                [searchType]: {
-                    contains: filterValue,
-                    mode: 'insensitive'
-                },
-                deletedAt:null
-            }
-        }).catch((err) => {
-            throw new Error(`Error Occured : ${err}`)
-        })
-        return searchResults;
+    async searchQuotation(params: SearchVesselDto) {
+        const { search = '', page = 1, pageSize = 10 } = params;
+        const skip = (page - 1) * pageSize;
+
+        const where: Prisma.QuoteHeaderWhereInput = {
+            deletedAt: null,
+            status: 'A',
+            ...(search
+                ? {
+                    OR: [
+                        { QuoteNumber: { contains: search, mode: 'insensitive' } },
+                        { CustomerName: { contains: search, mode: 'insensitive' } },
+                        { CustomerAddress: { contains: search, mode: 'insensitive' } },
+                        ...(!isNaN(new Date(search).getTime())
+                            ? [{ QuoteDate: new Date(search) }]
+                            : []),
+                    ],
+                }
+                : {}),
+        };
+        let items;
+        let totalCount;
+        [items, totalCount] = await this._db.$transaction([
+            this._db.quoteHeader.findMany({
+                where,
+                skip,
+                take: pageSize,
+                orderBy: { QuoteHeaderSid: 'desc' },
+                include : {
+                    quoteRoute :{
+                        where : {
+                            deletedAt : null
+                        },
+                        include : {  
+                            departmentMaster : {
+                                select : {
+                                    departmentName : true
+                                }
+                            },
+                            quoteCharge : {
+                                where : {
+                                    deletedAt : null
+                                },
+                                include : {
+                                    unitMaster : { select : {unitCode : true} },
+                                    currencyMaster : { select : {currencyCode : true}},
+                                    
+                                }
+                            }
+                        }
+                    }
+                }
+            }),
+            this._db.quoteHeader.count({ where }),
+        ]);
+
+        return {
+            items,
+            totalCount,
+        };
     }
+
+    async getAllSalesperson() {
+        try {
+            
+            const allSalespersons = await this._db.customerSalesTeam.findMany({
+                where: {
+                    deletedAt: null,
+                },
+            });
+
+            if (allSalespersons.length === 0) return [];
+
+           
+            const salesmanIds = [...new Set(allSalespersons.map(sp => sp.Salesman))];
+
+            
+            const users = await this._db.userMaster.findMany({
+                where: {
+                    UserMasterSid: { in: salesmanIds },
+                    deletedAt: null,
+                },
+                select: {
+                    UserMasterSid: true,
+                    userName: true,
+                    userEmail: true
+                }
+            });
+
+           
+            const result = allSalespersons.map(sp => {
+                const user = users.find(u => u.UserMasterSid === sp.Salesman);
+                return {
+                    ...sp,
+                    userName: user?.userName || '',
+                };
+            });
+
+            return result;
+        } catch (error) {
+            console.error("Error in getAllSalesperson:", error);
+            throw error;
+        }
+    }
+
+    async getCustomerBranchEmail(CustomerBranchSid) {
+        try {
+            const cusBranchEmail = await this._db.customerBranch.findFirst({
+                where : {
+                    CustomerBranchSid : CustomerBranchSid
+                },
+                select : {
+                    Email : true
+                }
+            })
+            return cusBranchEmail;
+        } catch (error) {
+            throw error;
+        }
+    }
+
 
 }
