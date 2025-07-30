@@ -40,3 +40,39 @@ export const getClientIp = (req: any): string => {
   );
 };
 
+
+export function parseDateFromString(input: string): Date | null {
+  const parts = input.trim().split('-');
+  if (parts.length !== 3) return null;
+
+  const [dayStr, monthStr, yearStr] = parts;
+
+  const months: { [key: string]: number } = {
+    JAN: 0,
+    FEB: 1,
+    MAR: 2,
+    APR: 3,
+    MAY: 4,
+    JUN: 5,
+    JUL: 6,
+    AUG: 7,
+    SEP: 8,
+    OCT: 9,
+    NOV: 10,
+    DEC: 11,
+  };
+
+  const day = parseInt(dayStr, 10);
+  const year = parseInt(yearStr, 10);
+  const month = months[monthStr.toUpperCase()];
+
+  if (isNaN(day) || isNaN(year) || month === undefined) return null;
+
+  const localDate = new Date(year, month, day);
+
+  const offsetInMs = localDate.getTimezoneOffset() * 60 * 1000;
+
+  const adjustedDate = new Date(localDate.getTime() - offsetInMs);
+
+  return isNaN(adjustedDate.getTime()) ? null : adjustedDate;
+}

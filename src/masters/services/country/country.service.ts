@@ -4,13 +4,14 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { GlobalConfigService } from 'src/common/config/master-config.service';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 
 @Injectable()
 export class CountryService {
-  constructor(private _db: DatabaseService) {}
+  constructor(private _db: DatabaseService,private globalConfigService:GlobalConfigService) {}
 
   async getAllCountry() {
     try {
@@ -184,19 +185,37 @@ export class CountryService {
       : {}),
   };
 
-  const [items, totalCount] = await this._db.$transaction([
+  let items;
+  let totalCount;
+  [items, totalCount] = await this._db.$transaction([
     this._db.countryMaster.findMany({
       where,
       skip,
       take: pageSize,
       orderBy: { countryName: 'asc' },
-      include: {
-        zoneMaster: true,
-        currencyMaster: true,
-      },
     }),
     this._db.countryMaster.count({ where }),
   ]);
+
+  items = await Promise.all(
+    items.map(async (item)=> {
+      const [zoneMaster,currencyMaster] = await Promise.all([
+        item.ZoneMasterSid !== null ?
+        this.globalConfigService.getMasterData('zone_master',item.ZoneMasterSid, item.CompanyMasterSid) : 
+        { ZoneMasterSid : null, ZoneName : '' },
+
+        item.CurrencyMasterSid !== null ?
+        this.globalConfigService.getMasterData('currency_master',item.CurrencyMasterSid, item.CompanyMasterSid) :
+        { CurrencyMasterSid: null, currencyName: '' }
+      ])
+
+      return {
+        ...item,
+        zoneMaster,
+        currencyMaster
+      }
+    })
+  )
 
   return {
     items,

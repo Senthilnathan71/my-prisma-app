@@ -140,9 +140,6 @@ export class YearService {
             where,
             skip,
             take: pageSize,
-            include: {
-                companyMaster: true,
-            },
             orderBy: { YearMasterSid: 'desc'},
         }),
         this._db.yearMaster.count({ where }),

@@ -1,12 +1,13 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { GlobalConfigService } from 'src/common/config/master-config.service';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 
 @Injectable()
 export class MenuService {
-    constructor(private _db: DatabaseService, private logger: Logger) { }
+    constructor(private _db: DatabaseService, private logger: Logger,private globalConfigService:GlobalConfigService) { }
 
 
     async createMenu(payload: any, user) {
@@ -339,18 +340,30 @@ export class MenuService {
             ),
         };
 
-        const [items, totalCount] = await this._db.$transaction([
+        let items;
+        let totalCount;
+        [items, totalCount] = await this._db.$transaction([
             this._db.menuMaster.findMany({
                 where,
                 skip,
                 take: pageSize,
-                include: {
-                    moduleMaster: true,
-                },
                 orderBy: { ModuleMasterSid: 'desc' },
             }),
             this._db.menuMaster.count({ where }),
         ]);
+
+        items = await Promise.all(
+            items.map(async (item)=> {
+                const moduleMaster = item.ModuleMasterSid !== null ? 
+                await this.globalConfigService.getMasterData('module_master',item.ModuleMasterSid,item.CompanyMasterSid) :
+                {ModuleMasterSid : null , ModuleName : ''};
+
+                return {
+                    ...item,
+                    moduleMaster
+                }
+            })
+        )
 
         return {
             items,

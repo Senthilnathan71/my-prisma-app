@@ -133,9 +133,6 @@ export class ChargeTaxService {
             where,
             skip,
             take: pageSize,
-            include: {
-                companyMaster: true,
-            },
             orderBy: { ChargeTaxMasterSid: 'desc' },
         }),
         this._db.chargeTaxMaster.count({ where }),

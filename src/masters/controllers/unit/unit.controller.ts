@@ -39,6 +39,32 @@ export class UnitController {
         return output
     }
 
+    @ApiOperation({ summary: 'Get All Weight Unit' })
+    @ApiCreatedResponse({
+        description: 'Get All Weight Unit',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Get('weight')
+    async getAllWeightUnit() {
+        let output = new ResponseData;
+        try {
+            let weightData = await this.unitService.getWeightUnits();
+            this.logger.log(`getAllWeightUnits: ${JSON.stringify(weightData)}`)
+            output.data = weightData;
+            output.message = "All weight based units are successfully fetched."
+        } catch (error) {
+            this.logger.warn(`getAllWeightUnits: ${JSON.stringify(error)}`)
+            output.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                output.message = error.message;
+            } else {
+                output.message = 'Internal Server Error';
+            }
+        }
+        return output
+    }
+
     @ApiOperation({ summary: 'Unit Creation' })
         @ApiCreatedResponse({
             description: 'Unit Creation',

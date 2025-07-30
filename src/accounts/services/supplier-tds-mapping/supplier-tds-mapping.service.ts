@@ -227,17 +227,6 @@ export class SupplierTdsMappingService {
                 skip,
                 take: pageSize,
                 orderBy: { SupplierTdsMappingSid: 'desc' },
-                // include : {
-                //     customerMaster : {
-                //         include : {
-                //             countryMaster : {
-                //                 select : {
-                //                     countryName : true
-                //                 }
-                //             }
-                //         }
-                //     }
-                // }
             }),
             this._db.supplierTdsMapping.count({ where }),
         ]);
@@ -245,16 +234,18 @@ export class SupplierTdsMappingService {
         //  New global config included here
         const enrichedItems = await Promise.all(
             items.map(async (item) => {
-                const customer = await this.globalConfigService.getMasterData(
+                const customer = item.CustomerMasterSid !== null ? 
+                await this.globalConfigService.getMasterData(
                     'customer_master',
                     item.CustomerMasterSid
-                );
+                ) : { CustomerMasterSid : null , CustomerName : ''};
                 
-                const country = await this.globalConfigService.getMasterData(
+                const country = customer.CountryMasterSid !== null ? 
+                await this.globalConfigService.getMasterData(
                     'country_master',
                     customer.CountryMasterSid
-                )
-                  await this._db.countryMaster
+                ) : { CountryMasterSid : null , countryName : ''}
+
                 return {
                     ...item,
                     customerMaster: {

@@ -1,12 +1,13 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { GlobalConfigService } from 'src/common/config/master-config.service';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 
 @Injectable()
 export class DocumentTypeService {
-    constructor(private _db:DatabaseService){}
+    constructor(private _db:DatabaseService,private globalConfigService:GlobalConfigService){}
 
     async getAllDocType(){
         try {
@@ -121,22 +122,29 @@ export class DocumentTypeService {
         ),
     };
 
-    const [items, totalCount] = await this._db.$transaction([
+    let items;
+    let totalCount;
+    [items, totalCount] = await this._db.$transaction([
         this._db.documentTypeMaster.findMany({
             where,
             skip,
             take: pageSize,
-            include: {
-                branchMaster: {
-                    select: {
-                        branchName: true
-                    }
-                }
-            },
             orderBy: { DocumentTypeMasterSid: 'desc' },
         }),
         this._db.documentTypeMaster.count({ where }),
     ]);
+
+    items = await Promise.all(
+        items.map(async (item)=> {
+            const [branchMaster] = await Promise.all([
+                this.globalConfigService.getMasterData('branch_master',item.BranchMasterSid, item.CompanyMasterSid)
+            ])
+            return {
+                ...item,
+                branchMaster
+            }
+        })
+    )
 
     return {
         items,

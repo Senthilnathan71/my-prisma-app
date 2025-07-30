@@ -190,5 +190,19 @@ export class UnitService {
             totalCount,
         };
        }
+    
+    async getWeightUnits() {
+        try {
+            const weightUnits = await this._db.unitMaster.findMany({
+                where : {
+                    measurementType : 'Weight',
+                    deletedAt : null
+                }
+            })
+            return weightUnits;
+        } catch (error) {
+            throw error;
+        }
+    }
 
 }

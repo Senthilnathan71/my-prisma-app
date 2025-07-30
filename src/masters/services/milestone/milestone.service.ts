@@ -1,11 +1,12 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
+import { GlobalConfigService } from 'src/common/config/master-config.service';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 
 @Injectable()
 export class MilestoneService {
-    constructor(private _db: DatabaseService) { }
+    constructor(private _db: DatabaseService,private globalConfigService :GlobalConfigService) { }
 
     async getAllMilestones() {
         try {
@@ -144,20 +145,31 @@ export class MilestoneService {
         ),
     };
 
-    const [items, totalCount] = await this._db.$transaction([
+    let items;
+    let totalCount;
+    [items, totalCount] = await this._db.$transaction([
         this._db.milestoneMaster.findMany({
             where,
             skip,
             take: pageSize,
-            include: {
-                departmentMaster: true,
-                branchMaster: true,
-                companyMaster: true,
-            },
             orderBy: { MilestoneMasterSid: 'desc'},
         }),
         this._db.milestoneMaster.count({ where }),
     ]);
+
+    items = await Promise.all(
+        items.map(async (item)=>{
+            const departmentMaster = item.DepartmentMasterSid !== null ? 
+            await this.globalConfigService.getMasterData('department_master',item.DepartmentMasterSid,item.CompanyMasterSid) : 
+            { DepartmentMasterSid : null , departmentName : ''};
+
+            return {
+                ...item,
+                departmentMaster
+            }
+
+        })
+    )
 
     return {
         items,

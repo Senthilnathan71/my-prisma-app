@@ -1,12 +1,13 @@
 import { Prisma } from '.prisma/client/default';
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { GlobalConfigService } from 'src/common/config/master-config.service';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 
 @Injectable()
 export class ChargeService {
-    constructor(private _db: DatabaseService, private logger: Logger) { }
+    constructor(private _db: DatabaseService, private logger: Logger,private globalConfigService:GlobalConfigService) { }
 
 
     async createCharge(payload: any, user) {
@@ -321,37 +322,49 @@ export class ChargeService {
             where,
             skip,
             take: pageSize,
-            include: {
+            select: {
+                ChargeMasterSid: true,
+                chargeName: true,
+                chargeCode: true,
+                UOM : true,
+                Status : true,
                 chargeTaxMaster: {
-                    where: {
-                        deletedAt: null
-                    },
-                    select: {
-                        HSNCode: true
-                    },
-                    take: 1 // Get just one HSN code if multiple exist
+                    where: { deletedAt: null },
+                    select: { ChargeTaxMasterSid: true },
+                    take: 1,
                 },
                 chargeTds: {
-                    where: {
-                        deletedAt: null
-                    },
-                    select: {
-                        tdsSetHeader: true 
-                    },
-                    take: 1 // Get just one TDS Set if multiple exist
-                }
+                    where: { deletedAt: null },
+                    select: { TDSSet: true },
+                    take: 1,
+                },
             },
             orderBy: { ChargeMasterSid: 'desc' },
         }),
         this._db.chargeMaster.count({ where }),
     ]);
 
-    // Format the response to include HSN and TDS Set from related tables
-    const formattedItems = items.map(item => ({
-        ...item,
-        hsnCode: item.chargeTaxMaster[0]?.HSNCode || null,
-        tdsSet: item.chargeTds[0]?.tdsSetHeader || null
-    }));
+    const formattedItems = await Promise.all(
+        items.map(async (item) => {
+        const ChargeTaxMasterSid = item.chargeTaxMaster?.[0]?.ChargeTaxMasterSid;
+        const TDSSet = item.chargeTds?.[0]?.TDSSet;
+
+        const [hsn, tdsSet] = await Promise.all([
+            ChargeTaxMasterSid ? 
+            this.globalConfigService.getMasterData('charge_tax_master',ChargeTaxMasterSid) : null, 
+            
+            TDSSet ? 
+            this.globalConfigService.getMasterData('tds_set_header',TDSSet ): null,
+            ]);
+
+            return {
+            ...item,
+            chargeTaxMaster: hsn ? [hsn] : [],
+            chargeTds: tdsSet ? [{ tdsSetHeader: tdsSet }] : []
+            };
+        }),
+    );
+
  
     return {
         items: formattedItems,

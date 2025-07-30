@@ -144,9 +144,6 @@ export class ModuleService {
         where,
         skip,
         take: pageSize,
-        include: {
-          menuMaster: true,
-        },
         orderBy: { ModuleMasterSid: 'desc' },
       }),
       this._db.moduleMaster.count({ where }),
