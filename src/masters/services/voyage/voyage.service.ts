@@ -405,7 +405,7 @@ export class VoyageService {
     }
 
    async searchList(params: SearchVesselDto) {
-    const { search = '', page = 1, pageSize = 10 } = params;
+    const { search = '', page = 1, pageSize = 15 } = params;
     const skip = (page - 1) * pageSize;
     const today = new Date().toISOString(); // Use full ISO-8601 DateTime format
 

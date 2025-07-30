@@ -214,7 +214,7 @@ export class PortService {
   }
 
   async searchPortNew(params: SearchVesselDto) {
-    const { search = '',page=1,pageSize=10} = params;
+    const { search = '',page=1,pageSize=15} = params;
     const skip = (page-1)*pageSize;
 
     const where: Prisma.PortMasterWhereInput = {
