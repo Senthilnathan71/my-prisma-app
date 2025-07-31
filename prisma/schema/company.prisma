@@ -83,6 +83,7 @@ model CompanyMaster {
     emailLog            EmailLog[]
     COAMaster           COAMaster[]
     supplierTdsMapping  SupplierTdsMapping[]
+    enquiryOther        EnquiryOther[]
 }
 
 model BranchMaster {
@@ -146,6 +147,7 @@ model BranchMaster {
     MawbStock          MawbStock[]
     attachDocument     AttachDocument[]
     emailLog           EmailLog[]
+    enquiryOther       EnquiryOther[]
 }
 
 model UserMaster {
@@ -657,6 +659,7 @@ model EnquiryHeader {
     enquiryCargo   EnquiryCargo[]
     quoteHeader    QuoteHeader[]
     enquiryProduct EnquiryProduct[]
+    enquiryOther   EnquiryOther[]
 }
 
 model EnquiryRoute {
@@ -702,6 +705,9 @@ model EnquiryCargo {
     PackageType      String?   @db.VarChar(5)
     PackageQty       Decimal?  @db.Decimal(5, 0)
     CargoDescription String?   @db.VarChar(100)
+    length           Int?
+    width            Int?
+    height           Int?
     createdOn        DateTime  @default(now()) @db.Timestamptz(6)
     updatedOn        DateTime? @updatedAt @db.Timestamptz(6)
     deletedAt        DateTime?
@@ -2055,4 +2061,32 @@ model SupplierTdsMapping {
     tdsSetHeader   TDSSetHeader   @relation(fields: [TDSSetHeaderSid], references: [TDSSetHeaderSid])
     customerMaster CustomerMaster @relation(fields: [CustomerMasterSid], references: [CustomerMasterSid])
     customerBranch CustomerBranch @relation(fields: [CustomerBranchSid], references: [CustomerBranchSid])
+}
+
+model EnquiryOther {
+    EnquiryOtherSid   Int      @id @default(autoincrement())
+    EnquiryHeaderSid  Int
+    ShipperName       String   @db.VarChar(100)
+    ShipperAddress    String   @db.VarChar(100)
+    ConsigneeName     String   @db.VarChar(100)
+    ConsigneeAddress  String   @db.VarChar(100)
+    FreightTerms      String   @db.VarChar(10)
+    ShipmentFreq      String   @db.VarChar(10)
+    AdditionalService String   @db.VarChar(10)
+    Stuffing          String   @db.VarChar(10)
+    ModeofBL          String   @db.VarChar(10)
+    PickupAddress     String   @db.VarChar(100)
+    Remarks           String   @db.VarChar(100)
+    CompanyMasterSid  Int
+    BranchMasterSid   Int
+    CreatedOn         DateTime
+    CreatedBy         String   @db.VarChar(100)
+    UpdatedOn         DateTime
+    UpdatedBy         String   @db.VarChar(100)
+    LoginSid          Int
+    Status            String   @default("A") @db.Char(1)
+
+    CompanyMaster CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+    BranchMaster  BranchMaster  @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
+    EnquiryHeader EnquiryHeader @relation(fields: [EnquiryHeaderSid], references: [EnquiryHeaderSid])
 }
