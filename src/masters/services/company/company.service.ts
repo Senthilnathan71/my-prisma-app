@@ -56,7 +56,9 @@ export class CompanyService {
                 status: newData.status,
                 remarks: newData.remarks,
                 StateMasterSid: newData.StateMasterSid,
+                config: newData.config || {}, 
                 createdBy: user.userEmail
+                
             };
 
             const result = await this._db.$transaction(async (prisma) => {
@@ -89,7 +91,9 @@ export class CompanyService {
                             CityMasterSid: parseInt(branchData.CityMasterSid),
                             StateMasterSid: parseInt(branchData.StateMasterSid),
                             CountryMasterSid: parseInt(branchData.CountryMasterSid),
+                             config: branchData.config || {},
                             createdBy: user.userEmail
+                           
                         };
 
                         console.log('Creating branch:', branchPayload);
@@ -261,6 +265,7 @@ export class CompanyService {
     // Main Update Function
     async updateCompany(companySid: number, updateData: any, user: any, files?: any) {
         try {
+             if (updateData.companyName) {
 
             // Check if already name exist
             const existing = await this._db.companyMaster.findFirst({
@@ -284,6 +289,7 @@ export class CompanyService {
             if (existing?.companyName === updateData.companyName) {
                 throw new BadRequestException('Company name already exists.');
             }
+        }
 
             if(updateData.Pan){
                 const existing = await this._db.companyMaster.findFirst({
@@ -324,6 +330,7 @@ export class CompanyService {
                 status: updateData.status,
                 remarks: updateData.remarks,
                 StateMasterSid: updateData.StateMasterSid,
+                config: updateData.config,
                 updatedBy: user.userEmail
             };
 
@@ -364,7 +371,9 @@ export class CompanyService {
                             CityMasterSid: Number(branchData.CityMasterSid),
                             StateMasterSid: Number(branchData.StateMasterSid),
                             CountryMasterSid: Number(branchData.CountryMasterSid),
+                             config: branchData.config,
                             updatedBy: user.userEmail
+                             
                         };
 
                         let branchOperation;
