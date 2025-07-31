@@ -84,6 +84,7 @@ model CompanyMaster {
     COAMaster           COAMaster[]
     supplierTdsMapping  SupplierTdsMapping[]
     enquiryOther        EnquiryOther[]
+    AuthorityLog        AuthorityLog[]
 }
 
 model BranchMaster {
@@ -148,6 +149,7 @@ model BranchMaster {
     attachDocument     AttachDocument[]
     emailLog           EmailLog[]
     enquiryOther       EnquiryOther[]
+    AuthorityLog       AuthorityLog[]
 }
 
 model UserMaster {
@@ -1727,6 +1729,7 @@ model AuthorityDetail {
     companyMaster   CompanyMaster    @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
     userMaster      UserMaster       @relation(fields: [UserMasterSid], references: [UserMasterSid])
     authorityMaster AuthorityMaster? @relation(fields: [AuthorityMasterSid], references: [AuthorityMasterSid])
+    AuthorityLog    AuthorityLog[]
 }
 
 model DocumentTypeMaster {
@@ -2089,4 +2092,25 @@ model EnquiryOther {
     CompanyMaster CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
     BranchMaster  BranchMaster  @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
     EnquiryHeader EnquiryHeader @relation(fields: [EnquiryHeaderSid], references: [EnquiryHeaderSid])
+}
+
+model AuthorityLog {
+    AuthorityLogSid    Int      @id @default(autoincrement()) // Equivalent to sequence in Prisma
+    CompanyMasterSid   Int
+    BranchMasterSid    Int
+    CreatedOn          DateTime @default(now())
+    CreatedBy          String   @db.VarChar(100)
+    UpdatedOn          DateTime @default(now())
+    UpdatedBy          String?  @db.VarChar(100)
+    Status             String   @default("A") @db.Char(1)
+    AuthorityDetailSid Int
+    AuthorisedDate     DateTime
+    ApprovalStatus     String   @default("Approved") @db.VarChar(10)
+    DocumentSid        Int
+    Remarks            String?  @db.VarChar(500)
+
+    // Relations
+    CompanyMaster   CompanyMaster   @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+    BranchMaster    BranchMaster    @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
+    AuthorityDetail AuthorityDetail @relation(fields: [AuthorityDetailSid], references: [AuthorityDetailSid])
 }
