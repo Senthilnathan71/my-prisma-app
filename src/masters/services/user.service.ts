@@ -28,10 +28,21 @@ export class UserService {
                     },
                     userRoleMaster: true,
                     userCompanyMaster: {
+                        where : {
+                            deletedAt : null
+                        },
                         include: {
                             companyMaster: {
                                 include: {
-                                    branchMaster: true
+                                    userBranchMaster : {
+                                        where : {
+                                            UserMasterSid : user.UserMasterSid,
+                                            deletedAt : null
+                                        },
+                                        include : {
+                                            branchMaster : true
+                                        }
+                                    }
                                 }
                             }
                         }
