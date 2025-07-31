@@ -5,6 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { GlobalConfigService } from 'src/common/config/master-config.service';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
@@ -14,6 +15,7 @@ export class StateService {
   constructor(
     private _db: DatabaseService,
     private logger: Logger,
+    private globalConfigService : GlobalConfigService
   ) {}
 
   async createState(payload: any, user) {
@@ -162,7 +164,7 @@ export class StateService {
   }
 
    async searchStateNew(params: SearchVesselDto) {
-  const { search = '', page = 1, pageSize = 10 } = params;
+  const { search = '', page = 1, pageSize = 15 } = params;
   const skip = (page - 1) * pageSize;
 
   const where: Prisma.StateMasterWhereInput = {
@@ -181,23 +183,37 @@ export class StateService {
     ),
   };
 
-  const [ items, totalCount] = await this._db.$transaction([
+  let items;
+  let totalCount;
+  [ items, totalCount] = await this._db.$transaction([
     this._db.stateMaster.findMany({
       where,
       skip,
       take: pageSize,
       orderBy: { StateMasterSid: 'desc'},
-      include : {
-        countryMaster: {
-          select: { countryName: true },
-        },
-        zoneMaster: {
-          select: { ZoneName: true },
-        },
-      },
     }),
     this._db.stateMaster.count({ where }),
   ]);
+
+  items = await Promise.all(
+    items.map(async (item) => {
+      const [countryMaster,zoneMaster] = await Promise.all([
+        item.CountryMasterSid !== null ?
+        this.globalConfigService.getMasterData('country_master',item.CountryMasterSid) :
+        {CountryMasterSid : null , countryName : ''} ,
+
+        item.ZoneMasterSid !== null ? 
+        this.globalConfigService.getMasterData('zone_master',item.ZoneMasterSid) :
+        {ZoneMasterSid : null , ZoneName : ''}
+      ])
+
+      return {
+        ...item,
+        countryMaster,
+        zoneMaster
+      }
+    })
+  )
 
   const flattenedItems = items.map((state) => ({
     ...state,

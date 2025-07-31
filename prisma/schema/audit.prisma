@@ -1,0 +1,9 @@
+model AuditLog {
+    AuditLogSid Int      @id @default(autoincrement()) @map("AuditLogSid")
+    tableName   String
+    recordId    String? // Use String for UUID (can also use Bytes if needed)
+    operation   String
+    changedAt   DateTime @default(now())
+    changedBy   String? // optional
+    changes     Json? // JSONB equivalent in Prisma4
+}

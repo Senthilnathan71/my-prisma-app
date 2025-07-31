@@ -430,7 +430,7 @@ export class QuotationService {
     }
 
     async searchQuotation(params: SearchVesselDto) {
-        const { search = '', page = 1, pageSize = 10 } = params;
+        const { search = '', page = 1, pageSize = 15 } = params;
         const skip = (page - 1) * pageSize;
 
         const where: Prisma.QuoteHeaderWhereInput = {
@@ -449,7 +449,7 @@ export class QuotationService {
                 }
                 : {}),
         };
-        let items;
+        let items ;
         let totalCount;
         [items, totalCount] = await this._db.$transaction([
             this._db.quoteHeader.findMany({
@@ -485,6 +485,61 @@ export class QuotationService {
             this._db.quoteHeader.count({ where }),
         ]);
 
+        items = await Promise.all(
+            items.map(async (item) => {
+                const updatedRoutes = await Promise.all(
+                    item.quoteRoute.map(async (route) => {
+
+                        const departmentMaster = await this.globalConfigService.getMasterData(
+                            'department_master',
+                            route.DepartmentMasterSid
+                        );
+
+                        const updatedCharges = await Promise.all(
+                            route.quoteCharge.map(async (charge) => {
+                                const [chargeMaster,unitMaster, currencyMaster] = await Promise.all([
+                                    charge.ChargeUomSid !== null
+                                        ? this.globalConfigService.getMasterData(
+                                            'unit_master',
+                                            charge.UnitMasterSid
+                                        )
+                                        : { UnitMasterSid: null, unitName: '', unitCode: '' },
+
+                                    charge.UnitMasterSid !== null
+                                        ? this.globalConfigService.getMasterData(
+                                            'unit_master',
+                                            charge.UnitMasterSid
+                                        )
+                                        : { UnitMasterSid: null, unitName: '', unitCode: '' },
+                                    
+                                    charge.CurrencyMasterSid !== null
+                                        ? this.globalConfigService.getMasterData(
+                                            'currency_master',
+                                            charge.CurrencyMasterSid
+                                        )
+                                        : { CurrencyMasterSid: null, currencyName: '', currencyCode: '' },
+                                ]);
+
+                                return {
+                                    ...charge,
+                                    unitMaster,
+                                    currencyMaster,
+                                };
+                            })
+                        );
+                        return {
+                            ...route,
+                            departmentMaster,
+                            quoteCharge: updatedCharges,
+                        };
+                    })
+                )
+                return {
+                    ...item,
+                    quoteRoute: updatedRoutes,
+                };
+            })
+        )
         return {
             items,
             totalCount,

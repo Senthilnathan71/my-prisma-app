@@ -405,7 +405,7 @@ export class VoyageService {
     }
 
    async searchList(params: SearchVesselDto) {
-    const { search = '', page = 1, pageSize = 10 } = params;
+    const { search = '', page = 1, pageSize = 15 } = params;
     const skip = (page - 1) * pageSize;
     const today = new Date().toISOString(); // Use full ISO-8601 DateTime format
 
@@ -432,18 +432,15 @@ export class VoyageService {
         )
     };
 
-    const [items, totalCount] = await this._db.$transaction([
+    let items;
+    let totalCount;
+    [items, totalCount] = await this._db.$transaction([
         this._db.voyageMasterHeader.findMany({
             where,
             skip,
             take: pageSize,
             orderBy: { VoyageMasterHeaderSid: 'desc' },
             include: {
-                vesselMaster: {
-                    select: {
-                        VesselName: true
-                    }
-                },
                 voyageMasterDetail: {
                     where: {
                         deletedAt: null
@@ -451,23 +448,21 @@ export class VoyageService {
                     orderBy: {
                         VoyageMasterDetailSid: 'asc'
                     },
-                    include: {
-                        portMasterPOL: {
-                            select: {
-                                PortCode: true
-                            }
-                        },
-                        portMasterPOD: {
-                            select: {
-                                PortCode: true
-                            }
-                        }
-                    }
                 }
             }
         }),
         this._db.voyageMasterHeader.count({ where })
     ]);
+
+    items = await Promise.all(
+        items.map(async (item)=>{
+            const vesselMaster = item.VesselMasterSid !== null ? await this.globalConfigService.getMasterData('vessel_master', item.VesselMasterSid) : {VesselMasterSid : null , VesselName : ''};
+            return {
+                ...item,
+                vesselMaster,
+            }
+        })
+    )
 
     return {
         items,

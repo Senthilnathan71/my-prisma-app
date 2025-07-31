@@ -1,12 +1,13 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { GlobalConfigService } from 'src/common/config/master-config.service';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 
 @Injectable()
 export class CompanyService {
-    constructor(private _db: DatabaseService) { }
+    constructor(private _db: DatabaseService,private globalConfigService:GlobalConfigService) { }
 
     async createCompany(newData: any, user: any, files: any) {
         try {
@@ -673,21 +674,11 @@ async searchCompany(params: SearchVesselDto) {
             : {}),
     };
 
-    const [branches, totalCount] = await this._db.$transaction([
+    let branches;
+    let totalCount;
+    [branches, totalCount] = await this._db.$transaction([
         this._db.branchMaster.findMany({
             where: branchWhere,
-            include: {
-                company: true,
-                countryMaster: true,
-                stateMaster: true,
-                cityMaster: true,
-                branchBank: {
-                    where: {
-                        deletedAt: null,
-                        status: 'A',
-                    },
-                },
-            },
             orderBy: { company : { CompanyMasterSid : 'desc'} },
             skip,
             take: pageSize,
@@ -697,20 +688,43 @@ async searchCompany(params: SearchVesselDto) {
         }),
     ]);
 
-    const formattedBranches = branches.map(branch => ({
-        CompanyMasterSid: branch.company?.CompanyMasterSid,
-        companyName: branch.company?.companyName,
-        companyCode: branch.company?.companyCode,
-        branchName: branch.branchName,
-        city: branch.cityMaster?.cityName || '',
-        state: branch.stateMaster?.stateName || '',
-        country: branch.countryMaster?.countryName || '',
-        gst: branch.taxRegistrationNo,
-        status: branch.status === 'A' ? 'Active' : 'Suspended',
-    }));
+    branches = await Promise.all(
+        branches.map(async (branch)=> {
+            const [company,countryMaster,stateMaster,cityMaster] = await Promise.all([
+
+                branch.CompanyMasterSid !== null ?
+                this.globalConfigService.getMasterData('company_master',branch.CompanyMasterSid, branch.CompanyMasterSid) : 
+                {CompanyMasterSid: null, companyName: '', companyCode: ''},
+
+                branch.CountryMasterSid !== null ?
+                this.globalConfigService.getMasterData('country_master',branch.CountryMasterSid) :
+                { CountryMasterSid: null, countryName: '' },
+
+                branch.StateMasterSid !== null ?
+                this.globalConfigService.getMasterData('state_master',branch.StateMasterSid) : 
+                { StateMasterSid: null, stateName: '' },
+
+                branch.CityMasterSid !== null ?
+                this.globalConfigService.getMasterData('city_master',branch.CityMasterSid) : 
+                { CityMasterSid: null, cityName: '' }
+            ])
+
+            return {
+                CompanyMasterSid: company.CompanyMasterSid,
+                companyName: company.companyName,
+                companyCode: company.companyCode,
+                branchName: branch.branchName,
+                city: cityMaster.cityName || '',
+                state: stateMaster.stateName || '',
+                country: countryMaster.countryName || '',
+                gst: branch.taxRegistrationNo,
+                status: branch.status === 'A' ? 'Active' : 'Suspended',
+            }
+        })
+    )
 
     return {
-        items: formattedBranches,
+        items: branches,
         totalCount,
     };
 }

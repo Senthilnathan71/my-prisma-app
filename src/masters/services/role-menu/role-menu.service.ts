@@ -1,12 +1,13 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { GlobalConfigService } from 'src/common/config/master-config.service';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 
 @Injectable()
 export class RoleMenuService {
-    constructor(private _db:DatabaseService){}
+    constructor(private _db:DatabaseService,private globalConfigService:GlobalConfigService){}
 
     async getAllRoleMenu(){
         try {
@@ -125,7 +126,7 @@ export class RoleMenuService {
     }
 
     async searchRoleMenu(params: SearchVesselDto) {
-        const { search = '', page = 1, pageSize = 10 } = params;
+        const { search = '', page = 1, pageSize = 15 } = params;
         const skip = (page - 1) * pageSize;
     
         const where: Prisma.RoleMenuMasterWhereInput = {
@@ -140,27 +141,37 @@ export class RoleMenuService {
             ] : undefined
         };
     
-        const [items, totalCount] = await this._db.$transaction([
+        let items;
+        let totalCount;
+        [items, totalCount] = await this._db.$transaction([
             this._db.roleMenuMaster.findMany({
                 where,
                 skip,
                 take: pageSize,
                 orderBy: { menuMaster : {MenuName  : 'asc' }},
-                include : {
-                    menuMaster : {
-                        select : {
-                            MenuName : true
-                        }
-                    },
-                    roleMaster : {
-                        select : {
-                            UserRoleName : true
-                        }
-                    }
-                }
             }),
             this._db.roleMenuMaster.count({ where }),
         ]);
+
+        items = await Promise.all(
+            items.map(async (item)=>{
+                const [menuMaster,roleMaster] = await Promise.all([
+                    item.MenuMasterSid !== null ?
+                    this.globalConfigService.getMasterData('menu_master',item.MenuMasterSid) :
+                    { MenuMasterSid : null , MenuName : ''},
+
+                    item.RoleMasterSid !== null ? 
+                    this.globalConfigService.getMasterData('role_master',item.RoleMasterSid) :
+                    { RoleMasterSid : null , UserRoleName : ''},
+                ])
+
+                return {
+                    ...item,
+                    menuMaster,
+                    roleMaster
+                }
+            })
+        )
     
         return {
             items,

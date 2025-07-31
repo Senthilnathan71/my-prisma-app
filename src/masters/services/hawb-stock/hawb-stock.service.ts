@@ -126,7 +126,7 @@ export class HawbStockService {
     }
 
     async searchHawbStock(params: SearchVesselDto) {
-        const { search = '', page = 1, pageSize = 10 } = params;
+        const { search = '', page = 1, pageSize = 15 } = params;
         const skip = (page - 1) * pageSize;
 
         const where: Prisma.HawbStockWhereInput = {
@@ -165,9 +165,17 @@ export class HawbStockService {
         items = await Promise.all(
             items.map(async (item) => {
                 const [branch, company, customer] = await Promise.all([
-                    this.globalConfigService.getMasterData('branch_master', item.BranchMasterSid, item.CompanyMasterSid),
-                    this.globalConfigService.getMasterData('company_master', item.CompanyMasterSid, item.CompanyMasterSid),
-                    this.globalConfigService.getMasterData('customer_master', Number(item.Agent), item.CompanyMasterSid),
+                    item.BranchMasterSid !== null ?
+                    this.globalConfigService.getMasterData('branch_master', item.BranchMasterSid, item.CompanyMasterSid) :
+                    { BranchMasterSid: null, branchName: '', branchCode: '' },
+
+                    item.CompanyMasterSid !== null ?
+                    this.globalConfigService.getMasterData('company_master', item.CompanyMasterSid, item.CompanyMasterSid) :
+                    { CompanyMasterSid: null, companyName: '', companyCode: '' },
+
+                    item.CustomerMasterSid !== null ?
+                    this.globalConfigService.getMasterData('customer_master', Number(item.Agent), item.CompanyMasterSid) :
+                    { CustomerMasterSid: null, CustomerName: '', CustomerShortCode: '', PanName : '',CountryMasterSid:'' },
                 ]);
 
                 return {

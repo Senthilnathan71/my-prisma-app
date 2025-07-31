@@ -1,12 +1,13 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { GlobalConfigService } from 'src/common/config/master-config.service';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 
 @Injectable()
 export class TariffService {
-    constructor(private _db: DatabaseService, private logger: Logger) { }
+    constructor(private _db: DatabaseService, private logger: Logger,private globalConfigService:GlobalConfigService) { }
 
     async createNewTariff(newData: any,user:any) {
 
@@ -218,7 +219,7 @@ export class TariffService {
     }
 
     async searchTariffNew(params: SearchVesselDto) {
-        const { search='',page=1,pageSize=10} = params;
+        const { search='',page=1,pageSize=15} = params;
         const skip = (page-1)*pageSize;
 
         const where: Prisma.TariffHeaderWhereInput = {
@@ -238,26 +239,43 @@ export class TariffService {
             ),
         };
 
-        const [items,totalCount] = await this._db.$transaction([
+        let items;
+        let totalCount;
+        [items,totalCount] = await this._db.$transaction([
             this._db.tariffHeader.findMany({
                 where,
                 skip,
                 take: pageSize,
                 orderBy: { TariffHeaderSid: 'desc'},
-                include: {
-                    departmentMaster: {
-                        select: { departmentName: true },
-                    },
-                    customerCarrier: {
-                        select: { CustomerName: true},
-                    },
-                    customerAgent: {
-                        select: { CustomerName: true },
-                    },
-                },
             }),
             this._db.tariffHeader.count({where}),
         ]);
+
+        items = await Promise.all(
+            items.map(async (item)=> {
+                const [departmentMaster , customerCarrier , customerAgent] = await Promise.all([
+                    item.DepartmentMasterSid !== null ?
+                    this.globalConfigService.getMasterData('department_master',item.DepartmentMasterSid) : 
+                    { DepartmentMasterSid : null , departmentName : ''},
+
+                    item.Carrier !== null ?
+                    this.globalConfigService.getMasterData('customer_master',item.Carrier) :
+                    { CustomerMasterSid : null , CustomerName : ''},
+
+                    item.AgentSid !== null ?
+                    this.globalConfigService.getMasterData('customer_master',item.AgentSid) :
+                    { CustomerMasterSid : null , CustomerName : ''},
+
+                ])
+
+                return {
+                    ...item ,
+                    departmentMaster,
+                    customerCarrier,
+                    customerAgent
+                }
+            })
+        )
         
         return {
             items,

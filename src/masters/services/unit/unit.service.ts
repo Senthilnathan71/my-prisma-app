@@ -154,7 +154,7 @@ export class UnitService {
         }  
 
        async searchUnitNew(params: SearchVesselDto) {
-        const { search = '', page = 1, pageSize = 10} = params;
+        const { search = '', page = 1, pageSize = 15} = params;
         const skip = (page - 1) * pageSize;
 
         const where: Prisma.UnitMasterWhereInput = {
@@ -190,5 +190,19 @@ export class UnitService {
             totalCount,
         };
        }
+    
+    async getWeightUnits() {
+        try {
+            const weightUnits = await this._db.unitMaster.findMany({
+                where : {
+                    measurementType : 'Weight',
+                    deletedAt : null
+                }
+            })
+            return weightUnits;
+        } catch (error) {
+            throw error;
+        }
+    }
 
 }
