@@ -2069,17 +2069,17 @@ model SupplierTdsMapping {
 model EnquiryOther {
     EnquiryOtherSid   Int      @id @default(autoincrement())
     EnquiryHeaderSid  Int
-    ShipperName       String   @db.VarChar(100)
-    ShipperAddress    String   @db.VarChar(100)
-    ConsigneeName     String   @db.VarChar(100)
-    ConsigneeAddress  String   @db.VarChar(100)
-    FreightTerms      String   @db.VarChar(10)
-    ShipmentFreq      String   @db.VarChar(10)
-    AdditionalService String   @db.VarChar(10)
-    Stuffing          String   @db.VarChar(10)
-    ModeofBL          String   @db.VarChar(10)
-    PickupAddress     String   @db.VarChar(100)
-    Remarks           String   @db.VarChar(100)
+    ShipperName       String?  @db.VarChar(100)
+    ShipperAddress    String?  @db.VarChar(100)
+    ConsigneeName     String?  @db.VarChar(100)
+    ConsigneeAddress  String?  @db.VarChar(100)
+    FreightTerms      String?  @db.VarChar(10)
+    ShipmentFreq      String?  @db.VarChar(10)
+    AdditionalService String?  @db.VarChar(10)
+    Stuffing          String?  @db.VarChar(10)
+    ModeofBL          String?  @db.VarChar(10)
+    PickupAddress     String?  @db.VarChar(100)
+    Remarks           String?  @db.VarChar(100)
     CompanyMasterSid  Int
     BranchMasterSid   Int
     CreatedOn         DateTime
@@ -2087,7 +2087,7 @@ model EnquiryOther {
     UpdatedOn         DateTime
     UpdatedBy         String   @db.VarChar(100)
     LoginSid          Int
-    Status            String   @default("A") @db.Char(1)
+    Status            String?  @default("A") @db.Char(1)
 
     CompanyMaster CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
     BranchMaster  BranchMaster  @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
