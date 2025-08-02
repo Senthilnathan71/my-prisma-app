@@ -169,6 +169,9 @@ export class CompanyService {
                     status : 'A',
                     deletedAt : null
                 },
+                orderBy : {
+                    companyName : 'asc'
+                },
                 include: {
                     branchMaster: {
                         include: {
@@ -180,7 +183,10 @@ export class CompanyService {
                         },
                         where: {
                             deletedAt : null
-                        }
+                        },
+                        orderBy : {
+                            branchName : 'asc'
+                        }   
                     },
 
                 }
