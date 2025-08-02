@@ -615,7 +615,7 @@ model MeetingFollowup {
 }
 
 model EnquiryHeader {
-    EnquiryHeaderSid     Int       @id @default(autoincrement()) @map("EnquiryHeaderSid")
+    EnquiryHeaderSid     Int             @id @default(autoincrement()) @map("EnquiryHeaderSid")
     EnquiryDate          DateTime?
     CompanyMasterSid     Int?
     BranchMasterSid      Int?
@@ -624,31 +624,33 @@ model EnquiryHeader {
     CustomerAddressSid   Int?
     CustomerBranchSid    Int?
     UserMasterSid        Int?
-    CustomerName         String    @db.VarChar(100)
-    CustomerAddress      String?   @db.VarChar(300)
+    CustomerName         String          @db.VarChar(100)
+    CustomerAddress      String?         @db.VarChar(300)
     AgentMasterSid       Int?
     AgentAddressSid      Int?
-    EnquiryType          String?   @db.VarChar(10)
-    EnquiryBy            String?   @db.VarChar(10)
-    EnquiryNumber        String?   @db.VarChar(200)
-    IncoTerms            String?   @db.VarChar(50)
+    EnquiryType          String?         @db.VarChar(10)
+    EnquiryBy            String?         @db.VarChar(10)
+    EnquiryNumber        String?         @db.VarChar(200)
+    IncoTerms            String?         @db.VarChar(50)
     ShipmentExpectedDate DateTime
-    ClearanceBy          String?   @db.VarChar(10)
-    TransportBy          String?   @db.VarChar(10)
-    DestinationClearance String?   @db.VarChar(20)
-    DestinationTransport String?   @db.VarChar(20)
-    ShipmentType         String    @db.VarChar(200)
-    RoutingNo            String?   @db.VarChar(20)
-    ShipperRef           String?   @db.VarChar(20)
-    Remarks              String?   @db.VarChar(100)
-    MoveType             String?   @db.VarChar(10)
-    Email                String?   @db.VarChar(200)
-    createdOn            DateTime  @default(now()) @db.Timestamptz(6)
-    updatedOn            DateTime? @updatedAt @db.Timestamptz(6)
+    ClearanceBy          String?         @db.VarChar(10)
+    TransportBy          String?         @db.VarChar(10)
+    DestinationClearance String?         @db.VarChar(20)
+    DestinationTransport String?         @db.VarChar(20)
+    ShipmentType         String          @db.VarChar(200)
+    RoutingNo            String?         @db.VarChar(20)
+    ShipperRef           String?         @db.VarChar(20)
+    Remarks              String?         @db.VarChar(100)
+    MoveType             String?         @db.VarChar(10)
+    Email                String?         @db.VarChar(200)
+    AuthorizerRemarks    String?         @db.VarChar(100)
+    authorizerStatus     ApprovalStatus?
+    createdOn            DateTime        @default(now()) @db.Timestamptz(6)
+    updatedOn            DateTime?       @updatedAt @db.Timestamptz(6)
     deletedAt            DateTime?
-    createdBy            String?   @db.VarChar(100)
-    updatedBy            String?   @db.VarChar(100)
-    status               String?   @default("A") @db.Char(1)
+    createdBy            String?         @db.VarChar(100)
+    updatedBy            String?         @db.VarChar(100)
+    status               String?         @default("A") @db.Char(1)
     LoginSid             Int?
 
     companyMaster    CompanyMaster?    @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
@@ -866,45 +868,47 @@ model TariffDetail {
 }
 
 model QuoteHeader {
-    QuoteHeaderSid      Int       @id @default(autoincrement()) @map("QuoteHeaderSid")
+    QuoteHeaderSid      Int             @id @default(autoincrement()) @map("QuoteHeaderSid")
     QuoteDate           DateTime
-    QuoteNumber         String    @db.VarChar(200)
+    QuoteNumber         String          @db.VarChar(200)
     CompanyMasterSid    Int
     BranchMasterSid     Int
     EnquirySid          Int?
     DepartmentMasterSid Int?
     CustomerMasterSid   Int
     CustomerBranchSid   Int?
-    CustomerName        String    @db.VarChar(100)
-    CustomerAddress     String    @db.VarChar(300)
+    CustomerName        String          @db.VarChar(100)
+    CustomerAddress     String          @db.VarChar(300)
     AgentMasterSid      Int?
-    AgentName           String?   @db.VarChar(100)
-    AgentAddress        String?   @db.VarChar(300)
+    AgentName           String?         @db.VarChar(100)
+    AgentAddress        String?         @db.VarChar(300)
     SalesmanSid         Int?
-    QuoteSource         String?   @db.VarChar(20)
-    IncoTerms           String?   @db.VarChar(10)
-    Remarks             String?   @db.VarChar(100)
-    EnquiryRemarks      String?   @db.VarChar(100)
-    CarrierPrint        String?   @db.Char(1)
+    QuoteSource         String?         @db.VarChar(20)
+    IncoTerms           String?         @db.VarChar(10)
+    Remarks             String?         @db.VarChar(100)
+    AuthorizerRemarks   String?         @db.VarChar(100)
+    authorizerStatus    ApprovalStatus?
+    EnquiryRemarks      String?         @db.VarChar(100)
+    CarrierPrint        String?         @db.Char(1)
     RoutingHeaderSid    Int?
-    ShipperRefNo        String?   @db.VarChar(20)
-    TransportType       String?   @db.VarChar(10)
-    CustomerRef         String?   @db.VarChar(20)
+    ShipperRefNo        String?         @db.VarChar(20)
+    TransportType       String?         @db.VarChar(10)
+    CustomerRef         String?         @db.VarChar(20)
     QuoteValidFrom      DateTime?
     QuoteValidTo        DateTime?
     InternalApprovedBy  Int?
     InternalApprovedOn  DateTime?
-    CustomerApprovedBy  String?   @db.VarChar(20)
+    CustomerApprovedBy  String?         @db.VarChar(20)
     CustomerApprovedOn  DateTime?
-    Email               String?   @db.VarChar(200)
-    ClearanceBy         String?   @db.VarChar(200)
-    TransportBy         String?   @db.VarChar(200)
-    createdOn           DateTime  @default(now()) @db.Timestamptz(6)
-    updatedOn           DateTime? @updatedAt @db.Timestamptz(6)
+    Email               String?         @db.VarChar(200)
+    ClearanceBy         String?         @db.VarChar(200)
+    TransportBy         String?         @db.VarChar(200)
+    createdOn           DateTime        @default(now()) @db.Timestamptz(6)
+    updatedOn           DateTime?       @updatedAt @db.Timestamptz(6)
     deletedAt           DateTime?
-    createdBy           String    @db.VarChar(100)
-    updatedBy           String?   @db.VarChar(100)
-    status              String?   @default("A") @db.Char(1)
+    createdBy           String          @db.VarChar(100)
+    updatedBy           String?         @db.VarChar(100)
+    status              String?         @default("A") @db.Char(1)
 
     companyMaster    CompanyMaster     @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
     branchMaster     BranchMaster      @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
@@ -916,6 +920,12 @@ model QuoteHeader {
     quoteRoute   QuoteRoute[]
     quoteCarrier QuoteCarrier[]
     quoteCharge  QuoteCharge[]
+}
+
+enum ApprovalStatus {
+    Pending
+    Approved
+    Rejected
 }
 
 model QuoteRoute {
@@ -2114,4 +2124,3 @@ model AuthorityLog {
     BranchMaster    BranchMaster    @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
     AuthorityDetail AuthorityDetail @relation(fields: [AuthorityDetailSid], references: [AuthorityDetailSid])
 }
-
