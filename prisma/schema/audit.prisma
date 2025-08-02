@@ -7,3 +7,9 @@ model AuditLog {
     changedBy   String? // optional
     changes     Json? // JSONB equivalent in Prisma4
 }
+
+
+model TablePrimaryKeyMap {
+    table_name  String @id // Primary key
+    primary_key String // Name of the primary key column
+}

@@ -2114,3 +2114,4 @@ model AuthorityLog {
     BranchMaster    BranchMaster    @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
     AuthorityDetail AuthorityDetail @relation(fields: [AuthorityDetailSid], references: [AuthorityDetailSid])
 }
+
