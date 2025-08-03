@@ -27,8 +27,12 @@ export const SEED_FILES: { name: string; table: string }[] = [
     //     name: 'imco',
     //     table: 'ImcoMaster'
     // },
+    // {
+    //     name: 'state',
+    //     table: 'StateMaster'
+    // },
     {
-        name: 'state',
-        table: 'StateMaster'
-    },
+        name: 'fieldConfiguration',
+        table: 'FieldConfiguration'
+    }
 ]
