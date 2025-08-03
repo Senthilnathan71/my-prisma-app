@@ -184,6 +184,36 @@ export class CompanyController {
         return resp;
     }
 
+    @ApiOperation({ summary: 'Save company config' })
+@ApiCreatedResponse({
+    description: "Save company config",
+    type: ResponseData
+})
+@HttpCode(HttpStatus.OK)
+@Post(':id/config')
+async saveCompanyConfig(
+    @Param('id', ParseIntPipe) companyId: number,
+    @Body() configData: any,
+    @UserData() userInfo
+) {
+    let resp = new ResponseData();
+    try {
+        let res = await this.companyService.saveCompanyConfig(companyId, configData, userInfo);
+        this.logger.log(`Company config saved: ${JSON.stringify(res)}`);
+        resp.data = res;
+        resp.message = "Company config saved successfully";
+    } catch (error) {
+        this.logger.warn(`Company config save error: ${error}`);
+        resp.status = false;
+        if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+            resp.message = error.message;
+        } else {
+            resp.message = "Internal Server Error";
+        }
+    }
+    return resp;
+}
+
 
 
     @ApiOperation({ summary: 'Search List of Company' })

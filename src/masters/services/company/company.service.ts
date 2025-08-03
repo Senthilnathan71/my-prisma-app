@@ -567,6 +567,34 @@ export class CompanyService {
     }
 }
 
+async saveCompanyConfig(companyId: number, configData: any, user: any) {
+    try {
+        // First verify the company exists
+        const company = await this._db.companyMaster.findUnique({
+            where: { CompanyMasterSid: companyId }
+        });
+        
+        if (!company) {
+            throw new BadRequestException(`Company with id ${companyId} not found`);
+        }
+
+        // Update the company with new config
+        const updatedCompany = await this._db.companyMaster.update({
+            where: { CompanyMasterSid: companyId },
+            data: { 
+                config: configData,
+                updatedBy: user.userEmail
+            }
+        });
+
+        return updatedCompany;
+    } catch (error) {
+        console.error('Error saving company config:', error);
+        throw error;
+    }
+}
+
+
     async searchCompanyOld(params: SearchVesselDto) {
     const { search = '', page = 1, pageSize = 10 } = params;
     const skip = (page - 1) * pageSize;
