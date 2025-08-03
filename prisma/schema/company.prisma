@@ -645,6 +645,7 @@ model EnquiryHeader {
     Email                String?         @db.VarChar(200)
     AuthorizerRemarks    String?         @db.VarChar(100)
     authorizerStatus     ApprovalStatus?
+    MenuMasterSid        Int?
     createdOn            DateTime        @default(now()) @db.Timestamptz(6)
     updatedOn            DateTime?       @updatedAt @db.Timestamptz(6)
     deletedAt            DateTime?
@@ -658,6 +659,7 @@ model EnquiryHeader {
     departmentMaster DepartmentMaster? @relation(fields: [DepartmentMasterSid], references: [DepartmentMasterSid])
     userMaster       UserMaster?       @relation(fields: [UserMasterSid], references: [UserMasterSid])
     customerBranch   CustomerBranch?   @relation(fields: [CustomerBranchSid], references: [CustomerBranchSid])
+    menuMaster       MenuMaster?       @relation(fields: [MenuMasterSid], references: [MenuMasterSid])
 
     enquiryRoute   EnquiryRoute[]
     enquiryCargo   EnquiryCargo[]
@@ -888,6 +890,7 @@ model QuoteHeader {
     Remarks             String?         @db.VarChar(100)
     AuthorizerRemarks   String?         @db.VarChar(100)
     authorizerStatus    ApprovalStatus?
+    MenuMasterSid       Int?
     EnquiryRemarks      String?         @db.VarChar(100)
     CarrierPrint        String?         @db.Char(1)
     RoutingHeaderSid    Int?
@@ -916,6 +919,7 @@ model QuoteHeader {
     departmentMaster DepartmentMaster? @relation(fields: [DepartmentMasterSid], references: [DepartmentMasterSid])
     customerMaster   CustomerMaster    @relation(fields: [CustomerMasterSid], references: [CustomerMasterSid])
     customerBranch   CustomerBranch?   @relation(fields: [CustomerBranchSid], references: [CustomerBranchSid])
+    menuMaster       MenuMaster?       @relation(fields: [MenuMasterSid], references: [MenuMasterSid])
 
     quoteRoute   QuoteRoute[]
     quoteCarrier QuoteCarrier[]

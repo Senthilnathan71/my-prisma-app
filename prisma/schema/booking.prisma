@@ -43,6 +43,7 @@ model BookingHeader {
     IsServiceJob        String?         @db.Char(1) //Y/N
     AuthorizerRemarks   String?         @db.VarChar(100)
     authorizerStatus    ApprovalStatus?
+    MenuMasterSid       Int?
     createdOn           DateTime        @default(now()) @db.Timestamptz(6)
     updatedOn           DateTime?       @updatedAt @db.Timestamptz(6)
     deletedAt           DateTime?
@@ -54,6 +55,7 @@ model BookingHeader {
     branchMaster     BranchMaster?     @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
     departmentMaster DepartmentMaster? @relation(fields: [DepartmentMasterSid], references: [DepartmentMasterSid])
     customerBranch   CustomerBranch?   @relation(fields: [CustomerBranchSid], references: [CustomerBranchSid])
+    menuMaster       MenuMaster?       @relation(fields: [MenuMasterSid], references: [MenuMasterSid])
 
     bookingCargo BookingCargo[]
 }
@@ -115,7 +117,7 @@ model BookingConnection {
     VoyageNo             String    @db.VarChar(10)
     ETD                  DateTime?
     ETA                  DateTime?
-    Remarks              String    @db.VarChar(200)
+    Remarks              String?   @db.VarChar(200)
     createdOn            DateTime  @default(now()) @db.Timestamptz(6)
     updatedOn            DateTime? @updatedAt @db.Timestamptz(6)
     deletedAt            DateTime?
@@ -172,7 +174,7 @@ model VesselMaster {
     VesselType      String    @db.VarChar(10) //( Container,Tank,Bulk,General)
     LengthinMtr     Int
     BreadthinMtr    Int
-    Remarks         String    @db.VarChar(200)
+    Remarks         String?   @db.VarChar(200)
     createdOn       DateTime  @default(now()) @db.Timestamptz(6)
     updatedOn       DateTime? @updatedAt @db.Timestamptz(6)
     deletedAt       DateTime?
@@ -193,7 +195,7 @@ model VoyageMasterHeader {
     Carrier               Int? //(from party Master)
     VoyageType            String?      @db.VarChar(10) //( Air, Sea, Road )
     RotationNumber        String       @db.VarChar(10)
-    Remarks               String       @db.VarChar(200)
+    Remarks               String?      @db.VarChar(200)
     SCMETA                DateTime
     SCMETD                DateTime
     SCMTCargoDescription  String       @db.VarChar(200)
