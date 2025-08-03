@@ -59,6 +59,9 @@ model MenuMaster {
     terms           TermsAndConditionsMaster[]
     authorityMaster AuthorityMaster[]
     menuPermission  MenuPermission[]
+    quoteHeader     QuoteHeader[]
+    enquiryHeader   EnquiryHeader[]
+    bookingHeader   BookingHeader[]
 }
 
 model MenuPermission {

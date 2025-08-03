@@ -83,6 +83,8 @@ model CompanyMaster {
     emailLog            EmailLog[]
     COAMaster           COAMaster[]
     supplierTdsMapping  SupplierTdsMapping[]
+    enquiryOther        EnquiryOther[]
+    AuthorityLog        AuthorityLog[]
 }
 
 model BranchMaster {
@@ -146,6 +148,8 @@ model BranchMaster {
     MawbStock          MawbStock[]
     attachDocument     AttachDocument[]
     emailLog           EmailLog[]
+    enquiryOther       EnquiryOther[]
+    AuthorityLog       AuthorityLog[]
 }
 
 model UserMaster {
@@ -611,7 +615,7 @@ model MeetingFollowup {
 }
 
 model EnquiryHeader {
-    EnquiryHeaderSid     Int       @id @default(autoincrement()) @map("EnquiryHeaderSid")
+    EnquiryHeaderSid     Int             @id @default(autoincrement()) @map("EnquiryHeaderSid")
     EnquiryDate          DateTime?
     CompanyMasterSid     Int?
     BranchMasterSid      Int?
@@ -620,31 +624,34 @@ model EnquiryHeader {
     CustomerAddressSid   Int?
     CustomerBranchSid    Int?
     UserMasterSid        Int?
-    CustomerName         String    @db.VarChar(100)
-    CustomerAddress      String?   @db.VarChar(300)
+    CustomerName         String          @db.VarChar(100)
+    CustomerAddress      String?         @db.VarChar(300)
     AgentMasterSid       Int?
     AgentAddressSid      Int?
-    EnquiryType          String?   @db.VarChar(10)
-    EnquiryBy            String?   @db.VarChar(10)
-    EnquiryNumber        String?   @db.VarChar(200)
-    IncoTerms            String?   @db.VarChar(50)
+    EnquiryType          String?         @db.VarChar(10)
+    EnquiryBy            String?         @db.VarChar(10)
+    EnquiryNumber        String?         @db.VarChar(200)
+    IncoTerms            String?         @db.VarChar(50)
     ShipmentExpectedDate DateTime
-    ClearanceBy          String?   @db.VarChar(10)
-    TransportBy          String?   @db.VarChar(10)
-    DestinationClearance String?   @db.VarChar(20)
-    DestinationTransport String?   @db.VarChar(20)
-    ShipmentType         String    @db.VarChar(200)
-    RoutingNo            String?   @db.VarChar(20)
-    ShipperRef           String?   @db.VarChar(20)
-    Remarks              String?   @db.VarChar(100)
-    MoveType             String?   @db.VarChar(10)
-    Email                String?   @db.VarChar(200)
-    createdOn            DateTime  @default(now()) @db.Timestamptz(6)
-    updatedOn            DateTime? @updatedAt @db.Timestamptz(6)
+    ClearanceBy          String?         @db.VarChar(10)
+    TransportBy          String?         @db.VarChar(10)
+    DestinationClearance String?         @db.VarChar(20)
+    DestinationTransport String?         @db.VarChar(20)
+    ShipmentType         String          @db.VarChar(200)
+    RoutingNo            String?         @db.VarChar(20)
+    ShipperRef           String?         @db.VarChar(20)
+    Remarks              String?         @db.VarChar(100)
+    MoveType             String?         @db.VarChar(10)
+    Email                String?         @db.VarChar(200)
+    AuthorizerRemarks    String?         @db.VarChar(100)
+    authorizerStatus     ApprovalStatus?
+    MenuMasterSid        Int?
+    createdOn            DateTime        @default(now()) @db.Timestamptz(6)
+    updatedOn            DateTime?       @updatedAt @db.Timestamptz(6)
     deletedAt            DateTime?
-    createdBy            String?   @db.VarChar(100)
-    updatedBy            String?   @db.VarChar(100)
-    status               String?   @default("A") @db.Char(1)
+    createdBy            String?         @db.VarChar(100)
+    updatedBy            String?         @db.VarChar(100)
+    status               String?         @default("A") @db.Char(1)
     LoginSid             Int?
 
     companyMaster    CompanyMaster?    @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
@@ -652,11 +659,13 @@ model EnquiryHeader {
     departmentMaster DepartmentMaster? @relation(fields: [DepartmentMasterSid], references: [DepartmentMasterSid])
     userMaster       UserMaster?       @relation(fields: [UserMasterSid], references: [UserMasterSid])
     customerBranch   CustomerBranch?   @relation(fields: [CustomerBranchSid], references: [CustomerBranchSid])
+    menuMaster       MenuMaster?       @relation(fields: [MenuMasterSid], references: [MenuMasterSid])
 
     enquiryRoute   EnquiryRoute[]
     enquiryCargo   EnquiryCargo[]
     quoteHeader    QuoteHeader[]
     enquiryProduct EnquiryProduct[]
+    enquiryOther   EnquiryOther[]
 }
 
 model EnquiryRoute {
@@ -702,6 +711,9 @@ model EnquiryCargo {
     PackageType      String?   @db.VarChar(5)
     PackageQty       Decimal?  @db.Decimal(5, 0)
     CargoDescription String?   @db.VarChar(100)
+    length           Int?
+    width            Int?
+    height           Int?
     createdOn        DateTime  @default(now()) @db.Timestamptz(6)
     updatedOn        DateTime? @updatedAt @db.Timestamptz(6)
     deletedAt        DateTime?
@@ -858,45 +870,48 @@ model TariffDetail {
 }
 
 model QuoteHeader {
-    QuoteHeaderSid      Int       @id @default(autoincrement()) @map("QuoteHeaderSid")
+    QuoteHeaderSid      Int             @id @default(autoincrement()) @map("QuoteHeaderSid")
     QuoteDate           DateTime
-    QuoteNumber         String    @db.VarChar(200)
+    QuoteNumber         String          @db.VarChar(200)
     CompanyMasterSid    Int
     BranchMasterSid     Int
     EnquirySid          Int?
     DepartmentMasterSid Int?
     CustomerMasterSid   Int
     CustomerBranchSid   Int?
-    CustomerName        String    @db.VarChar(100)
-    CustomerAddress     String    @db.VarChar(300)
+    CustomerName        String          @db.VarChar(100)
+    CustomerAddress     String          @db.VarChar(300)
     AgentMasterSid      Int?
-    AgentName           String?   @db.VarChar(100)
-    AgentAddress        String?   @db.VarChar(300)
+    AgentName           String?         @db.VarChar(100)
+    AgentAddress        String?         @db.VarChar(300)
     SalesmanSid         Int?
-    QuoteSource         String?   @db.VarChar(20)
-    IncoTerms           String?   @db.VarChar(10)
-    Remarks             String?   @db.VarChar(100)
-    EnquiryRemarks      String?   @db.VarChar(100)
-    CarrierPrint        String?   @db.Char(1)
+    QuoteSource         String?         @db.VarChar(20)
+    IncoTerms           String?         @db.VarChar(10)
+    Remarks             String?         @db.VarChar(100)
+    AuthorizerRemarks   String?         @db.VarChar(100)
+    authorizerStatus    ApprovalStatus?
+    MenuMasterSid       Int?
+    EnquiryRemarks      String?         @db.VarChar(100)
+    CarrierPrint        String?         @db.Char(1)
     RoutingHeaderSid    Int?
-    ShipperRefNo        String?   @db.VarChar(20)
-    TransportType       String?   @db.VarChar(10)
-    CustomerRef         String?   @db.VarChar(20)
+    ShipperRefNo        String?         @db.VarChar(20)
+    TransportType       String?         @db.VarChar(10)
+    CustomerRef         String?         @db.VarChar(20)
     QuoteValidFrom      DateTime?
     QuoteValidTo        DateTime?
     InternalApprovedBy  Int?
     InternalApprovedOn  DateTime?
-    CustomerApprovedBy  String?   @db.VarChar(20)
+    CustomerApprovedBy  String?         @db.VarChar(20)
     CustomerApprovedOn  DateTime?
-    Email               String?   @db.VarChar(200)
-    ClearanceBy         String?   @db.VarChar(200)
-    TransportBy         String?   @db.VarChar(200)
-    createdOn           DateTime  @default(now()) @db.Timestamptz(6)
-    updatedOn           DateTime? @updatedAt @db.Timestamptz(6)
+    Email               String?         @db.VarChar(200)
+    ClearanceBy         String?         @db.VarChar(200)
+    TransportBy         String?         @db.VarChar(200)
+    createdOn           DateTime        @default(now()) @db.Timestamptz(6)
+    updatedOn           DateTime?       @updatedAt @db.Timestamptz(6)
     deletedAt           DateTime?
-    createdBy           String    @db.VarChar(100)
-    updatedBy           String?   @db.VarChar(100)
-    status              String?   @default("A") @db.Char(1)
+    createdBy           String          @db.VarChar(100)
+    updatedBy           String?         @db.VarChar(100)
+    status              String?         @default("A") @db.Char(1)
 
     companyMaster    CompanyMaster     @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
     branchMaster     BranchMaster      @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
@@ -904,10 +919,17 @@ model QuoteHeader {
     departmentMaster DepartmentMaster? @relation(fields: [DepartmentMasterSid], references: [DepartmentMasterSid])
     customerMaster   CustomerMaster    @relation(fields: [CustomerMasterSid], references: [CustomerMasterSid])
     customerBranch   CustomerBranch?   @relation(fields: [CustomerBranchSid], references: [CustomerBranchSid])
+    menuMaster       MenuMaster?       @relation(fields: [MenuMasterSid], references: [MenuMasterSid])
 
     quoteRoute   QuoteRoute[]
     quoteCarrier QuoteCarrier[]
     quoteCharge  QuoteCharge[]
+}
+
+enum ApprovalStatus {
+    Pending
+    Approved
+    Rejected
 }
 
 model QuoteRoute {
@@ -1721,6 +1743,7 @@ model AuthorityDetail {
     companyMaster   CompanyMaster    @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
     userMaster      UserMaster       @relation(fields: [UserMasterSid], references: [UserMasterSid])
     authorityMaster AuthorityMaster? @relation(fields: [AuthorityMasterSid], references: [AuthorityMasterSid])
+    AuthorityLog    AuthorityLog[]
 }
 
 model DocumentTypeMaster {
@@ -2055,4 +2078,53 @@ model SupplierTdsMapping {
     tdsSetHeader   TDSSetHeader   @relation(fields: [TDSSetHeaderSid], references: [TDSSetHeaderSid])
     customerMaster CustomerMaster @relation(fields: [CustomerMasterSid], references: [CustomerMasterSid])
     customerBranch CustomerBranch @relation(fields: [CustomerBranchSid], references: [CustomerBranchSid])
+}
+
+model EnquiryOther {
+    EnquiryOtherSid   Int      @id @default(autoincrement())
+    EnquiryHeaderSid  Int
+    ShipperName       String?  @db.VarChar(100)
+    ShipperAddress    String?  @db.VarChar(100)
+    ConsigneeName     String?  @db.VarChar(100)
+    ConsigneeAddress  String?  @db.VarChar(100)
+    FreightTerms      String?  @db.VarChar(10)
+    ShipmentFreq      String?  @db.VarChar(10)
+    AdditionalService String?  @db.VarChar(10)
+    Stuffing          String?  @db.VarChar(10)
+    ModeofBL          String?  @db.VarChar(10)
+    PickupAddress     String?  @db.VarChar(100)
+    Remarks           String?  @db.VarChar(100)
+    CompanyMasterSid  Int
+    BranchMasterSid   Int
+    CreatedOn         DateTime
+    CreatedBy         String   @db.VarChar(100)
+    UpdatedOn         DateTime
+    UpdatedBy         String   @db.VarChar(100)
+    LoginSid          Int
+    Status            String?  @default("A") @db.Char(1)
+
+    CompanyMaster CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+    BranchMaster  BranchMaster  @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
+    EnquiryHeader EnquiryHeader @relation(fields: [EnquiryHeaderSid], references: [EnquiryHeaderSid])
+}
+
+model AuthorityLog {
+    AuthorityLogSid    Int      @id @default(autoincrement()) // Equivalent to sequence in Prisma
+    CompanyMasterSid   Int
+    BranchMasterSid    Int
+    CreatedOn          DateTime @default(now())
+    CreatedBy          String   @db.VarChar(100)
+    UpdatedOn          DateTime @default(now())
+    UpdatedBy          String?  @db.VarChar(100)
+    Status             String   @default("A") @db.Char(1)
+    AuthorityDetailSid Int
+    AuthorisedDate     DateTime
+    ApprovalStatus     String   @default("Approved") @db.VarChar(10)
+    DocumentSid        Int
+    Remarks            String?  @db.VarChar(500)
+
+    // Relations
+    CompanyMaster   CompanyMaster   @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+    BranchMaster    BranchMaster    @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
+    AuthorityDetail AuthorityDetail @relation(fields: [AuthorityDetailSid], references: [AuthorityDetailSid])
 }

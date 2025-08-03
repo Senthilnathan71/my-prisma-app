@@ -1,0 +1,4 @@
+model FieldConfiguration {
+    configSid   Int  @id @default(autoincrement()) @map("configSid")
+    fieldConfig Json
+}

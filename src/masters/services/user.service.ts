@@ -16,7 +16,11 @@ export class UserService {
             const result = await this._db.userMaster.findUnique({
                 where: {
                     UserMasterSid: user.UserMasterSid
-                }, include: {
+                }, 
+                omit : {
+                    userPassword : true
+                },
+                include: {
                     countryMaster: {
                         include: {
                             stateMaster: {
@@ -26,12 +30,27 @@ export class UserService {
                             }
                         }
                     },
-                    userRoleMaster: true,
+                    userRoleMaster: {
+                        where : {
+                            deletedAt : null
+                        }
+                    },
                     userCompanyMaster: {
+                        where : {
+                            deletedAt : null
+                        },
                         include: {
                             companyMaster: {
                                 include: {
-                                    branchMaster: true
+                                    userBranchMaster : {
+                                        where : {
+                                            UserMasterSid : user.UserMasterSid,
+                                            deletedAt : null
+                                        },
+                                        include : {
+                                            branchMaster : true
+                                        }
+                                    }
                                 }
                             }
                         }

@@ -1,57 +1,61 @@
 model BookingHeader {
-    BookingHeaderSid    Int       @id @default(autoincrement()) @map("BookingHeaderSid")
-    BookingNo           String    @db.VarChar(50)
+    BookingHeaderSid    Int             @id @default(autoincrement()) @map("BookingHeaderSid")
+    BookingNo           String          @db.VarChar(50)
     BookingDateTime     DateTime?
     CompanyMasterSid    Int
     BranchMasterSid     Int?
     CustomerBranchSid   Int?
     DepartmentMasterSid Int
     CustomerMasterSid   Int
-    CustomerName        String?   @db.VarChar(100)
-    CustomerAddress     String?   @db.VarChar(300)
+    CustomerName        String?         @db.VarChar(100)
+    CustomerAddress     String?         @db.VarChar(300)
     SalesmanSid         Int?
     CargoExpectedon     DateTime?
-    FreightTerms        String?   @db.VarChar(100)
-    POO                 String?   @db.VarChar(100)
-    POL                 String    @db.VarChar(100)
-    POD                 String    @db.VarChar(100)
-    FPD                 String?   @db.VarChar(100)
+    FreightTerms        String?         @db.VarChar(100)
+    POO                 String?         @db.VarChar(100)
+    POL                 String          @db.VarChar(100)
+    POD                 String          @db.VarChar(100)
+    FPD                 String?         @db.VarChar(100)
     TsPortSid           Int?
-    POLTerminal         String?   @db.VarChar(100)
+    POLTerminal         String?         @db.VarChar(100)
     VoyageMasterSid     Int?
-    VesselName          String?   @db.VarChar(100)
-    VoyageNo            String?   @db.VarChar(10)
+    VesselName          String?         @db.VarChar(100)
+    VoyageNo            String?         @db.VarChar(10)
     ETD                 DateTime?
     ETA                 DateTime?
-    IncoTerms           String?   @db.VarChar(10)
+    IncoTerms           String?         @db.VarChar(10)
     BLLocation          Int?
-    ShipperName         String?   @db.VarChar(100)
-    ShipperAddress      String?   @db.VarChar(300)
-    ConsigneeName       String?   @db.VarChar(100)
-    ConsigneeAddress    String?   @db.VarChar(300)
-    ClearanceRequire    String?   @db.Char(1)
-    ShipmentType        String?   @db.VarChar(10) //--Nomination/Freehand
+    ShipperName         String?         @db.VarChar(100)
+    ShipperAddress      String?         @db.VarChar(300)
+    ConsigneeName       String?         @db.VarChar(100)
+    ConsigneeAddress    String?         @db.VarChar(300)
+    ClearanceRequire    String?         @db.Char(1)
+    ShipmentType        String?         @db.VarChar(10) //--Nomination/Freehand
     DestinationAgent    Int?
-    AgentName           String?   @db.VarChar(100)
-    AgentAddress        String?   @db.VarChar(300)
-    HouseNo             String?   @db.VarChar(20)
+    AgentName           String?         @db.VarChar(100)
+    AgentAddress        String?         @db.VarChar(300)
+    HouseNo             String?         @db.VarChar(20)
     MasterNoSid         Int?
     QuotationHeaderSid  Int?
     EnquiryHeaderSid    Int?
-    MovementType        String?   @db.VarChar(10)
+    MovementType        String?         @db.VarChar(10)
     DoValid             DateTime?
-    IsServiceJob        String?   @db.Char(1) //Y/N
-    createdOn           DateTime  @default(now()) @db.Timestamptz(6)
-    updatedOn           DateTime? @updatedAt @db.Timestamptz(6)
+    IsServiceJob        String?         @db.Char(1) //Y/N
+    AuthorizerRemarks   String?         @db.VarChar(100)
+    authorizerStatus    ApprovalStatus?
+    MenuMasterSid       Int?
+    createdOn           DateTime        @default(now()) @db.Timestamptz(6)
+    updatedOn           DateTime?       @updatedAt @db.Timestamptz(6)
     deletedAt           DateTime?
-    createdBy           String    @db.VarChar(100)
-    updatedBy           String?   @db.VarChar(100)
-    status              String?   @default("A") @db.Char(1)
+    createdBy           String          @db.VarChar(100)
+    updatedBy           String?         @db.VarChar(100)
+    status              String?         @default("A") @db.Char(1)
 
     companyMaster    CompanyMaster     @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
     branchMaster     BranchMaster?     @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
     departmentMaster DepartmentMaster? @relation(fields: [DepartmentMasterSid], references: [DepartmentMasterSid])
     customerBranch   CustomerBranch?   @relation(fields: [CustomerBranchSid], references: [CustomerBranchSid])
+    menuMaster       MenuMaster?       @relation(fields: [MenuMasterSid], references: [MenuMasterSid])
 
     bookingCargo BookingCargo[]
 }
@@ -113,7 +117,7 @@ model BookingConnection {
     VoyageNo             String    @db.VarChar(10)
     ETD                  DateTime?
     ETA                  DateTime?
-    Remarks              String    @db.VarChar(200)
+    Remarks              String?   @db.VarChar(200)
     createdOn            DateTime  @default(now()) @db.Timestamptz(6)
     updatedOn            DateTime? @updatedAt @db.Timestamptz(6)
     deletedAt            DateTime?
@@ -170,7 +174,7 @@ model VesselMaster {
     VesselType      String    @db.VarChar(10) //( Container,Tank,Bulk,General)
     LengthinMtr     Int
     BreadthinMtr    Int
-    Remarks         String    @db.VarChar(200)
+    Remarks         String?   @db.VarChar(200)
     createdOn       DateTime  @default(now()) @db.Timestamptz(6)
     updatedOn       DateTime? @updatedAt @db.Timestamptz(6)
     deletedAt       DateTime?
@@ -191,7 +195,7 @@ model VoyageMasterHeader {
     Carrier               Int? //(from party Master)
     VoyageType            String?      @db.VarChar(10) //( Air, Sea, Road )
     RotationNumber        String       @db.VarChar(10)
-    Remarks               String       @db.VarChar(200)
+    Remarks               String?      @db.VarChar(200)
     SCMETA                DateTime
     SCMETD                DateTime
     SCMTCargoDescription  String       @db.VarChar(200)

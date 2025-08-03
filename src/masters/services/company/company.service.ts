@@ -56,7 +56,9 @@ export class CompanyService {
                 status: newData.status,
                 remarks: newData.remarks,
                 StateMasterSid: newData.StateMasterSid,
+                config: newData.config || {}, 
                 createdBy: user.userEmail
+                
             };
 
             const result = await this._db.$transaction(async (prisma) => {
@@ -89,7 +91,9 @@ export class CompanyService {
                             CityMasterSid: parseInt(branchData.CityMasterSid),
                             StateMasterSid: parseInt(branchData.StateMasterSid),
                             CountryMasterSid: parseInt(branchData.CountryMasterSid),
+                             config: branchData.config || {},
                             createdBy: user.userEmail
+                           
                         };
 
                         console.log('Creating branch:', branchPayload);
@@ -165,6 +169,9 @@ export class CompanyService {
                     status : 'A',
                     deletedAt : null
                 },
+                orderBy : {
+                    companyName : 'asc'
+                },
                 include: {
                     branchMaster: {
                         include: {
@@ -176,7 +183,10 @@ export class CompanyService {
                         },
                         where: {
                             deletedAt : null
-                        }
+                        },
+                        orderBy : {
+                            branchName : 'asc'
+                        }   
                     },
 
                 }
@@ -261,6 +271,7 @@ export class CompanyService {
     // Main Update Function
     async updateCompany(companySid: number, updateData: any, user: any, files?: any) {
         try {
+             if (updateData.companyName) {
 
             // Check if already name exist
             const existing = await this._db.companyMaster.findFirst({
@@ -284,6 +295,7 @@ export class CompanyService {
             if (existing?.companyName === updateData.companyName) {
                 throw new BadRequestException('Company name already exists.');
             }
+        }
 
             if(updateData.Pan){
                 const existing = await this._db.companyMaster.findFirst({
@@ -324,6 +336,7 @@ export class CompanyService {
                 status: updateData.status,
                 remarks: updateData.remarks,
                 StateMasterSid: updateData.StateMasterSid,
+                config: updateData.config,
                 updatedBy: user.userEmail
             };
 
@@ -364,7 +377,9 @@ export class CompanyService {
                             CityMasterSid: Number(branchData.CityMasterSid),
                             StateMasterSid: Number(branchData.StateMasterSid),
                             CountryMasterSid: Number(branchData.CountryMasterSid),
+                             config: branchData.config,
                             updatedBy: user.userEmail
+                             
                         };
 
                         let branchOperation;
@@ -551,6 +566,34 @@ export class CompanyService {
         throw error;
     }
 }
+
+async saveCompanyConfig(companyId: number, configData: any, user: any) {
+    try {
+        // First verify the company exists
+        const company = await this._db.companyMaster.findUnique({
+            where: { CompanyMasterSid: companyId }
+        });
+        
+        if (!company) {
+            throw new BadRequestException(`Company with id ${companyId} not found`);
+        }
+
+        // Update the company with new config
+        const updatedCompany = await this._db.companyMaster.update({
+            where: { CompanyMasterSid: companyId },
+            data: { 
+                config: configData,
+                updatedBy: user.userEmail
+            }
+        });
+
+        return updatedCompany;
+    } catch (error) {
+        console.error('Error saving company config:', error);
+        throw error;
+    }
+}
+
 
     async searchCompanyOld(params: SearchVesselDto) {
     const { search = '', page = 1, pageSize = 10 } = params;
