@@ -1,10 +1,14 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
+import { GlobalConfigService } from 'src/common/config/master-config.service';
+import { parseDateFromString } from 'src/common/helper';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
+import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 
 @Injectable()
 export class AuthorityService {
-    constructor(private _db: DatabaseService) { }
+    constructor(private _db: DatabaseService,private globalConfigService:GlobalConfigService) { }
 
     async getAllAuthorities() {
         try {
@@ -37,28 +41,27 @@ export class AuthorityService {
 
     async createNewAuthority(payload: any) {
         try {
-            if (!payload.authorityDetails || payload.authorityDetails.length === 0) {
+            if (!payload.authDetails || payload.authDetails.length === 0) {
                 throw new BadRequestException('At least one authority detail is required');
             }
 
-            const result = await this._db.$transaction(async (prisma) => {
-                const { authorityDetails = [], ...masterData } = payload;
-                
-                const departmentMaster = Array.isArray(masterData.DepartmentMaster) 
-                    ? masterData.DepartmentMaster.map(d => d.toString())
-                    : [masterData.DepartmentMaster.toString()];
+            return await this._db.$transaction(async (prisma) => {
+                const { authDetails, authorityDetails, ...masterData } = payload;
 
                 const createdMaster = await prisma.authorityMaster.create({
                     data: {
-                        ...masterData,
-                        DepartmentMaster: departmentMaster,
-                        status: masterData.status ,
-                        MenuMaster: parseInt(masterData.MenuMaster)
-                    }
+                        BranchMasterSid: masterData.BranchMasterSid,
+                        CompanyMasterSid: masterData.CompanyMasterSid,
+                        DepartmentMaster: masterData.DepartmentMaster,
+                        MenuMaster: parseInt(masterData.MenuMaster),
+                        status: masterData.status || 'A',
+                        Remarks: masterData.Remarks || '',
+                        createdBy: masterData.createdBy,
+                    },
                 });
 
                 const createdDetails = await Promise.all(
-                    authorityDetails.map(detail => 
+                    authDetails.map(detail =>
                         prisma.authorityDetail.create({
                             data: {
                                 AuthorityMasterSid: createdMaster.AuthorityMasterSid,
@@ -66,23 +69,21 @@ export class AuthorityService {
                                 BranchMasterSid: createdMaster.BranchMasterSid,
                                 UserMasterSid: parseInt(detail.UserMasterSid),
                                 AuthorityLevel: parseInt(detail.AuthorityLevel),
-                                FinalAuthority: detail.FinalAuthority || 'Y',
-                                status: detail.status ,
+                                FinalAuthority: detail.FinalAuthority,
+                                status: detail.status || 'A',
                                 Remarks: detail.Remarks || '',
-                                createdBy: detail.createdBy,
-                                updatedBy: detail.updatedBy
+                                createdBy: masterData.createdBy,
+                                updatedBy: detail.updatedBy || masterData.createdBy,
                             },
                         })
-                    )
+                    ),
                 );
 
                 return {
                     authority: createdMaster,
-                    authorityDetails: createdDetails
+                    authorityDetails: createdDetails,
                 };
             });
-
-            return result;
         } catch (error) {
             console.error('Transaction failed:', error);
             throw error;
@@ -96,9 +97,6 @@ export class AuthorityService {
                     AuthorityMasterSid: AuthorityMasterSid
                 },
                 include: {
-                    branchMaster: true,
-                    companyMaster: true,
-                    menuMaster: true,
                     authorityDetail: {
                         where: {
                             deletedAt: null
@@ -119,11 +117,11 @@ export class AuthorityService {
     async updateAuthorityById(AuthorityMasterSid: number, payload: any) {
         try {
             const exist = await this._db.authorityMaster.findUnique({
-                where: { AuthorityMasterSid }
+                where: { AuthorityMasterSid },
             });
 
             if (!exist) {
-                throw new BadRequestException(`Authority with Id : ${AuthorityMasterSid} does not exist`);
+                throw new BadRequestException(`Authority with Id: ${AuthorityMasterSid} does not exist`);
             }
 
             const updated = await this._db.$transaction(async (tx) => {
@@ -131,98 +129,101 @@ export class AuthorityService {
                     DepartmentMaster,
                     MenuMaster,
                     BranchMasterSid,
+                    CompanyMasterSid,
                     status,
                     Remarks,
-                    authorityDetails = [],
-                    updatedBy
+                    authDetails = [],
+                    updatedBy,
                 } = payload;
+
+                if (!authDetails || authDetails.length === 0) {
+                    throw new BadRequestException('At least one authority detail is required');
+                }
 
                 // Update authority master
                 const authority = await tx.authorityMaster.update({
                     where: { AuthorityMasterSid },
                     data: {
-                        DepartmentMaster: Array.isArray(DepartmentMaster)
-                            ? DepartmentMaster.map(d => d.toString())
-                            : [DepartmentMaster.toString()],
-                        MenuMaster: MenuMaster ? parseInt(MenuMaster) : undefined,
+                        DepartmentMaster: DepartmentMaster,
+                        MenuMaster: parseInt(MenuMaster),
                         BranchMasterSid,
-                        status: status ,
-                        Remarks,
+                        CompanyMasterSid,
+                        status: status || 'A',
+                        Remarks: Remarks || '',
                         updatedBy: updatedBy || null,
-                        updatedOn: new Date()
-                    }
+                        updatedOn: new Date(),
+                    },
                 });
 
-                // Get existing details to compare
                 const existingDetails = await tx.authorityDetail.findMany({
-                    where: { 
+                    where: {
                         AuthorityMasterSid,
-                        deletedAt: null 
-                    }
+                        deletedAt: null,
+                    },
                 });
 
-                // Identify details to delete (not in new payload)
-                const detailsToDelete = existingDetails.filter(ed => 
-                    !authorityDetails.some(ad => 
-                        ad.AuthorityDetailSid === ed.AuthorityDetailSid
-                    )
+                const detailsToDelete = existingDetails.filter(
+                    ed => !authDetails.some(ad => ad.UserMasterSid === ed.UserMasterSid && ad.AuthorityLevel === ed.AuthorityLevel),
                 );
 
-                // Soft delete removed details
-                if (detailsToDelete.length > 0) {
+                
+                if (detailsToDelete.length) {
                     await tx.authorityDetail.updateMany({
-                        where: { 
-                            AuthorityDetailSid: { 
-                                in: detailsToDelete.map(d => d.AuthorityDetailSid) 
-                            } 
+                        where: {
+                            AuthorityDetailSid: {
+                                in: detailsToDelete.map(d => d.AuthorityDetailSid),
+                            },
                         },
-                        data: { 
+                        data: {
                             deletedAt: new Date(),
-                            updatedBy: updatedBy || null
-                        }
+                            updatedBy: updatedBy,
+                        },
                     });
                 }
 
-                // Process each detail in payload
+                
                 const updatedDetails = await Promise.all(
-                    authorityDetails.map(async detail => {
-                        if (detail.AuthorityDetailSid) {
-                            // Update existing detail
+                    authDetails.map(async detail => {
+                        const existingDetail = existingDetails.find(
+                            ed => ed.UserMasterSid === parseInt(detail.UserMasterSid) && ed.AuthorityLevel === parseInt(detail.AuthorityLevel),
+                        );
+                        if (existingDetail) {
+                           
                             return await tx.authorityDetail.update({
-                                where: { AuthorityDetailSid: detail.AuthorityDetailSid },
+                                where: { AuthorityDetailSid: existingDetail.AuthorityDetailSid },
                                 data: {
-                                    UserMasterSid: Number(detail.UserMasterSid),
-                                    AuthorityLevel: Number(detail.AuthorityLevel),
-                                    FinalAuthority: detail.FinalAuthority || 'Y',
-                                    status: detail.status ,
+                                    UserMasterSid: parseInt(detail.UserMasterSid),
+                                    AuthorityLevel: parseInt(detail.AuthorityLevel),
+                                    FinalAuthority: detail.FinalAuthority,
+                                    status: detail.status || 'A',
                                     Remarks: detail.Remarks || '',
-                                    updatedBy: detail.updatedBy || '',
-                                    updatedOn: new Date()
-                                }
+                                    updatedBy: updatedBy,
+                                    updatedOn: new Date(),
+                                },
                             });
                         } else {
-                            // Create new detail
+                            
                             return await tx.authorityDetail.create({
                                 data: {
-                                    AuthorityMasterSid: AuthorityMasterSid,
+                                    AuthorityMasterSid,
                                     CompanyMasterSid: authority.CompanyMasterSid,
                                     BranchMasterSid: authority.BranchMasterSid,
-                                    UserMasterSid: Number(detail.UserMasterSid),
-                                    AuthorityLevel: Number(detail.AuthorityLevel),
-                                    FinalAuthority: detail.FinalAuthority || 'Y',
-                                    status: detail.status ,
+                                    UserMasterSid: parseInt(detail.UserMasterSid),
+                                    AuthorityLevel: parseInt(detail.AuthorityLevel),
+                                    FinalAuthority: detail.FinalAuthority,
+                                    status: detail.status || 'A',
                                     Remarks: detail.Remarks || '',
-                                    createdBy: detail.createdBy || '',
-                                    updatedBy: detail.updatedBy || ''
-                                }
+                                    createdBy: updatedBy || '',
+                                    updatedBy: updatedBy || '',
+                                },
                             });
                         }
-                    })
+                    }),
                 );
 
-                return { 
-                    authority, 
-                    authorityDetails: updatedDetails 
+                return {
+                    authority,
+                    authorityDetails: updatedDetails,
                 };
             });
 
@@ -262,6 +263,60 @@ export class AuthorityService {
             return { status: true, message: 'Authority deleted successfully' };
         } catch (error) {
             throw error;
+        }
+    }
+
+    async newSearchAuthority(param : SearchVesselDto){
+        const {search ='', page = 1 , pageSize = 15 } = param;
+        const skip = (page - 1) * pageSize;
+
+        const where : Prisma.AuthorityMasterWhereInput = {
+            deletedAt : null,
+            status : 'A',
+            ...(search ? {
+                OR : [
+                    { DepartmentMaster : {has : search}},
+                    { menuMaster : { MenuName : { contains : search , mode : 'insensitive'}}},
+                    { branchMaster : { branchName : { contains : search , mode : 'insensitive' }}},
+                ]
+            }:{})
+        }
+
+        let items;
+        let totalCount;
+        [items,totalCount] = await this._db.$transaction([
+            this._db.authorityMaster.findMany({
+                where : where,
+                take : pageSize,
+                skip : skip,
+                orderBy : { AuthorityMasterSid : 'desc'}
+            }),
+            this._db.authorityMaster.count({
+                where : where
+            })
+        ])
+        
+        items = await Promise.all(
+            items.map(async (item)=>{
+                const [branchMaster,menuMaster] = await Promise.all([
+                    item.BranchMasterSid !== null ?
+                    this.globalConfigService.getMasterData('branch_master',item.BranchMasterSid,item.CompanyMasterSid) :
+                     {BranchMasterSid : null , branchName : ''},
+
+                    item.MenuMasterSid !== null ?
+                    this.globalConfigService.getMasterData('menu_master',item.MenuMaster) : 
+                    {MenuMasterSid : null , MenuName : ''}
+                ])
+                return {
+                    ...item,
+                    branchMaster,
+                    menuMaster
+                }
+            })
+        )
+        return {
+            items,
+            totalCount
         }
     }
 
@@ -316,4 +371,143 @@ export class AuthorityService {
             orderBy: { updatedOn: 'desc' }
         });
     }
+
+    async searchDocAuthorization(param: SearchVesselDto, UserMasterSid: number) {
+        const { search = "", page = 1, pageSize = 15 } = param;
+        const skip = (page - 1) * pageSize;
+
+        const parsedDate = parseDateFromString(search);
+
+        const allMenuAfflicatedWithUser = await this._db.authorityDetail.findMany({
+            where: {
+                UserMasterSid: UserMasterSid,
+                deletedAt: null,
+                status: 'A'
+            },
+            select: {
+                authorityMaster: {
+                    include: {
+                        menuMaster: {
+                            select: {
+                                MenuMasterSid: true,
+                                MenuName: true
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        const menuSidToName = new Map<number, string>();
+        const allMenuSidsOfUser = new Set<number>();
+
+        allMenuAfflicatedWithUser.forEach(detail => {
+            const sid = detail.authorityMaster?.menuMaster?.MenuMasterSid;
+            const name = detail.authorityMaster?.menuMaster?.MenuName;
+            if (sid != null && name) {
+                allMenuSidsOfUser.add(sid);
+                menuSidToName.set(sid, name);
+            }
+        });
+
+
+
+        const modelsForMenu: Record<string | number, { model: string; whereClause: any }> = {
+            81 : {
+                model: 'quoteHeader',
+                whereClause: {
+                    OR: [
+                        { QuoteNumber: { contains: search, mode: 'insensitive' } },
+                        ...(parsedDate ? [{ QuoteDate: { equals: parsedDate } }] : []),
+                        { CustomerName: { contains: search, mode: 'insensitive' } }
+                    ],
+                    authorizerStatus: "Pending"
+                }
+            },
+            82: {
+                model: 'enquiryHeader',
+                whereClause: {
+                    OR: [
+                        { EnquiryNumber: { contains: search, mode: 'insensitive' } },
+                        { CustomerName: { contains: search, mode: 'insensitive' } },
+                        ...(parsedDate ? [{ EnquiryDate: { equals: parsedDate } }] : [])
+                    ],
+                    authorizerStatus: "Pending"
+                }
+            }
+        };
+
+        const results: any[] = [];
+
+        for (const menuSid of allMenuSidsOfUser) {
+            const modelConfig = modelsForMenu[menuSid];
+            if (!modelConfig) continue;
+
+            const { model, whereClause } = modelConfig;
+            const prismaModel = (this._db as any)[model];
+
+            if (!prismaModel) {
+                throw new Error(`Invalid Prisma model for MenuSid ${menuSid}`);
+            }
+
+            const data = await prismaModel.findMany({
+                where: whereClause,
+                skip,
+                take: pageSize
+            });
+
+            const menuName = menuSidToName.get(menuSid) || "Unknown";
+            const shouldIncludeByMenuName = !search || menuName.toLowerCase().includes(search.toLowerCase());
+            if (!shouldIncludeByMenuName) continue;
+
+            data.forEach(item => {
+                let authorizeLink = '';
+
+                if (menuSid === 81 && item.QuoteHeaderSid) {
+                    authorizeLink = `/crm/quotation/${item.QuoteHeaderSid}`;
+                } else if (menuSid === 82 && item.EnquiryHeaderSid) {
+                    authorizeLink = `/crm/enquiry/${item.EnquiryHeaderSid}`;
+                }
+
+                const formatted = {
+                    DocumentName: menuName,
+                    DocumentNo: item.EnquiryNumber || item.QuoteNumber || '',
+                    CreatedBy: item.CustomerName || '',
+                    CreatedOn: item.EnquiryDate || item.QuoteDate || null,
+                    AuthorizeStatus : 'Waiting for approval',
+                    authorizeLink,
+                    menuSid
+                };
+                results.push(formatted);
+            });
+        }
+
+
+        return {
+            items: results,
+            totalCount: results.length
+        };
+    }
+
+
+    async isUserAuthorizer(UserMasterSid: number, MenuMasterSid: number): Promise<boolean> {
+        const authorizer = await this._db.authorityDetail.findFirst({
+            where: {
+                UserMasterSid,
+                status: 'A',
+                deletedAt: null,
+                authorityMaster: {
+                    status: 'A',
+                    deletedAt: null,
+                    MenuMaster: MenuMasterSid
+                }
+            },
+            select: {
+                AuthorityDetailSid: true
+            }
+        });
+        return !!authorizer;
+    }
+
+
 }

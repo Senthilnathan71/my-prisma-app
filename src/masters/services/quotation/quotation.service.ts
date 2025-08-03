@@ -42,6 +42,8 @@ export class QuotationService {
                     BranchMasterSid: user['userBranchMaster'][0].BranchMasterSid,
                     QuoteNumber: quoteNumber,
                     createdBy: user['userEmail'],
+                    authorizerStatus : payload.authorizerStatus || 'Pending',
+                    AuthorizerRemarks : payload.AuthorizerRemarks
                 };
 
                 const quoteHeader = await prisma.quoteHeader.create({ data: quoteHeaderPayload });
@@ -206,7 +208,9 @@ export class QuotationService {
                     EnquirySid :payload.EnquirySid ?  Number(payload.EnquirySid) : null,
                     status: statusUpdate,
                     updatedBy: user['userEmail'],
-                    updatedOn: new Date()
+                    updatedOn: new Date(),
+                    authorizerStatus : payload.authorizerStatus || 'Pending',
+                    AuthorizerRemarks : payload.AuthorizerRemarks
                 }
             });
 
