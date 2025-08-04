@@ -1,8 +1,6 @@
 import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, Post, UnauthorizedException, UploadedFile, UseInterceptors } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
 import { ApiCreatedResponse, ApiOperation } from "@nestjs/swagger";
-import { Auth } from "src/common/decorators/auth.decorator";
-import { UserData } from "src/common/decorators/user.decorator";
 import { ResponseData } from "src/common/response-data";
 import { EmailService } from "src/email/email.service";
 import { SearchListDto } from "src/masters/DTO/search-list.dto";
@@ -10,7 +8,6 @@ import { SearchVesselDto } from "src/masters/DTO/search-vessel.dto";
 import { QuotationService } from "src/masters/services/quotation/quotation.service";
 
 @Controller('quotation')
-@Auth()
 export class QuotationController {
     constructor(private quotationService: QuotationService, private logger: Logger, private emailService: EmailService) { }
 
@@ -21,11 +18,11 @@ export class QuotationController {
     })
     @HttpCode(HttpStatus.CREATED)
     @Post()
-    async createQuoteHeader(@Body() body: any, @UserData() user: any) {
+    async createQuoteHeader(@Body() body: any) {
         this.logger.debug(`createQuoteHeader: ${JSON.stringify(body)}`)
         let output = new ResponseData
         try {
-            let quote = await this.quotationService.createQuotation(body, user);
+            let quote = await this.quotationService.createQuotation(body);
             this.logger.debug(`createQuoteHeader: ${JSON.stringify(quote)}`)
             if (!quote) {
                 this.logger.debug(`createQuoteHeader: ${JSON.stringify(quote)}`)
@@ -55,7 +52,7 @@ export class QuotationController {
     })
     @HttpCode(HttpStatus.OK)
     @Get()
-    async getAllQuotations(@UserData() UserData: any) {
+    async getAllQuotations() {
         const output = new ResponseData
         try {
             const quotations = await this.quotationService.getAllQuotations()
@@ -105,11 +102,11 @@ export class QuotationController {
     })
     @HttpCode(HttpStatus.OK)
     @Patch('header/:id')
-    async editQuote(@Param('id', ParseIntPipe) id: number, @Body() body: any, @UserData() user: any) {
+    async editQuote(@Param('id', ParseIntPipe) id: number, @Body() body: any) {
         let output = new ResponseData
         this.logger.debug(`editQuote: ${JSON.stringify(body)}`)
         try {
-            let quote = await this.quotationService.updateQuote(id, body, user);
+            let quote = await this.quotationService.updateQuote(id, body);
             if (!quote) {
                 throw 'Something went wrong'
             }
@@ -165,7 +162,7 @@ export class QuotationController {
 
 
     @Get('unit-currency-charge')
-    async getAllMasters(@UserData() UserData: any) {
+    async getAllMasters() {
         const output = new ResponseData
         try {
             const allMasters = await this.quotationService.getAllMasters()
@@ -185,7 +182,7 @@ export class QuotationController {
 
 
     @Get('carrier')
-    async getAllCustomer(@UserData() UserData: any) {
+    async getAllCustomer() {
         const output = new ResponseData
         try {
             const customers = await this.quotationService.getAllCustomer()
@@ -240,7 +237,7 @@ export class QuotationController {
     @UseInterceptors(FileInterceptor('file'))
     @Post('send/email')
     async quotationReport(@UploadedFile() file: Express.Multer.File,
-        @Body() body: any, @UserData() user: any) {
+        @Body() body: any) {
         let output = new ResponseData();
         try {
             const reportPayload = {
@@ -274,7 +271,7 @@ export class QuotationController {
     })
     @HttpCode(HttpStatus.OK)
     @Get('salesman')
-    async getAllSalesman(@UserData() UserData: any) {
+    async getAllSalesman() {
         const output = new ResponseData
         try {
             const salesperson = await this.quotationService.getAllSalesperson()

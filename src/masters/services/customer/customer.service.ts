@@ -271,6 +271,38 @@ export class CustomerService {
             throw error;
         }
     }
+    async getAllShippers(){
+        try {
+            const allAgents = await this._db.customerMaster.findMany({
+                where : {
+                    CustomerType: {
+                        path: ['shipper'],
+                        equals: 'isTrue'
+                    },
+                    deletedAt : null
+                }
+            })
+            return allAgents;
+        } catch (error) {
+            throw error;
+        }
+    }
+    async getAllConsignee(){
+        try {
+            const allAgents = await this._db.customerMaster.findMany({
+                where : {
+                    CustomerType: {
+                        path: ['consignee'],
+                        equals: 'isTrue'
+                    },
+                    deletedAt : null
+                }
+            })
+            return allAgents;
+        } catch (error) {
+            throw error;
+        }
+    }
     async getAllTransporters(){
         try {
             const allAgents = await this._db.customerMaster.findMany({
