@@ -214,6 +214,31 @@ async saveCompanyConfig(
     return resp;
 }
 
+@ApiOperation({ summary: 'Get Field Configuration' })
+@ApiCreatedResponse({
+  description: "Get Field Configuration",
+  type: ResponseData
+})
+@HttpCode(HttpStatus.OK)
+@Get('field-configuration')
+async getFieldConfiguration() {
+  let resp = new ResponseData();
+  try {
+    const res = await this.companyService.getFieldConfiguration();
+    this.logger.log(`Field Configuration fetched: ${JSON.stringify(res)}`);
+    resp.data = res;
+    resp.message = "Field Configuration successfully fetched";
+  } catch (error) {
+    this.logger.warn(`Get Field Configuration Error: ${error}`);
+    resp.status = false;
+    if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+      resp.message = error.message;
+    } else {
+      resp.message = "Internal Server Error";
+    }
+  }
+  return resp;
+}
 
 
     @ApiOperation({ summary: 'Search List of Company' })
