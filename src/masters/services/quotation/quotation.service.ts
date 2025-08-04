@@ -13,7 +13,7 @@ export class QuotationService {
         private globalConfigService:GlobalConfigService
     ) { }
 
-    async createQuotation(payload, user) {
+    async createQuotation(payload) {
         try {
             return await this._db.$transaction(async (prisma) => {
                 const dateString = moment().format('YYYYMMDD');
@@ -38,10 +38,12 @@ export class QuotationService {
                     SalesmanSid : payload.SalesmanSid,
                     Remarks : payload.Remarks,
                     status: payload.status || "A",
-                    CompanyMasterSid: user['userBranchMaster'][0].CompanyMasterSid,
-                    BranchMasterSid: user['userBranchMaster'][0].BranchMasterSid,
+                    CompanyMasterSid: payload.CompanyMasterSid,
+                    BranchMasterSid:payload.BranchMasterSid,
                     QuoteNumber: quoteNumber,
-                    createdBy: user['userEmail'],
+                    createdBy: payload.createdBy,
+                    authorizerStatus : payload.authorizerStatus || 'Pending',
+                    AuthorizerRemarks : payload.AuthorizerRemarks
                 };
 
                 const quoteHeader = await prisma.quoteHeader.create({ data: quoteHeaderPayload });
@@ -66,7 +68,7 @@ export class QuotationService {
                                 expdate: new Date(route.expDate),
                                 twentyft: Number(route.twentyft) || null,
                                 fortyft: Number(route.fortyft) || null,
-                                createdBy: user['userEmail'],
+                                createdBy: payload.createdBy,
                                 cargoType: route.cargoType,
                                 POLFreeDays : Number(route.POLFreeDays),
                                 PODFreeDays : Number(route.PODFreeDays),
@@ -83,7 +85,7 @@ export class QuotationService {
                                 CompanyMasterSid: quoteHeader.CompanyMasterSid,
                                 BranchMasterSid: quoteHeader.BranchMasterSid,
                                 ApprovalStatus: "A",
-                                createdBy: user['userEmail'],
+                                createdBy: payload.createdBy,
                             },
                         });
 
@@ -107,7 +109,7 @@ export class QuotationService {
                         costUnit: cargo.costUnit,
                         costCurrency: cargo.costCurrency,
                         costPerUnit: cargo.costPerUnit,
-                        createdBy: user['userEmail']
+                        createdBy: payload.createdBy
                     }))
                 );
 
@@ -183,11 +185,61 @@ export class QuotationService {
         }
     }
 
-    async updateQuote(QuoteHeaderSid: number, payload, user) {
+    async updateQuote(QuoteHeaderSid: number, payload) {
         try {
             // Step 1: Update Enquiry Header
             const statusUpdate = payload.status === "Active" ? "A" : "S";
             const quoteDate = payload.quoteDate ? new Date(payload.quoteDate) : new Date();
+
+            let authLogUpdate;
+            if (payload.approvalStatusChange) {
+                const authorityDetail = await this._db.authorityDetail.findFirst({
+                    where: {
+                        CompanyMasterSid: payload.CompanyMasterSid,
+                        BranchMasterSid: payload.BranchMasterSid,
+                        UserMasterSid: payload.UserMasterSid,
+                        deletedAt: null,
+                        authorityMaster: {
+                            MenuMaster: payload.MenuMaster,
+                            status: 'A',
+                        },
+                    },
+                });
+
+                if (!authorityDetail) {
+                    throw new NotFoundException('AuthorityDetail not found for this user/menu.');
+                }
+
+                authLogUpdate = await this._db.authorityLog.create({
+                    data: {
+                        CompanyMasterSid: payload.CompanyMasterSid,
+                        BranchMasterSid: payload.BranchMasterSid,
+                        CreatedBy: payload.updatedBy,
+                        UpdatedBy: payload.updatedBy,
+                        CreatedOn: new Date(),
+                        UpdatedOn: new Date(),
+                        Status: 'A',
+                        DocumentSid: QuoteHeaderSid,
+                        AuthorityDetailSid: authorityDetail.AuthorityDetailSid,
+                        ApprovalStatus: payload.authorizerStatus,
+                        AuthorisedDate: new Date(),
+                        Remarks: payload.AuthorizerRemarks,
+                    },
+                });
+
+                if (authorityDetail.FinalAuthority === 'Y') {
+
+                    await this._db.quoteHeader.update({
+                        where: { QuoteHeaderSid },
+                        data: {
+                            authorizerStatus: payload.authorizerStatus,
+                            AuthorizerRemarks: payload.AuthorizerRemarks,
+                        },
+                    });
+                }
+            }
+
+
 
             const updatedQuoteHeader = await this._db.quoteHeader.update({
                 where: { QuoteHeaderSid: QuoteHeaderSid },
@@ -205,7 +257,7 @@ export class QuotationService {
                     QuoteDate: quoteDate,
                     EnquirySid :payload.EnquirySid ?  Number(payload.EnquirySid) : null,
                     status: statusUpdate,
-                    updatedBy: user['userEmail'],
+                    updatedBy: payload.updatedBy,
                     updatedOn: new Date()
                 }
             });
@@ -231,7 +283,7 @@ export class QuotationService {
                             expdate: new Date(route.expDate),
                             twentyft: Number(route.twentyft) || null,
                             fortyft: Number(route.fortyft) || null,
-                            updatedBy: user['userEmail'],
+                            updatedBy: payload.updatedBy,
                             updatedOn: new Date(),
                             cargoType: route.cargoType,
                             POLFreeDays: Number(route.POLFreeDays),
@@ -260,7 +312,7 @@ export class QuotationService {
                             CompanyMasterSid: updatedQuoteHeader.CompanyMasterSid,
                             BranchMasterSid: updatedQuoteHeader.BranchMasterSid,
                             QuoteHeaderSid: QuoteHeaderSid,
-                            createdBy: user['userEmail'],
+                            createdBy: payload.updatedBy,
                         }
                     });
                 }
@@ -286,7 +338,7 @@ export class QuotationService {
                                     costUnit: cargoItem.costUnit,
                                     costCurrency: cargoItem.costCurrency,
                                     costPerUnit: cargoItem.costPerUnit,
-                                    updatedBy: user['userEmail'],
+                                    updatedBy: payload.updatedBy,
                                     updatedOn: new Date(),
                                 }
                             });
@@ -303,7 +355,7 @@ export class QuotationService {
                                     costPerUnit: cargoItem.costPerUnit,
                                     QuoteHeaderSid: QuoteHeaderSid,
                                     QuoteRouteSid: routeData.QuoteRouteSid, // Link to the correct route
-                                    createdBy: user['userEmail'],
+                                    createdBy: payload.updatedBy,
                                     CompanyMasterSid: updatedQuoteHeader.CompanyMasterSid,
                                     BranchMasterSid: updatedQuoteHeader.BranchMasterSid,
                                     CustomerMasterSid: updatedQuoteHeader.CustomerMasterSid,
@@ -322,7 +374,8 @@ export class QuotationService {
                 data: {
                     updatedEnquiryHeader: updatedQuoteHeader,
                     finalRouteData: finalRouteData, // Now an array
-                    finalCargoData: finalCargoData  // Now an array
+                    finalCargoData: finalCargoData,  // Now an array
+                    authLogUpdate
                 }
             };
         } catch (error) {

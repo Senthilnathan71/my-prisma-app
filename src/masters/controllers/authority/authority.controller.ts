@@ -2,6 +2,7 @@ import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatu
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
 import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
+import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 import { AuthorityService } from 'src/masters/services/authority/authority.service';
 
 
@@ -149,10 +150,10 @@ export class AuthorityController {
     })
     @HttpCode(HttpStatus.OK)
     @Post('search-list')
-    async searchAuthority(@Body() searchData: SearchListDto) {
+    async searchAuthority(@Body() param: SearchVesselDto) {
         let resp = new ResponseData();
         try {
-            let res = await this.authorityService.searchAuthority(searchData);
+            let res = await this.authorityService.newSearchAuthority(param);
             this.logger.log(`Authority Search Results :${JSON.stringify(res)}`);
             resp.data = res;
             resp.message = "Authority Search results are successfully fetched"
@@ -167,4 +168,99 @@ export class AuthorityController {
         }
         return resp;
     }
+
+    @ApiOperation({ summary: 'Search Document Authorization List' })
+    @ApiCreatedResponse({
+        description: 'Search Document Authorization List',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Post('document/search-list/:UserMasterSid')
+    async searchDocAuthorization(
+        @Body() param: SearchVesselDto,
+        @Param('UserMasterSid',ParseIntPipe) UserMasterSid:number
+    ) {
+        const resp = new ResponseData();
+        try {
+
+            const res = await this.authorityService.searchDocAuthorization(param, UserMasterSid);
+
+            this.logger.log(`Doc Authorization Search Data : ${JSON.stringify(res)}`);
+            resp.data = res;
+            resp.message = 'Document Authorization Search successfully fetched';
+        } catch (error) {
+            this.logger.warn(`Doc Authorization Search Error : ${JSON.stringify(error)}, ${error}`);
+            resp.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                resp.message = error.message;
+            } else {
+                resp.message = 'Internal Server Error';
+            }
+        }
+        return resp;
+    }
+
+
+    @ApiOperation({ summary: 'Check if user is an authorizer for a menu' })
+    @ApiCreatedResponse({
+        description: 'Returns true if the user is an authorizer',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Get('check-authorizer/:MenuMasterSid/:DocumentSid/:UserMasterSid')
+    async isUserAuthorizer(
+        @Param('UserMasterSid', ParseIntPipe) UserMasterSid: number,
+        @Param('MenuMasterSid', ParseIntPipe) MenuMasterSid: number,
+        @Param('DocumentSid', ParseIntPipe) DocumentSid: number
+    ) {
+        const resp = new ResponseData();
+        try {
+            const result = await this.authorityService.isUserAuthorizer(UserMasterSid, MenuMasterSid,DocumentSid);
+
+            this.logger.log(`Authorizer Check Result for DocumentSid=${DocumentSid}, MenuMasterSid=${MenuMasterSid},UserMasterSid=${UserMasterSid} => ${result.canAuthorize}`);
+
+            resp.data = result;
+            resp.message = result.message
+        } catch (error) {
+            this.logger.warn(`Authorizer Check Error: ${JSON.stringify(error)}, ${error}`);
+            resp.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                resp.message = error.message;
+            } else {
+                resp.message = 'Internal Server Error';
+            }
+        }
+
+        return resp;
+    }
+
+    @ApiOperation({ summary: 'Get approval status and log for a document under a menu' })
+    @ApiCreatedResponse({
+        description: 'Returns approval status or pending message for the given document and menu.',
+        type: ResponseData,
+    })
+    @HttpCode(HttpStatus.OK)
+    @Get('approval-status/:MenuMasterSid/:DocumentSid')
+    async getApprovalStatus(
+        @Param('MenuMasterSid', ParseIntPipe) MenuMasterSid: number,
+        @Param('DocumentSid', ParseIntPipe) DocumentSid: number
+    ) {
+        const resp = new ResponseData();
+
+        try {
+            const result = await this.authorityService.getApprovalStatusData(MenuMasterSid, DocumentSid);
+            resp.data = result;
+            resp.message = "Document's approval log has been fetched.";
+        } catch (error) {
+            this.logger.warn(`Approval Status Error: ${JSON.stringify(error)}`);
+            resp.status = false;
+            resp.message =
+            error instanceof BadRequestException || error instanceof UnauthorizedException
+                    ? error.message
+                    : 'Internal Server Error';
+        }
+
+        return resp;
+    }
+
 }
