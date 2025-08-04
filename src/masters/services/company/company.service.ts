@@ -593,6 +593,22 @@ async saveCompanyConfig(companyId: number, configData: any, user: any) {
         throw error;
     }
 }
+async getFieldConfiguration() {
+  try {
+    const fieldConfig = await this._db.fieldConfiguration.findFirst({
+      orderBy: { configSid: 'asc' }  
+    });
+
+    if (!fieldConfig) {
+      throw new BadRequestException('No field configuration found');
+    }
+
+    return fieldConfig; 
+  } catch (error) {
+    throw error;
+  }
+}
+
 
 
     async searchCompanyOld(params: SearchVesselDto) {
