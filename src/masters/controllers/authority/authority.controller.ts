@@ -207,21 +207,20 @@ export class AuthorityController {
         type: ResponseData
     })
     @HttpCode(HttpStatus.OK)
-    @Get('check-authorizer/:UserMasterSid/:MenuMasterSid')
+    @Get('check-authorizer/:MenuMasterSid/:DocumentSid/:UserMasterSid')
     async isUserAuthorizer(
         @Param('UserMasterSid', ParseIntPipe) UserMasterSid: number,
-        @Param('MenuMasterSid', ParseIntPipe) MenuMasterSid: number
+        @Param('MenuMasterSid', ParseIntPipe) MenuMasterSid: number,
+        @Param('DocumentSid', ParseIntPipe) DocumentSid: number
     ) {
         const resp = new ResponseData();
         try {
-            const result = await this.authorityService.isUserAuthorizer(UserMasterSid, MenuMasterSid);
+            const result = await this.authorityService.isUserAuthorizer(UserMasterSid, MenuMasterSid,DocumentSid);
 
-            this.logger.log(`Authorizer Check Result for UserMasterSid=${UserMasterSid}, MenuMasterSid=${MenuMasterSid} => ${result}`);
+            this.logger.log(`Authorizer Check Result for DocumentSid=${DocumentSid}, MenuMasterSid=${MenuMasterSid},UserMasterSid=${UserMasterSid} => ${result.canAuthorize}`);
 
             resp.data = result;
-            resp.message = result
-                ? 'User is an authorizer for the given menu.'
-                : 'User is not an authorizer for the given menu.';
+            resp.message = result.message
         } catch (error) {
             this.logger.warn(`Authorizer Check Error: ${JSON.stringify(error)}, ${error}`);
             resp.status = false;
@@ -235,5 +234,33 @@ export class AuthorityController {
         return resp;
     }
 
+    @ApiOperation({ summary: 'Get approval status and log for a document under a menu' })
+    @ApiCreatedResponse({
+        description: 'Returns approval status or pending message for the given document and menu.',
+        type: ResponseData,
+    })
+    @HttpCode(HttpStatus.OK)
+    @Get('approval-status/:MenuMasterSid/:DocumentSid')
+    async getApprovalStatus(
+        @Param('MenuMasterSid', ParseIntPipe) MenuMasterSid: number,
+        @Param('DocumentSid', ParseIntPipe) DocumentSid: number
+    ) {
+        const resp = new ResponseData();
+
+        try {
+            const result = await this.authorityService.getApprovalStatusData(MenuMasterSid, DocumentSid);
+            resp.data = result;
+            resp.message = "Document's approval log has been fetched.";
+        } catch (error) {
+            this.logger.warn(`Approval Status Error: ${JSON.stringify(error)}`);
+            resp.status = false;
+            resp.message =
+            error instanceof BadRequestException || error instanceof UnauthorizedException
+                    ? error.message
+                    : 'Internal Server Error';
+        }
+
+        return resp;
+    }
 
 }

@@ -199,6 +199,54 @@ async searchCustomer(@Body() searchParams: SearchVesselDto) {
         }
         return output
     }
+    @ApiOperation({ summary: 'Get All Shipper' })
+    @ApiCreatedResponse({
+        description: 'Get All Shipper',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Get('shipper')
+    async getAllShippers() {
+        let output = new ResponseData;
+        try {
+            let customerData = await this.customerService.getAllShippers();
+            this.logger.log(`getAllShippers: ${JSON.stringify(customerData)}`)
+            output.data = customerData;
+        } catch (error) {
+            this.logger.warn(`getAllShippers: ${JSON.stringify(error)}`)
+            output.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                output.message = error.message;
+            } else {
+                output.message = 'Internal Server Error';
+            }
+        }
+        return output
+    }
+    @ApiOperation({ summary: 'Get All Consignee' })
+    @ApiCreatedResponse({
+        description: 'Get All Consignee',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Get('consignee')
+    async getAllConsignees() {
+        let output = new ResponseData;
+        try {
+            let customerData = await this.customerService.getAllConsignee();
+            this.logger.log(`getAllConsignees: ${JSON.stringify(customerData)}`)
+            output.data = customerData;
+        } catch (error) {
+            this.logger.warn(`getAllConsignees: ${JSON.stringify(error)}`)
+            output.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                output.message = error.message;
+            } else {
+                output.message = 'Internal Server Error';
+            }
+        }
+        return output
+    }
     @ApiOperation({ summary: 'Get All Agent' })
     @ApiCreatedResponse({
         description: 'Get All Agent',

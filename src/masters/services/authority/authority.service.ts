@@ -490,7 +490,7 @@ export class AuthorityService {
     }
 
 
-    async isUserAuthorizer(UserMasterSid: number, MenuMasterSid: number): Promise<boolean> {
+    async isUserAuthorizer(UserMasterSid: number, MenuMasterSid: number, DocumentSid: number) {
         const authorizer = await this._db.authorityDetail.findFirst({
             where: {
                 UserMasterSid,
@@ -506,8 +506,121 @@ export class AuthorityService {
                 AuthorityDetailSid: true
             }
         });
-        return !!authorizer;
+
+        if (!authorizer) {
+            return { canAuthorize: false, message: "User is not an authorizer for this menu." };
+        }
+
+        // 2. Check if user already authorized the document
+        const alreadyAuthorized = await this._db.authorityLog.findFirst({
+            where: {
+                AuthorityDetailSid: authorizer.AuthorityDetailSid,
+                DocumentSid,
+                Status: 'A'
+            },
+            select: {
+                AuthorityLogSid: true
+            }
+        });
+
+        if (alreadyAuthorized) {
+            return { canAuthorize: false, message: "User has already authorized this document." };
+        }
+
+        return { canAuthorize: true, message: "User is authorized and has not yet approved this document." };
     }
 
+
+    async getApprovalStatusData(menuMasterSid: number, documentSid: number) {
+        // 1. Fetch authority users for the given menu
+        const authorityUsers = await this._db.authorityDetail.findMany({
+            where: {
+                deletedAt: null,
+                authorityMaster: {
+                    MenuMaster: menuMasterSid,
+                    deletedAt: null,
+                    status: 'A',
+                },
+            },
+            include: {
+                userMaster: {
+                    select: { userName: true },
+                },
+            },
+            orderBy: {
+                AuthorityLevel: 'asc',
+            },
+        });
+
+        // 2. Fetch authority logs for this document
+        const logs = await this._db.authorityLog.findMany({
+            where: {
+                DocumentSid: documentSid,
+                Status: 'A',
+                AuthorityDetail: {
+                    deletedAt: null,
+                    authorityMaster: {
+                        MenuMaster: menuMasterSid,
+                        deletedAt: null,
+                        status: 'A',
+                    },
+                },
+            },
+            include: {
+                AuthorityDetail: {
+                    include: {
+                        userMaster: {
+                            select: { userName: true },
+                        },
+                    },
+                },
+            },
+        });
+
+        // 3. Map logs by userName for quick lookup
+        const logMap = new Map<string, any>();
+        for (const log of logs) {
+            const userName = log.AuthorityDetail?.userMaster?.userName;
+            if (userName) {
+                logMap.set(userName, log);
+            }
+        }
+
+        // 4. Check if final-level authority has approved
+        const finalAuthorityApproved = logs.some(log =>
+            log.AuthorityDetail?.FinalAuthority === 'Y' &&
+            log.ApprovalStatus === 'Approved'
+        );
+
+        // 5. Build full approval log
+        const approvalLog = authorityUsers.map(detail => {
+            const userName = detail.userMaster?.userName || 'N/A';
+            const log = logMap.get(userName);
+
+            if (log) {
+                return {
+                    approvedBy: userName,
+                    approvalStatus: log.ApprovalStatus,
+                    approvalDate: log.AuthorisedDate,
+                    Remarks: log.Remarks,
+                };
+            } else {
+                return {
+                    approvedBy: userName,
+                    approvalStatus: 'Pending',
+                    approvalDate: null,
+                    Remarks: null,
+                };
+            }
+        });
+
+        // 6. Determine overall status
+        const status = finalAuthorityApproved ? 'Approved' : 'Pending';
+
+        return {
+            logData: approvalLog,
+            status,
+        };
+    }
 
 }
