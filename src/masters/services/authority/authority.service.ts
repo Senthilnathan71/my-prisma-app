@@ -44,9 +44,22 @@ export class AuthorityService {
             if (!payload.authDetails || payload.authDetails.length === 0) {
                 throw new BadRequestException('At least one authority detail is required');
             }
+            const { authDetails, authorityDetails, ...masterData } = payload;
+            const existing = await this._db.authorityMaster.findFirst({
+                where: {
+                    CompanyMasterSid: masterData.CompanyMasterSid,
+                    BranchMasterSid: masterData.BranchMasterSid,
+                    MenuMaster: parseInt(masterData.MenuMaster),
+                    deletedAt: null,
+                    status: 'A'
+                }
+            });
+
+            if (existing) {
+                throw new BadRequestException('An authorization has been already set for this menu.');
+            }
 
             return await this._db.$transaction(async (prisma) => {
-                const { authDetails, authorityDetails, ...masterData } = payload;
 
                 const createdMaster = await prisma.authorityMaster.create({
                     data: {
@@ -123,9 +136,7 @@ export class AuthorityService {
             if (!exist) {
                 throw new BadRequestException(`Authority with Id: ${AuthorityMasterSid} does not exist`);
             }
-
-            const updated = await this._db.$transaction(async (tx) => {
-                const {
+            const {
                     DepartmentMaster,
                     MenuMaster,
                     BranchMasterSid,
@@ -135,6 +146,24 @@ export class AuthorityService {
                     authDetails = [],
                     updatedBy,
                 } = payload;
+
+            const existing = await this._db.authorityMaster.findFirst({
+                where: {
+                    AuthorityMasterSid : { not : AuthorityMasterSid},
+                    CompanyMasterSid: CompanyMasterSid,
+                    BranchMasterSid: BranchMasterSid,
+                    MenuMaster: parseInt(MenuMaster),
+                    deletedAt: null,
+                    status: 'A'
+                }
+            });
+
+            if (existing) {
+                throw new BadRequestException('An authorization has been already set for this menu.');
+            }
+
+            const updated = await this._db.$transaction(async (tx) => {
+                
 
                 if (!authDetails || authDetails.length === 0) {
                     throw new BadRequestException('At least one authority detail is required');
@@ -373,121 +402,134 @@ export class AuthorityService {
     }
 
     async searchDocAuthorization(param: SearchVesselDto, UserMasterSid: number) {
-        const { search = "", page = 1, pageSize = 15 } = param;
-        const skip = (page - 1) * pageSize;
+    const { search = "", page = 1, pageSize = 15 } = param;
+    const skip = (page - 1) * pageSize;
+    const parsedDate = parseDateFromString(search);
 
-        const parsedDate = parseDateFromString(search);
-
-        const allMenuAfflicatedWithUser = await this._db.authorityDetail.findMany({
-            where: {
-                UserMasterSid: UserMasterSid,
-                deletedAt: null,
-                status: 'A'
-            },
-            select: {
-                authorityMaster: {
-                    include: {
-                        menuMaster: {
-                            select: {
-                                MenuMasterSid: true,
-                                MenuName: true
-                            }
+    const authorityDetails = await this._db.authorityDetail.findMany({
+        where: {
+            UserMasterSid,
+            deletedAt: null,
+            status: 'A'
+        },
+        select: {
+            AuthorityDetailSid: true,
+            authorityMaster: {
+                where: {
+                    status: 'A',
+                    deletedAt: null
+                },
+                include: {
+                    menuMaster: {
+                        select: {
+                            MenuMasterSid: true,
+                            MenuName: true
                         }
                     }
                 }
             }
-        });
-
-        const menuSidToName = new Map<number, string>();
-        const allMenuSidsOfUser = new Set<number>();
-
-        allMenuAfflicatedWithUser.forEach(detail => {
-            const sid = detail.authorityMaster?.menuMaster?.MenuMasterSid;
-            const name = detail.authorityMaster?.menuMaster?.MenuName;
-            if (sid != null && name) {
-                allMenuSidsOfUser.add(sid);
-                menuSidToName.set(sid, name);
-            }
-        });
-
-
-
-        const modelsForMenu: Record<string | number, { model: string; whereClause: any }> = {
-            81 : {
-                model: 'quoteHeader',
-                whereClause: {
-                    OR: [
-                        { QuoteNumber: { contains: search, mode: 'insensitive' } },
-                        ...(parsedDate ? [{ QuoteDate: { equals: parsedDate } }] : []),
-                        { CustomerName: { contains: search, mode: 'insensitive' } }
-                    ],
-                    authorizerStatus: "Pending"
-                }
-            },
-            82: {
-                model: 'enquiryHeader',
-                whereClause: {
-                    OR: [
-                        { EnquiryNumber: { contains: search, mode: 'insensitive' } },
-                        { CustomerName: { contains: search, mode: 'insensitive' } },
-                        ...(parsedDate ? [{ EnquiryDate: { equals: parsedDate } }] : [])
-                    ],
-                    authorizerStatus: "Pending"
-                }
-            }
-        };
-
-        const results: any[] = [];
-
-        for (const menuSid of allMenuSidsOfUser) {
-            const modelConfig = modelsForMenu[menuSid];
-            if (!modelConfig) continue;
-
-            const { model, whereClause } = modelConfig;
-            const prismaModel = (this._db as any)[model];
-
-            if (!prismaModel) {
-                throw new Error(`Invalid Prisma model for MenuSid ${menuSid}`);
-            }
-
-            const data = await prismaModel.findMany({
-                where: whereClause,
-                skip,
-                take: pageSize
-            });
-
-            const menuName = menuSidToName.get(menuSid) || "Unknown";
-            const shouldIncludeByMenuName = !search || menuName.toLowerCase().includes(search.toLowerCase());
-            if (!shouldIncludeByMenuName) continue;
-
-            data.forEach(item => {
-                let authorizeLink = '';
-
-                if (menuSid === 81 && item.QuoteHeaderSid) {
-                    authorizeLink = `/crm/quotation/${item.QuoteHeaderSid}`;
-                } else if (menuSid === 82 && item.EnquiryHeaderSid) {
-                    authorizeLink = `/crm/enquiry/${item.EnquiryHeaderSid}`;
-                }
-
-                const formatted = {
-                    DocumentName: menuName,
-                    DocumentNo: item.EnquiryNumber || item.QuoteNumber || '',
-                    CreatedBy: item.CustomerName || '',
-                    CreatedOn: item.EnquiryDate || item.QuoteDate || null,
-                    AuthorizeStatus : 'Waiting for approval',
-                    authorizeLink,
-                    menuSid
-                };
-                results.push(formatted);
-            });
         }
+    });
+    console.log(authorityDetails);
+   
+    const menuSidToName = new Map<number, string>();  
+    // menuSid -> menuName | Taking this for returning response with menuName
+    const authorityDetailMap = new Map<number, number>(); 
+    // menuSid -> AuthorityDetailSid
 
+    authorityDetails.forEach(({ AuthorityDetailSid, authorityMaster }) => {
+        const menu = authorityMaster?.menuMaster;
+        if (menu) {
+            menuSidToName.set(menu.MenuMasterSid, menu.MenuName);
+            authorityDetailMap.set(menu.MenuMasterSid, AuthorityDetailSid);
+        }
+    });
 
-        return {
-            items: results,
-            totalCount: results.length
-        };
+    const modelsForMenu: Record<number, { model: string; primaryKey: string; whereClause: any }> = {
+        81: {
+            model: 'quoteHeader',
+            primaryKey: 'QuoteHeaderSid',
+            whereClause: {
+                OR: [
+                    { QuoteNumber: { contains: search, mode: 'insensitive' } },
+                    ...(parsedDate ? [{ QuoteDate: { equals: parsedDate } }] : []),
+                    { CustomerName: { contains: search, mode: 'insensitive' } }
+                ],
+                authorizerStatus: "Pending"
+            }
+        },
+        82: {
+            model: 'enquiryHeader',
+            primaryKey: 'EnquiryHeaderSid',
+            whereClause: {
+                OR: [
+                    { EnquiryNumber: { contains: search, mode: 'insensitive' } },
+                    { CustomerName: { contains: search, mode: 'insensitive' } },
+                    ...(parsedDate ? [{ EnquiryDate: { equals: parsedDate } }] : [])
+                ],
+                authorizerStatus: "Pending"
+            }
+        }
+    };
+
+    const results: any[] = [];
+
+    for (const [menuSid, authorityDetailSid] of authorityDetailMap.entries()) {
+        const config = modelsForMenu[menuSid];
+        if (!config) continue;
+
+        const { model, primaryKey, whereClause } = config;
+        const prismaModel = (this._db as any)[model];
+        if (!prismaModel) continue;
+
+        const data = await prismaModel.findMany({
+            where: whereClause,
+            skip,
+            take: pageSize
+        });
+
+        const docSids = data.map((d: any) => d[primaryKey]);
+
+        const authorizedDocs = await this._db.authorityLog.findMany({
+            where: {
+                AuthorityDetailSid: authorityDetailSid,
+                DocumentSid: { in: docSids },
+            },
+            select: { DocumentSid: true }
+        });
+        const authorizedSidSet = new Set(authorizedDocs.map(d => d.DocumentSid));
+
+        const pendingData = data.filter((d: any) => !authorizedSidSet.has(d[primaryKey]));
+
+        const menuName = menuSidToName.get(menuSid) || "Unknown";
+        const shouldIncludeByMenuName = !search || menuName.toLowerCase().includes(search.toLowerCase());
+        if (!shouldIncludeByMenuName) continue;
+
+        pendingData.forEach((item: any) => {
+            let authorizeLink = '';
+            if (menuSid === 81 && item.QuoteHeaderSid) {
+                authorizeLink = `/crm/quotation/${item.QuoteHeaderSid}`;
+            } else if (menuSid === 82 && item.EnquiryHeaderSid) {
+                authorizeLink = `/crm/enquiry/${item.EnquiryHeaderSid}`;
+            }
+
+            results.push({
+                DocumentName: menuName,
+                DocumentNo: item.EnquiryNumber || item.QuoteNumber || '',
+                CreatedBy: item.CustomerName || '',
+                CreatedOn: item.EnquiryDate || item.QuoteDate || null,
+                AuthorizeStatus: 'Waiting for approval',
+                authorizeLink,
+                menuSid
+            });
+        });
     }
+
+    return {
+        items: results,
+        totalCount: results.length
+    };
+}
 
 
     async isUserAuthorizer(UserMasterSid: number, MenuMasterSid: number, DocumentSid: number) {
@@ -508,7 +550,7 @@ export class AuthorityService {
         });
 
         if (!authorizer) {
-            return { canAuthorize: false, message: "User is not an authorizer for this menu." };
+            return { canAuthorize: false, alreadyApproved : false, message: "User is not an authorizer for this menu." };
         }
 
         // 2. Check if user already authorized the document
@@ -524,10 +566,10 @@ export class AuthorityService {
         });
 
         if (alreadyAuthorized) {
-            return { canAuthorize: false, message: "User has already authorized this document." };
+            return { canAuthorize: true, alreadyApproved:true, message: "User has already authorized this document." };
         }
 
-        return { canAuthorize: true, message: "User is authorized and has not yet approved this document." };
+        return { canAuthorize: true , alreadyApproved : false , message: "User is authorized and has not yet approved this document." };
     }
 
 
@@ -551,6 +593,8 @@ export class AuthorityService {
                 AuthorityLevel: 'asc',
             },
         });
+
+        console.log(authorityUsers);
 
         // 2. Fetch authority logs for this document
         const logs = await this._db.authorityLog.findMany({

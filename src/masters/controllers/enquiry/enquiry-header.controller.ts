@@ -3,10 +3,10 @@ import { ApiCreatedResponse, ApiOperation } from "@nestjs/swagger";
 import { Auth } from "src/common/decorators/auth.decorator";
 import { UserData } from "src/common/decorators/user.decorator";
 import { ResponseData } from "src/common/response-data";
-import { SearchListDto } from "src/masters/DTO/search-list.dto";
+import { SearchVesselDto } from "src/masters/DTO/search-vessel.dto";
 import { EnquiryHeaderService } from "src/masters/services/enquiry/enquiry-header.service";
 
-@Controller('enquiry')
+@Controller('ff-enquiry')
 @Auth()
 export class EnquiryHeaderController {
     constructor(
@@ -21,11 +21,11 @@ export class EnquiryHeaderController {
     })
     @HttpCode(HttpStatus.CREATED)
     @Post()
-    async createEnquiryHeader(@Body() body: any, @UserData() user: any) {
+    async createEnquiryHeader(@Body() body: any) {
         let output = new ResponseData
         this.logger.debug(`createEnquiryHeader: Enquiry Header Creation payload- ${JSON.stringify(body)}`)
         try {
-            let enquiry = await this.enquiryHeaderService.createEnquiry(body, user);
+            let enquiry = await this.enquiryHeaderService.createEnquiry(body);
             this.logger.debug(`createEnquiryHeader: Enquiry Header Creation- ${JSON.stringify(enquiry)}`)
             if (!enquiry) {
                 this.logger.log(`createEnquiryHeader: Something went wrong`)
@@ -105,11 +105,11 @@ export class EnquiryHeaderController {
     })
     @HttpCode(HttpStatus.OK)
     @Patch('header/:id')
-    async editEnquiry(@Param('id', ParseIntPipe) id: number, @Body() body: any, @UserData() user: any) {
+    async editEnquiry(@Param('id', ParseIntPipe) id: number, @Body() body: any) {
         this.logger.debug(`editEnquiry: Enquiry Header update payload- ${JSON.stringify(body), id}`)
         let output = new ResponseData
         try {
-            let enquiry = await this.enquiryHeaderService.updateEnquiry(id, body, user);
+            let enquiry = await this.enquiryHeaderService.updateEnquiry(id, body);
             if (!enquiry) {
                 this.logger.log(`editEnquiry: Update Enquiry Header ${enquiry}`)
                 throw 'Something went wrong'
@@ -222,15 +222,15 @@ export class EnquiryHeaderController {
     })
     @HttpCode(HttpStatus.OK)
     @Post('search-list')
-    async searchEnquiry(@Body() body: SearchListDto) {
+    async searchEnquiry(@Body() param: SearchVesselDto) {
         let resp = new ResponseData();
         try {
-            let res = await this.enquiryHeaderService.searchEnquiry(body);
+            let res = await this.enquiryHeaderService.searchEnquiry(param);
             this.logger.log(`Enquiry Search Data : ${JSON.stringify(res)}`);
             resp.data = res;
             resp.message = "Enquiry Search is successfully fetched";
         } catch (error) {
-            this.logger.warn(`Enquiry Search Error : ${error}`);
+            this.logger.warn(`Enquiry Search Error : ${JSON.stringify(error),error}`);
             resp.status = false;
             if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
                 resp.message = error.message;

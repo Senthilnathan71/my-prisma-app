@@ -5,7 +5,6 @@ import { UserData } from "src/common/decorators/user.decorator";
 import { ResponseData } from "src/common/response-data";
 import { SearchListDto } from "src/masters/DTO/search-list.dto";
 import { SearchVesselDto } from "src/masters/DTO/search-vessel.dto";
-import { EnquiryHeaderService } from "src/masters/services/enquiry/enquiry-header.service";
 import { UomService } from "src/masters/services/uom/uom-master.service";
 
 @Controller('uom')
