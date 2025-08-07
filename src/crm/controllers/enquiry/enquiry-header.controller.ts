@@ -3,7 +3,7 @@ import { ApiCreatedResponse, ApiOperation } from "@nestjs/swagger";
 import { Auth } from "src/common/decorators/auth.decorator";
 import { UserData } from "src/common/decorators/user.decorator";
 import { ResponseData } from "src/common/response-data";
-import { EnquiryHeaderService } from "src/masters/services/enquiry/enquiry-header.service";
+import { EnquiryHeaderService } from "src/crm/services/enquiry/enquiry-header.service";
 
 @Controller('enquiry')
 @Auth()
