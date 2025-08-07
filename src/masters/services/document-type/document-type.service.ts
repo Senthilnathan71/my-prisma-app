@@ -151,5 +151,22 @@ export class DocumentTypeService {
         totalCount,
     };
 }
+async getSubledgersByCOA(COAMasterSid: number) {
+    try {
+        const subledgers = await this._db.subledgerMaster.findMany({
+            where: {
+                COAMasterSid: COAMasterSid,
+                deletedAt: null
+            },
+            select: {
+                SubledgerMasterSid: true,
+                SubledgerName: true
+            }
+        });
+        return { status: true, data: subledgers };
+    } catch (error) {
+        throw error;
+    }
+}
 
 }

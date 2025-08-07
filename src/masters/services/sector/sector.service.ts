@@ -52,6 +52,8 @@ export class SectorService {
       const Sector = await this._db.sectorMaster.create({
         data: {
           ...payload,
+          status: 'A',
+          deletedAt: null,
         },
       });
 
