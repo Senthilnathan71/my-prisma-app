@@ -62,7 +62,6 @@ model CompanyMaster {
     roleMaster          RoleMaster[]
     roleMenuMaster      RoleMenuMaster[]
     preCustomerEvent    PreCustomerEvent[]
-    containerTypeMaster ContainerTypeMaster[]
     terms               TermsAndConditionsMaster[]
     customerGroupMaster CustomerGroupMaster[]
     tariffHeader        TariffHeader[]
@@ -1304,9 +1303,9 @@ model PreCustomerEvent {
     companyMaster       CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
 }
 
+//Global master
 model ContainerTypeMaster {
     ContainerTypeMasterSid Int       @id @default(autoincrement()) @map("ContainerTypeMasterSid")
-    CompanyMasterSid       Int?
     ContainerCode          String    @db.VarChar(4)
     ContainerSize          String    @db.Char(10)
     ContainerIsoCode       String?   @db.VarChar(10)
@@ -1326,8 +1325,6 @@ model ContainerTypeMaster {
     updatedBy              String?   @db.VarChar(100)
     status                 String?   @default("A") @db.Char(1)
     Remarks                String?   @db.VarChar(300)
-
-    companyMaster CompanyMaster? @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
 }
 
 model ZoneMaster {
