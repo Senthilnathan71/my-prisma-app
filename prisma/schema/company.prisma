@@ -22,13 +22,13 @@ model CompanyMaster {
     CountryMasterSid    Int?
     CurrencyMasterSid   Int?
     LoginSid            Int?
-    StateMasterSid      Int
+    StateMasterSid      Int?
     Pan                 String?                    @db.VarChar(20)
     config              Json?
     cityMaster          CityMaster?                @relation(fields: [CityMasterSid], references: [CityMasterSid])
     countryMaster       CountryMaster?             @relation(fields: [CountryMasterSid], references: [CountryMasterSid])
     currencyMaster      CurrencyMaster?            @relation(fields: [CurrencyMasterSid], references: [CurrencyMasterSid])
-    stateMaster         StateMaster                @relation(fields: [StateMasterSid], references: [StateMasterSid])
+    stateMaster         StateMaster?               @relation(fields: [StateMasterSid], references: [StateMasterSid])
     branchMaster        BranchMaster[]
     chargeMaster        ChargeMaster[]
     chargeTaxMaster     ChargeTaxMaster[]
@@ -948,6 +948,10 @@ model QuoteRoute {
     expdate             DateTime?
     segmentType         String?   @db.VarChar(20)
     Remarks             String?   @db.VarChar(100)
+    CBM                 String?
+    ContainerType       Int?
+    ContainerQty        String?
+    ChargeableWeight    String?
     CompanyMasterSid    Int
     BranchMasterSid     Int
     CarrierName         String    @db.VarChar(100)
@@ -968,6 +972,8 @@ model QuoteRoute {
     companyMaster    CompanyMaster    @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
     branchMaster     BranchMaster     @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
     customerMaster   CustomerMaster?  @relation(fields: [CarrierMasterSid], references: [CustomerMasterSid])
+    containerType   ContainerTypeMaster?  @relation(fields: [ContainerType], references: [ContainerTypeMasterSid])
+
 
     quoteCarrier QuoteCarrier[]
     quoteCharge  QuoteCharge[]
@@ -1325,6 +1331,8 @@ model ContainerTypeMaster {
     updatedBy              String?   @db.VarChar(100)
     status                 String?   @default("A") @db.Char(1)
     Remarks                String?   @db.VarChar(300)
+
+    quoteRoute QuoteRoute[]
 }
 
 model ZoneMaster {
