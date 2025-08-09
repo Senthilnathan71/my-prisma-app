@@ -143,6 +143,54 @@ export class EnquiryHeaderController {
     }
 
 
+    @ApiOperation({ summary: 'Delete Enquiry Route' })
+    @ApiCreatedResponse({
+        description: 'Enquiry Route Deleted Successfully',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Delete('deleteRoute/:EnquiryRouteSid')
+    async deleteEnqRouteById(@Param('EnquiryRouteSid',ParseIntPipe) EnquiryRouteSid : number) {
+        const output = new ResponseData
+        try {
+            const route = await this.enquiryHeaderService.softDeleteRoute(EnquiryRouteSid)
+            output.data = route;
+            output.message = 'Enquiry Route Deleted Successfully'
+        } catch (error) {
+            output.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                output.message = error.message;
+            } else {
+                output.message = 'Internal Server Error';
+            }
+        }
+        return output;
+    }
+
+    @ApiOperation({ summary: 'Delete Enquiry Cargo' })
+    @ApiCreatedResponse({
+        description: 'Enquiry Cargo Deleted Successfully',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Delete('deleteCargo/:EnquiryRouteSid')
+    async deleteEnqCargoById(@Param('EnquiryRouteSid', ParseIntPipe) EnquiryRouteSid: number) {
+        const output = new ResponseData
+        try {
+            const cargo = await this.enquiryHeaderService.softDeleteCargo(EnquiryRouteSid)
+            output.data = cargo;
+            output.message = 'Enquiry Cargo Deleted Successfully'
+        } catch (error) {
+            output.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                output.message = error.message;
+            } else {
+                output.message = 'Internal Server Error';
+            }
+        }
+        return output;
+    }
+
     @ApiOperation({ summary: 'Get Department' })
     @ApiCreatedResponse({
         description: 'Department Data Fetch Successfully',
@@ -205,6 +253,7 @@ export class EnquiryHeaderController {
             output.data = containerType;
         } catch (error) {
             output.status = false;
+            this.logger.error('Error loading ContainerType',JSON.stringify(error),error)
             if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
                 output.message = error.message;
             } else {

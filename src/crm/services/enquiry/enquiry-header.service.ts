@@ -72,6 +72,9 @@ export class EnquiryHeaderService {
                         Volume: Number(cargo.cbm),  // Convert to Decimal
                         Qty: Number(cargo.Qty),  // Convert to Decimal
                         ContainerType: cargo.contentType,
+                        length : Number(cargo.length),
+                        width : Number(cargo.width),
+                        height : Number(cargo.height),
                         createdBy: user['userEmail']
                     }))
                 );
@@ -127,8 +130,15 @@ export class EnquiryHeaderService {
                 },
                 include: {
                     enquiryRoute: {
+                        where : {
+                            deletedAt : null
+                        },
                         include: {
-                            enquiryCargo: true
+                            enquiryCargo: {
+                                where : {
+                                    deletedAt : null
+                                }
+                            }
                         }
                     }
                 }
@@ -208,6 +218,9 @@ export class EnquiryHeaderService {
                                     Qty: Number(cargoItem.Qty),
                                     GrossWeight: Number(cargoItem.Weight),
                                     Volume: Number(cargoItem.cbm),
+                                    length : Number(cargoItem.length),
+                                    width : Number(cargoItem.width),
+                                    height : Number(cargoItem.height),
                                     updatedBy: user['userEmail'],
                                     updatedOn: new Date(),
                                 }
@@ -223,6 +236,9 @@ export class EnquiryHeaderService {
                                     Volume: Number(cargoItem.cbm),
                                     EnquiryHeaderSid: enquiryHeaderSid,
                                     EnquiryRouteSid: routeData.EnquiryRouteSid, // Link to the correct route
+                                    length: Number(cargoItem.length),
+                                    width: Number(cargoItem.width),
+                                    height: Number(cargoItem.height),
                                     createdBy: user['userEmail'],
                                     CompanyMasterSid: updatedEnquiryHeader.CompanyMasterSid,
                                     BranchMasterSid: updatedEnquiryHeader.BranchMasterSid,
@@ -249,15 +265,44 @@ export class EnquiryHeaderService {
         }
     }
 
+    async softDeleteRoute(EnquiryRouteSid: number) {
 
+        const existingEnquiryRoute = await this._db.enquiryRoute.findUnique({
+            where: { EnquiryRouteSid: EnquiryRouteSid }
+        });
 
+        if (!existingEnquiryRoute) {
+            throw new NotFoundException(`Enquiry Route with ID ${EnquiryRouteSid} not found`);
+        }
 
+        if (existingEnquiryRoute.deletedAt) {
+            throw new Error(`Enquiry Route with ID ${EnquiryRouteSid} is already deleted`);
+        }
 
+        return this._db.enquiryRoute.update({
+            where: { EnquiryRouteSid: EnquiryRouteSid },
+            data: { deletedAt: new Date() }
+        });
+    }
 
+    async softDeleteCargo(EnquiryCargoSid: number) {
+        const existingEnquiryCargo = await this._db.enquiryCargo.findUnique({
+            where: { EnquiryCargoSid: EnquiryCargoSid }
+        });
 
+        if (!existingEnquiryCargo) {
+            throw new NotFoundException(`Enquiry Route with ID ${EnquiryCargoSid} not found`);
+        }
 
+        if (existingEnquiryCargo.deletedAt) {
+            throw new Error(`Enquiry Route with ID ${EnquiryCargoSid} is already deleted`);
+        }
 
-
+        return this._db.enquiryCargo.update({
+            where: { EnquiryCargoSid: EnquiryCargoSid },
+            data: { deletedAt: new Date() }
+        });
+    }
     async softDelete(id: number) {
         // Check if the enquiry exists and is not already deleted
         const existingEnquiry = await this._db.enquiryHeader.findUnique({
@@ -278,6 +323,8 @@ export class EnquiryHeaderService {
             data: { deletedAt: new Date() }
         });
     }
+
+
 
     async getAllDepartment() {
         try {
