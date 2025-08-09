@@ -381,15 +381,21 @@ export class ModuleService {
         ];
         const normalize = (s: string) => s.trim().toLowerCase();
 
+        // const sortMenus = (menus: RouteInfo[]) => {
+        //   return moduleRoute.title === 'CRM'
+        //     ? menus.sort((a, b) => {
+        //       const orderA = crmMenuOrder.map(normalize).indexOf(normalize(a.title));
+        //       const orderB = crmMenuOrder.map(normalize).indexOf(normalize(b.title));
+        //       return (orderA === -1 ? 999 : orderA) - (orderB === -1 ? 999 : orderB);
+        //     })
+        //     : menus.sort((a, b) => a.title.localeCompare(b.title));
+        // };
+
         const sortMenus = (menus: RouteInfo[]) => {
-          return moduleRoute.title === 'CRM'
-            ? menus.sort((a, b) => {
-              const orderA = crmMenuOrder.map(normalize).indexOf(normalize(a.title));
-              const orderB = crmMenuOrder.map(normalize).indexOf(normalize(b.title));
-              return (orderA === -1 ? 999 : orderA) - (orderB === -1 ? 999 : orderB);
-            })
-            : menus.sort((a, b) => a.title.localeCompare(b.title));
-        };
+  return moduleRoute.title === 'CRM'
+    ? menus // no sorting for CRM
+    : menus.sort((a, b) => a.title.localeCompare(b.title));
+};
 
         return {
           ...moduleRoute,
