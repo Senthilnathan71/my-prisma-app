@@ -55,7 +55,7 @@ export class CompanyService {
                 isHo: newData.isHo,
                 status: newData.status,
                 remarks: newData.remarks,
-                StateMasterSid: newData.StateMasterSid,
+                
                 config: newData.config || {}, 
                 createdBy: user.userEmail
                 
@@ -335,7 +335,7 @@ export class CompanyService {
                 isHo: updateData.isHo,
                 status: updateData.status,
                 remarks: updateData.remarks,
-                StateMasterSid: updateData.StateMasterSid,
+               
                 config: updateData.config,
                 updatedBy: user.userEmail
             };
