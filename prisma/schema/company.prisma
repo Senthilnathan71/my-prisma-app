@@ -434,7 +434,7 @@ model UnitMaster {
     status          String    @default("A") @db.Char(1)
     UnitMasterSid   Int       @id @default(autoincrement()) @map("UnitMasterSid")
 
-    quoteCharge QuoteCharge[]
+
 }
 
 model ChargeMaster {
@@ -1022,7 +1022,7 @@ model QuoteCharge {
     costUnit          String?   @db.VarChar(10)
     costCurrency      String?   @db.VarChar(10)
     costPerUnit       Int?
-    UnitMasterSid     Int
+    UOMMasterSid      Int?
     ExchangeRate      Decimal?  @db.Decimal(6, 3)
     Rate              Decimal?  @db.Decimal(15, 3)
     Qty               Decimal?  @db.Decimal(7, 3)
@@ -1035,7 +1035,7 @@ model QuoteCharge {
     updatedBy         String?   @db.VarChar(100)
     status            String?   @default("A") @db.Char(1)
 
-    unitMaster     UnitMaster     @relation(fields: [UnitMasterSid], references: [UnitMasterSid])
+    uomMaster     UOMMaster?     @relation(fields: [UOMMasterSid], references: [UOMMasterSid])
     quoteCarrier   QuoteCarrier?  @relation(fields: [QuoteCarrierSid], references: [QuoteCarrierSid])
     quoteHeader    QuoteHeader    @relation(fields: [QuoteHeaderSid], references: [QuoteHeaderSid])
     quoteRoute     QuoteRoute     @relation(fields: [QuoteRouteSid], references: [QuoteRouteSid])
@@ -1108,6 +1108,7 @@ model UOMMaster {
 
     commodityMaster CommodityMaster[]
     tariffDetail    TariffDetail[]
+    quoteCharge     QuoteCharge[]
 
     @@index([status])
 }
