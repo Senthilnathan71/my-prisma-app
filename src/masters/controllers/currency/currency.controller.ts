@@ -43,9 +43,9 @@ export class CurrencyController {
     let output = new ResponseData();
     try {
       let currency = await this.currencyService.createCurrency(body, user);
-      this.logger.debug(`createCurrency: ${JSON.stringify(currency)}`);
+      this.logger.log(`createCurrency: ${JSON.stringify(currency)}`);
       if (!currency) {
-        this.logger.warn(`createCurrency!!: ${JSON.stringify(currency)}`);
+        this.logger.debug(`createCurrency!!: ${JSON.stringify(currency)}`);
         throw 'Something went wrong';
       }
       output.data = currency;

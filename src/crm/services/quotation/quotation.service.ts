@@ -87,7 +87,7 @@ export class QuotationService {
                         CustomerMasterSid: quoteHeader.CustomerMasterSid,
                         ChargeDisplayName: cargo.charge,
                         CurrencyMasterSid: Number(cargo.currency),
-                        UnitMasterSid: Number(cargo.unit),
+                        UOMMasterSid: Number(cargo.unit),
                         perUnit: cargo.perUnit,
                         costUnit: cargo.costUnit,
                         costCurrency: cargo.costCurrency,
@@ -250,7 +250,7 @@ export class QuotationService {
                                 data: {
                                     ChargeDisplayName: cargoItem.charge,
                                     CurrencyMasterSid: Number(cargoItem.currency),
-                                    UnitMasterSid: Number(cargoItem.unit),
+                                    UOMMasterSid: Number(cargoItem.unit),
                                     perUnit: cargoItem.perUnit,
                                     costUnit: cargoItem.costUnit,
                                     costCurrency: cargoItem.costCurrency,
@@ -264,7 +264,7 @@ export class QuotationService {
                                 data: {
                                     ChargeDisplayName: cargoItem.charge,
                                     CurrencyMasterSid: Number(cargoItem.currency),
-                                    UnitMasterSid: Number(cargoItem.unit),
+                                    UOMMasterSid: Number(cargoItem.unit),
                                     perUnit: cargoItem.perUnit,
                                     costUnit: cargoItem.costUnit,
                                     costCurrency: cargoItem.costCurrency,

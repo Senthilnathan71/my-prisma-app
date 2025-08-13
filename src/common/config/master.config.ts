@@ -44,6 +44,12 @@ export const MASTER_CONFIG = {
         companyKey: 'CompanyMasterSid',
         primaryKey: 'UnitMasterSid',
     },
+    uom_master : {
+        model: 'uOMMaster',
+        select: { UOMMasterSid: true, UOMName: true, UOMCode : true },
+        companyKey: 'CompanyMasterSid',
+        primaryKey: 'UOMMasterSid',
+    },
 
     country_master: {
         model: 'countryMaster',

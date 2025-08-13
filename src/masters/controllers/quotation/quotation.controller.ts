@@ -7,7 +7,7 @@ import { SearchListDto } from "src/masters/DTO/search-list.dto";
 import { SearchVesselDto } from "src/masters/DTO/search-vessel.dto";
 import { QuotationService } from "src/masters/services/quotation/quotation.service";
 
-@Controller('quotation')
+@Controller('ff-quotation')
 export class QuotationController {
     constructor(private quotationService: QuotationService, private logger: Logger, private emailService: EmailService) { }
 
@@ -146,7 +146,26 @@ export class QuotationController {
     })
     @Delete('route/:id')
     async deleteRoute(@Param('id', ParseIntPipe) id: number) {
-        return this.quotationService.deleteRoute(id);
+        let output = new ResponseData
+        this.logger.debug(`deleteQuoteRoute: ${JSON.stringify(id)}`)
+        try {
+            let quote = await this.quotationService.deleteRoute(id);
+            if (!quote) {
+                throw 'Something went wrong'
+            }
+            output.data = quote;
+            output.message = "Quote Route deleted successfully.";
+
+        } catch (error) {
+            this.logger.warn(`deleteQuoteRoute: ${JSON.stringify(error),error}`)
+            output.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                output.message = error.message;
+            } else {
+                output.message = error;
+            }
+        }
+        return output
     }
 
     @ApiOperation({ summary: 'Delete Charge By Id' })
@@ -156,7 +175,26 @@ export class QuotationController {
     })
     @Delete('charge/:id')
     async deleteCharge(@Param('id', ParseIntPipe) id: number) {
-        return this.quotationService.deleteCharge(id);
+        let output = new ResponseData
+        this.logger.debug(`deleteQuoteCharge: ${JSON.stringify(id)}`)
+        try {
+            let quote = await this.quotationService.deleteCharge(id);
+            if (!quote) {
+                throw 'Something went wrong'
+            }
+            output.data = quote;
+            output.message = "Quote Charge deleted successfully.";
+
+        } catch (error) {
+            this.logger.warn(`deleteQuoteCharge: ${JSON.stringify(error),error}`)
+            output.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                output.message = error.message;
+            } else {
+                output.message = error;
+            }
+        }
+        return output
     }
 
 
@@ -315,6 +353,35 @@ export class QuotationController {
         }
         return output;
     }
+
+    @ApiOperation({ summary: 'Get Tariff Details by Quote Details' })
+    @ApiCreatedResponse({
+        description: 'Getting Tariff Details by Quote Details',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Post('tariffDetails')
+    async getTariffDetailWithQuote(@Body() quoteDetails:any) {
+        const output = new ResponseData()
+        try {
+            const tariffs = await this.quotationService.getTariffByQuoteDetails(quoteDetails)
+            this.logger.debug(`getTariffDetails: ${JSON.stringify(tariffs)}`)
+            output.data = tariffs;
+            output.message = "All tariff details are successfully fetched for respective quotes"
+        } catch (error) {
+            this.logger.warn(`getTariffDetails: ${JSON.stringify(error),error}`)
+
+            output.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                output.message = error.message;
+            } else {
+                output.message = 'Internal Server Error';
+            }
+        }
+        return output;
+    }
+
+
 
 
 }

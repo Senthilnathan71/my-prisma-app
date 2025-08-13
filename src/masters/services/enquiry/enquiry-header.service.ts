@@ -91,6 +91,7 @@ export class EnquiryHeaderService {
                         ShipmentTerms : cargo.ShipmentTerms,            // LCL , FCL
                         Volume: parseFloat(cargo.cbm),                      // LCL
                         ContainerType: cargo.ContainerType,             // FCL , AIR
+                        ChargeableWeight : cargo.ChargeableWeight,      // AIR
                         length : Number(cargo.length),
                         width : Number(cargo.width),
                         height : Number(cargo.height),
@@ -200,6 +201,7 @@ export class EnquiryHeaderService {
                         deletedAt: null,
                         authorityMaster: {
                             MenuMaster: payload.MenuMaster,
+                            deletedAt : null,
                             status: 'A',
                         },
                     },
@@ -314,6 +316,7 @@ export class EnquiryHeaderService {
                                     NetWeight: parseFloat(cargoItem.NetWeight),
                                     ShipmentTerms: cargoItem.ShipmentTerms,
                                     Volume: parseFloat(cargoItem.cbm),
+                                    ChargeableWeight : cargoItem.ChargeableWeight,
                                     ContainerType: cargoItem.ContainerType,
                                     length: Number(cargoItem.length),
                                     width: Number(cargoItem.width),
@@ -334,6 +337,7 @@ export class EnquiryHeaderService {
                                     ShipmentTerms: cargoItem.ShipmentTerms,
                                     Volume: parseFloat(cargoItem.cbm),
                                     ContainerType: cargoItem.ContainerType,
+                                    ChargeableWeight : cargoItem.ChargeableWeight,
                                     length: Number(cargoItem.length),
                                     width: Number(cargoItem.width),
                                     height: Number(cargoItem.height),

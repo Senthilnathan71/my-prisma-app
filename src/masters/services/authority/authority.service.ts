@@ -407,35 +407,20 @@ export class AuthorityService {
     const parsedDate = parseDateFromString(search);
 
     const authorityDetails = await this._db.authorityDetail.findMany({
-        where: {
-            UserMasterSid,
-            deletedAt: null,
-            status: 'A'
-        },
+        where: { UserMasterSid, deletedAt: null, status: 'A' },
         select: {
             AuthorityDetailSid: true,
             authorityMaster: {
-                where: {
-                    status: 'A',
-                    deletedAt: null
-                },
+                where: { status: 'A', deletedAt: null },
                 include: {
-                    menuMaster: {
-                        select: {
-                            MenuMasterSid: true,
-                            MenuName: true
-                        }
-                    }
+                    menuMaster: { select: { MenuMasterSid: true, MenuName: true } }
                 }
             }
         }
     });
-    console.log(authorityDetails);
-   
-    const menuSidToName = new Map<number, string>();  
-    // menuSid -> menuName | Taking this for returning response with menuName
-    const authorityDetailMap = new Map<number, number>(); 
-    // menuSid -> AuthorityDetailSid
+
+    const menuSidToName = new Map<number, string>();
+    const authorityDetailMap = new Map<number, number>();
 
     authorityDetails.forEach(({ AuthorityDetailSid, authorityMaster }) => {
         const menu = authorityMaster?.menuMaster;
@@ -450,29 +435,37 @@ export class AuthorityService {
             model: 'quoteHeader',
             primaryKey: 'QuoteHeaderSid',
             whereClause: {
-                OR: [
-                    { QuoteNumber: { contains: search, mode: 'insensitive' } },
-                    ...(parsedDate ? [{ QuoteDate: { equals: parsedDate } }] : []),
-                    { CustomerName: { contains: search, mode: 'insensitive' } }
-                ],
-                authorizerStatus: "Pending"
+                authorizerStatus: "Pending",
+                ...(search && !parsedDate
+                    ? {
+                        OR: [
+                            { QuoteNumber: { contains: search, mode: 'insensitive' } },
+                            { CustomerName: { contains: search, mode: 'insensitive' } }
+                        ]
+                    }
+                    : {}),
+                ...(parsedDate ? { QuoteDate: { equals: parsedDate } } : {})
             }
         },
         82: {
             model: 'enquiryHeader',
             primaryKey: 'EnquiryHeaderSid',
             whereClause: {
-                OR: [
-                    { EnquiryNumber: { contains: search, mode: 'insensitive' } },
-                    { CustomerName: { contains: search, mode: 'insensitive' } },
-                    ...(parsedDate ? [{ EnquiryDate: { equals: parsedDate } }] : [])
-                ],
-                authorizerStatus: "Pending"
+                authorizerStatus: "Pending",
+                ...(search && !parsedDate
+                    ? {
+                        OR: [
+                            { EnquiryNumber: { contains: search, mode: 'insensitive' } },
+                            { CustomerName: { contains: search, mode: 'insensitive' } }
+                        ]
+                    }
+                    : {}),
+                ...(parsedDate ? { EnquiryDate: { equals: parsedDate } } : {})
             }
         }
     };
 
-    const results: any[] = [];
+    const allPendingResults: any[] = [];
 
     for (const [menuSid, authorityDetailSid] of authorityDetailMap.entries()) {
         const config = modelsForMenu[menuSid];
@@ -482,18 +475,17 @@ export class AuthorityService {
         const prismaModel = (this._db as any)[model];
         if (!prismaModel) continue;
 
-        const data = await prismaModel.findMany({
-            where: whereClause,
-            skip,
-            take: pageSize
-        });
-
+        const data = await prismaModel.findMany({ where: whereClause });
+        console.log(model);
+        console.log(whereClause);
+        console.log(data);
         const docSids = data.map((d: any) => d[primaryKey]);
+        if (docSids.length === 0) continue;
 
         const authorizedDocs = await this._db.authorityLog.findMany({
             where: {
                 AuthorityDetailSid: authorityDetailSid,
-                DocumentSid: { in: docSids },
+                DocumentSid: { in: docSids }
             },
             select: { DocumentSid: true }
         });
@@ -502,18 +494,16 @@ export class AuthorityService {
         const pendingData = data.filter((d: any) => !authorizedSidSet.has(d[primaryKey]));
 
         const menuName = menuSidToName.get(menuSid) || "Unknown";
-        const shouldIncludeByMenuName = !search || menuName.toLowerCase().includes(search.toLowerCase());
-        if (!shouldIncludeByMenuName) continue;
 
         pendingData.forEach((item: any) => {
             let authorizeLink = '';
             if (menuSid === 81 && item.QuoteHeaderSid) {
-                authorizeLink = `/crm/quotation/${item.QuoteHeaderSid}`;
+                authorizeLink = `/crm/quotation/entry/${item.QuoteHeaderSid}`;
             } else if (menuSid === 82 && item.EnquiryHeaderSid) {
                 authorizeLink = `/crm/enquiry/${item.EnquiryHeaderSid}`;
             }
 
-            results.push({
+            allPendingResults.push({
                 DocumentName: menuName,
                 DocumentNo: item.EnquiryNumber || item.QuoteNumber || '',
                 CreatedBy: item.CustomerName || '',
@@ -525,10 +515,34 @@ export class AuthorityService {
         });
     }
 
-    return {
-        items: results,
-        totalCount: results.length
-    };
+
+    const filteredResults = search
+        ? allPendingResults.filter(item => {
+            const searchLower = search.toLowerCase();
+            const matchDate = parsedDate && item.CreatedOn
+                ? new Date(item.CreatedOn).toDateString() === parsedDate.toDateString()
+                : false;
+
+            return (
+                matchDate ||
+                item.DocumentName.toLowerCase().includes(searchLower) ||
+                item.DocumentNo.toLowerCase().includes(searchLower) ||
+                item.CreatedBy.toLowerCase().includes(searchLower) ||
+                item.AuthorizeStatus.toLowerCase().includes(searchLower)
+            );
+        })
+        : allPendingResults;
+
+    const sortedResults = filteredResults.sort((a, b) => {
+        const dateA = a.CreatedOn ? new Date(a.CreatedOn).getTime() : 0;
+        const dateB = b.CreatedOn ? new Date(b.CreatedOn).getTime() : 0;
+        return dateB - dateA;
+    });
+
+    const totalCount = sortedResults.length;
+    const paginatedResults = sortedResults.slice(skip, skip + pageSize);
+
+    return { items: paginatedResults, totalCount };
 }
 
 

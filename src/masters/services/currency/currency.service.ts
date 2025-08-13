@@ -21,6 +21,7 @@ export class CurrencyService {
 
     const existing = await this._db.currencyMaster.findFirst({
       where: {
+        deletedAt : null,
         OR: [
           {
             currencyName: {
@@ -64,6 +65,7 @@ export class CurrencyService {
     try {
       const currencyList = await this._db.currencyMaster.findMany({
         where: {
+          deletedAt : null,
           status: 'A',
         },
       });

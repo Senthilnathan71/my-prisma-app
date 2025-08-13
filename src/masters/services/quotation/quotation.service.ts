@@ -23,7 +23,7 @@ export class QuotationService {
                 const quoteNumber = `quotation-${dateString}-${(count + 1).toString().padStart(3, '0')}`;
 
                 // Step 1: Create Quote Header
-                const quoteDate = payload.quoteDate ? new Date(payload.quoteDate) : new Date();
+                const quoteDate = payload.quoteDate ? new Date(payload.QuoteDate) : new Date();
                 const quoteHeaderPayload: any = {
                     CustomerName: payload.CustomerName,
                     CustomerMasterSid: Number(payload.CustomerMasterSid),
@@ -32,6 +32,7 @@ export class QuotationService {
                     EnquirySid : payload.EnquirySid ? Number(payload.EnquirySid) : null,
                     CustomerAddress: payload.CustomerAddress,
                     Email : payload.Email,
+                    CustomerRef : payload.CustomerRef,
                     IncoTerms : payload.IncoTerms,
                     ClearanceBy : payload.ClearanceBy,
                     TransportBy : payload.TransportBy,
@@ -43,7 +44,7 @@ export class QuotationService {
                     QuoteNumber: quoteNumber,
                     createdBy: payload.createdBy,
                     authorizerStatus : payload.authorizerStatus || 'Pending',
-                    AuthorizerRemarks : payload.AuthorizerRemarks
+                    AuthorizerRemarks : payload.AuthorizerRemarks || ''
                 };
 
                 const quoteHeader = await prisma.quoteHeader.create({ data: quoteHeaderPayload });
@@ -53,17 +54,23 @@ export class QuotationService {
                     payload.routes.map(async (route) => {
                         const createdQuoteRoute = await prisma.quoteRoute.create({
                             data: {
-                                PORSid: Number(route.POR),
-                                POLSid: Number(route.POL),
-                                PODSid: Number(route.POD),
-                                FDPSid: Number(route.FPOD),
+                                PORSid: Number(route.PORSid),
+                                POLSid: Number(route.POLSid),
+                                PODSid: Number(route.PODSid),
+                                FDPSid: Number(route.FPODSid),
                                 DepartmentMasterSid: Number(route.DepartmentMasterSid),
                                 CompanyMasterSid: quoteHeader.CompanyMasterSid,
                                 BranchMasterSid: quoteHeader.BranchMasterSid,
                                 QuoteHeaderSid: quoteHeader.QuoteHeaderSid,
-                                CarrierName: route.Carrier,
+                                CarrierName: route.CarrierName,
                                 CarrierMasterSid: route.CarrierMasterSid,
                                 segmentType: route.segmentType,
+                                CargoType : route.CargoType,
+                                ContainerType : route.ContainerType,
+                                ContainerQty : route.ContainerQty,
+                                CBM : route.CBM,
+                                ChargeableWeight : route.ChargeableWeight,
+                                ServiceLevel : route.ServiceLevel,
                                 effDate: new Date(route.effDate),
                                 expdate: new Date(route.expDate),
                                 twentyft: Number(route.twentyft) || null,
@@ -81,10 +88,10 @@ export class QuotationService {
                                 QuoteRouteSid: createdQuoteRoute.QuoteRouteSid,
                                 QuoteHeaderSid: quoteHeader.QuoteHeaderSid,
                                 CarrierMasterSid: route.CarrierMasterSid,
-                                CarrierName: route.Carrier,
+                                CarrierName: route.CarrierName,
                                 CompanyMasterSid: quoteHeader.CompanyMasterSid,
                                 BranchMasterSid: quoteHeader.BranchMasterSid,
-                                ApprovalStatus: "A",
+                                ApprovalStatus: "P",
                                 createdBy: payload.createdBy,
                             },
                         });
@@ -101,14 +108,16 @@ export class QuotationService {
                         QuoteHeaderSid: quoteHeader.QuoteHeaderSid,
                         QuoteRouteSid: quoteRoute.createdQuoteRoute.QuoteRouteSid, // Fixed reference
                         CustomerMasterSid: quoteHeader.CustomerMasterSid,
-                        ChargeDisplayName: cargo.charge,
-                        CurrencyMasterSid: Number(cargo.currency),
-                        UnitMasterSid: Number(cargo.unit),
+                        ChargeUomSid : cargo.ChargeUomSid,
+                        ChargeDisplayName: cargo.ChargeDisplayName,
                         Qty : Number(cargo.Qty),
-                        perUnit: cargo.perUnit,
+                        CurrencyMasterSid: Number(cargo.CurrencyMasterSid),
+                        UOMMasterSid: Number(cargo.UOMMasterSid),
+                        perUnit: Number(cargo.perUnit),
+                        Amount : Number(cargo.Amount),
                         costUnit: cargo.costUnit,
                         costCurrency: cargo.costCurrency,
-                        costPerUnit: cargo.costPerUnit,
+                        costPerUnit: Number(cargo.costPerUnit),
                         createdBy: payload.createdBy
                     }))
                 );
@@ -188,8 +197,7 @@ export class QuotationService {
     async updateQuote(QuoteHeaderSid: number, payload) {
         try {
             // Step 1: Update Enquiry Header
-            const statusUpdate = payload.status === "Active" ? "A" : "S";
-            const quoteDate = payload.quoteDate ? new Date(payload.quoteDate) : new Date();
+            const quoteDate = payload.QuoteDate ? new Date(payload.quoteDate) : new Date();
 
             let authLogUpdate;
             if (payload.approvalStatusChange) {
@@ -201,6 +209,7 @@ export class QuotationService {
                         deletedAt: null,
                         authorityMaster: {
                             MenuMaster: payload.MenuMaster,
+                            deletedAt : null,
                             status: 'A',
                         },
                     },
@@ -244,19 +253,19 @@ export class QuotationService {
             const updatedQuoteHeader = await this._db.quoteHeader.update({
                 where: { QuoteHeaderSid: QuoteHeaderSid },
                 data: {
+                    CustomerRef : payload.CustomerRef,
+                    Email : payload.Email,
+                    status : payload.status,
+                    SalesmanSid : payload.SalesmanSid,
                     CustomerName: payload.CustomerName,
-                    CustomerMasterSid: payload.CustomerMasterSid,
+                    EnquirySid :payload.EnquirySid ?  Number(payload.EnquirySid) : null,
+                    
                     CustomerAddress : payload.CustomerAddress,
                     CustomerBranchSid : payload.CustomerBranchSid,
-                    Email : payload.Email,
                     IncoTerms : payload.IncoTerms,
                     ClearanceBy : payload.ClearanceBy,
                     TransportBy : payload.TransportBy,
                     Remarks : payload.Remarks,
-                    SalesmanSid : payload.SalesmanSid,
-                    QuoteDate: quoteDate,
-                    EnquirySid :payload.EnquirySid ?  Number(payload.EnquirySid) : null,
-                    status: statusUpdate,
                     updatedBy: payload.updatedBy,
                     updatedOn: new Date()
                 }
@@ -273,19 +282,26 @@ export class QuotationService {
                     updateData = await this._db.quoteRoute.update({
                         where: { QuoteRouteSid: route.QuoteRouteSid },
                         data: {
-                            PORSid: Number(route.POR),
-                            POLSid: Number(route.POL),
-                            PODSid: Number(route.POD),
-                            FDPSid: Number(route.FPOD),
-                            CarrierName: route.Carrier,
+                            PORSid: Number(route.PORSid),
+                            POLSid: Number(route.POLSid),
+                            PODSid: Number(route.PODSid),
+                            FDPSid: Number(route.FPODSid),
+                            CarrierName: route.CarrierName,
                             CarrierMasterSid: route.CarrierMasterSid,
+                            CargoType : route.CargoType,
                             effDate: new Date(route.effDate),
                             expdate: new Date(route.expDate),
                             twentyft: Number(route.twentyft) || null,
                             fortyft: Number(route.fortyft) || null,
+                            ContainerType: route.ContainerType,
+                            ContainerQty: route.ContainerQty,
+                            CBM: route.CBM,
+                            ChargeableWeight: route.ChargeableWeight,
                             updatedBy: payload.updatedBy,
                             updatedOn: new Date(),
+                            ServiceLevel : route.ServiceLevel,
                             cargoType: route.cargoType,
+                            segmentType : route.segmentType,
                             POLFreeDays: Number(route.POLFreeDays),
                             PODFreeDays: Number(route.PODFreeDays),
                             TransitDays: Number(route.TransitDays) || Number(route.transit) || null,
@@ -294,17 +310,24 @@ export class QuotationService {
                 } else {
                     createData = await this._db.quoteRoute.create({
                         data: {
-                            PORSid: Number(route.POR),
-                            POLSid: Number(route.POL),
-                            PODSid: Number(route.POD),
-                            FDPSid: Number(route.FPOD),
-                            CarrierName: route.Carrier,
+                            PORSid: Number(route.PORSid),
+                            POLSid: Number(route.POLSid),
+                            PODSid: Number(route.PODSid),
+                            FDPSid: Number(route.FPODSid),
+                            CarrierName: route.CarrierName,
                             CarrierMasterSid: route.CarrierMasterSid,
                             effDate: new Date(route.effDate),
                             expdate: new Date(route.expDate),
                             twentyft: Number(route.twentyft) || null,
                             fortyft: Number(route.fortyft) || null,
+                            CargoType : route.CargoType,
+                            ContainerType: route.ContainerType,
+                            ContainerQty: route.ContainerQty,
+                            CBM: route.CBM,
+                            ChargeableWeight: route.ChargeableWeight,
                             cargoType: route.cargoType,
+                            segmentType : route.segmentType,
+                            ServiceLevel : route.ServiceLevel,
                             POLFreeDays: Number(route.POLFreeDays),
                             PODFreeDays: Number(route.PODFreeDays),
                             TransitDays: Number(route.TransitDays) || Number(route.transit) || null,
@@ -330,14 +353,16 @@ export class QuotationService {
                             updateCargoData = await this._db.quoteCharge.update({
                                 where: { QuoteChargeSid: cargoItem.QuoteChargeSid },
                                 data: {
-                                    ChargeDisplayName: cargoItem.charge,
-                                    CurrencyMasterSid: Number(cargoItem.currency),
-                                    UnitMasterSid: Number(cargoItem.unit),
+                                    ChargeUomSid : cargoItem.ChargeUomSid,
+                                    ChargeDisplayName: cargoItem.ChargeDisplayName,
+                                    CurrencyMasterSid: cargoItem.CurrencyMasterSid,
+                                    UOMMasterSid: cargoItem.UOMMasterSid,
                                     Qty : Number(cargoItem.Qty),
-                                    perUnit: cargoItem.perUnit,
+                                    perUnit: Number(cargoItem.perUnit),
+                                    Amount : Number(cargoItem.Amount),
                                     costUnit: cargoItem.costUnit,
                                     costCurrency: cargoItem.costCurrency,
-                                    costPerUnit: cargoItem.costPerUnit,
+                                    costPerUnit: Number(cargoItem.costPerUnit),
                                     updatedBy: payload.updatedBy,
                                     updatedOn: new Date(),
                                 }
@@ -345,14 +370,16 @@ export class QuotationService {
                         } else {
                             createCargoData = await this._db.quoteCharge.create({
                                 data: {
-                                    ChargeDisplayName: cargoItem.charge,
-                                    CurrencyMasterSid: Number(cargoItem.currency),
-                                    UnitMasterSid: Number(cargoItem.unit),
+                                    ChargeUomSid : cargoItem.ChargeUomSid,
+                                    ChargeDisplayName: cargoItem.ChargeDisplayName,
+                                    CurrencyMasterSid: cargoItem.CurrencyMasterSid,
+                                    UOMMasterSid: cargoItem.UOMMasterSid,
                                     Qty : Number(cargoItem.Qty),
-                                    perUnit: cargoItem.perUnit,
+                                    perUnit: Number(cargoItem.perUnit),
+                                    Amount: Number(cargoItem.Amount),
                                     costUnit: cargoItem.costUnit,
                                     costCurrency: cargoItem.costCurrency,
-                                    costPerUnit: cargoItem.costPerUnit,
+                                    costPerUnit: Number(cargoItem.costPerUnit),
                                     QuoteHeaderSid: QuoteHeaderSid,
                                     QuoteRouteSid: routeData.QuoteRouteSid, // Link to the correct route
                                     createdBy: payload.updatedBy,
@@ -450,9 +477,21 @@ export class QuotationService {
     async getAllMasters() {
         try {
             const [charges, units, currencies] = await this._db.$transaction([
-                this._db.chargeMaster.findMany(),
-                this._db.unitMaster.findMany(),
-                this._db.currencyMaster.findMany(),
+                this._db.chargeMaster.findMany({
+                    where : {
+                        deletedAt : null
+                    }
+                }),
+                this._db.unitMaster.findMany({
+                    where : {
+                        deletedAt : null
+                    }
+                }),
+                this._db.currencyMaster.findMany({
+                    where : {
+                        deletedAt : null
+                    }
+                }),
             ]);
 
             return { charges, units, currencies };
@@ -526,7 +565,7 @@ export class QuotationService {
                                     deletedAt : null
                                 },
                                 include : {
-                                    unitMaster : { select : {unitCode : true} },
+                                    uomMaster : { select : {UOMCode : true} },
                                     currencyMaster : { select : {currencyCode : true}},
                                     
                                 }
@@ -537,33 +576,30 @@ export class QuotationService {
             }),
             this._db.quoteHeader.count({ where }),
         ]);
-
+        console.log(items);
         items = await Promise.all(
             items.map(async (item) => {
                 const updatedRoutes = await Promise.all(
                     item.quoteRoute.map(async (route) => {
 
-                        const departmentMaster = await this.globalConfigService.getMasterData(
-                            'department_master',
-                            route.DepartmentMasterSid
-                        );
+                        const [departmentMaster,PortPOL,PortPOD] = await Promise.all([
+                            route.DepartmentMasterSid !== null ? 
+                            this.globalConfigService.getMasterData('department_master',route.DepartmentMasterSid) : {departmentName : ''},
+                            route.POLSid !== null ? this.globalConfigService.getMasterData('port_master',route.POLSid) : {PortName : ''},
+                            route.PODSid !== null ? 
+                            this.globalConfigService.getMasterData('port_master',route.PODSid) : {PortName : ''}
+                        ]);
 
                         const updatedCharges = await Promise.all(
                             route.quoteCharge.map(async (charge) => {
-                                const [chargeMaster,unitMaster, currencyMaster] = await Promise.all([
-                                    charge.ChargeUomSid !== null
-                                        ? this.globalConfigService.getMasterData(
-                                            'unit_master',
-                                            charge.UnitMasterSid
-                                        )
-                                        : { UnitMasterSid: null, unitName: '', unitCode: '' },
+                                const [uomMaster, currencyMaster] = await Promise.all([
 
-                                    charge.UnitMasterSid !== null
+                                    charge.UOMMasterSid !== null
                                         ? this.globalConfigService.getMasterData(
-                                            'unit_master',
-                                            charge.UnitMasterSid
+                                            'uom_master',
+                                            charge.UOMMasterSid
                                         )
-                                        : { UnitMasterSid: null, unitName: '', unitCode: '' },
+                                        : { UOMMasterSid: null, UOMName: '', UOMCode: '' },
                                     
                                     charge.CurrencyMasterSid !== null
                                         ? this.globalConfigService.getMasterData(
@@ -575,7 +611,7 @@ export class QuotationService {
 
                                 return {
                                     ...charge,
-                                    unitMaster,
+                                    uomMaster,
                                     currencyMaster,
                                 };
                             })
@@ -583,6 +619,8 @@ export class QuotationService {
                         return {
                             ...route,
                             departmentMaster,
+                            PortPOL,
+                            PortPOD,
                             quoteCharge: updatedCharges,
                         };
                     })
@@ -658,5 +696,31 @@ export class QuotationService {
         }
     }
 
+    async getTariffByQuoteDetails(payload){
+        try {
+            const allTariffDetails = await this._db.tariffDetail.findMany({
+                where: {
+                    EffectiveDate : { lte : new Date(payload.EffectiveDate)},
+                    ExpiredOn : { gte : new Date(payload.ExpiredDate)},
+                    CargoType : payload.CargoType,
+                    tariffHeader: {
+                        DepartmentMasterSid : payload.DepartmentMasterSid,
+                        POOSid: payload.PORSid,
+                        POLSid: payload.POLSid,
+                        PODSid: payload.PODSid,
+                        FDCSid: payload.FPODSid
+                    }
+                },
+                include : {
+                    currencyMasterBuy : { select : { currencyName : true ,currencyCode : true } },
+                    currencyMasterSale : { select : { currencyName : true } },
+                    UOMMaster : { select : {UOMName : true , UOMCode : true}}
+                }
+            })
+            return allTariffDetails;
+        } catch (error) {
+            throw error;
+        }
+    }
 
 }
