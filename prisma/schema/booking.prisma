@@ -44,6 +44,17 @@ model BookingHeader {
     AuthorizerRemarks   String?         @db.VarChar(100)
     authorizerStatus    ApprovalStatus?
     MenuMasterSid       Int?
+    Notify              String?         @db.VarChar(200)
+    NotifyAddress       String?         @db.VarChar(200)
+    CarrierName         String?         @db.VarChar(200)
+    HBLNo               String?         @db.VarChar(200)
+    MBLNo               String?         @db.VarChar(200)
+    MBLDate             DateTime?
+    Coload              String?         @db.VarChar(200)
+    InternalNote        String?         @db.VarChar(200)
+    GeneralNote         String?         @db.VarChar(200)
+    Nominated           String?         @db.VarChar(200)
+    NominatedBy         String?         @db.VarChar(200)
     createdOn           DateTime        @default(now()) @db.Timestamptz(6)
     updatedOn           DateTime?       @updatedAt @db.Timestamptz(6)
     deletedAt           DateTime?
@@ -56,8 +67,12 @@ model BookingHeader {
     departmentMaster DepartmentMaster? @relation(fields: [DepartmentMasterSid], references: [DepartmentMasterSid])
     customerBranch   CustomerBranch?   @relation(fields: [CustomerBranchSid], references: [CustomerBranchSid])
     menuMaster       MenuMaster?       @relation(fields: [MenuMasterSid], references: [MenuMasterSid])
+    quotationHeader  QuoteHeader?      @relation(fields: [QuotationHeaderSid], references: [QuoteHeaderSid])
 
-    bookingCargo BookingCargo[]
+    bookingCargo      BookingCargo[]
+    bookingProduct    BookingProduct[]
+    bookingConnection BookingConnection[]
+    bookingOthers     BookingOthers[]
 }
 
 model BookingCargo {
@@ -74,7 +89,7 @@ model BookingCargo {
     Volume           Decimal?      @db.Decimal(10, 3)
     ChargeableWeight Decimal?      @db.Decimal(10, 3)
     ContainerType    String?       @db.VarChar(50)
-    Qty              Decimal       @db.Decimal(5, 0)
+    Qty              Decimal?      @db.Decimal(5, 0)
     ShipmentTerms    String?       @db.VarChar(10) //LCL
     pkgType          String?       @db.VarChar(50)
     createdOn        DateTime      @default(now()) @db.Timestamptz(6)
@@ -83,6 +98,10 @@ model BookingCargo {
     createdBy        String        @db.VarChar(100)
     updatedBy        String?       @db.VarChar(100)
     status           String?       @default("A") @db.Char(1)
+    NoofContainers   Int?
+    MovementType     String?       @db.VarChar(100)
+    FreightTerms     String?       @db.VarChar(100)
+    StuffingAt       String?       @db.VarChar(100)
     companyMaster    CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
     branchMaster     BranchMaster? @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
     bookingHeader    BookingHeader @relation(fields: [BookingHeaderSid], references: [BookingHeaderSid])
@@ -90,14 +109,15 @@ model BookingCargo {
 
 model BookingProduct {
     BookingProductSid  Int       @id @default(autoincrement()) @map("BookingProductSid")
+    BookingHeaderSid   Int?
     ProductName        String    @db.VarChar(100)
-    ProductDescription String    @db.VarChar(500)
+    ProductDescription String?   @db.VarChar(500)
     ShippingBillNo     String    @db.VarChar(100)
     ShippingBillDate   DateTime?
-    ExternaPkg         String    @db.VarChar(100)
+    ExternaPkg         String?   @db.VarChar(100)
     ExternlQty         String    @db.VarChar(100)
-    InternalPkg        String    @db.VarChar(100)
-    InternalQty        String    @db.VarChar(100)
+    InternalPkg        String?   @db.VarChar(100)
+    InternalQty        String?   @db.VarChar(100)
     GrossWeight        Decimal   @db.Decimal(10, 3)
     NetWeight          Decimal?  @db.Decimal(10, 3)
     Volume             Decimal?  @db.Decimal(10, 3)
@@ -107,10 +127,13 @@ model BookingProduct {
     createdBy          String    @db.VarChar(100)
     updatedBy          String?   @db.VarChar(100)
     status             String?   @default("A") @db.Char(1)
+
+    bookingHeader BookingHeader? @relation(fields: [BookingHeaderSid], references: [BookingHeaderSid])
 }
 
 model BookingConnection {
     BookingConnectionSid Int       @id @default(autoincrement()) @map("BookingConnectionSid")
+    BookingHeaderSid     Int?
     POL                  String    @db.VarChar(100)
     POD                  String    @db.VarChar(100)
     VesselName           String    @db.VarChar(100)
@@ -124,18 +147,21 @@ model BookingConnection {
     createdBy            String    @db.VarChar(100)
     updatedBy            String?   @db.VarChar(100)
     status               String?   @default("A") @db.Char(1)
+
+    bookingHeader BookingHeader? @relation(fields: [BookingHeaderSid], references: [BookingHeaderSid])
 }
 
 model BookingOthers {
     BookingOthersSid    Int       @id @default(autoincrement()) @map("BookingOthersSid")
+    BookingHeaderSid    Int?
     CustomerRefNo       String    @db.VarChar(20)
-    OperationUser       String    @db.VarChar(100)
-    DocumentationUser   String    @db.VarChar(100)
-    CustomerServiceuser String    @db.VarChar(100)
+    OperationUser       String?   @db.VarChar(100)
+    DocumentationUser   String?   @db.VarChar(100)
+    CustomerServiceuser String?   @db.VarChar(100)
     NotifyParty         String    @db.VarChar(100)
     NotifyPartyAddress  String    @db.VarChar(200)
     CHAName             String    @db.VarChar(100)
-    PickupMode          String    @db.VarChar(10)
+    PickupMode          String?   @db.VarChar(10)
     YardCFS             String    @db.VarChar(100)
     LocalTransport      String?   @db.Char(1)
     OverseasTransport   String?   @db.Char(1)
@@ -148,16 +174,21 @@ model BookingOthers {
     DeliveryAddress     String    @db.VarChar(200)
     CargoCurrency       String    @db.VarChar(3)
     CargoValue          Decimal   @db.Decimal(12, 2)
-    DeliveryMode        String    @db.VarChar(10)
-    ExternalRemarks     String    @db.VarChar(200)
+    DeliveryMode        String?   @db.VarChar(10)
+    ExternalRemarks     String?   @db.VarChar(200)
     SwitchBL            String?   @db.Char(1)
-    TransporterName     String    @db.VarChar(100)
+    TransporterName     String?   @db.VarChar(100)
+    HBLNo               String?   @db.VarChar(200)
+    Forwarder           String?   @db.VarChar(200)
+    ForwarderAddress    String?   @db.VarChar(200)
     createdOn           DateTime  @default(now()) @db.Timestamptz(6)
     updatedOn           DateTime? @updatedAt @db.Timestamptz(6)
     deletedAt           DateTime?
     createdBy           String    @db.VarChar(100)
     updatedBy           String?   @db.VarChar(100)
     status              String?   @default("A") @db.Char(1)
+
+    bookingHeader BookingHeader? @relation(fields: [BookingHeaderSid], references: [BookingHeaderSid])
 }
 
 model VesselMaster {
