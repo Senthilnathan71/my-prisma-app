@@ -9,6 +9,7 @@ model BookingHeader {
     CustomerMasterSid   Int
     CustomerName        String?         @db.VarChar(100)
     CustomerAddress     String?         @db.VarChar(300)
+    ShipmentNo          String?         @db.VarChar(200)
     SalesmanSid         Int?
     CargoExpectedon     DateTime?
     FreightTerms        String?         @db.VarChar(100)
@@ -43,6 +44,7 @@ model BookingHeader {
     IsServiceJob        String?         @db.Char(1) //Y/N
     AuthorizerRemarks   String?         @db.VarChar(100)
     authorizerStatus    ApprovalStatus?
+    PODTerminal         String?
     MenuMasterSid       Int?
     Notify              String?         @db.VarChar(200)
     NotifyAddress       String?         @db.VarChar(200)
@@ -73,6 +75,7 @@ model BookingHeader {
     bookingProduct    BookingProduct[]
     bookingConnection BookingConnection[]
     bookingOthers     BookingOthers[]
+    bookingRates      BookingRates[]
 }
 
 model BookingCargo {
@@ -181,6 +184,10 @@ model BookingOthers {
     HBLNo               String?   @db.VarChar(200)
     Forwarder           String?   @db.VarChar(200)
     ForwarderAddress    String?   @db.VarChar(200)
+    ReleaseType         String?   @db.VarChar(200)
+    BacktoBack          String?   @db.VarChar(200)
+    Depo                String?   @db.VarChar(200)
+    ROValidity          String?   @db.VarChar(200)
     createdOn           DateTime  @default(now()) @db.Timestamptz(6)
     updatedOn           DateTime? @updatedAt @db.Timestamptz(6)
     deletedAt           DateTime?
@@ -189,6 +196,40 @@ model BookingOthers {
     status              String?   @default("A") @db.Char(1)
 
     bookingHeader BookingHeader? @relation(fields: [BookingHeaderSid], references: [BookingHeaderSid])
+}
+
+model BookingRates {
+    BookingRatesSid   Int       @id @default(autoincrement())
+    BookingHeaderSid  Int
+    CompanyMasterSid  Int
+    BranchMasterSid   Int
+    CreatedOn         DateTime  @default(now())
+    CreatedBy         String    @db.VarChar(100)
+    UpdatedOn         DateTime?
+    UpdatedBy         String?   @db.VarChar(100)
+    Status            String    @db.Char(1)
+    SerialNumber      Decimal   @db.Decimal(3, 0)
+    ChargeMasterSid   Int
+    ChargeDescription String    @db.VarChar(100)
+    ChargeUomSid      Int
+    PrepaidCollect    String    @default("Prepaid") @db.VarChar(10)
+    CostRevenue       String?   @db.VarChar(10)
+    CurrencyMasterSid Int
+    ExchangeRate      Decimal   @db.Decimal(6, 3)
+    Rate              Decimal   @db.Decimal(15, 3)
+    NumberOfUnit      Decimal   @db.Decimal(4, 3)
+    DrCr              String    @db.Char(1)
+    Amount            Decimal   @db.Decimal(15, 3)
+    LocalAmount       Decimal   @db.Decimal(15, 3)
+    CustomerMasterSid Int
+    CustomerBranchSid Int
+    VoucherHeaderSid  Int?
+    VoucherTypeSid    Int?
+    Remarks           String?   @db.VarChar(100)
+
+    bookingHeader BookingHeader? @relation(fields: [BookingHeaderSid], references: [BookingHeaderSid])
+    companyMaster CompanyMaster  @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+    branchMaster  BranchMaster   @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
 }
 
 model VesselMaster {
@@ -272,4 +313,24 @@ model VoyageMasterDetail {
     portMasterPOL      PortMaster         @relation("POL", fields: [POLSid], references: [PortMasterSid])
     portMasterPOD      PortMaster?        @relation("POD", fields: [PODSid], references: [PortMasterSid])
     voyageMasterHeader VoyageMasterHeader @relation(fields: [VoyageMasterHeaderSid], references: [VoyageMasterHeaderSid])
+}
+
+model ShipmentMilestone {
+    ShipmentMilestoneSid Int       @id @default(autoincrement())
+    ShipmentNo           String    @db.VarChar(20)
+    CompanyMasterSid     Int
+    BranchMasterSid      Int
+    CreatedOn            DateTime  @default(now())
+    CreatedBy            String    @db.VarChar(100)
+    UpdatedOn            DateTime?
+    UpdatedBy            String?   @db.VarChar(100)
+    Status               String    @db.Char(1)
+    MilestoneMasterSid   Int
+    MilestoneName        String    @db.VarChar(50)
+    MilestoneDate        DateTime
+    AutoCaptured         String    @db.Char(1)
+    Remarks              String?   @db.VarChar(200)
+
+    companyMaster CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+    branchMaster  BranchMaster  @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
 }

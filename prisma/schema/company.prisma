@@ -84,6 +84,8 @@ model CompanyMaster {
     supplierTdsMapping  SupplierTdsMapping[]
     enquiryOther        EnquiryOther[]
     AuthorityLog        AuthorityLog[]
+    bookingRates        BookingRates[]
+    shipmentMilestone   ShipmentMilestone[]
 }
 
 model BranchMaster {
@@ -149,6 +151,8 @@ model BranchMaster {
     emailLog           EmailLog[]
     enquiryOther       EnquiryOther[]
     AuthorityLog       AuthorityLog[]
+    bookingRates       BookingRates[]
+    shipmentMilestone  ShipmentMilestone[]
 }
 
 model UserMaster {
