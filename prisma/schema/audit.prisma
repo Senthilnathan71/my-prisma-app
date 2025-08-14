@@ -6,8 +6,9 @@ model AuditLog {
     changedAt   DateTime @default(now())
     changedBy   String? // optional
     changes     Json? // JSONB equivalent in Prisma4
+    oldVal      Json?
+    newVal      Json?
 }
-
 
 model TablePrimaryKeyMap {
     table_name  String @id // Primary key

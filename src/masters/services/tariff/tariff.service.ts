@@ -16,7 +16,9 @@ export class TariffService {
                 AND: [
                     { POLSid: newData.POLSid },
                     { PODSid: newData.PODSid },
-                    { CompanyMasterSid : user.CompanyMasterSid}
+                    { DepartmentMasterSid: newData.DepartmentMasterSid },
+                    { CompanyMasterSid : user.CompanyMasterSid},
+                    { deletedAt : null }
                 ]
             },
         });
@@ -84,8 +86,10 @@ export class TariffService {
                 where: {
                     POLSid: updateData.POLSid,
                     PODSid: updateData.PODSid,
+                    DepartmentMasterSid : updateData.DepartmentMasterSid,
                     CompanyMasterSid: user.CompanyMasterSid,
                     TariffHeaderSid: { not: TariffHeaderSid },
+                     deletedAt : null 
                 },
             });
 

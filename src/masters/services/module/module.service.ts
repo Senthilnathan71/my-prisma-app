@@ -380,16 +380,28 @@ export class ModuleService {
           'Todo'
         ];
         const normalize = (s: string) => s.trim().toLowerCase();
+        const crmOrderNormalized = crmMenuOrder.map(normalize);
 
-        const sortMenus = (menus: RouteInfo[]) => {
-          return moduleRoute.title === 'CRM'
-            ? menus.sort((a, b) => {
-              const orderA = crmMenuOrder.map(normalize).indexOf(normalize(a.title));
-              const orderB = crmMenuOrder.map(normalize).indexOf(normalize(b.title));
+        // const sortMenus = (menus: RouteInfo[]) => {
+        //   return moduleRoute.title === 'CRM'
+        //     ? menus.sort((a, b) => {
+        //       const orderA = crmMenuOrder.map(normalize).indexOf(normalize(a.title));
+        //       const orderB = crmMenuOrder.map(normalize).indexOf(normalize(b.title));
+        //       return (orderA === -1 ? 999 : orderA) - (orderB === -1 ? 999 : orderB);
+        //     })
+        //     : menus.sort((a, b) => a.title.localeCompare(b.title));
+        // };
+
+
+        const sortMenus = (menuList: any[]) => {
+          return (moduleRoute.title === 'crm')
+            ? menuList.sort((a, b) => {
+              const orderA = crmOrderNormalized.indexOf(normalize(a.MenuName));
+              const orderB = crmOrderNormalized.indexOf(normalize(b.MenuName));
               return (orderA === -1 ? 999 : orderA) - (orderB === -1 ? 999 : orderB);
             })
-            : menus.sort((a, b) => a.title.localeCompare(b.title));
-        };
+            : menuList.sort((a, b) => a.MenuName.localeCompare(b.MenuName));
+        }
 
         return {
           ...moduleRoute,
@@ -525,7 +537,7 @@ export class ModuleService {
         'Todo'
       ];
       const normalize = (s: string) => s.trim().toLowerCase();
-
+      const crmOrderNormalized = crmMenuOrder.map(normalize)
       const sortedModules = modules.map(module => {
         const menus = module.menuMaster;
 
@@ -541,15 +553,16 @@ export class ModuleService {
         }
 
         // 2. Sort function (CRM has custom sort)
+
         const sortMenus = (menuList: any[]) => {
           return (module.ModuleName.trim().toLowerCase() === 'crm')
             ? menuList.sort((a, b) => {
-              const orderA = crmMenuOrder.map(normalize).indexOf(normalize(a.MenuName));
-              const orderB = crmMenuOrder.map(normalize).indexOf(normalize(b.MenuName));
+              const orderA = crmOrderNormalized.indexOf(normalize(a.MenuName));
+              const orderB = crmOrderNormalized.indexOf(normalize(b.MenuName));
               return (orderA === -1 ? 999 : orderA) - (orderB === -1 ? 999 : orderB);
             })
             : menuList.sort((a, b) => a.MenuName.localeCompare(b.MenuName));
-        };
+        }
 
         // 3. Build submenu recursively
         const buildMenuTree = (parentId: number | null): any[] => {

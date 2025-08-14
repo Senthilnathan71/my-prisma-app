@@ -180,4 +180,32 @@ async searchDocTypeNew(@Body() searchParams: SearchVesselDto) {
     }
     return resp;
 }
+
+
+@ApiOperation({ summary: 'Get Subledgers by COA Master ID' })
+@ApiCreatedResponse({
+    description: 'Get Subledgers by COA Master ID',
+    type: ResponseData
+})
+@HttpCode(HttpStatus.OK)
+@Get('subledgers/:COAMasterSid')
+async getSubledgersByCOA(@Param('COAMasterSid', ParseIntPipe) COAMasterSid: number) {
+    let resp = new ResponseData();
+    try {
+        this.logger.log(`Getting Subledgers for COA Master ID: ${COAMasterSid}`);
+        let res = await this.documentTypeService.getSubledgersByCOA(COAMasterSid);
+        this.logger.debug(`Fetched Subledgers: ${JSON.stringify(res)}`);
+        resp.data = res;
+        resp.message = `Subledgers for COA Master ID: ${COAMasterSid} are successfully fetched`;
+    } catch (error) {
+        this.logger.warn(`Get Subledgers by COA Error: ${JSON.stringify(error), error}`);
+        resp.status = false;
+        if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+            resp.message = error.message;
+        } else {
+            resp.message = "Internal Server Error";
+        }
+    }
+    return resp;
+}
 }

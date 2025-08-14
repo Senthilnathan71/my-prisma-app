@@ -104,6 +104,7 @@ export class ChargeService {
         try {
             const ChargeList = await this._db.chargeMaster.findMany({
                 where: {
+                    deletedAt : null,
                     Status: 'A'
                 }
             })

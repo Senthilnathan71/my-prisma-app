@@ -328,7 +328,11 @@ export class EnquiryHeaderService {
 
     async getAllDepartment() {
         try {
-            const customer = await this._db.departmentMaster.findMany({});
+            const customer = await this._db.departmentMaster.findMany({
+                where : {
+                    deletedAt : null
+                }
+            });
             return customer;
         } catch (error) {
             throw error
@@ -338,7 +342,11 @@ export class EnquiryHeaderService {
 
     async getAllCargoTypes() {
         try {
-            const customer = await this._db.packageTypeMaster.findMany({});
+            const customer = await this._db.packageTypeMaster.findMany({
+                where : {
+                    deletedAt : null
+                }
+            });
             return customer;
         } catch (error) {
             throw error
@@ -348,7 +356,11 @@ export class EnquiryHeaderService {
 
     async getAllContainerTypes() {
         try {
-            const container = await this._db.containerTypeMaster.findMany({});
+            const container = await this._db.containerTypeMaster.findMany({
+                where : {
+                    deletedAt : null
+                }
+            });
             return container;
         } catch (error) {
             throw error

@@ -84,6 +84,8 @@ model CompanyMaster {
     supplierTdsMapping  SupplierTdsMapping[]
     enquiryOther        EnquiryOther[]
     AuthorityLog        AuthorityLog[]
+    bookingRates        BookingRates[]
+    shipmentMilestone   ShipmentMilestone[]
 }
 
 model BranchMaster {
@@ -149,6 +151,8 @@ model BranchMaster {
     emailLog           EmailLog[]
     enquiryOther       EnquiryOther[]
     AuthorityLog       AuthorityLog[]
+    bookingRates       BookingRates[]
+    shipmentMilestone  ShipmentMilestone[]
 }
 
 model UserMaster {
@@ -433,8 +437,6 @@ model UnitMaster {
     Remarks         String    @db.VarChar(100)
     status          String    @default("A") @db.Char(1)
     UnitMasterSid   Int       @id @default(autoincrement()) @map("UnitMasterSid")
-
-    quoteCharge QuoteCharge[]
 }
 
 model ChargeMaster {
@@ -920,9 +922,10 @@ model QuoteHeader {
     customerBranch   CustomerBranch?   @relation(fields: [CustomerBranchSid], references: [CustomerBranchSid])
     menuMaster       MenuMaster?       @relation(fields: [MenuMasterSid], references: [MenuMasterSid])
 
-    quoteRoute   QuoteRoute[]
-    quoteCarrier QuoteCarrier[]
-    quoteCharge  QuoteCharge[]
+    quoteRoute    QuoteRoute[]
+    quoteCarrier  QuoteCarrier[]
+    quoteCharge   QuoteCharge[]
+    bookingHeader BookingHeader[]
 }
 
 enum ApprovalStatus {
@@ -967,13 +970,12 @@ model QuoteRoute {
     updatedBy           String?   @db.VarChar(100)
     status              String?   @default("A") @db.Char(1)
 
-    departmentMaster DepartmentMaster @relation(fields: [DepartmentMasterSid], references: [DepartmentMasterSid])
-    quoteHeader      QuoteHeader      @relation(fields: [QuoteHeaderSid], references: [QuoteHeaderSid])
-    companyMaster    CompanyMaster    @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
-    branchMaster     BranchMaster     @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
-    customerMaster   CustomerMaster?  @relation(fields: [CarrierMasterSid], references: [CustomerMasterSid])
-    containerType   ContainerTypeMaster?  @relation(fields: [ContainerType], references: [ContainerTypeMasterSid])
-
+    departmentMaster DepartmentMaster     @relation(fields: [DepartmentMasterSid], references: [DepartmentMasterSid])
+    quoteHeader      QuoteHeader          @relation(fields: [QuoteHeaderSid], references: [QuoteHeaderSid])
+    companyMaster    CompanyMaster        @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+    branchMaster     BranchMaster         @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
+    customerMaster   CustomerMaster?      @relation(fields: [CarrierMasterSid], references: [CustomerMasterSid])
+    containerType    ContainerTypeMaster? @relation(fields: [ContainerType], references: [ContainerTypeMasterSid])
 
     quoteCarrier QuoteCarrier[]
     quoteCharge  QuoteCharge[]
@@ -1022,7 +1024,7 @@ model QuoteCharge {
     costUnit          String?   @db.VarChar(10)
     costCurrency      String?   @db.VarChar(10)
     costPerUnit       Int?
-    UnitMasterSid     Int
+    UOMMasterSid      Int?
     ExchangeRate      Decimal?  @db.Decimal(6, 3)
     Rate              Decimal?  @db.Decimal(15, 3)
     Qty               Decimal?  @db.Decimal(7, 3)
@@ -1035,7 +1037,7 @@ model QuoteCharge {
     updatedBy         String?   @db.VarChar(100)
     status            String?   @default("A") @db.Char(1)
 
-    unitMaster     UnitMaster     @relation(fields: [UnitMasterSid], references: [UnitMasterSid])
+    uomMaster      UOMMaster?     @relation(fields: [UOMMasterSid], references: [UOMMasterSid])
     quoteCarrier   QuoteCarrier?  @relation(fields: [QuoteCarrierSid], references: [QuoteCarrierSid])
     quoteHeader    QuoteHeader    @relation(fields: [QuoteHeaderSid], references: [QuoteHeaderSid])
     quoteRoute     QuoteRoute     @relation(fields: [QuoteRouteSid], references: [QuoteRouteSid])
@@ -1108,6 +1110,7 @@ model UOMMaster {
 
     commodityMaster CommodityMaster[]
     tariffDetail    TariffDetail[]
+    quoteCharge     QuoteCharge[]
 
     @@index([status])
 }
