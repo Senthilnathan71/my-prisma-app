@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable,Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { GlobalConfigService } from 'src/common/config/master-config.service';
 import { DatabaseService } from 'src/database/database.service';
@@ -7,7 +7,7 @@ import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 
 @Injectable()
 export class HawbStockService {
-    constructor(private _db: DatabaseService, private globalConfigService: GlobalConfigService) { }
+    constructor(private _db: DatabaseService, private globalConfigService: GlobalConfigService,private logger: Logger) { }
 
     async getAllHawbStocks() {
         try {
@@ -192,4 +192,20 @@ export class HawbStockService {
             totalCount,
         };
     }
+   async getAuditLogs(tableName: string, recordId?: string) {
+    try {
+      const whereClause: any = { tableName };
+      if (recordId) whereClause.recordId = recordId;
+
+      const logs = await this._db.auditLog.findMany({
+        where: whereClause,
+        orderBy: { changedAt: 'desc' },
+      });
+
+      return logs;
+    } catch (error) {
+      this.logger.warn(`getAuditLogsError: ${error}`);
+      throw new Error(`Error fetching audit logs: ${error.message}`);
+    }
+  }
 }
