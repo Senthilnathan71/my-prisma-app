@@ -372,4 +372,21 @@ export class ChargeService {
         totalCount,
     };
 }
+
+async getAuditLogs(tableName: string, recordId?: string) {
+    try {
+      const whereClause: any = { tableName };
+      if (recordId) whereClause.recordId = recordId;
+
+      const logs = await this._db.auditLog.findMany({
+        where: whereClause,
+        orderBy: { changedAt: 'desc' },
+      });
+
+      return logs;
+    } catch (error) {
+      this.logger.warn(`getAuditLogsError: ${error}`);
+      throw new Error(`Error fetching audit logs: ${error.message}`);
+    }
+  }
 }

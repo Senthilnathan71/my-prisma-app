@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException,Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import * as moment from 'moment-timezone';
 import { DatabaseService } from 'src/database/database.service';
@@ -8,7 +8,7 @@ import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 @Injectable()
 export class UomService {
     constructor(
-        private _db: DatabaseService
+        private _db: DatabaseService,private logger: Logger
     ) { }
 
     async createUom(payload, user) {
@@ -189,4 +189,20 @@ export class UomService {
             totalCount,
         };
     }
+     async getAuditLogs(tableName: string, recordId?: string) {
+    try {
+      const whereClause: any = { tableName };
+      if (recordId) whereClause.recordId = recordId;
+
+      const logs = await this._db.auditLog.findMany({
+        where: whereClause,
+        orderBy: { changedAt: 'desc' },
+      });
+
+      return logs;
+    } catch (error) {
+      this.logger.warn(`getAuditLogsError: ${error}`);
+      throw new Error(`Error fetching audit logs: ${error.message}`);
+    }
+  }
 }

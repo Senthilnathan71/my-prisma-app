@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, Post, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, Post, Query, UnauthorizedException } from '@nestjs/common';
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
 import { UserData } from 'src/common/decorators/user.decorator';
 import { ResponseData } from 'src/common/response-data';
@@ -169,4 +169,35 @@ export class DivisionController {
         }
         return resp;
     }
+    @ApiOperation({ summary: 'Get Audit Logs for a Table/Record' })
+      @ApiCreatedResponse({ description: 'Fetch audit logs', type: ResponseData })
+      @HttpCode(HttpStatus.OK)
+      @Get('audit-logs')
+      async getAuditLogs(
+        @Query('tableName') tableName: string,
+        @Query('recordId') recordId?: string,
+      ) {
+        const resp = new ResponseData();
+        try {
+          if (!tableName) throw new Error('tableName query parameter is required');
+    
+          const logs = await this.divisionService.getAuditLogs(tableName, recordId);
+    
+          // Remove updatedOn from oldVal and newVal
+          resp.data = logs.map((log: any) => {
+            const oldVal = log.oldVal ? { ...log.oldVal } : null;
+            const newVal = log.newVal ? { ...log.newVal } : null;
+            if (oldVal && 'updatedOn' in oldVal) delete oldVal.updatedOn;
+            if (newVal && 'updatedOn' in newVal) delete newVal.updatedOn;
+            return { ...log, oldVal, newVal };
+          });
+    
+          resp.message = 'Audit logs fetched successfully';
+        } catch (error) {
+          this.logger.warn(`getAuditLogsError: ${error}`);
+          resp.status = false;
+          resp.message = error.message || 'Internal Server Error';
+        }
+        return resp;
+      }
 }
