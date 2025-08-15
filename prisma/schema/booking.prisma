@@ -143,6 +143,7 @@ model BookingConnection {
     VoyageNo             String    @db.VarChar(10)
     ETD                  DateTime?
     ETA                  DateTime?
+    Mode                 String?   @db.VarChar(100)
     Remarks              String?   @db.VarChar(200)
     createdOn            DateTime  @default(now()) @db.Timestamptz(6)
     updatedOn            DateTime? @updatedAt @db.Timestamptz(6)
