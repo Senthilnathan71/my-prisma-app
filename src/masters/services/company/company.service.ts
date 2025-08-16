@@ -92,6 +92,14 @@ export class CompanyService {
                             StateMasterSid: parseInt(branchData.StateMasterSid),
                             CountryMasterSid: parseInt(branchData.CountryMasterSid),
                              config: branchData.config || {},
+                             consolePrefix: branchData.consolePrefix,
+                             consoleNoLen: branchData.consoleNoLen,
+                             shipmentPrefix: branchData.shipmentPrefix,
+                             shipmentNoLen: branchData.shipmentNoLen,
+                             enquiryPrefix: branchData.enquiryPrefix,
+                             enquiryNoLen: branchData.enquiryNoLen,
+                             quotationPrefix: branchData.quotationPrefix,
+                             quotationNoLen: branchData.quotationNoLen,
                             createdBy: user.userEmail
                            
                         };
@@ -377,7 +385,15 @@ export class CompanyService {
                             CityMasterSid: Number(branchData.CityMasterSid),
                             StateMasterSid: Number(branchData.StateMasterSid),
                             CountryMasterSid: Number(branchData.CountryMasterSid),
-                             config: branchData.config,
+                            config: branchData.config,
+                            consolePrefix: branchData.consolePrefix,
+                            consoleNoLen: branchData.consoleNoLen,
+                            shipmentPrefix: branchData.shipmentPrefix,
+                            shipmentNoLen: branchData.shipmentNoLen,
+                            enquiryPrefix: branchData.enquiryPrefix,
+                            enquiryNoLen: branchData.enquiryNoLen,
+                            quotationPrefix: branchData.quotationPrefix,
+                            quotationNoLen: branchData.quotationNoLen,
                             updatedBy: user.userEmail
                              
                         };
