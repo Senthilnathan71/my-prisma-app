@@ -117,6 +117,14 @@ model BranchMaster {
     LoginSid           Int?
     StateMasterSid     Int
     config             Json?
+    consolePrefix      String?                    @db.VarChar(20)
+    consoleNoLen       Int?
+    shipmentPrefix     String?                    @db.VarChar(20)
+    shipmentNoLen      Int?
+    enquiryPrefix      String?                    @db.VarChar(20)
+    enquiryNoLen       Int?
+    quotationPrefix    String?                    @db.VarChar(20)
+    quotationNoLen     Int?
     cityMaster         CityMaster                 @relation(fields: [CityMasterSid], references: [CityMasterSid])
     company            CompanyMaster              @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
     countryMaster      CountryMaster?             @relation(fields: [CountryMasterSid], references: [CountryMasterSid])
