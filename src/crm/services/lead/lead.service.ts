@@ -1,10 +1,10 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 
 @Injectable()
 export class LeadService {
-    constructor(private _db:DatabaseService){}
+    constructor(private _db:DatabaseService, private logger: Logger){}
 
     async getAllLeads(){
         try {
@@ -140,5 +140,21 @@ export class LeadService {
         return searchResults;
 
     }
+    async getAuditLogs(tableName: string, recordId?: string) {
+    try {
+      const whereClause: any = { tableName };
+      if (recordId) whereClause.recordId = recordId;
+
+      const logs = await this._db.auditLog.findMany({
+        where: whereClause,
+        orderBy: { changedAt: 'desc' },
+      });
+
+      return logs;
+    } catch (error) {
+      this.logger.warn(`getAuditLogsError: ${error}`);
+      throw new Error(`Error fetching audit logs: ${error.message}`);
+    }
+  }
 
 }
