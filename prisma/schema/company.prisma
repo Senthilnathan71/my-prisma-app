@@ -119,12 +119,19 @@ model BranchMaster {
     config             Json?
     consolePrefix      String?                    @db.VarChar(20)
     consoleNoLen       Int?
+    lastConsoleNo      Int?                       @default(0)
     shipmentPrefix     String?                    @db.VarChar(20)
     shipmentNoLen      Int?
+    lastShipmentNo     Int?                       @default(0)
     enquiryPrefix      String?                    @db.VarChar(20)
     enquiryNoLen       Int?
+    lastEnquiryNo      Int?                       @default(0)
     quotationPrefix    String?                    @db.VarChar(20)
     quotationNoLen     Int?
+    lastQuotationNo    Int?                       @default(0)
+    HBLPrefix          String?                    @db.VarChar(20)
+    HBLNoLen           Int?
+    lastHBLNo          Int?                       @default(0)
     cityMaster         CityMaster                 @relation(fields: [CityMasterSid], references: [CityMasterSid])
     company            CompanyMaster              @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
     countryMaster      CountryMaster?             @relation(fields: [CountryMasterSid], references: [CountryMasterSid])

@@ -1,0 +1,8 @@
+-- AlterTable
+ALTER TABLE "BranchMaster" ADD COLUMN     "HBLNoLen" INTEGER,
+ADD COLUMN     "HBLPrefix" VARCHAR(20),
+ADD COLUMN     "lastConsoleNo" INTEGER DEFAULT 0,
+ADD COLUMN     "lastEnquiryNo" INTEGER DEFAULT 0,
+ADD COLUMN     "lastHBLNo" INTEGER DEFAULT 0,
+ADD COLUMN     "lastQuotationNo" INTEGER DEFAULT 0,
+ADD COLUMN     "lastShipmentNo" INTEGER DEFAULT 0;
