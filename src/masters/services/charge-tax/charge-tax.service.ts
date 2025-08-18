@@ -106,12 +106,13 @@ export class ChargeTaxService {
     }
 
     async searchChargeTax(params: SearchVesselDto) {
-    const { search = '', page = 1, pageSize = 15 } = params;
+    const { search = '', page = 1, pageSize = 15 , activeCompanyId} = params;
     const skip = (page - 1) * pageSize;
 
     const where: Prisma.ChargeTaxMasterWhereInput = {
         deletedAt: null,
         Status: 'A',
+        CompanyMasterSid : activeCompanyId,
         OR: search ? [
           
             { HSNCode: { contains: search, mode: 'insensitive' } },

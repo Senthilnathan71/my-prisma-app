@@ -8,7 +8,7 @@ import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 
 
 @Controller('coa')
-@Auth()
+
 export class CoaController {
     constructor(private coaService: CoaService, private logger: Logger) { }
 
@@ -20,11 +20,11 @@ export class CoaController {
     })
     @HttpCode(HttpStatus.OK)
     @Post('create')
-    async createNewCoa(@Body() newData: any,@UserData() user:any) {
+    async createNewCoa(@Body() newData: any) {
         let resp = new ResponseData();
-        console.log(user);
+        console.log();
         try {
-            let res = await this.coaService.createNewCoa(newData,user);
+            let res = await this.coaService.createNewCoa(newData);
             this.logger.log(`New Coa Created : ${JSON.stringify(res)}`);
             resp.data = res;
             resp.message = "New Coa is successfully created"
@@ -49,10 +49,10 @@ export class CoaController {
     })
     @HttpCode(HttpStatus.OK)
     @Get()
-    async getAllCoa(@UserData() user:any) {
+    async getAllCoa() {
         let resp = new ResponseData();
         try {
-            let res = await this.coaService.getAllCoa(user);
+            let res = await this.coaService.getAllCoa();
             this.logger.log(`All Coa Fetched : ${JSON.stringify(res)}`);
             resp.data = res;
             resp.message = "All Coa are successfully fetched";
@@ -77,11 +77,11 @@ export class CoaController {
     })
     @HttpCode(HttpStatus.OK)
     @Get('fetch/:COAMasterSid')
-    async getCoaById(@Param('COAMasterSid', ParseIntPipe) COAMasterSid: number,@UserData() user:any) {
+    async getCoaById(@Param('COAMasterSid', ParseIntPipe) COAMasterSid: number) {
         let resp = new ResponseData();
         try {
             this.logger.log(`Getting Coa with id : ${COAMasterSid}`);
-            let res = await this.coaService.fetchCoaById(COAMasterSid,user);
+            let res = await this.coaService.fetchCoaById(COAMasterSid);
             this.logger.debug(`Fetched Coa : ${JSON.stringify(res)}`);
             resp.data = res;
             resp.message = `Coa with id : ${COAMasterSid} is successfully fetched`;
@@ -106,11 +106,11 @@ export class CoaController {
     })
     @HttpCode(HttpStatus.OK)
     @Patch('update/:COAMasterSid')
-    async updateCoaById(@Param('COAMasterSid', ParseIntPipe) COAMasterSid: number, @Body() payload: any,@UserData() user:any) {
+    async updateCoaById(@Param('COAMasterSid', ParseIntPipe) COAMasterSid: number, @Body() payload: any) {
         let resp = new ResponseData();
         try {
             this.logger.log(`Updating Coa with id : ${COAMasterSid}`);
-            let res = await this.coaService.updateCoaById(COAMasterSid, payload,user);
+            let res = await this.coaService.updateCoaById(COAMasterSid, payload);
             this.logger.debug(`Updated Coa : ${JSON.stringify(res)}`);
             resp.data = res;
             resp.message = `Coa with id : ${COAMasterSid} is successfully updated`;
@@ -164,10 +164,10 @@ export class CoaController {
     })
     @HttpCode(HttpStatus.OK)
     @Post('search-list')
-    async searchCoa(@Body() searchData: SearchVesselDto,@UserData() user:any) {
+    async searchCoa(@Body() searchData: SearchVesselDto) {
         let resp = new ResponseData();
         try {
-            let res = await this.coaService.searchCoa(searchData,user);
+            let res = await this.coaService.searchCoa(searchData);
             this.logger.log(`Coa Search Results :${JSON.stringify(res)}`);
             resp.data = res;
             resp.message = "Coa Search results are successfully fetched"

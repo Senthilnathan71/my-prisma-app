@@ -125,12 +125,13 @@ export class MilestoneService {
     }
 
     async searchMilestone(params: SearchVesselDto) {
-    const { search = '', page = 1, pageSize = 15 } = params;
+    const { search = '', page = 1, pageSize = 15 ,activeCompanyId} = params;
     const skip = (page - 1) * pageSize;
 
     const where: any = {
         deletedAt: null,
         status: 'A',
+        CompanyMasterSid : activeCompanyId,
         ...(search
             ? {
                 OR: [
@@ -160,7 +161,7 @@ export class MilestoneService {
     items = await Promise.all(
         items.map(async (item)=>{
             const departmentMaster = item.DepartmentMasterSid !== null ? 
-            await this.globalConfigService.getMasterData('department_master',item.DepartmentMasterSid,item.CompanyMasterSid) : 
+            await this.globalConfigService.getMasterData('department_master',item.DepartmentMasterSid) : 
             { DepartmentMasterSid : null , departmentName : ''};
 
             return {
