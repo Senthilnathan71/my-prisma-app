@@ -116,12 +116,14 @@ export class YearService {
 
 
   async searchYearNew(params: SearchVesselDto) {
-    const { search = '', page = 1, pageSize = 15 } = params;
+    const { search = '', page = 1, pageSize = 15, activeCompanyId } = params;
     const skip = (page - 1) * pageSize;
 
     const where: Prisma.YearMasterWhereInput = {
         deletedAt: null,
         status: 'A',
+        CompanyMasterSid : activeCompanyId,
+        
         ...(search
             ? {
                 OR: [

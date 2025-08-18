@@ -8,7 +8,7 @@ import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 import { TariffService } from 'src/masters/services/tariff/tariff.service';
 
 @Controller('tariff')
-@Auth()
+
 export class TariffController {
     constructor(private tariffServ: TariffService, private logger: Logger) { }
 
@@ -20,10 +20,10 @@ export class TariffController {
     })
     @HttpCode(HttpStatus.OK)
     @Post('create')
-    async createNewTariff(@Body() newData: any,@UserData() user:any) {
+    async createNewTariff(@Body() newData: any) {
         let resp = new ResponseData();
         try {
-            let res = await this.tariffServ.createNewTariff(newData,user);
+            let res = await this.tariffServ.createNewTariff(newData);
             this.logger.log(`New Tariff Created : ${JSON.stringify(res)}`);
             resp.data = res;
             resp.message = "New Tariff is successfully created"
@@ -109,7 +109,7 @@ export class TariffController {
         let resp = new ResponseData();
         try {
             this.logger.log(`Updating Tariff with id : ${TariffHeaderSid}`);
-            let res = await this.tariffServ.updateTariffById(TariffHeaderSid, payload,user);
+            let res = await this.tariffServ.updateTariffById(TariffHeaderSid, payload);
             this.logger.debug(`Updated Tariff : ${JSON.stringify(res)}`);
             resp.data = res;
             resp.message = `Tariff with id : ${TariffHeaderSid} is successfully updated`;

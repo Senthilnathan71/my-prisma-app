@@ -522,12 +522,14 @@ export class QuotationService {
     }
 
     async searchQuotation(params: SearchVesselDto) {
-        const { search = '', page = 1, pageSize = 15 } = params;
+        const { search = '', page = 1, pageSize = 15,activeCompanyId,activeBranchId } = params;
         const skip = (page - 1) * pageSize;
 
         const where: Prisma.QuoteHeaderWhereInput = {
             deletedAt: null,
             status: 'A',
+            CompanyMasterSid : activeCompanyId,
+        BranchMasterSid : activeBranchId,
             ...(search
                 ? {
                     OR: [

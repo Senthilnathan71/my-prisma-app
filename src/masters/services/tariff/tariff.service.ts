@@ -9,7 +9,7 @@ import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 export class TariffService {
     constructor(private _db: DatabaseService, private logger: Logger,private globalConfigService:GlobalConfigService) { }
 
-    async createNewTariff(newData: any,user:any) {
+    async createNewTariff(newData: any) {
 
         const existing = await this._db.tariffHeader.findFirst({
             where: {
@@ -17,7 +17,7 @@ export class TariffService {
                     { POLSid: newData.POLSid },
                     { PODSid: newData.PODSid },
                     { DepartmentMasterSid: newData.DepartmentMasterSid },
-                    { CompanyMasterSid : user.CompanyMasterSid},
+                    { CompanyMasterSid : newData.CompanyMasterSid},
                     { deletedAt : null }
                 ]
             },
@@ -32,7 +32,7 @@ export class TariffService {
             let createdTariff = await this._db.tariffHeader.create({
                 data: {
                     ...newData,
-                    CompanyMasterSid : user.userBranchMaster[0]?.CompanyMasterSid
+                    CompanyMasterSid : newData.CompanyMasterSid
                 }
             })
             return createdTariff;
@@ -79,7 +79,7 @@ export class TariffService {
     }
 
 
-    async updateTariffById(TariffHeaderSid: number, updateData: any,user) {
+    async updateTariffById(TariffHeaderSid: number, updateData: any) {
         try {
 
             const existing = await this._db.tariffHeader.findFirst({
@@ -87,7 +87,7 @@ export class TariffService {
                     POLSid: updateData.POLSid,
                     PODSid: updateData.PODSid,
                     DepartmentMasterSid : updateData.DepartmentMasterSid,
-                    CompanyMasterSid: user.CompanyMasterSid,
+                    CompanyMasterSid: updateData.CompanyMasterSid,
                     TariffHeaderSid: { not: TariffHeaderSid },
                      deletedAt : null 
                 },
@@ -223,12 +223,13 @@ export class TariffService {
     }
 
     async searchTariffNew(params: SearchVesselDto) {
-        const { search='',page=1,pageSize=15} = params;
+        const { search='',page=1,pageSize=15, activeCompanyId} = params;
         const skip = (page-1)*pageSize;
 
         const where: Prisma.TariffHeaderWhereInput = {
             deletedAt: null,
             status: 'A',
+            CompanyMasterSid : activeCompanyId,
             ...(search
                 ? {
                     OR: [
