@@ -8,7 +8,6 @@ import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 import { ChargeService } from 'src/masters/services/charge/charge.service';
 
 @Controller('charge')
-@Auth()
 export class ChargeController {
     constructor(private chargeService: ChargeService, private logger: Logger) { }
 
@@ -19,11 +18,11 @@ export class ChargeController {
     })
     @HttpCode(HttpStatus.CREATED)
     @Post('create')
-    async createCharge(@Body() body: any, @UserData() user: any) {
+    async createCharge(@Body() body: any) {
         this.logger.log(`createChargedata: ${JSON.stringify(body)}`)
         let output = new ResponseData
         try {
-            let Charge = await this.chargeService.createCharge(body, user);
+            let Charge = await this.chargeService.createCharge(body);
             this.logger.debug(`createCharge: ${JSON.stringify(Charge)}`)
             if (!Charge) {
                 this.logger.warn(`createCharge!!: ${JSON.stringify(Charge)}`)
@@ -130,11 +129,11 @@ export class ChargeController {
     })
     @HttpCode(HttpStatus.OK)
     @Patch('update/:id')
-    async editCharge(@Param('id', ParseIntPipe) id: number, @Body() body: any, @UserData() user: any) {
+    async editCharge(@Param('id', ParseIntPipe) id: number, @Body() body: any) {
         this.logger.log(`editChargebody: ${JSON.stringify(body)}`)
         let output = new ResponseData
         try {
-            let Charge = await this.chargeService.updateCharge(id, body, user);
+            let Charge = await this.chargeService.updateCharge(id, body);
             this.logger.log(`editCharge: ${JSON.stringify(Charge)}`)
 
             if (!Charge) {

@@ -10,7 +10,7 @@ export class ChargeService {
     constructor(private _db: DatabaseService, private logger: Logger,private globalConfigService:GlobalConfigService) { }
 
 
-    async createCharge(payload: any, user) {
+    async createCharge(payload: any) {
         const { chargeTaxMaster, chargeTds, ...chargeData } = payload;
         const existing = await this._db.chargeMaster.findFirst({
             where: {
@@ -49,7 +49,7 @@ export class ChargeService {
                     ...chargeData,
                     createdBy: payload.createdBy,
                     updatedBy: payload.createdBy, // Add updatedBy
-                    CompanyMasterSid: user.userBranchMaster[0].CompanyMasterSid, // Add CompanyMasterSid
+                    CompanyMasterSid: payload.CompanyMasterSid,
                     Status: 'A',
                 },
             });
@@ -65,7 +65,7 @@ export class ChargeService {
                     CreatedBy: payload.createdBy,
                     UpdatedBy: payload.createdBy, // Ensure updatedBy is set
                     Status: chargeTax.Status,
-                    CompanyMasterSid: user.userBranchMaster[0].CompanyMasterSid,
+                    CompanyMasterSid: payload.CompanyMasterSid,
                     chargeTaxMasterSid: charge.ChargeMasterSid,
                     
                 }));
@@ -155,7 +155,7 @@ export class ChargeService {
     }
 
 
-    async updateCharge(ChargeMasterSid: number, payload: any, user) {
+    async updateCharge(ChargeMasterSid: number, payload: any) {
         const { chargeTaxMaster, chargeTds, ...chargeData } = payload;
 
         // Check for duplicates
@@ -202,7 +202,7 @@ export class ChargeService {
                 where: { ChargeMasterSid: ChargeMasterSid },
                 data: {
                     ...chargeData,
-                    updatedBy: payload.updatedBy || user.userId,
+                    updatedBy: payload.updatedBy ,
                 },
             });
 
@@ -220,10 +220,10 @@ export class ChargeService {
                     description: chargeTax.description,
                     TaxGroup: chargeTax.TaxGroup,
                     TaxRate: chargeTax.TaxRate,
-                    CreatedBy: payload.updatedBy || user.userId,
-                    UpdatedBy: payload.updatedBy || user.userId,
+                    CreatedBy: payload.updatedBy ,
+                    UpdatedBy: payload.updatedBy ,
                     Status: chargeTax.Status,
-                    CompanyMasterSid: user.userBranchMaster[0].CompanyMasterSid,
+                    CompanyMasterSid:payload.CompanyMasterSid,
                     chargeTaxMasterSid: ChargeMasterSid,
                 }));
                 const newlyCreated = await prisma.chargeTaxMaster.createManyAndReturn({
@@ -245,8 +245,8 @@ export class ChargeService {
                     ChargeMasterSid: ChargeMasterSid,
                     TDSSet: chargeTds.TDSSet,
                     EffectiveFrom: chargeTds.EffectiveFrom,
-                    createdBy: payload.updatedBy || user.userId,
-                    updatedBy: payload.updatedBy || user.userId,
+                    createdBy: payload.updatedBy ,
+                    updatedBy: payload.updatedBy ,
                 }));
                 const newlyCreated = await prisma.chargeTds.createManyAndReturn({
                     data: chargeTdsPayload,
@@ -286,12 +286,13 @@ export class ChargeService {
 
 
     async searchList(params: SearchVesselDto) {
-    const { search = '', page = 1, pageSize = 15 } = params;
+    const { search = '', page = 1, pageSize = 15, activeCompanyId } = params;
     const skip = (page - 1) * pageSize;
 
     const where: Prisma.ChargeMasterWhereInput = {
         deletedAt: null,
         Status: 'A',
+        CompanyMasterSid : activeCompanyId,
     };
 
     if (search) {

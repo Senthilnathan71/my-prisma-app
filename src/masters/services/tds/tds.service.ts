@@ -149,7 +149,7 @@ export class TdsService {
 
 
    async searchTds(params: SearchVesselDto,user) {
-    const { search = '', page = 1, pageSize = 15 } = params;
+    const { search = '', page = 1, pageSize = 15,activeCompanyId } = params;
     const skip = (page - 1) * pageSize;
     console.log(search);
     let sec = Date.parse(search);
@@ -157,7 +157,8 @@ export class TdsService {
     const where : Prisma.TDSSetHeaderWhereInput = {
         deletedAt: null,
         status: 'A',
-        ...(search
+        CompanyMasterSid : activeCompanyId,
+        ...(search 
             ? {
                 OR: [
                     { TDSSetName: { contains: search, mode: 'insensitive' } },

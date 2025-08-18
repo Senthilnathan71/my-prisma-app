@@ -131,12 +131,13 @@ export class DivisionService {
     }
 
     async searchDivisionNew(params: SearchVesselDto) {
-        const { search = '', page = 1, pageSize = 15 } = params;
+        const { search = '', page = 1, pageSize = 15 , activeCompanyId} = params;
         const skip = (page - 1) * pageSize;
 
         const where: Prisma.DivisionMasterWhereInput = {
             deletedAt: null,
             status: 'A',
+            CompanyMasterSid : activeCompanyId,
             ...(search
                 ? {
                     OR: [

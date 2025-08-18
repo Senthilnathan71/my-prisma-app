@@ -14,4 +14,12 @@ export class SearchVesselDto {
   @IsInt()
   @Min(1)
   pageSize: number = 10;
+
+  @IsOptional()
+  @IsInt()
+  activeCompanyId : number;
+
+  @IsOptional()
+  @IsInt()
+  activeBranchId : number;
 }

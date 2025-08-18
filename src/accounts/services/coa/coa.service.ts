@@ -1,17 +1,17 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 
 @Injectable()
 export class CoaService {
-    constructor(private _db:DatabaseService){}
+    constructor(private _db:DatabaseService, private logger: Logger){}
 
-    async getAllCoa(user){
+    async getAllCoa(){
         try {
             const allCoa = await this._db.cOAMaster.findMany({
                 where : {
-                    CompanyMasterSid : user.userBranchMaster[0]?.CompanyMasterSid,
+                  
                     deletedAt : null,
                     Status : 'A'
                 }
@@ -22,13 +22,12 @@ export class CoaService {
         }
     }
 
-    async createNewCoa(payload,user){
+    async createNewCoa(payload){
         try {
             const createdCoa = await this._db.cOAMaster.create({
                 data :{
                     ...payload,
-                    CreatedBy :user.userEmail,
-                    CompanyMasterSid : user.userBranchMaster[0]?.CompanyMasterSid,
+                  
                 }
             })
             return createdCoa;
@@ -37,12 +36,12 @@ export class CoaService {
         }
     }
 
-    async fetchCoaById(COAMasterSid:number,user){
+    async fetchCoaById(COAMasterSid:number){
         try {
             const ourCoa =await this._db.cOAMaster.findUnique({
                 where : {
                     COAMasterSid:COAMasterSid,
-                    CompanyMasterSid : user.userBranchMaster[0]?.CompanyMasterSid
+                   
                 }
             })
             if(!ourCoa){
@@ -54,12 +53,12 @@ export class CoaService {
         }
     }
 
-    async updateCoaById(COAMasterSid:number,payload,user){
+    async updateCoaById(COAMasterSid:number,payload){
         try {
              const exist =await this._db.cOAMaster.findUnique({
                 where : {
                     COAMasterSid:COAMasterSid,
-                    CompanyMasterSid : user.userBranchMaster[0]?.CompanyMasterSid
+                    
                 }
             })
             if(!exist){
@@ -68,10 +67,10 @@ export class CoaService {
             const updatedCoa = this._db.cOAMaster.update({
                 where : {
                     COAMasterSid : COAMasterSid,
-                    CompanyMasterSid : user.userBranchMaster[0]?.CompanyMasterSid
+                   
                 },
                 data : {
-                    UpdatedBy : user.userEmail,
+                   
                     UpdatedOn : new Date(),
                     ...payload,
                 }
@@ -111,12 +110,13 @@ export class CoaService {
     }
 
 
-   async searchCoa(params: SearchVesselDto,user) {
-    const { search = '', page = 1, pageSize = 10 } = params;
+   async searchCoa(params: SearchVesselDto) {
+    const { search = '', page = 1, pageSize = 10 ,activeCompanyId} = params;
     const skip = (page - 1) * pageSize;
     const where : Prisma.COAMasterWhereInput = {
-        CompanyMasterSid : user.userBranchMaster[0]?.CompanyMasterSid,
+       
         deletedAt : null,
+        CompanyMasterSid : activeCompanyId,
         ...(search
             ? {
                 OR: [
@@ -158,5 +158,22 @@ export class CoaService {
         totalPages: Math.ceil(totalCount / pageSize),
     };
 }
+
+async getAuditLogs(tableName: string, recordId?: string) {
+    try {
+      const whereClause: any = { tableName };
+      if (recordId) whereClause.recordId = recordId;
+
+      const logs = await this._db.auditLog.findMany({
+        where: whereClause,
+        orderBy: { changedAt: 'desc' },
+      });
+
+      return logs;
+    } catch (error) {
+      this.logger.warn(`getAuditLogsError: ${error}`);
+      throw new Error(`Error fetching audit logs: ${error.message}`);
+    }
+  }
 }
 

@@ -3,6 +3,16 @@ import { PrismaClient } from '@prisma/client';
 
 @Injectable()
 export class DatabaseService extends PrismaClient implements OnModuleInit {
+
+    constructor() {
+        super({
+            transactionOptions: {
+                timeout: 18000,  // 3minutes
+                maxWait: 12000  // 2minutes
+            }
+        })
+    }
+
     async onModuleInit() {
         await this.$connect()
 
@@ -30,6 +40,6 @@ export class DatabaseService extends PrismaClient implements OnModuleInit {
         //     }
         //     return next(params)
         // }
-    // )
+        // )
     }
 }

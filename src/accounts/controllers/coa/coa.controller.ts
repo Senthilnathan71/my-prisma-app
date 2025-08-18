@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, Post, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, Post, Query, UnauthorizedException } from '@nestjs/common';
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
 import { CoaService } from 'src/accounts/services/coa/coa.service';
 import { Auth } from 'src/common/decorators/auth.decorator';
@@ -8,7 +8,7 @@ import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 
 
 @Controller('coa')
-@Auth()
+
 export class CoaController {
     constructor(private coaService: CoaService, private logger: Logger) { }
 
@@ -20,11 +20,11 @@ export class CoaController {
     })
     @HttpCode(HttpStatus.OK)
     @Post('create')
-    async createNewCoa(@Body() newData: any,@UserData() user:any) {
+    async createNewCoa(@Body() newData: any) {
         let resp = new ResponseData();
-        console.log(user);
+        console.log();
         try {
-            let res = await this.coaService.createNewCoa(newData,user);
+            let res = await this.coaService.createNewCoa(newData);
             this.logger.log(`New Coa Created : ${JSON.stringify(res)}`);
             resp.data = res;
             resp.message = "New Coa is successfully created"
@@ -49,10 +49,10 @@ export class CoaController {
     })
     @HttpCode(HttpStatus.OK)
     @Get()
-    async getAllCoa(@UserData() user:any) {
+    async getAllCoa() {
         let resp = new ResponseData();
         try {
-            let res = await this.coaService.getAllCoa(user);
+            let res = await this.coaService.getAllCoa();
             this.logger.log(`All Coa Fetched : ${JSON.stringify(res)}`);
             resp.data = res;
             resp.message = "All Coa are successfully fetched";
@@ -77,11 +77,11 @@ export class CoaController {
     })
     @HttpCode(HttpStatus.OK)
     @Get('fetch/:COAMasterSid')
-    async getCoaById(@Param('COAMasterSid', ParseIntPipe) COAMasterSid: number,@UserData() user:any) {
+    async getCoaById(@Param('COAMasterSid', ParseIntPipe) COAMasterSid: number) {
         let resp = new ResponseData();
         try {
             this.logger.log(`Getting Coa with id : ${COAMasterSid}`);
-            let res = await this.coaService.fetchCoaById(COAMasterSid,user);
+            let res = await this.coaService.fetchCoaById(COAMasterSid);
             this.logger.debug(`Fetched Coa : ${JSON.stringify(res)}`);
             resp.data = res;
             resp.message = `Coa with id : ${COAMasterSid} is successfully fetched`;
@@ -106,11 +106,11 @@ export class CoaController {
     })
     @HttpCode(HttpStatus.OK)
     @Patch('update/:COAMasterSid')
-    async updateCoaById(@Param('COAMasterSid', ParseIntPipe) COAMasterSid: number, @Body() payload: any,@UserData() user:any) {
+    async updateCoaById(@Param('COAMasterSid', ParseIntPipe) COAMasterSid: number, @Body() payload: any) {
         let resp = new ResponseData();
         try {
             this.logger.log(`Updating Coa with id : ${COAMasterSid}`);
-            let res = await this.coaService.updateCoaById(COAMasterSid, payload,user);
+            let res = await this.coaService.updateCoaById(COAMasterSid, payload);
             this.logger.debug(`Updated Coa : ${JSON.stringify(res)}`);
             resp.data = res;
             resp.message = `Coa with id : ${COAMasterSid} is successfully updated`;
@@ -164,10 +164,10 @@ export class CoaController {
     })
     @HttpCode(HttpStatus.OK)
     @Post('search-list')
-    async searchCoa(@Body() searchData: SearchVesselDto,@UserData() user:any) {
+    async searchCoa(@Body() searchData: SearchVesselDto) {
         let resp = new ResponseData();
         try {
-            let res = await this.coaService.searchCoa(searchData,user);
+            let res = await this.coaService.searchCoa(searchData);
             this.logger.log(`Coa Search Results :${JSON.stringify(res)}`);
             resp.data = res;
             resp.message = "Coa Search results are successfully fetched"
@@ -182,4 +182,38 @@ export class CoaController {
         }
         return resp;
     }
+
+    
+    @ApiOperation({ summary: 'Get Audit Logs for a Table/Record' })
+      @ApiCreatedResponse({ description: 'Fetch audit logs', type: ResponseData })
+      @HttpCode(HttpStatus.OK)
+      @Get('audit-logs')
+      async getAuditLogs(
+        @Query('tableName') tableName: string,
+        @Query('recordId') recordId?: string,
+      ) {
+        const resp = new ResponseData();
+        try {
+          if (!tableName) throw new Error('tableName query parameter is required');
+    
+          const logs = await this.coaService.getAuditLogs(tableName, recordId);
+    
+          // Remove updatedOn from oldVal and newVal
+          resp.data = logs.map((log: any) => {
+            const oldVal = log.oldVal ? { ...log.oldVal } : null;
+            const newVal = log.newVal ? { ...log.newVal } : null;
+            if (oldVal && 'updatedOn' in oldVal) delete oldVal.updatedOn;
+            if (newVal && 'updatedOn' in newVal) delete newVal.updatedOn;
+            return { ...log, oldVal, newVal };
+          });
+    
+          resp.message = 'Audit logs fetched successfully';
+        } catch (error) {
+          this.logger.warn(`getAuditLogsError: ${error}`);
+          resp.status = false;
+          resp.message = error.message || 'Internal Server Error';
+        }
+        return resp;
+      }
+    
 }
