@@ -201,12 +201,13 @@ export class CustomerService {
 
 
     async searchList(params: SearchVesselDto) {
-    const { search = '', page = 1, pageSize = 15 } = params;
+    const { search = '', page = 1, pageSize = 15 ,activeCompanyId } = params;
     const skip = (page - 1) * pageSize;
 
     const where: Prisma.CustomerMasterWhereInput = {
         deletedAt: null,
         status: 'A',
+        CompanyMasterSid : activeCompanyId,
         ...(search
             ? {
                 OR: [
