@@ -4,7 +4,10 @@ import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 import { HawbStockService } from 'src/masters/services/hawb-stock/hawb-stock.service';
-
+class CompanyIdDto {
+  CompanyMasterSid: number;
+  BranchMasterSid: number;
+}
 
 
 @Controller('hawb-stock')
@@ -43,11 +46,11 @@ export class HawbStockController {
         type: ResponseData
     })
     @HttpCode(HttpStatus.OK)
-    @Get()
-    async getAllHawbStocks() {
+    @Post()
+    async getAllHawbStocks(@Body() body: CompanyIdDto) {
         let resp = new ResponseData();
         try {
-            let res = await this.hawbStockService.getAllHawbStocks();
+            let res = await this.hawbStockService.getAllHawbStocks(body.CompanyMasterSid, body.BranchMasterSid);
             this.logger.log(`All HAWB Stocks Fetched : ${JSON.stringify(res)}`);
             resp.data = res;
             resp.message = "All HAWB Stocks are successfully fetched";

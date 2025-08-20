@@ -5,7 +5,9 @@ import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 import { YearService } from 'src/masters/services/year/year.service';
 
-
+class CompanyIdDto {
+  CompanyMasterSid: number;
+}
 @Controller('year')
 export class YearController {
     constructor(private yearService: YearService, private logger: Logger) { }
@@ -42,11 +44,11 @@ export class YearController {
         type: ResponseData
     })
     @HttpCode(HttpStatus.OK)
-    @Get()
-    async getAllYears() {
+    @Post()
+    async getAllYears(@Body() body: CompanyIdDto) {
         let resp = new ResponseData();
         try {
-            let res = await this.yearService.getAllYears();
+            let res = await this.yearService.getAllYears(body.CompanyMasterSid);
             this.logger.log(`All Years Fetched : ${JSON.stringify(res)}`);
             resp.data = res;
             resp.message = "All Years are successfully fetched";

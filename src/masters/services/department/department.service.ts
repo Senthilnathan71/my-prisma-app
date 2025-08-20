@@ -9,7 +9,7 @@ export class DepartmentService {
     constructor(private _db: DatabaseService, private logger: Logger) { }
 
 
-    async createDepartment(payload: any, user) {
+    async createDepartment(payload: any) {
         this.logger.warn(`createDepartment: ${payload}`);
 
 
@@ -17,12 +17,14 @@ export class DepartmentService {
             where: {
                 OR: [
                     {
+                        CompanyMasterSid:payload. CompanyMasterSid,
                         departmentName: {
                             equals: payload.departmentName.trim(),
                             mode: 'insensitive',
                         }
                     },
                     {
+                        CompanyMasterSid:payload. CompanyMasterSid,
                         departmentCode: {
                             equals: payload.departmentCode.trim(),
                             mode: 'insensitive',
@@ -55,11 +57,12 @@ export class DepartmentService {
     }
 
 
-    async getAllDepartments() {
+    async getAllDepartments(CompanyMasterSid: number) {
         try {
             const departmentList = await this._db.departmentMaster.findMany({
                 where: {
-                    Status: 'A'
+                    Status: 'A',
+                    CompanyMasterSid: CompanyMasterSid
                 }
             })
             return departmentList;
@@ -83,7 +86,7 @@ export class DepartmentService {
     }
 
 
-    async updateDepartment(DepartmentMasterSid: number, payload: any, user) {
+    async updateDepartment(DepartmentMasterSid: number, payload: any) {
     const existing = await this._db.departmentMaster.findUnique({
         where: {
             DepartmentMasterSid: DepartmentMasterSid
@@ -98,6 +101,7 @@ export class DepartmentService {
         where: {
             AND: [
                 {
+                    CompanyMasterSid:payload. CompanyMasterSid,
                     DepartmentMasterSid: {
                         not: DepartmentMasterSid
                     }
@@ -105,12 +109,14 @@ export class DepartmentService {
                 {
                     OR: [
                         {
+                            CompanyMasterSid:payload. CompanyMasterSid,
                             departmentName: {
                                 equals: payload.departmentName?.trim(),
                                 mode: 'insensitive'
                             }
                         },
                         {
+                            CompanyMasterSid:payload. CompanyMasterSid,
                             departmentCode: {
                                 equals: payload.departmentCode?.trim(),
                                 mode: 'insensitive'
@@ -168,12 +174,13 @@ export class DepartmentService {
 
 
     async searchList(params: SearchVesselDto) {
-    const { search = '', page = 1, pageSize = 15 } = params;
+    const { search = '', page = 1, pageSize = 15, activeCompanyId } = params;
     const skip = (page - 1) * pageSize;
 
     const where: Prisma.DepartmentMasterWhereInput = {
         deletedAt: null,
         Status: 'A',
+        CompanyMasterSid : activeCompanyId,
         ...(search
             ? {
                 OR: [

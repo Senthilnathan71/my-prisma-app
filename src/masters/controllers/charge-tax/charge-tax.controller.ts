@@ -4,7 +4,9 @@ import { ResponseData } from 'src/common/response-data';
 import { ChargeTaxService } from 'src/masters/services/charge-tax/charge-tax.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
-
+class CompanyIdDto {
+  CompanyMasterSid: number;
+}
 @Controller('charge-tax')
 export class ChargeTaxController {
     constructor(private chargeTaxService: ChargeTaxService, private logger: Logger) { }
@@ -41,11 +43,11 @@ export class ChargeTaxController {
         type: ResponseData
     })
     @HttpCode(HttpStatus.OK)
-    @Get()
-    async getAllChargeTaxes() {
+    @Post()
+    async getAllChargeTaxes(@Body() body: CompanyIdDto) {
         let resp = new ResponseData();
         try {
-            let res = await this.chargeTaxService.getAllChargeTax();
+            let res = await this.chargeTaxService.getAllChargeTax(body.CompanyMasterSid);
             this.logger.log(`All Charge Taxes Fetched : ${JSON.stringify(res)}`);
             resp.data = res;
             resp.message = "All Charge Taxes are successfully fetched";

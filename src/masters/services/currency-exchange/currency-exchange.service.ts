@@ -22,11 +22,13 @@ export class CurrencyExchangeService {
     }
 
 
-    async getAllCurrencyEx() {
+    async getAllCurrencyEx(CompanyMasterSid: number, BranchMasterSid: number) {
         try {
             const allCurrencyEx = await this._db.currencyExchange.findMany({
                 where: {
-                    deletedAt: null
+                    deletedAt: null,
+                    CompanyMasterSid: CompanyMasterSid,
+                    BranchMasterSid: BranchMasterSid
                 }
             })
             return allCurrencyEx;

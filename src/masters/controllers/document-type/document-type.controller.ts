@@ -4,7 +4,10 @@ import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 import { DocumentTypeService } from 'src/masters/services/document-type/document-type.service';
-
+class CompanyIdDto {
+  CompanyMasterSid: number;
+  BranchMasterSid: number;
+}
 
 @Controller('document-type')
 export class DocumentTypeController {
@@ -45,11 +48,11 @@ export class DocumentTypeController {
         type: ResponseData
     })
     @HttpCode(HttpStatus.OK)
-    @Get()
-    async getAllDocType() {
+    @Post()
+    async getAllDocType(@Body() body: CompanyIdDto) {
         let resp = new ResponseData();
         try {
-            let res = await this.documentTypeService.getAllDocType();
+            let res = await this.documentTypeService.getAllDocType(body.CompanyMasterSid, body.BranchMasterSid);
             this.logger.log(`All Document Type Fetched : ${JSON.stringify(res)}`);
             resp.data = res;
             resp.message = "All Document Type are successfully fetched";

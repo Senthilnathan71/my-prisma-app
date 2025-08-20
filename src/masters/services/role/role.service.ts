@@ -46,11 +46,12 @@ export class RoleService {
     }
 
 
-    async getAllRoles() {
+    async getAllRoles(CompanyMasterSid:number) {
         try {
             const roleList = await this._db.roleMaster.findMany({
                 where: {
-                    status: 'A'
+                    status: 'A',
+                    CompanyMasterSid: CompanyMasterSid
                 }
             })
             return roleList;

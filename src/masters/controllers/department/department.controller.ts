@@ -6,9 +6,12 @@ import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 import { DepartmentService } from 'src/masters/services/department/department.service';
+class CompanyIdDto {
+  CompanyMasterSid: number;
+}
 
 @Controller('department')
-@Auth()
+
 export class DepartmentController {
     constructor(private departmentService: DepartmentService, private logger: Logger) { }
 
@@ -19,11 +22,11 @@ export class DepartmentController {
     })
     @HttpCode(HttpStatus.CREATED)
     @Post('create')
-    async createDepartment(@Body() body:any, @UserData() user: any) {
+    async createDepartment(@Body() body:any) {
         this.logger.log(`createDepartmentdata: ${JSON.stringify(body)}`)
         let output = new ResponseData
         try {
-            let department = await this.departmentService.createDepartment(body, user);
+            let department = await this.departmentService.createDepartment(body);
             this.logger.debug(`createDepartment: ${JSON.stringify(department)}`)
             if (!department) {
                 this.logger.warn(`createDepartment!!: ${JSON.stringify(department)}`)
@@ -53,11 +56,11 @@ export class DepartmentController {
         type: ResponseData
     })
     @HttpCode(HttpStatus.OK)
-    @Get()
-    async getAllDepartments() {
+    @Post()
+    async getAllDepartments(@Body() body: CompanyIdDto) {
         let output = new ResponseData;
         try {
-            let DepartmentData = await this.departmentService.getAllDepartments();
+            let DepartmentData = await this.departmentService.getAllDepartments(body.CompanyMasterSid);
             this.logger.log(`getAllDepartments: ${JSON.stringify(DepartmentData)}`)
             output.data = DepartmentData;
         } catch (error) {
@@ -102,11 +105,11 @@ export class DepartmentController {
     })
     @HttpCode(HttpStatus.OK)
     @Patch('update/:id')
-    async editDepartment(@Param('id', ParseIntPipe) id: number, @Body() body: any, @UserData() user: any) {
+    async editDepartment(@Param('id', ParseIntPipe) id: number, @Body() body: any) {
         this.logger.log(`editDepartmentbody: ${JSON.stringify(body)}`)
         let output = new ResponseData
         try {
-            let Department = await this.departmentService.updateDepartment(id, body, user);
+            let Department = await this.departmentService.updateDepartment(id, body);
             this.logger.log(`editDepartment: ${JSON.stringify(Department)}`)
 
             if (!Department) {

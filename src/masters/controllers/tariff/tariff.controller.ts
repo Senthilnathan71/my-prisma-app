@@ -6,7 +6,9 @@ import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 import { TariffService } from 'src/masters/services/tariff/tariff.service';
-
+class CompanyIdDto {
+  CompanyMasterSid: number;
+}
 @Controller('tariff')
 
 export class TariffController {
@@ -47,11 +49,11 @@ export class TariffController {
         type: ResponseData
     })
     @HttpCode(HttpStatus.OK)
-    @Get()
-    async getAllTariff() {
+    @Post()
+    async getAllTariff(@Body() body: CompanyIdDto) {
         let resp = new ResponseData();
         try {
-            let res = await this.tariffServ.getAllTariff();
+            let res = await this.tariffServ.getAllTariff(body.CompanyMasterSid);
             this.logger.log(`All Tariff Fetched : ${JSON.stringify(res)}`);
             resp.data = res;
             resp.message = "ALl Tariff are successfully fetched";

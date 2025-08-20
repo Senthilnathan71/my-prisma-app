@@ -7,12 +7,14 @@ import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 export class TdsService {
     constructor(private _db:DatabaseService, private logger: Logger){}
 
-    async getAllTds(user){
+    async getAllTds(CompanyMasterSid: number){
         try {
             const allTds = await this._db.tDSSetHeader.findMany({
                 where : {
                     status : 'A',
-                    deletedAt : null
+                    deletedAt : null,
+                    CompanyMasterSid: CompanyMasterSid
+
                 }
             })
             return allTds;
@@ -21,7 +23,7 @@ export class TdsService {
         }
     }
 
-    async createNewTds(payload,user) {
+    async createNewTds(payload) {
        
         const existing = await this._db.tDSSetHeader.findFirst({
             where: {
@@ -43,7 +45,7 @@ export class TdsService {
             const createdTds = await this._db.tDSSetHeader.create({
                 data: {
                     ...payload,
-                    CompanyMasterSid : user.userBranchMaster[0]?.CompanyMasterSid
+                    
                 }
             });
             return createdTds;
@@ -53,7 +55,7 @@ export class TdsService {
     }
 
 
-    async fetchTdsById(TDSSetHeaderSid:number,user){
+    async fetchTdsById(TDSSetHeaderSid:number){
         try {
             const ourTds =await this._db.tDSSetHeader.findUnique({
                 where : {
@@ -73,7 +75,7 @@ export class TdsService {
         }
     }
 
-    async updateTdsById(TDSSetHeaderSid: number, payload,user) {
+    async updateTdsById(TDSSetHeaderSid: number, payload) {
         
         const duplicate = await this._db.tDSSetHeader.findFirst({
             where: {
@@ -120,7 +122,7 @@ export class TdsService {
     }
 
 
-    async deleteTds(TDSSetHeaderSid:number,user){
+    async deleteTds(TDSSetHeaderSid:number){
         try {
             const exist = await this._db.tDSSetHeader.findUnique({
                 where: {
@@ -148,8 +150,8 @@ export class TdsService {
     }
 
 
-   async searchTds(params: SearchVesselDto,user) {
-    const { search = '', page = 1, pageSize = 15,activeCompanyId } = params;
+   async searchTds(params: SearchVesselDto) {
+    const { search = '', page = 1, pageSize = 15 } = params;
     const skip = (page - 1) * pageSize;
     console.log(search);
     let sec = Date.parse(search);
@@ -157,8 +159,7 @@ export class TdsService {
     const where : Prisma.TDSSetHeaderWhereInput = {
         deletedAt: null,
         status: 'A',
-        CompanyMasterSid : activeCompanyId,
-        ...(search 
+        ...(search
             ? {
                 OR: [
                     { TDSSetName: { contains: search, mode: 'insensitive' } },

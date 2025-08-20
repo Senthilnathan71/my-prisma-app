@@ -5,10 +5,12 @@ import { UserData } from 'src/common/decorators/user.decorator';
 import { ResponseData } from 'src/common/response-data';
 import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 import { TdsService } from 'src/masters/services/tds/tds.service';
-
+class CompanyIdDto {
+  CompanyMasterSid: number;
+}
 
 @Controller('tds')
-@Auth()
+
 export class TdsController {
     constructor(private tdsService: TdsService, private logger: Logger) { }
 
@@ -20,10 +22,10 @@ export class TdsController {
     })
     @HttpCode(HttpStatus.OK)
     @Post('create')
-    async createNewTdsSet(@Body() newData: any,@UserData() user : any) {
+    async createNewTdsSet(@Body() newData: any) {
         let resp = new ResponseData();
         try {
-            let res = await this.tdsService.createNewTds(newData,user);
+            let res = await this.tdsService.createNewTds(newData);
             this.logger.log(`New TdsSet Created : ${JSON.stringify(res)}`);
             resp.data = res;
             resp.message = "New tdsSet is successfully created."
@@ -47,11 +49,11 @@ export class TdsController {
         type: ResponseData
     })
     @HttpCode(HttpStatus.OK)
-    @Get()
-    async getAllTdsSet(@UserData() user : any) {
+    @Post()
+    async getAllTdsSet(@Body() body: CompanyIdDto) {
         let resp = new ResponseData();
         try {
-            let res = await this.tdsService.getAllTds(user);
+            let res = await this.tdsService.getAllTds(body.CompanyMasterSid);
             this.logger.log(`All TdsSet Fetched : ${JSON.stringify(res)}`);
             resp.data = res;
             resp.message = "All TdsSet are successfully fetched";
@@ -76,11 +78,11 @@ export class TdsController {
     })
     @HttpCode(HttpStatus.OK)
     @Get('fetch/:TDSSetHeaderSid')
-    async getTdsSetById(@Param('TDSSetHeaderSid', ParseIntPipe) TDSSetHeaderSid: number,@UserData() user : any) {
+    async getTdsSetById(@Param('TDSSetHeaderSid', ParseIntPipe) TDSSetHeaderSid: number) {
         let resp = new ResponseData();
         try {
             this.logger.log(`Getting TdsSet with id : ${TDSSetHeaderSid}`);
-            let res = await this.tdsService.fetchTdsById(TDSSetHeaderSid,user);
+            let res = await this.tdsService.fetchTdsById(TDSSetHeaderSid);
             this.logger.debug(`Fetched TdsSet : ${JSON.stringify(res)}`);
             resp.data = res;
             resp.message = `TdsSet with id : ${TDSSetHeaderSid} is successfully fetched`;
@@ -105,11 +107,11 @@ export class TdsController {
     })
     @HttpCode(HttpStatus.OK)
     @Patch('update/:TDSSetHeaderSid')
-    async updateTdsSetById(@Param('TDSSetHeaderSid', ParseIntPipe) TDSSetHeaderSid: number, @Body() payload: any,@UserData() user : any) {
+    async updateTdsSetById(@Param('TDSSetHeaderSid', ParseIntPipe) TDSSetHeaderSid: number, @Body() payload: any) {
         let resp = new ResponseData();
         try {
             this.logger.log(`Updating TdsSet with id : ${TDSSetHeaderSid}`);
-            let res = await this.tdsService.updateTdsById(TDSSetHeaderSid, payload,user);
+            let res = await this.tdsService.updateTdsById(TDSSetHeaderSid, payload);
             this.logger.debug(`Updated TdsSet : ${JSON.stringify(res)}`);
             resp.data = res;
             resp.message = `TdsSet is updated successfully.`;
@@ -134,11 +136,11 @@ export class TdsController {
     })
     @HttpCode(HttpStatus.OK)
     @Delete('delete/:TDSSetHeaderSid')
-    async deleteTdsSetById(@Param('TDSSetHeaderSid', ParseIntPipe) TDSSetHeaderSid: number,@UserData() user : any) {
+    async deleteTdsSetById(@Param('TDSSetHeaderSid', ParseIntPipe) TDSSetHeaderSid: number) {
         let resp = new ResponseData();
         try {
             this.logger.log(`Deleting TdsSet with id : ${TDSSetHeaderSid}`);
-            let res = await this.tdsService.deleteTds(TDSSetHeaderSid,user);
+            let res = await this.tdsService.deleteTds(TDSSetHeaderSid);
             this.logger.debug(`Deleted TdsSet : ${JSON.stringify(res)}`);
             resp.data = res;
             resp.message = `
@@ -164,10 +166,10 @@ export class TdsController {
     })
     @HttpCode(HttpStatus.OK)
     @Post('search-list')
-    async searchTdsSet(@Body() searchData: SearchVesselDto,@UserData() user : any) {
+    async searchTdsSet(@Body() searchData: SearchVesselDto) {
         let resp = new ResponseData();
         try {
-            let res = await this.tdsService.searchTds(searchData,user);
+            let res = await this.tdsService.searchTds(searchData);
             this.logger.log(`TdsSet Search Results :${JSON.stringify(res)}`);
             resp.data = res;
             resp.message = "TdsSet Search results are successfully fetched"

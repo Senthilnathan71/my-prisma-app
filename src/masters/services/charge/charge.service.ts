@@ -16,12 +16,14 @@ export class ChargeService {
             where: {
                 OR: [
                     {
+                        CompanyMasterSid:payload. CompanyMasterSid,
                         chargeName: {
                             equals: payload.chargeName.trim(),
                             mode: 'insensitive',
                         }
                     },
                     {
+                        CompanyMasterSid:payload. CompanyMasterSid,
                         chargeCode: {
                             equals: payload.chargeCode.trim(),
                             mode: 'insensitive',
@@ -100,12 +102,14 @@ export class ChargeService {
         });
     }
 
-    async getAllCharges() {
+    async getAllCharges(CompanyMasterSid: number) {
         try {
             const ChargeList = await this._db.chargeMaster.findMany({
                 where: {
                     deletedAt : null,
-                    Status: 'A'
+                    Status: 'A',
+                    CompanyMasterSid: CompanyMasterSid
+
                 }
             })
             return ChargeList;
@@ -163,6 +167,7 @@ export class ChargeService {
             where: {
                 AND:[
                     {
+                CompanyMasterSid:payload. CompanyMasterSid,
                 ChargeMasterSid: {
                     not: ChargeMasterSid,
             },
@@ -170,12 +175,14 @@ export class ChargeService {
         {
             OR:[
                 {
+                    CompanyMasterSid:payload. CompanyMasterSid,
                     chargeName: {
                             equals: payload.chargeName.trim(),
                             mode: 'insensitive',
                         },
                 },
                 {
+                    CompanyMasterSid:payload. CompanyMasterSid,
                     chargeCode: {
                             equals: payload.chargeCode.trim(),
                             mode: 'insensitive',

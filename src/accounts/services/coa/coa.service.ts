@@ -7,13 +7,14 @@ import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 export class CoaService {
     constructor(private _db:DatabaseService, private logger: Logger){}
 
-    async getAllCoa(){
+    async getAllCoa(CompanyMasterSid:number){
         try {
             const allCoa = await this._db.cOAMaster.findMany({
                 where : {
                   
                     deletedAt : null,
-                    Status : 'A'
+                    Status : 'A',
+                    CompanyMasterSid: CompanyMasterSid
                 }
             })
             return allCoa;

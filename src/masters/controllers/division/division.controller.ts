@@ -5,7 +5,9 @@ import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 import { DivisionService } from 'src/masters/services/division/division.service';
-
+class CompanyIdDto {
+  CompanyMasterSid: number;
+}
 @Controller('division')
 export class DivisionController {
     constructor(private divisionService: DivisionService, private logger: Logger) { }
@@ -43,11 +45,11 @@ export class DivisionController {
         type: ResponseData
     })
     @HttpCode(HttpStatus.OK)
-    @Get()
-    async getAllDivisions() {
+    @Post()
+    async getAllDivisions(@Body() body: CompanyIdDto) {
         let resp = new ResponseData();
         try {
-            let res = await this.divisionService.getAllDivisions();
+            let res = await this.divisionService.getAllDivisions(body.CompanyMasterSid);
             this.logger.log(`getAllDivision Data :${JSON.stringify(res)}`);
             resp.data = res;
             resp.message = "All Divisions are fetched";

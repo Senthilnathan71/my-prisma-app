@@ -8,11 +8,12 @@ import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 export class ProductService {
     constructor(private _db:DatabaseService,  private logger: Logger){}
 
-    async getAllProducts(){
+    async getAllProducts(CompanyMasterSid: number){
         try {
             const allProducts = await this._db.productMaster.findMany({
                 where : {
-                    deletedAt:null
+                    deletedAt:null,
+                    CompanyMasterSid: CompanyMasterSid
                 }
             })
             return allProducts;

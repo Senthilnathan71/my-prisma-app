@@ -4,7 +4,9 @@ import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 import { ProductService } from 'src/masters/services/product/product.service';
-
+class CompanyIdDto {
+  CompanyMasterSid: number;
+}
 
 
 @Controller('product')
@@ -46,11 +48,11 @@ export class ProductController {
         type: ResponseData
     })
     @HttpCode(HttpStatus.OK)
-    @Get()
-    async getAllProduct() {
+    @Post()
+    async getAllProduct(@Body() body: CompanyIdDto) {
         let resp = new ResponseData();
         try {
-            let res = await this.productService.getAllProducts();
+            let res = await this.productService.getAllProducts(body.CompanyMasterSid);
             this.logger.log(`All Products Fetched : ${JSON.stringify(res)}`);
             resp.data = res;
             resp.message = "All Products are successfully fetched";

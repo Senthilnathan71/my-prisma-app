@@ -16,12 +16,14 @@ export class DivisionService {
                 deletedAt: null,
                 OR: [
                     {
+                        CompanyMasterSid:payload. CompanyMasterSid,
                         DivisionName: {
                             equals: payload.DivisionName.trim(),
                             mode: 'insensitive',
                         }
                     },
                     {
+                        CompanyMasterSid:payload. CompanyMasterSid,
                         DivisionCode: {
                             equals: payload.DivisionCode.trim(),
                             mode: 'insensitive',
@@ -51,12 +53,12 @@ export class DivisionService {
         }
     }
 
-    async getAllDivisions() {
+    async getAllDivisions(CompanyMasterSid: number) {
         try {
             const DivisionList = await this._db.divisionMaster.findMany({
                 where: {
                     status: 'A',
-                    deletedAt: null,
+                    CompanyMasterSid: CompanyMasterSid
                 }
             })
             return DivisionList;
@@ -85,6 +87,7 @@ export class DivisionService {
         try {
             const existing = await this._db.divisionMaster.findUnique({
                 where: {
+                    CompanyMasterSid:newData. CompanyMasterSid,
                     DivisionMasterSid: divisionId
                 }
             })

@@ -5,7 +5,9 @@ import { Auth } from 'src/common/decorators/auth.decorator';
 import { UserData } from 'src/common/decorators/user.decorator';
 import { ResponseData } from 'src/common/response-data';
 import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
-
+class CompanyIdDto {
+  CompanyMasterSid: number;
+}
 
 @Controller('coa')
 
@@ -48,11 +50,11 @@ export class CoaController {
         type: ResponseData
     })
     @HttpCode(HttpStatus.OK)
-    @Get()
-    async getAllCoa() {
+    @Post()
+    async getAllCoa(@Body() body: CompanyIdDto) {
         let resp = new ResponseData();
         try {
-            let res = await this.coaService.getAllCoa();
+            let res = await this.coaService.getAllCoa(body.CompanyMasterSid);
             this.logger.log(`All Coa Fetched : ${JSON.stringify(res)}`);
             resp.data = res;
             resp.message = "All Coa are successfully fetched";

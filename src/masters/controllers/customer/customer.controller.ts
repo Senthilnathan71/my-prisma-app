@@ -6,9 +6,11 @@ import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 import { CustomerService } from 'src/masters/services/customer/customer.service';
-
+class CompanyIdDto {
+  CompanyMasterSid: number;
+}
 @Controller('customer')
-@Auth()
+
 export class CustomerController {
     constructor(private customerService: CustomerService, private logger: Logger) { }
 
@@ -19,11 +21,11 @@ export class CustomerController {
     })
     @HttpCode(HttpStatus.CREATED)
     @Post('create')
-    async createCustomer(@Body() body: any, @UserData() user: any) {
+    async createCustomer(@Body() body: any) {
         this.logger.log(`createDepartmentdata: ${JSON.stringify(body)}`)
         let output = new ResponseData
         try {
-            let customer = await this.customerService.createCustomer(body, user);
+            let customer = await this.customerService.createCustomer(body);
             this.logger.debug(`createCustomer: ${JSON.stringify(customer)}`)
             if (!customer) {
                 this.logger.warn(`createCustomer!!: ${JSON.stringify(customer)}`)
@@ -54,11 +56,11 @@ export class CustomerController {
         type: ResponseData
     })
     @HttpCode(HttpStatus.OK)
-    @Get()
-    async getAllCustomers() {
+    @Post()
+    async getAllCustomers(@Body() body: CompanyIdDto) {
         let output = new ResponseData;
         try {
-            let customerData = await this.customerService.getAllCustomers();
+            let customerData = await this.customerService.getAllCustomers(body.CompanyMasterSid);
             this.logger.log(`getAllCustomers: ${JSON.stringify(customerData)}`)
             output.data = customerData;
         } catch (error) {
@@ -103,11 +105,11 @@ export class CustomerController {
     })
     @HttpCode(HttpStatus.OK)
     @Patch('update/:id')
-    async editCustomer(@Param('id', ParseIntPipe) id: number, @Body() body: any, @UserData() user: any) {
+    async editCustomer(@Param('id', ParseIntPipe) id: number, @Body() body: any) {
         this.logger.log(`editCustomer: ${JSON.stringify(body)}`)
         let output = new ResponseData
         try {
-            let Customer = await this.customerService.updateCustomer(id, body, user);
+            let Customer = await this.customerService.updateCustomer(id, body);
             this.logger.log(`editCustomer: ${JSON.stringify(Customer)}`)
 
             if (!Customer) {
