@@ -57,6 +57,7 @@ model BookingHeader {
     GeneralNote         String?         @db.VarChar(200)
     Nominated           String?         @db.VarChar(200)
     NominatedBy         String?         @db.VarChar(200)
+    OriginAgent         String?         @db.VarChar(200)
     createdOn           DateTime        @default(now()) @db.Timestamptz(6)
     updatedOn           DateTime?       @updatedAt @db.Timestamptz(6)
     deletedAt           DateTime?
@@ -124,6 +125,14 @@ model BookingProduct {
     GrossWeight        Decimal   @db.Decimal(10, 3)
     NetWeight          Decimal?  @db.Decimal(10, 3)
     Volume             Decimal?  @db.Decimal(10, 3)
+    IsHaz              String?   @db.VarChar(500)
+    ImcoClass          String?   @db.VarChar(500)
+    UnNo               String?   @db.VarChar(500)
+    PkgGroup           String?   @db.VarChar(500)
+    Length             Int?
+    Width              Int?
+    Height             Int?
+    Uom                Int?
     createdOn          DateTime  @default(now()) @db.Timestamptz(6)
     updatedOn          DateTime? @updatedAt @db.Timestamptz(6)
     deletedAt          DateTime?
@@ -189,6 +198,11 @@ model BookingOthers {
     BacktoBack          String?   @db.VarChar(200)
     Depo                String?   @db.VarChar(200)
     ROValidity          String?   @db.VarChar(200)
+    SwitchBLAgent       String?   @db.VarChar(200)
+    AgentAddress        String?   @db.VarChar(200)
+    SwitchBLShipper     String?   @db.VarChar(200)
+    SwitchBLConsignee   String?   @db.VarChar(200)
+    SwitchLocation      String?   @db.VarChar(200)
     createdOn           DateTime  @default(now()) @db.Timestamptz(6)
     updatedOn           DateTime? @updatedAt @db.Timestamptz(6)
     deletedAt           DateTime?
