@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { DatabaseService } from "src/database/database.service";
 import * as moment from 'moment-timezone';
@@ -9,7 +9,7 @@ import { GlobalConfigService } from "src/common/config/master-config.service";
 @Injectable()
 export class QuotationService {
     constructor(
-        private _db: DatabaseService,
+        private _db: DatabaseService, private logger: Logger,
         private globalConfigService:GlobalConfigService
     ) { }
 
@@ -722,5 +722,22 @@ export class QuotationService {
             throw error;
         }
     }
+
+    async getAuditLogs(tableName: string, recordId?: string) {
+    try {
+      const whereClause: any = { tableName };
+      if (recordId) whereClause.recordId = recordId;
+
+      const logs = await this._db.auditLog.findMany({
+        where: whereClause,
+        orderBy: { changedAt: 'desc' },
+      });
+
+      return logs;
+    } catch (error) {
+      this.logger.warn(`getAuditLogsError: ${error}`);
+      throw new Error(`Error fetching audit logs: ${error.message}`);
+    }
+  }
 
 }
