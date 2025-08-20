@@ -5,7 +5,9 @@ import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 import { RoleService } from 'src/masters/services/role/role.service';
-
+class CompanyIdDto {
+  CompanyMasterSid: number;
+}
 @Controller('role')
 export class RoleController {
     constructor(private roleService: RoleService, private logger: Logger) { }
@@ -51,11 +53,11 @@ export class RoleController {
         type: ResponseData
     })
     @HttpCode(HttpStatus.OK)
-    @Get()
-    async getAllRoles() {
+    @Post()
+    async getAllRoles(@Body() body: CompanyIdDto) {
         let output = new ResponseData;
         try {
-            let roleData = await this.roleService.getAllRoles();
+            let roleData = await this.roleService.getAllRoles(body.CompanyMasterSid);
             this.logger.log(`getAllroles: ${JSON.stringify(roleData)}`)
             output.data = roleData;
         } catch (error) {

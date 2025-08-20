@@ -9,7 +9,7 @@ export class CustomerService {
     constructor(private _db: DatabaseService, private logger: Logger) { }
 
 
-    async createCustomer(payload: any, user) {
+    async createCustomer(payload: any) {
         this.logger.warn(`createDepartment: ${payload}`);
 
 
@@ -55,12 +55,13 @@ export class CustomerService {
     }
 
 
-    async getAllCustomers() {
+    async getAllCustomers(CompanyMasterSid:number) {
         try {
             const customerList = await this._db.customerMaster.findMany({
                 where: {
                     deletedAt: null,
-                    status: 'A'
+                    status: 'A',
+                    CompanyMasterSid: CompanyMasterSid
                 }
             })
             return customerList;
@@ -84,7 +85,7 @@ export class CustomerService {
     }
 
 
-    async updateCustomer(CustomerMasterSid: number, payload: any, user) {
+    async updateCustomer(CustomerMasterSid: number, payload: any) {
 
         const existing = await this._db.customerMaster.findUnique({
             where: {

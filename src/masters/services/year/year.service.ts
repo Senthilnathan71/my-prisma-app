@@ -8,11 +8,12 @@ import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 export class YearService {
     constructor(private _db: DatabaseService, private logger: Logger) { }
 
-    async getAllYears() {
+    async getAllYears(CompanyMasterSid:number) {
         try {
             const allYears = await this._db.yearMaster.findMany({
                 where: {
-                    deletedAt: null
+                    deletedAt: null, 
+                    CompanyMasterSid: CompanyMasterSid
                 },
                 include: {
                     companyMaster: true

@@ -9,11 +9,13 @@ import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 export class HawbStockService {
     constructor(private _db: DatabaseService, private globalConfigService: GlobalConfigService,private logger: Logger) { }
 
-    async getAllHawbStocks() {
+    async getAllHawbStocks(CompanyMasterSid: number, BranchMasterSid: number) {
         try {
             const allHawbStocks = await this._db.hawbStock.findMany({
                 where: {
-                    deletedAt: null
+                    deletedAt: null,
+                    CompanyMasterSid: CompanyMasterSid,
+                    BranchMasterSid: BranchMasterSid
                 },
                 include: {
                     branchMaster: true,

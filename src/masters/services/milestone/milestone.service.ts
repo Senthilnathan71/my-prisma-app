@@ -8,11 +8,13 @@ import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 export class MilestoneService {
     constructor(private _db: DatabaseService,private globalConfigService :GlobalConfigService,private logger: Logger) { }
 
-    async getAllMilestones() {
+    async getAllMilestones(CompanyMasterSid: number, BranchMasterSid: number) {
         try {
             const allMilestones = await this._db.milestoneMaster.findMany({
                 where: {
-                    deletedAt: null
+                    deletedAt: null,
+                    CompanyMasterSid: CompanyMasterSid,
+                    BranchMasterSid: BranchMasterSid
                 },
                 include: {
                     departmentMaster: true,

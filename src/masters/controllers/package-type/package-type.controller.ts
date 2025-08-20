@@ -19,7 +19,9 @@ import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 import { PackageTypeService } from 'src/masters/services/package-type/package-type.service';
-
+class CompanyIdDto {
+  CompanyMasterSid: number;
+}
 @Controller('package-type')
 export class PackageTypeController {
   constructor(
@@ -72,11 +74,11 @@ export class PackageTypeController {
     type: ResponseData,
   })
   @HttpCode(HttpStatus.OK)
-  @Get()
-  async getAllPackageTypes() {
+  @Post()
+  async getAllPackageTypes(@Body() body: CompanyIdDto) {
     let resp = new ResponseData();
     try {
-      let res = await this.packageTypeService.getAllPackageType();
+      let res = await this.packageTypeService.getAllPackageType(body.CompanyMasterSid);
       this.logger.log(`All Package Types : ${JSON.stringify(res)}`);
       resp.data = res;
     } catch (error) {

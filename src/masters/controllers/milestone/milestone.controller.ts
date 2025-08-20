@@ -4,7 +4,10 @@ import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 import { MilestoneService } from 'src/masters/services/milestone/milestone.service';
-
+class CompanyIdDto {
+  CompanyMasterSid: number;
+  BranchMasterSid: number;
+}
 @Controller('milestone')
 export class MilestoneController {
     constructor(private milestoneService: MilestoneService, private logger: Logger) { }
@@ -41,11 +44,11 @@ export class MilestoneController {
         type: ResponseData
     })
     @HttpCode(HttpStatus.OK)
-    @Get()
-    async getAllMilestones() {
+    @Post()
+    async getAllMilestones(@Body() body: CompanyIdDto) {
         let resp = new ResponseData();
         try {
-            let res = await this.milestoneService.getAllMilestones();
+            let res = await this.milestoneService.getAllMilestones(body.CompanyMasterSid, body.BranchMasterSid);
             this.logger.log(`All Milestones Fetched : ${JSON.stringify(res)}`);
             resp.data = res;
             resp.message = "All Milestones are successfully fetched";

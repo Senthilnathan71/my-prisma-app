@@ -6,7 +6,9 @@ import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 import { ChargeService } from 'src/masters/services/charge/charge.service';
-
+class CompanyIdDto {
+  CompanyMasterSid: number;
+}
 @Controller('charge')
 export class ChargeController {
     constructor(private chargeService: ChargeService, private logger: Logger) { }
@@ -52,11 +54,11 @@ export class ChargeController {
         type: ResponseData
     })
     @HttpCode(HttpStatus.OK)
-    @Get()
-    async getAllCharges() {
+    @Post()
+    async getAllCharges(@Body() body: CompanyIdDto) {
         let output = new ResponseData;
         try {
-            let ChargeData = await this.chargeService.getAllCharges();
+            let ChargeData = await this.chargeService.getAllCharges(body.CompanyMasterSid);
             this.logger.log(`getAllCharges: ${JSON.stringify(ChargeData)}`)
             output.data = ChargeData;
         } catch (error) {

@@ -41,11 +41,12 @@ export class TariffService {
         }
     }
 
-    async getAllTariff() {
+    async getAllTariff(CompanyMasterSid: number) {
         try {
             let allTariff = await this._db.tariffHeader.findMany({
                 where: {
-                    deletedAt: null
+                    deletedAt: null,
+                    CompanyMasterSid: CompanyMasterSid
                 },
                 include : {
                     departmentMaster:{

@@ -4,7 +4,10 @@ import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 import { CurrencyExchangeService } from 'src/masters/services/currency-exchange/currency-exchange.service';
-
+class CompanyIdDto {
+  CompanyMasterSid: number;
+  BranchMasterSid: number;
+}
 @Controller('currency-exchange')
 export class CurrencyExchangeController {
     constructor(private currencyExService: CurrencyExchangeService, private logger: Logger) { }
@@ -42,11 +45,11 @@ export class CurrencyExchangeController {
         type: ResponseData
     })
     @HttpCode(HttpStatus.OK)
-    @Get()
-    async getAllCurrencyExchange() {
+    @Post()
+    async getAllCurrencyExchange(@Body() body: CompanyIdDto) {
         let resp = new ResponseData();
         try {
-            let res = await this.currencyExService.getAllCurrencyEx();
+            let res = await this.currencyExService.getAllCurrencyEx(body.CompanyMasterSid, body.BranchMasterSid);
             this.logger.log(`Fetched All Currency Exchanges : ${JSON.stringify(res)}`);
             resp.data = res;
             resp.message = "All Currency Exchanges are successfully fetched";

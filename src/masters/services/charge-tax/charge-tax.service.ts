@@ -8,11 +8,13 @@ import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 export class ChargeTaxService {
     constructor(private _db: DatabaseService, private logger: Logger) { }
 
-    async getAllChargeTax() {
+    async getAllChargeTax(CompanyMasterSid: number) {
         try {
             const allChargeTax = await this._db.chargeTaxMaster.findMany({
                 where: {
-                    deletedAt: null
+                    Status: 'A',
+                    CompanyMasterSid: CompanyMasterSid
+
                 },
                 include: {
                     companyMaster: true

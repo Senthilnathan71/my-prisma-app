@@ -9,11 +9,13 @@ import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 export class DocumentTypeService {
     constructor(private _db:DatabaseService,private globalConfigService:GlobalConfigService, private logger: Logger){}
 
-    async getAllDocType(){
+    async getAllDocType(CompanyMasterSid: number, BranchMasterSid: number){
         try {
             const allDocType = await this._db.documentTypeMaster.findMany({
                 where : {
-                    deletedAt:null
+                    deletedAt:null,
+                    CompanyMasterSid: CompanyMasterSid,
+                    BranchMasterSid: BranchMasterSid
                 }
             })
             return allDocType;

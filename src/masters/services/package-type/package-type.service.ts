@@ -19,10 +19,11 @@ export class PackageTypeService {
     }
   }
 
-  async getAllPackageType() {
+  async getAllPackageType(CompanyMasterSid: number) {
     try {
       const allPackageTypes = await this._db.packageTypeMaster.findMany({
         where: {
+          CompanyMasterSid: CompanyMasterSid,
           deletedAt: {
             equals: null,
           },
