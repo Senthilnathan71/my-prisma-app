@@ -125,14 +125,14 @@ model BookingProduct {
     GrossWeight        Decimal   @db.Decimal(10, 3)
     NetWeight          Decimal?  @db.Decimal(10, 3)
     Volume             Decimal?  @db.Decimal(10, 3)
-    IsHaz              String?   @db.VarChar(500)
+    IsHaz              String?   @db.Char(1)
     ImcoClass          String?   @db.VarChar(500)
     UnNo               String?   @db.VarChar(500)
     PkgGroup           String?   @db.VarChar(500)
     Length             Int?
     Width              Int?
     Height             Int?
-    Uom                Int?
+    UomMasterSid       Int?
     createdOn          DateTime  @default(now()) @db.Timestamptz(6)
     updatedOn          DateTime? @updatedAt @db.Timestamptz(6)
     deletedAt          DateTime?
@@ -141,6 +141,7 @@ model BookingProduct {
     status             String?   @default("A") @db.Char(1)
 
     bookingHeader BookingHeader? @relation(fields: [BookingHeaderSid], references: [BookingHeaderSid])
+    uomMaster     UOMMaster?     @relation(fields: [UomMasterSid], references: [UOMMasterSid])
 }
 
 model BookingConnection {
