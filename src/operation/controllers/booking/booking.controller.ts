@@ -218,6 +218,32 @@ export class BookingController {
         return output
     }
 
+    @ApiOperation({ summary: 'Delete Booking Rates By ID' })
+    @ApiCreatedResponse({
+        description: 'Booking Rates deleted successfully',
+        type: ResponseData
+    })
+    @Delete('rates/:BookingRatesSid')
+    async deleteBookingRate(@Param('BookingRatesSid', ParseIntPipe) BookingRatesSid: number) {
+        let output = new ResponseData
+        try {
+            let bookingConnection = await this.bookingService.softDeleteBookingRates(BookingRatesSid);
+            this.logger.debug(`deleteBookingRates: ${JSON.stringify(bookingConnection)}`)
+            output.data = bookingConnection;
+            output.message = "Booking Rates deleted successfully";
+
+        } catch (error) {
+            this.logger.warn(`deleteBookingRates: ${JSON.stringify(error), error}`)
+            output.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                output.message = error.message;
+            } else {
+                output.message = error;
+            }
+        }
+        return output
+    }
+
     @ApiOperation({ summary: 'Get All Booking Header Lookups' })
     @ApiCreatedResponse({
         description: 'All Booking Header Lookups are fetched successfully',
@@ -398,6 +424,33 @@ export class BookingController {
 
         } catch (error) {
             this.logger.warn(`getAllMilestones error: ${JSON.stringify(error), error}`)
+            output.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                output.message = error.message;
+            } else {
+                output.message = error;
+            }
+        }
+        return output
+    }
+
+
+    @ApiOperation({ summary: 'Get Shipment Milestone by Shipment No' })
+    @ApiCreatedResponse({
+        description: 'All Shipment Milestone by Shipment No are fetched successfully',
+        type: ResponseData
+    })
+    @Post('shipment-milestone')
+    async getShipmentMilestoneByShipmentNo(@Body() payload: any) {
+        let output = new ResponseData()
+        try {
+            let lookupDatas = await this.bookingService.getAllMilestones(payload);
+            this.logger.debug(`getShipmentMilestoneByShipmentNo: ${JSON.stringify(lookupDatas)}`)
+            output.data = lookupDatas;
+            output.message = "All Shipment Milestone with provided shipment no. fetched successfully";
+
+        } catch (error) {
+            this.logger.warn(`getShipmentMilestoneByShipmentNo error: ${JSON.stringify(error), error}`)
             output.status = false;
             if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
                 output.message = error.message;

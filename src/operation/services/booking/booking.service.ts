@@ -328,7 +328,8 @@ export class BookingService {
                     bookingCargo: { where: { deletedAt: null } },
                     bookingProduct: { where: { deletedAt: null } },
                     bookingOthers: { where: { deletedAt: null } },
-                    bookingConnection: { where: { deletedAt: null } }
+                    bookingConnection: { where: { deletedAt: null } },
+                    bookingRates : { where : { Status : 'A' }}
                 }
             })
             if (!ourBooking) {
@@ -936,6 +937,18 @@ export class BookingService {
             throw error;
         }
     }
+    
+    async softDeleteBookingRates(BookingRateSid: number) {
+        try {
+            const deletedBookingConnection = await this._db.bookingRates.update({
+                where: { BookingRatesSid: BookingRateSid },
+                data: { Status : 'A' }
+            })
+            return deletedBookingConnection;
+        } catch (error) {
+            throw error;
+        }
+    }
 
 
 
@@ -1179,6 +1192,19 @@ export class BookingService {
                 }
             })
             return allMilestones;
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    async getShipmentMilestoneByShipmentNo(ShipmentNo: string){
+        try {
+            const allShipmentMilestone = await this._db.shipmentMilestone.findMany({
+                where : {
+                    Status : 'A'
+                }
+            })
+            return allShipmentMilestone;
         } catch (error) {
             throw error;
         }
