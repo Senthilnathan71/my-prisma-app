@@ -937,7 +937,7 @@ export class BookingService {
             throw error;
         }
     }
-    
+
     async softDeleteBookingRates(BookingRateSid: number) {
         try {
             const deletedBookingConnection = await this._db.bookingRates.update({
@@ -1197,10 +1197,13 @@ export class BookingService {
         }
     }
 
-    async getShipmentMilestoneByShipmentNo(ShipmentNo: string){
+    async getShipmentMilestoneByShipmentNo(payload: any){
         try {
             const allShipmentMilestone = await this._db.shipmentMilestone.findMany({
                 where : {
+                    ShipmentNo : payload.ShipmentNo,
+                    CompanyMasterSid : payload.CompanyMasterSid,
+                    BranchMasterSid : payload.BranchMasterSid,
                     Status : 'A'
                 }
             })
