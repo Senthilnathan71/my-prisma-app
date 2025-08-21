@@ -201,7 +201,7 @@ export class BookingService {
                 const allConnections: any[] = (payload.bookingConnections || []).map(connection => {
                     const connectionData = {
                         BookingHeaderSid: newBooking.BookingHeaderSid,
-                        // Mode : connection.Mode,
+                        Mode : connection.Mode,
                         VesselName: connection.VesselName,
                         VoyageNo: connection.VoyageNo,
                         POL: connection.POL,
@@ -593,7 +593,7 @@ export class BookingService {
                         createdConnection = await prisma.bookingConnection.create({
                             data: {
                                 BookingHeaderSid: updatedBooking.BookingHeaderSid,
-                                // Mode : connection.Mode,
+                                Mode : connection.Mode,
                                 VesselName: connection.VesselName,
                                 VoyageNo: connection.VoyageNo,
                                 POL: connection.POL,
@@ -610,7 +610,7 @@ export class BookingService {
                             where: { BookingConnectionSid: connection.BookingConnectionSid },
                             data: {
                                 BookingHeaderSid: updatedBooking.BookingHeaderSid,
-                                // Mode : connection.Mode,
+                                Mode : connection.Mode,
                                 VesselName: connection.VesselName,
                                 VoyageNo: connection.VoyageNo,
                                 POL: connection.POL,
@@ -1161,5 +1161,27 @@ export class BookingService {
           throw new Error(`Error fetching audit logs: ${error.message}`);
         }
       }
+
+    async getAllMilestones(payload:any){
+        try {
+            const allMilestones = await this._db.milestoneMaster.findMany({
+                where : {
+                    deletedAt : null,
+                    CompanyMasterSid : payload.CompanyMasterSid,
+                    BranchMasterSid : payload.BranchMasterSid
+                },
+                select : {
+                    MilestoneMasterSid : true,
+                    MilestoneName : true,
+                    AutoCapture : true,
+                    DepartmentMasterSid : true,
+                    Remarks : true
+                }
+            })
+            return allMilestones;
+        } catch (error) {
+            throw error;
+        }
+    }
 }
 

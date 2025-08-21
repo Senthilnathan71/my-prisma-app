@@ -381,4 +381,30 @@ export class BookingController {
         }
         return resp;
       }
+
+    @ApiOperation({ summary: 'Get All Milestone' })
+    @ApiCreatedResponse({
+        description: 'All Milestones are fetched successfully',
+        type: ResponseData
+    })
+    @Post('milestone')
+    async getAllMilestones(@Body() payload: any) {
+        let output = new ResponseData()
+        try {
+            let lookupDatas = await this.bookingService.getAllMilestones(payload);
+            this.logger.debug(`getAllMilestones: ${JSON.stringify(lookupDatas)}`)
+            output.data = lookupDatas;
+            output.message = "All Milestone fetched successfully";
+
+        } catch (error) {
+            this.logger.warn(`getAllMilestones error: ${JSON.stringify(error), error}`)
+            output.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                output.message = error.message;
+            } else {
+                output.message = error;
+            }
+        }
+        return output
+    }
 }
