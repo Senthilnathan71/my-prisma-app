@@ -238,4 +238,66 @@ export class VoyageController {
         }
         return resp;
       }
+
+    @ApiOperation({ summary: 'Get Voyage By Vessel Id' })
+    @ApiCreatedResponse({
+        description: 'Get Voyage By Vessel Id',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Get('fetchByVessel/:VesselMasterSid')
+    async getVoyageByVesselId(@Param('VesselMasterSid', ParseIntPipe) VesselMasterSid: number) {
+        const output = new ResponseData;
+        try {
+            const Voyage = await this.voyageService.getVoyagesByVesselId(VesselMasterSid)
+            this.logger.log(`getVoyageByVesselId: ${JSON.stringify(Voyage)}`)
+            output.data = Voyage
+        } catch (error) {
+            this.logger.warn(`getVoyageByVesselId: ${JSON.stringify(error),error}`)
+            output.status = false;
+            output.message = error
+        }
+        return output;
+    }
+
+    @ApiOperation({ summary: 'Get Vessels based On Ports' })
+    @ApiCreatedResponse({
+        description: 'Vessels sailing specified Ports are successfully fetched',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Post('fetchVesselsByPorts')
+    async fetchVesselsByPorts(@Body() payload: any) {
+        const output = new ResponseData;
+        try {
+            const Voyage = await this.voyageService.getAvailableVessels(payload.POO,payload.POL,payload.POD,payload.FPOD,payload.MovementType)
+            this.logger.log(`fetchVesselsByPorts: ${JSON.stringify(Voyage)}`)
+            output.data = Voyage
+        } catch (error) {
+            this.logger.warn(`fetchVesselsByPorts: ${JSON.stringify(error),error}`)
+            output.status = false;
+            output.message = error
+        }
+        return output;
+    }
+    @ApiOperation({ summary: 'Get Voyage By Vessel and Ports' })
+    @ApiCreatedResponse({
+        description: 'Get Voyage By Vessel and Ports',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Post('fetchByVesselAndPorts')
+    async fetchByVesselAndPorts(@Body() payload: any) {
+        const output = new ResponseData;
+        try {
+            const Voyage = await this.voyageService.getAvailableVoyagesWithPorts(payload.VesselMasterSid,payload.POL,payload.POD,payload.MovementType,payload.POO,payload.FPOD)
+            this.logger.log(`fetchByVesselAndPorts: ${JSON.stringify(Voyage)}`)
+            output.data = Voyage
+        } catch (error) {
+            this.logger.warn(`fetchByVesselAndPorts: ${JSON.stringify(error),error}`)
+            output.status = false;
+            output.message = error
+        }
+        return output;
+    }
 }
