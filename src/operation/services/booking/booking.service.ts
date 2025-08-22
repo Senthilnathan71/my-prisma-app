@@ -329,7 +329,7 @@ export class BookingService {
                     bookingProduct: { where: { deletedAt: null } },
                     bookingOthers: { where: { deletedAt: null } },
                     bookingConnection: { where: { deletedAt: null } },
-                    bookingRates : { where : { Status : 'A' }}
+                    bookingRates : { where : { deletedAt : null }}
                 }
             })
             if (!ourBooking) {
@@ -685,7 +685,7 @@ export class BookingService {
                                 VoucherHeaderSid: rate.VoucherHeaderSid,
                                 VoucherTypeSid: rate.VoucherTypeSid,
                                 UpdatedBy: payload.updatedBy,
-                                Status: payload.status
+                                Status: payload.Status
                             }
                         })
                     }
@@ -790,7 +790,7 @@ export class BookingService {
                 })
                 const deletedRates = await prisma.bookingRates.updateMany({
                     where: { BookingHeaderSid: BookingHeaderSid },
-                    data: { Status: 'A' }
+                    data: { deletedAt: new Date() }
                 })
 
                 return {
@@ -834,7 +834,7 @@ export class BookingService {
             */
 
             const milestones = await this._db.shipmentMilestone.findMany({
-                where: { MilestoneName: { contains: search, mode: 'insensitive' } },
+                where: { MilestoneName: { contains: search, mode: 'insensitive' } , deletedAt : null },
                 select: { ShipmentNo: true, ShipmentMilestoneSid: true },
                 orderBy: [{ ShipmentNo: 'asc' }, { ShipmentMilestoneSid: 'desc' }],
             });
@@ -942,7 +942,7 @@ export class BookingService {
         try {
             const deletedBookingConnection = await this._db.bookingRates.update({
                 where: { BookingRatesSid: BookingRateSid },
-                data: { Status : 'A' }
+                data: { deletedAt : new Date() }
             })
             return deletedBookingConnection;
         } catch (error) {
@@ -1204,12 +1204,59 @@ export class BookingService {
                     ShipmentNo : payload.ShipmentNo,
                     CompanyMasterSid : payload.CompanyMasterSid,
                     BranchMasterSid : payload.BranchMasterSid,
-                    Status : 'A'
+                    deletedAt : null
                 }
             })
             return allShipmentMilestone;
         } catch (error) {
             throw error;
+        }
+    }
+
+    async getAllRateLookups(payload: any){
+        try {
+            const [charges,uoms,docTypes ] = await this._db.$transaction([
+                this._db.chargeMaster.findMany({
+                    where: { deletedAt: null, CompanyMasterSid: payload.CompanyMasterSid },
+                    select: {
+                        ChargeMasterSid : true,
+                        chargeName : true,
+                        chargeCode : true,
+                        CurrencyMasterSid : true,
+                        UOM : true,
+                        chargeTaxMaster : {
+                            take : 1,
+                            select : {
+                                description : true
+                            }
+                        },
+                    }
+                }),
+                this._db.uOMMaster.findMany({
+                    where: { deletedAt: null },
+                    select: {
+                        UOMMasterSid : true,
+                        UOMName : true,
+                        UOMCode : true
+                    },
+                }),
+                this._db.documentTypeMaster.findMany({
+                    where: { deletedAt: null },
+                    select: {
+                        DocumentTypeMasterSid: true,
+                        DocumentTypeName: true
+                    },
+                })
+
+            ]);
+            return { charges,uoms,docTypes }
+        } catch (error) {
+            console.error('Error fetching Rate Lookups:', error);
+            return {
+                charges: [],
+                uoms: [],
+                docTypes: []
+            };
         }
     }
 }

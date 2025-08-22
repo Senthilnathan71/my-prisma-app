@@ -460,4 +460,30 @@ export class BookingController {
         }
         return output
     }
+
+    @ApiOperation({ summary: 'Get Rate Lookups' })
+    @ApiCreatedResponse({
+        description: 'Booking Rate Lookups fetched successfully',
+        type: ResponseData
+    })
+    @Post('rate-lookup')
+    async getRateLookups(@Body() payload: any) {
+        let output = new ResponseData()
+        try {
+            let lookupDatas = await this.bookingService.getAllRateLookups(payload);
+            this.logger.debug(`getRateLookups: ${JSON.stringify(lookupDatas)}`)
+            output.data = lookupDatas;
+            output.message = "Rate lookups fetched successfully";
+
+        } catch (error) {
+            this.logger.warn(`getRateLookups error: ${JSON.stringify(error), error}`)
+            output.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                output.message = error.message;
+            } else {
+                output.message = error;
+            }
+        }
+        return output
+    }
 }
