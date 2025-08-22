@@ -80,7 +80,7 @@ export class BookingService {
                         InternalNote: payload.InternalNote,
                         GeneralNote: payload.GeneralNote,
                         NominatedBy: payload.NominatedBy,
-                        ShipmentNo: payload.ShipmentNo
+                        ShipmentNo: BookingNo
                     }
                 })
 
@@ -239,14 +239,15 @@ export class BookingService {
                         ChargeUomSid: rate.ChargeUomSid,
                         NumberOfUnit: Number(rate.NumberOfUnit),
                         DrCr: rate.DrCr,
+                        CostRevenue : rate.CostRevenue,
                         CurrencyMasterSid: rate.CurrencyMasterSid,
                         ExchangeRate: Number(rate.ExchangeRate),
                         Rate: Number(rate.Rate),
                         Amount: Number(rate.Amount),
                         LocalAmount: Number(rate.LocalAmount),
                         CustomerMasterSid: rate.CustomerMasterSid,
-                        CustomerBranchSid: rate.CustomerBranchSid,
-                        VoucherHeaderSid: rate.VoucherHeaderSid,
+                        CustomerBranchSid: newBooking.CustomerBranchSid,
+                        VoucherHeaderSid: Number(rate.VoucherHeaderSid),
                         VoucherTypeSid: rate.VoucherTypeSid,
                         CreatedBy: payload.createdBy,
                         Status: 'A'
@@ -277,7 +278,7 @@ export class BookingService {
                         MilestoneMasterSid: milestone.MilestoneMasterSid,
                         MilestoneName: milestone.MilestoneName,
                         MilestoneDate: milestone.MilestoneDate,
-                        AutoCaptured: milestone.AutoCaptured
+                        AutoCaptured: milestone.AutoCaptured ? 'Y' : 'N'
                     }
                     return milestoneData;
                 })
@@ -619,7 +620,7 @@ export class BookingService {
                                 ETD: connection.ETD,
                                 ETA: connection.ETA,
                                 updatedBy: payload.updatedBy,
-                                status: connection.status
+                                status: connection.status === "Active" ? "A" : "S" 
                             }
                         })
                     }
@@ -642,7 +643,7 @@ export class BookingService {
                             data: {
                                 CompanyMasterSid: payload.CompanyMasterSid,
                                 BranchMasterSid: payload.BranchMasterSid,
-                                BookingHeaderSid: payload.BookingHeaderSid,
+                                BookingHeaderSid: updatedBooking.BookingHeaderSid,
                                 SerialNumber: Number(rate.SerialNumber),
                                 ChargeMasterSid: rate.ChargeMasterSid,
                                 ChargeDescription: rate.ChargeDescription,
@@ -652,12 +653,13 @@ export class BookingService {
                                 DrCr: rate.DrCr,
                                 CurrencyMasterSid: rate.CurrencyMasterSid,
                                 ExchangeRate: Number(rate.ExchangeRate),
+                                CostRevenue : rate.CostRevenue,
                                 Rate: Number(rate.Rate),
                                 Amount: Number(rate.Amount),
                                 LocalAmount: Number(rate.LocalAmount),
                                 CustomerMasterSid: rate.CustomerMasterSid,
-                                CustomerBranchSid: rate.CustomerBranchSid,
-                                VoucherHeaderSid: rate.VoucherHeaderSid,
+                                CustomerBranchSid: updatedBooking.CustomerBranchSid!,
+                                VoucherHeaderSid: Number(rate.VoucherHeaderSid),
                                 VoucherTypeSid: rate.VoucherTypeSid,
                                 CreatedBy: payload.updatedBy,
                                 Status: 'A'
@@ -677,15 +679,16 @@ export class BookingService {
                                 DrCr: rate.DrCr,
                                 CurrencyMasterSid: rate.CurrencyMasterSid,
                                 ExchangeRate: Number(rate.ExchangeRate),
+                                CostRevenue : rate.CostRevenue,
                                 Rate: Number(rate.Rate),
                                 Amount: Number(rate.Amount),
                                 LocalAmount: Number(rate.LocalAmount),
                                 CustomerMasterSid: rate.CustomerMasterSid,
                                 CustomerBranchSid: rate.CustomerBranchSid,
-                                VoucherHeaderSid: rate.VoucherHeaderSid,
+                                VoucherHeaderSid: Number(rate.VoucherHeaderSid),
                                 VoucherTypeSid: rate.VoucherTypeSid,
                                 UpdatedBy: payload.updatedBy,
-                                Status: payload.Status
+                                Status: payload.Status === "Active" ? "A" : "S"
                             }
                         })
                     }
@@ -715,7 +718,7 @@ export class BookingService {
                                 MilestoneMasterSid: milestone.MilestoneMasterSid,
                                 MilestoneName: milestone.MilestoneName,
                                 MilestoneDate: milestone.MilestoneDate,
-                                AutoCaptured: milestone.AutoCaptured
+                                AutoCaptured: milestone.AutoCaptured ? 'Y' : 'N'
                             }
                         })
                     } else {
@@ -728,7 +731,7 @@ export class BookingService {
                                 MilestoneMasterSid: milestone.MilestoneMasterSid,
                                 MilestoneName: milestone.MilestoneName,
                                 MilestoneDate: milestone.MilestoneDate,
-                                AutoCaptured: milestone.AutoCaptured
+                                AutoCaptured: milestone.AutoCaptured ? 'Y' : 'N'
                             }
                         })
                     }
@@ -1260,6 +1263,35 @@ export class BookingService {
                 uoms: [],
                 docTypes: []
             };
+        }
+    }
+
+    async getTariffByQuoteDetails(payload) {
+        try {
+            const allTariffDetails = await this._db.tariffDetail.findMany({
+                where: {
+                    CompanyMasterSid : payload.CompanyMasterSid,
+                    EffectiveDate: { lte: new Date(payload.EffectiveDate) },
+                    ExpiredOn: { gte: new Date(payload.ExpiredDate) },
+                    CargoType: payload.CargoType,
+                    tariffHeader: {
+                        CompanyMasterSid : payload.CompanyMasterSid,
+                        DepartmentMasterSid: payload.DepartmentMasterSid,
+                        POOSid: payload.PORSid,
+                        POLSid: payload.POLSid,
+                        PODSid: payload.PODSid,
+                        FDCSid: payload.FPODSid
+                    }
+                },
+                include: {
+                    currencyMasterBuy: { select: { currencyName: true, currencyCode: true } },
+                    currencyMasterSale: { select: { currencyName: true } },
+                    UOMMaster: { select: { UOMName: true, UOMCode: true } }
+                }
+            })
+            return allTariffDetails;
+        } catch (error) {
+            throw error;
         }
     }
 }
