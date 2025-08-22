@@ -4,7 +4,10 @@ import { ResponseData } from 'src/common/response-data';
 import { PreCustomerMeetingService } from 'src/crm/services/PreCustomerMeeting/pre-customer-meeting/pre-customer-meeting.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 
-
+class CompanyIdDto {
+  CompanyMasterSid: number;
+  BranchMasterSid: number;
+}
 @Controller('pre-customer-meeting')
 export class PreCustomerMeetingController {
     constructor(
@@ -44,11 +47,11 @@ export class PreCustomerMeetingController {
         type: ResponseData
     })
     @HttpCode(HttpStatus.OK)
-    @Get()
-    async getAllPreCustomerMeetings() {
+    @Post()
+    async getAllPreCustomerMeetings(@Body() body: CompanyIdDto) {
         let resp = new ResponseData();
         try {
-            let res = await this.preCustomerMeetingService.getAllPreCustomerMeetings();
+            let res = await this.preCustomerMeetingService.getAllPreCustomerMeetings(body.CompanyMasterSid, body.BranchMasterSid);
             this.logger.log(`All PreCustomerMeetings Fetched : ${JSON.stringify(res)}`);
             resp.data = res;
             resp.message = "All PreCustomerMeetings are successfully fetched";

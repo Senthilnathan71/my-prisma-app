@@ -6,9 +6,12 @@ import { ResponseData } from 'src/common/response-data';
 import { CreatePrecustomerDto } from 'src/masters/DTO/create-Precustomer.dto';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { PrecustomerService } from 'src/masters/services/precustomer/precustomer.service';
-
+class CompanyIdDto {
+  CompanyMasterSid: number;
+  BranchMasterSid: number;
+}
 @Controller('precustomer')
-@Auth()
+
 export class PrecustomerController {
 
     constructor(private precustomerSer: PrecustomerService, private logger: Logger) { }
@@ -19,12 +22,12 @@ export class PrecustomerController {
         type: ResponseData
     })
     @HttpCode(HttpStatus.OK)
-    @Get('customer')
-    async getAllCustomer(@UserData() UserData: any) {
+    @Post('customer')
+    async getAllCustomer(@Body() body: CompanyIdDto) {
         const output = new ResponseData
         try {
-            const customers = await this.precustomerSer.getAllCustomer(UserData)
-            output.data = customers;
+            const customers = await this.precustomerSer.getAllCustomer(body.CompanyMasterSid)
+            output.data = customers; 
             this.logger.log(`getAllCustomer: ${JSON.stringify(customers)}`)
         } catch (error) {
             this.logger.warn(`getAllCustomers ${error}`)
