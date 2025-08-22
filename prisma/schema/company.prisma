@@ -86,6 +86,7 @@ model CompanyMaster {
     AuthorityLog        AuthorityLog[]
     bookingRates        BookingRates[]
     shipmentMilestone   ShipmentMilestone[]
+    followup            Followup[]
 }
 
 model BranchMaster {
@@ -168,6 +169,7 @@ model BranchMaster {
     AuthorityLog       AuthorityLog[]
     bookingRates       BookingRates[]
     shipmentMilestone  ShipmentMilestone[]
+    followup           Followup[]
 }
 
 model UserMaster {
@@ -2151,4 +2153,30 @@ model AuthorityLog {
     CompanyMaster   CompanyMaster   @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
     BranchMaster    BranchMaster    @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
     AuthorityDetail AuthorityDetail @relation(fields: [AuthorityDetailSid], references: [AuthorityDetailSid])
+}
+
+model Followup {
+    FollowupSid      Int       @id @default(autoincrement())
+    CompanyMasterSid Int
+    BranchMasterSid  Int
+    CreatedOn        DateTime  @default(now())
+    CreatedBy        String    @db.VarChar(100)
+    UpdatedOn        DateTime  @default(now())
+    UpdatedBy        String?   @db.VarChar(100)
+    Status           String?   @default("A") @db.Char(1)
+    DocumentSid      Int?
+    AttachDocmentNo  String?   @db.VarChar(20)
+    DocumentDate     DateTime? @db.Date
+    FileName         String?   @db.VarChar(30)
+    Documenttype     String?   @db.VarChar(20)
+    ReceivedDate     DateTime? @db.Date
+    FollowupRequire  String    @default("N") @db.Char(1)
+    FollowupDate     DateTime  @db.Date
+    FollowupAction   String    @db.VarChar(500)
+    Remarks          String?   @db.VarChar(500)
+    Public           String    @default("N") @db.Char(1)
+    sentEmail        String?   @default("N") @db.Char(1)
+
+    CompanyMaster CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+    BranchMaster  BranchMaster  @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
 }
