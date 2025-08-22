@@ -140,9 +140,13 @@ export class EnquiryHeaderService {
 
 
 
-    async getAllEnquiries() {
+    async getAllEnquiries(CompanyMasterSid:number, BranchMasterSid:number) {
         try {
             const enquiries = await this._db.enquiryHeader.findMany({
+                 where: {
+                CompanyMasterSid: CompanyMasterSid,
+                BranchMasterSid: BranchMasterSid
+            },
                 include: {
                     enquiryRoute: {
                         include: {
@@ -463,11 +467,12 @@ export class EnquiryHeaderService {
         }
     }
 
-    async getAllDepartment() {
+    async getAllDepartment(CompanyMasterSid:number) {
         try {
             const customer = await this._db.departmentMaster.findMany({
                 where : {
-                    deletedAt : null
+                    deletedAt : null,
+                    CompanyMasterSid: CompanyMasterSid
                 }
             });
             return customer;
@@ -477,9 +482,15 @@ export class EnquiryHeaderService {
     }
 
 
-    async getAllCargoTypes() {
+    async getAllCargoTypes(CompanyMasterSid:number) {
+       
         try {
-            const customer = await this._db.packageTypeMaster.findMany({});
+            const customer = await this._db.packageTypeMaster.findMany({
+                 where :{
+            CompanyMasterSid:CompanyMasterSid
+
+        }
+            });
             return customer;
         } catch (error) {
             throw error
@@ -498,13 +509,15 @@ export class EnquiryHeaderService {
 
 
     async searchEnquiry(param:SearchVesselDto) {
-        const {search ='',page = 1 , pageSize = 10} = param;
+        const {search ='',page = 1 , pageSize = 10, activeCompanyId,activeBranchId } = param;
         const skip = (page - 1) * pageSize;
         const parsedDate = parseDateFromString(search);
         console.log(parsedDate);
         const where : Prisma.EnquiryHeaderWhereInput = {
             deletedAt : null,
             status : 'A',
+            CompanyMasterSid : activeCompanyId,
+            BranchMasterSid : activeBranchId,
             ...(search ?
                 {
                     OR : [
