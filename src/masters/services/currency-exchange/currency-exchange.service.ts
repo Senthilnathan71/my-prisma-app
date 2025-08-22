@@ -147,4 +147,43 @@ export class CurrencyExchangeService {
         totalCount,
     };
 }
+
+    async getExchangeRate(payload: any) {
+
+        try {
+            const fromCurrency = payload.fromCurrencyCode;
+            const toCurrency = payload.toCurrencyCode;
+
+            const directRecord = await this._db.currencyExchange.findFirst({
+                where : {
+                    FromCurrency : fromCurrency,
+                    ToCurrency : toCurrency,
+                    deletedAt : null,
+                    status : 'A'
+                }
+            })
+            if(directRecord){
+                return directRecord.BuyRate;
+            }
+            
+            const inverseRecord = await this._db.currencyExchange.findFirst({
+                where : {
+                    FromCurrency : toCurrency,
+                    ToCurrency : fromCurrency,
+                    deletedAt : null,
+                    status : 'A'
+                }
+            })
+            if(inverseRecord){
+                return inverseRecord.SellRate;
+            }
+
+            return null;
+
+        } catch (error) {
+            throw error;
+        }
+
+
+    }
 }

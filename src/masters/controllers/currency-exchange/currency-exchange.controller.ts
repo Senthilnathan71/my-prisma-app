@@ -181,5 +181,31 @@ export class CurrencyExchangeController {
         return resp;
     }
 
+    @ApiOperation({ summary: 'Get Exchange Rate' })
+    @ApiCreatedResponse({
+        description: "Exchange Rate is fetched successfully",
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Post('exchange-rate')
+    async getExchangeRate(@Body() payload: any) {
+        let resp = new ResponseData();
+        try {
+            let res = await this.currencyExService.getExchangeRate(payload);
+            this.logger.log(`Get Exchange Rate Results : ${JSON.stringify(res)}`);
+            resp.data = res;
+            resp.message = "Exchange Rate is fetched successfully";
+        } catch (error) {
+            this.logger.warn(`et Exchange Rate Error : ${error}`)
+            resp.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                resp.message = error.message;
+            } else {
+                resp.message = "Internal Server Error";
+            }
+        }
+        return resp;
+    }
+
 
 }

@@ -1205,6 +1205,9 @@ export class BookingService {
                     CompanyMasterSid : payload.CompanyMasterSid,
                     BranchMasterSid : payload.BranchMasterSid,
                     deletedAt : null
+                },
+                orderBy : {
+                    ShipmentMilestoneSid : 'asc'
                 }
             })
             return allShipmentMilestone;

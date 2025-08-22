@@ -444,7 +444,7 @@ export class BookingController {
     async getShipmentMilestoneByShipmentNo(@Body() payload: any) {
         let output = new ResponseData()
         try {
-            let lookupDatas = await this.bookingService.getAllMilestones(payload);
+            let lookupDatas = await this.bookingService.getShipmentMilestoneByShipmentNo(payload);
             this.logger.debug(`getShipmentMilestoneByShipmentNo: ${JSON.stringify(lookupDatas)}`)
             output.data = lookupDatas;
             output.message = "All Shipment Milestone with provided shipment no. fetched successfully";
