@@ -4,11 +4,33 @@ import { DatabaseService } from 'src/database/database.service';
 import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 import * as moment from 'moment-timezone';
 import { GlobalConfigService } from 'src/common/config/master-config.service';
+import { OperationCommonService } from '../operation-common/operation-common.service';
+import { CurrencyExchangeService } from 'src/masters/services/currency-exchange/currency-exchange.service';
+
+interface CostRevenueDTO {
+    MenuMasterSid ?: number,
+    CompanyMasterSid ?: number,
+    BranchMasterSid ?: number,
+    TransactionSid ?: number,
+    ShipmentNo ?: string  
+}
+
+interface ShipmentMilestoneDTO {
+    CompanyMasterSid ?: number,
+    BranchMasterSid ?: number,
+    ShipmentNo ?: string
+}
 
 @Injectable()
 export class BookingService {
 
-    constructor(private _db: DatabaseService, private globalConfigService: GlobalConfigService, private logger: Logger) { }
+    constructor(
+        private _db: DatabaseService, 
+        private globalConfigService: GlobalConfigService, 
+        private logger: Logger,
+        private commonService : OperationCommonService,
+        private currencyExchangeService : CurrencyExchangeService
+    ) { }
 
     async createBooking(payload: any) {
 
@@ -35,6 +57,7 @@ export class BookingService {
                         // Section - 1 
                         CompanyMasterSid: payload.CompanyMasterSid,
                         BranchMasterSid: payload.BranchMasterSid,
+                        MenuMasterSid : payload.MenuMasterSid,
                         BookingNo: BookingNo,
                         BookingDateTime: new Date(),
                         DepartmentMasterSid: payload.DepartmentMasterSid,
@@ -127,6 +150,7 @@ export class BookingService {
                         ProductName: product.ProductName,
                         ShippingBillNo: product.ShippingBillNo,
                         ShippingBillDate: product.ShippingBillDate,
+                        ProductDescription : product.CargoRecDate,
                         ExternaPkg: product.ExternaPkg,
                         ExternlQty: product.ExternlQty,
                         GrossWeight: Number(product.GrossWeight),
@@ -141,7 +165,7 @@ export class BookingService {
                         Height: product.Height,
                         UomMasterSid: product.UomMasterSid,
                         createdBy: payload.createdBy,
-                        status: 'A'
+                        status: 'A',
                     }
                     return productData;
                 }) || [];
@@ -170,6 +194,9 @@ export class BookingService {
                     ForwarderAddress: otherPayload.ForwarderAddress,
                     NotifyParty: otherPayload.NotifyParty,
                     NotifyPartyAddress: otherPayload.NotifyPartyAddress,
+                    Notify2: otherPayload?.Notify2,
+                    NotifyAddress2: otherPayload?.NotifyAddress2,
+                    Coloader: otherPayload?.Coloader,
                     PickupPlace: otherPayload.PickupPlace,
                     DeliveryPlace: otherPayload.DeliveryPlace,
                     DeliveryDate: otherPayload.DeliveryDate,
@@ -184,7 +211,12 @@ export class BookingService {
                     ReleaseType: otherPayload.ReleaseType,
                     BacktoBack: otherPayload.BacktoBack,
                     Depo: otherPayload.Depo,
-                    ROValidity: otherPayload.ROValidity
+                    ROValidity: otherPayload.ROValidity,
+                    SwitchBLAgent: otherPayload?.SwitchBLAgent,
+                    AgentAddress: otherPayload?.AgentAddress,
+                    SwitchBLShipper: otherPayload?.SwitchBLShipper,
+                    SwitchBLConsignee: otherPayload?.SwitchBLConsignee,
+                    SwitchLocation: otherPayload?.SwitchLocation
                 }
 
                 let createdOthers = await prisma.bookingOthers.create({
@@ -226,38 +258,40 @@ export class BookingService {
                     |   Step 6 : Create Booking Rates
                     |--------------------------------------------------
                 */
-
-                const allRates: any[] = (payload.bookingRates || []).map(rate => {
-                    const rateData = {
-                        CompanyMasterSid: newBooking.CompanyMasterSid,
-                        BranchMasterSid: newBooking.BranchMasterSid,
-                        BookingHeaderSid: newBooking.BookingHeaderSid,
-                        SerialNumber: Number(rate.SerialNumber),
-                        ChargeMasterSid: rate.ChargeMasterSid,
-                        ChargeDescription: rate.ChargeDescription,
-                        PrepaidCollect: rate.PrepaidCollect,
-                        ChargeUomSid: rate.ChargeUomSid,
-                        NumberOfUnit: Number(rate.NumberOfUnit),
-                        DrCr: rate.DrCr,
+               let allRates : any[] = (payload.bookingRates || []).map(
+                rate => {
+                    return {
+                        TransactionSid : newBooking.BookingHeaderSid,
+                        MenuMasterSid : payload.MenuMasterSid,
+                        ShipmentNo : newBooking.ShipmentNo,
+                        CompanyMasterSid : payload.CompanyMasterSid,
+                        BranchMasterSid : payload.BranchMasterSid,
+                        SerialNumber : Number(rate.SerialNumber),
+                        ChargeMasterSid : rate.ChargeMasterSid,
+                        ChargeDescription :rate.ChargeDescription,
+                        ChargeUomSid : rate.ChargeUomSid,
+                        PrepaidCollect : rate.PrepaidCollect,
                         CostRevenue : rate.CostRevenue,
-                        CurrencyMasterSid: rate.CurrencyMasterSid,
-                        ExchangeRate: Number(rate.ExchangeRate),
-                        Rate: Number(rate.Rate),
-                        Amount: Number(rate.Amount),
-                        LocalAmount: Number(rate.LocalAmount),
-                        CustomerMasterSid: rate.CustomerMasterSid,
-                        CustomerBranchSid: newBooking.CustomerBranchSid,
-                        VoucherHeaderSid: Number(rate.VoucherHeaderSid),
-                        VoucherTypeSid: rate.VoucherTypeSid,
-                        CreatedBy: payload.createdBy,
-                        Status: 'A'
+                        CurrencyMasterSid : rate.CurrencyMasterSid,
+                        ExchangeRate : Number(rate.ExchangeRate),
+                        Rate : Number(rate.Rate),
+                        NumberOfUnit : Number(rate.NumberOfUnit),
+                        DrCr : rate.DrCr,
+                        Amount : Number(rate.Amount),
+                        LocalAmount : Number(rate.LocalAmount),
+                        CustomerMasterSid : rate.CustomerMasterSid,
+                        CustomerBranchSid : newBooking.CustomerBranchSid,
+                        VoucherHeaderSid : Number(rate.VoucherHeaderSid),
+                        VoucherTypeSid : rate.VoucherTypeSid,
+                        status : 'A',
+                        createdBy : payload.createdBy
                     }
-                    return rateData;
-                })
-
+                }
+               )
+               
                 let createdRates;
                 if (allRates.length > 0) {
-                    createdRates = await prisma.bookingRates.createMany({
+                    createdRates = await prisma.costRevenueCharges.createMany({
                         data: allRates
                     })
                 }
@@ -329,14 +363,24 @@ export class BookingService {
                     bookingCargo: { where: { deletedAt: null } },
                     bookingProduct: { where: { deletedAt: null } },
                     bookingOthers: { where: { deletedAt: null } },
-                    bookingConnection: { where: { deletedAt: null } },
-                    bookingRates : { where : { deletedAt : null }}
+                    bookingConnection: { where: { deletedAt: null } }
                 }
             })
             if (!ourBooking) {
                 throw new BadRequestException('Error fetching booking record.');
             }
-            return ourBooking;
+            const costRevenuePayload : CostRevenueDTO = {
+                MenuMasterSid : ourBooking.MenuMasterSid!,
+                CompanyMasterSid : ourBooking.CompanyMasterSid,
+                BranchMasterSid : ourBooking.BranchMasterSid!,
+                TransactionSid : ourBooking.BookingHeaderSid,
+                ShipmentNo : ourBooking.ShipmentNo!
+            }
+            const respectiveCostRevenueCharges = await this.commonService.getAllCostRevenueCharges(costRevenuePayload);
+            return {
+                ...ourBooking,
+                bookingRates : respectiveCostRevenueCharges
+            }
         } catch (error) {
             throw error;
         }
@@ -358,6 +402,7 @@ export class BookingService {
                         CustomerName: payload.CustomerName,
                         CustomerAddress: payload.CustomerAddress,
                         CustomerBranchSid: payload.CustomerBranchSid,
+                        MenuMasterSid : payload.MenuMasterSid,
                         SalesmanSid: payload.SalesmanSid,
                         ShipperName: payload.ShipperName,
                         ShipperAddress: payload.ShipperAddress,
@@ -467,6 +512,7 @@ export class BookingService {
                                 ProductName: product.ProductName,
                                 ShippingBillNo: product.ShippingBillNo,
                                 ShippingBillDate: product.ShippingBillDate,
+                                ProductDescription : product.CargoRecDate,
                                 ExternaPkg: product.ExternaPkg,
                                 ExternlQty: product.ExternlQty,
                                 GrossWeight: Number(product.GrossWeight),
@@ -491,6 +537,7 @@ export class BookingService {
                                 ProductName: product.ProductName,
                                 ShippingBillNo: product.ShippingBillNo,
                                 ShippingBillDate: product.ShippingBillDate,
+                                ProductDescription : product.CargoRecDate,
                                 ExternaPkg: product.ExternaPkg,
                                 ExternlQty: product.ExternlQty,
                                 GrossWeight: Number(product.GrossWeight),
@@ -531,6 +578,9 @@ export class BookingService {
                             ForwarderAddress: otherPayload.ForwarderAddress,
                             NotifyParty: otherPayload.NotifyParty,
                             NotifyPartyAddress: otherPayload.NotifyPartyAddress,
+                            Notify2: otherPayload?.Notify2,
+                            NotifyAddress2: otherPayload?.NotifyAddress2,
+                            Coloader: otherPayload?.Coloader,
                             PickupPlace: otherPayload.PickupPlace,
                             DeliveryPlace: otherPayload.DeliveryPlace,
                             DeliveryDate: otherPayload.DeliveryDate,
@@ -545,7 +595,12 @@ export class BookingService {
                             ReleaseType: otherPayload.ReleaseType,
                             BacktoBack: otherPayload.BacktoBack,
                             Depo: otherPayload.Depo,
-                            ROValidity: otherPayload.ROValidity
+                            ROValidity: otherPayload.ROValidity,
+                            SwitchBLAgent: otherPayload?.SwitchBLAgent,
+                            AgentAddress: otherPayload?.AgentAddress,
+                            SwitchBLShipper: otherPayload?.SwitchBLShipper,
+                            SwitchBLConsignee: otherPayload?.SwitchBLConsignee,
+                            SwitchLocation: otherPayload?.SwitchLocation
                         }
                     })
 
@@ -561,6 +616,9 @@ export class BookingService {
                             ForwarderAddress: otherPayload.ForwarderAddress,
                             NotifyParty: otherPayload.NotifyParty,
                             NotifyPartyAddress: otherPayload.NotifyPartyAddress,
+                            Notify2: otherPayload?.Notify2,
+                            NotifyAddress2: otherPayload?.NotifyAddress2,
+                            Coloader: otherPayload?.Coloader,
                             PickupPlace: otherPayload.PickupPlace,
                             DeliveryPlace: otherPayload.DeliveryPlace,
                             DeliveryDate: otherPayload.DeliveryDate,
@@ -575,7 +633,12 @@ export class BookingService {
                             ReleaseType: otherPayload.ReleaseType,
                             BacktoBack: otherPayload.BacktoBack,
                             Depo: otherPayload.Depo,
-                            ROValidity: otherPayload.ROValidity
+                            ROValidity: otherPayload.ROValidity,
+                            SwitchBLAgent: otherPayload?.SwitchBLAgent,
+                            AgentAddress: otherPayload?.AgentAddress,
+                            SwitchBLShipper: otherPayload?.SwitchBLShipper,
+                            SwitchBLConsignee: otherPayload?.SwitchBLConsignee,
+                            SwitchLocation: otherPayload?.SwitchLocation
                         }
                     })
                 }
@@ -638,57 +701,63 @@ export class BookingService {
                 for (const rate of payload.bookingRates) {
                     let createdBookingRate;
                     let updatedBookingRate;
-                    if (!rate.BookingRatesSid) {
-                        createdBookingRate = await prisma.bookingRates.create({
+                    if (!rate.CostRevenueChargesSid) {
+                        createdBookingRate = await prisma.costRevenueCharges.create({
                             data: {
+                                TransactionSid: updatedBooking.BookingHeaderSid,
+                                MenuMasterSid: updatedBooking.MenuMasterSid!,
+                                ShipmentNo: updatedBooking.ShipmentNo,
                                 CompanyMasterSid: payload.CompanyMasterSid,
                                 BranchMasterSid: payload.BranchMasterSid,
-                                BookingHeaderSid: updatedBooking.BookingHeaderSid,
                                 SerialNumber: Number(rate.SerialNumber),
                                 ChargeMasterSid: rate.ChargeMasterSid,
                                 ChargeDescription: rate.ChargeDescription,
-                                PrepaidCollect: rate.PrepaidCollect,
                                 ChargeUomSid: rate.ChargeUomSid,
-                                NumberOfUnit: Number(rate.NumberOfUnit),
-                                DrCr: rate.DrCr,
+                                PrepaidCollect: rate.PrepaidCollect,
+                                CostRevenue: rate.CostRevenue,
                                 CurrencyMasterSid: rate.CurrencyMasterSid,
                                 ExchangeRate: Number(rate.ExchangeRate),
-                                CostRevenue : rate.CostRevenue,
                                 Rate: Number(rate.Rate),
+                                NumberOfUnit: Number(rate.NumberOfUnit),
+                                DrCr: rate.DrCr,
                                 Amount: Number(rate.Amount),
                                 LocalAmount: Number(rate.LocalAmount),
                                 CustomerMasterSid: rate.CustomerMasterSid,
-                                CustomerBranchSid: updatedBooking.CustomerBranchSid!,
+                                CustomerBranchSid: updatedBooking.CustomerBranchSid,
                                 VoucherHeaderSid: Number(rate.VoucherHeaderSid),
                                 VoucherTypeSid: rate.VoucherTypeSid,
-                                CreatedBy: payload.updatedBy,
-                                Status: 'A'
+                                status: 'A',
+                                createdBy: payload.updatedBy
                             }
                         })
                     } else {
-                        updatedBookingRate = await prisma.bookingRates.update({
-                            where: { BookingRatesSid: rate.BookingRatesSid },
+                        updatedBookingRate = await prisma.costRevenueCharges.update({
+                            where: { CostRevenueChargesSid: rate.CostRevenueChargesSid },
                             data: {
-                                BookingHeaderSid: updatedBooking.BookingHeaderSid,
+                                TransactionSid: updatedBooking.BookingHeaderSid,
+                                MenuMasterSid: updatedBooking.MenuMasterSid!,
+                                ShipmentNo: updatedBooking.ShipmentNo,
+                                CompanyMasterSid: payload.CompanyMasterSid,
+                                BranchMasterSid: payload.BranchMasterSid,
                                 SerialNumber: Number(rate.SerialNumber),
                                 ChargeMasterSid: rate.ChargeMasterSid,
                                 ChargeDescription: rate.ChargeDescription,
-                                PrepaidCollect: rate.PrepaidCollect,
                                 ChargeUomSid: rate.ChargeUomSid,
-                                NumberOfUnit: Number(rate.NumberOfUnit),
-                                DrCr: rate.DrCr,
+                                PrepaidCollect: rate.PrepaidCollect,
+                                CostRevenue: rate.CostRevenue,
                                 CurrencyMasterSid: rate.CurrencyMasterSid,
                                 ExchangeRate: Number(rate.ExchangeRate),
-                                CostRevenue : rate.CostRevenue,
                                 Rate: Number(rate.Rate),
+                                NumberOfUnit: Number(rate.NumberOfUnit),
+                                DrCr: rate.DrCr,
                                 Amount: Number(rate.Amount),
                                 LocalAmount: Number(rate.LocalAmount),
                                 CustomerMasterSid: rate.CustomerMasterSid,
-                                CustomerBranchSid: rate.CustomerBranchSid,
+                                CustomerBranchSid: updatedBooking.CustomerBranchSid,
                                 VoucherHeaderSid: Number(rate.VoucherHeaderSid),
                                 VoucherTypeSid: rate.VoucherTypeSid,
-                                UpdatedBy: payload.updatedBy,
-                                Status: payload.Status === "Active" ? "A" : "S"
+                                status: 'A',
+                                updatedBy: payload.updatedBy
                             }
                         })
                     }
@@ -1028,7 +1097,7 @@ export class BookingService {
 
     async getAllHeaderLookups(payload: any) {
         try {
-            const [departments, vessels, ports, incos] = await this._db.$transaction([
+            const [departments, vessels, ports, incos, country] = await this._db.$transaction([
                 this._db.departmentMaster.findMany({
                     where: { deletedAt: null, CompanyMasterSid: payload.CompanyMasterSid },
                     select: {
@@ -1062,9 +1131,14 @@ export class BookingService {
                         IncoName: true,
                     },
                 }),
-
+                this._db.companyMaster.findFirst({
+                    where : {CompanyMasterSid : payload.CompanyMasterSid},
+                    select : {
+                        countryMaster : {select : {countryName : true}}
+                    }
+                })
             ]);
-            return { departments, vessels, ports, incos }
+            return { departments, vessels, ports, incos,country}
         } catch (error) {
             console.error('Error fetching Header Lookups:', error);
             return {
@@ -1266,33 +1340,74 @@ export class BookingService {
         }
     }
 
-    async getTariffByQuoteDetails(payload) {
+    async getTariffByBookingDetails(payload) {
         try {
             const allTariffDetails = await this._db.tariffDetail.findMany({
                 where: {
-                    CompanyMasterSid : payload.CompanyMasterSid,
                     EffectiveDate: { lte: new Date(payload.EffectiveDate) },
                     ExpiredOn: { gte: new Date(payload.ExpiredDate) },
-                    CargoType: payload.CargoType,
                     tariffHeader: {
-                        CompanyMasterSid : payload.CompanyMasterSid,
                         DepartmentMasterSid: payload.DepartmentMasterSid,
-                        POOSid: payload.PORSid,
                         POLSid: payload.POLSid,
                         PODSid: payload.PODSid,
-                        FDCSid: payload.FPODSid
-                    }
+
+                        ...(payload.CompanyMasterSid && { CompanyMasterSid: payload.CompanyMasterSid }),
+                        ...(payload.PORSid && { POOSid: payload.PORSid }),
+                        ...(payload.FPODSid && { FDCSid: payload.FPODSid }),
+                    },
+                    ...(payload.CargoType && { CargoType: payload.CargoType }),
                 },
-                include: {
-                    currencyMasterBuy: { select: { currencyName: true, currencyCode: true } },
-                    currencyMasterSale: { select: { currencyName: true } },
-                    UOMMaster: { select: { UOMName: true, UOMCode: true } }
-                }
-            })
-            return allTariffDetails;
+            });
+
+            const enrichedDetails = await Promise.all(
+                allTariffDetails.map(async (detail) => {
+                    const company = payload.CompanyMasterSid
+                        ? await this._db.companyMaster.findUnique({
+                            where: { CompanyMasterSid: payload.CompanyMasterSid },
+                        })
+                        : null;
+
+                    const fromCurrencyId = company?.CurrencyMasterSid!;
+                    const fromCurrency = fromCurrencyId
+                        ? await this.globalConfigService.getMasterData('currency_master', fromCurrencyId)
+                        : null;
+
+                    const costToCurrency = await this.globalConfigService.getMasterData(
+                        'currency_master',
+                        detail.BuyCurrency
+                    );
+                    const revenueToCurrency = await this.globalConfigService.getMasterData(
+                        'currency_master',
+                        detail.SaleCurrency
+                    );
+
+                    const costExchangeRate = fromCurrency
+                        ? await this.currencyExchangeService.getExchangeRate({
+                            fromCurrencyCode: costToCurrency.currencyCode,
+                            toCurrencyCode: fromCurrency.currencyCode,
+                        })
+                        : null;
+
+                    const revenueExchangeRate = fromCurrency
+                        ? await this.currencyExchangeService.getExchangeRate({
+                            fromCurrencyCode: revenueToCurrency.currencyCode,
+                            toCurrencyCode: fromCurrency.currencyCode,
+                        })
+                        : null;
+
+                    return {
+                        ...detail,
+                        costExchangeRate,
+                        revenueExchangeRate,
+                    };
+                })
+            );
+
+            return enrichedDetails;
         } catch (error) {
             throw error;
         }
     }
+
 }
 

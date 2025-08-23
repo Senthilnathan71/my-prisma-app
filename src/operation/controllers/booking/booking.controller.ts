@@ -76,7 +76,7 @@ export class BookingController {
             output.data = booking
             output.message = "Booking data fetched successfully by ID"
         } catch (error) {
-            this.logger.warn(`getBookingById: ${JSON.stringify(error)}`)
+            this.logger.warn(`getBookingById: ${JSON.stringify(error),error}`)
             output.status = false;
             if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
                 output.message = error.message;
@@ -485,5 +485,32 @@ export class BookingController {
             }
         }
         return output
+    }
+
+    @ApiOperation({ summary: 'Get Tariff Details by Booking Details' })
+    @ApiCreatedResponse({
+        description: 'Getting Tariff Details by Booking Details',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Post('tariffDetails')
+    async getTariffDetails(@Body() bookingDetails: any) {
+        const output = new ResponseData()
+        try {
+            const tariffs = await this.bookingService.getTariffByBookingDetails(bookingDetails)
+            this.logger.debug(`getTariffDetails: ${JSON.stringify(tariffs)}`)
+            output.data = tariffs;
+            output.message = "All tariff details are successfully fetched for respective routes"
+        } catch (error) {
+            this.logger.warn(`getTariffDetails: ${JSON.stringify(error), error}`)
+
+            output.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                output.message = error.message;
+            } else {
+                output.message = 'Internal Server Error';
+            }
+        }
+        return output;
     }
 }
