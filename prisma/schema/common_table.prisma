@@ -1,0 +1,41 @@
+model CostRevenueCharges {
+    CostRevenueChargesSid Int       @id @default(autoincrement())
+    TransactionSid        Int?
+    MenuMasterSid         Int
+    ShipmentNo            String?   @db.VarChar
+    MasterJobNo           String?   @db.VarChar
+    CompanyMasterSid      Int
+    BranchMasterSid       Int
+    SerialNumber          Decimal?  @db.Decimal(3, 0)
+    ChargeMasterSid       Int?
+    ChargeDescription     String?   @db.VarChar(100)
+    ChargeUomSid          Int?
+    PrepaidCollect        String?   @default("Prepaid") @db.VarChar(10)
+    CostRevenue           String?   @db.VarChar(10)
+    CurrencyMasterSid     Int?
+    ExchangeRate          Decimal?  @db.Decimal(6, 3)
+    Rate                  Decimal?  @db.Decimal(15, 3)
+    NumberOfUnit          Decimal?  @db.Decimal(4, 3)
+    DrCr                  String?   @db.Char(1)
+    Amount                Decimal?  @db.Decimal(15, 3)
+    LocalAmount           Decimal?  @db.Decimal(15, 3)
+    CustomerMasterSid     Int?
+    CustomerBranchSid     Int?
+    VoucherHeaderSid      Int?
+    VoucherTypeSid        Int?
+    createdOn             DateTime  @default(now()) @db.Timestamptz(6)
+    updatedOn             DateTime? @updatedAt @db.Timestamptz(6)
+    deletedAt             DateTime?
+    createdBy             String    @db.VarChar(100)
+    updatedBy             String?   @db.VarChar(100)
+    status                String?   @default("A") @db.Char(1)
+    Remarks               String?   @db.VarChar(100)
+
+    companyMaster  CompanyMaster   @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+    branchMaster   BranchMaster    @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
+    chargeMaster   ChargeMaster?   @relation(fields: [ChargeMasterSid], references: [ChargeMasterSid])
+    menuMaster     MenuMaster?     @relation(fields: [MenuMasterSid], references: [MenuMasterSid])
+    customerMaster CustomerMaster? @relation(fields: [CustomerMasterSid], references: [CustomerMasterSid])
+    currencyMaster CurrencyMaster? @relation(fields: [CurrencyMasterSid], references: [CurrencyMasterSid])
+    customerBranch CustomerBranch? @relation(fields: [CustomerBranchSid], references: [CustomerBranchSid])
+}

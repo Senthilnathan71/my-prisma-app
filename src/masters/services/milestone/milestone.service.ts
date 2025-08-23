@@ -127,13 +127,14 @@ export class MilestoneService {
     }
 
     async searchMilestone(params: SearchVesselDto) {
-    const { search = '', page = 1, pageSize = 15 ,activeCompanyId} = params;
+    const { search = '', page = 1, pageSize = 15 ,activeCompanyId,activeBranchId} = params;
     const skip = (page - 1) * pageSize;
 
     const where: any = {
         deletedAt: null,
         status: 'A',
         CompanyMasterSid : activeCompanyId,
+        BranchMasterSid: activeBranchId,
         ...(search
             ? {
                 OR: [

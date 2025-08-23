@@ -6,11 +6,13 @@ import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 export class PreCustomerMeetingService {
     constructor(private _db: DatabaseService) { }
 
-    async getAllPreCustomerMeetings() {
+    async getAllPreCustomerMeetings(CompanyMasterSid:number, BranchMasterSid:number) {
         try {
             const allMeetings = await this._db.preCustomerMeeting.findMany({
                 where: {
-                    deletedAt: null
+                    deletedAt: null,
+                    CompanyMasterSid: CompanyMasterSid,
+                    BranchMasterSid: BranchMasterSid
                 },
                 include : {
                     preCustomerMaster : {

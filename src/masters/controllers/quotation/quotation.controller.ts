@@ -6,6 +6,10 @@ import { EmailService } from "src/email/email.service";
 import { SearchListDto } from "src/masters/DTO/search-list.dto";
 import { SearchVesselDto } from "src/masters/DTO/search-vessel.dto";
 import { QuotationService } from "src/masters/services/quotation/quotation.service";
+class CompanyIdDto {
+  CompanyMasterSid: number;
+  BranchMasterSid: number;
+}
 
 @Controller('ff-quotation')
 export class QuotationController {
@@ -51,11 +55,11 @@ export class QuotationController {
         type: ResponseData
     })
     @HttpCode(HttpStatus.OK)
-    @Get()
-    async getAllQuotations() {
+    @Post()
+    async getAllQuotations(@Body() body: CompanyIdDto) {
         const output = new ResponseData
         try {
-            const quotations = await this.quotationService.getAllQuotations()
+            const quotations = await this.quotationService.getAllQuotations(body.CompanyMasterSid, body.BranchMasterSid)
             this.logger.debug(`getAllQuotations: ${JSON.stringify(quotations)}`)
             output.data = quotations;
         } catch (error) {
@@ -199,11 +203,11 @@ export class QuotationController {
 
 
 
-    @Get('unit-currency-charge')
-    async getAllMasters() {
+    @Post('unit-currency-charge')
+    async getAllMasters(@Body() body: CompanyIdDto) {
         const output = new ResponseData
         try {
-            const allMasters = await this.quotationService.getAllMasters()
+            const allMasters = await this.quotationService.getAllMasters(body.CompanyMasterSid)
             this.logger.debug(`getAllMasters: ${JSON.stringify(allMasters)}`)
             output.data = allMasters;
         } catch (error) {
@@ -219,11 +223,11 @@ export class QuotationController {
     }
 
 
-    @Get('carrier')
-    async getAllCustomer() {
+    @Post('carrier')
+    async getAllCustomer(@Body() body: CompanyIdDto) {
         const output = new ResponseData
         try {
-            const customers = await this.quotationService.getAllCustomer()
+            const customers = await this.quotationService.getAllCustomer(body.CompanyMasterSid)
             this.logger.debug(`getAllCustomer in quotation: ${JSON.stringify(customers)}`)
             output.data = customers;
         } catch (error) {

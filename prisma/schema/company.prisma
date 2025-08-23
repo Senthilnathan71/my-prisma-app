@@ -87,6 +87,7 @@ model CompanyMaster {
     bookingRates        BookingRates[]
     shipmentMilestone   ShipmentMilestone[]
     followup            Followup[]
+    costRevenueCharges  CostRevenueCharges[]
 }
 
 model BranchMaster {
@@ -170,6 +171,7 @@ model BranchMaster {
     bookingRates       BookingRates[]
     shipmentMilestone  ShipmentMilestone[]
     followup           Followup[]
+    costRevenueCharges CostRevenueCharges[]
 }
 
 model UserMaster {
@@ -228,32 +230,33 @@ model UserBranchMaster {
 }
 
 model CurrencyMaster {
-    currencyCode      String          @db.Char(3)
-    currencyName      String          @db.VarChar(100)
-    CurrencyUnit      String?         @db.VarChar(50) // Rupee
-    CurrencySubUnit   String?         @db.VarChar(50) // Paise
-    SubUnitIn         String?         @db.VarChar(30)
-    ShortCode         String?         @db.Char(3) // Rs
-    Symbol            String?         @db.Char(1) // symb
-    amountDecimal     Int
-    exchangeDecimal   Int
-    createdBy         String          @db.VarChar(100)
-    createdOn         DateTime        @default(now()) @db.Timestamptz(6)
-    updatedOn         DateTime        @updatedAt @db.Timestamptz(6)
-    deletedAt         DateTime?
-    updatedBy         String?         @db.VarChar(100)
-    status            String          @default("A") @db.Char(1)
-    CurrencyMasterSid Int             @id @default(autoincrement()) @map("CurrencyMasterSid")
-    LoginSid          Int?
-    RoundOf           String?         @db.VarChar(100)
-    branchMaster      BranchMaster[]
-    chargeMaster      ChargeMaster[]
-    companyMaster     CompanyMaster[]
-    quoteCharge       QuoteCharge[]
-    tariffDetailSale  TariffDetail[]  @relation("Sale")
-    tariffDetailBuy   TariffDetail[]  @relation("Buy")
-    countryMaster     CountryMaster[]
-    COAMaster         COAMaster[]
+    currencyCode       String               @db.Char(3)
+    currencyName       String               @db.VarChar(100)
+    CurrencyUnit       String?              @db.VarChar(50) // Rupee
+    CurrencySubUnit    String?              @db.VarChar(50) // Paise
+    SubUnitIn          String?              @db.VarChar(30)
+    ShortCode          String?              @db.Char(3) // Rs
+    Symbol             String?              @db.Char(1) // symb
+    amountDecimal      Int
+    exchangeDecimal    Int
+    createdBy          String               @db.VarChar(100)
+    createdOn          DateTime             @default(now()) @db.Timestamptz(6)
+    updatedOn          DateTime             @updatedAt @db.Timestamptz(6)
+    deletedAt          DateTime?
+    updatedBy          String?              @db.VarChar(100)
+    status             String               @default("A") @db.Char(1)
+    CurrencyMasterSid  Int                  @id @default(autoincrement()) @map("CurrencyMasterSid")
+    LoginSid           Int?
+    RoundOf            String?              @db.VarChar(100)
+    branchMaster       BranchMaster[]
+    chargeMaster       ChargeMaster[]
+    companyMaster      CompanyMaster[]
+    quoteCharge        QuoteCharge[]
+    tariffDetailSale   TariffDetail[]       @relation("Sale")
+    tariffDetailBuy    TariffDetail[]       @relation("Buy")
+    countryMaster      CountryMaster[]
+    COAMaster          COAMaster[]
+    costRevenueCharges CostRevenueCharges[]
 }
 
 model CurrencyExchange {
@@ -457,30 +460,31 @@ model UnitMaster {
 }
 
 model ChargeMaster {
-    chargeCode          String             @db.VarChar(5)
-    chargeName          String             @db.VarChar(100)
+    chargeCode          String               @db.VarChar(5)
+    chargeName          String               @db.VarChar(100)
     UOM                 Int?
-    HSNSAC              String?            @db.VarChar(100)
-    createdOn           DateTime           @default(now()) @db.Timestamptz(6)
-    updatedOn           DateTime           @updatedAt @db.Timestamptz(6)
+    HSNSAC              String?              @db.VarChar(100)
+    createdOn           DateTime             @default(now()) @db.Timestamptz(6)
+    updatedOn           DateTime             @updatedAt @db.Timestamptz(6)
     deletedAt           DateTime?
-    createdBy           String             @db.VarChar(100)
-    updatedBy           String?            @db.VarChar(100)
-    Remarks             String?            @db.VarChar(100)
-    Status              String             @db.Char(1)
+    createdBy           String               @db.VarChar(100)
+    updatedBy           String?              @db.VarChar(100)
+    Remarks             String?              @db.VarChar(100)
+    Status              String               @db.Char(1)
     ChargeGroupSid      Int?
-    ChargeMasterSid     Int                @id @default(autoincrement()) @map("ChargeMasterSid")
+    ChargeMasterSid     Int                  @id @default(autoincrement()) @map("ChargeMasterSid")
     CompanyMasterSid    Int?
     CurrencyMasterSid   Int?
     DepartmentMasterSid String[]
     TDSMasterSid        Int?
-    chargeGroup         ChargeGroup?       @relation(fields: [ChargeGroupSid], references: [ChargeGroupSid])
-    companyMaster       CompanyMaster?     @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
-    currencyMaster      CurrencyMaster?    @relation(fields: [CurrencyMasterSid], references: [CurrencyMasterSid])
-    tdsSetHeader        TDSSetHeader?      @relation(fields: [TDSMasterSid], references: [TDSSetHeaderSid])
+    chargeGroup         ChargeGroup?         @relation(fields: [ChargeGroupSid], references: [ChargeGroupSid])
+    companyMaster       CompanyMaster?       @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+    currencyMaster      CurrencyMaster?      @relation(fields: [CurrencyMasterSid], references: [CurrencyMasterSid])
+    tdsSetHeader        TDSSetHeader?        @relation(fields: [TDSMasterSid], references: [TDSSetHeaderSid])
     chargeTaxMapping    ChargeTaxMapping[]
     chargeTds           ChargeTds[]
     chargeTaxMaster     ChargeTaxMaster[]
+    costRevenueCharges  CostRevenueCharges[]
 }
 
 model ChargeTaxMaster {
@@ -799,6 +803,7 @@ model CustomerMaster {
     hawbStock          HawbStock[]
     mawbStock          MawbStock[]
     supplierTdsMapping SupplierTdsMapping[]
+    costRevenueCharges CostRevenueCharges[]
 }
 
 model PackageTypeMaster {
@@ -1172,6 +1177,7 @@ model CustomerBranch {
     bookingHeader      BookingHeader[]
     enquiryHeader      EnquiryHeader[]
     quoteHeader        QuoteHeader[]
+    costRevenueCharges CostRevenueCharges[]
 }
 
 model CusBranchContact {
