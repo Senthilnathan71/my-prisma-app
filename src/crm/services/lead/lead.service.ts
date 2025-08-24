@@ -24,10 +24,45 @@ export class LeadService {
 
     async createNewLead(payload){
         try {
+            if (payload.city && typeof payload.city === 'object') {
+        payload.CityMasterSid = payload.city.CityMasterSid;
+        delete payload.city;
+      }
+
+      if (!payload.CityMasterSid) {
+        throw new BadRequestException('CityMasterSid is required');
+      }
             const createdLead = await this._db.preCustomerMaster.create({
                 data :{
-                    ...payload,
-                    createdBy :'admin@crm.com'
+                    preCustomerName: payload.preCustomerName,
+    leadReferredBy: payload.leadReferredBy,
+    leadFrom: payload.leadFrom,
+    preCustomerType: payload.preCustomerType,
+    preCustomerAddress1: payload.preCustomerAddress1,
+    preCustomerAddress2: payload.preCustomerAddress2,
+    POBOX: payload.POBOX,
+    contactPerson: payload.contactPerson,
+    email: payload.email,
+    phone: payload.phone,
+    PreferredContactMode: payload.PreferredContactMode,
+    LanguagePreferrence: payload.LanguagePreferrence,
+    ServiceOfInterest: payload.ServiceOfInterest,
+    PurchaseTimeline: payload.PurchaseTimeline,
+    SpecificRequirements: payload.SpecificRequirements,
+    Industry: payload.Industry,
+    CompanySize: payload.CompanySize,
+    AnnualRevenue: payload.AnnualRevenue,
+    Notes: payload.Notes,
+    status: payload.status,
+    createdBy: payload.createdBy,
+
+    // ✅ Fix: connect required relations
+    companyMaster: { connect: { CompanyMasterSid: payload.CompanyMasterSid } },
+    branchMaster: payload.BranchMasterSid ? { connect: { BranchMasterSid: payload.BranchMasterSid } } : undefined,
+    countryMaster: payload.CountryMasterSid ? { connect: { CountryMasterSid: payload.CountryMasterSid } } : undefined,
+    stateMaster: { connect: { StateMasterSid: payload.StateMasterSid } },
+    cityMaster: { connect: { CityMasterSid: payload.CityMasterSid } },
+  
                 }
             })
             return createdLead;
@@ -62,6 +97,14 @@ export class LeadService {
             if(!exist){
                 throw new BadRequestException(`Lead with Id : ${PreCustomerMasterSid} not exists`);
             }
+            if (payload.city && typeof payload.city === 'object') {
+        payload.CityMasterSid = payload.city.CityMasterSid;
+        delete payload.city;
+      }
+
+      if (!payload.CityMasterSid) {
+        throw new BadRequestException('CityMasterSid is required');
+      }
             const updatedLead = this._db.preCustomerMaster.update({
                 where : {
                     PreCustomerMasterSid : PreCustomerMasterSid
@@ -118,12 +161,10 @@ export class LeadService {
     if (search) {
         where.OR = [
             { preCustomerName: { contains: search, mode: 'insensitive' } },
-            { customerName: { contains: search, mode: 'insensitive' } },
             { contactPerson: { contains: search, mode: 'insensitive' } },
             { email: { contains: search, mode: 'insensitive' } },
             { phone: { contains: search, mode: 'insensitive' } },
-            { address: { contains: search, mode: 'insensitive' } },
-            { city: { contains: search, mode: 'insensitive' } },
+            { preCustomerAddress1: { contains: search, mode: 'insensitive' } },
         ];
     }
 
