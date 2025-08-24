@@ -4,7 +4,10 @@ import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 import { ChargeGroupService } from 'src/masters/services/charge-group/charge-group.service';
-
+class CompanyIdDto {
+  CompanyMasterSid: number;
+ 
+}
 
 @Controller('charge-group')
 export class ChargeGroupController {
@@ -42,11 +45,11 @@ export class ChargeGroupController {
         type: ResponseData
     })
     @HttpCode(HttpStatus.OK)
-    @Get()
-    async getAllChargeGroups() {
+    @Post()
+    async getAllChargeGroups(@Body() body: CompanyIdDto) {
         let resp = new ResponseData();
         try {
-            let res = await this.chargeGroupService.getAllChargeGroups();
+            let res = await this.chargeGroupService.getAllChargeGroups(body.CompanyMasterSid);
             this.logger.log(`All Charge Groups Data: ${JSON.stringify(res)}`);
             resp.data = res;
             resp.message = "All charge groups are successfully fetched";

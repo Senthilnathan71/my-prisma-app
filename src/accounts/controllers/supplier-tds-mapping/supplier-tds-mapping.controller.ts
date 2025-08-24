@@ -45,10 +45,10 @@ export class SupplierTdsMappingController {
     })
     @HttpCode(HttpStatus.OK)
     @Post('create')
-    async createNewSupptdsMapping(@Body() newData: any,@UserData() user:any) {
+    async createNewSupptdsMapping(@Body() newData: any) {
         let resp = new ResponseData();
         try {
-            let res = await this.suppliertdsmappingService.createNewSupptdsMapping(newData,user);
+            let res = await this.suppliertdsmappingService.createNewSupptdsMapping(newData);
             this.logger.log(`New Supplier TDS Mapping Created : ${JSON.stringify(res)}`);
             resp.data = res;
             resp.message = "New Supplier TDS Mapping is successfully created"
