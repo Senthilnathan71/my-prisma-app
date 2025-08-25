@@ -22,6 +22,20 @@ export class ProductService {
         }
     }
 
+    async getAllProduct(){
+        try {
+            const allProducts = await this._db.productMaster.findMany({
+                where : {
+                    deletedAt:null,
+                }
+            })
+            return allProducts;
+        } catch (error) {
+            throw error;
+        }
+    }
+
+
     async createNewProduct(payload){
         try {
             const createdProduct = await this._db.productMaster.create({

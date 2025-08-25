@@ -42,6 +42,32 @@ export class PrecustomerController {
         return output;
     }
 
+     @ApiOperation({ summary: 'Get All Customer' })
+    @ApiCreatedResponse({
+        description: 'Get All Customer',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Get('fetch/customer')
+    async getAllCustomers() {
+        const output = new ResponseData
+        try {
+            const customers = await this.precustomerSer.getAllCustomers()
+            output.data = customers; 
+            this.logger.log(`getAllCustomer: ${JSON.stringify(customers)}`)
+        } catch (error) {
+            this.logger.warn(`getAllCustomers ${error}`)
+            output.status = false;
+            // Handle error message based on the type of error
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                output.message = error.message;
+            } else {
+                output.message = 'Internal Server Error';
+            }
+        }
+        return output;
+    }
+
     @ApiOperation({ summary: 'Get All PreCustomer' })
     @ApiCreatedResponse({
         description: 'Get All PreCustomer',

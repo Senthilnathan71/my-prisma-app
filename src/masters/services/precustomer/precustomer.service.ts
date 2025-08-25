@@ -33,6 +33,29 @@ export class PrecustomerService {
         }
     }
 
+    async getAllCustomers() {
+        try {
+            const customer = await this._db.customerMaster.findMany({
+                where : {
+                    deletedAt : null,
+                },
+                include: {
+                    preCustomerMaster: {
+                        include: {
+                            preCustomerMeeting: true
+                        }
+                    }
+                },
+                orderBy: {
+                    CustomerMasterSid: 'desc'  // Sorting by 'CustomerMasterSid' in descending order
+                }
+            });
+            return customer;
+        } catch (error) {
+            throw error
+        }
+    }
+
     async getAllPrecustomer(user) {
         try {
             const customer = await this._db.preCustomerMaster.findMany({
