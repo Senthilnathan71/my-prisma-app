@@ -2170,6 +2170,7 @@ model Followup {
     UpdatedOn        DateTime  @default(now())
     UpdatedBy        String?   @db.VarChar(100)
     Status           String?   @default("A") @db.Char(1)
+    deletedAt        Int?
     DocumentSid      Int?
     AttachDocmentNo  String?   @db.VarChar(20)
     DocumentDate     DateTime? @db.Date
@@ -2186,3 +2187,47 @@ model Followup {
     CompanyMaster CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
     BranchMaster  BranchMaster  @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
 }
+
+
+model ContainerActivity {
+  ContainerActivitySid Int      @id @default(autoincrement())
+  JobMasterSid         Int
+  ContainerNumber      String?  @db.VarChar(11)   // Lookup from MasterJobContainer
+  ContainerType        Int
+  ActivityCode         String   @db.VarChar(5)    // FK to ContainerActivityMaster
+  ActivityName         String   @db.VarChar(100)
+  ActivityDate         DateTime
+  ActivityFrom         String?  @db.VarChar(10)   // Depo, Yard, Dock, Port
+  ActivityTo           String?  @db.VarChar(10)   // Depo, Yard, Dock, Port, Shipper, Consignee
+  Remarks              String?  @db.VarChar(100)
+  CreatedOn        DateTime  @default(now())
+    CreatedBy        String    @db.VarChar(100)
+    UpdatedOn        DateTime  @default(now())
+    UpdatedBy        String?   @db.VarChar(100)
+    deletedAt        Int?
+    Status           String?   @default("A") @db.Char(1)
+
+  // Relations
+  activityMaster ContainerActivityMaster @relation(fields: [ActivityCode], references: [ActivityCode])
+}
+
+model ContainerActivityMaster {
+  ContainerActivityMasterSid Int     @id @default(autoincrement())
+  TransactionSid             Int
+  ActivityCode               String  @unique @db.VarChar(5)
+  ActivityName               String  @db.VarChar(100)
+  ContainerMoveStatus        String? @db.VarChar(10)   // Empty, Full, Damage
+  MoveType                   String? @db.VarChar(10)   // Inbound, Outbound
+  IsDamageMove               String  @default("N") @db.Char(1)
+  Remarks                    String? @db.VarChar(100)
+  Status                     String  @default("A") @db.Char(1)
+  CreatedOn                  DateTime
+  CreatedBy                  String  @db.VarChar(100)
+  UpdatedOn                  DateTime?
+  UpdatedBy                  String? @db.VarChar(100)
+  deletedAt                  DateTime?
+  // Relation
+  activities ContainerActivity[]
+}
+
+
