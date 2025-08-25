@@ -11,6 +11,7 @@ import { CrmModule } from './crm/crm.module';
 import { ShortcutModule } from './shortcut/shortcut.module';
 import { CommonModule } from './common/common.module';
 import { AccountsModule } from './accounts/accounts.module';
+import { OperationModule } from './operation/operation.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { AccountsModule } from './accounts/accounts.module';
     ShortcutModule,
     CommonModule,
     AccountsModule,
+    OperationModule,
   ],
   controllers: [AppController],
   providers: [AppService, Logger],

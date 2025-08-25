@@ -10,12 +10,14 @@ export class PreCustomerMeetingService {
     ) { }
 
 
-    async getPreCustomerMastersWithoutMeetings() {
+    async getPreCustomerMastersWithoutMeetings(CompanyMasterSid:number,BranchMasterSid:number) {
         const result = await this._db.preCustomerMaster.findMany({
             where: {
                 preCustomerMeeting: {
                     none: {} // Ensures no related PreCustomerMeeting exists
-                }
+                },
+                CompanyMasterSid: CompanyMasterSid,
+                BranchMasterSid: BranchMasterSid
             },
             include: {
                 preCustomerMeeting: true, // Include if needed for debugging, otherwise remove,
@@ -199,12 +201,13 @@ export class PreCustomerMeetingService {
 
 
 
-    async todoMeetings() {
+    async todoMeetings(CompanyMasterSid:number,BranchMasterSid:number) {
         let result: any = {};
 
         result.inActive = await this._db.preCustomerMaster.findMany({
             where: {
-                status: 'S'
+                status: 'S',
+                CompanyMasterSid:CompanyMasterSid
             }
         })
 

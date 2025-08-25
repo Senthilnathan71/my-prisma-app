@@ -1,16 +1,19 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
+import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 
 @Injectable()
 export class LeadService {
     constructor(private _db:DatabaseService, private logger: Logger){}
 
-    async getAllLeads(){
+    async getAllLeads(CompanyMasterSid:number,BranchMasterSid:number){
         try {
             const allLeads = await this._db.preCustomerMaster.findMany({
                 where : {
-                    deletedAt:null
+                    deletedAt:null,
+                    CompanyMasterSid: CompanyMasterSid,
+                    BranchMasterSid: BranchMasterSid
                 }
             })
             return allLeads;
@@ -21,10 +24,45 @@ export class LeadService {
 
     async createNewLead(payload){
         try {
+            if (payload.city && typeof payload.city === 'object') {
+        payload.CityMasterSid = payload.city.CityMasterSid;
+        delete payload.city;
+      }
+
+      if (!payload.CityMasterSid) {
+        throw new BadRequestException('CityMasterSid is required');
+      }
             const createdLead = await this._db.preCustomerMaster.create({
                 data :{
-                    ...payload,
-                    createdBy :'admin@crm.com'
+                    preCustomerName: payload.preCustomerName,
+    leadReferredBy: payload.leadReferredBy,
+    leadFrom: payload.leadFrom,
+    preCustomerType: payload.preCustomerType,
+    preCustomerAddress1: payload.preCustomerAddress1,
+    preCustomerAddress2: payload.preCustomerAddress2,
+    POBOX: payload.POBOX,
+    contactPerson: payload.contactPerson,
+    email: payload.email,
+    phone: payload.phone,
+    PreferredContactMode: payload.PreferredContactMode,
+    LanguagePreferrence: payload.LanguagePreferrence,
+    ServiceOfInterest: payload.ServiceOfInterest,
+    PurchaseTimeline: payload.PurchaseTimeline,
+    SpecificRequirements: payload.SpecificRequirements,
+    Industry: payload.Industry,
+    CompanySize: payload.CompanySize,
+    AnnualRevenue: payload.AnnualRevenue,
+    Notes: payload.Notes,
+    status: payload.status,
+    createdBy: payload.createdBy,
+
+    // ✅ Fix: connect required relations
+    companyMaster: { connect: { CompanyMasterSid: payload.CompanyMasterSid } },
+    branchMaster: payload.BranchMasterSid ? { connect: { BranchMasterSid: payload.BranchMasterSid } } : undefined,
+    countryMaster: payload.CountryMasterSid ? { connect: { CountryMasterSid: payload.CountryMasterSid } } : undefined,
+    stateMaster: { connect: { StateMasterSid: payload.StateMasterSid } },
+    cityMaster: { connect: { CityMasterSid: payload.CityMasterSid } },
+  
                 }
             })
             return createdLead;
@@ -59,6 +97,14 @@ export class LeadService {
             if(!exist){
                 throw new BadRequestException(`Lead with Id : ${PreCustomerMasterSid} not exists`);
             }
+            if (payload.city && typeof payload.city === 'object') {
+        payload.CityMasterSid = payload.city.CityMasterSid;
+        delete payload.city;
+      }
+
+      if (!payload.CityMasterSid) {
+        throw new BadRequestException('CityMasterSid is required');
+      }
             const updatedLead = this._db.preCustomerMaster.update({
                 where : {
                     PreCustomerMasterSid : PreCustomerMasterSid
@@ -100,46 +146,50 @@ export class LeadService {
     }
 
 
-    async searchLead(data:SearchListDto){
-        const {searchType,filterValue}=data;
-        const intFields=[
-            ''
+    async searchLead(param: SearchVesselDto) {
+    const { search = '', page = 1, pageSize = 10,activeCompanyId,activeBranchId  } = param;
+    const skip = (page - 1) * pageSize;
+    
+    const where: any = {
+        deletedAt: null,
+        status:'A',
+        CompanyMasterSid : activeCompanyId,
+        BranchMasterSid : activeBranchId,
+    };
+
+    
+    if (search) {
+        where.OR = [
+            { preCustomerName: { contains: search, mode: 'insensitive' } },
+            { contactPerson: { contains: search, mode: 'insensitive' } },
+            { email: { contains: search, mode: 'insensitive' } },
+            { phone: { contains: search, mode: 'insensitive' } },
+            { preCustomerAddress1: { contains: search, mode: 'insensitive' } },
         ];
-        const stringFields = [
-            ''
-        ];
-        const acceptedType = [...intFields,...stringFields];
-        if(!acceptedType.includes(searchType)){
-            throw new BadRequestException('Invalid Search Type');
-        }
-
-        const whereClause:any ={}
-
-        if(stringFields.includes(searchType)){
-            whereClause[searchType]={
-                contains:filterValue,
-                mode:'insensitive'
-            }
-        } else if(intFields.includes(searchType)){
-            const numberValue=parseInt(filterValue);
-            if (isNaN(numberValue)) {
-                throw new BadRequestException(`${searchType} must be a valid number`);
-            }
-            whereClause[searchType]=numberValue;
-        }
-
-        const searchResults = await this._db.preCustomerMaster.findMany({
-            where : {
-                ...whereClause,
-                deletedAt:null
-            }
-        }).catch((err) => {
-            throw new Error(`Error Occured : ${JSON.stringify(err), err}`);
-        })
-
-        return searchResults;
-
     }
+
+    try {
+        const [items, totalCount] = await this._db.$transaction([
+            this._db.preCustomerMaster.findMany({
+                where,
+                skip,
+                take: pageSize,
+                orderBy: { PreCustomerMasterSid: 'desc' },
+            }),
+            this._db.preCustomerMaster.count({ where }),
+        ]);
+
+        return {
+            items,
+            totalCount,
+            currentPage: page,
+            totalPages: Math.ceil(totalCount / pageSize),
+        };
+    } catch (error) {
+        this.logger.error(`Search Lead Error: ${error.message}`);
+        throw new Error(`Error occurred during search: ${error.message}`);
+    }
+}
     async getAuditLogs(tableName: string, recordId?: string) {
     try {
       const whereClause: any = { tableName };

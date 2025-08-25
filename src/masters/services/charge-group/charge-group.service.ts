@@ -24,11 +24,12 @@ export class ChargeGroupService {
         }
     }
 
-    async getAllChargeGroups() {
+    async getAllChargeGroups(CompanyMasterSid: number) {
         try {
             const allGroups = await this._db.chargeGroup.findMany({
                 where: {
-                    deletedAt: null
+                    deletedAt: null,
+                    CompanyMasterSid: CompanyMasterSid
                 },
                 include: {
                     companyMaster: true
@@ -109,12 +110,13 @@ export class ChargeGroupService {
     }
 
     async searchChargeGroups(params: SearchVesselDto) {
-        const { search = '', page = 1, pageSize = 15 } = params;
+        const { search = '', page = 1, pageSize = 15, activeCompanyId } = params;
         const skip = (page - 1) * pageSize;
 
         const where: Prisma.ChargeGroupWhereInput = {
             deletedAt: null,
             status: 'A',
+             CompanyMasterSid : activeCompanyId,
             ...(search
                 ? {
                     OR: [

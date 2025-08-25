@@ -2,13 +2,15 @@ import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatu
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
 import { ResponseData } from 'src/common/response-data';
 import { LeadService } from 'src/crm/services/lead/lead.service';
-import { SearchListDto } from 'src/masters/DTO/search-list.dto';
-
+import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
+class CompanyIdDto {
+  CompanyMasterSid: number;
+  BranchMasterSid: number;
+}
 
 @Controller('lead')
 export class LeadController {
     constructor(private leadService: LeadService, private logger: Logger) { }
-
 
     @ApiOperation({ summary: 'Create new Lead' })
     @ApiCreatedResponse({
@@ -36,19 +38,17 @@ export class LeadController {
         return resp;
     }
 
-
-
     @ApiOperation({ summary: 'Get All Leads' })
     @ApiCreatedResponse({
         description: 'Get All Lead',
         type: ResponseData
     })
     @HttpCode(HttpStatus.OK)
-    @Get()
-    async getAllLead() {
+    @Post()
+    async getAllLead(@Body() body: CompanyIdDto) {
         let resp = new ResponseData();
         try {
-            let res = await this.leadService.getAllLeads();
+            let res = await this.leadService.getAllLeads(body.CompanyMasterSid, body.BranchMasterSid);
             this.logger.log(`All Leads Fetched : ${JSON.stringify(res)}`);
             resp.data = res;
             resp.message = "All Leads are successfully fetched";
@@ -63,8 +63,6 @@ export class LeadController {
         }
         return resp;
     }
-
-
 
     @ApiOperation({ summary: 'Get Leads by Id' })
     @ApiCreatedResponse({
@@ -93,8 +91,6 @@ export class LeadController {
         return resp;
     }
 
-
-
     @ApiOperation({ summary: 'Update Lead by Id' })
     @ApiCreatedResponse({
         description: 'Update Lead by Id',
@@ -122,8 +118,6 @@ export class LeadController {
         return resp;
     }
 
-
-
     @ApiOperation({ summary: 'Delete Lead by Id' })
     @ApiCreatedResponse({
         description: 'Delete Lead by Id',
@@ -138,8 +132,7 @@ export class LeadController {
             let res = await this.leadService.deleteLead(PreCustomerMasterSid);
             this.logger.debug(`Deleted Lead : ${JSON.stringify(res)}`);
             resp.data = res;
-            resp.message = `
-            Lead with id : ${PreCustomerMasterSid} is successfully deleted`;
+            resp.message = `Lead with id : ${PreCustomerMasterSid} is successfully deleted`;
         } catch (error) {
             this.logger.warn(`Lead Deletion Error : ${JSON.stringify(error), error}`);
             resp.status = false;
@@ -152,8 +145,6 @@ export class LeadController {
         return resp;
     }
 
-
-
     @ApiOperation({ summary: 'Search List of Lead' })
     @ApiCreatedResponse({
         description: 'Search List of Lead',
@@ -161,15 +152,15 @@ export class LeadController {
     })
     @HttpCode(HttpStatus.OK)
     @Post('search-list')
-    async searchLead(@Body() searchData: SearchListDto) {
+    async searchLead(@Body() param: SearchVesselDto) {
         let resp = new ResponseData();
         try {
-            let res = await this.leadService.searchLead(searchData);
-            this.logger.log(`Lead Search Results :${JSON.stringify(res)}`);
+            let res = await this.leadService.searchLead(param);
+            this.logger.log(`Lead Search Data : ${JSON.stringify(res)}`);
             resp.data = res;
-            resp.message = "Lead Search results are successfully fetched"
+            resp.message = "Lead Search is successfully fetched";
         } catch (error) {
-            this.logger.warn(`Lead Search Error : ${JSON.stringify(error), error}`);
+            this.logger.warn(`Lead Search Error : ${JSON.stringify(error),error}`);
             resp.status = false;
             if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
                 resp.message = error.message;
@@ -180,47 +171,35 @@ export class LeadController {
         return resp;
     }
 
-    
     @ApiOperation({ summary: 'Get Audit Logs for a Table/Record' })
-      @ApiCreatedResponse({ description: 'Fetch audit logs', type: ResponseData })
-      @HttpCode(HttpStatus.OK)
-      @Get('audit-logs')
-      async getAuditLogs(
+    @ApiCreatedResponse({ description: 'Fetch audit logs', type: ResponseData })
+    @HttpCode(HttpStatus.OK)
+    @Get('audit-logs')
+    async getAuditLogs(
         @Query('tableName') tableName: string,
         @Query('recordId') recordId?: string,
-      ) {
+    ) {
         const resp = new ResponseData();
         try {
-          if (!tableName) throw new Error('tableName query parameter is required');
-    
-          const logs = await this.leadService.getAuditLogs(tableName, recordId);
-    
-          // Remove updatedOn from oldVal and newVal
-          resp.data = logs.map((log: any) => {
-            const oldVal = log.oldVal ? { ...log.oldVal } : null;
-            const newVal = log.newVal ? { ...log.newVal } : null;
-            if (oldVal && 'updatedOn' in oldVal) delete oldVal.updatedOn;
-            if (newVal && 'updatedOn' in newVal) delete newVal.updatedOn;
-            return { ...log, oldVal, newVal };
-          });
-    
-          resp.message = 'Audit logs fetched successfully';
+            if (!tableName) throw new Error('tableName query parameter is required');
+
+            const logs = await this.leadService.getAuditLogs(tableName, recordId);
+
+            // Remove updatedOn from oldVal and newVal
+            resp.data = logs.map((log: any) => {
+                const oldVal = log.oldVal ? { ...log.oldVal } : null;
+                const newVal = log.newVal ? { ...log.newVal } : null;
+                if (oldVal && 'updatedOn' in oldVal) delete oldVal.updatedOn;
+                if (newVal && 'updatedOn' in newVal) delete newVal.updatedOn;
+                return { ...log, oldVal, newVal };
+            });
+
+            resp.message = 'Audit logs fetched successfully';
         } catch (error) {
-          this.logger.warn(`getAuditLogsError: ${error}`);
-          resp.status = false;
-          resp.message = error.message || 'Internal Server Error';
+            this.logger.warn(`getAuditLogsError: ${error}`);
+            resp.status = false;
+            resp.message = error.message || 'Internal Server Error';
         }
         return resp;
-      }
-    
-
-
-
-
-
-
-
-
-
-
+    }
 }

@@ -145,9 +145,13 @@ export class QuotationService {
 
 
 
-    async getAllQuotations() {
+    async getAllQuotations(CompanyMasterSid: number, BranchMasterSid: number) {
         try {
             const quotations = await this._db.quoteHeader.findMany({
+                where: {
+                CompanyMasterSid: CompanyMasterSid,
+                BranchMasterSid: BranchMasterSid
+            },
                 select: {
                     QuoteHeaderSid: true,
                     QuoteNumber: true,
@@ -474,12 +478,13 @@ export class QuotationService {
         });
     }
 
-    async getAllMasters() {
+    async getAllMasters(CompanyMasterSid:number) {
         try {
             const [charges, units, currencies] = await this._db.$transaction([
                 this._db.chargeMaster.findMany({
                     where : {
-                        deletedAt : null
+                        deletedAt : null,
+                        CompanyMasterSid:CompanyMasterSid
                     }
                 }),
                 this._db.unitMaster.findMany({
@@ -502,7 +507,7 @@ export class QuotationService {
 
 
 
-    async getAllCustomer() {
+    async getAllCustomer(CompanyMasterSid:number) {
         try {
             const customers = await this._db.customerMaster.findMany({
                 where : {
@@ -510,7 +515,8 @@ export class QuotationService {
                         path: ['carrier'],
                         equals: 'isTrue'
                     },
-                    deletedAt : null
+                    deletedAt : null,
+                    CompanyMasterSid:CompanyMasterSid
                 }
             });
 
@@ -522,8 +528,8 @@ export class QuotationService {
     }
 
     async searchQuotation(params: SearchVesselDto) {
-        const { search = '', page = 1, pageSize = 15,activeCompanyId,activeBranchId } = params;
-        const skip = (page - 1) * pageSize;
+            const { search = '', page = 1, pageSize = 15,activeCompanyId,activeBranchId } = params;
+            const skip = (page - 1) * pageSize;
 
         const where: Prisma.QuoteHeaderWhereInput = {
             deletedAt: null,

@@ -5,9 +5,12 @@ import { UserData } from "src/common/decorators/user.decorator";
 import { ResponseData } from "src/common/response-data";
 import { SearchVesselDto } from "src/masters/DTO/search-vessel.dto";
 import { EnquiryHeaderService } from "src/masters/services/enquiry/enquiry-header.service";
-
+class CompanyIdDto {
+  CompanyMasterSid: number;
+  BranchMasterSid: number;
+}
 @Controller('ff-enquiry')
-@Auth()
+
 export class EnquiryHeaderController {
     constructor(
         private enquiryHeaderService: EnquiryHeaderService,
@@ -53,11 +56,11 @@ export class EnquiryHeaderController {
         type: ResponseData
     })
     @HttpCode(HttpStatus.OK)
-    @Get()
-    async getAllEnquiries(@UserData() UserData: any) {
+    @Post('fetch')
+    async getAllEnquiries(@Body() body: CompanyIdDto) {
         const output = new ResponseData
         try {
-            const enquiries = await this.enquiryHeaderService.getAllEnquiries()
+            const enquiries = await this.enquiryHeaderService.getAllEnquiries(body.CompanyMasterSid, body.BranchMasterSid)
             output.data = enquiries;
             this.logger.debug(`getAllEnquiries: Fetch Enquiry Data- ${JSON.stringify(enquiries)}`)
 
@@ -150,11 +153,11 @@ export class EnquiryHeaderController {
         type: ResponseData
     })
     @HttpCode(HttpStatus.OK)
-    @Get('department')
-    async getAllDepartments(@UserData() UserData: any) {
+    @Post('department')
+    async getAllDepartments(@Body() body: CompanyIdDto) {
         const output = new ResponseData
         try {
-            const department = await this.enquiryHeaderService.getAllDepartment()
+            const department = await this.enquiryHeaderService.getAllDepartment(body.CompanyMasterSid)
             output.data = department;
         } catch (error) {
             output.status = false;
@@ -174,11 +177,11 @@ export class EnquiryHeaderController {
         type: ResponseData
     })
     @HttpCode(HttpStatus.OK)
-    @Get('package-type')
-    async getAllCargoTypes(@UserData() UserData: any) {
+    @Post('package-type')
+    async getAllCargoTypes(@Body() body: CompanyIdDto) {
         const output = new ResponseData
         try {
-            const cargoType = await this.enquiryHeaderService.getAllCargoTypes()
+            const cargoType = await this.enquiryHeaderService.getAllCargoTypes(body.CompanyMasterSid)
             output.data = cargoType;
         } catch (error) {
             output.status = false;

@@ -4,7 +4,10 @@ import { UserData } from 'src/common/decorators/user.decorator';
 import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { CustomerSalesteamService } from 'src/masters/services/customer-salesteam/customer-salesteam.service';
-
+class CompanyIdDto {
+  CompanyMasterSid: number;
+  BranchMasterSid: number;
+}
 
 @Controller('customer-salesteam')
 export class CustomerSalesteamController {

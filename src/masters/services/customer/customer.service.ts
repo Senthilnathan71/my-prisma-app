@@ -240,7 +240,7 @@ export class CustomerService {
     };
 }
 
-    async getAllCarriers(){
+    async getAllCarriers(CompanyMasterSid: number){
         try {
             const allCarriers = await this._db.customerMaster.findMany({
                 where: {
@@ -248,7 +248,8 @@ export class CustomerService {
                         path: ['carrier'],
                         equals: 'isTrue'
                     },
-                    deletedAt : null
+                    deletedAt : null,
+                    CompanyMasterSid:CompanyMasterSid
                 }
             })
             return allCarriers;
@@ -257,7 +258,7 @@ export class CustomerService {
         }
     }
 
-    async getAllAgents(){
+    async getAllAgents(CompanyMasterSid){
         try {
             const allAgents = await this._db.customerMaster.findMany({
                 where : {
@@ -265,7 +266,8 @@ export class CustomerService {
                         path: ['agent'],
                         equals: 'isTrue'
                     },
-                    deletedAt : null
+                    deletedAt : null,
+                    CompanyMasterSid:CompanyMasterSid
                 }
             })
             return allAgents;
@@ -273,7 +275,7 @@ export class CustomerService {
             throw error;
         }
     }
-    async getAllShippers(){
+    async getAllShippers(CompanyMasterSid: number){
         try {
             const allAgents = await this._db.customerMaster.findMany({
                 where : {
@@ -281,7 +283,8 @@ export class CustomerService {
                         path: ['shipper'],
                         equals: 'isTrue'
                     },
-                    deletedAt : null
+                    deletedAt : null,
+                    CompanyMasterSid: CompanyMasterSid
                 }
             })
             return allAgents;
@@ -289,7 +292,7 @@ export class CustomerService {
             throw error;
         }
     }
-    async getAllConsignee(){
+    async getAllConsignee(CompanyMasterSid:number){
         try {
             const allAgents = await this._db.customerMaster.findMany({
                 where : {
@@ -297,7 +300,8 @@ export class CustomerService {
                         path: ['consignee'],
                         equals: 'isTrue'
                     },
-                    deletedAt : null
+                    deletedAt : null,
+                    CompanyMasterSid: CompanyMasterSid
                 }
             })
             return allAgents;
@@ -305,7 +309,7 @@ export class CustomerService {
             throw error;
         }
     }
-    async getAllTransporters(){
+    async getAllTransporters(CompanyMasterSid:number){
         try {
             const allAgents = await this._db.customerMaster.findMany({
                 where : {
@@ -313,7 +317,8 @@ export class CustomerService {
                         path: ['transporter'],
                         equals: 'isTrue'
                     },
-                    deletedAt : null
+                    deletedAt : null,
+                    CompanyMasterSid: CompanyMasterSid
                 }
             })
             return allAgents;
@@ -322,7 +327,7 @@ export class CustomerService {
         }
     }
 
-    async getAllSuppliers() {
+    async getAllSuppliers(CompanyMasterSid:number) {
         try {
             const suppliers = ['vendor', 'transporter', 'agent'];
             const allSuppliers = await this._db.customerMaster.findMany({
@@ -334,6 +339,7 @@ export class CustomerService {
                         },
                     })),
                     deletedAt: null,
+                    CompanyMasterSid: CompanyMasterSid
                 },
                 include : {
                     countryMaster :{

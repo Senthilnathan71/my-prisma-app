@@ -183,11 +183,11 @@ async searchCustomer(@Body() searchParams: SearchVesselDto) {
         type: ResponseData
     })
     @HttpCode(HttpStatus.OK)
-    @Get('carrier')
-    async getAllCarriers() {
+    @Post('carrier')
+    async getAllCarriers(@Body() body: CompanyIdDto) {
         let output = new ResponseData;
         try {
-            let customerData = await this.customerService.getAllCarriers();
+            let customerData = await this.customerService.getAllCarriers(body.CompanyMasterSid);
             this.logger.log(`getAllCarriers: ${JSON.stringify(customerData)}`)
             output.data = customerData;
         } catch (error) {
@@ -207,11 +207,11 @@ async searchCustomer(@Body() searchParams: SearchVesselDto) {
         type: ResponseData
     })
     @HttpCode(HttpStatus.OK)
-    @Get('shipper')
-    async getAllShippers() {
+    @Post('shipper')
+    async getAllShippers(@Body() body: CompanyIdDto) {
         let output = new ResponseData;
         try {
-            let customerData = await this.customerService.getAllShippers();
+            let customerData = await this.customerService.getAllShippers(body.CompanyMasterSid);
             this.logger.log(`getAllShippers: ${JSON.stringify(customerData)}`)
             output.data = customerData;
         } catch (error) {
@@ -231,11 +231,11 @@ async searchCustomer(@Body() searchParams: SearchVesselDto) {
         type: ResponseData
     })
     @HttpCode(HttpStatus.OK)
-    @Get('consignee')
-    async getAllConsignees() {
+    @Post('consignee')
+    async getAllConsignees(@Body() body: CompanyIdDto) {
         let output = new ResponseData;
         try {
-            let customerData = await this.customerService.getAllConsignee();
+            let customerData = await this.customerService.getAllConsignee(body.CompanyMasterSid);
             this.logger.log(`getAllConsignees: ${JSON.stringify(customerData)}`)
             output.data = customerData;
         } catch (error) {
@@ -255,11 +255,11 @@ async searchCustomer(@Body() searchParams: SearchVesselDto) {
         type: ResponseData
     })
     @HttpCode(HttpStatus.OK)
-    @Get('agent')
-    async getAllAgents() {
+    @Post('agent')
+    async getAllAgents(@Body() body: CompanyIdDto) {
         let output = new ResponseData;
         try {
-            let customerData = await this.customerService.getAllAgents();
+            let customerData = await this.customerService.getAllAgents(body.CompanyMasterSid);
             this.logger.log(`getAllAgents: ${JSON.stringify(customerData)}`)
             output.data = customerData;
         } catch (error) {
@@ -279,11 +279,11 @@ async searchCustomer(@Body() searchParams: SearchVesselDto) {
         type: ResponseData
     })
     @HttpCode(HttpStatus.OK)
-    @Get('transporter')
-    async getAllTransporters() {
+    @Post('transporter')
+    async getAllTransporters(@Body() body: CompanyIdDto) {
         let output = new ResponseData;
         try {
-            let customerData = await this.customerService.getAllTransporters();
+            let customerData = await this.customerService.getAllTransporters(body.CompanyMasterSid);
             this.logger.log(`getAllTransporters: ${JSON.stringify(customerData)}`)
             output.data = customerData;
         } catch (error) {
@@ -303,11 +303,11 @@ async searchCustomer(@Body() searchParams: SearchVesselDto) {
         type: ResponseData
     })
     @HttpCode(HttpStatus.OK)
-    @Get('suppliers')
-    async getAllSuppliers() {
+    @Post('suppliers')
+    async getAllSuppliers(@Body() body: CompanyIdDto) {
         let output = new ResponseData();
         try {
-            let customerData = await this.customerService.getAllSuppliers();
+            let customerData = await this.customerService.getAllSuppliers(body.CompanyMasterSid);
             this.logger.log(`getAllSuppliers: ${JSON.stringify(customerData)}`)
             output.data = customerData;
         } catch (error) {

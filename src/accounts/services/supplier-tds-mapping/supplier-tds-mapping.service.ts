@@ -21,9 +21,9 @@ export class SupplierTdsMappingService {
         }
     }
 
-     async createNewSupptdsMapping(payload,user){
+     async createNewSupptdsMapping(payload){
         try {
-            const CompanyMasterSid = user.userBranchMaster[0].CompanyMasterSid;
+            const CompanyMasterSid = payload.CompanyMasterSid;
             const createdSupptdsMapping = await this._db.supplierTdsMapping.create({
                 data :{
                     ...payload,
@@ -188,12 +188,13 @@ export class SupplierTdsMappingService {
     // }
 
     async searchSuppliertdsMapping(params: SearchVesselDto) {
-    const { search = '', page = 1, pageSize = 10 } = params;
+    const { search = '', page = 1, pageSize = 10,activeCompanyId } = params;
     const skip = (page - 1) * pageSize;
 
     const where: Prisma.SupplierTdsMappingWhereInput = {
         deletedAt: null,
         Status: 'A',
+        CompanyMasterSid : activeCompanyId,
         ...(search
             ? {
                 OR: [

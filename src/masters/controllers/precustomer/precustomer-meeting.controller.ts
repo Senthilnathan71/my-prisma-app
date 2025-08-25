@@ -7,7 +7,10 @@ import { ResponseData } from 'src/common/response-data';
 import { CreatePrecustomerDto } from 'src/masters/DTO/create-Precustomer.dto';
 import { PreCustomerMeetingService } from 'src/masters/services/precustomer/precustomer-meeting.service';
 import { PrecustomerService } from 'src/masters/services/precustomer/precustomer.service';
-
+class CompanyIdDto {
+  CompanyMasterSid: number;
+  BranchMasterSid: number;
+}
 @Controller('precustomer-meeting')
 @Auth()
 export class PreCustomerMeetingController {
@@ -20,11 +23,11 @@ export class PreCustomerMeetingController {
         type: ResponseData
     })
     @HttpCode(HttpStatus.OK)
-    @Get('pendingMeetings')
-    async getPendingMeetings(@UserData() UserData: any) {
+    @Post('pendingMeetings')
+    async getPendingMeetings(@Body() body: CompanyIdDto) {
         const output = new ResponseData
         try {
-            const customers = await this.preCustomerMeetingService.getPreCustomerMastersWithoutMeetings()
+            const customers = await this.preCustomerMeetingService.getPreCustomerMastersWithoutMeetings(body.CompanyMasterSid, body.BranchMasterSid)
             this.logger.debug(`getPendingMeetings: ${JSON.stringify(customers)}`)
             output.data = customers;
         } catch (error) {
@@ -141,11 +144,11 @@ export class PreCustomerMeetingController {
         type: ResponseData
     })
     @HttpCode(HttpStatus.OK)
-    @Get('lead/todo')
-    async todoMeetings(@UserData() UserData: any) {
+    @Post('lead/todo')
+    async todoMeetings(@Body() body: CompanyIdDto) {
         const output = new ResponseData
         try {
-            const todo = await this.preCustomerMeetingService.todoMeetings()
+            const todo = await this.preCustomerMeetingService.todoMeetings(body.CompanyMasterSid, body.BranchMasterSid)
             this.logger.debug(`todoMeetings: ${JSON.stringify(todo)}`)
             output.data = todo;
         } catch (error) {

@@ -54,14 +54,15 @@ model MenuMaster {
     moduleMaster   ModuleMaster     @relation(fields: [ModuleMasterSid], references: [ModuleMasterSid])
     userRoleMaster UserRoleMaster[]
 
-    roleMenuMaster  RoleMenuMaster[]
-    customerBrEmail CustomerBrEmail[]
-    terms           TermsAndConditionsMaster[]
-    authorityMaster AuthorityMaster[]
-    menuPermission  MenuPermission[]
-    quoteHeader     QuoteHeader[]
-    enquiryHeader   EnquiryHeader[]
-    bookingHeader   BookingHeader[]
+    roleMenuMaster     RoleMenuMaster[]
+    customerBrEmail    CustomerBrEmail[]
+    terms              TermsAndConditionsMaster[]
+    authorityMaster    AuthorityMaster[]
+    menuPermission     MenuPermission[]
+    quoteHeader        QuoteHeader[]
+    enquiryHeader      EnquiryHeader[]
+    bookingHeader      BookingHeader[]
+    costRevenueCharges CostRevenueCharges[]
 }
 
 model MenuPermission {
