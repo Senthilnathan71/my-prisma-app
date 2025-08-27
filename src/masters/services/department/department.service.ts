@@ -161,14 +161,14 @@ export class DepartmentService {
             throw new NotFoundException(`Department with ID ${id} not found`);
         }
 
-        if (existingDepartment.deletedAt) {
+        if (existingDepartment.Status==="D") {
             throw new Error(`Department with ID ${id} is already deleted`);
         }
 
         // Perform soft delete by updating deletedAt field
         return this._db.departmentMaster.update({
             where: { DepartmentMasterSid: id },
-            data: { deletedAt: new Date() }
+            data: {Status:"D" }
         });
     }
 
@@ -178,7 +178,7 @@ export class DepartmentService {
     const skip = (page - 1) * pageSize;
 
     const where: Prisma.DepartmentMasterWhereInput = {
-        deletedAt: null,
+      
         Status: 'A',
         CompanyMasterSid : activeCompanyId,
         ...(search

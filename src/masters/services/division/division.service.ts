@@ -13,7 +13,7 @@ export class DivisionService {
 
         const existing = await this._db.divisionMaster.findFirst({
             where: {
-                deletedAt: null,
+              
                 OR: [
                     {
                         CompanyMasterSid:payload. CompanyMasterSid,
@@ -116,7 +116,7 @@ export class DivisionService {
             if (!existing) {
                 throw new BadRequestException(`Division with id : ${divisionId} not exist`);
             }
-            if (existing.deletedAt) {
+            if (existing.status==="D") {
                 throw new BadRequestException(`Division with id : ${divisionId} is already deleted`);
             }
             const deletedDivision = await this._db.divisionMaster.update({
@@ -124,7 +124,7 @@ export class DivisionService {
                     DivisionMasterSid: divisionId
                 },
                 data: {
-                    deletedAt: new Date()
+                   status:"D"
                 }
             })
             return deletedDivision;
@@ -138,7 +138,7 @@ export class DivisionService {
         const skip = (page - 1) * pageSize;
 
         const where: Prisma.DivisionMasterWhereInput = {
-            deletedAt: null,
+           
             status: 'A',
             CompanyMasterSid : activeCompanyId,
             ...(search

@@ -15,9 +15,7 @@ export class UnitService {
 
             const unitList = await this._db.unitMaster.findMany({
                 where: {
-                    deletedAt: {
-                        equals: null
-                      }
+                  status: 'A',
                 }
             })
             return unitList;
@@ -142,14 +140,14 @@ export class UnitService {
                 throw new NotFoundException(`UUnit with ID ${id} not found`);
             }
     
-            if (existingUnit.deletedAt) {
+            if (existingUnit.status==="D") {
                 throw new Error(`Unit with ID ${id} is already deleted`);
             }
     
             // Perform soft delete by updating deletedAt field
             return this._db.unitMaster.update({
                 where: { UnitMasterSid: id },
-                data: { deletedAt: new Date() }
+                data: { status:"D"}
             });
         }  
 
@@ -158,7 +156,7 @@ export class UnitService {
         const skip = (page - 1) * pageSize;
 
         const where: Prisma.UnitMasterWhereInput = {
-            deletedAt: null,
+           
             status: 'A',
             ...(search
                 ? {
@@ -196,7 +194,7 @@ export class UnitService {
             const weightUnits = await this._db.unitMaster.findMany({
                 where : {
                     measurementType : 'Weight',
-                    deletedAt : null
+                   
                 }
             })
             return weightUnits;
