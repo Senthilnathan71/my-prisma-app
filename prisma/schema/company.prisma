@@ -16,7 +16,7 @@ model CompanyMaster {
     remarks             String?                    @db.VarChar(500)
     companyLogo         String?
     reportLogo          String?
-    status              String                     @db.Char(1)
+    status              String?                    @default("A") @db.Char(1)
     CityMasterSid       Int?
     CompanyMasterSid    Int                        @id @default(autoincrement()) @map("CompanyMasterSid")
     CountryMasterSid    Int?
@@ -110,7 +110,7 @@ model BranchMaster {
     remarks            String?                    @db.VarChar(500)
     companyLogo        String?
     reportLogo         String?
-    status             String                     @db.Char(1)
+    status             String?                    @default("A") @db.Char(1)
     BranchMasterSid    Int                        @id @default(autoincrement()) @map("BranchMasterSid")
     CityMasterSid      Int
     CompanyMasterSid   Int
@@ -193,7 +193,7 @@ model UserMaster {
     updatedOn         DateTime            @updatedAt @db.Timestamptz(6)
     deletedAt         DateTime?
     updatedBy         String?             @db.VarChar(100)
-    status            String              @default("A") @db.Char(1)
+    status            String?             @default("A") @db.Char(1)
     CountryMasterSid  Int?
     LoginSid          Int?
     userTypeId        Int?
@@ -221,7 +221,7 @@ model UserBranchMaster {
     createdBy           String        @db.VarChar(100)
     updatedBy           String?       @db.VarChar(100)
     LoginSid            Int?
-    status              String        @db.Char(1)
+    status              String?       @default("A") @db.Char(1)
     GiveAccess          String?       @default("N") @db.Char(1)
     IsDefault           String?       @default("N") @db.Char(1)
     branchMaster        BranchMaster  @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
@@ -244,7 +244,7 @@ model CurrencyMaster {
     updatedOn          DateTime             @updatedAt @db.Timestamptz(6)
     deletedAt          DateTime?
     updatedBy          String?              @db.VarChar(100)
-    status             String               @default("A") @db.Char(1)
+    status             String?              @default("A") @db.Char(1)
     CurrencyMasterSid  Int                  @id @default(autoincrement()) @map("CurrencyMasterSid")
     LoginSid           Int?
     RoundOf            String?              @db.VarChar(100)
@@ -275,7 +275,7 @@ model CurrencyExchange {
     deletedAt           DateTime?
     createdBy           String    @db.VarChar(100)
     updatedBy           String?   @db.VarChar(100)
-    status              String    @db.Char(1)
+    status              String?   @default("A") @db.Char(1)
     Remarks             String?   @db.VarChar(100)
 
     companyMaster CompanyMaster? @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
@@ -292,7 +292,7 @@ model DivisionMaster {
     deletedAt         DateTime?
     createdBy         String    @db.VarChar(100)
     updatedBy         String?   @db.VarChar(100)
-    status            String    @db.Char(1)
+    status            String?   @default("A") @db.Char(1)
     Remarks           String?   @db.VarChar(100)
 
     companyMaster CompanyMaster? @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
@@ -306,7 +306,7 @@ model CountryMaster {
     deletedAt         DateTime?
     createdBy         String              @db.VarChar(100)
     updatedBy         String?             @db.VarChar(100)
-    status            String              @db.Char(1)
+    status            String?             @default("A") @db.Char(1)
     CountryMasterSid  Int                 @id @default(autoincrement()) @map("CountryMasterSid")
     LoginSid          Int?
     ZoneMasterSid     Int?
@@ -337,7 +337,7 @@ model StateMaster {
     deletedAt         DateTime?
     createdBy         String              @db.VarChar(100)
     updatedBy         String?             @db.VarChar(100)
-    status            String              @db.Char(1)
+    status            String?             @default("A") @db.Char(1)
     Remarks           String?             @db.VarChar(100)
     CountryMasterSid  Int?
     LoginSid          Int?
@@ -361,7 +361,7 @@ model CityMaster {
     deletedAt         DateTime?
     createdBy         String              @db.VarChar(100)
     updatedBy         String?             @db.VarChar(100)
-    status            String              @default("A") @db.Char(1)
+    status            String?             @default("A") @db.Char(1)
     CityMasterSid     Int                 @id @default(autoincrement()) @map("CityMasterSid")
     CountryMasterSid  Int?
     LoginSid          Int?
@@ -380,7 +380,7 @@ model DepartmentMaster {
     deletedAt           DateTime?
     createdBy           String              @db.VarChar(100)
     updatedBy           String?             @db.VarChar(100)
-    Status              String              @default("A") @db.Char(1)
+    Status              String?             @default("A") @db.Char(1)
     Remarks             String?             @db.VarChar(20)
     Division            String?             @db.VarChar(20)
     departmentName      String              @db.VarChar(20)
@@ -455,7 +455,7 @@ model UnitMaster {
     createdBy       String    @db.VarChar(100)
     updatedBy       String?   @db.VarChar(100)
     Remarks         String    @db.VarChar(100)
-    status          String    @default("A") @db.Char(1)
+    status          String?   @default("A") @db.Char(1)
     UnitMasterSid   Int       @id @default(autoincrement()) @map("UnitMasterSid")
 }
 
@@ -470,7 +470,7 @@ model ChargeMaster {
     createdBy           String               @db.VarChar(100)
     updatedBy           String?              @db.VarChar(100)
     Remarks             String?              @db.VarChar(100)
-    Status              String               @db.Char(1)
+    Status              String?              @default("A") @db.Char(1)
     ChargeGroupSid      Int?
     ChargeMasterSid     Int                  @id @default(autoincrement()) @map("ChargeMasterSid")
     CompanyMasterSid    Int?
@@ -499,7 +499,7 @@ model ChargeTaxMaster {
     CreatedBy          String    @db.VarChar(100)
     UpdatedBy          String    @db.VarChar(100)
     Remarks            String?   @db.VarChar(100)
-    Status             String?   @db.Char(1)
+    Status             String?   @default("A") @db.Char(1)
     ChargeTaxMasterSid Int       @id @default(autoincrement()) @map("ChargeTaxMasterSid")
     CompanyMasterSid   Int
 
@@ -513,7 +513,7 @@ model PreCustomerMaster {
     deletedAt            DateTime?
     createdBy            String               @db.VarChar(100)
     updatedBy            String?              @db.VarChar(100)
-    status               String?              @db.Char(1)
+    status               String?              @default("A") @db.Char(1)
     preCustomerAddress1  String               @db.VarChar(300)
     preCustomerAddress2  String?              @db.VarChar(300)
     leadAssignTo         Int?
@@ -564,7 +564,7 @@ model PreCustomerMeeting {
     meetingStatus         String?           @db.VarChar(10)
     customerProfile       String?           @db.VarChar(100)
     remarks               String?           @db.VarChar(100)
-    status                String            @db.VarChar(10)
+    status                String?           @default("A") @db.VarChar(10)
     BranchMasterSid       Int
     CompanyMasterSid      Int
     LoginSid              Int?
@@ -586,7 +586,7 @@ model ChargeGroup {
     deletedAt        DateTime?
     createdBy        String         @db.VarChar(100)
     updatedBy        String?        @db.VarChar(100)
-    status           String         @db.Char(1)
+    status           String?        @default("A") @db.Char(1)
     ChargeGroupSid   Int            @id @default(autoincrement()) @map("ChargeGroupSid")
     CompanyMasterSid Int
     GroupName        String         @db.VarChar(100)
@@ -606,7 +606,7 @@ model SectorMaster {
     deletedAt       DateTime?
     createdBy       String       @db.VarChar(100)
     updatedBy       String?      @db.VarChar(100)
-    status          String       @db.Char(1)
+    status          String?      @default("A") @db.Char(1)
     LoginSid        Int?
     SectorMasterSid Int          @id @default(autoincrement()) @map("SectorMasterSid")
     portMaster      PortMaster[]
@@ -628,7 +628,7 @@ model MeetingFollowup {
     deletedAt             DateTime?
     createdBy             String    @db.VarChar(100)
     updatedBy             String?   @db.VarChar(100)
-    Status                String    @default("A") @db.Char(1)
+    Status                String?   @default("A") @db.Char(1)
 
     preCustomerMeeting PreCustomerMeeting @relation(fields: [PreCustomerMeetingSid], references: [PreCustomerMeetingSid])
     companyMaster      CompanyMaster      @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
@@ -705,6 +705,7 @@ model EnquiryRoute {
     createdBy        String    @db.VarChar(100)
     updatedBy        String?   @db.VarChar(100)
     LoginSid         Int?
+    status           String?   @default("A") @db.Char(1)
 
     companyMaster CompanyMaster? @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
     branchMaster  BranchMaster?  @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
@@ -1079,6 +1080,7 @@ model RoutingHeader {
     deletedAt        DateTime?
     createdBy        String    @db.VarChar(100)
     updatedBy        String?   @db.VarChar(100)
+    status           String?   @default("A") @db.Char(1)
 
     companyMaster CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
     branchMaster  BranchMaster  @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
@@ -1456,6 +1458,7 @@ model DepartmentOnTerms {
     createdOn           DateTime  @default(now()) @db.Timestamptz(6)
     updatedOn           DateTime? @updatedAt @db.Timestamptz(6)
     deletedAt           DateTime?
+    status              String?   @default("A") @db.Char(1)
 
     terms      TermsAndConditionsMaster @relation(fields: [termsId], references: [TermsAndConditionsMasterSid])
     department DepartmentMaster         @relation(fields: [departmentId], references: [DepartmentMasterSid])
@@ -1707,6 +1710,7 @@ model UserLoginHistory {
     createdOn          DateTime   @default(now()) @db.Timestamptz(6)
     updatedOn          DateTime?  @updatedAt @db.Timestamptz(6)
     deletedAt          DateTime?
+    status             String?    @default("A") @db.Char(1)
     user               UserMaster @relation(fields: [userId], references: [UserMasterSid])
 }
 
@@ -1863,6 +1867,7 @@ model FavouriteScreen {
     createdBy   String    @db.VarChar(100)
     userId      Int
     deletedAt   DateTime?
+    status      String?   @default("A") @db.Char(1)
 }
 
 model RecentScreen {
@@ -1873,6 +1878,7 @@ model RecentScreen {
     createdBy      String    @db.VarChar(100)
     userId         Int
     deletedAt      DateTime?
+    status         String?   @default("A") @db.Char(1)
 }
 
 model HawbStock {
@@ -1957,7 +1963,7 @@ model EmailLog {
     UpdatedOn        DateTime  @default(now())
     UpdatedBy        String?   @db.VarChar(100)
     deletedAt        DateTime?
-    Status           String    @default("A") @db.Char(1)
+    Status           String?   @default("A") @db.Char(1)
     EmailType        String?   @db.VarChar(20) // Customer, Origin Agent, etc.
     SendDate         DateTime  @default(now())
     Customer         Int? // Optional, depending on EmailType
@@ -1979,7 +1985,7 @@ model IncoMaster {
     CreatedBy       String    @db.VarChar(100)
     UpdatedOn       DateTime  @default(now()) @db.Timestamptz(6)
     UpdatedBy       String?   @db.VarChar(100)
-    Status          String    @default("A") @db.Char(1)
+    Status          String?   @default("A") @db.Char(1)
     Remarks         String?   @db.VarChar(500)
     IncoDescription String?   @db.VarChar(500)
     deletedAt       DateTime?
@@ -1999,7 +2005,7 @@ model CostCenterMaster {
     UpdatedBy           String?   @db.VarChar(100)
     deletedAt           DateTime?
     Remarks             String?   @db.VarChar(100)
-    Status              String    @default("A") @db.VarChar(10)
+    Status              String?   @default("A") @db.VarChar(10)
 }
 
 model ProfitCenterMaster {
@@ -2012,7 +2018,7 @@ model ProfitCenterMaster {
     deletedAt             DateTime?
     UpdatedBy             String?   @db.VarChar(100)
     Remarks               String?   @db.VarChar(100)
-    Status                String    @default("A") @db.VarChar(10)
+    Status                String?   @default("A") @db.VarChar(10)
 }
 
 model TaxMaster {
@@ -2029,7 +2035,7 @@ model TaxMaster {
     deletedAt     DateTime?
     UpdatedBy     String?   @db.VarChar(100)
     Remarks       String?   @db.VarChar(100)
-    Status        String    @default("A") @db.VarChar(10)
+    Status        String?   @default("A") @db.VarChar(10)
 }
 
 model COAMaster {
@@ -2056,7 +2062,7 @@ model COAMaster {
     UpdatedBy        String?   @db.VarChar(100)
     deletedAt        DateTime?
     CompanyMasterSid Int // Foreign key to CompanyMaster
-    Status           String    @default("A") @db.Char(1)
+    Status           String?   @default("A") @db.Char(1)
 
     // Relations (assuming you have these models)
     CompanyMaster  CompanyMaster   @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
@@ -2188,46 +2194,43 @@ model Followup {
     BranchMaster  BranchMaster  @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
 }
 
-
 model ContainerActivity {
-  ContainerActivitySid Int      @id @default(autoincrement())
-  JobMasterSid         Int
-  ContainerNumber      String?  @db.VarChar(11)   // Lookup from MasterJobContainer
-  ContainerType        Int
-  ActivityCode         String   @db.VarChar(5)    // FK to ContainerActivityMaster
-  ActivityName         String   @db.VarChar(100)
-  ActivityDate         DateTime
-  ActivityFrom         String?  @db.VarChar(10)   // Depo, Yard, Dock, Port
-  ActivityTo           String?  @db.VarChar(10)   // Depo, Yard, Dock, Port, Shipper, Consignee
-  Remarks              String?  @db.VarChar(100)
-  CreatedOn        DateTime  @default(now())
-    CreatedBy        String    @db.VarChar(100)
-    UpdatedOn        DateTime  @default(now())
-    UpdatedBy        String?   @db.VarChar(100)
-    deletedAt        Int?
-    Status           String?   @default("A") @db.Char(1)
+    ContainerActivitySid Int      @id @default(autoincrement())
+    JobMasterSid         Int
+    ContainerNumber      String?  @db.VarChar(11) // Lookup from MasterJobContainer
+    ContainerType        Int
+    ActivityCode         String   @db.VarChar(5) // FK to ContainerActivityMaster
+    ActivityName         String   @db.VarChar(100)
+    ActivityDate         DateTime
+    ActivityFrom         String?  @db.VarChar(10) // Depo, Yard, Dock, Port
+    ActivityTo           String?  @db.VarChar(10) // Depo, Yard, Dock, Port, Shipper, Consignee
+    Remarks              String?  @db.VarChar(100)
+    CreatedOn            DateTime @default(now())
+    CreatedBy            String   @db.VarChar(100)
+    UpdatedOn            DateTime @default(now())
+    UpdatedBy            String?  @db.VarChar(100)
+    deletedAt            Int?
+    Status               String?  @default("A") @db.Char(1)
 
-  // Relations
-  activityMaster ContainerActivityMaster @relation(fields: [ActivityCode], references: [ActivityCode])
+    // Relations
+    activityMaster ContainerActivityMaster @relation(fields: [ActivityCode], references: [ActivityCode])
 }
 
 model ContainerActivityMaster {
-  ContainerActivityMasterSid Int     @id @default(autoincrement())
-  TransactionSid             Int
-  ActivityCode               String  @unique @db.VarChar(5)
-  ActivityName               String  @db.VarChar(100)
-  ContainerMoveStatus        String? @db.VarChar(10)   // Empty, Full, Damage
-  MoveType                   String? @db.VarChar(10)   // Inbound, Outbound
-  IsDamageMove               String  @default("N") @db.Char(1)
-  Remarks                    String? @db.VarChar(100)
-  Status                     String  @default("A") @db.Char(1)
-  CreatedOn                  DateTime
-  CreatedBy                  String  @db.VarChar(100)
-  UpdatedOn                  DateTime?
-  UpdatedBy                  String? @db.VarChar(100)
-  deletedAt                  DateTime?
-  // Relation
-  activities ContainerActivity[]
+    ContainerActivityMasterSid Int                 @id @default(autoincrement())
+    TransactionSid             Int
+    ActivityCode               String              @unique @db.VarChar(5)
+    ActivityName               String              @db.VarChar(100)
+    ContainerMoveStatus        String?             @db.VarChar(10) // Empty, Full, Damage
+    MoveType                   String?             @db.VarChar(10) // Inbound, Outbound
+    IsDamageMove               String              @default("N") @db.Char(1)
+    Remarks                    String?             @db.VarChar(100)
+    Status                     String?             @default("A") @db.Char(1)
+    CreatedOn                  DateTime
+    CreatedBy                  String              @db.VarChar(100)
+    UpdatedOn                  DateTime?
+    UpdatedBy                  String?             @db.VarChar(100)
+    deletedAt                  DateTime?
+    // Relation
+    activities                 ContainerActivity[]
 }
-
-
