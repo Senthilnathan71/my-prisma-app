@@ -12,7 +12,7 @@ export class ChargeTdsService {
         try {
             const allChargeTds = await this._db.chargeTds.findMany({
                 where: {
-                    deletedAt: null
+                    status : 'A'
                 },
                 include: {
                     chargeMaster: true,
@@ -98,7 +98,7 @@ export class ChargeTdsService {
             if (!exist) {
                 throw new BadRequestException(`Charge TDS with Id : ${ChargeTdsSid} not exists`);
             }
-            if (exist.deletedAt) {
+            if (exist.status === 'D') {
                 throw new BadRequestException(`Charge TDS with Id :${ChargeTdsSid} is already deleted`);
             }
             const deletedChargeTds = await this._db.chargeTds.update({
@@ -106,7 +106,7 @@ export class ChargeTdsService {
                     ChargeTdsSid: ChargeTdsSid
                 },
                 data: {
-                    deletedAt: new Date()
+                    status : 'D'
                 },
                 include: {
                     chargeMaster: true,
@@ -124,7 +124,6 @@ export class ChargeTdsService {
         const skip = (page - 1) * pageSize;
 
         const where: Prisma.ChargeTdsWhereInput = {
-            deletedAt: null,
             status: 'A',
             OR: search ? [
                 { createdBy: { contains: search, mode: 'insensitive' } },

@@ -14,7 +14,6 @@ export class CityService {
       const cityList = await this._db.cityMaster.findMany({
         where: {
           status : 'A',
-          deletedAt: null,
         },
       })
       return cityList;
@@ -57,7 +56,7 @@ export class CityService {
 
     const existing = await this._db.cityMaster.findFirst({
       where: {
-        deletedAt: null,
+        status : 'A',
         OR: [
           {
             cityName: {
@@ -130,13 +129,13 @@ export class CityService {
       if (!existing) {
         throw new BadRequestException(`City with id: ${CityMasterSid} not exist`);
       }
-      if (existing.deletedAt) {
+      if (existing.status === 'D') {
         throw new BadRequestException(`City with id: ${CityMasterSid} is already deleted`);
       }
       // Perform soft delete by updating deletedAt field
       const deletedCity = await this._db.cityMaster.update({
         where: { CityMasterSid: CityMasterSid },
-        data: { deletedAt: new Date() },
+        data: { status : 'D' },
       })
       return deletedCity;
     } catch (error) {
@@ -149,7 +148,6 @@ export class CityService {
     const skip = (page - 1) * pageSize;
 
     const where: Prisma.CityMasterWhereInput = {
-        deletedAt: null,
         status: 'A',
         OR: search ? [
             { cityCode: { contains: search, mode: 'insensitive' } },

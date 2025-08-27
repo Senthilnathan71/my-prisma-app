@@ -13,7 +13,7 @@ export class PrecustomerService {
         try {
             const customer = await this._db.customerMaster.findMany({
                 where : {
-                    deletedAt : null,
+                    status:'A',
                     CompanyMasterSid: CompanyMasterSid
                 },
                 include: {
@@ -37,7 +37,7 @@ export class PrecustomerService {
         try {
             const customer = await this._db.customerMaster.findMany({
                 where : {
-                    deletedAt : null,
+                    status:'A',
                 },
                 include: {
                     preCustomerMaster: {
@@ -179,7 +179,7 @@ export class PrecustomerService {
                     contains: filterValue,
                     mode: 'insensitive'
                 },
-                deletedAt:null
+                status:'A'
             }
         }).catch((err) => {
             throw new Error(`Error Occured ${err}`)

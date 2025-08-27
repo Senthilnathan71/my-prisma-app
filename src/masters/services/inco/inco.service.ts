@@ -58,7 +58,6 @@ export class IncoService {
             const IncoList = await this._db.incoMaster.findMany({
                 where: {
                     Status: 'A',
-                    deletedAt : null
                 }
             })
             return IncoList;
@@ -111,13 +110,13 @@ export class IncoService {
             throw new NotFoundException(`Inco with ID ${id} not found`);
         }
 
-        if (existingInco.deletedAt) {
+        if (existingInco.Status === 'D') {
             throw new Error(`Inco with ID ${id} is already deleted`);
         }
 
         return this._db.incoMaster.update({
             where: { IncoMasterSid:  id},
-            data: { deletedAt: new Date()}
+            data: { Status : 'D' }
         });
     }
 
@@ -126,7 +125,6 @@ export class IncoService {
     const skip = (page - 1) * pageSize;
 
     const where: Prisma.IncoMasterWhereInput = {
-        deletedAt: null,
         Status: 'A',
         ...(search
             ? {

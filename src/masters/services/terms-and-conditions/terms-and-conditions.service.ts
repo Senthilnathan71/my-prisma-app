@@ -11,7 +11,7 @@ export class TermsAndConditionsService {
         try {
             const allTermConds = await this._db.termsAndConditionsMaster.findMany({
                 where : {
-                    deletedAt:null
+                    status:'A'
                 },
                 include:{
                     departments : true
@@ -114,7 +114,7 @@ export class TermsAndConditionsService {
             throw new BadRequestException(`Terms & Conditions with ID: ${TermsAndConditionsMasterSid} not exists`);
         }
         
-        if (exist.deletedAt) {
+        if (exist.status==='D') {
             throw new BadRequestException(`Terms & Conditions with ID: ${TermsAndConditionsMasterSid} is already deleted`);
         }
 
@@ -125,7 +125,7 @@ export class TermsAndConditionsService {
                     TermsAndConditionsMasterSid: TermsAndConditionsMasterSid 
                 },
                 data: {
-                    deletedAt: new Date()
+                    status:'D'
                 }
             });
 
@@ -133,10 +133,10 @@ export class TermsAndConditionsService {
             const deletedDetails = await tx.termsAndConditionsDetail.updateManyAndReturn({
                 where: {
                     TermsAndConditionsMasterSid: TermsAndConditionsMasterSid,
-                    deletedAt: null
+                    status:'D'
                 },
                 data: {
-                    deletedAt: new Date()
+                    status:'D'
                 }
             });
 
@@ -144,10 +144,10 @@ export class TermsAndConditionsService {
             const deletedTransactions = await tx.tandCTransaction.updateManyAndReturn({
                 where: {
                     TandCMasterSid: TermsAndConditionsMasterSid,
-                    deletedAt: null
+                    status:'D'
                 },
                 data: {
-                    deletedAt: new Date()
+                    status:'D'
                 }
             });
 
@@ -217,7 +217,7 @@ export class TermsAndConditionsService {
         const searchResults = await this._db.termsAndConditionsMaster.findMany({
             where :{ 
                 ...whereClause,
-                deletedAt:null
+                status:'A'
             },
             include :{
                 branch:{
@@ -327,7 +327,7 @@ export class TermsAndConditionsService {
 
             // Build the where clause dynamically
             const whereClause: any = {
-                deletedAt: null
+                status:'A'
             };
 
             // Add filters only if provided

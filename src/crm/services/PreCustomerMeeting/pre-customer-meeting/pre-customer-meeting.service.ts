@@ -10,7 +10,7 @@ export class PreCustomerMeetingService {
         try {
             const allMeetings = await this._db.preCustomerMeeting.findMany({
                 where: {
-                    deletedAt: null,
+                    status: 'A',
                     CompanyMasterSid: CompanyMasterSid,
                     BranchMasterSid: BranchMasterSid
                 },
@@ -106,7 +106,7 @@ export class PreCustomerMeetingService {
             if (!exist) {
                 throw new BadRequestException(`PreCustomerMeeting with Id : ${PreCustomerMeetingSid} does not exist`);
             }
-            if (exist.deletedAt) {
+            if (exist.status === 'D') {
                 throw new BadRequestException(`PreCustomerMeeting with Id : ${PreCustomerMeetingSid} is already deleted`);
             }
             const deletedMeeting = await this._db.preCustomerMeeting.update({
@@ -114,7 +114,7 @@ export class PreCustomerMeetingService {
                     PreCustomerMeetingSid: PreCustomerMeetingSid
                 },
                 data: {
-                    deletedAt: new Date()
+                    status: 'D'
                 },
                 include: {
                     branchMaster: true,
@@ -183,7 +183,7 @@ export class PreCustomerMeetingService {
         const searchResults = await this._db.preCustomerMeeting.findMany({
             where: {
                 ...whereClause,
-                deletedAt: null
+                status : 'A'
             },
             include: {
                 branchMaster: true,

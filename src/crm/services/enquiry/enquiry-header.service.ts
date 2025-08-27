@@ -136,7 +136,7 @@ export class EnquiryHeaderService {
                         include: {
                             enquiryCargo: {
                                 where : {
-                                    deletedAt : null
+                                    status : 'A'
                                 }
                             }
                         }
@@ -294,13 +294,13 @@ export class EnquiryHeaderService {
             throw new NotFoundException(`Enquiry Route with ID ${EnquiryCargoSid} not found`);
         }
 
-        if (existingEnquiryCargo.deletedAt) {
+        if (existingEnquiryCargo.status === 'D') {
             throw new Error(`Enquiry Route with ID ${EnquiryCargoSid} is already deleted`);
         }
 
         return this._db.enquiryCargo.update({
             where: { EnquiryCargoSid: EnquiryCargoSid },
-            data: { deletedAt: new Date() }
+            data: { status : 'D'}
         });
     }
     async softDelete(id: number) {
@@ -313,14 +313,14 @@ export class EnquiryHeaderService {
             throw new NotFoundException(`Enquiry with ID ${id} not found`);
         }
 
-        if (existingEnquiry.deletedAt) {
+        if (existingEnquiry.status === 'D') {
             throw new Error(`Enquiry with ID ${id} is already deleted`);
         }
 
         // Perform soft delete by updating deletedAt field
         return this._db.enquiryHeader.update({
             where: { EnquiryHeaderSid: id },
-            data: { deletedAt: new Date() }
+            data: { status: 'D' }
         });
     }
 
@@ -330,7 +330,7 @@ export class EnquiryHeaderService {
         try {
             const customer = await this._db.departmentMaster.findMany({
                 where : {
-                    deletedAt : null
+                    Status : 'A'
                 }
             });
             return customer;
@@ -344,7 +344,7 @@ export class EnquiryHeaderService {
         try {
             const customer = await this._db.packageTypeMaster.findMany({
                 where : {
-                    deletedAt : null
+                    status: 'A'
                 }
             });
             return customer;
@@ -358,7 +358,7 @@ export class EnquiryHeaderService {
         try {
             const container = await this._db.containerTypeMaster.findMany({
                 where : {
-                    deletedAt : null
+                    status: 'A'
                 }
             });
             return container;

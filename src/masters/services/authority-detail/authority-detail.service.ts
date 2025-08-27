@@ -10,7 +10,7 @@ export class AuthorityDetailService {
         try {
             const allAuthorityDetails = await this._db.authorityDetail.findMany({
                 where: {
-                    deletedAt: null
+                    status : 'A'
                 },
                 include: {
                     branchMaster: true,
@@ -90,7 +90,7 @@ export class AuthorityDetailService {
             if (!exist) {
                 throw new BadRequestException(`Authority Detail with Id : ${AuthorityDetailSid} does not exist`);
             }
-            if (exist.deletedAt) {
+            if (exist.status === 'D') {
                 throw new BadRequestException(`Authority Detail with Id : ${AuthorityDetailSid} is already deleted`);
             }
             const deletedAuthorityDetail = await this._db.authorityDetail.update({
@@ -98,7 +98,7 @@ export class AuthorityDetailService {
                     AuthorityDetailSid: AuthorityDetailSid
                 },
                 data: {
-                    deletedAt: new Date()
+                    status : 'D'
                 }
             });
             return deletedAuthorityDetail;
@@ -146,7 +146,7 @@ export class AuthorityDetailService {
         const searchResults = await this._db.authorityDetail.findMany({
             where: {
                 ...whereClause,
-                deletedAt: null
+                status : 'A'
             },
             include: {
                 branchMaster: true,

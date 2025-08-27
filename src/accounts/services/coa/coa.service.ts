@@ -12,7 +12,6 @@ export class CoaService {
             const allCoa = await this._db.cOAMaster.findMany({
                 where : {
                   
-                    deletedAt : null,
                     Status : 'A',
                     CompanyMasterSid: CompanyMasterSid
                 }
@@ -93,7 +92,7 @@ export class CoaService {
             if (!exist) {
                 throw new BadRequestException(`Coa with Id : ${COAMasterSid} not exists`);
             }
-            if (exist.deletedAt) {
+            if (exist.Status === 'D') {
                 throw new BadRequestException(`Coa with Id : ${COAMasterSid} is already deleted`);
             }
             const deletedCoa = this._db.cOAMaster.update({
@@ -101,7 +100,7 @@ export class CoaService {
                     COAMasterSid: COAMasterSid
                 },
                 data: {
-                    deletedAt: new Date()
+                    Status : 'D'
                 }
             })
             return deletedCoa;
@@ -116,7 +115,7 @@ export class CoaService {
     const skip = (page - 1) * pageSize;
     const where : Prisma.COAMasterWhereInput = {
        
-        deletedAt : null,
+        Status : 'A',
         CompanyMasterSid : activeCompanyId,
         ...(search
             ? {

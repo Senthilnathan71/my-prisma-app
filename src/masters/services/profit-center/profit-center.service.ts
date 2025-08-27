@@ -110,13 +110,13 @@ export class ProfitCenterService {
                 throw new NotFoundException(`Profit-Center with ID ${id} not found`);
             }
     
-            if (existingProfitCenter.deletedAt) {
+            if (existingProfitCenter.Status === 'D') {
                 throw new Error(`Profit-Center with ID ${id} is already deleted`);
             }
     
             return this._db.profitCenterMaster.update({
                 where: {ProfitCenterMasterSid: id},
-                data: { deletedAt: new Date()}
+                data: { Status:'D'}
             });
         }
     
@@ -125,7 +125,6 @@ export class ProfitCenterService {
         const skip = (page - 1) * pageSize;
 
         const where: Prisma.ProfitCenterMasterWhereInput = {
-            deletedAt: null,
             Status: 'A',
             ...(search
                 ? {

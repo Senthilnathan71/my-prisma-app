@@ -21,7 +21,7 @@ export class CurrencyService {
 
     const existing = await this._db.currencyMaster.findFirst({
       where: {
-        deletedAt : null,
+        status : 'A',
         OR: [
           {
             currencyName: {
@@ -65,7 +65,6 @@ export class CurrencyService {
     try {
       const currencyList = await this._db.currencyMaster.findMany({
         where: {
-          deletedAt : null,
           status: 'A',
         },
       });
@@ -124,14 +123,14 @@ export class CurrencyService {
       throw new NotFoundException(`Currency with ID ${id} not found`);
     }
 
-    if (existingCurrency.deletedAt) {
+    if (existingCurrency.status === 'D') {
       throw new Error(`Currency with ID ${id} is already deleted`);
     }
 
     // Perform soft delete by updating deletedAt field
     return this._db.currencyMaster.update({
       where: { CurrencyMasterSid: id },
-      data: { deletedAt: new Date() },
+      data: { status : 'D' },
     });
   }
 
@@ -140,7 +139,6 @@ export class CurrencyService {
     const skip = (page - 1) * pageSize;
 
     const where: Prisma.CurrencyMasterWhereInput = {
-        deletedAt: null,
         status: 'A',
         ...(search
             ? {

@@ -111,14 +111,14 @@ export class RoleService {
             throw new NotFoundException(`role with ID ${id} not found`);
         }
 
-        if (existingrole.deletedAt) {
+        if (existingrole.status==='D') {
             throw new Error(`role with ID ${id} is already deleted`);
         }
 
         // Perform soft delete by updating deletedAt field
         return this._db.roleMaster.update({
             where: { RoleMasterSid: id },
-            data: { deletedAt: new Date() }
+            data: { status:'D' }
         });
     }
 
@@ -128,7 +128,6 @@ export class RoleService {
     const skip = (page - 1) * pageSize;
 
     const where: Prisma.RoleMasterWhereInput = {
-        deletedAt: null,
         status: 'A',
         CompanyMasterSid : activeCompanyId,
         ...(search

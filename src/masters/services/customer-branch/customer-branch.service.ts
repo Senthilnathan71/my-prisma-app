@@ -22,7 +22,7 @@ export class CustomerBranchService {
         try {
             const allCustomerBranches = await this._db.customerBranch.findMany({
                 where: {
-                    deletedAt: null
+                    status : 'A'
                 }
             })
             return allCustomerBranches;
@@ -52,7 +52,7 @@ export class CustomerBranchService {
             const ourCustomerBranch = await this._db.customerBranch.findMany({
                 where: {
                     CustomerMasterSid: CustomerMasterId,
-                    deletedAt : null
+                    status : 'A'
                 }
             })
             if (!ourCustomerBranch) {
@@ -97,14 +97,14 @@ export class CustomerBranchService {
             if (!existing) {
                 throw new BadRequestException(`Customer Branch with id :${CustomerBranchSid} is not exists`)
             }
-            if (existing.deletedAt) {
+            if (existing.status === 'D') {
                 throw new BadRequestException(`Customer Branch with id : ${CustomerBranchSid} is already deleted`);
             }
             const deletedData = await this._db.customerBranch.update({
                 where: {
                     CustomerBranchSid: CustomerBranchSid
                 }, data: {
-                    deletedAt: new Date()
+                    status : 'D'
                 }
             })
             return deletedData;
@@ -141,7 +141,7 @@ export class CustomerBranchService {
                     contains: filterValue,
                     mode: 'insensitive'
                 },
-                deletedAt:null
+                status : 'A'
             }
         }).catch((err) => {
             throw new Error(`Error Occurred ${JSON.stringify(err)}`);

@@ -27,7 +27,7 @@ export class CustomerLoginService {
         try {
             const allCustomerLogin = await this._db.customerLogin.findMany({
                 where: {
-                    deletedAt: null
+                    status : 'A'
                 }
             })
             return allCustomerLogin;
@@ -91,14 +91,14 @@ export class CustomerLoginService {
             if (!existing) {
                 throw new BadRequestException(`Customer Login with Id : ${CustomerLoginSid} not exists`);
             }
-            if (existing.deletedAt) {
+            if (existing.status === 'D') {
                 throw new BadRequestException(`Customer Login with Id : ${CustomerLoginSid} is already deleted`);
             }
             const deletedData = await this._db.customerLogin.update({
                 where: {
                     CustomerLoginSid: CustomerLoginSid
                 }, data: {
-                    deletedAt: new Date()
+                    status : 'D'
                 }
             })
             return deletedData;
@@ -126,7 +126,7 @@ export class CustomerLoginService {
                     contains: filterValue,
                     mode: 'insensitive'
                 },
-                deletedAt:null
+                status : 'A'
             }
         }).catch((err) => {
             throw new Error(`Error Occured : ${JSON.stringify(err)}`);

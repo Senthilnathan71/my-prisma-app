@@ -12,7 +12,6 @@ export class TdsDetailService {
             const allTdsDetail = await this._db.tDSSetRate.findMany({
                 where : {
                     status : 'A',
-                    deletedAt : null
                 }
             })
             return allTdsDetail;
@@ -55,7 +54,7 @@ export class TdsDetailService {
             const ourTdsDetail =await this._db.tDSSetRate.findMany({
                 where : {
                     TDSSetHeaderSid:TDSSetHeaderSid,
-                    deletedAt : null
+                    status:'A'
                 },
                 include : {
                     countryMaster : {
@@ -111,7 +110,7 @@ export class TdsDetailService {
             if (!exist) {
                 throw new BadRequestException(`TdsDetail with Id : ${TDSSetRateSid} not exists`);
             }
-            if (exist.deletedAt) {
+            if (exist.status==='D') {
                 throw new BadRequestException(`TdsDetail with Id :${TDSSetRateSid} is already deleted`)
             }
             const deletedTdsDetail = this._db.tDSSetRate.update({
@@ -119,7 +118,7 @@ export class TdsDetailService {
                     TDSSetRateSid: TDSSetRateSid
                 },
                 data: {
-                    deletedAt: new Date()
+                    status:'D'
                 }
             })
             return deletedTdsDetail;
@@ -133,7 +132,6 @@ export class TdsDetailService {
     const { search = '', page = 1, pageSize = 15 } = params;
     const skip = (page - 1) * pageSize;
     const where : Prisma.TDSSetRateWhereInput = {
-        deletedAt: null,
         status: 'A',
     };
 

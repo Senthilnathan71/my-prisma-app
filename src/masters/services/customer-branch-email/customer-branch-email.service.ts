@@ -25,7 +25,7 @@ export class CustomerBranchEmailService {
         try {
             const allCustomerBrEmail = await this._db.customerBrEmail.findMany({
                 where: {
-                    deletedAt: null
+                    status : 'A'
                 }
             })
             return allCustomerBrEmail;
@@ -84,14 +84,14 @@ export class CustomerBranchEmailService {
             if (!existing) {
                 throw new BadRequestException(`Customer Branch Email with id : ${CustomerBrEmailSid} not exists`)
             }
-            if (existing.deletedAt) {
+            if (existing.status === 'D') {
                 throw new BadRequestException(`Customer Branch Email with Id : ${CustomerBrEmailSid} is already deleted`);
             }
             const updatedCustomerBrEmail = await this._db.customerBrEmail.update({
                 where: {
                     CustomerBrEmailSid: CustomerBrEmailSid
                 }, data: {
-                    deletedAt: new Date()
+                    status : 'D'
                 }
             })
             return updatedCustomerBrEmail;
@@ -117,7 +117,7 @@ export class CustomerBranchEmailService {
                     contains: filterValue,
                     mode: 'insensitive'
                 },
-                deletedAt:null
+                status : 'A'
             }
         }).catch((err) => {
             throw new Error(`Error Occured ${JSON.stringify(err), err}`);

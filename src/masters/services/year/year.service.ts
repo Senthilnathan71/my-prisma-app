@@ -12,7 +12,7 @@ export class YearService {
         try {
             const allYears = await this._db.yearMaster.findMany({
                 where: {
-                    deletedAt: null, 
+                    status:'A', 
                     CompanyMasterSid: CompanyMasterSid
                 },
                 include: {
@@ -95,7 +95,7 @@ export class YearService {
             if (!exist) {
                 throw new BadRequestException(`Year with Id : ${YearMasterSid} not exists`);
             }
-            if (exist.deletedAt) {
+            if (exist.status==='D') {
                 throw new BadRequestException(`Year with Id :${YearMasterSid} is already deleted`);
             }
             const deletedYear = await this._db.yearMaster.update({
@@ -103,7 +103,7 @@ export class YearService {
                     YearMasterSid: YearMasterSid
                 },
                 data: {
-                    deletedAt: new Date()
+                    status:'D'
                 },
                 include: {
                     companyMaster: true
@@ -121,7 +121,6 @@ export class YearService {
     const skip = (page - 1) * pageSize;
 
     const where: Prisma.YearMasterWhereInput = {
-        deletedAt: null,
         status: 'A',
         CompanyMasterSid : activeCompanyId,
         

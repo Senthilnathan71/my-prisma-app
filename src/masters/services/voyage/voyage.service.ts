@@ -56,7 +56,7 @@ export class VoyageService {
         try {
             const voyageList = await this._db.voyageMasterHeader.findMany({
                 where: {
-                    deletedAt: null
+                    status:'A'
                 }
             })
             return voyageList;
@@ -145,7 +145,7 @@ export class VoyageService {
                 throw new NotFoundException(`Voyage with ID ${VoyageMasterHeaderSid} not found`);
             }
 
-            if (existingVoyage.deletedAt) {
+            if (existingVoyage.status==='D') {
                 throw new Error(`Voyage with ID ${VoyageMasterHeaderSid} is already deleted`);
             }
 
@@ -155,17 +155,17 @@ export class VoyageService {
                         VoyageMasterHeaderSid: VoyageMasterHeaderSid
                     },
                     data: {
-                        deletedAt: new Date()
+                        status:'D'
                     }
                 })
 
                 const deletedVoyageDetail = await prisma.voyageMasterDetail.updateManyAndReturn({
                     where: {
                         VoyageMasterHeaderSid: VoyageMasterHeaderSid,
-                        deletedAt: null
+                        status:'D'
                     },
                     data: {
-                        deletedAt: new Date()
+                        status:'D'
                     }
                 })
 
@@ -225,7 +225,7 @@ export class VoyageService {
         const searchResults = await this._db.voyageMasterHeader.findMany({
             where: {
                 ...whereClause,
-                deletedAt: null
+                status:'A'
             },
             include: {
                 vesselMaster: {
@@ -235,7 +235,7 @@ export class VoyageService {
                 },
                 voyageMasterDetail: {
                     where: {
-                        deletedAt: null
+                        status:'A'
                     },
                     orderBy: {
                         VoyageMasterDetailSid: 'asc'
@@ -342,7 +342,7 @@ export class VoyageService {
             where: {
                 voyageMasterDetail: {
                     some: {
-                        deletedAt: null,
+                        status:'A',
                     },
                 },
             },
@@ -357,7 +357,7 @@ export class VoyageService {
             const details = await this._db.voyageMasterDetail.findMany({
                 where: {
                     VoyageMasterHeaderSid: header.VoyageMasterHeaderSid,
-                    deletedAt: null,
+                    status:'A',
                 },
                 orderBy: {
                     VoyageMasterDetailSid: 'asc',
@@ -410,10 +410,10 @@ export class VoyageService {
     const today = new Date().toISOString(); // Use full ISO-8601 DateTime format
 
     const where: Prisma.VoyageMasterHeaderWhereInput = {
-        deletedAt: null,
+        status:'A',
         voyageMasterDetail: {
             some: {
-                deletedAt: null,
+                status:'A',
                 ETD: {
                     gte: today
                 }
@@ -443,7 +443,7 @@ export class VoyageService {
             include: {
                 voyageMasterDetail: {
                     where: {
-                        deletedAt: null
+                        status:'A'
                     },
                     orderBy: {
                         VoyageMasterDetailSid: 'asc'
@@ -499,11 +499,10 @@ async getAuditLogs(tableName: string, recordId?: string) {
 
         const headers = await this._db.voyageMasterHeader.findMany({
             where: {
-                deletedAt: null,
                 status: 'A',
                 VoyageType: MovementType,
                 voyageMasterDetail: {
-                    some: { deletedAt: null, status: 'A' },
+                    some: { status: 'A' },
                 },
             },
             select: {
@@ -515,7 +514,7 @@ async getAuditLogs(tableName: string, recordId?: string) {
                     },
                 },
                 voyageMasterDetail: {
-                    where: { deletedAt: null, status: 'A' },
+                    where: {  status: 'A' },
                     orderBy: { ETD: 'asc' },
                     select: { POLSid: true, ETD: true },
                 },
@@ -594,7 +593,6 @@ async getAuditLogs(tableName: string, recordId?: string) {
         const headers = await this._db.voyageMasterHeader.findMany({
             where: {
                 VesselMasterSid,
-                deletedAt: null,
                 status: 'A',
                 VoyageType: VoyageType,
             },
@@ -603,7 +601,7 @@ async getAuditLogs(tableName: string, recordId?: string) {
                 VoyageNo: true,
                 VoyageType: true,
                 voyageMasterDetail: {
-                    where: { deletedAt: null, status: 'A' },
+                    where: { status: 'A' },
                     orderBy: { ETD: 'asc' },
                     select: {
                         VoyageMasterDetailSid: true,
@@ -672,14 +670,14 @@ async getAuditLogs(tableName: string, recordId?: string) {
             const allVoyages = await this._db.voyageMasterHeader.findMany({
                 where: {
                     VesselMasterSid: VesselMasterSid,
-                    deletedAt: null,
+                    status:'A',
                     voyageMasterDetail: {
                         some: {}
                     }
                 },
                 include: {
                     voyageMasterDetail: {
-                        where: { deletedAt: null },
+                        where: { status:'A' },
                         orderBy: { VoyageMasterDetailSid: 'asc' }
                     }
                 }

@@ -158,14 +158,14 @@ export class BookingService {
       throw new NotFoundException(`Quote with ID ${id} not found`);
     }
 
-    if (bookingHeader.deletedAt) {
+    if (bookingHeader.status === 'D') {
       throw new Error(`Quote with ID ${id} is already deleted`);
     }
 
     // Perform soft delete by updating deletedAt field
     return this.db.bookingHeader.update({
       where: { BookingHeaderSid: id },
-      data: { deletedAt: new Date() }
+      data: { status : 'D'}
     });
   }
 

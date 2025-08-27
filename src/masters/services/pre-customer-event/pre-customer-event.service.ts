@@ -10,7 +10,7 @@ export class PreCustomerEventService {
         try {
             return await this.db.preCustomerEvent.findMany({
                 where: {
-                    deletedAt: null
+                    status : 'A'
                 },
                 include: {
                     companyMaster: true
@@ -93,14 +93,14 @@ export class PreCustomerEventService {
                 throw new BadRequestException(`Pre-Customer Event with ID: ${PreCustomerEventSid} does not exist`);
             }
             
-            if (exists.deletedAt) {
+            if (exists.status === 'D') {
                 throw new BadRequestException(`Pre-Customer Event with ID: ${PreCustomerEventSid} is already deleted`);
             }
             
             return await this.db.preCustomerEvent.update({
                 where: { PreCustomerEventSid },
                 data: {
-                    deletedAt: new Date(),
+                    status:'D',
                     updatedBy: 'admin@crm.com'
                 }
             });
@@ -136,7 +136,7 @@ export class PreCustomerEventService {
             throw new BadRequestException('Invalid Search Type');
         }
 
-        const whereClause: any = { deletedAt: null };
+        const whereClause: any = { status : 'A' };
 
         if (stringFields.includes(searchType)) {
             whereClause[searchType] = {

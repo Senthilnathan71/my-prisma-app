@@ -11,7 +11,6 @@ export class SupplierTdsMappingService {
         try {
             const allsupptdsmapp = await this._db.supplierTdsMapping.findMany({
                 where : {
-                    deletedAt : null,
                     Status : 'A'
                 }
             })
@@ -93,7 +92,7 @@ export class SupplierTdsMappingService {
             if (!exist) {
                 throw new BadRequestException(`Supplier TDS Mapping with Id : ${SupplierTdsMappingSid} not exists`);
             }
-            if (exist.deletedAt) {
+            if (exist.Status === 'D') {
                 throw new BadRequestException(`Supplier TDS Mapping with Id :${SupplierTdsMappingSid} is already deleted`)
             }
             const deletedSupplierTDSMapping = this._db.supplierTdsMapping.update({
@@ -101,7 +100,7 @@ export class SupplierTdsMappingService {
                     SupplierTdsMappingSid: SupplierTdsMappingSid
                 },
                 data: {
-                    deletedAt: new Date()
+                    Status : 'A'
                 }
             })
             return deletedSupplierTDSMapping;
@@ -192,7 +191,6 @@ export class SupplierTdsMappingService {
     const skip = (page - 1) * pageSize;
 
     const where: Prisma.SupplierTdsMappingWhereInput = {
-        deletedAt: null,
         Status: 'A',
         CompanyMasterSid : activeCompanyId,
         ...(search
