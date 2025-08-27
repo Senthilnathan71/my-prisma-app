@@ -63,6 +63,7 @@ model MenuMaster {
     enquiryHeader      EnquiryHeader[]
     bookingHeader      BookingHeader[]
     costRevenueCharges CostRevenueCharges[]
+    MasterJob MasterJob[]
 }
 
 model MenuPermission {

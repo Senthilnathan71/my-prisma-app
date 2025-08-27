@@ -88,6 +88,7 @@ model CompanyMaster {
     shipmentMilestone   ShipmentMilestone[]
     followup            Followup[]
     costRevenueCharges  CostRevenueCharges[]
+    MasterJob MasterJob[]
 }
 
 model BranchMaster {
@@ -172,6 +173,7 @@ model BranchMaster {
     shipmentMilestone  ShipmentMilestone[]
     followup           Followup[]
     costRevenueCharges CostRevenueCharges[]
+    MasterJob MasterJob[]
 }
 
 model UserMaster {
@@ -2233,4 +2235,132 @@ model ContainerActivityMaster {
     deletedAt                  DateTime?
     // Relation
     activities                 ContainerActivity[]
+}
+
+
+
+model MasterJob {
+  MasterJobSid           Int       @id @default(autoincrement())
+  MasterJobNumber        String?   @db.VarChar(20)
+  MasterJobDate          DateTime? @db.Date
+  CreatedOn              DateTime  @default(now())
+  CreatedBy              String    @db.VarChar(100)
+  UpdatedOn              DateTime? 
+  UpdatedBy              String?   @db.VarChar(100)
+    Status                     String?             @default("A") @db.Char(1)
+  MenuMasterSid          Int? 
+  CompanyMasterSid       Int
+  BranchMasterSid        Int
+  DepartmentMasterSid    Int
+  FreightPPCC            String    @db.VarChar(10)
+  DestinationAgent       Int?
+  DestinationAgentName   String?   @db.VarChar(100)
+  DestinationAgentAddress String?  @db.VarChar(300)
+  MBLNo                  String?   @db.VarChar(20)
+  MBLDate                DateTime? @db.Date
+  BLReleaseType          String?   @db.VarChar(15)
+  NoofOriginal           Int?
+  OriginAgent            Int?
+  POO                    String    @db.VarChar(100)
+  POL                    String    @db.VarChar(100)
+  POD                    String    @db.VarChar(100)
+  FPD                    String    @db.VarChar(100)
+  TsPortSid              Int?
+  POLTerminal            String?   @db.VarChar(100)
+  PODTerminal            String?   @db.VarChar(100)
+  MovementType           String?   @db.VarChar(10)
+  ShipmentTerms          String?   @db.VarChar(10)
+  PkgType                Int?
+  NoOfPkg                Int?
+  WeightIn               String?   @db.VarChar(10)
+  GrossWeight            Decimal?  @db.Decimal(10,3)
+  NetWeight              Decimal?  @db.Decimal(10,3)
+  ChargeableWeight       Decimal?  @db.Decimal(10,3)
+  Volume                 Decimal?  @db.Decimal(8,3)
+  Haz                    String?   @db.Char(1)
+  DGBookingDate          DateTime? @db.Date
+  DGApprovedDate         DateTime? @db.Date
+  CommodityDescription   String?   @db.VarChar(3000)
+  MarksandNumber         String?   @db.VarChar(500)
+
+
+  CompanyMaster CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+  BranchMaster  BranchMaster  @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
+  MenuMaster  MenuMaster?   @relation(fields: [MenuMasterSid], references: [MenuMasterSid])
+
+  voyages    MasterJobVoyage[]
+  others     MasterJobOthers[]
+  containers MasterJobContainer[]
+}
+
+model MasterJobVoyage {
+  MasterJobVoyageSid Int       @id @default(autoincrement())
+  MasterJobSid       Int
+  VoyageMasterSid    Int?
+  VesselName         String?   @db.VarChar(100)
+  VoyageNo           String?   @db.VarChar(10)
+  ETD                DateTime? @db.Date
+  ETA                DateTime? @db.Date
+  ATA                DateTime? @db.Date
+  ATD                DateTime? @db.Date
+  DestinationATA     DateTime? @db.Date
+  CarrierMasterSid   Int?
+  CarrierName        String?   @db.VarChar(100)
+  Status                     String?             @default("A") @db.Char(1)
+
+  masterJob MasterJob @relation(fields: [MasterJobSid], references: [MasterJobSid])
+}
+
+model MasterJobOthers {
+  MasterJobOthersSid Int       @id @default(autoincrement())
+  MasterJobSid       Int
+  CreatedOn          DateTime  @default(now())
+  CreatedBy          String    @db.VarChar(100)
+  UpdatedOn          DateTime?
+  UpdatedBy          String?   @db.VarChar(100)
+  Status                     String?             @default("A") @db.Char(1)
+  Yard               Int?
+  YardAddress        String?   @db.VarChar(100)
+  Transporter        String?   @db.VarChar(100)
+  HandlingInformation String?  @db.VarChar(300)
+  InternalNote       String?   @db.VarChar(300)
+  CFS                Int?
+  CFSAddress         String?   @db.VarChar(100)
+  StuffingStartDate  DateTime?
+  StuffingEndDate    DateTime?
+  CurrencyCode       String?   @db.VarChar(3)
+  SellExchangeRate   Int?
+  AgentExchangeRate  Int?
+  Coload             String?   @db.Char(1)
+  CoLoader           String?   @db.VarChar(100)
+  ExportDoNo         String?   @db.VarChar(20)
+  ExportDoDate       DateTime? @db.Date
+  SOBDate            DateTime? @db.Date
+
+  masterJob MasterJob @relation(fields: [MasterJobSid], references: [MasterJobSid])
+}
+
+model MasterJobContainer {
+  MasterJobContainerSid Int       @id @default(autoincrement())
+  MasterJobSid          Int
+  CreatedOn             DateTime  @default(now())
+  CreatedBy             String    @db.VarChar(100)
+  UpdatedOn             DateTime?
+  UpdatedBy             String?   @db.VarChar(100)
+  Status                     String?             @default("A") @db.Char(1)
+  ContainerType         Int
+  ContainerNumber       String    @db.VarChar(11)
+  LineSeal              String?   @db.VarChar(10)
+  CustomsSeal           String?   @db.VarChar(10)
+  HsCode                String?   @db.VarChar(10)
+  CommodityDescription  String?   @db.VarChar(500)
+  PkgType               Int?
+  NoOfPkg               Int?
+  GrossWeight           Decimal?  @db.Decimal(10,3)
+  NetWeight             Decimal?  @db.Decimal(10,3)
+  ChargeableWeight      Decimal?  @db.Decimal(10,3)
+  Volume                Decimal?  @db.Decimal(8,3)
+  IsSoc                 String?   @db.Char(1)
+
+  masterJob MasterJob @relation(fields: [MasterJobSid], references: [MasterJobSid])
 }
