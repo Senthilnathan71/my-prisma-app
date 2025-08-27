@@ -174,9 +174,9 @@ model BookingOthers {
     CustomerServiceuser String?   @db.VarChar(100)
     NotifyParty         String    @db.VarChar(100)
     NotifyPartyAddress  String    @db.VarChar(200)
-    Notify2             String?    @db.VarChar(100)
-    NotifyAddress2      String?    @db.VarChar(200)
-    Coloader            String?    @db.VarChar(100)
+    Notify2             String?   @db.VarChar(100)
+    NotifyAddress2      String?   @db.VarChar(200)
+    Coloader            String?   @db.VarChar(100)
     CHAName             String    @db.VarChar(100)
     PickupMode          String?   @db.VarChar(10)
     YardCFS             String    @db.VarChar(100)
@@ -227,7 +227,7 @@ model BookingRates {
     deletedAt         DateTime?
     UpdatedOn         DateTime?
     UpdatedBy         String?   @db.VarChar(100)
-    Status            String    @db.Char(1)
+    Status            String?   @default("A") @db.Char(1)
     SerialNumber      Decimal   @db.Decimal(3, 0)
     ChargeMasterSid   Int
     ChargeDescription String    @db.VarChar(100)
@@ -345,7 +345,7 @@ model ShipmentMilestone {
     CreatedBy            String    @db.VarChar(100)
     UpdatedOn            DateTime?
     UpdatedBy            String?   @db.VarChar(100)
-    Status               String    @db.Char(1)
+    Status               String?   @default("A") @db.Char(1)
     MilestoneMasterSid   Int
     MilestoneName        String    @db.VarChar(50)
     MilestoneDate        DateTime
