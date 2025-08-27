@@ -28,7 +28,7 @@ export class ChargeGroupService {
         try {
             const allGroups = await this._db.chargeGroup.findMany({
                 where: {
-                    deletedAt: null,
+                    status:"A",
                     CompanyMasterSid: CompanyMasterSid
                 },
                 include: {
@@ -92,7 +92,7 @@ export class ChargeGroupService {
             if (!exist) {
                 throw new BadRequestException(`Charge group with id: ${ChargeGroupSid} does not exist`);
             }
-            if (exist.deletedAt) {
+            if (exist.status==="D") {
                 throw new BadRequestException(`Charge group with id: ${ChargeGroupSid} is already deleted`);
             }
             const deleted = await this._db.chargeGroup.update({
@@ -100,7 +100,7 @@ export class ChargeGroupService {
                     ChargeGroupSid: ChargeGroupSid
                 },
                 data: {
-                    deletedAt: new Date()
+                    status:"D"
                 }
             });
             return deleted;
@@ -114,7 +114,7 @@ export class ChargeGroupService {
         const skip = (page - 1) * pageSize;
 
         const where: Prisma.ChargeGroupWhereInput = {
-            deletedAt: null,
+           
             status: 'A',
              CompanyMasterSid : activeCompanyId,
             ...(search

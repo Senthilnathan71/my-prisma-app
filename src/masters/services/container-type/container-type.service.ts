@@ -27,9 +27,7 @@ export class ContainerTypeService {
     try {
       const containerTypes = await this._db.containerTypeMaster.findMany({
         where: {
-          deletedAt: {
-            equals: null,
-          },
+          status:"A"
         },
       });
       return containerTypes;
@@ -91,7 +89,7 @@ export class ContainerTypeService {
         throw new BadRequestException(
           `Container Type with Id : ${ContainerTypeMasterSid} not found`,
         );
-      if (ourContainerType.deletedAt)
+      if (ourContainerType.status==="D")
         throw new BadRequestException(
           `Container Type with Id : ${ContainerTypeMasterSid} is already deleted`,
         );
@@ -101,7 +99,7 @@ export class ContainerTypeService {
           ContainerTypeMasterSid: ContainerTypeMasterSid,
         },
         data: {
-          deletedAt: new Date(),
+         status:"D"
         },
       });
       return deletedContainerType;
@@ -115,7 +113,7 @@ export class ContainerTypeService {
     const skip = (page - 1) * pageSize;
 
     const where: Prisma.ContainerTypeMasterWhereInput  = {
-        deletedAt: null,
+     
         status: 'A',
         ...(search
             ? {

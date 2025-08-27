@@ -12,7 +12,7 @@ export class ProductService {
         try {
             const allProducts = await this._db.productMaster.findMany({
                 where : {
-                    deletedAt:null,
+                    status:"A",
                     CompanyMasterSid: CompanyMasterSid
                 }
             })
@@ -26,7 +26,7 @@ export class ProductService {
         try {
             const allProducts = await this._db.productMaster.findMany({
                 where : {
-                    deletedAt:null,
+                   status:"A"
                 }
             })
             return allProducts;
@@ -98,7 +98,7 @@ export class ProductService {
             if (!exist) {
                 throw new BadRequestException(`Product with Id : ${ProductMasterSid} not exists`);
             }
-            if (exist.deletedAt) {
+            if (exist.status==="D") {
                 throw new BadRequestException(`Product with Id :${ProductMasterSid} is already deleted`)
             }
             const deletedProduct = this._db.productMaster.update({
@@ -106,7 +106,7 @@ export class ProductService {
                     ProductMasterSId: ProductMasterSid
                 },
                 data: {
-                    deletedAt: new Date()
+                   status:"D"
                 }
             })
             return deletedProduct;
@@ -165,7 +165,7 @@ export class ProductService {
             where : 
             {
                 ...whereClause,
-                deletedAt:null
+                status:"A"
             }
         }).catch((err) => {
             throw new Error(`Error Occured : ${JSON.stringify(err), err}`);
@@ -180,7 +180,7 @@ export class ProductService {
         const skip = (page - 1) * pageSize;
 
         const where: Prisma.ProductMasterWhereInput = {
-            deletedAt: null,
+          
             status: 'A',
             CompanyMasterSid : activeCompanyId,
             ...(search

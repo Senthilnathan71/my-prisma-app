@@ -90,7 +90,7 @@ export class ChargeTaxService {
             if (!exist) {
                 throw new BadRequestException(`Charge Tax with Id : ${ChargeTaxMasterSid} not exists`);
             }
-            if (exist.deletedAt) {
+            if (exist.Status==="D") {
                 throw new BadRequestException(`Charge Tax with Id :${ChargeTaxMasterSid} is already deleted`);
             }
             const deletedChargeTax = await this._db.chargeTaxMaster.update({
@@ -98,7 +98,7 @@ export class ChargeTaxService {
                     ChargeTaxMasterSid: ChargeTaxMasterSid
                 },
                 data: {
-                    deletedAt: new Date()
+                    Status:"D"
                 }
             });
             return deletedChargeTax;
@@ -112,7 +112,7 @@ export class ChargeTaxService {
     const skip = (page - 1) * pageSize;
 
     const where: Prisma.ChargeTaxMasterWhereInput = {
-        deletedAt: null,
+     
         Status: 'A',
         CompanyMasterSid : activeCompanyId,
         OR: search ? [
