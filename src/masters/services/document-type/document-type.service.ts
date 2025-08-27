@@ -13,7 +13,7 @@ export class DocumentTypeService {
         try {
             const allDocType = await this._db.documentTypeMaster.findMany({
                 where : {
-                    deletedAt:null,
+                    status : 'A',
                     CompanyMasterSid: CompanyMasterSid,
                     BranchMasterSid: BranchMasterSid
                 }
@@ -86,7 +86,7 @@ export class DocumentTypeService {
             if (!exist) {
                 throw new BadRequestException(`DocType with Id : ${DocumentTypeMasterSid} not exists`);
             }
-            if (exist.deletedAt) {
+            if (exist.status === 'D') {
                 throw new BadRequestException(`DocType with Id :${DocumentTypeMasterSid} is already deleted`)
             }
             const deletedDocType = this._db.documentTypeMaster.update({
@@ -94,7 +94,7 @@ export class DocumentTypeService {
                     DocumentTypeMasterSid: DocumentTypeMasterSid
                 },
                 data: {
-                    deletedAt: new Date()
+                    status : 'D'
                 }
             })
             return deletedDocType;
@@ -109,7 +109,6 @@ export class DocumentTypeService {
     const skip = (page - 1) * pageSize;
 
     const where: Prisma.DocumentTypeMasterWhereInput = {
-        deletedAt: null,
         status: 'A',
         CompanyMasterSid : activeCompanyId,
         BranchMasterSid : activeBranchId,
@@ -160,7 +159,7 @@ async getSubledgersByCOA(COAMasterSid: number) {
         const subledgers = await this._db.subledgerMaster.findMany({
             where: {
                 COAMasterSid: COAMasterSid,
-                deletedAt: null
+                Status : 'A'
             },
             select: {
                 SubledgerMasterSid: true,

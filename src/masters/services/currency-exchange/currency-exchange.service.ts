@@ -26,7 +26,7 @@ export class CurrencyExchangeService {
         try {
             const allCurrencyEx = await this._db.currencyExchange.findMany({
                 where: {
-                    deletedAt: null,
+                    status : 'A',
                     CompanyMasterSid: CompanyMasterSid,
                     BranchMasterSid: BranchMasterSid
                 }
@@ -88,7 +88,7 @@ export class CurrencyExchangeService {
             if (!existing) {
                 throw new BadRequestException(`Currency Exchange with id : ${CurrencyExchangeSid} not exists`);
             }
-            if (existing.deletedAt) {
+            if (existing.status === 'D') {
                 throw new BadRequestException(`Currency Exchange with id : ${CurrencyExchangeSid} is already deleted`);
             }
             const deletedCurrencyEx = await this._db.currencyExchange.update({
@@ -96,7 +96,7 @@ export class CurrencyExchangeService {
                     CurrencyExchangeSid: CurrencyExchangeSid
                 },
                 data: {
-                    deletedAt: new Date()
+                    status : 'D'
                 }
             })
             return deletedCurrencyEx;
@@ -112,7 +112,6 @@ export class CurrencyExchangeService {
     const skip = (page - 1) * pageSize;
 
     const where: Prisma.CurrencyExchangeWhereInput = {
-        deletedAt: null,
         status: 'A',
         CompanyMasterSid : activeCompanyId,
         BranchMasterSid: activeBranchId,
@@ -158,7 +157,6 @@ export class CurrencyExchangeService {
                 where : {
                     FromCurrency : fromCurrency,
                     ToCurrency : toCurrency,
-                    deletedAt : null,
                     status : 'A'
                 }
             })
@@ -170,7 +168,6 @@ export class CurrencyExchangeService {
                 where : {
                     FromCurrency : toCurrency,
                     ToCurrency : fromCurrency,
-                    deletedAt : null,
                     status : 'A'
                 }
             })

@@ -13,7 +13,7 @@ export class BlclauseService {
         try {
             const allBlclause = await this._db.bLClauseMaster.findMany({
                 where : {
-                    deletedAt:null
+                    status : 'A'
                 }
             })
             return allBlclause;
@@ -84,7 +84,7 @@ export class BlclauseService {
             if (!exist) {
                 throw new BadRequestException(`Blclause with Id : ${BLClauseMasterSid} not exists`);
             }
-            if (exist.deletedAt) {
+            if (exist.status === 'D') {
                 throw new BadRequestException(`Blclause with Id :${BLClauseMasterSid} is already deleted`)
             }
             const deletedBlclause = this._db.bLClauseMaster.update({
@@ -92,7 +92,7 @@ export class BlclauseService {
                     BLClauseMasterSid: BLClauseMasterSid
                 },
                 data: {
-                    deletedAt: new Date()
+                    status : 'D'
                 }
             })
             return deletedBlclause;
@@ -107,7 +107,6 @@ export class BlclauseService {
     const skip = (page - 1) * pageSize;
 
     const where: Prisma.BLClauseMasterWhereInput = {
-        deletedAt: null,
         status: 'A',
         ...(search 
             ? {

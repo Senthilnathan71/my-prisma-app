@@ -11,7 +11,7 @@ export class LeadService {
         try {
             const allLeads = await this._db.preCustomerMaster.findMany({
                 where : {
-                    deletedAt:null,
+                    status : 'A',
                     CompanyMasterSid: CompanyMasterSid,
                     BranchMasterSid: BranchMasterSid
                 }
@@ -128,7 +128,7 @@ export class LeadService {
             if (!exist) {
                 throw new BadRequestException(`Lead with Id : ${PreCustomerMasterSid} not exists`);
             }
-            if (exist.deletedAt) {
+            if (exist.status === 'D') {
                 throw new BadRequestException(`Lead with Id :${PreCustomerMasterSid} is already deleted`)
             }
             const deletedLead = this._db.preCustomerMaster.update({
@@ -136,7 +136,7 @@ export class LeadService {
                     PreCustomerMasterSid: PreCustomerMasterSid
                 },
                 data: {
-                    deletedAt: new Date()
+                    status: 'D'
                 }
             })
             return deletedLead;
@@ -151,7 +151,6 @@ export class LeadService {
     const skip = (page - 1) * pageSize;
     
     const where: any = {
-        deletedAt: null,
         status:'A',
         CompanyMasterSid : activeCompanyId,
         BranchMasterSid : activeBranchId,

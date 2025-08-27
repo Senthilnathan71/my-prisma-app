@@ -13,7 +13,7 @@ export class RoleMenuService {
         try {
             const allRoleMenu = await this._db.roleMenuMaster.findMany({
                 where : {
-                    deletedAt:null
+                    status:'A'
                 }
             })
             return allRoleMenu;
@@ -28,7 +28,7 @@ export class RoleMenuService {
                 where: {
                     MenuMasterSid:  payload.MenuMasterSid,
                     RoleMasterSid : payload.RoleMasterSid,
-                    deletedAt : null
+                    status:'A'
                 },
             });
 
@@ -75,7 +75,7 @@ export class RoleMenuService {
                     MenuMasterSid:  payload.MenuMasterSid,
                     RoleMasterSid : payload.RoleMasterSid,
                     RoleMenuMasterSid : {not : RoleMenuMasterSid},
-                    deletedAt : null
+                    status:'A'
                 },
             });
 
@@ -108,7 +108,7 @@ export class RoleMenuService {
             if (!exist) {
                 throw new BadRequestException(`RoleMenu with Id : ${RoleMenuMasterSid} not exists`);
             }
-            if (exist.deletedAt) {
+            if (exist.status==='D') {
                 throw new BadRequestException(`RoleMenu with Id :${RoleMenuMasterSid} is already deleted`)
             }
             const deletedRoleMenu = this._db.roleMenuMaster.update({
@@ -116,7 +116,7 @@ export class RoleMenuService {
                     RoleMenuMasterSid: RoleMenuMasterSid
                 },
                 data: {
-                    deletedAt: new Date()
+                   status:'D'
                 }
             })
             return deletedRoleMenu;
@@ -130,7 +130,6 @@ export class RoleMenuService {
         const skip = (page - 1) * pageSize;
     
         const where: Prisma.RoleMenuMasterWhereInput = {
-            deletedAt: null,
             status : 'A',
             OR: search ? [
                 { menuMaster:{MenuName : { contains : search, mode: 'insensitive' }}},
@@ -190,7 +189,7 @@ export class RoleMenuService {
                             mode: 'insensitive',
                         },
                     },
-                    deletedAt: null,
+                    status:'A',
                 },
                 include: {
                     roleMaster : {
@@ -215,7 +214,7 @@ export class RoleMenuService {
     async roleMenuSpecialSearch(data: any) {
         const { moduleName, role, remarks } = data;
         const whereClause: any = {
-            deletedAt: null,
+            status:'A',
         };
 
         
@@ -244,7 +243,7 @@ export class RoleMenuService {
       where: {
         MenuMasterSid: menuId,
         RoleMasterSid: roleId,
-        deletedAt: null
+        status:'A'
       }, 
       select: {
         MenuPermissions: true

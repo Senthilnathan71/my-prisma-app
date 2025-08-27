@@ -13,7 +13,6 @@ export class ImcoService {
             const allIMCO = await this._db.imcoMaster.findMany({
                 where : {
                     status : 'A',
-                    deletedAt:null
                 }
             })
             return allIMCO;
@@ -84,7 +83,7 @@ export class ImcoService {
             if (!exist) {
                 throw new BadRequestException(`IMCO with Id : ${ImcoMasterSid} not exists`);
             }
-            if (exist.deletedAt) {
+            if (exist.status === 'D') {
                 throw new BadRequestException(`IMCO with Id :${ImcoMasterSid} is already deleted`)
             }
             const deletedimcoMaster = this._db.imcoMaster.update({
@@ -92,7 +91,7 @@ export class ImcoService {
                     ImcoMasterSid: ImcoMasterSid
                 },
                 data: {
-                    deletedAt: new Date()
+                    status : 'D'
                 }
             })
             return deletedimcoMaster;
@@ -107,7 +106,6 @@ export class ImcoService {
     const skip = (page - 1) * pageSize;
 
     const where: Prisma.ImcoMasterWhereInput = {
-        deletedAt: null,
         status: 'A',
         ...(search
             ? {

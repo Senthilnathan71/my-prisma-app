@@ -23,7 +23,7 @@ export class BranchBankService {
         try {
             const allBranchBanks = await this._db.branchBank.findMany({
                 where : {
-                    deletedAt:null
+                    status : 'A'
                 }
             })
             return allBranchBanks;
@@ -81,7 +81,7 @@ export class BranchBankService {
             if(!exist){
                 throw new BadRequestException(`Branch Bank with id : ${BranchBankSid} not found`);
             }
-            if(exist.deletedAt){
+            if(exist.status === 'D'){
                 throw new BadRequestException(`Branch Bank with id:${BranchBankSid} is already deleted`)
             }
             const deletedBrBank = await this._db.branchBank.update({
@@ -89,7 +89,7 @@ export class BranchBankService {
                     BranchBankSid:BranchBankSid
                 },
                 data : {
-                    deletedAt:new Date()
+                    status : 'D'
                 },
             })
             return deletedBrBank;
@@ -133,7 +133,7 @@ export class BranchBankService {
         const searchResults = await this._db.branchBank.findMany({
             where : {
                 ...whereClause,
-                deletedAt:null
+                status : 'A'
             }
         }).catch((err) => {
             throw new Error(`Error Occured : ${JSON.stringify(err), err}`);

@@ -101,14 +101,14 @@ export class EmailLogService {
             throw new NotFoundException(`emailLog with ID ${id} not found`);
         }
 
-        if (existingemailLog.deletedAt) {
+        if (existingemailLog.Status === 'D') {
             throw new Error(`emailLog with ID ${id} is already deleted`);
         }
 
         // Perform soft delete by updating deletedAt field
         return this._db.emailLog.update({
             where: { EmailLogSid: id },
-            data: { deletedAt: new Date() }
+            data: { Status: 'D' }
         });
     }
 

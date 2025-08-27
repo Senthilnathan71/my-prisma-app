@@ -202,10 +202,9 @@ export class EnquiryHeaderService {
                         CompanyMasterSid: payload.CompanyMasterSid,
                         BranchMasterSid: payload.BranchMasterSid,
                         UserMasterSid: payload.UserMasterSid,
-                        deletedAt: null,
+                        status : 'A',
                         authorityMaster: {
                             MenuMaster: payload.MenuMaster,
-                            deletedAt : null,
                             status: 'A',
                         },
                     },
@@ -434,22 +433,22 @@ export class EnquiryHeaderService {
             throw new NotFoundException(`Enquiry with ID ${id} not found`);
         }
 
-        if (existingEnquiry.deletedAt) {
+        if (existingEnquiry.status === 'D') {
             throw new Error(`Enquiry with ID ${id} is already deleted`);
         }
         const deletedEnquiry = await this._db.enquiryHeader.update({
             where : {EnquiryHeaderSid : id},
-            data : {deletedAt : new Date()}
+            data : {status : 'D'}
         })
 
         const deletedRoutes = await this._db.enquiryRoute.updateMany({
             where : {EnquiryHeaderSid : id , deletedAt : null},
-            data : { deletedAt : new Date()}
+            data : { deletedAt : new Date() }
         })
 
         const deletedCargos = await this._db.enquiryCargo.updateMany({
-            where : {EnquiryHeaderSid : id , deletedAt : null},
-            data : { deletedAt : new Date()}
+            where : {EnquiryHeaderSid : id , status : 'D'},
+            data : { status : 'D'}
         })
 
         const deletedOthers = await this._db.enquiryOther.updateMany({
@@ -471,7 +470,7 @@ export class EnquiryHeaderService {
         try {
             const customer = await this._db.departmentMaster.findMany({
                 where : {
-                    deletedAt : null,
+                    Status : 'A',
                     CompanyMasterSid: CompanyMasterSid
                 }
             });
@@ -514,7 +513,6 @@ export class EnquiryHeaderService {
         const parsedDate = parseDateFromString(search);
         console.log(parsedDate);
         const where : Prisma.EnquiryHeaderWhereInput = {
-            deletedAt : null,
             status : 'A',
             CompanyMasterSid : activeCompanyId,
             BranchMasterSid : activeBranchId,

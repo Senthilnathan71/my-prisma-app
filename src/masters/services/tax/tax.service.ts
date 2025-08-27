@@ -15,7 +15,6 @@ export class TaxService {
             const allTax = await this._db.taxMaster.findMany({
                 where : {
                     Status : 'A',
-                    deletedAt : null
                 }
             })
             return allTax;
@@ -42,7 +41,7 @@ export class TaxService {
                         } 
                     }
                 ],
-                deletedAt: null
+                Status:'A'
             }
         });
 
@@ -109,7 +108,7 @@ export class TaxService {
                         ]
                     }
                 ],
-                deletedAt: null
+                Status:'A'
             }
         });
 
@@ -154,7 +153,7 @@ export class TaxService {
             if (!exist) {
                 throw new BadRequestException(`Tax with Id : ${TaxMasterSid} not exists`);
             }
-            if (exist.deletedAt) {
+            if (exist.Status==='D') {
                 throw new BadRequestException(`Tax with Id :${TaxMasterSid} is already deleted`)
             }
             const deletedTax = this._db.taxMaster.update({
@@ -162,7 +161,7 @@ export class TaxService {
                     TaxMasterSid: TaxMasterSid
                 },
                 data: {
-                    deletedAt: new Date()
+                    Status:'A'
                 }
             })
             return deletedTax;
@@ -176,7 +175,6 @@ export class TaxService {
     const { search = '', page = 1, pageSize = 15 } = params;
     const skip = (page - 1) * pageSize;
     const where : Prisma.TaxMasterWhereInput = {
-        deletedAt: null,
         Status: 'A',
         ...(search
             ? {

@@ -50,7 +50,7 @@ export class ModuleService {
     try {
       const moduleList = await this._db.moduleMaster.findMany({
         where: {
-          deletedAt: null
+          status : 'A'
         }
       })
       return moduleList;
@@ -108,14 +108,14 @@ export class ModuleService {
       throw new NotFoundException(`module with ID ${id} not found`);
     }
 
-    if (existingmodule.deletedAt) {
+    if (existingmodule.status === 'D') {
       throw new Error(`module with ID ${id} is already deleted`);
     }
 
     // Perform soft delete by updating deletedAt field
     return this._db.moduleMaster.update({
       where: { ModuleMasterSid: id },
-      data: { deletedAt: new Date() }
+      data: { status : 'D' }
     });
   }
 
@@ -125,7 +125,7 @@ export class ModuleService {
     const skip = (page - 1) * pageSize;
 
     const where: Prisma.ModuleMasterWhereInput = {
-      deletedAt: null,
+      status : 'A',
       ...(search
         ? {
           OR: [
@@ -504,7 +504,7 @@ export class ModuleService {
     try {
       const modules = await this._db.moduleMaster.findMany({
         where: {
-          deletedAt: null
+          status : 'A'
         },
         select: {
           ModuleMasterSid: true,
@@ -512,7 +512,6 @@ export class ModuleService {
           icon: true,
           menuMaster: {
             where: {
-              deletedAt: null,
               status: 'A'
             },
             select: {

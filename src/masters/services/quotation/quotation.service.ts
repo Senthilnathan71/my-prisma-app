@@ -181,12 +181,12 @@ export class QuotationService {
                 include: {
                     quoteRoute: {
                         where: {
-                            deletedAt: null
+                            status : 'A'
                         },
                         include: {
                             quoteCharge: {
                                 where: {
-                                    deletedAt: null
+                                    status:'A'
                                 }
                             }
                         }
@@ -210,10 +210,9 @@ export class QuotationService {
                         CompanyMasterSid: payload.CompanyMasterSid,
                         BranchMasterSid: payload.BranchMasterSid,
                         UserMasterSid: payload.UserMasterSid,
-                        deletedAt: null,
+                        status:'A',
                         authorityMaster: {
                             MenuMaster: payload.MenuMaster,
-                            deletedAt : null,
                             status: 'A',
                         },
                     },
@@ -424,14 +423,14 @@ export class QuotationService {
             throw new NotFoundException(`Quote with ID ${id} not found`);
         }
 
-        if (existingQuote.deletedAt) {
+        if (existingQuote.status==='D') {
             throw new Error(`Quote with ID ${id} is already deleted`);
         }
 
         // Perform soft delete by updating deletedAt field
         return this._db.quoteHeader.update({
             where: { QuoteHeaderSid: id },
-            data: { deletedAt: new Date() }
+            data: { status:'D' }
         });
     }
 
@@ -446,14 +445,14 @@ export class QuotationService {
             throw new NotFoundException(`Quote with ID ${id} not found`);
         }
 
-        if (existingQuote.deletedAt) {
+        if (existingQuote.status==='D') {
             throw new Error(`Quote with ID ${id} is already deleted`);
         }
 
         // Perform soft delete by updating deletedAt field
         return this._db.quoteRoute.update({
             where: { QuoteRouteSid: id },
-            data: { deletedAt: new Date() }
+            data: { status:'D' }
         });
     }
 
@@ -467,14 +466,14 @@ export class QuotationService {
             throw new NotFoundException(`Quote with ID ${id} not found`);
         }
 
-        if (existingQuote.deletedAt) {
+        if (existingQuote.status==='D') {
             throw new Error(`Quote with ID ${id} is already deleted`);
         }
 
         // Perform soft delete by updating deletedAt field
         return this._db.quoteCharge.update({
             where: { QuoteChargeSid: id },
-            data: { deletedAt: new Date() }
+            data: { status:'D' }
         });
     }
 
@@ -483,18 +482,18 @@ export class QuotationService {
             const [charges, units, currencies] = await this._db.$transaction([
                 this._db.chargeMaster.findMany({
                     where : {
-                        deletedAt : null,
+                        Status:'A',
                         CompanyMasterSid:CompanyMasterSid
                     }
                 }),
                 this._db.unitMaster.findMany({
                     where : {
-                        deletedAt : null
+                        status:'A'
                     }
                 }),
                 this._db.currencyMaster.findMany({
                     where : {
-                        deletedAt : null
+                        status:'A'
                     }
                 }),
             ]);
@@ -515,7 +514,7 @@ export class QuotationService {
                         path: ['carrier'],
                         equals: 'isTrue'
                     },
-                    deletedAt : null,
+                    status:'A',
                     CompanyMasterSid:CompanyMasterSid
                 }
             });
@@ -532,7 +531,6 @@ export class QuotationService {
             const skip = (page - 1) * pageSize;
 
         const where: Prisma.QuoteHeaderWhereInput = {
-            deletedAt: null,
             status: 'A',
             CompanyMasterSid : activeCompanyId,
         BranchMasterSid : activeBranchId,
@@ -560,7 +558,7 @@ export class QuotationService {
                 include : {
                     quoteRoute :{
                         where : {
-                            deletedAt : null
+                            status:'A'
                         },
                         include : {  
                             departmentMaster : {
@@ -570,7 +568,7 @@ export class QuotationService {
                             },
                             quoteCharge : {
                                 where : {
-                                    deletedAt : null
+                                    status:'A'
                                 },
                                 include : {
                                     uomMaster : { select : {UOMCode : true} },
@@ -650,7 +648,7 @@ export class QuotationService {
             
             const allSalespersons = await this._db.customerSalesTeam.findMany({
                 where: {
-                    deletedAt: null,
+                    status:'A',
                 },
             });
 
@@ -663,7 +661,7 @@ export class QuotationService {
             const users = await this._db.userMaster.findMany({
                 where: {
                     UserMasterSid: { in: salesmanIds },
-                    deletedAt: null,
+                    status:'A',
                 },
                 select: {
                     UserMasterSid: true,

@@ -110,13 +110,13 @@ export class CostCenterService {
             throw new NotFoundException(`Cost-Center with ID ${id} not found`);
         }
 
-        if (existingCostCenter.deletedAt) {
+        if (existingCostCenter.Status === 'D') {
             throw new Error(`Cost-Center with ID ${id} is already deleted`);
         }
 
         return this._db.costCenterMaster.update({
             where: { CostCenterMasterSid: id},
-            data: { deletedAt: new Date()}
+            data: { Status : 'D'}
         });
     }
 
@@ -125,7 +125,6 @@ export class CostCenterService {
     const skip = (page - 1) * pageSize;
 
     const where: Prisma.CostCenterMasterWhereInput = {
-        deletedAt: null,
         Status: 'A',
         ...(search
             ? {
