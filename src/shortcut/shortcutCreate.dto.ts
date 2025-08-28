@@ -1,7 +1,7 @@
 import { ShortCut } from "@prisma/client";
 import { IsBoolean, IsOptional, IsString } from "class-validator";
 
-export class ShortcutDto implements Omit<ShortCut, 'shortCutId' | 'userId' | 'createdOn' | 'updatedOn' | 'deletedAt'> {
+export class ShortcutDto implements Omit<ShortCut, 'shortCutId' | 'userId' | 'createdOn' | 'updatedOn' | 'status' | 'deletedAt'> {
 
     @IsString()
     @IsOptional()
