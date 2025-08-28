@@ -1,358 +1,348 @@
 model BookingHeader {
-    BookingHeaderSid    Int             @id @default(autoincrement()) @map("BookingHeaderSid")
-    BookingNo           String          @db.VarChar(50)
-    BookingDateTime     DateTime?
-    CompanyMasterSid    Int
-    BranchMasterSid     Int?
-    CustomerBranchSid   Int?
-    DepartmentMasterSid Int
-    CustomerMasterSid   Int
-    CustomerName        String?         @db.VarChar(100)
-    CustomerAddress     String?         @db.VarChar(300)
-    ShipmentNo          String?         @db.VarChar(200)
-    SalesmanSid         Int?
-    CargoExpectedon     DateTime?
-    FreightTerms        String?         @db.VarChar(100)
-    POO                 String?         @db.VarChar(100)
-    POL                 String          @db.VarChar(100)
-    POD                 String          @db.VarChar(100)
-    FPD                 String?         @db.VarChar(100)
-    TsPortSid           Int?
-    POLTerminal         String?         @db.VarChar(100)
-    VoyageMasterSid     Int?
-    VesselName          String?         @db.VarChar(100)
-    VoyageNo            String?         @db.VarChar(10)
-    ETD                 DateTime?
-    ETA                 DateTime?
-    IncoTerms           String?         @db.VarChar(10)
-    BLLocation          Int?
-    ShipperName         String?         @db.VarChar(100)
-    ShipperAddress      String?         @db.VarChar(300)
-    ConsigneeName       String?         @db.VarChar(100)
-    ConsigneeAddress    String?         @db.VarChar(300)
-    ClearanceRequire    String?         @db.Char(1)
-    ShipmentType        String?         @db.VarChar(10) //--Nomination/Freehand
-    DestinationAgent    Int?
-    AgentName           String?         @db.VarChar(100)
-    AgentAddress        String?         @db.VarChar(300)
-    HouseNo             String?         @db.VarChar(20)
-    MasterNoSid         Int?
-    QuotationHeaderSid  Int?
-    EnquiryHeaderSid    Int?
-    MovementType        String?         @db.VarChar(10)
-    DoValid             DateTime?
-    IsServiceJob        String?         @db.Char(1) //Y/N
-    AuthorizerRemarks   String?         @db.VarChar(100)
-    authorizerStatus    ApprovalStatus?
-    PODTerminal         String?
-    MenuMasterSid       Int?
-    Notify              String?         @db.VarChar(200)
-    NotifyAddress       String?         @db.VarChar(200)
-    CarrierName         String?         @db.VarChar(200)
-    HBLNo               String?         @db.VarChar(200)
-    MBLNo               String?         @db.VarChar(200)
-    MBLDate             DateTime?
-    Coload              String?         @db.VarChar(200)
-    InternalNote        String?         @db.VarChar(200)
-    GeneralNote         String?         @db.VarChar(200)
-    Nominated           String?         @db.VarChar(200)
-    NominatedBy         String?         @db.VarChar(200)
-    OriginAgent         String?         @db.VarChar(200)
-    createdOn           DateTime        @default(now()) @db.Timestamptz(6)
-    updatedOn           DateTime?       @updatedAt @db.Timestamptz(6)
-    deletedAt           DateTime?
-    createdBy           String          @db.VarChar(100)
-    updatedBy           String?         @db.VarChar(100)
-    status              String?         @default("A") @db.Char(1)
-
-    companyMaster    CompanyMaster     @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
-    branchMaster     BranchMaster?     @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
-    departmentMaster DepartmentMaster? @relation(fields: [DepartmentMasterSid], references: [DepartmentMasterSid])
-    customerBranch   CustomerBranch?   @relation(fields: [CustomerBranchSid], references: [CustomerBranchSid])
-    menuMaster       MenuMaster?       @relation(fields: [MenuMasterSid], references: [MenuMasterSid])
-    quotationHeader  QuoteHeader?      @relation(fields: [QuotationHeaderSid], references: [QuoteHeaderSid])
-
-    bookingCargo      BookingCargo[]
-    bookingProduct    BookingProduct[]
-    bookingConnection BookingConnection[]
-    bookingOthers     BookingOthers[]
-    bookingRates      BookingRates[]
+  BookingHeaderSid    Int                 @id @default(autoincrement()) @map("BookingHeaderSid")
+  BookingNo           String              @db.VarChar(50)
+  BookingDateTime     DateTime?
+  CompanyMasterSid    Int
+  BranchMasterSid     Int?
+  CustomerMasterSid   Int
+  CustomerName        String?             @db.VarChar(100)
+  CustomerAddress     String?             @db.VarChar(300)
+  SalesmanSid         Int?
+  CargoExpectedon     DateTime?
+  FreightTerms        String?             @db.VarChar(100)
+  POO                 String?             @db.VarChar(100)
+  POL                 String              @db.VarChar(100)
+  POD                 String              @db.VarChar(100)
+  FPD                 String?             @db.VarChar(100)
+  TsPortSid           Int?
+  POLTerminal         String?             @db.VarChar(100)
+  VoyageMasterSid     Int?
+  VesselName          String?             @db.VarChar(100)
+  VoyageNo            String?             @db.VarChar(10)
+  ETD                 DateTime?
+  ETA                 DateTime?
+  IncoTerms           String?             @db.VarChar(10)
+  BLLocation          Int?
+  ShipperName         String?             @db.VarChar(100)
+  ShipperAddress      String?             @db.VarChar(300)
+  ConsigneeName       String?             @db.VarChar(100)
+  ConsigneeAddress    String?             @db.VarChar(300)
+  ClearanceRequire    String?             @db.Char(1)
+  ShipmentType        String?             @db.VarChar(10)
+  DestinationAgent    Int?
+  AgentName           String?             @db.VarChar(100)
+  AgentAddress        String?             @db.VarChar(300)
+  HouseNo             String?             @db.VarChar(20)
+  MasterNoSid         Int?
+  QuotationHeaderSid  Int?
+  EnquiryHeaderSid    Int?
+  MovementType        String?             @db.VarChar(10)
+  DoValid             DateTime?
+  IsServiceJob        String?             @db.Char(1)
+  createdOn           DateTime            @default(now()) @db.Timestamptz(6)
+  updatedOn           DateTime?           @updatedAt @db.Timestamptz(6)
+  deletedAt           DateTime?
+  createdBy           String              @db.VarChar(100)
+  updatedBy           String?             @db.VarChar(100)
+  status              String?             @default("A") @db.Char(1)
+  DepartmentMasterSid Int
+  CustomerBranchSid   Int?
+  AuthorizerRemarks   String?             @db.VarChar(100)
+  authorizerStatus    ApprovalStatus?
+  MenuMasterSid       Int?
+  CarrierName         String?             @db.VarChar(200)
+  Coload              String?             @db.VarChar(200)
+  GeneralNote         String?             @db.VarChar(200)
+  HBLNo               String?             @db.VarChar(200)
+  InternalNote        String?             @db.VarChar(200)
+  MBLDate             DateTime?
+  MBLNo               String?             @db.VarChar(200)
+  Nominated           String?             @db.VarChar(200)
+  NominatedBy         String?             @db.VarChar(200)
+  Notify              String?             @db.VarChar(200)
+  NotifyAddress       String?             @db.VarChar(200)
+  PODTerminal         String?
+  ShipmentNo          String?             @db.VarChar(200)
+  OriginAgent         String?             @db.VarChar(200)
+  bookingCargo        BookingCargo[]
+  bookingConnection   BookingConnection[]
+  branchMaster        BranchMaster?       @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
+  companyMaster       CompanyMaster       @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+  customerBranch      CustomerBranch?     @relation(fields: [CustomerBranchSid], references: [CustomerBranchSid])
+  departmentMaster    DepartmentMaster    @relation(fields: [DepartmentMasterSid], references: [DepartmentMasterSid])
+  menuMaster          MenuMaster?         @relation(fields: [MenuMasterSid], references: [MenuMasterSid])
+  quotationHeader     QuoteHeader?        @relation(fields: [QuotationHeaderSid], references: [QuoteHeaderSid])
+  bookingOthers       BookingOthers[]
+  bookingProduct      BookingProduct[]
+  bookingRates        BookingRates[]
 }
 
 model BookingCargo {
-    BookingCargoSid  Int           @id @default(autoincrement()) @map("BookingCargoSid")
-    BookingHeaderSid Int
-    CompanyMasterSid Int
-    BranchMasterSid  Int?
-    NoOfPackage      Int?
-    FreightAmount    String?       @db.VarChar(50)
-    CargoType        String        @db.VarChar(50)
-    WeightUnitSid    Int?
-    GrossWeight      Decimal       @db.Decimal(10, 3)
-    NetWeight        Decimal?      @db.Decimal(10, 3)
-    Volume           Decimal?      @db.Decimal(10, 3)
-    ChargeableWeight Decimal?      @db.Decimal(10, 3)
-    ContainerType    String?       @db.VarChar(50)
-    Qty              Decimal?      @db.Decimal(5, 0)
-    ShipmentTerms    String?       @db.VarChar(10) //LCL
-    pkgType          String?       @db.VarChar(50)
-    createdOn        DateTime      @default(now()) @db.Timestamptz(6)
-    updatedOn        DateTime?     @updatedAt @db.Timestamptz(6)
-    deletedAt        DateTime?
-    createdBy        String        @db.VarChar(100)
-    updatedBy        String?       @db.VarChar(100)
-    status           String?       @default("A") @db.Char(1)
-    NoofContainers   Int?
-    MovementType     String?       @db.VarChar(100)
-    FreightTerms     String?       @db.VarChar(100)
-    StuffingAt       String?       @db.VarChar(100)
-    companyMaster    CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
-    branchMaster     BranchMaster? @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
-    bookingHeader    BookingHeader @relation(fields: [BookingHeaderSid], references: [BookingHeaderSid])
+  BookingCargoSid  Int           @id @default(autoincrement()) @map("BookingCargoSid")
+  CompanyMasterSid Int
+  BranchMasterSid  Int?
+  NoOfPackage      Int?
+  FreightAmount    String?       @db.VarChar(50)
+  CargoType        String        @db.VarChar(50)
+  WeightUnitSid    Int?
+  GrossWeight      Decimal       @db.Decimal(10, 3)
+  NetWeight        Decimal?      @db.Decimal(10, 3)
+  Volume           Decimal?      @db.Decimal(10, 3)
+  ChargeableWeight Decimal?      @db.Decimal(10, 3)
+  ContainerType    String?       @db.VarChar(50)
+  Qty              Decimal?      @db.Decimal(5, 0)
+  ShipmentTerms    String?       @db.VarChar(10)
+  createdOn        DateTime      @default(now()) @db.Timestamptz(6)
+  updatedOn        DateTime?     @updatedAt @db.Timestamptz(6)
+  deletedAt        DateTime?
+  createdBy        String        @db.VarChar(100)
+  updatedBy        String?       @db.VarChar(100)
+  status           String?       @default("A") @db.Char(1)
+  BookingHeaderSid Int
+  pkgType          String?       @db.VarChar(50)
+  FreightTerms     String?       @db.VarChar(100)
+  MovementType     String?       @db.VarChar(100)
+  NoofContainers   Int?
+  StuffingAt       String?       @db.VarChar(100)
+  bookingHeader    BookingHeader @relation(fields: [BookingHeaderSid], references: [BookingHeaderSid])
+  branchMaster     BranchMaster? @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
+  companyMaster    CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
 }
 
 model BookingProduct {
-    BookingProductSid  Int       @id @default(autoincrement()) @map("BookingProductSid")
-    BookingHeaderSid   Int?
-    ProductName        String    @db.VarChar(100)
-    ProductDescription String?   @db.VarChar(500)
-    ShippingBillNo     String    @db.VarChar(100)
-    ShippingBillDate   DateTime?
-    ExternaPkg         String?   @db.VarChar(100)
-    ExternlQty         String    @db.VarChar(100)
-    InternalPkg        String?   @db.VarChar(100)
-    InternalQty        String?   @db.VarChar(100)
-    GrossWeight        Decimal   @db.Decimal(10, 3)
-    NetWeight          Decimal?  @db.Decimal(10, 3)
-    Volume             Decimal?  @db.Decimal(10, 3)
-    IsHaz              String?   @db.Char(1)
-    ImcoClass          String?   @db.VarChar(500)
-    UnNo               String?   @db.VarChar(500)
-    PkgGroup           String?   @db.VarChar(500)
-    Length             Int?
-    Width              Int?
-    Height             Int?
-    UomMasterSid       Int?
-    createdOn          DateTime  @default(now()) @db.Timestamptz(6)
-    updatedOn          DateTime? @updatedAt @db.Timestamptz(6)
-    deletedAt          DateTime?
-    createdBy          String    @db.VarChar(100)
-    updatedBy          String?   @db.VarChar(100)
-    status             String?   @default("A") @db.Char(1)
-
-    bookingHeader BookingHeader? @relation(fields: [BookingHeaderSid], references: [BookingHeaderSid])
-    uomMaster     UOMMaster?     @relation(fields: [UomMasterSid], references: [UOMMasterSid])
+  BookingProductSid  Int            @id @default(autoincrement()) @map("BookingProductSid")
+  ProductName        String         @db.VarChar(100)
+  ProductDescription String?        @db.VarChar(500)
+  ShippingBillNo     String         @db.VarChar(100)
+  ShippingBillDate   DateTime?
+  ExternaPkg         String?        @db.VarChar(100)
+  ExternlQty         String         @db.VarChar(100)
+  InternalPkg        String?        @db.VarChar(100)
+  InternalQty        String?        @db.VarChar(100)
+  GrossWeight        Decimal        @db.Decimal(10, 3)
+  NetWeight          Decimal?       @db.Decimal(10, 3)
+  Volume             Decimal?       @db.Decimal(10, 3)
+  createdOn          DateTime       @default(now()) @db.Timestamptz(6)
+  updatedOn          DateTime?      @updatedAt @db.Timestamptz(6)
+  deletedAt          DateTime?
+  createdBy          String         @db.VarChar(100)
+  updatedBy          String?        @db.VarChar(100)
+  status             String?        @default("A") @db.Char(1)
+  BookingHeaderSid   Int?
+  Height             Int?
+  ImcoClass          String?        @db.VarChar(500)
+  IsHaz              String?        @db.Char(1)
+  Length             Int?
+  PkgGroup           String?        @db.VarChar(500)
+  UnNo               String?        @db.VarChar(500)
+  Width              Int?
+  UomMasterSid       Int?
+  bookingHeader      BookingHeader? @relation(fields: [BookingHeaderSid], references: [BookingHeaderSid])
+  uomMaster          UOMMaster?     @relation(fields: [UomMasterSid], references: [UOMMasterSid])
 }
 
 model BookingConnection {
-    BookingConnectionSid Int       @id @default(autoincrement()) @map("BookingConnectionSid")
-    BookingHeaderSid     Int?
-    POL                  String    @db.VarChar(100)
-    POD                  String    @db.VarChar(100)
-    VesselName           String    @db.VarChar(100)
-    VoyageNo             String    @db.VarChar(10)
-    ETD                  DateTime?
-    ETA                  DateTime?
-    Mode                 String?   @db.VarChar(100)
-    Remarks              String?   @db.VarChar(200)
-    createdOn            DateTime  @default(now()) @db.Timestamptz(6)
-    updatedOn            DateTime? @updatedAt @db.Timestamptz(6)
-    deletedAt            DateTime?
-    createdBy            String    @db.VarChar(100)
-    updatedBy            String?   @db.VarChar(100)
-    status               String?   @default("A") @db.Char(1)
-
-    bookingHeader BookingHeader? @relation(fields: [BookingHeaderSid], references: [BookingHeaderSid])
+  BookingConnectionSid Int            @id @default(autoincrement()) @map("BookingConnectionSid")
+  POL                  String         @db.VarChar(100)
+  POD                  String         @db.VarChar(100)
+  VesselName           String         @db.VarChar(100)
+  VoyageNo             String         @db.VarChar(10)
+  ETD                  DateTime?
+  ETA                  DateTime?
+  Remarks              String?        @db.VarChar(200)
+  createdOn            DateTime       @default(now()) @db.Timestamptz(6)
+  updatedOn            DateTime?      @updatedAt @db.Timestamptz(6)
+  deletedAt            DateTime?
+  createdBy            String         @db.VarChar(100)
+  updatedBy            String?        @db.VarChar(100)
+  status               String?        @default("A") @db.Char(1)
+  BookingHeaderSid     Int?
+  Mode                 String?        @db.VarChar(100)
+  bookingHeader        BookingHeader? @relation(fields: [BookingHeaderSid], references: [BookingHeaderSid])
 }
 
 model BookingOthers {
-    BookingOthersSid    Int       @id @default(autoincrement()) @map("BookingOthersSid")
-    BookingHeaderSid    Int?
-    CustomerRefNo       String    @db.VarChar(20)
-    OperationUser       String?   @db.VarChar(100)
-    DocumentationUser   String?   @db.VarChar(100)
-    CustomerServiceuser String?   @db.VarChar(100)
-    NotifyParty         String    @db.VarChar(100)
-    NotifyPartyAddress  String    @db.VarChar(200)
-    Notify2             String?   @db.VarChar(100)
-    NotifyAddress2      String?   @db.VarChar(200)
-    Coloader            String?   @db.VarChar(100)
-    CHAName             String    @db.VarChar(100)
-    PickupMode          String?   @db.VarChar(10)
-    YardCFS             String    @db.VarChar(100)
-    LocalTransport      String?   @db.Char(1)
-    OverseasTransport   String?   @db.Char(1)
-    OverseasClearance   String?   @db.Char(100)
-    PickupPlace         String    @db.VarChar(100)
-    PickupDate          DateTime?
-    PickupAddress       String    @db.VarChar(200)
-    DeliveryPlace       String    @db.VarChar(100)
-    DeliveryDate        String    @db.VarChar(100)
-    DeliveryAddress     String    @db.VarChar(200)
-    CargoCurrency       String    @db.VarChar(3)
-    CargoValue          Decimal   @db.Decimal(12, 2)
-    DeliveryMode        String?   @db.VarChar(10)
-    ExternalRemarks     String?   @db.VarChar(200)
-    SwitchBL            String?   @db.Char(1)
-    TransporterName     String?   @db.VarChar(100)
-    HBLNo               String?   @db.VarChar(200)
-    Forwarder           String?   @db.VarChar(200)
-    ForwarderAddress    String?   @db.VarChar(200)
-    ReleaseType         String?   @db.VarChar(200)
-    BacktoBack          String?   @db.VarChar(200)
-    Depo                String?   @db.VarChar(200)
-    ROValidity          String?   @db.VarChar(200)
-    SwitchBLAgent       String?   @db.VarChar(200)
-    AgentAddress        String?   @db.VarChar(200)
-    SwitchBLShipper     String?   @db.VarChar(200)
-    SwitchBLConsignee   String?   @db.VarChar(200)
-    SwitchLocation      String?   @db.VarChar(200)
-    createdOn           DateTime  @default(now()) @db.Timestamptz(6)
-    updatedOn           DateTime? @updatedAt @db.Timestamptz(6)
-    deletedAt           DateTime?
-    createdBy           String    @db.VarChar(100)
-    updatedBy           String?   @db.VarChar(100)
-    status              String?   @default("A") @db.Char(1)
-
-    bookingHeader BookingHeader? @relation(fields: [BookingHeaderSid], references: [BookingHeaderSid])
+  BookingOthersSid    Int            @id @default(autoincrement()) @map("BookingOthersSid")
+  CustomerRefNo       String         @db.VarChar(20)
+  OperationUser       String?        @db.VarChar(100)
+  DocumentationUser   String?        @db.VarChar(100)
+  CustomerServiceuser String?        @db.VarChar(100)
+  NotifyParty         String         @db.VarChar(100)
+  NotifyPartyAddress  String         @db.VarChar(200)
+  CHAName             String         @db.VarChar(100)
+  PickupMode          String?        @db.VarChar(10)
+  YardCFS             String         @db.VarChar(100)
+  LocalTransport      String?        @db.Char(1)
+  OverseasTransport   String?        @db.Char(1)
+  OverseasClearance   String?        @db.Char(100)
+  PickupPlace         String         @db.VarChar(100)
+  PickupDate          DateTime?
+  PickupAddress       String         @db.VarChar(200)
+  DeliveryPlace       String         @db.VarChar(100)
+  DeliveryDate        String         @db.VarChar(100)
+  DeliveryAddress     String         @db.VarChar(200)
+  CargoCurrency       String         @db.VarChar(3)
+  CargoValue          Decimal        @db.Decimal(12, 2)
+  DeliveryMode        String?        @db.VarChar(10)
+  ExternalRemarks     String?        @db.VarChar(200)
+  SwitchBL            String?        @db.Char(1)
+  TransporterName     String?        @db.VarChar(100)
+  createdOn           DateTime       @default(now()) @db.Timestamptz(6)
+  updatedOn           DateTime?      @updatedAt @db.Timestamptz(6)
+  deletedAt           DateTime?
+  createdBy           String         @db.VarChar(100)
+  updatedBy           String?        @db.VarChar(100)
+  status              String?        @default("A") @db.Char(1)
+  BookingHeaderSid    Int?
+  Forwarder           String?        @db.VarChar(200)
+  ForwarderAddress    String?        @db.VarChar(200)
+  HBLNo               String?        @db.VarChar(200)
+  BacktoBack          String?        @db.VarChar(200)
+  Depo                String?        @db.VarChar(200)
+  ROValidity          String?        @db.VarChar(200)
+  ReleaseType         String?        @db.VarChar(200)
+  AgentAddress        String?        @db.VarChar(200)
+  SwitchBLAgent       String?        @db.VarChar(200)
+  SwitchBLConsignee   String?        @db.VarChar(200)
+  SwitchBLShipper     String?        @db.VarChar(200)
+  SwitchLocation      String?        @db.VarChar(200)
+  Coloader            String?        @db.VarChar(100)
+  Notify2             String?        @db.VarChar(100)
+  NotifyAddress2      String?        @db.VarChar(200)
+  bookingHeader       BookingHeader? @relation(fields: [BookingHeaderSid], references: [BookingHeaderSid])
 }
 
 model BookingRates {
-    BookingRatesSid   Int       @id @default(autoincrement())
-    BookingHeaderSid  Int
-    CompanyMasterSid  Int
-    BranchMasterSid   Int
-    CreatedOn         DateTime  @default(now())
-    CreatedBy         String    @db.VarChar(100)
-    deletedAt         DateTime?
-    UpdatedOn         DateTime?
-    UpdatedBy         String?   @db.VarChar(100)
-    Status            String?   @default("A") @db.Char(1)
-    SerialNumber      Decimal   @db.Decimal(3, 0)
-    ChargeMasterSid   Int
-    ChargeDescription String    @db.VarChar(100)
-    ChargeUomSid      Int
-    PrepaidCollect    String    @default("Prepaid") @db.VarChar(10)
-    CostRevenue       String?   @db.VarChar(10)
-    CurrencyMasterSid Int
-    ExchangeRate      Decimal   @db.Decimal(6, 3)
-    Rate              Decimal   @db.Decimal(15, 3)
-    NumberOfUnit      Decimal   @db.Decimal(4, 3)
-    DrCr              String    @db.Char(1)
-    Amount            Decimal   @db.Decimal(15, 3)
-    LocalAmount       Decimal   @db.Decimal(15, 3)
-    CustomerMasterSid Int
-    CustomerBranchSid Int
-    VoucherHeaderSid  Int?
-    VoucherTypeSid    Int?
-    Remarks           String?   @db.VarChar(100)
-
-    bookingHeader BookingHeader? @relation(fields: [BookingHeaderSid], references: [BookingHeaderSid])
-    companyMaster CompanyMaster  @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
-    branchMaster  BranchMaster   @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
+  BookingRatesSid   Int           @id @default(autoincrement())
+  BookingHeaderSid  Int
+  CompanyMasterSid  Int
+  BranchMasterSid   Int
+  CreatedOn         DateTime      @default(now())
+  CreatedBy         String        @db.VarChar(100)
+  UpdatedOn         DateTime?
+  UpdatedBy         String?       @db.VarChar(100)
+  Status            String?       @default("A") @db.Char(1)
+  SerialNumber      Decimal       @db.Decimal(3, 0)
+  ChargeMasterSid   Int
+  ChargeDescription String        @db.VarChar(100)
+  ChargeUomSid      Int
+  PrepaidCollect    String        @default("Prepaid") @db.VarChar(10)
+  CostRevenue       String?       @db.VarChar(10)
+  CurrencyMasterSid Int
+  ExchangeRate      Decimal       @db.Decimal(6, 3)
+  Rate              Decimal       @db.Decimal(15, 3)
+  NumberOfUnit      Decimal       @db.Decimal(4, 3)
+  DrCr              String        @db.Char(1)
+  Amount            Decimal       @db.Decimal(15, 3)
+  LocalAmount       Decimal       @db.Decimal(15, 3)
+  CustomerMasterSid Int
+  CustomerBranchSid Int
+  VoucherHeaderSid  Int?
+  VoucherTypeSid    Int?
+  Remarks           String?       @db.VarChar(100)
+  deletedAt         DateTime?
+  bookingHeader     BookingHeader @relation(fields: [BookingHeaderSid], references: [BookingHeaderSid])
+  branchMaster      BranchMaster  @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
+  companyMaster     CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
 }
 
 model VesselMaster {
-    VesselMasterSid Int       @id @default(autoincrement()) @map("VesselMasterSid")
-    VesselName      String    @db.VarChar(100)
-    VesselShortCode String    @db.VarChar(5)
-    IMOCode         String    @db.VarChar(10)
-    CallSignIn      String    @db.VarChar(10)
-    MMSINo          Int
-    GRT             Int
-    NRT             Int
-    YearofBuilt     Int
-    VesselOperator  String    @db.VarChar(100) //( from party master)
-    VesselType      String    @db.VarChar(10) //( Container,Tank,Bulk,General)
-    LengthinMtr     Int
-    BreadthinMtr    Int
-    Remarks         String?   @db.VarChar(200)
-    createdOn       DateTime  @default(now()) @db.Timestamptz(6)
-    updatedOn       DateTime? @updatedAt @db.Timestamptz(6)
-    deletedAt       DateTime?
-    createdBy       String    @db.VarChar(100)
-    updatedBy       String?   @db.VarChar(100)
-    status          String?   @default("A") @db.Char(1)
-
-    voyageMasterHeader VoyageMasterHeader[]
-    tdsExemption       TDSExemption[]
+  VesselMasterSid    Int                  @id @default(autoincrement()) @map("VesselMasterSid")
+  VesselName         String               @db.VarChar(100)
+  VesselShortCode    String               @db.VarChar(5)
+  IMOCode            String               @db.VarChar(10)
+  CallSignIn         String               @db.VarChar(10)
+  MMSINo             Int
+  GRT                Int
+  NRT                Int
+  YearofBuilt        Int
+  VesselOperator     String               @db.VarChar(100)
+  VesselType         String               @db.VarChar(10)
+  LengthinMtr        Int
+  BreadthinMtr       Int
+  Remarks            String?              @db.VarChar(200)
+  createdOn          DateTime             @default(now()) @db.Timestamptz(6)
+  updatedOn          DateTime?            @updatedAt @db.Timestamptz(6)
+  deletedAt          DateTime?
+  createdBy          String               @db.VarChar(100)
+  updatedBy          String?              @db.VarChar(100)
+  status             String?              @default("A") @db.Char(1)
+  tdsExemption       TDSExemption[]
+  voyageMasterHeader VoyageMasterHeader[]
 }
 
 model VoyageMasterHeader {
-    VoyageMasterHeaderSid Int          @id @default(autoincrement()) @map("VoyageMasterHeaderSid")
-    VesselMasterSid       Int
-    VoyageNo              String       @db.VarChar(10)
-    ViaNumber             String?      @db.VarChar(10)
-    CoLoad                String?      @default("N") @db.Char(1)
-    Carrier               Int? //(from party Master)
-    VoyageType            String?      @db.VarChar(10) //( Air, Sea, Road )
-    RotationNumber        String       @db.VarChar(10)
-    Remarks               String?      @db.VarChar(200)
-    SCMETA                DateTime
-    SCMETD                DateTime
-    SCMTCargoDescription  String       @db.VarChar(200)
-    ShipIRN               String       @db.VarChar(10)
-    CrewIRN               String       @db.VarChar(10)
-    createdOn             DateTime     @default(now()) @db.Timestamptz(6)
-    updatedOn             DateTime?    @updatedAt @db.Timestamptz(6)
-    deletedAt             DateTime?
-    createdBy             String       @db.VarChar(100)
-    updatedBy             String?      @db.VarChar(100)
-    status                String?      @default("A") @db.Char(1)
-    vesselMaster          VesselMaster @relation(fields: [VesselMasterSid], references: [VesselMasterSid])
-
-    voyageMasterDetail VoyageMasterDetail[]
+  VesselMasterSid       Int
+  VoyageNo              String               @db.VarChar(10)
+  ViaNumber             String?              @db.VarChar(10)
+  RotationNumber        String               @db.VarChar(10)
+  Remarks               String?              @db.VarChar(200)
+  SCMETA                DateTime
+  SCMETD                DateTime
+  SCMTCargoDescription  String               @db.VarChar(200)
+  ShipIRN               String               @db.VarChar(10)
+  CrewIRN               String               @db.VarChar(10)
+  createdOn             DateTime             @default(now()) @db.Timestamptz(6)
+  updatedOn             DateTime?            @updatedAt @db.Timestamptz(6)
+  deletedAt             DateTime?
+  createdBy             String               @db.VarChar(100)
+  updatedBy             String?              @db.VarChar(100)
+  status                String?              @default("A") @db.Char(1)
+  VoyageMasterHeaderSid Int                  @id @default(autoincrement()) @map("VoyageMasterHeaderSid")
+  Carrier               Int?
+  CoLoad                String?              @default("N") @db.Char(1)
+  VoyageType            String?              @db.VarChar(10)
+  voyageMasterDetail    VoyageMasterDetail[]
+  vesselMaster          VesselMaster         @relation(fields: [VesselMasterSid], references: [VesselMasterSid])
 }
 
 model VoyageMasterDetail {
-    VoyageMasterDetailSid Int       @id @default(autoincrement()) @map("VoyageMasterDetailSid")
-    VoyageMasterHeaderSid Int
-    POLSid                Int //(port master)
-    PODSid                Int? //(port Master)
-    ETA                   DateTime
-    ETD                   DateTime
-    ATA                   DateTime?
-    ATD                   DateTime?
-    Sno             Int      @default(1)   // editable sequence number
-    Coloader              String?   @db.VarChar(100) //(from Partymaster)
-    PortCutoff            DateTime
-    TransitDays           Int
-    RotationNo            String    @db.VarChar(10)
-    RotationDate          DateTime
-    IGMNo                 String    @db.VarChar(10)
-    IGMDate               DateTime?
-    EGMNo                 String    @db.VarChar(10)
-    EGMDate               DateTime
-    Remarks               String?   @db.VarChar(100)
-    createdOn             DateTime  @default(now()) @db.Timestamptz(6)
-    updatedOn             DateTime? @updatedAt @db.Timestamptz(6)
-    deletedAt             DateTime?
-    createdBy             String    @db.VarChar(100)
-    updatedBy             String?   @db.VarChar(100)
-    status                String?   @default("A") @db.Char(1)
-
-    portMasterPOL      PortMaster         @relation("POL", fields: [POLSid], references: [PortMasterSid])
-    portMasterPOD      PortMaster?        @relation("POD", fields: [PODSid], references: [PortMasterSid])
-    voyageMasterHeader VoyageMasterHeader @relation(fields: [VoyageMasterHeaderSid], references: [VoyageMasterHeaderSid])
+  VoyageMasterDetailSid Int                @id @default(autoincrement()) @map("VoyageMasterDetailSid")
+  POLSid                Int
+  PODSid                Int?
+  ETA                   DateTime
+  ETD                   DateTime
+  ATA                   DateTime?
+  ATD                   DateTime?
+  Coloader              String?            @db.VarChar(100)
+  PortCutoff            DateTime
+  TransitDays           Int
+  RotationNo            String             @db.VarChar(10)
+  RotationDate          DateTime
+  IGMNo                 String             @db.VarChar(10)
+  EGMNo                 String             @db.VarChar(10)
+  EGMDate               DateTime
+  Remarks               String?            @db.VarChar(100)
+  createdOn             DateTime           @default(now()) @db.Timestamptz(6)
+  updatedOn             DateTime?          @updatedAt @db.Timestamptz(6)
+  deletedAt             DateTime?
+  createdBy             String             @db.VarChar(100)
+  updatedBy             String?            @db.VarChar(100)
+  status                String?            @default("A") @db.Char(1)
+  IGMDate               DateTime?
+  VoyageMasterHeaderSid Int
+  Sno                   Int                @default(1)
+  portMasterPOD         PortMaster?        @relation("POD", fields: [PODSid], references: [PortMasterSid])
+  portMasterPOL         PortMaster         @relation("POL", fields: [POLSid], references: [PortMasterSid])
+  voyageMasterHeader    VoyageMasterHeader @relation(fields: [VoyageMasterHeaderSid], references: [VoyageMasterHeaderSid])
 }
 
 model ShipmentMilestone {
-    ShipmentMilestoneSid Int       @id @default(autoincrement())
-    ShipmentNo           String    @db.VarChar(20)
-    CompanyMasterSid     Int
-    BranchMasterSid      Int
-    deletedAt            DateTime?
-    CreatedOn            DateTime  @default(now())
-    CreatedBy            String    @db.VarChar(100)
-    UpdatedOn            DateTime?
-    UpdatedBy            String?   @db.VarChar(100)
-    Status               String?   @default("A") @db.Char(1)
-    MilestoneMasterSid   Int
-    MilestoneName        String    @db.VarChar(50)
-    MilestoneDate        DateTime
-    AutoCaptured         String    @db.Char(1)
-    Remarks              String?   @db.VarChar(200)
-
-    companyMaster CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
-    branchMaster  BranchMaster  @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
+  ShipmentMilestoneSid Int           @id @default(autoincrement())
+  ShipmentNo           String        @db.VarChar(20)
+  CompanyMasterSid     Int
+  BranchMasterSid      Int
+  CreatedOn            DateTime      @default(now())
+  CreatedBy            String        @db.VarChar(100)
+  UpdatedOn            DateTime?
+  UpdatedBy            String?       @db.VarChar(100)
+  Status               String?       @default("A") @db.Char(1)
+  MilestoneMasterSid   Int
+  MilestoneName        String        @db.VarChar(50)
+  MilestoneDate        DateTime
+  AutoCaptured         String        @db.Char(1)
+  Remarks              String?       @db.VarChar(200)
+  deletedAt            DateTime?
+  branchMaster         BranchMaster  @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
+  companyMaster        CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
 }

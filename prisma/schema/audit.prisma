@@ -1,16 +1,16 @@
 model AuditLog {
-    AuditLogSid Int      @id @default(autoincrement()) @map("AuditLogSid")
-    tableName   String
-    recordId    String? // Use String for UUID (can also use Bytes if needed)
-    operation   String
-    changedAt   DateTime @default(now())
-    changedBy   String? // optional
-    changes     Json? // JSONB equivalent in Prisma4
-    oldVal      Json?
-    newVal      Json?
+  AuditLogSid Int      @id @default(autoincrement()) @map("AuditLogSid")
+  tableName   String
+  recordId    String?
+  operation   String
+  changedAt   DateTime @default(now())
+  changedBy   String?
+  changes     Json?
+  newVal      Json?
+  oldVal      Json?
 }
 
 model TablePrimaryKeyMap {
-    table_name  String @id // Primary key
-    primary_key String // Name of the primary key column
+  table_name  String @id
+  primary_key String
 }
