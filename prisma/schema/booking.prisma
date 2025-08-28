@@ -272,28 +272,31 @@ model VesselMaster {
 }
 
 model VoyageMasterHeader {
-  VesselMasterSid       Int
-  VoyageNo              String               @db.VarChar(10)
-  ViaNumber             String?              @db.VarChar(10)
-  RotationNumber        String               @db.VarChar(10)
-  Remarks               String?              @db.VarChar(200)
-  SCMETA                DateTime
-  SCMETD                DateTime
-  SCMTCargoDescription  String               @db.VarChar(200)
-  ShipIRN               String               @db.VarChar(10)
-  CrewIRN               String               @db.VarChar(10)
-  createdOn             DateTime             @default(now()) @db.Timestamptz(6)
-  updatedOn             DateTime?            @updatedAt @db.Timestamptz(6)
-  deletedAt             DateTime?
-  createdBy             String               @db.VarChar(100)
-  updatedBy             String?              @db.VarChar(100)
-  status                String?              @default("A") @db.Char(1)
-  VoyageMasterHeaderSid Int                  @id @default(autoincrement()) @map("VoyageMasterHeaderSid")
-  Carrier               Int?
-  CoLoad                String?              @default("N") @db.Char(1)
-  VoyageType            String?              @db.VarChar(10)
-  voyageMasterDetail    VoyageMasterDetail[]
-  vesselMaster          VesselMaster         @relation(fields: [VesselMasterSid], references: [VesselMasterSid])
+    VoyageMasterHeaderSid Int          @id @default(autoincrement()) @map("VoyageMasterHeaderSid")
+    VesselMasterSid       Int
+    VoyageNo              String       @db.VarChar(10)
+    ViaNumber             String?      @db.VarChar(10)
+    CoLoad                String?      @default("N") @db.Char(1)
+    Carrier               Int? //(from party Master)
+    VoyageType            String?      @db.VarChar(10) //( Air, Sea, Road )
+    RotationNumber        String       @db.VarChar(10)
+    Remarks               String?      @db.VarChar(200)
+    SCMETA                DateTime
+    SCMETD                DateTime
+    SCMTCargoDescription  String       @db.VarChar(200)
+    ShipIRN               String       @db.VarChar(10)
+    CrewIRN               String       @db.VarChar(10)
+    createdOn             DateTime     @default(now()) @db.Timestamptz(6)
+    updatedOn             DateTime?    @updatedAt @db.Timestamptz(6)
+    deletedAt             DateTime?
+    createdBy             String       @db.VarChar(100)
+    updatedBy             String?      @db.VarChar(100)
+    status                String?      @default("A") @db.Char(1)
+    vesselMaster          VesselMaster @relation(fields: [VesselMasterSid], references: [VesselMasterSid])
+
+    voyageMasterDetail VoyageMasterDetail[]
+    MasterJobVoyage MasterJobVoyage[]
+    houseJob HouseJob[]
 }
 
 model VoyageMasterDetail {
