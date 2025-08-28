@@ -96,7 +96,7 @@ export class MenuService {
             return await this._db.menuMaster.findMany({
                 where: {
                     parentId: null,
-                    deletedAt: null,
+                    status:'A',
 
                 },
                 select: {
@@ -116,7 +116,7 @@ export class MenuService {
         try {
             const menuList = await this._db.menuMaster.findMany({
                 where: {
-                    deletedAt: null
+                    status:'A'
                 },
             })
 
@@ -132,7 +132,7 @@ export class MenuService {
             const menuPermissions = await this._db.menuPermission.findMany({
                 where: {
                     MenuMasterSid: MenuMasterSid,
-                    deletedAt: null
+                    status:'A'
                 }
             })
             return menuPermissions
@@ -187,7 +187,7 @@ export class MenuService {
                     const existingPerms = await tx.menuPermission.findMany({
                         where: {
                             MenuMasterSid: menuMasterSid,
-                            deletedAt: null
+                            status:'A'
                         }
                     });
 
@@ -208,7 +208,7 @@ export class MenuService {
                                 }
                             },
                             data: {
-                                deletedAt: new Date(),
+                                status:'A',
                             }
                         });
                     }
@@ -221,7 +221,7 @@ export class MenuService {
                                     equals: p.permissionName.trim(),
                                     mode: 'insensitive'
                                 },
-                                deletedAt: null
+                                status:'A'
                             }
                         });
 
@@ -280,7 +280,7 @@ export class MenuService {
             throw new NotFoundException(`Menu with ID ${id} not found`);
         }
 
-        if (existingmenu.deletedAt) {
+        if (existingmenu.status==='D') {
             throw new Error(`Menu with ID ${id} is already deleted`);
         }
 
@@ -289,7 +289,7 @@ export class MenuService {
             where: {
                 MenuMasterSid: id,
                 NOT: {
-                    deletedAt: null
+                    status:'D'
                 }
             }
         });
@@ -301,13 +301,13 @@ export class MenuService {
         return await this._db.$transaction(async (tx) => {
             await tx.menuPermission.updateMany({
                 where: { MenuMasterSid: id },
-                data: { deletedAt: new Date(), updatedBy: user?.userName || 'system' }
+                data: { status:'D', updatedBy: user?.userName || 'system' }
             });
 
             return tx.menuMaster.update({
                 where: { MenuMasterSid: id },
                 data: {
-                    deletedAt: new Date(),
+                    status:'D',
                     updatedBy: user?.userName || 'system'
                 }
             });
@@ -321,7 +321,6 @@ export class MenuService {
         const skip = (page - 1) * pageSize;
 
         const where: Prisma.MenuMasterWhereInput = {
-            deletedAt: null,
             status: 'A',
             ...(search
                 ? {
@@ -376,7 +375,7 @@ export class MenuService {
             const menus = await this._db.menuMaster.findMany({
                 where: {
                     ModuleMasterSid: ModuleMasterSid,
-                    deletedAt: null
+                    status:'A'
                 },
             })
             return menus;
@@ -391,7 +390,7 @@ export class MenuService {
                 where: {
                     ModuleMasterSid: moduleId,
                     parentId: null,
-                    deletedAt: null
+                    status:'A'
                 },
             })
             return submenus;

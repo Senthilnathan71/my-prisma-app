@@ -155,10 +155,10 @@ export class TermsAndConditionsService {
             const deletedDepartmentRelations = await tx.departmentOnTerms.updateManyAndReturn({
                 where: {
                     termsId: TermsAndConditionsMasterSid,
-                    deletedAt: null
+                    status:'D'
                 },
                 data: {
-                    deletedAt: new Date()
+                    status:'D'
                 }
             });
             
