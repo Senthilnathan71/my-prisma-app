@@ -442,8 +442,8 @@ export class EnquiryHeaderService {
         })
 
         const deletedRoutes = await this._db.enquiryRoute.updateMany({
-            where : {EnquiryHeaderSid : id , deletedAt : null},
-            data : { deletedAt : new Date() }
+            where : {EnquiryHeaderSid : id , status: 'D'},
+            data : { status:'D' }
         })
 
         const deletedCargos = await this._db.enquiryCargo.updateMany({

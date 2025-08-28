@@ -131,7 +131,7 @@ export class EnquiryHeaderService {
                 include: {
                     enquiryRoute: {
                         where : {
-                            deletedAt : null
+                            status : 'A'
                         },
                         include: {
                             enquiryCargo: {
@@ -275,13 +275,13 @@ export class EnquiryHeaderService {
             throw new NotFoundException(`Enquiry Route with ID ${EnquiryRouteSid} not found`);
         }
 
-        if (existingEnquiryRoute.deletedAt) {
+        if (existingEnquiryRoute.status==='D') {
             throw new Error(`Enquiry Route with ID ${EnquiryRouteSid} is already deleted`);
         }
 
         return this._db.enquiryRoute.update({
             where: { EnquiryRouteSid: EnquiryRouteSid },
-            data: { deletedAt: new Date() }
+            data: { status:'D' }
         });
     }
 
