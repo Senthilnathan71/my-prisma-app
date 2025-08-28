@@ -313,6 +313,7 @@ model VoyageMasterDetail {
     ETD                   DateTime
     ATA                   DateTime?
     ATD                   DateTime?
+    Sno             Int      @default(1)   // editable sequence number
     Coloader              String?   @db.VarChar(100) //(from Partymaster)
     PortCutoff            DateTime
     TransitDays           Int
