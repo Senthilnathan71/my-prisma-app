@@ -69,13 +69,13 @@ export class PreCustomerMeetingController {
 
         } catch (error) {
             this.logger.warn(`createPrecustomer: ${JSON.stringify(error)}`)
-
+            console.log(error,error.stack)
             output.status = false;
             // Handle error message based on the type of error
             if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
                 output.message = error.message;
             } else {
-                output.message = error;
+                output.message = error.message;
             }
         }
         return output
