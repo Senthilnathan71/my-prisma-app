@@ -2233,8 +2233,22 @@ model ContainerActivityMaster {
     UpdatedOn                  DateTime?
     UpdatedBy                  String?             @db.VarChar(100)
     deletedAt                  DateTime?
+
+
     // Relation
     activities                 ContainerActivity[]
+    nextActivities ContainerActivityNextActivity[]
+
+}
+
+
+model ContainerActivityNextActivity {
+  ContainerActivityNextActivitySid Int @id @default(autoincrement())
+  ContainerActivityMasterSid       Int
+  ActivityCode                     String @db.VarChar(5)
+
+  // Relation
+  containerActivity ContainerActivityMaster @relation(fields: [ContainerActivityMasterSid], references: [ContainerActivityMasterSid])
 }
 
 
