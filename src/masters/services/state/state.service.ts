@@ -67,7 +67,7 @@ export class StateService {
       const stateList = await this._db.stateMaster.findMany({
         where: {
           CountryMasterSid: CountryMasterSid,
-          deletedAt:null
+          status:'A'
         },
       });
       return stateList;
@@ -152,14 +152,14 @@ export class StateService {
       throw new NotFoundException(`State with ID ${id} not found`);
     }
 
-    if (existingState.deletedAt) {
+    if (existingState.status==='D') {
       throw new Error(`State with ID ${id} is already deleted`);
     }
 
     // Perform soft delete by updating deletedAt field
     return this._db.stateMaster.update({
       where: { StateMasterSid: id },
-      data: { deletedAt: new Date() },
+      data: { status:'D' },
     });
   }
 
@@ -168,7 +168,6 @@ export class StateService {
   const skip = (page - 1) * pageSize;
 
   const where: Prisma.StateMasterWhereInput = {
-    deletedAt: null,
     status: 'A',
     ...(search
       ? {

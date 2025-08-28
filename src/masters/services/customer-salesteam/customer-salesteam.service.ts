@@ -10,7 +10,7 @@ export class CustomerSalesteamService {
         try {
             const allSalesteam = await this._db.customerSalesTeam.findMany({
                 where : {
-                    deletedAt:null
+                    status : 'A'
                 },
                 include : {
                     customerBranch : {
@@ -90,7 +90,7 @@ export class CustomerSalesteamService {
             if (!exist) {
                 throw new BadRequestException(`Salesteam with Id : ${CustomerSalesSid} not exists`);
             }
-            if (exist.deletedAt) {
+            if (exist.status === 'D') {
                 throw new BadRequestException(`Salesteam with Id :${CustomerSalesSid} is already deleted`)
             }
             const deletedSalesteam = this._db.customerSalesTeam.update({
@@ -98,7 +98,7 @@ export class CustomerSalesteamService {
                     CustomerSalesSid: CustomerSalesSid
                 },
                 data: {
-                    deletedAt: new Date()
+                    status : 'D'
                 }
             })
             return deletedSalesteam;
@@ -139,7 +139,7 @@ export class CustomerSalesteamService {
         const searchResults = await this._db.customerSalesTeam.findMany({
             where : {
                 ...whereClause,
-                deletedAt:null
+                status : 'A'
             }
         }).catch((err) => {
             throw new Error(`Error Occured : ${JSON.stringify(err), err}`);
@@ -154,7 +154,7 @@ export class CustomerSalesteamService {
             const salesPerson = await this._db.userMaster.findMany({
                 where: {
                     isSalesperson: '1',
-                    deletedAt : null
+                    status : 'A'
                 },
                 omit : {
                     userPassword : true

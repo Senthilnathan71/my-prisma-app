@@ -13,7 +13,7 @@ export class HawbStockService {
         try {
             const allHawbStocks = await this._db.hawbStock.findMany({
                 where: {
-                    deletedAt: null,
+                    status:"A",
                     CompanyMasterSid: CompanyMasterSid,
                     BranchMasterSid: BranchMasterSid
                 },
@@ -105,7 +105,7 @@ export class HawbStockService {
             if (!exist) {
                 throw new BadRequestException(`HAWB Stock with Id : ${HawbStockSid} not exists`);
             }
-            if (exist.deletedAt) {
+            if (exist.status==="D") {
                 throw new BadRequestException(`HAWB Stock with Id :${HawbStockSid} is already deleted`)
             }
             const deletedHawbStock = await this._db.hawbStock.update({
@@ -113,7 +113,7 @@ export class HawbStockService {
                     HawbStockSid: HawbStockSid
                 },
                 data: {
-                    deletedAt: new Date()
+                   status:"D"
                 },
                 include: {
                     branchMaster: true,
@@ -132,7 +132,7 @@ export class HawbStockService {
         const skip = (page - 1) * pageSize;
 
         const where: Prisma.HawbStockWhereInput = {
-            deletedAt: null,
+           
             status: 'A',
             CompanyMasterSid : activeCompanyId,
         BranchMasterSid : activeBranchId,

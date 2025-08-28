@@ -12,7 +12,6 @@ export class TdsExemptionService {
             const allTdsExemption = await this._db.tDSExemption.findMany({
                 where : {
                     status : 'A',
-                    deletedAt : null
                 }
             })
             return allTdsExemption;
@@ -55,7 +54,7 @@ export class TdsExemptionService {
             const ourTdsExemption =await this._db.tDSExemption.findMany({
                 where : {
                     TDSSetHeaderSid:TDSSetHeaderSid,
-                    deletedAt : null,
+                    status:'A',
                 },
                 include : {
                     vesselMaster : {
@@ -121,7 +120,7 @@ export class TdsExemptionService {
             if (!exist) {
                 throw new BadRequestException(`TdsExemption with Id : ${TDSExemptionSid} not exists`);
             }
-            if (exist.deletedAt) {
+            if (exist.status==='D') {
                 throw new BadRequestException(`TdsExemption with Id :${TDSExemptionSid} is already deleted`)
             }
             const deletedTdsExemption = this._db.tDSExemption.update({
@@ -129,7 +128,7 @@ export class TdsExemptionService {
                     TDSExemptionSid: TDSExemptionSid
                 },
                 data: {
-                    deletedAt: new Date()
+                    status:'D'
                 }
             })
             return deletedTdsExemption;
@@ -143,7 +142,6 @@ export class TdsExemptionService {
     const { search = '', page = 1, pageSize = 15 } = params;
     const skip = (page - 1) * pageSize;
     const where : Prisma.TDSExemptionWhereInput = {
-        deletedAt: null,
         status: 'A',
     };
 

@@ -12,7 +12,6 @@ export class TdsService {
             const allTds = await this._db.tDSSetHeader.findMany({
                 where : {
                     status : 'A',
-                    deletedAt : null,
                     CompanyMasterSid: CompanyMasterSid
 
                 }
@@ -31,7 +30,7 @@ export class TdsService {
                     equals: payload.TDSSetName.trim(),
                     mode: 'insensitive'
                 },
-                deletedAt: null
+                status:'A'
             }
         });
 
@@ -90,7 +89,7 @@ export class TdsService {
                         }
                     }
                 ],
-                deletedAt: null
+                status:'A'
             }
         });
 
@@ -132,7 +131,7 @@ export class TdsService {
             if (!exist) {
                 throw new BadRequestException(`Tds with Id : ${TDSSetHeaderSid} not exists`);
             }
-            if (exist.deletedAt) {
+            if (exist.status==='D') {
                 throw new BadRequestException(`Tds with Id :${TDSSetHeaderSid} is already deleted`)
             }
             const deletedTds = this._db.tDSSetHeader.update({
@@ -140,7 +139,7 @@ export class TdsService {
                     TDSSetHeaderSid: TDSSetHeaderSid
                 },
                 data: {
-                    deletedAt: new Date()
+                    status:'D'
                 }
             })
             return deletedTds;
@@ -157,7 +156,6 @@ export class TdsService {
     let sec = Date.parse(search);
     console.log(new Date(search));
     const where : Prisma.TDSSetHeaderWhereInput = {
-        deletedAt: null,
         status: 'A',
         ...(search
             ? {

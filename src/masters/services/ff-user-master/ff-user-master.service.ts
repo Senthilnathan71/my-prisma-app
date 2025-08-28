@@ -14,7 +14,6 @@ export class FfUserMasterService {
             const allFfUser = await this._db.userMaster.findMany({
                 where: {
                     status: 'A',
-                    deletedAt: null
                 },
                 omit: {
                     userPassword: true
@@ -130,7 +129,7 @@ export class FfUserMasterService {
                             companyMaster : {companyName : 'asc'}
                         },
                         where: {
-                            deletedAt: null
+                            status : 'A'
                         },
                         include : {
                             companyMaster : {
@@ -138,7 +137,7 @@ export class FfUserMasterService {
                                     userBranchMaster : {
                                         where : {
                                             UserMasterSid : UserMasterSid,
-                                            deletedAt : null
+                                            status : 'A'
                                         },
                                         orderBy : {
                                             branchMaster : {branchName : 'asc'}
@@ -153,7 +152,7 @@ export class FfUserMasterService {
                     },
                     userRoleMaster: {
                         where: {
-                            deletedAt: null
+                            status :'A'
                         },
                     }
                 }
@@ -173,15 +172,15 @@ export class FfUserMasterService {
             const { companies, roles, ...userPayload } = payload;
 
             const prevCompanies = await this._db.userCompanyMaster.findMany({
-                where: { UserMasterSid, deletedAt: null }
+                where: { UserMasterSid, status : 'A' }
             });
 
             const prevBranches = await this._db.userBranchMaster.findMany({
-                where: { UserMasterSid, deletedAt: null }
+                where: { UserMasterSid, status : 'A' }
             });
 
             const prevRoles = await this._db.userRoleMaster.findMany({
-                where: { UserMasterSid, deletedAt: null }
+                where: { UserMasterSid, status : "A" }
             });
 
             return await this._db.$transaction(async (prisma) => {
@@ -208,7 +207,7 @@ export class FfUserMasterService {
                 // Soft delete removed companies
                 userCompanies.deletedCompanies = await prisma.userCompanyMaster.updateManyAndReturn({
                     where: { UserCompanyMasterSid: { in: companiesToDelete.map(c => c.UserCompanyMasterSid) } },
-                    data: { deletedAt: new Date() }
+                    data: { status : 'A' }
                 });
 
                 // Create new companies
@@ -264,7 +263,7 @@ export class FfUserMasterService {
                 // Soft delete removed branches
                 userBranches.deletedBranches = await prisma.userBranchMaster.updateManyAndReturn({
                     where: { UserBranchMasterSid: { in: branchesToDelete.map(b => b.UserBranchMasterSid) } },
-                    data: { deletedAt: new Date() }
+                    data: { status : 'A' }
                 });
 
                 // Create new branches
@@ -312,7 +311,7 @@ export class FfUserMasterService {
                 // Soft delete removed roles
                 userRoles.deletedRoles = await prisma.userRoleMaster.updateManyAndReturn({
                     where: { UserRoleMasterSid: { in: rolesToDelete.map(r => r.UserRoleMasterSid) } },
-                    data: { deletedAt: new Date() }
+                    data: { status : 'A' }
                 });
 
                 // Create new roles
@@ -356,7 +355,7 @@ export class FfUserMasterService {
                 throw new BadRequestException(`User with Id : ${UserMasterSid} not exists`);
             }
 
-            if (exist.deletedAt) {
+            if (exist.status === 'D') {
                 throw new BadRequestException(`User with Id : ${UserMasterSid} is already deleted`);
             }
 
@@ -365,7 +364,7 @@ export class FfUserMasterService {
                 const deletedUser = await prisma.userMaster.update({
                     where: { UserMasterSid: UserMasterSid },
                     data: {
-                        deletedAt: new Date()
+                        status : 'D'
                     },
                     omit: {
                         userPassword: true
@@ -376,10 +375,10 @@ export class FfUserMasterService {
                 const deletedUserCompanies = await prisma.userCompanyMaster.updateManyAndReturn({
                     where: {
                         UserMasterSid: UserMasterSid,
-                        deletedAt: null
+                        status : 'D'
                     },
                     data: {
-                        deletedAt: new Date()
+                        status : 'D'
                     }
                 });
 
@@ -387,10 +386,10 @@ export class FfUserMasterService {
                 const deletedUserBranches = await prisma.userBranchMaster.updateManyAndReturn({
                     where: {
                         UserMasterSid: UserMasterSid,
-                        deletedAt: null
+                        status : 'D'
                     },
                     data: {
-                        deletedAt: new Date()
+                        status : 'D'
                     }
                 });
 
@@ -398,10 +397,10 @@ export class FfUserMasterService {
                 const deletedUserRoles = await prisma.userRoleMaster.updateManyAndReturn({
                     where: {
                         UserMasterSid: UserMasterSid,
-                        deletedAt: null
+                        status : 'D'
                     },
                     data: {
-                        deletedAt: new Date()
+                        status : 'D'
                     }
                 });
 
@@ -423,7 +422,6 @@ export class FfUserMasterService {
         const skip = (page - 1) * pageSize;
 
         const where: Prisma.UserMasterWhereInput = {
-            deletedAt: null,
             status: 'A',
             ...(search
                 ? {

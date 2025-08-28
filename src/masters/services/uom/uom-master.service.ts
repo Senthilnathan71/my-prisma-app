@@ -58,9 +58,7 @@ export class UomService {
         try {
             const uom = await this._db.uOMMaster.findMany({
                 where: {
-                    deletedAt: {
-                        equals: null
-                    }
+                  status:"A"
                 }
             });
             return uom;
@@ -145,14 +143,14 @@ export class UomService {
             throw new NotFoundException(`Uom with ID ${id} not found`);
         }
 
-        if (existingUom.deletedAt) {
+        if (existingUom.status==="D") {
             throw new Error(`Uom with ID ${id} is already deleted`);
         }
 
         // Perform soft delete by updating deletedAt field
         return this._db.uOMMaster.update({
             where: { UOMMasterSid: id },
-            data: { deletedAt: new Date() }
+            data: { status:"D" }
         });
     }
 
@@ -161,7 +159,7 @@ export class UomService {
         const skip = (page - 1) * pageSize;
 
         const where: Prisma.UOMMasterWhereInput = {
-            deletedAt: null,
+          
             status: 'A',
             ...(search
                 ? {

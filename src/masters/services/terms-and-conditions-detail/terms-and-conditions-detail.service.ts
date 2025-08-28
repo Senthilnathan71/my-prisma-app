@@ -10,7 +10,7 @@ export class TermsAndConditionsDetailService {
         try {
             const allTCDetails = await this._db.termsAndConditionsDetail.findMany({
                 where : {
-                    deletedAt:null
+                    status:'A'
                 }
             })
             return allTCDetails;
@@ -81,7 +81,7 @@ export class TermsAndConditionsDetailService {
             if (!exist) {
                 throw new BadRequestException(`Terms and Conditions Detail with Id : ${TermsAndConditionsDetailSid} not exists`);
             }
-            if (exist.deletedAt) {
+            if (exist.status==='D') {
                 throw new BadRequestException(`Terms and Conditions Detail with Id :${TermsAndConditionsDetailSid} is already deleted`)
             }
             const deletedTCDetail = this._db.termsAndConditionsDetail.update({
@@ -89,7 +89,7 @@ export class TermsAndConditionsDetailService {
                     TermsAndConditionsDetailSid: TermsAndConditionsDetailSid
                 },
                 data: {
-                    deletedAt: new Date()
+                    status:'D'
                 }
             })
             return deletedTCDetail;
@@ -134,7 +134,7 @@ export class TermsAndConditionsDetailService {
         const searchResults = await this._db.termsAndConditionsDetail.findMany({
             where : {
                 ...whereClause,
-                deletedAt:null
+                status:'A'
             }
         }).catch((err) => {
             throw new Error(`Error Occured : ${JSON.stringify(err), err}`);

@@ -106,7 +106,6 @@ export class ChargeService {
         try {
             const ChargeList = await this._db.chargeMaster.findMany({
                 where: {
-                    deletedAt : null,
                     Status: 'A',
                     CompanyMasterSid: CompanyMasterSid
 
@@ -143,12 +142,12 @@ export class ChargeService {
                 include : {
                     chargeTaxMaster : {
                         where : {
-                            deletedAt : null
+                            Status : 'A'
                         }
                     },
                     chargeTds : {
                         where : {
-                            deletedAt : null
+                            status : 'A'
                         }
                     }
                 }
@@ -280,14 +279,14 @@ export class ChargeService {
             throw new NotFoundException(`Charge with ID ${id} not found`);
         }
 
-        if (existingCharge.deletedAt) {
+        if (existingCharge.Status === 'D') {
             throw new Error(`Charge with ID ${id} is already deleted`);
         }
 
         // Perform soft delete by updating deletedAt field
         return this._db.chargeMaster.update({
             where: { ChargeMasterSid: id },
-            data: { deletedAt: new Date() } 
+            data: { Status : 'D' } 
         });
     }
 
@@ -297,7 +296,6 @@ export class ChargeService {
     const skip = (page - 1) * pageSize;
 
     const where: Prisma.ChargeMasterWhereInput = {
-        deletedAt: null,
         Status: 'A',
         CompanyMasterSid : activeCompanyId,
     };
@@ -338,12 +336,12 @@ export class ChargeService {
                 UOM : true,
                 Status : true,
                 chargeTaxMaster: {
-                    where: { deletedAt: null },
+                    where: { Status : 'A' },
                     select: { ChargeTaxMasterSid: true },
                     take: 1,
                 },
                 chargeTds: {
-                    where: { deletedAt: null },
+                    where: { status : 'A' },
                     select: { TDSSet: true },
                     take: 1,
                 },

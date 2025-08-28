@@ -59,7 +59,6 @@ export class CustomerService {
         try {
             const customerList = await this._db.customerMaster.findMany({
                 where: {
-                    deletedAt: null,
                     status: 'A',
                     CompanyMasterSid: CompanyMasterSid
                 }
@@ -122,7 +121,7 @@ export class CustomerService {
                 throw new NotFoundException(`Customer with ID ${CustomerMasterSid} not found`);
             }
 
-            if (existingCustomer.deletedAt) {
+            if (existingCustomer.status === 'D') {
                 throw new Error(`Customer with ID ${CustomerMasterSid} is already deleted`);
             }
 
@@ -130,16 +129,16 @@ export class CustomerService {
                 const deletedCustomer = await prisma.customerMaster.update({
                     where: {
                         CustomerMasterSid: CustomerMasterSid,
-                        deletedAt: null
+                        status : 'D'
                     },
                     data: {
-                        deletedAt: new Date()
+                        status : 'D'
                     }
                 })
                 const allCustomerBranches = await prisma.customerBranch.findMany({
                     where: {
                         CustomerMasterSid: CustomerMasterSid,
-                        deletedAt: null
+                        status : 'D'
                     }
                 })
 
@@ -148,37 +147,37 @@ export class CustomerService {
                         const deletedCusBranch = await prisma.customerBranch.update({
                             where: {
                                 CustomerBranchSid: branch.CustomerBranchSid,
-                                deletedAt: null
+                                status : 'D'
                             },
                             data: {
-                                deletedAt: new Date()
+                                status : 'D'
                             }
                         })
                         const deleteCusBranchContact = await prisma.cusBranchContact.updateManyAndReturn({
                             where: {
                                 CustomerBranchSid: deletedCusBranch.CustomerBranchSid,
-                                deletedAt: null
+                                status : 'D'
                             },
                             data: {
-                                deletedAt: new Date()
+                                status : 'D'
                             }
                         })
                         const deleteCusBranchEmail = await prisma.customerBrEmail.updateManyAndReturn({
                             where: {
                                 CustomerBranchSid: branch.CustomerBranchSid,
-                                deletedAt: null
+                                status : 'D'
                             },
                             data: {
-                                deletedAt: new Date()
+                                status : 'D'
                             }
                         })
                         const deleteCusBranchLogin = await prisma.customerLogin.updateManyAndReturn({
                             where: {
                                 CustomerBranchSid: branch.CustomerBranchSid,
-                                deletedAt: null
+                                status : 'D'
                             },
                             data: {
-                                deletedAt: new Date()
+                                status : 'D'
                             }
                         })
                         return {
@@ -206,7 +205,6 @@ export class CustomerService {
     const skip = (page - 1) * pageSize;
 
     const where: Prisma.CustomerMasterWhereInput = {
-        deletedAt: null,
         status: 'A',
         CompanyMasterSid : activeCompanyId,
         ...(search
@@ -248,7 +246,7 @@ export class CustomerService {
                         path: ['carrier'],
                         equals: 'isTrue'
                     },
-                    deletedAt : null,
+                    status : 'A',
                     CompanyMasterSid:CompanyMasterSid
                 }
             })
@@ -266,7 +264,7 @@ export class CustomerService {
                         path: ['agent'],
                         equals: 'isTrue'
                     },
-                    deletedAt : null,
+                    status : 'A',
                     CompanyMasterSid:CompanyMasterSid
                 }
             })
@@ -283,7 +281,7 @@ export class CustomerService {
                         path: ['shipper'],
                         equals: 'isTrue'
                     },
-                    deletedAt : null,
+                    status : 'A',
                     CompanyMasterSid: CompanyMasterSid
                 }
             })
@@ -300,7 +298,7 @@ export class CustomerService {
                         path: ['consignee'],
                         equals: 'isTrue'
                     },
-                    deletedAt : null,
+                    status : 'A',
                     CompanyMasterSid: CompanyMasterSid
                 }
             })
@@ -317,7 +315,7 @@ export class CustomerService {
                         path: ['transporter'],
                         equals: 'isTrue'
                     },
-                    deletedAt : null,
+                    status : 'A',
                     CompanyMasterSid: CompanyMasterSid
                 }
             })
@@ -338,7 +336,7 @@ export class CustomerService {
                             equals: 'isTrue',
                         },
                     })),
-                    deletedAt: null,
+                    status : 'A',
                     CompanyMasterSid: CompanyMasterSid
                 },
                 include : {

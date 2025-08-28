@@ -14,7 +14,7 @@ export class AuthorityService {
         try {
             const allAuthorities = await this._db.authorityMaster.findMany({
                 where: {
-                    deletedAt: null
+                    status : 'A'
                 },
                 include: {
                     branchMaster: true,
@@ -22,7 +22,7 @@ export class AuthorityService {
                     menuMaster: true,
                     authorityDetail: {
                         where: {
-                            deletedAt: null
+                            status : 'A'
                         },
                         include: {
                             userMaster: true
@@ -50,7 +50,6 @@ export class AuthorityService {
                     CompanyMasterSid: masterData.CompanyMasterSid,
                     BranchMasterSid: masterData.BranchMasterSid,
                     MenuMaster: parseInt(masterData.MenuMaster),
-                    deletedAt: null,
                     status: 'A'
                 }
             });
@@ -112,7 +111,7 @@ export class AuthorityService {
                 include: {
                     authorityDetail: {
                         where: {
-                            deletedAt: null
+                            status : 'A'
                         },
                             
                     }
@@ -153,7 +152,6 @@ export class AuthorityService {
                     CompanyMasterSid: CompanyMasterSid,
                     BranchMasterSid: BranchMasterSid,
                     MenuMaster: parseInt(MenuMaster),
-                    deletedAt: null,
                     status: 'A'
                 }
             });
@@ -187,7 +185,7 @@ export class AuthorityService {
                 const existingDetails = await tx.authorityDetail.findMany({
                     where: {
                         AuthorityMasterSid,
-                        deletedAt: null,
+                        status : 'A',
                     },
                 });
 
@@ -204,7 +202,7 @@ export class AuthorityService {
                             },
                         },
                         data: {
-                            deletedAt: new Date(),
+                            status : 'A',
                             updatedBy: updatedBy,
                         },
                     });
@@ -271,7 +269,7 @@ export class AuthorityService {
             if (!exist) {
                 throw new BadRequestException(`Authority with Id : ${AuthorityMasterSid} not exists`);
             }
-            if (exist.deletedAt) {
+            if (exist.status === 'D') {
                 throw new BadRequestException(`Authority with Id :${AuthorityMasterSid} is already deleted`)
             }
             
@@ -279,13 +277,13 @@ export class AuthorityService {
                 // Soft delete all related authority details first
                 await tx.authorityDetail.updateMany({
                     where: { AuthorityMasterSid },
-                    data: { deletedAt: new Date() }
+                    data: { status : 'D' }
                 });
                 
                 // Then soft delete the authority master
                 await tx.authorityMaster.update({
                     where: { AuthorityMasterSid },
-                    data: { deletedAt: new Date() }
+                    data: { status : 'D' }
                 });
             });
 
@@ -300,7 +298,6 @@ export class AuthorityService {
         const skip = (page - 1) * pageSize;
 
         const where : Prisma.AuthorityMasterWhereInput = {
-            deletedAt : null,
             status : 'A',
             ...(search ? {
                 OR : [
@@ -369,7 +366,7 @@ export class AuthorityService {
             throw new BadRequestException('Invalid Search Type');
         }
 
-        const whereClause: any = { deletedAt: null };
+        const whereClause: any = { status : 'A' };
 
         if (searchType === 'DepartmentMaster') {
             whereClause[searchType] = { has: filterValue };
@@ -393,7 +390,7 @@ export class AuthorityService {
                 companyMaster: true,
                 menuMaster: true,
                 authorityDetail: {
-                    where: { deletedAt: null },
+                    where: { status :'A' },
                     include: { userMaster: true }
                 }
             },
@@ -407,11 +404,11 @@ export class AuthorityService {
     const parsedDate = parseDateFromString(search);
 
     const authorityDetails = await this._db.authorityDetail.findMany({
-        where: { UserMasterSid, deletedAt: null, status: 'A' },
+        where: { UserMasterSid,  status: 'A' },
         select: {
             AuthorityDetailSid: true,
             authorityMaster: {
-                where: { status: 'A', deletedAt: null },
+                where: { status: 'A' },
                 include: {
                     menuMaster: { select: { MenuMasterSid: true, MenuName: true } }
                 }
@@ -551,10 +548,8 @@ export class AuthorityService {
             where: {
                 UserMasterSid,
                 status: 'A',
-                deletedAt: null,
                 authorityMaster: {
                     status: 'A',
-                    deletedAt: null,
                     MenuMaster: MenuMasterSid
                 }
             },
@@ -591,10 +586,9 @@ export class AuthorityService {
         // 1. Fetch authority users for the given menu
         const authorityUsers = await this._db.authorityDetail.findMany({
             where: {
-                deletedAt: null,
+                status : 'A',
                 authorityMaster: {
                     MenuMaster: menuMasterSid,
-                    deletedAt: null,
                     status: 'A',
                 },
             },
@@ -616,10 +610,9 @@ export class AuthorityService {
                 DocumentSid: documentSid,
                 Status: 'A',
                 AuthorityDetail: {
-                    deletedAt: null,
+                    status : 'A',
                     authorityMaster: {
                         MenuMaster: menuMasterSid,
-                        deletedAt: null,
                         status: 'A',
                     },
                 },

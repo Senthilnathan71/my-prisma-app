@@ -32,12 +32,12 @@ export class UserService {
                     },
                     userRoleMaster: {
                         where : {
-                            deletedAt : null
+                            status:'A'
                         }
                     },
                     userCompanyMaster: {
                         where : {
-                            deletedAt : null
+                            status:'A'
                         },
                         include: {
                             companyMaster: {
@@ -45,7 +45,7 @@ export class UserService {
                                     userBranchMaster : {
                                         where : {
                                             UserMasterSid : user.UserMasterSid,
-                                            deletedAt : null
+                                            status:'A'
                                         },
                                         include : {
                                             branchMaster : true

@@ -10,7 +10,7 @@ export class AttachDocumentService {
         try {
             const allAttachDocuments = await this._db.attachDocument.findMany({
                 where: {
-                    deletedAt: null
+                    status : 'A'
                 },
                 include: {
                     companyMaster: true,
@@ -96,7 +96,7 @@ export class AttachDocumentService {
             if (!exist) {
                 throw new BadRequestException(`Attach Document with Id : ${AttachDocumentSid} not exists`);
             }
-            if (exist.deletedAt) {
+            if (exist.status === 'D') {
                 throw new BadRequestException(`Attach Document with Id :${AttachDocumentSid} is already deleted`);
             }
             const deletedAttachDocument = await this._db.attachDocument.update({
@@ -104,7 +104,7 @@ export class AttachDocumentService {
                     AttachDocumentSid: AttachDocumentSid
                 },
                 data: {
-                    deletedAt: new Date()
+                    status : 'D'
                 },
                 include: {
                     companyMaster: true,
@@ -170,7 +170,7 @@ export class AttachDocumentService {
         const searchResults = await this._db.attachDocument.findMany({
             where: {
                 ...whereClause,
-                deletedAt: null
+                status : 'A'
             },
             include: {
                 companyMaster: true,

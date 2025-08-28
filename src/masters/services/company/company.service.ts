@@ -175,7 +175,6 @@ export class CompanyService {
             const allCompanies = await this._db.companyMaster.findMany({
                 where: {
                     status : 'A',
-                    deletedAt : null
                 },
                 orderBy : {
                     companyName : 'asc'
@@ -185,12 +184,12 @@ export class CompanyService {
                         include: {
                             branchBank: {
                                 where: {
-                                    deletedAt:null
+                                    status : 'A'
                                 }
                             }
                         },
                         where: {
-                            deletedAt : null
+                            status : 'A'
                         },
                         orderBy : {
                             branchName : 'asc'
@@ -209,17 +208,17 @@ export class CompanyService {
         try {
             const allData = await this._db.companyMaster.findMany({
                 where : {
-                    deletedAt : null,
+                    status : 'A',
                 },
                 include :{
                     branchMaster : {
                         where : {
-                            deletedAt : null,
+                            status : 'A',
                         },
                         include : {
                             branchBank : {
                                 where : {
-                                    deletedAt : null
+                                    status : 'A'
                                 }
                             },
                             countryMaster : true,
@@ -244,7 +243,7 @@ export class CompanyService {
                 include: {
                     branchMaster: {
                         where : {
-                            deletedAt : null,
+                            status : 'A',
                         },
                         include: {
                             cityMaster: {
@@ -259,7 +258,7 @@ export class CompanyService {
                             },
                             branchBank: {
                                 where : {
-                                    deletedAt : null
+                                    status : 'A'
                                 }
                             }
                         }
@@ -357,7 +356,7 @@ export class CompanyService {
 
                 // 3. Get existing branches
                 const existingBranches = await prisma.branchMaster.findMany({
-                    where: { CompanyMasterSid: companySid, deletedAt: null },
+                    where: { CompanyMasterSid: companySid, status : 'A' },
                     select: { BranchMasterSid: true }
                 });
                 const existingBranchIds = existingBranches.map(branch => branch.BranchMasterSid);
@@ -456,7 +455,7 @@ export class CompanyService {
                     await prisma.branchBank.updateMany({
                         where: { BranchMasterSid: { in: branchesToDelete } },
                         data: {
-                            deletedAt: new Date(),
+                            status : 'A',
                             updatedBy: user.userEmail
                         }
                     });
@@ -467,7 +466,6 @@ export class CompanyService {
                             CompanyMasterSid: companySid
                         },
                         data: {
-                            deletedAt: new Date(),
                             updatedBy: user.userEmail,
                             status: 'I'
                         }
@@ -519,7 +517,7 @@ export class CompanyService {
         if (!existing) {
             throw new BadRequestException(`Company with id : ${CompanyMasterSid} not exists.`);
         }
-        if (existing.deletedAt) {
+        if (existing.status === 'D') {
             throw new BadRequestException(`Company with id : ${CompanyMasterSid} is already deleted.`);
         }
 
@@ -530,7 +528,7 @@ export class CompanyService {
                     CompanyMasterSid: CompanyMasterSid
                 },
                 data: {
-                    deletedAt: new Date()
+                    status : 'D'
                 }
             });
 
@@ -538,7 +536,7 @@ export class CompanyService {
             const existingBranches = await prisma.branchMaster.findMany({
                 where: {
                     CompanyMasterSid: CompanyMasterSid,
-                    deletedAt: null
+                    status : 'D'
                 }
             });
 
@@ -550,17 +548,17 @@ export class CompanyService {
                             BranchMasterSid: branch.BranchMasterSid
                         },
                         data: {
-                            deletedAt: new Date()
+                            status : 'D'
                         }
                     });
 
                     const deletedBanks = await prisma.branchBank.updateManyAndReturn({
                         where: {
                             BranchMasterSid: branch.BranchMasterSid,
-                            deletedAt: null
+                            status : 'D'
                         },
                         data: {
-                            deletedAt: new Date()
+                            status : 'D'
                         }
                     });
 
@@ -632,7 +630,6 @@ async getFieldConfiguration() {
     const skip = (page - 1) * pageSize;
 
     const where: Prisma.CompanyMasterWhereInput = {
-        deletedAt: null,
         status: 'A',
         ...(search
             ? {
@@ -684,13 +681,11 @@ async getFieldConfiguration() {
             include: {
                 branchMaster: {
                     where: {
-                        deletedAt: null,
                         status: 'A'
                     },
                     include: {
                         branchBank: {
                             where: {
-                                deletedAt: null,
                                 status: 'A'
                             }
                         },
@@ -721,10 +716,8 @@ async searchCompany(params: SearchVesselDto) {
     const skip = (page - 1) * pageSize;
 
     const branchWhere: Prisma.BranchMasterWhereInput = {
-        deletedAt: null,
         status: 'A',
         company: {
-            deletedAt: null,
             status: 'A'
         },
         ...(search
@@ -831,7 +824,7 @@ interface Branch {
   branchCode: string;
   createdOn: Date;
   updatedOn: Date;
-  deletedAt: Date | null;
+//   deletedAt: Date | null;
   createdBy: string;
   updatedBy: string | null;
   taxRegistrationNo: string | null;

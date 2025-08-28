@@ -150,12 +150,12 @@ export class QuotationService {
                 include: {
                     quoteRoute: {
                         where: {
-                            deletedAt: null
+                            status : 'A'
                         },
                         include: {
                             quoteCharge: {
                                 where: {
-                                    deletedAt: null
+                                    status : 'A'
                                 }
                             }
                         }
@@ -308,14 +308,14 @@ export class QuotationService {
             throw new NotFoundException(`Quote with ID ${id} not found`);
         }
 
-        if (existingQuote.deletedAt) {
+        if (existingQuote.status === 'D') {
             throw new Error(`Quote with ID ${id} is already deleted`);
         }
 
         // Perform soft delete by updating deletedAt field
         return this._db.quoteHeader.update({
             where: { QuoteHeaderSid: id },
-            data: { deletedAt: new Date() }
+            data: { status : 'D' }
         });
     }
 
@@ -330,14 +330,14 @@ export class QuotationService {
             throw new NotFoundException(`Quote with ID ${id} not found`);
         }
 
-        if (existingQuote.deletedAt) {
+        if (existingQuote.status === 'D') {
             throw new Error(`Quote with ID ${id} is already deleted`);
         }
 
         // Perform soft delete by updating deletedAt field
         return this._db.quoteRoute.update({
             where: { QuoteRouteSid: id },
-            data: { deletedAt: new Date() }
+            data: { status : 'D' }
         });
     }
 
@@ -351,14 +351,14 @@ export class QuotationService {
             throw new NotFoundException(`Quote with ID ${id} not found`);
         }
 
-        if (existingQuote.deletedAt) {
+        if (existingQuote.status === 'D') {
             throw new Error(`Quote with ID ${id} is already deleted`);
         }
 
         // Perform soft delete by updating deletedAt field
         return this._db.quoteCharge.update({
             where: { QuoteChargeSid: id },
-            data: { deletedAt: new Date() }
+            data: { status : 'D' }
         });
     }
 
@@ -387,7 +387,7 @@ export class QuotationService {
                         path: ['carrier'],
                         equals: 'isTrue'
                     },
-                    deletedAt : null
+                    status : 'A'
                 }
             });
 

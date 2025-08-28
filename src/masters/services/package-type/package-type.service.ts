@@ -24,9 +24,7 @@ export class PackageTypeService {
       const allPackageTypes = await this._db.packageTypeMaster.findMany({
         where: {
           CompanyMasterSid: CompanyMasterSid,
-          deletedAt: {
-            equals: null,
-          },
+          status:"A"
         },
       });
       return allPackageTypes;
@@ -86,7 +84,7 @@ export class PackageTypeService {
       if (!existing) {
         throw new BadRequestException(`Package Type with id : ${id} not exist`);
       }
-      if (existing.deletedAt) {
+      if (existing.status==="D") {
         throw new BadRequestException(
           `Package Type with id : ${id} is already deleted`,
         );
@@ -96,7 +94,7 @@ export class PackageTypeService {
           PackageTypeMasterSid: id,
         },
         data: {
-          deletedAt: new Date(),
+          status:"D",
         },
       });
       return deletedData;
@@ -118,7 +116,7 @@ export class PackageTypeService {
             contains: filterValue,
             mode: 'insensitive',
           },
-          deletedAt:null
+          status:"A"
         },
       })
       .catch((err) => {
@@ -132,7 +130,7 @@ export class PackageTypeService {
     const skip = (page-1)*pageSize;
 
     const where: Prisma.PackageTypeMasterWhereInput = {
-      deletedAt: null,
+     
       status: 'A',
      CompanyMasterSid : activeCompanyId,
       ...(search

@@ -26,7 +26,7 @@ export class VoyageDetailService {
         try {
             const voyageDetailList = await this._db.voyageMasterDetail.findMany({
                 where: {
-                    deletedAt: null
+                    status:'A'
                 },
                 include: {
                     portMasterPOL: {
@@ -103,7 +103,7 @@ export class VoyageDetailService {
             if (!ourVoyageDetail) {
                 throw new BadRequestException(`Voyage Detail with id : ${VoyageMasterDetailSid} not exists`);
             }
-            if (ourVoyageDetail.deletedAt) {
+            if (ourVoyageDetail.status==='D') {
                 throw new BadRequestException(`Voyage Detail with id : ${VoyageMasterDetailSid} is already deleted`);
             }
             const deletedVoyageDetail = await this._db.voyageMasterDetail.update({
@@ -111,7 +111,7 @@ export class VoyageDetailService {
                     VoyageMasterDetailSid:VoyageMasterDetailSid,
                 },
                 data:{
-                    deletedAt : new Date()
+                    status:'D'
                 }
             })
             return deletedVoyageDetail;
@@ -162,7 +162,7 @@ export class VoyageDetailService {
         const searchResults = await this._db.voyageMasterDetail.findMany({
             where:{
                 ... whereClause,
-                deletedAt:null
+                status:'A'
             },
             include :{
                 portMasterPOL : {

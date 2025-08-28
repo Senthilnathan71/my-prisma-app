@@ -15,7 +15,6 @@ export class HssacService {
 
         const existing = await this._db.hSSACMaster.findFirst({
             where: {
-                deletedAt: null,
                 OR: [
                     {
                         HSSACName: {
@@ -62,7 +61,7 @@ export class HssacService {
             const HssacList = await this._db.hSSACMaster.findMany({
                 where: {
                     status: 'A',
-                    deletedAt: null,
+                    
                 }
             })
             return HssacList;
@@ -124,14 +123,14 @@ export class HssacService {
             throw new NotFoundException(`Hssac with ID ${id} not found`);
         }
 
-        if (existingHssac.deletedAt) {
+        if (existingHssac.status==="D") {
             throw new Error(`Hssac with ID ${id} is already deleted`);
         }
 
         // Perform soft delete by updating deletedAt field
         return this._db.hSSACMaster.update({
             where: { HSSACMasterSid: id },
-            data: { deletedAt: new Date() }
+            data: {status:"D" }
         });
     }
 
@@ -141,7 +140,7 @@ export class HssacService {
     const skip = (page - 1) * pageSize;
 
     const where: Prisma.HSSACMasterWhereInput = {
-        deletedAt: null,
+      
         status: 'A',
         ...(search
             ? {

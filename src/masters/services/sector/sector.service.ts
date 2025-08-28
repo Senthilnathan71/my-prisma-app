@@ -53,7 +53,6 @@ export class SectorService {
         data: {
           ...payload,
           status: 'A',
-          deletedAt: null,
         },
       });
 
@@ -153,14 +152,14 @@ export class SectorService {
       throw new NotFoundException(`Sector with ID ${id} not found`);
     }
 
-    if (existingSector.deletedAt) {
+    if (existingSector.status==="D") {
       throw new Error(`Sector with ID ${id} is already deleted`);
     }
 
     // Perform soft delete by updating deletedAt field
     return this._db.sectorMaster.update({
       where: { SectorMasterSid: id },
-      data: { deletedAt: new Date() },
+      data: { status:"D"},
     });
   }
 
@@ -169,7 +168,7 @@ export class SectorService {
     const skip = (page - 1) * pageSize;
 
     const where: Prisma.SectorMasterWhereInput = {
-      deletedAt: null,
+    
       status: 'A',
       ...(search
         ? {

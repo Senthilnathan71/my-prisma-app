@@ -25,7 +25,7 @@ export class CommodityService {
         try {
             const allCommodities = await this._db.commodityMaster.findMany({
                 where: {
-                    deletedAt: null
+                    status : 'A'
                 }
             })
             return allCommodities;
@@ -83,14 +83,14 @@ export class CommodityService {
             if (!exist) {
                 throw new BadRequestException(`Commodity with id : ${CommodityMasterSid} not exist`);
             }
-            if (exist.deletedAt) {
+            if (exist.status === 'D') {
                 throw new BadRequestException(`Commodity with id :${CommodityMasterSid} is already deleted`);
             }
             const deletedCommodity = await this._db.commodityMaster.update({
                 where: {
                     CommodityMasterSid: CommodityMasterSid
                 }, data: {
-                    deletedAt: new Date()
+                    status : 'D'
                 }
             })
             return deletedCommodity;
@@ -105,7 +105,6 @@ export class CommodityService {
     const skip = (page - 1) * pageSize;
 
     const where: Prisma.CommodityMasterWhereInput = {
-        deletedAt: null,
         status: 'A',
         ...(search
             ? {

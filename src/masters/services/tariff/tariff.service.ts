@@ -18,7 +18,7 @@ export class TariffService {
                     { PODSid: newData.PODSid },
                     { DepartmentMasterSid: newData.DepartmentMasterSid },
                     { CompanyMasterSid : newData.CompanyMasterSid},
-                    { deletedAt : null }
+                    { status:'A' }
                 ]
             },
         });
@@ -45,7 +45,7 @@ export class TariffService {
         try {
             let allTariff = await this._db.tariffHeader.findMany({
                 where: {
-                    deletedAt: null,
+                    status:'A',
                     CompanyMasterSid: CompanyMasterSid
                 },
                 include : {
@@ -90,7 +90,7 @@ export class TariffService {
                     DepartmentMasterSid : updateData.DepartmentMasterSid,
                     CompanyMasterSid: updateData.CompanyMasterSid,
                     TariffHeaderSid: { not: TariffHeaderSid },
-                     deletedAt : null 
+                    status:'A'
                 },
             });
 
@@ -130,7 +130,7 @@ export class TariffService {
             if (!exists) {
                 throw new BadRequestException(`Tariff with id : ${TariffHeaderSid} not exists`);
             }
-            if (exists.deletedAt) {
+            if (exists.status==='D') {
                 throw new BadRequestException(`Tariff with id : ${TariffHeaderSid} is already deleted`);
             }
 
@@ -140,16 +140,16 @@ export class TariffService {
                         TariffHeaderSid: TariffHeaderSid
                     },
                     data: {
-                        deletedAt: new Date()
+                        status:'D'
                     }
                 })
                 let deletedTariffDetail = await prisma.tariffDetail.updateManyAndReturn({
                     where : {
                         TariffHeaderSid : TariffHeaderSid,
-                        deletedAt : null
+                        status:'D'
                     },
                     data : {
-                        deletedAt : new Date()
+                        status:'D'
                     }
                 })
                 return {
@@ -198,7 +198,7 @@ export class TariffService {
         const searchResults = await this._db.tariffHeader.findMany({
             where: {
                 ...whereClause,
-                deletedAt:null
+                status:'A'
             },
             include : {
                 departmentMaster:{
@@ -228,7 +228,6 @@ export class TariffService {
         const skip = (page-1)*pageSize;
 
         const where: Prisma.TariffHeaderWhereInput = {
-            deletedAt: null,
             status: 'A',
             CompanyMasterSid : activeCompanyId,
             ...(search

@@ -13,7 +13,6 @@ export class SubledgermasterService {
             const allSubledgermaster = await this._db.subledgerMaster.findMany({
                 where : {
                     Status:"A",
-                    deletedAt:null
                 }
             })
             return allSubledgermaster;
@@ -83,7 +82,7 @@ export class SubledgermasterService {
             if (!exist) {
                 throw new BadRequestException(`SubledgerMaster with Id : ${SubledgerMasterSid} not exists`);
             }
-            if (exist.deletedAt) {
+            if (exist.Status==="D") {
                 throw new BadRequestException(`SubledgerMaster with Id :${SubledgerMasterSid} is already deleted`)
             }
             const deletedSuledgerMaster = this._db.subledgerMaster.update({
@@ -91,7 +90,7 @@ export class SubledgermasterService {
                     SubledgerMasterSid: SubledgerMasterSid
                 },
                 data: {
-                    deletedAt: new Date()
+                    Status:"D"
                 }
             })
             return deletedSuledgerMaster;
@@ -106,7 +105,6 @@ export class SubledgermasterService {
     const skip = (page - 1) * pageSize;
 
     const where: Prisma.SubledgerMasterWhereInput = {
-    deletedAt: null,
     Status: 'A',
     ...(search.trim() ? {
         OR: [

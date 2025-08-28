@@ -12,7 +12,7 @@ export class MilestoneService {
         try {
             const allMilestones = await this._db.milestoneMaster.findMany({
                 where: {
-                    deletedAt: null,
+                    status:"A",
                     CompanyMasterSid: CompanyMasterSid,
                     BranchMasterSid: BranchMasterSid
                 },
@@ -104,7 +104,7 @@ export class MilestoneService {
             if (!exist) {
                 throw new BadRequestException(`Milestone with Id : ${MilestoneMasterSid} not exists`);
             }
-            if (exist.deletedAt) {
+            if (exist.status==="D") {
                 throw new BadRequestException(`Milestone with Id :${MilestoneMasterSid} is already deleted`);
             }
             const deletedMilestone = await this._db.milestoneMaster.update({
@@ -112,7 +112,7 @@ export class MilestoneService {
                     MilestoneMasterSid: MilestoneMasterSid
                 },
                 data: {
-                    deletedAt: new Date()
+                  status:"D"
                 },
                 include: {
                     departmentMaster: true,
@@ -131,7 +131,7 @@ export class MilestoneService {
     const skip = (page - 1) * pageSize;
 
     const where: any = {
-        deletedAt: null,
+       
         status: 'A',
         CompanyMasterSid : activeCompanyId,
         BranchMasterSid: activeBranchId,

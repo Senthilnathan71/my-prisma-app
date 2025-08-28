@@ -13,7 +13,7 @@ export class ZoneService {
 
     const existing = await this._db.zoneMaster.findFirst({
       where: {
-        deletedAt: null,
+       
         OR: [
           {
             ZoneName: {
@@ -56,7 +56,6 @@ export class ZoneService {
       const allZones = await this._db.zoneMaster.findMany({
         where: {
           status: 'A',
-          deletedAt: null,
         },
       });
       return allZones;
@@ -114,7 +113,7 @@ export class ZoneService {
       if (!existing) {
         throw new BadRequestException(`Zone Master with id : ${id} not found`);
       }
-      if (existing.deletedAt) {
+      if (existing.status==="D") {
         throw new BadRequestException(
           `Zone Master with id:${id} is already deleted`,
         );
@@ -124,7 +123,7 @@ export class ZoneService {
           ZoneMasterSid: id,
         },
         data: {
-          deletedAt: new Date(),
+         status:"D",
         },
       });
       return deletedZone;
@@ -137,7 +136,7 @@ export class ZoneService {
     try {
       const searchResults = await this._db.zoneMaster.findMany({
         where: {
-          deletedAt: null
+         status:"A",
         }
       })
       return searchResults;
@@ -151,7 +150,6 @@ export class ZoneService {
     const skip = (page - 1) * pageSize;
 
     const where: Prisma.ZoneMasterWhereInput = {
-      deletedAt: null,
       status: 'A',
       ...(search
         ? {

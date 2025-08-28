@@ -23,7 +23,7 @@ export class BranchService {
         try {
             const allBranches = await this._db.branchMaster.findMany({
                 where: {
-                    deletedAt: null
+                    status : 'A'
                 },
                 include: {
                     cityMaster: {
@@ -76,7 +76,7 @@ export class BranchService {
             const branches = await this._db.branchMaster.findMany({
                 where: {
                     CompanyMasterSid: CompanyMasterSid,
-                    deletedAt: null
+                    status :'A'
                 },
                 
             });
@@ -122,14 +122,14 @@ export class BranchService {
             if (!exist) {
                 throw new BadRequestException(`Branch with id : ${BranchMasterSid} not exists`);
             }
-            if (exist.deletedAt) {
+            if (exist.status === 'D') {
                 throw new BadRequestException(`Branch with id : ${BranchMasterSid} is already deleted`);
             }
             const deletedBranch = await this._db.branchMaster.update({
                 where: {
                     BranchMasterSid: BranchMasterSid
                 }, data: {
-                    deletedAt: new Date()
+                    status : 'D'
                 }
             })
             return deletedBranch;
@@ -180,7 +180,7 @@ export class BranchService {
         const searchResults = await this._db.branchMaster.findMany({
             where: {
                 ...whereClause,
-                deletedAt:null
+                status : 'A'
             },
             include: {
                 cityMaster: {

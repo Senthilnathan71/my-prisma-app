@@ -10,7 +10,7 @@ export class TariffDetailService {
         try {
             const allTariffDetails = await this._db.tariffDetail.findMany({
                 where: {
-                    deletedAt: null
+                    status:'A'
                 },
                 include: {
                     UOMMaster: {
@@ -98,7 +98,7 @@ export class TariffDetailService {
             if (!exist) {
                 throw new BadRequestException(`Tariff Detail with Id : ${TariffDetailSid} not exists`);
             }
-            if (exist.deletedAt) {
+            if (exist.status==='D') {
                 throw new BadRequestException(`Tariff detail with Id :${TariffDetailSid} is already deleted`)
             }
             const deletedTariffDetail = this._db.tariffDetail.update({
@@ -106,7 +106,7 @@ export class TariffDetailService {
                     TariffDetailSid: TariffDetailSid
                 },
                 data: {
-                    deletedAt: new Date()
+                    status:'D'
                 }
             })
             return deletedTariffDetail;
@@ -151,7 +151,7 @@ export class TariffDetailService {
         const searchResults = await this._db.tariffDetail.findMany({
             where:{ 
                 ...whereClause,
-                deletedAt:null
+                status:'A'
             }
         }).catch((err) => {
             throw new Error(`Error Occured : ${JSON.stringify(err), err}`);
