@@ -131,6 +131,8 @@ import { GlobalConfigService } from 'src/common/config/master-config.service';
 import { ChargeTdsService } from './services/charge-tds/charge-tds.service';
 import { ChargeTdsController } from './controllers/charge-tds/charge-tds.controller';
 import { EmailService } from 'src/email/email.service';
+import { ContainerActivityMasterService } from './services/container-activity-master/container-activity-master.service';
+import { ContainerActivityMasterController } from './controllers/container-activity-master/container-activity-master.controller';
 
 @Module({
   providers: [
@@ -200,7 +202,8 @@ import { EmailService } from 'src/email/email.service';
     TdsExemptionService,
     GlobalConfigService,
     ChargeTdsService,
-    EmailService
+    EmailService,
+    ContainerActivityMasterService
   ],
   controllers: [
     UserController,
@@ -267,7 +270,8 @@ import { EmailService } from 'src/email/email.service';
     TdsController,
     TdsDetailController,
     TdsExemptionController,
-    ChargeTdsController
+    ChargeTdsController,
+    ContainerActivityMasterController
   ],
   exports: [UserService]
 })
