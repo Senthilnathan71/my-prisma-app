@@ -97,4 +97,20 @@ export class OperationCommonService {
         }
     }
 
+    softDeleteCostRevenueCharges(CostRevenueChargesSid:number){
+        try {
+            return this._db.costRevenueCharges.update({
+                where : {
+                    CostRevenueChargesSid,
+                    status : 'A'
+                },
+                data : {
+                    status : 'D'
+                }
+            })
+        } catch (error) {
+            throw error;
+        }
+    }
+
 }

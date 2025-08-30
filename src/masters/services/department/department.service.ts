@@ -213,6 +213,45 @@ export class DepartmentService {
     };
 }
 
+    async searchListUsingView(params: SearchVesselDto) {
+        const { search = '', page = 1, pageSize = 15, activeCompanyId } = params;
+        const skip = (page - 1) * pageSize;
+
+        const where: Prisma.vDepartmentIndexPageWhereInput = {
+            Status: 'A',
+            CompanyMasterSid: activeCompanyId,
+            ...(search
+                ? {
+                    OR: [
+                        { departmentName: { contains: search, mode: 'insensitive' } },
+                        { departmentCode: { contains: search, mode: 'insensitive' } },
+                        { departmentType: { contains: search, mode: 'insensitive' } },
+                        { ExportImport: { contains: search, mode: 'insensitive' } },
+                        { FCLLCL: { contains: search, mode: 'insensitive' } },
+                        { Division: { contains: search, mode: 'insensitive' } },
+                        { Status: { contains: search, mode: 'insensitive' } },
+                    ],
+                }
+                : {}
+            ),
+        };
+
+        const [items, totalCount] = await this._db.$transaction([
+            this._db.vDepartmentIndexPage.findMany({
+                where,
+                skip,
+                take: pageSize,
+                orderBy: { DepartmentMasterSid: 'desc' },
+            }),
+            this._db.vDepartmentIndexPage.count({ where }),
+        ]);
+
+        return {
+            items,
+            totalCount,
+        };
+    }
+
 async getAuditLogs(tableName: string, recordId?: string) {
     try {
       const whereClause: any = { tableName };

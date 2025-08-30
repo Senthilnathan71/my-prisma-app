@@ -165,7 +165,7 @@ export class DepartmentController {
 async searchDepartment(@Body() searchParams: SearchVesselDto) {
     const resp = new ResponseData();
     try {
-        const res = await this.departmentService.searchList(searchParams);
+        const res = await this.departmentService.searchListUsingView(searchParams);
         this.logger.log(`Department Search Data: ${JSON.stringify(res)}`);
         resp.data = res;
         resp.message = 'Department Search is successfully fetched';

@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Logger, Post, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, HttpCode, HttpStatus, Logger, Post, UnauthorizedException } from '@nestjs/common';
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
 import { ResponseData } from 'src/common/response-data';
 import { OperationCommonService } from 'src/operation/services/operation-common/operation-common.service';
@@ -29,6 +29,7 @@ export class OperationCommonController {
         description: 'Cost Revenue created successfully',
         type: ResponseData
     })
+    @HttpCode(HttpStatus.CREATED)
     @Post('cost-revenue/create')
     async createCostRevenue(@Body() payload: any) {
         let output = new ResponseData()
@@ -55,6 +56,7 @@ export class OperationCommonController {
         description: 'All Cost Revenue Charge are fetched successfully',
         type: ResponseData
     })
+    @HttpCode(HttpStatus.OK)
     @Post('cost-revenue/fetchAll')
     async getAllCostRevenueCharge(@Body() payload: CostRevenueDTO) {
         let output = new ResponseData()
@@ -83,6 +85,7 @@ export class OperationCommonController {
         description: 'Shipment Milestone created successfully',
         type: ResponseData
     })
+    @HttpCode(HttpStatus.CREATED)
     @Post('shipment-milestone/create')
     async createShipmentMilestone(@Body() payload: any) {
         let output = new ResponseData()
@@ -109,6 +112,7 @@ export class OperationCommonController {
         description: 'All Shipment Milestone are fetched successfully',
         type: ResponseData
     })
+    @HttpCode(HttpStatus.OK)
     @Post('shipment-milestone/fetchAll')
     async getShipmentMilestoneByShipmentNo(@Body() payload: ShipmentMilestoneDTO) {
         let output = new ResponseData()
@@ -120,6 +124,33 @@ export class OperationCommonController {
 
         } catch (error) {
             this.logger.warn(`getShipmentMilestoneByShipmentNo error: ${JSON.stringify(error), error}`)
+            output.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                output.message = error.message;
+            } else {
+                output.message = error;
+            }
+        }
+        return output
+    }
+
+    @ApiOperation({ summary: 'Soft Delete Cost Revenue Charge by CostRevenueChargesSid' })
+    @ApiCreatedResponse({
+        description: 'Cost Revenue Charge soft deleted successfully',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Delete('delete-cost-revenue/:CostRevenueChargesSid')
+    async softDeleteCostRevenueCharge(@Body('CostRevenueChargesSid') CostRevenueChargesSid: number) {
+        let output = new ResponseData()
+        try {
+            let lookupDatas = await this.commonService.softDeleteCostRevenueCharges(CostRevenueChargesSid);
+            this.logger.debug(`softDeleteCostRevenueCharge: ${JSON.stringify(lookupDatas)}`)
+            output.data = lookupDatas;
+            output.message = "Cost Revenue Charge soft deleted successfully";
+
+        } catch (error) {
+            this.logger.warn(`softDeleteCostRevenueCharge error: ${JSON.stringify(error), error}`)
             output.status = false;
             if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
                 output.message = error.message;
