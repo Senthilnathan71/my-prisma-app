@@ -47,6 +47,23 @@ export class VoyageDetailService {
         }
     }
 
+    async getVoyageDetailWithHeaderId(VoyageHeaderSid:number){
+        try {
+            const allVoyageDetail = await this._db.voyageMasterDetail.findMany({
+                where : {
+                    VoyageMasterHeaderSid : VoyageHeaderSid,
+                    status : 'A'
+                },
+                orderBy : {
+                    Sno : 'asc',
+                }
+            })
+            return allVoyageDetail;
+        } catch (error) {
+            throw error;
+        }
+    }
+
 
 
     async findOne(VoyageMasterDetailSid: number) {
