@@ -263,7 +263,7 @@ export class FfUserMasterService {
                 // Soft delete removed branches
                 userBranches.deletedBranches = await prisma.userBranchMaster.updateManyAndReturn({
                     where: { UserBranchMasterSid: { in: branchesToDelete.map(b => b.UserBranchMasterSid) } },
-                    data: { status : 'A' }
+                    data: { status : 'D' }
                 });
 
                 // Create new branches
@@ -311,7 +311,7 @@ export class FfUserMasterService {
                 // Soft delete removed roles
                 userRoles.deletedRoles = await prisma.userRoleMaster.updateManyAndReturn({
                     where: { UserRoleMasterSid: { in: rolesToDelete.map(r => r.UserRoleMasterSid) } },
-                    data: { status : 'A' }
+                    data: { status : 'D' }
                 });
 
                 // Create new roles

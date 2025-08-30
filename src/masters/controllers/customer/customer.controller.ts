@@ -63,6 +63,7 @@ export class CustomerController {
             let customerData = await this.customerService.getAllCustomers(body.CompanyMasterSid);
             this.logger.log(`getAllCustomers: ${JSON.stringify(customerData)}`)
             output.data = customerData;
+            output.message = "All Organization are successfully fetched";
         } catch (error) {
             this.logger.warn(`getAllCustomers: ${JSON.stringify(error)}`)
             output.status = false;
@@ -89,6 +90,7 @@ export class CustomerController {
             const Customer = await this.customerService.findOne(customerId)
             this.logger.log(`getCustomerById: ${JSON.stringify(Customer)}`)
             output.data = Customer
+            output.message = `Organization with id : ${customerId} is successfully fetched`;
         } catch (error) {
             this.logger.warn(`getCustomerById: ${JSON.stringify(error)}`)
             output.status = false;
@@ -214,6 +216,7 @@ async searchCustomer(@Body() searchParams: SearchVesselDto) {
             let customerData = await this.customerService.getAllShippers(body.CompanyMasterSid);
             this.logger.log(`getAllShippers: ${JSON.stringify(customerData)}`)
             output.data = customerData;
+            output.message = "All shipper are successfully fetched";
         } catch (error) {
             this.logger.warn(`getAllShippers: ${JSON.stringify(error)}`)
             output.status = false;
@@ -238,6 +241,7 @@ async searchCustomer(@Body() searchParams: SearchVesselDto) {
             let customerData = await this.customerService.getAllConsignee(body.CompanyMasterSid);
             this.logger.log(`getAllConsignees: ${JSON.stringify(customerData)}`)
             output.data = customerData;
+            output.message = "All consignee are successfully fetched";
         } catch (error) {
             this.logger.warn(`getAllConsignees: ${JSON.stringify(error)}`)
             output.status = false;

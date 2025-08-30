@@ -10,7 +10,7 @@ export class UserTypeService {
         try {
             const allUserType = await this._db.userType.findMany({
                 where : {
-                    deletedAt:null
+                    status:'A'
                 }
             })
             return allUserType;
@@ -81,7 +81,7 @@ export class UserTypeService {
             if (!exist) {
                 throw new BadRequestException(`UserType with Id : ${UserTypeSid} not exists`);
             }
-            if (exist.deletedAt) {
+            if (exist.status==='D') {
                 throw new BadRequestException(`UserType with Id :${UserTypeSid} is already deleted`)
             }
             const deletedUserType = this._db.userType.update({
@@ -89,7 +89,7 @@ export class UserTypeService {
                     UserTypeSid: UserTypeSid
                 },
                 data: {
-                    deletedAt: new Date()
+                    status:'D'
                 }
             })
             return deletedUserType;
@@ -131,7 +131,7 @@ export class UserTypeService {
         const searchResults = await this._db.userType.findMany({
             where : {
                 ...whereClause,
-                deletedAt:null
+                status:'A'
             }
         }).catch((err) => {
             throw new Error(`Error Occured : ${JSON.stringify(err), err}`);

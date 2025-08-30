@@ -344,7 +344,7 @@ export class BookingService {
         try {
             const allBooking = await this._db.bookingHeader.findMany({
                 where: {
-                    deletedAt: null
+                    status:'A'
                 }
             })
             return allBooking;
@@ -360,10 +360,10 @@ export class BookingService {
                     BookingHeaderSid: BookingHeaderSid
                 },
                 include: {
-                    bookingCargo: { where: { deletedAt: null } },
-                    bookingProduct: { where: { deletedAt: null } },
-                    bookingOthers: { where: { deletedAt: null } },
-                    bookingConnection: { where: { deletedAt: null } }
+                    bookingCargo: { where: { status:'A' } },
+                    bookingProduct: { where: { status:'A' } },
+                    bookingOthers: { where: { status:'A' } },
+                    bookingConnection: { where: { status:'A' } }
                 }
             })
             if (!ourBooking) {
@@ -835,34 +835,34 @@ export class BookingService {
             if (!existing) {
                 throw new BadRequestException('Booking with provided id not exists');
             }
-            if (existing.deletedAt) {
+            if (existing.status==='D') {
                 throw new BadRequestException('Provided Booking id is already deleted');
             }
             const result = await this._db.$transaction(async (prisma) => {
                 const deletedBooking = await prisma.bookingHeader.update({
                     where: { BookingHeaderSid: BookingHeaderSid },
-                    data: { deletedAt: new Date() }
+                    data: { status:'D' }
                 })
 
                 const deletedCargos = await prisma.bookingCargo.updateMany({
                     where: { BookingHeaderSid: BookingHeaderSid },
-                    data: { deletedAt: new Date() }
+                    data: { status:'D' }
                 })
                 const deletedProducts = await prisma.bookingProduct.updateMany({
                     where: { BookingHeaderSid: BookingHeaderSid },
-                    data: { deletedAt: new Date() }
+                    data: { status:'D' }
                 })
                 const deletedOthers = await prisma.bookingOthers.updateMany({
                     where: { BookingHeaderSid: BookingHeaderSid },
-                    data: { deletedAt: new Date() }
+                    data: { status:'D'}
                 })
                 const deletedConnections = await prisma.bookingConnection.updateMany({
                     where: { BookingHeaderSid: BookingHeaderSid },
-                    data: { deletedAt: new Date() }
+                    data: { status:'D' }
                 })
                 const deletedRates = await prisma.bookingRates.updateMany({
                     where: { BookingHeaderSid: BookingHeaderSid },
-                    data: { deletedAt: new Date() }
+                    data: { Status:'D' }
                 })
 
                 return {
@@ -893,7 +893,7 @@ export class BookingService {
              */
 
             const users = await this._db.userMaster.findMany({
-                where: { userName: { contains: search, mode: 'insensitive' }, deletedAt: null },
+                where: { userName: { contains: search, mode: 'insensitive' }, status:'A' },
                 select: { UserMasterSid: true },
             });
             salesmanIds = users.map(u => u.UserMasterSid);
@@ -906,7 +906,7 @@ export class BookingService {
             */
 
             const milestones = await this._db.shipmentMilestone.findMany({
-                where: { MilestoneName: { contains: search, mode: 'insensitive' } , deletedAt : null },
+                where: { MilestoneName: { contains: search, mode: 'insensitive' } , Status:'A' },
                 select: { ShipmentNo: true, ShipmentMilestoneSid: true },
                 orderBy: [{ ShipmentNo: 'asc' }, { ShipmentMilestoneSid: 'desc' }],
             });
@@ -914,7 +914,6 @@ export class BookingService {
         }
 
         const where: Prisma.BookingHeaderWhereInput = {
-            deletedAt: null,
             status: 'A',
             ...(search && {
                 OR: [
@@ -990,7 +989,7 @@ export class BookingService {
         try {
             const deletedBookingProducts = await this._db.bookingProduct.update({
                 where: { BookingProductSid },
-                data: { deletedAt: new Date() }
+                data: { status:'D' }
             })
             return deletedBookingProducts;
         } catch (error) {
@@ -1002,7 +1001,7 @@ export class BookingService {
         try {
             const deletedBookingConnection = await this._db.bookingConnection.update({
                 where: { BookingConnectionSid: BookingConnectionSid },
-                data: { deletedAt: new Date() }
+                data: { status:'D' }
             })
             return deletedBookingConnection;
         } catch (error) {
@@ -1014,7 +1013,7 @@ export class BookingService {
         try {
             const deletedBookingConnection = await this._db.bookingRates.update({
                 where: { BookingRatesSid: BookingRateSid },
-                data: { deletedAt : new Date() }
+                data: { Status:'D' }
             })
             return deletedBookingConnection;
         } catch (error) {
@@ -1028,35 +1027,35 @@ export class BookingService {
         try {
             const [customers, salesmans, shippers, consignees, agents, carriers, forwarder, notify] = await this._db.$transaction([
                 this._db.customerMaster.findMany({
-                    where: { CompanyMasterSid: payload.CompanyMasterSid, deletedAt: null },
+                    where: { CompanyMasterSid: payload.CompanyMasterSid, status:'A' },
                     select: { CustomerMasterSid: true, CustomerName: true, CustomerAddress1: true }
                 }),
                 this._db.customerSalesTeam.findMany({
-                    where: { CompanyMasterSid: payload.CompanyMasterSid, deletedAt: null },
+                    where: { CompanyMasterSid: payload.CompanyMasterSid, status:'A' },
                     select: { Salesman: true }
                 }),
                 this._db.customerMaster.findMany({
-                    where: { CompanyMasterSid: payload.CompanyMasterSid, CustomerType: { path: ['shipper'], equals: 'isTrue' }, deletedAt: null },
+                    where: { CompanyMasterSid: payload.CompanyMasterSid, CustomerType: { path: ['shipper'], equals: 'isTrue' }, status:'A' },
                     select: { CustomerMasterSid: true, CustomerName: true, CustomerAddress1: true }
                 }),
                 this._db.customerMaster.findMany({
-                    where: { CompanyMasterSid: payload.CompanyMasterSid, CustomerType: { path: ['consignee'], equals: 'isTrue' }, deletedAt: null },
+                    where: { CompanyMasterSid: payload.CompanyMasterSid, CustomerType: { path: ['consignee'], equals: 'isTrue' }, status:'A' },
                     select: { CustomerMasterSid: true, CustomerName: true, CustomerAddress1: true }
                 }),
                 this._db.customerMaster.findMany({
-                    where: { CompanyMasterSid: payload.CompanyMasterSid, CustomerType: { path: ['agent'], equals: 'isTrue' }, deletedAt: null },
+                    where: { CompanyMasterSid: payload.CompanyMasterSid, CustomerType: { path: ['agent'], equals: 'isTrue' }, status:'A' },
                     select: { CustomerMasterSid: true, CustomerName: true, CustomerAddress1: true, countryMaster: { select: { countryName: true } } }
                 }),
                 this._db.customerMaster.findMany({
-                    where: { CompanyMasterSid: payload.CompanyMasterSid, CustomerType: { path: ['carrier'], equals: 'isTrue' }, deletedAt: null },
+                    where: { CompanyMasterSid: payload.CompanyMasterSid, CustomerType: { path: ['carrier'], equals: 'isTrue' }, status:'A' },
                     select: { CustomerMasterSid: true, CustomerName: true, CustomerAddress1: true }
                 }),
                 this._db.customerMaster.findMany({
-                    where: { CompanyMasterSid: payload.CompanyMasterSid, CustomerType: { path: ['forwarder'], equals: 'isTrue' }, deletedAt: null },
+                    where: { CompanyMasterSid: payload.CompanyMasterSid, CustomerType: { path: ['forwarder'], equals: 'isTrue' }, status:'A' },
                     select: { CustomerMasterSid: true, CustomerName: true, CustomerAddress1: true }
                 }),
                 this._db.customerMaster.findMany({
-                    where: { CompanyMasterSid: payload.CompanyMasterSid, CustomerType: { path: ['notify'], equals: 'isTrue' }, deletedAt: null },
+                    where: { CompanyMasterSid: payload.CompanyMasterSid, CustomerType: { path: ['notify'], equals: 'isTrue' }, status:'A' },
                     select: { CustomerMasterSid: true, CustomerName: true, CustomerAddress1: true }
                 })
             ]);
@@ -1099,7 +1098,7 @@ export class BookingService {
         try {
             const [departments, vessels, ports, incos, country] = await this._db.$transaction([
                 this._db.departmentMaster.findMany({
-                    where: { deletedAt: null, CompanyMasterSid: payload.CompanyMasterSid },
+                    where: { Status:'A', CompanyMasterSid: payload.CompanyMasterSid },
                     select: {
                         DepartmentMasterSid: true,
                         departmentName: true,
@@ -1109,14 +1108,14 @@ export class BookingService {
                     }
                 }),
                 this._db.vesselMaster.findMany({
-                    where: { deletedAt: null },
+                    where: { status:'A' },
                     select: {
                         VesselMasterSid: true,
                         VesselName: true
                     },
                 }),
                 this._db.portMaster.findMany({
-                    where: { deletedAt: null },
+                    where: { status:'A' },
                     select: {
                         PortMasterSid: true,
                         PortName: true,
@@ -1125,7 +1124,7 @@ export class BookingService {
                     },
                 }),
                 this._db.incoMaster.findMany({
-                    where: { deletedAt: null },
+                    where: { Status: 'A' },
                     select: {
                         IncoMasterSid: true,
                         IncoName: true,
@@ -1154,7 +1153,7 @@ export class BookingService {
         try {
             const allContainerTypes = await this._db.containerTypeMaster.findMany({
                 where: {
-                    deletedAt: null
+                    status:'A'
                 },
                 select: {
                     ContainerTypeMasterSid: true,
@@ -1172,7 +1171,7 @@ export class BookingService {
         try {
             const allContainerTypes = await this._db.currencyMaster.findMany({
                 where: {
-                    deletedAt: null
+                    status:'A'
                 },
                 select: {
                     CurrencyMasterSid: true,
@@ -1190,7 +1189,7 @@ export class BookingService {
         try {
             const [products, packageTypes ,imcos,uoms] = await this._db.$transaction([
                 this._db.productMaster.findMany({
-                    where: { deletedAt: null, CompanyMasterSid: payload.CompanyMasterSid },
+                    where: { status:'A', CompanyMasterSid: payload.CompanyMasterSid },
                     select: {
                         ProductMasterSId : true,
                         ProductName : true,
@@ -1201,21 +1200,21 @@ export class BookingService {
                     }
                 }),
                 this._db.packageTypeMaster.findMany({
-                    where: { deletedAt: null, CompanyMasterSid: payload.CompanyMasterSid },
+                    where: { status:'A', CompanyMasterSid: payload.CompanyMasterSid },
                     select: {
                         PackageTypeMasterSid: true,
                         PackageName: true
                     },
                 }),
                 this._db.imcoMaster.findMany({
-                    where: { deletedAt: null },
+                    where: { status:'A' },
                     select: {
                         ImcoMasterSid: true,
                         ImcoName: true
                     },
                 }),
                 this._db.uOMMaster.findMany({
-                    where: { deletedAt: null },
+                    where: { status:'A' },
                     select: {
                         UOMMasterSid: true,
                         UOMName: true,
@@ -1256,7 +1255,7 @@ export class BookingService {
         try {
             const allMilestones = await this._db.milestoneMaster.findMany({
                 where : {
-                    deletedAt : null,
+                    status:'A',
                     CompanyMasterSid : payload.CompanyMasterSid,
                     BranchMasterSid : payload.BranchMasterSid
                 },
@@ -1281,7 +1280,7 @@ export class BookingService {
                     ShipmentNo : payload.ShipmentNo,
                     CompanyMasterSid : payload.CompanyMasterSid,
                     BranchMasterSid : payload.BranchMasterSid,
-                    deletedAt : null
+                    Status:'A'
                 },
                 orderBy : {
                     ShipmentMilestoneSid : 'asc'
@@ -1297,7 +1296,7 @@ export class BookingService {
         try {
             const [charges,uoms,docTypes ] = await this._db.$transaction([
                 this._db.chargeMaster.findMany({
-                    where: { deletedAt: null, CompanyMasterSid: payload.CompanyMasterSid },
+                    where: { Status:'A', CompanyMasterSid: payload.CompanyMasterSid },
                     select: {
                         ChargeMasterSid : true,
                         chargeName : true,
@@ -1313,7 +1312,7 @@ export class BookingService {
                     }
                 }),
                 this._db.uOMMaster.findMany({
-                    where: { deletedAt: null },
+                    where: { status:'A' },
                     select: {
                         UOMMasterSid : true,
                         UOMName : true,
@@ -1321,7 +1320,7 @@ export class BookingService {
                     },
                 }),
                 this._db.documentTypeMaster.findMany({
-                    where: { deletedAt: null },
+                    where: { status:'A' },
                     select: {
                         DocumentTypeMasterSid: true,
                         DocumentTypeName: true

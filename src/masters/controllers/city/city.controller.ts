@@ -43,6 +43,7 @@ export class CityController {
       let cityData = await this.cityService.getAllCity();
       this.logger.log(`getCityData : ${JSON.stringify(cityData)}`);
       resp.data = cityData;
+       resp.message = "All Citys are successfully fetched";
     } catch (error) {
       this.logger.warn(`GetCityError : ${JSON.stringify(error)}`);
       resp.status = false;
@@ -73,6 +74,8 @@ export class CityController {
       let result = await this.cityService.findCityByCityId(cityId);
       this.logger.log(`getCityData: ${JSON.stringify(result)}`);
       resp.data = result;
+      resp.message = `City with id : ${cityId} is successfully fetched`;
+
     } catch (error) {
       this.logger.warn(`getCityError : ${JSON.stringify(error)}`);
       resp.status = false;
@@ -173,6 +176,7 @@ export class CityController {
         throw 'Something went wrong';
       }
       resp.data = newCity;
+      resp.message = `City with id : ${id} is successfully updated`;
     } catch (error) {
       this.logger.warn(`updateCityError : ${JSON.stringify(error)}`);
       resp.status = false;

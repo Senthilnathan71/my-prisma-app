@@ -51,6 +51,7 @@ export class SectorController {
         throw 'Something went wrong';
       }
       output.data = sector;
+      output.message = "New Sector is successfully created"
     } catch (error) {
       this.logger.warn(`createSectorError: ${error}`);
       output.status = false;
@@ -82,6 +83,7 @@ export class SectorController {
       let sectorData = await this.sectorService.getAllSector();
       this.logger.log(`getAllSector: ${JSON.stringify(sectorData)}`);
       output.data = sectorData;
+      output.message = "All Sector are successfully fetched";
     } catch (error) {
       this.logger.log(`getAllSector: ${JSON.stringify(error)}`);
       output.status = false;
@@ -110,6 +112,7 @@ export class SectorController {
       const Sector = await this.sectorService.findOne(SectorId);
       this.logger.log(`getSectorById: ${JSON.stringify(Sector)}`);
       output.data = Sector;
+      output.message = `Sector with id : ${SectorId} is successfully fetched`;
     } catch (error) {
       this.logger.warn(`getSectorById: ${JSON.stringify(error)}`);
       output.status = false;
@@ -128,12 +131,12 @@ export class SectorController {
   async editSector(
     @Param('id', ParseIntPipe) id: number,
     @Body() body: any,
-    @UserData() user: any,
+   
   ) {
     this.logger.log(`editSectorBody: ${JSON.stringify(body)}`);
     let output = new ResponseData();
     try {
-      let Sector = await this.sectorService.updateSector(id, body, user);
+      let Sector = await this.sectorService.updateSector(id, body);
       this.logger.log(`editSector: ${JSON.stringify(Sector)}`);
 
       if (!Sector) {
@@ -143,6 +146,7 @@ export class SectorController {
         this.logger.log(`editSectorelse: ${Sector}`);
       }
       output.data = Sector;
+      output.message = `Sector with id : ${id} is successfully updated`;
     } catch (error) {
       this.logger.warn(`editSectorerror: ${(JSON.stringify(error), error)}`);
       output.status = false;

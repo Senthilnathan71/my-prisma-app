@@ -14,7 +14,7 @@ export class PortService {
   logger: any;
   constructor(private _db: DatabaseService,private globalConfigService:GlobalConfigService) {}
 
-  async createPort(payload, user) {
+  async createPort(payload) {
     // this.logger.warn(`createPortUser: ${payload}`);
 
     const existing = await this._db.portMaster.findFirst({
@@ -118,7 +118,7 @@ export class PortService {
     }
   }
 
-  async updatePort(PortMasterSid: number, payload, user) {
+  async updatePort(PortMasterSid: number, payload) {
     const existing = await this._db.portMaster.findUnique({
       where :{
         PortMasterSid:PortMasterSid

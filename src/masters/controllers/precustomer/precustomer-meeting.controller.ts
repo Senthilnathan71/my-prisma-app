@@ -30,6 +30,7 @@ export class PreCustomerMeetingController {
             const customers = await this.preCustomerMeetingService.getPreCustomerMastersWithoutMeetings(body.CompanyMasterSid, body.BranchMasterSid)
             this.logger.debug(`getPendingMeetings: ${JSON.stringify(customers)}`)
             output.data = customers;
+            output.message = "All PendingMeetings are successfully fetched";
         } catch (error) {
             this.logger.warn(`getPendingMeetings: ${JSON.stringify(error)}`)
             output.status = false;
@@ -64,7 +65,7 @@ export class PreCustomerMeetingController {
                 throw 'Something went wrong'
             }
             output.data = preCustomer.data;
-            output.message = preCustomer.message;
+           output.message = 'PreCustomerMeeting Created Successfully'
             output.status = true
 
         } catch (error) {
@@ -75,7 +76,7 @@ export class PreCustomerMeetingController {
             if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
                 output.message = error.message;
             } else {
-                output.message = error.message;
+                output.message = "Internal Server Error";
             }
         }
         return output
@@ -95,6 +96,7 @@ export class PreCustomerMeetingController {
             const customers = await this.preCustomerMeetingService.getPreCustomerMeetingDate()
             this.logger.log(`getPreCustomerMeetings: ${JSON.stringify(customers)}`)
             output.data = customers;
+            output.message = "All PreCustomerMeetings are successfully fetched";
         } catch (error) {
             this.logger.warn(`getPreCustomerMeetings: ${JSON.stringify(error)}`)
 
@@ -123,6 +125,7 @@ export class PreCustomerMeetingController {
             const result = await this.preCustomerMeetingService.getPreCustomer(id)
             this.logger.log(`getPreCustomer: ${JSON.stringify(result)}`)
             output.data = result;
+            output.message = `GetPreCustomer with id : ${id} is successfully fetched`;
         } catch (error) {
             this.logger.warn(`getPreCustomer: ${JSON.stringify(error)}`)
             output.status = false;
@@ -151,6 +154,7 @@ export class PreCustomerMeetingController {
             const todo = await this.preCustomerMeetingService.todoMeetings(body.CompanyMasterSid, body.BranchMasterSid)
             this.logger.debug(`todoMeetings: ${JSON.stringify(todo)}`)
             output.data = todo;
+            output.message = "All TodoMeetings are successfully fetched";
         } catch (error) {
             this.logger.debug(`todoMeetings: ${JSON.stringify(error)}`)
             output.status = false;

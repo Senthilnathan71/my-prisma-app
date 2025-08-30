@@ -8,7 +8,7 @@ import { SearchVesselDto } from "src/masters/DTO/search-vessel.dto";
 import { UomService } from "src/masters/services/uom/uom-master.service";
 
 @Controller('uom')
-@Auth()
+
 export class UomMasterController {
     constructor(private UomService: UomService, private logger: Logger) { }
 
@@ -19,12 +19,13 @@ export class UomMasterController {
     })
     @HttpCode(HttpStatus.OK)
     @Get()
-    async getAllUom(@UserData() UserData: any) {
+    async getAllUom() {
         const output = new ResponseData
         try {
             const uom = await this.UomService.getAllUom()
             this.logger.log(`getAllUom: ${JSON.stringify(uom)}`)
             output.data = uom;
+            output.message = "All UOM are successfully fetched";
         } catch (error) {
             this.logger.warn(`getAllUom: ${JSON.stringify(error)}`)
             output.status = false;
@@ -45,25 +46,26 @@ export class UomMasterController {
     })
     @HttpCode(HttpStatus.CREATED)
     @Post()
-    async createUom(@Body() body: any, @UserData() user: any) { 
+    async createUom(@Body() body: any) { 
         this.logger.log(`createUom: ${JSON.stringify(body)}`)
         let output = new ResponseData
         try {
-            let Uom = await this.UomService.createUom(body, user);
+            let Uom = await this.UomService.createUom(body);
             this.logger.debug(`createUom: ${JSON.stringify(Uom)}`)
             if (!Uom) {
                 this.logger.warn(`createUom: ${JSON.stringify(Uom)}`)
                 throw 'Something went wrong'
             }
-            output.data = Uom
+            output.data = Uom;
+            output.message = "New UOM is successfully created"
         } catch (error) {
             this.logger.warn(`createUom: ${JSON.stringify(error)}`)
             output.status = false;
             // Handle error message based on the type of error
             if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
                 output.message = error.message;
-            } else {
-                output.message = error;
+            }  else {
+                output.message = 'Internal Server Error';
             }
         }
         return output
@@ -83,7 +85,9 @@ export class UomMasterController {
         try {
             const Uom = await this.UomService.findOne(uomId)
             this.logger.log(`getUomById: ${JSON.stringify(Uom)}`)
-            output.data = Uom
+            output.data = Uom;
+            output.message = `UOM with id : ${uomId} is successfully fetched`;
+
         } catch (error) {
             this.logger.warn(`getUomById: ${JSON.stringify(error)}`)
             output.status = false;
@@ -101,11 +105,11 @@ export class UomMasterController {
     })
     @HttpCode(HttpStatus.OK)
     @Patch(':id')
-    async editUom(@Param('id', ParseIntPipe) id: number, @Body() body: any, @UserData() user: any) {
+    async editUom(@Param('id', ParseIntPipe) id: number, @Body() body: any) {
         this.logger.log(`editUom: ${JSON.stringify(body)}`)
         let output = new ResponseData
         try {
-            let Uom = await this.UomService.updateUom(id, body, user);
+            let Uom = await this.UomService.updateUom(id, body);
             this.logger.log(`editUom: ${JSON.stringify(Uom)}`)
 
             if (!Uom) {
@@ -113,6 +117,7 @@ export class UomMasterController {
                 throw 'Something went wrong'
             }
             output.data = Uom;
+            output.message = `UOM with id : ${id} is successfully updated`;
 
         } catch (error) {
             this.logger.warn(`editUom: ${JSON.stringify(error)}`)
@@ -120,8 +125,8 @@ export class UomMasterController {
             // Handle error message based on the type of error
             if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
                 output.message = error.message;
-            } else {
-                output.message = error;
+            }  else {
+                output.message = 'Internal Server Error';
             }
         }
         return output

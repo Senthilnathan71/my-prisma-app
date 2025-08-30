@@ -10,6 +10,7 @@ export class BlclauseService {
     constructor(private _db:DatabaseService, private logger : Logger){}
 
     async getAllBlclause(){
+        
         try {
             const allBlclause = await this._db.bLClauseMaster.findMany({
                 where : {
@@ -23,6 +24,7 @@ export class BlclauseService {
     }
 
     async createNewBlclause(payload){
+        
         try {
             const createdBlclause = await this._db.bLClauseMaster.create({
                 data :{

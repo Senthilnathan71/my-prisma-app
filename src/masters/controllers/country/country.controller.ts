@@ -23,7 +23,7 @@ import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 
 @Controller('country')
-@Auth()
+
 export class CountryController {
   constructor(
     private countryService: CountryService,
@@ -42,6 +42,7 @@ export class CountryController {
       let countryData = await this.countryService.getAllCountry();
       this.logger.log(`getAllCountry: ${JSON.stringify(countryData)}`);
       output.data = countryData;
+      output.message = "All Country are successfully fetched";
     } catch (error) {
       this.logger.warn(`getAllCountry: ${JSON.stringify(error)}`);
       output.status = false;
@@ -64,17 +65,18 @@ export class CountryController {
   })
   @HttpCode(HttpStatus.CREATED)
   @Post()
-  async createCountry(@Body() body: any, @UserData() user: any) {
+  async createCountry(@Body() body: any) {
     this.logger.log(`createCountrynefore: ${JSON.stringify(body)}`);
     let output = new ResponseData();
     try {
-      let Country = await this.countryService.createCountry(body, user);
+      let Country = await this.countryService.createCountry(body);
       this.logger.debug(`createCountry:try ${JSON.stringify(Country)}`);
       if (!Country) {
         this.logger.warn(`createCountry!country: ${JSON.stringify(Country)}`);
         throw 'Something went wrong';
       }
       output.data = Country;
+      output.message = "New Country is successfully created";
     } catch (error) {
       this.logger.warn(`createCountryerror: ${JSON.stringify(error)}`);
       output.status = false;
@@ -85,7 +87,7 @@ export class CountryController {
       ) {
         output.message = error.message;
       } else {
-        output.message = error;
+        output.message = 'Internal Server Error';
       }
     }
     return output;
@@ -104,6 +106,7 @@ export class CountryController {
       const Country = await this.countryService.findOne(unitId);
       this.logger.log(`getCountryById: ${JSON.stringify(Country)}`);
       output.data = Country;
+      output.message = `Country with id : ${unitId} is successfully fetched`;
     } catch (error) {
       this.logger.warn(`getCountryById: ${JSON.stringify(error)}`);
       output.status = false;
@@ -122,12 +125,12 @@ export class CountryController {
   async editCountry(
     @Param('id', ParseIntPipe) id: number,
     @Body() body: any,
-    @UserData() user: any,
+   
   ) {
     this.logger.log(`editCountry: ${JSON.stringify(body)}`);
     let output = new ResponseData();
     try {
-      let Country = await this.countryService.updateCountry(id, body, user);
+      let Country = await this.countryService.updateCountry(id, body);
       this.logger.log(`editCountry: ${JSON.stringify(Country)}`);
 
       if (!Country) {
@@ -135,6 +138,7 @@ export class CountryController {
         throw 'Something went wrong';
       }
       output.data = Country;
+      output.message = `Country with id : ${id} is successfully updated`;
     } catch (error) {
       this.logger.warn(`editCountry: ${JSON.stringify(error)}`);
       output.status = false;
@@ -145,7 +149,7 @@ export class CountryController {
       ) {
         output.message = error.message;
       } else {
-        output.message = error;
+        output.message = 'Internal Server Error';
       }
     }
     return output;

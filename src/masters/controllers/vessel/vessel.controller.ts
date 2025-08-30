@@ -28,7 +28,8 @@ export class VesselController {
                 this.logger.warn(`createVessel!!: ${JSON.stringify(vessel)}`)
                 throw 'Something went wrong'
             }
-            output.data = vessel
+            output.data = vessel;
+            output.message = "New Vessel is successfully created"
         } catch (error) {
             this.logger.warn(`createVesselError: ${error}`)
             output.status = false;
@@ -37,8 +38,7 @@ export class VesselController {
                 output.message = error.message;
                 this.logger.warn(`createVesselError: ${error.message}`)
             } else {
-                this.logger.warn(`createVesselError: ${error}`)
-                output.message = error;
+                output.message = 'Internal Server Error';
             }
         }
         return output
@@ -58,6 +58,7 @@ export class VesselController {
             let vesselData = await this.vesselService.getAllVessels();
             this.logger.log(`getAllVessels: ${JSON.stringify(vesselData)}`)
             output.data = vesselData;
+            output.message = "All Vessels are successfully fetched";
         } catch (error) {
             this.logger.warn(`getAllVessels: ${JSON.stringify(error)}`)
             output.status = false;
@@ -84,10 +85,15 @@ export class VesselController {
             const vessel = await this.vesselService.findOne(VesselId)
             this.logger.log(`getVesselById: ${JSON.stringify(vessel)}`)
             output.data = vessel
+            output.message = `Vessel with id : ${VesselId} is successfully fetched`;
         } catch (error) {
             this.logger.warn(`getVesselById: ${JSON.stringify(error)}`)
             output.status = false;
-            output.message = error
+             if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                output.message = error.message;
+            } else {
+                output.message = "Internal Server Error";
+            }
         }
         return output;
     }
@@ -114,6 +120,7 @@ export class VesselController {
                 this.logger.log(`editVesselelse: ${vessel}`)
             }
             output.data = vessel;
+            output.message = `Vessel with id : ${id} is successfully updated`;
 
         } catch (error) {
             this.logger.warn(`editVesselerror: ${JSON.stringify(error), error}`)

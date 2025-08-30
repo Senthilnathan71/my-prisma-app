@@ -16,7 +16,7 @@ export class CurrencyService {
     private logger: Logger,
   ) {}
 
-  async createCurrency(payload:any, user) {
+  async createCurrency(payload:any) {
     this.logger.warn(`createCurrency: ${payload}`);
 
     const existing = await this._db.currencyMaster.findFirst({
@@ -89,8 +89,12 @@ export class CurrencyService {
   async updateCurrency(
     CurrencyMasterSid: number,
     payload: any,
-    user,
-  ) {
+   
+
+  )
+  
+   {
+    
     const existing = await this._db.currencyMaster.findUnique({
       where: {
         CurrencyMasterSid: CurrencyMasterSid,
@@ -103,6 +107,7 @@ export class CurrencyService {
 
     try {
       const currency = await this._db.currencyMaster.update({
+        
         where: {
           CurrencyMasterSid: CurrencyMasterSid,
         },
@@ -169,6 +174,7 @@ export class CurrencyService {
         items,
         totalCount,
     };
+     
 }
 async getAuditLogs(tableName: string, recordId?: string) {
     try {

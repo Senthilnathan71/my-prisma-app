@@ -51,6 +51,7 @@ export class ContainerTypeController {
         throw 'Something went wrong';
       }
       resp.data = res;
+      resp.message = "New ContainerType is successfully created"
     } catch (error) {
       this.logger.warn(
         `createContainerTypeError : ${(JSON.stringify(error), error)}`,
@@ -83,6 +84,7 @@ export class ContainerTypeController {
       let res = await this.containerTypeService.listAllContainerTypes();
       this.logger.log(`containerTypeData : ${JSON.stringify(res)}`);
       resp.data = res;
+      resp.message = "All ContainerType are successfully fetched";
     } catch (error) {
       this.logger.warn(
         `containerTypeGettingError : ${(JSON.stringify(error), error)}`,
@@ -115,6 +117,7 @@ export class ContainerTypeController {
       let res = await this.containerTypeService.findContainerTypeById(id);
       this.logger.debug(`containerTypeFound : ${JSON.stringify(res)}`);
       resp.data = res;
+      resp.message = `ContainerType with id : ${id} is successfully fetched`;
     } catch (error) {
       this.logger.warn(
         `gettingContainerTypeWithId failed: ${(JSON.stringify(error), error)}`,
@@ -157,6 +160,7 @@ export class ContainerTypeController {
         throw 'Something went wrong';
       }
       resp.data = res;
+      resp.message = `ContainerType with id : ${id} is successfully updated`;
     } catch (error) {
       this.logger.warn(
         `updatingContainerType Failed: ${(JSON.stringify(error), error)}`,

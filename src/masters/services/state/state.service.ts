@@ -18,7 +18,7 @@ export class StateService {
     private globalConfigService : GlobalConfigService
   ) {}
 
-  async createState(payload: any, user) {
+  async createState(payload: any) {
     this.logger.warn(`createStateUser: ${payload}`);
 
     const existing = await this._db.stateMaster.findFirst({
@@ -119,7 +119,7 @@ export class StateService {
     }
   }
 
-  async updateState(StateMasterSid: number, payload: any, user) {
+  async updateState(StateMasterSid: number, payload: any) {
     const existing = await this._db.stateMaster.findUnique({
       where: {
         StateMasterSid: StateMasterSid,

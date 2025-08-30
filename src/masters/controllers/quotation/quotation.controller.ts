@@ -33,7 +33,7 @@ export class QuotationController {
                 throw 'Something went wrong'
             }
             output.data = quote.data;
-            output.message = quote.message;
+            output.message = 'Quotation Created Successfully'
             output.status = true
 
         } catch (error) {
@@ -43,7 +43,7 @@ export class QuotationController {
             if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
                 output.message = error.message;
             } else {
-                output.message = error;
+                output.message = "Internal Server Error";
             }
         }
         return output
@@ -62,6 +62,7 @@ export class QuotationController {
             const quotations = await this.quotationService.getAllQuotations(body.CompanyMasterSid, body.BranchMasterSid)
             this.logger.debug(`getAllQuotations: ${JSON.stringify(quotations)}`)
             output.data = quotations;
+            output.message = "All Quotations are successfully fetched";
         } catch (error) {
             this.logger.warn(`getAllQuotations: ${JSON.stringify(error)}`)
 
@@ -89,10 +90,15 @@ export class QuotationController {
             const quote = await this.quotationService.findOne(quoteId)
             this.logger.debug(`getQuoterHeaderById: ${JSON.stringify(quote)}`)
             output.data = quote
+             output.message = `Quotation with id : ${quoteId} is successfully fetched`;
         } catch (error) {
             this.logger.warn(`getQuoterHeaderById: ${JSON.stringify(error)}`)
             output.status = false;
-            output.message = error
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                            output.message = error.message;
+                        } else {
+                            output.message = "Internal Server Error";
+                        }
         }
         return output;
     }
@@ -115,7 +121,7 @@ export class QuotationController {
                 throw 'Something went wrong'
             }
             output.data = quote.data;
-            output.message = quote.message;
+            output.message = `Quotation with id : ${id} is successfully updated`;
             output.status = quote.status
 
         } catch (error) {
@@ -210,6 +216,7 @@ export class QuotationController {
             const allMasters = await this.quotationService.getAllMasters(body.CompanyMasterSid)
             this.logger.debug(`getAllMasters: ${JSON.stringify(allMasters)}`)
             output.data = allMasters;
+            output.message = 'MasterData are successfully fetched'
         } catch (error) {
             this.logger.warn(`getAllMasters: ${JSON.stringify(error)}`)
             output.status = false;
@@ -230,6 +237,7 @@ export class QuotationController {
             const customers = await this.quotationService.getAllCustomer(body.CompanyMasterSid)
             this.logger.debug(`getAllCustomer in quotation: ${JSON.stringify(customers)}`)
             output.data = customers;
+            output.message = 'All Customer are successfully fetched'
         } catch (error) {
             this.logger.warn(`getAllCustomer in quotation: ${JSON.stringify(error)}`)
             output.status = false;
@@ -319,6 +327,7 @@ export class QuotationController {
             const salesperson = await this.quotationService.getAllSalesperson()
             this.logger.debug(`getAllSalesperson: ${JSON.stringify(salesperson)}`)
             output.data = salesperson;
+            output.message = 'All Salesperson are successfully fetched'
         } catch (error) {
             this.logger.warn(`getAllSalesperson: ${JSON.stringify(error),error}`)
 
@@ -345,6 +354,7 @@ export class QuotationController {
             const cusBranch = await this.quotationService.getCustomerBranchEmail(CustomerBranchSid)
             this.logger.debug(`getCustomerBranchEmail: ${JSON.stringify(cusBranch)}`)
             output.data = cusBranch;
+            output.message = 'CustomerBranch are successfully fetched'
         } catch (error) {
             this.logger.warn(`getCustomerBranchEmail: ${JSON.stringify(error),error}`)
 

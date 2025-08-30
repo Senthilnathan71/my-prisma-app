@@ -29,6 +29,7 @@ export class UserController {
             console.log(result)
             this.logger.debug(`getUserByToken: ${JSON.stringify(result)}`)
             output.data = result
+            output.message = "All UserData are successfully fetched";
         } catch (error) {
             this.logger.warn(`getUserByToken: ${JSON.stringify(error)}`)
             output.status = false;
@@ -52,6 +53,7 @@ export class UserController {
             const salesPerson = await this.userService.getSalesPerson();
             this.logger.debug(`getSalesPerson: ${JSON.stringify(salesPerson)}`)
             output.data = salesPerson
+            output.message = "All Salesperson are successfully fetched";
         } catch (error) {
             this.logger.debug(`getSalesPerson: ${JSON.stringify(error)}`)
             output.status = false;

@@ -5,6 +5,8 @@ import { GlobalConfigService } from 'src/common/config/master-config.service';
 import { OperationCommonController } from './controllers/operation-common/operation-common.controller';
 import { OperationCommonService } from './services/operation-common/operation-common.service';
 import { CurrencyExchangeService } from 'src/masters/services/currency-exchange/currency-exchange.service';
+import { MasterJobController } from './controllers/master-job/master-job.controller';
+import { MasterJobService } from './services/master-job/master-job.service';
 
 @Module({
     providers : [
@@ -12,11 +14,13 @@ import { CurrencyExchangeService } from 'src/masters/services/currency-exchange/
         GlobalConfigService,
         BookingService,
         OperationCommonService,
-        CurrencyExchangeService
+        CurrencyExchangeService,
+        MasterJobService
     ],
     controllers : [   
         BookingController, 
-        OperationCommonController
+        OperationCommonController, 
+        MasterJobController
     ]
 })
 export class OperationModule {}

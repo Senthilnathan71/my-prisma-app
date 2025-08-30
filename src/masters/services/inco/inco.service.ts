@@ -8,7 +8,7 @@ import { SearchVesselDto } from "src/masters/DTO/search-vessel.dto";
 export class IncoService {
     constructor(private _db: DatabaseService, private logger: Logger) { }
 
-    async createInco(payload: any, user) {
+    async createInco(payload: any) {
         this.logger.warn(`createInco: ${payload}`);
 
         const existing = await this._db.incoMaster.findFirst({
@@ -78,7 +78,7 @@ export class IncoService {
         }
     }
 
-    async updateInco(IncoMasterSid: number, payload: any, user) {
+    async updateInco(IncoMasterSid: number, payload: any) {
         const existing = await this._db.incoMaster.findUnique({
             where: {
                 IncoMasterSid: IncoMasterSid

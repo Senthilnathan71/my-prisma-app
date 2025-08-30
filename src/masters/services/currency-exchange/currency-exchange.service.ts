@@ -108,6 +108,7 @@ export class CurrencyExchangeService {
 
 
     async searchCurrencyExchange(params: SearchVesselDto) {
+        
     const { search = '', page = 1, pageSize = 15 ,activeCompanyId,activeBranchId} = params;
     const skip = (page - 1) * pageSize;
 

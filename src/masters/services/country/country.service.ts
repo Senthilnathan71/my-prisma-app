@@ -30,7 +30,7 @@ export class CountryService {
     }
   }
 
-  async createCountry(payload, user) {
+  async createCountry(payload) {
     const existing = await this._db.countryMaster.findFirst({
       where: {
         OR: [
@@ -60,6 +60,7 @@ export class CountryService {
     }
 
     try {
+      
       const unit = await this._db.countryMaster.create({
         data: payload,
       });
@@ -81,7 +82,7 @@ export class CountryService {
     }
   }
 
-  async updateCountry(CountryMasterSid: number, payload, user) {
+  async updateCountry(CountryMasterSid: number, payload) {
     const existing = await this._db.countryMaster.findFirst({
       where: {
         AND: [
@@ -121,6 +122,7 @@ export class CountryService {
     }
 
     try {
+      throw Error;
       const country = await this._db.countryMaster.update({
         where: {
           CountryMasterSid: CountryMasterSid,
