@@ -2108,7 +2108,7 @@ model Followup {
   FollowupDate     DateTime      @db.Date
   FollowupAction   String        @db.VarChar(500)
   Remarks          String?       @db.VarChar(500)
-  Public           String        @default("N") @db.Char(1)
+  Public           String?        @default("N") @db.Char(1)
   sentEmail        String?       @default("N") @db.Char(1)
   deletedAt        Int?
   BranchMaster     BranchMaster  @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
