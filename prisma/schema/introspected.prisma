@@ -1,6 +1,5 @@
-/// The underlying view does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
 view vDepartmentIndexPage {
-  unique_id           BigInt  @unique
+  unique_id           Int     @unique
   CompanyMasterSid    Int?
   DepartmentMasterSid Int?
   departmentName      String? @db.VarChar(20)
@@ -10,4 +9,33 @@ view vDepartmentIndexPage {
   FCLLCL              String? @db.VarChar(6)
   Division            String? @db.VarChar(20)
   Status              String? @db.Char(1)
+}
+
+view vDepartmentLookup {
+  unique_id           Int     @unique
+  CompanyMasterSid    Int?
+  DepartmentMasterSid Int?
+  departmentName      String? @db.VarChar(20)
+  departmentCode      String? @db.VarChar(5)
+  departmentType      String? @db.VarChar(10)
+  ExportImport        String? @db.VarChar(6)
+  FCLLCL              String? @db.VarChar(6)
+}
+
+view vMasterJobIndexPage {
+  unique_id        Int       @unique
+  MasterJobSid     Int?
+  CompanyMasterSid Int?
+  BranchMasterSid  Int?
+  departmentName   String?
+  MasterJobNumber  String?   @db.VarChar(20)
+  MasterJobDate    DateTime? @db.Date
+  MBLNo            String?   @db.VarChar(20)
+  MBLDate          DateTime? @db.Date
+  POL              String?   @db.VarChar(100)
+  POD              String?   @db.VarChar(100)
+  FDC              String?   @db.VarChar(100)
+  NoOfContainers   Int?
+  NoOfHouses       Int?
+  Status           String?   @db.Char(1)
 }
