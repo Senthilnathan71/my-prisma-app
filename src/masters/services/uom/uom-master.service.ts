@@ -11,8 +11,8 @@ export class UomService {
         private _db: DatabaseService,private logger: Logger
     ) { }
 
-    async createUom(payload, user) {
-
+    async createUom(payload) {
+    
         const existing = await this._db.uOMMaster.findFirst({
             where: {
                 OR: [
@@ -82,9 +82,11 @@ export class UomService {
     }
 
 
-    async updateUom(uOMMasterSid: number, payload, user) {
+    async updateUom(uOMMasterSid: number, payload) {
+        
 
         const existing = await this._db.uOMMaster.findFirst({
+            
             where: {
                 AND: [
                     {
@@ -123,6 +125,7 @@ export class UomService {
         }
 
         try {
+            
             const uom = await this._db.uOMMaster.update({
                 where: {
                     UOMMasterSid: uOMMasterSid

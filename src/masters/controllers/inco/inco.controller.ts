@@ -17,11 +17,11 @@ export class IncoController {
     })
     @HttpCode(HttpStatus.CREATED)
     @Post('create')
-    async createInco(@Body() body: any,@UserData() user: any) {
+    async createInco(@Body() body: any) {
         this.logger.log(`createIncoData: ${JSON.stringify(body)}`)
         let output = new ResponseData
         try {
-            let Inco = await this.incoService.createInco(body, user);
+            let Inco = await this.incoService.createInco(body);
             this.logger.debug(`createInco: ${JSON.stringify(Inco)}`)
             if (!Inco) {
                 this.logger.warn(`createInco!!: ${JSON.stringify(Inco)}`)
@@ -36,8 +36,7 @@ export class IncoController {
                 output.message = error.message;
                 this.logger.warn(`createIncoError: ${error.message}`)
             } else {
-                this.logger.warn(`createIncoError: ${error}`)
-                output.message = error;
+                output.message = 'Internal Server Error';
             }
         }
         return output
@@ -56,6 +55,7 @@ export class IncoController {
             let IncoData = await this.incoService.getAllInco();
             this.logger.log(`getAllInco: ${JSON.stringify(IncoData)}`)
             output.data = IncoData;
+            output.message = "All Inco are successfully fetched";
         } catch (error) {
             this.logger.warn(`getAllInco: ${JSON.stringify(error)}`)
             output.status = false;
@@ -81,6 +81,7 @@ export class IncoController {
             const Inco = await this.incoService.findOne(IncoId)
             this.logger.log(`getIncoById: ${JSON.stringify(Inco)}`)
             output.data = Inco
+            output.message = `HAWB Stock with id : ${IncoId} is successfully fetched`;
         } catch (error) {
             this.logger.warn(`getIncoById: ${JSON.stringify(error)}`)
             output.status = false;
@@ -96,11 +97,11 @@ export class IncoController {
     })
     @HttpCode(HttpStatus.OK)
     @Patch('update/:id')
-    async editInco(@Param('id', ParseIntPipe) id: number, @Body() body: any, @UserData() user: any) {
+    async editInco(@Param('id', ParseIntPipe) id: number, @Body() body: any) {
         this.logger.log(`editIncobody: ${JSON.stringify(body)}`)
         let output = new ResponseData
         try{
-            let Inco = await this.incoService.updateInco(id,body,user);
+            let Inco = await this.incoService.updateInco(id,body);
             this.logger.log(`editInco: ${JSON.stringify(Inco)}`)
             if (!Inco) {
                 this.logger.log(`editInco!!: ${JSON.stringify(Inco)}`)
@@ -109,7 +110,7 @@ export class IncoController {
                 this.logger.log(`editIncoelse: ${Inco}`)
             }
             output.data = Inco;
-            output.message = 'Inco Updated Successfully'
+            output.message = `Inco with id : ${id} is successfully updated`;
         } catch (error) {
             this.logger.warn(`editIncoError: ${JSON.stringify(error), error}`)
             output.status = false;
@@ -117,7 +118,7 @@ export class IncoController {
                 this.logger.warn(`editIncobadrequest: ${error}`)
                 output.message = error.message;
             } else {
-                output.message = error;
+                output.message = 'Internal Server Error';
             }
         }
         this.logger.log(`editIncomessage: ${output.message}`)

@@ -23,7 +23,7 @@ import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 import { StateService } from 'src/masters/services/state/state.service';
 
 @Controller('state')
-@Auth()
+
 export class StateController {
   constructor(
     private stateService: StateService,
@@ -37,17 +37,18 @@ export class StateController {
   })
   @HttpCode(HttpStatus.CREATED)
   @Post('create')
-  async createState(@Body() body: any, @UserData() user: any) {
+  async createState(@Body() body: any) {
     this.logger.log(`createStatedata: ${JSON.stringify(body)}`);
     let output = new ResponseData();
     try {
-      let state = await this.stateService.createState(body, user);
+      let state = await this.stateService.createState(body);
       this.logger.debug(`createState: ${JSON.stringify(state)}`);
       if (!state) {
         this.logger.warn(`createState!!: ${JSON.stringify(state)}`);
         throw 'Something went wrong';
       }
       output.data = state;
+      output.message = "New State is successfully created"
     } catch (error) {
       this.logger.warn(`createStateError: ${error}`);
       output.status = false;
@@ -59,8 +60,7 @@ export class StateController {
         output.message = error.message;
         this.logger.warn(`createStateError: ${error.message}`);
       } else {
-        this.logger.warn(`createStateError: ${error}`);
-        output.message = error;
+        output.message = 'Internal Server Error';
       }
     }
     return output;
@@ -82,6 +82,7 @@ export class StateController {
         await this.stateService.getAllStateByCountry(CountryMasterSid);
       this.logger.log(`getAllStateByCountry: ${JSON.stringify(state)}`);
       output.data = state;
+       output.message = "All StateByCountry are successfully fetched";
     } catch (error) {
       this.logger.warn(`getAllStateByCountry: ${JSON.stringify(error)}`);
       output.status = false;
@@ -110,6 +111,7 @@ export class StateController {
       let stateData = await this.stateService.getAllStates();
       this.logger.log(`getAllStates: ${JSON.stringify(stateData)}`);
       output.data = stateData;
+      output.message = "All State are successfully fetched";
     } catch (error) {
       this.logger.warn(`getAllStates: ${JSON.stringify(error)}`);
       output.status = false;
@@ -138,6 +140,7 @@ export class StateController {
       const state = await this.stateService.findOne(stateId);
       this.logger.log(`getStateById: ${JSON.stringify(state)}`);
       output.data = state;
+      output.message = `State with id : ${stateId} is successfully fetched`;
     } catch (error) {
       this.logger.warn(`getStateById: ${JSON.stringify(error)}`);
       output.status = false;
@@ -156,12 +159,12 @@ export class StateController {
   async editState(
     @Param('id', ParseIntPipe) id: number,
     @Body() body: any,
-    @UserData() user: any,
+   
   ) {
     this.logger.log(`editStatebody: ${JSON.stringify(body)}`);
     let output = new ResponseData();
     try {
-      let state = await this.stateService.updateState(id, body, user);
+      let state = await this.stateService.updateState(id, body);
       this.logger.log(`editState: ${JSON.stringify(state)}`);
 
       if (!state) {
@@ -171,6 +174,7 @@ export class StateController {
         this.logger.log(`editStateelse: ${state}`);
       }
       output.data = state;
+      output.message = `State with id : ${id} is successfully updated`;
     } catch (error) {
       this.logger.warn(`editStateerror: ${(JSON.stringify(error), error)}`);
       output.status = false;
@@ -182,8 +186,8 @@ export class StateController {
         this.logger.warn(`editStatebadrequest: ${error}`);
         output.message = error.message;
       } else {
-        output.message = error;
-      }
+                output.message = "Internal Server Error";
+            }
     }
     this.logger.warn(`editStatemessage: ${output.message}`);
     return output;

@@ -89,8 +89,7 @@ export class SectorService {
 
   async updateSector(
     SectorMasterSid: number,
-    payload: any,
-    user,
+    payload: any
   ) {
     const duplicate = await this._db.sectorMaster.findFirst({
   where: {

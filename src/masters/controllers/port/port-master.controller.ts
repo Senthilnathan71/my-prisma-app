@@ -23,7 +23,7 @@ import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 import { PortService } from 'src/masters/services/port/port-master.service';
 
 @Controller('port')
-@Auth()
+
 export class PortMasterController {
   constructor(
     private portService: PortService,
@@ -37,15 +37,17 @@ export class PortMasterController {
   })
   @HttpCode(HttpStatus.OK)
   @Get()
-  async getAllPorts(@UserData() UserData: any) {
+  async getAllPorts() {
     const output = new ResponseData();
     try {
       const ports = await this.portService.getAllPorts();
       this.logger.log(`getAllPorts: ${JSON.stringify(ports)}`);
       output.data = ports;
+      output.message = "All Ports are successfully fetched";
     } catch (error) {
       this.logger.warn(`getAllPorts: ${JSON.stringify(error)}`);
       output.status = false;
+
       if (
         error instanceof BadRequestException ||
         error instanceof UnauthorizedException
@@ -65,17 +67,18 @@ export class PortMasterController {
   })
   @HttpCode(HttpStatus.CREATED)
   @Post()
-  async createPort(@Body() body: any, @UserData() user: any) {
+  async createPort(@Body() body: any) {
     this.logger.log(`createPortdata: ${JSON.stringify(body)}`);
     let output = new ResponseData();
     try {
-      let port = await this.portService.createPort(body, user);
+      let port = await this.portService.createPort(body);
       this.logger.debug(`createPorttry: ${JSON.stringify(port)}`);
       if (!port) {
         this.logger.warn(`createPorterror!!: ${JSON.stringify(port)}`);
         throw 'Something went wrong';
       }
       output.data = port;
+      output.message = "New Port is successfully created"
     } catch (error) {
       this.logger.warn(`createporterror: ${error}`);
       output.status = false;
@@ -87,9 +90,8 @@ export class PortMasterController {
         output.message = error.message;
         this.logger.warn(`createportexception: ${error.message}`);
       } else {
-        this.logger.warn(`createportelse: ${error}`);
-        output.message = error;
-      }
+                output.message = "Internal Server Error";
+            }
     }
     return output;
   }
@@ -107,6 +109,7 @@ export class PortMasterController {
       const port = await this.portService.findOne(portId);
       this.logger.log(`getPortById: ${JSON.stringify(port)}`);
       output.data = port;
+      output.message = `Port with id : ${portId} is successfully fetched`;
     } catch (error) {
       this.logger.warn(`getPortById: ${JSON.stringify(error)}`);
       output.status = false;
@@ -125,12 +128,12 @@ export class PortMasterController {
   async editPort(
     @Param('id', ParseIntPipe) id: number,
     @Body() body: any,
-    @UserData() user: any,
+    
   ) {
     this.logger.log(`editPortbody: ${JSON.stringify(body)}`);
     let output = new ResponseData();
     try {
-      let port = await this.portService.updatePort(id, body, user);
+      let port = await this.portService.updatePort(id, body);
       this.logger.log(`editPort: ${JSON.stringify(port)}`);
 
       if (!port) {
@@ -140,6 +143,7 @@ export class PortMasterController {
         this.logger.log(`editPortelse: ${port}`);
       }
       output.data = port;
+      output.message = `Port with id : ${id} is successfully updated`;
     } catch (error) {
       this.logger.warn(`editPorterror: ${(JSON.stringify(error), error)}`);
       output.status = false;
@@ -151,8 +155,8 @@ export class PortMasterController {
         this.logger.warn(`editPortbadrequest: ${error}`);
         output.message = error.message;
       } else {
-        output.message = error;
-      }
+                output.message = "Internal Server Error";
+            }
     }
     this.logger.warn(`editPortmessage: ${output.message}`);
     return output;

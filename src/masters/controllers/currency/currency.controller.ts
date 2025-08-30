@@ -38,18 +38,19 @@ export class CurrencyController {
   @Post('create')
   async createCurrency(
     @Body() body: any,
-    @UserData() user: any,
+    
   ) {
     this.logger.log(`createCurrencyData: ${JSON.stringify(body)}`);
     let output = new ResponseData();
     try {
-      let currency = await this.currencyService.createCurrency(body, user);
+      let currency = await this.currencyService.createCurrency(body);
       this.logger.log(`createCurrency: ${JSON.stringify(currency)}`);
       if (!currency) {
         this.logger.debug(`createCurrency!!: ${JSON.stringify(currency)}`);
         throw 'Something went wrong';
       }
       output.data = currency;
+      output.message = "New Currency is successfully created"
     } catch (error) {
       this.logger.warn(`createCurrencyError: ${error}`);
       output.status = false;
@@ -81,6 +82,7 @@ export class CurrencyController {
       let currencyData = await this.currencyService.getAllCurrencys();
       this.logger.log(`getAllCurrencys: ${JSON.stringify(currencyData)}`);
       output.data = currencyData;
+      output.message = "All Currency are successfully fetched";
     } catch (error) {
       this.logger.warn(`getAllCurrencys: ${JSON.stringify(error)}`);
       output.status = false;
@@ -109,10 +111,15 @@ export class CurrencyController {
       const currency = await this.currencyService.findOne(CurrencyId);
       this.logger.log(`getCurrencyById: ${JSON.stringify(currency)}`);
       output.data = currency;
+      output.message = `Currency with id : ${CurrencyId} is successfully fetched`;
     } catch (error) {
-      this.logger.warn(`getCurrencyById: ${JSON.stringify(error)}`);
+      this.logger.warn(`getCurrencyById Error: ${JSON.stringify(error)}`);
       output.status = false;
-      output.message = error;
+       if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                output.message = error.message;
+            } else {
+                output.message = "Internal Server Error";
+            }
     }
     return output;
   }
@@ -127,12 +134,12 @@ export class CurrencyController {
   async editCurrency(
     @Param('id', ParseIntPipe) id: number,
     @Body() body: any,
-    @UserData() user: any,
+    
   ) {
     this.logger.log(`editCurrencybody: ${JSON.stringify(body)}`);
     let output = new ResponseData();
     try {
-      let currency = await this.currencyService.updateCurrency(id, body, user);
+      let currency = await this.currencyService.updateCurrency(id, body);
       this.logger.log(`editCurrency: ${JSON.stringify(currency)}`);
 
       if (!currency) {
@@ -142,22 +149,18 @@ export class CurrencyController {
         this.logger.log(`editCurrencyelse: ${currency}`);
       }
       output.data = currency;
+      output.message = `Currency with id : ${id} is successfully updated`;
     } catch (error) {
       this.logger.warn(`editCurrencyerror: ${(JSON.stringify(error), error)}`);
       output.status = false;
       // Handle error message based on the type of error
-      if (
-        error instanceof BadRequestException ||
-        error instanceof UnauthorizedException
-      ) {
-        this.logger.warn(`editCurrencybadrequest: ${error}`);
-        output.message = error.message;
-      } else {
-        output.message = error;
-      }
-    }
-    this.logger.warn(`editCurrencymessage: ${output.message}`);
-    return output;
+       if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                output.message = error.message;
+            } else {
+                output.message = "Internal Server Error";
+            }
+        }
+        return output;
   }
 
   @ApiOperation({ summary: 'Delete Currency By Id' })

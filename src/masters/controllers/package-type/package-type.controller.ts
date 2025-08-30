@@ -81,6 +81,7 @@ export class PackageTypeController {
       let res = await this.packageTypeService.getAllPackageType(body.CompanyMasterSid);
       this.logger.log(`All Package Types : ${JSON.stringify(res)}`);
       resp.data = res;
+      resp.message = "All Package Types are successfully fetched";
     } catch (error) {
       this.logger.warn(`Getting All Package Types Failed`);
       resp.status = false;
@@ -117,6 +118,7 @@ export class PackageTypeController {
         throw ' Something went wrong';
       }
       resp.data = res;
+      resp.message = `PackageType with id : ${id} is successfully fetched`;
     } catch (error) {
       this.logger.warn(`Getting Package Type by Id : ${id} failed`);
       resp.status = false;
@@ -154,6 +156,7 @@ export class PackageTypeController {
         throw 'Something went wrong';
       }
       resp.data = res;
+      resp.message = `PackageType with id : ${id} is successfully updated`;
     } catch (error) {
       this.logger.warn(
         `Updating Package Type Failed : ${(JSON.stringify(error), error)}`,
@@ -190,6 +193,7 @@ export class PackageTypeController {
         throw 'Something went wrong';
       }
       resp.data = res;
+      resp.message = `Package Type with id : ${id} is successfully deleted`;
     } catch (error) {
       this.logger.warn(
         `deletingPackageType failed : ${(JSON.stringify(error), error)}`,

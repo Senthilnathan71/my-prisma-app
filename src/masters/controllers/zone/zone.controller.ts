@@ -46,6 +46,7 @@ export class ZoneController {
         throw 'Something went wrong';
       }
       resp.data = res;
+      resp.message = "New Zone is successfully created"
     } catch (error) {
       this.logger.warn(
         `createNewZone failed : ${(JSON.stringify(error), error)}`,
@@ -77,6 +78,7 @@ export class ZoneController {
       let res = await this.zoneService.getAllZones();
       this.logger.log(`allZoneData : ${JSON.stringify(res)}`);
       resp.data = res;
+      resp.message = "All Zone are successfully fetched";
     } catch (error) {
       this.logger.warn(
         `gettingAllZone failed  ${(JSON.stringify(error), error)}`,
@@ -112,6 +114,7 @@ export class ZoneController {
         throw 'Something went wrong';
       }
       resp.data = res;
+      resp.message = `Zone with id : ${id} is successfully fetched`;
     } catch (error) {
       this.logger.warn(
         `Fetching Zone Data failed : ${(JSON.stringify(error), error)}`,
@@ -153,6 +156,7 @@ export class ZoneController {
         throw 'Something went wrong';
       }
       resp.data = res;
+      resp.message = `Zone with id : ${id} is successfully updated`;
     } catch (error) {
       this.logger.warn(
         `updatingZone failed: ${(JSON.stringify(error), error)}`,

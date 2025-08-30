@@ -37,8 +37,7 @@ export class HssacController {
                 output.message = error.message;
                 this.logger.warn(`createHssacError: ${error.message}`)
             } else {
-                this.logger.warn(`createHssacError: ${error}`)
-                output.message = error;
+                output.message = "Internal Server Error";
             }
         }
         return output
@@ -58,6 +57,7 @@ export class HssacController {
             let HssacData = await this.hssacService.getAllHssac();
             this.logger.log(`getAllHssac: ${JSON.stringify(HssacData)}`)
             output.data = HssacData;
+            output.message = "All AllHssac are successfully fetched";
         } catch (error) {
             this.logger.warn(`getAllHssac: ${JSON.stringify(error)}`)
             output.status = false;
@@ -84,7 +84,8 @@ export class HssacController {
         try {
             const Hssac = await this.hssacService.findOne(HssacId)
             this.logger.log(`getHssacById: ${JSON.stringify(Hssac)}`)
-            output.data = Hssac
+            output.data = Hssac;
+            output.message = `Hssac with id : ${HssacId} is successfully fetched`;
         } catch (error) {
             this.logger.warn(`getHssacById: ${JSON.stringify(error)}`)
             output.status = false;
@@ -124,7 +125,7 @@ export class HssacController {
                 this.logger.warn(`editHssacbadrequest: ${error}`)
                 output.message = error.message;
             } else {
-                output.message = error;
+                output.message = "Internal Server Error";
             }
         }
         this.logger.log(`editHssacmessage: ${output.message}`)

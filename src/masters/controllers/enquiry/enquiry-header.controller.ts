@@ -35,7 +35,7 @@ export class EnquiryHeaderController {
                 throw 'Something went wrong'
             }
             output.data = enquiry.data;
-            output.message = enquiry.message;
+           output.message = 'Enquiry Created Successfully'
             output.status = true
 
         } catch (error) {
@@ -44,7 +44,7 @@ export class EnquiryHeaderController {
             if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
                 output.message = error.message;
             } else {
-                output.message = error;
+                output.message = "Internal Server Error";
             }
         }
         return output
@@ -63,7 +63,7 @@ export class EnquiryHeaderController {
             const enquiries = await this.enquiryHeaderService.getAllEnquiries(body.CompanyMasterSid, body.BranchMasterSid)
             output.data = enquiries;
             this.logger.debug(`getAllEnquiries: Fetch Enquiry Data- ${JSON.stringify(enquiries)}`)
-
+            
         } catch (error) {
             this.logger.debug(`getAllEnquiries: Enquiry data fetch failed- ${JSON.stringify(error)}`)
             output.status = false;
@@ -89,7 +89,8 @@ export class EnquiryHeaderController {
             const enquiry = await this.enquiryHeaderService.findOne(enquiryId)
             output.data = enquiry
             this.logger.debug(`getEnquiryById: Fetch Enquiry Data- ${JSON.stringify(enquiry)}`)
-
+              output.data = enquiry;
+            output.message = `Enquiry with id : ${enquiryId} is successfully fetched`;
         } catch (error) {
             this.logger.debug(`getEnquiryById: Enquiry Fetching failed - ${JSON.stringify(error)}`)
 
@@ -118,7 +119,7 @@ export class EnquiryHeaderController {
                 throw 'Something went wrong'
             }
             output.data = enquiry.data;
-            output.message = enquiry.message;
+            output.message = `Enquiry with id : ${id} is successfully fetched`;
             output.status = enquiry.status
             this.logger.log(`editEnquiry: Update Enquiry Header ${enquiry}`)
         } catch (error) {
@@ -159,6 +160,7 @@ export class EnquiryHeaderController {
         try {
             const department = await this.enquiryHeaderService.getAllDepartment(body.CompanyMasterSid)
             output.data = department;
+            output.message = "All Departments are successfully fetched";
         } catch (error) {
             output.status = false;
             if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
@@ -183,6 +185,7 @@ export class EnquiryHeaderController {
         try {
             const cargoType = await this.enquiryHeaderService.getAllCargoTypes(body.CompanyMasterSid)
             output.data = cargoType;
+            output.message = "All CargoTypes are successfully fetched";
         } catch (error) {
             output.status = false;
             if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
@@ -207,6 +210,7 @@ export class EnquiryHeaderController {
         try {
             const containerType = await this.enquiryHeaderService.getAllContainerTypes()
             output.data = containerType;
+            output.message = "All ContainerTypes are successfully fetched";
         } catch (error) {
             output.status = false;
             if (error instanceof BadRequestException || error instanceof UnauthorizedException) {

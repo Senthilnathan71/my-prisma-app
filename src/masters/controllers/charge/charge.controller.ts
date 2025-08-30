@@ -61,6 +61,7 @@ export class ChargeController {
             let ChargeData = await this.chargeService.getAllCharges(body.CompanyMasterSid);
             this.logger.log(`getAllCharges: ${JSON.stringify(ChargeData)}`)
             output.data = ChargeData;
+            output.message = "All Charges are successfully fetched";
         } catch (error) {
             this.logger.warn(`getAllCharges: ${JSON.stringify(error)}`)
             output.status = false;
@@ -88,6 +89,7 @@ export class ChargeController {
             let ChargeGroupData = await this.chargeService.getAllChargeGroups();
             this.logger.log(`getAllChargeGroup: ${JSON.stringify(ChargeGroupData)}`)
             output.data = ChargeGroupData;
+            output.message = "All ChargeGroup are successfully fetched";
         } catch (error) {
             this.logger.warn(`getAllChargeGroup: ${JSON.stringify(error)}`)
             output.status = false;
@@ -114,7 +116,8 @@ export class ChargeController {
         try {
             const Charge = await this.chargeService.findOne(ChargeId)
             this.logger.log(`getChargeById: ${JSON.stringify(Charge)}`)
-            output.data = Charge
+            output.data = Charge;
+            output.message = `Charge with id : ${ChargeId} is successfully fetched`;
         } catch (error) {
             this.logger.warn(`getChargeById: ${JSON.stringify(error)}`)
             output.status = false;
@@ -150,15 +153,13 @@ export class ChargeController {
             this.logger.warn(`editChargeerror: ${JSON.stringify(error), error}`)
             output.status = false;
             // Handle error message based on the type of error
-            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
-                this.logger.warn(`editChargebadrequest: ${error}`)
+           if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
                 output.message = error.message;
             } else {
-                output.message = error;
+                output.message = "Internal Server Error";
             }
         }
-        this.logger.log(`editChargemessage: ${output.message}`)
-        return output
+        return output;
     }
 
 

@@ -8,7 +8,7 @@ import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 
 @Controller('unit')
-@Auth()
+
 export class UnitController {
 
     constructor(private unitService: UnitService, private logger: Logger
@@ -27,6 +27,7 @@ export class UnitController {
             let countryData = await this.unitService.getAllUnit();
             this.logger.log(`getAllUnit: ${JSON.stringify(countryData)}`)
             output.data = countryData;
+            output.message = "All Unit are successfully fetched";
         } catch (error) {
             this.logger.warn(`getAllUnit: ${JSON.stringify(error)}`)
             output.status = false;
@@ -72,17 +73,18 @@ export class UnitController {
         })
         @HttpCode(HttpStatus.CREATED)
         @Post()
-        async createUnit(@Body() body: any, @UserData() user: any) { 
+        async createUnit(@Body() body: any) { 
             this.logger.log(`createUnit: ${JSON.stringify(body)}`)
             let output = new ResponseData
             try {
-                let Unit = await this.unitService.createUnit(body, user);
+                let Unit = await this.unitService.createUnit(body);
                 this.logger.debug(`createUnit: ${JSON.stringify(Unit)}`)
                 if (!Unit) {
                     this.logger.warn(`createUnit: ${JSON.stringify(Unit)}`)
                     throw 'Something went wrong'
                 }
-                output.data = Unit
+                output.data = Unit;
+                output.message = "New Unit is successfully created"
             } catch (error) {
                 this.logger.warn(`createUnit: ${JSON.stringify(error)}`)
                 output.status = false;
@@ -110,7 +112,8 @@ export class UnitController {
             try {
                 const Unit = await this.unitService.findOne(unitId)
                 this.logger.log(`getUnitById: ${JSON.stringify(Unit)}`)
-                output.data = Unit
+                output.data = Unit;
+                output.message = `Unit with id : ${unitId} is successfully fetched`;
             } catch (error) {
                 this.logger.warn(`getUnitById: ${JSON.stringify(error)}`)
                 output.status = false;
@@ -128,11 +131,11 @@ export class UnitController {
         })
         @HttpCode(HttpStatus.OK)
         @Patch(':id')
-        async editUnit(@Param('id', ParseIntPipe) id: number, @Body() body: any, @UserData() user: any) {
+        async editUnit(@Param('id', ParseIntPipe) id: number, @Body() body: any) {
             this.logger.log(`editUnit: ${JSON.stringify(body)}`)
             let output = new ResponseData
             try {
-                let Unit = await this.unitService.updateUnit(id, body, user);
+                let Unit = await this.unitService.updateUnit(id, body);
                 this.logger.log(`editUnit: ${JSON.stringify(Unit)}`)
     
                 if (!Unit) {
@@ -140,6 +143,7 @@ export class UnitController {
                     throw 'Something went wrong'
                 }
                 output.data = Unit;
+                output.message = `Unit with id : ${id} is successfully updated`;
     
             } catch (error) {
                 this.logger.warn(`editUnit: ${JSON.stringify(error)}`)

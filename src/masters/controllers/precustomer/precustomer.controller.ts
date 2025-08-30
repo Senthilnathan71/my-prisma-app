@@ -29,6 +29,8 @@ export class PrecustomerController {
             const customers = await this.precustomerSer.getAllCustomer(body.CompanyMasterSid)
             output.data = customers; 
             this.logger.log(`getAllCustomer: ${JSON.stringify(customers)}`)
+            output.data = customers;
+            output.message = "All Customer are successfully fetched";
         } catch (error) {
             this.logger.warn(`getAllCustomers ${error}`)
             output.status = false;
@@ -81,6 +83,7 @@ export class PrecustomerController {
             const customers = await this.precustomerSer.getAllPrecustomer(UserData.userBranchMaster[0])
             this.logger.log(`getAllPrecustomer: ${JSON.stringify(customers)}`)
             output.data = customers;
+            output.message = "All Customers are successfully fetched";
         } catch (error) {
             this.logger.warn(`getAllPreCustomer: ${error}`)
             output.status = false;
@@ -107,6 +110,7 @@ export class PrecustomerController {
             const preCustomer = await this.precustomerSer.findOne(PreCustomerMasterSid)
             this.logger.log(`getPrecustomerById: ${JSON.stringify(preCustomer)}`)
             output.data = preCustomer
+            output.message = `PreCustomer with id : ${PreCustomerMasterSid} is successfully fetched`;
         } catch (error) {
             this.logger.warn(`getPrecustomerById: ${JSON.stringify(error)}`)
             output.status = false;
@@ -133,7 +137,7 @@ export class PrecustomerController {
                 throw 'Something went wrong'
             }
             output.data = preCustomer.data;
-            output.message = preCustomer.message;
+            output.message = 'PreCustomer Created Successfully'
             output.status = true
 
         } catch (error) {

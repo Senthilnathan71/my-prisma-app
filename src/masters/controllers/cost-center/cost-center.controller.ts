@@ -30,7 +30,7 @@ export class CostCenterController {
             output.data = CostCenter
             output.message = 'Cost-Center Created Successfully'
         } catch (error) {
-            this.logger.warn(`createCostCenterError: ${error}`)
+            this.logger.warn(`createCostCenterError: ${JSON.stringify(error), error}`)
             output.status = false;
             if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
                 output.message = error.message;
@@ -80,7 +80,9 @@ export class CostCenterController {
         try {
             const CostCenter = await this.costCenterService.findOne(CostCenterId)
             this.logger.log(`getCostCenterById: ${JSON.stringify(CostCenter)}`)
-            output.data = CostCenter
+            output.data = CostCenter;
+            output.message = `Cost-Center with id : ${CostCenterId} is successfully fetched`;
+            
         } catch (error) {
             this.logger.warn(`getCostCenterById: ${JSON.stringify(error)}`)
             output.status = false;
@@ -90,39 +92,40 @@ export class CostCenterController {
     }
 
     @ApiOperation({ summary: 'Update Cost-Center By Id' })
-    @ApiCreatedResponse({
-        description: 'Update Cost-Center By Id',
-        type: ResponseData
-    })
-    @HttpCode(HttpStatus.OK)
-    @Patch('update/:id')
-    async editCostCenter(@Param('id', ParseIntPipe) id: number, @Body() body: any, @UserData() user: any) {
-        this.logger.log(`editCostCenterbody: ${JSON.stringify(body)}`)
-        let output = new ResponseData
-        try {
-            let CostCenter = await this.costCenterService.updateCostCenter(id,body,user);
-            this.logger.log(`editCostCenter: ${JSON.stringify(CostCenter)}`)
-            if (!CostCenter) {
-                this.logger.log(`editCostCenter!!: ${JSON.stringify(CostCenter)}`)
-                throw 'Something went wrong'
-            } else {
-                this.logger.log(`editCostCenterelse: ${CostCenter}`)
-            }
-            output.data = CostCenter;
-            output.message = 'Cost-Center Updated Successfully'
-        } catch (error) {
-            this.logger.warn(`editCostCenterError: ${JSON.stringify(error), error}`)
-            output.status = false;
-            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
-                this.logger.warn(`editCostCenterbadrequest: ${error}`)
-                output.message = error.message;
-            } else {
-                output.message = error;
-            }
+@ApiCreatedResponse({
+    description: 'Update Cost-Center By Id',
+    type: ResponseData
+})
+@HttpCode(HttpStatus.OK)
+@Patch('update/:id')
+async editCostCenter(@Param('id', ParseIntPipe) id: number, @Body() body: any) {
+    this.logger.log(`editCostCenterbody: ${JSON.stringify(body)}`)
+    let output = new ResponseData();
+    try {
+        let CostCenter = await this.costCenterService.updateCostCenter(id, body);
+        this.logger.log(`editCostCenter: ${JSON.stringify(CostCenter)}`)
+        if (!CostCenter) {
+            this.logger.log(`editCostCenter!!: ${JSON.stringify(CostCenter)}`)
+            throw 'Something went wrong';
+        } else {
+            this.logger.log(`editCostCenterelse: ${CostCenter}`)
         }
-        this.logger.log(`editCostCentermessage: ${output.message}`)
-        return output
+        output.data = CostCenter;
+        output.message = `Cost-Center with id : ${id} is successfully updated`;
+    } catch (error) {
+        this.logger.warn(`editCostCenterError: ${JSON.stringify(error), error}`)
+        output.status = false;
+        if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+            this.logger.warn(`editCostCenterbadrequest: ${error}`)
+            output.message = error.message;
+        } else {
+            output.message = "Internal Server Error";
+        }
     }
+    this.logger.log(`editCostCentermessage: ${output.message}`)
+    return output;
+}
+
 
     @ApiOperation({ summary: 'Delete Cost-Center By Id' })
     @ApiCreatedResponse({

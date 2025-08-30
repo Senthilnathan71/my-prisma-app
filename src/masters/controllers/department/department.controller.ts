@@ -40,13 +40,11 @@ export class DepartmentController {
             // Handle error message based on the type of error
             if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
                 output.message = error.message;
-                this.logger.warn(`createDepartmentError: ${error.message}`)
             } else {
-                this.logger.warn(`createDepartmentError: ${error}`)
-                output.message = error;
+                output.message = "Internal Server Error";
             }
         }
-        return output
+        return output;
     }
 
 
@@ -63,6 +61,7 @@ export class DepartmentController {
             let DepartmentData = await this.departmentService.getAllDepartments(body.CompanyMasterSid);
             this.logger.log(`getAllDepartments: ${JSON.stringify(DepartmentData)}`)
             output.data = DepartmentData;
+            output.message = "All Departments are successfully fetched";
         } catch (error) {
             this.logger.warn(`getAllDepartments: ${JSON.stringify(error)}`)
             output.status = false;
@@ -88,11 +87,17 @@ export class DepartmentController {
         try {
             const Department = await this.departmentService.findOne(DepartmentId)
             this.logger.log(`getDepartmentById: ${JSON.stringify(Department)}`)
-            output.data = Department
+            output.data = Department;
+            output.message = `Department with id : ${DepartmentId} is successfully fetched`;
+
         } catch (error) {
-            this.logger.warn(`getDepartmentById: ${JSON.stringify(error)}`)
+            this.logger.warn(`getDepartmentById Error: ${JSON.stringify(error)}`)
             output.status = false;
-            output.message = error
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                output.message = error.message;
+            } else {
+                output.message = "Internal Server Error";
+            }
         }
         return output;
     }
@@ -119,7 +124,7 @@ export class DepartmentController {
                 this.logger.log(`editDepartmentelse: ${Department}`)
             }
             output.data = Department;
-            output.message = 'Department Updated Successfully'
+            output.message = `Department with id : ${id} is successfully updated`;
         } catch (error) {
             this.logger.warn(`editDepartmenterror: ${JSON.stringify(error), error}`)
             output.status = false;
@@ -128,7 +133,7 @@ export class DepartmentController {
                 this.logger.warn(`editDepartmentbadrequest: ${error}`)
                 output.message = error.message;
             } else {
-                output.message = error;
+                output.message = "Internal Server Error";
             }
         }
         this.logger.log(`editDepartmentmessage: ${output.message}`)

@@ -78,7 +78,7 @@ export class CostCenterService {
         }
     }
 
-    async updateCostCenter(CostCenterMasterSid: number, payload: any, user) {
+    async updateCostCenter(CostCenterMasterSid: number, payload: any) {
         const existing = await this._db.costCenterMaster.findUnique({
             where: {
                 CostCenterMasterSid: CostCenterMasterSid

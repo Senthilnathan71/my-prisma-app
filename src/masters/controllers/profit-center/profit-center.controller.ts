@@ -36,9 +36,8 @@ export class ProfitCenterController {
                     output.message = error.message;
                     this.logger.warn(`createProfitCenterError: ${error.message}`)
                 } else {
-                    this.logger.warn(`createProfitCenterError: ${error}`)
-                    output.message = error;
-                }
+                output.message = "Internal Server Error";
+            }
             }
             return output
         }
@@ -80,7 +79,8 @@ export class ProfitCenterController {
             try {
                 const ProfitCenter = await this.profitCenterService.findOne(ProfitCenterId)
                 this.logger.log(`getProfitCenterById: ${JSON.stringify(ProfitCenter)}`)
-                output.data = ProfitCenter
+                output.data = ProfitCenter;
+                output.message = `Profit Center with id : ${ProfitCenterId} is successfully fetched`;
             } catch (error) {
                 this.logger.warn(`getProfitCenterById: ${JSON.stringify(error)}`)
                 output.status = false;
@@ -117,8 +117,8 @@ export class ProfitCenterController {
                     this.logger.warn(`editProfitCenterbadrequest: ${error}`)
                     output.message = error.message;
                 } else {
-                    output.message = error;
-                }
+                output.message = "Internal Server Error";
+            }
             }
             this.logger.log(`editProfitCentermessage: ${output.message}`)
             return output

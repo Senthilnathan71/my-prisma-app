@@ -24,7 +24,7 @@ export class UnitService {
         }
     }
 
-    async createUnit(payload, user) { 
+    async createUnit(payload) { 
     
             const existing = await this._db.unitMaster.findFirst({
                 where: {
@@ -79,7 +79,7 @@ export class UnitService {
         }
     
     
-        async updateUnit(UnitMasterSid: number, payload, user) {
+        async updateUnit(UnitMasterSid: number, payload) {
     
             const existing = await this._db.unitMaster.findFirst({
                 where: {

@@ -60,6 +60,7 @@ export class ModuleController {
             let moduleData = await this.moduleService.getAllModules()
             this.logger.log(`getAllmodules: ${JSON.stringify(moduleData)}`)
             output.data = moduleData;
+            output.message = "All Modules are successfully fetched";
         } catch (error) {
             this.logger.warn(`getAllmodules: ${JSON.stringify(error)}`)
             output.status = false;
@@ -92,6 +93,7 @@ export class ModuleController {
             }
             this.logger.log(`getAllmodules: ${JSON.stringify(moduleData)}`)
             output.data = moduleData;
+            output.message = "All ModulesWithMenus are successfully fetched";
         } catch (error) {
             this.logger.warn(`getAllmodules: ${JSON.stringify(error)}`)
             output.status = false;
@@ -118,6 +120,7 @@ export class ModuleController {
             const module = await this.moduleService.findOne(moduleId)
             this.logger.log(`getmoduleById: ${JSON.stringify(module)}`)
             output.data = module
+            output.message = `Menu with id : ${moduleId} is successfully fetched`;
         } catch (error) {
             this.logger.warn(`getmoduleById: ${JSON.stringify(error)}`)
             output.status = false;
@@ -148,7 +151,7 @@ export class ModuleController {
                 this.logger.log(`editmoduleelse: ${module}`)
             }
             output.data = module;
-            output.message = 'module Updated Successfully'
+            output.message = `Module with id : ${id} is successfully updated`;
         } catch (error) {
             this.logger.warn(`editmoduleerror: ${JSON.stringify(error), error}`)
             output.status = false;

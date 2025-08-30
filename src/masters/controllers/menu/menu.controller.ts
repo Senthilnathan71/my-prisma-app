@@ -82,6 +82,7 @@ export class MenuController {
             let menuData = await this.menuService.getAllMenus();
             this.logger.log(`getAllmenus: ${JSON.stringify(menuData)}`)
             output.data = menuData;
+            output.message = "All Menu are successfully fetched";
         } catch (error) {
             this.logger.warn(`getAllmenus: ${JSON.stringify(error)}`)
             output.status = false;
@@ -108,6 +109,7 @@ export class MenuController {
             const menu = await this.menuService.findOne(menuId)
             this.logger.log(`getmenuById: ${JSON.stringify(menu)}`)
             output.data = menu
+            output.message = `Menu with id : ${menuId} is successfully fetched`;
         } catch (error) {
             this.logger.warn(`getmenuById: ${JSON.stringify(error)}`)
             output.status = false;
@@ -130,6 +132,7 @@ export class MenuController {
             const menu = await this.menuService.getAllMenuPermissions(menuId)
             this.logger.log(`getMenuPermissionsById: ${JSON.stringify(menu)}`)
             output.data = menu
+            output.message = `Menu with id : ${menuId} is successfully fetched`;
         } catch (error) {
             this.logger.warn(`getMenuPermissionsById: ${JSON.stringify(error)}`)
             output.status = false;
@@ -160,7 +163,7 @@ export class MenuController {
                 this.logger.log(`editmenuelse: ${menu}`)
             }
             output.data = menu;
-            output.message = 'menu Updated Successfully'
+            output.message = `Menu with id : ${id} is successfully updated`;
         } catch (error) {
             this.logger.warn(`editmenuerror: ${JSON.stringify(error), error}`)
             output.status = false;

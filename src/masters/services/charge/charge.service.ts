@@ -159,6 +159,7 @@ export class ChargeService {
 
 
     async updateCharge(ChargeMasterSid: number, payload: any) {
+        
         const { chargeTaxMaster, chargeTds, ...chargeData } = payload;
 
         // Check for duplicates
@@ -194,15 +195,16 @@ export class ChargeService {
         });
         if (duplicate) {
   if (duplicate.chargeName === payload.chargeName) {
-    throw new BadRequestException('Sector name already exists');
+    throw new BadRequestException('Charge name already exists');
   }
   if (duplicate.chargeCode === payload.chargeCode) {
-    throw new BadRequestException('Sector code already exists');
+    throw new BadRequestException('Charge code already exists');
   }
 }
 
 
         return this._db.$transaction(async (prisma) => {
+            
             // 1. Update ChargeMaster
             const charge = await prisma.chargeMaster.update({
                 where: { ChargeMasterSid: ChargeMasterSid },
@@ -292,6 +294,7 @@ export class ChargeService {
 
 
     async searchList(params: SearchVesselDto) {
+     
     const { search = '', page = 1, pageSize = 15, activeCompanyId } = params;
     const skip = (page - 1) * pageSize;
 
@@ -377,6 +380,7 @@ export class ChargeService {
         items: formattedItems,
         totalCount,
     };
+     
 }
 
 async getAuditLogs(tableName: string, recordId?: string) {

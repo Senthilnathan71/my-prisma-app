@@ -60,6 +60,7 @@ export class RoleController {
             let roleData = await this.roleService.getAllRoles(body.CompanyMasterSid);
             this.logger.log(`getAllroles: ${JSON.stringify(roleData)}`)
             output.data = roleData;
+            output.message = "All Role are successfully fetched";
         } catch (error) {
             this.logger.warn(`getAllroles: ${JSON.stringify(error)}`)
             output.status = false;
@@ -85,7 +86,8 @@ export class RoleController {
         try {
             const role = await this.roleService.findOne(roleId)
             this.logger.log(`getroleById: ${JSON.stringify(role)}`)
-            output.data = role
+            output.data = role;
+            output.message = `Role with id : ${roleId} is successfully fetched`;
         } catch (error) {
             this.logger.warn(`getroleById: ${JSON.stringify(error)}`)
             output.status = false;
@@ -116,7 +118,7 @@ export class RoleController {
                 this.logger.log(`editroleelse: ${role}`)
             }
             output.data = role;
-            output.message = 'Role updated successfully.'
+            output.message = `Role with id : ${id} is successfully updated`;
         } catch (error) {
             this.logger.warn(`editroleerror: ${JSON.stringify(error), error}`)
             output.status = false;

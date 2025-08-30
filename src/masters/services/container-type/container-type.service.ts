@@ -58,6 +58,7 @@ export class ContainerTypeService {
     newData: any,
   ) {
     try {
+      throw Error;
       const ourContainerType = await this._db.containerTypeMaster.findUnique({
         where: {
           ContainerTypeMasterSid: ContainerTypeMasterSid,
