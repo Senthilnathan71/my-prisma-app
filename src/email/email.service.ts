@@ -106,5 +106,33 @@ export class EmailService {
         }
     }
 
+    async sendFollowupEmail(data: any): Promise<boolean> {
+        try {
+            const mailOptions: any = {
+                from: '"Dofi-Infosys" <noreply@dofi.co>',
+                to: data.email,
+                cc: data.cc,
+                subject: data.subject,
+                html: data.html,
+                // attachments: [
+                //     {
+                //         filename: data.file.originalname,
+                //         content: data.file.buffer,
+                //         contentType: data.file.mimetype,
+                //     }
+                // ]
+            };
+            const info = await this.transporter.sendMail(mailOptions);
+            this.logger.log(`sendFollowupEmail: ${JSON.stringify(info)}`);
+            return true;
+        } catch (err) {
+            this.logger.warn(`sendFollowupEmail error: ${JSON.stringify(err)}`);
+            throw new HttpException(
+                { message: `Error sending email: ${err.message}` },
+                HttpStatus.EXPECTATION_FAILED
+            );
+        }
+    }
+
 
 }

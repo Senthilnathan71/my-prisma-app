@@ -8,6 +8,8 @@ import { EmailService } from 'src/email/email.service';
 import { EmailLogService } from './services/email-log/email-log.service';
 import { LookupsController } from './controllers/lookups/lookups.controller';
 import { LookupsService } from './services/lookups/lookups.service';
+import { FollowupController } from './controllers/followup/followup.controller';
+import { FollowupService } from './services/followup/followup.service';
 
 @Module({
     controllers: [
@@ -15,6 +17,7 @@ import { LookupsService } from './services/lookups/lookups.service';
         FavouriteScreenController,
         emailLogController,
         LookupsController,
+        FollowupController,
     ],
     providers: [
         Logger,
@@ -22,7 +25,8 @@ import { LookupsService } from './services/lookups/lookups.service';
         FavouriteScreenService,
         EmailLogService,
         EmailService,
-        LookupsService
+        LookupsService,
+        FollowupService
     ]
 })
 export class CommonModule { }
