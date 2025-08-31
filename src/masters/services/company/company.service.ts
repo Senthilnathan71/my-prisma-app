@@ -467,7 +467,7 @@ export class CompanyService {
                         },
                         data: {
                             updatedBy: user.userEmail,
-                            status: 'I'
+                            status: 'D'
                         }
                     });
                 }

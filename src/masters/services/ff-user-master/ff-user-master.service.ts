@@ -207,7 +207,7 @@ export class FfUserMasterService {
                 // Soft delete removed companies
                 userCompanies.deletedCompanies = await prisma.userCompanyMaster.updateManyAndReturn({
                     where: { UserCompanyMasterSid: { in: companiesToDelete.map(c => c.UserCompanyMasterSid) } },
-                    data: { status : 'A' }
+                    data: { status : 'D' }
                 });
 
                 // Create new companies
