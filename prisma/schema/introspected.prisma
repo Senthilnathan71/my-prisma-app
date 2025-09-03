@@ -1,7 +1,6 @@
 view vDepartmentIndexPage {
-  unique_id           Int     @unique
   CompanyMasterSid    Int?
-  DepartmentMasterSid Int?
+  DepartmentMasterSid Int     @unique
   departmentName      String? @db.VarChar(20)
   departmentCode      String? @db.VarChar(5)
   departmentType      String? @db.VarChar(10)

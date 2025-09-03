@@ -129,7 +129,7 @@ export class CustomerService {
                 const deletedCustomer = await prisma.customerMaster.update({
                     where: {
                         CustomerMasterSid: CustomerMasterSid,
-                        status : 'D'
+                        status : 'A'
                     },
                     data: {
                         status : 'D'
@@ -138,7 +138,7 @@ export class CustomerService {
                 const allCustomerBranches = await prisma.customerBranch.findMany({
                     where: {
                         CustomerMasterSid: CustomerMasterSid,
-                        status : 'D'
+                        status : 'A'
                     }
                 })
 
@@ -147,7 +147,7 @@ export class CustomerService {
                         const deletedCusBranch = await prisma.customerBranch.update({
                             where: {
                                 CustomerBranchSid: branch.CustomerBranchSid,
-                                status : 'D'
+                                status : 'A'
                             },
                             data: {
                                 status : 'D'
@@ -156,7 +156,7 @@ export class CustomerService {
                         const deleteCusBranchContact = await prisma.cusBranchContact.updateManyAndReturn({
                             where: {
                                 CustomerBranchSid: deletedCusBranch.CustomerBranchSid,
-                                status : 'D'
+                                status : 'A'
                             },
                             data: {
                                 status : 'D'
@@ -165,7 +165,7 @@ export class CustomerService {
                         const deleteCusBranchEmail = await prisma.customerBrEmail.updateManyAndReturn({
                             where: {
                                 CustomerBranchSid: branch.CustomerBranchSid,
-                                status : 'D'
+                                status : 'A'
                             },
                             data: {
                                 status : 'D'
@@ -174,7 +174,7 @@ export class CustomerService {
                         const deleteCusBranchLogin = await prisma.customerLogin.updateManyAndReturn({
                             where: {
                                 CustomerBranchSid: branch.CustomerBranchSid,
-                                status : 'D'
+                                status : 'A'
                             },
                             data: {
                                 status : 'D'
@@ -324,6 +324,23 @@ export class CustomerService {
             throw error;
         }
     }
+    async getAllCFS(CompanyMasterSid:number){
+        try {
+            const allAgents = await this._db.customerMaster.findMany({
+                where : {
+                    CustomerType: {
+                        path: ['cFS'],
+                        equals: 'isTrue'
+                    },
+                    status : 'A',
+                    CompanyMasterSid: CompanyMasterSid
+                }
+            })
+            return allAgents;
+        } catch (error) {
+            throw error;
+        }
+    }
 
     async getAllSuppliers(CompanyMasterSid:number) {
         try {
@@ -369,5 +386,23 @@ export class CustomerService {
       throw new Error(`Error fetching audit logs: ${error.message}`);
     }
   }
+
+  async getAllCFS(CompanyMasterSid:number){
+        try {
+            const allAgents = await this._db.customerMaster.findMany({
+                where : {
+                    CustomerType: {
+                        path: ['cFS'],
+                        equals: 'isTrue'
+                    },
+                    status : 'A',
+                    CompanyMasterSid: CompanyMasterSid
+                }
+            })
+            return allAgents;
+        } catch (error) {
+            throw error;
+        }
+    }
 
 }

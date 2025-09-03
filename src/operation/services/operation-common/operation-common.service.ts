@@ -53,7 +53,8 @@ export class OperationCommonService {
                     CompanyMasterSid,
                     BranchMasterSid,
                     ShipmentNo,
-                    TransactionSid
+                    TransactionSid,
+                    status : 'A'
                 }
             })
             return allCostRevenueCharges;

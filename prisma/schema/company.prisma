@@ -2108,7 +2108,7 @@ model Followup {
   FollowupDate     DateTime      @db.Date
   FollowupAction   String        @db.VarChar(500)
   Remarks          String?       @db.VarChar(500)
-  Public           String        @default("N") @db.Char(1)
+  Public           String?        @default("N") @db.Char(1)
   sentEmail        String?       @default("N") @db.Char(1)
   deletedAt        Int?
   BranchMaster     BranchMaster  @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
@@ -2482,4 +2482,19 @@ enum ApprovalStatus {
   Pending
   Approved
   Rejected
+}
+
+
+model MenuConfig{
+  menuConfigSid Int       @id @default(autoincrement())
+  MenuMasterSid Int
+  ModelName     String   @db.VarChar(50)
+  PrimaryKey    String   @db.VarChar(50)
+  LinkPattern   String   @db.VarChar(100)
+  Status                 String    @default("A") @db.Char(1)
+  CreatedOn              DateTime  @default(now())
+  CreatedBy              String    @db.VarChar(100)
+  UpdatedOn              DateTime?
+  UpdatedBy              String?   @db.VarChar(100)
+  menuMaster MenuMaster @relation(fields: [MenuMasterSid], references: [MenuMasterSid], onDelete: Cascade)
 }

@@ -301,6 +301,33 @@ async searchCustomer(@Body() searchParams: SearchVesselDto) {
         }
         return output
     }
+    
+    @ApiOperation({ summary: 'Get All CFS' })
+    @ApiCreatedResponse({
+        description: 'Get All CFS',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Post('cfs')
+    async getAllCFS(@Body() body: CompanyIdDto) {
+        let output = new ResponseData;
+        try {
+            let customerData = await this.customerService.getAllCFS(body.CompanyMasterSid);
+            this.logger.log(`getAllCFS: ${JSON.stringify(customerData)}`)
+            output.data = customerData;
+            output.message = "All CFS are successfully fetched";
+        } catch (error) {
+            this.logger.warn(`getAllCFS: ${JSON.stringify(error)}`)
+            output.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                output.message = error.message;
+            } else {
+                output.message = 'Internal Server Error';
+            }
+        }
+        return output
+    }
+
     @ApiOperation({ summary: 'Get All Suppliers' })
     @ApiCreatedResponse({
         description: 'Get All Suppliers',
@@ -356,5 +383,31 @@ async searchCustomer(@Body() searchParams: SearchVesselDto) {
         }
         return resp;
       }
+
+      @ApiOperation({ summary: 'Get All CFS' })
+    @ApiCreatedResponse({
+        description: 'Get All CFS',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Post('cfs')
+    async getAllCFS(@Body() body: CompanyIdDto) {
+        let output = new ResponseData;
+        try {
+            let customerData = await this.customerService.getAllCFS(body.CompanyMasterSid);
+            this.logger.log(`getAllCFS: ${JSON.stringify(customerData)}`)
+            output.data = customerData;
+            output.message = "All CFS are successfully fetched";
+        } catch (error) {
+            this.logger.warn(`getAllCFS: ${JSON.stringify(error)}`)
+            output.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                output.message = error.message;
+            } else {
+                output.message = 'Internal Server Error';
+            }
+        }
+        return output
+    }
 
 }

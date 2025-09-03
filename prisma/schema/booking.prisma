@@ -102,6 +102,7 @@ model BookingCargo {
   pkgType          String?       @db.VarChar(50)
   FreightTerms     String?       @db.VarChar(100)
   MovementType     String?       @db.VarChar(100)
+  ModeOfTransport  String?       @db.VarChar(100)
   NoofContainers   Int?
   StuffingAt       String?       @db.VarChar(100)
   bookingHeader    BookingHeader @relation(fields: [BookingHeaderSid], references: [BookingHeaderSid])
@@ -117,11 +118,17 @@ model BookingProduct {
   ShippingBillDate   DateTime?
   ExternaPkg         String?        @db.VarChar(100)
   ExternlQty         String         @db.VarChar(100)
+  ActualQty          String?        @db.VarChar(100)
   InternalPkg        String?        @db.VarChar(100)
   InternalQty        String?        @db.VarChar(100)
   GrossWeight        Decimal        @db.Decimal(10, 3)
+  ActualGrWeight     Decimal?       @db.Decimal(10, 3)
   NetWeight          Decimal?       @db.Decimal(10, 3)
   Volume             Decimal?       @db.Decimal(10, 3)
+  ActualVolume       Decimal?       @db.Decimal(10, 3)
+  RecdPack           String?        @db.VarChar(100)
+  CargoRecDate       DateTime?
+  CFS                String?        @db.VarChar(100)
   createdOn          DateTime       @default(now()) @db.Timestamptz(6)
   updatedOn          DateTime?      @updatedAt @db.Timestamptz(6)
   deletedAt          DateTime?

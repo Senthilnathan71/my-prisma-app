@@ -122,6 +122,32 @@ export class VoyageDetailController {
         return resp;
     }
 
+    @ApiOperation({summary : 'Get All Voyage Detail by Header id'})
+    @ApiCreatedResponse({
+        description : 'Get All Voyage Detail for respective Voyage Header',
+        type : ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Get('fetchByHeader/:VoyageMasterHeaderSid')
+    async getVoyageDetailByHeader(@Param('VoyageMasterHeaderSid',ParseIntPipe) VoyageMasterHeaderSid:number){
+        let response = new ResponseData();
+        try {
+            this.logger.log(`Fetching Voyage Detail for VoyageHeaderSid= ${VoyageMasterHeaderSid}`);
+            const data = await this.voyageDetailService.getVoyageDetailWithHeaderId(VoyageMasterHeaderSid);
+            response.data = data;
+            response.message = "Voyage Details are successfully fetched"
+        } catch (error) {
+            response.status = false;
+            this.logger.warn(`Error Fetching Voyage Detail with respective VoyageHeaderSid ${JSON.stringify(error),error}`)
+            if(error instanceof BadRequestException || error instanceof UnauthorizedException){
+                response.message = error.message;
+            } else {
+                response.message = "Internal Server Error"
+            }
+        }
+        return response;
+    }
+
 
 
     @ApiOperation({ summary: 'Delete Voyage Detail by Id' })

@@ -488,10 +488,10 @@ async getAuditLogs(tableName: string, recordId?: string) {
 
     // Used in Booking Header
     async getAvailableVessels(
-        POO: number | null,     
+        POO: number | null,
         POL: number,
         POD: number,
-        FPOD: number | null,   
+        FPOD: number | null,
         MovementType: 'Air' | 'Sea' | 'Road'
     ) {
         const today = new Date();
@@ -514,9 +514,9 @@ async getAuditLogs(tableName: string, recordId?: string) {
                     },
                 },
                 voyageMasterDetail: {
-                    where: {  status: 'A' },
+                    where: { status: 'A' },
                     orderBy: { ETD: 'asc' },
-                    select: { POLSid: true, ETD: true },
+                    select: { POLSid: true, ETD: true,ETA : true },
                 },
             },
         });
@@ -527,23 +527,21 @@ async getAuditLogs(tableName: string, recordId?: string) {
 
             let startIndex = -1;
             if (POO) {
-                startIndex = details.findIndex(
-                    (d) => d.POLSid === POO
-                );
+                const pooIndex = details.findIndex(d => d.POLSid === POO);
+                if (pooIndex !== -1) {
+                    startIndex = details.findIndex(
+                        (d, idx) => idx >= pooIndex && d.POLSid === POL && new Date(d.ETA) >= today
+                    );
+                }
             }
             if (startIndex === -1) {
                 startIndex = details.findIndex(
-                    (d) => d.POLSid === POL && d.ETD >= today
+                    (d) => d.POLSid === POL && new Date(d.ETD) >= today 
                 );
             }
             if (startIndex === -1) return false;
 
-
-            const polIndex = details.findIndex(
-                (d, idx) => idx >= startIndex && d.POLSid === POL
-            );
-            if (polIndex === -1) return false;
-
+            const polIndex = startIndex;
 
             const hasPOD = details
                 .slice(polIndex + 1)
@@ -578,6 +576,7 @@ async getAuditLogs(tableName: string, recordId?: string) {
         return Array.from(vesselsMap.values());
     }
 
+
     // Used in Booking Header
     async getAvailableVoyagesWithPorts(
         VesselMasterSid: number,
@@ -588,7 +587,7 @@ async getAuditLogs(tableName: string, recordId?: string) {
         FPOD: number | null,
     ) {
         const today = new Date();
-        today.setHours(0, 0, 0, 0);
+        today.setHours(0, 0, 0, 0); // Set to start of today
 
         const headers = await this._db.voyageMasterHeader.findMany({
             where: {
@@ -616,33 +615,36 @@ async getAuditLogs(tableName: string, recordId?: string) {
 
         const matching = headers.filter((header) => {
             const details = header.voyageMasterDetail;
-
             let startIndex = -1;
+
             if (POO) {
-                startIndex = details.findIndex(
-                    (d) => d.POLSid === POO
-                );
+                const pooIndex = details.findIndex(d => d.POLSid === POO);
+                if (pooIndex !== -1) {
+                    startIndex = details.findIndex(
+                        (d, idx) => idx >= pooIndex && d.POLSid === POL && new Date(d.ETA) >= today
+                    );
+                }
             }
+
             if (startIndex === -1) {
                 startIndex = details.findIndex(
-                    (d) => d.POLSid === POL && d.ETD >= today,
+                    (d) => d.POLSid === POL && new Date(d.ETD) >= today
                 );
             }
+
             if (startIndex === -1) return false;
 
-            const polIndex = details.findIndex(
-                (d, idx) => idx >= startIndex && d.POLSid === POL,
-            );
-            if (polIndex === -1) return false;
+            const polIndex = startIndex;
 
             const hasPOD = details
                 .slice(polIndex + 1)
                 .some((d) => d.POLSid === POD);
+
             if (!hasPOD) return false;
 
             if (FPOD) {
                 const podIndex = details.findIndex(
-                    (d, idx) => idx > polIndex && d.POLSid === POD,
+                    (d, idx) => idx > polIndex && d.POLSid === POD
                 );
                 if (podIndex === -1) return false;
 

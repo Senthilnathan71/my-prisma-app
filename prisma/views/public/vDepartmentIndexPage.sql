@@ -1,5 +1,4 @@
 SELECT
-  (row_number() OVER ()) :: integer AS unique_id,
   "CompanyMasterSid",
   "DepartmentMasterSid",
   "departmentName",
