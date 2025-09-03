@@ -2483,3 +2483,18 @@ enum ApprovalStatus {
   Approved
   Rejected
 }
+
+
+model MenuConfig{
+  menuConfigSid Int       @id @default(autoincrement())
+  MenuMasterSid Int
+  ModelName     String   @db.VarChar(50)
+  PrimaryKey    String   @db.VarChar(50)
+  LinkPattern   String   @db.VarChar(100)
+  Status                 String    @default("A") @db.Char(1)
+  CreatedOn              DateTime  @default(now())
+  CreatedBy              String    @db.VarChar(100)
+  UpdatedOn              DateTime?
+  UpdatedBy              String?   @db.VarChar(100)
+  menuMaster MenuMaster @relation(fields: [MenuMasterSid], references: [MenuMasterSid], onDelete: Cascade)
+}
