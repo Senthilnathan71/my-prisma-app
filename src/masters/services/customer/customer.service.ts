@@ -387,22 +387,5 @@ export class CustomerService {
     }
   }
 
-  async getAllCFS(CompanyMasterSid:number){
-        try {
-            const allAgents = await this._db.customerMaster.findMany({
-                where : {
-                    CustomerType: {
-                        path: ['cFS'],
-                        equals: 'isTrue'
-                    },
-                    status : 'A',
-                    CompanyMasterSid: CompanyMasterSid
-                }
-            })
-            return allAgents;
-        } catch (error) {
-            throw error;
-        }
-    }
 
 }
