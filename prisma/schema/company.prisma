@@ -1107,6 +1107,8 @@ model UOMMaster {
   commodityMaster  CommodityMaster[]
   quoteCharge      QuoteCharge[]
   tariffDetail     TariffDetail[]
+  masterJobContainer     MasterJobContainer[]
+
 
   @@index([status])
 }
@@ -2282,6 +2284,8 @@ model MasterJobContainer {
   Volume                Decimal?  @db.Decimal(8, 3)
   IsSoc                 String?   @db.Char(1)
   masterJob             MasterJob @relation(fields: [MasterJobSid], references: [MasterJobSid])
+  UOMMaster          UOMMaster?      @relation(fields: [PkgType], references: [UOMMasterSid])
+
 }
 
 model HouseJob {
