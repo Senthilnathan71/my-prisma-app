@@ -9,10 +9,12 @@ import { MasterJobController } from './controllers/master-job/master-job.control
 import { MasterJobService } from './services/master-job/master-job.service';
 import { CargoreceiptService } from './services/cargoreceipt/cargoreceipt.service';
 import { CargoreceiptController } from './controllers/cargoreceipt/cargoreceipt.controller';
+import { EmailService } from 'src/email/email.service';
 
 @Module({
     providers : [
         Logger,
+        EmailService,
         GlobalConfigService,
         BookingService,
         OperationCommonService,

@@ -76,3 +76,15 @@ export function parseDateFromString(input: string): Date | null {
 
   return isNaN(adjustedDate.getTime()) ? null : adjustedDate;
 }
+
+export function toCamelCase(str: string): string {
+  return str
+    .toLowerCase()
+    .split(/[\s_-]+/) // Split by spaces, underscores, or hyphens
+    .map((word, index) =>
+      index === 0
+        ? word
+        : word.charAt(0).toUpperCase() + word.slice(1)
+    )
+    .join('');
+}

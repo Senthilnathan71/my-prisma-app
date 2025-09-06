@@ -1,6 +1,8 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { GlobalConfigService } from 'src/common/config/master-config.service';
+import { MENU_CONFIG_MAP } from 'src/common/config/menu-config';
+import { toCamelCase } from 'src/common/helper';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
@@ -78,6 +80,23 @@ export class MenuService {
                         createdBy: payload.createdBy,
                     }))
                 });
+
+                const configKey = toCamelCase(payload.MenuName);
+                const menuConfig = MENU_CONFIG_MAP[configKey];
+                const linkPattern = this.buildLinkPattern(menu.path, configKey);
+
+                if (menuConfig) {
+                    await tx.menuConfig.create({
+                        data: {
+                            MenuMasterSid: menu.MenuMasterSid,
+                            ModelName: menuConfig.modelName,
+                            PrimaryKey: menuConfig.primaryKey,
+                            LinkPattern: linkPattern,
+                            CreatedBy: payload.createdBy,
+                        }
+                    });
+                }
+
 
                 return { menu };
             });
@@ -251,6 +270,42 @@ export class MenuService {
                     }
                 }
 
+                // 3. Update menu config
+                const configKey = toCamelCase(updatedMenu.MenuName);
+                const menuConfig = MENU_CONFIG_MAP[configKey];
+                const linkPattern = this.buildLinkPattern(updatedMenu.path, configKey);
+
+                const existingConfig = await tx.menuConfig.findFirst({
+                    where: {
+                        MenuMasterSid: updatedMenu.MenuMasterSid,
+                        ModelName: menuConfig.modelName,
+                        PrimaryKey: menuConfig.primaryKey
+                    }
+                });
+
+                if (existingConfig) {
+                    await tx.menuConfig.update({
+                        where: {
+                            menuConfigSid: existingConfig.menuConfigSid
+                        },
+                        data: {
+                            ModelName : menuConfig.modelName,
+                            PrimaryKey : menuConfig.primaryKey,
+                            LinkPattern: linkPattern
+                        }
+                    });
+                } else {
+                    await tx.menuConfig.create({
+                        data: {
+                            MenuMasterSid: updatedMenu.MenuMasterSid,
+                            ModelName: menuConfig.modelName,
+                            PrimaryKey: menuConfig.primaryKey,
+                            LinkPattern: linkPattern,
+                            CreatedBy: payload.createdBy,
+                        }
+                    });
+                }
+
                 return {
                     updatedMenu,
                     permissions: allPermissions
@@ -262,6 +317,26 @@ export class MenuService {
             throw new Error(`Error updating menu: ${error.message}`);
         }
     }
+
+    buildLinkPattern(path: string | null, configKey: string): string {
+        if (!path || path.trim() === '') {
+            return `/${configKey}/{id}`;
+        }
+
+        if (path.endsWith('/list')) {
+            // Remove '/list' and replace with '/entry/{id}'
+            const basePath = path.slice(0, -5);
+            return `${basePath}/entry/{id}`;
+        } else {
+            // Just append '/{id}' to the path
+            if (path.endsWith('/')) {
+                return `${path}{id}`;
+            } else {
+                return `${path}/{id}`;
+            }
+        }
+    }
+
     getPermissionCode(permsName: string) {
         let code = permsName.replace(/[^a-zA-Z0-9]/g, '_');
         code = code.toLowerCase();
@@ -304,11 +379,20 @@ export class MenuService {
                 data: { status:'D', updatedBy: user?.userName || 'system' }
             });
 
-            return tx.menuMaster.update({
+            await tx.menuMaster.update({
                 where: { MenuMasterSid: id },
                 data: {
                     status:'D',
                     updatedBy: user?.userName || 'system'
+                }
+            });
+
+            await tx.menuConfig.updateMany({
+                where: {
+                    MenuMasterSid: id
+                },
+                data: {
+                    Status:'D',
                 }
             });
         });

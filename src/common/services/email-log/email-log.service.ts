@@ -112,4 +112,70 @@ export class EmailLogService {
         });
     }
 
+    async createNewEmailLog(payload: any, files: Express.Multer.File[], user) {
+        console.log(files);
+        try {
+
+            let emailData: any = {};
+
+            if (payload instanceof FormData) {
+                
+                emailData = {
+                    CompanyMasterSid: parseInt(payload.get('CompanyMasterSid') as string),
+                    BranchMasterSid: parseInt(payload.get('BranchMasterSid') as string),
+                    EmailTo: payload.get('EmailTo') as string,
+                    EmailCC: payload.get('EmailCC') as string,
+                    EmailBCC: payload.get('EmailBCC') as string,
+                    Subject: payload.get('Subject') as string,
+                    Mailbody: payload.get('Mailbody') as string,
+                    CreatedBy: payload.get('CreatedBy') as string,
+                };
+            } else {
+                // Regular object payload
+                emailData = {
+                    CompanyMasterSid: parseInt(payload.CompanyMasterSid),
+                    BranchMasterSid: parseInt(payload.BranchMasterSid),
+                    EmailTo: payload.EmailTo,
+                    EmailCC: payload.EmailCC,
+                    EmailBCC: payload.EmailBCC,
+                    Subject: payload.Subject,
+                    Mailbody: payload.Mailbody,
+                    CreatedBy: payload.CreatedBy,
+                };
+            }
+
+            console.log(emailData);
+
+            const emailLog = await this._db.emailLog.create({
+                data: {
+                    CompanyMasterSid: emailData.CompanyMasterSid,
+                    BranchMasterSid: emailData.BranchMasterSid,
+                    CreatedBy: emailData.CreatedBy,
+                    EmailTo : emailData.EmailTo,
+                    EmailCC : emailData.EmailCC,
+                    Subject : emailData.Subject,
+                    Mailbody : emailData.Mailbody,
+                    Status : 'A'
+                }
+            });
+
+            const emailSent = await this.emailService.sendEmailWithFullContent({
+                email: emailData.EmailTo,
+                cc: emailData.EmailCC,
+                bcc: emailData.EmailBCC,
+                subject: emailData.Subject,
+                html: emailData.Mailbody,
+                attachments: files || []
+            });
+
+            if (!emailSent) {
+                throw new Error('Failed to send email');
+            }
+
+            return emailLog;
+        } catch (error) {
+            throw new Error(`Error creating emailLog: ${error.message}`);
+        }
+    }
+
 }

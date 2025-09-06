@@ -1,12 +1,14 @@
-import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, Post, Query, UnauthorizedException } from "@nestjs/common";
+import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, Post, Query, UnauthorizedException, UploadedFile, UseInterceptors } from "@nestjs/common";
+import { FileInterceptor } from "@nestjs/platform-express";
 import { ApiCreatedResponse, ApiOperation } from "@nestjs/swagger";
 import { ResponseData } from "src/common/response-data";
+import { EmailService } from "src/email/email.service";
 import { SearchVesselDto } from "src/masters/DTO/search-vessel.dto";
 import { BookingService } from "src/operation/services/booking/booking.service";
 
 @Controller('ff-booking')
 export class BookingController {
-    constructor(private bookingService: BookingService, private logger: Logger) { }
+    constructor(private bookingService: BookingService, private logger: Logger,private emailService:EmailService) { }
 
     @ApiOperation({ summary: 'Create Booking' })
     @ApiCreatedResponse({
@@ -513,4 +515,41 @@ export class BookingController {
         }
         return output;
     }
+
+    @ApiOperation({ summary: 'Booking Print' })
+    @ApiCreatedResponse({
+        description: 'Booking Print Sent successfully',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @UseInterceptors(FileInterceptor('file'))
+    @Post('send/email')
+    async bookingPrint(@UploadedFile() file: Express.Multer.File,
+        @Body() body: any) {
+        let output = new ResponseData();
+        try {
+            const reportPayload = {
+                email: body.EmailTo,
+                cc: body.EmailCC,
+                subject: body.Subject,
+                html: body.Mailbody,
+                file, // this is the PDF file from FormData
+            };
+            console.log(reportPayload);
+            let res = await this.emailService.sendReportEmail(reportPayload);
+            this.logger.log(`Booking Print Sent Successfully : ${JSON.stringify(res)}`);
+            output.data = res;
+            output.message = "Booking Print Sent successfully";
+        } catch (error) {
+            this.logger.warn(`Booking Print Error : ${error}`)
+            output.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                output.message = error.message;
+            } else {
+                output.message = "Internal Server Error";
+            }
+        }
+        return output;
+    }
+
 }

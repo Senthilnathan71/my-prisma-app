@@ -182,75 +182,49 @@ export class AuthorityService {
                     },
                 });
 
-                const existingDetails = await tx.authorityDetail.findMany({
-                    where: {
-                        AuthorityMasterSid,
-                        status : 'A',
-                    },
-                });
-
-                const detailsToDelete = existingDetails.filter(
-                    ed => !authDetails.some(ad => ad.UserMasterSid === ed.UserMasterSid && ad.AuthorityLevel === ed.AuthorityLevel),
-                );
-
-                
-                if (detailsToDelete.length) {
-                    await tx.authorityDetail.updateMany({
-                        where: {
-                            AuthorityDetailSid: {
-                                in: detailsToDelete.map(d => d.AuthorityDetailSid),
+                const allAuthDetails : any[] = payload.authDetails || [];
+                let finalDetails : any[] = [];
+                for (const authDetail of allAuthDetails) {
+                    let existingDetails;
+                    let newlyCreatedDetail;
+                    if (authDetail.AuthorityDetailSid) {
+                        existingDetails = await tx.authorityDetail.update({
+                            where: {
+                                AuthorityDetailSid: authDetail.AuthorityDetailSid
                             },
-                        },
-                        data: {
-                            status : 'A',
-                            updatedBy: updatedBy,
-                        },
-                    });
+                            data: {
+                                UserMasterSid: parseInt(authDetail.UserMasterSid),
+                                AuthorityLevel: parseInt(authDetail.AuthorityLevel),
+                                FinalAuthority: authDetail.FinalAuthority,
+                                status: authDetail.status || 'A',
+                                Remarks: authDetail.Remarks || '',
+                                updatedBy: updatedBy,
+                                updatedOn: new Date(),
+                            },
+                        });
+                    } else {
+                        newlyCreatedDetail = await tx.authorityDetail.create({
+                            data: {
+                                AuthorityMasterSid,
+                                CompanyMasterSid: authority.CompanyMasterSid,
+                                BranchMasterSid: authority.BranchMasterSid,
+                                UserMasterSid: parseInt(authDetail.UserMasterSid),
+                                AuthorityLevel: parseInt(authDetail.AuthorityLevel),
+                                FinalAuthority: authDetail.FinalAuthority,
+                                status: authDetail.status || 'A',
+                                Remarks: authDetail.Remarks || '',
+                                createdBy: updatedBy || '',
+                                updatedBy: updatedBy || '',
+                            },
+                        });
+                    }
+                    finalDetails.push(existingDetails || newlyCreatedDetail);
                 }
 
-                
-                const updatedDetails = await Promise.all(
-                    authDetails.map(async detail => {
-                        const existingDetail = existingDetails.find(
-                            ed => ed.UserMasterSid === parseInt(detail.UserMasterSid) && ed.AuthorityLevel === parseInt(detail.AuthorityLevel),
-                        );
-                        if (existingDetail) {
-                           
-                            return await tx.authorityDetail.update({
-                                where: { AuthorityDetailSid: existingDetail.AuthorityDetailSid },
-                                data: {
-                                    UserMasterSid: parseInt(detail.UserMasterSid),
-                                    AuthorityLevel: parseInt(detail.AuthorityLevel),
-                                    FinalAuthority: detail.FinalAuthority,
-                                    status: detail.status || 'A',
-                                    Remarks: detail.Remarks || '',
-                                    updatedBy: updatedBy,
-                                    updatedOn: new Date(),
-                                },
-                            });
-                        } else {
-                            
-                            return await tx.authorityDetail.create({
-                                data: {
-                                    AuthorityMasterSid,
-                                    CompanyMasterSid: authority.CompanyMasterSid,
-                                    BranchMasterSid: authority.BranchMasterSid,
-                                    UserMasterSid: parseInt(detail.UserMasterSid),
-                                    AuthorityLevel: parseInt(detail.AuthorityLevel),
-                                    FinalAuthority: detail.FinalAuthority,
-                                    status: detail.status || 'A',
-                                    Remarks: detail.Remarks || '',
-                                    createdBy: updatedBy || '',
-                                    updatedBy: updatedBy || '',
-                                },
-                            });
-                        }
-                    }),
-                );
 
                 return {
                     authority,
-                    authorityDetails: updatedDetails,
+                    authorityDetails: finalDetails,
                 };
             });
 
@@ -399,158 +373,177 @@ export class AuthorityService {
     }
 
     async searchDocAuthorization(param: SearchVesselDto, UserMasterSid: number) {
-    const { search = "", page = 1, pageSize = 15 } = param;
-    const skip = (page - 1) * pageSize;
-    const parsedDate = parseDateFromString(search);
+        const { search = "", page = 1, pageSize = 15 ,activeCompanyId , activeBranchId} = param;
+        const skip = (page - 1) * pageSize;
+        const parsedDate = parseDateFromString(search);
 
-    const authorityDetails = await this._db.authorityDetail.findMany({
-        where: { UserMasterSid,  status: 'A' },
-        select: {
-            AuthorityDetailSid: true,
-            authorityMaster: {
-                where: { status: 'A' },
-                include: {
-                    menuMaster: { select: { MenuMasterSid: true, MenuName: true } }
+        const authorityDetails = await this._db.authorityDetail.findMany({
+            where: { 
+                CompanyMasterSid : activeCompanyId , 
+                BranchMasterSid : activeBranchId , 
+                UserMasterSid, 
+                status: 'A' },
+            select: {
+                AuthorityDetailSid: true,
+                authorityMaster: {
+                    where: { 
+                        status: 'A' , 
+                        CompanyMasterSid : activeCompanyId , 
+                        BranchMasterSid : activeBranchId 
+                    },
+                    include: {
+                        menuMaster: { 
+                            select: { 
+                                MenuMasterSid: true, 
+                                MenuName: true,
+                                menuConfig : {
+                                    select : {
+                                        ModelName : true,
+                                        PrimaryKey : true,
+                                        LinkPattern : true
+                                    }
+                                }
+                            } 
+                        }
+                    }
                 }
             }
-        }
-    });
-
-    const menuSidToName = new Map<number, string>();
-    const authorityDetailMap = new Map<number, number>();
-
-    authorityDetails.forEach(({ AuthorityDetailSid, authorityMaster }) => {
-        const menu = authorityMaster?.menuMaster;
-        if (menu) {
-            menuSidToName.set(menu.MenuMasterSid, menu.MenuName);
-            authorityDetailMap.set(menu.MenuMasterSid, AuthorityDetailSid);
-        }
-    });
-
-    const modelsForMenu: Record<number, { model: string; primaryKey: string; whereClause: any }> = {
-        81: {
-            model: 'quoteHeader',
-            primaryKey: 'QuoteHeaderSid',
-            whereClause: {
-                authorizerStatus: "Pending",
-                ...(search && !parsedDate
-                    ? {
-                        OR: [
-                            { QuoteNumber: { contains: search, mode: 'insensitive' } },
-                            { CustomerName: { contains: search, mode: 'insensitive' } }
-                        ]
-                    }
-                    : {}),
-                ...(parsedDate ? { QuoteDate: { equals: parsedDate } } : {})
-            }
-        },
-        82: {
-            model: 'enquiryHeader',
-            primaryKey: 'EnquiryHeaderSid',
-            whereClause: {
-                authorizerStatus: "Pending",
-                ...(search && !parsedDate
-                    ? {
-                        OR: [
-                            { EnquiryNumber: { contains: search, mode: 'insensitive' } },
-                            { CustomerName: { contains: search, mode: 'insensitive' } }
-                        ]
-                    }
-                    : {}),
-                ...(parsedDate ? { EnquiryDate: { equals: parsedDate } } : {})
-            }
-        }
-    };
-
-    const allPendingResults: any[] = [];
-
-    for (const [menuSid, authorityDetailSid] of authorityDetailMap.entries()) {
-        const config = modelsForMenu[menuSid];
-        if (!config) continue;
-
-        const { model, primaryKey, whereClause } = config;
-        const prismaModel = (this._db as any)[model];
-        if (!prismaModel) continue;
-
-        const data = await prismaModel.findMany({ where: whereClause });
-        console.log(model);
-        console.log(whereClause);
-        console.log(data);
-        const docSids = data.map((d: any) => d[primaryKey]);
-        if (docSids.length === 0) continue;
-
-        const authorizedDocs = await this._db.authorityLog.findMany({
-            where: {
-                AuthorityDetailSid: authorityDetailSid,
-                DocumentSid: { in: docSids }
-            },
-            select: { DocumentSid: true }
         });
-        const authorizedSidSet = new Set(authorizedDocs.map(d => d.DocumentSid));
 
-        const pendingData = data.filter((d: any) => !authorizedSidSet.has(d[primaryKey]));
+        const menuSidToName = new Map<number, string>();
+        const authorityDetailMap = new Map<number, number>();
 
-        const menuName = menuSidToName.get(menuSid) || "Unknown";
+        authorityDetails.forEach(({ AuthorityDetailSid, authorityMaster }) => {
+            const menu = authorityMaster?.menuMaster;
+            if (menu) {
+                menuSidToName.set(menu.MenuMasterSid, menu.MenuName);
+                authorityDetailMap.set(menu.MenuMasterSid, AuthorityDetailSid);
+            }
+        });
 
-        pendingData.forEach((item: any) => {
-            let authorizeLink = '';
-            if (menuSid === 81 && item.QuoteHeaderSid) {
-                authorizeLink = `/crm/quotation/entry/${item.QuoteHeaderSid}`;
-            } else if (menuSid === 82 && item.EnquiryHeaderSid) {
-                authorizeLink = `/crm/enquiry/${item.EnquiryHeaderSid}`;
+
+        const allPendingResults: any[] = [];
+
+        for (const [menuSid, authorityDetailSid] of authorityDetailMap.entries()) {
+
+            const menuData = authorityDetails.find(ad =>
+                ad.authorityMaster?.menuMaster?.MenuMasterSid === menuSid
+            )?.authorityMaster?.menuMaster;
+
+            if (!menuData?.menuConfig) continue;
+            const config = menuData.menuConfig[0];
+            const model = config?.ModelName!;
+            const primaryKey = config?.PrimaryKey!;
+
+
+            const prismaModel = (this._db as any)[model];
+            if (!prismaModel) continue;
+
+            // Build where clause dynamically
+            const whereClause: any = { authorizerStatus: "Pending" , status : 'A' };
+
+            if (search) {
+                whereClause.OR = [
+                    { CustomerName: { contains: search, mode: 'insensitive' } }
+                ];
+
+                if (model === 'quoteHeader') {
+                    whereClause.OR.push({ 
+                        QuoteNumber: { contains: search, mode: 'insensitive' } 
+                    });
+                } else if (model === 'enquiryHeader') {
+                    whereClause.OR.push({ 
+                        EnquiryNumber: { contains: search, mode: 'insensitive' } 
+                    });
+                }
             }
 
-            allPendingResults.push({
-                DocumentName: menuName,
-                DocumentNo: item.EnquiryNumber || item.QuoteNumber || '',
-                CreatedBy: item.CustomerName || '',
-                CreatedOn: item.EnquiryDate || item.QuoteDate || null,
-                AuthorizeStatus: 'Waiting for approval',
-                authorizeLink,
-                menuSid
+            if (parsedDate) {
+                if (model === 'quoteHeader') {
+                    whereClause.QuoteDate = { equals: parsedDate };
+                } else if (model === 'enquiryHeader') {
+                    whereClause.EnquiryDate = { equals: parsedDate };
+                }
+            }
+
+            const data = await prismaModel.findMany({ where: whereClause });
+            const docSids = data.map((d: any) => d[primaryKey]);
+            if (docSids.length === 0) continue;
+
+            const authorizedDocs = await this._db.authorityLog.findMany({
+                where: {
+                    AuthorityDetailSid: authorityDetailSid, 
+                    // checking with DetailSid also confirms user
+                    DocumentSid: { in: docSids }
+                },
+                select: { DocumentSid: true }
             });
+            const authorizedSidSet = new Set(authorizedDocs.map(d => d.DocumentSid));
+
+            const pendingData = data.filter((d: any) => !authorizedSidSet.has(d[primaryKey]));
+
+            const menuName = menuSidToName.get(menuSid) || "Unknown";
+
+            pendingData.forEach((item: any) => {
+                const authorizeLink = config.LinkPattern
+                    ? config.LinkPattern.replace('{id}', item[primaryKey])
+                    : `${menuName.toLowerCase()}/entry/${item[primaryKey]}`;
+
+                allPendingResults.push({
+                    DocumentName: menuName,
+                    DocumentNo: item.EnquiryNumber || item.QuoteNumber || '',
+                    CreatedBy: item.CustomerName || '',
+                    CreatedOn: item.EnquiryDate || item.QuoteDate || null,
+                    AuthorizeStatus: 'Waiting for approval',
+                    authorizeLink,
+                    menuSid
+                });
+            });
+        }
+
+
+        const filteredResults = search
+            ? allPendingResults.filter(item => {
+                const searchLower = search.toLowerCase();
+                const matchDate = parsedDate && item.CreatedOn
+                    ? new Date(item.CreatedOn).toDateString() === parsedDate.toDateString()
+                    : false;
+
+                return (
+                    matchDate ||
+                    item.DocumentName.toLowerCase().includes(searchLower) ||
+                    item.DocumentNo.toLowerCase().includes(searchLower) ||
+                    item.CreatedBy.toLowerCase().includes(searchLower) ||
+                    item.AuthorizeStatus.toLowerCase().includes(searchLower)
+                );
+            })
+            : allPendingResults;
+
+        const sortedResults = filteredResults.sort((a, b) => {
+            const dateA = a.CreatedOn ? new Date(a.CreatedOn).getTime() : 0;
+            const dateB = b.CreatedOn ? new Date(b.CreatedOn).getTime() : 0;
+            return dateB - dateA;
         });
+
+        const totalCount = sortedResults.length;
+        const paginatedResults = sortedResults.slice(skip, skip + pageSize);
+
+        return { items: paginatedResults, totalCount };
     }
 
 
-    const filteredResults = search
-        ? allPendingResults.filter(item => {
-            const searchLower = search.toLowerCase();
-            const matchDate = parsedDate && item.CreatedOn
-                ? new Date(item.CreatedOn).toDateString() === parsedDate.toDateString()
-                : false;
-
-            return (
-                matchDate ||
-                item.DocumentName.toLowerCase().includes(searchLower) ||
-                item.DocumentNo.toLowerCase().includes(searchLower) ||
-                item.CreatedBy.toLowerCase().includes(searchLower) ||
-                item.AuthorizeStatus.toLowerCase().includes(searchLower)
-            );
-        })
-        : allPendingResults;
-
-    const sortedResults = filteredResults.sort((a, b) => {
-        const dateA = a.CreatedOn ? new Date(a.CreatedOn).getTime() : 0;
-        const dateB = b.CreatedOn ? new Date(b.CreatedOn).getTime() : 0;
-        return dateB - dateA;
-    });
-
-    const totalCount = sortedResults.length;
-    const paginatedResults = sortedResults.slice(skip, skip + pageSize);
-
-    return { items: paginatedResults, totalCount };
-}
-
-
-    async isUserAuthorizer(UserMasterSid: number, MenuMasterSid: number, DocumentSid: number) {
+    async isUserAuthorizer(payload:any) {
         const authorizer = await this._db.authorityDetail.findFirst({
             where: {
-                UserMasterSid,
+                UserMasterSid : payload.UserMasterSid,
+                CompanyMasterSid : payload.CompanyMasterSid,
+                BranchMasterSid : payload.BranchMasterSid,
                 status: 'A',
                 authorityMaster: {
                     status: 'A',
-                    MenuMaster: MenuMasterSid
+                    MenuMaster: payload.MenuMasterSid,
+                    CompanyMasterSid : payload.CompanyMasterSid,
+                    BranchMasterSid : payload.BranchMasterSid
                 }
             },
             select: {
@@ -566,7 +559,7 @@ export class AuthorityService {
         const alreadyAuthorized = await this._db.authorityLog.findFirst({
             where: {
                 AuthorityDetailSid: authorizer.AuthorityDetailSid,
-                DocumentSid,
+                DocumentSid :payload.DocumentSid,
                 Status: 'A'
             },
             select: {
@@ -586,8 +579,12 @@ export class AuthorityService {
         // 1. Fetch authority users for the given menu
         const authorityUsers = await this._db.authorityDetail.findMany({
             where: {
+                CompanyMasterSid : 7,
+                BranchMasterSid : 50,
                 status : 'A',
                 authorityMaster: {
+                    CompanyMasterSid: 7,
+                    BranchMasterSid: 50,
                     MenuMaster: menuMasterSid,
                     status: 'A',
                 },
@@ -644,26 +641,70 @@ export class AuthorityService {
         );
 
         // 5. Build full approval log
-        const approvalLog = authorityUsers.map(detail => {
+        const approvalLog = authorityUsers.map((detail, index) => {
             const userName = detail.userMaster?.userName || 'N/A';
             const log = logMap.get(userName);
 
+
+            let baseItem;
             if (log) {
-                return {
+                baseItem = {
                     approvedBy: userName,
                     approvalStatus: log.ApprovalStatus,
                     approvalDate: log.AuthorisedDate,
                     Remarks: log.Remarks,
                 };
             } else {
-                return {
+                baseItem = {
                     approvedBy: userName,
                     approvalStatus: 'Pending',
                     approvalDate: null,
                     Remarks: null,
                 };
             }
+
+            return baseItem;
         });
+
+
+        for (let i = 0; i < approvalLog.length; i++) {
+            if (approvalLog[i].approvalStatus === 'Rejected') {
+
+                for (let j = i + 1; j < approvalLog.length; j++) {
+                    approvalLog[j] = {
+                        ...approvalLog[j],
+                        approvalStatus: 'Rejected',
+                        approvalDate: null,
+                        Remarks: null,
+                    };
+                }
+                break;
+            }
+        }
+
+
+        const finalAuthorizerIndex = authorityUsers.findIndex(detail =>
+            detail.FinalAuthority === 'Y'
+        );
+
+        if (finalAuthorizerIndex !== -1) {
+            const finalAuthorizerStatus = approvalLog[finalAuthorizerIndex].approvalStatus;
+
+            if (finalAuthorizerStatus === 'Approved' || finalAuthorizerStatus === 'Rejected') {
+                for (let i = 0; i < finalAuthorizerIndex; i++) {
+                    if (approvalLog[i].approvalStatus === 'Pending') {
+                        approvalLog[i] = {
+                            ...approvalLog[i],
+                            approvalStatus: finalAuthorizerStatus,
+                            approvalDate: approvalLog[finalAuthorizerIndex].approvalDate,
+                            Remarks: 'Skipped - Final Authorizer directly approved',
+                        };
+                    }
+                }
+            }
+        }
+
+
 
         // 6. Determine overall status
         const status = finalAuthorityApproved ? 'Approved' : 'Pending';
