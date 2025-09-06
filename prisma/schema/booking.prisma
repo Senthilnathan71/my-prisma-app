@@ -45,6 +45,7 @@ model BookingHeader {
   createdBy           String              @db.VarChar(100)
   updatedBy           String?             @db.VarChar(100)
   status              String?             @default("A") @db.Char(1)
+  BookingStatus       String?             @db.VarChar(100)
   DepartmentMasterSid Int
   CustomerBranchSid   Int?
   AuthorizerRemarks   String?             @db.VarChar(100)
