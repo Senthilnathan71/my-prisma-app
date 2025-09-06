@@ -2134,6 +2134,8 @@ model ContainerActivity {
   UpdatedBy            String?                 @db.VarChar(100)
   deletedAt            Int?
   Status               String?                 @default("A") @db.Char(1)
+
+  masterJob          MasterJob           @relation(fields: [JobMasterSid], references: [MasterJobSid])
   activityMaster       ContainerActivityMaster @relation(fields: [ActivityCode], references: [ActivityCode])
 }
 
@@ -2214,6 +2216,7 @@ model MasterJob {
   containers              MasterJobContainer[]
   others                  MasterJobOthers[]
   voyages                 MasterJobVoyage[]
+  ContainerActivity ContainerActivity[]
 }
 
 model MasterJobVoyage {
