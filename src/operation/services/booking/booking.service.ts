@@ -245,7 +245,7 @@ export class BookingService {
                         ETD: connection.ETD ? new Date(connection.ETD) : null,
                         ETA: connection.ETA ? new Date(connection.ETA) : null,
                         createdBy: payload.createdBy,
-                        status: 'A'
+                        status: String(connection.status).charAt(0) || 'A'
                     }
                     return connectionData;
                 }) || [];
@@ -706,7 +706,7 @@ export class BookingService {
                     let updatedConnection;
                     let createdConnection;
 
-                    if (!connection.BookingConnectionSid) {
+                    if (!connection.TransactionSid) {
                         createdConnection = await prisma.bookingConnection.create({
                             data: {
                                 BookingHeaderSid: updatedBooking.BookingHeaderSid,
@@ -718,13 +718,13 @@ export class BookingService {
                                 ETD: connection.ETD,
                                 ETA: connection.ETA,
                                 createdBy: payload.updatedBy,
-                                status: 'A'
+                                status: String(connection.status).charAt(0) || 'A'
                             }
                         })
 
                     } else {
                         updatedConnection = await prisma.bookingConnection.update({
-                            where: { BookingConnectionSid: connection.BookingConnectionSid },
+                            where: { BookingConnectionSid: connection.TransactionSid },
                             data: {
                                 BookingHeaderSid: updatedBooking.BookingHeaderSid,
                                 Mode : connection.Mode,
@@ -735,7 +735,7 @@ export class BookingService {
                                 ETD: connection.ETD,
                                 ETA: connection.ETA,
                                 updatedBy: payload.updatedBy,
-                                status: connection.status === "Active" ? "A" : "S" 
+                                status: String(connection.status).charAt(0) || 'A' 
                             }
                         })
                     }

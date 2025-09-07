@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, Post, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, Post, Query, UnauthorizedException } from '@nestjs/common';
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
 import { ResponseData } from 'src/common/response-data';
 import { MasterJobService } from 'src/operation/services/master-job/master-job.service';
@@ -20,6 +20,7 @@ export class MasterJobController {
             this.logger.log(`Creating Master Job : ${JSON.stringify(payload)}`);
             const result = await this.masterJobService.createNewMasterJob(payload);
             this.logger.debug(`Created Master Job : ${JSON.stringify(result)}`);
+            resp.data = result;
             resp.message = 'Master Job Created Successfully';
         } catch (error) {
             resp.status = false;
@@ -100,6 +101,7 @@ export class MasterJobController {
             this.logger.log(`Updating Master Job : ${JSON.stringify(payload)}`);
             const result = await this.masterJobService.updateMasterJob(payload);
             this.logger.debug(`Updated Master Job : ${JSON.stringify(result)}`);
+            resp.data = result;
             resp.message = 'Master Job Updated Successfully';
         } catch (error) {
             resp.status = false;
@@ -244,4 +246,36 @@ export class MasterJobController {
         }
         return resp;
     }
+
+    @ApiOperation({ summary: 'Get Audit Logs for a Table/Record' })
+          @ApiCreatedResponse({ description: 'Fetch audit logs', type: ResponseData })
+          @HttpCode(HttpStatus.OK)
+          @Get('audit-logs')
+          async getAuditLogs(
+            @Query('tableName') tableName: string,
+            @Query('recordId') recordId?: string,
+          ) {
+            const resp = new ResponseData();
+            try {
+              if (!tableName) throw new Error('tableName query parameter is required');
+        
+              const logs = await this.masterJobService.getAuditLogs(tableName, recordId);
+        
+              // Remove updatedOn from oldVal and newVal
+              resp.data = logs.map((log: any) => {
+                const oldVal = log.oldVal ? { ...log.oldVal } : null;
+                const newVal = log.newVal ? { ...log.newVal } : null;
+                if (oldVal && 'updatedOn' in oldVal) delete oldVal.updatedOn;
+                if (newVal && 'updatedOn' in newVal) delete newVal.updatedOn;
+                return { ...log, oldVal, newVal };
+              });
+        
+              resp.message = 'Audit logs fetched successfully';
+            } catch (error) {
+              this.logger.warn(`getAuditLogsError: ${error}`);
+              resp.status = false;
+              resp.message = error.message || 'Internal Server Error';
+            }
+            return resp;
+          }
 }
