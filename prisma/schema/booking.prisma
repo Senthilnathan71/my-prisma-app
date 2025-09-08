@@ -45,6 +45,7 @@ model BookingHeader {
   createdBy           String              @db.VarChar(100)
   updatedBy           String?             @db.VarChar(100)
   status              String?             @default("A") @db.Char(1)
+  BookingStatus       String?             @db.VarChar(100)
   DepartmentMasterSid Int
   CustomerBranchSid   Int?
   AuthorizerRemarks   String?             @db.VarChar(100)
@@ -171,6 +172,8 @@ model BookingConnection {
 model BookingOthers {
   BookingOthersSid    Int            @id @default(autoincrement()) @map("BookingOthersSid")
   CustomerRefNo       String         @db.VarChar(20)
+  CarrierBookingRef   String?        @db.VarChar(20)
+  CarrierBookingDate  DateTime?
   OperationUser       String?        @db.VarChar(100)
   DocumentationUser   String?        @db.VarChar(100)
   CustomerServiceuser String?        @db.VarChar(100)

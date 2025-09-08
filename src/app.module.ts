@@ -12,6 +12,7 @@ import { ShortcutModule } from './shortcut/shortcut.module';
 import { CommonModule } from './common/common.module';
 import { AccountsModule } from './accounts/accounts.module';
 import { OperationModule } from './operation/operation.module';
+import { ScheduleModule } from '@nestjs/schedule';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { OperationModule } from './operation/operation.module';
     CommonModule,
     AccountsModule,
     OperationModule,
+    ScheduleModule.forRoot(),
   ],
   controllers: [AppController],
   providers: [AppService, Logger],

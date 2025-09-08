@@ -51,7 +51,24 @@ export class UomService {
             throw new Error(`creation failed: ${error.message}`);
         }
     }
-
+async getPackageTypeUOM(){
+    try {
+        const allPackageTypeUOM = await this._db.uOMMaster.findMany({
+            where : {
+                UOMType : 'P',
+                status : 'A'
+            },
+            select : {
+                UOMMasterSid : true,
+                UOMName : true,
+                UOMCode : true
+            }
+        })
+        return allPackageTypeUOM;
+    } catch (error) {
+        throw error;
+    }
+  }
 
 
     async getAllUom() {

@@ -1,6 +1,7 @@
-import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, Post, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, Post, UnauthorizedException, UploadedFiles } from '@nestjs/common';
 import { ApiOperation, ApiCreatedResponse } from '@nestjs/swagger';
 import { Auth } from 'src/common/decorators/auth.decorator';
+import { FilesUploadInterceptor } from 'src/common/decorators/file-upload.decorator';
 import { UserData } from 'src/common/decorators/user.decorator';
 import { ResponseData } from 'src/common/response-data';
 import { EmailLogService } from 'src/common/services/email-log/email-log.service';
@@ -144,4 +145,46 @@ export class emailLogController {
     async softDelete(@Param('id', ParseIntPipe) id: number) {
         return this.emailLogService.softDelete(id);
     }
+
+
+    @ApiOperation({ summary: 'emailLog Creation' })
+    @ApiCreatedResponse({
+        description: 'emailLog Creation',
+        type: ResponseData
+    })
+    @FilesUploadInterceptor('attachments', 'UPLOAD_DOC_PATH') 
+    @HttpCode(HttpStatus.CREATED)
+    @Post('createWithAttachment')
+    async newCreateEmailLog(
+        @Body() body: any,
+        @UploadedFiles() files: Express.Multer.File[], 
+        @UserData() user: any
+    ) {
+        this.logger.log(`createemailLogdata: ${JSON.stringify(body)}`);
+        this.logger.log(`uploaded files count: ${files?.length || 0}`);
+
+        let output = new ResponseData();
+        try {
+            let emailLog = await this.emailLogService.createNewEmailLog(body, files, user);
+            this.logger.debug(`createemailLog: ${JSON.stringify(emailLog)}`);
+            if (!emailLog) {
+                this.logger.warn(`createemailLog!!: ${JSON.stringify(emailLog)}`);
+                throw 'Something went wrong';
+            }
+            output.data = emailLog;
+            output.message = 'emailLog Created Successfully';
+        } catch (error) {
+            this.logger.warn(`createemailLogError: ${error}`);
+            output.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                output.message = error.message;
+                this.logger.warn(`createemailLogError: ${error.message}`);
+            } else {
+                this.logger.warn(`createemailLogError: ${error}`);
+                output.message = error.message;
+            }
+        }
+        return output;
+    }
+
 }

@@ -207,17 +207,13 @@ export class AuthorityController {
         type: ResponseData
     })
     @HttpCode(HttpStatus.OK)
-    @Get('check-authorizer/:MenuMasterSid/:DocumentSid/:UserMasterSid')
-    async isUserAuthorizer(
-        @Param('UserMasterSid', ParseIntPipe) UserMasterSid: number,
-        @Param('MenuMasterSid', ParseIntPipe) MenuMasterSid: number,
-        @Param('DocumentSid', ParseIntPipe) DocumentSid: number
-    ) {
+    @Post('check-authorizer')
+    async isUserAuthorizer(@Body() payload:any) {
         const resp = new ResponseData();
         try {
-            const result = await this.authorityService.isUserAuthorizer(UserMasterSid, MenuMasterSid,DocumentSid);
+            const result = await this.authorityService.isUserAuthorizer(payload);
 
-            this.logger.log(`Authorizer Check Result for DocumentSid=${DocumentSid}, MenuMasterSid=${MenuMasterSid},UserMasterSid=${UserMasterSid} => ${result.canAuthorize}`);
+            this.logger.log(`Authorizer Check Result for DocumentSid = ${JSON.stringify(payload)}`);
 
             resp.data = result;
             resp.message = result.message

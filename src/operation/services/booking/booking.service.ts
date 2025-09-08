@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
@@ -218,7 +218,9 @@ export class BookingService {
                     AgentAddress: otherPayload?.AgentAddress || '',
                     SwitchBLShipper: otherPayload?.SwitchBLShipper || '',
                     SwitchBLConsignee: otherPayload?.SwitchBLConsignee || '',
-                    SwitchLocation: otherPayload?.SwitchLocation || ''
+                    SwitchLocation: otherPayload?.SwitchLocation || '',
+                    CarrierBookingRef: otherPayload?.CarrierBookingRef || '',
+                    CarrierBookingDate: otherPayload?.CarrierBookingDate || null,
                 }
 
                 let createdOthers = await prisma.bookingOthers.create({
@@ -243,7 +245,7 @@ export class BookingService {
                         ETD: connection.ETD ? new Date(connection.ETD) : null,
                         ETA: connection.ETA ? new Date(connection.ETA) : null,
                         createdBy: payload.createdBy,
-                        status: 'A'
+                        status: String(connection.status).charAt(0) || 'A'
                     }
                     return connectionData;
                 }) || [];
@@ -312,6 +314,7 @@ export class BookingService {
                         CreatedBy: payload.createdBy,
                         Status: 'A',
                         MilestoneMasterSid: milestone.MilestoneMasterSid,
+                        Remarks : milestone.Remarks,
                         MilestoneName: milestone.MilestoneName,
                         MilestoneDate: milestone.MilestoneDate,
                         AutoCaptured: milestone.AutoCaptured ? 'Y' : 'N'
@@ -362,6 +365,8 @@ export class BookingService {
                     BookingHeaderSid: BookingHeaderSid
                 },
                 include: {
+                    departmentMaster : {select : {departmentName : true}},
+                    quotationHeader : {select : {QuoteNumber : true}},
                     bookingCargo: { where: { status:'A' } },
                     bookingProduct: { where: { status:'A' } },
                     bookingOthers: { where: { status:'A' } },
@@ -379,9 +384,47 @@ export class BookingService {
                 ShipmentNo : ourBooking.ShipmentNo!
             }
             const respectiveCostRevenueCharges = await this.commonService.getAllCostRevenueCharges(costRevenuePayload);
+
+            let voyageDetails;
+            if (ourBooking.VoyageMasterSid) {
+                const data = await this._db.voyageMasterHeader.findUnique({
+                    where: {
+                        VoyageMasterHeaderSid: ourBooking.VoyageMasterSid
+                    },
+                    include : {
+                        voyageMasterDetail : {
+                            where : {
+                                status : 'A'
+                            },
+                            select : {
+                                ETA : true,
+                                ETD : true,
+                                PortCutoff : true,
+                                portMasterPOL : {
+                                    select : {
+                                        PortCode : true
+                                    }
+                                }
+                            },
+                        }
+                    }
+                })
+                const POL = data?.voyageMasterDetail.find(vd => vd.portMasterPOL?.PortCode === ourBooking.POL);
+                const POD = data?.voyageMasterDetail.find(vd => vd.portMasterPOL?.PortCode === ourBooking.POD);
+                voyageDetails = {
+                    POLETA : POL?.ETA,
+                    POLETD : POL?.ETD,
+                    PODETA : POD?.ETA,
+                    PODETD : POD?.ETD,
+                    POLCutOffDate : POL?.PortCutoff,
+                    PODCutOffDate : POD?.PortCutoff
+                }
+            }
+
             return {
                 ...ourBooking,
-                bookingRates : respectiveCostRevenueCharges
+                bookingRates : respectiveCostRevenueCharges,
+                voyageDetails
             }
         } catch (error) {
             throw error;
@@ -605,7 +648,9 @@ export class BookingService {
                             AgentAddress: otherPayload?.AgentAddress || '',
                             SwitchBLShipper: otherPayload?.SwitchBLShipper || '',
                             SwitchBLConsignee: otherPayload?.SwitchBLConsignee || '',
-                            SwitchLocation: otherPayload?.SwitchLocation || ''
+                            SwitchLocation: otherPayload?.SwitchLocation || '',
+                            CarrierBookingRef: otherPayload?.CarrierBookingRef || '',
+                            CarrierBookingDate: otherPayload?.CarrierBookingDate || null,
                         }
                     })
 
@@ -643,7 +688,9 @@ export class BookingService {
                             AgentAddress: otherPayload?.AgentAddress || '',
                             SwitchBLShipper: otherPayload?.SwitchBLShipper || '',
                             SwitchBLConsignee: otherPayload?.SwitchBLConsignee || '',
-                            SwitchLocation: otherPayload?.SwitchLocation || ''
+                            SwitchLocation: otherPayload?.SwitchLocation || '',
+                            CarrierBookingRef: otherPayload?.CarrierBookingRef || '',
+                            CarrierBookingDate: otherPayload?.CarrierBookingDate || null,
                         }
                     })
                 }
@@ -659,7 +706,7 @@ export class BookingService {
                     let updatedConnection;
                     let createdConnection;
 
-                    if (!connection.BookingConnectionSid) {
+                    if (!connection.TransactionSid) {
                         createdConnection = await prisma.bookingConnection.create({
                             data: {
                                 BookingHeaderSid: updatedBooking.BookingHeaderSid,
@@ -671,13 +718,13 @@ export class BookingService {
                                 ETD: connection.ETD,
                                 ETA: connection.ETA,
                                 createdBy: payload.updatedBy,
-                                status: 'A'
+                                status: String(connection.status).charAt(0) || 'A'
                             }
                         })
 
                     } else {
                         updatedConnection = await prisma.bookingConnection.update({
-                            where: { BookingConnectionSid: connection.BookingConnectionSid },
+                            where: { BookingConnectionSid: connection.TransactionSid },
                             data: {
                                 BookingHeaderSid: updatedBooking.BookingHeaderSid,
                                 Mode : connection.Mode,
@@ -688,7 +735,7 @@ export class BookingService {
                                 ETD: connection.ETD,
                                 ETA: connection.ETA,
                                 updatedBy: payload.updatedBy,
-                                status: connection.status === "Active" ? "A" : "S" 
+                                status: String(connection.status).charAt(0) || 'A' 
                             }
                         })
                     }
@@ -761,7 +808,7 @@ export class BookingService {
                                 CustomerBranchSid: updatedBooking.CustomerBranchSid,
                                 VoucherHeaderSid: Number(rate.VoucherHeaderSid),
                                 VoucherTypeSid: rate.VoucherTypeSid,
-                                status: rate.status === "Active" ? 'A' : 'S',
+                                status: String(rate.status).charAt(0),
                                 updatedBy: payload.updatedBy
                             }
                         })
@@ -790,6 +837,7 @@ export class BookingService {
                                 CreatedBy: payload.updatedBy,
                                 Status: 'A',
                                 MilestoneMasterSid: milestone.MilestoneMasterSid,
+                                Remarks : milestone.Remarks,
                                 MilestoneName: milestone.MilestoneName,
                                 MilestoneDate: milestone.MilestoneDate,
                                 AutoCaptured: milestone.AutoCaptured ? 'Y' : 'N'
@@ -803,6 +851,7 @@ export class BookingService {
                                 UpdatedBy: payload.updatedBy,
                                 Status: milestone.Status === "Active" ? 'A' : 'S',
                                 MilestoneMasterSid: milestone.MilestoneMasterSid,
+                                Remarks : milestone.Remarks,
                                 MilestoneName: milestone.MilestoneName,
                                 MilestoneDate: milestone.MilestoneDate,
                                 AutoCaptured: milestone.AutoCaptured ? 'Y' : 'N'
@@ -1032,7 +1081,7 @@ export class BookingService {
         try {
             const [customers, salesmans, shippers, consignees, agents, carriers, forwarder, notify] = await this._db.$transaction([
                 this._db.customerMaster.findMany({
-                    where: { CompanyMasterSid: payload.CompanyMasterSid, status:'A' },
+                    where: { CompanyMasterSid: payload.CompanyMasterSid, CustomerType: { path: ['customer'], equals: 'isTrue' }, status:'A' },
                     select: { CustomerMasterSid: true, CustomerName: true, CustomerAddress1: true }
                 }),
                 this._db.customerSalesTeam.findMany({
@@ -1205,11 +1254,12 @@ export class BookingService {
                         PackingGroup : true
                     }
                 }),
-                this._db.packageTypeMaster.findMany({
-                    where: { status:'A', CompanyMasterSid: payload.CompanyMasterSid },
+                this._db.uOMMaster.findMany({
+                    where: { status:'A' , UOMType : 'P' },
                     select: {
-                        PackageTypeMasterSid: true,
-                        PackageName: true
+                        UOMMasterSid: true,
+                        UOMName: true,
+                        UOMCode : true
                     },
                 }),
                 this._db.imcoMaster.findMany({
@@ -1413,6 +1463,8 @@ export class BookingService {
             throw error;
         }
     }
+
+    
 
 }
 

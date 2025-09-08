@@ -71,7 +71,29 @@ export class UomMasterController {
         return output
     }
 
-
+        @ApiOperation({ summary: 'Get Package Type UOM' })
+    @ApiCreatedResponse({ description: 'Get Package Type UOM', type: ResponseData })
+    @HttpCode(HttpStatus.OK)
+    @Get('package-type-uom')
+    async getPackageTypeUOM() {
+        const resp = new ResponseData();
+        try {
+            const res = await this.UomService.getPackageTypeUOM();
+            this.logger.log(`Package Type UOM : ${JSON.stringify(res)}`);
+            resp.data = res;
+            resp.message = "Package Type UOM is successfully fetched";
+        } catch (error) {
+            this.logger.warn(`Package Type UOM Error : ${JSON.stringify(error)}`, error);
+            resp.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                resp.message = error.message;
+            } else {
+                resp.message = "Internal Server Error";
+            }
+        }
+        return resp;
+    }
+ 
 
     @ApiOperation({ summary: 'Get Uom By Id' })
     @ApiCreatedResponse({

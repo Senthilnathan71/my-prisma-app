@@ -134,5 +134,33 @@ export class EmailService {
         }
     }
 
+    async sendEmailWithFullContent(data: any): Promise<boolean> {
+        try {
+            const mailOptions: any = {
+                from: '"Dofi-Infosys" <noreply@dofi.co>',
+                to: data.email,
+                cc: data.cc || '',
+                bcc: data.bcc || '',
+                subject: data.subject,
+                html: data.html,
+                attachments: (data.attachments || []).map((file: Express.Multer.File) => {
+                    return {
+                    filename: file.originalname,
+                    path: file.path, 
+                    contentType: file.mimetype,
+                    }
+                })
+            };
+            const info = await this.transporter.sendMail(mailOptions);
+            this.logger.log(`Email sent successfully: ${info.messageId}`);
+            return true;
+        } catch (err) {
+            this.logger.warn(`sendEmail error: ${JSON.stringify(err)}`);
+            throw new HttpException(
+                { message: `Error sending email: ${err.message}` },
+                HttpStatus.EXPECTATION_FAILED
+            );
+        }
+    }
 
 }

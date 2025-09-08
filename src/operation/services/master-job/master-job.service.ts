@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { DatabaseService } from 'src/database/database.service';
 import * as moment from 'moment-timezone';
 import { Prisma } from '@prisma/client';
@@ -7,7 +7,7 @@ import { stat } from 'fs';
 import { parseDateFromString } from 'src/common/helper';
 @Injectable()
 export class MasterJobService {
-    constructor(private _db: DatabaseService) { }
+    constructor(private _db: DatabaseService,private logger: Logger,) { }
 
     async createNewMasterJob(payload: any) {
         try {
@@ -17,7 +17,7 @@ export class MasterJobService {
                 const count = await prisma.masterJob.count({
                     where: { MasterJobNumber: { contains: dateString } }
                 })
-                const MasterJobNumber = `masterjob-${dateString}-${(count + 1).toString().padStart(3, '0')}`;
+                const MasterJobNumber = `MJ-${dateString}-${(count + 1).toString().padStart(3, '0')}`;
 
                 const headerPayload = {
                     MasterJobNumber: MasterJobNumber,
@@ -31,7 +31,7 @@ export class MasterJobService {
                     FreightPPCC: payload.FreightPPCC,
                     DestinationAgent: payload.DestinationAgent,
                     DestinationAgentName: payload.DestinationAgentName,
-                    DestinationAgentAddress: payload.DestinationAgentAddress,
+                    DestinationAgentAddress: payload.DestinationAgentAddress?.substring(0, 20) || '',
                     MBLNo: payload.MBLNo,
                     MBLDate: payload.MBLDate ? new Date(payload.MBLDate) : null,
                     BLReleaseType: payload.BLReleaseType,
@@ -41,8 +41,8 @@ export class MasterJobService {
                     POL: payload.POL,
                     POD: payload.POD,
                     FPD: payload.FPD,
-                    POLTerminal: payload.POLTerminal,
-                    PODTerminal: payload.PODTerminal,
+                    POLTerminal: payload.POLTerminal?.substring(0, 20) || '',
+                    PODTerminal: payload.PODTerminal?.substring(0, 20) || '',
                     MovementType: payload.MovementType,
                     ShipmentTerms: payload.ShipmentTerms,
                     PkgType: Number(payload.PkgType),
@@ -55,14 +55,15 @@ export class MasterJobService {
                     Haz: payload.Haz,
                     DGBookingDate: payload.DGBookingDate ? new Date(payload.DGBookingDate) : null,
                     DGApprovedDate: payload.DGApprovedDate ? new Date(payload.DGApprovedDate) : null,
-                    CommodityDescription: payload.CommodityDescription,
-                    MarksandNumber: payload.MarksandNumber,
+                    CommodityDescription: payload.CommodityDescription?.substring(0, 20) || '',
+                    MarksandNumber: payload.MarksandNumber?.substring(0, 20) || '',
                 }
 
+console.log(headerPayload)
                 const createdMasterJob = await prisma.masterJob.create({
                     data: headerPayload
                 })
-
+console.log(createdMasterJob)
                 const voyagePayload = {
                     MasterJobSid: createdMasterJob.MasterJobSid,
                     VoyageMasterSid: payload.VoyageMasterSid,
@@ -82,8 +83,7 @@ export class MasterJobService {
                     data: voyagePayload
                 })
 
-                const allConnections = payload.connections || [];
-                let createdConnections: any;
+                const allConnections = payload.connections || payload.masterJobConnection || [];                let createdConnections: any;
                 if (allConnections.length > 0) {
                     const connectionPayload = allConnections.map(connection => ({
                         MasterJobSid: createdMasterJob?.MasterJobSid,
@@ -97,7 +97,7 @@ export class MasterJobService {
                         ATD: connection.ATD ? new Date(connection.ATD) : null,
                         ATA: connection.ATA ? new Date(connection.ATA) : null,
                         Remarks: connection.Remarks,
-                        Status: "A",
+                        Status: String(connection.status).charAt(0) || 'A', 
                         CreatedBy: payload.CreatedBy,
                         CreatedOn: new Date(),
                         UpdatedOn: null,
@@ -112,7 +112,7 @@ export class MasterJobService {
                 const otherFormValue = payload.others;
                 const otherPayload = {
                     MasterJobSid: createdMasterJob?.MasterJobSid,
-                    CreatedBy: otherFormValue?.CreatedBy,
+                    CreatedBy: payload.CreatedBy,
                     Status: "A",
                     Yard: otherFormValue?.Yard ? Number(otherFormValue?.Yard) : null,
                     YardAddress: otherFormValue?.YardAddress,
@@ -181,9 +181,9 @@ export class MasterJobService {
                         PrepaidCollect: item.PrepaidCollect,
                         CostRevenue: item.CostRevenue,
                         CurrencyMasterSid: item.CurrencyMasterSid ? Number(item.CurrencyMasterSid) : null,
-                        ExchangeRate: item.ExchangeRate ? new Number(item.ExchangeRate) : null,
+                        ExchangeRate: item.ExchangeRate ? Number(item.ExchangeRate) : null,
                         Rate: item.Rate ? Number(item.Rate) : null,
-                        NumberOfUnit: item.NumberOfUnit ? new Number(item.NumberOfUnit) : null,
+                        NumberOfUnit: item.NumberOfUnit ? Number(item.NumberOfUnit) : null,
                         DrCr: item.DrCr,
                         Amount: item.Amount ? Number(item.Amount) : null,
                         LocalAmount: item.LocalAmount ? Number(item.LocalAmount) : null,
@@ -306,7 +306,7 @@ export class MasterJobService {
                     FreightPPCC: payload.FreightPPCC,
                     DestinationAgent: payload.DestinationAgent,
                     DestinationAgentName: payload.DestinationAgentName,
-                    DestinationAgentAddress: payload.DestinationAgentAddress,
+                    DestinationAgentAddress: payload.DestinationAgentAddress?.substring(0, 20) || '',
                     MBLNo: payload.MBLNo,
                     MBLDate: payload.MBLDate ? new Date(payload.MBLDate) : null,
                     BLReleaseType: payload.BLReleaseType,
@@ -316,8 +316,8 @@ export class MasterJobService {
                     POL: payload.POL,
                     POD: payload.POD,
                     FPD: payload.FPD,
-                    POLTerminal: payload.POLTerminal,
-                    PODTerminal: payload.PODTerminal,
+                    POLTerminal: payload.POLTerminal?.substring(0, 20) || '',
+                    PODTerminal: payload.PODTerminal?.substring(0, 20) || '',
                     MovementType: payload.MovementType,
                     ShipmentTerms: payload.ShipmentTerms,
                     PkgType: Number(payload.PkgType),
@@ -330,8 +330,8 @@ export class MasterJobService {
                     Haz: payload.Haz,
                     DGBookingDate: payload.DGBookingDate ? new Date(payload.DGBookingDate) : null,
                     DGApprovedDate: payload.DGApprovedDate ? new Date(payload.DGApprovedDate) : null,
-                    CommodityDescription: payload.CommodityDescription,
-                    MarksandNumber: payload.MarksandNumber,
+                    CommodityDescription: payload.CommodityDescription?.substring(0, 20) || '',
+                    MarksandNumber: payload.MarksandNumber?.substring(0, 20) || '',
                 }
                 const updatedMasterJob = await prisma.masterJob.update({
                     where: {
@@ -384,56 +384,60 @@ export class MasterJobService {
                     })
                 }
 
-                let finalConnections: any;
-                const allConnections = payload.connections || [];
-                for(const connection of allConnections){
-                    let createdConnections;
-                    let updatedConnections;
-                    if(connection.MasterJobConnectionSid){
-                        const connectionPayload = {
-                            MasterJobSid: updatedMasterJob.MasterJobSid,
-                            Mode : connection.Mode,
-                            POL: connection.POL,
-                            POD: connection.POD,
-                            VesselName: connection.VesselName,
-                            VoyageNo: connection.VoyageNo,
-                            ETD: connection.ETD ? new Date(connection.ETD) : null,
-                            ETA: connection.ETA ? new Date(connection.ETA) : null,
-                            ATD: connection.ATD ? new Date(connection.ATD) : null,
-                            ATA: connection.ATA ? new Date(connection.ATA) : null,
-                            Remarks: connection.Remarks,
-                            Status: "A",
-                            UpdatedBy: payload.updatedBy,
-                        }
-                        updatedConnections = await prisma.masterJobConnection.update({
-                            where: {
-                                MasterJobConnectionSid: connection.MasterJobConnectionSid
-                            },
-                            data: connectionPayload
-                        })
-                    } else {
-                        const connectionPayload = {
-                            MasterJobSid: updatedMasterJob.MasterJobSid,
-                            Mode : connection.Mode,
-                            POL: connection.POL,
-                            POD: connection.POD,
-                            VesselName: connection.VesselName,
-                            VoyageNo: connection.VoyageNo,
-                            ETD: connection.ETD ? new Date(connection.ETD) : null,
-                            ETA: connection.ETA ? new Date(connection.ETA) : null,
-                            ATD: connection.ATD ? new Date(connection.ATD) : null,
-                            ATA: connection.ATA ? new Date(connection.ATA) : null,
-                            Remarks: connection.Remarks,
-                            Status: "A",
-                            CreatedBy: payload.createdBy,
-                            UpdatedBy: payload.updatedBy,
-                        }
-                        createdConnections = await prisma.masterJobConnection.create({
-                            data: connectionPayload
-                        })
-                    }
-                    finalConnections.push(createdConnections || updatedConnections);
+                const finalConnections: any[] = [];
+            const allConnections = payload.masterJobConnection || [];
+            for (const connection of allConnections) {
+                let connectionResult;
+                
+                if (connection.TransactionSid) {
+                    // update existing connection
+                    const connectionPayload = {
+                        MasterJobSid : payload.MasterJobSid,
+                        Mode: connection.Mode,
+                        POL: connection.POL,
+                        POD: connection.POD,
+                        VesselName: connection.VesselName,
+                        VoyageNo: connection.VoyageNo,
+                        ETD: connection.ETD ? new Date(connection.ETD) : null,
+                        ETA: connection.ETA ? new Date(connection.ETA) : null,
+                        ATD: connection.ATD ? new Date(connection.ATD) : null,
+                        ATA: connection.ATA ? new Date(connection.ATA) : null,
+                        Remarks: connection.Remarks,
+                        UpdatedBy: payload.UpdatedBy || payload.CreatedBy,
+                        UpdatedOn: new Date(),
+                    };
+                    
+                    connectionResult = await prisma.masterJobConnection.update({
+                        where: {
+                            MasterJobConnectionSid: connection.TransactionSid
+                        },
+                        data: connectionPayload
+                    });
+                } else {
+                    // create new connection
+                    const connectionPayload = {
+                        MasterJobSid: payload.MasterJobSid,
+                        Mode: connection.Mode,
+                        POL: connection.POL,
+                        POD: connection.POD,
+                        VesselName: connection.VesselName,
+                        VoyageNo: connection.VoyageNo,
+                        ETD: connection.ETD ? new Date(connection.ETD) : null,
+                        ETA: connection.ETA ? new Date(connection.ETA) : null,
+                        ATD: connection.ATD ? new Date(connection.ATD) : null,
+                        ATA: connection.ATA ? new Date(connection.ATA) : null,
+                        Remarks: connection.Remarks,
+                        Status: String(connection.status).charAt(0) || 'A',
+                        CreatedBy: payload.CreatedBy,
+                        CreatedOn: new Date(),
+                    };
+                    
+                    connectionResult = await prisma.masterJobConnection.create({
+                        data: connectionPayload
+                    });
                 }
+                finalConnections.push(connectionResult);
+            }
 
                 let finalOthers: any;
                 const MasterJobOthersSid = payload?.others?.MasterJobOthersSid;
@@ -468,7 +472,7 @@ export class MasterJobService {
                 else {
                     const otherPayload = {
                         MasterJobSid: updatedMasterJob?.MasterJobSid,
-                        CreatedBy: otherFormValue?.CreatedBy,
+                        CreatedBy: payload.CreatedBy,
                         Status: "A",
                         Yard: otherFormValue?.Yard ? Number(otherFormValue?.Yard) : null,
                         YardAddress: otherFormValue?.YardAddress,
@@ -494,61 +498,61 @@ export class MasterJobService {
                 }
 
                 const finalMasterJobContainers: any[] = [];
-                const allContainers = payload?.masterJobContainers || [];
-                if (allContainers.length > 0) {
-                    for (const item of allContainers) {
-                        let createdContainer;
-                        let updatedContainer;
-                        if (item.MasterJobContainerSid) {
-                            // update
-                            const containerPayload = {
-                                ContainerType: Number(item.ContainerType),
-                                ContainerNumber: item.ContainerNumber,
-                                LineSeal: item.LineSeal,
-                                CustomsSeal: item.CustomsSeal,
-                                HsCode: item.HsCode,
-                                CommodityDescription: item.CommodityDescription,
-                                PkgType: item.PkgType ? Number(item.PkgType) : null,
-                                NoOfPkg: item.NoOfPkg ? Number(item.NoOfPkg) : null,
-                                GrossWeight: item.GrossWeight ? Number(item.GrossWeight) : null,
-                                NetWeight: item.NetWeight ? Number(item.NetWeight) : null,
-                                ChargeableWeight: item.ChargeableWeight ? Number(item.ChargeableWeight) : null,
-                                Volume: item.Volume ? Number(item.Volume) : null,
-                                IsSoc: item.IsSoc
-                            }
-                            updatedContainer = await prisma.masterJobContainer.update({
-                                where: {
-                                    MasterJobContainerSid: item.MasterJobContainerSid
-                                },
-                                data: containerPayload
-                            })
-                        } else {
-                            // create
-                            const containerPayload = {
-                                MasterJobSid: payload.MasterJobSid,
-                                CreatedBy: payload.CreatedBy,
-                                Status: "A",
-                                ContainerType: Number(item.ContainerType),
-                                ContainerNumber: item.ContainerNumber,
-                                LineSeal: item.LineSeal,
-                                CustomsSeal: item.CustomsSeal,
-                                HsCode: item.HsCode,
-                                CommodityDescription: item.CommodityDescription,
-                                PkgType: item.PkgType ? Number(item.PkgType) : null,
-                                NoOfPkg: item.NoOfPkg ? Number(item.NoOfPkg) : null,
-                                GrossWeight: item.GrossWeight ? Number(item.GrossWeight) : null,
-                                NetWeight: item.NetWeight ? Number(item.NetWeight) : null,
-                                ChargeableWeight: item.ChargeableWeight ? Number(item.ChargeableWeight) : null,
-                                Volume: item.Volume ? Number(item.Volume) : null,
-                                IsSoc: item.IsSoc
-                            }
-                            createdContainer = await prisma.masterJobContainer.create({
-                                data: containerPayload
-                            })
-                        }
-                        finalMasterJobContainers.push(createdContainer || updatedContainer);
-                    }
-                }
+const allContainers = payload?.masterJobContainers || [];
+if (allContainers.length > 0) {
+    for (const item of allContainers) {
+        let createdContainer;
+        let updatedContainer;
+        if (item.MasterJobContainerSid) {
+            // update - Use the existing MasterJobSid from the container, not from payload
+            const containerPayload = {
+                ContainerType: Number(item.ContainerType),
+                ContainerNumber: item.ContainerNumber,
+                LineSeal: item.LineSeal,
+                CustomsSeal: item.CustomsSeal,
+                HsCode: item.HsCode,
+                CommodityDescription: item.CommodityDescription,
+                PkgType: item.PkgType ? Number(item.PkgType) : null,
+                NoOfPkg: item.NoOfPkg ? Number(item.NoOfPkg) : null,
+                GrossWeight: item.GrossWeight ? Number(item.GrossWeight) : null,
+                NetWeight: item.NetWeight ? Number(item.NetWeight) : null,
+                ChargeableWeight: item.ChargeableWeight ? Number(item.ChargeableWeight) : null,
+                Volume: item.Volume ? Number(item.Volume) : null,
+                IsSoc: item.IsSoc
+            }
+            updatedContainer = await prisma.masterJobContainer.update({
+                where: {
+                    MasterJobContainerSid: item.MasterJobContainerSid
+                },
+                data: containerPayload
+            })
+        } else {
+            // create - For new containers, use payload.MasterJobSid
+            const containerPayload = {
+                MasterJobSid: payload.MasterJobSid, // This is correct for new containers
+                CreatedBy: payload.CreatedBy,
+                Status: "A",
+                ContainerType: Number(item.ContainerType),
+                ContainerNumber: item.ContainerNumber,
+                LineSeal: item.LineSeal,
+                CustomsSeal: item.CustomsSeal,
+                HsCode: item.HsCode,
+                CommodityDescription: item.CommodityDescription,
+                PkgType: item.PkgType ? Number(item.PkgType) : null,
+                NoOfPkg: item.NoOfPkg ? Number(item.NoOfPkg) : null,
+                GrossWeight: item.GrossWeight ? Number(item.GrossWeight) : null,
+                NetWeight: item.NetWeight ? Number(item.NetWeight) : null,
+                ChargeableWeight: item.ChargeableWeight ? Number(item.ChargeableWeight) : null,
+                Volume: item.Volume ? Number(item.Volume) : null,
+                IsSoc: item.IsSoc
+            }
+            createdContainer = await prisma.masterJobContainer.create({
+                data: containerPayload
+            })
+        }
+        finalMasterJobContainers.push(createdContainer || updatedContainer);
+    }
+}
 
                 const finalCharges: any[] = [];
                 const allCostRevenueCharges = payload?.costRevenueCharges || [];
@@ -617,6 +621,57 @@ export class MasterJobService {
                     }
                     finalCharges.push(createdCharge || updatedCharge);
                 }
+                 const finalcontainerActivities: any[] = [];
+                 const finalContainerActivities: any[] = [];
+            const payloadActivities = payload?.containerActivities || [];
+            
+            for (const act of payloadActivities) {
+                let activityResult;
+                
+                if (act.ContainerActivitySid) {
+                    // update existing activity
+                    const activityPayload = {
+                        ContainerNumber: act.ContainerNumber,
+                        ContainerType: Number(act.ContainerType),
+                        ActivityCode: act.ActivityCode,
+                        ActivityName: act.ActivityName,
+                        ActivityDate: act.ActivityDate ? new Date(act.ActivityDate) : new Date(),
+                        ActivityFrom: act.ActivityFrom,
+                        ActivityTo: act.ActivityTo,
+                        Remarks: act.Remarks,
+                        UpdatedBy: payload.UpdatedBy || payload.CreatedBy,
+                        UpdatedOn: new Date(),
+                    };
+                    
+                    activityResult = await prisma.containerActivity.update({
+                        where: { 
+                            ContainerActivitySid: act.ContainerActivitySid 
+                        },
+                        data: activityPayload,
+                    });
+                } else {
+                    // create new activity
+                    const activityPayload = {
+                        JobMasterSid: payload.MasterJobSid,
+                        ContainerNumber: act.ContainerNumber,
+                        ContainerType: Number(act.ContainerType),
+                        ActivityCode: act.ActivityCode,
+                        ActivityName: act.ActivityName,
+                        ActivityDate: act.ActivityDate ? new Date(act.ActivityDate) : new Date(),
+                        ActivityFrom: act.ActivityFrom,
+                        ActivityTo: act.ActivityTo,
+                        Remarks: act.Remarks,
+                        CreatedBy: payload.CreatedBy,
+                        Status: "A",
+                    };
+                    
+                    activityResult = await prisma.containerActivity.create({ 
+                        data: activityPayload 
+                    });
+                }
+                finalContainerActivities.push(activityResult);
+            }
+
 
                 return {
                     updatedMasterJob,
@@ -625,6 +680,7 @@ export class MasterJobService {
                     finalMasterJobContainers,
                     finalCharges,
                     finalOthers,
+                    finalContainerActivities
                 }
             });
         } catch (error) {
@@ -812,4 +868,20 @@ export class MasterJobService {
             throw error;
         }
     }
+    async getAuditLogs(tableName: string, recordId?: string) {
+        try {
+          const whereClause: any = { tableName };
+          if (recordId) whereClause.recordId = recordId;
+    
+          const logs = await this._db.auditLog.findMany({
+            where: whereClause,
+            orderBy: { changedAt: 'desc' },
+          });
+    
+          return logs;
+        } catch (error) {
+          this.logger.warn(`getAuditLogsError: ${error}`);
+          throw new Error(`Error fetching audit logs: ${error.message}`);
+        }
+      }
 }
