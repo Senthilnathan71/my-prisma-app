@@ -10,6 +10,7 @@ import { LookupsController } from './controllers/lookups/lookups.controller';
 import { LookupsService } from './services/lookups/lookups.service';
 import { FollowupController } from './controllers/followup/followup.controller';
 import { FollowupService } from './services/followup/followup.service';
+import { SchedulerService } from './services/scheduler/scheduler.service';
 
 @Module({
     controllers: [
@@ -26,7 +27,8 @@ import { FollowupService } from './services/followup/followup.service';
         EmailLogService,
         EmailService,
         LookupsService,
-        FollowupService
+        FollowupService,
+        SchedulerService
     ]
 })
 export class CommonModule { }
