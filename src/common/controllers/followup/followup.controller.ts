@@ -4,11 +4,12 @@ import { Auth } from 'src/common/decorators/auth.decorator';
 import { UserData } from 'src/common/decorators/user.decorator';
 import { ResponseData } from 'src/common/response-data';
 import { FollowupService } from 'src/common/services/followup/followup.service';
+import { SchedulerService } from 'src/common/services/scheduler/scheduler.service';
 
 @Controller('followup')
 @Auth()
 export class FollowupController {
-    constructor(private followupService: FollowupService, private logger: Logger) { }
+    constructor(private followupService: FollowupService, private logger: Logger ,private schedulerService: SchedulerService) { }
     
     @ApiOperation({ summary: 'followup Creation'})
     @ApiCreatedResponse({
@@ -22,9 +23,9 @@ export class FollowupController {
         let output = new ResponseData
         try {
             let followup = await this.followupService.createFollowup(body, user);
-            this.logger.debug(`createfollowup: ${JSON.stringify(followup)}`)
+            this.logger.log(`createfollowup: ${JSON.stringify(followup)}`)
             if (!followup) {
-                this.logger.warn(`createfollowup!!: ${JSON.stringify(followup)}`)
+                this.logger.debug(`createfollowup!!: ${JSON.stringify(followup)}`)
                 throw 'Something went wrong'
             }
             output.data = followup
@@ -133,5 +134,42 @@ export class FollowupController {
     @Delete('delete/:id')
     async softDelete(@Param('id', ParseIntPipe) id: number) {
         return this.followupService.softDelete(id);
+    }
+
+    @ApiOperation({ summary: 'Check for Followup' })
+    @ApiCreatedResponse({
+        description: 'Check for Followup',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Post('checkForFollowup')
+    async checkForFollowup(@Body() body:any) {
+        let resp = new ResponseData();
+        try {
+            let followup = await this.followupService.checkForFollowup(body);
+            this.logger.log(`checkForFollowup: ${JSON.stringify(followup)}`)
+            resp.data = followup;
+            resp.message = 'All Followups fetched Successfully'
+        } catch (error) {
+            resp.status = false;
+            this.logger.warn(`checkForFollowup: ${JSON.stringify(error),error}`)
+            if(error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                resp.message = error.message;
+            } else {
+                resp.message = "Internal Server Error";
+            }
+        }
+        return resp;
+    }
+
+
+    @Get('fetchAllCronJobs')
+    async getAllCronJobs() {
+        return this.schedulerService.listJobs();
+    }
+
+    @Get('fetchCronByName/:id')
+    async getCronJobsByName(@Param('id', ParseIntPipe) id: number) {
+        return this.schedulerService.getCronJobWithName(`followup-${id}`);
     }
 }
