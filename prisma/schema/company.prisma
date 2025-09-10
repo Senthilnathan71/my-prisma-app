@@ -1326,6 +1326,8 @@ model ContainerTypeMaster {
   NoOfTeu                Decimal      @db.Decimal(1, 0)
   Width                  Int
   quoteRoute             QuoteRoute[]
+  bookingCargo           BookingCargo[]
+  houseJobCargo          HouseJobCargo[]
 }
 
 model ZoneMaster {
@@ -2230,7 +2232,7 @@ model MasterJobVoyage {
   ATA                DateTime?           @db.Date
   ATD                DateTime?           @db.Date
   DestinationATA     DateTime?           @db.Date
-  CarrierMasterSid   Int?
+  CarrierSid     Int?
   CarrierName        String?             @db.VarChar(100)
   Status             String?             @default("A") @db.Char(1)
   masterJob          MasterJob           @relation(fields: [MasterJobSid], references: [MasterJobSid])
@@ -2310,8 +2312,9 @@ model HouseJob {
   CustomerMasterSid       Int?
   CustomerName            String               @db.VarChar(100)
   CustomerAddress         String               @db.VarChar(300)
+  CustomerBranchSid       Int?
   SalesmanSid             Int?
-  IncoTerms               Int?
+  IncoTerms               String?               @db.VarChar(10)
   FreightPPCC             String               @db.VarChar(10)
   DestinationAgent        Int?
   DestinationAgentAddress String?              @db.VarChar(300)
@@ -2326,7 +2329,7 @@ model HouseJob {
   VoyageMasterSid         Int?
   VesselName              String?              @db.VarChar(100)
   VoyageNo                String?              @db.VarChar(10)
-  Carrier                 Int?
+  CarrierSid              Int?
   POO                     String               @db.VarChar(100)
   POL                     String               @db.VarChar(100)
   POD                     String               @db.VarChar(100)
@@ -2370,6 +2373,7 @@ model HouseJobCargo {
   BranchMasterSid  Int
   CargoType        String?       @db.VarChar(10)
   ContainerType    Int?
+  NoOfContainer    Int?
   GrossWeight      Decimal?      @db.Decimal(10, 3)
   NetWeight        Decimal?      @db.Decimal(10, 3)
   Volume           Decimal?      @db.Decimal(10, 3)
@@ -2382,6 +2386,7 @@ model HouseJobCargo {
   BranchMaster     BranchMaster  @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
   CompanyMaster    CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
   HouseJob         HouseJob      @relation(fields: [HouseJobSid], references: [HouseJobSid])
+  containerType    ContainerTypeMaster? @relation(fields: [ContainerType], references: [ContainerTypeMasterSid])
 }
 
 model HouseJobProduct {
@@ -2391,8 +2396,8 @@ model HouseJobProduct {
   ProductDescription String?   @db.VarChar(300)
   ShippingBillNo     String?   @db.VarChar(50)
   ShippingBillDate   DateTime?
-  ExternaPkg         Int?
-  ExternlQty         Int?
+  ExternaPkg         String?   @db.VarChar(10)
+  ExternlQty         Decimal?  @db.Decimal(4, 0)
   InternalPkg        Int?
   InternalQty        Int?
   GrossWeight        Decimal?  @db.Decimal(10, 3)

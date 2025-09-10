@@ -51,6 +51,7 @@ model BookingHeader {
   AuthorizerRemarks   String?             @db.VarChar(100)
   authorizerStatus    ApprovalStatus?
   MenuMasterSid       Int?
+  CarrierSid          Int?
   CarrierName         String?             @db.VarChar(200)
   Coload              String?             @db.VarChar(200)
   GeneralNote         String?             @db.VarChar(200)
@@ -90,7 +91,7 @@ model BookingCargo {
   NetWeight        Decimal?      @db.Decimal(10, 3)
   Volume           Decimal?      @db.Decimal(10, 3)
   ChargeableWeight Decimal?      @db.Decimal(10, 3)
-  ContainerType    String?       @db.VarChar(50)
+  ContainerType    Int?          
   Qty              Decimal?      @db.Decimal(5, 0)
   ShipmentTerms    String?       @db.VarChar(10)
   createdOn        DateTime      @default(now()) @db.Timestamptz(6)
@@ -100,7 +101,7 @@ model BookingCargo {
   updatedBy        String?       @db.VarChar(100)
   status           String?       @default("A") @db.Char(1)
   BookingHeaderSid Int
-  pkgType          String?       @db.VarChar(50)
+  PackageType      Int?         
   FreightTerms     String?       @db.VarChar(100)
   MovementType     String?       @db.VarChar(100)
   ModeOfTransport  String?       @db.VarChar(100)
@@ -109,6 +110,7 @@ model BookingCargo {
   bookingHeader    BookingHeader @relation(fields: [BookingHeaderSid], references: [BookingHeaderSid])
   branchMaster     BranchMaster? @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
   companyMaster    CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+  containerType    ContainerTypeMaster? @relation(fields: [ContainerType], references: [ContainerTypeMasterSid])
 }
 
 model BookingProduct {
@@ -118,7 +120,7 @@ model BookingProduct {
   ShippingBillNo     String         @db.VarChar(100)
   ShippingBillDate   DateTime?
   ExternaPkg         String?        @db.VarChar(100)
-  ExternlQty         String         @db.VarChar(100)
+  ExternlQty         Decimal?        @db.Decimal(4, 0)
   ActualQty          String?        @db.VarChar(100)
   InternalPkg        String?        @db.VarChar(100)
   InternalQty        String?        @db.VarChar(100)
