@@ -1307,7 +1307,7 @@ model PreCustomerEvent {
 model ContainerTypeMaster {
   ContainerTypeMasterSid Int             @id @default(autoincrement()) @map("ContainerTypeMasterSid")
   ContainerCode          String          @db.VarChar(4)
-  ContainerSize          String          @db.Char(10)
+  ContainerSize          String          @db.Char(100)
   ContainerIsoCode       String?         @db.VarChar(10)
   ContainerName          String          @db.VarChar(30)
   MaxVolume              Decimal         @db.Decimal(3, 0)
@@ -1320,7 +1320,7 @@ model ContainerTypeMaster {
   updatedBy              String?         @db.VarChar(100)
   status                 String?         @default("A") @db.Char(1)
   Remarks                String?         @db.VarChar(300)
-  ContainerCategory      String?         @db.VarChar(10)
+  ContainerCategory      String?         @db.VarChar(100)
   Height                 Int
   Length                 Int
   NoOfTeu                Decimal         @db.Decimal(1, 0)
