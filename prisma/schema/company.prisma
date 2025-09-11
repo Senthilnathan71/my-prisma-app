@@ -1084,31 +1084,30 @@ model EnquiryProduct {
 }
 
 model UOMMaster {
-  UOMMasterSid     Int               @id @default(autoincrement()) @map("UOMMasterSid")
-  UOMCode          String            @unique @db.VarChar(3)
-  UOMName          String            @unique @db.VarChar(20)
-  UOMType          String?           @db.VarChar(10)
-  EdiCode          String?           @db.Char(3)
-  DimensionReq     String            @db.Char(1)
-  WeightReq        String            @db.Char(1)
-  VolumeReq        String            @db.Char(1)
-  ShipmentType     String            @db.VarChar(5)
-  CostPerUnitPrice Decimal?          @db.Decimal(10, 5)
-  SlabFrom         Decimal?          @db.Decimal(4, 0)
-  SlabTo           Decimal?          @db.Decimal(4, 0)
-  createdOn        DateTime          @default(now()) @db.Timestamptz(6)
-  updatedOn        DateTime?         @updatedAt @db.Timestamptz(6)
-  deletedAt        DateTime?
-  createdBy        String            @db.VarChar(100)
-  updatedBy        String?           @db.VarChar(100)
-  status           String            @default("A") @db.Char(1)
-  Remarks          String?           @db.VarChar(300)
-  bookingProduct   BookingProduct[]
-  commodityMaster  CommodityMaster[]
-  quoteCharge      QuoteCharge[]
-  tariffDetail     TariffDetail[]
-  masterJobContainer     MasterJobContainer[]
-
+  UOMMasterSid       Int                  @id @default(autoincrement()) @map("UOMMasterSid")
+  UOMCode            String               @unique @db.VarChar(3)
+  UOMName            String               @unique @db.VarChar(20)
+  UOMType            String?              @db.VarChar(10)
+  EdiCode            String?              @db.Char(3)
+  DimensionReq       String               @db.Char(1)
+  WeightReq          String               @db.Char(1)
+  VolumeReq          String               @db.Char(1)
+  ShipmentType       String               @db.VarChar(5)
+  CostPerUnitPrice   Decimal?             @db.Decimal(10, 5)
+  SlabFrom           Decimal?             @db.Decimal(4, 0)
+  SlabTo             Decimal?             @db.Decimal(4, 0)
+  createdOn          DateTime             @default(now()) @db.Timestamptz(6)
+  updatedOn          DateTime?            @updatedAt @db.Timestamptz(6)
+  deletedAt          DateTime?
+  createdBy          String               @db.VarChar(100)
+  updatedBy          String?              @db.VarChar(100)
+  status             String               @default("A") @db.Char(1)
+  Remarks            String?              @db.VarChar(300)
+  bookingProduct     BookingProduct[]
+  commodityMaster    CommodityMaster[]
+  quoteCharge        QuoteCharge[]
+  tariffDetail       TariffDetail[]
+  masterJobContainer MasterJobContainer[]
 
   @@index([status])
 }
@@ -1152,6 +1151,7 @@ model CustomerBranch {
   enquiryHeader      EnquiryHeader[]
   quoteHeader        QuoteHeader[]
   supplierTdsMapping SupplierTdsMapping[]
+  houseJob           HouseJob[]
 }
 
 model CusBranchContact {
@@ -1305,27 +1305,29 @@ model PreCustomerEvent {
 }
 
 model ContainerTypeMaster {
-  ContainerTypeMasterSid Int          @id @default(autoincrement()) @map("ContainerTypeMasterSid")
-  ContainerCode          String       @db.VarChar(4)
-  ContainerSize          String       @db.Char(10)
-  ContainerIsoCode       String?      @db.VarChar(10)
-  ContainerName          String       @db.VarChar(30)
-  MaxVolume              Decimal      @db.Decimal(3, 0)
-  TareWeight             Decimal      @db.Decimal(6, 3)
-  GrossWeight            Decimal      @db.Decimal(8, 3)
-  createdOn              DateTime     @default(now()) @db.Timestamptz(6)
-  updatedOn              DateTime?    @updatedAt @db.Timestamptz(6)
+  ContainerTypeMasterSid Int             @id @default(autoincrement()) @map("ContainerTypeMasterSid")
+  ContainerCode          String          @db.VarChar(4)
+  ContainerSize          String          @db.Char(100)
+  ContainerIsoCode       String?         @db.VarChar(10)
+  ContainerName          String          @db.VarChar(30)
+  MaxVolume              Decimal         @db.Decimal(3, 0)
+  TareWeight             Decimal         @db.Decimal(6, 3)
+  GrossWeight            Decimal         @db.Decimal(8, 3)
+  createdOn              DateTime        @default(now()) @db.Timestamptz(6)
+  updatedOn              DateTime?       @updatedAt @db.Timestamptz(6)
   deletedAt              DateTime?
-  createdBy              String       @db.VarChar(100)
-  updatedBy              String?      @db.VarChar(100)
-  status                 String?      @default("A") @db.Char(1)
-  Remarks                String?      @db.VarChar(300)
-  ContainerCategory      String?      @db.VarChar(10)
+  createdBy              String          @db.VarChar(100)
+  updatedBy              String?         @db.VarChar(100)
+  status                 String?         @default("A") @db.Char(1)
+  Remarks                String?         @db.VarChar(300)
+  ContainerCategory      String?         @db.VarChar(100)
   Height                 Int
   Length                 Int
-  NoOfTeu                Decimal      @db.Decimal(1, 0)
+  NoOfTeu                Decimal         @db.Decimal(1, 0)
   Width                  Int
   quoteRoute             QuoteRoute[]
+  bookingCargo           BookingCargo[]
+  houseJobCargo          HouseJobCargo[]
 }
 
 model ZoneMaster {
@@ -2110,7 +2112,7 @@ model Followup {
   FollowupDate     DateTime      @db.Date
   FollowupAction   String        @db.VarChar(500)
   Remarks          String?       @db.VarChar(500)
-  Public           String?        @default("N") @db.Char(1)
+  Public           String?       @default("N") @db.Char(1)
   sentEmail        String?       @default("N") @db.Char(1)
   deletedAt        Int?
   BranchMaster     BranchMaster  @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
@@ -2118,25 +2120,25 @@ model Followup {
 }
 
 model ContainerActivity {
-  ContainerActivitySid Int                     @id @default(autoincrement())
+  ContainerActivitySid Int      @id @default(autoincrement())
   JobMasterSid         Int
-  ContainerNumber      String?                 @db.VarChar(11)
+  ContainerNumber      String?  @db.VarChar(11)
   ContainerType        Int
-  ActivityCode         String                  @db.VarChar(5)
-  ActivityName         String                  @db.VarChar(100)
+  ActivityCode         String   @db.VarChar(5)
+  ActivityName         String   @db.VarChar(100)
   ActivityDate         DateTime
-  ActivityFrom         String?                 @db.VarChar(10)
-  ActivityTo           String?                 @db.VarChar(10)
-  Remarks              String?                 @db.VarChar(100)
-  CreatedOn            DateTime                @default(now())
-  CreatedBy            String                  @db.VarChar(100)
-  UpdatedOn            DateTime                @default(now())
-  UpdatedBy            String?                 @db.VarChar(100)
+  ActivityFrom         String?  @db.VarChar(10)
+  ActivityTo           String?  @db.VarChar(10)
+  Remarks              String?  @db.VarChar(100)
+  CreatedOn            DateTime @default(now())
+  CreatedBy            String   @db.VarChar(100)
+  UpdatedOn            DateTime @default(now())
+  UpdatedBy            String?  @db.VarChar(100)
   deletedAt            Int?
-  Status               String?                 @default("A") @db.Char(1)
+  Status               String?  @default("A") @db.Char(1)
 
-  masterJob          MasterJob           @relation(fields: [JobMasterSid], references: [MasterJobSid])
-  activityMaster       ContainerActivityMaster @relation(fields: [ActivityCode], references: [ActivityCode])
+  masterJob      MasterJob               @relation(fields: [JobMasterSid], references: [MasterJobSid])
+  activityMaster ContainerActivityMaster @relation(fields: [ActivityCode], references: [ActivityCode])
 }
 
 model ContainerActivityMaster {
@@ -2216,7 +2218,7 @@ model MasterJob {
   containers              MasterJobContainer[]
   others                  MasterJobOthers[]
   voyages                 MasterJobVoyage[]
-  ContainerActivity ContainerActivity[]
+  ContainerActivity       ContainerActivity[]
 }
 
 model MasterJobVoyage {
@@ -2230,7 +2232,7 @@ model MasterJobVoyage {
   ATA                DateTime?           @db.Date
   ATD                DateTime?           @db.Date
   DestinationATA     DateTime?           @db.Date
-  CarrierMasterSid   Int?
+  CarrierSid         Int?
   CarrierName        String?             @db.VarChar(100)
   Status             String?             @default("A") @db.Char(1)
   masterJob          MasterJob           @relation(fields: [MasterJobSid], references: [MasterJobSid])
@@ -2266,29 +2268,28 @@ model MasterJobOthers {
 }
 
 model MasterJobContainer {
-  MasterJobContainerSid Int       @id @default(autoincrement())
+  MasterJobContainerSid Int        @id @default(autoincrement())
   MasterJobSid          Int
-  CreatedOn             DateTime  @default(now())
-  CreatedBy             String    @db.VarChar(100)
+  CreatedOn             DateTime   @default(now())
+  CreatedBy             String     @db.VarChar(100)
   UpdatedOn             DateTime?
-  UpdatedBy             String?   @db.VarChar(100)
-  Status                String?   @default("A") @db.Char(1)
+  UpdatedBy             String?    @db.VarChar(100)
+  Status                String?    @default("A") @db.Char(1)
   ContainerType         Int
-  ContainerNumber       String    @db.VarChar(11)
-  LineSeal              String?   @db.VarChar(10)
-  CustomsSeal           String?   @db.VarChar(10)
-  HsCode                String?   @db.VarChar(10)
-  CommodityDescription  String?   @db.VarChar(500)
+  ContainerNumber       String     @db.VarChar(11)
+  LineSeal              String?    @db.VarChar(10)
+  CustomsSeal           String?    @db.VarChar(10)
+  HsCode                String?    @db.VarChar(10)
+  CommodityDescription  String?    @db.VarChar(500)
   PkgType               Int?
   NoOfPkg               Int?
-  GrossWeight           Decimal?  @db.Decimal(10, 3)
-  NetWeight             Decimal?  @db.Decimal(10, 3)
-  ChargeableWeight      Decimal?  @db.Decimal(10, 3)
-  Volume                Decimal?  @db.Decimal(8, 3)
-  IsSoc                 String?   @db.Char(1)
-  masterJob             MasterJob @relation(fields: [MasterJobSid], references: [MasterJobSid])
-  UOMMaster          UOMMaster?      @relation(fields: [PkgType], references: [UOMMasterSid])
-
+  GrossWeight           Decimal?   @db.Decimal(10, 3)
+  NetWeight             Decimal?   @db.Decimal(10, 3)
+  ChargeableWeight      Decimal?   @db.Decimal(10, 3)
+  Volume                Decimal?   @db.Decimal(8, 3)
+  IsSoc                 String?    @db.Char(1)
+  masterJob             MasterJob  @relation(fields: [MasterJobSid], references: [MasterJobSid])
+  UOMMaster             UOMMaster? @relation(fields: [PkgType], references: [UOMMasterSid])
 }
 
 model HouseJob {
@@ -2310,8 +2311,9 @@ model HouseJob {
   CustomerMasterSid       Int?
   CustomerName            String               @db.VarChar(100)
   CustomerAddress         String               @db.VarChar(300)
+  CustomerBranchSid       Int?
   SalesmanSid             Int?
-  IncoTerms               Int?
+  IncoTerms               String?              @db.VarChar(10)
   FreightPPCC             String               @db.VarChar(10)
   DestinationAgent        Int?
   DestinationAgentAddress String?              @db.VarChar(300)
@@ -2326,7 +2328,7 @@ model HouseJob {
   VoyageMasterSid         Int?
   VesselName              String?              @db.VarChar(100)
   VoyageNo                String?              @db.VarChar(10)
-  Carrier                 Int?
+  CarrierSid              Int?
   POO                     String               @db.VarChar(100)
   POL                     String               @db.VarChar(100)
   POD                     String               @db.VarChar(100)
@@ -2343,6 +2345,7 @@ model HouseJob {
   MovementType            String?              @db.VarChar(10)
   DoValidity              DateTime?
   IsServiceJob            String               @db.Char(1)
+  customerBranch          CustomerBranch?      @relation(fields: [CustomerBranchSid], references: [CustomerBranchSid])
   BranchMaster            BranchMaster         @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
   CompanyMaster           CompanyMaster        @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
   customerMaster          CustomerMaster?      @relation(fields: [CustomerMasterSid], references: [CustomerMasterSid])
@@ -2359,29 +2362,31 @@ model HouseJob {
 }
 
 model HouseJobCargo {
-  HouseJobCargoSid Int           @id @default(autoincrement())
+  HouseJobCargoSid Int                  @id @default(autoincrement())
   HouseJobSid      Int
-  CreatedOn        DateTime      @default(now())
-  CreatedBy        String        @db.VarChar(100)
+  CreatedOn        DateTime             @default(now())
+  CreatedBy        String               @db.VarChar(100)
   UpdatedOn        DateTime?
-  UpdatedBy        String?       @db.VarChar(100)
-  Status           String        @db.Char(1)
+  UpdatedBy        String?              @db.VarChar(100)
+  Status           String               @db.Char(1)
   CompanyMasterSid Int
   BranchMasterSid  Int
-  CargoType        String?       @db.VarChar(10)
+  CargoType        String?              @db.VarChar(10)
   ContainerType    Int?
-  GrossWeight      Decimal?      @db.Decimal(10, 3)
-  NetWeight        Decimal?      @db.Decimal(10, 3)
-  Volume           Decimal?      @db.Decimal(10, 3)
-  ChargeableWeight Decimal?      @db.Decimal(10, 3)
+  NoOfContainer    Int?
+  GrossWeight      Decimal?             @db.Decimal(10, 3)
+  NetWeight        Decimal?             @db.Decimal(10, 3)
+  Volume           Decimal?             @db.Decimal(10, 3)
+  ChargeableWeight Decimal?             @db.Decimal(10, 3)
   PackageType      Int?
   NoOfPackage      Int?
-  FreightAmount    Decimal?      @db.Decimal(12, 2)
+  FreightAmount    Decimal?             @db.Decimal(12, 2)
   WeightUnit       Int?
-  ShipmentTerms    String?       @db.VarChar(10)
-  BranchMaster     BranchMaster  @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
-  CompanyMaster    CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
-  HouseJob         HouseJob      @relation(fields: [HouseJobSid], references: [HouseJobSid])
+  ShipmentTerms    String?              @db.VarChar(10)
+  BranchMaster     BranchMaster         @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
+  CompanyMaster    CompanyMaster        @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+  HouseJob         HouseJob             @relation(fields: [HouseJobSid], references: [HouseJobSid])
+  containerType    ContainerTypeMaster? @relation(fields: [ContainerType], references: [ContainerTypeMasterSid])
 }
 
 model HouseJobProduct {
@@ -2391,8 +2396,8 @@ model HouseJobProduct {
   ProductDescription String?   @db.VarChar(300)
   ShippingBillNo     String?   @db.VarChar(50)
   ShippingBillDate   DateTime?
-  ExternaPkg         Int?
-  ExternlQty         Int?
+  ExternaPkg         String?   @db.VarChar(10)
+  ExternlQty         Decimal?  @db.Decimal(4, 0)
   InternalPkg        Int?
   InternalQty        Int?
   GrossWeight        Decimal?  @db.Decimal(10, 3)
@@ -2491,17 +2496,16 @@ enum ApprovalStatus {
   Rejected
 }
 
-
-model MenuConfig{
-  menuConfigSid Int       @id @default(autoincrement())
+model MenuConfig {
+  menuConfigSid Int        @id @default(autoincrement())
   MenuMasterSid Int
-  ModelName     String   @db.VarChar(50)
-  PrimaryKey    String   @db.VarChar(50)
-  LinkPattern   String   @db.VarChar(100)
-  Status                 String    @default("A") @db.Char(1)
-  CreatedOn              DateTime  @default(now())
-  CreatedBy              String    @db.VarChar(100)
-  UpdatedOn              DateTime?
-  UpdatedBy              String?   @db.VarChar(100)
-  menuMaster MenuMaster @relation(fields: [MenuMasterSid], references: [MenuMasterSid], onDelete: Cascade)
+  ModelName     String     @db.VarChar(50)
+  PrimaryKey    String     @db.VarChar(50)
+  LinkPattern   String     @db.VarChar(100)
+  Status        String     @default("A") @db.Char(1)
+  CreatedOn     DateTime   @default(now())
+  CreatedBy     String     @db.VarChar(100)
+  UpdatedOn     DateTime?
+  UpdatedBy     String?    @db.VarChar(100)
+  menuMaster    MenuMaster @relation(fields: [MenuMasterSid], references: [MenuMasterSid], onDelete: Cascade)
 }

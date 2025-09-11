@@ -51,6 +51,7 @@ model BookingHeader {
   AuthorizerRemarks   String?             @db.VarChar(100)
   authorizerStatus    ApprovalStatus?
   MenuMasterSid       Int?
+  CarrierSid          Int?
   CarrierName         String?             @db.VarChar(200)
   Coload              String?             @db.VarChar(200)
   GeneralNote         String?             @db.VarChar(200)
@@ -79,36 +80,37 @@ model BookingHeader {
 }
 
 model BookingCargo {
-  BookingCargoSid  Int           @id @default(autoincrement()) @map("BookingCargoSid")
+  BookingCargoSid  Int                  @id @default(autoincrement()) @map("BookingCargoSid")
   CompanyMasterSid Int
   BranchMasterSid  Int?
   NoOfPackage      Int?
-  FreightAmount    String?       @db.VarChar(50)
-  CargoType        String        @db.VarChar(50)
+  FreightAmount    String?              @db.VarChar(50)
+  CargoType        String               @db.VarChar(50)
   WeightUnitSid    Int?
-  GrossWeight      Decimal       @db.Decimal(10, 3)
-  NetWeight        Decimal?      @db.Decimal(10, 3)
-  Volume           Decimal?      @db.Decimal(10, 3)
-  ChargeableWeight Decimal?      @db.Decimal(10, 3)
-  ContainerType    String?       @db.VarChar(50)
-  Qty              Decimal?      @db.Decimal(5, 0)
-  ShipmentTerms    String?       @db.VarChar(10)
-  createdOn        DateTime      @default(now()) @db.Timestamptz(6)
-  updatedOn        DateTime?     @updatedAt @db.Timestamptz(6)
+  GrossWeight      Decimal              @db.Decimal(10, 3)
+  NetWeight        Decimal?             @db.Decimal(10, 3)
+  Volume           Decimal?             @db.Decimal(10, 3)
+  ChargeableWeight Decimal?             @db.Decimal(10, 3)
+  ContainerType    Int?
+  PackageType      Int?
+  Qty              Decimal?             @db.Decimal(5, 0)
+  ShipmentTerms    String?              @db.VarChar(10)
+  createdOn        DateTime             @default(now()) @db.Timestamptz(6)
+  updatedOn        DateTime?            @updatedAt @db.Timestamptz(6)
   deletedAt        DateTime?
-  createdBy        String        @db.VarChar(100)
-  updatedBy        String?       @db.VarChar(100)
-  status           String?       @default("A") @db.Char(1)
+  createdBy        String               @db.VarChar(100)
+  updatedBy        String?              @db.VarChar(100)
+  status           String?              @default("A") @db.Char(1)
   BookingHeaderSid Int
-  pkgType          String?       @db.VarChar(50)
-  FreightTerms     String?       @db.VarChar(100)
-  MovementType     String?       @db.VarChar(100)
-  ModeOfTransport  String?       @db.VarChar(100)
+  FreightTerms     String?              @db.VarChar(100)
+  MovementType     String?              @db.VarChar(100)
+  ModeOfTransport  String?              @db.VarChar(100)
   NoofContainers   Int?
-  StuffingAt       String?       @db.VarChar(100)
-  bookingHeader    BookingHeader @relation(fields: [BookingHeaderSid], references: [BookingHeaderSid])
-  branchMaster     BranchMaster? @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
-  companyMaster    CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+  StuffingAt       String?              @db.VarChar(100)
+  bookingHeader    BookingHeader        @relation(fields: [BookingHeaderSid], references: [BookingHeaderSid])
+  branchMaster     BranchMaster?        @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
+  companyMaster    CompanyMaster        @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+  containerType    ContainerTypeMaster? @relation(fields: [ContainerType], references: [ContainerTypeMasterSid])
 }
 
 model BookingProduct {
@@ -118,7 +120,7 @@ model BookingProduct {
   ShippingBillNo     String         @db.VarChar(100)
   ShippingBillDate   DateTime?
   ExternaPkg         String?        @db.VarChar(100)
-  ExternlQty         String         @db.VarChar(100)
+  ExternlQty         String?        @db.VarChar(100)
   ActualQty          String?        @db.VarChar(100)
   InternalPkg        String?        @db.VarChar(100)
   InternalQty        String?        @db.VarChar(100)
