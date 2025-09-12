@@ -2306,6 +2306,7 @@ model HouseJob {
   QuotationHeaderSid      Int?
   DepartmentMasterSid     Int
   ShipmentNo              String               @db.VarChar(20)
+  BookingHeaderSid        Int?
   BookingNo               String               @db.VarChar(20)
   HBLNo                   String?              @db.VarChar(20)
   CustomerMasterSid       Int?
@@ -2355,6 +2356,7 @@ model HouseJob {
   quoteHeader             QuoteHeader?         @relation(fields: [QuotationHeaderSid], references: [QuoteHeaderSid])
   portMaster              PortMaster?          @relation(fields: [TsPortSid], references: [PortMasterSid])
   voyageMasterHeader      VoyageMasterHeader?  @relation(fields: [VoyageMasterSid], references: [VoyageMasterHeaderSid])
+  bookingHeader           BookingHeader?       @relation(fields: [BookingHeaderSid], references: [BookingHeaderSid])
   Cargo                   HouseJobCargo[]
   Connections             HouseJobConnection[]
   Others                  HouseJobOthers[]

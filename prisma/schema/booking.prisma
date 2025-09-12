@@ -77,6 +77,7 @@ model BookingHeader {
   bookingOthers       BookingOthers[]
   bookingProduct      BookingProduct[]
   bookingRates        BookingRates[]
+  houseJob            HouseJob[]
 }
 
 model BookingCargo {
