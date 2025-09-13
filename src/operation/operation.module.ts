@@ -12,6 +12,8 @@ import { CargoreceiptController } from './controllers/cargoreceipt/cargoreceipt.
 import { EmailService } from 'src/email/email.service';
 import { LoadingPlanController } from './controllers/loading-plan/loading-plan.controller';
 import { LoadingPlanService } from './services/loading-plan/loading-plan.service';
+import { DocumentController } from './controllers/document/document.controller';
+import { DocumentService } from './services/document/document.service';
 
 @Module({
     providers : [
@@ -23,14 +25,16 @@ import { LoadingPlanService } from './services/loading-plan/loading-plan.service
         CurrencyExchangeService,
         MasterJobService,
         CargoreceiptService,
-        LoadingPlanService
+        LoadingPlanService,
+        DocumentService
     ],
     controllers : [   
         BookingController, 
         OperationCommonController, 
         MasterJobController,
         CargoreceiptController,
-        LoadingPlanController
+        LoadingPlanController,
+        DocumentController
     ]
 })
 export class OperationModule {}
