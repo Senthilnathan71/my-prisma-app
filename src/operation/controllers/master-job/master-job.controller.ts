@@ -141,6 +141,33 @@ export class MasterJobController {
         return resp;
     }
 
+    @ApiOperation({ summary : "Detach booking from Master Job"})
+    @ApiCreatedResponse({
+      description: 'Successfully detached booking from Master Job',
+      type: ResponseData,
+    })
+    @HttpCode(HttpStatus.OK)
+    @Delete('detach/:BookingHeaderSid')
+    async detachBookingFromMasterJob(@Param('BookingHeaderSid', ParseIntPipe) BookingHeaderSid: number) {
+      let resp = new ResponseData();
+      try {
+        this.logger.log(`Detaching Booking with id : ${BookingHeaderSid}`);
+        const result = await this.masterJobService.detachBookingFromMasterJob(BookingHeaderSid);
+        this.logger.debug(`Detached Booking with id : ${BookingHeaderSid}`);
+        resp.data = result;
+        resp.message = `Booking with id: ${BookingHeaderSid} is successfully detached from Master Job`;
+      } catch (error) {
+        resp.status = false;
+        this.logger.warn(`Error in detaching Booking with id : ${BookingHeaderSid} : ${JSON.stringify(error), error}`);
+        if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+          resp.message = error.message;
+        } else {
+          resp.message = 'Internal Server Error';
+        }
+      }
+      return resp;
+    }
+
     // create post endpoint for searchMasterJob
     @ApiOperation({ summary: 'Search Master Jobs' })
     @ApiCreatedResponse({
@@ -278,31 +305,4 @@ export class MasterJobController {
             }
             return resp;
           }
-
-    @ApiOperation({ summary : "Detach booking from Master Job"})
-    @ApiCreatedResponse({
-      description: 'Successfully detached booking from Master Job',
-      type: ResponseData,
-    })
-    @HttpCode(HttpStatus.OK)
-    @Delete('detach/:BookingHeaderSid')
-    async detachBookingFromMasterJob(@Param('BookingHeaderSid', ParseIntPipe) BookingHeaderSid: number) {
-      let resp = new ResponseData();
-      try {
-        this.logger.log(`Detaching Booking with id : ${BookingHeaderSid}`);
-        const result = await this.masterJobService.detachBookingFromMasterJob(BookingHeaderSid);
-        this.logger.debug(`Detached Booking with id : ${BookingHeaderSid}`);
-        resp.data = result;
-        resp.message = `Booking with id: ${BookingHeaderSid} is successfully detached from Master Job`;
-      } catch (error) {
-        resp.status = false;
-        this.logger.warn(`Error in detaching Booking with id : ${BookingHeaderSid} : ${JSON.stringify(error), error}`);
-        if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
-          resp.message = error.message;
-        } else {
-          resp.message = 'Internal Server Error';
-        }
-      }
-      return resp;
-    }
 }

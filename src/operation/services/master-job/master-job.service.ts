@@ -33,14 +33,14 @@ export class MasterJobService {
                     CompanyMasterSid: payload.CompanyMasterSid,
                     BranchMasterSid: payload.BranchMasterSid,
                     DepartmentMasterSid: payload.DepartmentMasterSid,
-                    FreightPPCC: payload.FreightPPCC || '',
+                    FreightPPCC: payload.FreightPPCC || 'Prepaid',
                     DestinationAgent: payload.DestinationAgent,
                     DestinationAgentName: payload.DestinationAgentName,
                     DestinationAgentAddress: payload.DestinationAgentAddress?.substring(0, 20) || '',
                     MBLNo: MasterJobNumber,
                     MBLDate: payload.MasterJobDate ? new Date(payload.MasterJobDate) : new Date(),
                     BLReleaseType: payload.BLReleaseType,
-                    NoofOriginal: Number(payload.NoofOriginal),
+                    NoofOriginal: Number(payload.NoofOriginal) || 3,
                     OriginAgent: Number(payload.OriginAgent),
                     POO: payload.POO || '',
                     POL: payload.POL,
@@ -233,7 +233,7 @@ export class MasterJobService {
                 // SHIPMENT PART
 
                 const allShipments = payload.shipmentList
-                const allBookingId = (payload.shipmentList || []).map(item => item.BookingHeaderSid);
+                const allBookingId = payload.shipmentList || []
 
                 let allCreatedHouseJobs: any[] = [];
                 if (allBookingId.length > 0) {
@@ -277,6 +277,7 @@ export class MasterJobService {
                                 QuotationHeaderSid: bookingHeader.QuotationHeaderSid || null,
                                 DepartmentMasterSid: bookingHeader.DepartmentMasterSid,
                                 ShipmentNo: bookingHeader.ShipmentNo || '',
+                                BookingHeaderSid : bookingHeader.BookingHeaderSid || null,
                                 BookingNo: bookingHeader.BookingNo || '',
                                 HBLNo: HBLNo,
                                 CustomerMasterSid: bookingHeader.CustomerMasterSid || null,
@@ -491,7 +492,11 @@ export class MasterJobService {
                 })
                 const allShipments = await prisma.houseJob.findMany({
                     where: {
-                        MasterJobSid: MasterJobSid
+                        MasterJobSid: MasterJobSid,
+                        Status : 'A'
+                    },
+                    orderBy : {
+                        HouseJobSid : 'asc'
                     }
                 })
                 const allCostRevenueCharges = await prisma.costRevenueCharges.findMany({
@@ -958,7 +963,7 @@ export class MasterJobService {
                         const dateString = moment().format('YYYYMMDD')
                         const count = await prisma.houseJob.count({
                             where: {
-                                BookingNo: {
+                                HBLNo: {
                                     contains: dateString
                                 }
                             }
@@ -976,6 +981,7 @@ export class MasterJobService {
                                 QuotationHeaderSid: bookingHeader.QuotationHeaderSid || null,
                                 DepartmentMasterSid: bookingHeader.DepartmentMasterSid,
                                 ShipmentNo: bookingHeader.ShipmentNo || '',
+                                BookingHeaderSid : bookingHeader.BookingHeaderSid,
                                 BookingNo: bookingHeader.BookingNo || '',
                                 HBLNo: HBLNo,
                                 CustomerMasterSid: bookingHeader.CustomerMasterSid || null,

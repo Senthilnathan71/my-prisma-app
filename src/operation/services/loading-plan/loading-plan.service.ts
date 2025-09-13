@@ -29,12 +29,17 @@ export class LoadingPlanService {
                 DepartmentMasterSid: payload.DepartmentMasterSid,
                 POL: payload.POL,
                 POD: payload.POD,
-                VesselName: payload.VesselName,
-                VoyageNo: payload.VoyageNo,
                 MBLNo: null,
                 MasterNoSid: null,
                 status: 'A',
             }
+            if(payload.VesselName){
+                whereClause['VesselName'] = payload.VesselName;
+            }
+            if(payload.VoyageNo){
+                whereClause['VoyageNo'] = payload.VoyageNo;
+            }
+
             if(isLCL){
                 whereClause['BookingStatus'] = "Cargo Received";
             }
