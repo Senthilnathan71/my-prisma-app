@@ -153,8 +153,8 @@ export class VesselService {
                 ? {
                     OR: [
                         { VesselName: { contains: search, mode: 'insensitive' } },
-                        { IMOCode: { contains: search, mode: 'insensitive' } },
-                        { VesselShortCode: { contains: search, mode: 'insensitive' } },
+                        { VesselType: { contains: search, mode: 'insensitive' } },
+                        { status: { contains: search, mode: 'insensitive' } },
                         { CallSignIn: { contains: search, mode: 'insensitive' } },
                         { VesselOperator: { contains: search, mode: 'insensitive' } },
                     ],

@@ -149,16 +149,29 @@ export class CityService {
 
     const where: Prisma.CityMasterWhereInput = {
       status: 'A',
-      OR: search ? [
-        { cityCode: { contains: search, mode: 'insensitive' } },
-        { cityName: { contains: search, mode: 'insensitive' } },
-        { status: { contains: search, mode: 'insensitive' } },
-        ...(!isNaN(Number(search)) ? [
-          { CityMasterSid: Number(search) },
-          { StateMasterSid: Number(search) }
-        ] : [])
-      ] : undefined
+      ...(search
+        ? {
+          OR: [
+            { cityCode: { contains: search, mode: 'insensitive' } },
+            { cityName: { contains: search, mode: 'insensitive' } },
+            { status: { contains: search, mode: 'insensitive' } },
+            {
+              countryMaster: {
+                countryName: { contains: search, mode: 'insensitive' },
+              },
+            },
+            {
+              stateMaster: {
+                stateName: { contains: search, mode: 'insensitive' },
+              },
+            },
+          ],
+        }
+        : {}
+      ),
     };
+
+
 
     let items;
     let totalCount;
