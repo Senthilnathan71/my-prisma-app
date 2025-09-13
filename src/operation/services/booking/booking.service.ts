@@ -98,13 +98,14 @@ export class BookingService {
                         MovementType: payload.MovementType,
                         DoValid: payload.DoValid,
                         Coload: payload.Coload,
-                        Nominated: payload.Nominated,
+                        ShipmentType: payload.ShipmentType,
                         IncoTerms: payload.IncoTerms,
                         FreightTerms : payload.FreightTerms,
                         InternalNote: payload.InternalNote,
                         GeneralNote: payload.GeneralNote,
                         NominatedBy: payload.NominatedBy,
-                        ShipmentNo: BookingNo
+                        ShipmentNo: BookingNo,
+                        BookingStatus : 'Booked'
                     }
                 })
 
@@ -152,7 +153,7 @@ export class BookingService {
                         ProductName: product.ProductName || '',
                         ShippingBillNo: product.ShippingBillNo || '',
                         ShippingBillDate: product.ShippingBillDate || '',
-                        CargoRecDate : product.CargoRecDate || null,
+                        CargoRecDate : product.CargoRecDate ? new Date(product.CargoRecDate) : null,
                         ExternaPkg: product.ExternaPkg || '',
                         ExternlQty: product.ExternlQty || '',
                         GrossWeight: Number(product.GrossWeight) || 0,
@@ -479,7 +480,7 @@ export class BookingService {
                         MovementType: payload.MovementType,
                         DoValid: payload.DoValid,
                         Coload: payload.Coload,
-                        Nominated: payload.Nominated,
+                        ShipmentType: payload.ShipmentType,
                         IncoTerms: payload.IncoTerms,
                         FreightTerms : payload.FreightTerms,
                         InternalNote: payload.InternalNote,
@@ -560,7 +561,7 @@ export class BookingService {
                                 ProductName: product.ProductName,
                                 ShippingBillNo: product.ShippingBillNo,
                                 ShippingBillDate: product.ShippingBillDate,
-                                ProductDescription : product.CargoRecDate,
+                                CargoRecDate : product.CargoRecDate ? new Date(product.CargoRecDate) : null,
                                 ExternaPkg: product.ExternaPkg,
                                 ExternlQty: product.ExternlQty,
                                 GrossWeight: Number(product.GrossWeight),
@@ -585,7 +586,7 @@ export class BookingService {
                                 ProductName: product.ProductName,
                                 ShippingBillNo: product.ShippingBillNo,
                                 ShippingBillDate: product.ShippingBillDate,
-                                ProductDescription : product.CargoRecDate,
+                                CargoRecDate : product.CargoRecDate ? new Date(product.CargoRecDate) : null,
                                 ExternaPkg: product.ExternaPkg,
                                 ExternlQty: product.ExternlQty,
                                 GrossWeight: Number(product.GrossWeight),
@@ -935,7 +936,7 @@ export class BookingService {
     }
 
     async searchBooking(params: SearchVesselDto) {
-        const { search = '', page = 1, pageSize = 15 } = params;
+        const { search = '', page = 1, pageSize = 15 ,activeCompanyId, activeBranchId } = params;
         const skip = (page - 1) * pageSize;
 
         let salesmanIds: number[] = [];
@@ -960,7 +961,7 @@ export class BookingService {
             */
 
             const milestones = await this._db.shipmentMilestone.findMany({
-                where: { MilestoneName: { contains: search, mode: 'insensitive' } , Status:'A' },
+                where: { MilestoneName: { contains: search, mode: 'insensitive' } , Status:'A',CompanyMasterSid : activeCompanyId, BranchMasterSid : activeBranchId },
                 select: { ShipmentNo: true, ShipmentMilestoneSid: true },
                 orderBy: [{ ShipmentNo: 'asc' }, { ShipmentMilestoneSid: 'desc' }],
             });
@@ -968,6 +969,8 @@ export class BookingService {
         }
 
         const where: Prisma.BookingHeaderWhereInput = {
+            CompanyMasterSid : activeCompanyId,
+            BranchMasterSid : activeBranchId,
             status: 'A',
             ...(search && {
                 OR: [
