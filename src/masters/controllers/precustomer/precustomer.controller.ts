@@ -130,7 +130,7 @@ export class PrecustomerController {
     async createPrecustomer(@Body() body: CreatePrecustomerDto, @UserData() user: any) {
         let output = new ResponseData
         try {
-            let preCustomer = await this.precustomerSer.createPrecustomer(body, user);
+            let preCustomer = await this.precustomerSer.createPrecustomer(body, );
             this.logger.log(`createPrecustomer: ${JSON.stringify(preCustomer)}`)
             if (!preCustomer) {
                 this.logger.warn(`createPrecustomer: ${JSON.stringify(preCustomer)}`)

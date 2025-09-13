@@ -52,11 +52,11 @@ export class PreCustomerMeetingController {
     })
     @HttpCode(HttpStatus.OK)
     @Put()
-    async createPrecustomer(@Body() body: CreatePreCustomerMeetingDto, @UserData() user: any) {
+    async createPrecustomer(@Body() body: CreatePreCustomerMeetingDto) {
         this.logger.log(`createPrecustomer: ${JSON.stringify(body)}`)
         let output = new ResponseData
         try {
-            let preCustomer = await this.preCustomerMeetingService.CreateAndUpdatePreCustomerMeeting(body, user);
+            let preCustomer = await this.preCustomerMeetingService.CreateAndUpdatePreCustomerMeeting(body);
             this.logger.log(`createPrecustomer: ${JSON.stringify(preCustomer)}`)
 
             if (!preCustomer) {
@@ -90,7 +90,7 @@ export class PreCustomerMeetingController {
     })
     @HttpCode(HttpStatus.OK)
     @Get('meetingDate')
-    async getPreCustomerMeetings(@UserData() UserData: any) {
+    async getPreCustomerMeetings() {
         const output = new ResponseData
         try {
             const customers = await this.preCustomerMeetingService.getPreCustomerMeetingDate()
@@ -119,7 +119,7 @@ export class PreCustomerMeetingController {
     })
     @HttpCode(HttpStatus.OK)
     @Get(':id')
-    async getPreCustomer(@Param('id') id: string, @UserData() UserData: any) {
+    async getPreCustomer(@Param('id') id: string) {
         const output = new ResponseData
         try {
             const result = await this.preCustomerMeetingService.getPreCustomer(id)
