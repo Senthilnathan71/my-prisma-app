@@ -129,6 +129,15 @@ export class CargoreceiptService {
       CargoRecDate: p.CargoRecDate ? p.CargoRecDate.toISOString().split('T')[0] : null,
     }));
 
+    const statusUpdatedBooking  = await this._db.bookingHeader.update({
+      where : {
+        BookingHeaderSid : BookingHeaderSid
+      },
+      data : {
+        BookingStatus : 'Cargo Received'
+      }
+    })
+
     // Return success response to browser
     return {
   status: true,
