@@ -9,7 +9,7 @@ import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
 
 @Injectable()
 export class MenuService {
-    constructor(private _db: DatabaseService, private logger: Logger,private globalConfigService:GlobalConfigService) { }
+    constructor(private _db: DatabaseService, private logger: Logger, private globalConfigService: GlobalConfigService) { }
 
 
     async createMenu(payload: any, user) {
@@ -115,7 +115,7 @@ export class MenuService {
             return await this._db.menuMaster.findMany({
                 where: {
                     parentId: null,
-                    status:'A',
+                    status: 'A',
 
                 },
                 select: {
@@ -135,7 +135,7 @@ export class MenuService {
         try {
             const menuList = await this._db.menuMaster.findMany({
                 where: {
-                    status:'A'
+                    status: 'A'
                 },
             })
 
@@ -151,7 +151,7 @@ export class MenuService {
             const menuPermissions = await this._db.menuPermission.findMany({
                 where: {
                     MenuMasterSid: MenuMasterSid,
-                    status:'A'
+                    status: 'A'
                 }
             })
             return menuPermissions
@@ -206,7 +206,7 @@ export class MenuService {
                     const existingPerms = await tx.menuPermission.findMany({
                         where: {
                             MenuMasterSid: menuMasterSid,
-                            status:'A'
+                            status: 'A'
                         }
                     });
 
@@ -227,7 +227,7 @@ export class MenuService {
                                 }
                             },
                             data: {
-                                status:'A',
+                                status: 'A',
                             }
                         });
                     }
@@ -240,7 +240,7 @@ export class MenuService {
                                     equals: p.permissionName.trim(),
                                     mode: 'insensitive'
                                 },
-                                status:'A'
+                                status: 'A'
                             }
                         });
 
@@ -275,35 +275,37 @@ export class MenuService {
                 const menuConfig = MENU_CONFIG_MAP[configKey];
                 const linkPattern = this.buildLinkPattern(updatedMenu.path, configKey);
 
-                const existingConfig = await tx.menuConfig.findFirst({
-                    where: {
-                        MenuMasterSid: updatedMenu.MenuMasterSid,
-                        ModelName: menuConfig.modelName,
-                        PrimaryKey: menuConfig.primaryKey
-                    }
-                });
-
-                if (existingConfig) {
-                    await tx.menuConfig.update({
+                if (menuConfig) {
+                    const existingConfig = await tx.menuConfig.findFirst({
                         where: {
-                            menuConfigSid: existingConfig.menuConfigSid
-                        },
-                        data: {
-                            ModelName : menuConfig.modelName,
-                            PrimaryKey : menuConfig.primaryKey,
-                            LinkPattern: linkPattern
-                        }
-                    });
-                } else {
-                    await tx.menuConfig.create({
-                        data: {
                             MenuMasterSid: updatedMenu.MenuMasterSid,
                             ModelName: menuConfig.modelName,
-                            PrimaryKey: menuConfig.primaryKey,
-                            LinkPattern: linkPattern,
-                            CreatedBy: payload.createdBy,
+                            PrimaryKey: menuConfig.primaryKey
                         }
                     });
+
+                    if (existingConfig) {
+                        await tx.menuConfig.update({
+                            where: {
+                                menuConfigSid: existingConfig.menuConfigSid
+                            },
+                            data: {
+                                ModelName: menuConfig.modelName,
+                                PrimaryKey: menuConfig.primaryKey,
+                                LinkPattern: linkPattern
+                            }
+                        });
+                    } else {
+                        await tx.menuConfig.create({
+                            data: {
+                                MenuMasterSid: updatedMenu.MenuMasterSid,
+                                ModelName: menuConfig.modelName,
+                                PrimaryKey: menuConfig.primaryKey,
+                                LinkPattern: linkPattern,
+                                CreatedBy: payload.createdBy,
+                            }
+                        });
+                    }
                 }
 
                 return {
@@ -314,7 +316,7 @@ export class MenuService {
 
             return result;
         } catch (error) {
-            throw new Error(`Error updating menu: ${error.message}`);
+            throw new Error(`Error updating menu: ${error.message},${error.stack}`);
         }
     }
 
@@ -355,7 +357,7 @@ export class MenuService {
             throw new NotFoundException(`Menu with ID ${id} not found`);
         }
 
-        if (existingmenu.status==='D') {
+        if (existingmenu.status === 'D') {
             throw new Error(`Menu with ID ${id} is already deleted`);
         }
 
@@ -364,7 +366,7 @@ export class MenuService {
             where: {
                 MenuMasterSid: id,
                 NOT: {
-                    status:'D'
+                    status: 'D'
                 }
             }
         });
@@ -376,13 +378,13 @@ export class MenuService {
         return await this._db.$transaction(async (tx) => {
             await tx.menuPermission.updateMany({
                 where: { MenuMasterSid: id },
-                data: { status:'D', updatedBy: user?.userName || 'system' }
+                data: { status: 'D', updatedBy: user?.userName || 'system' }
             });
 
             await tx.menuMaster.update({
                 where: { MenuMasterSid: id },
                 data: {
-                    status:'D',
+                    status: 'D',
                     updatedBy: user?.userName || 'system'
                 }
             });
@@ -392,7 +394,7 @@ export class MenuService {
                     MenuMasterSid: id
                 },
                 data: {
-                    Status:'D',
+                    Status: 'D',
                 }
             });
         });
@@ -436,10 +438,10 @@ export class MenuService {
         ]);
 
         items = await Promise.all(
-            items.map(async (item)=> {
-                const moduleMaster = item.ModuleMasterSid !== null ? 
-                await this.globalConfigService.getMasterData('module_master',item.ModuleMasterSid,item.CompanyMasterSid) :
-                {ModuleMasterSid : null , ModuleName : ''};
+            items.map(async (item) => {
+                const moduleMaster = item.ModuleMasterSid !== null ?
+                    await this.globalConfigService.getMasterData('module_master', item.ModuleMasterSid, item.CompanyMasterSid) :
+                    { ModuleMasterSid: null, ModuleName: '' };
 
                 return {
                     ...item,
@@ -459,7 +461,7 @@ export class MenuService {
             const menus = await this._db.menuMaster.findMany({
                 where: {
                     ModuleMasterSid: ModuleMasterSid,
-                    status:'A'
+                    status: 'A'
                 },
             })
             return menus;
@@ -474,7 +476,7 @@ export class MenuService {
                 where: {
                     ModuleMasterSid: moduleId,
                     parentId: null,
-                    status:'A'
+                    status: 'A'
                 },
             })
             return submenus;
