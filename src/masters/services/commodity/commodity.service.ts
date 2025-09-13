@@ -2,7 +2,7 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
-import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
+import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 
 @Injectable()
 export class CommodityService {
@@ -25,7 +25,7 @@ export class CommodityService {
         try {
             const allCommodities = await this._db.commodityMaster.findMany({
                 where: {
-                    status : 'A'
+                    status: 'A'
                 }
             })
             return allCommodities;
@@ -90,7 +90,7 @@ export class CommodityService {
                 where: {
                     CommodityMasterSid: CommodityMasterSid
                 }, data: {
-                    status : 'D'
+                    status: 'D'
                 }
             })
             return deletedCommodity;
@@ -100,45 +100,45 @@ export class CommodityService {
     }
 
 
-    async searchCommodity(params: SearchVesselDto) {
-    const { search = '', page = 1, pageSize = 15 } = params;
-    const skip = (page - 1) * pageSize;
+    async searchCommodity(params: filterDto) {
+        const { search = '', page = 1, pageSize = 15 } = params;
+        const skip = (page - 1) * pageSize;
 
-    const where: Prisma.CommodityMasterWhereInput = {
-        status: 'A',
-        ...(search
-            ? {
-                OR: [
-                    { CommodityCode: { contains: search, mode: 'insensitive' } },
-                    { CommodityName: { contains: search, mode: 'insensitive' } },
-                    { CommodityNameLL: { contains: search, mode: 'insensitive' } },
-                    { ImcoName: { contains: search, mode: 'insensitive' } },
-                    { UNNo: { contains: search, mode: 'insensitive' } },
-                    { PackingGroup: { contains: search, mode: 'insensitive' } },
-                    { CommodityType: { contains: search, mode: 'insensitive' } },
-                    // { HSSACCode: { contains: search, mode: 'insensitive' } },
-                    { FlashPoint: { contains: search, mode: 'insensitive' } },
-                    { status: { contains: search, mode: 'insensitive' } },
-                    { Remarks: { contains: search, mode: 'insensitive' } },
-                ],
-            }
-            : {}
-        ),
-    };
+        const where: Prisma.CommodityMasterWhereInput = {
+            status: 'A',
+            ...(search
+                ? {
+                    OR: [
+                        { CommodityCode: { contains: search, mode: 'insensitive' } },
+                        { CommodityName: { contains: search, mode: 'insensitive' } },
+                        { CommodityNameLL: { contains: search, mode: 'insensitive' } },
+                        { ImcoName: { contains: search, mode: 'insensitive' } },
+                        { UNNo: { contains: search, mode: 'insensitive' } },
+                        { PackingGroup: { contains: search, mode: 'insensitive' } },
+                        { CommodityType: { contains: search, mode: 'insensitive' } },
+                        // { HSSACCode: { contains: search, mode: 'insensitive' } },
+                        { FlashPoint: { contains: search, mode: 'insensitive' } },
+                        { status: { contains: search, mode: 'insensitive' } },
+                        { Remarks: { contains: search, mode: 'insensitive' } },
+                    ],
+                }
+                : {}
+            ),
+        };
 
-    const [items, totalCount] = await this._db.$transaction([
-        this._db.commodityMaster.findMany({
-            where,
-            skip,
-            take: pageSize,
-            orderBy: { CommodityMasterSid: 'desc' },
-        }),
-        this._db.commodityMaster.count({ where }),
-    ]);
+        const [items, totalCount] = await this._db.$transaction([
+            this._db.commodityMaster.findMany({
+                where,
+                skip,
+                take: pageSize,
+                orderBy: { CommodityMasterSid: 'desc' },
+            }),
+            this._db.commodityMaster.count({ where }),
+        ]);
 
-    return {
-        items,
-        totalCount,
-    };
-}
+        return {
+            items,
+            totalCount,
+        };
+    }
 }

@@ -2,7 +2,7 @@ import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatu
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
 import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
-import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
+import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 import { TaxService } from 'src/masters/services/tax/tax.service';
 
 
@@ -161,7 +161,7 @@ export class TaxController {
     })
     @HttpCode(HttpStatus.OK)
     @Post('search-list')
-    async searchTax(@Body() searchData: SearchVesselDto) {
+    async searchTax(@Body() searchData: filterDto) {
         let resp = new ResponseData();
         try {
             let res = await this.taxService.searchTax(searchData);

@@ -5,37 +5,37 @@ import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
 import { Auth } from 'src/common/decorators/auth.decorator';
 import { UserData } from 'src/common/decorators/user.decorator';
 import { ResponseData } from 'src/common/response-data';
-import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
+import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 @Controller('supplier-tds-mapping')
 @Auth()
 export class SupplierTdsMappingController {
-    constructor(private logger: Logger, private suppliertdsmappingService:SupplierTdsMappingService){}
+    constructor(private logger: Logger, private suppliertdsmappingService: SupplierTdsMappingService) { }
 
-     @ApiOperation({ summary: 'Get All Supplier TDS Mapping' })
-        @ApiCreatedResponse({
-            description: 'Get All Supplier TDS Mapping',
-            type: ResponseData
-        })
-        @HttpCode(HttpStatus.OK)
-        @Get()
-        async getAllSupptdsMapping() {
-            let resp = new ResponseData();
-            try {
-                let res = await this.suppliertdsmappingService.getAllSupptdsMapping();
-                this.logger.log(`All Supplier TDS Mapping Fetched : ${JSON.stringify(res)}`);
-                resp.data = res;
-                resp.message = "All Supplier TDS Mapping are successfully fetched";
-            } catch (error) {
-                this.logger.warn(`Get All Supplier TDS Mapping Error : ${JSON.stringify(error), error}`);
-                resp.status = false;
-                if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
-                    resp.message = error.message;
-                } else {
-                    resp.message = "Internal Server Error";
-                }
+    @ApiOperation({ summary: 'Get All Supplier TDS Mapping' })
+    @ApiCreatedResponse({
+        description: 'Get All Supplier TDS Mapping',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Get()
+    async getAllSupptdsMapping() {
+        let resp = new ResponseData();
+        try {
+            let res = await this.suppliertdsmappingService.getAllSupptdsMapping();
+            this.logger.log(`All Supplier TDS Mapping Fetched : ${JSON.stringify(res)}`);
+            resp.data = res;
+            resp.message = "All Supplier TDS Mapping are successfully fetched";
+        } catch (error) {
+            this.logger.warn(`Get All Supplier TDS Mapping Error : ${JSON.stringify(error), error}`);
+            resp.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                resp.message = error.message;
+            } else {
+                resp.message = "Internal Server Error";
             }
-            return resp;
         }
+        return resp;
+    }
 
 
     @ApiOperation({ summary: 'Create new Supplier TDS Mapping' })
@@ -64,7 +64,7 @@ export class SupplierTdsMappingController {
         return resp;
     }
 
-     @ApiOperation({ summary: 'Get Supplier TDS Mapping by Id' })
+    @ApiOperation({ summary: 'Get Supplier TDS Mapping by Id' })
     @ApiCreatedResponse({
         description: 'Get Supplier TDS Mapping by Id',
         type: ResponseData
@@ -92,7 +92,7 @@ export class SupplierTdsMappingController {
     }
 
 
-     @ApiOperation({ summary: 'Update Supplier TDS Mapping by Id' })
+    @ApiOperation({ summary: 'Update Supplier TDS Mapping by Id' })
     @ApiCreatedResponse({
         description: 'Update Supplier TDS Mapping by Id',
         type: ResponseData
@@ -149,7 +149,7 @@ export class SupplierTdsMappingController {
 
     @HttpCode(HttpStatus.OK)
     @Post('search-list')
-    async searchSuppliertdsMapping(@Body() searchData: SearchVesselDto) {
+    async searchSuppliertdsMapping(@Body() searchData: filterDto) {
         let resp = new ResponseData();
         try {
             let res = await this.suppliertdsmappingService.searchSuppliertdsMapping(searchData);
@@ -168,38 +168,38 @@ export class SupplierTdsMappingController {
         return resp;
     }
 
-    
+
     @ApiOperation({ summary: 'Get Audit Logs for a Table/Record' })
-      @ApiCreatedResponse({ description: 'Fetch audit logs', type: ResponseData })
-      @HttpCode(HttpStatus.OK)
-      @Get('audit-logs')
-      async getAuditLogs(
+    @ApiCreatedResponse({ description: 'Fetch audit logs', type: ResponseData })
+    @HttpCode(HttpStatus.OK)
+    @Get('audit-logs')
+    async getAuditLogs(
         @Query('tableName') tableName: string,
         @Query('recordId') recordId?: string,
-      ) {
+    ) {
         const resp = new ResponseData();
         try {
-          if (!tableName) throw new Error('tableName query parameter is required');
-    
-          const logs = await this.suppliertdsmappingService.getAuditLogs(tableName, recordId);
-    
-          // Remove updatedOn from oldVal and newVal
-          resp.data = logs.map((log: any) => {
-            const oldVal = log.oldVal ? { ...log.oldVal } : null;
-            const newVal = log.newVal ? { ...log.newVal } : null;
-            if (oldVal && 'updatedOn' in oldVal) delete oldVal.updatedOn;
-            if (newVal && 'updatedOn' in newVal) delete newVal.updatedOn;
-            return { ...log, oldVal, newVal };
-          });
-    
-          resp.message = 'Audit logs fetched successfully';
+            if (!tableName) throw new Error('tableName query parameter is required');
+
+            const logs = await this.suppliertdsmappingService.getAuditLogs(tableName, recordId);
+
+            // Remove updatedOn from oldVal and newVal
+            resp.data = logs.map((log: any) => {
+                const oldVal = log.oldVal ? { ...log.oldVal } : null;
+                const newVal = log.newVal ? { ...log.newVal } : null;
+                if (oldVal && 'updatedOn' in oldVal) delete oldVal.updatedOn;
+                if (newVal && 'updatedOn' in newVal) delete newVal.updatedOn;
+                return { ...log, oldVal, newVal };
+            });
+
+            resp.message = 'Audit logs fetched successfully';
         } catch (error) {
-          this.logger.warn(`getAuditLogsError: ${error}`);
-          resp.status = false;
-          resp.message = error.message || 'Internal Server Error';
+            this.logger.warn(`getAuditLogsError: ${error}`);
+            resp.status = false;
+            resp.message = error.message || 'Internal Server Error';
         }
         return resp;
-      }
-    
-   
+    }
+
+
 }

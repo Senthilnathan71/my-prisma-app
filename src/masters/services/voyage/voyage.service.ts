@@ -3,7 +3,7 @@ import { Prisma } from '@prisma/client';
 import { GlobalConfigService } from 'src/common/config/master-config.service';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
-import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
+import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 
 @Injectable()
 export class VoyageService {
@@ -56,7 +56,7 @@ export class VoyageService {
         try {
             const voyageList = await this._db.voyageMasterHeader.findMany({
                 where: {
-                    status:'A'
+                    status: 'A'
                 }
             })
             return voyageList;
@@ -145,7 +145,7 @@ export class VoyageService {
                 throw new NotFoundException(`Voyage with ID ${VoyageMasterHeaderSid} not found`);
             }
 
-            if (existingVoyage.status==='D') {
+            if (existingVoyage.status === 'D') {
                 throw new Error(`Voyage with ID ${VoyageMasterHeaderSid} is already deleted`);
             }
 
@@ -155,17 +155,17 @@ export class VoyageService {
                         VoyageMasterHeaderSid: VoyageMasterHeaderSid
                     },
                     data: {
-                        status:'D'
+                        status: 'D'
                     }
                 })
 
                 const deletedVoyageDetail = await prisma.voyageMasterDetail.updateManyAndReturn({
                     where: {
                         VoyageMasterHeaderSid: VoyageMasterHeaderSid,
-                        status:'D'
+                        status: 'D'
                     },
                     data: {
-                        status:'D'
+                        status: 'D'
                     }
                 })
 
@@ -225,7 +225,7 @@ export class VoyageService {
         const searchResults = await this._db.voyageMasterHeader.findMany({
             where: {
                 ...whereClause,
-                status:'A'
+                status: 'A'
             },
             include: {
                 vesselMaster: {
@@ -235,7 +235,7 @@ export class VoyageService {
                 },
                 voyageMasterDetail: {
                     where: {
-                        status:'A'
+                        status: 'A'
                     },
                     orderBy: {
                         VoyageMasterDetailSid: 'asc'
@@ -342,7 +342,7 @@ export class VoyageService {
             where: {
                 voyageMasterDetail: {
                     some: {
-                        status:'A',
+                        status: 'A',
                     },
                 },
             },
@@ -357,7 +357,7 @@ export class VoyageService {
             const details = await this._db.voyageMasterDetail.findMany({
                 where: {
                     VoyageMasterHeaderSid: header.VoyageMasterHeaderSid,
-                    status:'A',
+                    status: 'A',
                 },
                 orderBy: {
                     VoyageMasterDetailSid: 'asc',
@@ -404,87 +404,87 @@ export class VoyageService {
         };
     }
 
-   async searchList(params: SearchVesselDto) {
-    const { search = '', page = 1, pageSize = 15 } = params;
-    const skip = (page - 1) * pageSize;
-    const today = new Date().toISOString(); // Use full ISO-8601 DateTime format
+    async searchList(params: filterDto) {
+        const { search = '', page = 1, pageSize = 15 } = params;
+        const skip = (page - 1) * pageSize;
+        const today = new Date().toISOString(); // Use full ISO-8601 DateTime format
 
-    const where: Prisma.VoyageMasterHeaderWhereInput = {
-        status:'A',
-        voyageMasterDetail: {
-            some: {
-                status:'A',
-                ETD: {
-                    gte: today
+        const where: Prisma.VoyageMasterHeaderWhereInput = {
+            status: 'A',
+            voyageMasterDetail: {
+                some: {
+                    status: 'A',
+                    ETD: {
+                        gte: today
+                    }
                 }
-            }
-        },
-        ...(search
-            ? {
-                OR: [
-                    { VoyageNo: { contains: search, mode: 'insensitive' } },
-                    { vesselMaster: { VesselName: { contains: search, mode: 'insensitive' } } },
-                    { voyageMasterDetail: { some: { portMasterPOL: { PortCode: { contains: search, mode: 'insensitive' } } } } },
-                    { voyageMasterDetail: { some: { portMasterPOL: { PortName: { contains: search, mode: 'insensitive' } } } } },
-                ]
-            }
-            : {}
+            },
+            ...(search
+                ? {
+                    OR: [
+                        { VoyageNo: { contains: search, mode: 'insensitive' } },
+                        { vesselMaster: { VesselName: { contains: search, mode: 'insensitive' } } },
+                        { voyageMasterDetail: { some: { portMasterPOL: { PortCode: { contains: search, mode: 'insensitive' } } } } },
+                        { voyageMasterDetail: { some: { portMasterPOL: { PortName: { contains: search, mode: 'insensitive' } } } } },
+                    ]
+                }
+                : {}
+            )
+        };
+
+        let items;
+        let totalCount;
+        [items, totalCount] = await this._db.$transaction([
+            this._db.voyageMasterHeader.findMany({
+                where,
+                skip,
+                take: pageSize,
+                orderBy: { VoyageMasterHeaderSid: 'desc' },
+                include: {
+                    voyageMasterDetail: {
+                        where: {
+                            status: 'A'
+                        },
+                        orderBy: {
+                            VoyageMasterDetailSid: 'asc'
+                        },
+                    }
+                }
+            }),
+            this._db.voyageMasterHeader.count({ where })
+        ]);
+
+        items = await Promise.all(
+            items.map(async (item) => {
+                const vesselMaster = item.VesselMasterSid !== null ? await this.globalConfigService.getMasterData('vessel_master', item.VesselMasterSid) : { VesselMasterSid: null, VesselName: '' };
+                return {
+                    ...item,
+                    vesselMaster,
+                }
+            })
         )
-    };
 
-    let items;
-    let totalCount;
-    [items, totalCount] = await this._db.$transaction([
-        this._db.voyageMasterHeader.findMany({
-            where,
-            skip,
-            take: pageSize,
-            orderBy: { VoyageMasterHeaderSid: 'desc' },
-            include: {
-                voyageMasterDetail: {
-                    where: {
-                        status:'A'
-                    },
-                    orderBy: {
-                        VoyageMasterDetailSid: 'asc'
-                    },
-                }
-            }
-        }),
-        this._db.voyageMasterHeader.count({ where })
-    ]);
-
-    items = await Promise.all(
-        items.map(async (item)=>{
-            const vesselMaster = item.VesselMasterSid !== null ? await this.globalConfigService.getMasterData('vessel_master', item.VesselMasterSid) : {VesselMasterSid : null , VesselName : ''};
-            return {
-                ...item,
-                vesselMaster,
-            }
-        })
-    )
-
-    return {
-        items,
-        totalCount
-    };
-}
-async getAuditLogs(tableName: string, recordId?: string) {
-    try {
-      const whereClause: any = { tableName };
-      if (recordId) whereClause.recordId = recordId;
-
-      const logs = await this._db.auditLog.findMany({
-        where: whereClause,
-        orderBy: { changedAt: 'desc' },
-      });
-
-      return logs;
-    } catch (error) {
-      this.logger.warn(`getAuditLogsError: ${error}`);
-      throw new Error(`Error fetching audit logs: ${error.message}`);
+        return {
+            items,
+            totalCount
+        };
     }
-  }
+    async getAuditLogs(tableName: string, recordId?: string) {
+        try {
+            const whereClause: any = { tableName };
+            if (recordId) whereClause.recordId = recordId;
+
+            const logs = await this._db.auditLog.findMany({
+                where: whereClause,
+                orderBy: { changedAt: 'desc' },
+            });
+
+            return logs;
+        } catch (error) {
+            this.logger.warn(`getAuditLogsError: ${error}`);
+            throw new Error(`Error fetching audit logs: ${error.message}`);
+        }
+    }
 
     // Used in Booking Header
     async getAvailableVessels(
@@ -516,7 +516,7 @@ async getAuditLogs(tableName: string, recordId?: string) {
                 voyageMasterDetail: {
                     where: { status: 'A' },
                     orderBy: { ETD: 'asc' },
-                    select: { POLSid: true, ETD: true,ETA : true },
+                    select: { POLSid: true, ETD: true, ETA: true },
                 },
             },
         });
@@ -536,7 +536,7 @@ async getAuditLogs(tableName: string, recordId?: string) {
             }
             if (startIndex === -1) {
                 startIndex = details.findIndex(
-                    (d) => d.POLSid === POL && new Date(d.ETD) >= today 
+                    (d) => d.POLSid === POL && new Date(d.ETD) >= today
                 );
             }
             if (startIndex === -1) return false;
@@ -672,14 +672,14 @@ async getAuditLogs(tableName: string, recordId?: string) {
             const allVoyages = await this._db.voyageMasterHeader.findMany({
                 where: {
                     VesselMasterSid: VesselMasterSid,
-                    status:'A',
+                    status: 'A',
                     voyageMasterDetail: {
                         some: {}
                     }
                 },
                 include: {
                     voyageMasterDetail: {
-                        where: { status:'A' },
+                        where: { status: 'A' },
                         orderBy: { VoyageMasterDetailSid: 'asc' }
                     }
                 }

@@ -19,7 +19,7 @@ import e from 'express';
 import { UserData } from 'src/common/decorators/user.decorator';
 import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
-import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
+import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 import { CurrencyService } from 'src/masters/services/currency/currency.service';
 
 @Controller('currency')
@@ -27,7 +27,7 @@ export class CurrencyController {
   constructor(
     private currencyService: CurrencyService,
     private logger: Logger,
-  ) {}
+  ) { }
 
   @ApiOperation({ summary: 'Currency Creation' })
   @ApiCreatedResponse({
@@ -38,7 +38,7 @@ export class CurrencyController {
   @Post('create')
   async createCurrency(
     @Body() body: any,
-    
+
   ) {
     this.logger.log(`createCurrencyData: ${JSON.stringify(body)}`);
     let output = new ResponseData();
@@ -115,11 +115,11 @@ export class CurrencyController {
     } catch (error) {
       this.logger.warn(`getCurrencyById Error: ${JSON.stringify(error)}`);
       output.status = false;
-       if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
-                output.message = error.message;
-            } else {
-                output.message = "Internal Server Error";
-            }
+      if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+        output.message = error.message;
+      } else {
+        output.message = "Internal Server Error";
+      }
     }
     return output;
   }
@@ -134,7 +134,7 @@ export class CurrencyController {
   async editCurrency(
     @Param('id', ParseIntPipe) id: number,
     @Body() body: any,
-    
+
   ) {
     this.logger.log(`editCurrencybody: ${JSON.stringify(body)}`);
     let output = new ResponseData();
@@ -154,13 +154,13 @@ export class CurrencyController {
       this.logger.warn(`editCurrencyerror: ${(JSON.stringify(error), error)}`);
       output.status = false;
       // Handle error message based on the type of error
-       if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
-                output.message = error.message;
-            } else {
-                output.message = "Internal Server Error";
-            }
-        }
-        return output;
+      if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+        output.message = error.message;
+      } else {
+        output.message = "Internal Server Error";
+      }
+    }
+    return output;
   }
 
   @ApiOperation({ summary: 'Delete Currency By Id' })
@@ -175,31 +175,31 @@ export class CurrencyController {
   }
 
   @ApiOperation({ summary: 'Search List of Currencies' })
-@ApiCreatedResponse({
+  @ApiCreatedResponse({
     description: 'Search List of Currencies',
     type: ResponseData,
-})
-@HttpCode(HttpStatus.OK)
-@Post('search-list')
-async searchCurrency(@Body() searchParams: SearchVesselDto) {
+  })
+  @HttpCode(HttpStatus.OK)
+  @Post('search-list')
+  async searchCurrency(@Body() searchParams: filterDto) {
     const resp = new ResponseData();
     try {
-        const res = await this.currencyService.searchCurrency(searchParams);
-        this.logger.log(`Currency Search Data: ${JSON.stringify(res)}`);
-        resp.data = res;
-        resp.message = 'Currency Search is successfully fetched';
+      const res = await this.currencyService.searchCurrency(searchParams);
+      this.logger.log(`Currency Search Data: ${JSON.stringify(res)}`);
+      resp.data = res;
+      resp.message = 'Currency Search is successfully fetched';
     } catch (error) {
-        this.logger.warn(`Search Currency Error: ${error}`);
-        resp.status = false;
-        if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
-            resp.message = error.message;
-        } else {
-            resp.message = 'Internal Server Error';
-        }
+      this.logger.warn(`Search Currency Error: ${error}`);
+      resp.status = false;
+      if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+        resp.message = error.message;
+      } else {
+        resp.message = 'Internal Server Error';
+      }
     }
     return resp;
-}
-@ApiOperation({ summary: 'Get Audit Logs for a Table/Record' })
+  }
+  @ApiOperation({ summary: 'Get Audit Logs for a Table/Record' })
   @ApiCreatedResponse({ description: 'Fetch audit logs', type: ResponseData })
   @HttpCode(HttpStatus.OK)
   @Get('audit-logs')

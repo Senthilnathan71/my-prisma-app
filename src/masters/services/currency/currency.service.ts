@@ -7,21 +7,21 @@ import {
 import { Prisma } from '@prisma/client';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
-import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
+import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 
 @Injectable()
 export class CurrencyService {
   constructor(
     private _db: DatabaseService,
     private logger: Logger,
-  ) {}
+  ) { }
 
-  async createCurrency(payload:any) {
+  async createCurrency(payload: any) {
     this.logger.warn(`createCurrency: ${payload}`);
 
     const existing = await this._db.currencyMaster.findFirst({
       where: {
-        status : 'A',
+        status: 'A',
         OR: [
           {
             currencyName: {
@@ -89,12 +89,10 @@ export class CurrencyService {
   async updateCurrency(
     CurrencyMasterSid: number,
     payload: any,
-   
 
-  )
-  
-   {
-    
+
+  ) {
+
     const existing = await this._db.currencyMaster.findUnique({
       where: {
         CurrencyMasterSid: CurrencyMasterSid,
@@ -107,7 +105,7 @@ export class CurrencyService {
 
     try {
       const currency = await this._db.currencyMaster.update({
-        
+
         where: {
           CurrencyMasterSid: CurrencyMasterSid,
         },
@@ -135,48 +133,48 @@ export class CurrencyService {
     // Perform soft delete by updating deletedAt field
     return this._db.currencyMaster.update({
       where: { CurrencyMasterSid: id },
-      data: { status : 'D' },
+      data: { status: 'D' },
     });
   }
 
-  async searchCurrency(params: SearchVesselDto) {
+  async searchCurrency(params: filterDto) {
     const { search = '', page = 1, pageSize = 15 } = params;
     const skip = (page - 1) * pageSize;
 
     const where: Prisma.CurrencyMasterWhereInput = {
-        status: 'A',
-        ...(search
-            ? {
-                OR: [
-                    { currencyName: { contains: search, mode: 'insensitive' } },
-                    { currencyCode: { contains: search, mode: 'insensitive' } },
-                    { CurrencyUnit: { contains: search, mode: 'insensitive' } },
-                    { CurrencySubUnit: { contains: search, mode: 'insensitive' } },
-                    { ShortCode: { contains: search, mode: 'insensitive' } },
-                    { status: { contains: search, mode: 'insensitive' } },
-                ],
-            }
-            : {}
-        ),
+      status: 'A',
+      ...(search
+        ? {
+          OR: [
+            { currencyName: { contains: search, mode: 'insensitive' } },
+            { currencyCode: { contains: search, mode: 'insensitive' } },
+            { CurrencyUnit: { contains: search, mode: 'insensitive' } },
+            { CurrencySubUnit: { contains: search, mode: 'insensitive' } },
+            { ShortCode: { contains: search, mode: 'insensitive' } },
+            { status: { contains: search, mode: 'insensitive' } },
+          ],
+        }
+        : {}
+      ),
     };
 
     const [items, totalCount] = await this._db.$transaction([
-        this._db.currencyMaster.findMany({
-            where,
-            skip,
-            take: pageSize,
-            orderBy: { CurrencyMasterSid: 'desc' },
-        }),
-        this._db.currencyMaster.count({ where }),
+      this._db.currencyMaster.findMany({
+        where,
+        skip,
+        take: pageSize,
+        orderBy: { CurrencyMasterSid: 'desc' },
+      }),
+      this._db.currencyMaster.count({ where }),
     ]);
 
     return {
-        items,
-        totalCount,
+      items,
+      totalCount,
     };
-     
-}
-async getAuditLogs(tableName: string, recordId?: string) {
+
+  }
+  async getAuditLogs(tableName: string, recordId?: string) {
     try {
       const whereClause: any = { tableName };
       if (recordId) whereClause.recordId = recordId;

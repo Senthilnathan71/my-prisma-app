@@ -19,7 +19,7 @@ import { Auth } from 'src/common/decorators/auth.decorator';
 import { UserData } from 'src/common/decorators/user.decorator';
 import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
-import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
+import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 import { PortService } from 'src/masters/services/port/port-master.service';
 
 @Controller('port')
@@ -28,7 +28,7 @@ export class PortMasterController {
   constructor(
     private portService: PortService,
     private logger: Logger,
-  ) {}
+  ) { }
 
   @ApiOperation({ summary: 'Get All Ports' })
   @ApiCreatedResponse({
@@ -90,8 +90,8 @@ export class PortMasterController {
         output.message = error.message;
         this.logger.warn(`createportexception: ${error.message}`);
       } else {
-                output.message = "Internal Server Error";
-            }
+        output.message = "Internal Server Error";
+      }
     }
     return output;
   }
@@ -128,7 +128,7 @@ export class PortMasterController {
   async editPort(
     @Param('id', ParseIntPipe) id: number,
     @Body() body: any,
-    
+
   ) {
     this.logger.log(`editPortbody: ${JSON.stringify(body)}`);
     let output = new ResponseData();
@@ -155,8 +155,8 @@ export class PortMasterController {
         this.logger.warn(`editPortbadrequest: ${error}`);
         output.message = error.message;
       } else {
-                output.message = "Internal Server Error";
-            }
+        output.message = "Internal Server Error";
+      }
     }
     this.logger.warn(`editPortmessage: ${output.message}`);
     return output;
@@ -180,7 +180,7 @@ export class PortMasterController {
   })
   @HttpCode(HttpStatus.OK)
   @Post('search-list')
-  async searchPortNew(@Body() searchParams: SearchVesselDto) {
+  async searchPortNew(@Body() searchParams: filterDto) {
     const resp = new ResponseData();
     try {
       const res = await this.portService.searchPortNew(searchParams);
@@ -200,35 +200,35 @@ export class PortMasterController {
     }
     return resp;
   }
-    @ApiOperation({ summary: 'Get Audit Logs for a Table/Record' })
-          @ApiCreatedResponse({ description: 'Fetch audit logs', type: ResponseData })
-          @HttpCode(HttpStatus.OK)
-          @Get('audit-logs')
-          async getAuditLogs(
-            @Query('tableName') tableName: string,
-            @Query('recordId') recordId?: string,
-          ) {
-            const resp = new ResponseData();
-            try {
-              if (!tableName) throw new Error('tableName query parameter is required');
-        
-              const logs = await this.portService.getAuditLogs(tableName, recordId);
-        
-              // Remove updatedOn from oldVal and newVal
-              resp.data = logs.map((log: any) => {
-                const oldVal = log.oldVal ? { ...log.oldVal } : null;
-                const newVal = log.newVal ? { ...log.newVal } : null;
-                if (oldVal && 'updatedOn' in oldVal) delete oldVal.updatedOn;
-                if (newVal && 'updatedOn' in newVal) delete newVal.updatedOn;
-                return { ...log, oldVal, newVal };
-              });
-        
-              resp.message = 'Audit logs fetched successfully';
-            } catch (error) {
-              this.logger.warn(`getAuditLogsError: ${error}`);
-              resp.status = false;
-              resp.message = error.message || 'Internal Server Error';
-            }
-            return resp;
-          }
+  @ApiOperation({ summary: 'Get Audit Logs for a Table/Record' })
+  @ApiCreatedResponse({ description: 'Fetch audit logs', type: ResponseData })
+  @HttpCode(HttpStatus.OK)
+  @Get('audit-logs')
+  async getAuditLogs(
+    @Query('tableName') tableName: string,
+    @Query('recordId') recordId?: string,
+  ) {
+    const resp = new ResponseData();
+    try {
+      if (!tableName) throw new Error('tableName query parameter is required');
+
+      const logs = await this.portService.getAuditLogs(tableName, recordId);
+
+      // Remove updatedOn from oldVal and newVal
+      resp.data = logs.map((log: any) => {
+        const oldVal = log.oldVal ? { ...log.oldVal } : null;
+        const newVal = log.newVal ? { ...log.newVal } : null;
+        if (oldVal && 'updatedOn' in oldVal) delete oldVal.updatedOn;
+        if (newVal && 'updatedOn' in newVal) delete newVal.updatedOn;
+        return { ...log, oldVal, newVal };
+      });
+
+      resp.message = 'Audit logs fetched successfully';
+    } catch (error) {
+      this.logger.warn(`getAuditLogsError: ${error}`);
+      resp.status = false;
+      resp.message = error.message || 'Internal Server Error';
+    }
+    return resp;
+  }
 }

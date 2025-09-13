@@ -1,13 +1,13 @@
-import { BadRequestException, Injectable, NotFoundException,Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
-import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
+import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 
 @Injectable()
 export class UnitService {
     constructor(
-        private _db: DatabaseService,private logger: Logger
+        private _db: DatabaseService, private logger: Logger
     ) { }
 
     async getAllUnit() {
@@ -15,7 +15,7 @@ export class UnitService {
 
             const unitList = await this._db.unitMaster.findMany({
                 where: {
-                  status: 'A',
+                    status: 'A',
                 }
             })
             return unitList;
@@ -24,152 +24,152 @@ export class UnitService {
         }
     }
 
-    async createUnit(payload) { 
-    
-            const existing = await this._db.unitMaster.findFirst({
-                where: {
-                    OR:  [
-                        {
-                            unitName: {
-                                equals: payload.unitName.trim(),
-                                mode: 'insensitive',
-                              }
-                        },
-                        {
-                            unitCode: {
-                                equals: payload.unitCode.trim(),
-                                mode: 'insensitive',
-                              }
+    async createUnit(payload) {
+
+        const existing = await this._db.unitMaster.findFirst({
+            where: {
+                OR: [
+                    {
+                        unitName: {
+                            equals: payload.unitName.trim(),
+                            mode: 'insensitive',
                         }
-                    ] 
-                },
-            });
-    
-            if (existing) {
-                
-                if (existing.unitName === payload.unitName) {
-                    throw new BadRequestException('Unit name already exists');
-                }
-                if (existing.unitCode === payload.unitCode) {
-                    throw new BadRequestException('Unit code already exists');
-                }
-            }
-    
-            try {
-                const unit = await this._db.unitMaster.create({
-                    data: payload
-                });
-                return unit;
-            } catch (error) {
-                throw new Error(`creation failed: ${error.message}`);
-            }
-        }
-    
-        async findOne(UnitMasterSid: any) {
-            try {
-                return await this._db.unitMaster.findUnique({
-                    
-                    where: {
-                        UnitMasterSid: UnitMasterSid
+                    },
+                    {
+                        unitCode: {
+                            equals: payload.unitCode.trim(),
+                            mode: 'insensitive',
+                        }
                     }
-                });
-            } catch (error) {
-                throw error;
+                ]
+            },
+        });
+
+        if (existing) {
+
+            if (existing.unitName === payload.unitName) {
+                throw new BadRequestException('Unit name already exists');
+            }
+            if (existing.unitCode === payload.unitCode) {
+                throw new BadRequestException('Unit code already exists');
             }
         }
-    
-    
-        async updateUnit(UnitMasterSid: number, payload) {
-    
-            const existing = await this._db.unitMaster.findFirst({
-                where: {
-                    AND: [
-                        {
-                            OR:  [
-                                {
-                                    unitName: {
-                                        equals: payload.unitName.trim(),
-                                        mode: 'insensitive',
-                                      }
-                                },
-                                {
-                                    unitCode: {
-                                        equals: payload.unitCode.trim(),
-                                        mode: 'insensitive',
-                                      }
-                                }
-                            ] 
-                        },
-                        {
-                            NOT: {
-                                UnitMasterSid: UnitMasterSid, 
-                              }
-                        }
-                ]
-                },
+
+        try {
+            const unit = await this._db.unitMaster.create({
+                data: payload
             });
-    
-            if (existing) {
-                if (existing.unitName === payload.unitName) {
+            return unit;
+        } catch (error) {
+            throw new Error(`creation failed: ${error.message}`);
+        }
+    }
+
+    async findOne(UnitMasterSid: any) {
+        try {
+            return await this._db.unitMaster.findUnique({
+
+                where: {
+                    UnitMasterSid: UnitMasterSid
+                }
+            });
+        } catch (error) {
+            throw error;
+        }
+    }
+
+
+    async updateUnit(UnitMasterSid: number, payload) {
+
+        const existing = await this._db.unitMaster.findFirst({
+            where: {
+                AND: [
+                    {
+                        OR: [
+                            {
+                                unitName: {
+                                    equals: payload.unitName.trim(),
+                                    mode: 'insensitive',
+                                }
+                            },
+                            {
+                                unitCode: {
+                                    equals: payload.unitCode.trim(),
+                                    mode: 'insensitive',
+                                }
+                            }
+                        ]
+                    },
+                    {
+                        NOT: {
+                            UnitMasterSid: UnitMasterSid,
+                        }
+                    }
+                ]
+            },
+        });
+
+        if (existing) {
+            if (existing.unitName === payload.unitName) {
                 //throw new Error('Port name already exists');
                 throw new BadRequestException('Unit name already exists');
-                }
-                if (existing.unitCode === payload.unitCode) {
-                    throw new BadRequestException('Unit code already exists');
-                }
             }
-    
-            try {
-                const unit = await this._db.unitMaster.update({
-                    where: {
-                        UnitMasterSid: UnitMasterSid
-                    }, data: payload
-                });
-                return unit;
-            } catch (error) {
-                throw new Error(`Error updating unit: ${error.message}`);
+            if (existing.unitCode === payload.unitCode) {
+                throw new BadRequestException('Unit code already exists');
             }
         }
-    
-        async softDelete(id: number) {
-            const existingUnit = await this._db.unitMaster.findUnique({
-                where: { UnitMasterSid: id }
-            });
-    
-            if (!existingUnit) {
-                throw new NotFoundException(`UUnit with ID ${id} not found`);
-            }
-    
-            if (existingUnit.status==="D") {
-                throw new Error(`Unit with ID ${id} is already deleted`);
-            }
-    
-            // Perform soft delete by updating deletedAt field
-            return this._db.unitMaster.update({
-                where: { UnitMasterSid: id },
-                data: { status:"D"}
-            });
-        }  
 
-       async searchUnitNew(params: SearchVesselDto) {
-        const { search = '', page = 1, pageSize = 15} = params;
+        try {
+            const unit = await this._db.unitMaster.update({
+                where: {
+                    UnitMasterSid: UnitMasterSid
+                }, data: payload
+            });
+            return unit;
+        } catch (error) {
+            throw new Error(`Error updating unit: ${error.message}`);
+        }
+    }
+
+    async softDelete(id: number) {
+        const existingUnit = await this._db.unitMaster.findUnique({
+            where: { UnitMasterSid: id }
+        });
+
+        if (!existingUnit) {
+            throw new NotFoundException(`UUnit with ID ${id} not found`);
+        }
+
+        if (existingUnit.status === "D") {
+            throw new Error(`Unit with ID ${id} is already deleted`);
+        }
+
+        // Perform soft delete by updating deletedAt field
+        return this._db.unitMaster.update({
+            where: { UnitMasterSid: id },
+            data: { status: "D" }
+        });
+    }
+
+    async searchUnitNew(params: filterDto) {
+        const { search = '', page = 1, pageSize = 15 } = params;
         const skip = (page - 1) * pageSize;
 
         const where: Prisma.UnitMasterWhereInput = {
-           
+
             status: 'A',
             ...(search
                 ? {
                     OR: [
-                        { unitName: { contains: search, mode: 'insensitive'} },
-                        { unitCode: { contains: search, mode: 'insensitive'} },
-                        { jobType: { contains: search, mode: 'insensitive'} },
-                        { containerType: { contains: search, mode: 'insensitive'} },
-                        { measurementType: { contains: search, mode: 'insensitive'} },
-                        { status: { contains: search, mode: 'insensitive'} },
+                        { unitName: { contains: search, mode: 'insensitive' } },
+                        { unitCode: { contains: search, mode: 'insensitive' } },
+                        { jobType: { contains: search, mode: 'insensitive' } },
+                        { containerType: { contains: search, mode: 'insensitive' } },
+                        { measurementType: { contains: search, mode: 'insensitive' } },
+                        { status: { contains: search, mode: 'insensitive' } },
                     ],
                 }
-                : {} 
+                : {}
             ),
         };
 
@@ -178,7 +178,7 @@ export class UnitService {
                 where,
                 skip,
                 take: pageSize,
-                orderBy: { UnitMasterSid: 'desc'},
+                orderBy: { UnitMasterSid: 'desc' },
             }),
             this._db.unitMaster.count({ where }),
         ]);
@@ -187,14 +187,14 @@ export class UnitService {
             items,
             totalCount,
         };
-       }
-    
+    }
+
     async getWeightUnits() {
         try {
             const weightUnits = await this._db.unitMaster.findMany({
-                where : {
-                    measurementType : 'Weight',
-                   
+                where: {
+                    measurementType: 'Weight',
+
                 }
             })
             return weightUnits;
@@ -203,19 +203,19 @@ export class UnitService {
         }
     }
     async getAuditLogs(tableName: string, recordId?: string) {
-    try {
-      const whereClause: any = { tableName };
-      if (recordId) whereClause.recordId = recordId;
+        try {
+            const whereClause: any = { tableName };
+            if (recordId) whereClause.recordId = recordId;
 
-      const logs = await this._db.auditLog.findMany({
-        where: whereClause,
-        orderBy: { changedAt: 'desc' },
-      });
+            const logs = await this._db.auditLog.findMany({
+                where: whereClause,
+                orderBy: { changedAt: 'desc' },
+            });
 
-      return logs;
-    } catch (error) {
-      this.logger.warn(`getAuditLogsError: ${error}`);
-      throw new Error(`Error fetching audit logs: ${error.message}`);
+            return logs;
+        } catch (error) {
+            this.logger.warn(`getAuditLogsError: ${error}`);
+            throw new Error(`Error fetching audit logs: ${error.message}`);
+        }
     }
-  }
 }

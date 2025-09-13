@@ -2,7 +2,7 @@ import { BadRequestException, Injectable, Logger, NotFoundException } from '@nes
 import { Prisma } from '@prisma/client';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
-import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
+import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 
 @Injectable()
 export class VesselService {
@@ -117,14 +117,14 @@ export class VesselService {
             throw new NotFoundException(`Vessel with ID ${id} not found`);
         }
 
-        if (existingVessel.status==="D") {
+        if (existingVessel.status === "D") {
             throw new Error(`Vessel with ID ${id} is already deleted`);
         }
 
         // Perform soft delete by updating deletedAt field
         return this._db.vesselMaster.update({
             where: { VesselMasterSid: id },
-            data: { status:"D" }
+            data: { status: "D" }
         });
     }
 
@@ -133,7 +133,7 @@ export class VesselService {
         try {
             const searchResults = await this._db.vesselMaster.findMany({
                 where: {
-                   
+
                 }
             })
             return searchResults;
@@ -142,12 +142,12 @@ export class VesselService {
         }
     }
 
-    async searchVesselNew(params: SearchVesselDto) {
+    async searchVesselNew(params: filterDto) {
         const { search = '', page = 1, pageSize = 15 } = params;
         const skip = (page - 1) * pageSize;
 
         const where: Prisma.VesselMasterWhereInput = {
-           
+
             status: 'A',
             ...(search
                 ? {
@@ -178,19 +178,19 @@ export class VesselService {
         };
     }
     async getAuditLogs(tableName: string, recordId?: string) {
-    try {
-      const whereClause: any = { tableName };
-      if (recordId) whereClause.recordId = recordId;
+        try {
+            const whereClause: any = { tableName };
+            if (recordId) whereClause.recordId = recordId;
 
-      const logs = await this._db.auditLog.findMany({
-        where: whereClause,
-        orderBy: { changedAt: 'desc' },
-      });
+            const logs = await this._db.auditLog.findMany({
+                where: whereClause,
+                orderBy: { changedAt: 'desc' },
+            });
 
-      return logs;
-    } catch (error) {
-      this.logger.warn(`getAuditLogsError: ${error}`);
-      throw new Error(`Error fetching audit logs: ${error.message}`);
+            return logs;
+        } catch (error) {
+            this.logger.warn(`getAuditLogsError: ${error}`);
+            throw new Error(`Error fetching audit logs: ${error.message}`);
+        }
     }
-  }
 }

@@ -3,11 +3,11 @@ import { ApiCreatedResponse, ApiOperation } from "@nestjs/swagger";
 import { Auth } from "src/common/decorators/auth.decorator";
 import { UserData } from "src/common/decorators/user.decorator";
 import { ResponseData } from "src/common/response-data";
-import { SearchVesselDto } from "src/masters/DTO/search-vessel.dto";
+import { filterDto } from "src/masters/DTO/search-vessel.dto";
 import { EnquiryHeaderService } from "src/masters/services/enquiry/enquiry-header.service";
 class CompanyIdDto {
-  CompanyMasterSid: number;
-  BranchMasterSid: number;
+    CompanyMasterSid: number;
+    BranchMasterSid: number;
 }
 @Controller('ff-enquiry')
 
@@ -35,7 +35,7 @@ export class EnquiryHeaderController {
                 throw 'Something went wrong'
             }
             output.data = enquiry.data;
-           output.message = 'Enquiry Created Successfully'
+            output.message = 'Enquiry Created Successfully'
             output.status = true
 
         } catch (error) {
@@ -63,7 +63,7 @@ export class EnquiryHeaderController {
             const enquiries = await this.enquiryHeaderService.getAllEnquiries(body.CompanyMasterSid, body.BranchMasterSid)
             output.data = enquiries;
             this.logger.debug(`getAllEnquiries: Fetch Enquiry Data- ${JSON.stringify(enquiries)}`)
-            
+
         } catch (error) {
             this.logger.debug(`getAllEnquiries: Enquiry data fetch failed- ${JSON.stringify(error)}`)
             output.status = false;
@@ -89,7 +89,7 @@ export class EnquiryHeaderController {
             const enquiry = await this.enquiryHeaderService.findOne(enquiryId)
             output.data = enquiry
             this.logger.debug(`getEnquiryById: Fetch Enquiry Data- ${JSON.stringify(enquiry)}`)
-              output.data = enquiry;
+            output.data = enquiry;
             output.message = `Enquiry with id : ${enquiryId} is successfully fetched`;
         } catch (error) {
             this.logger.debug(`getEnquiryById: Enquiry Fetching failed - ${JSON.stringify(error)}`)
@@ -229,7 +229,7 @@ export class EnquiryHeaderController {
     })
     @HttpCode(HttpStatus.OK)
     @Post('search-list')
-    async searchEnquiry(@Body() param: SearchVesselDto) {
+    async searchEnquiry(@Body() param: filterDto) {
         let resp = new ResponseData();
         try {
             let res = await this.enquiryHeaderService.searchEnquiry(param);
@@ -237,7 +237,7 @@ export class EnquiryHeaderController {
             resp.data = res;
             resp.message = "Enquiry Search is successfully fetched";
         } catch (error) {
-            this.logger.warn(`Enquiry Search Error : ${JSON.stringify(error),error}`);
+            this.logger.warn(`Enquiry Search Error : ${JSON.stringify(error), error}`);
             resp.status = false;
             if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
                 resp.message = error.message;
@@ -247,37 +247,37 @@ export class EnquiryHeaderController {
         }
         return resp;
     }
-    
+
     @ApiOperation({ summary: 'Get Audit Logs for a Table/Record' })
-      @ApiCreatedResponse({ description: 'Fetch audit logs', type: ResponseData })
-      @HttpCode(HttpStatus.OK)
-      @Get('fetch/audit-logs')
-      async getAuditLogs(
+    @ApiCreatedResponse({ description: 'Fetch audit logs', type: ResponseData })
+    @HttpCode(HttpStatus.OK)
+    @Get('fetch/audit-logs')
+    async getAuditLogs(
         @Query('tableName') tableName: string,
         @Query('recordId') recordId?: string,
-      ) {
+    ) {
         const resp = new ResponseData();
         try {
-          if (!tableName) throw new Error('tableName query parameter is required');
-    
-          const logs = await this.enquiryHeaderService.getAuditLogs(tableName, recordId);
-    
-          // Remove updatedOn from oldVal and newVal
-          resp.data = logs.map((log: any) => {
-            const oldVal = log.oldVal ? { ...log.oldVal } : null;
-            const newVal = log.newVal ? { ...log.newVal } : null;
-            if (oldVal && 'updatedOn' in oldVal) delete oldVal.updatedOn;
-            if (newVal && 'updatedOn' in newVal) delete newVal.updatedOn;
-            return { ...log, oldVal, newVal };
-          });
-    
-          resp.message = 'Audit logs fetched successfully';
+            if (!tableName) throw new Error('tableName query parameter is required');
+
+            const logs = await this.enquiryHeaderService.getAuditLogs(tableName, recordId);
+
+            // Remove updatedOn from oldVal and newVal
+            resp.data = logs.map((log: any) => {
+                const oldVal = log.oldVal ? { ...log.oldVal } : null;
+                const newVal = log.newVal ? { ...log.newVal } : null;
+                if (oldVal && 'updatedOn' in oldVal) delete oldVal.updatedOn;
+                if (newVal && 'updatedOn' in newVal) delete newVal.updatedOn;
+                return { ...log, oldVal, newVal };
+            });
+
+            resp.message = 'Audit logs fetched successfully';
         } catch (error) {
-          this.logger.warn(`getAuditLogsError: ${error}`);
-          resp.status = false;
-          resp.message = error.message || 'Internal Server Error';
+            this.logger.warn(`getAuditLogsError: ${error}`);
+            resp.status = false;
+            resp.message = error.message || 'Internal Server Error';
         }
         return resp;
-      }
-    
+    }
+
 }

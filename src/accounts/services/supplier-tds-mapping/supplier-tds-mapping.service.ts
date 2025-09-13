@@ -2,16 +2,16 @@ import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { GlobalConfigService } from 'src/common/config/master-config.service';
 import { DatabaseService } from 'src/database/database.service';
-import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
+import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 @Injectable()
 export class SupplierTdsMappingService {
-    constructor(private _db:DatabaseService,private globalConfigService : GlobalConfigService, private logger: Logger){}
+    constructor(private _db: DatabaseService, private globalConfigService: GlobalConfigService, private logger: Logger) { }
 
-    async getAllSupptdsMapping(){
+    async getAllSupptdsMapping() {
         try {
             const allsupptdsmapp = await this._db.supplierTdsMapping.findMany({
-                where : {
-                    Status : 'A'
+                where: {
+                    Status: 'A'
                 }
             })
             return allsupptdsmapp;
@@ -20,13 +20,13 @@ export class SupplierTdsMappingService {
         }
     }
 
-     async createNewSupptdsMapping(payload){
+    async createNewSupptdsMapping(payload) {
         try {
             const CompanyMasterSid = payload.CompanyMasterSid;
             const createdSupptdsMapping = await this._db.supplierTdsMapping.create({
-                data :{
+                data: {
                     ...payload,
-                    CompanyMasterSid : CompanyMasterSid
+                    CompanyMasterSid: CompanyMasterSid
                 }
             })
             return createdSupptdsMapping;
@@ -35,19 +35,19 @@ export class SupplierTdsMappingService {
         }
     }
 
-    async fetchSuppliertdsMappingById(SupplierTdsMappingSid:number){
+    async fetchSuppliertdsMappingById(SupplierTdsMappingSid: number) {
         try {
-            const ourSupplierTDSMapping =await this._db.supplierTdsMapping.findUnique({
-                where : {
-                    SupplierTdsMappingSid:SupplierTdsMappingSid
+            const ourSupplierTDSMapping = await this._db.supplierTdsMapping.findUnique({
+                where: {
+                    SupplierTdsMappingSid: SupplierTdsMappingSid
                 },
-                include : {
-                    customerMaster : {
-                        include : { countryMaster : { select : { countryName : true } } }
+                include: {
+                    customerMaster: {
+                        include: { countryMaster: { select: { countryName: true } } }
                     }
                 }
             })
-            if(!ourSupplierTDSMapping){
+            if (!ourSupplierTDSMapping) {
                 throw new BadRequestException(`Supplier TDS Mapping with Id : ${SupplierTdsMappingSid} not exists`);
             }
             return ourSupplierTDSMapping;
@@ -57,23 +57,23 @@ export class SupplierTdsMappingService {
     }
 
 
-     async updateSuppliertdsMappingById(SupplierTdsMappingSid:number,payload){
+    async updateSuppliertdsMappingById(SupplierTdsMappingSid: number, payload) {
         try {
-             const exist =await this._db.supplierTdsMapping.findUnique({
-                where : {
-                    SupplierTdsMappingSid:SupplierTdsMappingSid
+            const exist = await this._db.supplierTdsMapping.findUnique({
+                where: {
+                    SupplierTdsMappingSid: SupplierTdsMappingSid
                 }
             })
-            if(!exist){
+            if (!exist) {
                 throw new BadRequestException(`Supplier TDS Mapping with Id : ${SupplierTdsMappingSid} not exists`);
             }
             const updatedSupplierTdsMappingSid = this._db.supplierTdsMapping.update({
-                where : {
-                    SupplierTdsMappingSid : SupplierTdsMappingSid
+                where: {
+                    SupplierTdsMappingSid: SupplierTdsMappingSid
                 },
-                data : {
+                data: {
                     ...payload,
-                    UpdatedOn : new Date()
+                    UpdatedOn: new Date()
                 }
             })
             return updatedSupplierTdsMappingSid;
@@ -82,7 +82,7 @@ export class SupplierTdsMappingService {
         }
     }
 
-     async deleteSuppliertdsMapping(SupplierTdsMappingSid:number){
+    async deleteSuppliertdsMapping(SupplierTdsMappingSid: number) {
         try {
             const exist = await this._db.supplierTdsMapping.findUnique({
                 where: {
@@ -100,16 +100,16 @@ export class SupplierTdsMappingService {
                     SupplierTdsMappingSid: SupplierTdsMappingSid
                 },
                 data: {
-                    Status : 'A'
+                    Status: 'A'
                 }
             })
             return deletedSupplierTDSMapping;
-        } catch(error) {
+        } catch (error) {
             throw error;
         }
     }
 
-    // async searchSuppliertdsMapping(params: SearchVesselDto) {
+    // async searchSuppliertdsMapping(params: filterDto) {
     //     const { search = '', page = 1, pageSize = 10 } = params;
     //     const skip = (page - 1) * pageSize;
 
@@ -149,7 +149,7 @@ export class SupplierTdsMappingService {
     //             skip,
     //             take: pageSize,
     //             orderBy: { SupplierTdsMappingSid: 'desc' },
-                
+
     //         }),
     //         this._db.supplierTdsMapping.count({ where }),
     //     ]);
@@ -186,39 +186,39 @@ export class SupplierTdsMappingService {
     //     };
     // }
 
-    async searchSuppliertdsMapping(params: SearchVesselDto) {
-    const { search = '', page = 1, pageSize = 10,activeCompanyId } = params;
-    const skip = (page - 1) * pageSize;
+    async searchSuppliertdsMapping(params: filterDto) {
+        const { search = '', page = 1, pageSize = 10, activeCompanyId } = params;
+        const skip = (page - 1) * pageSize;
 
-    const where: Prisma.SupplierTdsMappingWhereInput = {
-        Status: 'A',
-        CompanyMasterSid : activeCompanyId,
-        ...(search
-            ? {
-                OR: [
-                    {
-                        customerMaster: {
-                            CustomerName: { contains: search, mode: 'insensitive' },
-                            OR: [
-                                { CustomerType: { path: ['supplier'], equals: 'isTrue' } },
-                                { CustomerType: { path: ['transporter'], equals: 'isTrue' } },
-                                { CustomerType: { path: ['agent'], equals: 'isTrue' } },
-                            ],
+        const where: Prisma.SupplierTdsMappingWhereInput = {
+            Status: 'A',
+            CompanyMasterSid: activeCompanyId,
+            ...(search
+                ? {
+                    OR: [
+                        {
+                            customerMaster: {
+                                CustomerName: { contains: search, mode: 'insensitive' },
+                                OR: [
+                                    { CustomerType: { path: ['supplier'], equals: 'isTrue' } },
+                                    { CustomerType: { path: ['transporter'], equals: 'isTrue' } },
+                                    { CustomerType: { path: ['agent'], equals: 'isTrue' } },
+                                ],
+                            },
                         },
-                    },
-                    {
-                        customerMaster: { PanName: { contains: search, mode: 'insensitive' } },
-                    },
-                    {
-                        customerMaster: { CompanyType: { contains: search, mode: 'insensitive' } },
-                    },
-                    {
-                        customerMaster: { countryMaster: { countryName: { contains: search, mode: 'insensitive' } } },
-                    },
-                ],
-            }
-            : {}),
-    };
+                        {
+                            customerMaster: { PanName: { contains: search, mode: 'insensitive' } },
+                        },
+                        {
+                            customerMaster: { CompanyType: { contains: search, mode: 'insensitive' } },
+                        },
+                        {
+                            customerMaster: { countryMaster: { countryName: { contains: search, mode: 'insensitive' } } },
+                        },
+                    ],
+                }
+                : {}),
+        };
 
         const [items, totalCount] = await this._db.$transaction([
             this._db.supplierTdsMapping.findMany({
@@ -233,23 +233,23 @@ export class SupplierTdsMappingService {
         //  New global config included here
         const enrichedItems = await Promise.all(
             items.map(async (item) => {
-                const customer = item.CustomerMasterSid !== null ? 
-                await this.globalConfigService.getMasterData(
-                    'customer_master',
-                    item.CustomerMasterSid
-                ) : { CustomerMasterSid : null , CustomerName : ''};
-                
-                const country = customer.CountryMasterSid !== null ? 
-                await this.globalConfigService.getMasterData(
-                    'country_master',
-                    customer.CountryMasterSid
-                ) : { CountryMasterSid : null , countryName : ''}
+                const customer = item.CustomerMasterSid !== null ?
+                    await this.globalConfigService.getMasterData(
+                        'customer_master',
+                        item.CustomerMasterSid
+                    ) : { CustomerMasterSid: null, CustomerName: '' };
+
+                const country = customer.CountryMasterSid !== null ?
+                    await this.globalConfigService.getMasterData(
+                        'country_master',
+                        customer.CountryMasterSid
+                    ) : { CountryMasterSid: null, countryName: '' }
 
                 return {
                     ...item,
                     customerMaster: {
                         ...customer,
-                        countryMaster : {
+                        countryMaster: {
                             ...country
                         }
                     }
@@ -263,19 +263,19 @@ export class SupplierTdsMappingService {
         };
     }
     async getAuditLogs(tableName: string, recordId?: string) {
-    try {
-      const whereClause: any = { tableName };
-      if (recordId) whereClause.recordId = recordId;
+        try {
+            const whereClause: any = { tableName };
+            if (recordId) whereClause.recordId = recordId;
 
-      const logs = await this._db.auditLog.findMany({
-        where: whereClause,
-        orderBy: { changedAt: 'desc' },
-      });
+            const logs = await this._db.auditLog.findMany({
+                where: whereClause,
+                orderBy: { changedAt: 'desc' },
+            });
 
-      return logs;
-    } catch (error) {
-      this.logger.warn(`getAuditLogsError: ${error}`);
-      throw new Error(`Error fetching audit logs: ${error.message}`);
+            return logs;
+        } catch (error) {
+            this.logger.warn(`getAuditLogsError: ${error}`);
+            throw new Error(`Error fetching audit logs: ${error.message}`);
+        }
     }
-  }
 }

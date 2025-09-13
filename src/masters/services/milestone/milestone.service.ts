@@ -1,18 +1,18 @@
-import { BadRequestException, Injectable ,Logger} from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { GlobalConfigService } from 'src/common/config/master-config.service';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
-import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
+import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 
 @Injectable()
 export class MilestoneService {
-    constructor(private _db: DatabaseService,private globalConfigService :GlobalConfigService,private logger: Logger) { }
+    constructor(private _db: DatabaseService, private globalConfigService: GlobalConfigService, private logger: Logger) { }
 
     async getAllMilestones(CompanyMasterSid: number, BranchMasterSid: number) {
         try {
             const allMilestones = await this._db.milestoneMaster.findMany({
                 where: {
-                    status:"A",
+                    status: "A",
                     CompanyMasterSid: CompanyMasterSid,
                     BranchMasterSid: BranchMasterSid
                 },
@@ -104,7 +104,7 @@ export class MilestoneService {
             if (!exist) {
                 throw new BadRequestException(`Milestone with Id : ${MilestoneMasterSid} not exists`);
             }
-            if (exist.status==="D") {
+            if (exist.status === "D") {
                 throw new BadRequestException(`Milestone with Id :${MilestoneMasterSid} is already deleted`);
             }
             const deletedMilestone = await this._db.milestoneMaster.update({
@@ -112,7 +112,7 @@ export class MilestoneService {
                     MilestoneMasterSid: MilestoneMasterSid
                 },
                 data: {
-                  status:"D"
+                    status: "D"
                 },
                 include: {
                     departmentMaster: true,
@@ -126,74 +126,74 @@ export class MilestoneService {
         }
     }
 
-    async searchMilestone(params: SearchVesselDto) {
-    const { search = '', page = 1, pageSize = 15 ,activeCompanyId,activeBranchId} = params;
-    const skip = (page - 1) * pageSize;
+    async searchMilestone(params: filterDto) {
+        const { search = '', page = 1, pageSize = 15, activeCompanyId, activeBranchId } = params;
+        const skip = (page - 1) * pageSize;
 
-    const where: any = {
-       
-        status: 'A',
-        CompanyMasterSid : activeCompanyId,
-        BranchMasterSid: activeBranchId,
-        ...(search
-            ? {
-                OR: [
-                    { MilestoneName: { contains: search, mode: 'insensitive'} },
-                    { MilestoneCode: { contains: search, mode: 'insensitive'} },
-                    { ShipmentType: { contains: search, mode: 'insensitive'} },
-                    { status: { contains: search, mode: 'insensitive'} },
-                    { Remarks: { contains: search, mode: 'insensitive'} },
-                ],
-            }
-            : {}
-        ),
-    };
+        const where: any = {
 
-    let items;
-    let totalCount;
-    [items, totalCount] = await this._db.$transaction([
-        this._db.milestoneMaster.findMany({
-            where,
-            skip,
-            take: pageSize,
-            orderBy: { MilestoneMasterSid: 'desc'},
-        }),
-        this._db.milestoneMaster.count({ where }),
-    ]);
+            status: 'A',
+            CompanyMasterSid: activeCompanyId,
+            BranchMasterSid: activeBranchId,
+            ...(search
+                ? {
+                    OR: [
+                        { MilestoneName: { contains: search, mode: 'insensitive' } },
+                        { MilestoneCode: { contains: search, mode: 'insensitive' } },
+                        { ShipmentType: { contains: search, mode: 'insensitive' } },
+                        { status: { contains: search, mode: 'insensitive' } },
+                        { Remarks: { contains: search, mode: 'insensitive' } },
+                    ],
+                }
+                : {}
+            ),
+        };
 
-    items = await Promise.all(
-        items.map(async (item)=>{
-            const departmentMaster = item.DepartmentMasterSid !== null ? 
-            await this.globalConfigService.getMasterData('department_master',item.DepartmentMasterSid) : 
-            { DepartmentMasterSid : null , departmentName : ''};
+        let items;
+        let totalCount;
+        [items, totalCount] = await this._db.$transaction([
+            this._db.milestoneMaster.findMany({
+                where,
+                skip,
+                take: pageSize,
+                orderBy: { MilestoneMasterSid: 'desc' },
+            }),
+            this._db.milestoneMaster.count({ where }),
+        ]);
 
-            return {
-                ...item,
-                departmentMaster
-            }
+        items = await Promise.all(
+            items.map(async (item) => {
+                const departmentMaster = item.DepartmentMasterSid !== null ?
+                    await this.globalConfigService.getMasterData('department_master', item.DepartmentMasterSid) :
+                    { DepartmentMasterSid: null, departmentName: '' };
 
-        })
-    )
+                return {
+                    ...item,
+                    departmentMaster
+                }
 
-    return {
-        items,
-        totalCount,
-    };
-}
-async getAuditLogs(tableName: string, recordId?: string) {
-    try {
-      const whereClause: any = { tableName };
-      if (recordId) whereClause.recordId = recordId;
+            })
+        )
 
-      const logs = await this._db.auditLog.findMany({
-        where: whereClause,
-        orderBy: { changedAt: 'desc' },
-      });
-
-      return logs;
-    } catch (error) {
-      this.logger.warn(`getAuditLogsError: ${error}`);
-      throw new Error(`Error fetching audit logs: ${error.message}`);
+        return {
+            items,
+            totalCount,
+        };
     }
-  }
+    async getAuditLogs(tableName: string, recordId?: string) {
+        try {
+            const whereClause: any = { tableName };
+            if (recordId) whereClause.recordId = recordId;
+
+            const logs = await this._db.auditLog.findMany({
+                where: whereClause,
+                orderBy: { changedAt: 'desc' },
+            });
+
+            return logs;
+        } catch (error) {
+            this.logger.warn(`getAuditLogsError: ${error}`);
+            throw new Error(`Error fetching audit logs: ${error.message}`);
+        }
+    }
 }

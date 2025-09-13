@@ -3,17 +3,17 @@ import { Prisma } from '@prisma/client';
 import { GlobalConfigService } from 'src/common/config/master-config.service';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
-import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
+import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 
 @Injectable()
 export class CityService {
-  constructor(private _db: DatabaseService, private logger: Logger,private globalConfigService : GlobalConfigService) {}
+  constructor(private _db: DatabaseService, private logger: Logger, private globalConfigService: GlobalConfigService) { }
 
   async getAllCity() {
     try {
       const cityList = await this._db.cityMaster.findMany({
         where: {
-          status : 'A',
+          status: 'A',
         },
       })
       return cityList;
@@ -56,7 +56,7 @@ export class CityService {
 
     const existing = await this._db.cityMaster.findFirst({
       where: {
-        status : 'A',
+        status: 'A',
         OR: [
           {
             cityName: {
@@ -92,7 +92,7 @@ export class CityService {
       console.log(error.stack)
       throw new Error(`Error creating City: ${error.message}`);
     }
-    }
+  }
 
   async updateCityById(
     CityMasterSid: number,
@@ -135,7 +135,7 @@ export class CityService {
       // Perform soft delete by updating deletedAt field
       const deletedCity = await this._db.cityMaster.update({
         where: { CityMasterSid: CityMasterSid },
-        data: { status : 'D' },
+        data: { status: 'D' },
       })
       return deletedCity;
     } catch (error) {
@@ -143,45 +143,45 @@ export class CityService {
     }
   }
 
-  async searchCityList(params: SearchVesselDto) {
+  async searchCityList(params: filterDto) {
     const { search = '', page = 1, pageSize = 15 } = params;
     const skip = (page - 1) * pageSize;
 
     const where: Prisma.CityMasterWhereInput = {
-        status: 'A',
-        OR: search ? [
-            { cityCode: { contains: search, mode: 'insensitive' } },
-            { cityName: { contains: search, mode: 'insensitive' } },
-            { status: { contains: search, mode: 'insensitive' } },
-            ...(!isNaN(Number(search)) ? [
-                { CityMasterSid: Number(search) },
-                { StateMasterSid: Number(search) }
-            ] : [])
-        ] : undefined
+      status: 'A',
+      OR: search ? [
+        { cityCode: { contains: search, mode: 'insensitive' } },
+        { cityName: { contains: search, mode: 'insensitive' } },
+        { status: { contains: search, mode: 'insensitive' } },
+        ...(!isNaN(Number(search)) ? [
+          { CityMasterSid: Number(search) },
+          { StateMasterSid: Number(search) }
+        ] : [])
+      ] : undefined
     };
 
     let items;
     let totalCount;
     [items, totalCount] = await this._db.$transaction([
-        this._db.cityMaster.findMany({
-            where,
-            skip,
-            take: pageSize,
-            orderBy: { cityName: 'asc' }
-        }),
-        this._db.cityMaster.count({ where }),
+      this._db.cityMaster.findMany({
+        where,
+        skip,
+        take: pageSize,
+        orderBy: { cityName: 'asc' }
+      }),
+      this._db.cityMaster.count({ where }),
     ]);
 
     items = await Promise.all(
-      items.map(async (item)=>{
-        const [countryMaster,stateMaster] = await Promise.all([
+      items.map(async (item) => {
+        const [countryMaster, stateMaster] = await Promise.all([
           item.CountryMasterSid !== null ?
-          this.globalConfigService.getMasterData('country_master',item.CountryMasterSid, item.CompanyMasterSid) : 
-          { CountryMasterSid: null, countryName: '' },
+            this.globalConfigService.getMasterData('country_master', item.CountryMasterSid, item.CompanyMasterSid) :
+            { CountryMasterSid: null, countryName: '' },
 
           item.StateMasterSid !== null ?
-          this.globalConfigService.getMasterData('state_master',item.StateMasterSid, item.CompanyMasterSid) :
-          {StateMasterSid : null , stateName : ''}
+            this.globalConfigService.getMasterData('state_master', item.StateMasterSid, item.CompanyMasterSid) :
+            { StateMasterSid: null, stateName: '' }
         ])
 
         return {
@@ -193,11 +193,11 @@ export class CityService {
     )
 
     return {
-        items,
-        totalCount,
-    };  
-}
-async getAuditLogs(tableName: string, recordId?: string) {
+      items,
+      totalCount,
+    };
+  }
+  async getAuditLogs(tableName: string, recordId?: string) {
     try {
       const whereClause: any = { tableName };
       if (recordId) whereClause.recordId = recordId;

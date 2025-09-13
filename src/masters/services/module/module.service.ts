@@ -2,7 +2,7 @@ import { BadRequestException, Injectable, Logger, NotFoundException } from '@nes
 import { Prisma } from '@prisma/client';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
-import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
+import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 
 @Injectable()
 export class ModuleService {
@@ -50,7 +50,7 @@ export class ModuleService {
     try {
       const moduleList = await this._db.moduleMaster.findMany({
         where: {
-          status : 'A'
+          status: 'A'
         }
       })
       return moduleList;
@@ -115,17 +115,17 @@ export class ModuleService {
     // Perform soft delete by updating deletedAt field
     return this._db.moduleMaster.update({
       where: { ModuleMasterSid: id },
-      data: { status : 'D' }
+      data: { status: 'D' }
     });
   }
 
 
-  async searchList(params: SearchVesselDto) {
+  async searchList(params: filterDto) {
     const { search = '', page = 1, pageSize = 15 } = params;
     const skip = (page - 1) * pageSize;
 
     const where: Prisma.ModuleMasterWhereInput = {
-      status : 'A',
+      status: 'A',
       ...(search
         ? {
           OR: [
@@ -504,7 +504,7 @@ export class ModuleService {
     try {
       const modules = await this._db.moduleMaster.findMany({
         where: {
-          status : 'A'
+          status: 'A'
         },
         select: {
           ModuleMasterSid: true,

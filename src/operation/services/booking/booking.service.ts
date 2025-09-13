@@ -1,35 +1,35 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { DatabaseService } from 'src/database/database.service';
-import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
+import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 import * as moment from 'moment-timezone';
 import { GlobalConfigService } from 'src/common/config/master-config.service';
 import { OperationCommonService } from '../operation-common/operation-common.service';
 import { CurrencyExchangeService } from 'src/masters/services/currency-exchange/currency-exchange.service';
 
 interface CostRevenueDTO {
-    MenuMasterSid ?: number,
-    CompanyMasterSid ?: number,
-    BranchMasterSid ?: number,
-    TransactionSid ?: number,
-    ShipmentNo ?: string  
+    MenuMasterSid?: number,
+    CompanyMasterSid?: number,
+    BranchMasterSid?: number,
+    TransactionSid?: number,
+    ShipmentNo?: string
 }
 
 interface ShipmentMilestoneDTO {
-    CompanyMasterSid ?: number,
-    BranchMasterSid ?: number,
-    ShipmentNo ?: string
+    CompanyMasterSid?: number,
+    BranchMasterSid?: number,
+    ShipmentNo?: string
 }
 
 @Injectable()
 export class BookingService {
 
     constructor(
-        private _db: DatabaseService, 
-        private globalConfigService: GlobalConfigService, 
+        private _db: DatabaseService,
+        private globalConfigService: GlobalConfigService,
         private logger: Logger,
-        private commonService : OperationCommonService,
-        private currencyExchangeService : CurrencyExchangeService
+        private commonService: OperationCommonService,
+        private currencyExchangeService: CurrencyExchangeService
     ) { }
 
     async createBooking(payload: any) {
@@ -57,7 +57,7 @@ export class BookingService {
                         // Section - 1 
                         CompanyMasterSid: payload.CompanyMasterSid,
                         BranchMasterSid: payload.BranchMasterSid,
-                        MenuMasterSid : payload.MenuMasterSid,
+                        MenuMasterSid: payload.MenuMasterSid,
                         BookingNo: BookingNo,
                         BookingDateTime: new Date(),
                         DepartmentMasterSid: payload.DepartmentMasterSid,
@@ -100,12 +100,12 @@ export class BookingService {
                         Coload: payload.Coload,
                         ShipmentType: payload.ShipmentType,
                         IncoTerms: payload.IncoTerms,
-                        FreightTerms : payload.FreightTerms,
+                        FreightTerms: payload.FreightTerms,
                         InternalNote: payload.InternalNote,
                         GeneralNote: payload.GeneralNote,
                         NominatedBy: payload.NominatedBy,
                         ShipmentNo: BookingNo,
-                        BookingStatus : 'Booked'
+                        BookingStatus: 'Booked'
                     }
                 })
 
@@ -129,7 +129,7 @@ export class BookingService {
                     NoOfPackage: Number(cargoPayload.NoOfPackage),
                     ShipmentTerms: cargoPayload.ShipmentTerms,
                     MovementType: cargoPayload.MovementType,
-                    ModeOfTransport : cargoPayload.ModeOfTransport,
+                    ModeOfTransport: cargoPayload.ModeOfTransport,
                     FreightTerms: cargoPayload.FreightTerms,
                     StuffingAt: cargoPayload.StuffingAt,
                     createdBy: payload.createdBy,
@@ -153,7 +153,7 @@ export class BookingService {
                         ProductName: product.ProductName || '',
                         ShippingBillNo: product.ShippingBillNo || '',
                         ShippingBillDate: product.ShippingBillDate || '',
-                        CargoRecDate : product.CargoRecDate ? new Date(product.CargoRecDate) : null,
+                        CargoRecDate: product.CargoRecDate ? new Date(product.CargoRecDate) : null,
                         ExternaPkg: product.ExternaPkg || '',
                         ExternlQty: product.ExternlQty || '',
                         GrossWeight: Number(product.GrossWeight) || 0,
@@ -163,7 +163,7 @@ export class BookingService {
                         ImcoClass: product.ImcoClass || '',
                         UnNo: product.UnNo || '',
                         PkgGroup: product.PkgGroup || '',
-                        Length: product.Length ,
+                        Length: product.Length,
                         Width: product.Width,
                         Height: product.Height,
                         UomMasterSid: product.UomMasterSid || null,
@@ -238,7 +238,7 @@ export class BookingService {
                 const allConnections: any[] = (payload.bookingConnections || []).map(connection => {
                     const connectionData = {
                         BookingHeaderSid: newBooking.BookingHeaderSid,
-                        Mode : connection.Mode,
+                        Mode: connection.Mode,
                         VesselName: connection.VesselName,
                         VoyageNo: connection.VoyageNo,
                         POL: connection.POL,
@@ -263,37 +263,37 @@ export class BookingService {
                     |   Step 6 : Create Booking Rates
                     |--------------------------------------------------
                 */
-               let allRates : any[] = (payload.bookingRates || []).map(
-                rate => {
-                    return {
-                        TransactionSid : newBooking.BookingHeaderSid,
-                        MenuMasterSid : payload.MenuMasterSid,
-                        ShipmentNo : newBooking.ShipmentNo,
-                        CompanyMasterSid : payload.CompanyMasterSid,
-                        BranchMasterSid : payload.BranchMasterSid,
-                        SerialNumber : Number(rate.SerialNumber),
-                        ChargeMasterSid : rate.ChargeMasterSid,
-                        ChargeDescription :rate.ChargeDescription,
-                        ChargeUomSid : rate.ChargeUomSid,
-                        PrepaidCollect : rate.PrepaidCollect,
-                        CostRevenue : rate.CostRevenue,
-                        CurrencyMasterSid : rate.CurrencyMasterSid,
-                        ExchangeRate : Number(rate.ExchangeRate),
-                        Rate : Number(rate.Rate),
-                        NumberOfUnit : Number(rate.NumberOfUnit),
-                        DrCr : rate.DrCr,
-                        Amount : Number(rate.Amount),
-                        LocalAmount : Number(rate.LocalAmount),
-                        CustomerMasterSid : rate.CustomerMasterSid,
-                        CustomerBranchSid : newBooking.CustomerBranchSid,
-                        VoucherHeaderSid : Number(rate.VoucherHeaderSid),
-                        VoucherTypeSid : rate.VoucherTypeSid,
-                        status : 'A',
-                        createdBy : payload.createdBy
+                let allRates: any[] = (payload.bookingRates || []).map(
+                    rate => {
+                        return {
+                            TransactionSid: newBooking.BookingHeaderSid,
+                            MenuMasterSid: payload.MenuMasterSid,
+                            ShipmentNo: newBooking.ShipmentNo,
+                            CompanyMasterSid: payload.CompanyMasterSid,
+                            BranchMasterSid: payload.BranchMasterSid,
+                            SerialNumber: Number(rate.SerialNumber),
+                            ChargeMasterSid: rate.ChargeMasterSid,
+                            ChargeDescription: rate.ChargeDescription,
+                            ChargeUomSid: rate.ChargeUomSid,
+                            PrepaidCollect: rate.PrepaidCollect,
+                            CostRevenue: rate.CostRevenue,
+                            CurrencyMasterSid: rate.CurrencyMasterSid,
+                            ExchangeRate: Number(rate.ExchangeRate),
+                            Rate: Number(rate.Rate),
+                            NumberOfUnit: Number(rate.NumberOfUnit),
+                            DrCr: rate.DrCr,
+                            Amount: Number(rate.Amount),
+                            LocalAmount: Number(rate.LocalAmount),
+                            CustomerMasterSid: rate.CustomerMasterSid,
+                            CustomerBranchSid: newBooking.CustomerBranchSid,
+                            VoucherHeaderSid: Number(rate.VoucherHeaderSid),
+                            VoucherTypeSid: rate.VoucherTypeSid,
+                            status: 'A',
+                            createdBy: payload.createdBy
+                        }
                     }
-                }
-               )
-               
+                )
+
                 let createdRates;
                 if (allRates.length > 0) {
                     createdRates = await prisma.costRevenueCharges.createMany({
@@ -315,7 +315,7 @@ export class BookingService {
                         CreatedBy: payload.createdBy,
                         Status: 'A',
                         MilestoneMasterSid: milestone.MilestoneMasterSid,
-                        Remarks : milestone.Remarks,
+                        Remarks: milestone.Remarks,
                         MilestoneName: milestone.MilestoneName,
                         MilestoneDate: milestone.MilestoneDate,
                         AutoCaptured: milestone.AutoCaptured ? 'Y' : 'N'
@@ -341,7 +341,7 @@ export class BookingService {
                 }
             })
         } catch (error) {
-            console.error('Transaction failed', error);
+            console.error('Transaction failed', error, error.stack);
             throw error;
         }
     }
@@ -350,7 +350,7 @@ export class BookingService {
         try {
             const allBooking = await this._db.bookingHeader.findMany({
                 where: {
-                    status:'A'
+                    status: 'A'
                 }
             })
             return allBooking;
@@ -366,23 +366,23 @@ export class BookingService {
                     BookingHeaderSid: BookingHeaderSid
                 },
                 include: {
-                    departmentMaster : {select : {departmentName : true}},
-                    quotationHeader : {select : {QuoteNumber : true}},
-                    bookingCargo: { where: { status:'A' } },
-                    bookingProduct: { where: { status:'A' } },
-                    bookingOthers: { where: { status:'A' } },
-                    bookingConnection: { where: { status:'A' } }
+                    departmentMaster: { select: { departmentName: true } },
+                    quotationHeader: { select: { QuoteNumber: true } },
+                    bookingCargo: { where: { status: 'A' } },
+                    bookingProduct: { where: { status: 'A' } },
+                    bookingOthers: { where: { status: 'A' } },
+                    bookingConnection: { where: { status: 'A' } }
                 }
             })
             if (!ourBooking) {
                 throw new BadRequestException('Error fetching booking record.');
             }
-            const costRevenuePayload : CostRevenueDTO = {
-                MenuMasterSid : ourBooking.MenuMasterSid!,
-                CompanyMasterSid : ourBooking.CompanyMasterSid,
-                BranchMasterSid : ourBooking.BranchMasterSid!,
-                TransactionSid : ourBooking.BookingHeaderSid,
-                ShipmentNo : ourBooking.ShipmentNo!
+            const costRevenuePayload: CostRevenueDTO = {
+                MenuMasterSid: ourBooking.MenuMasterSid!,
+                CompanyMasterSid: ourBooking.CompanyMasterSid,
+                BranchMasterSid: ourBooking.BranchMasterSid!,
+                TransactionSid: ourBooking.BookingHeaderSid,
+                ShipmentNo: ourBooking.ShipmentNo!
             }
             const respectiveCostRevenueCharges = await this.commonService.getAllCostRevenueCharges(costRevenuePayload);
 
@@ -392,18 +392,18 @@ export class BookingService {
                     where: {
                         VoyageMasterHeaderSid: ourBooking.VoyageMasterSid
                     },
-                    include : {
-                        voyageMasterDetail : {
-                            where : {
-                                status : 'A'
+                    include: {
+                        voyageMasterDetail: {
+                            where: {
+                                status: 'A'
                             },
-                            select : {
-                                ETA : true,
-                                ETD : true,
-                                PortCutoff : true,
-                                portMasterPOL : {
-                                    select : {
-                                        PortCode : true
+                            select: {
+                                ETA: true,
+                                ETD: true,
+                                PortCutoff: true,
+                                portMasterPOL: {
+                                    select: {
+                                        PortCode: true
                                     }
                                 }
                             },
@@ -413,18 +413,18 @@ export class BookingService {
                 const POL = data?.voyageMasterDetail.find(vd => vd.portMasterPOL?.PortCode === ourBooking.POL);
                 const POD = data?.voyageMasterDetail.find(vd => vd.portMasterPOL?.PortCode === ourBooking.POD);
                 voyageDetails = {
-                    POLETA : POL?.ETA,
-                    POLETD : POL?.ETD,
-                    PODETA : POD?.ETA,
-                    PODETD : POD?.ETD,
-                    POLCutOffDate : POL?.PortCutoff,
-                    PODCutOffDate : POD?.PortCutoff
+                    POLETA: POL?.ETA,
+                    POLETD: POL?.ETD,
+                    PODETA: POD?.ETA,
+                    PODETD: POD?.ETD,
+                    POLCutOffDate: POL?.PortCutoff,
+                    PODCutOffDate: POD?.PortCutoff
                 }
             }
 
             return {
                 ...ourBooking,
-                bookingRates : respectiveCostRevenueCharges,
+                bookingRates: respectiveCostRevenueCharges,
                 voyageDetails
             }
         } catch (error) {
@@ -448,7 +448,7 @@ export class BookingService {
                         CustomerName: payload.CustomerName,
                         CustomerAddress: payload.CustomerAddress,
                         CustomerBranchSid: payload.CustomerBranchSid,
-                        MenuMasterSid : payload.MenuMasterSid,
+                        MenuMasterSid: payload.MenuMasterSid,
                         SalesmanSid: payload.SalesmanSid,
                         ShipperName: payload.ShipperName,
                         ShipperAddress: payload.ShipperAddress,
@@ -482,7 +482,7 @@ export class BookingService {
                         Coload: payload.Coload,
                         ShipmentType: payload.ShipmentType,
                         IncoTerms: payload.IncoTerms,
-                        FreightTerms : payload.FreightTerms,
+                        FreightTerms: payload.FreightTerms,
                         InternalNote: payload.InternalNote,
                         GeneralNote: payload.GeneralNote,
                         NominatedBy: payload.NominatedBy
@@ -514,7 +514,7 @@ export class BookingService {
                             ShipmentTerms: cargoPayload.ShipmentTerms,
                             MovementType: cargoPayload.MovementType,
                             FreightTerms: cargoPayload.FreightTerms,
-                            ModeOfTransport : cargoPayload.ModeOfTransport,
+                            ModeOfTransport: cargoPayload.ModeOfTransport,
                             StuffingAt: cargoPayload.StuffingAt,
                             createdBy: payload.updatedBy,
                             status: 'A'
@@ -536,7 +536,7 @@ export class BookingService {
                             ShipmentTerms: cargoPayload.ShipmentTerms,
                             MovementType: cargoPayload.MovementType,
                             FreightTerms: cargoPayload.FreightTerms,
-                            ModeOfTransport : cargoPayload.ModeOfTransport,
+                            ModeOfTransport: cargoPayload.ModeOfTransport,
                             StuffingAt: cargoPayload.StuffingAt,
                             updatedBy: payload.updatedBy,
                             status: payload.status
@@ -561,7 +561,7 @@ export class BookingService {
                                 ProductName: product.ProductName,
                                 ShippingBillNo: product.ShippingBillNo,
                                 ShippingBillDate: product.ShippingBillDate,
-                                CargoRecDate : product.CargoRecDate ? new Date(product.CargoRecDate) : null,
+                                CargoRecDate: product.CargoRecDate ? new Date(product.CargoRecDate) : null,
                                 ExternaPkg: product.ExternaPkg,
                                 ExternlQty: product.ExternlQty,
                                 GrossWeight: Number(product.GrossWeight),
@@ -586,7 +586,7 @@ export class BookingService {
                                 ProductName: product.ProductName,
                                 ShippingBillNo: product.ShippingBillNo,
                                 ShippingBillDate: product.ShippingBillDate,
-                                CargoRecDate : product.CargoRecDate ? new Date(product.CargoRecDate) : null,
+                                CargoRecDate: product.CargoRecDate ? new Date(product.CargoRecDate) : null,
                                 ExternaPkg: product.ExternaPkg,
                                 ExternlQty: product.ExternlQty,
                                 GrossWeight: Number(product.GrossWeight),
@@ -621,7 +621,7 @@ export class BookingService {
                         data: {
                             BookingHeaderSid: updatedBooking.BookingHeaderSid,
                             CustomerRefNo: otherPayload.CustomerRefNo || '',
-                            YardCFS: otherPayload.YardCFS || '' ,
+                            YardCFS: otherPayload.YardCFS || '',
                             HBLNo: otherPayload.HBLNo || '',
                             Forwarder: otherPayload.Forwarder || '',
                             ForwarderAddress: otherPayload.ForwarderAddress || '',
@@ -659,7 +659,7 @@ export class BookingService {
                     finalBookingOther = await prisma.bookingOthers.update({
                         where: { BookingOthersSid: otherPayload.BookingOthersSid },
                         data: {
-                            BookingHeaderSid: updatedBooking.BookingHeaderSid ,
+                            BookingHeaderSid: updatedBooking.BookingHeaderSid,
                             CustomerRefNo: otherPayload.CustomerRefNo || '',
                             YardCFS: otherPayload.YardCFS || '',
                             HBLNo: otherPayload.HBLNo || '',
@@ -711,7 +711,7 @@ export class BookingService {
                         createdConnection = await prisma.bookingConnection.create({
                             data: {
                                 BookingHeaderSid: updatedBooking.BookingHeaderSid,
-                                Mode : connection.Mode,
+                                Mode: connection.Mode,
                                 VesselName: connection.VesselName,
                                 VoyageNo: connection.VoyageNo,
                                 POL: connection.POL,
@@ -728,7 +728,7 @@ export class BookingService {
                             where: { BookingConnectionSid: connection.TransactionSid },
                             data: {
                                 BookingHeaderSid: updatedBooking.BookingHeaderSid,
-                                Mode : connection.Mode,
+                                Mode: connection.Mode,
                                 VesselName: connection.VesselName,
                                 VoyageNo: connection.VoyageNo,
                                 POL: connection.POL,
@@ -736,7 +736,7 @@ export class BookingService {
                                 ETD: connection.ETD,
                                 ETA: connection.ETA,
                                 updatedBy: payload.updatedBy,
-                                status: String(connection.status).charAt(0) || 'A' 
+                                status: String(connection.status).charAt(0) || 'A'
                             }
                         })
                     }
@@ -838,7 +838,7 @@ export class BookingService {
                                 CreatedBy: payload.updatedBy,
                                 Status: 'A',
                                 MilestoneMasterSid: milestone.MilestoneMasterSid,
-                                Remarks : milestone.Remarks,
+                                Remarks: milestone.Remarks,
                                 MilestoneName: milestone.MilestoneName,
                                 MilestoneDate: milestone.MilestoneDate,
                                 AutoCaptured: milestone.AutoCaptured ? 'Y' : 'N'
@@ -852,7 +852,7 @@ export class BookingService {
                                 UpdatedBy: payload.updatedBy,
                                 Status: milestone.Status === "Active" ? 'A' : 'S',
                                 MilestoneMasterSid: milestone.MilestoneMasterSid,
-                                Remarks : milestone.Remarks,
+                                Remarks: milestone.Remarks,
                                 MilestoneName: milestone.MilestoneName,
                                 MilestoneDate: milestone.MilestoneDate,
                                 AutoCaptured: milestone.AutoCaptured ? 'Y' : 'N'
@@ -890,34 +890,34 @@ export class BookingService {
             if (!existing) {
                 throw new BadRequestException('Booking with provided id not exists');
             }
-            if (existing.status==='D') {
+            if (existing.status === 'D') {
                 throw new BadRequestException('Provided Booking id is already deleted');
             }
             const result = await this._db.$transaction(async (prisma) => {
                 const deletedBooking = await prisma.bookingHeader.update({
                     where: { BookingHeaderSid: BookingHeaderSid },
-                    data: { status:'D' }
+                    data: { status: 'D' }
                 })
 
                 const deletedCargos = await prisma.bookingCargo.updateMany({
                     where: { BookingHeaderSid: BookingHeaderSid },
-                    data: { status:'D' }
+                    data: { status: 'D' }
                 })
                 const deletedProducts = await prisma.bookingProduct.updateMany({
                     where: { BookingHeaderSid: BookingHeaderSid },
-                    data: { status:'D' }
+                    data: { status: 'D' }
                 })
                 const deletedOthers = await prisma.bookingOthers.updateMany({
                     where: { BookingHeaderSid: BookingHeaderSid },
-                    data: { status:'D'}
+                    data: { status: 'D' }
                 })
                 const deletedConnections = await prisma.bookingConnection.updateMany({
                     where: { BookingHeaderSid: BookingHeaderSid },
-                    data: { status:'D' }
+                    data: { status: 'D' }
                 })
                 const deletedRates = await prisma.bookingRates.updateMany({
                     where: { BookingHeaderSid: BookingHeaderSid },
-                    data: { Status:'D' }
+                    data: { Status: 'D' }
                 })
 
                 return {
@@ -935,8 +935,8 @@ export class BookingService {
         }
     }
 
-    async searchBooking(params: SearchVesselDto) {
-        const { search = '', page = 1, pageSize = 15 ,activeCompanyId, activeBranchId } = params;
+    async searchBooking(params: filterDto) {
+        const { search = '', page = 1, pageSize = 15, activeCompanyId, activeBranchId } = params;
         const skip = (page - 1) * pageSize;
 
         let salesmanIds: number[] = [];
@@ -948,7 +948,7 @@ export class BookingService {
              */
 
             const users = await this._db.userMaster.findMany({
-                where: { userName: { contains: search, mode: 'insensitive' }, status:'A' },
+                where: { userName: { contains: search, mode: 'insensitive' }, status: 'A' },
                 select: { UserMasterSid: true },
             });
             salesmanIds = users.map(u => u.UserMasterSid);
@@ -961,7 +961,7 @@ export class BookingService {
             */
 
             const milestones = await this._db.shipmentMilestone.findMany({
-                where: { MilestoneName: { contains: search, mode: 'insensitive' } , Status:'A',CompanyMasterSid : activeCompanyId, BranchMasterSid : activeBranchId },
+                where: { MilestoneName: { contains: search, mode: 'insensitive' }, Status: 'A', CompanyMasterSid: activeCompanyId, BranchMasterSid: activeBranchId },
                 select: { ShipmentNo: true, ShipmentMilestoneSid: true },
                 orderBy: [{ ShipmentNo: 'asc' }, { ShipmentMilestoneSid: 'desc' }],
             });
@@ -969,8 +969,8 @@ export class BookingService {
         }
 
         const where: Prisma.BookingHeaderWhereInput = {
-            CompanyMasterSid : activeCompanyId,
-            BranchMasterSid : activeBranchId,
+            CompanyMasterSid: activeCompanyId,
+            BranchMasterSid: activeBranchId,
             status: 'A',
             ...(search && {
                 OR: [
@@ -1046,7 +1046,7 @@ export class BookingService {
         try {
             const deletedBookingProducts = await this._db.bookingProduct.update({
                 where: { BookingProductSid },
-                data: { status:'D' }
+                data: { status: 'D' }
             })
             return deletedBookingProducts;
         } catch (error) {
@@ -1058,7 +1058,7 @@ export class BookingService {
         try {
             const deletedBookingConnection = await this._db.bookingConnection.update({
                 where: { BookingConnectionSid: BookingConnectionSid },
-                data: { status:'D' }
+                data: { status: 'D' }
             })
             return deletedBookingConnection;
         } catch (error) {
@@ -1070,7 +1070,7 @@ export class BookingService {
         try {
             const deletedBookingConnection = await this._db.bookingRates.update({
                 where: { BookingRatesSid: BookingRateSid },
-                data: { Status:'D' }
+                data: { Status: 'D' }
             })
             return deletedBookingConnection;
         } catch (error) {
@@ -1084,35 +1084,35 @@ export class BookingService {
         try {
             const [customers, salesmans, shippers, consignees, agents, carriers, forwarder, notify] = await this._db.$transaction([
                 this._db.customerMaster.findMany({
-                    where: { CompanyMasterSid: payload.CompanyMasterSid, CustomerType: { path: ['customer'], equals: 'isTrue' }, status:'A' },
+                    where: { CompanyMasterSid: payload.CompanyMasterSid, CustomerType: { path: ['customer'], equals: 'isTrue' }, status: 'A' },
                     select: { CustomerMasterSid: true, CustomerName: true, CustomerAddress1: true }
                 }),
                 this._db.customerSalesTeam.findMany({
-                    where: { CompanyMasterSid: payload.CompanyMasterSid, status:'A' },
+                    where: { CompanyMasterSid: payload.CompanyMasterSid, status: 'A' },
                     select: { Salesman: true }
                 }),
                 this._db.customerMaster.findMany({
-                    where: { CompanyMasterSid: payload.CompanyMasterSid, CustomerType: { path: ['shipper'], equals: 'isTrue' }, status:'A' },
+                    where: { CompanyMasterSid: payload.CompanyMasterSid, CustomerType: { path: ['shipper'], equals: 'isTrue' }, status: 'A' },
                     select: { CustomerMasterSid: true, CustomerName: true, CustomerAddress1: true }
                 }),
                 this._db.customerMaster.findMany({
-                    where: { CompanyMasterSid: payload.CompanyMasterSid, CustomerType: { path: ['consignee'], equals: 'isTrue' }, status:'A' },
+                    where: { CompanyMasterSid: payload.CompanyMasterSid, CustomerType: { path: ['consignee'], equals: 'isTrue' }, status: 'A' },
                     select: { CustomerMasterSid: true, CustomerName: true, CustomerAddress1: true }
                 }),
                 this._db.customerMaster.findMany({
-                    where: { CompanyMasterSid: payload.CompanyMasterSid, CustomerType: { path: ['agent'], equals: 'isTrue' }, status:'A' },
+                    where: { CompanyMasterSid: payload.CompanyMasterSid, CustomerType: { path: ['agent'], equals: 'isTrue' }, status: 'A' },
                     select: { CustomerMasterSid: true, CustomerName: true, CustomerAddress1: true, countryMaster: { select: { countryName: true } } }
                 }),
                 this._db.customerMaster.findMany({
-                    where: { CompanyMasterSid: payload.CompanyMasterSid, CustomerType: { path: ['carrier'], equals: 'isTrue' }, status:'A' },
+                    where: { CompanyMasterSid: payload.CompanyMasterSid, CustomerType: { path: ['carrier'], equals: 'isTrue' }, status: 'A' },
                     select: { CustomerMasterSid: true, CustomerName: true, CustomerAddress1: true }
                 }),
                 this._db.customerMaster.findMany({
-                    where: { CompanyMasterSid: payload.CompanyMasterSid, CustomerType: { path: ['forwarder'], equals: 'isTrue' }, status:'A' },
+                    where: { CompanyMasterSid: payload.CompanyMasterSid, CustomerType: { path: ['forwarder'], equals: 'isTrue' }, status: 'A' },
                     select: { CustomerMasterSid: true, CustomerName: true, CustomerAddress1: true }
                 }),
                 this._db.customerMaster.findMany({
-                    where: { CompanyMasterSid: payload.CompanyMasterSid, CustomerType: { path: ['notify'], equals: 'isTrue' }, status:'A' },
+                    where: { CompanyMasterSid: payload.CompanyMasterSid, CustomerType: { path: ['notify'], equals: 'isTrue' }, status: 'A' },
                     select: { CustomerMasterSid: true, CustomerName: true, CustomerAddress1: true }
                 })
             ]);
@@ -1155,7 +1155,7 @@ export class BookingService {
         try {
             const [departments, vessels, ports, incos, country] = await this._db.$transaction([
                 this._db.departmentMaster.findMany({
-                    where: { Status:'A', CompanyMasterSid: payload.CompanyMasterSid },
+                    where: { Status: 'A', CompanyMasterSid: payload.CompanyMasterSid },
                     select: {
                         DepartmentMasterSid: true,
                         departmentName: true,
@@ -1165,14 +1165,14 @@ export class BookingService {
                     }
                 }),
                 this._db.vesselMaster.findMany({
-                    where: { status:'A' },
+                    where: { status: 'A' },
                     select: {
                         VesselMasterSid: true,
                         VesselName: true
                     },
                 }),
                 this._db.portMaster.findMany({
-                    where: { status:'A' },
+                    where: { status: 'A' },
                     select: {
                         PortMasterSid: true,
                         PortName: true,
@@ -1188,13 +1188,13 @@ export class BookingService {
                     },
                 }),
                 this._db.companyMaster.findFirst({
-                    where : {CompanyMasterSid : payload.CompanyMasterSid},
-                    select : {
-                        countryMaster : {select : {countryName : true}}
+                    where: { CompanyMasterSid: payload.CompanyMasterSid },
+                    select: {
+                        countryMaster: { select: { countryName: true } }
                     }
                 })
             ]);
-            return { departments, vessels, ports, incos,country}
+            return { departments, vessels, ports, incos, country }
         } catch (error) {
             console.error('Error fetching Header Lookups:', error);
             return {
@@ -1210,13 +1210,13 @@ export class BookingService {
         try {
             const allContainerTypes = await this._db.containerTypeMaster.findMany({
                 where: {
-                    status:'A'
+                    status: 'A'
                 },
                 select: {
                     ContainerTypeMasterSid: true,
                     ContainerName: true,
                     ContainerCode: true,
-                    ContainerSize : true
+                    ContainerSize: true
                 }
             })
             return allContainerTypes;
@@ -1229,7 +1229,7 @@ export class BookingService {
         try {
             const allContainerTypes = await this._db.currencyMaster.findMany({
                 where: {
-                    status:'A'
+                    status: 'A'
                 },
                 select: {
                     CurrencyMasterSid: true,
@@ -1245,35 +1245,35 @@ export class BookingService {
 
     async getAllProductLookups(payload: any) {
         try {
-            const [products, packageTypes ,imcos,uoms] = await this._db.$transaction([
+            const [products, packageTypes, imcos, uoms] = await this._db.$transaction([
                 this._db.productMaster.findMany({
-                    where: { status:'A', CompanyMasterSid: payload.CompanyMasterSid },
+                    where: { status: 'A', CompanyMasterSid: payload.CompanyMasterSid },
                     select: {
-                        ProductMasterSId : true,
-                        ProductName : true,
-                        IMOClass : true,
-                        ProductType : true,
-                        UNNo : true,
-                        PackingGroup : true
+                        ProductMasterSId: true,
+                        ProductName: true,
+                        IMOClass: true,
+                        ProductType: true,
+                        UNNo: true,
+                        PackingGroup: true
                     }
                 }),
                 this._db.uOMMaster.findMany({
-                    where: { status:'A' , UOMType : 'P' },
+                    where: { status: 'A', UOMType: 'P' },
                     select: {
                         UOMMasterSid: true,
                         UOMName: true,
-                        UOMCode : true
+                        UOMCode: true
                     },
                 }),
                 this._db.imcoMaster.findMany({
-                    where: { status:'A' },
+                    where: { status: 'A' },
                     select: {
                         ImcoMasterSid: true,
                         ImcoName: true
                     },
                 }),
                 this._db.uOMMaster.findMany({
-                    where: { status:'A' },
+                    where: { status: 'A' },
                     select: {
                         UOMMasterSid: true,
                         UOMName: true,
@@ -1295,35 +1295,35 @@ export class BookingService {
 
     async getAuditLogs(tableName: string, recordId?: string) {
         try {
-          const whereClause: any = { tableName };
-          if (recordId) whereClause.recordId = recordId;
-    
-          const logs = await this._db.auditLog.findMany({
-            where: whereClause,
-            orderBy: { changedAt: 'desc' },
-          });
-    
-          return logs;
-        } catch (error) {
-          this.logger.warn(`getAuditLogsError: ${error}`);
-          throw new Error(`Error fetching audit logs: ${error.message}`);
-        }
-      }
+            const whereClause: any = { tableName };
+            if (recordId) whereClause.recordId = recordId;
 
-    async getAllMilestones(payload:any){
+            const logs = await this._db.auditLog.findMany({
+                where: whereClause,
+                orderBy: { changedAt: 'desc' },
+            });
+
+            return logs;
+        } catch (error) {
+            this.logger.warn(`getAuditLogsError: ${error}`);
+            throw new Error(`Error fetching audit logs: ${error.message}`);
+        }
+    }
+
+    async getAllMilestones(payload: any) {
         try {
             const allMilestones = await this._db.milestoneMaster.findMany({
-                where : {
-                    status:'A',
-                    CompanyMasterSid : payload.CompanyMasterSid,
-                    BranchMasterSid : payload.BranchMasterSid
+                where: {
+                    status: 'A',
+                    CompanyMasterSid: payload.CompanyMasterSid,
+                    BranchMasterSid: payload.BranchMasterSid
                 },
-                select : {
-                    MilestoneMasterSid : true,
-                    MilestoneName : true,
-                    AutoCapture : true,
-                    DepartmentMasterSid : true,
-                    Remarks : true
+                select: {
+                    MilestoneMasterSid: true,
+                    MilestoneName: true,
+                    AutoCapture: true,
+                    DepartmentMasterSid: true,
+                    Remarks: true
                 }
             })
             return allMilestones;
@@ -1332,17 +1332,17 @@ export class BookingService {
         }
     }
 
-    async getShipmentMilestoneByShipmentNo(payload: any){
+    async getShipmentMilestoneByShipmentNo(payload: any) {
         try {
             const allShipmentMilestone = await this._db.shipmentMilestone.findMany({
-                where : {
-                    ShipmentNo : payload.ShipmentNo,
-                    CompanyMasterSid : payload.CompanyMasterSid,
-                    BranchMasterSid : payload.BranchMasterSid,
-                    Status:'A'
+                where: {
+                    ShipmentNo: payload.ShipmentNo,
+                    CompanyMasterSid: payload.CompanyMasterSid,
+                    BranchMasterSid: payload.BranchMasterSid,
+                    Status: 'A'
                 },
-                orderBy : {
-                    ShipmentMilestoneSid : 'asc'
+                orderBy: {
+                    ShipmentMilestoneSid: 'asc'
                 }
             })
             return allShipmentMilestone;
@@ -1351,35 +1351,35 @@ export class BookingService {
         }
     }
 
-    async getAllRateLookups(payload: any){
+    async getAllRateLookups(payload: any) {
         try {
-            const [charges,uoms,docTypes ] = await this._db.$transaction([
+            const [charges, uoms, docTypes] = await this._db.$transaction([
                 this._db.chargeMaster.findMany({
-                    where: { Status:'A', CompanyMasterSid: payload.CompanyMasterSid },
+                    where: { Status: 'A', CompanyMasterSid: payload.CompanyMasterSid },
                     select: {
-                        ChargeMasterSid : true,
-                        chargeName : true,
-                        chargeCode : true,
-                        CurrencyMasterSid : true,
-                        UOM : true,
-                        chargeTaxMaster : {
-                            take : 1,
-                            select : {
-                                description : true
+                        ChargeMasterSid: true,
+                        chargeName: true,
+                        chargeCode: true,
+                        CurrencyMasterSid: true,
+                        UOM: true,
+                        chargeTaxMaster: {
+                            take: 1,
+                            select: {
+                                description: true
                             }
                         },
                     }
                 }),
                 this._db.uOMMaster.findMany({
-                    where: { status:'A' },
+                    where: { status: 'A' },
                     select: {
-                        UOMMasterSid : true,
-                        UOMName : true,
-                        UOMCode : true
+                        UOMMasterSid: true,
+                        UOMName: true,
+                        UOMCode: true
                     },
                 }),
                 this._db.documentTypeMaster.findMany({
-                    where: { status:'A' },
+                    where: { status: 'A' },
                     select: {
                         DocumentTypeMasterSid: true,
                         DocumentTypeName: true
@@ -1387,7 +1387,7 @@ export class BookingService {
                 })
 
             ]);
-            return { charges,uoms,docTypes }
+            return { charges, uoms, docTypes }
         } catch (error) {
             console.error('Error fetching Rate Lookups:', error);
             return {
@@ -1467,7 +1467,7 @@ export class BookingService {
         }
     }
 
-    
+
 
 }
 

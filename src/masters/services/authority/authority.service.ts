@@ -4,17 +4,17 @@ import { GlobalConfigService } from 'src/common/config/master-config.service';
 import { parseDateFromString } from 'src/common/helper';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
-import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
+import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 
 @Injectable()
 export class AuthorityService {
-    constructor(private _db: DatabaseService,private globalConfigService:GlobalConfigService, private logger: Logger) { }
+    constructor(private _db: DatabaseService, private globalConfigService: GlobalConfigService, private logger: Logger) { }
 
     async getAllAuthorities() {
         try {
             const allAuthorities = await this._db.authorityMaster.findMany({
                 where: {
-                    status : 'A'
+                    status: 'A'
                 },
                 include: {
                     branchMaster: true,
@@ -22,7 +22,7 @@ export class AuthorityService {
                     menuMaster: true,
                     authorityDetail: {
                         where: {
-                            status : 'A'
+                            status: 'A'
                         },
                         include: {
                             userMaster: true
@@ -111,9 +111,9 @@ export class AuthorityService {
                 include: {
                     authorityDetail: {
                         where: {
-                            status : 'A'
+                            status: 'A'
                         },
-                            
+
                     }
                 }
             });
@@ -136,19 +136,19 @@ export class AuthorityService {
                 throw new BadRequestException(`Authority with Id: ${AuthorityMasterSid} does not exist`);
             }
             const {
-                    DepartmentMaster,
-                    MenuMaster,
-                    BranchMasterSid,
-                    CompanyMasterSid,
-                    status,
-                    Remarks,
-                    authDetails = [],
-                    updatedBy,
-                } = payload;
+                DepartmentMaster,
+                MenuMaster,
+                BranchMasterSid,
+                CompanyMasterSid,
+                status,
+                Remarks,
+                authDetails = [],
+                updatedBy,
+            } = payload;
 
             const existing = await this._db.authorityMaster.findFirst({
                 where: {
-                    AuthorityMasterSid : { not : AuthorityMasterSid},
+                    AuthorityMasterSid: { not: AuthorityMasterSid },
                     CompanyMasterSid: CompanyMasterSid,
                     BranchMasterSid: BranchMasterSid,
                     MenuMaster: parseInt(MenuMaster),
@@ -161,7 +161,7 @@ export class AuthorityService {
             }
 
             const updated = await this._db.$transaction(async (tx) => {
-                
+
 
                 if (!authDetails || authDetails.length === 0) {
                     throw new BadRequestException('At least one authority detail is required');
@@ -182,8 +182,8 @@ export class AuthorityService {
                     },
                 });
 
-                const allAuthDetails : any[] = payload.authDetails || [];
-                let finalDetails : any[] = [];
+                const allAuthDetails: any[] = payload.authDetails || [];
+                let finalDetails: any[] = [];
                 for (const authDetail of allAuthDetails) {
                     let existingDetails;
                     let newlyCreatedDetail;
@@ -246,18 +246,18 @@ export class AuthorityService {
             if (exist.status === 'D') {
                 throw new BadRequestException(`Authority with Id :${AuthorityMasterSid} is already deleted`)
             }
-            
-            await this._db.$transaction(async (tx) => { 
+
+            await this._db.$transaction(async (tx) => {
                 // Soft delete all related authority details first
                 await tx.authorityDetail.updateMany({
                     where: { AuthorityMasterSid },
-                    data: { status : 'D' }
+                    data: { status: 'D' }
                 });
-                
+
                 // Then soft delete the authority master
                 await tx.authorityMaster.update({
                     where: { AuthorityMasterSid },
-                    data: { status : 'D' }
+                    data: { status: 'D' }
                 });
             });
 
@@ -267,45 +267,45 @@ export class AuthorityService {
         }
     }
 
-    async newSearchAuthority(param : SearchVesselDto){
-        const {search ='', page = 1 , pageSize = 15 } = param;
+    async newSearchAuthority(param: filterDto) {
+        const { search = '', page = 1, pageSize = 15 } = param;
         const skip = (page - 1) * pageSize;
 
-        const where : Prisma.AuthorityMasterWhereInput = {
-            status : 'A',
+        const where: Prisma.AuthorityMasterWhereInput = {
+            status: 'A',
             ...(search ? {
-                OR : [
-                    { DepartmentMaster : {has : search}},
-                    { menuMaster : { MenuName : { contains : search , mode : 'insensitive'}}},
-                    { branchMaster : { branchName : { contains : search , mode : 'insensitive' }}},
+                OR: [
+                    { DepartmentMaster: { has: search } },
+                    { menuMaster: { MenuName: { contains: search, mode: 'insensitive' } } },
+                    { branchMaster: { branchName: { contains: search, mode: 'insensitive' } } },
                 ]
-            }:{})
+            } : {})
         }
 
         let items;
         let totalCount;
-        [items,totalCount] = await this._db.$transaction([
+        [items, totalCount] = await this._db.$transaction([
             this._db.authorityMaster.findMany({
-                where : where,
-                take : pageSize,
-                skip : skip,
-                orderBy : { AuthorityMasterSid : 'desc'}
+                where: where,
+                take: pageSize,
+                skip: skip,
+                orderBy: { AuthorityMasterSid: 'desc' }
             }),
             this._db.authorityMaster.count({
-                where : where
+                where: where
             })
         ])
-        
+
         items = await Promise.all(
-            items.map(async (item)=>{
-                const [branchMaster,menuMaster] = await Promise.all([
+            items.map(async (item) => {
+                const [branchMaster, menuMaster] = await Promise.all([
                     item.BranchMasterSid !== null ?
-                    this.globalConfigService.getMasterData('branch_master',item.BranchMasterSid,item.CompanyMasterSid) :
-                     {BranchMasterSid : null , branchName : ''},
+                        this.globalConfigService.getMasterData('branch_master', item.BranchMasterSid, item.CompanyMasterSid) :
+                        { BranchMasterSid: null, branchName: '' },
 
                     item.MenuMasterSid !== null ?
-                    this.globalConfigService.getMasterData('menu_master',item.MenuMaster) : 
-                    {MenuMasterSid : null , MenuName : ''}
+                        this.globalConfigService.getMasterData('menu_master', item.MenuMaster) :
+                        { MenuMasterSid: null, MenuName: '' }
                 ])
                 return {
                     ...item,
@@ -340,7 +340,7 @@ export class AuthorityService {
             throw new BadRequestException('Invalid Search Type');
         }
 
-        const whereClause: any = { status : 'A' };
+        const whereClause: any = { status: 'A' };
 
         if (searchType === 'DepartmentMaster') {
             whereClause[searchType] = { has: filterValue };
@@ -364,7 +364,7 @@ export class AuthorityService {
                 companyMaster: true,
                 menuMaster: true,
                 authorityDetail: {
-                    where: { status :'A' },
+                    where: { status: 'A' },
                     include: { userMaster: true }
                 }
             },
@@ -372,38 +372,39 @@ export class AuthorityService {
         });
     }
 
-    async searchDocAuthorization(param: SearchVesselDto, UserMasterSid: number) {
-        const { search = "", page = 1, pageSize = 15 ,activeCompanyId , activeBranchId} = param;
+    async searchDocAuthorization(param: filterDto, UserMasterSid: number) {
+        const { search = "", page = 1, pageSize = 15, activeCompanyId, activeBranchId } = param;
         const skip = (page - 1) * pageSize;
         const parsedDate = parseDateFromString(search);
 
         const authorityDetails = await this._db.authorityDetail.findMany({
-            where: { 
-                CompanyMasterSid : activeCompanyId , 
-                BranchMasterSid : activeBranchId , 
-                UserMasterSid, 
-                status: 'A' },
+            where: {
+                CompanyMasterSid: activeCompanyId,
+                BranchMasterSid: activeBranchId,
+                UserMasterSid,
+                status: 'A'
+            },
             select: {
                 AuthorityDetailSid: true,
                 authorityMaster: {
-                    where: { 
-                        status: 'A' , 
-                        CompanyMasterSid : activeCompanyId , 
-                        BranchMasterSid : activeBranchId 
+                    where: {
+                        status: 'A',
+                        CompanyMasterSid: activeCompanyId,
+                        BranchMasterSid: activeBranchId
                     },
                     include: {
-                        menuMaster: { 
-                            select: { 
-                                MenuMasterSid: true, 
+                        menuMaster: {
+                            select: {
+                                MenuMasterSid: true,
                                 MenuName: true,
-                                menuConfig : {
-                                    select : {
-                                        ModelName : true,
-                                        PrimaryKey : true,
-                                        LinkPattern : true
+                                menuConfig: {
+                                    select: {
+                                        ModelName: true,
+                                        PrimaryKey: true,
+                                        LinkPattern: true
                                     }
                                 }
-                            } 
+                            }
                         }
                     }
                 }
@@ -440,7 +441,7 @@ export class AuthorityService {
             if (!prismaModel) continue;
 
             // Build where clause dynamically
-            const whereClause: any = { authorizerStatus: "Pending" , status : 'A' };
+            const whereClause: any = { authorizerStatus: "Pending", status: 'A' };
 
             if (search) {
                 whereClause.OR = [
@@ -448,12 +449,12 @@ export class AuthorityService {
                 ];
 
                 if (model === 'quoteHeader') {
-                    whereClause.OR.push({ 
-                        QuoteNumber: { contains: search, mode: 'insensitive' } 
+                    whereClause.OR.push({
+                        QuoteNumber: { contains: search, mode: 'insensitive' }
                     });
                 } else if (model === 'enquiryHeader') {
-                    whereClause.OR.push({ 
-                        EnquiryNumber: { contains: search, mode: 'insensitive' } 
+                    whereClause.OR.push({
+                        EnquiryNumber: { contains: search, mode: 'insensitive' }
                     });
                 }
             }
@@ -472,7 +473,7 @@ export class AuthorityService {
 
             const authorizedDocs = await this._db.authorityLog.findMany({
                 where: {
-                    AuthorityDetailSid: authorityDetailSid, 
+                    AuthorityDetailSid: authorityDetailSid,
                     // checking with DetailSid also confirms user
                     DocumentSid: { in: docSids }
                 },
@@ -532,18 +533,18 @@ export class AuthorityService {
     }
 
 
-    async isUserAuthorizer(payload:any) {
+    async isUserAuthorizer(payload: any) {
         const authorizer = await this._db.authorityDetail.findFirst({
             where: {
-                UserMasterSid : payload.UserMasterSid,
-                CompanyMasterSid : payload.CompanyMasterSid,
-                BranchMasterSid : payload.BranchMasterSid,
+                UserMasterSid: payload.UserMasterSid,
+                CompanyMasterSid: payload.CompanyMasterSid,
+                BranchMasterSid: payload.BranchMasterSid,
                 status: 'A',
                 authorityMaster: {
                     status: 'A',
                     MenuMaster: payload.MenuMasterSid,
-                    CompanyMasterSid : payload.CompanyMasterSid,
-                    BranchMasterSid : payload.BranchMasterSid
+                    CompanyMasterSid: payload.CompanyMasterSid,
+                    BranchMasterSid: payload.BranchMasterSid
                 }
             },
             select: {
@@ -552,14 +553,14 @@ export class AuthorityService {
         });
 
         if (!authorizer) {
-            return { canAuthorize: false, alreadyApproved : false, message: "User is not an authorizer for this menu." };
+            return { canAuthorize: false, alreadyApproved: false, message: "User is not an authorizer for this menu." };
         }
 
         // 2. Check if user already authorized the document
         const alreadyAuthorized = await this._db.authorityLog.findFirst({
             where: {
                 AuthorityDetailSid: authorizer.AuthorityDetailSid,
-                DocumentSid :payload.DocumentSid,
+                DocumentSid: payload.DocumentSid,
                 Status: 'A'
             },
             select: {
@@ -568,10 +569,10 @@ export class AuthorityService {
         });
 
         if (alreadyAuthorized) {
-            return { canAuthorize: true, alreadyApproved:true, message: "User has already authorized this document." };
+            return { canAuthorize: true, alreadyApproved: true, message: "User has already authorized this document." };
         }
 
-        return { canAuthorize: true , alreadyApproved : false , message: "User is authorized and has not yet approved this document." };
+        return { canAuthorize: true, alreadyApproved: false, message: "User is authorized and has not yet approved this document." };
     }
 
 
@@ -579,9 +580,9 @@ export class AuthorityService {
         // 1. Fetch authority users for the given menu
         const authorityUsers = await this._db.authorityDetail.findMany({
             where: {
-                CompanyMasterSid : 7,
-                BranchMasterSid : 50,
-                status : 'A',
+                CompanyMasterSid: 7,
+                BranchMasterSid: 50,
+                status: 'A',
                 authorityMaster: {
                     CompanyMasterSid: 7,
                     BranchMasterSid: 50,
@@ -607,7 +608,7 @@ export class AuthorityService {
                 DocumentSid: documentSid,
                 Status: 'A',
                 AuthorityDetail: {
-                    status : 'A',
+                    status: 'A',
                     authorityMaster: {
                         MenuMaster: menuMasterSid,
                         status: 'A',
@@ -716,20 +717,20 @@ export class AuthorityService {
     }
 
     async getAuditLogs(tableName: string, recordId?: string) {
-    try {
-      const whereClause: any = { tableName };
-      if (recordId) whereClause.recordId = recordId;
+        try {
+            const whereClause: any = { tableName };
+            if (recordId) whereClause.recordId = recordId;
 
-      const logs = await this._db.auditLog.findMany({
-        where: whereClause,
-        orderBy: { changedAt: 'desc' },
-      });
+            const logs = await this._db.auditLog.findMany({
+                where: whereClause,
+                orderBy: { changedAt: 'desc' },
+            });
 
-      return logs;
-    } catch (error) {
-      this.logger.warn(`getAuditLogsError: ${error}`);
-      throw new Error(`Error fetching audit logs: ${error.message}`);
+            return logs;
+        } catch (error) {
+            this.logger.warn(`getAuditLogsError: ${error}`);
+            throw new Error(`Error fetching audit logs: ${error.message}`);
+        }
     }
-  }
 
 }

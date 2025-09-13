@@ -2,10 +2,10 @@ import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatu
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
 import { ResponseData } from 'src/common/response-data';
 import { LeadService } from 'src/crm/services/lead/lead.service';
-import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
+import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 class CompanyIdDto {
-  CompanyMasterSid: number;
-  BranchMasterSid: number;
+    CompanyMasterSid: number;
+    BranchMasterSid: number;
 }
 
 @Controller('lead')
@@ -152,7 +152,7 @@ export class LeadController {
     })
     @HttpCode(HttpStatus.OK)
     @Post('search-list')
-    async searchLead(@Body() param: SearchVesselDto) {
+    async searchLead(@Body() param: filterDto) {
         let resp = new ResponseData();
         try {
             let res = await this.leadService.searchLead(param);
@@ -160,7 +160,7 @@ export class LeadController {
             resp.data = res;
             resp.message = "Lead Search is successfully fetched";
         } catch (error) {
-            this.logger.warn(`Lead Search Error : ${JSON.stringify(error),error}`);
+            this.logger.warn(`Lead Search Error : ${JSON.stringify(error), error}`);
             resp.status = false;
             if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
                 resp.message = error.message;

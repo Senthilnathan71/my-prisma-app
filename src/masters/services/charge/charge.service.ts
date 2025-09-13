@@ -3,11 +3,11 @@ import { BadRequestException, Injectable, Logger, NotFoundException } from '@nes
 import { GlobalConfigService } from 'src/common/config/master-config.service';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
-import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
+import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 
 @Injectable()
 export class ChargeService {
-    constructor(private _db: DatabaseService, private logger: Logger,private globalConfigService:GlobalConfigService) { }
+    constructor(private _db: DatabaseService, private logger: Logger, private globalConfigService: GlobalConfigService) { }
 
 
     async createCharge(payload: any) {
@@ -16,14 +16,14 @@ export class ChargeService {
             where: {
                 OR: [
                     {
-                        CompanyMasterSid:payload. CompanyMasterSid,
+                        CompanyMasterSid: payload.CompanyMasterSid,
                         chargeName: {
                             equals: payload.chargeName.trim(),
                             mode: 'insensitive',
                         }
                     },
                     {
-                        CompanyMasterSid:payload. CompanyMasterSid,
+                        CompanyMasterSid: payload.CompanyMasterSid,
                         chargeCode: {
                             equals: payload.chargeCode.trim(),
                             mode: 'insensitive',
@@ -41,7 +41,7 @@ export class ChargeService {
                 throw new BadRequestException('Charge code already exists');
             }
         }
-        
+
 
 
         return this._db.$transaction(async (prisma) => {
@@ -69,7 +69,7 @@ export class ChargeService {
                     Status: chargeTax.Status,
                     CompanyMasterSid: payload.CompanyMasterSid,
                     chargeTaxMasterSid: charge.ChargeMasterSid,
-                    
+
                 }));
                 const newlyCreated = await prisma.chargeTaxMaster.createManyAndReturn({
                     data: chargeTaxPayload,
@@ -86,7 +86,7 @@ export class ChargeService {
                     EffectiveFrom: chargeTds.EffectiveFrom,
                     createdBy: payload.createdBy,
                     updatedBy: payload.createdBy, // Add updatedBy
-                
+
                 }));
                 const newlyCreated = await prisma.chargeTds.createManyAndReturn({
                     data: chargeTdsPayload,
@@ -137,17 +137,17 @@ export class ChargeService {
             return await this._db.chargeMaster.findUnique({
                 where: {
                     ChargeMasterSid: ChargeMasterSid,
-                    
+
                 },
-                include : {
-                    chargeTaxMaster : {
-                        where : {
-                            Status : 'A'
+                include: {
+                    chargeTaxMaster: {
+                        where: {
+                            Status: 'A'
                         }
                     },
-                    chargeTds : {
-                        where : {
-                            status : 'A'
+                    chargeTds: {
+                        where: {
+                            status: 'A'
                         }
                     }
                 }
@@ -159,58 +159,58 @@ export class ChargeService {
 
 
     async updateCharge(ChargeMasterSid: number, payload: any) {
-        
+
         const { chargeTaxMaster, chargeTds, ...chargeData } = payload;
 
         // Check for duplicates
-       const duplicate = await this._db.chargeMaster.findFirst({
+        const duplicate = await this._db.chargeMaster.findFirst({
             where: {
-                AND:[
+                AND: [
                     {
-                CompanyMasterSid:payload. CompanyMasterSid,
-                ChargeMasterSid: {
-                    not: ChargeMasterSid,
+                        CompanyMasterSid: payload.CompanyMasterSid,
+                        ChargeMasterSid: {
+                            not: ChargeMasterSid,
+                        },
+                    },
+                    {
+                        OR: [
+                            {
+                                CompanyMasterSid: payload.CompanyMasterSid,
+                                chargeName: {
+                                    equals: payload.chargeName.trim(),
+                                    mode: 'insensitive',
+                                },
+                            },
+                            {
+                                CompanyMasterSid: payload.CompanyMasterSid,
+                                chargeCode: {
+                                    equals: payload.chargeCode.trim(),
+                                    mode: 'insensitive',
+                                },
+                            },
+                        ]
+                    },
+                ],
             },
-        },
-        {
-            OR:[
-                {
-                    CompanyMasterSid:payload. CompanyMasterSid,
-                    chargeName: {
-                            equals: payload.chargeName.trim(),
-                            mode: 'insensitive',
-                        },
-                },
-                {
-                    CompanyMasterSid:payload. CompanyMasterSid,
-                    chargeCode: {
-                            equals: payload.chargeCode.trim(),
-                            mode: 'insensitive',
-                        },
-                },
-            ]
-        },
-    ],
-},
         });
         if (duplicate) {
-  if (duplicate.chargeName === payload.chargeName) {
-    throw new BadRequestException('Charge name already exists');
-  }
-  if (duplicate.chargeCode === payload.chargeCode) {
-    throw new BadRequestException('Charge code already exists');
-  }
-}
+            if (duplicate.chargeName === payload.chargeName) {
+                throw new BadRequestException('Charge name already exists');
+            }
+            if (duplicate.chargeCode === payload.chargeCode) {
+                throw new BadRequestException('Charge code already exists');
+            }
+        }
 
 
         return this._db.$transaction(async (prisma) => {
-            
+
             // 1. Update ChargeMaster
             const charge = await prisma.chargeMaster.update({
                 where: { ChargeMasterSid: ChargeMasterSid },
                 data: {
                     ...chargeData,
-                    updatedBy: payload.updatedBy ,
+                    updatedBy: payload.updatedBy,
                 },
             });
 
@@ -228,10 +228,10 @@ export class ChargeService {
                     description: chargeTax.description,
                     TaxGroup: chargeTax.TaxGroup,
                     TaxRate: chargeTax.TaxRate,
-                    CreatedBy: payload.updatedBy ,
-                    UpdatedBy: payload.updatedBy ,
+                    CreatedBy: payload.updatedBy,
+                    UpdatedBy: payload.updatedBy,
                     Status: chargeTax.Status,
-                    CompanyMasterSid:payload.CompanyMasterSid,
+                    CompanyMasterSid: payload.CompanyMasterSid,
                     chargeTaxMasterSid: ChargeMasterSid,
                 }));
                 const newlyCreated = await prisma.chargeTaxMaster.createManyAndReturn({
@@ -253,8 +253,8 @@ export class ChargeService {
                     ChargeMasterSid: ChargeMasterSid,
                     TDSSet: chargeTds.TDSSet,
                     EffectiveFrom: chargeTds.EffectiveFrom,
-                    createdBy: payload.updatedBy ,
-                    updatedBy: payload.updatedBy ,
+                    createdBy: payload.updatedBy,
+                    updatedBy: payload.updatedBy,
                 }));
                 const newlyCreated = await prisma.chargeTds.createManyAndReturn({
                     data: chargeTdsPayload,
@@ -288,115 +288,115 @@ export class ChargeService {
         // Perform soft delete by updating deletedAt field
         return this._db.chargeMaster.update({
             where: { ChargeMasterSid: id },
-            data: { Status : 'D' } 
+            data: { Status: 'D' }
         });
     }
 
 
-    async searchList(params: SearchVesselDto) {
-     
-    const { search = '', page = 1, pageSize = 15, activeCompanyId } = params;
-    const skip = (page - 1) * pageSize;
+    async searchList(params: filterDto) {
 
-    const where: Prisma.ChargeMasterWhereInput = {
-        Status: 'A',
-        CompanyMasterSid : activeCompanyId,
-    };
+        const { search = '', page = 1, pageSize = 15, activeCompanyId } = params;
+        const skip = (page - 1) * pageSize;
 
-    if (search) {
-        where.OR = [
-            { chargeName: { contains: search, mode: 'insensitive' } },
-            { chargeCode: { contains: search, mode: 'insensitive' } },
-            { Status: { contains: search, mode: 'insensitive' } },
-            {
-                chargeTaxMaster: {
-                    some: {
-                        HSNCode: { contains: search, mode: 'insensitive' }
+        const where: Prisma.ChargeMasterWhereInput = {
+            Status: 'A',
+            CompanyMasterSid: activeCompanyId,
+        };
+
+        if (search) {
+            where.OR = [
+                { chargeName: { contains: search, mode: 'insensitive' } },
+                { chargeCode: { contains: search, mode: 'insensitive' } },
+                { Status: { contains: search, mode: 'insensitive' } },
+                {
+                    chargeTaxMaster: {
+                        some: {
+                            HSNCode: { contains: search, mode: 'insensitive' }
+                        }
                     }
-                }
-            },
-             { 
-                chargeTds: {
-                    some: {
-                        tdsSetHeader: {
-                            TDSSetName: { contains: search, mode: 'insensitive' }
+                },
+                {
+                    chargeTds: {
+                        some: {
+                            tdsSetHeader: {
+                                TDSSetName: { contains: search, mode: 'insensitive' }
+                            }
                         }
                     }
                 }
-            }
-        ];
+            ];
+        }
+
+        const [items, totalCount] = await this._db.$transaction([
+            this._db.chargeMaster.findMany({
+                where,
+                skip,
+                take: pageSize,
+                select: {
+                    ChargeMasterSid: true,
+                    chargeName: true,
+                    chargeCode: true,
+                    UOM: true,
+                    Status: true,
+                    chargeTaxMaster: {
+                        where: { Status: 'A' },
+                        select: { ChargeTaxMasterSid: true },
+                        take: 1,
+                    },
+                    chargeTds: {
+                        where: { status: 'A' },
+                        select: { TDSSet: true },
+                        take: 1,
+                    },
+                },
+                orderBy: { ChargeMasterSid: 'desc' },
+            }),
+            this._db.chargeMaster.count({ where }),
+        ]);
+
+        const formattedItems = await Promise.all(
+            items.map(async (item) => {
+                const ChargeTaxMasterSid = item.chargeTaxMaster?.[0]?.ChargeTaxMasterSid;
+                const TDSSet = item.chargeTds?.[0]?.TDSSet;
+
+                const [hsn, tdsSet] = await Promise.all([
+                    ChargeTaxMasterSid ?
+                        this.globalConfigService.getMasterData('charge_tax_master', ChargeTaxMasterSid) : null,
+
+                    TDSSet ?
+                        this.globalConfigService.getMasterData('tds_set_header', TDSSet) : null,
+                ]);
+
+                return {
+                    ...item,
+                    chargeTaxMaster: hsn ? [hsn] : [],
+                    chargeTds: tdsSet ? [{ tdsSetHeader: tdsSet }] : []
+                };
+            }),
+        );
+
+
+        return {
+            items: formattedItems,
+            totalCount,
+        };
+
     }
 
-    const [items, totalCount] = await this._db.$transaction([
-        this._db.chargeMaster.findMany({
-            where,
-            skip,
-            take: pageSize,
-            select: {
-                ChargeMasterSid: true,
-                chargeName: true,
-                chargeCode: true,
-                UOM : true,
-                Status : true,
-                chargeTaxMaster: {
-                    where: { Status : 'A' },
-                    select: { ChargeTaxMasterSid: true },
-                    take: 1,
-                },
-                chargeTds: {
-                    where: { status : 'A' },
-                    select: { TDSSet: true },
-                    take: 1,
-                },
-            },
-            orderBy: { ChargeMasterSid: 'desc' },
-        }),
-        this._db.chargeMaster.count({ where }),
-    ]);
+    async getAuditLogs(tableName: string, recordId?: string) {
+        try {
+            const whereClause: any = { tableName };
+            if (recordId) whereClause.recordId = recordId;
 
-    const formattedItems = await Promise.all(
-        items.map(async (item) => {
-        const ChargeTaxMasterSid = item.chargeTaxMaster?.[0]?.ChargeTaxMasterSid;
-        const TDSSet = item.chargeTds?.[0]?.TDSSet;
+            const logs = await this._db.auditLog.findMany({
+                where: whereClause,
+                orderBy: { changedAt: 'desc' },
+            });
 
-        const [hsn, tdsSet] = await Promise.all([
-            ChargeTaxMasterSid ? 
-            this.globalConfigService.getMasterData('charge_tax_master',ChargeTaxMasterSid) : null, 
-            
-            TDSSet ? 
-            this.globalConfigService.getMasterData('tds_set_header',TDSSet ): null,
-            ]);
-
-            return {
-            ...item,
-            chargeTaxMaster: hsn ? [hsn] : [],
-            chargeTds: tdsSet ? [{ tdsSetHeader: tdsSet }] : []
-            };
-        }),
-    );
-
- 
-    return {
-        items: formattedItems,
-        totalCount,
-    };
-     
-}
-
-async getAuditLogs(tableName: string, recordId?: string) {
-    try {
-      const whereClause: any = { tableName };
-      if (recordId) whereClause.recordId = recordId;
-
-      const logs = await this._db.auditLog.findMany({
-        where: whereClause,
-        orderBy: { changedAt: 'desc' },
-      });
-
-      return logs;
-    } catch (error) {
-      this.logger.warn(`getAuditLogsError: ${error}`);
-      throw new Error(`Error fetching audit logs: ${error.message}`);
+            return logs;
+        } catch (error) {
+            this.logger.warn(`getAuditLogsError: ${error}`);
+            throw new Error(`Error fetching audit logs: ${error.message}`);
+        }
     }
-  }
 }

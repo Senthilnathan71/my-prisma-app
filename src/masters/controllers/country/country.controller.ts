@@ -20,7 +20,7 @@ import { ResponseData } from 'src/common/response-data';
 import { CountryService } from 'src/masters/services/country/country.service';
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
-import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
+import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 
 @Controller('country')
 
@@ -28,7 +28,7 @@ export class CountryController {
   constructor(
     private countryService: CountryService,
     private logger: Logger,
-  ) {}
+  ) { }
   @ApiOperation({ summary: 'Get All Country' })
   @ApiCreatedResponse({
     description: 'Get All Country',
@@ -125,7 +125,7 @@ export class CountryController {
   async editCountry(
     @Param('id', ParseIntPipe) id: number,
     @Body() body: any,
-   
+
   ) {
     this.logger.log(`editCountry: ${JSON.stringify(body)}`);
     let output = new ResponseData();
@@ -167,31 +167,31 @@ export class CountryController {
   }
 
   @ApiOperation({ summary: 'Search List of Country' })
-@ApiCreatedResponse({
-  description: 'Search List of Country',
-  type: ResponseData,
-})
-@HttpCode(HttpStatus.OK)
-@Post('search-list')
-async searchCountry(@Body() searchParams: SearchVesselDto) {
-  const resp = new ResponseData();
-  try {
-    const res = await this.countryService.searchCountry(searchParams);
-    this.logger.log(`Country Search Data: ${JSON.stringify(res)}`);
-    resp.data = res; 
-    resp.message = 'Country Search is successfully fetched';
-  } catch (error) {    
-    this.logger.warn(`Search Country Error: ${error}`);
-    resp.status = false;
-    if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
-      resp.message = error.message;
-    } else {
-      resp.message = 'Internal Server Error';
+  @ApiCreatedResponse({
+    description: 'Search List of Country',
+    type: ResponseData,
+  })
+  @HttpCode(HttpStatus.OK)
+  @Post('search-list')
+  async searchCountry(@Body() searchParams: filterDto) {
+    const resp = new ResponseData();
+    try {
+      const res = await this.countryService.searchCountry(searchParams);
+      this.logger.log(`Country Search Data: ${JSON.stringify(res)}`);
+      resp.data = res;
+      resp.message = 'Country Search is successfully fetched';
+    } catch (error) {
+      this.logger.warn(`Search Country Error: ${error}`);
+      resp.status = false;
+      if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+        resp.message = error.message;
+      } else {
+        resp.message = 'Internal Server Error';
+      }
     }
+    return resp;
   }
-  return resp;
-}
-@ApiOperation({ summary: 'Get Audit Logs for a Table/Record' })
+  @ApiOperation({ summary: 'Get Audit Logs for a Table/Record' })
   @ApiCreatedResponse({ description: 'Fetch audit logs', type: ResponseData })
   @HttpCode(HttpStatus.OK)
   @Get('fetch/audit-logs')

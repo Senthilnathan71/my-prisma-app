@@ -1,18 +1,18 @@
-import { BadRequestException, Injectable, NotFoundException,Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import * as moment from 'moment-timezone';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
-import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
+import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 
 @Injectable()
 export class UomService {
     constructor(
-        private _db: DatabaseService,private logger: Logger
+        private _db: DatabaseService, private logger: Logger
     ) { }
 
     async createUom(payload) {
-    
+
         const existing = await this._db.uOMMaster.findFirst({
             where: {
                 OR: [
@@ -51,31 +51,31 @@ export class UomService {
             throw new Error(`creation failed: ${error.message}`);
         }
     }
-async getPackageTypeUOM(){
-    try {
-        const allPackageTypeUOM = await this._db.uOMMaster.findMany({
-            where : {
-                UOMType : 'P',
-                status : 'A'
-            },
-            select : {
-                UOMMasterSid : true,
-                UOMName : true,
-                UOMCode : true
-            }
-        })
-        return allPackageTypeUOM;
-    } catch (error) {
-        throw error;
+    async getPackageTypeUOM() {
+        try {
+            const allPackageTypeUOM = await this._db.uOMMaster.findMany({
+                where: {
+                    UOMType: 'P',
+                    status: 'A'
+                },
+                select: {
+                    UOMMasterSid: true,
+                    UOMName: true,
+                    UOMCode: true
+                }
+            })
+            return allPackageTypeUOM;
+        } catch (error) {
+            throw error;
+        }
     }
-  }
 
 
     async getAllUom() {
         try {
             const uom = await this._db.uOMMaster.findMany({
                 where: {
-                  status:"A"
+                    status: "A"
                 }
             });
             return uom;
@@ -100,10 +100,10 @@ async getPackageTypeUOM(){
 
 
     async updateUom(uOMMasterSid: number, payload) {
-        
+
 
         const existing = await this._db.uOMMaster.findFirst({
-            
+
             where: {
                 AND: [
                     {
@@ -142,7 +142,7 @@ async getPackageTypeUOM(){
         }
 
         try {
-            
+
             const uom = await this._db.uOMMaster.update({
                 where: {
                     UOMMasterSid: uOMMasterSid
@@ -163,29 +163,29 @@ async getPackageTypeUOM(){
             throw new NotFoundException(`Uom with ID ${id} not found`);
         }
 
-        if (existingUom.status==="D") {
+        if (existingUom.status === "D") {
             throw new Error(`Uom with ID ${id} is already deleted`);
         }
 
         // Perform soft delete by updating deletedAt field
         return this._db.uOMMaster.update({
             where: { UOMMasterSid: id },
-            data: { status:"D" }
+            data: { status: "D" }
         });
     }
 
-    async searchUomNew(params: SearchVesselDto) {
+    async searchUomNew(params: filterDto) {
         const { search = '', page = 1, pageSize = 15 } = params;
         const skip = (page - 1) * pageSize;
 
         const where: Prisma.UOMMasterWhereInput = {
-          
+
             status: 'A',
             ...(search
                 ? {
                     OR: [
-                        { UOMName: { contains: search, mode: 'insensitive'} },
-                        { UOMCode: { contains: search, mode: 'insensitive'} },
+                        { UOMName: { contains: search, mode: 'insensitive' } },
+                        { UOMCode: { contains: search, mode: 'insensitive' } },
                     ],
                 }
                 : {}
@@ -197,7 +197,7 @@ async getPackageTypeUOM(){
                 where,
                 skip,
                 take: pageSize,
-                orderBy: { UOMMasterSid: 'desc'},
+                orderBy: { UOMMasterSid: 'desc' },
             }),
             this._db.uOMMaster.count({ where }),
         ]);
@@ -207,20 +207,20 @@ async getPackageTypeUOM(){
             totalCount,
         };
     }
-     async getAuditLogs(tableName: string, recordId?: string) {
-    try {
-      const whereClause: any = { tableName };
-      if (recordId) whereClause.recordId = recordId;
+    async getAuditLogs(tableName: string, recordId?: string) {
+        try {
+            const whereClause: any = { tableName };
+            if (recordId) whereClause.recordId = recordId;
 
-      const logs = await this._db.auditLog.findMany({
-        where: whereClause,
-        orderBy: { changedAt: 'desc' },
-      });
+            const logs = await this._db.auditLog.findMany({
+                where: whereClause,
+                orderBy: { changedAt: 'desc' },
+            });
 
-      return logs;
-    } catch (error) {
-      this.logger.warn(`getAuditLogsError: ${error}`);
-      throw new Error(`Error fetching audit logs: ${error.message}`);
+            return logs;
+        } catch (error) {
+            this.logger.warn(`getAuditLogsError: ${error}`);
+            throw new Error(`Error fetching audit logs: ${error.message}`);
+        }
     }
-  }
 }

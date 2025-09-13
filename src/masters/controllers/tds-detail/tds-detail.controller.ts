@@ -1,7 +1,7 @@
 import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, Post, UnauthorizedException } from '@nestjs/common';
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
 import { ResponseData } from 'src/common/response-data';
-import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
+import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 import { TdsDetailService } from 'src/masters/services/tds-detail/tds-detail.service';
 
 
@@ -188,7 +188,7 @@ export class TdsDetailController {
     })
     @HttpCode(HttpStatus.OK)
     @Post('search-list')
-    async searchTDSSetRate(@Body() searchData: SearchVesselDto) {
+    async searchTDSSetRate(@Body() searchData: filterDto) {
         let resp = new ResponseData();
         try {
             let res = await this.tdsDetailService.searchTdsDetail(searchData);

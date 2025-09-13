@@ -2,7 +2,7 @@ import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatu
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
 import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
-import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
+import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 import { AuthorityService } from 'src/masters/services/authority/authority.service';
 
 
@@ -150,7 +150,7 @@ export class AuthorityController {
     })
     @HttpCode(HttpStatus.OK)
     @Post('search-list')
-    async searchAuthority(@Body() param: SearchVesselDto) {
+    async searchAuthority(@Body() param: filterDto) {
         let resp = new ResponseData();
         try {
             let res = await this.authorityService.newSearchAuthority(param);
@@ -177,8 +177,8 @@ export class AuthorityController {
     @HttpCode(HttpStatus.OK)
     @Post('document/search-list/:UserMasterSid')
     async searchDocAuthorization(
-        @Body() param: SearchVesselDto,
-        @Param('UserMasterSid',ParseIntPipe) UserMasterSid:number
+        @Body() param: filterDto,
+        @Param('UserMasterSid', ParseIntPipe) UserMasterSid: number
     ) {
         const resp = new ResponseData();
         try {
@@ -208,7 +208,7 @@ export class AuthorityController {
     })
     @HttpCode(HttpStatus.OK)
     @Post('check-authorizer')
-    async isUserAuthorizer(@Body() payload:any) {
+    async isUserAuthorizer(@Body() payload: any) {
         const resp = new ResponseData();
         try {
             const result = await this.authorityService.isUserAuthorizer(payload);
@@ -251,7 +251,7 @@ export class AuthorityController {
             this.logger.warn(`Approval Status Error: ${JSON.stringify(error)}`);
             resp.status = false;
             resp.message =
-            error instanceof BadRequestException || error instanceof UnauthorizedException
+                error instanceof BadRequestException || error instanceof UnauthorizedException
                     ? error.message
                     : 'Internal Server Error';
         }
@@ -259,37 +259,37 @@ export class AuthorityController {
         return resp;
     }
 
-    
+
     @ApiOperation({ summary: 'Get Audit Logs for a Table/Record' })
-      @ApiCreatedResponse({ description: 'Fetch audit logs', type: ResponseData })
-      @HttpCode(HttpStatus.OK)
-      @Get('audit-logs')
-      async getAuditLogs(
+    @ApiCreatedResponse({ description: 'Fetch audit logs', type: ResponseData })
+    @HttpCode(HttpStatus.OK)
+    @Get('audit-logs')
+    async getAuditLogs(
         @Query('tableName') tableName: string,
         @Query('recordId') recordId?: string,
-      ) {
+    ) {
         const resp = new ResponseData();
         try {
-          if (!tableName) throw new Error('tableName query parameter is required');
-    
-          const logs = await this.authorityService.getAuditLogs(tableName, recordId);
-    
-          // Remove updatedOn from oldVal and newVal
-          resp.data = logs.map((log: any) => {
-            const oldVal = log.oldVal ? { ...log.oldVal } : null;
-            const newVal = log.newVal ? { ...log.newVal } : null;
-            if (oldVal && 'updatedOn' in oldVal) delete oldVal.updatedOn;
-            if (newVal && 'updatedOn' in newVal) delete newVal.updatedOn;
-            return { ...log, oldVal, newVal };
-          });
-    
-          resp.message = 'Audit logs fetched successfully';
+            if (!tableName) throw new Error('tableName query parameter is required');
+
+            const logs = await this.authorityService.getAuditLogs(tableName, recordId);
+
+            // Remove updatedOn from oldVal and newVal
+            resp.data = logs.map((log: any) => {
+                const oldVal = log.oldVal ? { ...log.oldVal } : null;
+                const newVal = log.newVal ? { ...log.newVal } : null;
+                if (oldVal && 'updatedOn' in oldVal) delete oldVal.updatedOn;
+                if (newVal && 'updatedOn' in newVal) delete newVal.updatedOn;
+                return { ...log, oldVal, newVal };
+            });
+
+            resp.message = 'Audit logs fetched successfully';
         } catch (error) {
-          this.logger.warn(`getAuditLogsError: ${error}`);
-          resp.status = false;
-          resp.message = error.message || 'Internal Server Error';
+            this.logger.warn(`getAuditLogsError: ${error}`);
+            resp.status = false;
+            resp.message = error.message || 'Internal Server Error';
         }
         return resp;
-      }
+    }
 
 }

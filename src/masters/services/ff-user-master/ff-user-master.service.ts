@@ -3,7 +3,7 @@ import { Prisma } from '@prisma/client';
 import { encodePassword } from 'src/common/helper';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
-import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
+import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 
 @Injectable()
 export class FfUserMasterService {
@@ -26,93 +26,93 @@ export class FfUserMasterService {
     }
 
     async createNewFfUser(payload: any) {
-    try {
-        const hashedPassword = await encodePassword(payload.userPassword);
-        const userPayload = {
-            userCode: payload.userCode,
-            userName: payload.userName,
-            userEmail: payload.userEmail,
-            userPassword: hashedPassword,
-            isSalesperson: payload.isSalesperson,
-            contactNumber: payload.contactNumber,
-            department: payload.department,
-            DefaultDept: payload.DefaultDept,
-            createdBy: payload.createdBy,
-            CountryMasterSid: payload.CountryMasterSid,
-            status: payload.status,
-            userTypeId: payload.userTypeId,
-        };
-
-        return await this._db.$transaction(async (prisma) => {
-            // Creating User
-            const ffUser = await prisma.userMaster.create({
-                data: { ...userPayload },
-                omit: {
-                    userPassword: true
-                }
-            });
-
-            // Creating relation links between user and companyMaster through UserCompanyMaster
-            const userCompaniesData = payload.companies.map((company: any) => ({
-                UserMasterSid: ffUser.UserMasterSid,
-                CompanyMasterSid: company.CompanyMasterSid,
+        try {
+            const hashedPassword = await encodePassword(payload.userPassword);
+            const userPayload = {
+                userCode: payload.userCode,
+                userName: payload.userName,
+                userEmail: payload.userEmail,
+                userPassword: hashedPassword,
+                isSalesperson: payload.isSalesperson,
+                contactNumber: payload.contactNumber,
+                department: payload.department,
+                DefaultDept: payload.DefaultDept,
                 createdBy: payload.createdBy,
-                GiveAccess: company.GiveAccess,
-                IsDefault: company.IsDefault
-            }));
-
-            const userCompanies = await prisma.userCompanyMaster.createManyAndReturn({
-                data: userCompaniesData
-            });
-
-            // Create relation links between user and branchMasters through UserBranchMaster
-            const userBranches: any[] = [];
-            for (const company of payload.companies) {
-                for (const branch of company.userBranches) {
-                    const newUserBranch = await prisma.userBranchMaster.create({
-                        data: {
-                            UserMasterSid: ffUser.UserMasterSid,
-                            BranchMasterSid: branch.BranchMasterSid,
-                            CompanyMasterSid: branch.CompanyMasterSid,
-                            createdBy: payload.createdBy,
-                            status: 'A',
-                            GiveAccess: branch.GiveAccess,
-                            IsDefault: branch.IsDefault
-                        }
-                    });
-                    userBranches.push(newUserBranch);
-                }
-            }
-
-            // Create relation link between user and RoleMaster through userRoleMaster
-            const userRoles: any[] = [];
-            if (payload.roles && Array.isArray(payload.roles)) {
-                for (const userRole of payload.roles) {
-                    const newUserRole = await prisma.userRoleMaster.create({
-                        data: {
-                            UserMasterSid: ffUser.UserMasterSid,
-                            createdBy: payload.createdBy,
-                            RoleMasterSid: userRole
-                        }
-                    });
-                    userRoles.push(newUserRole);
-                }
-            }
-
-            return {
-                message: 'User Created Successfully',
-                data: {
-                    ffUser,
-                    userCompanies,
-                    userBranches,
-                    userRoles
-                },
+                CountryMasterSid: payload.CountryMasterSid,
+                status: payload.status,
+                userTypeId: payload.userTypeId,
             };
-        });
-    } catch (error) {
-        throw new Error(`Transaction failed: ${error.message}`);
+
+            return await this._db.$transaction(async (prisma) => {
+                // Creating User
+                const ffUser = await prisma.userMaster.create({
+                    data: { ...userPayload },
+                    omit: {
+                        userPassword: true
+                    }
+                });
+
+                // Creating relation links between user and companyMaster through UserCompanyMaster
+                const userCompaniesData = payload.companies.map((company: any) => ({
+                    UserMasterSid: ffUser.UserMasterSid,
+                    CompanyMasterSid: company.CompanyMasterSid,
+                    createdBy: payload.createdBy,
+                    GiveAccess: company.GiveAccess,
+                    IsDefault: company.IsDefault
+                }));
+
+                const userCompanies = await prisma.userCompanyMaster.createManyAndReturn({
+                    data: userCompaniesData
+                });
+
+                // Create relation links between user and branchMasters through UserBranchMaster
+                const userBranches: any[] = [];
+                for (const company of payload.companies) {
+                    for (const branch of company.userBranches) {
+                        const newUserBranch = await prisma.userBranchMaster.create({
+                            data: {
+                                UserMasterSid: ffUser.UserMasterSid,
+                                BranchMasterSid: branch.BranchMasterSid,
+                                CompanyMasterSid: branch.CompanyMasterSid,
+                                createdBy: payload.createdBy,
+                                status: 'A',
+                                GiveAccess: branch.GiveAccess,
+                                IsDefault: branch.IsDefault
+                            }
+                        });
+                        userBranches.push(newUserBranch);
+                    }
+                }
+
+                // Create relation link between user and RoleMaster through userRoleMaster
+                const userRoles: any[] = [];
+                if (payload.roles && Array.isArray(payload.roles)) {
+                    for (const userRole of payload.roles) {
+                        const newUserRole = await prisma.userRoleMaster.create({
+                            data: {
+                                UserMasterSid: ffUser.UserMasterSid,
+                                createdBy: payload.createdBy,
+                                RoleMasterSid: userRole
+                            }
+                        });
+                        userRoles.push(newUserRole);
+                    }
+                }
+
+                return {
+                    message: 'User Created Successfully',
+                    data: {
+                        ffUser,
+                        userCompanies,
+                        userBranches,
+                        userRoles
+                    },
+                };
+            });
+        } catch (error) {
+            throw new Error(`Transaction failed: ${error.message}`);
+        }
     }
-}
 
     async fetchFfUserById(UserMasterSid: number) {
         try {
@@ -125,25 +125,25 @@ export class FfUserMasterService {
                 },
                 include: {
                     userCompanyMaster: {
-                        orderBy : {
-                            companyMaster : {companyName : 'asc'}
+                        orderBy: {
+                            companyMaster: { companyName: 'asc' }
                         },
                         where: {
-                            status : 'A'
+                            status: 'A'
                         },
-                        include : {
-                            companyMaster : {
-                                include : {
-                                    userBranchMaster : {
-                                        where : {
-                                            UserMasterSid : UserMasterSid,
-                                            status : 'A'
+                        include: {
+                            companyMaster: {
+                                include: {
+                                    userBranchMaster: {
+                                        where: {
+                                            UserMasterSid: UserMasterSid,
+                                            status: 'A'
                                         },
-                                        orderBy : {
-                                            branchMaster : {branchName : 'asc'}
+                                        orderBy: {
+                                            branchMaster: { branchName: 'asc' }
                                         },
-                                        include : {
-                                            branchMaster : true
+                                        include: {
+                                            branchMaster: true
                                         }
                                     }
                                 }
@@ -152,7 +152,7 @@ export class FfUserMasterService {
                     },
                     userRoleMaster: {
                         where: {
-                            status :'A'
+                            status: 'A'
                         },
                     }
                 }
@@ -172,15 +172,15 @@ export class FfUserMasterService {
             const { companies, roles, ...userPayload } = payload;
 
             const prevCompanies = await this._db.userCompanyMaster.findMany({
-                where: { UserMasterSid, status : 'A' }
+                where: { UserMasterSid, status: 'A' }
             });
 
             const prevBranches = await this._db.userBranchMaster.findMany({
-                where: { UserMasterSid, status : 'A' }
+                where: { UserMasterSid, status: 'A' }
             });
 
             const prevRoles = await this._db.userRoleMaster.findMany({
-                where: { UserMasterSid, status : "A" }
+                where: { UserMasterSid, status: "A" }
             });
 
             return await this._db.$transaction(async (prisma) => {
@@ -207,7 +207,7 @@ export class FfUserMasterService {
                 // Soft delete removed companies
                 userCompanies.deletedCompanies = await prisma.userCompanyMaster.updateManyAndReturn({
                     where: { UserCompanyMasterSid: { in: companiesToDelete.map(c => c.UserCompanyMasterSid) } },
-                    data: { status : 'D' }
+                    data: { status: 'D' }
                 });
 
                 // Create new companies
@@ -263,7 +263,7 @@ export class FfUserMasterService {
                 // Soft delete removed branches
                 userBranches.deletedBranches = await prisma.userBranchMaster.updateManyAndReturn({
                     where: { UserBranchMasterSid: { in: branchesToDelete.map(b => b.UserBranchMasterSid) } },
-                    data: { status : 'D' }
+                    data: { status: 'D' }
                 });
 
                 // Create new branches
@@ -311,13 +311,13 @@ export class FfUserMasterService {
                 // Soft delete removed roles
                 userRoles.deletedRoles = await prisma.userRoleMaster.updateManyAndReturn({
                     where: { UserRoleMasterSid: { in: rolesToDelete.map(r => r.UserRoleMasterSid) } },
-                    data: { status : 'D' }
+                    data: { status: 'D' }
                 });
 
                 // Create new roles
                 if (rolesToInsert.length > 0) {
                     userRoles.createdRoles = await prisma.userRoleMaster.createManyAndReturn({
-                        data: rolesToInsert.map((roleId : number) => ({
+                        data: rolesToInsert.map((roleId: number) => ({
                             UserMasterSid,
                             RoleMasterSid: roleId,
                             createdBy: payload.updatedBy
@@ -364,7 +364,7 @@ export class FfUserMasterService {
                 const deletedUser = await prisma.userMaster.update({
                     where: { UserMasterSid: UserMasterSid },
                     data: {
-                        status : 'D'
+                        status: 'D'
                     },
                     omit: {
                         userPassword: true
@@ -375,10 +375,10 @@ export class FfUserMasterService {
                 const deletedUserCompanies = await prisma.userCompanyMaster.updateManyAndReturn({
                     where: {
                         UserMasterSid: UserMasterSid,
-                        status : 'D'
+                        status: 'D'
                     },
                     data: {
-                        status : 'D'
+                        status: 'D'
                     }
                 });
 
@@ -386,10 +386,10 @@ export class FfUserMasterService {
                 const deletedUserBranches = await prisma.userBranchMaster.updateManyAndReturn({
                     where: {
                         UserMasterSid: UserMasterSid,
-                        status : 'D'
+                        status: 'D'
                     },
                     data: {
-                        status : 'D'
+                        status: 'D'
                     }
                 });
 
@@ -397,10 +397,10 @@ export class FfUserMasterService {
                 const deletedUserRoles = await prisma.userRoleMaster.updateManyAndReturn({
                     where: {
                         UserMasterSid: UserMasterSid,
-                        status : 'D'
+                        status: 'D'
                     },
                     data: {
-                        status : 'D'
+                        status: 'D'
                     }
                 });
 
@@ -417,7 +417,7 @@ export class FfUserMasterService {
     }
 
 
-    async searchFfUserNew(params: SearchVesselDto) {
+    async searchFfUserNew(params: filterDto) {
         const { search = '', page = 1, pageSize = 15 } = params;
         const skip = (page - 1) * pageSize;
 
@@ -452,21 +452,21 @@ export class FfUserMasterService {
     }
 
     async getAuditLogs(tableName: string, recordId?: string) {
-    try {
-      const whereClause: any = { tableName };
-      if (recordId) whereClause.recordId = recordId;
+        try {
+            const whereClause: any = { tableName };
+            if (recordId) whereClause.recordId = recordId;
 
-      const logs = await this._db.auditLog.findMany({
-        where: whereClause,
-        orderBy: { changedAt: 'desc' },
-      });
+            const logs = await this._db.auditLog.findMany({
+                where: whereClause,
+                orderBy: { changedAt: 'desc' },
+            });
 
-      return logs;
-    } catch (error) {
-      this.logger.warn(`getAuditLogsError: ${error}`);
-      throw new Error(`Error fetching audit logs: ${error.message}`);
+            return logs;
+        } catch (error) {
+            this.logger.warn(`getAuditLogsError: ${error}`);
+            throw new Error(`Error fetching audit logs: ${error.message}`);
+        }
     }
-  }
 
     async resetPassword(UserMasterSid, payload) {
         try {

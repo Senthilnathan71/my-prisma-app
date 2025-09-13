@@ -4,7 +4,7 @@ import { Auth } from 'src/common/decorators/auth.decorator';
 import { UserData } from 'src/common/decorators/user.decorator';
 import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
-import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
+import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 import { MenuService } from 'src/masters/services/menu/menu.service';
 
 @Controller('menu')
@@ -201,7 +201,7 @@ export class MenuController {
     })
     @HttpCode(HttpStatus.OK)
     @Post('search-list')
-    async searchMenuNew(@Body() searchParams: SearchVesselDto) {
+    async searchMenuNew(@Body() searchParams: filterDto) {
         const resp = new ResponseData();
         try {
             const res = await this.menuService.searchList(searchParams);

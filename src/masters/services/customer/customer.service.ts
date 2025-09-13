@@ -2,7 +2,7 @@ import { BadRequestException, Injectable, Logger, NotFoundException } from '@nes
 import { Prisma } from '@prisma/client';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
-import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
+import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 
 @Injectable()
 export class CustomerService {
@@ -55,7 +55,7 @@ export class CustomerService {
     }
 
 
-    async getAllCustomers(CompanyMasterSid:number) {
+    async getAllCustomers(CompanyMasterSid: number) {
         try {
             const customerList = await this._db.customerMaster.findMany({
                 where: {
@@ -129,16 +129,16 @@ export class CustomerService {
                 const deletedCustomer = await prisma.customerMaster.update({
                     where: {
                         CustomerMasterSid: CustomerMasterSid,
-                        status : 'A'
+                        status: 'A'
                     },
                     data: {
-                        status : 'D'
+                        status: 'D'
                     }
                 })
                 const allCustomerBranches = await prisma.customerBranch.findMany({
                     where: {
                         CustomerMasterSid: CustomerMasterSid,
-                        status : 'A'
+                        status: 'A'
                     }
                 })
 
@@ -147,37 +147,37 @@ export class CustomerService {
                         const deletedCusBranch = await prisma.customerBranch.update({
                             where: {
                                 CustomerBranchSid: branch.CustomerBranchSid,
-                                status : 'A'
+                                status: 'A'
                             },
                             data: {
-                                status : 'D'
+                                status: 'D'
                             }
                         })
                         const deleteCusBranchContact = await prisma.cusBranchContact.updateManyAndReturn({
                             where: {
                                 CustomerBranchSid: deletedCusBranch.CustomerBranchSid,
-                                status : 'A'
+                                status: 'A'
                             },
                             data: {
-                                status : 'D'
+                                status: 'D'
                             }
                         })
                         const deleteCusBranchEmail = await prisma.customerBrEmail.updateManyAndReturn({
                             where: {
                                 CustomerBranchSid: branch.CustomerBranchSid,
-                                status : 'A'
+                                status: 'A'
                             },
                             data: {
-                                status : 'D'
+                                status: 'D'
                             }
                         })
                         const deleteCusBranchLogin = await prisma.customerLogin.updateManyAndReturn({
                             where: {
                                 CustomerBranchSid: branch.CustomerBranchSid,
-                                status : 'A'
+                                status: 'A'
                             },
                             data: {
-                                status : 'D'
+                                status: 'D'
                             }
                         })
                         return {
@@ -200,45 +200,45 @@ export class CustomerService {
     }
 
 
-    async searchList(params: SearchVesselDto) {
-    const { search = '', page = 1, pageSize = 15 ,activeCompanyId } = params;
-    const skip = (page - 1) * pageSize;
+    async searchList(params: filterDto) {
+        const { search = '', page = 1, pageSize = 15, activeCompanyId } = params;
+        const skip = (page - 1) * pageSize;
 
-    const where: Prisma.CustomerMasterWhereInput = {
-        status: 'A',
-        CompanyMasterSid : activeCompanyId,
-        ...(search
-            ? {
-                OR: [
-                    { CustomerName: { contains: search, mode: 'insensitive' } },
-                    { CustomerShortCode: { contains: search, mode: 'insensitive' } },
-                    { CustomerAliasName: { contains: search, mode: 'insensitive' } },
-                    { Website: { contains: search, mode: 'insensitive' } },
-                    { LocalLanguage: { contains: search, mode: 'insensitive' } },
-                    { status: { contains: search, mode: 'insensitive' } },
-                ],
-            }
-            : {}
-        ),
-    };
+        const where: Prisma.CustomerMasterWhereInput = {
+            status: 'A',
+            CompanyMasterSid: activeCompanyId,
+            ...(search
+                ? {
+                    OR: [
+                        { CustomerName: { contains: search, mode: 'insensitive' } },
+                        { CustomerShortCode: { contains: search, mode: 'insensitive' } },
+                        { CustomerAliasName: { contains: search, mode: 'insensitive' } },
+                        { Website: { contains: search, mode: 'insensitive' } },
+                        { LocalLanguage: { contains: search, mode: 'insensitive' } },
+                        { status: { contains: search, mode: 'insensitive' } },
+                    ],
+                }
+                : {}
+            ),
+        };
 
-    const [items, totalCount] = await this._db.$transaction([
-        this._db.customerMaster.findMany({
-            where,
-            skip,
-            take: pageSize,
-            orderBy: { CustomerMasterSid: 'asc' },
-        }),
-        this._db.customerMaster.count({ where }),
-    ]);
+        const [items, totalCount] = await this._db.$transaction([
+            this._db.customerMaster.findMany({
+                where,
+                skip,
+                take: pageSize,
+                orderBy: { CustomerMasterSid: 'asc' },
+            }),
+            this._db.customerMaster.count({ where }),
+        ]);
 
-    return {
-        items,
-        totalCount,
-    };
-}
+        return {
+            items,
+            totalCount,
+        };
+    }
 
-    async getAllCarriers(CompanyMasterSid: number){
+    async getAllCarriers(CompanyMasterSid: number) {
         try {
             const allCarriers = await this._db.customerMaster.findMany({
                 where: {
@@ -246,8 +246,8 @@ export class CustomerService {
                         path: ['carrier'],
                         equals: 'isTrue'
                     },
-                    status : 'A',
-                    CompanyMasterSid:CompanyMasterSid
+                    status: 'A',
+                    CompanyMasterSid: CompanyMasterSid
                 }
             })
             return allCarriers;
@@ -256,16 +256,16 @@ export class CustomerService {
         }
     }
 
-    async getAllAgents(CompanyMasterSid){
+    async getAllAgents(CompanyMasterSid) {
         try {
             const allAgents = await this._db.customerMaster.findMany({
-                where : {
+                where: {
                     CustomerType: {
                         path: ['agent'],
                         equals: 'isTrue'
                     },
-                    status : 'A',
-                    CompanyMasterSid:CompanyMasterSid
+                    status: 'A',
+                    CompanyMasterSid: CompanyMasterSid
                 }
             })
             return allAgents;
@@ -273,15 +273,15 @@ export class CustomerService {
             throw error;
         }
     }
-    async getAllShippers(CompanyMasterSid: number){
+    async getAllShippers(CompanyMasterSid: number) {
         try {
             const allAgents = await this._db.customerMaster.findMany({
-                where : {
+                where: {
                     CustomerType: {
                         path: ['shipper'],
                         equals: 'isTrue'
                     },
-                    status : 'A',
+                    status: 'A',
                     CompanyMasterSid: CompanyMasterSid
                 }
             })
@@ -290,15 +290,15 @@ export class CustomerService {
             throw error;
         }
     }
-    async getAllConsignee(CompanyMasterSid:number){
+    async getAllConsignee(CompanyMasterSid: number) {
         try {
             const allAgents = await this._db.customerMaster.findMany({
-                where : {
+                where: {
                     CustomerType: {
                         path: ['consignee'],
                         equals: 'isTrue'
                     },
-                    status : 'A',
+                    status: 'A',
                     CompanyMasterSid: CompanyMasterSid
                 }
             })
@@ -307,15 +307,15 @@ export class CustomerService {
             throw error;
         }
     }
-    async getAllTransporters(CompanyMasterSid:number){
+    async getAllTransporters(CompanyMasterSid: number) {
         try {
             const allAgents = await this._db.customerMaster.findMany({
-                where : {
+                where: {
                     CustomerType: {
                         path: ['transporter'],
                         equals: 'isTrue'
                     },
-                    status : 'A',
+                    status: 'A',
                     CompanyMasterSid: CompanyMasterSid
                 }
             })
@@ -324,15 +324,15 @@ export class CustomerService {
             throw error;
         }
     }
-    async getAllCFS(CompanyMasterSid:number){
+    async getAllCFS(CompanyMasterSid: number) {
         try {
             const allAgents = await this._db.customerMaster.findMany({
-                where : {
+                where: {
                     CustomerType: {
                         path: ['cFS'],
                         equals: 'isTrue'
                     },
-                    status : 'A',
+                    status: 'A',
                     CompanyMasterSid: CompanyMasterSid
                 }
             })
@@ -342,7 +342,7 @@ export class CustomerService {
         }
     }
 
-    async getAllSuppliers(CompanyMasterSid:number) {
+    async getAllSuppliers(CompanyMasterSid: number) {
         try {
             const suppliers = ['vendor', 'transporter', 'agent'];
             const allSuppliers = await this._db.customerMaster.findMany({
@@ -353,13 +353,13 @@ export class CustomerService {
                             equals: 'isTrue',
                         },
                     })),
-                    status : 'A',
+                    status: 'A',
                     CompanyMasterSid: CompanyMasterSid
                 },
-                include : {
-                    countryMaster :{
-                        select : {
-                            countryName : true
+                include: {
+                    countryMaster: {
+                        select: {
+                            countryName: true
                         }
                     }
                 }
@@ -371,21 +371,21 @@ export class CustomerService {
         }
     }
     async getAuditLogs(tableName: string, recordId?: string) {
-    try {
-      const whereClause: any = { tableName };
-      if (recordId) whereClause.recordId = recordId;
+        try {
+            const whereClause: any = { tableName };
+            if (recordId) whereClause.recordId = recordId;
 
-      const logs = await this._db.auditLog.findMany({
-        where: whereClause,
-        orderBy: { changedAt: 'desc' },
-      });
+            const logs = await this._db.auditLog.findMany({
+                where: whereClause,
+                orderBy: { changedAt: 'desc' },
+            });
 
-      return logs;
-    } catch (error) {
-      this.logger.warn(`getAuditLogsError: ${error}`);
-      throw new Error(`Error fetching audit logs: ${error.message}`);
+            return logs;
+        } catch (error) {
+            this.logger.warn(`getAuditLogsError: ${error}`);
+            throw new Error(`Error fetching audit logs: ${error.message}`);
+        }
     }
-  }
 
 
 }

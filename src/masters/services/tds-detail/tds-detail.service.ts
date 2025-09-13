@@ -1,17 +1,17 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { DatabaseService } from 'src/database/database.service';
-import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
+import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 
 @Injectable()
 export class TdsDetailService {
-    constructor(private _db:DatabaseService){}
+    constructor(private _db: DatabaseService) { }
 
-    async getAllTdsDetail(){
+    async getAllTdsDetail() {
         try {
             const allTdsDetail = await this._db.tDSSetRate.findMany({
-                where : {
-                    status : 'A',
+                where: {
+                    status: 'A',
                 }
             })
             return allTdsDetail;
@@ -34,14 +34,14 @@ export class TdsDetailService {
     }
 
 
-    async fetchTdsDetailById(TDSSetRateSid:number){
+    async fetchTdsDetailById(TDSSetRateSid: number) {
         try {
-            const ourTdsDetail =await this._db.tDSSetRate.findUnique({
-                where : {
-                    TDSSetRateSid:TDSSetRateSid
+            const ourTdsDetail = await this._db.tDSSetRate.findUnique({
+                where: {
+                    TDSSetRateSid: TDSSetRateSid
                 }
             })
-            if(!ourTdsDetail){
+            if (!ourTdsDetail) {
                 throw new BadRequestException(`TdsDetail with Id : ${TDSSetRateSid} not exists`);
             }
             return ourTdsDetail;
@@ -49,25 +49,25 @@ export class TdsDetailService {
             throw error;
         }
     }
-    async fetchTdsDetailByHeaderId(TDSSetHeaderSid:number){
+    async fetchTdsDetailByHeaderId(TDSSetHeaderSid: number) {
         try {
-            const ourTdsDetail =await this._db.tDSSetRate.findMany({
-                where : {
-                    TDSSetHeaderSid:TDSSetHeaderSid,
-                    status:'A'
+            const ourTdsDetail = await this._db.tDSSetRate.findMany({
+                where: {
+                    TDSSetHeaderSid: TDSSetHeaderSid,
+                    status: 'A'
                 },
-                include : {
-                    countryMaster : {
-                        select : {
-                            countryName : true
+                include: {
+                    countryMaster: {
+                        select: {
+                            countryName: true
                         }
                     }
                 },
-                orderBy : {
-                    Sno : 'asc'
+                orderBy: {
+                    Sno: 'asc'
                 }
             })
-            if(!ourTdsDetail){
+            if (!ourTdsDetail) {
                 throw new BadRequestException(`TdsDetail with Id : ${TDSSetHeaderSid} not exists`);
             }
             return ourTdsDetail;
@@ -100,7 +100,7 @@ export class TdsDetailService {
     }
 
 
-    async deleteTdsDetail(TDSSetRateSid:number){
+    async deleteTdsDetail(TDSSetRateSid: number) {
         try {
             const exist = await this._db.tDSSetRate.findUnique({
                 where: {
@@ -110,7 +110,7 @@ export class TdsDetailService {
             if (!exist) {
                 throw new BadRequestException(`TdsDetail with Id : ${TDSSetRateSid} not exists`);
             }
-            if (exist.status==='D') {
+            if (exist.status === 'D') {
                 throw new BadRequestException(`TdsDetail with Id :${TDSSetRateSid} is already deleted`)
             }
             const deletedTdsDetail = this._db.tDSSetRate.update({
@@ -118,38 +118,38 @@ export class TdsDetailService {
                     TDSSetRateSid: TDSSetRateSid
                 },
                 data: {
-                    status:'D'
+                    status: 'D'
                 }
             })
             return deletedTdsDetail;
-        } catch(error) {
+        } catch (error) {
             throw error;
         }
     }
 
 
-   async searchTdsDetail(params: SearchVesselDto) {
-    const { search = '', page = 1, pageSize = 15 } = params;
-    const skip = (page - 1) * pageSize;
-    const where : Prisma.TDSSetRateWhereInput = {
-        status: 'A',
-    };
+    async searchTdsDetail(params: filterDto) {
+        const { search = '', page = 1, pageSize = 15 } = params;
+        const skip = (page - 1) * pageSize;
+        const where: Prisma.TDSSetRateWhereInput = {
+            status: 'A',
+        };
 
-    const [items, totalCount] = await this._db.$transaction([
-        this._db.tDSSetRate.findMany({
-            where,
-            skip,
-            take: pageSize,
-            orderBy: { TDSSetRateSid: 'desc' },
-        }),
-        this._db.tDSSetRate.count({ where }),
-    ]);
+        const [items, totalCount] = await this._db.$transaction([
+            this._db.tDSSetRate.findMany({
+                where,
+                skip,
+                take: pageSize,
+                orderBy: { TDSSetRateSid: 'desc' },
+            }),
+            this._db.tDSSetRate.count({ where }),
+        ]);
 
-    return {
-        items,
-        totalCount,
-        currentPage: page,
-        totalPages: Math.ceil(totalCount / pageSize),
-    };
-}
+        return {
+            items,
+            totalCount,
+            currentPage: page,
+            totalPages: Math.ceil(totalCount / pageSize),
+        };
+    }
 }

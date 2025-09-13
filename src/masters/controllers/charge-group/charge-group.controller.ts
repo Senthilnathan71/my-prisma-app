@@ -2,11 +2,11 @@ import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatu
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
 import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
-import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
+import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 import { ChargeGroupService } from 'src/masters/services/charge-group/charge-group.service';
 class CompanyIdDto {
-  CompanyMasterSid: number;
- 
+    CompanyMasterSid: number;
+
 }
 
 @Controller('charge-group')
@@ -147,59 +147,59 @@ export class ChargeGroupController {
     }
 
     @ApiOperation({ summary: 'Search List of Charge Groups with pagination' })
-@ApiCreatedResponse({
-  description: "Search List of Charge Groups",
-  type: ResponseData
-})
-@HttpCode(HttpStatus.OK)
-@Post('search-list')
-async searchChargeGroups(@Body() params: SearchVesselDto) {
-  let resp = new ResponseData();
-  try {
-    let res = await this.chargeGroupService.searchChargeGroups(params);
-    this.logger.log(`Search Charge Groups results: ${JSON.stringify(res)}`);
-    resp.data = res;
-    resp.message = "Search Charge Groups is successfully fetched";
-  } catch (error) {
-    this.logger.warn(`Search Charge Groups Error: ${error}`);
-    resp.status = false;
-    if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
-      resp.message = error.message;
-    } else {
-      resp.message = "Internal Server Error";
+    @ApiCreatedResponse({
+        description: "Search List of Charge Groups",
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Post('search-list')
+    async searchChargeGroups(@Body() params: filterDto) {
+        let resp = new ResponseData();
+        try {
+            let res = await this.chargeGroupService.searchChargeGroups(params);
+            this.logger.log(`Search Charge Groups results: ${JSON.stringify(res)}`);
+            resp.data = res;
+            resp.message = "Search Charge Groups is successfully fetched";
+        } catch (error) {
+            this.logger.warn(`Search Charge Groups Error: ${error}`);
+            resp.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                resp.message = error.message;
+            } else {
+                resp.message = "Internal Server Error";
+            }
+        }
+        return resp;
     }
-  }
-  return resp;
-}
-@ApiOperation({ summary: 'Get Audit Logs for a Table/Record' })
-  @ApiCreatedResponse({ description: 'Fetch audit logs', type: ResponseData })
-  @HttpCode(HttpStatus.OK)
-  @Get('audit-logs')
-  async getAuditLogs(
-    @Query('tableName') tableName: string,
-    @Query('recordId') recordId?: string,
-  ) {
-    const resp = new ResponseData();
-    try {
-      if (!tableName) throw new Error('tableName query parameter is required');
+    @ApiOperation({ summary: 'Get Audit Logs for a Table/Record' })
+    @ApiCreatedResponse({ description: 'Fetch audit logs', type: ResponseData })
+    @HttpCode(HttpStatus.OK)
+    @Get('audit-logs')
+    async getAuditLogs(
+        @Query('tableName') tableName: string,
+        @Query('recordId') recordId?: string,
+    ) {
+        const resp = new ResponseData();
+        try {
+            if (!tableName) throw new Error('tableName query parameter is required');
 
-      const logs = await this.chargeGroupService.getAuditLogs(tableName, recordId);
+            const logs = await this.chargeGroupService.getAuditLogs(tableName, recordId);
 
-      // Remove updatedOn from oldVal and newVal
-      resp.data = logs.map((log: any) => {
-        const oldVal = log.oldVal ? { ...log.oldVal } : null;
-        const newVal = log.newVal ? { ...log.newVal } : null;
-        if (oldVal && 'updatedOn' in oldVal) delete oldVal.updatedOn;
-        if (newVal && 'updatedOn' in newVal) delete newVal.updatedOn;
-        return { ...log, oldVal, newVal };
-      });
+            // Remove updatedOn from oldVal and newVal
+            resp.data = logs.map((log: any) => {
+                const oldVal = log.oldVal ? { ...log.oldVal } : null;
+                const newVal = log.newVal ? { ...log.newVal } : null;
+                if (oldVal && 'updatedOn' in oldVal) delete oldVal.updatedOn;
+                if (newVal && 'updatedOn' in newVal) delete newVal.updatedOn;
+                return { ...log, oldVal, newVal };
+            });
 
-      resp.message = 'Audit logs fetched successfully';
-    } catch (error) {
-      this.logger.warn(`getAuditLogsError: ${error}`);
-      resp.status = false;
-      resp.message = error.message || 'Internal Server Error';
+            resp.message = 'Audit logs fetched successfully';
+        } catch (error) {
+            this.logger.warn(`getAuditLogsError: ${error}`);
+            resp.status = false;
+            resp.message = error.message || 'Internal Server Error';
+        }
+        return resp;
     }
-    return resp;
-  }
 }

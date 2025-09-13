@@ -2,17 +2,17 @@ import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
-import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
+import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 
 @Injectable()
 export class YearService {
     constructor(private _db: DatabaseService, private logger: Logger) { }
 
-    async getAllYears(CompanyMasterSid:number) {
+    async getAllYears(CompanyMasterSid: number) {
         try {
             const allYears = await this._db.yearMaster.findMany({
                 where: {
-                    status:'A', 
+                    status: 'A',
                     CompanyMasterSid: CompanyMasterSid
                 },
                 include: {
@@ -95,7 +95,7 @@ export class YearService {
             if (!exist) {
                 throw new BadRequestException(`Year with Id : ${YearMasterSid} not exists`);
             }
-            if (exist.status==='D') {
+            if (exist.status === 'D') {
                 throw new BadRequestException(`Year with Id :${YearMasterSid} is already deleted`);
             }
             const deletedYear = await this._db.yearMaster.update({
@@ -103,7 +103,7 @@ export class YearService {
                     YearMasterSid: YearMasterSid
                 },
                 data: {
-                    status:'D'
+                    status: 'D'
                 },
                 include: {
                     companyMaster: true
@@ -116,57 +116,57 @@ export class YearService {
     }
 
 
-  async searchYearNew(params: SearchVesselDto) {
-    const { search = '', page = 1, pageSize = 15, activeCompanyId } = params;
-    const skip = (page - 1) * pageSize;
+    async searchYearNew(params: filterDto) {
+        const { search = '', page = 1, pageSize = 15, activeCompanyId } = params;
+        const skip = (page - 1) * pageSize;
 
-    const where: Prisma.YearMasterWhereInput = {
-        status: 'A',
-        CompanyMasterSid : activeCompanyId,
-        
-        ...(search
-            ? {
-                OR: [
-                    { YearName: { contains: search, mode: 'insensitive'} },
-                    { CurrentYear: { contains: search,mode: 'insensitive'} },
-                    { YearEndCompleted: { contains: search,mode: 'insensitive'} },
-                    { status: { contains: search,mode: 'insensitive'} },
-                ],
-            }
-            : {}
-        ),
-    };
+        const where: Prisma.YearMasterWhereInput = {
+            status: 'A',
+            CompanyMasterSid: activeCompanyId,
 
-    const [items, totalCount] = await this._db.$transaction([
-        this._db.yearMaster.findMany({
-            where,
-            skip,
-            take: pageSize,
-            orderBy: { YearMasterSid: 'desc'},
-        }),
-        this._db.yearMaster.count({ where }),
-    ]);
+            ...(search
+                ? {
+                    OR: [
+                        { YearName: { contains: search, mode: 'insensitive' } },
+                        { CurrentYear: { contains: search, mode: 'insensitive' } },
+                        { YearEndCompleted: { contains: search, mode: 'insensitive' } },
+                        { status: { contains: search, mode: 'insensitive' } },
+                    ],
+                }
+                : {}
+            ),
+        };
 
-    return {
-        items,
-        totalCount,
-    };
-  }
+        const [items, totalCount] = await this._db.$transaction([
+            this._db.yearMaster.findMany({
+                where,
+                skip,
+                take: pageSize,
+                orderBy: { YearMasterSid: 'desc' },
+            }),
+            this._db.yearMaster.count({ where }),
+        ]);
 
-  async getAuditLogs(tableName: string, recordId?: string) {
-    try {
-      const whereClause: any = { tableName };
-      if (recordId) whereClause.recordId = recordId;
-
-      const logs = await this._db.auditLog.findMany({
-        where: whereClause,
-        orderBy: { changedAt: 'desc' },
-      });
-
-      return logs;
-    } catch (error) {
-      this.logger.warn(`getAuditLogsError: ${error}`);
-      throw new Error(`Error fetching audit logs: ${error.message}`);
+        return {
+            items,
+            totalCount,
+        };
     }
-  }
+
+    async getAuditLogs(tableName: string, recordId?: string) {
+        try {
+            const whereClause: any = { tableName };
+            if (recordId) whereClause.recordId = recordId;
+
+            const logs = await this._db.auditLog.findMany({
+                where: whereClause,
+                orderBy: { changedAt: 'desc' },
+            });
+
+            return logs;
+        } catch (error) {
+            this.logger.warn(`getAuditLogsError: ${error}`);
+            throw new Error(`Error fetching audit logs: ${error.message}`);
+        }
+    }
 }

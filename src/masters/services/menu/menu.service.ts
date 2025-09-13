@@ -5,7 +5,7 @@ import { MENU_CONFIG_MAP } from 'src/common/config/menu-config';
 import { toCamelCase } from 'src/common/helper';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
-import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
+import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 
 @Injectable()
 export class MenuService {
@@ -402,7 +402,7 @@ export class MenuService {
 
 
 
-    async searchList(params: SearchVesselDto) {
+    async searchList(params: filterDto) {
         const { search = '', page = 1, pageSize = 15 } = params;
         const skip = (page - 1) * pageSize;
 

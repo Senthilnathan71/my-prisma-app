@@ -3,18 +3,18 @@ import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
-import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
+import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 
 @Injectable()
 export class BlclauseService {
-    constructor(private _db:DatabaseService, private logger : Logger){}
+    constructor(private _db: DatabaseService, private logger: Logger) { }
 
-    async getAllBlclause(){
-        
+    async getAllBlclause() {
+
         try {
             const allBlclause = await this._db.bLClauseMaster.findMany({
-                where : {
-                    status : 'A'
+                where: {
+                    status: 'A'
                 }
             })
             return allBlclause;
@@ -23,11 +23,11 @@ export class BlclauseService {
         }
     }
 
-    async createNewBlclause(payload){
-        
+    async createNewBlclause(payload) {
+
         try {
             const createdBlclause = await this._db.bLClauseMaster.create({
-                data :{
+                data: {
                     ...payload,
                 }
             })
@@ -37,14 +37,14 @@ export class BlclauseService {
         }
     }
 
-    async fetchBlclauseById(BLClauseMasterSid:number){
+    async fetchBlclauseById(BLClauseMasterSid: number) {
         try {
-            const ourBlclause =await this._db.bLClauseMaster.findUnique({
-                where : {
-                    BLClauseMasterSid:BLClauseMasterSid
+            const ourBlclause = await this._db.bLClauseMaster.findUnique({
+                where: {
+                    BLClauseMasterSid: BLClauseMasterSid
                 }
             })
-            if(!ourBlclause){
+            if (!ourBlclause) {
                 throw new BadRequestException(`Blclause with Id : ${BLClauseMasterSid} not exists`);
             }
             return ourBlclause;
@@ -53,21 +53,21 @@ export class BlclauseService {
         }
     }
 
-    async updateBlclauseById(BLClauseMasterSid:number,payload){
+    async updateBlclauseById(BLClauseMasterSid: number, payload) {
         try {
-             const exist =await this._db.bLClauseMaster.findUnique({
-                where : {
-                    BLClauseMasterSid:BLClauseMasterSid
+            const exist = await this._db.bLClauseMaster.findUnique({
+                where: {
+                    BLClauseMasterSid: BLClauseMasterSid
                 }
             })
-            if(!exist){
+            if (!exist) {
                 throw new BadRequestException(`Blclause with Id : ${BLClauseMasterSid} not exists`);
             }
             const updatedBlclause = this._db.bLClauseMaster.update({
-                where : {
-                    BLClauseMasterSid : BLClauseMasterSid
+                where: {
+                    BLClauseMasterSid: BLClauseMasterSid
                 },
-                data : payload
+                data: payload
             })
             return updatedBlclause;
         } catch (error) {
@@ -76,7 +76,7 @@ export class BlclauseService {
     }
 
 
-    async deleteBlClause(BLClauseMasterSid:number){
+    async deleteBlClause(BLClauseMasterSid: number) {
         try {
             const exist = await this._db.bLClauseMaster.findUnique({
                 where: {
@@ -94,68 +94,68 @@ export class BlclauseService {
                     BLClauseMasterSid: BLClauseMasterSid
                 },
                 data: {
-                    status : 'D'
+                    status: 'D'
                 }
             })
             return deletedBlclause;
-        } catch(error) {
+        } catch (error) {
             throw error;
         }
     }
 
 
-   async searchBlclause(params: SearchVesselDto) {
-    const { search = '', page = 1, pageSize = 15 } = params;
-    const skip = (page - 1) * pageSize;
+    async searchBlclause(params: filterDto) {
+        const { search = '', page = 1, pageSize = 15 } = params;
+        const skip = (page - 1) * pageSize;
 
-    const where: Prisma.BLClauseMasterWhereInput = {
-        status: 'A',
-        ...(search 
-            ? {
-                OR: [ 
-                    { ClauseDescription: { contains: search, mode: 'insensitive' } },
-                    { Keyword: { contains: search, mode: 'insensitive' } },
-                    { status: { contains: search, mode: 'insensitive' } },
-                    // ...(!isNaN(Number(search)) 
-                    //     ? [
-                    //         { Sortorder: { equals: Number(search) } },
-                    //         { DefaultClause: { equals: Number(search) } }
-                    //       ] 
-                    //     : [])
-                ]
-            } 
-            : {})
-    };
+        const where: Prisma.BLClauseMasterWhereInput = {
+            status: 'A',
+            ...(search
+                ? {
+                    OR: [
+                        { ClauseDescription: { contains: search, mode: 'insensitive' } },
+                        { Keyword: { contains: search, mode: 'insensitive' } },
+                        { status: { contains: search, mode: 'insensitive' } },
+                        // ...(!isNaN(Number(search)) 
+                        //     ? [
+                        //         { Sortorder: { equals: Number(search) } },
+                        //         { DefaultClause: { equals: Number(search) } }
+                        //       ] 
+                        //     : [])
+                    ]
+                }
+                : {})
+        };
 
-    const [items, totalCount] = await this._db.$transaction([
-        this._db.bLClauseMaster.findMany({
-            where,
-            skip,
-            take: pageSize,
-            orderBy: { BLClauseMasterSid: 'desc' },
-        }),
-        this._db.bLClauseMaster.count({ where }),
-    ]);
+        const [items, totalCount] = await this._db.$transaction([
+            this._db.bLClauseMaster.findMany({
+                where,
+                skip,
+                take: pageSize,
+                orderBy: { BLClauseMasterSid: 'desc' },
+            }),
+            this._db.bLClauseMaster.count({ where }),
+        ]);
 
-    return {
-        items,
-        totalCount,
-    };
-}
-async getAuditLogs(tableName: string, recordId?: string) {
-    try {
-      const whereClause: any = { tableName };
-      if (recordId) whereClause.recordId = recordId;
-
-      const logs = await this._db.auditLog.findMany({
-        where: whereClause,
-        orderBy: { changedAt: 'desc' },
-      });
-
-      return logs;
-    } catch (error) {
-      this.logger.warn(`getAuditLogsError: ${error}`);
-      throw new Error(`Error fetching audit logs: ${error.message}`);
+        return {
+            items,
+            totalCount,
+        };
     }
-  }
+    async getAuditLogs(tableName: string, recordId?: string) {
+        try {
+            const whereClause: any = { tableName };
+            if (recordId) whereClause.recordId = recordId;
+
+            const logs = await this._db.auditLog.findMany({
+                where: whereClause,
+                orderBy: { changedAt: 'desc' },
+            });
+
+            return logs;
+        } catch (error) {
+            this.logger.warn(`getAuditLogsError: ${error}`);
+            throw new Error(`Error fetching audit logs: ${error.message}`);
+        }
+    }
 }

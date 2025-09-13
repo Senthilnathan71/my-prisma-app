@@ -3,14 +3,14 @@ import { Prisma } from "@prisma/client";
 import { DatabaseService } from "src/database/database.service";
 import * as moment from 'moment-timezone';
 import { SearchListDto } from "src/masters/DTO/search-list.dto";
-import { SearchVesselDto } from "src/masters/DTO/search-vessel.dto";
+import { filterDto } from "src/masters/DTO/search-vessel.dto";
 import { GlobalConfigService } from "src/common/config/master-config.service";
 
 @Injectable()
 export class QuotationService {
     constructor(
         private _db: DatabaseService, private logger: Logger,
-        private globalConfigService:GlobalConfigService
+        private globalConfigService: GlobalConfigService
     ) { }
 
     async createQuotation(payload) {
@@ -27,24 +27,24 @@ export class QuotationService {
                 const quoteHeaderPayload: any = {
                     CustomerName: payload.CustomerName,
                     CustomerMasterSid: Number(payload.CustomerMasterSid),
-                    CustomerBranchSid : payload.CustomerBranchSid,
+                    CustomerBranchSid: payload.CustomerBranchSid,
                     QuoteDate: quoteDate,
-                    EnquirySid : payload.EnquirySid ? Number(payload.EnquirySid) : null,
+                    EnquirySid: payload.EnquirySid ? Number(payload.EnquirySid) : null,
                     CustomerAddress: payload.CustomerAddress,
-                    Email : payload.Email,
-                    CustomerRef : payload.CustomerRef,
-                    IncoTerms : payload.IncoTerms,
-                    ClearanceBy : payload.ClearanceBy,
-                    TransportBy : payload.TransportBy,
-                    SalesmanSid : payload.SalesmanSid,
-                    Remarks : payload.Remarks,
+                    Email: payload.Email,
+                    CustomerRef: payload.CustomerRef,
+                    IncoTerms: payload.IncoTerms,
+                    ClearanceBy: payload.ClearanceBy,
+                    TransportBy: payload.TransportBy,
+                    SalesmanSid: payload.SalesmanSid,
+                    Remarks: payload.Remarks,
                     status: payload.status || "A",
                     CompanyMasterSid: payload.CompanyMasterSid,
-                    BranchMasterSid:payload.BranchMasterSid,
+                    BranchMasterSid: payload.BranchMasterSid,
                     QuoteNumber: quoteNumber,
                     createdBy: payload.createdBy,
-                    authorizerStatus : payload.authorizerStatus || 'Pending',
-                    AuthorizerRemarks : payload.AuthorizerRemarks || ''
+                    authorizerStatus: payload.authorizerStatus || 'Pending',
+                    AuthorizerRemarks: payload.AuthorizerRemarks || ''
                 };
 
                 const quoteHeader = await prisma.quoteHeader.create({ data: quoteHeaderPayload });
@@ -65,21 +65,21 @@ export class QuotationService {
                                 CarrierName: route.CarrierName,
                                 CarrierMasterSid: route.CarrierMasterSid,
                                 segmentType: route.segmentType,
-                                CargoType : route.CargoType,
-                                ContainerType : route.ContainerType,
-                                ContainerQty : route.ContainerQty,
-                                CBM : route.CBM,
-                                ChargeableWeight : route.ChargeableWeight,
-                                ServiceLevel : route.ServiceLevel,
+                                CargoType: route.CargoType,
+                                ContainerType: route.ContainerType,
+                                ContainerQty: route.ContainerQty,
+                                CBM: route.CBM,
+                                ChargeableWeight: route.ChargeableWeight,
+                                ServiceLevel: route.ServiceLevel,
                                 effDate: new Date(route.effDate),
                                 expdate: new Date(route.expDate),
                                 twentyft: Number(route.twentyft) || null,
                                 fortyft: Number(route.fortyft) || null,
                                 createdBy: payload.createdBy,
                                 cargoType: route.cargoType,
-                                POLFreeDays : Number(route.POLFreeDays),
-                                PODFreeDays : Number(route.PODFreeDays),
-                                TransitDays : Number(route.TransitDays) || Number(route.transit) || null,
+                                POLFreeDays: Number(route.POLFreeDays),
+                                PODFreeDays: Number(route.PODFreeDays),
+                                TransitDays: Number(route.TransitDays) || Number(route.transit) || null,
                             },
                         });
 
@@ -108,13 +108,13 @@ export class QuotationService {
                         QuoteHeaderSid: quoteHeader.QuoteHeaderSid,
                         QuoteRouteSid: quoteRoute.createdQuoteRoute.QuoteRouteSid, // Fixed reference
                         CustomerMasterSid: quoteHeader.CustomerMasterSid,
-                        ChargeUomSid : cargo.ChargeUomSid,
+                        ChargeUomSid: cargo.ChargeUomSid,
                         ChargeDisplayName: cargo.ChargeDisplayName,
-                        Qty : Number(cargo.Qty),
+                        Qty: Number(cargo.Qty),
                         CurrencyMasterSid: Number(cargo.CurrencyMasterSid),
                         UOMMasterSid: Number(cargo.UOMMasterSid),
                         perUnit: Number(cargo.perUnit),
-                        Amount : Number(cargo.Amount),
+                        Amount: Number(cargo.Amount),
                         costUnit: cargo.costUnit,
                         costCurrency: cargo.costCurrency,
                         costPerUnit: Number(cargo.costPerUnit),
@@ -149,14 +149,14 @@ export class QuotationService {
         try {
             const quotations = await this._db.quoteHeader.findMany({
                 where: {
-                CompanyMasterSid: CompanyMasterSid,
-                BranchMasterSid: BranchMasterSid
-            },
+                    CompanyMasterSid: CompanyMasterSid,
+                    BranchMasterSid: BranchMasterSid
+                },
                 select: {
                     QuoteHeaderSid: true,
                     QuoteNumber: true,
                     CustomerName: true,
-                    EnquirySid : true,
+                    EnquirySid: true,
                     CustomerAddress: true,
                     QuoteDate: true,
                     status: true
@@ -181,12 +181,12 @@ export class QuotationService {
                 include: {
                     quoteRoute: {
                         where: {
-                            status : 'A'
+                            status: 'A'
                         },
                         include: {
                             quoteCharge: {
                                 where: {
-                                    status:'A'
+                                    status: 'A'
                                 }
                             }
                         }
@@ -210,7 +210,7 @@ export class QuotationService {
                         CompanyMasterSid: payload.CompanyMasterSid,
                         BranchMasterSid: payload.BranchMasterSid,
                         UserMasterSid: payload.UserMasterSid,
-                        status:'A',
+                        status: 'A',
                         authorityMaster: {
                             MenuMaster: payload.MenuMaster,
                             status: 'A',
@@ -256,19 +256,19 @@ export class QuotationService {
             const updatedQuoteHeader = await this._db.quoteHeader.update({
                 where: { QuoteHeaderSid: QuoteHeaderSid },
                 data: {
-                    CustomerRef : payload.CustomerRef,
-                    Email : payload.Email,
-                    status : payload.status,
-                    SalesmanSid : payload.SalesmanSid,
+                    CustomerRef: payload.CustomerRef,
+                    Email: payload.Email,
+                    status: payload.status,
+                    SalesmanSid: payload.SalesmanSid,
                     CustomerName: payload.CustomerName,
-                    EnquirySid :payload.EnquirySid ?  Number(payload.EnquirySid) : null,
-                    
-                    CustomerAddress : payload.CustomerAddress,
-                    CustomerBranchSid : payload.CustomerBranchSid,
-                    IncoTerms : payload.IncoTerms,
-                    ClearanceBy : payload.ClearanceBy,
-                    TransportBy : payload.TransportBy,
-                    Remarks : payload.Remarks,
+                    EnquirySid: payload.EnquirySid ? Number(payload.EnquirySid) : null,
+
+                    CustomerAddress: payload.CustomerAddress,
+                    CustomerBranchSid: payload.CustomerBranchSid,
+                    IncoTerms: payload.IncoTerms,
+                    ClearanceBy: payload.ClearanceBy,
+                    TransportBy: payload.TransportBy,
+                    Remarks: payload.Remarks,
                     updatedBy: payload.updatedBy,
                     updatedOn: new Date()
                 }
@@ -291,7 +291,7 @@ export class QuotationService {
                             FDPSid: Number(route.FPODSid),
                             CarrierName: route.CarrierName,
                             CarrierMasterSid: route.CarrierMasterSid,
-                            CargoType : route.CargoType,
+                            CargoType: route.CargoType,
                             effDate: new Date(route.effDate),
                             expdate: new Date(route.expDate),
                             twentyft: Number(route.twentyft) || null,
@@ -302,9 +302,9 @@ export class QuotationService {
                             ChargeableWeight: route.ChargeableWeight,
                             updatedBy: payload.updatedBy,
                             updatedOn: new Date(),
-                            ServiceLevel : route.ServiceLevel,
+                            ServiceLevel: route.ServiceLevel,
                             cargoType: route.cargoType,
-                            segmentType : route.segmentType,
+                            segmentType: route.segmentType,
                             POLFreeDays: Number(route.POLFreeDays),
                             PODFreeDays: Number(route.PODFreeDays),
                             TransitDays: Number(route.TransitDays) || Number(route.transit) || null,
@@ -323,14 +323,14 @@ export class QuotationService {
                             expdate: new Date(route.expDate),
                             twentyft: Number(route.twentyft) || null,
                             fortyft: Number(route.fortyft) || null,
-                            CargoType : route.CargoType,
+                            CargoType: route.CargoType,
                             ContainerType: route.ContainerType,
                             ContainerQty: route.ContainerQty,
                             CBM: route.CBM,
                             ChargeableWeight: route.ChargeableWeight,
                             cargoType: route.cargoType,
-                            segmentType : route.segmentType,
-                            ServiceLevel : route.ServiceLevel,
+                            segmentType: route.segmentType,
+                            ServiceLevel: route.ServiceLevel,
                             POLFreeDays: Number(route.POLFreeDays),
                             PODFreeDays: Number(route.PODFreeDays),
                             TransitDays: Number(route.TransitDays) || Number(route.transit) || null,
@@ -356,13 +356,13 @@ export class QuotationService {
                             updateCargoData = await this._db.quoteCharge.update({
                                 where: { QuoteChargeSid: cargoItem.QuoteChargeSid },
                                 data: {
-                                    ChargeUomSid : cargoItem.ChargeUomSid,
+                                    ChargeUomSid: cargoItem.ChargeUomSid,
                                     ChargeDisplayName: cargoItem.ChargeDisplayName,
                                     CurrencyMasterSid: cargoItem.CurrencyMasterSid,
                                     UOMMasterSid: cargoItem.UOMMasterSid,
-                                    Qty : Number(cargoItem.Qty),
+                                    Qty: Number(cargoItem.Qty),
                                     perUnit: Number(cargoItem.perUnit),
-                                    Amount : Number(cargoItem.Amount),
+                                    Amount: Number(cargoItem.Amount),
                                     costUnit: cargoItem.costUnit,
                                     costCurrency: cargoItem.costCurrency,
                                     costPerUnit: Number(cargoItem.costPerUnit),
@@ -373,11 +373,11 @@ export class QuotationService {
                         } else {
                             createCargoData = await this._db.quoteCharge.create({
                                 data: {
-                                    ChargeUomSid : cargoItem.ChargeUomSid,
+                                    ChargeUomSid: cargoItem.ChargeUomSid,
                                     ChargeDisplayName: cargoItem.ChargeDisplayName,
                                     CurrencyMasterSid: cargoItem.CurrencyMasterSid,
                                     UOMMasterSid: cargoItem.UOMMasterSid,
-                                    Qty : Number(cargoItem.Qty),
+                                    Qty: Number(cargoItem.Qty),
                                     perUnit: Number(cargoItem.perUnit),
                                     Amount: Number(cargoItem.Amount),
                                     costUnit: cargoItem.costUnit,
@@ -423,14 +423,14 @@ export class QuotationService {
             throw new NotFoundException(`Quote with ID ${id} not found`);
         }
 
-        if (existingQuote.status==='D') {
+        if (existingQuote.status === 'D') {
             throw new Error(`Quote with ID ${id} is already deleted`);
         }
 
         // Perform soft delete by updating deletedAt field
         return this._db.quoteHeader.update({
             where: { QuoteHeaderSid: id },
-            data: { status:'D' }
+            data: { status: 'D' }
         });
     }
 
@@ -445,14 +445,14 @@ export class QuotationService {
             throw new NotFoundException(`Quote with ID ${id} not found`);
         }
 
-        if (existingQuote.status==='D') {
+        if (existingQuote.status === 'D') {
             throw new Error(`Quote with ID ${id} is already deleted`);
         }
 
         // Perform soft delete by updating deletedAt field
         return this._db.quoteRoute.update({
             where: { QuoteRouteSid: id },
-            data: { status:'D' }
+            data: { status: 'D' }
         });
     }
 
@@ -466,34 +466,34 @@ export class QuotationService {
             throw new NotFoundException(`Quote with ID ${id} not found`);
         }
 
-        if (existingQuote.status==='D') {
+        if (existingQuote.status === 'D') {
             throw new Error(`Quote with ID ${id} is already deleted`);
         }
 
         // Perform soft delete by updating deletedAt field
         return this._db.quoteCharge.update({
             where: { QuoteChargeSid: id },
-            data: { status:'D' }
+            data: { status: 'D' }
         });
     }
 
-    async getAllMasters(CompanyMasterSid:number) {
+    async getAllMasters(CompanyMasterSid: number) {
         try {
             const [charges, units, currencies] = await this._db.$transaction([
                 this._db.chargeMaster.findMany({
-                    where : {
-                        Status:'A',
-                        CompanyMasterSid:CompanyMasterSid
+                    where: {
+                        Status: 'A',
+                        CompanyMasterSid: CompanyMasterSid
                     }
                 }),
                 this._db.unitMaster.findMany({
-                    where : {
-                        status:'A'
+                    where: {
+                        status: 'A'
                     }
                 }),
                 this._db.currencyMaster.findMany({
-                    where : {
-                        status:'A'
+                    where: {
+                        status: 'A'
                     }
                 }),
             ]);
@@ -506,16 +506,16 @@ export class QuotationService {
 
 
 
-    async getAllCustomer(CompanyMasterSid:number) {
+    async getAllCustomer(CompanyMasterSid: number) {
         try {
             const customers = await this._db.customerMaster.findMany({
-                where : {
+                where: {
                     CustomerType: {
                         path: ['carrier'],
                         equals: 'isTrue'
                     },
-                    status:'A',
-                    CompanyMasterSid:CompanyMasterSid
+                    status: 'A',
+                    CompanyMasterSid: CompanyMasterSid
                 }
             });
 
@@ -526,14 +526,14 @@ export class QuotationService {
         }
     }
 
-    async searchQuotation(params: SearchVesselDto) {
-            const { search = '', page = 1, pageSize = 15,activeCompanyId,activeBranchId } = params;
-            const skip = (page - 1) * pageSize;
+    async searchQuotation(params: filterDto) {
+        const { search = '', page = 1, pageSize = 15, activeCompanyId, activeBranchId } = params;
+        const skip = (page - 1) * pageSize;
 
         const where: Prisma.QuoteHeaderWhereInput = {
             status: 'A',
-            CompanyMasterSid : activeCompanyId,
-        BranchMasterSid : activeBranchId,
+            CompanyMasterSid: activeCompanyId,
+            BranchMasterSid: activeBranchId,
             ...(search
                 ? {
                     OR: [
@@ -547,7 +547,7 @@ export class QuotationService {
                 }
                 : {}),
         };
-        let items ;
+        let items;
         let totalCount;
         [items, totalCount] = await this._db.$transaction([
             this._db.quoteHeader.findMany({
@@ -555,25 +555,25 @@ export class QuotationService {
                 skip,
                 take: pageSize,
                 orderBy: { QuoteHeaderSid: 'desc' },
-                include : {
-                    quoteRoute :{
-                        where : {
-                            status:'A'
+                include: {
+                    quoteRoute: {
+                        where: {
+                            status: 'A'
                         },
-                        include : {  
-                            departmentMaster : {
-                                select : {
-                                    departmentName : true
+                        include: {
+                            departmentMaster: {
+                                select: {
+                                    departmentName: true
                                 }
                             },
-                            quoteCharge : {
-                                where : {
-                                    status:'A'
+                            quoteCharge: {
+                                where: {
+                                    status: 'A'
                                 },
-                                include : {
-                                    uomMaster : { select : {UOMCode : true} },
-                                    currencyMaster : { select : {currencyCode : true}},
-                                    
+                                include: {
+                                    uomMaster: { select: { UOMCode: true } },
+                                    currencyMaster: { select: { currencyCode: true } },
+
                                 }
                             }
                         }
@@ -588,12 +588,12 @@ export class QuotationService {
                 const updatedRoutes = await Promise.all(
                     item.quoteRoute.map(async (route) => {
 
-                        const [departmentMaster,PortPOL,PortPOD] = await Promise.all([
-                            route.DepartmentMasterSid !== null ? 
-                            this.globalConfigService.getMasterData('department_master',route.DepartmentMasterSid) : {departmentName : ''},
-                            route.POLSid !== null ? this.globalConfigService.getMasterData('port_master',route.POLSid) : {PortName : ''},
-                            route.PODSid !== null ? 
-                            this.globalConfigService.getMasterData('port_master',route.PODSid) : {PortName : ''}
+                        const [departmentMaster, PortPOL, PortPOD] = await Promise.all([
+                            route.DepartmentMasterSid !== null ?
+                                this.globalConfigService.getMasterData('department_master', route.DepartmentMasterSid) : { departmentName: '' },
+                            route.POLSid !== null ? this.globalConfigService.getMasterData('port_master', route.POLSid) : { PortName: '' },
+                            route.PODSid !== null ?
+                                this.globalConfigService.getMasterData('port_master', route.PODSid) : { PortName: '' }
                         ]);
 
                         const updatedCharges = await Promise.all(
@@ -606,7 +606,7 @@ export class QuotationService {
                                             charge.UOMMasterSid
                                         )
                                         : { UOMMasterSid: null, UOMName: '', UOMCode: '' },
-                                    
+
                                     charge.CurrencyMasterSid !== null
                                         ? this.globalConfigService.getMasterData(
                                             'currency_master',
@@ -645,23 +645,23 @@ export class QuotationService {
 
     async getAllSalesperson() {
         try {
-            
+
             const allSalespersons = await this._db.customerSalesTeam.findMany({
                 where: {
-                    status:'A',
+                    status: 'A',
                 },
             });
 
             if (allSalespersons.length === 0) return [];
 
-           
+
             const salesmanIds = [...new Set(allSalespersons.map(sp => sp.Salesman))];
 
-            
+
             const users = await this._db.userMaster.findMany({
                 where: {
                     UserMasterSid: { in: salesmanIds },
-                    status:'A',
+                    status: 'A',
                 },
                 select: {
                     UserMasterSid: true,
@@ -670,7 +670,7 @@ export class QuotationService {
                 }
             });
 
-           
+
             const result = allSalespersons.map(sp => {
                 const user = users.find(u => u.UserMasterSid === sp.Salesman);
                 return {
@@ -689,11 +689,11 @@ export class QuotationService {
     async getCustomerBranchEmail(CustomerBranchSid) {
         try {
             const cusBranchEmail = await this._db.customerBranch.findFirst({
-                where : {
-                    CustomerBranchSid : CustomerBranchSid
+                where: {
+                    CustomerBranchSid: CustomerBranchSid
                 },
-                select : {
-                    Email : true
+                select: {
+                    Email: true
                 }
             })
             return cusBranchEmail;
@@ -702,25 +702,25 @@ export class QuotationService {
         }
     }
 
-    async getTariffByQuoteDetails(payload){
+    async getTariffByQuoteDetails(payload) {
         try {
             const allTariffDetails = await this._db.tariffDetail.findMany({
                 where: {
-                    EffectiveDate : { lte : new Date(payload.EffectiveDate)},
-                    ExpiredOn : { gte : new Date(payload.ExpiredDate)},
-                    CargoType : payload.CargoType,
+                    EffectiveDate: { lte: new Date(payload.EffectiveDate) },
+                    ExpiredOn: { gte: new Date(payload.ExpiredDate) },
+                    CargoType: payload.CargoType,
                     tariffHeader: {
-                        DepartmentMasterSid : payload.DepartmentMasterSid,
+                        DepartmentMasterSid: payload.DepartmentMasterSid,
                         POOSid: payload.PORSid,
                         POLSid: payload.POLSid,
                         PODSid: payload.PODSid,
                         FDCSid: payload.FPODSid
                     }
                 },
-                include : {
-                    currencyMasterBuy : { select : { currencyName : true ,currencyCode : true } },
-                    currencyMasterSale : { select : { currencyName : true } },
-                    UOMMaster : { select : {UOMName : true , UOMCode : true}}
+                include: {
+                    currencyMasterBuy: { select: { currencyName: true, currencyCode: true } },
+                    currencyMasterSale: { select: { currencyName: true } },
+                    UOMMaster: { select: { UOMName: true, UOMCode: true } }
                 }
             })
             return allTariffDetails;
@@ -730,20 +730,20 @@ export class QuotationService {
     }
 
     async getAuditLogs(tableName: string, recordId?: string) {
-    try {
-      const whereClause: any = { tableName };
-      if (recordId) whereClause.recordId = recordId;
+        try {
+            const whereClause: any = { tableName };
+            if (recordId) whereClause.recordId = recordId;
 
-      const logs = await this._db.auditLog.findMany({
-        where: whereClause,
-        orderBy: { changedAt: 'desc' },
-      });
+            const logs = await this._db.auditLog.findMany({
+                where: whereClause,
+                orderBy: { changedAt: 'desc' },
+            });
 
-      return logs;
-    } catch (error) {
-      this.logger.warn(`getAuditLogsError: ${error}`);
-      throw new Error(`Error fetching audit logs: ${error.message}`);
+            return logs;
+        } catch (error) {
+            this.logger.warn(`getAuditLogsError: ${error}`);
+            throw new Error(`Error fetching audit logs: ${error.message}`);
+        }
     }
-  }
 
 }

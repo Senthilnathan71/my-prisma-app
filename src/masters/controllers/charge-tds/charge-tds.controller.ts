@@ -3,7 +3,7 @@ import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
 import { ResponseData } from 'src/common/response-data';
 import { ChargeTdsService } from 'src/masters/services/charge-tds/charge-tds.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
-import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
+import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 
 @Controller('charge-tds')
 export class ChargeTdsController {
@@ -149,7 +149,7 @@ export class ChargeTdsController {
     })
     @HttpCode(HttpStatus.OK)
     @Post('search-list')
-    async searchChargeTds(@Body() searchParams: SearchVesselDto) { 
+    async searchChargeTds(@Body() searchParams: filterDto) {
         const resp = new ResponseData();
         try {
             const res = await this.chargeTdsService.searchChargeTds(searchParams);

@@ -1,17 +1,17 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { DatabaseService } from 'src/database/database.service';
-import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
+import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 
 @Injectable()
 export class TdsService {
-    constructor(private _db:DatabaseService, private logger: Logger){}
+    constructor(private _db: DatabaseService, private logger: Logger) { }
 
-    async getAllTds(CompanyMasterSid: number){
+    async getAllTds(CompanyMasterSid: number) {
         try {
             const allTds = await this._db.tDSSetHeader.findMany({
-                where : {
-                    status : 'A',
+                where: {
+                    status: 'A',
                     CompanyMasterSid: CompanyMasterSid
 
                 }
@@ -23,14 +23,14 @@ export class TdsService {
     }
 
     async createNewTds(payload) {
-       
+
         const existing = await this._db.tDSSetHeader.findFirst({
             where: {
                 TDSSetName: {
                     equals: payload.TDSSetName.trim(),
                     mode: 'insensitive'
                 },
-                status:'A'
+                status: 'A'
             }
         });
 
@@ -44,7 +44,7 @@ export class TdsService {
             const createdTds = await this._db.tDSSetHeader.create({
                 data: {
                     ...payload,
-                    
+
                 }
             });
             return createdTds;
@@ -54,18 +54,18 @@ export class TdsService {
     }
 
 
-    async fetchTdsById(TDSSetHeaderSid:number){
+    async fetchTdsById(TDSSetHeaderSid: number) {
         try {
-            const ourTds =await this._db.tDSSetHeader.findUnique({
-                where : {
-                    TDSSetHeaderSid:TDSSetHeaderSid
+            const ourTds = await this._db.tDSSetHeader.findUnique({
+                where: {
+                    TDSSetHeaderSid: TDSSetHeaderSid
                 },
-                include : {
-                    tdsSetRate : true,
-                    tdsExemption : true,
+                include: {
+                    tdsSetRate: true,
+                    tdsExemption: true,
                 }
             })
-            if(!ourTds){
+            if (!ourTds) {
                 throw new BadRequestException(`Tds with Id : ${TDSSetHeaderSid} not exists`);
             }
             return ourTds;
@@ -75,12 +75,12 @@ export class TdsService {
     }
 
     async updateTdsById(TDSSetHeaderSid: number, payload) {
-        
+
         const duplicate = await this._db.tDSSetHeader.findFirst({
             where: {
                 AND: [
                     {
-                        TDSSetHeaderSid: { not: TDSSetHeaderSid } 
+                        TDSSetHeaderSid: { not: TDSSetHeaderSid }
                     },
                     {
                         TDSSetName: {
@@ -89,7 +89,7 @@ export class TdsService {
                         }
                     }
                 ],
-                status:'A'
+                status: 'A'
             }
         });
 
@@ -121,7 +121,7 @@ export class TdsService {
     }
 
 
-    async deleteTds(TDSSetHeaderSid:number){
+    async deleteTds(TDSSetHeaderSid: number) {
         try {
             const exist = await this._db.tDSSetHeader.findUnique({
                 where: {
@@ -131,7 +131,7 @@ export class TdsService {
             if (!exist) {
                 throw new BadRequestException(`Tds with Id : ${TDSSetHeaderSid} not exists`);
             }
-            if (exist.status==='D') {
+            if (exist.status === 'D') {
                 throw new BadRequestException(`Tds with Id :${TDSSetHeaderSid} is already deleted`)
             }
             const deletedTds = this._db.tDSSetHeader.update({
@@ -139,80 +139,80 @@ export class TdsService {
                     TDSSetHeaderSid: TDSSetHeaderSid
                 },
                 data: {
-                    status:'D'
+                    status: 'D'
                 }
             })
             return deletedTds;
-        } catch(error) {
+        } catch (error) {
             throw error;
         }
     }
 
 
-   async searchTds(params: SearchVesselDto) {
-    const { search = '', page = 1, pageSize = 15 } = params;
-    const skip = (page - 1) * pageSize;
-    console.log(search);
-    let sec = Date.parse(search);
-    console.log(new Date(search));
-    const where : Prisma.TDSSetHeaderWhereInput = {
-        status: 'A',
-        ...(search
-            ? {
-                OR: [
-                    { TDSSetName: { contains: search, mode: 'insensitive' } },
-                    ...(isNaN(Date.parse(search)) ? [] : [{
-                        EffectiveFrom: { equals: new Date(search) }
-                    }]),
-                    ...(isNaN(Number(search)) ? [] : [{
-                        TransactionLimit: { equals: Number(search) }
-                    }]),
-                    ...(isNaN(Number(search)) ? [] : [{
-                        AnnualLimit: { equals: Number(search) }
-                    }]),
-                    ...('active'.includes(search.toLowerCase()) 
-                    ? [{ status: 'A' }]
-                    : []), 
-                    ...('suspended'.includes(search.toLowerCase()) 
-                    ? [{ status: 'S' }]
-                    : []),
-                ]
-            }
-            : {}),
-    };
+    async searchTds(params: filterDto) {
+        const { search = '', page = 1, pageSize = 15 } = params;
+        const skip = (page - 1) * pageSize;
+        console.log(search);
+        let sec = Date.parse(search);
+        console.log(new Date(search));
+        const where: Prisma.TDSSetHeaderWhereInput = {
+            status: 'A',
+            ...(search
+                ? {
+                    OR: [
+                        { TDSSetName: { contains: search, mode: 'insensitive' } },
+                        ...(isNaN(Date.parse(search)) ? [] : [{
+                            EffectiveFrom: { equals: new Date(search) }
+                        }]),
+                        ...(isNaN(Number(search)) ? [] : [{
+                            TransactionLimit: { equals: Number(search) }
+                        }]),
+                        ...(isNaN(Number(search)) ? [] : [{
+                            AnnualLimit: { equals: Number(search) }
+                        }]),
+                        ...('active'.includes(search.toLowerCase())
+                            ? [{ status: 'A' }]
+                            : []),
+                        ...('suspended'.includes(search.toLowerCase())
+                            ? [{ status: 'S' }]
+                            : []),
+                    ]
+                }
+                : {}),
+        };
 
-    const [items, totalCount] = await this._db.$transaction([
-        this._db.tDSSetHeader.findMany({
-            where,
-            skip,
-            take: pageSize,
-            orderBy: { TDSSetHeaderSid: 'desc' },
-        }),
-        this._db.tDSSetHeader.count({ where }),
-    ]);
+        const [items, totalCount] = await this._db.$transaction([
+            this._db.tDSSetHeader.findMany({
+                where,
+                skip,
+                take: pageSize,
+                orderBy: { TDSSetHeaderSid: 'desc' },
+            }),
+            this._db.tDSSetHeader.count({ where }),
+        ]);
 
-    return {
-        items,
-        totalCount,
-        currentPage: page,
-        totalPages: Math.ceil(totalCount / pageSize),
-    };
-}
-
-async getAuditLogs(tableName: string, recordId?: string) {
-    try {
-      const whereClause: any = { tableName };
-      if (recordId) whereClause.recordId = recordId;
-
-      const logs = await this._db.auditLog.findMany({
-        where: whereClause,
-        orderBy: { changedAt: 'desc' },
-      });
-
-      return logs;
-    } catch (error) {
-      this.logger.warn(`getAuditLogsError: ${error}`);
-      throw new Error(`Error fetching audit logs: ${error.message}`);
+        return {
+            items,
+            totalCount,
+            currentPage: page,
+            totalPages: Math.ceil(totalCount / pageSize),
+        };
     }
-  }
+
+    async getAuditLogs(tableName: string, recordId?: string) {
+        try {
+            const whereClause: any = { tableName };
+            if (recordId) whereClause.recordId = recordId;
+
+            const logs = await this._db.auditLog.findMany({
+                where: whereClause,
+                orderBy: { changedAt: 'desc' },
+            });
+
+            return logs;
+        } catch (error) {
+            this.logger.warn(`getAuditLogsError: ${error}`);
+            throw new Error(`Error fetching audit logs: ${error.message}`);
+        }
+    }
 }

@@ -3,17 +3,17 @@ import { Prisma } from '@prisma/client';
 import { GlobalConfigService } from 'src/common/config/master-config.service';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
-import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
+import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 
 @Injectable()
 export class RoleMenuService {
-    constructor(private _db:DatabaseService,private globalConfigService:GlobalConfigService){}
+    constructor(private _db: DatabaseService, private globalConfigService: GlobalConfigService) { }
 
-    async getAllRoleMenu(){
+    async getAllRoleMenu() {
         try {
             const allRoleMenu = await this._db.roleMenuMaster.findMany({
-                where : {
-                    status:'A'
+                where: {
+                    status: 'A'
                 }
             })
             return allRoleMenu;
@@ -22,13 +22,13 @@ export class RoleMenuService {
         }
     }
 
-    async createNewRoleMenu(payload){
+    async createNewRoleMenu(payload) {
         try {
             const existing = await this._db.roleMenuMaster.findFirst({
                 where: {
-                    MenuMasterSid:  payload.MenuMasterSid,
-                    RoleMasterSid : payload.RoleMasterSid,
-                    status:'A'
+                    MenuMasterSid: payload.MenuMasterSid,
+                    RoleMasterSid: payload.RoleMasterSid,
+                    status: 'A'
                 },
             });
 
@@ -36,7 +36,7 @@ export class RoleMenuService {
                 throw new BadRequestException('Role menu has been already created for the provided role and menu.');
             }
             const createdRoleMenu = await this._db.roleMenuMaster.create({
-                data :{
+                data: {
                     ...payload,
                 }
             })
@@ -46,14 +46,14 @@ export class RoleMenuService {
         }
     }
 
-    async fetchroleMenuById(RoleMenuMasterSid:number){
+    async fetchroleMenuById(RoleMenuMasterSid: number) {
         try {
-            const ourRoleMenu =await this._db.roleMenuMaster.findUnique({
-                where : {
-                    RoleMenuMasterSid:RoleMenuMasterSid
+            const ourRoleMenu = await this._db.roleMenuMaster.findUnique({
+                where: {
+                    RoleMenuMasterSid: RoleMenuMasterSid
                 }
             })
-            if(!ourRoleMenu){
+            if (!ourRoleMenu) {
                 throw new BadRequestException(`roleMenu with Id : ${RoleMenuMasterSid} not exists`);
             }
             return ourRoleMenu;
@@ -62,34 +62,34 @@ export class RoleMenuService {
         }
     }
 
-    async updateRoleMenuById(RoleMenuMasterSid:number,payload){
+    async updateRoleMenuById(RoleMenuMasterSid: number, payload) {
         try {
-             const exist =await this._db.roleMenuMaster.findUnique({
-                where : {
-                    RoleMenuMasterSid:RoleMenuMasterSid
+            const exist = await this._db.roleMenuMaster.findUnique({
+                where: {
+                    RoleMenuMasterSid: RoleMenuMasterSid
                 }
             })
 
             const existing = await this._db.roleMenuMaster.findFirst({
                 where: {
-                    MenuMasterSid:  payload.MenuMasterSid,
-                    RoleMasterSid : payload.RoleMasterSid,
-                    RoleMenuMasterSid : {not : RoleMenuMasterSid},
-                    status:'A'
+                    MenuMasterSid: payload.MenuMasterSid,
+                    RoleMasterSid: payload.RoleMasterSid,
+                    RoleMenuMasterSid: { not: RoleMenuMasterSid },
+                    status: 'A'
                 },
             });
 
             if (existing?.MenuMasterSid === payload.MenuMasterSid && existing?.RoleMasterSid === payload.RoleMasterSid) {
                 throw new BadRequestException('Role menu has been already created for the provided role and menu.');
             }
-            if(!exist){
+            if (!exist) {
                 throw new BadRequestException(`RoleMenu with Id : ${RoleMenuMasterSid} not exists`);
             }
             const updatedRoleMenu = this._db.roleMenuMaster.update({
-                where : {
-                    RoleMenuMasterSid : RoleMenuMasterSid
+                where: {
+                    RoleMenuMasterSid: RoleMenuMasterSid
                 },
-                data : payload
+                data: payload
             })
             return updatedRoleMenu;
         } catch (error) {
@@ -98,7 +98,7 @@ export class RoleMenuService {
     }
 
 
-    async deleteRoleMenu(RoleMenuMasterSid:number){
+    async deleteRoleMenu(RoleMenuMasterSid: number) {
         try {
             const exist = await this._db.roleMenuMaster.findUnique({
                 where: {
@@ -108,7 +108,7 @@ export class RoleMenuService {
             if (!exist) {
                 throw new BadRequestException(`RoleMenu with Id : ${RoleMenuMasterSid} not exists`);
             }
-            if (exist.status==='D') {
+            if (exist.status === 'D') {
                 throw new BadRequestException(`RoleMenu with Id :${RoleMenuMasterSid} is already deleted`)
             }
             const deletedRoleMenu = this._db.roleMenuMaster.update({
@@ -116,30 +116,30 @@ export class RoleMenuService {
                     RoleMenuMasterSid: RoleMenuMasterSid
                 },
                 data: {
-                   status:'D'
+                    status: 'D'
                 }
             })
             return deletedRoleMenu;
-        } catch(error) {
+        } catch (error) {
             throw error;
         }
     }
 
-    async searchRoleMenu(params: SearchVesselDto) {
+    async searchRoleMenu(params: filterDto) {
         const { search = '', page = 1, pageSize = 15 } = params;
         const skip = (page - 1) * pageSize;
-    
+
         const where: Prisma.RoleMenuMasterWhereInput = {
-            status : 'A',
+            status: 'A',
             OR: search ? [
-                { menuMaster:{MenuName : { contains : search, mode: 'insensitive' }}},
-                { roleMaster: {UserRoleName : { contains: search, mode: 'insensitive' }} },
+                { menuMaster: { MenuName: { contains: search, mode: 'insensitive' } } },
+                { roleMaster: { UserRoleName: { contains: search, mode: 'insensitive' } } },
                 ...(search.toLowerCase() === 'active' ? [{ status: 'A' }] : []),
                 ...(search.toLowerCase() === 'suspended' ? [{ status: 'S' }] : []),
-                 
+
             ] : undefined
         };
-    
+
         let items;
         let totalCount;
         [items, totalCount] = await this._db.$transaction([
@@ -147,21 +147,21 @@ export class RoleMenuService {
                 where,
                 skip,
                 take: pageSize,
-                orderBy: { menuMaster : {MenuName  : 'asc' }},
+                orderBy: { menuMaster: { MenuName: 'asc' } },
             }),
             this._db.roleMenuMaster.count({ where }),
         ]);
 
         items = await Promise.all(
-            items.map(async (item)=>{
-                const [menuMaster,roleMaster] = await Promise.all([
+            items.map(async (item) => {
+                const [menuMaster, roleMaster] = await Promise.all([
                     item.MenuMasterSid !== null ?
-                    this.globalConfigService.getMasterData('menu_master',item.MenuMasterSid) :
-                    { MenuMasterSid : null , MenuName : ''},
+                        this.globalConfigService.getMasterData('menu_master', item.MenuMasterSid) :
+                        { MenuMasterSid: null, MenuName: '' },
 
-                    item.RoleMasterSid !== null ? 
-                    this.globalConfigService.getMasterData('role_master',item.RoleMasterSid) :
-                    { RoleMasterSid : null , UserRoleName : ''},
+                    item.RoleMasterSid !== null ?
+                        this.globalConfigService.getMasterData('role_master', item.RoleMasterSid) :
+                        { RoleMasterSid: null, UserRoleName: '' },
                 ])
 
                 return {
@@ -171,15 +171,15 @@ export class RoleMenuService {
                 }
             })
         )
-    
+
         return {
             items,
             totalCount,
-        };  
+        };
     }
 
 
-    async searchRoleMenuByMenu(filterValue){
+    async searchRoleMenuByMenu(filterValue) {
         try {
             const allRoleMenu = await this._db.roleMenuMaster.findMany({
                 where: {
@@ -189,12 +189,12 @@ export class RoleMenuService {
                             mode: 'insensitive',
                         },
                     },
-                    status:'A',
+                    status: 'A',
                 },
                 include: {
-                    roleMaster : {
-                        select : {
-                            UserRoleName : true
+                    roleMaster: {
+                        select: {
+                            UserRoleName: true
                         }
                     },
                     menuMaster: {
@@ -214,15 +214,15 @@ export class RoleMenuService {
     async roleMenuSpecialSearch(data: any) {
         const { moduleName, role, remarks } = data;
         const whereClause: any = {
-            status:'A',
+            status: 'A',
         };
 
-        
+
         if (moduleName) whereClause.Module = moduleName;
         if (role) whereClause.RoleMasterSid = Number(role);
         if (remarks) whereClause.Remarks = { contains: remarks, mode: 'insensitive' };
 
-        
+
         const fetchedData = await this._db.roleMenuMaster.findMany({
             where: Object.keys(whereClause).length > 0 ? whereClause : undefined,
             include: {
@@ -238,23 +238,23 @@ export class RoleMenuService {
     }
 
     async getRoleMenuPermissions(menuId: number, roleId: number) {
-  try {
-    const roleMenu = await this._db.roleMenuMaster.findFirst({
-      where: {
-        MenuMasterSid: menuId,
-        RoleMasterSid: roleId,
-        status:'A'
-      }, 
-      select: {
-        MenuPermissions: true
-      }
-    });
- 
-    return roleMenu || { MenuPermissions: {} };
-  } catch (error) {
-    throw error;
-  }
-}
+        try {
+            const roleMenu = await this._db.roleMenuMaster.findFirst({
+                where: {
+                    MenuMasterSid: menuId,
+                    RoleMasterSid: roleId,
+                    status: 'A'
+                },
+                select: {
+                    MenuPermissions: true
+                }
+            });
+
+            return roleMenu || { MenuPermissions: {} };
+        } catch (error) {
+            throw error;
+        }
+    }
 
 }
 

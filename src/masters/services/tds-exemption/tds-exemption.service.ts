@@ -1,17 +1,17 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { DatabaseService } from 'src/database/database.service';
-import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
+import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 
 @Injectable()
 export class TdsExemptionService {
-    constructor(private _db:DatabaseService){}
+    constructor(private _db: DatabaseService) { }
 
-    async getAllTdsExemption(){
+    async getAllTdsExemption() {
         try {
             const allTdsExemption = await this._db.tDSExemption.findMany({
-                where : {
-                    status : 'A',
+                where: {
+                    status: 'A',
                 }
             })
             return allTdsExemption;
@@ -34,14 +34,14 @@ export class TdsExemptionService {
     }
 
 
-    async fetchTdsExemptionById(TDSExemptionSid:number){
+    async fetchTdsExemptionById(TDSExemptionSid: number) {
         try {
-            const ourTdsExemption =await this._db.tDSExemption.findUnique({
-                where : {
-                    TDSExemptionSid:TDSExemptionSid
+            const ourTdsExemption = await this._db.tDSExemption.findUnique({
+                where: {
+                    TDSExemptionSid: TDSExemptionSid
                 }
             })
-            if(!ourTdsExemption){
+            if (!ourTdsExemption) {
                 throw new BadRequestException(`TdsExemption with Id : ${TDSExemptionSid} not exists`);
             }
             return ourTdsExemption;
@@ -49,35 +49,35 @@ export class TdsExemptionService {
             throw error;
         }
     }
-    async fetchTdsExemptionByHeader(TDSSetHeaderSid:number){
+    async fetchTdsExemptionByHeader(TDSSetHeaderSid: number) {
         try {
-            const ourTdsExemption =await this._db.tDSExemption.findMany({
-                where : {
-                    TDSSetHeaderSid:TDSSetHeaderSid,
-                    status:'A',
+            const ourTdsExemption = await this._db.tDSExemption.findMany({
+                where: {
+                    TDSSetHeaderSid: TDSSetHeaderSid,
+                    status: 'A',
                 },
-                include : {
-                    vesselMaster : {
-                        select : {
-                            VesselName : true
+                include: {
+                    vesselMaster: {
+                        select: {
+                            VesselName: true
                         }
                     },
-                    customerCarrier : {
-                        select : {
-                            CustomerName : true,
+                    customerCarrier: {
+                        select: {
+                            CustomerName: true,
                         }
                     },
-                    customerTransporter : {
-                        select : {
-                            CustomerName : true,
+                    customerTransporter: {
+                        select: {
+                            CustomerName: true,
                         }
                     }
                 },
-                orderBy : {
-                    TDSExemptionSid : 'desc'
+                orderBy: {
+                    TDSExemptionSid: 'desc'
                 }
             })
-            if(!ourTdsExemption){
+            if (!ourTdsExemption) {
                 throw new BadRequestException(`TdsExemption with Header Id : ${TDSSetHeaderSid} not exists`);
             }
             return ourTdsExemption;
@@ -110,7 +110,7 @@ export class TdsExemptionService {
     }
 
 
-    async deleteTdsExemption(TDSExemptionSid:number){
+    async deleteTdsExemption(TDSExemptionSid: number) {
         try {
             const exist = await this._db.tDSExemption.findUnique({
                 where: {
@@ -120,7 +120,7 @@ export class TdsExemptionService {
             if (!exist) {
                 throw new BadRequestException(`TdsExemption with Id : ${TDSExemptionSid} not exists`);
             }
-            if (exist.status==='D') {
+            if (exist.status === 'D') {
                 throw new BadRequestException(`TdsExemption with Id :${TDSExemptionSid} is already deleted`)
             }
             const deletedTdsExemption = this._db.tDSExemption.update({
@@ -128,38 +128,38 @@ export class TdsExemptionService {
                     TDSExemptionSid: TDSExemptionSid
                 },
                 data: {
-                    status:'D'
+                    status: 'D'
                 }
             })
             return deletedTdsExemption;
-        } catch(error) {
+        } catch (error) {
             throw error;
         }
     }
 
 
-   async searchTdsExemption(params: SearchVesselDto) {
-    const { search = '', page = 1, pageSize = 15 } = params;
-    const skip = (page - 1) * pageSize;
-    const where : Prisma.TDSExemptionWhereInput = {
-        status: 'A',
-    };
+    async searchTdsExemption(params: filterDto) {
+        const { search = '', page = 1, pageSize = 15 } = params;
+        const skip = (page - 1) * pageSize;
+        const where: Prisma.TDSExemptionWhereInput = {
+            status: 'A',
+        };
 
-    const [items, totalCount] = await this._db.$transaction([
-        this._db.tDSExemption.findMany({
-            where,
-            skip,
-            take: pageSize,
-            orderBy: { TDSExemptionSid: 'desc' },
-        }),
-        this._db.tDSExemption.count({ where }),
-    ]);
+        const [items, totalCount] = await this._db.$transaction([
+            this._db.tDSExemption.findMany({
+                where,
+                skip,
+                take: pageSize,
+                orderBy: { TDSExemptionSid: 'desc' },
+            }),
+            this._db.tDSExemption.count({ where }),
+        ]);
 
-    return {
-        items,
-        totalCount,
-        currentPage: page,
-        totalPages: Math.ceil(totalCount / pageSize),
-    };
-}
+        return {
+            items,
+            totalCount,
+            currentPage: page,
+            totalPages: Math.ceil(totalCount / pageSize),
+        };
+    }
 }

@@ -3,7 +3,7 @@ import { Prisma } from '@prisma/client';
 import * as moment from 'moment-timezone';
 import { parseDateFromString } from 'src/common/helper';
 import { DatabaseService } from 'src/database/database.service';
-import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
+import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 
 @Injectable()
 export class EnquiryHeaderService {
@@ -32,13 +32,13 @@ export class EnquiryHeaderService {
                     CustomerAddressSid: Number(payload.CustomerBranchSid),
                     ShipmentExpectedDate: payload.shipmentDate,
                     ShipmentType: payload.Segment,
-                    CustomerAddress : payload.CustomerAddress,
-                    Email : payload.Email,
-                    EnquiryType : payload.EnquiryType,
-                    IncoTerms : payload.IncoTerms,
-                    ClearanceBy : payload.ClearanceBy,
-                    TransportBy : payload.TransportBy,
-                    Remarks : payload.Remarks,
+                    CustomerAddress: payload.CustomerAddress,
+                    Email: payload.Email,
+                    EnquiryType: payload.EnquiryType,
+                    IncoTerms: payload.IncoTerms,
+                    ClearanceBy: payload.ClearanceBy,
+                    TransportBy: payload.TransportBy,
+                    Remarks: payload.Remarks,
                     status: payload.status || "A",
                     CompanyMasterSid: payload.CompanyMasterSid,
                     BranchMasterSid: payload.BranchMasterSid,
@@ -46,7 +46,7 @@ export class EnquiryHeaderService {
                     createdBy: payload.createdBy,
                     EnquiryNumber: enquiryNumber,
                     EnquiryDate: new Date(),
-                    authorizerStatus : payload.authorizerStatus || "Pending"
+                    authorizerStatus: payload.authorizerStatus || "Pending"
                 };
 
                 const enquiryHeader = await prisma.enquiryHeader.create({
@@ -77,24 +77,24 @@ export class EnquiryHeaderService {
                         CompanyMasterSid: enquiryHeader.CompanyMasterSid,
                         BranchMasterSid: enquiryHeader.BranchMasterSid,
                         EnquiryHeaderSid: enquiryHeader.EnquiryHeaderSid,
-                        EnquiryRouteSid: enquiryRoute.EnquiryRouteSid, 
+                        EnquiryRouteSid: enquiryRoute.EnquiryRouteSid,
 
                         CargoType: cargo.CargoType,                     // LCL , FCL , AIR
                         ProductName: cargo.ProductName,                 // LCL , FCL , AIR
-                        CargoDescription : cargo.CargoDescription,      // LCL , FCL , AIR
-                        PackageType : cargo.PackageType,
-                        PackageQty : Number(cargo.PackageQty),
+                        CargoDescription: cargo.CargoDescription,      // LCL , FCL , AIR
+                        PackageType: cargo.PackageType,
+                        PackageQty: Number(cargo.PackageQty),
                         Qty: Number(cargo.Qty) || 0,                     // LCL , FCL
-                        WeightUnitSid : cargo.WeightUnitSid,            // LCL , FCL
+                        WeightUnitSid: cargo.WeightUnitSid,            // LCL , FCL
                         GrossWeight: parseFloat(cargo.GrossWeight) || 0,    // LCL , FCL
-                        NetWeight : parseFloat(cargo.NetWeight),            // LCL , FCL
-                        ShipmentTerms : cargo.ShipmentTerms,            // LCL , FCL
+                        NetWeight: parseFloat(cargo.NetWeight),            // LCL , FCL
+                        ShipmentTerms: cargo.ShipmentTerms,            // LCL , FCL
                         Volume: parseFloat(cargo.cbm),                      // LCL
                         ContainerType: cargo.ContainerType,             // FCL , AIR
-                        ChargeableWeight : cargo.ChargeableWeight,      // AIR
-                        length : Number(cargo.length),
-                        width : Number(cargo.width),
-                        height : Number(cargo.height),
+                        ChargeableWeight: cargo.ChargeableWeight,      // AIR
+                        length: Number(cargo.length),
+                        width: Number(cargo.width),
+                        height: Number(cargo.height),
                         createdBy: payload.createdBy
                     }))
                 );
@@ -108,17 +108,17 @@ export class EnquiryHeaderService {
                 const enquiryOther = payload.enquiryOther;
                 const enquiryOtherPayload = await prisma.enquiryOther.create({
                     data: {
-                        EnquiryHeaderSid : enquiryHeader.EnquiryHeaderSid,
-                        CompanyMasterSid : payload.CompanyMasterSid,
-                        BranchMasterSid : payload.BranchMasterSid,
+                        EnquiryHeaderSid: enquiryHeader.EnquiryHeaderSid,
+                        CompanyMasterSid: payload.CompanyMasterSid,
+                        BranchMasterSid: payload.BranchMasterSid,
                         ShipperName: enquiryOther.ShipperName,
                         ShipperAddress: enquiryOther.ShipperAddress,
                         ConsigneeName: enquiryOther.ConsigneeName,
                         ConsigneeAddress: enquiryOther.ConsigneeAddress,
                         FreightTerms: enquiryOther.FreightTerms,
-                        AdditionalService:enquiryOther.AdditionalService,
+                        AdditionalService: enquiryOther.AdditionalService,
                         PickupAddress: enquiryOther.PickupAddress,
-                        CreatedBy : payload.createdBy,
+                        CreatedBy: payload.createdBy,
                     }
                 })
 
@@ -140,13 +140,13 @@ export class EnquiryHeaderService {
 
 
 
-    async getAllEnquiries(CompanyMasterSid:number, BranchMasterSid:number) {
+    async getAllEnquiries(CompanyMasterSid: number, BranchMasterSid: number) {
         try {
             const enquiries = await this._db.enquiryHeader.findMany({
-                 where: {
-                CompanyMasterSid: CompanyMasterSid,
-                BranchMasterSid: BranchMasterSid
-            },
+                where: {
+                    CompanyMasterSid: CompanyMasterSid,
+                    BranchMasterSid: BranchMasterSid
+                },
                 include: {
                     enquiryRoute: {
                         include: {
@@ -177,7 +177,7 @@ export class EnquiryHeaderService {
                             enquiryCargo: true
                         }
                     },
-                   enquiryOther : true 
+                    enquiryOther: true
                 }
             });
         } catch (error) {
@@ -195,14 +195,14 @@ export class EnquiryHeaderService {
 
             if (payload.approvalStatusChange && payload.authorizerStatus !== "Pending") {
 
-                
+
 
                 const authorityDetail = await this._db.authorityDetail.findFirst({
                     where: {
                         CompanyMasterSid: payload.CompanyMasterSid,
                         BranchMasterSid: payload.BranchMasterSid,
                         UserMasterSid: payload.UserMasterSid,
-                        status : 'A',
+                        status: 'A',
                         authorityMaster: {
                             MenuMaster: payload.MenuMaster,
                             status: 'A',
@@ -234,7 +234,7 @@ export class EnquiryHeaderService {
                 if (authorityDetail.FinalAuthority === 'Y' || payload.authorizerStatus === "Rejected") {
 
                     await this._db.enquiryHeader.update({
-                        where: { EnquiryHeaderSid : enquiryHeaderSid },
+                        where: { EnquiryHeaderSid: enquiryHeaderSid },
                         data: {
                             authorizerStatus: payload.authorizerStatus,
                             AuthorizerRemarks: payload.AuthorizerRemarks,
@@ -248,13 +248,13 @@ export class EnquiryHeaderService {
                     CustomerName: payload.CustomerName,
                     ShipmentExpectedDate: payload.shipmentDate,
                     ShipmentType: payload.Segment,
-                    CustomerAddress : payload.CustomerAddress,
-                    Email : payload.Email,
-                    EnquiryType : payload.EnquiryType,
-                    IncoTerms : payload.IncoTerms,
-                    ClearanceBy : payload.ClearanceBy,
-                    TransportBy : payload.TransportBy,
-                    Remarks : payload.Remarks,
+                    CustomerAddress: payload.CustomerAddress,
+                    Email: payload.Email,
+                    EnquiryType: payload.EnquiryType,
+                    IncoTerms: payload.IncoTerms,
+                    ClearanceBy: payload.ClearanceBy,
+                    TransportBy: payload.TransportBy,
+                    Remarks: payload.Remarks,
                     status: statusUpdate,
                     updatedBy: payload.updatedBy,
                     updatedOn: new Date(),
@@ -312,14 +312,14 @@ export class EnquiryHeaderService {
                                     ProductName: cargoItem.ProductName,
                                     CargoDescription: cargoItem.CargoDescription,
                                     PackageType: cargoItem.PackageType,
-                                    PackageQty : Number(cargoItem.PackageQty),
+                                    PackageQty: Number(cargoItem.PackageQty),
                                     Qty: Number(cargoItem.Qty) || 0,
                                     WeightUnitSid: cargoItem.WeightUnitSid,
                                     GrossWeight: parseFloat(cargoItem.GrossWeight) || 0,
                                     NetWeight: parseFloat(cargoItem.NetWeight),
                                     ShipmentTerms: cargoItem.ShipmentTerms,
                                     Volume: parseFloat(cargoItem.cbm),
-                                    ChargeableWeight : cargoItem.ChargeableWeight,
+                                    ChargeableWeight: cargoItem.ChargeableWeight,
                                     ContainerType: cargoItem.ContainerType,
                                     length: Number(cargoItem.length),
                                     width: Number(cargoItem.width),
@@ -340,7 +340,7 @@ export class EnquiryHeaderService {
                                     ShipmentTerms: cargoItem.ShipmentTerms,
                                     Volume: parseFloat(cargoItem.cbm),
                                     ContainerType: cargoItem.ContainerType,
-                                    ChargeableWeight : cargoItem.ChargeableWeight,
+                                    ChargeableWeight: cargoItem.ChargeableWeight,
                                     length: Number(cargoItem.length),
                                     width: Number(cargoItem.width),
                                     height: Number(cargoItem.height),
@@ -357,43 +357,43 @@ export class EnquiryHeaderService {
                     }
                 }
             }
-            
+
             let finalOtherData;
             const enquiryOther = payload.enquiryOther;
-            if(enquiryOther?.EnquiryOtherSid){
+            if (enquiryOther?.EnquiryOtherSid) {
                 finalOtherData = await this._db.enquiryOther.update({
-                    where : {
-                        EnquiryOtherSid : enquiryOther?.EnquiryOtherSid,
-                        Status : 'A'
+                    where: {
+                        EnquiryOtherSid: enquiryOther?.EnquiryOtherSid,
+                        Status: 'A'
                     },
                     data: {
-                        EnquiryHeaderSid : updatedEnquiryHeader.EnquiryHeaderSid,
-                        CompanyMasterSid : payload.CompanyMasterSid,
-                        BranchMasterSid : payload.BranchMasterSid,
+                        EnquiryHeaderSid: updatedEnquiryHeader.EnquiryHeaderSid,
+                        CompanyMasterSid: payload.CompanyMasterSid,
+                        BranchMasterSid: payload.BranchMasterSid,
                         ShipperName: enquiryOther.ShipperName,
                         ShipperAddress: enquiryOther.ShipperAddress,
                         ConsigneeName: enquiryOther.ConsigneeName,
                         ConsigneeAddress: enquiryOther.ConsigneeAddress,
                         FreightTerms: enquiryOther.FreightTerms,
-                        AdditionalService:enquiryOther.AdditionalService,
+                        AdditionalService: enquiryOther.AdditionalService,
                         PickupAddress: enquiryOther.PickupAddress,
-                        UpdatedBy : payload.updatedBy,
+                        UpdatedBy: payload.updatedBy,
                     }
                 })
-            } else{
+            } else {
                 finalOtherData = await this._db.enquiryOther.create({
                     data: {
-                        EnquiryHeaderSid : updatedEnquiryHeader.EnquiryHeaderSid,
-                        CompanyMasterSid : payload.CompanyMasterSid,
-                        BranchMasterSid : payload.BranchMasterSid,
+                        EnquiryHeaderSid: updatedEnquiryHeader.EnquiryHeaderSid,
+                        CompanyMasterSid: payload.CompanyMasterSid,
+                        BranchMasterSid: payload.BranchMasterSid,
                         ShipperName: enquiryOther.ShipperName,
                         ShipperAddress: enquiryOther.ShipperAddress,
                         ConsigneeName: enquiryOther.ConsigneeName,
                         ConsigneeAddress: enquiryOther.ConsigneeAddress,
                         FreightTerms: enquiryOther.FreightTerms,
-                        AdditionalService:enquiryOther.AdditionalService,
+                        AdditionalService: enquiryOther.AdditionalService,
                         PickupAddress: enquiryOther.PickupAddress,
-                        CreatedBy : payload.updatedBy,
+                        CreatedBy: payload.updatedBy,
                     }
                 })
             }
@@ -405,7 +405,7 @@ export class EnquiryHeaderService {
                     updatedEnquiryHeader: updatedEnquiryHeader,
                     finalRouteData: finalRouteData, // Now an array
                     finalCargoData: finalCargoData,  // Now an array
-                    finalOtherData : finalOtherData,
+                    finalOtherData: finalOtherData,
                     authLogUpdate
                 }
             };
@@ -437,23 +437,23 @@ export class EnquiryHeaderService {
             throw new Error(`Enquiry with ID ${id} is already deleted`);
         }
         const deletedEnquiry = await this._db.enquiryHeader.update({
-            where : {EnquiryHeaderSid : id},
-            data : {status : 'D'}
+            where: { EnquiryHeaderSid: id },
+            data: { status: 'D' }
         })
 
         const deletedRoutes = await this._db.enquiryRoute.updateMany({
-            where : {EnquiryHeaderSid : id , status: 'D'},
-            data : { status:'D' }
+            where: { EnquiryHeaderSid: id, status: 'D' },
+            data: { status: 'D' }
         })
 
         const deletedCargos = await this._db.enquiryCargo.updateMany({
-            where : {EnquiryHeaderSid : id , status : 'D'},
-            data : { status : 'D'}
+            where: { EnquiryHeaderSid: id, status: 'D' },
+            data: { status: 'D' }
         })
 
         const deletedOthers = await this._db.enquiryOther.updateMany({
-            where : { EnquiryHeaderSid : id ,Status :'A'},
-            data : { Status : 'S'}
+            where: { EnquiryHeaderSid: id, Status: 'A' },
+            data: { Status: 'S' }
         })
 
 
@@ -466,11 +466,11 @@ export class EnquiryHeaderService {
         }
     }
 
-    async getAllDepartment(CompanyMasterSid:number) {
+    async getAllDepartment(CompanyMasterSid: number) {
         try {
             const customer = await this._db.departmentMaster.findMany({
-                where : {
-                    Status : 'A',
+                where: {
+                    Status: 'A',
                     CompanyMasterSid: CompanyMasterSid
                 }
             });
@@ -481,14 +481,14 @@ export class EnquiryHeaderService {
     }
 
 
-    async getAllCargoTypes(CompanyMasterSid:number) {
-       
+    async getAllCargoTypes(CompanyMasterSid: number) {
+
         try {
             const customer = await this._db.packageTypeMaster.findMany({
-                 where :{
-            CompanyMasterSid:CompanyMasterSid
+                where: {
+                    CompanyMasterSid: CompanyMasterSid
 
-        }
+                }
             });
             return customer;
         } catch (error) {
@@ -507,21 +507,21 @@ export class EnquiryHeaderService {
     }
 
 
-    async searchEnquiry(param:SearchVesselDto) {
-        const {search ='',page = 1 , pageSize = 10, activeCompanyId,activeBranchId } = param;
+    async searchEnquiry(param: filterDto) {
+        const { search = '', page = 1, pageSize = 10, activeCompanyId, activeBranchId } = param;
         const skip = (page - 1) * pageSize;
         const parsedDate = parseDateFromString(search);
         console.log(parsedDate);
-        const where : Prisma.EnquiryHeaderWhereInput = {
-            status : 'A',
-            CompanyMasterSid : activeCompanyId,
-            BranchMasterSid : activeBranchId,
+        const where: Prisma.EnquiryHeaderWhereInput = {
+            status: 'A',
+            CompanyMasterSid: activeCompanyId,
+            BranchMasterSid: activeBranchId,
             ...(search ?
                 {
-                    OR : [
-                        { EnquiryNumber : {contains : search , mode : 'insensitive'} },
-                        { CustomerName : {contains : search , mode : 'insensitive' }},
-                        { departmentMaster : {departmentName : {contains : search , mode : 'insensitive'}}},
+                    OR: [
+                        { EnquiryNumber: { contains: search, mode: 'insensitive' } },
+                        { CustomerName: { contains: search, mode: 'insensitive' } },
+                        { departmentMaster: { departmentName: { contains: search, mode: 'insensitive' } } },
                         ...(parsedDate
                             ? [{ ShipmentExpectedDate: { equals: parsedDate } }]
                             : []),
@@ -543,15 +543,15 @@ export class EnquiryHeaderService {
         ]);
 
         items = await Promise.all(
-            items.map(async (item)=>{
+            items.map(async (item) => {
                 const quote = await this._db.quoteHeader.findFirst({
-                    where :{
-                        EnquirySid : item.EnquiryHeaderSid
+                    where: {
+                        EnquirySid: item.EnquiryHeaderSid
                     }
                 })
                 return {
                     ...item,
-                    quoteNo : quote?.QuoteNumber
+                    quoteNo: quote?.QuoteNumber
                 }
             })
         )
@@ -563,19 +563,19 @@ export class EnquiryHeaderService {
     }
 
     async getAuditLogs(tableName: string, recordId?: string) {
-    try {
-      const whereClause: any = { tableName };
-      if (recordId) whereClause.recordId = recordId;
+        try {
+            const whereClause: any = { tableName };
+            if (recordId) whereClause.recordId = recordId;
 
-      const logs = await this._db.auditLog.findMany({
-        where: whereClause,
-        orderBy: { changedAt: 'desc' },
-      });
+            const logs = await this._db.auditLog.findMany({
+                where: whereClause,
+                orderBy: { changedAt: 'desc' },
+            });
 
-      return logs;
-    } catch (error) {
-      this.logger.warn(`getAuditLogsError: ${error}`);
-      throw new Error(`Error fetching audit logs: ${error.message}`);
+            return logs;
+        } catch (error) {
+            this.logger.warn(`getAuditLogsError: ${error}`);
+            throw new Error(`Error fetching audit logs: ${error.message}`);
+        }
     }
-  }
 }

@@ -3,10 +3,10 @@ import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
 import { UserData } from 'src/common/decorators/user.decorator';
 import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
-import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
+import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 import { DivisionService } from 'src/masters/services/division/division.service';
 class CompanyIdDto {
-  CompanyMasterSid: number;
+    CompanyMasterSid: number;
 }
 @Controller('division')
 export class DivisionController {
@@ -19,7 +19,7 @@ export class DivisionController {
     })
     @HttpCode(HttpStatus.OK)
     @Post('create')
-    async createNewDivision(@Body() body: any,@UserData() user: any) {
+    async createNewDivision(@Body() body: any, @UserData() user: any) {
         this.logger.log(`createNewDivision: ${JSON.stringify(body)}`)
         let resp = new ResponseData();
         try {
@@ -153,7 +153,7 @@ export class DivisionController {
     })
     @HttpCode(HttpStatus.OK)
     @Post("search-list")
-    async searchDivision(@Body() seachParams: SearchVesselDto) {
+    async searchDivision(@Body() seachParams: filterDto) {
         const resp = new ResponseData();
         try {
             const res = await this.divisionService.searchDivisionNew(seachParams);
@@ -172,34 +172,34 @@ export class DivisionController {
         return resp;
     }
     @ApiOperation({ summary: 'Get Audit Logs for a Table/Record' })
-      @ApiCreatedResponse({ description: 'Fetch audit logs', type: ResponseData })
-      @HttpCode(HttpStatus.OK)
-      @Get('audit-logs')
-      async getAuditLogs(
+    @ApiCreatedResponse({ description: 'Fetch audit logs', type: ResponseData })
+    @HttpCode(HttpStatus.OK)
+    @Get('audit-logs')
+    async getAuditLogs(
         @Query('tableName') tableName: string,
         @Query('recordId') recordId?: string,
-      ) {
+    ) {
         const resp = new ResponseData();
         try {
-          if (!tableName) throw new Error('tableName query parameter is required');
-    
-          const logs = await this.divisionService.getAuditLogs(tableName, recordId);
-    
-          // Remove updatedOn from oldVal and newVal
-          resp.data = logs.map((log: any) => {
-            const oldVal = log.oldVal ? { ...log.oldVal } : null;
-            const newVal = log.newVal ? { ...log.newVal } : null;
-            if (oldVal && 'updatedOn' in oldVal) delete oldVal.updatedOn;
-            if (newVal && 'updatedOn' in newVal) delete newVal.updatedOn;
-            return { ...log, oldVal, newVal };
-          });
-    
-          resp.message = 'Audit logs fetched successfully';
+            if (!tableName) throw new Error('tableName query parameter is required');
+
+            const logs = await this.divisionService.getAuditLogs(tableName, recordId);
+
+            // Remove updatedOn from oldVal and newVal
+            resp.data = logs.map((log: any) => {
+                const oldVal = log.oldVal ? { ...log.oldVal } : null;
+                const newVal = log.newVal ? { ...log.newVal } : null;
+                if (oldVal && 'updatedOn' in oldVal) delete oldVal.updatedOn;
+                if (newVal && 'updatedOn' in newVal) delete newVal.updatedOn;
+                return { ...log, oldVal, newVal };
+            });
+
+            resp.message = 'Audit logs fetched successfully';
         } catch (error) {
-          this.logger.warn(`getAuditLogsError: ${error}`);
-          resp.status = false;
-          resp.message = error.message || 'Internal Server Error';
+            this.logger.warn(`getAuditLogsError: ${error}`);
+            resp.status = false;
+            resp.message = error.message || 'Internal Server Error';
         }
         return resp;
-      }
+    }
 }

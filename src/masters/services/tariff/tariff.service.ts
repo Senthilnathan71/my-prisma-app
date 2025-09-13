@@ -3,11 +3,11 @@ import { Prisma } from '@prisma/client';
 import { GlobalConfigService } from 'src/common/config/master-config.service';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
-import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
+import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 
 @Injectable()
 export class TariffService {
-    constructor(private _db: DatabaseService, private logger: Logger,private globalConfigService:GlobalConfigService) { }
+    constructor(private _db: DatabaseService, private logger: Logger, private globalConfigService: GlobalConfigService) { }
 
     async createNewTariff(newData: any) {
 
@@ -17,8 +17,8 @@ export class TariffService {
                     { POLSid: newData.POLSid },
                     { PODSid: newData.PODSid },
                     { DepartmentMasterSid: newData.DepartmentMasterSid },
-                    { CompanyMasterSid : newData.CompanyMasterSid},
-                    { status:'A' }
+                    { CompanyMasterSid: newData.CompanyMasterSid },
+                    { status: 'A' }
                 ]
             },
         });
@@ -32,7 +32,7 @@ export class TariffService {
             let createdTariff = await this._db.tariffHeader.create({
                 data: {
                     ...newData,
-                    CompanyMasterSid : newData.CompanyMasterSid
+                    CompanyMasterSid: newData.CompanyMasterSid
                 }
             })
             return createdTariff;
@@ -45,13 +45,13 @@ export class TariffService {
         try {
             let allTariff = await this._db.tariffHeader.findMany({
                 where: {
-                    status:'A',
+                    status: 'A',
                     CompanyMasterSid: CompanyMasterSid
                 },
-                include : {
-                    departmentMaster:{
-                        select:{
-                            departmentName:true
+                include: {
+                    departmentMaster: {
+                        select: {
+                            departmentName: true
                         }
                     }
                 }
@@ -87,10 +87,10 @@ export class TariffService {
                 where: {
                     POLSid: updateData.POLSid,
                     PODSid: updateData.PODSid,
-                    DepartmentMasterSid : updateData.DepartmentMasterSid,
+                    DepartmentMasterSid: updateData.DepartmentMasterSid,
                     CompanyMasterSid: updateData.CompanyMasterSid,
                     TariffHeaderSid: { not: TariffHeaderSid },
-                    status:'A'
+                    status: 'A'
                 },
             });
 
@@ -130,31 +130,31 @@ export class TariffService {
             if (!exists) {
                 throw new BadRequestException(`Tariff with id : ${TariffHeaderSid} not exists`);
             }
-            if (exists.status==='D') {
+            if (exists.status === 'D') {
                 throw new BadRequestException(`Tariff with id : ${TariffHeaderSid} is already deleted`);
             }
 
-            const result = await this._db.$transaction(async (prisma)=>{
+            const result = await this._db.$transaction(async (prisma) => {
                 let deletedTariff = await prisma.tariffHeader.update({
                     where: {
                         TariffHeaderSid: TariffHeaderSid
                     },
                     data: {
-                        status:'D'
+                        status: 'D'
                     }
                 })
                 let deletedTariffDetail = await prisma.tariffDetail.updateManyAndReturn({
-                    where : {
-                        TariffHeaderSid : TariffHeaderSid,
-                        status:'D'
+                    where: {
+                        TariffHeaderSid: TariffHeaderSid,
+                        status: 'D'
                     },
-                    data : {
-                        status:'D'
+                    data: {
+                        status: 'D'
                     }
                 })
                 return {
                     deletedTariff,
-                    tariffDetail : deletedTariffDetail
+                    tariffDetail: deletedTariffDetail
                 }
             })
             return result;
@@ -198,22 +198,22 @@ export class TariffService {
         const searchResults = await this._db.tariffHeader.findMany({
             where: {
                 ...whereClause,
-                status:'A'
+                status: 'A'
             },
-            include : {
-                departmentMaster:{
-                    select:{
-                        departmentName:true,
+            include: {
+                departmentMaster: {
+                    select: {
+                        departmentName: true,
                     }
                 },
-                customerCarrier:{
-                    select:{
-                        CustomerName:true
+                customerCarrier: {
+                    select: {
+                        CustomerName: true
                     }
                 },
-                customerAgent:{
-                    select:{
-                        CustomerName:true
+                customerAgent: {
+                    select: {
+                        CustomerName: true
                     }
                 }
             }
@@ -223,21 +223,21 @@ export class TariffService {
         return searchResults;
     }
 
-    async searchTariffNew(params: SearchVesselDto) {
-        const { search='',page=1,pageSize=15, activeCompanyId} = params;
-        const skip = (page-1)*pageSize;
+    async searchTariffNew(params: filterDto) {
+        const { search = '', page = 1, pageSize = 15, activeCompanyId } = params;
+        const skip = (page - 1) * pageSize;
 
         const where: Prisma.TariffHeaderWhereInput = {
             status: 'A',
-            CompanyMasterSid : activeCompanyId,
+            CompanyMasterSid: activeCompanyId,
             ...(search
                 ? {
                     OR: [
-                        { departmentMaster: { departmentName: { contains: search, mode: 'insensitive'}}},
-                        { POLTerminal: { contains: search, mode: 'insensitive'}},
-                        { PODTerminal: { contains: search, mode: 'insensitive'}},
-                        { customerCarrier: { CustomerName: { contains: search, mode: 'insensitive'}}},
-                        { customerAgent: { CustomerName: { contains: search, mode: 'insensitive'}}},
+                        { departmentMaster: { departmentName: { contains: search, mode: 'insensitive' } } },
+                        { POLTerminal: { contains: search, mode: 'insensitive' } },
+                        { PODTerminal: { contains: search, mode: 'insensitive' } },
+                        { customerCarrier: { CustomerName: { contains: search, mode: 'insensitive' } } },
+                        { customerAgent: { CustomerName: { contains: search, mode: 'insensitive' } } },
                     ],
                 }
                 : {}
@@ -246,61 +246,61 @@ export class TariffService {
 
         let items;
         let totalCount;
-        [items,totalCount] = await this._db.$transaction([
+        [items, totalCount] = await this._db.$transaction([
             this._db.tariffHeader.findMany({
                 where,
                 skip,
                 take: pageSize,
-                orderBy: { TariffHeaderSid: 'desc'},
+                orderBy: { TariffHeaderSid: 'desc' },
             }),
-            this._db.tariffHeader.count({where}),
+            this._db.tariffHeader.count({ where }),
         ]);
 
         items = await Promise.all(
-            items.map(async (item)=> {
-                const [departmentMaster , customerCarrier , customerAgent] = await Promise.all([
+            items.map(async (item) => {
+                const [departmentMaster, customerCarrier, customerAgent] = await Promise.all([
                     item.DepartmentMasterSid !== null ?
-                    this.globalConfigService.getMasterData('department_master',item.DepartmentMasterSid) : 
-                    { DepartmentMasterSid : null , departmentName : ''},
+                        this.globalConfigService.getMasterData('department_master', item.DepartmentMasterSid) :
+                        { DepartmentMasterSid: null, departmentName: '' },
 
                     item.Carrier !== null ?
-                    this.globalConfigService.getMasterData('customer_master',item.Carrier) :
-                    { CustomerMasterSid : null , CustomerName : ''},
+                        this.globalConfigService.getMasterData('customer_master', item.Carrier) :
+                        { CustomerMasterSid: null, CustomerName: '' },
 
                     item.AgentSid !== null ?
-                    this.globalConfigService.getMasterData('customer_master',item.AgentSid) :
-                    { CustomerMasterSid : null , CustomerName : ''},
+                        this.globalConfigService.getMasterData('customer_master', item.AgentSid) :
+                        { CustomerMasterSid: null, CustomerName: '' },
 
                 ])
 
                 return {
-                    ...item ,
+                    ...item,
                     departmentMaster,
                     customerCarrier,
                     customerAgent
                 }
             })
         )
-        
+
         return {
             items,
             totalCount,
         }
     }
     async getAuditLogs(tableName: string, recordId?: string) {
-    try {
-      const whereClause: any = { tableName };
-      if (recordId) whereClause.recordId = recordId;
+        try {
+            const whereClause: any = { tableName };
+            if (recordId) whereClause.recordId = recordId;
 
-      const logs = await this._db.auditLog.findMany({
-        where: whereClause,
-        orderBy: { changedAt: 'desc' },
-      });
+            const logs = await this._db.auditLog.findMany({
+                where: whereClause,
+                orderBy: { changedAt: 'desc' },
+            });
 
-      return logs;
-    } catch (error) {
-      this.logger.warn(`getAuditLogsError: ${error}`);
-      throw new Error(`Error fetching audit logs: ${error.message}`);
+            return logs;
+        } catch (error) {
+            this.logger.warn(`getAuditLogsError: ${error}`);
+            throw new Error(`Error fetching audit logs: ${error.message}`);
+        }
     }
-  }
 }

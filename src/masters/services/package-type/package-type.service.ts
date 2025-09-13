@@ -1,17 +1,17 @@
-import { BadRequestException, Injectable,Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
-import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
+import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 
 @Injectable()
 export class PackageTypeService {
-  constructor(private _db: DatabaseService, private logger: Logger) {}
+  constructor(private _db: DatabaseService, private logger: Logger) { }
 
   async createPackageType(newData: any) {
     try {
       const newlyAddedPackageType = await this._db.packageTypeMaster.create({
-        data: { ...newData,  },
+        data: { ...newData, },
       });
       return newlyAddedPackageType;
     } catch (error) {
@@ -24,7 +24,7 @@ export class PackageTypeService {
       const allPackageTypes = await this._db.packageTypeMaster.findMany({
         where: {
           CompanyMasterSid: CompanyMasterSid,
-          status:"A"
+          status: "A"
         },
       });
       return allPackageTypes;
@@ -84,7 +84,7 @@ export class PackageTypeService {
       if (!existing) {
         throw new BadRequestException(`Package Type with id : ${id} not exist`);
       }
-      if (existing.status==="D") {
+      if (existing.status === "D") {
         throw new BadRequestException(
           `Package Type with id : ${id} is already deleted`,
         );
@@ -94,7 +94,7 @@ export class PackageTypeService {
           PackageTypeMasterSid: id,
         },
         data: {
-          status:"D",
+          status: "D",
         },
       });
       return deletedData;
@@ -116,7 +116,7 @@ export class PackageTypeService {
             contains: filterValue,
             mode: 'insensitive',
           },
-          status:"A"
+          status: "A"
         },
       })
       .catch((err) => {
@@ -125,33 +125,33 @@ export class PackageTypeService {
     return searchResults;
   }
 
-  async searchPackageTypeNew(params:SearchVesselDto) {
-    const {search='',page=1,pageSize=15,activeCompanyId}=params;
-    const skip = (page-1)*pageSize;
+  async searchPackageTypeNew(params: filterDto) {
+    const { search = '', page = 1, pageSize = 15, activeCompanyId } = params;
+    const skip = (page - 1) * pageSize;
 
     const where: Prisma.PackageTypeMasterWhereInput = {
-     
+
       status: 'A',
-     CompanyMasterSid : activeCompanyId,
+      CompanyMasterSid: activeCompanyId,
       ...(search
         ? {
-          OR:[
-            { PackageName: { contains: search, mode:'insensitive'}},
-            { PackageCode: { contains: search, mode:'insensitive'}},
+          OR: [
+            { PackageName: { contains: search, mode: 'insensitive' } },
+            { PackageCode: { contains: search, mode: 'insensitive' } },
           ],
         }
         : {}
       ),
     };
 
-    const [items,totalCount ] = await this._db.$transaction([
+    const [items, totalCount] = await this._db.$transaction([
       this._db.packageTypeMaster.findMany({
         where,
         skip,
         take: pageSize,
-        orderBy: { PackageTypeMasterSid: 'desc'},
+        orderBy: { PackageTypeMasterSid: 'desc' },
       }),
-      this._db.packageTypeMaster.count({where}),
+      this._db.packageTypeMaster.count({ where }),
     ]);
 
     return {
@@ -159,7 +159,7 @@ export class PackageTypeService {
       totalCount,
     };
   }
-    async getAuditLogs(tableName: string, recordId?: string) {
+  async getAuditLogs(tableName: string, recordId?: string) {
     try {
       const whereClause: any = { tableName };
       if (recordId) whereClause.recordId = recordId;

@@ -3,18 +3,18 @@ import { Prisma } from '@prisma/client';
 import { GlobalConfigService } from 'src/common/config/master-config.service';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
-import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
+import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 
 @Injectable()
 export class ChargeGroupService {
-    constructor(private _db: DatabaseService,private globalConfigService:GlobalConfigService, private logger: Logger) { }
+    constructor(private _db: DatabaseService, private globalConfigService: GlobalConfigService, private logger: Logger) { }
 
     async createNewChargeGroup(newData: any) {
         try {
             const newlyCreated = await this._db.chargeGroup.create({
                 data: {
                     ...newData,
-                    status: 'A' ,
+                    status: 'A',
                     CompanyMasterSid: Number(newData.CompanyMasterSid)
                 }
             });
@@ -28,7 +28,7 @@ export class ChargeGroupService {
         try {
             const allGroups = await this._db.chargeGroup.findMany({
                 where: {
-                    status:"A",
+                    status: "A",
                     CompanyMasterSid: CompanyMasterSid
                 },
                 include: {
@@ -92,7 +92,7 @@ export class ChargeGroupService {
             if (!exist) {
                 throw new BadRequestException(`Charge group with id: ${ChargeGroupSid} does not exist`);
             }
-            if (exist.status==="D") {
+            if (exist.status === "D") {
                 throw new BadRequestException(`Charge group with id: ${ChargeGroupSid} is already deleted`);
             }
             const deleted = await this._db.chargeGroup.update({
@@ -100,7 +100,7 @@ export class ChargeGroupService {
                     ChargeGroupSid: ChargeGroupSid
                 },
                 data: {
-                    status:"D"
+                    status: "D"
                 }
             });
             return deleted;
@@ -109,14 +109,14 @@ export class ChargeGroupService {
         }
     }
 
-    async searchChargeGroups(params: SearchVesselDto) {
+    async searchChargeGroups(params: filterDto) {
         const { search = '', page = 1, pageSize = 15, activeCompanyId } = params;
         const skip = (page - 1) * pageSize;
 
         const where: Prisma.ChargeGroupWhereInput = {
-           
+
             status: 'A',
-             CompanyMasterSid : activeCompanyId,
+            CompanyMasterSid: activeCompanyId,
             ...(search
                 ? {
                     OR: [
@@ -160,25 +160,25 @@ export class ChargeGroupService {
         );
 
         return {
-            items : [...enrichedItems],
+            items: [...enrichedItems],
             totalCount,
         };
     }
 
     async getAuditLogs(tableName: string, recordId?: string) {
-    try {
-      const whereClause: any = { tableName };
-      if (recordId) whereClause.recordId = recordId;
+        try {
+            const whereClause: any = { tableName };
+            if (recordId) whereClause.recordId = recordId;
 
-      const logs = await this._db.auditLog.findMany({
-        where: whereClause,
-        orderBy: { changedAt: 'desc' },
-      });
+            const logs = await this._db.auditLog.findMany({
+                where: whereClause,
+                orderBy: { changedAt: 'desc' },
+            });
 
-      return logs;
-    } catch (error) {
-      this.logger.warn(`getAuditLogsError: ${error}`);
-      throw new Error(`Error fetching audit logs: ${error.message}`);
+            return logs;
+        } catch (error) {
+            this.logger.warn(`getAuditLogsError: ${error}`);
+            throw new Error(`Error fetching audit logs: ${error.message}`);
+        }
     }
-  }
 }

@@ -19,7 +19,7 @@ import { Auth } from 'src/common/decorators/auth.decorator';
 import { UserData } from 'src/common/decorators/user.decorator';
 import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
-import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
+import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 import { SectorService } from 'src/masters/services/sector/sector.service';
 
 @Controller('sector')
@@ -28,7 +28,7 @@ export class SectorController {
   constructor(
     private sectorService: SectorService,
     private logger: Logger,
-  ) {}
+  ) { }
 
   @ApiOperation({ summary: 'Sector Creation' })
   @ApiCreatedResponse({
@@ -131,7 +131,7 @@ export class SectorController {
   async editSector(
     @Param('id', ParseIntPipe) id: number,
     @Body() body: any,
-   
+
   ) {
     this.logger.log(`editSectorBody: ${JSON.stringify(body)}`);
     let output = new ResponseData();
@@ -183,7 +183,7 @@ export class SectorController {
   })
   @HttpCode(HttpStatus.OK)
   @Post('search-list')
-  async searchSectorNew(@Body() searchParams: SearchVesselDto) {
+  async searchSectorNew(@Body() searchParams: filterDto) {
     const resp = new ResponseData();
     try {
       const res = await this.sectorService.searchSectorNew(searchParams);
@@ -206,34 +206,34 @@ export class SectorController {
   }
 
   @ApiOperation({ summary: 'Get Audit Logs for a Table/Record' })
-    @ApiCreatedResponse({ description: 'Fetch audit logs', type: ResponseData })
-    @HttpCode(HttpStatus.OK)
-    @Get('audit-logs')
-    async getAuditLogs(
-      @Query('tableName') tableName: string,
-      @Query('recordId') recordId?: string,
-    ) {
-      const resp = new ResponseData();
-      try {
-        if (!tableName) throw new Error('tableName query parameter is required');
-  
-        const logs = await this.sectorService.getAuditLogs(tableName, recordId);
-  
-        // Remove updatedOn from oldVal and newVal
-        resp.data = logs.map((log: any) => {
-          const oldVal = log.oldVal ? { ...log.oldVal } : null;
-          const newVal = log.newVal ? { ...log.newVal } : null;
-          if (oldVal && 'updatedOn' in oldVal) delete oldVal.updatedOn;
-          if (newVal && 'updatedOn' in newVal) delete newVal.updatedOn;
-          return { ...log, oldVal, newVal };
-        });
-  
-        resp.message = 'Audit logs fetched successfully';
-      } catch (error) {
-        this.logger.warn(`getAuditLogsError: ${error}`);
-        resp.status = false;
-        resp.message = error.message || 'Internal Server Error';
-      }
-      return resp;
+  @ApiCreatedResponse({ description: 'Fetch audit logs', type: ResponseData })
+  @HttpCode(HttpStatus.OK)
+  @Get('audit-logs')
+  async getAuditLogs(
+    @Query('tableName') tableName: string,
+    @Query('recordId') recordId?: string,
+  ) {
+    const resp = new ResponseData();
+    try {
+      if (!tableName) throw new Error('tableName query parameter is required');
+
+      const logs = await this.sectorService.getAuditLogs(tableName, recordId);
+
+      // Remove updatedOn from oldVal and newVal
+      resp.data = logs.map((log: any) => {
+        const oldVal = log.oldVal ? { ...log.oldVal } : null;
+        const newVal = log.newVal ? { ...log.newVal } : null;
+        if (oldVal && 'updatedOn' in oldVal) delete oldVal.updatedOn;
+        if (newVal && 'updatedOn' in newVal) delete newVal.updatedOn;
+        return { ...log, oldVal, newVal };
+      });
+
+      resp.message = 'Audit logs fetched successfully';
+    } catch (error) {
+      this.logger.warn(`getAuditLogsError: ${error}`);
+      resp.status = false;
+      resp.message = error.message || 'Internal Server Error';
     }
+    return resp;
+  }
 }

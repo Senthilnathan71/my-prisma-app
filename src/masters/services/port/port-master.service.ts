@@ -7,12 +7,12 @@ import { Prisma } from '@prisma/client';
 import { GlobalConfigService } from 'src/common/config/master-config.service';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
-import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
+import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 
 @Injectable()
 export class PortService {
   logger: any;
-  constructor(private _db: DatabaseService,private globalConfigService:GlobalConfigService) {}
+  constructor(private _db: DatabaseService, private globalConfigService: GlobalConfigService) { }
 
   async createPort(payload) {
     // this.logger.warn(`createPortUser: ${payload}`);
@@ -77,10 +77,10 @@ export class PortService {
           },
         },
         where: {
-        status:"A"
+          status: "A"
         },
-        orderBy :{
-          PortName : 'asc'
+        orderBy: {
+          PortName: 'asc'
         }
       });
       return port;
@@ -120,12 +120,12 @@ export class PortService {
 
   async updatePort(PortMasterSid: number, payload) {
     const existing = await this._db.portMaster.findUnique({
-      where :{
-        PortMasterSid:PortMasterSid
+      where: {
+        PortMasterSid: PortMasterSid
       }
     });
 
-    if(!existing) {
+    if (!existing) {
       throw new BadRequestException(`Port Master with Id : ${PortMasterSid} not exists`)
     }
 
@@ -153,14 +153,14 @@ export class PortService {
       throw new NotFoundException(`Port with ID ${id} not found`);
     }
 
-    if (existingPort.status==="D") {
+    if (existingPort.status === "D") {
       throw new Error(`Port with ID ${id} is already deleted`);
     }
 
     // Perform soft delete by updating deletedAt field
     return this._db.portMaster.update({
       where: { PortMasterSid: id },
-      data: { status:"D"},
+      data: { status: "D" },
     });
   }
 
@@ -189,20 +189,20 @@ export class PortService {
             contains: filterValue,
             mode: 'insensitive',
           },
-         status:"A"
+          status: "A"
         },
-        include : {
-          countryMaster:{
-            select:{
-              countryName:true
+        include: {
+          countryMaster: {
+            select: {
+              countryName: true
             }
           },
-          sectorMaster:{
-            select:{
-              sectorName:true
+          sectorMaster: {
+            select: {
+              sectorName: true
             }
           },
-          
+
         }
       })
       .catch((err) => {
@@ -211,24 +211,24 @@ export class PortService {
     return searchResults;
   }
 
-  async searchPortNew(params: SearchVesselDto) {
-    const { search = '',page=1,pageSize=15} = params;
-    const skip = (page-1)*pageSize;
+  async searchPortNew(params: filterDto) {
+    const { search = '', page = 1, pageSize = 15 } = params;
+    const skip = (page - 1) * pageSize;
 
     const where: Prisma.PortMasterWhereInput = {
-    
+
       status: 'A',
       ...(search
         ? {
           OR: [
-            { PortName: { contains: search, mode: 'insensitive'}},
-            { PortCode: { contains: search,mode:'insensitive'}},
-            { countryMaster: { countryName: { contains: search, mode: 'insensitive'}}},
-            { sectorMaster: { sectorName: { contains: search, mode: 'insensitive'}}},
-            { stateMaster: { stateName: { contains: search, mode: 'insensitive'}}},
-            { zoneMaster: { ZoneName: { contains: search, mode: 'insensitive'}}},
-            { PortType: {contains:search, mode:'insensitive'}},
-            { TerminalCode: {contains: search, mode: 'insensitive'}},
+            { PortName: { contains: search, mode: 'insensitive' } },
+            { PortCode: { contains: search, mode: 'insensitive' } },
+            { countryMaster: { countryName: { contains: search, mode: 'insensitive' } } },
+            { sectorMaster: { sectorName: { contains: search, mode: 'insensitive' } } },
+            { stateMaster: { stateName: { contains: search, mode: 'insensitive' } } },
+            { zoneMaster: { ZoneName: { contains: search, mode: 'insensitive' } } },
+            { PortType: { contains: search, mode: 'insensitive' } },
+            { TerminalCode: { contains: search, mode: 'insensitive' } },
           ],
         }
         : {}
@@ -237,43 +237,43 @@ export class PortService {
 
     let items;
     let totalCount;
-    [items,totalCount] = await this._db.$transaction([
+    [items, totalCount] = await this._db.$transaction([
       this._db.portMaster.findMany({
         where,
         skip,
         take: pageSize,
-        orderBy: { PortMasterSid: 'desc'},
+        orderBy: { PortMasterSid: 'desc' },
       }),
-      this._db.portMaster.count({where}),
+      this._db.portMaster.count({ where }),
     ]);
 
     items = await Promise.all(items.map(async (item) => {
 
-        const [countryMaster,sectorMaster] = await Promise.all([
-          item.CountryMasterSid != null ? 
-          this.globalConfigService.getMasterData('country_master',item.CountryMasterSid,item.CompanyMasterSid) : 
+      const [countryMaster, sectorMaster] = await Promise.all([
+        item.CountryMasterSid != null ?
+          this.globalConfigService.getMasterData('country_master', item.CountryMasterSid, item.CompanyMasterSid) :
           { CountryMasterSid: null, countryName: '' },
 
-          item.ZoneMasterSid != null ? 
-          this.globalConfigService.getMasterData('zone_master',item.ZoneMasterSid,item.CompanyMasterSid) : 
+        item.ZoneMasterSid != null ?
+          this.globalConfigService.getMasterData('zone_master', item.ZoneMasterSid, item.CompanyMasterSid) :
           { ZoneMasterSid: null, zoneName: '' },
-        ]);
+      ]);
 
-        return {
-          ...item,
-          countryMaster,
-          sectorMaster,
-        };
-      })
+      return {
+        ...item,
+        countryMaster,
+        sectorMaster,
+      };
+    })
     );
 
- 
+
     return {
       items,
       totalCount,
     }
   }
-    async getAuditLogs(tableName: string, recordId?: string) {
+  async getAuditLogs(tableName: string, recordId?: string) {
     try {
       const whereClause: any = { tableName };
       if (recordId) whereClause.recordId = recordId;

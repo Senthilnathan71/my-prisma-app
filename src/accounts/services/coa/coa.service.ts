@@ -1,18 +1,18 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { DatabaseService } from 'src/database/database.service';
-import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
+import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 
 @Injectable()
 export class CoaService {
-    constructor(private _db:DatabaseService, private logger: Logger){}
+    constructor(private _db: DatabaseService, private logger: Logger) { }
 
-    async getAllCoa(CompanyMasterSid:number){
+    async getAllCoa(CompanyMasterSid: number) {
         try {
             const allCoa = await this._db.cOAMaster.findMany({
-                where : {
-                  
-                    Status : 'A',
+                where: {
+
+                    Status: 'A',
                     CompanyMasterSid: CompanyMasterSid
                 }
             })
@@ -22,12 +22,12 @@ export class CoaService {
         }
     }
 
-    async createNewCoa(payload){
+    async createNewCoa(payload) {
         try {
             const createdCoa = await this._db.cOAMaster.create({
-                data :{
+                data: {
                     ...payload,
-                  
+
                 }
             })
             return createdCoa;
@@ -36,15 +36,15 @@ export class CoaService {
         }
     }
 
-    async fetchCoaById(COAMasterSid:number){
+    async fetchCoaById(COAMasterSid: number) {
         try {
-            const ourCoa =await this._db.cOAMaster.findUnique({
-                where : {
-                    COAMasterSid:COAMasterSid,
-                   
+            const ourCoa = await this._db.cOAMaster.findUnique({
+                where: {
+                    COAMasterSid: COAMasterSid,
+
                 }
             })
-            if(!ourCoa){
+            if (!ourCoa) {
                 throw new BadRequestException(`Coa with Id : ${COAMasterSid} not exists`);
             }
             return ourCoa;
@@ -53,25 +53,25 @@ export class CoaService {
         }
     }
 
-    async updateCoaById(COAMasterSid:number,payload){
+    async updateCoaById(COAMasterSid: number, payload) {
         try {
-             const exist =await this._db.cOAMaster.findUnique({
-                where : {
-                    COAMasterSid:COAMasterSid,
-                    
+            const exist = await this._db.cOAMaster.findUnique({
+                where: {
+                    COAMasterSid: COAMasterSid,
+
                 }
             })
-            if(!exist){
+            if (!exist) {
                 throw new BadRequestException(`Coa with Id : ${COAMasterSid} not exists`);
             }
             const updatedCoa = this._db.cOAMaster.update({
-                where : {
-                    COAMasterSid : COAMasterSid,
-                   
+                where: {
+                    COAMasterSid: COAMasterSid,
+
                 },
-                data : {
-                   
-                    UpdatedOn : new Date(),
+                data: {
+
+                    UpdatedOn: new Date(),
                     ...payload,
                 }
             })
@@ -82,7 +82,7 @@ export class CoaService {
     }
 
 
-    async deleteCOA(COAMasterSid:number){
+    async deleteCOA(COAMasterSid: number) {
         try {
             const exist = await this._db.cOAMaster.findUnique({
                 where: {
@@ -100,80 +100,80 @@ export class CoaService {
                     COAMasterSid: COAMasterSid
                 },
                 data: {
-                    Status : 'D'
+                    Status: 'D'
                 }
             })
             return deletedCoa;
-        } catch(error) {
+        } catch (error) {
             throw error;
         }
     }
 
 
-   async searchCoa(params: SearchVesselDto) {
-    const { search = '', page = 1, pageSize = 10 ,activeCompanyId} = params;
-    const skip = (page - 1) * pageSize;
-    const where : Prisma.COAMasterWhereInput = {
-       
-        Status : 'A',
-        CompanyMasterSid : activeCompanyId,
-        ...(search
-            ? {
-                OR: [
-                    { LedgerCode: { contains: search, mode: 'insensitive' } },
-                    { LedgerName: { contains: search, mode: 'insensitive' } },
-                    { GroupName: { contains: search, mode: 'insensitive' } },
-                    { SubGroupName: { contains: search, mode: 'insensitive' } },
-                    { Status: { contains: search, mode: 'insensitive' } },
-                    ...('active'.includes(search.toLowerCase()) 
-                    ? [{ Status: 'A' }]
-                    : []), 
-                    ...('suspended'.includes(search.toLowerCase()) 
-                    ? [{ Status: 'S' }]
-                    : []), 
+    async searchCoa(params: filterDto) {
+        const { search = '', page = 1, pageSize = 10, activeCompanyId } = params;
+        const skip = (page - 1) * pageSize;
+        const where: Prisma.COAMasterWhereInput = {
 
-                    // { LedgerType: { contains: search, mode: 'insensitive' } },
-                    // { SubledgerName: { contains: search, mode: 'insensitive' } },
-                    // { CurrencyMaster : {currencyName : {contains : search ,mode : 'insensitive'}}},
-                    // { Remarks: { contains: search, mode: 'insensitive' } },
-                ]
-            }
-            : {}),
-    };
+            Status: 'A',
+            CompanyMasterSid: activeCompanyId,
+            ...(search
+                ? {
+                    OR: [
+                        { LedgerCode: { contains: search, mode: 'insensitive' } },
+                        { LedgerName: { contains: search, mode: 'insensitive' } },
+                        { GroupName: { contains: search, mode: 'insensitive' } },
+                        { SubGroupName: { contains: search, mode: 'insensitive' } },
+                        { Status: { contains: search, mode: 'insensitive' } },
+                        ...('active'.includes(search.toLowerCase())
+                            ? [{ Status: 'A' }]
+                            : []),
+                        ...('suspended'.includes(search.toLowerCase())
+                            ? [{ Status: 'S' }]
+                            : []),
 
-    const [items, totalCount] = await this._db.$transaction([
-        this._db.cOAMaster.findMany({
-            where,
-            skip,
-            take: pageSize,
-            orderBy: { COAMasterSid: 'desc' },
-        }),
-        this._db.cOAMaster.count({ where }),
-    ]);
+                        // { LedgerType: { contains: search, mode: 'insensitive' } },
+                        // { SubledgerName: { contains: search, mode: 'insensitive' } },
+                        // { CurrencyMaster : {currencyName : {contains : search ,mode : 'insensitive'}}},
+                        // { Remarks: { contains: search, mode: 'insensitive' } },
+                    ]
+                }
+                : {}),
+        };
 
-    return {
-        items,
-        totalCount,
-        currentPage: page,
-        totalPages: Math.ceil(totalCount / pageSize),
-    };
-}
+        const [items, totalCount] = await this._db.$transaction([
+            this._db.cOAMaster.findMany({
+                where,
+                skip,
+                take: pageSize,
+                orderBy: { COAMasterSid: 'desc' },
+            }),
+            this._db.cOAMaster.count({ where }),
+        ]);
 
-async getAuditLogs(tableName: string, recordId?: string) {
-    try {
-      const whereClause: any = { tableName };
-      if (recordId) whereClause.recordId = recordId;
-
-      const logs = await this._db.auditLog.findMany({
-        where: whereClause,
-        orderBy: { changedAt: 'desc' },
-      });
-
-      return logs;
-    } catch (error) {
-      this.logger.warn(`getAuditLogsError: ${error}`);
-      throw new Error(`Error fetching audit logs: ${error.message}`);
+        return {
+            items,
+            totalCount,
+            currentPage: page,
+            totalPages: Math.ceil(totalCount / pageSize),
+        };
     }
-  }
+
+    async getAuditLogs(tableName: string, recordId?: string) {
+        try {
+            const whereClause: any = { tableName };
+            if (recordId) whereClause.recordId = recordId;
+
+            const logs = await this._db.auditLog.findMany({
+                where: whereClause,
+                orderBy: { changedAt: 'desc' },
+            });
+
+            return logs;
+        } catch (error) {
+            this.logger.warn(`getAuditLogsError: ${error}`);
+            throw new Error(`Error fetching audit logs: ${error.message}`);
+        }
+    }
 }
 

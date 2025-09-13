@@ -2,7 +2,7 @@ import { BadRequestException, Injectable, Logger, NotFoundException } from '@nes
 import { Prisma } from '@prisma/client';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
-import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
+import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 
 @Injectable()
 export class RoleService {
@@ -46,7 +46,7 @@ export class RoleService {
     }
 
 
-    async getAllRoles(CompanyMasterSid:number) {
+    async getAllRoles(CompanyMasterSid: number) {
         try {
             const roleList = await this._db.roleMaster.findMany({
                 where: {
@@ -111,50 +111,50 @@ export class RoleService {
             throw new NotFoundException(`role with ID ${id} not found`);
         }
 
-        if (existingrole.status==='D') {
+        if (existingrole.status === 'D') {
             throw new Error(`role with ID ${id} is already deleted`);
         }
 
         // Perform soft delete by updating deletedAt field
         return this._db.roleMaster.update({
             where: { RoleMasterSid: id },
-            data: { status:'D' }
+            data: { status: 'D' }
         });
     }
 
 
-    async searchList(params: SearchVesselDto) {
-    const { search = '', page = 1, pageSize = 15,activeCompanyId } = params;
-    const skip = (page - 1) * pageSize;
+    async searchList(params: filterDto) {
+        const { search = '', page = 1, pageSize = 15, activeCompanyId } = params;
+        const skip = (page - 1) * pageSize;
 
-    const where: Prisma.RoleMasterWhereInput = {
-        status: 'A',
-        CompanyMasterSid : activeCompanyId,
-        ...(search
-            ? {
-                OR: [
-                    { UserRoleName: { contains: search, mode: 'insensitive' } },
-                    { UserRoleCode: { contains: search, mode: 'insensitive' } },
-                    { status: { contains: search, mode: 'insensitive' } },
-                ],
-            }
-            : {}
-        ),
-    };
+        const where: Prisma.RoleMasterWhereInput = {
+            status: 'A',
+            CompanyMasterSid: activeCompanyId,
+            ...(search
+                ? {
+                    OR: [
+                        { UserRoleName: { contains: search, mode: 'insensitive' } },
+                        { UserRoleCode: { contains: search, mode: 'insensitive' } },
+                        { status: { contains: search, mode: 'insensitive' } },
+                    ],
+                }
+                : {}
+            ),
+        };
 
-    const [items, totalCount] = await this._db.$transaction([
-        this._db.roleMaster.findMany({
-            where,
-            skip,
-            take: pageSize,
-            orderBy: { RoleMasterSid: 'desc' },
-        }),
-        this._db.roleMaster.count({ where }),
-    ]);
+        const [items, totalCount] = await this._db.$transaction([
+            this._db.roleMaster.findMany({
+                where,
+                skip,
+                take: pageSize,
+                orderBy: { RoleMasterSid: 'desc' },
+            }),
+            this._db.roleMaster.count({ where }),
+        ]);
 
-    return {
-        items,
-        totalCount,
-    };
-}
+        return {
+            items,
+            totalCount,
+        };
+    }
 }

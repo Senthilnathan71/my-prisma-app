@@ -3,7 +3,7 @@ import { ApiOperation, ApiCreatedResponse } from '@nestjs/swagger';
 import { UserData } from 'src/common/decorators/user.decorator';
 import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
-import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
+import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 import { VoyageService } from 'src/masters/services/voyage/voyage.service';
 
 @Controller('voyage')
@@ -17,7 +17,7 @@ export class VoyageController {
     })
     @HttpCode(HttpStatus.CREATED)
     @Post('create')
-    async createVoyage(@Body() body:any, @UserData() user: any) {
+    async createVoyage(@Body() body: any, @UserData() user: any) {
         this.logger.log(`createVoyagedata: ${JSON.stringify(body)}`)
         let output = new ResponseData
         try {
@@ -139,105 +139,105 @@ export class VoyageController {
     @HttpCode(HttpStatus.OK)
     @Delete('delete/:id')
     async softDelete(@Param('id', ParseIntPipe) id: number) {
-        let resp=new ResponseData();
+        let resp = new ResponseData();
         try {
-            let res=await this.voyageService.softDelete(id);
+            let res = await this.voyageService.softDelete(id);
             this.logger.log(`Voyage Deleted Data : ${JSON.stringify(res)}`);
-            resp.data=res;
-            resp.message='Voyage is successfully deleted.'
+            resp.data = res;
+            resp.message = 'Voyage is successfully deleted.'
         } catch (error) {
             this.logger.warn(`Voyage Deletion Error : ${error}`)
-            resp.status=false;
-            if(error instanceof BadRequestException || error instanceof UnauthorizedException){
-                resp.message=error.message;
+            resp.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                resp.message = error.message;
             } else {
-                resp.message="Internal Server Error"
+                resp.message = "Internal Server Error"
             }
         }
         return resp;
     }
 
-    @ApiOperation({summary:'Search list of Voyage'})
+    @ApiOperation({ summary: 'Search list of Voyage' })
     @ApiCreatedResponse({
-        description:'Search List of Voyage',
-        type:ResponseData
+        description: 'Search List of Voyage',
+        type: ResponseData
     })
     @HttpCode(HttpStatus.OK)
     @Post('search-list')
-    async searchList(@Body() searchParams:SearchVesselDto){
-        const resp=new ResponseData();
+    async searchList(@Body() searchParams: filterDto) {
+        const resp = new ResponseData();
         try {
-            const res=await this.voyageService.searchList(searchParams);
+            const res = await this.voyageService.searchList(searchParams);
             this.logger.log(`Voyage Search Data : ${JSON.stringify(res)}`);
-            resp.data=res;
-            resp.message='Voyage Search is successfully fetched'
+            resp.data = res;
+            resp.message = 'Voyage Search is successfully fetched'
         } catch (error) {
             this.logger.warn(`Voyage Search Error : ${error}`)
-            resp.status=false;
-            if(error instanceof BadRequestException || error instanceof UnauthorizedException){
-                resp.message=error.message;
+            resp.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                resp.message = error.message;
             } else {
-                resp.message="Internal Server Error"
+                resp.message = "Internal Server Error"
             }
         }
         return resp;
     }
-    @ApiOperation({summary:'Search Voyage with POL and POD'})
+    @ApiOperation({ summary: 'Search Voyage with POL and POD' })
     @ApiCreatedResponse({
-        description:'Search Voyage with POL and POD',
-        type:ResponseData
+        description: 'Search Voyage with POL and POD',
+        type: ResponseData
     })
     @HttpCode(HttpStatus.OK)
     @Post('searchBy')
-    async searchVoyageByPolPod(@Body() body:any){
-        let resp=new ResponseData();
+    async searchVoyageByPolPod(@Body() body: any) {
+        let resp = new ResponseData();
         try {
-            let res=await this.voyageService.specialSearch(body);
+            let res = await this.voyageService.specialSearch(body);
             this.logger.log(`Voyage Special Search Data : ${JSON.stringify(res)}`);
-            resp.data=res;
-            resp.message='Voyage Special Search is successfully fetched'
+            resp.data = res;
+            resp.message = 'Voyage Special Search is successfully fetched'
         } catch (error) {
             this.logger.warn(`Voyage Special Search Error : ${error}`)
-            resp.status=false;
-            if(error instanceof BadRequestException || error instanceof UnauthorizedException){
-                resp.message=error.message;
+            resp.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                resp.message = error.message;
             } else {
-                resp.message="Internal Server Error"
+                resp.message = "Internal Server Error"
             }
         }
         return resp;
     }
     @ApiOperation({ summary: 'Get Audit Logs for a Table/Record' })
-      @ApiCreatedResponse({ description: 'Fetch audit logs', type: ResponseData })
-      @HttpCode(HttpStatus.OK)
-      @Get('audit-logs')
-      async getAuditLogs(
+    @ApiCreatedResponse({ description: 'Fetch audit logs', type: ResponseData })
+    @HttpCode(HttpStatus.OK)
+    @Get('audit-logs')
+    async getAuditLogs(
         @Query('tableName') tableName: string,
         @Query('recordId') recordId?: string,
-      ) {
+    ) {
         const resp = new ResponseData();
         try {
-          if (!tableName) throw new Error('tableName query parameter is required');
-    
-          const logs = await this.voyageService.getAuditLogs(tableName, recordId);
-    
-          // Remove updatedOn from oldVal and newVal
-          resp.data = logs.map((log: any) => {
-            const oldVal = log.oldVal ? { ...log.oldVal } : null;
-            const newVal = log.newVal ? { ...log.newVal } : null;
-            if (oldVal && 'updatedOn' in oldVal) delete oldVal.updatedOn;
-            if (newVal && 'updatedOn' in newVal) delete newVal.updatedOn;
-            return { ...log, oldVal, newVal };
-          });
-    
-          resp.message = 'Audit logs fetched successfully';
+            if (!tableName) throw new Error('tableName query parameter is required');
+
+            const logs = await this.voyageService.getAuditLogs(tableName, recordId);
+
+            // Remove updatedOn from oldVal and newVal
+            resp.data = logs.map((log: any) => {
+                const oldVal = log.oldVal ? { ...log.oldVal } : null;
+                const newVal = log.newVal ? { ...log.newVal } : null;
+                if (oldVal && 'updatedOn' in oldVal) delete oldVal.updatedOn;
+                if (newVal && 'updatedOn' in newVal) delete newVal.updatedOn;
+                return { ...log, oldVal, newVal };
+            });
+
+            resp.message = 'Audit logs fetched successfully';
         } catch (error) {
-          this.logger.warn(`getAuditLogsError: ${error}`);
-          resp.status = false;
-          resp.message = error.message || 'Internal Server Error';
+            this.logger.warn(`getAuditLogsError: ${error}`);
+            resp.status = false;
+            resp.message = error.message || 'Internal Server Error';
         }
         return resp;
-      }
+    }
 
     @ApiOperation({ summary: 'Get Voyage By Vessel Id' })
     @ApiCreatedResponse({
@@ -253,7 +253,7 @@ export class VoyageController {
             this.logger.log(`getVoyageByVesselId: ${JSON.stringify(Voyage)}`)
             output.data = Voyage
         } catch (error) {
-            this.logger.warn(`getVoyageByVesselId: ${JSON.stringify(error),error}`)
+            this.logger.warn(`getVoyageByVesselId: ${JSON.stringify(error), error}`)
             output.status = false;
             output.message = error
         }
@@ -270,11 +270,11 @@ export class VoyageController {
     async fetchVesselsByPorts(@Body() payload: any) {
         const output = new ResponseData;
         try {
-            const Voyage = await this.voyageService.getAvailableVessels(payload.POO,payload.POL,payload.POD,payload.FPOD,payload.MovementType)
+            const Voyage = await this.voyageService.getAvailableVessels(payload.POO, payload.POL, payload.POD, payload.FPOD, payload.MovementType)
             this.logger.log(`fetchVesselsByPorts: ${JSON.stringify(Voyage)}`)
             output.data = Voyage
         } catch (error) {
-            this.logger.warn(`fetchVesselsByPorts: ${JSON.stringify(error),error}`)
+            this.logger.warn(`fetchVesselsByPorts: ${JSON.stringify(error), error}`)
             output.status = false;
             output.message = error
         }
@@ -290,11 +290,11 @@ export class VoyageController {
     async fetchByVesselAndPorts(@Body() payload: any) {
         const output = new ResponseData;
         try {
-            const Voyage = await this.voyageService.getAvailableVoyagesWithPorts(payload.VesselMasterSid,payload.POL,payload.POD,payload.MovementType,payload.POO,payload.FPOD)
+            const Voyage = await this.voyageService.getAvailableVoyagesWithPorts(payload.VesselMasterSid, payload.POL, payload.POD, payload.MovementType, payload.POO, payload.FPOD)
             this.logger.log(`fetchByVesselAndPorts: ${JSON.stringify(Voyage)}`)
             output.data = Voyage
         } catch (error) {
-            this.logger.warn(`fetchByVesselAndPorts: ${JSON.stringify(error),error}`)
+            this.logger.warn(`fetchByVesselAndPorts: ${JSON.stringify(error), error}`)
             output.status = false;
             output.message = error
         }

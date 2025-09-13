@@ -2,11 +2,11 @@ import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatu
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
 import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
-import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
+import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 import { CurrencyExchangeService } from 'src/masters/services/currency-exchange/currency-exchange.service';
 class CompanyIdDto {
-  CompanyMasterSid: number;
-  BranchMasterSid: number;
+    CompanyMasterSid: number;
+    BranchMasterSid: number;
 }
 @Controller('currency-exchange')
 export class CurrencyExchangeController {
@@ -162,7 +162,7 @@ export class CurrencyExchangeController {
     })
     @HttpCode(HttpStatus.OK)
     @Post('search-list')
-    async searchCurrencyEx(@Body() searchData: SearchVesselDto) {
+    async searchCurrencyEx(@Body() searchData: filterDto) {
         let resp = new ResponseData();
         try {
             let res = await this.currencyExService.searchCurrencyExchange(searchData);

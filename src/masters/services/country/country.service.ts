@@ -8,20 +8,20 @@ import { Prisma } from '@prisma/client';
 import { GlobalConfigService } from 'src/common/config/master-config.service';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
-import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
+import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 
 @Injectable()
 export class CountryService {
-  constructor(private _db: DatabaseService,private globalConfigService:GlobalConfigService, private logger: Logger) {}
+  constructor(private _db: DatabaseService, private globalConfigService: GlobalConfigService, private logger: Logger) { }
 
   async getAllCountry() {
     try {
       const countryList = await this._db.countryMaster.findMany({
         where: {
-          status : 'A'
+          status: 'A'
         },
-        orderBy :{
-          countryName:'asc'
+        orderBy: {
+          countryName: 'asc'
         }
       });
       return countryList;
@@ -60,7 +60,7 @@ export class CountryService {
     }
 
     try {
-      
+
       const unit = await this._db.countryMaster.create({
         data: payload,
       });
@@ -151,79 +151,79 @@ export class CountryService {
     // Perform soft delete by updating deletedAt field
     return this._db.countryMaster.update({
       where: { CountryMasterSid: id },
-      data: { status : 'D' },
+      data: { status: 'D' },
     });
   }
 
-  async searchCountry(params: SearchVesselDto) {
-  const { search = '', page = 1, pageSize = 15
-    
-   } = params;
-  const skip = (page - 1) * pageSize;
+  async searchCountry(params: filterDto) {
+    const { search = '', page = 1, pageSize = 15
 
-  const where: Prisma.CountryMasterWhereInput = {
-    status: 'A',
-    ...(search
-      ? {
+    } = params;
+    const skip = (page - 1) * pageSize;
+
+    const where: Prisma.CountryMasterWhereInput = {
+      status: 'A',
+      ...(search
+        ? {
           OR: [
             { countryName: { contains: search, mode: 'insensitive' } },
             { countryCode: { contains: search, mode: 'insensitive' } },
             {
-            zoneMaster: {
-              ZoneName: { contains: search, mode: 'insensitive' },
+              zoneMaster: {
+                ZoneName: { contains: search, mode: 'insensitive' },
+              },
             },
-          },
-          {
-            currencyMaster: {
-              currencyName: { contains: search, mode: 'insensitive' },
+            {
+              currencyMaster: {
+                currencyName: { contains: search, mode: 'insensitive' },
+              },
             },
-          },
 
             { status: { contains: search, mode: 'insensitive' } },
           ],
         }
-      : {}),
-  };
+        : {}),
+    };
 
-  let items;
-  let totalCount;
-  [items, totalCount] = await this._db.$transaction([
-    this._db.countryMaster.findMany({
-      where,
-      skip,
-      take: pageSize,
-      orderBy: { countryName: 'asc' },
-    }),
-    this._db.countryMaster.count({ where }),
-  ]);
+    let items;
+    let totalCount;
+    [items, totalCount] = await this._db.$transaction([
+      this._db.countryMaster.findMany({
+        where,
+        skip,
+        take: pageSize,
+        orderBy: { countryName: 'asc' },
+      }),
+      this._db.countryMaster.count({ where }),
+    ]);
 
-  items = await Promise.all(
-    items.map(async (item)=> {
-      const [zoneMaster,currencyMaster] = await Promise.all([
-        item.ZoneMasterSid !== null ?
-        this.globalConfigService.getMasterData('zone_master',item.ZoneMasterSid, item.CompanyMasterSid) : 
-        { ZoneMasterSid : null, ZoneName : '' },
+    items = await Promise.all(
+      items.map(async (item) => {
+        const [zoneMaster, currencyMaster] = await Promise.all([
+          item.ZoneMasterSid !== null ?
+            this.globalConfigService.getMasterData('zone_master', item.ZoneMasterSid, item.CompanyMasterSid) :
+            { ZoneMasterSid: null, ZoneName: '' },
 
-        item.CurrencyMasterSid !== null ?
-        this.globalConfigService.getMasterData('currency_master',item.CurrencyMasterSid, item.CompanyMasterSid) :
-        { CurrencyMasterSid: null, currencyName: '' }
-      ])
+          item.CurrencyMasterSid !== null ?
+            this.globalConfigService.getMasterData('currency_master', item.CurrencyMasterSid, item.CompanyMasterSid) :
+            { CurrencyMasterSid: null, currencyName: '' }
+        ])
 
-      return {
-        ...item,
-        zoneMaster,
-        currencyMaster
-      }
-    })
-  )
+        return {
+          ...item,
+          zoneMaster,
+          currencyMaster
+        }
+      })
+    )
 
-  return {
-    items,
-    totalCount,
-  };
-}
+    return {
+      items,
+      totalCount,
+    };
+  }
 
-async getAuditLogs(tableName: string, recordId?: string) {
+  async getAuditLogs(tableName: string, recordId?: string) {
     try {
       const whereClause: any = { tableName };
       if (recordId) whereClause.recordId = recordId;

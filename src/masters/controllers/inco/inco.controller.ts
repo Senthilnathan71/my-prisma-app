@@ -1,9 +1,9 @@
-import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, Post, UnauthorizedException,Query } from "@nestjs/common";
+import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, Post, UnauthorizedException, Query } from "@nestjs/common";
 import { ApiOperation, ApiCreatedResponse } from "@nestjs/swagger";
 import { UserData } from "src/common/decorators/user.decorator";
 import { ResponseData } from "src/common/response-data";
 import { SearchListDto } from "src/masters/DTO/search-list.dto";
-import { SearchVesselDto } from "src/masters/DTO/search-vessel.dto";
+import { filterDto } from "src/masters/DTO/search-vessel.dto";
 import { IncoService } from "src/masters/services/inco/inco.service";
 
 @Controller('inco')
@@ -100,8 +100,8 @@ export class IncoController {
     async editInco(@Param('id', ParseIntPipe) id: number, @Body() body: any) {
         this.logger.log(`editIncobody: ${JSON.stringify(body)}`)
         let output = new ResponseData
-        try{
-            let Inco = await this.incoService.updateInco(id,body);
+        try {
+            let Inco = await this.incoService.updateInco(id, body);
             this.logger.log(`editInco: ${JSON.stringify(Inco)}`)
             if (!Inco) {
                 this.logger.log(`editInco!!: ${JSON.stringify(Inco)}`)
@@ -137,60 +137,60 @@ export class IncoController {
     }
 
     @ApiOperation({ summary: 'Search List of Inco' })
-@ApiCreatedResponse({
-    description: 'Search List of Inco',
-    type: ResponseData,
-})
-@HttpCode(HttpStatus.OK)
-@Post('search-list')
-async searchIncoNew(@Body() searchParams: SearchVesselDto) {
-    const resp = new ResponseData();
-    try {
-        const res = await this.incoService.searchList(searchParams);
-        this.logger.log(`Inco Search Data: ${JSON.stringify(res)}`);
-        resp.data = res;
-        resp.message = 'Inco Search is successfully fetched';
-    } catch (error) {
-        this.logger.warn(`Search Inco Error: ${error}`);
-        resp.status = false;
-        if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
-            resp.message = error.message;
-        } else {
-            resp.message = 'Internal Server Error';
+    @ApiCreatedResponse({
+        description: 'Search List of Inco',
+        type: ResponseData,
+    })
+    @HttpCode(HttpStatus.OK)
+    @Post('search-list')
+    async searchIncoNew(@Body() searchParams: filterDto) {
+        const resp = new ResponseData();
+        try {
+            const res = await this.incoService.searchList(searchParams);
+            this.logger.log(`Inco Search Data: ${JSON.stringify(res)}`);
+            resp.data = res;
+            resp.message = 'Inco Search is successfully fetched';
+        } catch (error) {
+            this.logger.warn(`Search Inco Error: ${error}`);
+            resp.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                resp.message = error.message;
+            } else {
+                resp.message = 'Internal Server Error';
+            }
         }
+        return resp;
     }
-    return resp;
-}
 
-@ApiOperation({ summary: 'Get Audit Logs for a Table/Record' })
-  @ApiCreatedResponse({ description: 'Fetch audit logs', type: ResponseData })
-  @HttpCode(HttpStatus.OK)
-  @Get('audit-logs')
-  async getAuditLogs(
-    @Query('tableName') tableName: string,
-    @Query('recordId') recordId?: string,
-  ) {
-    const resp = new ResponseData();
-    try {
-      if (!tableName) throw new Error('tableName query parameter is required');
+    @ApiOperation({ summary: 'Get Audit Logs for a Table/Record' })
+    @ApiCreatedResponse({ description: 'Fetch audit logs', type: ResponseData })
+    @HttpCode(HttpStatus.OK)
+    @Get('audit-logs')
+    async getAuditLogs(
+        @Query('tableName') tableName: string,
+        @Query('recordId') recordId?: string,
+    ) {
+        const resp = new ResponseData();
+        try {
+            if (!tableName) throw new Error('tableName query parameter is required');
 
-      const logs = await this.incoService.getAuditLogs(tableName, recordId);
+            const logs = await this.incoService.getAuditLogs(tableName, recordId);
 
-      // Remove updatedOn from oldVal and newVal
-      resp.data = logs.map((log: any) => {
-        const oldVal = log.oldVal ? { ...log.oldVal } : null;
-        const newVal = log.newVal ? { ...log.newVal } : null;
-        if (oldVal && 'updatedOn' in oldVal) delete oldVal.updatedOn;
-        if (newVal && 'updatedOn' in newVal) delete newVal.updatedOn;
-        return { ...log, oldVal, newVal };
-      });
+            // Remove updatedOn from oldVal and newVal
+            resp.data = logs.map((log: any) => {
+                const oldVal = log.oldVal ? { ...log.oldVal } : null;
+                const newVal = log.newVal ? { ...log.newVal } : null;
+                if (oldVal && 'updatedOn' in oldVal) delete oldVal.updatedOn;
+                if (newVal && 'updatedOn' in newVal) delete newVal.updatedOn;
+                return { ...log, oldVal, newVal };
+            });
 
-      resp.message = 'Audit logs fetched successfully';
-    } catch (error) {
-      this.logger.warn(`getAuditLogsError: ${error}`);
-      resp.status = false;
-      resp.message = error.message || 'Internal Server Error';
+            resp.message = 'Audit logs fetched successfully';
+        } catch (error) {
+            this.logger.warn(`getAuditLogsError: ${error}`);
+            resp.status = false;
+            resp.message = error.message || 'Internal Server Error';
+        }
+        return resp;
     }
-    return resp;
-  }
 }

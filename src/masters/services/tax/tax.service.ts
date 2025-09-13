@@ -4,17 +4,17 @@ import { equals } from 'class-validator';
 import { isDate } from 'node:util/types';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
-import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
+import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 
 @Injectable()
 export class TaxService {
-    constructor(private _db:DatabaseService){}
+    constructor(private _db: DatabaseService) { }
 
-    async getAllTax(){
+    async getAllTax() {
         try {
             const allTax = await this._db.taxMaster.findMany({
-                where : {
-                    Status : 'A',
+                where: {
+                    Status: 'A',
                 }
             })
             return allTax;
@@ -24,24 +24,24 @@ export class TaxService {
     }
 
     async createNewTax(payload) {
-       
+
         const existing = await this._db.taxMaster.findFirst({
             where: {
                 OR: [
-                    { 
-                        TaxCode: { 
+                    {
+                        TaxCode: {
                             equals: payload.TaxCode.trim(),
-                            mode: 'insensitive' 
-                        } 
+                            mode: 'insensitive'
+                        }
                     },
-                    { 
-                        TaxName: { 
+                    {
+                        TaxName: {
                             equals: payload.TaxName.trim(),
-                            mode: 'insensitive' 
-                        } 
+                            mode: 'insensitive'
+                        }
                     }
                 ],
-                Status:'A'
+                Status: 'A'
             }
         });
 
@@ -67,14 +67,14 @@ export class TaxService {
     }
 
 
-    async fetchTaxById(TaxMasterSid:number){
+    async fetchTaxById(TaxMasterSid: number) {
         try {
-            const ourTax =await this._db.taxMaster.findUnique({
-                where : {
-                    TaxMasterSid:TaxMasterSid
+            const ourTax = await this._db.taxMaster.findUnique({
+                where: {
+                    TaxMasterSid: TaxMasterSid
                 }
             })
-            if(!ourTax){
+            if (!ourTax) {
                 throw new BadRequestException(`Tax with Id : ${TaxMasterSid} not exists`);
             }
             return ourTax;
@@ -84,31 +84,31 @@ export class TaxService {
     }
 
     async updateTaxById(TaxMasterSid: number, payload) {
-        
+
         const duplicate = await this._db.taxMaster.findFirst({
             where: {
                 AND: [
                     {
-                        TaxMasterSid: { not: TaxMasterSid } 
+                        TaxMasterSid: { not: TaxMasterSid }
                     },
                     {
                         OR: [
-                            { 
-                                TaxCode: { 
+                            {
+                                TaxCode: {
                                     equals: payload.TaxCode?.trim(),
-                                    mode: 'insensitive' 
-                                } 
+                                    mode: 'insensitive'
+                                }
                             },
-                            { 
-                                TaxName: { 
+                            {
+                                TaxName: {
                                     equals: payload.TaxName?.trim(),
-                                    mode: 'insensitive' 
-                                } 
+                                    mode: 'insensitive'
+                                }
                             }
                         ]
                     }
                 ],
-                Status:'A'
+                Status: 'A'
             }
         });
 
@@ -143,7 +143,7 @@ export class TaxService {
     }
 
 
-    async deleteTax(TaxMasterSid:number){
+    async deleteTax(TaxMasterSid: number) {
         try {
             const exist = await this._db.taxMaster.findUnique({
                 where: {
@@ -153,7 +153,7 @@ export class TaxService {
             if (!exist) {
                 throw new BadRequestException(`Tax with Id : ${TaxMasterSid} not exists`);
             }
-            if (exist.Status==='D') {
+            if (exist.Status === 'D') {
                 throw new BadRequestException(`Tax with Id :${TaxMasterSid} is already deleted`)
             }
             const deletedTax = this._db.taxMaster.update({
@@ -161,54 +161,54 @@ export class TaxService {
                     TaxMasterSid: TaxMasterSid
                 },
                 data: {
-                    Status:'A'
+                    Status: 'A'
                 }
             })
             return deletedTax;
-        } catch(error) {
+        } catch (error) {
             throw error;
         }
     }
 
 
-   async searchTax(params: SearchVesselDto) {
-    const { search = '', page = 1, pageSize = 15 } = params;
-    const skip = (page - 1) * pageSize;
-    const where : Prisma.TaxMasterWhereInput = {
-        Status: 'A',
-        ...(search
-            ? {
-                OR: [
-                    { TaxName: { contains: search, mode: 'insensitive' } },
-                    { TaxCode: { contains: search, mode: 'insensitive' } },
-                    { TaxType: { contains: search, mode: 'insensitive' } },
-                    ...(isNaN(Date.parse(search)) ? [] : [{
-                        EffectiveFrom: { equals: new Date(search) }
-                    }]),
-                    ...(isNaN(Number(search)) ? [] : [{
-                        TaxRate: { equals: Number(search) }
-                    }]),
-                    { Remarks: { contains: search, mode: 'insensitive' } },
-                ]
-            }
-            : {}),
-    };
+    async searchTax(params: filterDto) {
+        const { search = '', page = 1, pageSize = 15 } = params;
+        const skip = (page - 1) * pageSize;
+        const where: Prisma.TaxMasterWhereInput = {
+            Status: 'A',
+            ...(search
+                ? {
+                    OR: [
+                        { TaxName: { contains: search, mode: 'insensitive' } },
+                        { TaxCode: { contains: search, mode: 'insensitive' } },
+                        { TaxType: { contains: search, mode: 'insensitive' } },
+                        ...(isNaN(Date.parse(search)) ? [] : [{
+                            EffectiveFrom: { equals: new Date(search) }
+                        }]),
+                        ...(isNaN(Number(search)) ? [] : [{
+                            TaxRate: { equals: Number(search) }
+                        }]),
+                        { Remarks: { contains: search, mode: 'insensitive' } },
+                    ]
+                }
+                : {}),
+        };
 
-    const [items, totalCount] = await this._db.$transaction([
-        this._db.taxMaster.findMany({
-            where,
-            skip,
-            take: pageSize,
-            orderBy: { TaxMasterSid: 'desc' },
-        }),
-        this._db.taxMaster.count({ where }),
-    ]);
+        const [items, totalCount] = await this._db.$transaction([
+            this._db.taxMaster.findMany({
+                where,
+                skip,
+                take: pageSize,
+                orderBy: { TaxMasterSid: 'desc' },
+            }),
+            this._db.taxMaster.count({ where }),
+        ]);
 
-    return {
-        items,
-        totalCount,
-        currentPage: page,
-        totalPages: Math.ceil(totalCount / pageSize),
-    };
-}
+        return {
+            items,
+            totalCount,
+            currentPage: page,
+            totalPages: Math.ceil(totalCount / pageSize),
+        };
+    }
 }

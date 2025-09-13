@@ -2,7 +2,7 @@ import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
-import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
+import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 
 @Injectable()
 export class ZoneService {
@@ -13,7 +13,7 @@ export class ZoneService {
 
     const existing = await this._db.zoneMaster.findFirst({
       where: {
-       
+
         OR: [
           {
             ZoneName: {
@@ -40,7 +40,7 @@ export class ZoneService {
     }
     try {
       const Zone = await this._db.zoneMaster.create({
-        data:{
+        data: {
           ...payload,
         }
       });
@@ -113,7 +113,7 @@ export class ZoneService {
       if (!existing) {
         throw new BadRequestException(`Zone Master with id : ${id} not found`);
       }
-      if (existing.status==="D") {
+      if (existing.status === "D") {
         throw new BadRequestException(
           `Zone Master with id:${id} is already deleted`,
         );
@@ -123,7 +123,7 @@ export class ZoneService {
           ZoneMasterSid: id,
         },
         data: {
-         status:"D",
+          status: "D",
         },
       });
       return deletedZone;
@@ -136,7 +136,7 @@ export class ZoneService {
     try {
       const searchResults = await this._db.zoneMaster.findMany({
         where: {
-         status:"A",
+          status: "A",
         }
       })
       return searchResults;
@@ -145,7 +145,7 @@ export class ZoneService {
     }
   }
 
-  async searchZoneNew(params: SearchVesselDto) {
+  async searchZoneNew(params: filterDto) {
     const { search = '', page = 1, pageSize = 15 } = params;
     const skip = (page - 1) * pageSize;
 
@@ -154,9 +154,9 @@ export class ZoneService {
       ...(search
         ? {
           OR: [
-            { ZoneName: { contains: search, mode: 'insensitive'} },
-            { ZoneCode: { contains: search, mode: 'insensitive'} },
-            { status: { contains: search, mode: 'insensitive'} },
+            { ZoneName: { contains: search, mode: 'insensitive' } },
+            { ZoneCode: { contains: search, mode: 'insensitive' } },
+            { status: { contains: search, mode: 'insensitive' } },
           ],
         }
         : {}

@@ -3,11 +3,11 @@ import { Prisma } from '@prisma/client';
 import { GlobalConfigService } from 'src/common/config/master-config.service';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
-import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
+import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 
 @Injectable()
 export class CompanyService {
-    constructor(private _db: DatabaseService,private globalConfigService:GlobalConfigService, private logger: Logger) { }
+    constructor(private _db: DatabaseService, private globalConfigService: GlobalConfigService, private logger: Logger) { }
 
     async createCompany(newData: any, user: any, files: any) {
         try {
@@ -26,12 +26,12 @@ export class CompanyService {
                 throw new BadRequestException('Company name already exists.');
             }
 
-            if(newData.Pan){
+            if (newData.Pan) {
                 const existing = await this._db.companyMaster.findFirst({
-                    where : {
-                        Pan : {
-                            equals : newData.Pan.trim(),
-                            mode : 'insensitive'
+                    where: {
+                        Pan: {
+                            equals: newData.Pan.trim(),
+                            mode: 'insensitive'
                         }
                     }
                 })
@@ -55,10 +55,10 @@ export class CompanyService {
                 isHo: newData.isHo,
                 status: newData.status,
                 remarks: newData.remarks,
-                
-                config: newData.config || {}, 
+
+                config: newData.config || {},
                 createdBy: user.userEmail
-                
+
             };
 
             const result = await this._db.$transaction(async (prisma) => {
@@ -91,17 +91,17 @@ export class CompanyService {
                             CityMasterSid: parseInt(branchData.CityMasterSid),
                             StateMasterSid: parseInt(branchData.StateMasterSid),
                             CountryMasterSid: parseInt(branchData.CountryMasterSid),
-                             config: branchData.config || {},
-                             consolePrefix: branchData.consolePrefix,
-                             consoleNoLen: branchData.consoleNoLen,
-                             shipmentPrefix: branchData.shipmentPrefix,
-                             shipmentNoLen: branchData.shipmentNoLen,
-                             enquiryPrefix: branchData.enquiryPrefix,
-                             enquiryNoLen: branchData.enquiryNoLen,
-                             quotationPrefix: branchData.quotationPrefix,
-                             quotationNoLen: branchData.quotationNoLen,
+                            config: branchData.config || {},
+                            consolePrefix: branchData.consolePrefix,
+                            consoleNoLen: branchData.consoleNoLen,
+                            shipmentPrefix: branchData.shipmentPrefix,
+                            shipmentNoLen: branchData.shipmentNoLen,
+                            enquiryPrefix: branchData.enquiryPrefix,
+                            enquiryNoLen: branchData.enquiryNoLen,
+                            quotationPrefix: branchData.quotationPrefix,
+                            quotationNoLen: branchData.quotationNoLen,
                             createdBy: user.userEmail
-                           
+
                         };
 
                         console.log('Creating branch:', branchPayload);
@@ -112,9 +112,9 @@ export class CompanyService {
                             }
                         });
                         console.log('Branch created with ID:', createdBranch.BranchMasterSid);
-                        
+
                         // Create Banks for the branch
-                        let createdBanks : any;
+                        let createdBanks: any;
                         if (branchData.branchBank && branchData.branchBank.length > 0) {
                             console.log('Creating banks for branch:', branchData.branchBank);
 
@@ -174,26 +174,26 @@ export class CompanyService {
         try {
             const allCompanies = await this._db.companyMaster.findMany({
                 where: {
-                    status : 'A',
+                    status: 'A',
                 },
-                orderBy : {
-                    companyName : 'asc'
+                orderBy: {
+                    companyName: 'asc'
                 },
                 include: {
                     branchMaster: {
                         include: {
                             branchBank: {
                                 where: {
-                                    status : 'A'
+                                    status: 'A'
                                 }
                             }
                         },
                         where: {
-                            status : 'A'
+                            status: 'A'
                         },
-                        orderBy : {
-                            branchName : 'asc'
-                        }   
+                        orderBy: {
+                            branchName: 'asc'
+                        }
                     },
 
                 }
@@ -204,26 +204,26 @@ export class CompanyService {
         }
     }
 
-    async newSearch(){
+    async newSearch() {
         try {
             const allData = await this._db.companyMaster.findMany({
-                where : {
-                    status : 'A',
+                where: {
+                    status: 'A',
                 },
-                include :{
-                    branchMaster : {
-                        where : {
-                            status : 'A',
+                include: {
+                    branchMaster: {
+                        where: {
+                            status: 'A',
                         },
-                        include : {
-                            branchBank : {
-                                where : {
-                                    status : 'A'
+                        include: {
+                            branchBank: {
+                                where: {
+                                    status: 'A'
                                 }
                             },
-                            countryMaster : true,
-                            stateMaster : true,
-                            cityMaster : true
+                            countryMaster: true,
+                            stateMaster: true,
+                            cityMaster: true
                         }
                     }
                 }
@@ -242,8 +242,8 @@ export class CompanyService {
                 },
                 include: {
                     branchMaster: {
-                        where : {
-                            status : 'A',
+                        where: {
+                            status: 'A',
                         },
                         include: {
                             cityMaster: {
@@ -257,8 +257,8 @@ export class CompanyService {
                                 }
                             },
                             branchBank: {
-                                where : {
-                                    status : 'A'
+                                where: {
+                                    status: 'A'
                                 }
                             }
                         }
@@ -278,45 +278,45 @@ export class CompanyService {
     // Main Update Function
     async updateCompany(companySid: number, updateData: any, user: any, files?: any) {
         try {
-             if (updateData.companyName) {
+            if (updateData.companyName) {
 
-            // Check if already name exist
-            const existing = await this._db.companyMaster.findFirst({
-                where: {
-                    AND : [
-                        {
-                            CompanyMasterSid : {
-                                not : companySid
-                            },
-                        },
-                        {
-                            companyName: {
-                                equals: updateData.companyName.trim(),
-                                mode: 'insensitive',
-                            },
-                        }
-                    ]
-                },
-            });
-
-            if (existing?.companyName === updateData.companyName) {
-                throw new BadRequestException('Company name already exists.');
-            }
-        }
-
-            if(updateData.Pan){
+                // Check if already name exist
                 const existing = await this._db.companyMaster.findFirst({
-                    where : {
-                        AND : [
+                    where: {
+                        AND: [
                             {
-                                Pan : {
-                                    equals : updateData.Pan.trim(),
-                                    mode : 'insensitive'
+                                CompanyMasterSid: {
+                                    not: companySid
+                                },
+                            },
+                            {
+                                companyName: {
+                                    equals: updateData.companyName.trim(),
+                                    mode: 'insensitive',
+                                },
+                            }
+                        ]
+                    },
+                });
+
+                if (existing?.companyName === updateData.companyName) {
+                    throw new BadRequestException('Company name already exists.');
+                }
+            }
+
+            if (updateData.Pan) {
+                const existing = await this._db.companyMaster.findFirst({
+                    where: {
+                        AND: [
+                            {
+                                Pan: {
+                                    equals: updateData.Pan.trim(),
+                                    mode: 'insensitive'
                                 }
                             },
                             {
-                                CompanyMasterSid : {
-                                    not : companySid
+                                CompanyMasterSid: {
+                                    not: companySid
                                 }
                             }
                         ]
@@ -342,7 +342,7 @@ export class CompanyService {
                 isHo: updateData.isHo,
                 status: updateData.status,
                 remarks: updateData.remarks,
-               
+
                 config: updateData.config,
                 updatedBy: user.userEmail
             };
@@ -356,7 +356,7 @@ export class CompanyService {
 
                 // 3. Get existing branches
                 const existingBranches = await prisma.branchMaster.findMany({
-                    where: { CompanyMasterSid: companySid, status : 'A' },
+                    where: { CompanyMasterSid: companySid, status: 'A' },
                     select: { BranchMasterSid: true }
                 });
                 const existingBranchIds = existingBranches.map(branch => branch.BranchMasterSid);
@@ -394,7 +394,7 @@ export class CompanyService {
                             quotationPrefix: branchData.quotationPrefix,
                             quotationNoLen: branchData.quotationNoLen,
                             updatedBy: user.userEmail
-                             
+
                         };
 
                         let branchOperation;
@@ -455,7 +455,7 @@ export class CompanyService {
                     await prisma.branchBank.updateMany({
                         where: { BranchMasterSid: { in: branchesToDelete } },
                         data: {
-                            status : 'A',
+                            status: 'A',
                             updatedBy: user.userEmail
                         }
                     });
@@ -507,351 +507,351 @@ export class CompanyService {
 
 
     async softDeleteCompanyById(CompanyMasterSid: number) {
-    try {
-        const existing = await this._db.companyMaster.findUnique({
-            where: {
-                CompanyMasterSid: CompanyMasterSid
-            }
-        });
-        
-        if (!existing) {
-            throw new BadRequestException(`Company with id : ${CompanyMasterSid} not exists.`);
-        }
-        if (existing.status === 'D') {
-            throw new BadRequestException(`Company with id : ${CompanyMasterSid} is already deleted.`);
-        }
-
-        const result = await this._db.$transaction(async (prisma) => {
-            // Soft delete the company
-            const company = await prisma.companyMaster.update({
+        try {
+            const existing = await this._db.companyMaster.findUnique({
                 where: {
                     CompanyMasterSid: CompanyMasterSid
-                },
-                data: {
-                    status : 'D'
                 }
             });
 
-            // Find all branches for this company
-            const existingBranches = await prisma.branchMaster.findMany({
-                where: {
-                    CompanyMasterSid: CompanyMasterSid,
-                    status : 'D'
-                }
-            });
-
-            // Soft delete all branches and their associated banks
-            const deletedBranchesWithBanks = await Promise.all(
-                existingBranches.map(async (branch) => {
-                    const deletedBranch = await prisma.branchMaster.update({
-                        where: {
-                            BranchMasterSid: branch.BranchMasterSid
-                        },
-                        data: {
-                            status : 'D'
-                        }
-                    });
-
-                    const deletedBanks = await prisma.branchBank.updateManyAndReturn({
-                        where: {
-                            BranchMasterSid: branch.BranchMasterSid,
-                            status : 'D'
-                        },
-                        data: {
-                            status : 'D'
-                        }
-                    });
-
-                    return {
-                        ...deletedBranch,
-                        deletedBanks: deletedBanks
-                    };
-                })
-            );
-
-            return {
-                company,
-                deletedBranchesWithBanks
-            };
-        });
-
-        return result;
-    } catch (error) {
-        throw error;
-    }
-}
-
-async saveCompanyConfig(companyId: number, configData: any, user: any) {
-    try {
-        // First verify the company exists
-        const company = await this._db.companyMaster.findUnique({
-            where: { CompanyMasterSid: companyId }
-        });
-        
-        if (!company) {
-            throw new BadRequestException(`Company with id ${companyId} not found`);
-        }
-
-        // Update the company with new config
-        const updatedCompany = await this._db.companyMaster.update({
-            where: { CompanyMasterSid: companyId },
-            data: { 
-                config: configData,
-                updatedBy: user.userEmail
+            if (!existing) {
+                throw new BadRequestException(`Company with id : ${CompanyMasterSid} not exists.`);
             }
-        });
+            if (existing.status === 'D') {
+                throw new BadRequestException(`Company with id : ${CompanyMasterSid} is already deleted.`);
+            }
 
-        return updatedCompany;
-    } catch (error) {
-        console.error('Error saving company config:', error);
-        throw error;
-    }
-}
-async getFieldConfiguration() {
-  try {
-    const fieldConfig = await this._db.fieldConfiguration.findFirst({
-      orderBy: { configSid: 'asc' }  
-    });
-
-    if (!fieldConfig) {
-      throw new BadRequestException('No field configuration found');
-    }
-
-    return fieldConfig; 
-  } catch (error) {
-    throw error;
-  }
-}
-
-
-
-    async searchCompanyOld(params: SearchVesselDto) {
-    const { search = '', page = 1, pageSize = 10 } = params;
-    const skip = (page - 1) * pageSize;
-
-    const where: Prisma.CompanyMasterWhereInput = {
-        status: 'A',
-        ...(search
-            ? {
-                OR: [
-                    { companyName: { contains: search, mode: 'insensitive' } },
-                    { companyCode: { contains: search, mode: 'insensitive' } },
-                    { addressLine1: { contains: search, mode: 'insensitive' } },
-                    { email: { contains: search, mode: 'insensitive' } },
-                    { phoneNumber: { contains: search, mode: 'insensitive' } },
-                    { Pan: { contains: search, mode: 'insensitive' } },
-                    { status: { contains: search, mode: 'insensitive' } },
-                    {
-                        stateMaster: {
-                            stateName: { contains: search, mode: 'insensitive' }
-                        }
+            const result = await this._db.$transaction(async (prisma) => {
+                // Soft delete the company
+                const company = await prisma.companyMaster.update({
+                    where: {
+                        CompanyMasterSid: CompanyMasterSid
                     },
-                    {
-                        countryMaster: {
-                            countryName: { contains: search, mode: 'insensitive' }
-                        }
-                    },
-                    {
-                        branchMaster: {
-                            some: {
-                                branchName: { contains: search, mode: 'insensitive' }
+                    data: {
+                        status: 'D'
+                    }
+                });
+
+                // Find all branches for this company
+                const existingBranches = await prisma.branchMaster.findMany({
+                    where: {
+                        CompanyMasterSid: CompanyMasterSid,
+                        status: 'D'
+                    }
+                });
+
+                // Soft delete all branches and their associated banks
+                const deletedBranchesWithBanks = await Promise.all(
+                    existingBranches.map(async (branch) => {
+                        const deletedBranch = await prisma.branchMaster.update({
+                            where: {
+                                BranchMasterSid: branch.BranchMasterSid
+                            },
+                            data: {
+                                status: 'D'
                             }
-                        }
-                    },
-                    {
-                        branchMaster: {
-                            some: {
-                                cityMaster: {
-                                    cityName: { contains: search, mode: 'insensitive' }
+                        });
+
+                        const deletedBanks = await prisma.branchBank.updateManyAndReturn({
+                            where: {
+                                BranchMasterSid: branch.BranchMasterSid,
+                                status: 'D'
+                            },
+                            data: {
+                                status: 'D'
+                            }
+                        });
+
+                        return {
+                            ...deletedBranch,
+                            deletedBanks: deletedBanks
+                        };
+                    })
+                );
+
+                return {
+                    company,
+                    deletedBranchesWithBanks
+                };
+            });
+
+            return result;
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    async saveCompanyConfig(companyId: number, configData: any, user: any) {
+        try {
+            // First verify the company exists
+            const company = await this._db.companyMaster.findUnique({
+                where: { CompanyMasterSid: companyId }
+            });
+
+            if (!company) {
+                throw new BadRequestException(`Company with id ${companyId} not found`);
+            }
+
+            // Update the company with new config
+            const updatedCompany = await this._db.companyMaster.update({
+                where: { CompanyMasterSid: companyId },
+                data: {
+                    config: configData,
+                    updatedBy: user.userEmail
+                }
+            });
+
+            return updatedCompany;
+        } catch (error) {
+            console.error('Error saving company config:', error);
+            throw error;
+        }
+    }
+    async getFieldConfiguration() {
+        try {
+            const fieldConfig = await this._db.fieldConfiguration.findFirst({
+                orderBy: { configSid: 'asc' }
+            });
+
+            if (!fieldConfig) {
+                throw new BadRequestException('No field configuration found');
+            }
+
+            return fieldConfig;
+        } catch (error) {
+            throw error;
+        }
+    }
+
+
+
+    async searchCompanyOld(params: filterDto) {
+        const { search = '', page = 1, pageSize = 10 } = params;
+        const skip = (page - 1) * pageSize;
+
+        const where: Prisma.CompanyMasterWhereInput = {
+            status: 'A',
+            ...(search
+                ? {
+                    OR: [
+                        { companyName: { contains: search, mode: 'insensitive' } },
+                        { companyCode: { contains: search, mode: 'insensitive' } },
+                        { addressLine1: { contains: search, mode: 'insensitive' } },
+                        { email: { contains: search, mode: 'insensitive' } },
+                        { phoneNumber: { contains: search, mode: 'insensitive' } },
+                        { Pan: { contains: search, mode: 'insensitive' } },
+                        { status: { contains: search, mode: 'insensitive' } },
+                        {
+                            stateMaster: {
+                                stateName: { contains: search, mode: 'insensitive' }
+                            }
+                        },
+                        {
+                            countryMaster: {
+                                countryName: { contains: search, mode: 'insensitive' }
+                            }
+                        },
+                        {
+                            branchMaster: {
+                                some: {
+                                    branchName: { contains: search, mode: 'insensitive' }
+                                }
+                            }
+                        },
+                        {
+                            branchMaster: {
+                                some: {
+                                    cityMaster: {
+                                        cityName: { contains: search, mode: 'insensitive' }
+                                    }
                                 }
                             }
                         }
-                    }
-                ]
-            }
-            : {}
-        ),
-    };
+                    ]
+                }
+                : {}
+            ),
+        };
 
-    const [items, totalCount] = await this._db.$transaction([
-        this._db.companyMaster.findMany({
-            where,
-            skip,
-            take: pageSize,
-            include: {
-                branchMaster: {
-                    where: {
-                        status: 'A'
-                    },
-                    include: {
-                        branchBank: {
-                            where: {
-                                status: 'A'
-                            }
+        const [items, totalCount] = await this._db.$transaction([
+            this._db.companyMaster.findMany({
+                where,
+                skip,
+                take: pageSize,
+                include: {
+                    branchMaster: {
+                        where: {
+                            status: 'A'
                         },
-                        countryMaster: true,
-                        stateMaster: true,
-                        cityMaster: true
-                    }
-                },
-                countryMaster: true,
-                stateMaster: true,
-                currencyMaster: true
-            },
-            orderBy: { CompanyMasterSid: 'desc' },
-        }),
-        this._db.companyMaster.count({ where }),
-    ]);
-
-    return {
-        items,
-        totalCount,
-    };
-
-}
-
-
-async searchCompany(params: SearchVesselDto) {
-    const { search = '', page = 1, pageSize = 10 } = params;
-    const skip = (page - 1) * pageSize;
-
-    const branchWhere: Prisma.BranchMasterWhereInput = {
-        status: 'A',
-        company: {
-            status: 'A'
-        },
-        ...(search
-            ? {
-                OR: [
-                    { branchName: { contains: search, mode: 'insensitive' } },
-                    { branchCode: { contains: search, mode: 'insensitive' } },
-                    { taxRegistrationNo: { contains: search, mode: 'insensitive' } },
-                    { cityMaster: { cityName: { contains: search, mode: 'insensitive' } } },
-                    { stateMaster: { stateName: { contains: search, mode: 'insensitive' } } },
-                    { countryMaster: { countryName: { contains: search, mode: 'insensitive' } } },
-                    { 
-                        company: {
-                            OR: [
-                                { companyName: { contains: search, mode: 'insensitive' } },
-                                { companyCode: { contains: search, mode: 'insensitive' } }
-                            ]
+                        include: {
+                            branchBank: {
+                                where: {
+                                    status: 'A'
+                                }
+                            },
+                            countryMaster: true,
+                            stateMaster: true,
+                            cityMaster: true
                         }
-                    }
-                ]
-            }
-            : {}),
-    };
+                    },
+                    countryMaster: true,
+                    stateMaster: true,
+                    currencyMaster: true
+                },
+                orderBy: { CompanyMasterSid: 'desc' },
+            }),
+            this._db.companyMaster.count({ where }),
+        ]);
 
-    let branches;
-    let totalCount;
-    [branches, totalCount] = await this._db.$transaction([
-        this._db.branchMaster.findMany({
-            where: branchWhere,
-            orderBy: { company : { CompanyMasterSid : 'desc'} },
-            skip,
-            take: pageSize,
-        }),
-        this._db.branchMaster.count({
-            where: branchWhere,
-        }),
-    ]);
+        return {
+            items,
+            totalCount,
+        };
 
-    branches = await Promise.all(
-        branches.map(async (branch)=> {
-            const [company,countryMaster,stateMaster,cityMaster] = await Promise.all([
-
-                branch.CompanyMasterSid !== null ?
-                this.globalConfigService.getMasterData('company_master',branch.CompanyMasterSid, branch.CompanyMasterSid) : 
-                {CompanyMasterSid: null, companyName: '', companyCode: ''},
-
-                branch.CountryMasterSid !== null ?
-                this.globalConfigService.getMasterData('country_master',branch.CountryMasterSid) :
-                { CountryMasterSid: null, countryName: '' },
-
-                branch.StateMasterSid !== null ?
-                this.globalConfigService.getMasterData('state_master',branch.StateMasterSid) : 
-                { StateMasterSid: null, stateName: '' },
-
-                branch.CityMasterSid !== null ?
-                this.globalConfigService.getMasterData('city_master',branch.CityMasterSid) : 
-                { CityMasterSid: null, cityName: '' }
-            ])
-
-            return {
-                CompanyMasterSid: company.CompanyMasterSid,
-                companyName: company.companyName,
-                companyCode: company.companyCode,
-                branchName: branch.branchName,
-                city: cityMaster.cityName || '',
-                state: stateMaster.stateName || '',
-                country: countryMaster.countryName || '',
-                gst: branch.taxRegistrationNo,
-                status: branch.status === 'A' ? 'Active' : 'Suspended',
-            }
-        })
-    )
-
-    return {
-        items: branches,
-        totalCount,
-    };
-}
- 
-async getAuditLogs(tableName: string, recordId?: string) {
-    try {
-      const whereClause: any = { tableName };
-      if (recordId) whereClause.recordId = recordId;
-
-      const logs = await this._db.auditLog.findMany({
-        where: whereClause,
-        orderBy: { changedAt: 'desc' },
-      });
-
-      return logs;
-    } catch (error) {
-      this.logger.warn(`getAuditLogsError: ${error}`);
-      throw new Error(`Error fetching audit logs: ${error.message}`);
     }
-  }
+
+
+    async searchCompany(params: filterDto) {
+        const { search = '', page = 1, pageSize = 10 } = params;
+        const skip = (page - 1) * pageSize;
+
+        const branchWhere: Prisma.BranchMasterWhereInput = {
+            status: 'A',
+            company: {
+                status: 'A'
+            },
+            ...(search
+                ? {
+                    OR: [
+                        { branchName: { contains: search, mode: 'insensitive' } },
+                        { branchCode: { contains: search, mode: 'insensitive' } },
+                        { taxRegistrationNo: { contains: search, mode: 'insensitive' } },
+                        { cityMaster: { cityName: { contains: search, mode: 'insensitive' } } },
+                        { stateMaster: { stateName: { contains: search, mode: 'insensitive' } } },
+                        { countryMaster: { countryName: { contains: search, mode: 'insensitive' } } },
+                        {
+                            company: {
+                                OR: [
+                                    { companyName: { contains: search, mode: 'insensitive' } },
+                                    { companyCode: { contains: search, mode: 'insensitive' } }
+                                ]
+                            }
+                        }
+                    ]
+                }
+                : {}),
+        };
+
+        let branches;
+        let totalCount;
+        [branches, totalCount] = await this._db.$transaction([
+            this._db.branchMaster.findMany({
+                where: branchWhere,
+                orderBy: { company: { CompanyMasterSid: 'desc' } },
+                skip,
+                take: pageSize,
+            }),
+            this._db.branchMaster.count({
+                where: branchWhere,
+            }),
+        ]);
+
+        branches = await Promise.all(
+            branches.map(async (branch) => {
+                const [company, countryMaster, stateMaster, cityMaster] = await Promise.all([
+
+                    branch.CompanyMasterSid !== null ?
+                        this.globalConfigService.getMasterData('company_master', branch.CompanyMasterSid, branch.CompanyMasterSid) :
+                        { CompanyMasterSid: null, companyName: '', companyCode: '' },
+
+                    branch.CountryMasterSid !== null ?
+                        this.globalConfigService.getMasterData('country_master', branch.CountryMasterSid) :
+                        { CountryMasterSid: null, countryName: '' },
+
+                    branch.StateMasterSid !== null ?
+                        this.globalConfigService.getMasterData('state_master', branch.StateMasterSid) :
+                        { StateMasterSid: null, stateName: '' },
+
+                    branch.CityMasterSid !== null ?
+                        this.globalConfigService.getMasterData('city_master', branch.CityMasterSid) :
+                        { CityMasterSid: null, cityName: '' }
+                ])
+
+                return {
+                    CompanyMasterSid: company.CompanyMasterSid,
+                    companyName: company.companyName,
+                    companyCode: company.companyCode,
+                    branchName: branch.branchName,
+                    city: cityMaster.cityName || '',
+                    state: stateMaster.stateName || '',
+                    country: countryMaster.countryName || '',
+                    gst: branch.taxRegistrationNo,
+                    status: branch.status === 'A' ? 'Active' : 'Suspended',
+                }
+            })
+        )
+
+        return {
+            items: branches,
+            totalCount,
+        };
+    }
+
+    async getAuditLogs(tableName: string, recordId?: string) {
+        try {
+            const whereClause: any = { tableName };
+            if (recordId) whereClause.recordId = recordId;
+
+            const logs = await this._db.auditLog.findMany({
+                where: whereClause,
+                orderBy: { changedAt: 'desc' },
+            });
+
+            return logs;
+        } catch (error) {
+            this.logger.warn(`getAuditLogsError: ${error}`);
+            throw new Error(`Error fetching audit logs: ${error.message}`);
+        }
+    }
 }
 interface Company {
-  CompanyMasterSid: number;
+    CompanyMasterSid: number;
 }
 
 interface Branch {
-  BranchMasterSid: number;
-  branchName: string;
-  branchCode: string;
-  createdOn: Date;
-  updatedOn: Date;
-//   deletedAt: Date | null;
-  createdBy: string;
-  updatedBy: string | null;
-  taxRegistrationNo: string | null;
-  CISN: string | null;
-  addressLine1: string;
-  addressLine2: string | null;
-  postalCode: string;
-  webSite: string | null;
-  phoneNumber: string | null;
-  email: string | null;
-  timeZone: string | null;
-  remarks: string | null;
-  companyLogo: string | null;
-  reportLogo: string | null;
-  status: string;
-  CityMasterSid: number;
-  CompanyMasterSid: number;
-  CountryMasterSid: number;
-  CurrencyMasterSid: number | null;
-  LoginSid: number | null;
-  StateMasterSid: number;
-  
-  branchBank?: any[];
+    BranchMasterSid: number;
+    branchName: string;
+    branchCode: string;
+    createdOn: Date;
+    updatedOn: Date;
+    //   deletedAt: Date | null;
+    createdBy: string;
+    updatedBy: string | null;
+    taxRegistrationNo: string | null;
+    CISN: string | null;
+    addressLine1: string;
+    addressLine2: string | null;
+    postalCode: string;
+    webSite: string | null;
+    phoneNumber: string | null;
+    email: string | null;
+    timeZone: string | null;
+    remarks: string | null;
+    companyLogo: string | null;
+    reportLogo: string | null;
+    status: string;
+    CityMasterSid: number;
+    CompanyMasterSid: number;
+    CountryMasterSid: number;
+    CurrencyMasterSid: number | null;
+    LoginSid: number | null;
+    StateMasterSid: number;
+
+    branchBank?: any[];
 }
 
 interface Bank {
-  
+
 }
 interface BankCreateInput {
     BranchBankSid: number;
@@ -871,64 +871,64 @@ interface BankCreateInput {
 }
 // Define interfaces at the top level of your file or in a separate types file
 interface BankCreateInput {
-  BankName: string;
-  BankCode: string;
-  BankAddress?: string | null;
-  IFSCCode: string;
-  BankAccountNo: string;
-  BeneficiaryName: string;
-  status: string;
-  Remarks?: string | null;
-  BranchMasterSid: number;
-  createdBy: string;
+    BankName: string;
+    BankCode: string;
+    BankAddress?: string | null;
+    IFSCCode: string;
+    BankAccountNo: string;
+    BeneficiaryName: string;
+    status: string;
+    Remarks?: string | null;
+    BranchMasterSid: number;
+    createdBy: string;
 }
 
 interface BranchWithBanks extends Omit<Branch, 'branchBank'> {
-  banks: BankCreateInput[];
+    banks: BankCreateInput[];
 }
 
 interface CompanyCreationResult {
-  company: Company;
-  branches: BranchWithBanks[];
+    company: Company;
+    branches: BranchWithBanks[];
 }
 
 
-    // Interfaces
+// Interfaces
 interface BankCreateInput {
-  BankName: string;
-  BankCode: string;
-  BankAddress?: string | null;
-  IFSCCode: string;
-  BankAccountNo: string;
-  BeneficiaryName: string;
-  status: string;
-  Remarks?: string | null;
-  BranchMasterSid: number;
-  createdBy: string;
+    BankName: string;
+    BankCode: string;
+    BankAddress?: string | null;
+    IFSCCode: string;
+    BankAccountNo: string;
+    BeneficiaryName: string;
+    status: string;
+    Remarks?: string | null;
+    BranchMasterSid: number;
+    createdBy: string;
 }
 
 interface BranchWithBanks extends Omit<Branch, 'branchBank'> {
-  banks: BankCreateInput[];
+    banks: BankCreateInput[];
 }
 
 interface CompanyUpdateInput {
-  companyName?: string;
-  companyCode?: string;
-  CountryMasterSid?: number;
-  CurrencyMasterSid?: number;
-  addressLine1?: string;
-  webSite?: string | null;
-  email?: string | null;
-  phoneNumber?: string | null;
-  Pan?: string | null;
-  isHo?: boolean;
-  status?: string;
-  remarks?: string | null;
-  StateMasterSid?: number;
-  updatedBy?: string;
+    companyName?: string;
+    companyCode?: string;
+    CountryMasterSid?: number;
+    CurrencyMasterSid?: number;
+    addressLine1?: string;
+    webSite?: string | null;
+    email?: string | null;
+    phoneNumber?: string | null;
+    Pan?: string | null;
+    isHo?: boolean;
+    status?: string;
+    remarks?: string | null;
+    StateMasterSid?: number;
+    updatedBy?: string;
 }
 
 interface CompanyCreationResult {
-  company: Company;
-  branches: BranchWithBanks[];
+    company: Company;
+    branches: BranchWithBanks[];
 }

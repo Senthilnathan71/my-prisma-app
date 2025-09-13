@@ -2,7 +2,7 @@ import { BadRequestException, Injectable, Logger, NotFoundException } from '@nes
 import { Prisma } from '@prisma/client';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
-import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
+import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 
 @Injectable()
 export class CostCenterService {
@@ -103,7 +103,7 @@ export class CostCenterService {
 
     async softDelete(id: number) {
         const existingCostCenter = await this._db.costCenterMaster.findUnique({
-            where: {CostCenterMasterSid: id}
+            where: { CostCenterMasterSid: id }
         });
 
         if (!existingCostCenter) {
@@ -115,60 +115,60 @@ export class CostCenterService {
         }
 
         return this._db.costCenterMaster.update({
-            where: { CostCenterMasterSid: id},
-            data: { Status : 'D'}
+            where: { CostCenterMasterSid: id },
+            data: { Status: 'D' }
         });
     }
 
-    async searchList(params: SearchVesselDto) {
-    const { search = '', page = 1, pageSize = 15 } = params;
-    const skip = (page - 1) * pageSize;
+    async searchList(params: filterDto) {
+        const { search = '', page = 1, pageSize = 15 } = params;
+        const skip = (page - 1) * pageSize;
 
-    const where: Prisma.CostCenterMasterWhereInput = {
-        Status: 'A',
-        ...(search
-            ? {
-                OR: [
-                    { CostCenterName: { contains: search, mode: 'insensitive' } },
-                    { CostCenterCode: { contains: search, mode: 'insensitive' } },
-                    { Remarks: { contains: search, mode: 'insensitive' } },
-                    { Status: { contains: search, mode: 'insensitive' } },
-                ],
-            }
-            : {}
-        ),
-    };
+        const where: Prisma.CostCenterMasterWhereInput = {
+            Status: 'A',
+            ...(search
+                ? {
+                    OR: [
+                        { CostCenterName: { contains: search, mode: 'insensitive' } },
+                        { CostCenterCode: { contains: search, mode: 'insensitive' } },
+                        { Remarks: { contains: search, mode: 'insensitive' } },
+                        { Status: { contains: search, mode: 'insensitive' } },
+                    ],
+                }
+                : {}
+            ),
+        };
 
-    const [items, totalCount] = await this._db.$transaction([
-        this._db.costCenterMaster.findMany({
-            where,
-            skip,
-            take: pageSize,
-            orderBy: { CostCenterMasterSid: 'desc' },
-        }),
-        this._db.costCenterMaster.count({ where }),
-    ]);
+        const [items, totalCount] = await this._db.$transaction([
+            this._db.costCenterMaster.findMany({
+                where,
+                skip,
+                take: pageSize,
+                orderBy: { CostCenterMasterSid: 'desc' },
+            }),
+            this._db.costCenterMaster.count({ where }),
+        ]);
 
-    return {
-        items,
-        totalCount,
-    };
-}
-
-async getAuditLogs(tableName: string, recordId?: string) {
-    try {
-      const whereClause: any = { tableName };
-      if (recordId) whereClause.recordId = recordId;
-
-      const logs = await this._db.auditLog.findMany({
-        where: whereClause,
-        orderBy: { changedAt: 'desc' },
-      });
-
-      return logs;
-    } catch (error) {
-      this.logger.warn(`getAuditLogsError: ${error}`);
-      throw new Error(`Error fetching audit logs: ${error.message}`);
+        return {
+            items,
+            totalCount,
+        };
     }
-  }
+
+    async getAuditLogs(tableName: string, recordId?: string) {
+        try {
+            const whereClause: any = { tableName };
+            if (recordId) whereClause.recordId = recordId;
+
+            const logs = await this._db.auditLog.findMany({
+                where: whereClause,
+                orderBy: { changedAt: 'desc' },
+            });
+
+            return logs;
+        } catch (error) {
+            this.logger.warn(`getAuditLogsError: ${error}`);
+            throw new Error(`Error fetching audit logs: ${error.message}`);
+        }
+    }
 }

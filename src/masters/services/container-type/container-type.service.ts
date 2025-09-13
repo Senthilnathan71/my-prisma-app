@@ -2,7 +2,7 @@ import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
-import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
+import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 
 @Injectable()
 export class ContainerTypeService {
@@ -27,7 +27,7 @@ export class ContainerTypeService {
     try {
       const containerTypes = await this._db.containerTypeMaster.findMany({
         where: {
-          status:"A"
+          status: "A"
         },
       });
       return containerTypes;
@@ -90,7 +90,7 @@ export class ContainerTypeService {
         throw new BadRequestException(
           `Container Type with Id : ${ContainerTypeMasterSid} not found`,
         );
-      if (ourContainerType.status==="D")
+      if (ourContainerType.status === "D")
         throw new BadRequestException(
           `Container Type with Id : ${ContainerTypeMasterSid} is already deleted`,
         );
@@ -100,7 +100,7 @@ export class ContainerTypeService {
           ContainerTypeMasterSid: ContainerTypeMasterSid,
         },
         data: {
-         status:"D"
+          status: "D"
         },
       });
       return deletedContainerType;
@@ -109,49 +109,49 @@ export class ContainerTypeService {
     }
   }
 
-  async searchContainerType(params: SearchVesselDto) {
+  async searchContainerType(params: filterDto) {
     const { search = '', page = 1, pageSize = 15 } = params;
     const skip = (page - 1) * pageSize;
 
-    const where: Prisma.ContainerTypeMasterWhereInput  = {
-     
-        status: 'A',
-        ...(search
-            ? {
-                OR: [
-                    { ContainerCode: { contains: search, mode: 'insensitive' } },
-                    { ContainerSize: { contains: search, mode: 'insensitive' } },
-                    { ContainerIsoCode: { contains: search, mode: 'insensitive' } },
-                    { ContainerName: { contains: search, mode: 'insensitive' } },
-                    { ContainerCategory: { contains: search, mode: 'insensitive' } },
-                    // { MaxVolume: { contains: search, mode: 'insensitive' } },
-                    // { TareWeight: { contains: search, mode: 'insensitive' } },
-                    // { GrossWeight: { contains: search, mode: 'insensitive' } },
-                    // { NoofTeu: { contains: search, mode: 'insensitive' } },
-                    { status: { contains: search, mode: 'insensitive' } },
-                ],
-            }
-            : {}
-        ),
+    const where: Prisma.ContainerTypeMasterWhereInput = {
+
+      status: 'A',
+      ...(search
+        ? {
+          OR: [
+            { ContainerCode: { contains: search, mode: 'insensitive' } },
+            { ContainerSize: { contains: search, mode: 'insensitive' } },
+            { ContainerIsoCode: { contains: search, mode: 'insensitive' } },
+            { ContainerName: { contains: search, mode: 'insensitive' } },
+            { ContainerCategory: { contains: search, mode: 'insensitive' } },
+            // { MaxVolume: { contains: search, mode: 'insensitive' } },
+            // { TareWeight: { contains: search, mode: 'insensitive' } },
+            // { GrossWeight: { contains: search, mode: 'insensitive' } },
+            // { NoofTeu: { contains: search, mode: 'insensitive' } },
+            { status: { contains: search, mode: 'insensitive' } },
+          ],
+        }
+        : {}
+      ),
     };
 
     const [items, totalCount] = await this._db.$transaction([
-        this._db.containerTypeMaster.findMany({
-            where,
-            skip,
-            take: pageSize,
-            orderBy: { ContainerTypeMasterSid: 'desc' },
-        }),
-        this._db.containerTypeMaster.count({ where }),
+      this._db.containerTypeMaster.findMany({
+        where,
+        skip,
+        take: pageSize,
+        orderBy: { ContainerTypeMasterSid: 'desc' },
+      }),
+      this._db.containerTypeMaster.count({ where }),
     ]);
 
     return {
-        items,
-        totalCount,
+      items,
+      totalCount,
     };
-}
+  }
 
-async getAuditLogs(tableName: string, recordId?: string) {
+  async getAuditLogs(tableName: string, recordId?: string) {
     try {
       const whereClause: any = { tableName };
       if (recordId) whereClause.recordId = recordId;

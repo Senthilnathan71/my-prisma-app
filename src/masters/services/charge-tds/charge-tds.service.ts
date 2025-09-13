@@ -2,7 +2,7 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
-import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
+import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 
 @Injectable()
 export class ChargeTdsService {
@@ -12,7 +12,7 @@ export class ChargeTdsService {
         try {
             const allChargeTds = await this._db.chargeTds.findMany({
                 where: {
-                    status : 'A'
+                    status: 'A'
                 },
                 include: {
                     chargeMaster: true,
@@ -106,7 +106,7 @@ export class ChargeTdsService {
                     ChargeTdsSid: ChargeTdsSid
                 },
                 data: {
-                    status : 'D'
+                    status: 'D'
                 },
                 include: {
                     chargeMaster: true,
@@ -119,7 +119,7 @@ export class ChargeTdsService {
         }
     }
 
-    async searchChargeTds(params: SearchVesselDto) {
+    async searchChargeTds(params: filterDto) {
         const { search = '', page = 1, pageSize = 15 } = params;
         const skip = (page - 1) * pageSize;
 

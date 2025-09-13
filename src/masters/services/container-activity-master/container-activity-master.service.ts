@@ -1,11 +1,11 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { DatabaseService } from 'src/database/database.service';
-import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
+import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 
 @Injectable()
 export class ContainerActivityMasterService {
-  constructor(private _db: DatabaseService, private logger: Logger) {}
+  constructor(private _db: DatabaseService, private logger: Logger) { }
 
   async getAllContainerActivities() {
     return this._db.containerActivityMaster.findMany({
@@ -24,15 +24,15 @@ export class ContainerActivityMasterService {
         MoveType: payload.MoveType,
         IsDamageMove: payload.IsDamageMove || 'N',
         Remarks: payload.Remarks,
-        Status: payload.Status ,
+        Status: payload.Status,
         CreatedOn: new Date(),
         CreatedBy: payload.CreatedBy,
         nextActivities: payload.nextActivities
           ? {
-              create: payload.nextActivities.map((act: any) => ({
-                ActivityCode: act.ActivityCode,
-              })),
-            }
+            create: payload.nextActivities.map((act: any) => ({
+              ActivityCode: act.ActivityCode,
+            })),
+          }
           : undefined,
       },
       include: { nextActivities: true },
@@ -77,11 +77,11 @@ export class ContainerActivityMasterService {
         UpdatedBy: payload.UpdatedBy,
         nextActivities: payload.nextActivities
           ? {
-              deleteMany: {}, // ✅ clear old mappings
-              create: payload.nextActivities.map((act: any) => ({
-                ActivityCode: act.ActivityCode,
-              })),
-            }
+            deleteMany: {}, // ✅ clear old mappings
+            create: payload.nextActivities.map((act: any) => ({
+              ActivityCode: act.ActivityCode,
+            })),
+          }
           : undefined,
       },
       include: { nextActivities: true },
@@ -108,7 +108,7 @@ export class ContainerActivityMasterService {
     });
   }
 
-  async searchContainerActivities(params: SearchVesselDto) {
+  async searchContainerActivities(params: filterDto) {
     const { search = '', page = 1, pageSize = 15 } = params;
     const skip = (page - 1) * pageSize;
 
@@ -117,15 +117,15 @@ export class ContainerActivityMasterService {
       Status: 'A',
       ...(search
         ? {
-            OR: [
-              { ActivityCode: { contains: search, mode: 'insensitive' } },
-              { ActivityName: { contains: search, mode: 'insensitive' } },
-              { ContainerMoveStatus: { contains: search, mode: 'insensitive' } },
-              { MoveType: { contains: search, mode: 'insensitive' } },
-              { Remarks: { contains: search, mode: 'insensitive' } },
-              { Status: { contains: search, mode: 'insensitive' } },
-            ],
-          }
+          OR: [
+            { ActivityCode: { contains: search, mode: 'insensitive' } },
+            { ActivityName: { contains: search, mode: 'insensitive' } },
+            { ContainerMoveStatus: { contains: search, mode: 'insensitive' } },
+            { MoveType: { contains: search, mode: 'insensitive' } },
+            { Remarks: { contains: search, mode: 'insensitive' } },
+            { Status: { contains: search, mode: 'insensitive' } },
+          ],
+        }
         : {}),
     };
 
@@ -135,7 +135,7 @@ export class ContainerActivityMasterService {
         skip,
         take: pageSize,
         orderBy: { ContainerActivityMasterSid: 'desc' },
-        include: { nextActivities: true }, 
+        include: { nextActivities: true },
       }),
       this._db.containerActivityMaster.count({ where }),
     ]);

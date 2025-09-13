@@ -3,17 +3,17 @@ import { Prisma } from '@prisma/client';
 import { GlobalConfigService } from 'src/common/config/master-config.service';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
-import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
+import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 
 @Injectable()
 export class DocumentTypeService {
-    constructor(private _db:DatabaseService,private globalConfigService:GlobalConfigService, private logger: Logger){}
+    constructor(private _db: DatabaseService, private globalConfigService: GlobalConfigService, private logger: Logger) { }
 
-    async getAllDocType(CompanyMasterSid: number, BranchMasterSid: number){
+    async getAllDocType(CompanyMasterSid: number, BranchMasterSid: number) {
         try {
             const allDocType = await this._db.documentTypeMaster.findMany({
-                where : {
-                    status : 'A',
+                where: {
+                    status: 'A',
                     CompanyMasterSid: CompanyMasterSid,
                     BranchMasterSid: BranchMasterSid
                 }
@@ -24,10 +24,10 @@ export class DocumentTypeService {
         }
     }
 
-    async createNewDocType(payload){
+    async createNewDocType(payload) {
         try {
             const createdDocType = await this._db.documentTypeMaster.create({
-                data :{
+                data: {
                     ...payload,
                 }
             })
@@ -37,14 +37,14 @@ export class DocumentTypeService {
         }
     }
 
-    async fetchDocTypeById(DocumentTypeMasterSid:number){
+    async fetchDocTypeById(DocumentTypeMasterSid: number) {
         try {
-            const ourDocType =await this._db.documentTypeMaster.findUnique({
-                where : {
-                    DocumentTypeMasterSid:DocumentTypeMasterSid
+            const ourDocType = await this._db.documentTypeMaster.findUnique({
+                where: {
+                    DocumentTypeMasterSid: DocumentTypeMasterSid
                 }
             })
-            if(!ourDocType){
+            if (!ourDocType) {
                 throw new BadRequestException(`DocType with Id : ${DocumentTypeMasterSid} not exists`);
             }
             return ourDocType;
@@ -53,21 +53,21 @@ export class DocumentTypeService {
         }
     }
 
-    async updateDocTypeById(DocumentTypeMasterSid:number,payload){
+    async updateDocTypeById(DocumentTypeMasterSid: number, payload) {
         try {
-             const exist =await this._db.documentTypeMaster.findUnique({
-                where : {
-                    DocumentTypeMasterSid:DocumentTypeMasterSid
+            const exist = await this._db.documentTypeMaster.findUnique({
+                where: {
+                    DocumentTypeMasterSid: DocumentTypeMasterSid
                 }
             })
-            if(!exist){
+            if (!exist) {
                 throw new BadRequestException(`DocType with Id : ${DocumentTypeMasterSid} not exists`);
             }
             const updatedDocType = this._db.documentTypeMaster.update({
-                where : {
-                    DocumentTypeMasterSid : DocumentTypeMasterSid
+                where: {
+                    DocumentTypeMasterSid: DocumentTypeMasterSid
                 },
-                data : payload
+                data: payload
             })
             return updatedDocType;
         } catch (error) {
@@ -76,7 +76,7 @@ export class DocumentTypeService {
     }
 
 
-    async deleteDocType(DocumentTypeMasterSid:number){
+    async deleteDocType(DocumentTypeMasterSid: number) {
         try {
             const exist = await this._db.documentTypeMaster.findUnique({
                 where: {
@@ -94,99 +94,99 @@ export class DocumentTypeService {
                     DocumentTypeMasterSid: DocumentTypeMasterSid
                 },
                 data: {
-                    status : 'D'
+                    status: 'D'
                 }
             })
             return deletedDocType;
-        } catch(error) {
+        } catch (error) {
             throw error;
         }
     }
 
 
-    async searchDocType(params: SearchVesselDto) {
-    const { search = '', page = 1, pageSize = 15, activeCompanyId,activeBranchId } = params;
-    const skip = (page - 1) * pageSize;
+    async searchDocType(params: filterDto) {
+        const { search = '', page = 1, pageSize = 15, activeCompanyId, activeBranchId } = params;
+        const skip = (page - 1) * pageSize;
 
-    const where: Prisma.DocumentTypeMasterWhereInput = {
-        status: 'A',
-        CompanyMasterSid : activeCompanyId,
-        BranchMasterSid : activeBranchId,
-        ...(search
-            ? {
-                OR: [
-                    { DocumentTypeName: { contains: search, mode: 'insensitive' } },
-                    { DocumentTypeCode: { contains: search, mode: 'insensitive' } },
-                    { status: { contains: search, mode: 'insensitive' } },
-                    { Remarks: { contains: search, mode: 'insensitive' } },
-                ],
-            }
-            : {}
-        ),
-    };
+        const where: Prisma.DocumentTypeMasterWhereInput = {
+            status: 'A',
+            CompanyMasterSid: activeCompanyId,
+            BranchMasterSid: activeBranchId,
+            ...(search
+                ? {
+                    OR: [
+                        { DocumentTypeName: { contains: search, mode: 'insensitive' } },
+                        { DocumentTypeCode: { contains: search, mode: 'insensitive' } },
+                        { status: { contains: search, mode: 'insensitive' } },
+                        { Remarks: { contains: search, mode: 'insensitive' } },
+                    ],
+                }
+                : {}
+            ),
+        };
 
-    let items;
-    let totalCount;
-    [items, totalCount] = await this._db.$transaction([
-        this._db.documentTypeMaster.findMany({
-            where,
-            skip,
-            take: pageSize,
-            orderBy: { DocumentTypeMasterSid: 'desc' },
-        }),
-        this._db.documentTypeMaster.count({ where }),
-    ]);
+        let items;
+        let totalCount;
+        [items, totalCount] = await this._db.$transaction([
+            this._db.documentTypeMaster.findMany({
+                where,
+                skip,
+                take: pageSize,
+                orderBy: { DocumentTypeMasterSid: 'desc' },
+            }),
+            this._db.documentTypeMaster.count({ where }),
+        ]);
 
-    items = await Promise.all(
-        items.map(async (item)=> {
-            const [branchMaster] = await Promise.all([
-                this.globalConfigService.getMasterData('branch_master',item.BranchMasterSid, item.CompanyMasterSid)
-            ])
-            return {
-                ...item,
-                branchMaster
-            }
-        })
-    )
+        items = await Promise.all(
+            items.map(async (item) => {
+                const [branchMaster] = await Promise.all([
+                    this.globalConfigService.getMasterData('branch_master', item.BranchMasterSid, item.CompanyMasterSid)
+                ])
+                return {
+                    ...item,
+                    branchMaster
+                }
+            })
+        )
 
-    return {
-        items,
-        totalCount,
-    };
-}
-async getSubledgersByCOA(COAMasterSid: number) {
-    try {
-        const subledgers = await this._db.subledgerMaster.findMany({
-            where: {
-                COAMasterSid: COAMasterSid,
-                Status : 'A'
-            },
-            select: {
-                SubledgerMasterSid: true,
-                SubledgerName: true
-            }
-        });
-        return { status: true, data: subledgers };
-    } catch (error) {
-        throw error;
+        return {
+            items,
+            totalCount,
+        };
     }
-}
-
-async getAuditLogs(tableName: string, recordId?: string) {
-    try {
-      const whereClause: any = { tableName };
-      if (recordId) whereClause.recordId = recordId;
-
-      const logs = await this._db.auditLog.findMany({
-        where: whereClause,
-        orderBy: { changedAt: 'desc' },
-      });
-
-      return logs;
-    } catch (error) {
-      this.logger.warn(`getAuditLogsError: ${error}`);
-      throw new Error(`Error fetching audit logs: ${error.message}`);
+    async getSubledgersByCOA(COAMasterSid: number) {
+        try {
+            const subledgers = await this._db.subledgerMaster.findMany({
+                where: {
+                    COAMasterSid: COAMasterSid,
+                    Status: 'A'
+                },
+                select: {
+                    SubledgerMasterSid: true,
+                    SubledgerName: true
+                }
+            });
+            return { status: true, data: subledgers };
+        } catch (error) {
+            throw error;
+        }
     }
-  }
+
+    async getAuditLogs(tableName: string, recordId?: string) {
+        try {
+            const whereClause: any = { tableName };
+            if (recordId) whereClause.recordId = recordId;
+
+            const logs = await this._db.auditLog.findMany({
+                where: whereClause,
+                orderBy: { changedAt: 'desc' },
+            });
+
+            return logs;
+        } catch (error) {
+            this.logger.warn(`getAuditLogsError: ${error}`);
+            throw new Error(`Error fetching audit logs: ${error.message}`);
+        }
+    }
 
 }

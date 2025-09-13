@@ -18,7 +18,7 @@ import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
 import { UserData } from 'src/common/decorators/user.decorator';
 import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
-import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
+import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 import { CityService } from 'src/masters/services/city/city.service';
 
 @Controller('city')
@@ -26,7 +26,7 @@ export class CityController {
   constructor(
     private cityService: CityService,
     private logger: Logger,
-  ) {}
+  ) { }
 
   //   Getting all cities
 
@@ -43,7 +43,7 @@ export class CityController {
       let cityData = await this.cityService.getAllCity();
       this.logger.log(`getCityData : ${JSON.stringify(cityData)}`);
       resp.data = cityData;
-       resp.message = "All Citys are successfully fetched";
+      resp.message = "All Citys are successfully fetched";
     } catch (error) {
       this.logger.warn(`GetCityError : ${JSON.stringify(error)}`);
       resp.status = false;
@@ -107,7 +107,7 @@ export class CityController {
       resp.data = result;
       resp.message = `Fetch All Cities with State Id : ${stateId}`
     } catch (error) {
-      this.logger.warn(`getCityByStateError : ${JSON.stringify(error),error}`);
+      this.logger.warn(`getCityByStateError : ${JSON.stringify(error), error}`);
       resp.status = false;
       if (
         error instanceof BadRequestException ||
@@ -130,7 +130,7 @@ export class CityController {
   })
   @HttpCode(HttpStatus.CREATED)
   @Post('add')
-  async addNewCity(@Body() body: any,@UserData() user: any) {
+  async addNewCity(@Body() body: any, @UserData() user: any) {
     this.logger.log(`createCityData : ${JSON.stringify(body)}`);
     const resp = new ResponseData();
     try {
@@ -138,8 +138,8 @@ export class CityController {
       this.logger.log(`createdCity : ${JSON.stringify(res)}`);
       resp.data = res;
       resp.message = "New City is successfully created"
-      }
-      catch (error) {
+    }
+    catch (error) {
       this.logger.warn(`createCityError : ${JSON.stringify(error)}`);
       resp.status = false;
       if (
@@ -203,11 +203,11 @@ export class CityController {
   async deleteCityByID(@Param('id', ParseIntPipe) id: number) {
     let resp = new ResponseData();
     try {
-     this.logger.log(`Deleting City with id: ${id}`);
-     let res = await this.cityService.softDeleteCity(id);
-     this.logger.debug(`City Deleted: ${JSON.stringify(res)}`);
-     resp.data = res;
-     resp.message = "City is successfully deleted"
+      this.logger.log(`Deleting City with id: ${id}`);
+      let res = await this.cityService.softDeleteCity(id);
+      this.logger.debug(`City Deleted: ${JSON.stringify(res)}`);
+      resp.data = res;
+      resp.message = "City is successfully deleted"
     } catch (error) {
       this.logger.warn(`cityDeletionFailed : ${JSON.stringify(error)}`);
       resp.status = false;
@@ -221,32 +221,32 @@ export class CityController {
   }
 
   @ApiOperation({ summary: 'Search List of Cities' })
-@ApiCreatedResponse({
+  @ApiCreatedResponse({
     description: 'Search List of Cities',
     type: ResponseData,
-})
-@HttpCode(HttpStatus.OK)
-@Post('search-list')
-async searchCity(@Body() searchParams: SearchVesselDto) {
+  })
+  @HttpCode(HttpStatus.OK)
+  @Post('search-list')
+  async searchCity(@Body() searchParams: filterDto) {
     const resp = new ResponseData();
     try {
-        const res = await this.cityService.searchCityList(searchParams);
-        this.logger.log(`City Search Data: ${JSON.stringify(res)}`);
-        resp.data = res;
-        resp.message = 'City Search is successfully fetched'; 
+      const res = await this.cityService.searchCityList(searchParams);
+      this.logger.log(`City Search Data: ${JSON.stringify(res)}`);
+      resp.data = res;
+      resp.message = 'City Search is successfully fetched';
     } catch (error) {
-        this.logger.warn(`Search City Error: ${error}`);
-        resp.status = false;
-        if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
-            resp.message = error.message;
-        } else {
-            resp.message = 'Internal Server Error';
-        }
+      this.logger.warn(`Search City Error: ${error}`);
+      resp.status = false;
+      if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+        resp.message = error.message;
+      } else {
+        resp.message = 'Internal Server Error';
+      }
     }
     return resp;
-}
+  }
 
-@ApiOperation({ summary: 'Get Audit Logs for a Table/Record' })
+  @ApiOperation({ summary: 'Get Audit Logs for a Table/Record' })
   @ApiCreatedResponse({ description: 'Fetch audit logs', type: ResponseData })
   @HttpCode(HttpStatus.OK)
   @Get('audit-logs')

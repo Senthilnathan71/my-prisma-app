@@ -1,18 +1,18 @@
-import { BadRequestException, Injectable,Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
-import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
+import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 
 @Injectable()
 export class ProductService {
-    constructor(private _db:DatabaseService,  private logger: Logger){}
+    constructor(private _db: DatabaseService, private logger: Logger) { }
 
-    async getAllProducts(CompanyMasterSid: number){
+    async getAllProducts(CompanyMasterSid: number) {
         try {
             const allProducts = await this._db.productMaster.findMany({
-                where : {
-                    status:"A",
+                where: {
+                    status: "A",
                     CompanyMasterSid: CompanyMasterSid
                 }
             })
@@ -22,11 +22,11 @@ export class ProductService {
         }
     }
 
-    async getAllProduct(){
+    async getAllProduct() {
         try {
             const allProducts = await this._db.productMaster.findMany({
-                where : {
-                   status:"A"
+                where: {
+                    status: "A"
                 }
             })
             return allProducts;
@@ -36,10 +36,10 @@ export class ProductService {
     }
 
 
-    async createNewProduct(payload){
+    async createNewProduct(payload) {
         try {
             const createdProduct = await this._db.productMaster.create({
-                data :{
+                data: {
                     ...payload,
                 }
             })
@@ -49,14 +49,14 @@ export class ProductService {
         }
     }
 
-    async fetchProductById(ProductMasterSid:number){
+    async fetchProductById(ProductMasterSid: number) {
         try {
-            const ourProducts =await this._db.productMaster.findUnique({
-                where : {
-                    ProductMasterSId:ProductMasterSid
+            const ourProducts = await this._db.productMaster.findUnique({
+                where: {
+                    ProductMasterSId: ProductMasterSid
                 }
             })
-            if(!ourProducts){
+            if (!ourProducts) {
                 throw new BadRequestException(`Product with Id : ${ProductMasterSid} not exists`);
             }
             return ourProducts;
@@ -65,30 +65,7 @@ export class ProductService {
         }
     }
 
-    async updateProductById(ProductMasterSid:number,payload){
-        try {
-             const exist =await this._db.productMaster.findUnique({
-                where : {
-                    ProductMasterSId:ProductMasterSid
-                }
-            })
-            if(!exist){
-                throw new BadRequestException(`Product with Id : ${ProductMasterSid} not exists`);
-            }
-            const updatedProduct = this._db.productMaster.update({
-                where : {
-                    ProductMasterSId : ProductMasterSid
-                },
-                data : payload
-            })
-            return updatedProduct;
-        } catch (error) {
-            throw error;
-        }
-    }
-
-
-    async deleteProduct(ProductMasterSid:number){
+    async updateProductById(ProductMasterSid: number, payload) {
         try {
             const exist = await this._db.productMaster.findUnique({
                 where: {
@@ -98,7 +75,30 @@ export class ProductService {
             if (!exist) {
                 throw new BadRequestException(`Product with Id : ${ProductMasterSid} not exists`);
             }
-            if (exist.status==="D") {
+            const updatedProduct = this._db.productMaster.update({
+                where: {
+                    ProductMasterSId: ProductMasterSid
+                },
+                data: payload
+            })
+            return updatedProduct;
+        } catch (error) {
+            throw error;
+        }
+    }
+
+
+    async deleteProduct(ProductMasterSid: number) {
+        try {
+            const exist = await this._db.productMaster.findUnique({
+                where: {
+                    ProductMasterSId: ProductMasterSid
+                }
+            })
+            if (!exist) {
+                throw new BadRequestException(`Product with Id : ${ProductMasterSid} not exists`);
+            }
+            if (exist.status === "D") {
                 throw new BadRequestException(`Product with Id :${ProductMasterSid} is already deleted`)
             }
             const deletedProduct = this._db.productMaster.update({
@@ -106,19 +106,19 @@ export class ProductService {
                     ProductMasterSId: ProductMasterSid
                 },
                 data: {
-                   status:"D"
+                    status: "D"
                 }
             })
             return deletedProduct;
-        } catch(error) {
+        } catch (error) {
             throw error;
         }
     }
 
 
-    async searchProducts(data:SearchListDto){
-        const {searchType,filterValue}=data;
-        const intFields=[
+    async searchProducts(data: SearchListDto) {
+        const { searchType, filterValue } = data;
+        const intFields = [
             "CategoryMasterSId",
             "CustomerMasterSid",
             "CompanyMasterSid",
@@ -141,31 +141,31 @@ export class ProductService {
             "FlashPoint",
             "Status"
         ];
-        const acceptedType = [...intFields,...stringFields];
-        if(!acceptedType.includes(searchType)){
+        const acceptedType = [...intFields, ...stringFields];
+        if (!acceptedType.includes(searchType)) {
             throw new BadRequestException('Invalid Search Type');
         }
 
-        const whereClause:any ={}
+        const whereClause: any = {}
 
-        if(stringFields.includes(searchType)){
-            whereClause[searchType]={
-                contains:filterValue,
-                mode:'insensitive'
+        if (stringFields.includes(searchType)) {
+            whereClause[searchType] = {
+                contains: filterValue,
+                mode: 'insensitive'
             }
-        } else if(intFields.includes(searchType)){
-            const numberValue=parseInt(filterValue);
+        } else if (intFields.includes(searchType)) {
+            const numberValue = parseInt(filterValue);
             if (isNaN(numberValue)) {
                 throw new BadRequestException(`${searchType} must be a valid number`);
             }
-            whereClause[searchType]=numberValue;
+            whereClause[searchType] = numberValue;
         }
 
         const searchResults = await this._db.productMaster.findMany({
-            where : 
+            where:
             {
                 ...whereClause,
-                status:"A"
+                status: "A"
             }
         }).catch((err) => {
             throw new Error(`Error Occured : ${JSON.stringify(err), err}`);
@@ -175,33 +175,33 @@ export class ProductService {
 
     }
 
-    async searchProductNew(params: SearchVesselDto) {
-        const { search = '', page = 1, pageSize = 15 , activeCompanyId} = params;
+    async searchProductNew(params: filterDto) {
+        const { search = '', page = 1, pageSize = 15, activeCompanyId } = params;
         const skip = (page - 1) * pageSize;
 
         const where: Prisma.ProductMasterWhereInput = {
-          
+
             status: 'A',
-            CompanyMasterSid : activeCompanyId,
+            CompanyMasterSid: activeCompanyId,
             ...(search
                 ? {
                     OR: [
-                        { ProductName: { contains: search, mode: 'insensitive'}},
-                        { ProductCode: { contains: search, mode: 'insensitive'}},
-                        { ProductType: { contains: search, mode: 'insensitive'}},
-                        { UOMCode: { contains: search, mode: 'insensitive'}},
+                        { ProductName: { contains: search, mode: 'insensitive' } },
+                        { ProductCode: { contains: search, mode: 'insensitive' } },
+                        { ProductType: { contains: search, mode: 'insensitive' } },
+                        { UOMCode: { contains: search, mode: 'insensitive' } },
                     ],
                 }
-                :{}
+                : {}
             ),
         };
 
-        const [ items, totalCount] = await this._db.$transaction([
+        const [items, totalCount] = await this._db.$transaction([
             this._db.productMaster.findMany({
                 where,
                 skip,
                 take: pageSize,
-                orderBy: { ProductMasterSId: 'desc'},
+                orderBy: { ProductMasterSId: 'desc' },
             }),
             this._db.productMaster.count({ where }),
         ]);
@@ -212,20 +212,20 @@ export class ProductService {
         };
     }
 
-      async getAuditLogs(tableName: string, recordId?: string) {
-    try {
-      const whereClause: any = { tableName };
-      if (recordId) whereClause.recordId = recordId;
+    async getAuditLogs(tableName: string, recordId?: string) {
+        try {
+            const whereClause: any = { tableName };
+            if (recordId) whereClause.recordId = recordId;
 
-      const logs = await this._db.auditLog.findMany({
-        where: whereClause,
-        orderBy: { changedAt: 'desc' },
-      });
+            const logs = await this._db.auditLog.findMany({
+                where: whereClause,
+                orderBy: { changedAt: 'desc' },
+            });
 
-      return logs;
-    } catch (error) {
-      this.logger.warn(`getAuditLogsError: ${error}`);
-      throw new Error(`Error fetching audit logs: ${error.message}`);
+            return logs;
+        } catch (error) {
+            this.logger.warn(`getAuditLogsError: ${error}`);
+            throw new Error(`Error fetching audit logs: ${error.message}`);
+        }
     }
-  }
 }

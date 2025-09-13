@@ -2,7 +2,7 @@ import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatu
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
 import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
-import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
+import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 import { CommodityService } from 'src/masters/services/commodity/commodity.service';
 
 @Controller('commodity')
@@ -16,7 +16,7 @@ export class CommodityController {
     })
     @HttpCode(HttpStatus.OK)
     @Post('create')
-    async createNewCommodity(@Body() newData:any) {
+    async createNewCommodity(@Body() newData: any) {
         let resp = new ResponseData();
         try {
             let res = await this.commodityService.createNewCommodity(newData);
@@ -148,30 +148,30 @@ export class CommodityController {
 
 
     @ApiOperation({ summary: 'Search List of Commodity' })
-@ApiCreatedResponse({
-    description: 'Search List of Commodity',
-    type: ResponseData,
-})
-@HttpCode(HttpStatus.OK)
-@Post('search-list')
-async searchCommodity(@Body() searchParams: SearchVesselDto) {
-    const resp = new ResponseData();
-    try {
-        const res = await this.commodityService.searchCommodity(searchParams);
-        this.logger.log(`Commodity Search Data: ${JSON.stringify(res)}`);
-        resp.data = res;
-        resp.message = 'Commodity Search is successfully fetched';
-    } catch (error) {
-        this.logger.warn(`Search Commodity Error: ${error}`);
-        resp.status = false;
-        if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
-            resp.message = error.message;
-        } else {
-            resp.message = 'Internal Server Error';
+    @ApiCreatedResponse({
+        description: 'Search List of Commodity',
+        type: ResponseData,
+    })
+    @HttpCode(HttpStatus.OK)
+    @Post('search-list')
+    async searchCommodity(@Body() searchParams: filterDto) {
+        const resp = new ResponseData();
+        try {
+            const res = await this.commodityService.searchCommodity(searchParams);
+            this.logger.log(`Commodity Search Data: ${JSON.stringify(res)}`);
+            resp.data = res;
+            resp.message = 'Commodity Search is successfully fetched';
+        } catch (error) {
+            this.logger.warn(`Search Commodity Error: ${error}`);
+            resp.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                resp.message = error.message;
+            } else {
+                resp.message = 'Internal Server Error';
+            }
         }
+        return resp;
     }
-    return resp;
-}
 
 
 

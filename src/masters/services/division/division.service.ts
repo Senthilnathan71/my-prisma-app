@@ -2,7 +2,7 @@ import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
-import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
+import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 
 
 @Injectable()
@@ -13,17 +13,17 @@ export class DivisionService {
 
         const existing = await this._db.divisionMaster.findFirst({
             where: {
-              
+
                 OR: [
                     {
-                        CompanyMasterSid:payload. CompanyMasterSid,
+                        CompanyMasterSid: payload.CompanyMasterSid,
                         DivisionName: {
                             equals: payload.DivisionName.trim(),
                             mode: 'insensitive',
                         }
                     },
                     {
-                        CompanyMasterSid:payload. CompanyMasterSid,
+                        CompanyMasterSid: payload.CompanyMasterSid,
                         DivisionCode: {
                             equals: payload.DivisionCode.trim(),
                             mode: 'insensitive',
@@ -87,7 +87,7 @@ export class DivisionService {
         try {
             const existing = await this._db.divisionMaster.findUnique({
                 where: {
-                    CompanyMasterSid:newData. CompanyMasterSid,
+                    CompanyMasterSid: newData.CompanyMasterSid,
                     DivisionMasterSid: divisionId
                 }
             })
@@ -116,7 +116,7 @@ export class DivisionService {
             if (!existing) {
                 throw new BadRequestException(`Division with id : ${divisionId} not exist`);
             }
-            if (existing.status==="D") {
+            if (existing.status === "D") {
                 throw new BadRequestException(`Division with id : ${divisionId} is already deleted`);
             }
             const deletedDivision = await this._db.divisionMaster.update({
@@ -124,7 +124,7 @@ export class DivisionService {
                     DivisionMasterSid: divisionId
                 },
                 data: {
-                   status:"D"
+                    status: "D"
                 }
             })
             return deletedDivision;
@@ -133,20 +133,20 @@ export class DivisionService {
         }
     }
 
-    async searchDivisionNew(params: SearchVesselDto) {
-        const { search = '', page = 1, pageSize = 15 , activeCompanyId} = params;
+    async searchDivisionNew(params: filterDto) {
+        const { search = '', page = 1, pageSize = 15, activeCompanyId } = params;
         const skip = (page - 1) * pageSize;
 
         const where: Prisma.DivisionMasterWhereInput = {
-           
+
             status: 'A',
-            CompanyMasterSid : activeCompanyId,
+            CompanyMasterSid: activeCompanyId,
             ...(search
                 ? {
                     OR: [
-                        { DivisionName: { contains: search, mode: 'insensitive'} },
-                        { DivisionCode: { contains: search, mode: 'insensitive'} },
-                        { status: { contains: search, mode: 'insensitive'} },
+                        { DivisionName: { contains: search, mode: 'insensitive' } },
+                        { DivisionCode: { contains: search, mode: 'insensitive' } },
+                        { status: { contains: search, mode: 'insensitive' } },
                     ],
                 }
                 : {}
@@ -158,7 +158,7 @@ export class DivisionService {
                 where,
                 skip,
                 take: pageSize,
-                orderBy: { DivisionMasterSid : 'desc'},
+                orderBy: { DivisionMasterSid: 'desc' },
             }),
             this._db.divisionMaster.count({ where }),
         ]);
@@ -169,19 +169,19 @@ export class DivisionService {
         };
     }
     async getAuditLogs(tableName: string, recordId?: string) {
-    try {
-      const whereClause: any = { tableName };
-      if (recordId) whereClause.recordId = recordId;
+        try {
+            const whereClause: any = { tableName };
+            if (recordId) whereClause.recordId = recordId;
 
-      const logs = await this._db.auditLog.findMany({
-        where: whereClause,
-        orderBy: { changedAt: 'desc' },
-      });
+            const logs = await this._db.auditLog.findMany({
+                where: whereClause,
+                orderBy: { changedAt: 'desc' },
+            });
 
-      return logs;
-    } catch (error) {
-      this.logger.warn(`getAuditLogsError: ${error}`);
-      throw new Error(`Error fetching audit logs: ${error.message}`);
+            return logs;
+        } catch (error) {
+            this.logger.warn(`getAuditLogsError: ${error}`);
+            throw new Error(`Error fetching audit logs: ${error.message}`);
+        }
     }
-  }
 }

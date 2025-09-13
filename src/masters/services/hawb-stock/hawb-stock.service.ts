@@ -1,19 +1,19 @@
-import { BadRequestException, Injectable,Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { GlobalConfigService } from 'src/common/config/master-config.service';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
-import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
+import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 
 @Injectable()
 export class HawbStockService {
-    constructor(private _db: DatabaseService, private globalConfigService: GlobalConfigService,private logger: Logger) { }
+    constructor(private _db: DatabaseService, private globalConfigService: GlobalConfigService, private logger: Logger) { }
 
     async getAllHawbStocks(CompanyMasterSid: number, BranchMasterSid: number) {
         try {
             const allHawbStocks = await this._db.hawbStock.findMany({
                 where: {
-                    status:"A",
+                    status: "A",
                     CompanyMasterSid: CompanyMasterSid,
                     BranchMasterSid: BranchMasterSid
                 },
@@ -105,7 +105,7 @@ export class HawbStockService {
             if (!exist) {
                 throw new BadRequestException(`HAWB Stock with Id : ${HawbStockSid} not exists`);
             }
-            if (exist.status==="D") {
+            if (exist.status === "D") {
                 throw new BadRequestException(`HAWB Stock with Id :${HawbStockSid} is already deleted`)
             }
             const deletedHawbStock = await this._db.hawbStock.update({
@@ -113,7 +113,7 @@ export class HawbStockService {
                     HawbStockSid: HawbStockSid
                 },
                 data: {
-                   status:"D"
+                    status: "D"
                 },
                 include: {
                     branchMaster: true,
@@ -127,15 +127,15 @@ export class HawbStockService {
         }
     }
 
-    async searchHawbStock(params: SearchVesselDto) {
-        const { search = '', page = 1, pageSize = 15, activeCompanyId,activeBranchId } = params;
+    async searchHawbStock(params: filterDto) {
+        const { search = '', page = 1, pageSize = 15, activeCompanyId, activeBranchId } = params;
         const skip = (page - 1) * pageSize;
 
         const where: Prisma.HawbStockWhereInput = {
-           
+
             status: 'A',
-            CompanyMasterSid : activeCompanyId,
-        BranchMasterSid : activeBranchId,
+            CompanyMasterSid: activeCompanyId,
+            BranchMasterSid: activeBranchId,
             ...(search
                 ? {
                     OR: [
@@ -170,16 +170,16 @@ export class HawbStockService {
             items.map(async (item) => {
                 const [branch, company, customer] = await Promise.all([
                     item.BranchMasterSid !== null ?
-                    this.globalConfigService.getMasterData('branch_master', item.BranchMasterSid, item.CompanyMasterSid) :
-                    { BranchMasterSid: null, branchName: '', branchCode: '' },
+                        this.globalConfigService.getMasterData('branch_master', item.BranchMasterSid, item.CompanyMasterSid) :
+                        { BranchMasterSid: null, branchName: '', branchCode: '' },
 
                     item.CompanyMasterSid !== null ?
-                    this.globalConfigService.getMasterData('company_master', item.CompanyMasterSid, item.CompanyMasterSid) :
-                    { CompanyMasterSid: null, companyName: '', companyCode: '' },
+                        this.globalConfigService.getMasterData('company_master', item.CompanyMasterSid, item.CompanyMasterSid) :
+                        { CompanyMasterSid: null, companyName: '', companyCode: '' },
 
                     item.CustomerMasterSid !== null ?
-                    this.globalConfigService.getMasterData('customer_master', Number(item.Agent), item.CompanyMasterSid) :
-                    { CustomerMasterSid: null, CustomerName: '', CustomerShortCode: '', PanName : '',CountryMasterSid:'' },
+                        this.globalConfigService.getMasterData('customer_master', Number(item.Agent), item.CompanyMasterSid) :
+                        { CustomerMasterSid: null, CustomerName: '', CustomerShortCode: '', PanName: '', CountryMasterSid: '' },
                 ]);
 
                 return {
@@ -196,20 +196,20 @@ export class HawbStockService {
             totalCount,
         };
     }
-   async getAuditLogs(tableName: string, recordId?: string) {
-    try {
-      const whereClause: any = { tableName };
-      if (recordId) whereClause.recordId = recordId;
+    async getAuditLogs(tableName: string, recordId?: string) {
+        try {
+            const whereClause: any = { tableName };
+            if (recordId) whereClause.recordId = recordId;
 
-      const logs = await this._db.auditLog.findMany({
-        where: whereClause,
-        orderBy: { changedAt: 'desc' },
-      });
+            const logs = await this._db.auditLog.findMany({
+                where: whereClause,
+                orderBy: { changedAt: 'desc' },
+            });
 
-      return logs;
-    } catch (error) {
-      this.logger.warn(`getAuditLogsError: ${error}`);
-      throw new Error(`Error fetching audit logs: ${error.message}`);
+            return logs;
+        } catch (error) {
+            this.logger.warn(`getAuditLogsError: ${error}`);
+            throw new Error(`Error fetching audit logs: ${error.message}`);
+        }
     }
-  }
 }

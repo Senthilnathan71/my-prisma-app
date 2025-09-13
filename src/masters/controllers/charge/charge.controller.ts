@@ -4,10 +4,10 @@ import { Auth } from 'src/common/decorators/auth.decorator';
 import { UserData } from 'src/common/decorators/user.decorator';
 import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
-import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
+import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 import { ChargeService } from 'src/masters/services/charge/charge.service';
 class CompanyIdDto {
-  CompanyMasterSid: number;
+    CompanyMasterSid: number;
 }
 @Controller('charge')
 export class ChargeController {
@@ -153,7 +153,7 @@ export class ChargeController {
             this.logger.warn(`editChargeerror: ${JSON.stringify(error), error}`)
             output.status = false;
             // Handle error message based on the type of error
-           if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
                 output.message = error.message;
             } else {
                 output.message = "Internal Server Error";
@@ -178,60 +178,60 @@ export class ChargeController {
 
 
     @ApiOperation({ summary: 'Search List of Charges' })
-@ApiCreatedResponse({
-    description: 'Search List of Charges',
-    type: ResponseData,
-})
-@HttpCode(HttpStatus.OK)
-@Post('search-list')
-async searchCharge(@Body() searchParams: SearchVesselDto) {
-    const resp = new ResponseData();
-    try {
-        const res = await this.chargeService.searchList(searchParams);
-        this.logger.log(`Charge Search Data : ${JSON.stringify(res)}`);
-        resp.data = res;
-        
-        resp.message = 'Charge search completed successfully';
-    } catch (error) {
-        this.logger.warn(`Search Charge Error : ${error}`);
-        resp.status = false;
-        if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
-            resp.message = error.message;
-        } else {
-            resp.message = 'Internal Server Error';
+    @ApiCreatedResponse({
+        description: 'Search List of Charges',
+        type: ResponseData,
+    })
+    @HttpCode(HttpStatus.OK)
+    @Post('search-list')
+    async searchCharge(@Body() searchParams: filterDto) {
+        const resp = new ResponseData();
+        try {
+            const res = await this.chargeService.searchList(searchParams);
+            this.logger.log(`Charge Search Data : ${JSON.stringify(res)}`);
+            resp.data = res;
+
+            resp.message = 'Charge search completed successfully';
+        } catch (error) {
+            this.logger.warn(`Search Charge Error : ${error}`);
+            resp.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                resp.message = error.message;
+            } else {
+                resp.message = 'Internal Server Error';
+            }
         }
+        return resp;
     }
-    return resp;
-}
-@ApiOperation({ summary: 'Get Audit Logs for a Table/Record' })
-  @ApiCreatedResponse({ description: 'Fetch audit logs', type: ResponseData })
-  @HttpCode(HttpStatus.OK)
-  @Get('audit-logs')
-  async getAuditLogs(
-    @Query('tableName') tableName: string,
-    @Query('recordId') recordId?: string,
-  ) {
-    const resp = new ResponseData();
-    try {
-      if (!tableName) throw new Error('tableName query parameter is required');
+    @ApiOperation({ summary: 'Get Audit Logs for a Table/Record' })
+    @ApiCreatedResponse({ description: 'Fetch audit logs', type: ResponseData })
+    @HttpCode(HttpStatus.OK)
+    @Get('audit-logs')
+    async getAuditLogs(
+        @Query('tableName') tableName: string,
+        @Query('recordId') recordId?: string,
+    ) {
+        const resp = new ResponseData();
+        try {
+            if (!tableName) throw new Error('tableName query parameter is required');
 
-      const logs = await this.chargeService.getAuditLogs(tableName, recordId);
+            const logs = await this.chargeService.getAuditLogs(tableName, recordId);
 
-      // Remove updatedOn from oldVal and newVal
-      resp.data = logs.map((log: any) => {
-        const oldVal = log.oldVal ? { ...log.oldVal } : null;
-        const newVal = log.newVal ? { ...log.newVal } : null;
-        if (oldVal && 'updatedOn' in oldVal) delete oldVal.updatedOn;
-        if (newVal && 'updatedOn' in newVal) delete newVal.updatedOn;
-        return { ...log, oldVal, newVal };
-      });
+            // Remove updatedOn from oldVal and newVal
+            resp.data = logs.map((log: any) => {
+                const oldVal = log.oldVal ? { ...log.oldVal } : null;
+                const newVal = log.newVal ? { ...log.newVal } : null;
+                if (oldVal && 'updatedOn' in oldVal) delete oldVal.updatedOn;
+                if (newVal && 'updatedOn' in newVal) delete newVal.updatedOn;
+                return { ...log, oldVal, newVal };
+            });
 
-      resp.message = 'Audit logs fetched successfully';
-    } catch (error) {
-      this.logger.warn(`getAuditLogsError: ${error}`);
-      resp.status = false;
-      resp.message = error.message || 'Internal Server Error';
+            resp.message = 'Audit logs fetched successfully';
+        } catch (error) {
+            this.logger.warn(`getAuditLogsError: ${error}`);
+            resp.status = false;
+            resp.message = error.message || 'Internal Server Error';
+        }
+        return resp;
     }
-    return resp;
-  }
 }

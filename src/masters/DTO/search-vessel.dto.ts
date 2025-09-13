@@ -1,6 +1,6 @@
 import { IsOptional, IsString, IsInt, Min } from 'class-validator';
 
-export class SearchVesselDto {
+export class filterDto {
   @IsOptional()
   @IsString()
   search?: string;
@@ -17,9 +17,9 @@ export class SearchVesselDto {
 
   @IsOptional()
   @IsInt()
-  activeCompanyId : number;
+  activeCompanyId: number;
 
   @IsOptional()
   @IsInt()
-  activeBranchId : number;
+  activeBranchId: number;
 }

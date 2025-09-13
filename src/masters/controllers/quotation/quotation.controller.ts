@@ -4,11 +4,11 @@ import { ApiCreatedResponse, ApiOperation } from "@nestjs/swagger";
 import { ResponseData } from "src/common/response-data";
 import { EmailService } from "src/email/email.service";
 import { SearchListDto } from "src/masters/DTO/search-list.dto";
-import { SearchVesselDto } from "src/masters/DTO/search-vessel.dto";
+import { filterDto } from "src/masters/DTO/search-vessel.dto";
 import { QuotationService } from "src/masters/services/quotation/quotation.service";
 class CompanyIdDto {
-  CompanyMasterSid: number;
-  BranchMasterSid: number;
+    CompanyMasterSid: number;
+    BranchMasterSid: number;
 }
 
 @Controller('ff-quotation')
@@ -37,7 +37,7 @@ export class QuotationController {
             output.status = true
 
         } catch (error) {
-            this.logger.warn(`createQuoteHeader: ${JSON.stringify(error),error}`)
+            this.logger.warn(`createQuoteHeader: ${JSON.stringify(error), error}`)
             output.status = false;
             // Handle error message based on the type of error
             if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
@@ -90,15 +90,15 @@ export class QuotationController {
             const quote = await this.quotationService.findOne(quoteId)
             this.logger.debug(`getQuoterHeaderById: ${JSON.stringify(quote)}`)
             output.data = quote
-             output.message = `Quotation with id : ${quoteId} is successfully fetched`;
+            output.message = `Quotation with id : ${quoteId} is successfully fetched`;
         } catch (error) {
             this.logger.warn(`getQuoterHeaderById: ${JSON.stringify(error)}`)
             output.status = false;
             if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
-                            output.message = error.message;
-                        } else {
-                            output.message = "Internal Server Error";
-                        }
+                output.message = error.message;
+            } else {
+                output.message = "Internal Server Error";
+            }
         }
         return output;
     }
@@ -125,7 +125,7 @@ export class QuotationController {
             output.status = quote.status
 
         } catch (error) {
-            this.logger.warn(`editQuote: ${JSON.stringify(error),error}`)
+            this.logger.warn(`editQuote: ${JSON.stringify(error), error}`)
             output.status = false;
             // Handle error message based on the type of error
             if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
@@ -167,7 +167,7 @@ export class QuotationController {
             output.message = "Quote Route deleted successfully.";
 
         } catch (error) {
-            this.logger.warn(`deleteQuoteRoute: ${JSON.stringify(error),error}`)
+            this.logger.warn(`deleteQuoteRoute: ${JSON.stringify(error), error}`)
             output.status = false;
             if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
                 output.message = error.message;
@@ -196,7 +196,7 @@ export class QuotationController {
             output.message = "Quote Charge deleted successfully.";
 
         } catch (error) {
-            this.logger.warn(`deleteQuoteCharge: ${JSON.stringify(error),error}`)
+            this.logger.warn(`deleteQuoteCharge: ${JSON.stringify(error), error}`)
             output.status = false;
             if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
                 output.message = error.message;
@@ -258,7 +258,7 @@ export class QuotationController {
     })
     @HttpCode(HttpStatus.OK)
     @Post('search-list')
-    async searchQuotation(@Body() body: SearchVesselDto) {
+    async searchQuotation(@Body() body: filterDto) {
         let resp = new ResponseData();
         try {
             let res = await this.quotationService.searchQuotation(body);
@@ -329,7 +329,7 @@ export class QuotationController {
             output.data = salesperson;
             output.message = 'All Salesperson are successfully fetched'
         } catch (error) {
-            this.logger.warn(`getAllSalesperson: ${JSON.stringify(error),error}`)
+            this.logger.warn(`getAllSalesperson: ${JSON.stringify(error), error}`)
 
             output.status = false;
             if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
@@ -348,7 +348,7 @@ export class QuotationController {
     })
     @HttpCode(HttpStatus.OK)
     @Get('customer-branch-email/:CustomerBranchSid')
-    async getCustomerBranchEmail(@Param('CustomerBranchSid',ParseIntPipe) CustomerBranchSid : number) {
+    async getCustomerBranchEmail(@Param('CustomerBranchSid', ParseIntPipe) CustomerBranchSid: number) {
         const output = new ResponseData
         try {
             const cusBranch = await this.quotationService.getCustomerBranchEmail(CustomerBranchSid)
@@ -356,7 +356,7 @@ export class QuotationController {
             output.data = cusBranch;
             output.message = 'CustomerBranch are successfully fetched'
         } catch (error) {
-            this.logger.warn(`getCustomerBranchEmail: ${JSON.stringify(error),error}`)
+            this.logger.warn(`getCustomerBranchEmail: ${JSON.stringify(error), error}`)
 
             output.status = false;
             if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
@@ -375,7 +375,7 @@ export class QuotationController {
     })
     @HttpCode(HttpStatus.OK)
     @Post('tariffDetails')
-    async getTariffDetailWithQuote(@Body() quoteDetails:any) {
+    async getTariffDetailWithQuote(@Body() quoteDetails: any) {
         const output = new ResponseData()
         try {
             const tariffs = await this.quotationService.getTariffByQuoteDetails(quoteDetails)
@@ -383,7 +383,7 @@ export class QuotationController {
             output.data = tariffs;
             output.message = "All tariff details are successfully fetched for respective quotes"
         } catch (error) {
-            this.logger.warn(`getTariffDetails: ${JSON.stringify(error),error}`)
+            this.logger.warn(`getTariffDetails: ${JSON.stringify(error), error}`)
 
             output.status = false;
             if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
@@ -395,39 +395,39 @@ export class QuotationController {
         return output;
     }
 
-    
+
     @ApiOperation({ summary: 'Get Audit Logs for a Table/Record' })
-      @ApiCreatedResponse({ description: 'Fetch audit logs', type: ResponseData })
-      @HttpCode(HttpStatus.OK)
-      @Get('audit-logs')
-      async getAuditLogs(
+    @ApiCreatedResponse({ description: 'Fetch audit logs', type: ResponseData })
+    @HttpCode(HttpStatus.OK)
+    @Get('audit-logs')
+    async getAuditLogs(
         @Query('tableName') tableName: string,
         @Query('recordId') recordId?: string,
-      ) {
+    ) {
         const resp = new ResponseData();
         try {
-          if (!tableName) throw new Error('tableName query parameter is required');
-    
-          const logs = await this.quotationService.getAuditLogs(tableName, recordId);
-    
-          // Remove updatedOn from oldVal and newVal
-          resp.data = logs.map((log: any) => {
-            const oldVal = log.oldVal ? { ...log.oldVal } : null;
-            const newVal = log.newVal ? { ...log.newVal } : null;
-            if (oldVal && 'updatedOn' in oldVal) delete oldVal.updatedOn;
-            if (newVal && 'updatedOn' in newVal) delete newVal.updatedOn;
-            return { ...log, oldVal, newVal };
-          });
-    
-          resp.message = 'Audit logs fetched successfully';
+            if (!tableName) throw new Error('tableName query parameter is required');
+
+            const logs = await this.quotationService.getAuditLogs(tableName, recordId);
+
+            // Remove updatedOn from oldVal and newVal
+            resp.data = logs.map((log: any) => {
+                const oldVal = log.oldVal ? { ...log.oldVal } : null;
+                const newVal = log.newVal ? { ...log.newVal } : null;
+                if (oldVal && 'updatedOn' in oldVal) delete oldVal.updatedOn;
+                if (newVal && 'updatedOn' in newVal) delete newVal.updatedOn;
+                return { ...log, oldVal, newVal };
+            });
+
+            resp.message = 'Audit logs fetched successfully';
         } catch (error) {
-          this.logger.warn(`getAuditLogsError: ${error}`);
-          resp.status = false;
-          resp.message = error.message || 'Internal Server Error';
+            this.logger.warn(`getAuditLogsError: ${error}`);
+            resp.status = false;
+            resp.message = error.message || 'Internal Server Error';
         }
         return resp;
-      }
-    
+    }
+
 
 
 }

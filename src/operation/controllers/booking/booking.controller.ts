@@ -3,7 +3,7 @@ import { FileInterceptor } from "@nestjs/platform-express";
 import { ApiCreatedResponse, ApiOperation } from "@nestjs/swagger";
 import { ResponseData } from "src/common/response-data";
 import { EmailService } from "src/email/email.service";
-import { SearchVesselDto } from "src/masters/DTO/search-vessel.dto";
+import { filterDto } from "src/masters/DTO/search-vessel.dto";
 import { BookingService } from "src/operation/services/booking/booking.service";
 
 @Controller('ff-booking')
@@ -149,7 +149,7 @@ export class BookingController {
     })
     @HttpCode(HttpStatus.OK)
     @Post('search-list')
-    async searchBooking(@Body() body: SearchVesselDto) {
+    async searchBooking(@Body() body: filterDto) {
         let resp = new ResponseData();
         try {
             let res = await this.bookingService.searchBooking(body);

@@ -2,7 +2,7 @@ import { BadRequestException, Injectable, Logger, NotFoundException } from '@nes
 import { Prisma } from '@prisma/client';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
-import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
+import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 
 @Injectable()
 export class HssacService {
@@ -61,7 +61,7 @@ export class HssacService {
             const HssacList = await this._db.hSSACMaster.findMany({
                 where: {
                     status: 'A',
-                    
+
                 }
             })
             return HssacList;
@@ -123,69 +123,69 @@ export class HssacService {
             throw new NotFoundException(`Hssac with ID ${id} not found`);
         }
 
-        if (existingHssac.status==="D") {
+        if (existingHssac.status === "D") {
             throw new Error(`Hssac with ID ${id} is already deleted`);
         }
 
         // Perform soft delete by updating deletedAt field
         return this._db.hSSACMaster.update({
             where: { HSSACMasterSid: id },
-            data: {status:"D" }
+            data: { status: "D" }
         });
     }
 
 
-    async searchList(params: SearchVesselDto) {
-    const { search = '', page = 1, pageSize = 15 } = params;
-    const skip = (page - 1) * pageSize;
+    async searchList(params: filterDto) {
+        const { search = '', page = 1, pageSize = 15 } = params;
+        const skip = (page - 1) * pageSize;
 
-    const where: Prisma.HSSACMasterWhereInput = {
-      
-        status: 'A',
-        ...(search
-            ? {
-                OR: [
-                    { HSSACName: { contains: search, mode: 'insensitive' } },
-                    { HSSACCode: { contains: search, mode: 'insensitive' } },
-                    { ServiceName: { contains: search, mode: 'insensitive' } },
-                    // { TaxRate: { contains: search, mode: 'insensitive' } },
-                    { TaxType: { contains: search, mode: 'insensitive' } },
-                    { status: { contains: search, mode: 'insensitive' } },
-                ],
-            }
-            : {}
-        ),
-    };
+        const where: Prisma.HSSACMasterWhereInput = {
 
-    const [items, totalCount] = await this._db.$transaction([
-        this._db.hSSACMaster.findMany({
-            where,
-            skip,
-            take: pageSize,
-            orderBy: { HSSACMasterSid: 'desc' },
-        }),
-        this._db.hSSACMaster.count({ where }),
-    ]);
+            status: 'A',
+            ...(search
+                ? {
+                    OR: [
+                        { HSSACName: { contains: search, mode: 'insensitive' } },
+                        { HSSACCode: { contains: search, mode: 'insensitive' } },
+                        { ServiceName: { contains: search, mode: 'insensitive' } },
+                        // { TaxRate: { contains: search, mode: 'insensitive' } },
+                        { TaxType: { contains: search, mode: 'insensitive' } },
+                        { status: { contains: search, mode: 'insensitive' } },
+                    ],
+                }
+                : {}
+            ),
+        };
 
-    return {
-        items,
-        totalCount,
-    };
-}
-async getAuditLogs(tableName: string, recordId?: string) {
-    try {
-      const whereClause: any = { tableName };
-      if (recordId) whereClause.recordId = recordId;
+        const [items, totalCount] = await this._db.$transaction([
+            this._db.hSSACMaster.findMany({
+                where,
+                skip,
+                take: pageSize,
+                orderBy: { HSSACMasterSid: 'desc' },
+            }),
+            this._db.hSSACMaster.count({ where }),
+        ]);
 
-      const logs = await this._db.auditLog.findMany({
-        where: whereClause,
-        orderBy: { changedAt: 'desc' },
-      });
-
-      return logs;
-    } catch (error) {
-      this.logger.warn(`getAuditLogsError: ${error}`);
-      throw new Error(`Error fetching audit logs: ${error.message}`);
+        return {
+            items,
+            totalCount,
+        };
     }
-  }
+    async getAuditLogs(tableName: string, recordId?: string) {
+        try {
+            const whereClause: any = { tableName };
+            if (recordId) whereClause.recordId = recordId;
+
+            const logs = await this._db.auditLog.findMany({
+                where: whereClause,
+                orderBy: { changedAt: 'desc' },
+            });
+
+            return logs;
+        } catch (error) {
+            this.logger.warn(`getAuditLogsError: ${error}`);
+            throw new Error(`Error fetching audit logs: ${error.message}`);
+        }
+    }
 }

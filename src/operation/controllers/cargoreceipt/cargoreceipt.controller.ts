@@ -1,7 +1,7 @@
 import { BadRequestException, Body, Controller, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, Post, UnauthorizedException } from '@nestjs/common';
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
 import { ResponseData } from 'src/common/response-data';
-import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
+import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 import { CargoreceiptService } from 'src/operation/services/cargoreceipt/cargoreceipt.service';
 
 @Controller('cargoreceipt')
@@ -70,7 +70,7 @@ export class CargoreceiptController {
     })
     @HttpCode(HttpStatus.OK)
     @Post("search-list")
-    async search(@Body() searchParams: SearchVesselDto) {
+    async search(@Body() searchParams: filterDto) {
         const resp = new ResponseData();
         try {
             const res = await this.cargoreceiptService.search(searchParams);

@@ -1,7 +1,7 @@
 import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, Post, UnauthorizedException } from '@nestjs/common';
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
 import { ResponseData } from 'src/common/response-data';
-import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
+import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 import { TdsExemptionService } from 'src/masters/services/tds-exemption/tds-exemption.service';
 
 
@@ -186,7 +186,7 @@ export class TdsExemptionController {
     })
     @HttpCode(HttpStatus.OK)
     @Post('search-list')
-    async searchTDSExemption(@Body() searchData: SearchVesselDto) {
+    async searchTDSExemption(@Body() searchData: filterDto) {
         let resp = new ResponseData();
         try {
             let res = await this.tdsExemptionService.searchTdsExemption(searchData);

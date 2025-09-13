@@ -2,7 +2,7 @@ import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatu
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
 import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
-import { SearchVesselDto } from 'src/masters/DTO/search-vessel.dto';
+import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 import { RoleMenuService } from 'src/masters/services/role-menu/role-menu.service';
 
 
@@ -162,7 +162,7 @@ export class RoleMenuController {
     })
     @HttpCode(HttpStatus.OK)
     @Post('search-list')
-    async searchRoleMenu(@Body() searchData: SearchVesselDto) {
+    async searchRoleMenu(@Body() searchData: filterDto) {
         let resp = new ResponseData();
         try {
             let res = await this.RoleMenuService.searchRoleMenu(searchData);
@@ -210,22 +210,22 @@ export class RoleMenuController {
     }
 
     @Get('permissions/:menuId/:roleId')
-async getRoleMenuPermissions(
-  @Param('menuId', ParseIntPipe) menuId: number,
-  @Param('roleId', ParseIntPipe) roleId: number
-) {
-  let resp = new ResponseData();
-  try {
-    const permissions = await this.RoleMenuService.getRoleMenuPermissions(menuId, roleId);
-    resp.data = permissions;
-    resp.message = "Permissions fetched successfully";
-  } catch (error) {
-    this.logger.warn(`Error fetching permissions: ${error}`);
-    resp.status = false;
-    resp.message = "Error fetching permissions";
-  }
-  return resp;
-}
+    async getRoleMenuPermissions(
+        @Param('menuId', ParseIntPipe) menuId: number,
+        @Param('roleId', ParseIntPipe) roleId: number
+    ) {
+        let resp = new ResponseData();
+        try {
+            const permissions = await this.RoleMenuService.getRoleMenuPermissions(menuId, roleId);
+            resp.data = permissions;
+            resp.message = "Permissions fetched successfully";
+        } catch (error) {
+            this.logger.warn(`Error fetching permissions: ${error}`);
+            resp.status = false;
+            resp.message = "Error fetching permissions";
+        }
+        return resp;
+    }
 
 
 
