@@ -31,7 +31,7 @@ export class PreCustomerMeetingService {
     }
 
 
-    async CreateAndUpdatePreCustomerMeeting(params: CreatePreCustomerMeetingDto, user) {
+    async CreateAndUpdatePreCustomerMeeting(params: CreatePreCustomerMeetingDto) {
         try {
             const payload: any = {
                 meetingType: params.meetingType,
@@ -40,10 +40,17 @@ export class PreCustomerMeetingService {
                 customerProfile: params.customerProfile,
                 meetingNote: params.meetingNote,
                 followUpNote: params.followUpNote,
-                createdBy: user['userEmail'],
-                status: params.status || "A"
+                createdBy: params['userEmail'],
+                status: params.status || "A",
+                 companyMaster: {
+                connect: { CompanyMasterSid: params.CompanyMasterSid }
+            },
+            branchMaster: {
+                connect: { BranchMasterSid: params.BranchMasterSid }
+            }
+    
             };
-
+               console.log('Final payload:', payload); 
             if (params.PreCustomerMeetingSid) {
                 // Update existing record 
                 const existingLead = await this._db.preCustomerMeeting.findUnique({
@@ -54,7 +61,7 @@ export class PreCustomerMeetingService {
                     throw new Error('Meeting not found');
                 }
                 payload.updatedOn = new Date(); // Only update UpdatedOn
-                payload.updatedBy = user['userEmail']
+                payload.updatedBy = params['userEmail']
                 payload.followUpDate = params.followUpDate ? new Date(params.followUpDate + "Z") : null
                 payload.meetingDate = new Date(params.meetingDate + "Z")
 
@@ -124,7 +131,7 @@ export class PreCustomerMeetingService {
                             FollowupNote: params.followUpNote,
                             MeetingNote: params.meetingNote,
                             Remarks: params.remarks ?? null,
-                            createdBy: user['userEmail'],
+                            createdBy: params['userEmail'],
                             createdOn: new Date(),
                             updatedOn: new Date()
                         }
@@ -140,12 +147,8 @@ export class PreCustomerMeetingService {
                 const newMeeting = await this._db.preCustomerMeeting.create({
                     data: {
                         ...payload,
-                        companyMaster: {
-                            connect: { CompanyMasterSid: user['userBranchMaster'][0].CompanyMasterSid }
-                        },
-                        branchMaster: {
-                            connect: { BranchMasterSid: user['userBranchMaster'][0].BranchMasterSid }
-                        },
+                        CompanyMasterSid: payload.CompanyMasterSid, 
+                        BranchMasterSid: payload.BranchMasterSid,
                         preCustomerMaster: {
                             connect: {
                                 PreCustomerMasterSid:

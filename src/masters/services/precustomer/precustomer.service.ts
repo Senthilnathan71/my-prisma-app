@@ -73,11 +73,11 @@ export class PrecustomerService {
         }
     }
 
-    async createPrecustomer(params: CreatePrecustomerDto, user) {
+    async createPrecustomer(params: CreatePrecustomerDto) {
         try {
             const payload: any = {
-                CompanyMasterSid: user['userBranchMaster'][0].CompanyMasterSid,
-                BranchMasterSid: user['userBranchMaster'][0].BranchMasterSid,
+                CompanyMasterSid: params.CompanyMasterSid,
+                BranchMasterSid: params.BranchMasterSid,
                 CityMasterSid: Number(params.CityMasterSid),
                 CountryMasterSid: params.CountryMasterSid,
                 StateMasterSid: params.StateMasterSid,
@@ -87,10 +87,10 @@ export class PrecustomerService {
                 contactPerson: params.contactPerson,
                 email: params.email,
                 phone: params.phone,
-                leadAssignTo: user['UserMasterSid'],
+                leadAssignTo: params['UserMasterSid'],
                 leadFrom: params.leadFrom,
                 leadReferredBy: params.leadReferredBy,
-                createdBy: user['userEmail'],
+                createdBy: params['userEmail'],
                 status: params.status || 'A'
             };
 
@@ -104,7 +104,7 @@ export class PrecustomerService {
                     throw new Error('Lead not found');
                 }
                 payload.updatedOn = new Date(); // Only update UpdatedOn
-                payload.updatedBy = user['userEmail']
+                payload.updatedBy = params['userEmail']
                 await this._db.preCustomerMaster.update({
                     where: {
                         PreCustomerMasterSid: params.PreCustomerMasterSid,
@@ -128,7 +128,7 @@ export class PrecustomerService {
                 }
                 payload.createdOn = new Date();
                 payload.updatedOn = new Date();
-                payload.createdBy = user['userEmail']; // Only used when creating
+                payload.createdBy = params['userEmail']; // Only used when creating
                 const newLead = await this._db.preCustomerMaster.create({
                     data: payload
                 });
