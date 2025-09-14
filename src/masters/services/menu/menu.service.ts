@@ -46,7 +46,7 @@ export class MenuService {
 
         try {
             const result = await this._db.$transaction(async (tx) => {
-                const { permissions, ...menuPayload } = payload
+                const { permissions,menuPermissions,otherPermissions, ...menuPayload } = payload
                 // 1. Create menu
                 const menu = await tx.menuMaster.create({
                     data: {
@@ -187,15 +187,19 @@ export class MenuService {
         }
 
         try {
-            const { permissions, ...menuPayload } = payload;
+            const { permissions,menuPermissions,otherPermissions, ...menuPayload } = payload;
+            
             const result = await this._db.$transaction(async (tx) => {
                 // 1. Update menu
+                const { ModuleMasterSid, ...payloadWithoutModule } = menuPayload;
+
                 const updatedMenu = await tx.menuMaster.update({
                     where: {
                         MenuMasterSid: menuMasterSid
                     },
                     data: {
-                        ...menuPayload,
+                        moduleMaster: { connect: { ModuleMasterSid } }, // use relation
+                        ...payloadWithoutModule,                        // no conflicting key
                         parentId: menuPayload.parentId || null
                     }
                 });
@@ -432,7 +436,7 @@ export class MenuService {
                 where,
                 skip,
                 take: pageSize,
-                orderBy: { ModuleMasterSid: 'desc' },
+                orderBy: { MenuMasterSid: 'desc' },
             }),
             this._db.menuMaster.count({ where }),
         ]);
