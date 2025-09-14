@@ -1493,7 +1493,6 @@ export class BookingService {
                     bookingConnection: { where: { status: 'A' } }
                 }
             })
-            console.log('Prisma raw booking >>>', ourBooking);
 
             if (!ourBooking) {
                 throw new BadRequestException('Error fetching booking record.');
