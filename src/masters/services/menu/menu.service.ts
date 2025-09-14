@@ -152,6 +152,13 @@ export class MenuService {
                 where: {
                     MenuMasterSid: MenuMasterSid,
                     status: 'A'
+                },
+                select:{
+                    permissionName:true,
+                    permissionCode:true,
+                    status:true,
+                    MenuMasterSid:true,
+                    MenuPermissionSid:true
                 }
             })
             return menuPermissions
@@ -231,7 +238,7 @@ export class MenuService {
                                 }
                             },
                             data: {
-                                status: 'A',
+                                status: 'D',
                             }
                         });
                     }
