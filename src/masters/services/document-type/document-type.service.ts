@@ -11,7 +11,7 @@ export class DocumentTypeService {
 
     async getAllDocType(CompanyMasterSid: number, BranchMasterSid: number) {
         try {
-            const allDocType = await this._db.documentTypeMaster.findMany({
+            const allDocType = await this._db.voucherTypeMaster.findMany({
                 where: {
                     status: 'A',
                     CompanyMasterSid: CompanyMasterSid,
@@ -26,7 +26,7 @@ export class DocumentTypeService {
 
     async createNewDocType(payload) {
         try {
-            const createdDocType = await this._db.documentTypeMaster.create({
+            const createdDocType = await this._db.voucherTypeMaster.create({
                 data: {
                     ...payload,
                 }
@@ -37,15 +37,15 @@ export class DocumentTypeService {
         }
     }
 
-    async fetchDocTypeById(DocumentTypeMasterSid: number) {
+    async fetchDocTypeById(VoucherTypeMasterSid: number) {
         try {
-            const ourDocType = await this._db.documentTypeMaster.findUnique({
+            const ourDocType = await this._db.voucherTypeMaster.findUnique({
                 where: {
-                    DocumentTypeMasterSid: DocumentTypeMasterSid
+                    VoucherTypeMasterSid: VoucherTypeMasterSid
                 }
             })
             if (!ourDocType) {
-                throw new BadRequestException(`DocType with Id : ${DocumentTypeMasterSid} not exists`);
+                throw new BadRequestException(`DocType with Id : ${VoucherTypeMasterSid} not exists`);
             }
             return ourDocType;
         } catch (error) {
@@ -53,19 +53,19 @@ export class DocumentTypeService {
         }
     }
 
-    async updateDocTypeById(DocumentTypeMasterSid: number, payload) {
+    async updateDocTypeById(VoucherTypeMasterSid: number, payload) {
         try {
-            const exist = await this._db.documentTypeMaster.findUnique({
+            const exist = await this._db.voucherTypeMaster.findUnique({
                 where: {
-                    DocumentTypeMasterSid: DocumentTypeMasterSid
+                    VoucherTypeMasterSid: VoucherTypeMasterSid
                 }
             })
             if (!exist) {
-                throw new BadRequestException(`DocType with Id : ${DocumentTypeMasterSid} not exists`);
+                throw new BadRequestException(`DocType with Id : ${VoucherTypeMasterSid} not exists`);
             }
-            const updatedDocType = this._db.documentTypeMaster.update({
+            const updatedDocType = this._db.voucherTypeMaster.update({
                 where: {
-                    DocumentTypeMasterSid: DocumentTypeMasterSid
+                    VoucherTypeMasterSid: VoucherTypeMasterSid
                 },
                 data: payload
             })
@@ -76,22 +76,22 @@ export class DocumentTypeService {
     }
 
 
-    async deleteDocType(DocumentTypeMasterSid: number) {
+    async deleteDocType(VoucherTypeMasterSid: number) {
         try {
-            const exist = await this._db.documentTypeMaster.findUnique({
+            const exist = await this._db.voucherTypeMaster.findUnique({
                 where: {
-                    DocumentTypeMasterSid: DocumentTypeMasterSid
+                    VoucherTypeMasterSid: VoucherTypeMasterSid
                 }
             })
             if (!exist) {
-                throw new BadRequestException(`DocType with Id : ${DocumentTypeMasterSid} not exists`);
+                throw new BadRequestException(`DocType with Id : ${VoucherTypeMasterSid} not exists`);
             }
             if (exist.status === 'D') {
-                throw new BadRequestException(`DocType with Id :${DocumentTypeMasterSid} is already deleted`)
+                throw new BadRequestException(`DocType with Id :${VoucherTypeMasterSid} is already deleted`)
             }
-            const deletedDocType = this._db.documentTypeMaster.update({
+            const deletedDocType = this._db.voucherTypeMaster.update({
                 where: {
-                    DocumentTypeMasterSid: DocumentTypeMasterSid
+                    VoucherTypeMasterSid: VoucherTypeMasterSid
                 },
                 data: {
                     status: 'D'
@@ -108,7 +108,7 @@ export class DocumentTypeService {
         const { search = '', page = 1, pageSize = 15, activeCompanyId, activeBranchId } = params;
         const skip = (page - 1) * pageSize;
 
-        const where: Prisma.DocumentTypeMasterWhereInput = {
+        const where: Prisma.VoucherTypeMasterWhereInput = {
             status: 'A',
             CompanyMasterSid: activeCompanyId,
             BranchMasterSid: activeBranchId,
@@ -128,13 +128,13 @@ export class DocumentTypeService {
         let items;
         let totalCount;
         [items, totalCount] = await this._db.$transaction([
-            this._db.documentTypeMaster.findMany({
+            this._db.voucherTypeMaster.findMany({
                 where,
                 skip,
                 take: pageSize,
-                orderBy: { DocumentTypeMasterSid: 'desc' },
+                orderBy: { VoucherTypeMasterSid: 'desc' },
             }),
-            this._db.documentTypeMaster.count({ where }),
+            this._db.voucherTypeMaster.count({ where }),
         ]);
 
         items = await Promise.all(

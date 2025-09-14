@@ -830,71 +830,71 @@ export class MasterJobService {
 
                 const finalCharges: any[] = [];
                 const allCostRevenueCharges = payload?.costRevenueCharges || [];
-                for (const item of allCostRevenueCharges) {
-                    let createdCharge;
-                    let updatedCharge;
-                    if (item.CostRevenueChargesSid) {
-                        // update
-                        const costRevenueChargesPayload = {
-                            SerialNumber: item.SerialNumber ? Number(item.SerialNumber) : null,
-                            ChargeMasterSid: item.ChargeMasterSid ? Number(item.ChargeMasterSid) : null,
-                            ChargeDescription: item.ChargeDescription,
-                            ChargeUomSid: item.ChargeUomSid ? Number(item.ChargeUomSid) : null,
-                            PrepaidCollect: item.PrepaidCollect,
-                            CostRevenue: item.CostRevenue,
-                            CurrencyMasterSid: item.CurrencyMasterSid ? Number(item.CurrencyMasterSid) : null,
-                            ExchangeRate: item.ExchangeRate ? Number(item.ExchangeRate) : null,
-                            Rate: item.Rate ? Number(item.Rate) : null,
-                            NumberOfUnit: item.NumberOfUnit ? Number(item.NumberOfUnit) : null,
-                            DrCr: item.DrCr,
-                            Amount: item.Amount ? Number(item.Amount) : null,
-                            LocalAmount: item.LocalAmount ? Number(item.LocalAmount) : null,
-                            CustomerMasterSid: item.CustomerMasterSid ? Number(item.CustomerMasterSid) : null,
-                            CustomerBranchSid: item.CustomerBranchSid ? Number(item.CustomerBranchSid) : null,
-                            Remarks: item.Remarks
-                        }
-                        updatedCharge = await prisma.costRevenueCharges.update({
-                            where: {
-                                CostRevenueChargesSid: item.CostRevenueChargesSid
-                            },
-                            data: costRevenueChargesPayload
-                        })
-                    } else {
-                        // create
-                        const costRevenueChargesPayload = {
-                            TransactionSid: payload.MasterJobSid,
-                            MenuMasterSid: payload.MenuMasterSid,
-                            ShipmentNo: updatedMasterJob.MasterJobNumber,
-                            MasterJobNo: updatedMasterJob.MasterJobNumber,
-                            CompanyMasterSid: payload.CompanyMasterSid,
-                            BranchMasterSid: payload.BranchMasterSid,
-                            SerialNumber: item.SerialNumber ? Number(item.SerialNumber) : null,
-                            ChargeMasterSid: item.ChargeMasterSid ? Number(item.ChargeMasterSid) : null,
-                            ChargeDescription: item.ChargeDescription,
-                            ChargeUomSid: item.ChargeUomSid ? Number(item.ChargeUomSid) : null,
-                            PrepaidCollect: item.PrepaidCollect,
-                            CostRevenue: item.CostRevenue,
-                            CurrencyMasterSid: item.CurrencyMasterSid ? Number(item.CurrencyMasterSid) : null,
-                            ExchangeRate: item.ExchangeRate ? Number(item.ExchangeRate) : null,
-                            Rate: item.Rate ? Number(item.Rate) : null,
-                            NumberOfUnit: item.NumberOfUnit ? Number(item.NumberOfUnit) : null,
-                            DrCr: item.DrCr,
-                            Amount: item.Amount ? Number(item.Amount) : null,
-                            LocalAmount: item.LocalAmount ? Number(item.LocalAmount) : null,
-                            CustomerMasterSid: item.CustomerMasterSid ? Number(item.CustomerMasterSid) : null,
-                            CustomerBranchSid: item.CustomerBranchSid ? Number(item.CustomerBranchSid) : null,
-                            VoucherHeaderSid: item.VoucherHeaderSid ? Number(item.VoucherHeaderSid) : null,
-                            VoucherTypeSid: item.VoucherTypeSid ? Number(item.VoucherTypeSid) : null,
-                            createdBy: payload.CreatedBy,
-                            status: "A",
-                            Remarks: item.Remarks
-                        }
-                        createdCharge = await prisma.costRevenueCharges.create({
-                            data: costRevenueChargesPayload
-                        })
-                    }
-                    finalCharges.push(createdCharge || updatedCharge);
-                }
+                // for (const item of allCostRevenueCharges) {
+                //     let createdCharge;
+                //     let updatedCharge;
+                //     if (item.CostRevenueChargesSid) {
+                //         // update
+                //         const costRevenueChargesPayload = {
+                //             SerialNumber: item.SerialNumber ? Number(item.SerialNumber) : null,
+                //             ChargeMasterSid: item.ChargeMasterSid ? Number(item.ChargeMasterSid) : null,
+                //             ChargeDescription: item.ChargeDescription,
+                //             ChargeUomSid: item.ChargeUomSid ? Number(item.ChargeUomSid) : null,
+                //             PrepaidCollect: item.PrepaidCollect,
+                //             CostRevenue: item.CostRevenue,
+                //             CurrencyMasterSid: item.CurrencyMasterSid ? Number(item.CurrencyMasterSid) : null,
+                //             ExchangeRate: item.ExchangeRate ? Number(item.ExchangeRate) : null,
+                //             Rate: item.Rate ? Number(item.Rate) : null,
+                //             NumberOfUnit: item.NumberOfUnit ? Number(item.NumberOfUnit) : null,
+                //             DrCr: item.DrCr,
+                //             Amount: item.Amount ? Number(item.Amount) : null,
+                //             LocalAmount: item.LocalAmount ? Number(item.LocalAmount) : null,
+                //             CustomerMasterSid: item.CustomerMasterSid ? Number(item.CustomerMasterSid) : null,
+                //             CustomerBranchSid: item.CustomerBranchSid ? Number(item.CustomerBranchSid) : null,
+                //             Remarks: item.Remarks
+                //         }
+                //         updatedCharge = await prisma.costRevenueCharges.update({
+                //             where: {
+                //                 CostRevenueChargesSid: item.CostRevenueChargesSid
+                //             },
+                //             data: costRevenueChargesPayload
+                //         })
+                //     } else {
+                //         // create
+                //         const costRevenueChargesPayload = {
+                //             TransactionSid: payload.MasterJobSid,
+                //             MenuMasterSid: payload.MenuMasterSid,
+                //             ShipmentNo: updatedMasterJob.MasterJobNumber,
+                //             MasterJobNo: updatedMasterJob.MasterJobNumber,
+                //             CompanyMasterSid: payload.CompanyMasterSid,
+                //             BranchMasterSid: payload.BranchMasterSid,
+                //             SerialNumber: item.SerialNumber ? Number(item.SerialNumber) : null,
+                //             ChargeMasterSid: item.ChargeMasterSid ? Number(item.ChargeMasterSid) : null,
+                //             ChargeDescription: item.ChargeDescription,
+                //             ChargeUomSid: item.ChargeUomSid ? Number(item.ChargeUomSid) : null,
+                //             PrepaidCollect: item.PrepaidCollect,
+                //             CostRevenue: item.CostRevenue,
+                //             CurrencyMasterSid: item.CurrencyMasterSid ? Number(item.CurrencyMasterSid) : null,
+                //             ExchangeRate: item.ExchangeRate ? Number(item.ExchangeRate) : null,
+                //             Rate: item.Rate ? Number(item.Rate) : null,
+                //             NumberOfUnit: item.NumberOfUnit ? Number(item.NumberOfUnit) : null,
+                //             DrCr: item.DrCr,
+                //             Amount: item.Amount ? Number(item.Amount) : null,
+                //             LocalAmount: item.LocalAmount ? Number(item.LocalAmount) : null,
+                //             CustomerMasterSid: item.CustomerMasterSid ? Number(item.CustomerMasterSid) : null,
+                //             CustomerBranchSid: item.CustomerBranchSid ? Number(item.CustomerBranchSid) : null,
+                //             VoucherHeaderSid: item.VoucherHeaderSid ? Number(item.VoucherHeaderSid) : null,
+                //             VoucherTypeSid: item.VoucherTypeSid ? Number(item.VoucherTypeSid) : null,
+                //             createdBy: payload.CreatedBy,
+                //             status: "A",
+                //             Remarks: item.Remarks
+                //         }
+                //         createdCharge = await prisma.costRevenueCharges.create({
+                //             data: costRevenueChargesPayload
+                //         })
+                //     }
+                //     finalCharges.push(createdCharge || updatedCharge);
+                // }
                 const finalcontainerActivities: any[] = [];
                 const finalContainerActivities: any[] = [];
                 const payloadActivities = payload?.containerActivities || [];

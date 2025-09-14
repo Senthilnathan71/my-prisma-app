@@ -11,32 +11,32 @@ export class LoadingPlanController {
         private loadingPlanService : LoadingPlanService,
     ) { }
 
-    @ApiOperation({ summary: 'Get matching bookings' })
-    @ApiCreatedResponse({
-        description : 'Booking data fetched successfully',
-        type : ResponseData
-    })
-    @HttpCode(HttpStatus.OK)
-    @Post('get-matching-bookings')
-    async getMatchingBookings(@Body() body:LoadingPlanDTO) {
-        let resp = new ResponseData();
-        try {
-            this.logger.log(`getMatchingBookings: ${JSON.stringify(body)}`)
-            const matchingBookings = await this.loadingPlanService.getAllAvailableBookings(body);
-            this.logger.debug(`getMatchingBookings: Fetch matching bookings- ${JSON.stringify(matchingBookings)}`)
-            resp.data = matchingBookings;
-            resp.message = 'Booking data fetched successfully';
-        } catch (error) {
-            resp.status = false;
-            this.logger.error('Error loading matching bookings',JSON.stringify(error),error)
-            if(error instanceof BadRequestException || error instanceof UnauthorizedException){
-                resp.message = error.message;
-            } else {
-                resp.message = 'Internal Server Error';
-            }
-        }
-        return resp;
-    }
+    // @ApiOperation({ summary: 'Get matching bookings' })
+    // @ApiCreatedResponse({
+    //     description : 'Booking data fetched successfully',
+    //     type : ResponseData
+    // })
+    // @HttpCode(HttpStatus.OK)
+    // @Post('get-matching-bookings')
+    // async getMatchingBookings(@Body() body:LoadingPlanDTO) {
+    //     let resp = new ResponseData();
+    //     try {
+    //         this.logger.log(`getMatchingBookings: ${JSON.stringify(body)}`)
+    //         const matchingBookings = await this.loadingPlanService.getAllAvailableBookings(body);
+    //         this.logger.debug(`getMatchingBookings: Fetch matching bookings- ${JSON.stringify(matchingBookings)}`)
+    //         resp.data = matchingBookings;
+    //         resp.message = 'Booking data fetched successfully';
+    //     } catch (error) {
+    //         resp.status = false;
+    //         this.logger.error('Error loading matching bookings',JSON.stringify(error),error)
+    //         if(error instanceof BadRequestException || error instanceof UnauthorizedException){
+    //             resp.message = error.message;
+    //         } else {
+    //             resp.message = 'Internal Server Error';
+    //         }
+    //     }
+    //     return resp;
+    // }
 
     // @ApiOperation({ summary: 'Shift booking to house' })
     // @ApiCreatedResponse({

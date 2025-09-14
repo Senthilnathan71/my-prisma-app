@@ -76,15 +76,15 @@ export class DocumentTypeController {
         type: ResponseData
     })
     @HttpCode(HttpStatus.OK)
-    @Get('fetch/:DocumentTypeMasterSid')
-    async getDocTypeById(@Param('DocumentTypeMasterSid', ParseIntPipe) DocumentTypeMasterSid: number) {
+    @Get('fetch/:VoucherTypeMasterSid')
+    async getDocTypeById(@Param('VoucherTypeMasterSid', ParseIntPipe) VoucherTypeMasterSid: number) {
         let resp = new ResponseData();
         try {
-            this.logger.log(`Getting Document Type with id : ${DocumentTypeMasterSid}`);
-            let res = await this.documentTypeService.fetchDocTypeById(DocumentTypeMasterSid);
+            this.logger.log(`Getting Document Type with id : ${VoucherTypeMasterSid}`);
+            let res = await this.documentTypeService.fetchDocTypeById(VoucherTypeMasterSid);
             this.logger.debug(`Fetched Document Type : ${JSON.stringify(res)}`);
             resp.data = res;
-            resp.message = `Document Type with id : ${DocumentTypeMasterSid} is successfully fetched`;
+            resp.message = `Document Type with id : ${VoucherTypeMasterSid} is successfully fetched`;
         } catch (error) {
             this.logger.warn(`Get Document Type by Id Error : ${JSON.stringify(error), error}`);
             resp.status = false;
@@ -105,15 +105,15 @@ export class DocumentTypeController {
         type: ResponseData
     })
     @HttpCode(HttpStatus.OK)
-    @Patch('update/:DocumentTypeMasterSid')
-    async updateDocTypeById(@Param('DocumentTypeMasterSid', ParseIntPipe) DocumentTypeMasterSid: number, @Body() payload: any) {
+    @Patch('update/:VoucherTypeMasterSid')
+    async updateDocTypeById(@Param('VoucherTypeMasterSid', ParseIntPipe) VoucherTypeMasterSid: number, @Body() payload: any) {
         let resp = new ResponseData();
         try {
-            this.logger.log(`Updating Document Type with id : ${DocumentTypeMasterSid}`);
-            let res = await this.documentTypeService.updateDocTypeById(DocumentTypeMasterSid, payload);
+            this.logger.log(`Updating Document Type with id : ${VoucherTypeMasterSid}`);
+            let res = await this.documentTypeService.updateDocTypeById(VoucherTypeMasterSid, payload);
             this.logger.debug(`Updated Document Type : ${JSON.stringify(res)}`);
             resp.data = res;
-            resp.message = `Document Type with id : ${DocumentTypeMasterSid} is successfully updated`;
+            resp.message = `Document Type with id : ${VoucherTypeMasterSid} is successfully updated`;
         } catch (error) {
             this.logger.warn(`Document Type Updation Error : ${JSON.stringify(error), error}`);
             resp.status = false;
@@ -134,16 +134,16 @@ export class DocumentTypeController {
         type: ResponseData
     })
     @HttpCode(HttpStatus.OK)
-    @Delete('delete/:DocumentTypeMasterSid')
-    async deleteDocTypeById(@Param('DocumentTypeMasterSid', ParseIntPipe) DocumentTypeMasterSid: number) {
+    @Delete('delete/:VoucherTypeMasterSid')
+    async deleteDocTypeById(@Param('VoucherTypeMasterSid', ParseIntPipe) VoucherTypeMasterSid: number) {
         let resp = new ResponseData();
         try {
-            this.logger.log(`Deleting Document Type with id : ${DocumentTypeMasterSid}`);
-            let res = await this.documentTypeService.deleteDocType(DocumentTypeMasterSid);
+            this.logger.log(`Deleting Document Type with id : ${VoucherTypeMasterSid}`);
+            let res = await this.documentTypeService.deleteDocType(VoucherTypeMasterSid);
             this.logger.debug(`Deleted Document Type : ${JSON.stringify(res)}`);
             resp.data = res;
             resp.message = `
-            Document Type with id : ${DocumentTypeMasterSid} is successfully deleted`;
+            Document Type with id : ${VoucherTypeMasterSid} is successfully deleted`;
         } catch (error) {
             this.logger.warn(`Document Type Deletion Error : ${JSON.stringify(error), error}`);
             resp.status = false;
