@@ -37,8 +37,8 @@ import { DocumentService } from './services/document/document.service';
                 MasterJobController,
                 CargoreceiptController,
                 LoadingPlanController,
-                InvoiceController
-        DocumentController
+                InvoiceController,
+                DocumentController
         ]
 })
 export class OperationModule { }
