@@ -1,8 +1,7 @@
-import { VoucherDetail } from './../../../../node_modules/.prisma/client/index.d';
 import { BadRequestException, Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
-import { VoucherDetail, VoucherHeader } from '@prisma/client';
 import { DatabaseService } from 'src/database/database.service';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
+import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class InvoiceService {
@@ -50,6 +49,35 @@ export class InvoiceService {
         } catch (error) {
             throw new InternalServerErrorException("Something Went Wrong while fetching the data");
         }
+    }
+
+    async createInvoice(payload: any) {
+        try {
+            const voucherHeader = await this._db.voucherHeader.create(payload).catch(err => { throw new Error('Something Went Wrong While Creating VoucherHeader') })
+            let voucherDetails
+            if (voucherHeader) {
+                voucherDetails = await this._db.voucherDetail.createMany(payload.voucherDetails).catch(err => { throw new Error('Something Went Wrong While Creating VoucherDetails') })
+            }
+            let voucherOthers
+            if (voucherHeader && voucherDetails) {
+                voucherOthers = await this._db.voucherOthers.createMany(payload.voucherOthers).catch(err => { throw new Error('Something Went Wrong While Creating VoucherOthers') })
+            }
+            let voucherTds
+            if (voucherHeader && voucherDetails) {
+                voucherTds = await this._db.voucherTDS.createMany(payload.voucherTds).catch(err => { throw new Error('Something Went Wrong While Creating VoucherTDS') })
+            }
+
+            let voucherTransactions
+            if (voucherHeader && voucherDetails) {
+                voucherTransactions = await this._db.voucherTransaction.createMany(payload.voucherTransactions).catch(err => { throw new Error('Something Went Wrong While Creating VoucherTDS') })
+            }
+        } catch (error) {
+            throw new Error('Something Went Wrong While Creating VoucherHeader')
+        }
+    }
+
+    async updateVoucherHeaderById(VoucherHeaderById: number, payload: any) {
+
     }
 
 
@@ -102,54 +130,18 @@ export class InvoiceService {
         }
     }
 
-    async searchBooking(params: filterDto) {
+    async searchVoucherHeader(params: filterDto) {
         const { search = '', page = 1, pageSize = 15, activeCompanyId, activeBranchId } = params;
         const skip = (page - 1) * pageSize;
 
-        let salesmanIds: number[] = [];
-        let shipmentNosByMilestone: string[] = [];
-
-        if (search) {
-            /**
-             *  Taking all UserSId associated with search
-             */
-
-            const users = await this._db.userMaster.findMany({
-                where: { userName: { contains: search, mode: 'insensitive' }, status: 'A' },
-                select: { UserMasterSid: true },
-            });
-            salesmanIds = users.map(u => u.UserMasterSid);
-
-            /**
-            |--------------------------------------------------
-                |   1.Taking allMilestoneSid , ShipmentNo associated with search 
-                |   2.Sorting based on ShipmentMilestoneSid(pk) to get latest one
-                |--------------------------------------------------
-            */
-
-            const milestones = await this._db.shipmentMilestone.findMany({
-                where: { MilestoneName: { contains: search, mode: 'insensitive' }, Status: 'A', CompanyMasterSid: activeCompanyId, BranchMasterSid: activeBranchId },
-                select: { ShipmentNo: true, ShipmentMilestoneSid: true },
-                orderBy: [{ ShipmentNo: 'asc' }, { ShipmentMilestoneSid: 'desc' }],
-            });
-            shipmentNosByMilestone = [...new Map(milestones.map(m => [m.ShipmentNo, m])).keys()];
-        }
-
-        const where: Prisma.BookingHeaderWhereInput = {
+        const where: Prisma.VoucherHeaderWhereInput = {
             CompanyMasterSid: activeCompanyId,
             BranchMasterSid: activeBranchId,
-            status: 'A',
+            Status: 'A',
             ...(search && {
                 OR: [
-                    { BookingNo: { contains: search, mode: 'insensitive' } },
-                    { departmentMaster: { departmentName: { contains: search, mode: 'insensitive' } } },
-                    { POL: { contains: search, mode: 'insensitive' } },
-                    { POD: { contains: search, mode: 'insensitive' } },
-                    { FPD: { contains: search, mode: 'insensitive' } },
-                    { VesselName: { contains: search, mode: 'insensitive' } },
-                    { VoyageNo: { contains: search, mode: 'insensitive' } },
-                    ...(salesmanIds.length ? [{ SalesmanSid: { in: salesmanIds } }] : []),
-                    ...(shipmentNosByMilestone.length ? [{ ShipmentNo: { in: shipmentNosByMilestone } }] : []),
+                    { VoucherNumber: { contains: search, mode: 'insensitive' } },
+                    { departmentMaster: { departmentName: { contains: search, mode: 'insensitive' } } }
                 ],
             }),
         };
@@ -157,55 +149,17 @@ export class InvoiceService {
         let items;
         let totalCount;
         [items, totalCount] = await this._db.$transaction([
-            this._db.bookingHeader.findMany({
+            this._db.voucherHeader.findMany({
                 where,
                 skip,
                 take: pageSize,
-                orderBy: { BookingHeaderSid: 'desc' }
+                orderBy: { VoucherHeaderSid: 'desc' }
             }),
-            this._db.bookingHeader.count({ where }),
+            this._db.voucherHeader.count({ where }),
         ]);
 
-        /**
-            * Taking DepartmentName using globalConfig Service 
-         */
-        items = await Promise.all(
-            items.map(async (item) => {
-                const [departmentMaster, salesman] = await Promise.all([
-                    item.DepartmentMasterSid !== null ?
-                        this.globalConfigService.getMasterData('department_master', item.DepartmentMasterSid) :
-                        { DepartmentMasterSid: null, departmentName: '' },
-
-                    item.SalesmanSid !== null ?
-                        this.globalConfigService.getMasterData('user_master', item.SalesmanSid) :
-                        { UserMasterSid: null, userName: '' }
-                ])
-                return {
-                    ...item,
-                    departmentMaster,
-                    salesman
-                }
-            })
-        )
-
-        const shipmentNos = [...new Set(items.map(i => i.ShipmentNo).filter(Boolean))] as string[];
-        const milestones = shipmentNos.length
-            ? await this._db.shipmentMilestone.findMany({
-                where: { ShipmentNo: { in: shipmentNos } },
-                select: { ShipmentNo: true, ShipmentMilestoneSid: true, MilestoneName: true },
-                orderBy: { ShipmentMilestoneSid: 'desc' },
-            })
-            : [];
-
-        const milestoneMap = new Map(milestones.map(m => [m.ShipmentNo, m]));
 
 
-
-        const formattedItems = items.map(item => ({
-            ...item,
-            Milestone: item.ShipmentNo && milestoneMap.get(item.ShipmentNo) || null,
-        }));
-
-        return { items: formattedItems, totalCount };
+        return { items: items, totalCount };
     }
 }
