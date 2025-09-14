@@ -2693,7 +2693,10 @@ model VoucherOthers {
   UpdatedOn        DateTime @default(now())
   UpdatedBy        String?  @db.VarChar(100)
   Status           String   @default("A") @db.Char(1)
-  VoucherHeaderSid Int
+  VoucherHeaderSid    Int
+  VoucherReverseSid   Int?
+  ContainerNumber  String?  @db.VarChar(100)
+  VoucherNote      String? @db.VarChar(200)
   Footer           String   @db.VarChar(300)
 
   VoucherHeader VoucherHeader @relation(fields: [VoucherHeaderSid], references: [VoucherHeaderSid])
