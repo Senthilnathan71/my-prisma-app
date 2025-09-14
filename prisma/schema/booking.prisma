@@ -249,9 +249,9 @@ model BookingRates {
   CostLocalAmount          Decimal       @db.Decimal(15, 3)
   RevenuePrepaidCollect    String?
   RevenueCurrencyMasterSid Int?
-  RevnueExchangeRate       Decimal?      @db.Decimal(6, 3)
+  RevenueExchangeRate       Decimal?      @db.Decimal(6, 3)
   RevenueRate              Decimal?      @db.Decimal(15, 3)
-  ReveueNumberOfUnit       Decimal?      @db.Decimal(4, 3)
+  RevenueNumberOfUnit       Decimal?      @db.Decimal(4, 3)
   RevenueDrCr              String        @db.Char(1)
   RevenueAmount            Decimal       @db.Decimal(15, 3)
   RevenueLocalAmount       Decimal       @db.Decimal(15, 3)

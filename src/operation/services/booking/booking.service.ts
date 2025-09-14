@@ -452,7 +452,7 @@ export class BookingService {
                     |   Step 1 : Update Booking Header
                     |--------------------------------------------------
                 */
-                const updatedBooking = await prisma.bookingHeader.update({
+                const updatedBooking:any = await prisma.bookingHeader.update({
                     where: {
                         BookingHeaderSid: BookingHeaderSid
                     },
@@ -762,73 +762,75 @@ export class BookingService {
                     |--------------------------------------------------
                 */
 
-                // const finalBookingRates: any[] = [];
-                // for (const rate of payload.bookingRates) {
-                //     let createdBookingRate;
-                //     let updatedBookingRate;
-                //     if (!rate.CostRevenueChargesSid) {
-                //         createdBookingRate = await prisma.costRevenueCharges.create({
-                //             data: {
-                //                 TransactionSid: updatedBooking.BookingHeaderSid,
-                //                 MenuMasterSid: updatedBooking.MenuMasterSid!,
-                //                 ShipmentNo: updatedBooking.ShipmentNo,
-                //                 CompanyMasterSid: payload.CompanyMasterSid,
-                //                 BranchMasterSid: payload.BranchMasterSid,
-                //                 SerialNumber: Number(rate.SerialNumber),
-                //                 ChargeMasterSid: rate.ChargeMasterSid,
-                //                 ChargeDescription: rate.ChargeDescription,
-                //                 ChargeUomSid: rate.ChargeUomSid,
-                //                 PrepaidCollect: rate.PrepaidCollect,
-                //                 CostRevenue: rate.CostRevenue,
-                //                 CurrencyMasterSid: rate.CurrencyMasterSid,
-                //                 ExchangeRate: Number(rate.ExchangeRate),
-                //                 Rate: Number(rate.Rate),
-                //                 NumberOfUnit: Number(rate.NumberOfUnit),
-                //                 DrCr: rate.DrCr,
-                //                 Amount: Number(rate.Amount),
-                //                 LocalAmount: Number(rate.LocalAmount),
-                //                 CustomerMasterSid: rate.CustomerMasterSid,
-                //                 CustomerBranchSid: updatedBooking.CustomerBranchSid,
-                //                 VoucherHeaderSid: Number(rate.VoucherHeaderSid),
-                //                 VoucherTypeSid: rate.VoucherTypeSid,
-                //                 status: 'A',
-                //                 createdBy: payload.updatedBy
-                //             }
-                //         })
-                //     } else {
-                //         updatedBookingRate = await prisma.costRevenueCharges.update({
-                //             where: { CostRevenueChargesSid: rate.CostRevenueChargesSid },
-                //             data: {
-                //                 TransactionSid: updatedBooking.BookingHeaderSid,
-                //                 MenuMasterSid: updatedBooking.MenuMasterSid!,
-                //                 ShipmentNo: updatedBooking.ShipmentNo,
-                //                 CompanyMasterSid: payload.CompanyMasterSid,
-                //                 BranchMasterSid: payload.BranchMasterSid,
-                //                 SerialNumber: Number(rate.SerialNumber),
-                //                 ChargeMasterSid: rate.ChargeMasterSid,
-                //                 ChargeDescription: rate.ChargeDescription,
-                //                 ChargeUomSid: rate.ChargeUomSid,
-                //                 PrepaidCollect: rate.PrepaidCollect,
-                //                 CostRevenue: rate.CostRevenue,
-                //                 CurrencyMasterSid: rate.CurrencyMasterSid,
-                //                 ExchangeRate: Number(rate.ExchangeRate),
-                //                 Rate: Number(rate.Rate),
-                //                 NumberOfUnit: Number(rate.NumberOfUnit),
-                //                 DrCr: rate.DrCr,
-                //                 Amount: Number(rate.Amount),
-                //                 LocalAmount: Number(rate.LocalAmount),
-                //                 CustomerMasterSid: rate.CustomerMasterSid,
-                //                 CustomerBranchSid: updatedBooking.CustomerBranchSid,
-                //                 VoucherHeaderSid: Number(rate.VoucherHeaderSid),
-                //                 VoucherTypeSid: rate.VoucherTypeSid,
-                //                 status: String(rate.status).charAt(0),
-                //                 updatedBy: payload.updatedBy
-                //             }
-                //         })
-                //     }
-                //     const data = createdBookingRate || updatedBookingRate;
-                //     finalBookingRates.push(data)
-                // }
+                const finalBookingRates: any[] = [];
+                for (const rate of payload.bookingRates) {
+                    let createdBookingRate;
+                    let updatedBookingRate;
+                    if (!rate.CostRevenueChargesSid) {
+                        createdBookingRate = await prisma.bookingRates.create({
+                            data: {
+                                BookingHeaderSid: updatedBooking.BookingHeaderSid,
+                                CompanyMasterSid: payload.CompanyMasterSid,
+                                BranchMasterSid: payload.BranchMasterSid,
+                                SerialNumber: Number(rate.SerialNumber),
+                                ChargeMasterSid: rate.ChargeMasterSid,
+                                ChargeDescription: rate.ChargeDescription,
+                                ChargeUomSid: rate.ChargeUomSid,
+                                CostPrepaidCollect: rate.CostPrepaidCollect,
+                                RevenuePrepaidCollect: rate.RevenuePrepaidCollect,
+                                CostCurrencyMasterSid: rate.CurrencyMasterSid,
+                                CostExchangeRate: Number(rate.ExchangeRate),
+                                CostRate: Number(rate.Rate),
+                                CostNumberOfUnit: Number(rate.NumberOfUnit),
+                                CostDrCr: rate.DrCr,
+                                CostAmount: Number(rate.Amount),
+                                CostLocalAmount: Number(rate.LocalAmount),
+                                RevenueCurrencyMasterSid: rate.CurrencyMasterSid,
+                                RevenueExchangeRate: Number(rate.ExchangeRate),
+                                RevenueRate: Number(rate.Rate),
+                                RevenueNumberOfUnit: Number(rate.NumberOfUnit),
+                                RevenueDrCr: rate.DrCr,
+                                RevenueAmount: Number(rate.Amount),
+                                RevenueLocalAmount: Number(rate.LocalAmount),
+                                CustomerMasterSid: rate.CustomerMasterSid,
+                                CustomerBranchSid: updatedBooking.CustomerBranchSid,
+                                VoucherHeaderSid: Number(rate.VoucherHeaderSid),
+                                VoucherTypeMasterSid: rate.VoucherTypeSid,
+                                Status: 'A',
+                                CreatedBy: payload.updatedBy
+                            }
+                        })
+                    } else {
+                        updatedBookingRate = await prisma.bookingRates.update({
+                            where: { BookingRatesSid: rate.CostRevenueChargesSid },
+                            data: {
+                                BookingHeaderSid: updatedBooking.BookingHeaderSid,
+                                CompanyMasterSid: payload.CompanyMasterSid,
+                                BranchMasterSid: payload.BranchMasterSid,
+                                SerialNumber: Number(rate.SerialNumber),
+                                ChargeMasterSid: rate.ChargeMasterSid,
+                                ChargeDescription: rate.ChargeDescription,
+                                ChargeUomSid: rate.ChargeUomSid,
+                                CostPrepaidCollect: rate.PrepaidCollect,
+                                CostCurrencyMasterSid: rate.CurrencyMasterSid,
+                                CostExchangeRate: Number(rate.ExchangeRate),
+                                CostRate: Number(rate.Rate),
+                                CostNumberOfUnit: Number(rate.NumberOfUnit),
+                                CostDrCr: rate.DrCr,
+                                CostAmount: Number(rate.Amount),
+                                CostLocalAmount: Number(rate.LocalAmount),
+                                CustomerMasterSid: rate.CustomerMasterSid,
+                                CustomerBranchSid: updatedBooking.CustomerBranchSid,
+                                VoucherHeaderSid: Number(rate.VoucherHeaderSid),
+                                VoucherTypeMasterSid: rate.VoucherTypeSid,
+                                Status: String(rate.status).charAt(0),
+                                UpdatedBy: payload.updatedBy
+                            }
+                        })
+                    }
+                    const data = createdBookingRate || updatedBookingRate;
+                    finalBookingRates.push(data)
+                }
 
                 /**
                     |--------------------------------------------------
