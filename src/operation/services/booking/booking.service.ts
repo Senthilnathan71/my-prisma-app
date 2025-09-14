@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, InternalServerErrorException, Logger, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { DatabaseService } from 'src/database/database.service';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
@@ -33,9 +33,9 @@ export class BookingService {
     ) { }
 
     async createBooking(payload: any) {
-
+        let newBooking;
         try {
-            return await this._db.$transaction(async (prisma) => {
+            const bookingHeader = await this._db.$transaction(async (prisma) => {
                 /**
                     |--------------------------------------------------
                     |   Step 1 : Create and Format necessary items
@@ -52,7 +52,7 @@ export class BookingService {
                     |--------------------------------------------------
                 */
 
-                const newBooking = await prisma.bookingHeader.create({
+                newBooking = await prisma.bookingHeader.create({
                     data: {
                         // Section - 1 
                         CompanyMasterSid: payload.CompanyMasterSid,
@@ -108,238 +108,250 @@ export class BookingService {
                         BookingStatus: 'Booked'
                     }
                 })
+            })
+            /**
+                |--------------------------------------------------
+                |  Step 2 : Create Booking Cargos
+                |--------------------------------------------------
+            */
+            const cargoPayload = payload.bookingCargo ?? {};
+            const cargoData = {
+                CompanyMasterSid: newBooking.CompanyMasterSid,
+                BranchMasterSid: newBooking.BranchMasterSid,
+                BookingHeaderSid: newBooking.BookingHeaderSid,
+                CargoType: cargoPayload.CargoType,
+                ContainerType: cargoPayload.ContainerType,
+                NoofContainers: Number(cargoPayload.NoofContainers),
+                GrossWeight: Number(cargoPayload.GrossWeight),
+                NetWeight: Number(cargoPayload.NetWeight),
+                Volume: Number(cargoPayload.Volume),
+                ChargeableWeight: Number(cargoPayload.ChargeableWeight),
+                NoOfPackage: Number(cargoPayload.NoOfPackage),
+                ShipmentTerms: cargoPayload.ShipmentTerms,
+                MovementType: cargoPayload.MovementType,
+                ModeOfTransport: cargoPayload.ModeOfTransport,
+                FreightTerms: cargoPayload.FreightTerms,
+                StuffingAt: cargoPayload.StuffingAt,
+                createdBy: payload.createdBy,
+                status: 'A'
+            }
 
-                /**
-                    |--------------------------------------------------
-                    |  Step 2 : Create Booking Cargos
-                    |--------------------------------------------------
-                */
-                const cargoPayload = payload.bookingCargo ?? {};
-                const cargoData = {
+            let createdCargos = await this._db.bookingCargo.create({
+                data: cargoData
+            }).catch(err => {
+                throw new InternalServerErrorException('Something went wrong while creating booking cargo', err)
+            })
+
+
+            /**
+                |--------------------------------------------------
+                |  Step 3 : Create Booking Product
+                |--------------------------------------------------
+            */
+
+            const allProducts: any[] = (payload.bookingProducts || []).map(product => {
+                const productData = {
+                    BookingHeaderSid: newBooking.BookingHeaderSid,
+                    ProductName: product.ProductName || '',
+                    ShippingBillNo: product.ShippingBillNo || '',
+                    ShippingBillDate: product.ShippingBillDate || '',
+                    CargoRecDate: product.CargoRecDate ? new Date(product.CargoRecDate) : null,
+                    ExternaPkg: product.ExternaPkg || '',
+                    ExternlQty: product.ExternlQty || '',
+                    GrossWeight: Number(product.GrossWeight) || 0,
+                    NetWeight: Number(product.NetWeight) || 0,
+                    Volume: Number(product.Volume) || 0,
+                    IsHaz: product.IsHaz || 'N',
+                    ImcoClass: product.ImcoClass || '',
+                    UnNo: product.UnNo || '',
+                    PkgGroup: product.PkgGroup || '',
+                    Length: product.Length,
+                    Width: product.Width,
+                    Height: product.Height,
+                    UomMasterSid: product.UomMasterSid || null,
+                    createdBy: payload.createdBy,
+                    status: 'A',
+                }
+                return productData;
+            }) || [];
+
+            let createdProducts;
+            if (allProducts.length > 0) {
+                createdProducts = await this._db.bookingProduct.createMany({
+                    data: allProducts
+                }).catch(err => {
+                    throw new InternalServerErrorException('Something went wrong while creating bookingProduct', err)
+                })
+            }
+
+            /**
+                |--------------------------------------------------
+                |   Step 4 : Create Booking Others
+                |--------------------------------------------------
+            */
+
+            const otherPayload = payload.bookingOther ?? {};
+
+            const otherData = {
+                BookingHeaderSid: newBooking.BookingHeaderSid,
+                CustomerRefNo: otherPayload.CustomerRefNo || '',
+                YardCFS: otherPayload.YardCFS || '',
+                HBLNo: otherPayload.HBLNo || '',
+                Forwarder: otherPayload.Forwarder || '',
+                ForwarderAddress: otherPayload.ForwarderAddress || '',
+                NotifyParty: otherPayload.NotifyParty || '',
+                NotifyPartyAddress: otherPayload.NotifyPartyAddress || '',
+                Notify2: otherPayload?.Notify2 || '',
+                NotifyAddress2: otherPayload?.NotifyAddress2 || '',
+                Coloader: otherPayload?.Coloader || '',
+                PickupPlace: otherPayload.PickupPlace || '',
+                DeliveryPlace: otherPayload.DeliveryPlace || '',
+                DeliveryDate: otherPayload.DeliveryDate || '',
+                CHAName: otherPayload.CHAName || '',
+                PickupAddress: otherPayload.PickupAddress || '',
+                DeliveryAddress: otherPayload.DeliveryAddress || '',
+                CargoCurrency: otherPayload.CargoCurrency || '',
+                CargoValue: parseFloat(otherPayload.CargoValue) || 0,
+                SwitchBL: otherPayload.SwitchBL || '',
+                createdBy: payload.createdBy || '',
+                status: 'A',
+                ReleaseType: otherPayload.ReleaseType || '',
+                BacktoBack: otherPayload.BacktoBack || '',
+                Depo: otherPayload.Depo || '',
+                ROValidity: otherPayload.ROValidity || '',
+                SwitchBLAgent: otherPayload?.SwitchBLAgent || '',
+                AgentAddress: otherPayload?.AgentAddress || '',
+                SwitchBLShipper: otherPayload?.SwitchBLShipper || '',
+                SwitchBLConsignee: otherPayload?.SwitchBLConsignee || '',
+                SwitchLocation: otherPayload?.SwitchLocation || '',
+                CarrierBookingRef: otherPayload?.CarrierBookingRef || '',
+                CarrierBookingDate: otherPayload?.CarrierBookingDate || null,
+            }
+
+            let createdOthers = await this._db.bookingOthers.create({
+                data: otherData
+            }).catch(err => {
+                throw new InternalServerErrorException('Something went wrong while creating bookingOthers', err)
+            })
+
+
+            /**
+                |--------------------------------------------------
+                |   Step 5 : Create Booking Connections
+                |--------------------------------------------------
+            */
+
+            const allConnections: any[] = (payload.bookingConnections || []).map(connection => {
+                const connectionData = {
+                    BookingHeaderSid: newBooking.BookingHeaderSid,
+                    Mode: connection.Mode,
+                    VesselName: connection.VesselName,
+                    VoyageNo: connection.VoyageNo,
+                    POL: connection.POL,
+                    POD: connection.POD,
+                    ETD: connection.ETD ? new Date(connection.ETD) : null,
+                    ETA: connection.ETA ? new Date(connection.ETA) : null,
+                    createdBy: payload.createdBy,
+                    status: String(connection.status).charAt(0) || 'A'
+                }
+                return connectionData;
+            }) || [];
+
+            let createdConnections;
+            if (allConnections.length > 0) {
+                createdConnections = await this._db.bookingConnection.createMany({
+                    data: allConnections
+                }).catch(err => {
+                    throw new InternalServerErrorException('Something went wrong while creating bookingConnection', err)
+                })
+            }
+
+            /**
+                |--------------------------------------------------
+                |   Step 6 : Create Booking Rates
+                |--------------------------------------------------
+            */
+            let allRates: any[] = (payload.bookingRates || []).map(
+                rate => {
+                    return {
+                        TransactionSid: newBooking.BookingHeaderSid,
+                        MenuMasterSid: payload.MenuMasterSid,
+                        ShipmentNo: newBooking.ShipmentNo,
+                        CompanyMasterSid: payload.CompanyMasterSid,
+                        BranchMasterSid: payload.BranchMasterSid,
+                        // SerialNumber: Number(rate.SerialNumber),
+                        ChargeMasterSid: rate.ChargeMasterSid,
+                        ChargeDescription: rate.ChargeDescription,
+                        ChargeUomSid: rate.ChargeUomSid,
+                        PrepaidCollect: rate.PrepaidCollect,
+                        NumberOfUnit: Number(rate.NumberOfUnit),
+                        CostRevenue: rate.CostRevenue,
+                        CurrencyMasterSid: rate.CurrencyMasterSid,
+                        ExchangeRate: Number(rate.ExchangeRate),
+                        Rate: Number(rate.Rate),
+                        DrCr: rate.DrCr,
+                        Amount: Number(rate.Amount),
+                        LocalAmount: Number(rate.LocalAmount),
+                        CustomerMasterSid: rate.CustomerMasterSid,
+                        CustomerBranchSid: newBooking.CustomerBranchSid,
+                        VoucherHeaderSid: Number(rate.VoucherHeaderSid),
+                        VoucherTypeSid: rate.VoucherTypeSid,
+                        status: 'A',
+                        createdBy: payload.createdBy
+                    }
+                }
+            )
+
+            let createdRates;
+            if (allRates.length > 0) {
+                createdRates = await this._db.costRevenueCharges.createMany({
+                    data: allRates
+                }).catch(err => {
+                    throw new InternalServerErrorException('Something went wrong while creating costRevenueCharges', err)
+                })
+            }
+
+            /**
+                |--------------------------------------------------
+                |   Step 7 : Create Milestones
+                |--------------------------------------------------
+            */
+
+            const allMilestones: any[] = (payload.milestones || []).map((milestone) => {
+                const milestoneData = {
+                    ShipmentNo: newBooking.ShipmentNo,
                     CompanyMasterSid: newBooking.CompanyMasterSid,
                     BranchMasterSid: newBooking.BranchMasterSid,
-                    BookingHeaderSid: newBooking.BookingHeaderSid,
-                    CargoType: cargoPayload.CargoType,
-                    ContainerType: cargoPayload.ContainerType,
-                    NoofContainers: Number(cargoPayload.NoofContainers),
-                    GrossWeight: Number(cargoPayload.GrossWeight),
-                    NetWeight: Number(cargoPayload.NetWeight),
-                    Volume: Number(cargoPayload.Volume),
-                    ChargeableWeight: Number(cargoPayload.ChargeableWeight),
-                    NoOfPackage: Number(cargoPayload.NoOfPackage),
-                    ShipmentTerms: cargoPayload.ShipmentTerms,
-                    MovementType: cargoPayload.MovementType,
-                    ModeOfTransport: cargoPayload.ModeOfTransport,
-                    FreightTerms: cargoPayload.FreightTerms,
-                    StuffingAt: cargoPayload.StuffingAt,
-                    createdBy: payload.createdBy,
-                    status: 'A'
+                    CreatedBy: payload.createdBy,
+                    Status: 'A',
+                    MilestoneMasterSid: milestone.MilestoneMasterSid,
+                    Remarks: milestone.Remarks,
+                    MilestoneName: milestone.MilestoneName,
+                    MilestoneDate: milestone.MilestoneDate,
+                    AutoCaptured: milestone.AutoCaptured ? 'Y' : 'N'
                 }
-
-                let createdCargos = await prisma.bookingCargo.create({
-                    data: cargoData
-                })
-
-
-                /**
-                    |--------------------------------------------------
-                    |  Step 3 : Create Booking Product
-                    |--------------------------------------------------
-                */
-
-                const allProducts: any[] = (payload.bookingProducts || []).map(product => {
-                    const productData = {
-                        BookingHeaderSid: newBooking.BookingHeaderSid,
-                        ProductName: product.ProductName || '',
-                        ShippingBillNo: product.ShippingBillNo || '',
-                        ShippingBillDate: product.ShippingBillDate || '',
-                        CargoRecDate: product.CargoRecDate ? new Date(product.CargoRecDate) : null,
-                        ExternaPkg: product.ExternaPkg || '',
-                        ExternlQty: product.ExternlQty || '',
-                        GrossWeight: Number(product.GrossWeight) || 0,
-                        NetWeight: Number(product.NetWeight) || 0,
-                        Volume: Number(product.Volume) || 0,
-                        IsHaz: product.IsHaz || 'N',
-                        ImcoClass: product.ImcoClass || '',
-                        UnNo: product.UnNo || '',
-                        PkgGroup: product.PkgGroup || '',
-                        Length: product.Length,
-                        Width: product.Width,
-                        Height: product.Height,
-                        UomMasterSid: product.UomMasterSid || null,
-                        createdBy: payload.createdBy,
-                        status: 'A',
-                    }
-                    return productData;
-                }) || [];
-
-                let createdProducts;
-                if (allProducts.length > 0) {
-                    createdProducts = await prisma.bookingProduct.createMany({
-                        data: allProducts
-                    })
-                }
-
-                /**
-                    |--------------------------------------------------
-                    |   Step 4 : Create Booking Others
-                    |--------------------------------------------------
-                */
-
-                const otherPayload = payload.bookingOther ?? {};
-
-                const otherData = {
-                    BookingHeaderSid: newBooking.BookingHeaderSid,
-                    CustomerRefNo: otherPayload.CustomerRefNo || '',
-                    YardCFS: otherPayload.YardCFS || '',
-                    HBLNo: otherPayload.HBLNo || '',
-                    Forwarder: otherPayload.Forwarder || '',
-                    ForwarderAddress: otherPayload.ForwarderAddress || '',
-                    NotifyParty: otherPayload.NotifyParty || '',
-                    NotifyPartyAddress: otherPayload.NotifyPartyAddress || '',
-                    Notify2: otherPayload?.Notify2 || '',
-                    NotifyAddress2: otherPayload?.NotifyAddress2 || '',
-                    Coloader: otherPayload?.Coloader || '',
-                    PickupPlace: otherPayload.PickupPlace || '',
-                    DeliveryPlace: otherPayload.DeliveryPlace || '',
-                    DeliveryDate: otherPayload.DeliveryDate || '',
-                    CHAName: otherPayload.CHAName || '',
-                    PickupAddress: otherPayload.PickupAddress || '',
-                    DeliveryAddress: otherPayload.DeliveryAddress || '',
-                    CargoCurrency: otherPayload.CargoCurrency || '',
-                    CargoValue: parseFloat(otherPayload.CargoValue) || 0,
-                    SwitchBL: otherPayload.SwitchBL || '',
-                    createdBy: payload.createdBy || '',
-                    status: 'A',
-                    ReleaseType: otherPayload.ReleaseType || '',
-                    BacktoBack: otherPayload.BacktoBack || '',
-                    Depo: otherPayload.Depo || '',
-                    ROValidity: otherPayload.ROValidity || '',
-                    SwitchBLAgent: otherPayload?.SwitchBLAgent || '',
-                    AgentAddress: otherPayload?.AgentAddress || '',
-                    SwitchBLShipper: otherPayload?.SwitchBLShipper || '',
-                    SwitchBLConsignee: otherPayload?.SwitchBLConsignee || '',
-                    SwitchLocation: otherPayload?.SwitchLocation || '',
-                    CarrierBookingRef: otherPayload?.CarrierBookingRef || '',
-                    CarrierBookingDate: otherPayload?.CarrierBookingDate || null,
-                }
-
-                let createdOthers = await prisma.bookingOthers.create({
-                    data: otherData
-                })
-
-
-                /**
-                    |--------------------------------------------------
-                    |   Step 5 : Create Booking Connections
-                    |--------------------------------------------------
-                */
-
-                const allConnections: any[] = (payload.bookingConnections || []).map(connection => {
-                    const connectionData = {
-                        BookingHeaderSid: newBooking.BookingHeaderSid,
-                        Mode: connection.Mode,
-                        VesselName: connection.VesselName,
-                        VoyageNo: connection.VoyageNo,
-                        POL: connection.POL,
-                        POD: connection.POD,
-                        ETD: connection.ETD ? new Date(connection.ETD) : null,
-                        ETA: connection.ETA ? new Date(connection.ETA) : null,
-                        createdBy: payload.createdBy,
-                        status: String(connection.status).charAt(0) || 'A'
-                    }
-                    return connectionData;
-                }) || [];
-
-                let createdConnections;
-                if (allConnections.length > 0) {
-                    createdConnections = await prisma.bookingConnection.createMany({
-                        data: allConnections
-                    })
-                }
-
-                /**
-                    |--------------------------------------------------
-                    |   Step 6 : Create Booking Rates
-                    |--------------------------------------------------
-                */
-                let allRates: any[] = (payload.bookingRates || []).map(
-                    rate => {
-                        return {
-                            TransactionSid: newBooking.BookingHeaderSid,
-                            MenuMasterSid: payload.MenuMasterSid,
-                            ShipmentNo: newBooking.ShipmentNo,
-                            CompanyMasterSid: payload.CompanyMasterSid,
-                            BranchMasterSid: payload.BranchMasterSid,
-                            SerialNumber: Number(rate.SerialNumber),
-                            ChargeMasterSid: rate.ChargeMasterSid,
-                            ChargeDescription: rate.ChargeDescription,
-                            ChargeUomSid: rate.ChargeUomSid,
-                            PrepaidCollect: rate.PrepaidCollect,
-                            CostRevenue: rate.CostRevenue,
-                            CurrencyMasterSid: rate.CurrencyMasterSid,
-                            ExchangeRate: Number(rate.ExchangeRate),
-                            Rate: Number(rate.Rate),
-                            NumberOfUnit: Number(rate.NumberOfUnit),
-                            DrCr: rate.DrCr,
-                            Amount: Number(rate.Amount),
-                            LocalAmount: Number(rate.LocalAmount),
-                            CustomerMasterSid: rate.CustomerMasterSid,
-                            CustomerBranchSid: newBooking.CustomerBranchSid,
-                            VoucherHeaderSid: Number(rate.VoucherHeaderSid),
-                            VoucherTypeSid: rate.VoucherTypeSid,
-                            status: 'A',
-                            createdBy: payload.createdBy
-                        }
-                    }
-                )
-
-                let createdRates;
-                if (allRates.length > 0) {
-                    createdRates = await prisma.costRevenueCharges.createMany({
-                        data: allRates
-                    })
-                }
-
-                /**
-                    |--------------------------------------------------
-                    |   Step 7 : Create Milestones
-                    |--------------------------------------------------
-                */
-
-                const allMilestones: any[] = (payload.milestones || []).map((milestone) => {
-                    const milestoneData = {
-                        ShipmentNo: newBooking.ShipmentNo,
-                        CompanyMasterSid: newBooking.CompanyMasterSid,
-                        BranchMasterSid: newBooking.BranchMasterSid,
-                        CreatedBy: payload.createdBy,
-                        Status: 'A',
-                        MilestoneMasterSid: milestone.MilestoneMasterSid,
-                        Remarks: milestone.Remarks,
-                        MilestoneName: milestone.MilestoneName,
-                        MilestoneDate: milestone.MilestoneDate,
-                        AutoCaptured: milestone.AutoCaptured ? 'Y' : 'N'
-                    }
-                    return milestoneData;
-                })
-
-                let createdMilestones;
-                if (allMilestones.length > 0) {
-                    createdMilestones = await prisma.shipmentMilestone.createMany({
-                        data: allMilestones
-                    })
-                }
-
-                return {
-                    newBooking,
-                    createdCargos,
-                    createdProducts,
-                    createdOthers,
-                    createdConnections,
-                    createdRates,
-                    createdMilestones
-                }
+                return milestoneData;
             })
+
+            let createdMilestones;
+            if (allMilestones.length > 0) {
+                createdMilestones = await this._db.shipmentMilestone.createMany({
+                    data: allMilestones
+                }).catch(err => {
+                    throw new InternalServerErrorException('Something went wrong while creating shipmentMilestone', err)
+                })
+            }
+
+            return {
+                bookingHeader,
+                createdCargos,
+                createdProducts,
+                createdOthers,
+                createdConnections,
+                createdRates,
+                createdMilestones
+            }
+
         } catch (error) {
             console.error('Transaction failed', error, error.stack);
             throw error;
@@ -434,7 +446,7 @@ export class BookingService {
 
     async updateBookingById(BookingHeaderSid: number, payload: any) {
         try {
-            return await this._db.$transaction(async (prisma) => {
+            const await this._db.$transaction(async (prisma) => {
                 /**
                     |--------------------------------------------------
                     |   Step 1 : Update Booking Header
