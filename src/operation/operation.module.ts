@@ -14,27 +14,31 @@ import { LoadingPlanController } from './controllers/loading-plan/loading-plan.c
 import { LoadingPlanService } from './services/loading-plan/loading-plan.service';
 import { InvoiceService } from './services/invoice/invoice.service';
 import { InvoiceController } from './controllers/invoice/invoice.controller';
+import { DocumentController } from './controllers/document/document.controller';
+import { DocumentService } from './services/document/document.service';
 
 @Module({
-    providers: [
-        Logger,
-        EmailService,
-        GlobalConfigService,
-        BookingService,
-        OperationCommonService,
-        CurrencyExchangeService,
-        MasterJobService,
-        CargoreceiptService,
-        LoadingPlanService,
-        InvoiceService
-    ],
-    controllers: [
-        BookingController,
-        OperationCommonController,
-        MasterJobController,
-        CargoreceiptController,
-        LoadingPlanController,
-        InvoiceController
-    ]
+        providers: [
+                Logger,
+                EmailService,
+                GlobalConfigService,
+                BookingService,
+                OperationCommonService,
+                CurrencyExchangeService,
+                MasterJobService,
+                CargoreceiptService,
+                LoadingPlanService,
+                InvoiceService,
+                DocumentService
+        ],
+        controllers: [
+                BookingController,
+                OperationCommonController,
+                MasterJobController,
+                CargoreceiptController,
+                LoadingPlanController,
+                InvoiceController
+        DocumentController
+        ]
 })
 export class OperationModule { }

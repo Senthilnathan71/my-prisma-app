@@ -44,7 +44,7 @@ export class EnquiryHeaderService {
                     BranchMasterSid: payload.BranchMasterSid,
                     UserMasterSid: payload.UserMasterSid,
                     createdBy: payload.createdBy,
-                    EnquiryNumber: enquiryNumber,
+                    // EnquiryNumber: "",
                     EnquiryDate: new Date(),
                     authorizerStatus: payload.authorizerStatus || "Pending"
                 };

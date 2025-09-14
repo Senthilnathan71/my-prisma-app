@@ -41,7 +41,8 @@ export class QuotationService {
                     status: payload.status || "A",
                     CompanyMasterSid: payload.CompanyMasterSid,
                     BranchMasterSid: payload.BranchMasterSid,
-                    QuoteNumber: quoteNumber,
+                    BranchMasterSid: payload.BranchMasterSid,
+                    // QuoteNumber: quoteNumber,
                     createdBy: payload.createdBy,
                     authorizerStatus: payload.authorizerStatus || 'Pending',
                     AuthorizerRemarks: payload.AuthorizerRemarks || ''

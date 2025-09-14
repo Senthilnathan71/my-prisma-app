@@ -20,7 +20,7 @@ export class EnquiryHeaderService {
                         }
                     }
                 })
-                const enquiryNumber = `enquiry-${dateString}-${(count + 1).toString().padStart(3, '0')}`
+                // const enquiryNumber = `enquiry-${dateString}-${(count + 1).toString().padStart(3, '0')}`
                 // Step 1: Create Enquiry Header
                 const enquiryHeaderPayload: any = {
                     CustomerName: payload.CustomerName,
@@ -33,7 +33,7 @@ export class EnquiryHeaderService {
                     BranchMasterSid: user['userBranchMaster'][0].BranchMasterSid,
                     UserMasterSid: user['userBranchMaster'][0].UserMasterSid,
                     createdBy: user['userEmail'],
-                    EnquiryNumber: enquiryNumber,
+                    // EnquiryNumber: enquiryNumber,
                     EnquiryDate: new Date()
                 };
 

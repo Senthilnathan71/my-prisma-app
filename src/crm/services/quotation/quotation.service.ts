@@ -28,7 +28,7 @@ export class QuotationService {
                     status: payload.status || "A",
                     CompanyMasterSid: user['userBranchMaster'][0].CompanyMasterSid,
                     BranchMasterSid: user['userBranchMaster'][0].BranchMasterSid,
-                    QuoteNumber: quoteNumber,
+                    // QuoteNumber: quoteNumber,
                     createdBy: user['userEmail'],
                 };
 
