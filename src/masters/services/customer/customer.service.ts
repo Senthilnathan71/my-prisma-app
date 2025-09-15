@@ -60,7 +60,11 @@ export class CustomerService {
             const customerList = await this._db.customerMaster.findMany({
                 where: {
                     status: 'A',
-                    CompanyMasterSid: CompanyMasterSid
+                    CompanyMasterSid: CompanyMasterSid,
+                    CustomerType: {
+                        path: ['customer'],
+                        equals: 'isTrue'
+                    }
                 }
             })
             return customerList;
