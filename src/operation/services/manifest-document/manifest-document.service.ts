@@ -211,7 +211,7 @@ export class ManifestDocumentService {
     masterJob.totalVolume = this.extractTotalVolume(text);
 
     // Extract Container List
-    masterJob.containerList = this.extractContainerList(text);
+    // masterJob.containerList = this.extractContainerList(text);
 
     return masterJob;
   }
@@ -567,7 +567,7 @@ export class ManifestDocumentService {
     houseJob.grossWeight = this.extractGrossWeight(section);
     houseJob.netWeight = this.extractNetWeight(section);
     houseJob.measurement = this.extractMeasurement(section);
-    houseJob.containerNumbers = this.extractContainerNumbers(section);
+    // houseJob.containerNumbers = this.extractContainerNumbers(section);
     houseJob.marksAndNumbers = this.extractMarksAndNumbers(section);
     houseJob.freightTerms = this.extractFreightTerms(section);
 

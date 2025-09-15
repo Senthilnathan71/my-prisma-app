@@ -100,7 +100,7 @@ export class ManifestDocumentController {
       console.log(`Processing manifest file: ${file.originalname}, Size: ${file.size} bytes`);
 
       // Process the manifest document
-      const extractedData = await this.manifestService.processManifest(file);
+      const extractedData:any = await this.manifestService.processManifest(file);
 
       const processingTime = Date.now() - startTime;
 
