@@ -16,6 +16,8 @@ import { InvoiceService } from './services/invoice/invoice.service';
 import { InvoiceController } from './controllers/invoice/invoice.controller';
 import { DocumentController } from './controllers/document/document.controller';
 import { DocumentService } from './services/document/document.service';
+import { ManifestDocumentController } from './controllers/manifest-document/manifest-document.controller';
+import { ManifestDocumentService } from './services/manifest-document/manifest-document.service';
 
 @Module({
         providers: [
@@ -29,7 +31,8 @@ import { DocumentService } from './services/document/document.service';
                 CargoreceiptService,
                 LoadingPlanService,
                 InvoiceService,
-                DocumentService
+                DocumentService,
+                ManifestDocumentService
         ],
         controllers: [
                 BookingController,
@@ -38,7 +41,8 @@ import { DocumentService } from './services/document/document.service';
                 CargoreceiptController,
                 LoadingPlanController,
                 InvoiceController,
-                DocumentController
+                DocumentController,
+                ManifestDocumentController
         ]
 })
 export class OperationModule { }
