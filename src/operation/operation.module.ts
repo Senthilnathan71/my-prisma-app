@@ -12,12 +12,16 @@ import { CargoreceiptController } from './controllers/cargoreceipt/cargoreceipt.
 import { EmailService } from 'src/email/email.service';
 import { LoadingPlanController } from './controllers/loading-plan/loading-plan.controller';
 import { LoadingPlanService } from './services/loading-plan/loading-plan.service';
+import { MergeBookingController } from './controllers/merge-booking/merge-booking.controller';
+import { MergeBookingService } from './services/merge-booking/merge-booking.service';
 import { InvoiceService } from './services/invoice/invoice.service';
 import { InvoiceController } from './controllers/invoice/invoice.controller';
 import { DocumentController } from './controllers/document/document.controller';
 import { DocumentService } from './services/document/document.service';
 import { ManifestDocumentController } from './controllers/manifest-document/manifest-document.controller';
 import { ManifestDocumentService } from './services/manifest-document/manifest-document.service';
+import { HouseJobController } from './controllers/house-job/house-job.controller';
+import { HouseJobService } from './services/house-job/house-job.service';
 
 @Module({
         providers: [
@@ -32,7 +36,9 @@ import { ManifestDocumentService } from './services/manifest-document/manifest-d
                 LoadingPlanService,
                 InvoiceService,
                 DocumentService,
-                ManifestDocumentService
+                ManifestDocumentService,
+                MergeBookingService,
+                HouseJobService
         ],
         controllers: [
                 BookingController,
@@ -41,8 +47,10 @@ import { ManifestDocumentService } from './services/manifest-document/manifest-d
                 CargoreceiptController,
                 LoadingPlanController,
                 InvoiceController,
+                ManifestDocumentController,
+                MergeBookingController,
                 DocumentController,
-                ManifestDocumentController
+                HouseJobController
         ]
 })
 export class OperationModule { }
