@@ -1,10 +1,12 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { DatabaseService } from 'src/database/database.service';
+import { OperationCommonService } from '../operation-common/operation-common.service';
 
 @Injectable()
 export class HouseJobService {
     constructor(
-        private _db: DatabaseService
+        private _db: DatabaseService,
+        private commonService: OperationCommonService
     ) { }
 
     async getHouseJobById(HouseJobSid: number) {
@@ -35,8 +37,8 @@ export class HouseJobService {
                     },
                     data: {
                         MasterJobSid: payload.MasterJobSid || null,
-                        UpdatedBy: payload.updatedBy || '',
-                        Status: payload.Status || 'A',
+                        updatedBy: payload.updatedBy || '',
+                        status: payload.Status || 'A',
                         MenuMasterSid: payload.MenuMasterSid || null,
                         CompanyMasterSid: payload.CompanyMasterSid || null,
                         BranchMasterSid: payload.BranchMasterSid || null,
@@ -52,9 +54,9 @@ export class HouseJobService {
                         CustomerBranchSid: payload.CustomerBranchSid || null,
                         SalesmanSid: payload.SalesmanSid || null,
                         IncoTerms: payload.IncoTerms || '',
-                        FreightPPCC: payload.FreightPPCC || '',
+                        FreightTerms: payload.FreightPPCC || '',
                         DestinationAgent: payload.DestinationAgent || '',
-                        DestinationAgentAddress: payload.DestinationAgentAddress || '',
+                        // DestinationAgentAddress: payload.DestinationAgentAddress || '',
                         AgentName: payload.AgentName || '',
                         AgentAddress: payload.AgentAddress || '',
                         ShipperName: payload.ShipperName || '',
@@ -77,11 +79,11 @@ export class HouseJobService {
                         ETD: payload.ETD ? new Date(payload.ETD) : null,
                         ETA: payload.ETA ? new Date(payload.ETA) : null,
                         Coload: payload.Coload || '',
-                        CoLoader: payload.CoLoader || '',
+                        ColoadedBy: payload.CoLoader || '',
                         BLLocation: payload.BLLocation || '',
                         ClearanceRequire: payload.ClearanceRequire || '',
                         MovementType: payload.MovementType || '',
-                        DoValidity: payload.DoValidity ? new Date(payload.DoValidity) : null,
+                        DoValid: payload.DoValidity ? new Date(payload.DoValidity) : null,
                         IsServiceJob: payload.IsServiceJob || '',
                     }
                 })
@@ -103,13 +105,13 @@ export class HouseJobService {
                             },
                             data: {
                                 HouseJobSid: updatedHouseJob.HouseJobSid,
-                                UpdatedBy: payload.UpdatedBy || '',
-                                Status: String(cargo.Status).charAt(0) || 'A',
+                                updatedBy: payload.UpdatedBy || '',
+                                status: String(cargo.Status).charAt(0) || 'A',
                                 CompanyMasterSid: payload.CompanyMasterSid || null,
                                 BranchMasterSid: payload.BranchMasterSid || null,
                                 CargoType: cargo.CargoType || '',
                                 ContainerType: cargo.ContainerType || '',
-                                NoOfContainer: Number(cargo.NoOfContainer) || 0,
+                                NoofContainers: Number(cargo.NoOfContainer) || 0,
                                 GrossWeight: Number(cargo.GrossWeight) || 0,
                                 NetWeight: Number(cargo.NetWeight) || 0,
                                 Volume: Number(cargo.Volume) || 0,
@@ -117,7 +119,7 @@ export class HouseJobService {
                                 PackageType: cargo.PackageType || 0,
                                 NoOfPackage: Number(cargo.NoOfPackage) || 0,
                                 FreightAmount: cargo.FreightAmount || 0,
-                                WeightUnit: cargo.WeightUnit || 0,
+                                WeightUnitSid: cargo.WeightUnit || 0,
                                 ShipmentTerms: cargo.ShipmentTerms || 0
                             }
                         })
@@ -139,13 +141,13 @@ export class HouseJobService {
                     },
                     data: {
                         HouseJobSid: updatedHouseJob.HouseJobSid,
-                        UpdatedBy: payload.UpdatedBy || '',
-                        Status: String(cargo.Status).charAt(0) || 'A',
+                        updatedBy: payload.UpdatedBy || '',
+                        status: String(cargo.Status).charAt(0) || 'A',
                         CompanyMasterSid: payload.CompanyMasterSid || null,
                         BranchMasterSid: payload.BranchMasterSid || null,
                         CargoType: cargo.CargoType || '',
                         ContainerType: cargo.ContainerType || '',
-                        NoOfContainer: Number(cargo.NoOfContainer) || 0,
+                        NoofContainers: Number(cargo.NoOfContainer) || 0,
                         GrossWeight: Number(cargo.GrossWeight) || 0,
                         NetWeight: Number(cargo.NetWeight) || 0,
                         Volume: Number(cargo.Volume) || 0,
@@ -153,7 +155,7 @@ export class HouseJobService {
                         PackageType: cargo.PackageType || 0,
                         NoOfPackage: Number(cargo.NoOfPackage) || 0,
                         FreightAmount: cargo.FreightAmount || 0,
-                        WeightUnit: cargo.WeightUnit || 0,
+                        WeightUnitSid: cargo.WeightUnit || 0,
                         ShipmentTerms: cargo.ShipmentTerms || 0
                     }
                 })
@@ -161,14 +163,14 @@ export class HouseJobService {
                 finalCargo = await this._db.houseJobCargo.create({
                     data: {
                         HouseJobSid: updatedHouseJob.HouseJobSid,
-                        CreatedBy: payload.createdBy || '',
-                        UpdatedBy: payload.updatedBy || '',
-                        Status: String(cargo.Status).charAt(0) || 'A',
+                        createdBy: payload.createdBy || '',
+                        updatedBy: payload.updatedBy || '',
+                        status: String(cargo.Status).charAt(0) || 'A',
                         CompanyMasterSid: payload.CompanyMasterSid || null,
                         BranchMasterSid: payload.BranchMasterSid || null,
                         CargoType: cargo.CargoType || '',
                         ContainerType: cargo.ContainerType || '',
-                        NoOfContainer: Number(cargo.NoOfContainer) || 0,
+                        NoofContainers: Number(cargo.NoOfContainer) || 0,
                         GrossWeight: Number(cargo.GrossWeight) || 0,
                         NetWeight: Number(cargo.NetWeight) || 0,
                         Volume: Number(cargo.Volume) || 0,
@@ -176,14 +178,14 @@ export class HouseJobService {
                         PackageType: cargo.PackageType || '',
                         NoOfPackage: Number(cargo.NoOfPackage) || 0,
                         FreightAmount: cargo.FreightAmount || 0,
-                        WeightUnit: cargo.WeightUnit || '',
+                        WeightUnitSid: cargo.WeightUnit || '',
                         ShipmentTerms: cargo.ShipmentTerms || ''
                     }
                 })
             }
 
             let finalHouseJobProduct;
-            const houseJobProductPayload = payload.houseJobProduct || [];
+            const houseJobProductPayload:any = payload.houseJobProduct || [];
             if (houseJobProductPayload.length > 0) {
                 for (const product of houseJobProductPayload) {
                     let createdProduct;
@@ -200,11 +202,11 @@ export class HouseJobService {
                                 ShippingBillNo: product.ShippingBillNo || '',
                                 ShippingBillDate: product.ShippingBillDate ? new Date(product.ShippingBillDate) : null,
                                 ExternaPkg: product.ExternaPkg,
-                                ExternlQty: Number(product.ExternlQty) || 0,
+                                ExternlQty: String(product.ExternlQty) || null,
                                 GrossWeight: Number(product.GrossWeight) || 0,
                                 NetWeight: Number(product.NetWeight) || 0,
                                 Volume: Number(product.Volume) || 0,
-                                UpdatedBy: payload.updatedBy,
+                                updatedOn: payload.updatedBy,
                             }
                         })
                     } else {
@@ -216,11 +218,11 @@ export class HouseJobService {
                                 ShippingBillNo: product.ShippingBillNo || '',
                                 ShippingBillDate: product.ShippingBillDate ? new Date(product.ShippingBillDate) : null,
                                 ExternaPkg: product.ExternaPkg,
-                                ExternlQty: Number(product.ExternlQty) || 0,
+                                ExternlQty: String(product.ExternlQty) || null,
                                 GrossWeight: Number(product.GrossWeight),
                                 NetWeight: Number(product.NetWeight),
                                 Volume: Number(product.Volume),
-                                CreatedBy: payload.createdBy,
+                                createdBy: payload.createdBy,
                             }
                         })
                     }
@@ -248,11 +250,11 @@ export class HouseJobService {
                                 VoyageNo: connection.VoyageNo,
                                 ETD: connection.ETD ? new Date(connection.ETD) : null,
                                 ETA: connection.ETA ? new Date(connection.ETA) : null,
-                                ATA: connection.ATA ? new Date(connection.ATA) : null,
-                                ATD: connection.ATD ? new Date(connection.ATD) : null,
+                                // ATA: connection.ATA ? new Date(connection.ATA) : null,
+                                // ATD: connection.ATD ? new Date(connection.ATD) : null,
                                 Remarks: connection.Remarks,
-                                Status: String(connection.status).charAt(0) || 'A',
-                                UpdatedBy: payload.updatedBy,
+                                status: String(connection.status).charAt(0) || 'A',
+                                updatedBy: payload.updatedBy,
                             }
                         })
                     }
@@ -267,11 +269,11 @@ export class HouseJobService {
                                 VoyageNo: connection.VoyageNo,
                                 ETD: connection.ETD ? new Date(connection.ETD) : null,
                                 ETA: connection.ETA ? new Date(connection.ETA) : null,
-                                ATA: connection.ATA ? new Date(connection.ATA) : null,
-                                ATD: connection.ATD ? new Date(connection.ATD) : null,
+                                // ATA: connection.ATA ? new Date(connection.ATA) : null,
+                                // ATD: connection.ATD ? new Date(connection.ATD) : null,
                                 Remarks: connection.Remarks,
-                                Status: String(connection.status).charAt(0) || 'A',
-                                CreatedBy: payload.createdBy,
+                                status: String(connection.status).charAt(0) || 'A',
+                                createdBy: payload.createdBy,
                             }
                         })
                     }
@@ -308,19 +310,19 @@ export class HouseJobService {
                                 PickupDate: other.PickupDate ? new Date(other.PickupDate) : null,
                                 PickupAddress: other.PickupAddress,
                                 DeliveryPlace: other.DeliveryPlace,
-                                DeliveryDate: other.DeliveryDate ? new Date(other.DeliveryDate) : null,
+                                DeliveryDate: other.DeliveryDate ? other.DeliveryDate : null,
                                 DeliveryAddress: other.DeliveryAddress,
                                 CargoCurrency: other.CargoCurrency,
                                 CargoValue: other.CargoValue,
                                 DeliveryMode: other.DeliveryMode,
                                 ExternalRemarks: other.ExternalRemarks,
-                                GeneralNote: other.GeneralNote,
+                                // GeneralNote: other.GeneralNote,
                                 SwitchBL: other.SwitchBL,
                                 TransporterName: other.TransporterName,
-                                UpdatedBy: payload.updatedBy,
-                                Coload: other.Coload,
-                                CoLoader: other.CoLoader,
-                                NominatedBy: other.NominatedBy,
+                                updatedBy: payload.updatedBy,
+                                Coloader: other.Coload,
+                                // Col: other.CoLoader,
+                                // NominatedBy: other.NominatedBy,
                             }
                         })
                     } else {
@@ -343,19 +345,19 @@ export class HouseJobService {
                                 PickupDate: other.PickupDate ? new Date(other.PickupDate) : null,
                                 PickupAddress: other.PickupAddress,
                                 DeliveryPlace: other.DeliveryPlace,
-                                DeliveryDate: other.DeliveryDate ? new Date(other.DeliveryDate) : null,
+                                DeliveryDate: other.DeliveryDate ? other.DeliveryDate : null,
                                 DeliveryAddress: other.DeliveryAddress,
                                 CargoCurrency: other.CargoCurrency,
                                 CargoValue: other.CargoValue,
                                 DeliveryMode: other.DeliveryMode,
                                 ExternalRemarks: other.ExternalRemarks,
-                                GeneralNote: other.GeneralNote,
+                                // GeneralNote: other.GeneralNote,
                                 SwitchBL: other.SwitchBL,
                                 TransporterName: other.TransporterName,
-                                CreatedBy: payload.createdBy,
-                                Coload: other.Coload,
-                                CoLoader: other.CoLoader,
-                                NominatedBy: other.NominatedBy,
+                                createdBy: payload.createdBy,
+                                Coloader: other.Coload,
+                                // CoLoader: other.CoLoader,
+                                // NominatedBy: other.NominatedBy,
                             }
                         })
                     }
@@ -369,4 +371,76 @@ export class HouseJobService {
             throw error;
         }
     }
+
+
+    async getBookingByNumber(BookingNumber: string) {
+            try {
+                const ourBooking = await this._db.bookingHeader.findFirst({
+                    where: {
+                        BookingNo: BookingNumber
+                    },
+                    include: {
+                        bookingCargo: { where: { status: 'A' } },
+                        bookingProduct: { where: { status: 'A' } },
+                        bookingOthers: { where: { status: 'A' } },
+                        bookingConnection: { where: { status: 'A' } }
+                    }
+                })
+    
+                if (!ourBooking) {
+                    throw new BadRequestException('Error fetching booking record.');
+                }
+                const costRevenuePayload: any = {
+                    MenuMasterSid: ourBooking.MenuMasterSid!,
+                    CompanyMasterSid: ourBooking.CompanyMasterSid,
+                    BranchMasterSid: ourBooking.BranchMasterSid!,
+                    TransactionSid: ourBooking.BookingHeaderSid,
+                    ShipmentNo: ourBooking.ShipmentNo!
+                }
+                const respectiveCostRevenueCharges = await this.commonService.getAllCostRevenueCharges(costRevenuePayload);
+    
+                let voyageDetails;
+                if (ourBooking.VoyageMasterSid) {
+                    const data = await this._db.voyageMasterHeader.findUnique({
+                        where: {
+                            VoyageMasterHeaderSid: ourBooking.VoyageMasterSid
+                        },
+                        include: {
+                            voyageMasterDetail: {
+                                where: {
+                                    status: 'A'
+                                },
+                                select: {
+                                    ETA: true,
+                                    ETD: true,
+                                    PortCutoff: true,
+                                    portMasterPOL: {
+                                        select: {
+                                            PortCode: true
+                                        }
+                                    }
+                                },
+                            }
+                        }
+                    })
+                    const POL = data?.voyageMasterDetail.find(vd => vd.portMasterPOL?.PortCode === ourBooking.POL);
+                    const POD = data?.voyageMasterDetail.find(vd => vd.portMasterPOL?.PortCode === ourBooking.POD);
+                    voyageDetails = {
+                        POLETA: POL?.ETA,
+                        POLETD: POL?.ETD,
+                        PODETA: POD?.ETA,
+                        PODETD: POD?.ETD,
+                        POLCutOffDate: POL?.PortCutoff,
+                        PODCutOffDate: POD?.PortCutoff
+                    }
+                }
+    
+                return {
+                    ...ourBooking,
+                    voyageDetails
+                }
+            } catch (error) {
+                throw error;
+            }
+        }
 }
