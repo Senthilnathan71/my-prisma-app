@@ -66,14 +66,16 @@ model BookingHeader {
   PODTerminal         String?
   ShipmentNo          String?             @db.VarChar(200)
   OriginAgent         String?             @db.VarChar(200)
-  bookingCargo        BookingCargo[]
-  bookingConnection   BookingConnection[]
   branchMaster        BranchMaster?       @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
   companyMaster       CompanyMaster       @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
   customerBranch      CustomerBranch?     @relation(fields: [CustomerBranchSid], references: [CustomerBranchSid])
   departmentMaster    DepartmentMaster    @relation(fields: [DepartmentMasterSid], references: [DepartmentMasterSid])
   menuMaster          MenuMaster?         @relation(fields: [MenuMasterSid], references: [MenuMasterSid])
   quotationHeader     QuoteHeader?        @relation(fields: [QuotationHeaderSid], references: [QuoteHeaderSid])
+  voyageMasterHeader     VoyageMasterHeader?  @relation(fields: [VoyageMasterSid], references: [VoyageMasterHeaderSid])
+  portMaster              PortMaster?          @relation(fields: [TsPortSid], references: [PortMasterSid])
+  bookingConnection   BookingConnection[]
+  bookingCargo        BookingCargo[]
   bookingOthers       BookingOthers[]
   bookingProduct      BookingProduct[]
   bookingRates        BookingRates[]
@@ -324,6 +326,7 @@ model VoyageMasterHeader {
   houseJob              HouseJob[]
   MasterJobVoyage       MasterJobVoyage[]
   voyageMasterDetail    VoyageMasterDetail[]
+  bookingHeader         BookingHeader[]
   vesselMaster          VesselMaster         @relation(fields: [VesselMasterSid], references: [VesselMasterSid])
 }
 
