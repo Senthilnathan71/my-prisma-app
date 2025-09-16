@@ -93,9 +93,10 @@ model CompanyMaster {
   yearMaster          YearMaster[]
   VoucherHeader       VoucherHeader[]
   VoucherDetail       VoucherDetail[]
-
+ShippingInstruction ShippingInstruction[]
   VoucherTDS         VoucherTDS[]
   VoucherTransaction VoucherTransaction[]
+  ActivityResourceAllocation ActivityResourceAllocation[]
 }
 
 model BranchMaster {
@@ -186,8 +187,10 @@ model BranchMaster {
   VoucherHeader      VoucherHeader[]
   VoucherDetail      VoucherDetail[]
   VoucherTDS         VoucherTDS[]
-
+ShippingInstruction ShippingInstruction[]
   VoucherTransaction VoucherTransaction[]
+  ActivityResourceAllocation ActivityResourceAllocation[]
+  
 }
 
 model UserMaster {
@@ -224,6 +227,14 @@ model UserMaster {
   countryMaster     CountryMaster?      @relation(fields: [CountryMasterSid], references: [CountryMasterSid])
   userType          UserType?           @relation(fields: [userTypeId], references: [UserTypeSid])
   userRoleMaster    UserRoleMaster[]
+
+  shippingActivityResourceAllocation ActivityResourceAllocation[] @relation("SIUSER")
+  enquiryActivityResourceAllocation ActivityResourceAllocation[] @relation("ENQUSER")
+  quoteActivityResourceAllocation ActivityResourceAllocation[] @relation("QUOUSER")
+  bookingActivityResourceAllocation ActivityResourceAllocation[] @relation("BOOKUSER")
+  masterActivityResourceAllocation ActivityResourceAllocation[] @relation("MASTERUSER")
+  houseActivityResourceAllocation ActivityResourceAllocation[] @relation("HOUSEUSER")
+
 }
 
 model UserBranchMaster {
@@ -702,6 +713,7 @@ model EnquiryHeader {
   enquiryProduct       EnquiryProduct[]
   enquiryRoute         EnquiryRoute[]
   quoteHeader          QuoteHeader[]
+  ActivityResourceAllocation ActivityResourceAllocation[]
 }
 
 model EnquiryRoute {
@@ -954,6 +966,7 @@ model QuoteHeader {
   enquiryHeader       EnquiryHeader?    @relation(fields: [EnquirySid], references: [EnquiryHeaderSid])
   menuMaster          MenuMaster?       @relation(fields: [MenuMasterSid], references: [MenuMasterSid])
   quoteRoute          QuoteRoute[]
+  ActivityResourceAllocation ActivityResourceAllocation[]
 }
 
 model QuoteRoute {
@@ -2272,7 +2285,7 @@ model MasterJob {
   ContainerActivity       ContainerActivity[]
   VoucherHeader           VoucherHeader[]
   VoucherDetail           VoucherDetail[]
-
+ActivityResourceAllocation ActivityResourceAllocation[]
   VoucherTransaction VoucherTransaction[]
 }
 
@@ -2434,7 +2447,7 @@ model HouseJob {
   Products                HouseJobProduct[]
   VoucherHeader           VoucherHeader[]
   VoucherDetail           VoucherDetail[]
-
+ActivityResourceAllocation ActivityResourceAllocation[]
   VoucherTransaction VoucherTransaction[]
 }
 

@@ -1,9 +1,5 @@
 export const SEED_FILES: { name: string; table: string }[] = [
     // {
-    //     name: 'containerType',
-    //     table: 'ContainerMaster'
-    // },
-    // {
     //     name: 'unitMaster',
     //     table: 'UnitMaster'
     // },
@@ -20,19 +16,31 @@ export const SEED_FILES: { name: string; table: string }[] = [
     //     table: 'PackageTypeMaster'
     // },
     // {
-    //     name: 'inco',
-    //     table: "IncoMaster"
-    // },
-    // {
-    //     name: 'imco',
-    //     table: 'ImcoMaster'
-    // },
-    // {
     //     name: 'state',
     //     table: 'StateMaster'
     // },
+    // {
+    //     name: 'fieldConfiguration',
+    //     table: 'FieldConfiguration'
+    // },
+    // {
+    //     name:'uom',
+    //     table: 'UOMMaster'
+    // },
+    // {
+    //     name:'hssac',
+    //     table: 'HSSACMaster'
+    // },
+    // {
+    //     name: 'containerType',
+    //     table: 'ContainerTypeMaster'
+    // },
     {
-        name: 'fieldConfiguration',
-        table: 'FieldConfiguration'
-    }
+        name: 'inco',
+        table: "IncoMaster"
+    },
+    {
+        name: 'imco',
+        table: 'ImcoMaster'
+    },
 ]
