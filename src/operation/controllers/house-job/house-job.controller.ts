@@ -47,7 +47,7 @@ export class HouseJobController {
   async getBookingByBookingNumber(@Param('bookingNumber') bookingNumber: string) {
     let output = new ResponseData();
     try {
-      const booking = await this.houseJobService.getBookingByNumber(bookingNumber)
+      const booking = await this.houseJobService.getHouseJobByBookingNo(bookingNumber)
       if (!booking) {
         this.logger.warn(`booking data fetched failed:- ${booking}`);
         throw new BadRequestException('Booking data fetch Failed');

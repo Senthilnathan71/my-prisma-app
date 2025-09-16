@@ -16,12 +16,50 @@ export class HouseJobService {
                     HouseJobSid: HouseJobSid
                 },
                 include: {
-                    Cargo: true,
-                    Connections: true,
-                    Others: true,
-                    Products: true
+                    Cargo: {
+                        where : {status : 'A'}
+                    },
+                    Connections: {
+                        where : {status : 'A'}
+                    },
+                    Others: {
+                        where : {status : 'A'}
+                    },
+                    Products: {
+                        where : {status : 'A'}
+                    }
                 }
             })
+            return ourHouseJob;
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    async getHouseJobByBookingNo(BookingNo: string) {
+        try {
+            const ourHouseJob = await this._db.houseJob.findFirst({
+                where: {
+                    BookingNo : BookingNo
+                },
+                include: {
+                    Cargo: {
+                        where : {status : 'A'}
+                    },
+                    Connections: {
+                        where : {status : 'A'}
+                    },
+                    Others: {
+                        where : {status : 'A'}
+                    },
+                    Products: {
+                        where : {status : 'A'}
+                    }
+                }
+            })
+            if(!ourHouseJob){
+                throw new BadRequestException('Error fetching house job record.'); 
+            }
             return ourHouseJob;
         } catch (error) {
             throw error;
@@ -355,7 +393,7 @@ export class HouseJobService {
                                 SwitchBL: other.SwitchBL,
                                 TransporterName: other.TransporterName,
                                 createdBy: payload.createdBy,
-                                Coloader: other.Coload,
+                                Coloader: other.Coloader,
                                 // CoLoader: other.CoLoader,
                                 // NominatedBy: other.NominatedBy,
                             }
