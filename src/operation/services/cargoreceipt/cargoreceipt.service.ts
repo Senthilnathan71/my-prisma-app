@@ -17,6 +17,7 @@ export class CargoreceiptService {
             FCLLCL: 'LCL',
           },
           HBLNo: null,
+          BookingStatus : 'Booked',
           status: 'A'
         },
         select: {

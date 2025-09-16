@@ -244,11 +244,11 @@ export class MasterJobService {
                 const allBookings = await this._db.bookingHeader.findMany({
                     where: { BookingHeaderSid: { in: bookingNeedHouseCreateIds } },
                     include: {
-                        bookingCargo: true,
-                        bookingProduct: true,
-                        bookingOthers: true,
-                        bookingConnection: true,
-                        bookingRates: true,
+                        bookingCargo: { where : {status : 'A'} },
+                        bookingProduct: { where : { status : 'A' } },
+                        bookingOthers: { where : { status : 'A' } },
+                        bookingConnection: { where : { status : 'A' } },
+                        bookingRates: { where : { Status : 'A' } }
                     },
                 });
 
@@ -265,186 +265,188 @@ export class MasterJobService {
                     hblSerial += 1;
                     const HBLNo = `HOUSE-${dateString}-${hblSerial.toString().padStart(3, '0')}`;
 
-                    // // Step 1: Create main house job
-                    // const houseJob = await this._db.houseJob.create({
-                    //     data: {
-                    //         MasterJobSid: newMasterJob.MasterJobSid,
-                    //         CreatedBy: bookingHeader.createdBy,
-                    //         UpdatedBy: bookingHeader.updatedBy,
-                    //         MenuMasterSid: bookingHeader.MenuMasterSid,
-                    //         CompanyMasterSid: bookingHeader.CompanyMasterSid,
-                    //         BranchMasterSid: bookingHeader.BranchMasterSid!,
-                    //         QuotationHeaderSid: bookingHeader.QuotationHeaderSid || null,
-                    //         DepartmentMasterSid: bookingHeader.DepartmentMasterSid,
-                    //         ShipmentNo: bookingHeader.ShipmentNo || '',
-                    //         BookingHeaderSid: bookingHeader.BookingHeaderSid || null,
-                    //         BookingNo: bookingHeader.BookingNo || '',
-                    //         HBLNo,
-                    //         CustomerMasterSid: bookingHeader.CustomerMasterSid || null,
-                    //         CustomerName: bookingHeader.CustomerName || '',
-                    //         CustomerAddress: bookingHeader.CustomerAddress || '',
-                    //         CustomerBranchSid: bookingHeader.CustomerBranchSid || null,
-                    //         SalesmanSid: bookingHeader.SalesmanSid || null,
-                    //         IncoTerms: bookingHeader.IncoTerms || '',
-                    //         FreightPPCC: bookingHeader.FreightTerms || '',
-                    //         DestinationAgent: bookingHeader.DestinationAgent,
-                    //         AgentName: bookingHeader.AgentName || '',
-                    //         AgentAddress: bookingHeader.AgentAddress || '',
-                    //         ShipperName: bookingHeader.ShipperName || '',
-                    //         ShipperAddress: bookingHeader.ShipperAddress || '',
-                    //         ConsigneeName: bookingHeader.ConsigneeName || '',
-                    //         ConsigneeAddress: bookingHeader.ConsigneeAddress || '',
-                    //         ShipmentType: bookingHeader.ShipmentType || '',
-                    //         NominatedBy: bookingHeader.NominatedBy || '',
-                    //         VoyageMasterSid: bookingHeader.VoyageMasterSid || null,
-                    //         VesselName: bookingHeader.VesselName || '',
-                    //         VoyageNo: bookingHeader.VoyageNo || '',
-                    //         CarrierSid: bookingHeader.CarrierSid || null,
-                    //         POO: bookingHeader.POO || '',
-                    //         POL: bookingHeader.POL || '',
-                    //         POD: bookingHeader.POD || '',
-                    //         FPD: bookingHeader.FPD || '',
-                    //         TsPortSid: bookingHeader.TsPortSid || null,
-                    //         POLTerminal: bookingHeader.POLTerminal || '',
-                    //         PODTerminal: bookingHeader.PODTerminal || '',
-                    //         ETD: bookingHeader.ETD ? new Date(bookingHeader.ETD) : null,
-                    //         ETA: bookingHeader.ETA ? new Date(bookingHeader.ETA) : null,
-                    //         Coload: bookingHeader.Coload || '',
-                    //         CoLoader: bookingOthers[0].Coloader || '',
-                    //         BLLocation: bookingHeader.BLLocation || null,
-                    //         ClearanceRequire: bookingHeader.ClearanceRequire || '',
-                    //         MovementType: bookingHeader.MovementType || '',
-                    //         DoValidity: bookingHeader.DoValid ? new Date(bookingHeader.DoValid) : null,
-                    //         IsServiceJob: bookingHeader.IsServiceJob || '',
-                    //     },
-                    // }).catch(err => {
-                    //     console.error('HouseJobCargo createMany error:', err);
-                    // });
+                    // Step 1: Create main house job
+                    const houseJob = await this._db.houseJob.create({
+                        data: {
+                            MasterJobSid: newMasterJob.MasterJobSid,
+                            createdBy : bookingHeader.createdBy || '',
+                            status : bookingHeader.status || '',
+                            MenuMasterSid: bookingHeader.MenuMasterSid || null,
+                            CompanyMasterSid: bookingHeader.CompanyMasterSid,
+                            BranchMasterSid: bookingHeader.BranchMasterSid!,
+                            QuotationHeaderSid: bookingHeader.QuotationHeaderSid || null,
+                            DepartmentMasterSid: bookingHeader.DepartmentMasterSid,
+                            ShipmentNo: bookingHeader.ShipmentNo || '',
+                            BookingHeaderSid: bookingHeader.BookingHeaderSid || null,
+                            BookingNo: bookingHeader.BookingNo || '',
+                            HBLNo,
+                            CustomerMasterSid: bookingHeader.CustomerMasterSid!,
+                            CustomerName: bookingHeader.CustomerName || '',
+                            CustomerAddress: bookingHeader.CustomerAddress || '',
+                            CustomerBranchSid: bookingHeader.CustomerBranchSid || null,
+                            SalesmanSid: bookingHeader.SalesmanSid || null,
+                            IncoTerms: bookingHeader.IncoTerms || '',
+                            FreightTerms: bookingHeader.FreightTerms || '',
+                            DestinationAgent: bookingHeader.DestinationAgent,
+                            AgentName: bookingHeader.AgentName || '',
+                            AgentAddress: bookingHeader.AgentAddress || '',
+                            ShipperName: bookingHeader.ShipperName || '',
+                            ShipperAddress: bookingHeader.ShipperAddress || '',
+                            ConsigneeName: bookingHeader.ConsigneeName || '',
+                            ConsigneeAddress: bookingHeader.ConsigneeAddress || '',
+                            ShipmentType: bookingHeader.ShipmentType || '',
+                            NominatedBy: bookingHeader.NominatedBy || '',
+                            VoyageMasterSid: bookingHeader.VoyageMasterSid || null,
+                            VesselName: bookingHeader.VesselName || '',
+                            VoyageNo: bookingHeader.VoyageNo || '',
+                            CarrierSid: bookingHeader.CarrierSid || null,
+                            POO: bookingHeader.POO || '',
+                            POL: bookingHeader.POL || '',
+                            POD: bookingHeader.POD || '',
+                            FPD: bookingHeader.FPD || '',
+                            TsPortSid: bookingHeader.TsPortSid || null,
+                            POLTerminal: bookingHeader.POLTerminal || '',
+                            PODTerminal: bookingHeader.PODTerminal || '',
+                            ETD: bookingHeader.ETD ? new Date(bookingHeader.ETD) : null,
+                            ETA: bookingHeader.ETA ? new Date(bookingHeader.ETA) : null,
+                            Coload: bookingHeader.Coload || '',
+                            ColoadedBy: bookingOthers[0].Coloader || '',
+                            BLLocation: bookingHeader.BLLocation || null,
+                            ClearanceRequire: bookingHeader.ClearanceRequire || '',
+                            MovementType: bookingHeader.MovementType || '',
+                            DoValid: bookingHeader.DoValid ? new Date(bookingHeader.DoValid) : null,
+                            IsServiceJob: bookingHeader.IsServiceJob || '',
+                        },
+                    }).catch(err => {
+                        console.error('HouseJobCargo createMany error:', err);
+                    });
 
-                    // if (!houseJob) continue;
+                    if (!houseJob) continue;
 
-                    // if (bookingCargo?.length) {
-                    //     await this._db.houseJobCargo.createMany({
-                    //         data: bookingCargo.map((cargo) => ({
-                    //             HouseJobSid: houseJob.HouseJobSid,
-                    //             CreatedBy: cargo.createdBy,
-                    //             UpdatedBy: cargo.updatedBy || null,
-                    //             Status: 'A',
-                    //             CompanyMasterSid: cargo.CompanyMasterSid,
-                    //             BranchMasterSid: cargo.BranchMasterSid!,
-                    //             CargoType: cargo.CargoType,
-                    //             ContainerType: cargo.ContainerType,
-                    //             GrossWeight: cargo.GrossWeight || 0,
-                    //             NetWeight: cargo.NetWeight || 0,
-                    //             Volume: cargo.Volume || 0,
-                    //             ChargeableWeight: cargo.ChargeableWeight || 0,
-                    //             PackageType: cargo.PackageType || null,
-                    //             NoOfPackage: cargo.NoOfPackage || 0,
-                    //             FreightAmount: cargo.FreightAmount || 0,
-                    //             WeightUnit: cargo.WeightUnitSid || null,
-                    //             ShipmentTerms: cargo.ShipmentTerms || '',
-                    //         })),
-                    //     }).catch(err => {
-                    //         console.error('HouseJobCargo createMany error:', err);
-                    //     });
-                    // }
+                    if (bookingCargo?.length) {
+                        await this._db.houseJobCargo.createMany({
+                            data: bookingCargo.map((cargo) => ({
+                                HouseJobSid: houseJob.HouseJobSid,
+                                createdBy: cargo.createdBy,
+                                updatedBy: cargo.updatedBy || null,
+                                status: 'A',
+                                CompanyMasterSid: cargo.CompanyMasterSid,
+                                BranchMasterSid: cargo.BranchMasterSid!,
+                                CargoType: cargo.CargoType,
+                                ContainerType: cargo.ContainerType,
+                                NoofContainers : Number(cargo.NoofContainers) || 0,
+                                GrossWeight: cargo.GrossWeight || 0,
+                                NetWeight: cargo.NetWeight || 0,
+                                Volume: cargo.Volume || 0,
+                                ChargeableWeight: cargo.ChargeableWeight || 0,
+                                PackageType: cargo.PackageType || null,
+                                NoOfPackage: cargo.NoOfPackage || 0,
+                                FreightAmount: cargo.FreightAmount || '',
+                                WeightUnitSid: cargo.WeightUnitSid || null,
+                                ShipmentTerms: cargo.ShipmentTerms || '',
+                                })
+                            ),
+                        }).catch(err => {
+                            console.error('HouseJobCargo createMany error:', err);
+                        });
+                    }
 
-                    // if (bookingProduct?.length) {
-                    //     await this._db.houseJobProduct.createMany({
-                    //         data: bookingProduct.map((product) => ({
-                    //             HouseJobSid: houseJob.HouseJobSid,
-                    //             ProductName: product.ProductName || '',
-                    //             ProductDescription: product.ProductDescription || '',
-                    //             ShippingBillNo: product.ShippingBillNo || '',
-                    //             ShippingBillDate: product.ShippingBillDate || '',
-                    //             ExternaPkg: product.ExternaPkg || '',
-                    //             ExternlQty: product.ExternlQty || '',
-                    //             GrossWeight: product.GrossWeight || 0,
-                    //             NetWeight: product.NetWeight || 0,
-                    //             Volume: product.Volume || 0,
-                    //             CreatedBy: product.createdBy,
-                    //             UpdatedBy: product.updatedBy || null,
-                    //         }))
-                    //     }).catch(err => {
-                    //         console.error('HouseJobProduct createMany error:', err);
-                    //     });
-                    // }
+                    if (bookingProduct?.length) {
+                        await this._db.houseJobProduct.createMany({
+                            data: bookingProduct.map((product) => ({
+                                HouseJobSid: houseJob.HouseJobSid,
+                                ProductName: product.ProductName || '',
+                                ProductDescription: product.ProductDescription || '',
+                                ShippingBillNo: product.ShippingBillNo || '',
+                                ShippingBillDate: product.ShippingBillDate || null,
+                                ExternaPkg: product.ExternaPkg || '',
+                                ExternlQty: String(product.ExternlQty) || '',
+                                GrossWeight: Number(product.GrossWeight) || 0,
+                                NetWeight: Number(product.NetWeight) || 0,
+                                Volume: Number(product.Volume) || 0,
+                                createdBy: product.createdBy,
+                            }))
+                        }).catch(err => {
+                            console.error('HouseJobProduct createMany error:', err);
+                        });
+                    }
 
-                    // if (bookingConnection?.length) {
-                    //     await this._db.houseJobConnection.createMany({
-                    //         data: bookingConnection.map((connection) => ({
-                    //             HouseJobSid: houseJob.HouseJobSid,
-                    //             Mode: connection.Mode,
-                    //             POL: connection.POL,
-                    //             POD: connection.POD,
-                    //             VesselName: connection.VesselName,
-                    //             VoyageNo: connection.VoyageNo,
-                    //             ETD: connection.ETD ? new Date(connection.ETD) : null,
-                    //             ETA: connection.ETA ? new Date(connection.ETA) : null,
-                    //             Remarks: connection.Remarks || '',
-                    //             CreatedBy: connection.createdBy,
-                    //             UpdatedBy: connection.updatedBy || null,
-                    //         })),
-                    //         skipDuplicates: true,
-                    //     }).catch(err => {
-                    //         console.error('HouseJobConnection createMany error:', err);
-                    //     });
-                    // }
+                    if (bookingConnection?.length) {
+                        await this._db.houseJobConnection.createMany({
+                            data: bookingConnection.map((connection) => ({
+                                HouseJobSid: houseJob.HouseJobSid,
+                                Mode: connection.Mode,
+                                POL: connection.POL,
+                                POD: connection.POD,
+                                VesselName: connection.VesselName,
+                                VoyageNo: connection.VoyageNo,
+                                // ETD: connection.ETD ? new Date(connection.ETD) : null,
+                                // ETA: connection.ETA ? new Date(connection.ETA) : null,
+                                Remarks: connection.Remarks || '',
+                                status : 'A',
+                                createdBy: connection.createdBy,
+                                updatedBy: connection.updatedBy || null,
+                            })),
+                            skipDuplicates: true,
+                        }).catch(err => {
+                            console.error('HouseJobConnection createMany error:', err);
+                        });
+                    }
 
-                    // if (bookingOthers?.[0]) {
-                    //     await this._db.houseJobOthers.create({
-                    //         data: {
-                    //             HouseJobSid: houseJob.HouseJobSid,
-                    //             CustomerRefNo: bookingOthers[0].CustomerRefNo || '',
-                    //             OperationUser: bookingOthers[0].OperationUser || '',
-                    //             DocumentationUser: bookingOthers[0].DocumentationUser || '',
-                    //             CustomerServiceuser: bookingOthers[0].CustomerServiceuser || '',
-                    //             NotifyParty: bookingOthers[0].NotifyParty || '',
-                    //             NotifyPartyAddress: bookingOthers[0].NotifyPartyAddress || '',
-                    //             CHAName: bookingOthers[0].CHAName || '',
-                    //             PickupMode: bookingOthers[0].PickupMode || '',
-                    //             YardCFS: bookingOthers[0].YardCFS || '',
-                    //             LocalTransport: bookingOthers[0].LocalTransport || '',
-                    //             OverseasTransport: bookingOthers[0].OverseasTransport || '',
-                    //             OverseasClearance: bookingOthers[0].OverseasClearance || '',
-                    //             PickupPlace: bookingOthers[0].PickupPlace || '',
-                    //             PickupDate: bookingOthers[0].PickupDate || null,
-                    //             PickupAddress: bookingOthers[0].PickupAddress || '',
-                    //             DeliveryPlace: bookingOthers[0].DeliveryPlace || '',
-                    //             DeliveryDate: bookingOthers[0].DeliveryDate || null,
-                    //             DeliveryAddress: bookingOthers[0].DeliveryAddress || '',
-                    //             CargoCurrency: bookingOthers[0].CargoCurrency || '',
-                    //             CargoValue: bookingOthers[0].CargoValue || 0,
-                    //             DeliveryMode: bookingOthers[0].DeliveryMode || '',
-                    //             ExternalRemarks: bookingOthers[0].ExternalRemarks || '',
-                    //             GeneralNote: bookingHeader.GeneralNote || '',
-                    //             SwitchBL: bookingOthers[0].SwitchBL || '',
-                    //             TransporterName: bookingOthers[0].TransporterName || '',
-                    //             CreatedBy: bookingOthers[0].createdBy,
-                    //             UpdatedBy: bookingOthers[0].updatedBy || null,
-                    //             Coload: bookingHeader.Coload || '',
-                    //             CoLoader: bookingOthers[0].Coloader || '',
-                    //             NominatedBy: bookingHeader.NominatedBy || '',
-                    //         },
-                    //     }).catch(err => {
-                    //         console.error('HouseJobOthers create error:', err);
-                    //     });
-                    // }
+                    if (bookingOthers?.[0]) {
+                        const other = bookingOthers[0];
+                        await this._db.houseJobOthers.create({
+                             data: {
+                                HouseJobSid: houseJob.HouseJobSid,
+                                CustomerRefNo: other.CustomerRefNo,
+                                OperationUser: other.OperationUser,
+                                DocumentationUser: other.DocumentationUser,
+                                CustomerServiceuser: other.CustomerServiceuser,
+                                NotifyParty: other.NotifyParty,
+                                NotifyPartyAddress: other.NotifyPartyAddress,
+                                CHAName: other.CHAName,
+                                PickupMode: other.PickupMode,
+                                YardCFS: other.YardCFS,
+                                LocalTransport: other.LocalTransport,
+                                OverseasTransport: other.OverseasTransport,
+                                OverseasClearance: other.OverseasClearance,
+                                PickupPlace: other.PickupPlace,
+                                PickupDate: other.PickupDate ? new Date(other.PickupDate) : null,
+                                PickupAddress: other.PickupAddress,
+                                DeliveryPlace: other.DeliveryPlace,
+                                DeliveryDate:  other.DeliveryDate,
+                                DeliveryAddress: other.DeliveryAddress,
+                                CargoCurrency: other.CargoCurrency,
+                                CargoValue: other.CargoValue,
+                                DeliveryMode: other.DeliveryMode,
+                                ExternalRemarks: other.ExternalRemarks,
+                                // GeneralNote: other.GeneralNote,
+                                SwitchBL: other.SwitchBL,
+                                TransporterName: other.TransporterName,
+                                createdBy: payload.createdBy,
+                                Coloader: other.Coloader,
+                                // CoLoader: other.CoLoader,
+                                // NominatedBy: other.NominatedBy,
+                            }
+                        }).catch(err => {
+                            console.error('HouseJobOthers create error:', err);
+                        });
+                    }
 
-                    // await this._db.bookingHeader.update({
-                    //     where: { BookingHeaderSid: bookingHeader.BookingHeaderSid },
-                    //     data: {
-                    //         HouseNo: houseJob.HBLNo,
-                    //         MasterNoSid: newMasterJob.MasterJobSid,
-                    //         MBLNo: newMasterJob.MBLNo,
-                    //         MBLDate: newMasterJob.MBLDate,
-                    //         BookingStatus: 'Stuffed',
-                    //     },
-                    // }).catch(err => {
-                    //     console.error('bookingHeader update error:', err);
-                    // });
+                    await this._db.bookingHeader.update({
+                        where: { BookingHeaderSid: bookingHeader.BookingHeaderSid },
+                        data: {
+                            HouseNo: houseJob.HBLNo,
+                            MasterNoSid: newMasterJob.MasterJobSid,
+                            MBLNo: newMasterJob.MBLNo,
+                            MBLDate: newMasterJob.MBLDate,
+                            BookingStatus: 'Stuffed',
+                        },
+                    }).catch(err => {
+                        console.error('bookingHeader update error:', err);
+                    });
 
-                    // allCreatedHouseJobs.push(houseJob);
+                    allCreatedHouseJobs.push(houseJob);
                 }
             }
 
@@ -506,15 +508,15 @@ export class MasterJobService {
                         others: { where: { Status: 'A' } },
                     }
                 })
-                // const allShipments = await prisma.houseJob.findMany({
-                //     where: {
-                //         MasterJobSid: MasterJobSid,
-                //         Status: 'A'
-                //     },
-                //     orderBy: {
-                //         HouseJobSid: 'asc'
-                //     }
-                // })
+                const allShipments = await prisma.houseJob.findMany({
+                    where: {
+                        MasterJobSid: MasterJobSid,
+                        status: 'A'
+                    },
+                    orderBy: {
+                        HouseJobSid: 'asc'
+                    }
+                })
                 const allCostRevenueCharges = await prisma.costRevenueCharges.findMany({
                     where: {
                         TransactionSid: MasterJobSid,
@@ -562,7 +564,7 @@ export class MasterJobService {
                 return {
                     ...masterJobDetails,
                     CutOffDate,
-                    // allShipments,
+                    allShipments,
                     costRevenueCharges: allCostRevenueCharges,
                     containerActivities: allActivities
                 }
