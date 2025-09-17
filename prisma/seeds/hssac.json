@@ -9,7 +9,9 @@
         "TaxType": "IGST",
         "EffectiveFrom": "2023-01-01T00:00:00.000Z",
         "createdBy": "ffadmin@crm.com",
-        "status": "A"
+        "status": "A",
+        "Remarks": ""
+
     },
     {
         "HSSACCode": "996759",
@@ -21,7 +23,9 @@
         "TaxType": "Default",
         "EffectiveFrom": "2023-01-01T00:00:00.000Z",
         "createdBy": "ffadmin@crm.com",
-        "status": "A"
+        "status": "A",
+        "Remarks": ""
+
     },
     {
         "HSSACCode": "996763",
@@ -33,7 +37,9 @@
         "TaxType": "Default",
         "EffectiveFrom": "2023-01-01T00:00:00.000Z",
         "createdBy": "ffadmin@crm.com",
-        "status": "A"
+        "status": "A",
+        "Remarks": ""
+
     },
     {
         "HSSACCode": "996719",
@@ -45,7 +51,9 @@
         "TaxType": "Default",
         "EffectiveFrom": "2023-01-01T00:00:00.000Z",
         "createdBy": "ffadmin@crm.com",
-        "status": "A"
+        "status": "A",
+        "Remarks": ""
+
     },
     {
         "HSSACCode": "996711",
@@ -57,7 +65,9 @@
         "TaxType": "Default",
         "EffectiveFrom": "2023-01-01T00:00:00.000Z",
         "createdBy": "ffadmin@crm.com",
-        "status": "A"
+        "status": "A",
+        "Remarks": ""
+
     },
     {
         "HSSACCode": "966888",
@@ -69,7 +79,9 @@
         "TaxType": "Default",
         "EffectiveFrom": "2023-01-01T00:00:00.000Z",
         "createdBy": "ffadmin@crm.com",
-        "status": "A"
+        "status": "A",
+        "Remarks": ""
+
     },
     {
         "HSSACCode": "997329",
@@ -81,7 +93,9 @@
         "TaxType": "Default",
         "EffectiveFrom": "2023-01-01T00:00:00.000Z",
         "createdBy": "ffadmin@crm.com",
-        "status": "A"
+        "status": "A",
+        "Remarks": ""
+
     },
     {
         "HSSACCode": "996511",
@@ -93,7 +107,9 @@
         "TaxType": "Default",
         "EffectiveFrom": "2023-01-01T00:00:00.000Z",
         "createdBy": "ffadmin@crm.com",
-        "status": "A"
+        "status": "A",
+        "Remarks": ""
+
     },
     {
         "HSSACCode": "996531",
@@ -105,7 +121,9 @@
         "TaxType": "IGST",
         "EffectiveFrom": "2023-01-01T00:00:00.000Z",
         "createdBy": "ffadmin@crm.com",
-        "status": "A"
+        "status": "A",
+        "Remarks": ""
+
     },
     {
         "HSSACCode": "99711",
@@ -117,7 +135,9 @@
         "TaxType": "Default",
         "EffectiveFrom": "2023-01-01T00:00:00.000Z",
         "createdBy": "ffadmin@crm.com",
-        "status": "A"
+        "status": "A",
+        "Remarks": ""
+
     },
     {
         "HSSACCode": "996713",
@@ -129,7 +149,9 @@
         "TaxType": "Default",
         "EffectiveFrom": "2023-01-01T00:00:00.000Z",
         "createdBy": "ffadmin@crm.com",
-        "status": "A"
+        "status": "A",
+        "Remarks": ""
+
     },
     {
         "HSSACCode": "996521-HSN",
@@ -141,7 +163,9 @@
         "TaxType": "Default",
         "EffectiveFrom": "2023-01-01T00:00:00.000Z",
         "createdBy": "ffadmin@crm.com",
-        "status": "A"
+        "status": "A",
+        "Remarks": ""
+
     },
     {
         "HSSACCode": "998346",
@@ -153,6 +177,8 @@
         "TaxType": "Default",
         "EffectiveFrom": "2024-01-01T00:00:00.000Z",
         "createdBy": "ffadmin@crm.com",
-        "status": "A"
+        "status": "A",
+        "Remarks": ""
+
     }
 ]

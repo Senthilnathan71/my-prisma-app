@@ -1391,8 +1391,8 @@ model ZoneMaster {
 
 model HSSACMaster {
   HSSACMasterSid   Int                @id @default(autoincrement()) @map("HSSACMasterSid")
-  HSSACCode        String             @db.VarChar(9)
-  HSSACName        String?            @db.VarChar(30)
+  HSSACCode        String             @db.VarChar(200)
+  HSSACName        String?            @db.VarChar(200)
   HSNSACDescription String?           @db.VarChar(700)
   ClassificationType String?          @db.VarChar(10)
   ServiceName      String             @db.VarChar(100)
@@ -2740,7 +2740,7 @@ model VoucherDetail {
   Rate                Decimal  @db.Decimal(15, 3)
   NumberOfUnit        Decimal? @db.Decimal(7, 3)
   Narration           String?  @db.VarChar(200)
-  DrCr                String   @db.Char(1)
+  DrCr                String?   @db.VarChar(50)
   TaxableAmount       Decimal  @db.Decimal(15, 3)
   TaxPercentage1      Decimal? @db.Decimal(5, 2)
   TaxAmount1          Decimal? @db.Decimal(10, 3)

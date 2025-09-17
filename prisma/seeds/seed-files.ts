@@ -3,10 +3,10 @@ export const SEED_FILES: { name: string; table: string }[] = [
     //     name: 'unitMaster',
     //     table: 'UnitMaster'
     // },
-    {
-        name: 'countries',
-        table: 'CountryMaster'
-    },
+    // {
+    //     name: 'countries',
+    //     table: 'CountryMaster'
+    // },
     // {
     //     name: 'city',
     //     table: 'CityMaster'
@@ -15,26 +15,26 @@ export const SEED_FILES: { name: string; table: string }[] = [
     //     name: 'port',
     //     table: 'PortMaster'
     // },
-    {
-        name: 'state',
-        table: 'StateMaster'
-    },
+    // {
+    //     name: 'state',
+    //     table: 'StateMaster'
+    // },
     // {
     //     name: 'fieldConfiguration',
     //     table: 'FieldConfiguration'
     // },
-    {
-        name:'uom',
-        table: 'UOMMaster'
-    },
-    {
-        name:'hssac',
-        table: 'HSSACMaster'
-    },
+    // {
+    //     name:'uom',
+    //     table: 'UOMMaster'
+    // },
     // {
     //     name: 'containerType',
     //     table: 'ContainerTypeMaster'
     // },
+
+
+    //seed completed
+
     // {
     //     name: 'inco',
     //     table: "IncoMaster"
@@ -42,5 +42,9 @@ export const SEED_FILES: { name: string; table: string }[] = [
     // {
     //     name: 'imco',
     //     table: 'ImcoMaster'
+    // },
+    // {
+    //     name:'hssac',
+    //     table: 'HSSACMaster'
     // },
 ]
