@@ -35,37 +35,6 @@ export class HouseJobService {
             throw error;
         }
     }
-
-    async getHouseJobByBookingNo(BookingNo: string) {
-        try {
-            const ourHouseJob = await this._db.houseJob.findFirst({
-                where: {
-                    BookingNo : BookingNo
-                },
-                include: {
-                    Cargo: {
-                        where : {status : 'A'}
-                    },
-                    Connections: {
-                        where : {status : 'A'}
-                    },
-                    Others: {
-                        where : {status : 'A'}
-                    },
-                    Products: {
-                        where : {status : 'A'}
-                    }
-                }
-            })
-            if(!ourHouseJob){
-                throw new BadRequestException('Error fetching house job record.'); 
-            }
-            return ourHouseJob;
-        } catch (error) {
-            throw error;
-        }
-    }
-
     async updateHouseJobById(HouseJobSid: number, payload: any) {
         try {
             const updatedHouseJob = await this._db.$transaction(async (prisma) => {
@@ -411,32 +380,24 @@ export class HouseJobService {
     }
 
 
-    async getBookingByNumber(BookingNumber: string) {
+    async getHouseJobByBookingNo(BookingNumber: string) {
             try {
-                const ourBooking = await this._db.bookingHeader.findFirst({
+                const ourBooking = await this._db.houseJob.findFirst({
                     where: {
                         BookingNo: BookingNumber
                     },
                     include: {
-                        bookingCargo: { where: { status: 'A' } },
-                        bookingProduct: { where: { status: 'A' } },
-                        bookingOthers: { where: { status: 'A' } },
-                        bookingConnection: { where: { status: 'A' } }
+                        Cargo: { where: { status: 'A' } },
+                        Products: { where: { status: 'A' } },
+                        Others: { where: { status: 'A' } },
+                        Connections: { where: { status: 'A' } }
                     }
                 })
     
                 if (!ourBooking) {
                     throw new BadRequestException('Error fetching booking record.');
                 }
-                const costRevenuePayload: any = {
-                    MenuMasterSid: ourBooking.MenuMasterSid!,
-                    CompanyMasterSid: ourBooking.CompanyMasterSid,
-                    BranchMasterSid: ourBooking.BranchMasterSid!,
-                    TransactionSid: ourBooking.BookingHeaderSid,
-                    ShipmentNo: ourBooking.ShipmentNo!
-                }
-                const respectiveCostRevenueCharges = await this.commonService.getAllCostRevenueCharges(costRevenuePayload);
-    
+
                 let voyageDetails;
                 if (ourBooking.VoyageMasterSid) {
                     const data = await this._db.voyageMasterHeader.findUnique({

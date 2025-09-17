@@ -1393,6 +1393,8 @@ model HSSACMaster {
   HSSACMasterSid   Int                @id @default(autoincrement()) @map("HSSACMasterSid")
   HSSACCode        String             @db.VarChar(9)
   HSSACName        String?            @db.VarChar(30)
+  HSNSACDescription String?           @db.VarChar(700)
+  ClassificationType String?          @db.VarChar(10)
   ServiceName      String             @db.VarChar(100)
   TaxRate          Decimal            @db.Decimal(10, 3)
   TaxType          String             @db.VarChar(10)

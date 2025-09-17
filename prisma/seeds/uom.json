@@ -1,0 +1,1392 @@
+[
+    {
+        "UOMCode": "BAR",
+        "UOMName": "BAR",
+        "UOMType": "P",
+        "EdiCode": null,
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "BBG",
+        "UOMName": "BULK BAGS",
+        "UOMType": "P",
+        "EdiCode": null,
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "CTB",
+        "UOMName": "CARTON BOXES",
+        "UOMType": "P",
+        "EdiCode": null,
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "CAR",
+        "UOMName": "CARTRIDGES",
+        "UOMType": "P",
+        "EdiCode": null,
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "CSE",
+        "UOMName": "CASTER OIL",
+        "UOMType": "P",
+        "EdiCode": null,
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "CLS",
+        "UOMName": "COILS",
+        "UOMType": "P",
+        "EdiCode": null,
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "CNT",
+        "UOMName": "CONTAINER",
+        "UOMType": "P",
+        "EdiCode": null,
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "DZM",
+        "UOMName": "DOZENS",
+        "UOMType": "P",
+        "EdiCode": null,
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "DRU",
+        "UOMName": "DRUM",
+        "UOMType": "P",
+        "EdiCode": null,
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "DRF",
+        "UOMName": "DRY FRUITS",
+        "UOMType": "P",
+        "EdiCode": null,
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "MTY",
+        "UOMName": "EMPTY",
+        "UOMType": "P",
+        "EdiCode": null,
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "FLX",
+        "UOMName": "FLEXI TANK",
+        "UOMType": "P",
+        "EdiCode": null,
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "FBG",
+        "UOMName": "FLEXIBAG",
+        "UOMType": "P",
+        "EdiCode": null,
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "FXI",
+        "UOMName": "FXIB",
+        "UOMType": "P",
+        "EdiCode": null,
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "GOV",
+        "UOMName": "GOVT. CARGO",
+        "UOMType": "P",
+        "EdiCode": null,
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "GBG",
+        "UOMName": "GUNNY BAGS",
+        "UOMType": "P",
+        "EdiCode": null,
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "HAZ",
+        "UOMName": "HAZARDOUS",
+        "UOMType": "P",
+        "EdiCode": null,
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "HDB",
+        "UOMName": "HDPE BAGS",
+        "UOMType": "P",
+        "EdiCode": null,
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "HDP",
+        "UOMName": "HDPE CANS",
+        "UOMType": "P",
+        "EdiCode": null,
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "NGT",
+        "UOMName": "INGOTS",
+        "UOMType": "P",
+        "EdiCode": null,
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "ISO",
+        "UOMName": "ISOTANK",
+        "UOMType": "P",
+        "EdiCode": null,
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "IBT",
+        "UOMName": "IBC TANKPAC",
+        "UOMType": "P",
+        "EdiCode": null,
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "JER",
+        "UOMName": "JERRICANS",
+        "UOMType": "P",
+        "EdiCode": null,
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "JTA",
+        "UOMName": "JOTTAS",
+        "UOMType": "P",
+        "EdiCode": null,
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "JBG",
+        "UOMName": "JUMBO BAGS",
+        "UOMType": "P",
+        "EdiCode": null,
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "JUT",
+        "UOMName": "JUTE BAGS",
+        "UOMType": "P",
+        "EdiCode": null,
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "KBM",
+        "UOMName": "KNUCKLEBOOM",
+        "UOMType": "P",
+        "EdiCode": null,
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "LAP",
+        "UOMName": "LAP",
+        "UOMType": "P",
+        "EdiCode": null,
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "LFT",
+        "UOMName": "LIFTVAN",
+        "UOMType": "P",
+        "EdiCode": null,
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "LOG",
+        "UOMName": "LOGS",
+        "UOMType": "P",
+        "EdiCode": null,
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "LOT",
+        "UOMName": "LOT",
+        "UOMType": "P",
+        "EdiCode": null,
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "MBS",
+        "UOMName": "MESH BAGS",
+        "UOMType": "P",
+        "EdiCode": null,
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "MTS",
+        "UOMName": "METAL DRUMS",
+        "UOMType": "P",
+        "EdiCode": null,
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "PAI",
+        "UOMName": "PAILS",
+        "UOMType": "P",
+        "EdiCode": null,
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "PSC",
+        "UOMName": "PAPER SACKS CONTG",
+        "UOMType": "P",
+        "EdiCode": null,
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "PIP",
+        "UOMName": "PIPES",
+        "UOMType": "P",
+        "EdiCode": null,
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "PSK",
+        "UOMName": "POLYSACK",
+        "UOMType": "P",
+        "EdiCode": null,
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "SDM",
+        "UOMName": "S/DMS",
+        "UOMType": "P",
+        "EdiCode": null,
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "SCR",
+        "UOMName": "SCRAP",
+        "UOMType": "P",
+        "EdiCode": null,
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "SLB",
+        "UOMName": "SLABS",
+        "UOMType": "P",
+        "EdiCode": null,
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "STK",
+        "UOMName": "STACKS",
+        "UOMType": "P",
+        "EdiCode": null,
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "STC",
+        "UOMName": "STCSS",
+        "UOMType": "P",
+        "EdiCode": null,
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "SLR",
+        "UOMName": "STEEL RACK",
+        "UOMType": "P",
+        "EdiCode": null,
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "TAN",
+        "UOMName": "TANK",
+        "UOMType": "P",
+        "EdiCode": null,
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "TCN",
+        "UOMName": "TCNT",
+        "UOMType": "P",
+        "EdiCode": null,
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "TIN",
+        "UOMName": "TIN",
+        "UOMType": "P",
+        "EdiCode": null,
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "TOT",
+        "UOMName": "TOTES",
+        "UOMType": "P",
+        "EdiCode": null,
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "TRA",
+        "UOMName": "TRAYS",
+        "UOMType": "P",
+        "EdiCode": null,
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "TRK",
+        "UOMName": "TRUNK UNACCOMPANIED",
+        "UOMType": "P",
+        "EdiCode": null,
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "UTS",
+        "UOMName": "UNITS",
+        "UOMType": "P",
+        "EdiCode": null,
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "WNP",
+        "UOMName": "WNPTS",
+        "UOMType": "P",
+        "EdiCode": null,
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "BKL",
+        "UOMName": "BUCKLES",
+        "UOMType": "P",
+        "EdiCode": null,
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "BOU",
+        "UOMName": "BILLIONS OF UNITS",
+        "UOMType": "P",
+        "EdiCode": null,
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "BTL",
+        "UOMName": "BOTTLES",
+        "UOMType": "P",
+        "EdiCode": null,
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "BUN",
+        "UOMName": "BUNCHES",
+        "UOMType": "P",
+        "EdiCode": null,
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "CCM",
+        "UOMName": "CUBIC CENTIMETRES",
+        "UOMType": "P",
+        "EdiCode": null,
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "CBM",
+        "UOMName": "CUBIC METRES",
+        "UOMType": "P",
+        "EdiCode": null,
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "CMS",
+        "UOMName": "CENTIMETRES",
+        "UOMType": "P",
+        "EdiCode": null,
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "GGK",
+        "UOMName": "GREAT GROSS",
+        "UOMType": "P",
+        "EdiCode": null,
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "GMS",
+        "UOMName": "GRAMS",
+        "UOMType": "P",
+        "EdiCode": null,
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "GRS",
+        "UOMName": "GROSS",
+        "UOMType": "P",
+        "EdiCode": null,
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "GYD",
+        "UOMName": "GROSS YARDS",
+        "UOMType": "P",
+        "EdiCode": null,
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "KLR",
+        "UOMName": "KILOLITRE",
+        "UOMType": "P",
+        "EdiCode": null,
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "KME",
+        "UOMName": "KILOMETRE",
+        "UOMType": "P",
+        "EdiCode": null,
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "LTR",
+        "UOMName": "LITRE",
+        "EdiCode": "",
+        "UOMType": "P",
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "MTR",
+        "UOMName": "METRE",
+        "EdiCode": "",
+        "UOMType": "P",
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "MLT",
+        "UOMName": "MILLILITRE",
+        "EdiCode": "",
+        "UOMType": "P",
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "OTH",
+        "UOMName": "OTHERS",
+        "EdiCode": "",
+        "UOMType": "P",
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "PRS",
+        "UOMName": "PAIRS",
+        "EdiCode": "",
+        "UOMType": "P",
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "CSK",
+        "UOMName": "CASE",
+        "EdiCode": "CAS",
+        "UOMType": "P",
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "QTL",
+        "UOMName": "QUINTAL",
+        "EdiCode": "",
+        "UOMType": "P",
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "SQF",
+        "UOMName": "SQUARE FEET",
+        "EdiCode": "",
+        "UOMType": "P",
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "SQM",
+        "UOMName": "SQUARE METRE",
+        "EdiCode": "",
+        "UOMType": "P",
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "SQY",
+        "UOMName": "SQUARE YARDS",
+        "EdiCode": "",
+        "UOMType": "P",
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "TBS",
+        "UOMName": "TABLETS",
+        "EdiCode": "",
+        "UOMType": "P",
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "TGM",
+        "UOMName": "TEN GROSS",
+        "EdiCode": "",
+        "UOMType": "P",
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "THD",
+        "UOMName": "THOUSANDS",
+        "EdiCode": "",
+        "UOMType": "P",
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "UGS",
+        "UOMName": "US GALLONS",
+        "EdiCode": "",
+        "UOMType": "P",
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "YDS",
+        "UOMName": "YARDS",
+        "EdiCode": "",
+        "UOMType": "P",
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "TUB",
+        "UOMName": "TUBES",
+        "EdiCode": "",
+        "UOMType": "P",
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "MTS",
+        "UOMName": "METRIC TONS",
+        "EdiCode": "",
+        "UOMType": "P",
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "PKG",
+        "UOMName": "PACKAGE",
+        "EdiCode": "PKG",
+        "UOMType": "P",
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "BAL",
+        "UOMName": "BALE",
+        "EdiCode": "BAL",
+        "UOMType": "P",
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "PKGS",
+        "UOMName": "PACKAGES",
+        "EdiCode": "PKG",
+        "UOMType": "P",
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "PLT",
+        "UOMName": "PALLET",
+        "EdiCode": "PLT",
+        "UOMType": "P",
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "WDS",
+        "UOMName": "WOODEN SKIDS",
+        "EdiCode": "SKD",
+        "UOMType": "P",
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "BOX",
+        "UOMName": "BOX",
+        "EdiCode": "PKG",
+        "UOMType": "P",
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "IBC",
+        "UOMName": "IBC CONTAINERS",
+        "EdiCode": "PKG",
+        "UOMType": "P",
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "BRL",
+        "UOMName": "BARRELS",
+        "EdiCode": "PKG",
+        "UOMType": "P",
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "CTN",
+        "UOMName": "CARTONS",
+        "EdiCode": "CTN",
+        "UOMType": "P",
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "BDL",
+        "UOMName": "BUNDLE",
+        "EdiCode": "PKG",
+        "UOMType": "P",
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "BLK",
+        "UOMName": "BULK",
+        "EdiCode": "PKG",
+        "UOMType": "P",
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "BOB",
+        "UOMName": "BOBBIN",
+        "EdiCode": "PKG",
+        "UOMType": "P",
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "BOT",
+        "UOMName": "BOATS",
+        "EdiCode": "PKG",
+        "UOMType": "P",
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "BRQ",
+        "UOMName": "BRIQUTTES",
+        "EdiCode": "PKG",
+        "UOMType": "P",
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "CAN",
+        "UOMName": "CANS",
+        "EdiCode": "PKG",
+        "UOMType": "P",
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "CBY",
+        "UOMName": "CARBOYS",
+        "EdiCode": "PKG",
+        "UOMType": "P",
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "CRT",
+        "UOMName": "CRATE",
+        "EdiCode": "CRT",
+        "UOMType": "P",
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "CYL",
+        "UOMName": "CYLINDERS",
+        "EdiCode": "PKG",
+        "UOMType": "P",
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "DRM",
+        "UOMName": "DRUMS",
+        "EdiCode": "DRM",
+        "UOMType": "P",
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "FDR",
+        "UOMName": "FIBRE DRUM",
+        "EdiCode": "PKG",
+        "UOMType": "P",
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "ITM",
+        "UOMName": "ITEM",
+        "EdiCode": "PKG",
+        "UOMType": "P",
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "KEG",
+        "UOMName": "KEGS",
+        "EdiCode": "PKG",
+        "UOMType": "P",
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "MDL",
+        "UOMName": "MODULES",
+        "EdiCode": "PKG",
+        "UOMType": "P",
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "NOS",
+        "UOMName": "NUMBERS",
+        "EdiCode": "PKG",
+        "UOMType": "P",
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "PCS",
+        "UOMName": "PIECES",
+        "EdiCode": "PKG",
+        "UOMType": "P",
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "REL",
+        "UOMName": "REELS",
+        "EdiCode": "PKG",
+        "UOMType": "P",
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "ROL",
+        "UOMName": "ROLLS",
+        "EdiCode": "PKG",
+        "UOMType": "P",
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "SAK",
+        "UOMName": "SACKS",
+        "EdiCode": "PKG",
+        "UOMType": "P",
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "SET",
+        "UOMName": "SET",
+        "EdiCode": "PKG",
+        "UOMType": "P",
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "SHT",
+        "UOMName": "SHEETS",
+        "EdiCode": "PKG",
+        "UOMType": "P",
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "TON",
+        "UOMName": "TONS",
+        "EdiCode": "PKG",
+        "UOMType": "P",
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "UNT",
+        "UOMName": "UNIT",
+        "EdiCode": "PKG",
+        "UOMType": "P",
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "BOXS",
+        "UOMName": "BOXES",
+        "EdiCode": "BOX",
+        "UOMType": "P",
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "KGS",
+        "UOMName": "KILOGRAMS",
+        "EdiCode": "PKG",
+        "UOMType": "P",
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "BAG",
+        "UOMName": "BAGS",
+        "EdiCode": "BGS",
+        "UOMType": "P",
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "WPR",
+        "UOMName": "WOODEN EURO PALLETS",
+        "EdiCode": "WEP",
+        "UOMType": "P",
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "CAS",
+        "UOMName": "CASES",
+        "EdiCode": "CAS",
+        "UOMType": "P",
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "CLI",
+        "UOMName": "WOODEN CARRYING CASE",
+        "EdiCode": "CAS",
+        "UOMType": "P",
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "KRA",
+        "UOMName": "Papper",
+        "EdiCode": "PAP",
+        "UOMType": "P",
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "GEN",
+        "UOMName": "GENERAL",
+        "EdiCode": "GEN",
+        "UOMType": "P",
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "BLO",
+        "UOMName": "BLOCKS",
+        "EdiCode": "BLO",
+        "UOMType": "P",
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "Motor",
+        "UOMName": "Automobiles",
+        "EdiCode": "AMS",
+        "UOMType": "P",
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "BL",
+        "UOMName": "Per BL",
+        "EdiCode": "",
+        "UOMType": "C",
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "CBM",
+        "UOMName": "Per CBM",
+        "EdiCode": "",
+        "UOMType": "C",
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "LCL"
+    },
+    {
+        "UOMCode": "CWT",
+        "UOMName": "Chargeable Weight",
+        "EdiCode": "",
+        "UOMType": "C",
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "Air"
+    },
+    {
+        "UOMCode": "DAY",
+        "UOMName": "Per Day",
+        "EdiCode": "",
+        "UOMType": "C",
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "KGS",
+        "UOMName": "Per Kg",
+        "EdiCode": "",
+        "UOMType": "C",
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "CNTR",
+        "UOMName": "Per Container",
+        "EdiCode": "",
+        "UOMType": "C",
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "SHPT",
+        "UOMName": "Per Shipment",
+        "EdiCode": "",
+        "UOMType": "C",
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "MT",
+        "UOMName": "Per Mton",
+        "EdiCode": "",
+        "UOMType": "C",
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "UNIT",
+        "UOMName": "Per Unit",
+        "EdiCode": "",
+        "UOMType": "C",
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "TEU",
+        "UOMName": "Per Teu",
+        "EdiCode": "",
+        "UOMType": "C",
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "All"
+    },
+    {
+        "UOMCode": "20FT",
+        "UOMName": "Per 20ft",
+        "EdiCode": "",
+        "UOMType": "C",
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "FCL"
+    },
+    {
+        "UOMCode": "40FT",
+        "UOMName": "Per 40ft",
+        "EdiCode": "",
+        "UOMType": "C",
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "FCL"
+    },
+    {
+        "UOMCode": "20'",
+        "UOMName": "20Ft",
+        "EdiCode": "",
+        "UOMType": "P",
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "FCL"
+    },
+    {
+        "UOMCode": "40'",
+        "UOMName": "40Ft",
+        "EdiCode": "",
+        "UOMType": "P",
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "FCL"
+    },
+    {
+        "UOMCode": "45'",
+        "UOMName": "45Ft",
+        "EdiCode": "",
+        "UOMType": "P",
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "FCL"
+    },
+    {
+        "UOMCode": "40H",
+        "UOMName": "40Ft Highcube",
+        "EdiCode": "",
+        "UOMType": "P",
+        "DimensionReq": "N",
+        "WeightReq": "N",
+        "VolumeReq": "N",
+        "ShipmentType": "FCL"
+    }
+]

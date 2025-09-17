@@ -1,1544 +1,1557 @@
 [
   {
+    "CountryMasterSid": 1817,
     "countryCode": "BD",
     "countryName": "BANGLADESH",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1818,
     "countryCode": "IN",
     "countryName": "INDIA",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1819,
     "countryCode": "CH",
     "countryName": "CHINA",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1820,
     "countryCode": "CC",
     "countryName": "COCOS (KEELING) ISLANDS",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1821,
     "countryCode": "CG",
     "countryName": "CONGO",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1822,
     "countryCode": "CD",
     "countryName": "CONGO THE DEMOCRATIC REPUBLIC OF THE",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1823,
     "countryCode": "CI",
-    "countryName": "COTE D'IVOIRE (IVORY COAST)",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "countryName": "COTE D''IVOIRE (IVORY COAST)",
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1824,
     "countryCode": "HR",
     "countryName": "CROATIA (HRVATSKA)",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1825,
     "countryCode": "XA",
     "countryName": "EXTERNAL TERRITORIES OF AUSTRALIA",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1826,
     "countryCode": "FJ",
     "countryName": "FIJI ISLANDS",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1827,
     "countryCode": "GF",
     "countryName": "FRENCH GUIANA",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1828,
     "countryCode": "TF",
     "countryName": "FRENCH SOUTHERN TERRITORIES",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1829,
     "countryCode": "GM",
-    "countryName": "GAMBIA THE",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "countryName": "THE GAMBIA",
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1830,
     "countryCode": "GP",
     "countryName": "GUADELOUPE",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1831,
     "countryCode": "XU",
     "countryName": "GUERNSEY AND ALDERNEY",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1832,
     "countryCode": "HM",
     "countryName": "HEARD AND MCDONALD ISLANDS",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1833,
     "countryCode": "HK",
     "countryName": "HONG KONG S.A.R.",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1834,
     "countryCode": "KP",
     "countryName": "KOREA NORTH",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1835,
     "countryCode": "KR",
-    "countryName": "KOREA SOUTH",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "countryName": "SOUTH KOREA",
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1836,
     "countryCode": "MO",
     "countryName": "MACAU S.A.R.",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1837,
     "countryCode": "XM",
     "countryName": "MAN (ISLE OF)",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1838,
     "countryCode": "MQ",
     "countryName": "MARTINIQUE",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1839,
     "countryCode": "NF",
     "countryName": "NORFOLK ISLAND",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1840,
     "countryCode": "PS",
     "countryName": "PALESTINIAN TERRITORY OCCUPIED",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1841,
     "countryCode": "PN",
     "countryName": "PITCAIRN ISLAND",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1842,
     "countryCode": "XG",
     "countryName": "SMALLER TERRITORIES OF THE UK",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1843,
     "countryCode": "GS",
     "countryName": "SOUTH GEORGIA",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1844,
     "countryCode": "MK",
     "countryName": "MACEDONIA",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1845,
     "countryCode": "ML",
     "countryName": "MALI",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1846,
     "countryCode": "SJ",
     "countryName": "SVALBARD AND JAN MAYEN ISLANDS",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1847,
     "countryCode": "UM",
     "countryName": "UNITED STATES MINOR OUTLYING ISLANDS",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1848,
     "countryCode": "BS",
-    "countryName": "BAHAMAS THE",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "countryName": "THE BAHAMAS",
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1849,
     "countryCode": "BV",
     "countryName": "BOUVET ISLAND",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1850,
     "countryCode": "VA",
     "countryName": "VATICAN CITY STATE (HOLY SEE)",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1851,
     "countryCode": "VG",
     "countryName": "VIRGIN ISLANDS (BRITISH)",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1852,
     "countryCode": "VI",
     "countryName": "VIRGIN ISLANDS (US)",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1853,
     "countryCode": "WF",
     "countryName": "WALLIS AND FUTUNA ISLANDS",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1854,
     "countryCode": "YU",
     "countryName": "YUGOSLAVIA",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1855,
     "countryCode": "AX",
     "countryName": "ALAND ISLANDS",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1856,
     "countryCode": "BQ",
     "countryName": "BONAIRE, SINT EUSTATIUS AND SABA",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1857,
     "countryCode": "MF",
     "countryName": "SAINT MARTIN (FRENCH PART)",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1858,
     "countryCode": "SX",
     "countryName": "SINT MAARTEN (DUTCH PART)",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1859,
     "countryCode": "TL",
     "countryName": "TIMOR-LESTE",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1860,
     "countryCode": "XZ",
     "countryName": "INTERNATIONAL WATERS",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1861,
     "countryCode": "AL",
     "countryName": "ALBANIA",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1862,
     "countryCode": "DZ",
     "countryName": "ALGERIA",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1863,
     "countryCode": "AS",
     "countryName": "AMERICAN SAMOA",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1864,
     "countryCode": "AD",
     "countryName": "ANDORRA",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1865,
     "countryCode": "AO",
     "countryName": "ANGOLA",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1866,
     "countryCode": "AQ",
     "countryName": "ANTARCTICA",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1867,
     "countryCode": "AG",
     "countryName": "ANTIGUA AND BARBUDA",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1868,
     "countryCode": "AR",
     "countryName": "ARGENTINA",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1869,
     "countryCode": "AM",
     "countryName": "ARMENIA",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1870,
     "countryCode": "AW",
     "countryName": "ARUBA",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1871,
     "countryCode": "AU",
     "countryName": "AUSTRALIA",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1872,
     "countryCode": "AT",
     "countryName": "AUSTRIA",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1873,
     "countryCode": "AZ",
     "countryName": "AZERBAIJAN",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1874,
     "countryCode": "BB",
     "countryName": "BARBADOS",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1875,
     "countryCode": "BY",
     "countryName": "BELARUS",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1876,
     "countryCode": "BE",
     "countryName": "BELGIUM",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1877,
     "countryCode": "BZ",
     "countryName": "BELIZE",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1878,
     "countryCode": "BJ",
     "countryName": "BENIN",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1879,
     "countryCode": "BM",
     "countryName": "BERMUDA",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1880,
     "countryCode": "BT",
     "countryName": "BHUTAN",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1881,
     "countryCode": "BO",
     "countryName": "BOLIVIA",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1882,
     "countryCode": "BA",
     "countryName": "BOSNIA AND HERZEGOVINA",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1883,
     "countryCode": "BW",
     "countryName": "BOTSWANA",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1884,
     "countryCode": "BR",
     "countryName": "BRAZIL",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1885,
     "countryCode": "IO",
     "countryName": "BRITISH INDIAN OCEAN TERRITORY",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1886,
     "countryCode": "BN",
     "countryName": "BRUNEI",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1887,
     "countryCode": "BG",
     "countryName": "BULGARIA",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1888,
     "countryCode": "AI",
     "countryName": "ANGUILLA",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1889,
     "countryCode": "BF",
     "countryName": "BURKINA FASO",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1890,
     "countryCode": "BI",
     "countryName": "BURUNDI",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1891,
     "countryCode": "BH",
     "countryName": "BAHRAIN",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1892,
     "countryCode": "KH",
     "countryName": "CAMBODIA",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1893,
     "countryCode": "CM",
     "countryName": "CAMEROON",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1894,
     "countryCode": "CA",
     "countryName": "CANADA",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1895,
     "countryCode": "CV",
     "countryName": "CAPE VERDE",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1896,
     "countryCode": "KY",
     "countryName": "CAYMAN ISLANDS",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1897,
     "countryCode": "CF",
     "countryName": "CENTRAL AFRICAN REPUBLIC",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1898,
     "countryCode": "TD",
     "countryName": "CHAD",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1899,
     "countryCode": "CL",
     "countryName": "CHILE",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1900,
     "countryCode": "CX",
     "countryName": "CHRISTMAS ISLAND",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1901,
     "countryCode": "CO",
     "countryName": "COLOMBIA",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1902,
     "countryCode": "KM",
     "countryName": "COMOROS",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1903,
     "countryCode": "CK",
     "countryName": "COOK ISLANDS",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1904,
     "countryCode": "CR",
     "countryName": "COSTA RICA",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1905,
     "countryCode": "CU",
     "countryName": "CUBA",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1906,
     "countryCode": "CW",
     "countryName": "CURACAO",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1907,
     "countryCode": "CY",
     "countryName": "CYPRUS",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1908,
     "countryCode": "CZ",
     "countryName": "CZECH REPUBLIC",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1909,
     "countryCode": "DK",
     "countryName": "DENMARK",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1910,
     "countryCode": "DM",
     "countryName": "DOMINICA",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1911,
     "countryCode": "DO",
     "countryName": "DOMINICAN REPUBLIC",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1912,
     "countryCode": "TP",
     "countryName": "EAST TIMOR",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1913,
     "countryCode": "EC",
     "countryName": "ECUADOR",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1914,
     "countryCode": "EG",
     "countryName": "EGYPT",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1915,
     "countryCode": "GG",
     "countryName": "GUERNSEY",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1916,
     "countryCode": "SV",
     "countryName": "EL SALVADOR",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1917,
     "countryCode": "GQ",
     "countryName": "EQUATORIAL GUINEA",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1918,
     "countryCode": "ER",
     "countryName": "ERITREA",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1919,
     "countryCode": "EE",
     "countryName": "ESTONIA",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1920,
     "countryCode": "ET",
     "countryName": "ETHIOPIA",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1921,
     "countryCode": "FK",
     "countryName": "FALKLAND ISLANDS",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1922,
     "countryCode": "FO",
     "countryName": "FAROE ISLANDS",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1923,
     "countryCode": "FI",
     "countryName": "FINLAND",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1924,
     "countryCode": "FR",
     "countryName": "FRANCE",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1925,
     "countryCode": "PF",
     "countryName": "FRENCH POLYNESIA",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1926,
     "countryCode": "GA",
     "countryName": "GABON",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1927,
     "countryCode": "GE",
     "countryName": "GEORGIA",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1928,
     "countryCode": "DE",
     "countryName": "GERMANY",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1929,
     "countryCode": "GH",
     "countryName": "GHANA",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1930,
     "countryCode": "GI",
     "countryName": "GIBRALTAR",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1931,
     "countryCode": "GR",
     "countryName": "GREECE",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1932,
     "countryCode": "GL",
     "countryName": "GREENLAND",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1933,
     "countryCode": "GD",
     "countryName": "GRENADA",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1934,
     "countryCode": "GU",
     "countryName": "GUAM",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1935,
     "countryCode": "GT",
     "countryName": "GUATEMALA",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1936,
     "countryCode": "GN",
     "countryName": "GUINEA",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1937,
     "countryCode": "GW",
     "countryName": "GUINEA-BISSAU",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1938,
     "countryCode": "GY",
     "countryName": "GUYANA",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1939,
     "countryCode": "HT",
     "countryName": "HAITI",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1940,
     "countryCode": "HN",
     "countryName": "HONDURAS",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1941,
     "countryCode": "HU",
     "countryName": "HUNGARY",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1942,
     "countryCode": "IS",
     "countryName": "ICELAND",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1943,
     "countryCode": "ID",
     "countryName": "INDONESIA",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1944,
     "countryCode": "IR",
     "countryName": "IRAN",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1945,
     "countryCode": "IE",
     "countryName": "IRELAND",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1946,
     "countryCode": "IM",
     "countryName": "ISLE OF MAN",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1947,
     "countryCode": "IL",
     "countryName": "ISRAEL",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1948,
     "countryCode": "IT",
     "countryName": "ITALY",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1949,
     "countryCode": "JM",
     "countryName": "JAMAICA",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1950,
     "countryCode": "JP",
     "countryName": "JAPAN",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1951,
     "countryCode": "JE",
     "countryName": "JERSEY",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1952,
     "countryCode": "JO",
     "countryName": "JORDAN",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1953,
     "countryCode": "KZ",
     "countryName": "KAZAKHSTAN",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1954,
     "countryCode": "KE",
     "countryName": "KENYA",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1955,
     "countryCode": "KI",
     "countryName": "KIRIBATI",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1956,
     "countryCode": "KG",
     "countryName": "KYRGYZSTAN",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1957,
     "countryCode": "LA",
     "countryName": "LAOS",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1958,
     "countryCode": "LV",
     "countryName": "LATVIA",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1959,
     "countryCode": "LS",
     "countryName": "LESOTHO",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1960,
     "countryCode": "LR",
     "countryName": "LIBERIA",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1961,
     "countryCode": "LY",
     "countryName": "LIBYA",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1962,
     "countryCode": "LI",
     "countryName": "LIECHTENSTEIN",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1963,
     "countryCode": "LT",
     "countryName": "LITHUANIA",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1964,
     "countryCode": "LU",
     "countryName": "LUXEMBOURG",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1965,
     "countryCode": "IQ",
     "countryName": "IRAQ",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1966,
     "countryCode": "MG",
     "countryName": "MADAGASCAR",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1967,
     "countryCode": "MW",
     "countryName": "MALAWI",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1968,
     "countryCode": "MV",
     "countryName": "MALDIVES",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1969,
     "countryCode": "MT",
     "countryName": "MALTA",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1970,
     "countryCode": "MH",
     "countryName": "MARSHALL ISLANDS",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1971,
     "countryCode": "MR",
     "countryName": "MAURITANIA",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1972,
     "countryCode": "MU",
     "countryName": "MAURITIUS",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1973,
     "countryCode": "YT",
     "countryName": "MAYOTTE",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1974,
     "countryCode": "MX",
     "countryName": "MEXICO",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1975,
     "countryCode": "FM",
     "countryName": "MICRONESIA",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1976,
     "countryCode": "MD",
     "countryName": "MOLDOVA",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1977,
     "countryCode": "MC",
     "countryName": "MONACO",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1978,
     "countryCode": "MN",
     "countryName": "MONGOLIA",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1979,
     "countryCode": "ME",
     "countryName": "MONTENEGRO",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1980,
     "countryCode": "MS",
     "countryName": "MONTSERRAT",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1981,
     "countryCode": "MA",
     "countryName": "MOROCCO",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1982,
     "countryCode": "MZ",
     "countryName": "MOZAMBIQUE",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1983,
     "countryCode": "MM",
     "countryName": "MYANMAR",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1984,
     "countryCode": "NA",
     "countryName": "NAMIBIA",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1985,
     "countryCode": "NR",
     "countryName": "NAURU",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1986,
     "countryCode": "NP",
     "countryName": "NEPAL",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1987,
     "countryCode": "AN",
     "countryName": "NETHERLANDS ANTILLES",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1988,
     "countryCode": "NC",
     "countryName": "NEW CALEDONIA",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1989,
     "countryCode": "NZ",
     "countryName": "NEW ZEALAND",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1990,
     "countryCode": "NI",
     "countryName": "NICARAGUA",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1991,
     "countryCode": "NE",
     "countryName": "NIGER",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1992,
     "countryCode": "NG",
     "countryName": "NIGERIA",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1993,
     "countryCode": "NU",
     "countryName": "NIUE",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1994,
     "countryCode": "MP",
     "countryName": "NORTHERN MARIANA ISLANDS",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1995,
     "countryCode": "NO",
     "countryName": "NORWAY",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1996,
     "countryCode": "PK",
     "countryName": "PAKISTAN",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1997,
     "countryCode": "PW",
     "countryName": "PALAU",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1998,
     "countryCode": "PA",
     "countryName": "PANAMA",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 1999,
     "countryCode": "PG",
     "countryName": "PAPUA NEW GUINEA",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 2000,
     "countryCode": "PY",
     "countryName": "PARAGUAY",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 2001,
     "countryCode": "PE",
     "countryName": "PERU",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 2002,
     "countryCode": "PH",
     "countryName": "PHILIPPINES",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 2003,
     "countryCode": "PL",
     "countryName": "POLAND",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 2004,
     "countryCode": "PT",
     "countryName": "PORTUGAL",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 2005,
     "countryCode": "PR",
     "countryName": "PUERTO RICO",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 2006,
     "countryCode": "RE",
     "countryName": "REUNION",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 2007,
     "countryCode": "RO",
     "countryName": "ROMANIA",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 2008,
     "countryCode": "RU",
     "countryName": "RUSSIA",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 2009,
     "countryCode": "RW",
     "countryName": "RWANDA",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 2010,
     "countryCode": "BL",
     "countryName": "SAINT BARTHELEMY",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 2011,
     "countryCode": "SH",
     "countryName": "SAINT HELENA",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 2012,
     "countryCode": "KN",
     "countryName": "SAINT KITTS AND NEVIS",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 2013,
     "countryCode": "LC",
     "countryName": "SAINT LUCIA",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 2014,
     "countryCode": "PM",
     "countryName": "SAINT PIERRE AND MIQUELON",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 2015,
     "countryCode": "VC",
     "countryName": "SAINT VINCENT AND THE GRENADINES",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 2016,
     "countryCode": "WS",
     "countryName": "SAMOA",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 2017,
     "countryCode": "SM",
     "countryName": "SAN MARINO",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 2018,
     "countryCode": "ST",
     "countryName": "SAO TOME AND PRINCIPE",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 2019,
     "countryCode": "SN",
     "countryName": "SENEGAL",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 2020,
     "countryCode": "RS",
     "countryName": "SERBIA",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 2021,
     "countryCode": "SC",
     "countryName": "SEYCHELLES",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 2022,
     "countryCode": "SL",
     "countryName": "SIERRA LEONE",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 2023,
     "countryCode": "SK",
     "countryName": "SLOVAKIA",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 2024,
     "countryCode": "SI",
     "countryName": "SLOVENIA",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 2025,
     "countryCode": "SB",
     "countryName": "SOLOMON ISLANDS",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 2026,
     "countryCode": "SS",
     "countryName": "SOUTH SUDAN",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 2027,
     "countryCode": "ES",
     "countryName": "SPAIN",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 2028,
     "countryCode": "LK",
     "countryName": "SRI LANKA",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 2029,
     "countryCode": "SD",
     "countryName": "SUDAN",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 2030,
     "countryCode": "ZA",
     "countryName": "SOUTH AFRICA",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 2031,
     "countryCode": "SO",
     "countryName": "SOMALIA",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 2032,
     "countryCode": "SR",
     "countryName": "SURINAME",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 2033,
     "countryCode": "SZ",
     "countryName": "SWAZILAND",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 2034,
     "countryCode": "SE",
     "countryName": "SWEDEN",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 2035,
+    "countryCode": "CH",
+    "countryName": "SWITZERLAND",
+    "createdBy": "ffadmin@crm.com"
+  },
+  {
+    "CountryMasterSid": 2036,
     "countryCode": "SY",
     "countryName": "SYRIA",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 2037,
     "countryCode": "TW",
     "countryName": "TAIWAN",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 2038,
     "countryCode": "TJ",
     "countryName": "TAJIKISTAN",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 2039,
     "countryCode": "TZ",
     "countryName": "TANZANIA",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 2040,
     "countryCode": "TH",
     "countryName": "THAILAND",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 2041,
     "countryCode": "TG",
     "countryName": "TOGO",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 2042,
     "countryCode": "TK",
     "countryName": "TOKELAU",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 2043,
     "countryCode": "TO",
     "countryName": "TONGA",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 2044,
     "countryCode": "TT",
     "countryName": "TRINIDAD AND TOBAGO",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 2045,
     "countryCode": "TN",
     "countryName": "TUNISIA",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 2046,
     "countryCode": "TM",
     "countryName": "TURKMENISTAN",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 2047,
     "countryCode": "TC",
     "countryName": "TURKS AND CAICOS ISLANDS",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 2048,
     "countryCode": "TV",
     "countryName": "TUVALU",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 2049,
     "countryCode": "UG",
     "countryName": "UGANDA",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 2050,
     "countryCode": "UA",
     "countryName": "UKRAINE",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 2051,
     "countryCode": "GB",
     "countryName": "UNITED KINGDOM",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 2052,
     "countryCode": "UY",
     "countryName": "URUGUAY",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 2053,
     "countryCode": "UZ",
     "countryName": "UZBEKISTAN",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 2054,
     "countryCode": "VU",
     "countryName": "VANUATU",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 2055,
     "countryCode": "VE",
     "countryName": "VENEZUELA",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 2056,
     "countryCode": "VN",
     "countryName": "VIETNAM",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 2057,
     "countryCode": "EH",
     "countryName": "WESTERN SAHARA",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 2058,
     "countryCode": "YE",
     "countryName": "YEMEN",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 2059,
     "countryCode": "ZM",
     "countryName": "ZAMBIA",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 2060,
     "countryCode": "ZW",
     "countryName": "ZIMBABWE",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 2061,
     "countryCode": "SA",
     "countryName": "SAUDI ARABIA",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 2062,
     "countryCode": "NL",
     "countryName": "NETHERLANDS THE",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 2063,
     "countryCode": "DJ",
     "countryName": "DJIBOUTI",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 2064,
     "countryCode": "TR",
     "countryName": "TURKEY",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 2065,
     "countryCode": "MY",
     "countryName": "MALAYSIA",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 2066,
     "countryCode": "KW",
     "countryName": "KUWAIT",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 2067,
     "countryCode": "LB",
     "countryName": "LEBANON",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 2068,
     "countryCode": "OM",
     "countryName": "OMAN",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 2069,
     "countryCode": "QA",
     "countryName": "QATAR",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 2070,
     "countryCode": "AE",
     "countryName": "UNITED ARAB EMIRATES",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 2071,
+    "countryCode": "CD",
+    "countryName": "COTE DIVOIRE",
+    "createdBy": "ffadmin@crm.com"
+  },
+  {
+    "CountryMasterSid": 2072,
     "countryCode": "US",
     "countryName": "UNITED STATES",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 2073,
     "countryCode": "SG",
     "countryName": "SINGAPORE",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 2074,
     "countryCode": "AF",
     "countryName": "AFGHANISTAN",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   },
   {
+    "CountryMasterSid": 2075,
     "countryCode": "BU",
     "countryName": "BURMA",
-    "status": "A",
-    "createdBy": "admin@crm.com"
+    "createdBy": "ffadmin@crm.com"
   }
 ]
+
