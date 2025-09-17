@@ -3,10 +3,10 @@ export const SEED_FILES: { name: string; table: string }[] = [
     //     name: 'unitMaster',
     //     table: 'UnitMaster'
     // },
-    // {
-    //     name: 'countries',
-    //     table: 'CountryMaster'
-    // },
+    {
+        name: 'countries',
+        table: 'CountryMaster'
+    },
     // {
     //     name: 'city',
     //     table: 'CityMaster'
@@ -15,10 +15,10 @@ export const SEED_FILES: { name: string; table: string }[] = [
     //     name: 'port',
     //     table: 'PortMaster'
     // },
-    // {
-    //     name: 'state',
-    //     table: 'StateMaster'
-    // },
+    {
+        name: 'state',
+        table: 'StateMaster'
+    },
     // {
     //     name: 'fieldConfiguration',
     //     table: 'FieldConfiguration'
