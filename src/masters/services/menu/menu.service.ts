@@ -85,6 +85,10 @@ export class MenuService {
                 const menuConfig = MENU_CONFIG_MAP[configKey];
                 const linkPattern = this.buildLinkPattern(menu.path, configKey);
 
+                console.log("Config Key:", JSON.stringify(configKey));
+                console.log("All Keys:", Object.keys(MENU_CONFIG_MAP));
+                console.log("MENU_CONFIG_MAP:", MENU_CONFIG_MAP);
+
                 if (menuConfig) {
                     await tx.menuConfig.create({
                         data: {
