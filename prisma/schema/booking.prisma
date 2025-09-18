@@ -367,6 +367,7 @@ model ShipmentMilestone {
   ShipmentNo           String        @db.VarChar(20)
   CompanyMasterSid     Int
   BranchMasterSid      Int
+  HouseJobSid          Int?
   CreatedOn            DateTime      @default(now())
   CreatedBy            String        @db.VarChar(100)
   UpdatedOn            DateTime?
@@ -380,6 +381,7 @@ model ShipmentMilestone {
   deletedAt            DateTime?
   branchMaster         BranchMaster  @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
   companyMaster        CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+  houseJob             HouseJob?     @relation(fields: [HouseJobSid], references: [HouseJobSid])
 }
 
 model ShippingInstruction {
