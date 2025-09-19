@@ -20,7 +20,7 @@ export class LoadingPlanService {
             });
             if(!dept) throw new Error('Department not found');
 
-            const isLCL = dept.FCLLCL === 'LCL' && dept.departmentType === "Sea";
+            const isLCLExport = dept.FCLLCL === 'LCL' && dept.departmentType === "Sea" && dept.ExportImport === "Export";
 
             let whereClause : Prisma.BookingHeaderWhereInput = {};
             whereClause = {
@@ -31,7 +31,7 @@ export class LoadingPlanService {
                 POD: payload.POD,
                 MBLNo: null,
                 MasterNoSid: null,
-                status: 'A',
+                status: 'A'
             }
             if(payload.VesselName){
                 whereClause['VesselName'] = payload.VesselName;
@@ -40,24 +40,15 @@ export class LoadingPlanService {
                 whereClause['VoyageNo'] = payload.VoyageNo;
             }
 
-            if(isLCL){
+            if(isLCLExport){
                 whereClause['BookingStatus'] = "Cargo Received";
+            } else {
+                whereClause['BookingStatus'] = "Booked";
             }
 
 
             const availableBookings = await this._db.bookingHeader.findMany({
-                where : {
-                    CompanyMasterSid : payload.CompanyMasterSid,
-                    BranchMasterSid : payload.BranchMasterSid,
-                    DepartmentMasterSid : payload.DepartmentMasterSid,
-                    POL : payload.POL,
-                    POD : payload.POD,
-                    VesselName : payload.VesselName,
-                    VoyageNo : payload.VoyageNo,
-                    MBLNo : null,
-                    MasterNoSid : null,
-                    status : 'A',
-                },
+                where : whereClause,
                 include : {
                     bookingCargo : true,
                     departmentMaster : {select : {departmentName : true}}
@@ -120,6 +111,7 @@ export class LoadingPlanService {
                         NetWeight : booking.bookingCargo[0]?.NetWeight,
                         Volume: booking.bookingCargo[0]?.Volume,
                         CargoType : booking.bookingCargo[0]?.CargoType,
+                        BookingStatus : booking.BookingStatus,
                         // totalCost: totalCost.toFixed(2),
                         // totalRevenue : totalRevenue.toFixed(2),
                     }

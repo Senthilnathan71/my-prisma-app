@@ -359,7 +359,7 @@ export class BookingService {
             }
 
             return {
-                bookingHeader,
+                newBooking,
                 createdCargos,
                 createdProducts,
                 createdOthers,

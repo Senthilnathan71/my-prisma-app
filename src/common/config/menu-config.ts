@@ -14,6 +14,10 @@ export const MENU_CONFIG_MAP = {
   masterJob : {
     modelName: 'MasterJob',
     primaryKey: 'MasterJobSid'
+  },
+  houseJob : {
+    modelName : "HouseJob",
+    primaryKey : "HouseJobSid"
   }
 } as const;
 

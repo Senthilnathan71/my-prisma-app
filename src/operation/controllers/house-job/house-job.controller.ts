@@ -1,4 +1,4 @@
-import { BadRequestException, Controller, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, UnauthorizedException } from '@nestjs/common';
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
 import { ResponseData } from 'src/common/response-data';
 import { HouseJobService } from 'src/operation/services/house-job/house-job.service';
@@ -36,6 +36,32 @@ export class HouseJobController {
         return resp;
     }
 
+  @ApiOperation({ summary: 'Update House Job Data' })
+  @ApiCreatedResponse({
+    description: 'Update House Job Data Successfully',
+    type: ResponseData
+  })
+  @HttpCode(HttpStatus.OK)
+  @Patch('update/:houseJobSid')
+  async updateHouseJob(@Param('houseJobSid',ParseIntPipe) houseJobSid: number, @Body() payload: any) {
+    const resp = new ResponseData();
+    try {
+      const houseJob = await this.houseJobService.updateHouseJobById(houseJobSid, payload);
+      this.logger.debug(`House Job Updated Successfully by HouseJobSid : ${JSON.stringify(houseJob)}`);
+      resp.data = houseJob;
+      resp.message = 'House Job Updated Successfully';
+      return resp;
+    } catch (error) {
+      this.logger.error(`Error in updating House Job by HouseJobSid : ${JSON.stringify(error), error}`);
+      if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+        resp.message = error.message;
+      } else {
+        resp.message = 'Internal Server Error';
+      }
+    }
+    return resp;
+  }
+
 
     @ApiOperation({ summary: 'Fetch Booking Data' })
   @ApiCreatedResponse({
@@ -57,6 +83,32 @@ export class HouseJobController {
 
     } catch (error) {
       this.logger.error(`Booking Data Fetch Failed'} - ${error.message}`);
+      output.status = false;
+      output.message = error.message || 'Internal Server Error';
+    }
+    return output;
+  }
+
+  @ApiOperation({ summary: 'Fetch Master Job Container Data' })
+  @ApiCreatedResponse({
+    description: 'Fetch Master Job Container Data Successfully',
+    type: ResponseData
+  })
+  @HttpCode(HttpStatus.OK)
+  @Get('fetch-containers/:MasterJobSid')
+  async getMasterJobContainersByMasterJobSid(@Param('MasterJobSid', ParseIntPipe) MasterJobSid: number) {
+    let output = new ResponseData();
+    try {
+      const masterJobContainers = await this.houseJobService.getMasterJobContainersByMasterJobSid(MasterJobSid)
+      if (!masterJobContainers) {
+        this.logger.warn(`masterJobContainers data fetched failed:- ${masterJobContainers}`);
+        throw new BadRequestException('Master Job Containers data fetch Failed');
+      }
+      output.data = masterJobContainers
+      output.message = "Master Job Containers Data Fetch Successfully"
+
+    } catch (error) {
+      this.logger.error(`Master Job Containers Data Fetch Failed'} - ${error.message}`);
       output.status = false;
       output.message = error.message || 'Internal Server Error';
     }

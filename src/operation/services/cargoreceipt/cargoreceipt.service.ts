@@ -17,7 +17,6 @@ export class CargoreceiptService {
             FCLLCL: 'LCL',
           },
           HBLNo: null,
-          BookingStatus : 'Booked',
           status: 'A'
         },
         select: {
@@ -162,6 +161,7 @@ export class CargoreceiptService {
     const where: Prisma.BookingHeaderWhereInput = {
       status: 'A',
       HBLNo: null,
+      BookingStatus : 'Booked',
       departmentMaster: {
         ExportImport: 'Export',
         FCLLCL: 'LCL',

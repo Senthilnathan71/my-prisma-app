@@ -252,6 +252,8 @@ export class MasterJobService {
                     },
                 });
 
+
+
                 const dateString = moment().format('YYYYMMDD');
                 let hblBaseCount = await this._db.houseJob.count({
                     where: { BookingNo: { contains: dateString } },
@@ -261,61 +263,85 @@ export class MasterJobService {
                 const allCreatedHouseJobs: any[] = [];
                 for (const booking of allBookings) {
                     const { bookingCargo, bookingProduct, bookingOthers, bookingConnection, bookingRates, ...bookingHeader } = booking;
+                    console.log(bookingHeader);
 
                     hblSerial += 1;
                     const HBLNo = `HOUSE-${dateString}-${hblSerial.toString().padStart(3, '0')}`;
+
+                    const houseJobMenu = await this._db.menuConfig.findFirst({
+                        where: {
+                            ModelName: 'HouseJob'
+                        }
+                    })
+
+                    if(!houseJobMenu) throw new Error('HouseJob Menu not found');
 
                     // Step 1: Create main house job
                     const houseJob = await this._db.houseJob.create({
                         data: {
                             MasterJobSid: newMasterJob.MasterJobSid,
+                            
+                            BookingHeaderSid: bookingHeader.BookingHeaderSid || null,
+                            ColoadedBy : bookingHeader.NominatedBy,
+                            BookingNo : bookingHeader.BookingNo || '',
+                            BookingDateTime : bookingHeader.BookingDateTime,
+                            CompanyMasterSid : bookingHeader.CompanyMasterSid,
+                            BranchMasterSid : bookingHeader.BranchMasterSid!,
+                            CustomerMasterSid : bookingHeader.CustomerMasterSid,
+                            CustomerName : bookingHeader.CustomerName || '',
+                            CustomerAddress : bookingHeader.CustomerAddress || '',
+                            SalesmanSid : bookingHeader.SalesmanSid || null,
+                            CargoExpectedon : bookingHeader.CargoExpectedon || null,
+                            FreightTerms : bookingHeader.FreightTerms || '',
+                            POO : bookingHeader.POO || '',
+                            POL : bookingHeader.POL || '',
+                            POD : bookingHeader.POD || '',
+                            FPD : bookingHeader.FPD || '',
+                            TsPortSid : bookingHeader.TsPortSid || null,
+                            POLTerminal : bookingHeader.POLTerminal || '',
+                            VoyageMasterSid : bookingHeader.VoyageMasterSid || null,
+                            VesselName : bookingHeader.VesselName || '',
+                            VoyageNo : bookingHeader.VoyageNo || '',
+                            ETD : bookingHeader.ETD ? new Date(bookingHeader.ETD) : null,
+                            ETA : bookingHeader.ETA ? new Date(bookingHeader.ETA) : null,
+                            IncoTerms : bookingHeader.IncoTerms || '',
+                            BLLocation : bookingHeader.BLLocation || null,
+                            ShipperName : bookingHeader.ShipperName || '',
+                            ShipperAddress : bookingHeader.ShipperAddress || '',
+                            ConsigneeName : bookingHeader.ConsigneeName || '',
+                            ConsigneeAddress : bookingHeader.ConsigneeAddress || '',
+                            ClearanceRequire : bookingHeader.ClearanceRequire || '',
+                            ShipmentType : bookingHeader.ShipmentType || '',
+                            DestinationAgent : bookingHeader.DestinationAgent,
+                            AgentName : bookingHeader.AgentName || '',
+                            AgentAddress : bookingHeader.AgentAddress || '',
+                            HouseNo : bookingHeader.HouseNo || '',
+                            QuotationHeaderSid : bookingHeader.QuotationHeaderSid || null,
+                            EnquiryHeaderSid : bookingHeader.EnquiryHeaderSid || null,
+                            MovementType : bookingHeader.MovementType || '',
+                            DoValid : bookingHeader.DoValid ? new Date(bookingHeader.DoValid) : null,
+                            IsServiceJob : bookingHeader.IsServiceJob || '',
                             createdBy : bookingHeader.createdBy || '',
                             status : bookingHeader.status || '',
-                            MenuMasterSid: bookingHeader.MenuMasterSid || null,
-                            CompanyMasterSid: bookingHeader.CompanyMasterSid,
-                            BranchMasterSid: bookingHeader.BranchMasterSid!,
-                            QuotationHeaderSid: bookingHeader.QuotationHeaderSid || null,
-                            DepartmentMasterSid: bookingHeader.DepartmentMasterSid,
-                            ShipmentNo: bookingHeader.ShipmentNo || '',
-                            BookingHeaderSid: bookingHeader.BookingHeaderSid || null,
-                            BookingNo: bookingHeader.BookingNo || '',
-                            HBLNo,
-                            CustomerMasterSid: bookingHeader.CustomerMasterSid!,
-                            CustomerName: bookingHeader.CustomerName || '',
-                            CustomerAddress: bookingHeader.CustomerAddress || '',
-                            CustomerBranchSid: bookingHeader.CustomerBranchSid || null,
-                            SalesmanSid: bookingHeader.SalesmanSid || null,
-                            IncoTerms: bookingHeader.IncoTerms || '',
-                            FreightTerms: bookingHeader.FreightTerms || '',
-                            DestinationAgent: bookingHeader.DestinationAgent,
-                            AgentName: bookingHeader.AgentName || '',
-                            AgentAddress: bookingHeader.AgentAddress || '',
-                            ShipperName: bookingHeader.ShipperName || '',
-                            ShipperAddress: bookingHeader.ShipperAddress || '',
-                            ConsigneeName: bookingHeader.ConsigneeName || '',
-                            ConsigneeAddress: bookingHeader.ConsigneeAddress || '',
-                            ShipmentType: bookingHeader.ShipmentType || '',
-                            NominatedBy: bookingHeader.NominatedBy || '',
-                            VoyageMasterSid: bookingHeader.VoyageMasterSid || null,
-                            VesselName: bookingHeader.VesselName || '',
-                            VoyageNo: bookingHeader.VoyageNo || '',
-                            CarrierSid: bookingHeader.CarrierSid || null,
-                            POO: bookingHeader.POO || '',
-                            POL: bookingHeader.POL || '',
-                            POD: bookingHeader.POD || '',
-                            FPD: bookingHeader.FPD || '',
-                            TsPortSid: bookingHeader.TsPortSid || null,
-                            POLTerminal: bookingHeader.POLTerminal || '',
-                            PODTerminal: bookingHeader.PODTerminal || '',
-                            ETD: bookingHeader.ETD ? new Date(bookingHeader.ETD) : null,
-                            ETA: bookingHeader.ETA ? new Date(bookingHeader.ETA) : null,
-                            Coload: bookingHeader.Coload || '',
-                            ColoadedBy: bookingOthers[0].Coloader || '',
-                            BLLocation: bookingHeader.BLLocation || null,
-                            ClearanceRequire: bookingHeader.ClearanceRequire || '',
-                            MovementType: bookingHeader.MovementType || '',
-                            DoValid: bookingHeader.DoValid ? new Date(bookingHeader.DoValid) : null,
-                            IsServiceJob: bookingHeader.IsServiceJob || '',
+                            BookingStatus : bookingHeader.BookingStatus || '',
+                            DepartmentMasterSid : bookingHeader.DepartmentMasterSid,
+                            CustomerBranchSid : bookingHeader.CustomerBranchSid || null,
+                            AuthorizerRemarks : bookingHeader.AuthorizerRemarks || '',
+                            authorizerStatus : bookingHeader.authorizerStatus,
+                            MenuMasterSid : houseJobMenu.MenuMasterSid,
+                            CarrierSid : bookingHeader.CarrierSid || null,
+                            CarrierName : bookingHeader.CarrierName || '',
+                            Coload : bookingHeader.Coload || '',
+                            GeneralNote : bookingHeader.GeneralNote || '',
+                            HBLNo : HBLNo,
+                            InternalNote : bookingHeader.InternalNote || '',
+                            MBLDate : bookingHeader.MBLDate || null,
+                            MBLNo : bookingHeader.MBLNo || '',
+                            NominatedBy : bookingHeader.NominatedBy || '',
+                            Nominated : bookingHeader.Nominated || '',
+                            PODTerminal : bookingHeader.PODTerminal || '',
+                            ShipmentNo : bookingHeader.ShipmentNo || '',
+                            OriginAgent : bookingHeader.OriginAgent || '',
                         },
                     }).catch(err => {
                         console.error('HouseJobCargo createMany error:', err);
@@ -327,23 +353,30 @@ export class MasterJobService {
                         await this._db.houseJobCargo.createMany({
                             data: bookingCargo.map((cargo) => ({
                                 HouseJobSid: houseJob.HouseJobSid,
-                                createdBy: cargo.createdBy,
-                                updatedBy: cargo.updatedBy || null,
-                                status: 'A',
-                                CompanyMasterSid: cargo.CompanyMasterSid,
-                                BranchMasterSid: cargo.BranchMasterSid!,
-                                CargoType: cargo.CargoType,
-                                ContainerType: cargo.ContainerType,
-                                NoofContainers : Number(cargo.NoofContainers) || 0,
-                                GrossWeight: cargo.GrossWeight || 0,
-                                NetWeight: cargo.NetWeight || 0,
-                                Volume: cargo.Volume || 0,
-                                ChargeableWeight: cargo.ChargeableWeight || 0,
-                                PackageType: cargo.PackageType || null,
-                                NoOfPackage: cargo.NoOfPackage || 0,
-                                FreightAmount: cargo.FreightAmount || '',
-                                WeightUnitSid: cargo.WeightUnitSid || null,
-                                ShipmentTerms: cargo.ShipmentTerms || '',
+                                CompanyMasterSid : houseJob.CompanyMasterSid,
+                                BranchMasterSid : houseJob.BranchMasterSid!,
+                                NoOfPackage : cargo.NoOfPackage || 0,
+                                FreightAmount : cargo.FreightAmount,
+                                CargoType : cargo.CargoType,
+                                WeightUnitSid : cargo.WeightUnitSid || null,
+                                GrossWeight : cargo.GrossWeight || 0,
+                                NetWeight : cargo.NetWeight || 0,
+                                Volume : cargo.Volume || 0,
+                                ChargeableWeight : cargo.ChargeableWeight || 0,
+                                MarksAndNumber :  '',
+                                CommodityDescription : '',
+                                ContainerType : cargo.ContainerType,
+                                PackageType : cargo.PackageType || null,
+                                Qty : cargo.Qty || 0,
+                                ShipmentTerms : cargo.ShipmentTerms || '',
+                                createdBy : cargo.createdBy,
+                                updatedBy : cargo.updatedBy || null,
+                                status : 'A',
+                                FreightTerms : cargo.FreightTerms || '',
+                                MovementType : cargo.MovementType || '',
+                                ModeOfTransport : cargo.ModeOfTransport || '',
+                                NoofContainers : cargo.NoofContainers || 0,
+                                StuffingAt : cargo.StuffingAt || '',
                                 })
                             ),
                         }).catch(err => {
@@ -364,6 +397,17 @@ export class MasterJobService {
                                 GrossWeight: Number(product.GrossWeight) || 0,
                                 NetWeight: Number(product.NetWeight) || 0,
                                 Volume: Number(product.Volume) || 0,
+                                CargoRecDate : product.CargoRecDate ? new Date(product.CargoRecDate) : null,
+                                CFS : product.CFS || '',
+                                Height : product.Height || 0,
+                                ImcoClass : product.ImcoClass || '',
+                                IsHaz : product.IsHaz || 'N',
+                                Length : product.Length || 0,
+                                PkgGroup : product.PkgGroup || '',
+                                UnNo : product.UnNo || '',
+                                Width : product.Width || 0,
+                                UomMasterSid : product.UomMasterSid || null,
+                                MarksAndNumber :  '',
                                 createdBy: product.createdBy,
                             }))
                         }).catch(err => {
@@ -380,14 +424,13 @@ export class MasterJobService {
                                 POD: connection.POD,
                                 VesselName: connection.VesselName,
                                 VoyageNo: connection.VoyageNo,
-                                // ETD: connection.ETD ? new Date(connection.ETD) : null,
-                                // ETA: connection.ETA ? new Date(connection.ETA) : null,
+                                ETD: connection.ETD ? new Date(connection.ETD) : null,
+                                ETA: connection.ETA ? new Date(connection.ETA) : null,
                                 Remarks: connection.Remarks || '',
                                 status : 'A',
                                 createdBy: connection.createdBy,
                                 updatedBy: connection.updatedBy || null,
-                            })),
-                            skipDuplicates: true,
+                            }))
                         }).catch(err => {
                             console.error('HouseJobConnection createMany error:', err);
                         });
@@ -400,6 +443,8 @@ export class MasterJobService {
                                 HouseJobSid: houseJob.HouseJobSid,
                                 CustomerRefNo: other.CustomerRefNo,
                                 OperationUser: other.OperationUser,
+                                CarrierBookingRef : other.CarrierBookingRef || '',
+                                CarrierBookingDate : other.CarrierBookingDate ? new Date(other.CarrierBookingDate) : null,
                                 DocumentationUser: other.DocumentationUser,
                                 CustomerServiceuser: other.CustomerServiceuser,
                                 NotifyParty: other.NotifyParty,
@@ -420,18 +465,79 @@ export class MasterJobService {
                                 CargoValue: other.CargoValue,
                                 DeliveryMode: other.DeliveryMode,
                                 ExternalRemarks: other.ExternalRemarks,
-                                // GeneralNote: other.GeneralNote,
                                 SwitchBL: other.SwitchBL,
                                 TransporterName: other.TransporterName,
-                                createdBy: payload.createdBy,
-                                Coloader: other.Coloader,
-                                // CoLoader: other.CoLoader,
-                                // NominatedBy: other.NominatedBy,
+                                createdBy: other.createdBy || '',
+                                status : 'A',
+                                Forwarder : other.Forwarder || '',
+                                ForwarderAddress : other.ForwarderAddress || '',
+                                HBLNo : other.HBLNo || '',
+                                BacktoBack : other.BacktoBack || '',
+                                Depo : other.Depo || '',
+                                ROValidity : other.ROValidity || '',
+                                ReleaseType : other.ReleaseType || '',
+                                AgentAddress : other.AgentAddress || '',
+                                SwitchBLAgent : other.SwitchBLAgent || '',
+                                SwitchBLConsignee : other.SwitchBLConsignee || '',
+                                SwitchBLShipper : other.SwitchBLShipper || '',
+                                SwitchLocation : other.SwitchLocation || '',
+                                Coloader : other.Coloader || '',
+                                Notify2 : other.Notify2 || '',
+                                NotifyAddress2 : other.NotifyAddress2 || ''
                             }
                         }).catch(err => {
                             console.error('HouseJobOthers create error:', err);
                         });
                     }
+
+
+                    const allRates = bookingRates || [];
+                    if(allRates.length > 0) {
+                        await this._db.costRevenueCharges.createMany({
+                            data : allRates.map(rate => ({
+                                TransactionSid : houseJob.HouseJobSid,
+                                MenuMasterSid : houseJobMenu.MenuMasterSid,
+                                ShipmentNo : houseJob.ShipmentNo,
+                                MasterJobNo : newMasterJob.MasterJobNumber,
+                                CompanyMasterSid : houseJob.CompanyMasterSid,
+                                BranchMasterSid : houseJob.BranchMasterSid!,
+                                createdBy : payload.createdBy,
+                                status : "A",
+                                Remarks : rate.Remarks,
+                                SerialNumber : rate.SerialNumber,
+                                ChargeMasterSid : rate.ChargeMasterSid,
+                                ChargeDescription : rate.ChargeDescription,
+                                ChargeUomSid : rate.ChargeUomSid,
+                                CostPrepaidCollect : rate.CostPrepaidCollect,
+                                CostCurrencyMasterSid : rate.CostCurrencyMasterSid,
+                                CostExchangeRate : rate.CostExchangeRate,
+                                CostRate : rate.CostRate,
+                                CostNumberOfUnit : rate.CostNumberOfUnit,
+                                CostDrCr : rate.CostDrCr,
+                                CostAmount : rate.CostAmount,
+                                CostLocalAmount : rate.CostLocalAmount,
+                                CostAgentMasterSid : rate.AgentMasterSid,
+                                CostAgentBranchSid : rate.AgentBranchSid,
+                                RevenuePrepaidCollect : rate.RevenuePrepaidCollect,
+                                RevenueCurrencyMasterSid : rate.RevenueCurrencyMasterSid,
+                                RevenueExchangeRate : rate.RevenueExchangeRate,
+                                RevenueRate : rate.RevenueRate,
+                                RevenueNumberOfUnit : rate.RevenueNumberOfUnit,
+                                RevenueDrCr : rate.RevenueDrCr,
+                                RevenueAmount : rate.RevenueAmount,
+                                RevenueLocalAmount : rate.RevenueLocalAmount,
+                                RevenueCustomerMasterSid : rate.CustomerMasterSid,
+                                RevenueCustomerBranchSid : rate.CustomerBranchSid,
+                                VoucherHeaderSid : rate.VoucherHeaderSid,
+                                VoucherTypeSid : rate.VoucherTypeMasterSid,
+                                RevenueChargeUomSid : rate.RevenueChargeUomSid!,
+                                CostChargeUomSid : rate.CostChargeUomSid!,
+                            }))
+                        }).catch(err => {
+                            console.error('HouseJobRates createMany error:', err);
+                        });
+                    }
+
 
                     await this._db.bookingHeader.update({
                         where: { BookingHeaderSid: bookingHeader.BookingHeaderSid },
