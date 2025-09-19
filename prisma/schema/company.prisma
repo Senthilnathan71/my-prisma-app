@@ -828,6 +828,7 @@ model CustomerMaster {
   BookingRates            BookingRates[]
   costCharges             CostRevenueCharges[] @relation("COST")
   revenueCharges          CostRevenueCharges[] @relation("REVENUE")
+  CustomerMilestone       CustomerMilestone[]
 }
 
 model PackageTypeMaster {
@@ -1294,6 +1295,24 @@ model CustomerSupport {
   userMaster          UserMaster       @relation(fields: [UserMasterSid], references: [UserMasterSid])
 }
 
+model CustomerMilestone {
+  CustomerMilestoneSid Int      @id @default(autoincrement())
+  CustomerMasterSid    Int
+  CreatedOn            DateTime @default(now())
+  CreatedBy            String   @db.VarChar(100)
+  UpdatedOn            DateTime @default(now())
+  UpdatedBy            String?  @db.VarChar(100)
+  Status               String   @default("A") @db.Char(1)
+  MilestoneMasterSid   Int
+  UpdateType           String   @db.VarChar(10)
+  ContactInfo          String   @db.VarChar(100)
+  EffectiveFrom        DateTime @default(dbgenerated("CURRENT_DATE")) @db.Date
+
+  customerMaster      CustomerMaster @relation(fields: [CustomerMasterSid], references: [CustomerMasterSid])
+  mileStoneMaster      MilestoneMaster @relation(fields: [MilestoneMasterSid], references: [MilestoneMasterSid])
+
+}
+
 model BranchBank {
   BranchBankSid   Int          @id @default(autoincrement()) @map("BranchBankSid")
   BankCode        String?      @db.VarChar(50)
@@ -1729,6 +1748,8 @@ model MilestoneMaster {
   branchMaster        BranchMaster?    @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
   companyMaster       CompanyMaster?   @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
   departmentMaster    DepartmentMaster @relation(fields: [DepartmentMasterSid], references: [DepartmentMasterSid])
+
+  CustomerMilestone CustomerMilestone[]
 }
 
 model AuthorityMaster {
