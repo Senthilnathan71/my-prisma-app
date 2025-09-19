@@ -129,67 +129,138 @@ export class HouseJobService {
                 })
             })
 
-            let finalHouseJobCargo;
-            const cargoPayload = payload.houseJobCargo || [];
-            const HouseJobCargoSid = cargoPayload.HouseJobCargoSid;
-            if (HouseJobCargoSid) {
-                finalHouseJobCargo = await this._db.houseJobCargo.update({
-                    where: {
-                        HouseJobCargoSid: HouseJobCargoSid
-                    },
-                    data: {
-                        HouseJobSid,
-                        CompanyMasterSid: payload.CompanyMasterSid || null,
-                        BranchMasterSid: payload.BranchMasterSid || null,
-                        NoOfPackage: Number(cargoPayload.NoOfPackage) || 0,
-                        FreightAmount: String(cargoPayload.FreightAmount) || "0",
-                        CargoType: cargoPayload.CargoType,
-                        WeightUnitSid: cargoPayload.WeightUnit || 0,
-                        GrossWeight: Number(cargoPayload.GrossWeight) || 0,
-                        NetWeight: Number(cargoPayload.NetWeight) || 0,
-                        Volume: Number(cargoPayload.Volume) || 0,
-                        ChargeableWeight: Number(cargoPayload.ChargeableWeight) || 0,
-                        PackageType: cargoPayload.PackageType || 0,
-                        Qty: Number(cargoPayload.Qty) || 0,
-                        ShipmentTerms: cargoPayload.ShipmentTerms || '',
-                        createdBy: payload.createdBy,
-                        updatedBy: payload.updatedBy || null,
-                        status: 'A',
-                        FreightTerms: cargoPayload.FreightTerms || '',
-                        MovementType: cargoPayload.MovementType || '',
-                        ModeOfTransport: cargoPayload.ModeOfTransport || '',
-                        NoofContainers: Number(cargoPayload.NoofContainers) || 0,
-                        StuffingAt: cargoPayload.StuffingAt || ''
-                    }
-                })
-            } else {
-                finalHouseJobCargo = await this._db.houseJobCargo.create({
-                    data: {
-                        HouseJobSid,
-                        CompanyMasterSid: payload.CompanyMasterSid || null,
-                        BranchMasterSid: payload.BranchMasterSid || null,
-                        NoOfPackage: Number(cargoPayload.NoOfPackage) || 0,
-                        FreightAmount: String(cargoPayload.FreightAmount) || "0",
-                        CargoType: cargoPayload.CargoType,
-                        WeightUnitSid: cargoPayload.WeightUnit || 0,
-                        GrossWeight: Number(cargoPayload.GrossWeight) || 0,
-                        NetWeight: Number(cargoPayload.NetWeight) || 0,
-                        Volume: Number(cargoPayload.Volume) || 0,
-                        ChargeableWeight: Number(cargoPayload.ChargeableWeight) || 0,
-                        PackageType: cargoPayload.PackageType || 0,
-                        Qty: Number(cargoPayload.Qty) || 0,
-                        ShipmentTerms: cargoPayload.ShipmentTerms || '',
-                        createdBy: payload.createdBy,
-                        updatedBy: payload.updatedBy || null,
-                        status: 'A',
-                        FreightTerms: cargoPayload.FreightTerms || '',
-                        MovementType: cargoPayload.MovementType || '',
-                        ModeOfTransport: cargoPayload.ModeOfTransport || '',
-                        NoofContainers: Number(cargoPayload.NoofContainers) || 0,
-                        StuffingAt: cargoPayload.StuffingAt || ''
-                    }
+            // let finalHouseJobCargo;
+            // const cargoPayload = payload.houseJobCargo || [];
+            // const HouseJobCargoSid = cargoPayload.HouseJobCargoSid;
+            // if (HouseJobCargoSid) {
+            //     finalHouseJobCargo = await this._db.houseJobCargo.update({
+            //         where: {
+            //             HouseJobCargoSid: HouseJobCargoSid
+            //         },
+            //         data: {
+            //             HouseJobSid,
+            //             CompanyMasterSid: payload.CompanyMasterSid || null,
+            //             BranchMasterSid: payload.BranchMasterSid || null,
+            //             NoOfPackage: Number(cargoPayload.NoOfPackage) || 0,
+            //             FreightAmount: String(cargoPayload.FreightAmount) || "0",
+            //             CargoType: cargoPayload.CargoType,
+            //             WeightUnitSid: cargoPayload.WeightUnit || 0,
+            //             GrossWeight: Number(cargoPayload.GrossWeight) || 0,
+            //             NetWeight: Number(cargoPayload.NetWeight) || 0,
+            //             Volume: Number(cargoPayload.Volume) || 0,
+            //             ChargeableWeight: Number(cargoPayload.ChargeableWeight) || 0,
+            //             PackageType: cargoPayload.PackageType || 0,
+            //             Qty: Number(cargoPayload.Qty) || 0,
+            //             ShipmentTerms: cargoPayload.ShipmentTerms || '',
+            //             createdBy: payload.createdBy,
+            //             updatedBy: payload.updatedBy || null,
+            //             status: 'A',
+            //             FreightTerms: cargoPayload.FreightTerms || '',
+            //             MovementType: cargoPayload.MovementType || '',
+            //             ModeOfTransport: cargoPayload.ModeOfTransport || '',
+            //             NoofContainers: Number(cargoPayload.NoofContainers) || 0,
+            //             StuffingAt: cargoPayload.StuffingAt || ''
+            //         }
+            //     })
+            // } else {
+            //     finalHouseJobCargo = await this._db.houseJobCargo.create({
+            //         data: {
+            //             HouseJobSid,
+            //             CompanyMasterSid: payload.CompanyMasterSid || null,
+            //             BranchMasterSid: payload.BranchMasterSid || null,
+            //             NoOfPackage: Number(cargoPayload.NoOfPackage) || 0,
+            //             FreightAmount: String(cargoPayload.FreightAmount) || "0",
+            //             CargoType: cargoPayload.CargoType,
+            //             WeightUnitSid: cargoPayload.WeightUnit || 0,
+            //             GrossWeight: Number(cargoPayload.GrossWeight) || 0,
+            //             NetWeight: Number(cargoPayload.NetWeight) || 0,
+            //             Volume: Number(cargoPayload.Volume) || 0,
+            //             ChargeableWeight: Number(cargoPayload.ChargeableWeight) || 0,
+            //             PackageType: cargoPayload.PackageType || 0,
+            //             Qty: Number(cargoPayload.Qty) || 0,
+            //             ShipmentTerms: cargoPayload.ShipmentTerms || '',
+            //             createdBy: payload.createdBy,
+            //             updatedBy: payload.updatedBy || null,
+            //             status: 'A',
+            //             FreightTerms: cargoPayload.FreightTerms || '',
+            //             MovementType: cargoPayload.MovementType || '',
+            //             ModeOfTransport: cargoPayload.ModeOfTransport || '',
+            //             NoofContainers: Number(cargoPayload.NoofContainers) || 0,
+            //             StuffingAt: cargoPayload.StuffingAt || ''
+            //         }
                     
-                })
+            //     })
+            // }
+            let finalHouseJobCargo;
+
+            // Only run cargo logic if we actually have a cargo payload
+            const cargoPayload = payload.houseJobCargo;
+
+            // Check if cargo payload exists and has at least one meaningful field
+            if (cargoPayload && Object.keys(cargoPayload).length > 0) {
+                const HouseJobCargoSid = cargoPayload.HouseJobCargoSid;
+
+                if (HouseJobCargoSid) {
+                    // Update existing cargo
+                    finalHouseJobCargo = await this._db.houseJobCargo.update({
+                        where: { HouseJobCargoSid },
+                        data: {
+                            HouseJobSid,
+                            CompanyMasterSid: payload.CompanyMasterSid ?? null,
+                            BranchMasterSid: payload.BranchMasterSid ?? null,
+                            NoOfPackage: Number(cargoPayload.NoOfPackage) || 0,
+                            FreightAmount: String(cargoPayload.FreightAmount ?? '0'),
+                            CargoType: cargoPayload.CargoType ?? '',
+                            WeightUnitSid: cargoPayload.WeightUnit || 0,
+                            GrossWeight: Number(cargoPayload.GrossWeight) || 0,
+                            NetWeight: Number(cargoPayload.NetWeight) || 0,
+                            Volume: Number(cargoPayload.Volume) || 0,
+                            ChargeableWeight: Number(cargoPayload.ChargeableWeight) || 0,
+                            PackageType: cargoPayload.PackageType || 0,
+                            Qty: Number(cargoPayload.Qty) || 0,
+                            ShipmentTerms: cargoPayload.ShipmentTerms || '',
+                            createdBy: payload.createdBy,          // required
+                            updatedBy: payload.updatedBy ?? null,
+                            status: 'A',
+                            FreightTerms: cargoPayload.FreightTerms || '',
+                            MovementType: cargoPayload.MovementType || '',
+                            ModeOfTransport: cargoPayload.ModeOfTransport || '',
+                            NoofContainers: Number(cargoPayload.NoofContainers) || 0,
+                            StuffingAt: cargoPayload.StuffingAt || '',
+                        },
+                    });
+                } else {
+                    // Create only if explicitly required
+                    finalHouseJobCargo = await this._db.houseJobCargo.create({
+                        data: {
+                            HouseJobSid,
+                            CompanyMasterSid: payload.CompanyMasterSid ?? null,
+                            BranchMasterSid: payload.BranchMasterSid ?? null,
+                            NoOfPackage: Number(cargoPayload.NoOfPackage) || 0,
+                            FreightAmount: String(cargoPayload.FreightAmount ?? '0'),
+                            CargoType: cargoPayload.CargoType ?? '',
+                            WeightUnitSid: cargoPayload.WeightUnit || 0,
+                            GrossWeight: Number(cargoPayload.GrossWeight) || 0,
+                            NetWeight: Number(cargoPayload.NetWeight) || 0,
+                            Volume: Number(cargoPayload.Volume) || 0,
+                            ChargeableWeight: Number(cargoPayload.ChargeableWeight) || 0,
+                            PackageType: cargoPayload.PackageType || 0,
+                            Qty: Number(cargoPayload.Qty) || 0,
+                            ShipmentTerms: cargoPayload.ShipmentTerms || '',
+                            createdBy: payload.createdBy,          // required
+                            updatedBy: payload.updatedBy ?? null,
+                            status: 'A',
+                            FreightTerms: cargoPayload.FreightTerms || '',
+                            MovementType: cargoPayload.MovementType || '',
+                            ModeOfTransport: cargoPayload.ModeOfTransport || '',
+                            NoofContainers: Number(cargoPayload.NoofContainers) || 0,
+                            StuffingAt: cargoPayload.StuffingAt || '',
+                        },
+                    });
+                }
+            } else {
+                // 👉 No cargo needed for this request
+                finalHouseJobCargo = null;
             }
 
             let finalHouseJobProduct : any[] = [];
@@ -204,7 +275,7 @@ export class HouseJobService {
                                 HouseJobProductSid: product.HouseJobProductSid
                             },
                             data: {
-                                HouseJobSid: updatedHouseJob.HouseJobSid,
+                                HouseJobSid: HouseJobSid,
                                 ProductName: product.ProductName || '',
                                 ProductDescription: product.ProductDescription || '',
                                 ShippingBillNo: product.ShippingBillNo || '',
@@ -236,7 +307,7 @@ export class HouseJobService {
                     } else {
                         createdProduct = await this._db.houseJobProduct.create({
                             data: {
-                                HouseJobSid: updatedHouseJob.HouseJobSid,
+                                HouseJobSid: HouseJobSid,
                                 ProductName: product.ProductName || '',
                                 ProductDescription: product.ProductDescription || '',
                                 ShippingBillNo: product.ShippingBillNo || '',
@@ -283,7 +354,7 @@ export class HouseJobService {
                                 HouseJobConnectionSid: connection.HouseJobConnectionSid
                             },
                             data: {
-                                HouseJobSid: updatedHouseJob.HouseJobSid,
+                                HouseJobSid: HouseJobSid,
                                 Mode: connection.Mode,
                                 POL: connection.POL,
                                 POD: connection.POD,
@@ -300,7 +371,7 @@ export class HouseJobService {
                     else {
                         createdConnection = await this._db.houseJobConnection.create({
                             data: {
-                                HouseJobSid: updatedHouseJob.HouseJobSid,
+                                HouseJobSid: HouseJobSid,
                                 Mode: connection.Mode,
                                 POL: connection.POL,
                                 POD: connection.POD,
@@ -327,7 +398,7 @@ export class HouseJobService {
                         HouseJobOthersSid: HouseJobOthersSid
                     },
                     data: {
-                        HouseJobSid: updatedHouseJob.HouseJobSid,
+                        HouseJobSid: Number(HouseJobSid),
                         CustomerRefNo: otherPayload.CustomerRefNo || '',
                         CarrierBookingRef: otherPayload.CarrierBookingRef || '',
                         CarrierBookingDate: otherPayload.CarrierBookingDate ? new Date(otherPayload.CarrierBookingDate) : null,
@@ -370,14 +441,13 @@ export class HouseJobService {
                         SwitchLocation: otherPayload.SwitchLocation || '',
                         Coloader: otherPayload.Coloader || '',
                         Notify2: otherPayload.Notify2 || '',
-                        NotifyAddress2: otherPayload.NotifyAddress2 || ''
-                        
+                        NotifyAddress2: otherPayload.NotifyAddress2 || '',
                     }
                 })
             } else {
                 finalHouseJobOthers = await this._db.houseJobOthers.create({
                     data: {
-                        HouseJobSid: updatedHouseJob.HouseJobSid,
+                        HouseJobSid: Number(HouseJobSid),
                         CustomerRefNo: otherPayload.CustomerRefNo,
                         CarrierBookingRef: otherPayload.CarrierBookingRef || '',
                         CarrierBookingDate: otherPayload.CarrierBookingDate ? new Date(otherPayload.CarrierBookingDate) : null,
@@ -438,7 +508,7 @@ export class HouseJobService {
             try {
                 const ourBooking = await this._db.houseJob.findFirst({
                     where: {
-                        BookingNo: BookingNumber
+                        ShipmentNo: BookingNumber
                     },
                     include: {
                         Cargo: { where: { status: 'A' } },

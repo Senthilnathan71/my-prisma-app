@@ -1536,76 +1536,7 @@ export class BookingService {
     }
 
 
-    async getBookingByNumber(BookingNumber: string) {
-        try {
-            const ourBooking = await this._db.bookingHeader.findFirst({
-                where: {
-                    BookingNo: BookingNumber
-                },
-                include: {
-                    bookingCargo: { where: { status: 'A' } },
-                    bookingProduct: { where: { status: 'A' } },
-                    bookingOthers: { where: { status: 'A' } },
-                    bookingConnection: { where: { status: 'A' } }
-                }
-            })
-
-            if (!ourBooking) {
-                throw new BadRequestException('Error fetching booking record.');
-            }
-            const costRevenuePayload: CostRevenueDTO = {
-                MenuMasterSid: ourBooking.MenuMasterSid!,
-                CompanyMasterSid: ourBooking.CompanyMasterSid,
-                BranchMasterSid: ourBooking.BranchMasterSid!,
-                TransactionSid: ourBooking.BookingHeaderSid,
-                ShipmentNo: ourBooking.ShipmentNo!
-            }
-            const respectiveCostRevenueCharges = await this.commonService.getAllCostRevenueCharges(costRevenuePayload);
-
-            let voyageDetails;
-            if (ourBooking.VoyageMasterSid) {
-                const data = await this._db.voyageMasterHeader.findUnique({
-                    where: {
-                        VoyageMasterHeaderSid: ourBooking.VoyageMasterSid
-                    },
-                    include: {
-                        voyageMasterDetail: {
-                            where: {
-                                status: 'A'
-                            },
-                            select: {
-                                ETA: true,
-                                ETD: true,
-                                PortCutoff: true,
-                                portMasterPOL: {
-                                    select: {
-                                        PortCode: true
-                                    }
-                                }
-                            },
-                        }
-                    }
-                })
-                const POL = data?.voyageMasterDetail.find(vd => vd.portMasterPOL?.PortCode === ourBooking.POL);
-                const POD = data?.voyageMasterDetail.find(vd => vd.portMasterPOL?.PortCode === ourBooking.POD);
-                voyageDetails = {
-                    POLETA: POL?.ETA,
-                    POLETD: POL?.ETD,
-                    PODETA: POD?.ETA,
-                    PODETD: POD?.ETD,
-                    POLCutOffDate: POL?.PortCutoff,
-                    PODCutOffDate: POD?.PortCutoff
-                }
-            }
-
-            return {
-                ...ourBooking,
-                voyageDetails
-            }
-        } catch (error) {
-            throw error;
-        }
-    }
+  
 
 
 }

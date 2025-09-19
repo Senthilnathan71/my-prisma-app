@@ -553,30 +553,4 @@ export class BookingController {
     }
 
 
-        @ApiOperation({ summary: 'Fetch Booking Data' })
-  @ApiCreatedResponse({
-    description: 'Fetch Booking Data Successfully',
-    type: ResponseData
-  })
-  @HttpCode(HttpStatus.OK)
-  @Get('shiping_Ins/fetch/:bookingNumber')
-  async getBookingByBookingNumber(@Param('bookingNumber') bookingNumber: string) {
-    let output = new ResponseData();
-    try {
-      const booking = await this.bookingService.getBookingByNumber(bookingNumber)
-      if (!booking) {
-        this.logger.warn(`booking data fetched failed:- ${booking}`);
-        throw new BadRequestException('Booking data fetch Failed');
-      }
-      output.data = booking
-      output.message = "Booking Data Fetch Successfully"
-
-    } catch (error) {
-      this.logger.error(`Booking Data Fetch Failed'} - ${error.message}`);
-      output.status = false;
-      output.message = error.message || 'Internal Server Error';
-    }
-    return output;
-  }
-
 }
