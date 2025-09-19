@@ -24,18 +24,34 @@ export class BlclauseService {
     }
 
     async createNewBlclause(payload) {
-
-        try {
-            const createdBlclause = await this._db.bLClauseMaster.create({
-                data: {
-                    ...payload,
-                }
-            })
-            return createdBlclause;
-        } catch (error) {
-            throw error;
+    try {
+        // duplicate check for Keyword (case-insensitive, trimmed)
+        if (payload?.Keyword) {
+            const existingKeyword = await this._db.bLClauseMaster.findFirst({
+                where: {
+                    Keyword: {
+                        equals: payload.Keyword.trim(),
+                        mode: 'insensitive',
+                    },
+                    status: 'A', // optional: only consider active ones as duplicates
+                },
+            });
+            if (existingKeyword) {
+                throw new BadRequestException('Keyword already exists');
+            }
         }
+
+        const createdBlclause = await this._db.bLClauseMaster.create({
+            data: {
+                ...payload,
+            },
+        });
+        return createdBlclause;
+    } catch (error) {
+        throw error;
     }
+}
+
 
     async fetchBlclauseById(BLClauseMasterSid: number) {
         try {
@@ -54,26 +70,44 @@ export class BlclauseService {
     }
 
     async updateBlclauseById(BLClauseMasterSid: number, payload) {
-        try {
-            const exist = await this._db.bLClauseMaster.findUnique({
-                where: {
-                    BLClauseMasterSid: BLClauseMasterSid
-                }
-            })
-            if (!exist) {
-                throw new BadRequestException(`Blclause with Id : ${BLClauseMasterSid} not exists`);
-            }
-            const updatedBlclause = this._db.bLClauseMaster.update({
-                where: {
-                    BLClauseMasterSid: BLClauseMasterSid
-                },
-                data: payload
-            })
-            return updatedBlclause;
-        } catch (error) {
-            throw error;
+    try {
+        const exist = await this._db.bLClauseMaster.findUnique({
+            where: {
+                BLClauseMasterSid: BLClauseMasterSid,
+            },
+        });
+        if (!exist) {
+            throw new BadRequestException(`Blclause with Id : ${BLClauseMasterSid} not exists`);
         }
+
+       
+        if (payload?.Keyword) {
+            const otherWithSameKeyword = await this._db.bLClauseMaster.findFirst({
+                where: {
+                    Keyword: {
+                        equals: payload.Keyword.trim(),
+                        mode: 'insensitive',
+                    },
+                    NOT: { BLClauseMasterSid: BLClauseMasterSid },
+                    status: 'A', // optional: only consider active ones as duplicates
+                },
+            });
+            if (otherWithSameKeyword) {
+                throw new BadRequestException('Keyword already exists');
+            }
+        }
+
+        const updatedBlclause = await this._db.bLClauseMaster.update({
+            where: {
+                BLClauseMasterSid: BLClauseMasterSid,
+            },
+            data: payload,
+        });
+        return updatedBlclause;
+    } catch (error) {
+        throw error;
     }
+}
 
 
     async deleteBlClause(BLClauseMasterSid: number) {
