@@ -305,4 +305,32 @@ export class MasterJobController {
             }
             return resp;
           }
+
+    @ApiOperation({ summary: 'Create House Job with Booking' })
+    @ApiCreatedResponse({
+        description: 'Create House Job with Booking',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.CREATED)
+    @Post('attach')
+    async createHouseJobWithBooking(@Body() payload:number[]){
+        let resp = new ResponseData();
+        try {
+            this.logger.log(`Creating House Job with Booking : ${JSON.stringify(payload)}`);
+            const result = await this.masterJobService.createHouseJobWithBooking(payload);
+            this.logger.debug(`Created House Job with Booking : ${JSON.stringify(result)}`);
+            resp.data = result;
+            resp.message = 'House Job with Booking created successfully';
+        } catch (error) {
+            resp.status = false;
+            this.logger.warn(`Error in creating House Job with Booking : ${JSON.stringify(error),error}`);
+            if(error instanceof BadRequestException || error instanceof UnauthorizedException){
+                resp.message = error.message;
+            } else {
+                resp.message = 'Internal Server Error';
+            }
+            
+        }
+        return resp;
+    }
 }
