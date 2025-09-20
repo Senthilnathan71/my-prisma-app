@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { DatabaseService } from 'src/database/database.service';
 import { CreatePreCustomerMeetingDto } from 'src/masters/DTO/create-precustomer-meeting.dto';
 import { CreatePrecustomerDto } from 'src/masters/DTO/create-Precustomer.dto';
@@ -31,7 +31,7 @@ export class PreCustomerMeetingService {
     }
 
 
-    async CreateAndUpdatePreCustomerMeeting(params: CreatePreCustomerMeetingDto) {
+    async CreateAndUpdatePreCustomerMeeting(params: any) {
         try {
             const payload: any = {
                 meetingType: params.meetingType,
@@ -42,36 +42,26 @@ export class PreCustomerMeetingService {
                 followUpNote: params.followUpNote,
                 createdBy: params['userEmail'],
                 status: params.status || "A",
-                 companyMaster: {
-                connect: { CompanyMasterSid: params.CompanyMasterSid }
-            },
-            branchMaster: {
-                connect: { BranchMasterSid: params.BranchMasterSid }
-            }
-    
+                companyMaster: {
+                    connect: { CompanyMasterSid: params.CompanyMasterSid }
+                },
+                branchMaster: {
+                    connect: { BranchMasterSid: params.BranchMasterSid }
+                }
             };
                console.log('Final payload:', payload); 
             if (params.PreCustomerMeetingSid) {
-                // Update existing record 
                 const existingLead = await this._db.preCustomerMeeting.findUnique({
                     where: { PreCustomerMeetingSid: params.PreCustomerMeetingSid },
                 });
 
                 if (!existingLead) {
-                    throw new Error('Meeting not found');
+                    throw new BadRequestException('Meeting not found');
                 }
                 payload.updatedOn = new Date(); // Only update UpdatedOn
                 payload.updatedBy = params['userEmail']
                 payload.followUpDate = params.followUpDate ? new Date(params.followUpDate + "Z") : null
                 payload.meetingDate = new Date(params.meetingDate + "Z")
-
-                // await this._db.preCustomerMeeting.update({
-                //     where: {
-                //         PreCustomerMeetingSid: params.PreCustomerMeetingSid,
-                //     },
-                //     data: payload
-
-                // })
 
 
                 const data = await this._db.preCustomerMeeting.update({
@@ -83,17 +73,17 @@ export class PreCustomerMeetingService {
                 })
 
                 const customerPayload = {
-                    PreCustomerMasterSid: data.preCustomerMaster.PreCustomerMasterSid,
-                    CountryMasterSid: data.preCustomerMaster.CountryMasterSid,
-                    CompanyMasterSid: data.preCustomerMaster.CompanyMasterSid,
-                    CustomerName: data.preCustomerMaster.preCustomerName,
-                    CustomerAddress1: data.preCustomerMaster.preCustomerAddress1,
-                    createdBy: data.preCustomerMaster.createdBy,
+                    PreCustomerMasterSid: data.preCustomerMaster?.PreCustomerMasterSid!,
+                    CountryMasterSid: data.preCustomerMaster?.CountryMasterSid!,
+                    CompanyMasterSid: data.preCustomerMaster?.CompanyMasterSid!,
+                    CustomerName: data.preCustomerMaster?.preCustomerName!,
+                    CustomerAddress1: data.preCustomerMaster?.preCustomerAddress1!,
+                    createdBy: data.preCustomerMaster?.createdBy!,
                     createdOn: new Date()
                 }
 
-                if (data.meetingStatus === 'confirmed') {
-                    const customerName = data.preCustomerMaster.preCustomerName;
+                if (data.meetingStatus === 'confirmed' && params.LeadOrCustomer === 'L') {
+                    const customerName = data.preCustomerMaster?.preCustomerName;
 
                     if (!customerName) {
                         throw new Error('Customer name is missing for confirmed meeting.');
@@ -144,21 +134,35 @@ export class PreCustomerMeetingService {
                 payload.createdOn = new Date();
                 payload.updatedOn = new Date();
                 payload.meetingDate = new Date(params.meetingDate + "Z")
-                const newMeeting = await this._db.preCustomerMeeting.create({
-                    data: {
-                        ...payload,
-                        CompanyMasterSid: payload.CompanyMasterSid, 
-                        BranchMasterSid: payload.BranchMasterSid,
-                        preCustomerMaster: {
-                            connect: {
-                                PreCustomerMasterSid:
-                                    typeof params.PreCustomerMasterSid === 'number' && !isNaN(params.PreCustomerMasterSid)
-                                        ? params.PreCustomerMasterSid
-                                        : params.PreCustomerMeetingid
-                            }
-                        }
+
+                const payloadData = {
+                        createdBy : params.userEmail || '',
+                        meetingDate : new Date(params.meetingDate + "Z"),
+                        meetingType : params.meetingType,
+                        meetingStatus : params.meetingStatus,
+                        customerProfile : params.customerProfile,
+                        remarks : params.remarks,
+                        status : params.status,
+                        followUpDate :new Date(params.followUpDate + "Z"),
+                        followUpNote : params.followUpNote,
+                        meetingNote : params.meetingNote,
+                        leadAssignTo : Number(params.leadAssignTo) || 0,
+                        CompanyMasterSid : params.CompanyMasterSid,
+                        BranchMasterSid : params.BranchMasterSid,
+                        LeadOrCustomer : params.LeadOrCustomer
                     }
-                });
+
+                    if(params.LeadOrCustomer === 'L'){
+                        payloadData['PreCustomerMasterSid'] = Number(params.PreCustomerMasterSid)
+                        payloadData['CustomerMasterSid'] = null
+                    } else {
+                        payloadData['PreCustomerMasterSid'] = null
+                        payloadData['CustomerMasterSid'] = Number(params.CustomerMasterSid)
+                    }
+
+                const newMeeting = await this._db.preCustomerMeeting.create({
+                    data : payloadData
+                });  
                 return { message: 'Meeting created successfully', data: newMeeting };
             }
         } catch (error) {
@@ -175,6 +179,12 @@ export class PreCustomerMeetingService {
                         preCustomerName: true
                     }
                 },
+                customerMaster : {
+                    select : {
+                        CustomerName : true
+                    }
+                },
+                LeadOrCustomer : true,
                 PreCustomerMeetingSid: true,
                 meetingDate: true,
                 followUpDate: true,
@@ -193,7 +203,8 @@ export class PreCustomerMeetingService {
                 PreCustomerMeetingSid: Number(PreCustomerMeetingSid)
             },
             include: {
-                preCustomerMaster: true
+                preCustomerMaster: true,
+                customerMaster: true
             }
         })
             .catch((error) => {
