@@ -11,6 +11,21 @@ export class ChargeGroupService {
 
     async createNewChargeGroup(newData: any) {
         try {
+            const existing = await this._db.chargeGroup.findFirst({
+                where: {
+                    CompanyMasterSid: newData.CompanyMasterSid,
+                    GroupName: {
+                        equals: newData.GroupName.trim(),
+                        mode: 'insensitive',
+                    }
+                }
+            });
+
+        if (existing) {
+            if (existing.GroupName === newData.GroupName) {
+                throw new BadRequestException('Group Name already exists');
+            }
+        }
             const newlyCreated = await this._db.chargeGroup.create({
                 data: {
                     ...newData,

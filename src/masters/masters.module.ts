@@ -135,6 +135,8 @@ import { ContainerActivityMasterService } from './services/container-activity-ma
 import { ContainerActivityMasterController } from './controllers/container-activity-master/container-activity-master.controller';
 import { ReportMasterController } from './controllers/report-master/report-master.controller';
 import { ReportMasterService } from './services/report-master/report-master.service';
+import { CustomerMilestoneController } from './controllers/customer-milestone/customer-milestone.controller';
+import { CustomerMilestoneService } from './services/customer-milestone/customer-milestone.service';
 
 @Module({
   providers: [
@@ -206,7 +208,8 @@ import { ReportMasterService } from './services/report-master/report-master.serv
     ChargeTdsService,
     EmailService,
     ContainerActivityMasterService,
-    ReportMasterService
+    ReportMasterService,
+    CustomerMilestoneService
   ],
   controllers: [
     UserController,
@@ -275,7 +278,8 @@ import { ReportMasterService } from './services/report-master/report-master.serv
     TdsExemptionController,
     ChargeTdsController,
     ContainerActivityMasterController,
-    ReportMasterController
+    ReportMasterController,
+    CustomerMilestoneController
   ],
   exports: [UserService]
 })

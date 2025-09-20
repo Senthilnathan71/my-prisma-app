@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { DatabaseService } from 'src/database/database.service';
 import { CreatePreCustomerMeetingDto } from 'src/masters/DTO/create-precustomer-meeting.dto';
 import { CreatePrecustomerDto } from 'src/masters/DTO/create-Precustomer.dto';
@@ -6,7 +6,8 @@ import { CreatePrecustomerDto } from 'src/masters/DTO/create-Precustomer.dto';
 @Injectable()
 export class PreCustomerMeetingService {
     constructor(
-        private _db: DatabaseService
+        private _db: DatabaseService,
+        private logger : Logger
     ) { }
 
 
@@ -91,7 +92,7 @@ export class PreCustomerMeetingService {
 
                     const existCustomer = await this._db.customerMaster.findFirst({
                         where: {
-                            CustomerName: customerName
+                            CustomerName: customerName 
                         }
                     })
 
@@ -104,7 +105,7 @@ export class PreCustomerMeetingService {
                             }
                         })
                     } else {
-                        throw new Error('Customer already exists!');
+                        this.logger.warn("Customer already exists!");
                     }
                 }
 
@@ -117,7 +118,7 @@ export class PreCustomerMeetingService {
                             BranchMasterSid: data.BranchMasterSid,
                             DepartmentMasterSid: params.DepartmentMasterSid,
                             OpportunitySector: params.OpportunitySector,
-                            FollowupDate: new Date(params.followUpDate + "Z"),
+                            FollowupDate: params.followUpDate ? new Date(params.followUpDate + "Z") : "",
                             FollowupNote: params.followUpNote,
                             MeetingNote: params.meetingNote,
                             Remarks: params.remarks ?? null,
@@ -143,7 +144,7 @@ export class PreCustomerMeetingService {
                         customerProfile : params.customerProfile,
                         remarks : params.remarks,
                         status : params.status,
-                        followUpDate :new Date(params.followUpDate + "Z"),
+                        followUpDate : params.followUpDate ? new Date(params.followUpDate + "Z") : null,
                         followUpNote : params.followUpNote,
                         meetingNote : params.meetingNote,
                         leadAssignTo : Number(params.leadAssignTo) || 0,
