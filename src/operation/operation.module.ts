@@ -22,6 +22,8 @@ import { ManifestDocumentController } from './controllers/manifest-document/mani
 import { ManifestDocumentService } from './services/manifest-document/manifest-document.service';
 import { HouseJobController } from './controllers/house-job/house-job.controller';
 import { HouseJobService } from './services/house-job/house-job.service';
+import { SplitbookingService } from './services/splitbooking/splitbooking.service';
+import { SplitbookingController } from './controllers/splitbooking/splitbooking.controller';
 
 @Module({
         providers: [
@@ -38,7 +40,8 @@ import { HouseJobService } from './services/house-job/house-job.service';
                 DocumentService,
                 ManifestDocumentService,
                 MergeBookingService,
-                HouseJobService
+                HouseJobService,
+                SplitbookingService
         ],
         controllers: [
                 BookingController,
@@ -50,7 +53,8 @@ import { HouseJobService } from './services/house-job/house-job.service';
                 ManifestDocumentController,
                 MergeBookingController,
                 DocumentController,
-                HouseJobController
+                HouseJobController,
+                SplitbookingController
         ]
 })
 export class OperationModule { }
