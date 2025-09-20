@@ -598,7 +598,9 @@ model PreCustomerMeeting {
   BranchMasterSid       Int
   CompanyMasterSid      Int
   LoginSid              Int?
-  PreCustomerMasterSid  Int
+  PreCustomerMasterSid  Int?
+  CustomerMasterSid     Int?
+  LeadOrCustomer        String?           @db.VarChar(1)
   PreCustomerMeetingSid Int               @id @default(autoincrement()) @map("PreCustomerMeetingSid")
   followUpDate          DateTime?
   followUpNote          String?           @db.VarChar(100)
@@ -606,7 +608,8 @@ model PreCustomerMeeting {
   meetingFollowUp       MeetingFollowup[]
   branchMaster          BranchMaster      @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
   companyMaster         CompanyMaster     @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
-  preCustomerMaster     PreCustomerMaster @relation(fields: [PreCustomerMasterSid], references: [PreCustomerMasterSid])
+  preCustomerMaster     PreCustomerMaster? @relation(fields: [PreCustomerMasterSid], references: [PreCustomerMasterSid])
+  customerMaster        CustomerMaster?    @relation(fields: [CustomerMasterSid], references: [CustomerMasterSid])
 }
 
 model ChargeGroup {
@@ -829,6 +832,7 @@ model CustomerMaster {
   costCharges             CostRevenueCharges[] @relation("COST")
   revenueCharges          CostRevenueCharges[] @relation("REVENUE")
   CustomerMilestone       CustomerMilestone[]
+  PreCustomerMeeting      PreCustomerMeeting[]
 }
 
 model PackageTypeMaster {
@@ -948,7 +952,7 @@ model QuoteHeader {
   updatedBy           String?           @db.VarChar(100)
   status              String?           @default("A") @db.Char(1)
   RoutingHeaderSid    Int?
-  QuoteNumber         String            @db.VarChar(200)
+  QuoteNumber         String?            @db.VarChar(200)
   ClearanceBy         String?           @db.VarChar(200)
   TransportBy         String?           @db.VarChar(200)
   CustomerBranchSid   Int?
@@ -1306,7 +1310,7 @@ model CustomerMilestone {
   MilestoneMasterSid   Int
   UpdateType           String   @db.VarChar(10)
   ContactInfo          String   @db.VarChar(100)
-  EffectiveFrom        DateTime @default(dbgenerated("CURRENT_DATE")) @db.Date
+  EffectiveFrom        DateTime? @default(dbgenerated("CURRENT_DATE")) @db.Date
 
   customerMaster      CustomerMaster @relation(fields: [CustomerMasterSid], references: [CustomerMasterSid])
   mileStoneMaster      MilestoneMaster @relation(fields: [MilestoneMasterSid], references: [MilestoneMasterSid])
@@ -1373,9 +1377,9 @@ model ContainerTypeMaster {
   ContainerSize          String          @db.Char(100)
   ContainerIsoCode       String?         @db.VarChar(10)
   ContainerName          String          @db.VarChar(30)
-  MaxVolume              Decimal         @db.Decimal(3, 0)
-  TareWeight             Decimal         @db.Decimal(6, 3)
-  GrossWeight            Decimal         @db.Decimal(8, 3)
+  MaxVolume              Decimal?         @db.Decimal(7, 3)
+  TareWeight             Decimal?         @db.Decimal(6, 3)
+  GrossWeight            Decimal?         @db.Decimal(8, 3)
   createdOn              DateTime        @default(now()) @db.Timestamptz(6)
   updatedOn              DateTime?       @updatedAt @db.Timestamptz(6)
   deletedAt              DateTime?
@@ -1384,10 +1388,10 @@ model ContainerTypeMaster {
   status                 String?         @default("A") @db.Char(1)
   Remarks                String?         @db.VarChar(300)
   ContainerCategory      String?         @db.VarChar(100)
-  Height                 Int
-  Length                 Int
+  Height                 Int?
+  Length                 Int?
   NoOfTeu                Decimal         @db.Decimal(1, 0)
-  Width                  Int
+  Width                  Int?
   quoteRoute             QuoteRoute[]
   bookingCargo           BookingCargo[]
   houseJobCargo          HouseJobCargo[]
