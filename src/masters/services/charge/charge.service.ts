@@ -1,6 +1,7 @@
 import { Prisma } from '.prisma/client/default';
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { GlobalConfigService } from 'src/common/config/master-config.service';
+import { statusWhereClause } from 'src/common/helper';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
@@ -299,7 +300,7 @@ export class ChargeService {
         const skip = (page - 1) * pageSize;
 
         const where: Prisma.ChargeMasterWhereInput = {
-            Status: 'A',
+            Status: statusWhereClause, 
             CompanyMasterSid: activeCompanyId,
         };
 

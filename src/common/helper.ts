@@ -1,6 +1,8 @@
 import * as bcrypt from 'bcrypt'
 import *as fs from 'fs'
 
+export const statusWhereClause = { in : ["A","S"]} 
+
 export const encodePassword = async (password: string) => {
     return bcrypt.hashSync(password, bcrypt.genSaltSync(10));
 }
