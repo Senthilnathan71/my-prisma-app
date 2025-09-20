@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { statusWhereClause } from 'src/common/helper';
 import { DatabaseService } from 'src/database/database.service';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 
@@ -114,7 +115,7 @@ export class ContainerActivityMasterService {
 
     const where: Prisma.ContainerActivityMasterWhereInput = {
       deletedAt: null,
-      Status: 'A',
+      Status: statusWhereClause,
       ...(search
         ? {
           OR: [
