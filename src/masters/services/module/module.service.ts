@@ -371,13 +371,13 @@ export class ModuleService {
 
         // CRM custom sorting
         const crmMenuOrder = [
-          'Lead',
+          'Lead Generation',
           'Lead Schedule Pending',
           'Calendar',
           'Meeting Update',
+          'To Do',
           'Rate Request',
-          'Quotation',
-          'Todo'
+          'Quotation'  
         ];
         const normalize = (s: string) => s.trim().toLowerCase();
         const crmOrderNormalized = crmMenuOrder.map(normalize);
@@ -526,15 +526,15 @@ export class ModuleService {
       });
 
       // CRM Custom Menu Order
-      const crmMenuOrder = [
-        'Lead',
-        'Lead Schedule Pending',
-        'Calendar',
-        'Meeting Update',
-        'Rate Request',
-        'Quotation',
-        'Todo'
-      ];
+        const crmMenuOrder = [
+          'Lead Generation',
+          'Lead Schedule Pending',
+          'Calendar',
+          'Meeting Update',
+          'To Do',
+          'Rate Request',
+          'Quotation'  
+        ];
       const normalize = (s: string) => s.trim().toLowerCase();
       const crmOrderNormalized = crmMenuOrder.map(normalize)
       const sortedModules = modules.map(module => {
