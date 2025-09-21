@@ -1190,7 +1190,7 @@ model CustomerBranch {
   customerMaster     CustomerMaster       @relation(fields: [CustomerMasterSid], references: [CustomerMasterSid])
   stateMaster        StateMaster          @relation(fields: [StateMasterSid], references: [StateMasterSid])
   customerLogin      CustomerLogin[]
-  customerSalesTeam  CustomerSalesTeam[]
+  customerSalesTeam  CustomerSalesBranch[]
   customerSupport    CustomerSupport[]
   enquiryHeader      EnquiryHeader[]
   quoteHeader        QuoteHeader[]
@@ -1265,7 +1265,6 @@ model CustomerLogin {
 model CustomerSalesTeam {
   CustomerSalesSid    Int            @id @default(autoincrement()) @map("CustomerSalesSid")
   Salesman            Int
-  CustomerBranchSid   Int
   CompanyMasterSid    Int?
   EffectiveFrom       DateTime
   createdOn           DateTime       @default(now()) @db.Timestamptz(6)
@@ -1276,8 +1275,21 @@ model CustomerSalesTeam {
   status              String?        @default("A") @db.Char(1)
   DepartmentMasterSid String[]
   companyMaster       CompanyMaster? @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
-  customerBranch      CustomerBranch @relation(fields: [CustomerBranchSid], references: [CustomerBranchSid])
+  branches CustomerSalesBranch[]
 }
+
+
+
+model CustomerSalesBranch {
+  id                Int               @id @default(autoincrement())
+  customerSalesTeam CustomerSalesTeam @relation(fields: [customerSalesSid], references: [CustomerSalesSid])
+  customerSalesSid  Int
+  customerBranch    CustomerBranch    @relation(fields: [customerBranchSid], references: [CustomerBranchSid])
+  customerBranchSid Int
+  createdOn           DateTime       @default(now()) @db.Timestamptz(6)
+  updatedOn           DateTime?      @updatedAt @db.Timestamptz(6)
+}
+
 
 model CustomerSupport {
   CustomerSupportSid  Int              @id @default(autoincrement()) @map("CustomerSupportSid")
