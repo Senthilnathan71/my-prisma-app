@@ -296,7 +296,7 @@ model CurrencyExchange {
   ToCurrency          String         @db.VarChar(3)
   SellRate            Decimal        @db.Decimal(6, 5)
   BuyRate             Decimal        @db.Decimal(6, 5)
-  BankName            String         @db.VarChar(50)
+  BankName            String?         @db.VarChar(50)
   CompanyMasterSid    Int?
   BranchMasterSid     Int?
   createdOn           DateTime       @default(now()) @db.Timestamptz(6)
@@ -1440,7 +1440,7 @@ model HSSACMaster {
   createdBy        String             @db.VarChar(100)
   updatedBy        String?            @db.VarChar(100)
   status           String?            @default("A") @db.Char(1)
-  Remarks          String             @db.VarChar(300)
+  Remarks          String?             @db.VarChar(300)
   chargeTaxMapping ChargeTaxMapping[]
   commodityMaster  CommodityMaster[]
   VoucherDetail    VoucherDetail[]
@@ -1622,7 +1622,7 @@ model ChargeTaxMapping {
 model ChargeTds {
   ChargeTdsSid    Int          @id @default(autoincrement()) @map("ChargeTdsSid")
   ChargeMasterSid Int
-  TDSSet          Int
+  TDSSet          Int?
   createdOn       DateTime     @default(now()) @db.Timestamptz(6)
   updatedOn       DateTime?    @updatedAt @db.Timestamptz(6)
   deletedAt       DateTime?
@@ -1631,7 +1631,7 @@ model ChargeTds {
   status          String?      @default("A") @db.Char(1)
   EffectiveFrom   DateTime?
   chargeMaster    ChargeMaster @relation(fields: [ChargeMasterSid], references: [ChargeMasterSid])
-  tdsSetHeader    TDSSetHeader @relation(fields: [TDSSet], references: [TDSSetHeaderSid])
+  tdsSetHeader    TDSSetHeader? @relation(fields: [TDSSet], references: [TDSSetHeaderSid])
 }
 
 model BranchLut {
