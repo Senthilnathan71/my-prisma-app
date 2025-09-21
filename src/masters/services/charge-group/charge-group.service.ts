@@ -74,28 +74,52 @@ export class ChargeGroupService {
             throw error;
         }
     }
+    
 
     async updateChargeGroupById(ChargeGroupSid: number, updateData: any) {
-        try {
-            const exist = await this._db.chargeGroup.findUnique({
+    try {
+        const exist = await this._db.chargeGroup.findUnique({
+            where: {
+                ChargeGroupSid: ChargeGroupSid
+            }
+        });
+        
+        if (!exist) {
+            throw new BadRequestException(`Charge group with id: ${ChargeGroupSid} does not exist`);
+        }
+
+        // Check for duplicates (same group name in the same company, excluding current record)
+        if (updateData.GroupName) {
+            const duplicate = await this._db.chargeGroup.findFirst({
                 where: {
-                    ChargeGroupSid: ChargeGroupSid
+                    CompanyMasterSid: exist.CompanyMasterSid, // Use existing company ID
+                    GroupName: {
+                        equals: updateData.GroupName.trim(),
+                        mode: 'insensitive',
+                    },
+                    ChargeGroupSid: {
+                        not: ChargeGroupSid // Exclude current record
+                    },
+                    status: 'A' // Only check active records
                 }
             });
-            if (!exist) {
-                throw new BadRequestException(`Charge group with id: ${ChargeGroupSid} does not exist`);
+
+            if (duplicate) {
+                throw new BadRequestException('Group Name already exists');
             }
-            const updated = await this._db.chargeGroup.update({
-                where: {
-                    ChargeGroupSid: ChargeGroupSid
-                },
-                data: updateData,
-            });
-            return updated;
-        } catch (error) {
-            throw error;
         }
+
+        const updated = await this._db.chargeGroup.update({
+            where: {
+                ChargeGroupSid: ChargeGroupSid
+            },
+            data: updateData,
+        });
+        return updated;
+    } catch (error) {
+        throw error;
     }
+}
 
     async deleteChargeGroupById(ChargeGroupSid: number) {
         try {
