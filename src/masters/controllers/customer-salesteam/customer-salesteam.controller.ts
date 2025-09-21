@@ -40,6 +40,31 @@ export class CustomerSalesteamController {
         return resp;
     }
 
+    @ApiOperation({ summary: 'Get All Salesteam of Customer' })
+    @ApiCreatedResponse({
+        description: 'Get All Salesteam of Customer',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Get('customer/:CustomerMasterSid')
+    async getAllSalesteamOfCustomer(@Param('CustomerMasterSid', ParseIntPipe) CustomerMasterSid: number) {
+        let resp = new ResponseData();
+        try {
+            let res = await this.CusSalesTeamService.getAllSalesteamOfCustomer(CustomerMasterSid);
+            this.logger.log(`All Salesteam of Customer Fetched : ${JSON.stringify(res)}`);
+            resp.data = res;
+            resp.message = "All Salesteam of Customer are successfully fetched";
+        } catch (error) {
+            this.logger.warn(`Get All Salesteam of Customer Error : ${JSON.stringify(error), error}`);
+            resp.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                resp.message = error.message;
+            } else {
+                resp.message = "Internal Server Error";
+            }
+        }
+        return resp;
+    }
 
 
     @ApiOperation({ summary: 'Get All Salesperson' })

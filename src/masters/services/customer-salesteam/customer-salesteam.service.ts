@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
+import { statusWhereClause } from 'src/common/helper';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 
@@ -11,13 +12,6 @@ export class CustomerSalesteamService {
             const allSalesteam = await this._db.customerSalesTeam.findMany({
                 where : {
                     status : 'A'
-                },
-                include : {
-                    customerBranch : {
-                        select : {
-                            BranchName : true
-                        }
-                    }
                 }
             })
             return allSalesteam;
@@ -30,7 +24,15 @@ export class CustomerSalesteamService {
         try {
             const createdSalesteam = await this._db.customerSalesTeam.create({
                 data :{
-                    ...payload,
+                    DepartmentMasterSid : payload.DepartmentMasterSid,
+                    Salesman : payload.Salesman,
+                    // CustomerBranchSid : payload.CustomerBranchSid,
+                    // CSPerson : payload.CSPerson,
+                    // DocPerson : payload.DocPerson,
+                    EffectiveFrom : payload.EffectiveFrom,
+                    status : payload.status,
+                    createdBy : payload.createdBy,
+
                 }
             })
             return createdSalesteam;
@@ -165,5 +167,78 @@ export class CustomerSalesteamService {
             throw error
         }
     }
+
+    async getAllSalesteamOfCustomer(CustomerMasterSid:number){
+        try {
+            const allBranches = await this._db.customerBranch.findMany({
+                where : {
+                    CustomerMasterSid : CustomerMasterSid,
+                    status : statusWhereClause
+                },
+                select : {
+                    CustomerBranchSid : true
+                }
+            })
+            const allBranchId = allBranches.map(b => b.CustomerBranchSid);
+            const allSalesteam = await this._db.customerSalesTeam.findMany({
+                where : {
+                    // CustomerBranchSid : {
+                    //     in : allBranchId
+                    // },
+                    status : statusWhereClause
+                },
+                orderBy : {
+                    CustomerSalesSid : 'desc'
+                }
+            })
+            return allSalesteam;
+        } catch (error) {
+            throw error;
+        }
+    }
+
+
+
+    async saveCustomerSalesteam(customerSalesteam:any){
+        try {
+            return await this._db.$transaction(async (prisma)=>{
+                let finalSalesteam :any[] = [];
+                for(const salesteam of customerSalesteam) {
+                    let updatedSalesteam;
+                    let createdSalesteam;
+                    if(salesteam.CustomerSalesSid){
+                        updatedSalesteam = await prisma.customerSalesTeam.update({
+                            where : {
+                                CustomerSalesSid : salesteam.CustomerSalesSid
+                            },
+                            data : {
+                                Salesman : salesteam.Salesman,
+                                // CustomerBranchSid : salesteam.CustomerBranchSid,
+                                EffectiveFrom : salesteam.EffectiveFrom,
+                                status : salesteam.status,
+                                updatedBy : salesteam.updatedBy,
+                            }
+                        })
+                        finalSalesteam.push(updatedSalesteam);
+                    } else {
+                        createdSalesteam = await prisma.customerSalesTeam.create({
+                            data : {
+                                Salesman : salesteam.Salesman,
+                                // CustomerBranchSid : salesteam.CustomerBranchSid,
+                                EffectiveFrom : salesteam.EffectiveFrom,
+                                status : salesteam.status,
+                                createdBy : salesteam.createdBy
+                            }
+                        })
+                        finalSalesteam.push(createdSalesteam);
+                    }
+                }
+                return finalSalesteam;
+            })
+        } catch (error) {
+            throw error;
+        }
+    }
+
 
 }

@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
-import { encodePassword } from 'src/common/helper';
+import { encodePassword, statusWhereClause } from 'src/common/helper';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
@@ -494,6 +494,40 @@ export class FfUserMasterService {
                 }
             })
             return reset;
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    async getAllDocs(){
+        try {
+            const allDocs = await this._db.userMaster.findMany({
+                where: {
+                    userType : { code : "docPerson"},
+                    status: statusWhereClause,
+                },
+                omit: {
+                    userPassword: true
+                }
+            })
+            return allDocs;
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    async getAllCS(){
+        try {
+            const allDocs = await this._db.userMaster.findMany({
+                where: {
+                    userType : { code : "csPerson"},
+                    status: statusWhereClause,
+                },
+                omit: {
+                    userPassword: true
+                }
+            })
+            return allDocs;
         } catch (error) {
             throw error;
         }

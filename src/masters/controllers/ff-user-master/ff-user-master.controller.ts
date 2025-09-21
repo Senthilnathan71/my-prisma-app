@@ -37,6 +37,57 @@ export class FfUserMasterController {
         return resp;
     }
 
+    @ApiOperation({ summary: 'Get All Docs' })
+    @ApiCreatedResponse({
+        description: 'Get All Docs',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Get('docs')
+    async getAllDocs() {
+        let resp = new ResponseData();
+        try {
+            let res = await this.ffUserMasterService.getAllDocs();
+            this.logger.log(`All Docs Fetched : ${JSON.stringify(res)}`);
+            resp.data = res;
+            resp.message = "All Docs are successfully fetched";
+        } catch (error) {
+            this.logger.warn(`Get All Docs Error : ${JSON.stringify(error), error}`);
+            resp.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                resp.message = error.message;
+            } else {
+                resp.message = "Internal Server Error";
+            }
+        }
+        return resp;
+    }
+
+    @ApiOperation({ summary: 'Get All CS' })
+    @ApiCreatedResponse({
+        description: 'Get All CS',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Get('cs')
+    async getAllCS() {
+        let resp = new ResponseData();
+        try {
+            let res = await this.ffUserMasterService.getAllCS();
+            this.logger.log(`All CS Fetched : ${JSON.stringify(res)}`);
+            resp.data = res;
+            resp.message = "All CS are successfully fetched";
+        } catch (error) {
+            this.logger.warn(`Get All CS Error : ${JSON.stringify(error), error}`);
+            resp.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                resp.message = error.message;
+            } else {
+                resp.message = "Internal Server Error";
+            }
+        }
+        return resp;
+    }
 
 
     @ApiOperation({ summary: 'Get All User' })
@@ -239,5 +290,5 @@ export class FfUserMasterController {
         return resp;
     }
 
-
+    
 }
