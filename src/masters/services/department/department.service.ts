@@ -86,69 +86,126 @@ export class DepartmentService {
     }
 
 
-    async updateDepartment(DepartmentMasterSid: number, payload: any) {
-        const existing = await this._db.departmentMaster.findUnique({
-            where: {
-                DepartmentMasterSid: DepartmentMasterSid
-            }
-        });
-
-        if (!existing) {
-            throw new NotFoundException('Department does not exist');
+   async updateDepartment(DepartmentMasterSid: number, payload: any) {
+    const existing = await this._db.departmentMaster.findUnique({
+        where: {
+            DepartmentMasterSid: DepartmentMasterSid
         }
+    });
 
-        const duplicate = await this._db.departmentMaster.findFirst({
-            where: {
-                AND: [
-                    {
-                        CompanyMasterSid: payload.CompanyMasterSid,
-                        DepartmentMasterSid: {
-                            not: DepartmentMasterSid
-                        }
-                    },
-                    {
-                        OR: [
-                            {
-                                CompanyMasterSid: payload.CompanyMasterSid,
-                                departmentName: {
-                                    equals: payload.departmentName?.trim(),
-                                    mode: 'insensitive'
-                                }
-                            },
-                            {
-                                CompanyMasterSid: payload.CompanyMasterSid,
-                                departmentCode: {
-                                    equals: payload.departmentCode?.trim(),
-                                    mode: 'insensitive'
-                                }
-                            }
-                        ]
+    if (!existing) {
+        throw new NotFoundException('Department does not exist');
+    }
+
+    const duplicate = await this._db.departmentMaster.findFirst({
+        where: {
+            AND: [
+                {
+                    CompanyMasterSid: payload.CompanyMasterSid,
+                    DepartmentMasterSid: {
+                        not: DepartmentMasterSid
                     }
-                ]
-            }
-        });
-
-        if (duplicate) {
-            if (duplicate.departmentName === payload.departmentName) {
-                throw new BadRequestException('Department name already exists');
-            }
-            if (duplicate.departmentCode === payload.departmentCode) {
-                throw new BadRequestException('Department code already exists');
-            }
-        }
-
-        try {
-            const Department = await this._db.departmentMaster.update({
-                where: {
-                    DepartmentMasterSid: DepartmentMasterSid
                 },
-                data: payload
-            });
-            return Department;
-        } catch (error) {
-            throw new Error(`Error updating Department: ${error.message}`);
+                {
+                    OR: [
+                        {
+                            CompanyMasterSid: payload.CompanyMasterSid,
+                            departmentName: {
+                                equals: payload.departmentName?.trim(),
+                                mode: 'insensitive'
+                            }
+                        },
+                        {
+                            CompanyMasterSid: payload.CompanyMasterSid,
+                            departmentCode: {
+                                equals: payload.departmentCode?.trim(),
+                                mode: 'insensitive'
+                            }
+                        }
+                    ]
+                }
+            ]
+        }
+    });
+
+    if (duplicate) {
+        if (duplicate.departmentName === payload.departmentName) {
+            throw new BadRequestException('Department name already exists');
+        }
+        if (duplicate.departmentCode === payload.departmentCode) {
+            throw new BadRequestException('Department code already exists');
         }
     }
+
+    // Check if there are actual changes (dynamic comparison)
+    const hasChanges = this.hasActualChangesDynamic(existing, payload);
+    
+    if (!hasChanges) {
+        // No changes detected, return the existing record without updating
+        this.logger.log(`No changes detected for DepartmentMasterSid: ${DepartmentMasterSid}, skipping update`);
+        return existing;
+    }
+
+    try {
+        const Department = await this._db.departmentMaster.update({
+            where: {
+                DepartmentMasterSid: DepartmentMasterSid
+            },
+            data: payload
+        });
+        return Department;
+    } catch (error) {
+        throw new Error(`Error updating Department: ${error.message}`);
+    }
+}
+
+// Generic method that works for any entity
+private hasActualChangesDynamic(existing: any, payload: any): boolean {
+    // Exclude these system fields from change detection
+    const excludedFields = [
+        'updatedAt', 'updatedBy', 'createdAt', 'createdBy', 
+        'changedAt', 'changedBy', 'timestamp', 'version'
+    ];
+
+    for (const field in payload) {
+        // Skip system fields and undefined/null payload values
+        if (excludedFields.includes(field) || payload[field] === undefined || payload[field] === null) {
+            continue;
+        }
+
+        // Get existing value (might be undefined if field doesn't exist)
+        const existingValue = existing[field];
+        const newValue = payload[field];
+
+        // Handle different data types
+        if (typeof existingValue !== typeof newValue) {
+            return true; // Type change is a real change
+        }
+
+        // String comparison (case insensitive and trim whitespace)
+        if (typeof newValue === 'string') {
+            const trimmedExisting = existingValue ? String(existingValue).trim() : '';
+            const trimmedNew = newValue ? String(newValue).trim() : '';
+            
+            if (trimmedExisting.toLowerCase() !== trimmedNew.toLowerCase()) {
+                return true;
+            }
+        }
+        // Number/boolean/object comparison
+        else if (existingValue !== newValue) {
+            // For objects/arrays, you might want deeper comparison
+            if (typeof newValue === 'object' && newValue !== null) {
+                if (JSON.stringify(existingValue) !== JSON.stringify(newValue)) {
+                    return true;
+                }
+            } else {
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
 
 
 
