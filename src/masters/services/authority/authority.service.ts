@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { GlobalConfigService } from 'src/common/config/master-config.service';
-import { parseDateFromString } from 'src/common/helper';
+import { parseDateFromString, statusWhereClause } from 'src/common/helper';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
@@ -272,7 +272,7 @@ export class AuthorityService {
         const skip = (page - 1) * pageSize;
 
         const where: Prisma.AuthorityMasterWhereInput = {
-            status: 'A',
+            status: statusWhereClause,
             ...(search ? {
                 OR: [
                     { DepartmentMaster: { has: search } },
@@ -340,7 +340,7 @@ export class AuthorityService {
             throw new BadRequestException('Invalid Search Type');
         }
 
-        const whereClause: any = { status: 'A' };
+        const whereClause: any = { status: statusWhereClause };
 
         if (searchType === 'DepartmentMaster') {
             whereClause[searchType] = { has: filterValue };
@@ -364,7 +364,7 @@ export class AuthorityService {
                 companyMaster: true,
                 menuMaster: true,
                 authorityDetail: {
-                    where: { status: 'A' },
+                    where: { status: statusWhereClause },
                     include: { userMaster: true }
                 }
             },
@@ -382,13 +382,13 @@ export class AuthorityService {
                 CompanyMasterSid: activeCompanyId,
                 BranchMasterSid: activeBranchId,
                 UserMasterSid,
-                status: 'A'
+                status: statusWhereClause
             },
             select: {
                 AuthorityDetailSid: true,
                 authorityMaster: {
                     where: {
-                        status: 'A',
+                        status: statusWhereClause,
                         CompanyMasterSid: activeCompanyId,
                         BranchMasterSid: activeBranchId
                     },
@@ -441,7 +441,7 @@ export class AuthorityService {
             if (!prismaModel) continue;
 
             // Build where clause dynamically
-            const whereClause: any = { authorizerStatus: "Pending", status: 'A' };
+            const whereClause: any = { authorizerStatus: "Pending", status: statusWhereClause };
 
             if (search) {
                 whereClause.OR = [
