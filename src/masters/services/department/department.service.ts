@@ -87,68 +87,107 @@ export class DepartmentService {
 
 
     async updateDepartment(DepartmentMasterSid: number, payload: any) {
-        const existing = await this._db.departmentMaster.findUnique({
-            where: {
-                DepartmentMasterSid: DepartmentMasterSid
-            }
-        });
-
-        if (!existing) {
-            throw new NotFoundException('Department does not exist');
+    const existing = await this._db.departmentMaster.findUnique({
+        where: {
+            DepartmentMasterSid: DepartmentMasterSid
         }
+    });
 
-        const duplicate = await this._db.departmentMaster.findFirst({
-            where: {
-                AND: [
-                    {
-                        CompanyMasterSid: payload.CompanyMasterSid,
-                        DepartmentMasterSid: {
-                            not: DepartmentMasterSid
-                        }
-                    },
-                    {
-                        OR: [
-                            {
-                                CompanyMasterSid: payload.CompanyMasterSid,
-                                departmentName: {
-                                    equals: payload.departmentName?.trim(),
-                                    mode: 'insensitive'
-                                }
-                            },
-                            {
-                                CompanyMasterSid: payload.CompanyMasterSid,
-                                departmentCode: {
-                                    equals: payload.departmentCode?.trim(),
-                                    mode: 'insensitive'
-                                }
-                            }
-                        ]
+    if (!existing) {
+        throw new NotFoundException('Department does not exist');
+    }
+
+    const duplicate = await this._db.departmentMaster.findFirst({
+        where: {
+            AND: [
+                {
+                    CompanyMasterSid: payload.CompanyMasterSid,
+                    DepartmentMasterSid: {
+                        not: DepartmentMasterSid
                     }
-                ]
-            }
-        });
-
-        if (duplicate) {
-            if (duplicate.departmentName === payload.departmentName) {
-                throw new BadRequestException('Department name already exists');
-            }
-            if (duplicate.departmentCode === payload.departmentCode) {
-                throw new BadRequestException('Department code already exists');
-            }
-        }
-
-        try {
-            const Department = await this._db.departmentMaster.update({
-                where: {
-                    DepartmentMasterSid: DepartmentMasterSid
                 },
-                data: payload
-            });
-            return Department;
-        } catch (error) {
-            throw new Error(`Error updating Department: ${error.message}`);
+                {
+                    OR: [
+                        {
+                            CompanyMasterSid: payload.CompanyMasterSid,
+                            departmentName: {
+                                equals: payload.departmentName?.trim(),
+                                mode: 'insensitive'
+                            }
+                        },
+                        {
+                            CompanyMasterSid: payload.CompanyMasterSid,
+                            departmentCode: {
+                                equals: payload.departmentCode?.trim(),
+                                mode: 'insensitive'
+                            }
+                        }
+                    ]
+                }
+            ]
+        }
+    });
+
+    if (duplicate) {
+        if (duplicate.departmentName === payload.departmentName) {
+            throw new BadRequestException('Department name already exists');
+        }
+        if (duplicate.departmentCode === payload.departmentCode) {
+            throw new BadRequestException('Department code already exists');
         }
     }
+
+    // Check if there are actual changes
+    const hasChanges = this.hasActualChanges(existing, payload);
+    
+    if (!hasChanges) {
+        // No changes detected, return the existing record without updating
+        return existing;
+    }
+
+    try {
+        const Department = await this._db.departmentMaster.update({
+            where: {
+                DepartmentMasterSid: DepartmentMasterSid
+            },
+            data: payload
+        });
+        return Department;
+    } catch (error) {
+        throw new Error(`Error updating Department: ${error.message}`);
+    }
+}
+
+// Helper method to check if there are actual changes
+private hasActualChanges(existing: any, payload: any): boolean {
+    const fieldsToCheck = [
+        'departmentName',
+        'departmentCode',
+        'departmentType',
+        'ExportImport',
+        'FCLLCL',
+        'Division',
+        'Status'
+    ];
+
+    for (const field of fieldsToCheck) {
+        if (payload[field] !== undefined && payload[field] !== existing[field]) {
+            // Check if both values are not empty/null and different
+            if (payload[field] !== null && existing[field] !== null &&
+                String(payload[field]).trim() !== String(existing[field]).trim()) {
+                return true;
+            }
+            
+            // Handle cases where one is null/empty and the other isn't
+            if ((payload[field] === null || payload[field] === '') !== 
+                (existing[field] === null || existing[field] === '')) {
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
 
 
 
