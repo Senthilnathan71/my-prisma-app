@@ -86,7 +86,7 @@ export class DepartmentService {
     }
 
 
-    async updateDepartment(DepartmentMasterSid: number, payload: any) {
+   async updateDepartment(DepartmentMasterSid: number, payload: any) {
     const existing = await this._db.departmentMaster.findUnique({
         where: {
             DepartmentMasterSid: DepartmentMasterSid
@@ -137,11 +137,12 @@ export class DepartmentService {
         }
     }
 
-    // Check if there are actual changes
-    const hasChanges = this.hasActualChanges(existing, payload);
+    // Check if there are actual changes (dynamic comparison)
+    const hasChanges = this.hasActualChangesDynamic(existing, payload);
     
     if (!hasChanges) {
         // No changes detected, return the existing record without updating
+        this.logger.log(`No changes detected for DepartmentMasterSid: ${DepartmentMasterSid}, skipping update`);
         return existing;
     }
 
@@ -158,29 +159,46 @@ export class DepartmentService {
     }
 }
 
-// Helper method to check if there are actual changes
-private hasActualChanges(existing: any, payload: any): boolean {
-    const fieldsToCheck = [
-        'departmentName',
-        'departmentCode',
-        'departmentType',
-        'ExportImport',
-        'FCLLCL',
-        'Division',
-        'Status'
+// Generic method that works for any entity
+private hasActualChangesDynamic(existing: any, payload: any): boolean {
+    // Exclude these system fields from change detection
+    const excludedFields = [
+        'updatedAt', 'updatedBy', 'createdAt', 'createdBy', 
+        'changedAt', 'changedBy', 'timestamp', 'version'
     ];
 
-    for (const field of fieldsToCheck) {
-        if (payload[field] !== undefined && payload[field] !== existing[field]) {
-            // Check if both values are not empty/null and different
-            if (payload[field] !== null && existing[field] !== null &&
-                String(payload[field]).trim() !== String(existing[field]).trim()) {
+    for (const field in payload) {
+        // Skip system fields and undefined/null payload values
+        if (excludedFields.includes(field) || payload[field] === undefined || payload[field] === null) {
+            continue;
+        }
+
+        // Get existing value (might be undefined if field doesn't exist)
+        const existingValue = existing[field];
+        const newValue = payload[field];
+
+        // Handle different data types
+        if (typeof existingValue !== typeof newValue) {
+            return true; // Type change is a real change
+        }
+
+        // String comparison (case insensitive and trim whitespace)
+        if (typeof newValue === 'string') {
+            const trimmedExisting = existingValue ? String(existingValue).trim() : '';
+            const trimmedNew = newValue ? String(newValue).trim() : '';
+            
+            if (trimmedExisting.toLowerCase() !== trimmedNew.toLowerCase()) {
                 return true;
             }
-            
-            // Handle cases where one is null/empty and the other isn't
-            if ((payload[field] === null || payload[field] === '') !== 
-                (existing[field] === null || existing[field] === '')) {
+        }
+        // Number/boolean/object comparison
+        else if (existingValue !== newValue) {
+            // For objects/arrays, you might want deeper comparison
+            if (typeof newValue === 'object' && newValue !== null) {
+                if (JSON.stringify(existingValue) !== JSON.stringify(newValue)) {
+                    return true;
+                }
+            } else {
                 return true;
             }
         }
