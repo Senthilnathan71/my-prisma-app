@@ -1,7 +1,8 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { contains } from 'class-validator';
 import * as moment from 'moment-timezone';
-import { parseDateFromString } from 'src/common/helper';
+import { parseDateFromString, statusWhereClause } from 'src/common/helper';
 import { DatabaseService } from 'src/database/database.service';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 
@@ -507,59 +508,47 @@ export class EnquiryHeaderService {
     }
 
 
-    async searchEnquiry(param: filterDto) {
-        const { search = '', page = 1, pageSize = 10, activeCompanyId, activeBranchId } = param;
+    async searchEnquiry(params: filterDto) {
+        const { search = '', page = 1, pageSize = 10, activeCompanyId, activeBranchId } = params;
         const skip = (page - 1) * pageSize;
         const parsedDate = parseDateFromString(search);
         console.log(parsedDate);
         const where: Prisma.EnquiryHeaderWhereInput = {
-            status: 'A',
+            status: statusWhereClause,
             CompanyMasterSid: activeCompanyId,
             BranchMasterSid: activeBranchId,
             ...(search ?
                 {
                     OR: [
                         { EnquiryNumber: { contains: search, mode: 'insensitive' } },
+                        { quoteHeader: {some : {QuoteNumber: { contains: search, mode: 'insensitive'}}}},
                         { CustomerName: { contains: search, mode: 'insensitive' } },
-                        { departmentMaster: { departmentName: { contains: search, mode: 'insensitive' } } },
+                        { ShipmentType: {contains: search, mode: 'insensitive'}},
+                        {status: { contains: search, mode: 'insensitive'}},
                         ...(parsedDate
                             ? [{ ShipmentExpectedDate: { equals: parsedDate } }]
                             : []),
-                    ]
+                    ],
                 } : {}
-            )
-        }
-
-        let items;
-        let totalCount;
-        [items, totalCount] = await this._db.$transaction([
-            this._db.enquiryHeader.findMany({
-                where,
-                skip,
-                take: pageSize,
-                orderBy: { EnquiryHeaderSid: 'desc' },
-            }),
-            this._db.enquiryHeader.count({ where }),
-        ]);
-
-        items = await Promise.all(
-            items.map(async (item) => {
-                const quote = await this._db.quoteHeader.findFirst({
-                    where: {
-                        EnquirySid: item.EnquiryHeaderSid
-                    }
-                })
-                return {
-                    ...item,
-                    quoteNo: quote?.QuoteNumber
-                }
-            })
-        )
-
-        return {
-            items,
-            totalCount,
+            ),
         };
+
+        const [items, totalCount] = await this._db.$transaction([
+        this._db.enquiryHeader.findMany({
+            where,
+            skip,
+            take: pageSize,
+            orderBy: { EnquiryHeaderSid: 'desc' },
+            include: {
+                branchMaster: true,
+                companyMaster: true,
+                quoteHeader: true,
+            },
+        }),
+        this._db.enquiryHeader.count({ where }),
+    ]);
+
+    return { items, totalCount };
     }
 
     async getAuditLogs(tableName: string, recordId?: string) {

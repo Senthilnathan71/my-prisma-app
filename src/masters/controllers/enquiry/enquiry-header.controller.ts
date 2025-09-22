@@ -229,10 +229,10 @@ export class EnquiryHeaderController {
     })
     @HttpCode(HttpStatus.OK)
     @Post('search-list')
-    async searchEnquiry(@Body() param: filterDto) {
+    async searchEnquiry(@Body() searchParams: filterDto) {
         let resp = new ResponseData();
         try {
-            let res = await this.enquiryHeaderService.searchEnquiry(param);
+            let res = await this.enquiryHeaderService.searchEnquiry(searchParams);
             this.logger.log(`Enquiry Search Data : ${JSON.stringify(res)}`);
             resp.data = res;
             resp.message = "Enquiry Search is successfully fetched";

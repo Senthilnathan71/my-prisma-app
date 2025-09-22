@@ -148,8 +148,8 @@ export class LeadService {
     }
 
 
-    async searchLead(param: filterDto) {
-        const { search = '', page = 1, pageSize = 10, activeCompanyId, activeBranchId } = param;
+    async searchLead(params: filterDto) {
+        const { search = '', page = 1, pageSize = 10, activeCompanyId, activeBranchId } = params;
         const skip = (page - 1) * pageSize;
 
         const where: Prisma.PreCustomerMasterWhereInput = {
