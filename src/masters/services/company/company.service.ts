@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { GlobalConfigService } from 'src/common/config/master-config.service';
+import { statusWhereClause } from 'src/common/helper';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
@@ -630,7 +631,7 @@ export class CompanyService {
         const skip = (page - 1) * pageSize;
 
         const where: Prisma.CompanyMasterWhereInput = {
-            status: 'A',
+            status: statusWhereClause,
             ...(search
                 ? {
                     OR: [
@@ -716,7 +717,7 @@ export class CompanyService {
         const skip = (page - 1) * pageSize;
 
         const branchWhere: Prisma.BranchMasterWhereInput = {
-            status: 'A',
+            status: statusWhereClause,
             company: {
                 status: 'A'
             },
@@ -807,7 +808,7 @@ export class CompanyService {
                 orderBy: { changedAt: 'desc' },
             });
 
-            return logs;
+            return logs.filter(log => log.oldVal !== log.newVal);
         } catch (error) {
             this.logger.warn(`getAuditLogsError: ${error}`);
             throw new Error(`Error fetching audit logs: ${error.message}`);

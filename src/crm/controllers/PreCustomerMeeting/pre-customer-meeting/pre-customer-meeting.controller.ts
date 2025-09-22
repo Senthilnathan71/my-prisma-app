@@ -3,6 +3,7 @@ import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
 import { ResponseData } from 'src/common/response-data';
 import { PreCustomerMeetingService } from 'src/crm/services/PreCustomerMeeting/pre-customer-meeting/pre-customer-meeting.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
+import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 
 class CompanyIdDto {
   CompanyMasterSid: number;
@@ -158,10 +159,10 @@ export class PreCustomerMeetingController {
     })
     @HttpCode(HttpStatus.OK)
     @Post('search-list')
-    async searchPreCustomerMeeting(@Body() searchData: SearchListDto) {
+    async searchList(@Body() searchParams: filterDto) {
         let resp = new ResponseData();
         try {
-            let res = await this.preCustomerMeetingService.searchPreCustomerMeeting(searchData);
+            let res = await this.preCustomerMeetingService.searchList(searchParams);
             this.logger.log(`PreCustomerMeeting Search Results : ${JSON.stringify(res)}`);
             resp.data = res;
             resp.message = "PreCustomerMeeting Search results are successfully fetched";
@@ -176,4 +177,5 @@ export class PreCustomerMeetingController {
         }
         return resp;
     }
+
 }

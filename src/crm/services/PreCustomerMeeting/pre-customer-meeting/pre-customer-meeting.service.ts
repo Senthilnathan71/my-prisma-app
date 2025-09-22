@@ -1,6 +1,9 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
+import { statusWhereClause } from 'src/common/helper';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
+import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 
 @Injectable()
 export class PreCustomerMeetingService {
@@ -196,4 +199,45 @@ export class PreCustomerMeetingService {
 
         return searchResults;
     }
+
+    async searchList(params: filterDto) {
+    const { search = '', page = 1, pageSize = 15, activeCompanyId, activeBranchId } = params;
+    const skip = (page - 1) * pageSize;
+
+    const where: Prisma.PreCustomerMeetingWhereInput = {
+        status: statusWhereClause,
+        CompanyMasterSid : activeCompanyId,
+        BranchMasterSid: activeBranchId,
+        ...(search
+            ? {
+                OR: [
+                    { meetingType: { contains: search, mode: 'insensitive' } },
+                    { meetingStatus: { contains: search, mode: 'insensitive' } },
+                    (!isNaN(Number(search)) ? { leadAssignTo: Number(search) } : {}),
+                    { preCustomerMaster: { preCustomerName : { contains: search, mode: 'insensitive' }}},
+                ],
+            }
+            : {}
+        ),
+    };
+
+    const [items, totalCount] = await this._db.$transaction([
+        this._db.preCustomerMeeting.findMany({
+            where,
+            skip,
+            take: pageSize,
+            orderBy: { PreCustomerMeetingSid: 'desc' },
+            include: {
+                branchMaster: true,
+                companyMaster: true,
+                preCustomerMaster: true,
+            },
+        }),
+        this._db.preCustomerMeeting.count({ where }),
+    ]);
+
+    return { items, totalCount };
+}
+
+    
 }

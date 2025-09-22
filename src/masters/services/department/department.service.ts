@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { statusWhereClause } from 'src/common/helper';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
@@ -86,126 +87,69 @@ export class DepartmentService {
     }
 
 
-   async updateDepartment(DepartmentMasterSid: number, payload: any) {
-    const existing = await this._db.departmentMaster.findUnique({
-        where: {
-            DepartmentMasterSid: DepartmentMasterSid
-        }
-    });
-
-    if (!existing) {
-        throw new NotFoundException('Department does not exist');
-    }
-
-    const duplicate = await this._db.departmentMaster.findFirst({
-        where: {
-            AND: [
-                {
-                    CompanyMasterSid: payload.CompanyMasterSid,
-                    DepartmentMasterSid: {
-                        not: DepartmentMasterSid
-                    }
-                },
-                {
-                    OR: [
-                        {
-                            CompanyMasterSid: payload.CompanyMasterSid,
-                            departmentName: {
-                                equals: payload.departmentName?.trim(),
-                                mode: 'insensitive'
-                            }
-                        },
-                        {
-                            CompanyMasterSid: payload.CompanyMasterSid,
-                            departmentCode: {
-                                equals: payload.departmentCode?.trim(),
-                                mode: 'insensitive'
-                            }
-                        }
-                    ]
-                }
-            ]
-        }
-    });
-
-    if (duplicate) {
-        if (duplicate.departmentName === payload.departmentName) {
-            throw new BadRequestException('Department name already exists');
-        }
-        if (duplicate.departmentCode === payload.departmentCode) {
-            throw new BadRequestException('Department code already exists');
-        }
-    }
-
-    // Check if there are actual changes (dynamic comparison)
-    const hasChanges = this.hasActualChangesDynamic(existing, payload);
-    
-    if (!hasChanges) {
-        // No changes detected, return the existing record without updating
-        this.logger.log(`No changes detected for DepartmentMasterSid: ${DepartmentMasterSid}, skipping update`);
-        return existing;
-    }
-
-    try {
-        const Department = await this._db.departmentMaster.update({
+    async updateDepartment(DepartmentMasterSid: number, payload: any) {
+        const existing = await this._db.departmentMaster.findUnique({
             where: {
                 DepartmentMasterSid: DepartmentMasterSid
-            },
-            data: payload
+            }
         });
-        return Department;
-    } catch (error) {
-        throw new Error(`Error updating Department: ${error.message}`);
-    }
-}
 
-// Generic method that works for any entity
-private hasActualChangesDynamic(existing: any, payload: any): boolean {
-    // Exclude these system fields from change detection
-    const excludedFields = [
-        'updatedAt', 'updatedBy', 'createdAt', 'createdBy', 
-        'changedAt', 'changedBy', 'timestamp', 'version'
-    ];
-
-    for (const field in payload) {
-        // Skip system fields and undefined/null payload values
-        if (excludedFields.includes(field) || payload[field] === undefined || payload[field] === null) {
-            continue;
+        if (!existing) {
+            throw new NotFoundException('Department does not exist');
         }
 
-        // Get existing value (might be undefined if field doesn't exist)
-        const existingValue = existing[field];
-        const newValue = payload[field];
+        const duplicate = await this._db.departmentMaster.findFirst({
+            where: {
+                AND: [
+                    {
+                        CompanyMasterSid: payload.CompanyMasterSid,
+                        DepartmentMasterSid: {
+                            not: DepartmentMasterSid
+                        }
+                    },
+                    {
+                        OR: [
+                            {
+                                CompanyMasterSid: payload.CompanyMasterSid,
+                                departmentName: {
+                                    equals: payload.departmentName?.trim(),
+                                    mode: 'insensitive'
+                                }
+                            },
+                            {
+                                CompanyMasterSid: payload.CompanyMasterSid,
+                                departmentCode: {
+                                    equals: payload.departmentCode?.trim(),
+                                    mode: 'insensitive'
+                                }
+                            }
+                        ]
+                    }
+                ]
+            }
+        });
 
-        // Handle different data types
-        if (typeof existingValue !== typeof newValue) {
-            return true; // Type change is a real change
-        }
-
-        // String comparison (case insensitive and trim whitespace)
-        if (typeof newValue === 'string') {
-            const trimmedExisting = existingValue ? String(existingValue).trim() : '';
-            const trimmedNew = newValue ? String(newValue).trim() : '';
-            
-            if (trimmedExisting.toLowerCase() !== trimmedNew.toLowerCase()) {
-                return true;
+        if (duplicate) {
+            if (duplicate.departmentName === payload.departmentName) {
+                throw new BadRequestException('Department name already exists');
+            }
+            if (duplicate.departmentCode === payload.departmentCode) {
+                throw new BadRequestException('Department code already exists');
             }
         }
-        // Number/boolean/object comparison
-        else if (existingValue !== newValue) {
-            // For objects/arrays, you might want deeper comparison
-            if (typeof newValue === 'object' && newValue !== null) {
-                if (JSON.stringify(existingValue) !== JSON.stringify(newValue)) {
-                    return true;
-                }
-            } else {
-                return true;
-            }
+
+        try {
+            const Department = await this._db.departmentMaster.update({
+                where: {
+                    DepartmentMasterSid: DepartmentMasterSid
+                },
+                data: payload
+            });
+            return Department;
+        } catch (error) {
+            throw new Error(`Error updating Department: ${error.message}`);
         }
     }
-
-    return false;
-}
 
 
 
@@ -236,7 +180,7 @@ private hasActualChangesDynamic(existing: any, payload: any): boolean {
 
         const where: Prisma.DepartmentMasterWhereInput = {
 
-            Status: 'A',
+            Status: statusWhereClause,
             CompanyMasterSid: activeCompanyId,
             ...(search
                 ? {
@@ -275,7 +219,7 @@ private hasActualChangesDynamic(existing: any, payload: any): boolean {
         const skip = (page - 1) * pageSize;
 
         const where: Prisma.vDepartmentIndexPageWhereInput = {
-            Status: 'A',
+            Status: statusWhereClause,
             CompanyMasterSid: activeCompanyId,
             ...(search
                 ? {
@@ -319,7 +263,7 @@ private hasActualChangesDynamic(existing: any, payload: any): boolean {
                 orderBy: { changedAt: 'desc' },
             });
 
-            return logs;
+            return logs.filter(log => log.oldVal !== log.newVal);
         } catch (error) {
             this.logger.warn(`getAuditLogsError: ${error}`);
             throw new Error(`Error fetching audit logs: ${error.message}`);
