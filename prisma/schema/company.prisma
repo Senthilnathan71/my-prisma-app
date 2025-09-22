@@ -1274,6 +1274,8 @@ model CustomerSalesTeam {
   updatedBy           String?        @db.VarChar(100)
   status              String?        @default("A") @db.Char(1)
   DepartmentMasterSid String[]
+  DocPerson           Int?
+  CSPerson            Int?
   companyMaster       CompanyMaster? @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
   branches CustomerSalesBranch[]
 }
