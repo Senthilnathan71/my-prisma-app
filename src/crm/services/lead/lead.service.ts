@@ -1,4 +1,6 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
+import { statusWhereClause } from 'src/common/helper';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
@@ -150,45 +152,38 @@ export class LeadService {
         const { search = '', page = 1, pageSize = 10, activeCompanyId, activeBranchId } = param;
         const skip = (page - 1) * pageSize;
 
-        const where: any = {
-            status: 'A',
+        const where: Prisma.PreCustomerMasterWhereInput = {
+            status: statusWhereClause,
             CompanyMasterSid: activeCompanyId,
             BranchMasterSid: activeBranchId,
+            ...(search
+                ? {
+                    OR: [
+                        { preCustomerName: { contains: search, mode: 'insensitive' } },
+                        { phone: { contains: search, mode: 'insensitive' } },
+                        { preCustomerType: { contains: search, mode: 'insensitive' } },
+                        { status: { contains: search, mode: 'insensitive' } },
+                    ],
+                } : {}
+            ),
         };
 
+        const [items, totalCount] = await this._db.$transaction([
+        this._db.preCustomerMaster.findMany({
+            where,
+            skip,
+            take: pageSize,
+            orderBy: { PreCustomerMasterSid: 'desc' },
+            include: {
+                branchMaster: true,
+                companyMaster: true,
+            },
+        }),
+        this._db.preCustomerMaster.count({ where }),
+    ]);
 
-        if (search) {
-            where.OR = [
-                { preCustomerName: { contains: search, mode: 'insensitive' } },
-                { contactPerson: { contains: search, mode: 'insensitive' } },
-                { email: { contains: search, mode: 'insensitive' } },
-                { phone: { contains: search, mode: 'insensitive' } },
-                { preCustomerAddress1: { contains: search, mode: 'insensitive' } },
-            ];
-        }
-
-        try {
-            const [items, totalCount] = await this._db.$transaction([
-                this._db.preCustomerMaster.findMany({
-                    where,
-                    skip,
-                    take: pageSize,
-                    orderBy: { PreCustomerMasterSid: 'desc' },
-                }),
-                this._db.preCustomerMaster.count({ where }),
-            ]);
-
-            return {
-                items,
-                totalCount,
-                currentPage: page,
-                totalPages: Math.ceil(totalCount / pageSize),
-            };
-        } catch (error) {
-            this.logger.error(`Search Lead Error: ${error.message}`);
-            throw new Error(`Error occurred during search: ${error.message}`);
-        }
-    }
+    return { items, totalCount };
+}
     async getAuditLogs(tableName: string, recordId?: string) {
         try {
             const whereClause: any = { tableName };

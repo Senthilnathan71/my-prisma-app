@@ -201,7 +201,7 @@ export class PreCustomerMeetingService {
     }
 
     async searchList(params: filterDto) {
-    const { search = '', page = 1, pageSize = 15, activeCompanyId, activeBranchId } = params;
+    const { search = '', page = 1, pageSize = 10, activeCompanyId, activeBranchId } = params;
     const skip = (page - 1) * pageSize;
 
     const where: Prisma.PreCustomerMeetingWhereInput = {

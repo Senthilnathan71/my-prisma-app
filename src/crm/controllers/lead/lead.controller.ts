@@ -152,10 +152,10 @@ export class LeadController {
     })
     @HttpCode(HttpStatus.OK)
     @Post('search-list')
-    async searchLead(@Body() param: filterDto) {
+    async searchLead(@Body() searchParams: filterDto) {
         let resp = new ResponseData();
         try {
-            let res = await this.leadService.searchLead(param);
+            let res = await this.leadService.searchLead(searchParams);
             this.logger.log(`Lead Search Data : ${JSON.stringify(res)}`);
             resp.data = res;
             resp.message = "Lead Search is successfully fetched";
