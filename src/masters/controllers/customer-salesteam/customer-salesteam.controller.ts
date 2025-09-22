@@ -66,6 +66,32 @@ export class CustomerSalesteamController {
         return resp;
     }
 
+    @ApiOperation({ summary: 'Save All Salesteam' })
+    @ApiCreatedResponse({
+        description: 'Save All Salesteam',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Post('save')
+    async saveAllSalesteam(@Body() customerSalesteam: any[]) {
+        let resp = new ResponseData();
+        try {
+            let res = await this.CusSalesTeamService.saveCustomerSalesteam(customerSalesteam);
+            this.logger.log(`All Salesteam Saved : ${JSON.stringify(res)}`);
+            resp.data = res;
+            resp.message = "All Salesteam are successfully saved";
+        } catch (error) {
+            this.logger.warn(`Save All Salesteam Error : ${JSON.stringify(error), error}`);
+            resp.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                resp.message = error.message;
+            } else {
+                resp.message = "Internal Server Error";
+            }
+        }
+        return resp;
+    }
+
 
     @ApiOperation({ summary: 'Get All Salesperson' })
     @ApiCreatedResponse({
