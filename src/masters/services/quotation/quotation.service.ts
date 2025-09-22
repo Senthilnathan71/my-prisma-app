@@ -5,6 +5,7 @@ import * as moment from 'moment-timezone';
 import { SearchListDto } from "src/masters/DTO/search-list.dto";
 import { filterDto } from "src/masters/DTO/search-vessel.dto";
 import { GlobalConfigService } from "src/common/config/master-config.service";
+import { contains } from "class-validator";
 
 @Injectable()
 export class QuotationService {
@@ -537,9 +538,17 @@ export class QuotationService {
             ...(search
                 ? {
                     OR: [
+                        { enquiryHeader: { EnquiryNumber: { contains: search, mode: 'insensitive'}}},
+                        { enquiryHeader: { CustomerName: { contains: search, mode: 'insensitive'}}},
+                        { enquiryHeader: { ShipmentType: { contains: search, mode: 'insensitive'}}},
+                        { enquiryHeader: { enquiryRoute: {some: { POLSid: Number(search)}}}},
+                        { enquiryHeader: { enquiryRoute: {some: { PODSid: Number(search)}}}},
                         { QuoteNumber: { contains: search, mode: 'insensitive' } },
                         { CustomerName: { contains: search, mode: 'insensitive' } },
-                        { CustomerAddress: { contains: search, mode: 'insensitive' } },
+                        { departmentMaster: {departmentName: {contains: search, mode: 'insensitive'}}},
+                        { quoteRoute: {some: { POLSid: Number(search)}}},
+                        { quoteRoute: {some: { PODSid: Number(search)}}},
+                        { status: {contains: search, mode: 'insensitive'}},
                         ...(!isNaN(new Date(search).getTime())
                             ? [{ QuoteDate: new Date(search) }]
                             : []),

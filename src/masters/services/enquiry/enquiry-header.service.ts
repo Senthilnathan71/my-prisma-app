@@ -521,7 +521,7 @@ export class EnquiryHeaderService {
                 {
                     OR: [
                         { EnquiryNumber: { contains: search, mode: 'insensitive' } },
-                        { quoteHeader: {some : {QuoteNumber: { contains: search, mode: 'insensitive'}}}},
+                        { quoteHeader: {some: {QuoteNumber: { contains: search, mode: 'insensitive'}}}},
                         { CustomerName: { contains: search, mode: 'insensitive' } },
                         { ShipmentType: {contains: search, mode: 'insensitive'}},
                         {status: { contains: search, mode: 'insensitive'}},
@@ -530,25 +530,39 @@ export class EnquiryHeaderService {
                             : []),
                     ],
                 } : {}
-            ),
+            )
+        }
+
+        let items;
+        let totalCount;
+        [items, totalCount] = await this._db.$transaction([
+            this._db.enquiryHeader.findMany({
+                where,
+                skip,
+                take: pageSize,
+                orderBy: { EnquiryHeaderSid: 'desc' },
+            }),
+            this._db.enquiryHeader.count({ where }),
+        ]);
+
+        items = await Promise.all(
+            items.map(async (item) => {
+                const quote = await this._db.quoteHeader.findFirst({
+                    where: {
+                        EnquirySid: item.EnquiryHeaderSid
+                    }
+                })
+                return {
+                    ...item,
+                    quoteNo: quote?.QuoteNumber
+                }
+            })
+        )
+
+        return {
+            items,
+            totalCount,
         };
-
-        const [items, totalCount] = await this._db.$transaction([
-        this._db.enquiryHeader.findMany({
-            where,
-            skip,
-            take: pageSize,
-            orderBy: { EnquiryHeaderSid: 'desc' },
-            include: {
-                branchMaster: true,
-                companyMaster: true,
-                quoteHeader: true,
-            },
-        }),
-        this._db.enquiryHeader.count({ where }),
-    ]);
-
-    return { items, totalCount };
     }
 
     async getAuditLogs(tableName: string, recordId?: string) {

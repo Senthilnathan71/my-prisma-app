@@ -258,10 +258,10 @@ export class QuotationController {
     })
     @HttpCode(HttpStatus.OK)
     @Post('search-list')
-    async searchQuotation(@Body() body: filterDto) {
+    async searchQuotation(@Body() searchParams: filterDto) {
         let resp = new ResponseData();
         try {
-            let res = await this.quotationService.searchQuotation(body);
+            let res = await this.quotationService.searchQuotation(searchParams);
             this.logger.log(`Quotation Search Result : ${JSON.stringify(res)}`);
             resp.data = res;
             resp.message = "Quotation Search is successfully fetched";
