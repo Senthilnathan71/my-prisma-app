@@ -26,6 +26,9 @@ export class CreatePreCustomerMeetingDto {
   @IsDateString()
   meetingDate: Date;
 
+   @IsDateString()
+  meetingEndDate: Date;
+
   @IsString()
   meetingType: string;
 

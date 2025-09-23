@@ -1,4 +1,4 @@
-import { IsDate, IsNumber, IsOptional, IsString } from "class-validator";
+import { IsBoolean, IsDate, IsNumber, IsOptional, IsString } from "class-validator";
 
 export class CreatePrecustomerDto {
     @IsNumber()
@@ -44,24 +44,14 @@ export class CreatePrecustomerDto {
     @IsString()
     leadReferredBy :string
 
+    @IsBoolean()
+    isQualify: boolean
+
     @IsString()
     @IsOptional()
     status : string
 
-    @IsDate()
-    @IsOptional()
-    createdOn : Date
-
-    @IsDate()
-    @IsOptional()
-    updatedOn : Date
-
     @IsString()
     @IsOptional()
     createdBy : string
-
-    @IsString()
-    @IsOptional()
-    updatedBy : string
-
 }

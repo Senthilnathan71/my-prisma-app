@@ -371,8 +371,8 @@ export class ModuleService {
 
         // CRM Custom Menu Order
       const crmMenuOrder = [
-        'Lead Generation',
-        'Lead Schedule',
+        'Lead',
+        'Opportunity',
         'Calendar',
         'Meeting Update',
         'To Do',
@@ -527,8 +527,8 @@ export class ModuleService {
 
       // CRM Custom Menu Order
       const crmMenuOrder = [
-        'Lead Generation',
-        'Lead Schedule',
+        'Lead',
+        'Opportunity',
         'Calendar',
         'Meeting Update',
         'To Do',

@@ -63,7 +63,7 @@ export class PreCustomerMeetingService {
                 payload.updatedBy = params['userEmail']
                 payload.followUpDate = params.followUpDate ? new Date(params.followUpDate + "Z") : null
                 payload.meetingDate = new Date(params.meetingDate + "Z")
-
+                payload.meetingEndDate = new Date(params.meetingEndDate + "Z")
 
                 const data = await this._db.preCustomerMeeting.update({
                     where: { PreCustomerMeetingSid: params.PreCustomerMeetingSid },
@@ -135,10 +135,13 @@ export class PreCustomerMeetingService {
                 payload.createdOn = new Date();
                 payload.updatedOn = new Date();
                 payload.meetingDate = new Date(params.meetingDate + "Z")
+                payload.meetingEndDate = new Date(params.meetingEndDate + "Z")
+
 
                 const payloadData = {
                         createdBy : params.userEmail || '',
                         meetingDate : new Date(params.meetingDate + "Z"),
+                        meetingEndDate : new Date(params.meetingEndDate + "Z"),
                         meetingType : params.meetingType,
                         meetingStatus : params.meetingStatus,
                         customerProfile : params.customerProfile,
@@ -188,6 +191,7 @@ export class PreCustomerMeetingService {
                 LeadOrCustomer : true,
                 PreCustomerMeetingSid: true,
                 meetingDate: true,
+                meetingEndDate:true,
                 followUpDate: true,
                 meetingStatus: true
             }
@@ -229,6 +233,7 @@ export class PreCustomerMeetingService {
         result.notMet = await this._db.preCustomerMeeting.findMany({
             select: {
                 meetingDate: true,
+                meetingEndDate:true,
                 preCustomerMaster: {
                     select: {
                         preCustomerName: true
@@ -243,6 +248,7 @@ export class PreCustomerMeetingService {
             },
             select: {
                 meetingDate: true,
+                meetingEndDate:true,
                 preCustomerMaster: {
                     select: {
                         preCustomerName: true,

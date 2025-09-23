@@ -91,7 +91,8 @@ export class PrecustomerService {
                 leadFrom: params.leadFrom,
                 leadReferredBy: params.leadReferredBy,
                 createdBy: params['userEmail'],
-                status: params.status || 'A'
+                status: params.status || 'A',
+                isQualify: params.isQualify
             };
 
             if (params.PreCustomerMasterSid) {
