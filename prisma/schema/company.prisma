@@ -590,7 +590,6 @@ model PreCustomerMeeting {
   createdBy             String            @db.VarChar(100)
   updatedBy             String?           @db.VarChar(100)
   meetingDate           DateTime
-  meetingEndDate        DateTime?
   meetingType           String            @db.VarChar(10)
   leadAssignTo          Int
   meetingStatus         String?           @db.VarChar(10)
@@ -607,6 +606,7 @@ model PreCustomerMeeting {
   followUpDate          DateTime?
   followUpNote          String?           @db.VarChar(100)
   meetingNote           String?           @db.VarChar(100)
+  opportunityStage      LeadStatus?       @default(Discovery)
   meetingFollowUp       MeetingFollowup[]
   branchMaster          BranchMaster      @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
   companyMaster         CompanyMaster     @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
@@ -2670,6 +2670,19 @@ enum ApprovalStatus {
   Pending
   Approved
   Rejected
+}
+
+enum LeadStatus {
+  Qualify
+  Discovery
+  MeetingScheduled
+  MeetingCompleted
+  EnquiryGenerated
+  QuotationCreated
+  QuotationConfirmed
+  ContractSigned
+  DealWon
+  DealLost
 }
 
 model MenuConfig {

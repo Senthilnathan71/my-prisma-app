@@ -14,6 +14,7 @@ export class PreCustomerMeetingService {
             const allMeetings = await this._db.preCustomerMeeting.findMany({
                 where: {
                     status: 'A',
+                    meetingStatus:{ not: 'Completed' },
                     CompanyMasterSid: CompanyMasterSid,
                     BranchMasterSid: BranchMasterSid
                 },

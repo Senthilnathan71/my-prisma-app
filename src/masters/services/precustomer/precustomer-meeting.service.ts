@@ -14,9 +14,8 @@ export class PreCustomerMeetingService {
     async getPreCustomerMastersWithoutMeetings(CompanyMasterSid:number,BranchMasterSid:number) {
         const result = await this._db.preCustomerMaster.findMany({
             where: {
-                preCustomerMeeting: {
-                    none: {} // Ensures no related PreCustomerMeeting exists
-                },
+                isQualify:true,
+                status:"A",
                 CompanyMasterSid: CompanyMasterSid,
                 BranchMasterSid: BranchMasterSid
             },
@@ -63,7 +62,6 @@ export class PreCustomerMeetingService {
                 payload.updatedBy = params['userEmail']
                 payload.followUpDate = params.followUpDate ? new Date(params.followUpDate + "Z") : null
                 payload.meetingDate = new Date(params.meetingDate + "Z")
-                payload.meetingEndDate = new Date(params.meetingEndDate + "Z")
 
                 const data = await this._db.preCustomerMeeting.update({
                     where: { PreCustomerMeetingSid: params.PreCustomerMeetingSid },
@@ -83,31 +81,31 @@ export class PreCustomerMeetingService {
                     createdOn: new Date()
                 }
 
-                if (data.meetingStatus === 'confirmed' && params.LeadOrCustomer === 'L') {
-                    const customerName = data.preCustomerMaster?.preCustomerName;
+                // if (data.meetingStatus === 'confirmed' && params.LeadOrCustomer === 'L') {
+                //     const customerName = data.preCustomerMaster?.preCustomerName;
 
-                    if (!customerName) {
-                        throw new Error('Customer name is missing for confirmed meeting.');
-                    }
+                //     if (!customerName) {
+                //         throw new Error('Customer name is missing for confirmed meeting.');
+                //     }
 
-                    const existCustomer = await this._db.customerMaster.findFirst({
-                        where: {
-                            CustomerName: customerName 
-                        }
-                    })
+                //     const existCustomer = await this._db.customerMaster.findFirst({
+                //         where: {
+                //             CustomerName: customerName 
+                //         }
+                //     })
 
-                    if (!existCustomer) {
-                        await this._db.customerMaster.create({
-                            data: {
-                                ...customerPayload,
-                                CustomerName: customerName, // this is now guaranteed to be a string
+                //     if (!existCustomer) {
+                //         await this._db.customerMaster.create({
+                //             data: {
+                //                 ...customerPayload,
+                //                 CustomerName: customerName, // this is now guaranteed to be a string
 
-                            }
-                        })
-                    } else {
-                        this.logger.warn("Customer already exists!");
-                    }
-                }
+                //             }
+                //         })
+                //     } else {
+                //         this.logger.warn("Customer already exists!");
+                //     }
+                // }
 
 
                 if (params.followUpDate) {
@@ -135,13 +133,9 @@ export class PreCustomerMeetingService {
                 payload.createdOn = new Date();
                 payload.updatedOn = new Date();
                 payload.meetingDate = new Date(params.meetingDate + "Z")
-                payload.meetingEndDate = new Date(params.meetingEndDate + "Z")
-
-
                 const payloadData = {
                         createdBy : params.userEmail || '',
                         meetingDate : new Date(params.meetingDate + "Z"),
-                        meetingEndDate : new Date(params.meetingEndDate + "Z"),
                         meetingType : params.meetingType,
                         meetingStatus : params.meetingStatus,
                         customerProfile : params.customerProfile,
@@ -191,7 +185,6 @@ export class PreCustomerMeetingService {
                 LeadOrCustomer : true,
                 PreCustomerMeetingSid: true,
                 meetingDate: true,
-                meetingEndDate:true,
                 followUpDate: true,
                 meetingStatus: true
             }
@@ -233,7 +226,6 @@ export class PreCustomerMeetingService {
         result.notMet = await this._db.preCustomerMeeting.findMany({
             select: {
                 meetingDate: true,
-                meetingEndDate:true,
                 preCustomerMaster: {
                     select: {
                         preCustomerName: true
@@ -248,7 +240,6 @@ export class PreCustomerMeetingService {
             },
             select: {
                 meetingDate: true,
-                meetingEndDate:true,
                 preCustomerMaster: {
                     select: {
                         preCustomerName: true,
