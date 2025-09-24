@@ -270,7 +270,7 @@ export class VoyageController {
     async fetchVesselsByPorts(@Body() payload: any) {
         const output = new ResponseData;
         try {
-            const Voyage = await this.voyageService.getAvailableVessels(payload.POO, payload.POL, payload.POD, payload.FPOD, payload.MovementType)
+            const Voyage = await this.voyageService.getAvailableVessels(payload.POO, payload.POL, payload.POD)
             this.logger.log(`fetchVesselsByPorts: ${JSON.stringify(Voyage)}`)
             output.data = Voyage
         } catch (error) {
@@ -290,7 +290,7 @@ export class VoyageController {
     async fetchByVesselAndPorts(@Body() payload: any) {
         const output = new ResponseData;
         try {
-            const Voyage = await this.voyageService.getAvailableVoyagesWithPorts(payload.VesselMasterSid, payload.POL, payload.POD, payload.MovementType, payload.POO, payload.FPOD)
+            const Voyage = await this.voyageService.getAvailableVoyagesWithPorts(payload.VesselMasterSid, payload.POL, payload.POD, payload.MovementType)
             this.logger.log(`fetchByVesselAndPorts: ${JSON.stringify(Voyage)}`)
             output.data = Voyage
         } catch (error) {
