@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { GlobalConfigService } from 'src/common/config/master-config.service';
+import { statusWhereClause } from 'src/common/helper';
 import { DatabaseService } from 'src/database/database.service';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 @Injectable()
@@ -191,7 +192,7 @@ export class SupplierTdsMappingService {
         const skip = (page - 1) * pageSize;
 
         const where: Prisma.SupplierTdsMappingWhereInput = {
-            Status: 'A',
+            Status: statusWhereClause,
             CompanyMasterSid: activeCompanyId,
             ...(search
                 ? {

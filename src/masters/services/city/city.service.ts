@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { GlobalConfigService } from 'src/common/config/master-config.service';
+import { statusWhereClause } from 'src/common/helper';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
@@ -148,7 +149,7 @@ export class CityService {
     const skip = (page - 1) * pageSize;
 
     const where: Prisma.CityMasterWhereInput = {
-      status: 'A',
+      status: statusWhereClause,
       ...(search
         ? {
           OR: [

@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { GlobalConfigService } from 'src/common/config/master-config.service';
+import { statusWhereClause } from 'src/common/helper';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
@@ -130,7 +131,7 @@ export class RoleMenuService {
         const skip = (page - 1) * pageSize;
 
         const where: Prisma.RoleMenuMasterWhereInput = {
-            status: 'A',
+            status: statusWhereClause,
             OR: search ? [
                 { menuMaster: { MenuName: { contains: search, mode: 'insensitive' } } },
                 { roleMaster: { UserRoleName: { contains: search, mode: 'insensitive' } } },

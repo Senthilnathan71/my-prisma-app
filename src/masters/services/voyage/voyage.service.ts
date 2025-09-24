@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { GlobalConfigService } from 'src/common/config/master-config.service';
+import { statusWhereClause } from 'src/common/helper';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
@@ -410,7 +411,7 @@ export class VoyageService {
         const today = new Date().toISOString(); // Use full ISO-8601 DateTime format
 
         const where: Prisma.VoyageMasterHeaderWhereInput = {
-            status: 'A',
+            status: statusWhereClause,
             voyageMasterDetail: {
                 some: {
                     status: 'A',

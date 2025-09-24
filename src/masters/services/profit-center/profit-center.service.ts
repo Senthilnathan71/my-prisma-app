@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { statusWhereClause } from 'src/common/helper';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
@@ -79,27 +80,31 @@ export class ProfitCenterService {
     }
 
     async updateProfitCenter(ProfitCenterMasterSid: number, payload: any, user) {
-        const existing = await this._db.profitCenterMaster.findUnique({
-            where: {
-                ProfitCenterMasterSid: ProfitCenterMasterSid
+    // Check if the record exists
+    const existing = await this._db.profitCenterMaster.findUnique({
+        where: { ProfitCenterMasterSid }
+    });
+
+    if (!existing) {
+        throw new Error('Profit Center does not exist');
+    }
+
+    try {
+        // Update record and manually set UpdatedOn and UpdatedBy
+        const updatedProfitCenter = await this._db.profitCenterMaster.update({
+            where: { ProfitCenterMasterSid },
+            data: {
+                ...payload,
+                UpdatedOn: new Date(),          // current timestamp
             }
         });
 
-        if (!existing) {
-            throw new Error('Profit-Center is not exists');
-        }
-
-        try {
-            const ProfitCenter = await this._db.profitCenterMaster.update({
-                where: {
-                    ProfitCenterMasterSid: ProfitCenterMasterSid
-                }, data: payload
-            });
-            return ProfitCenter;
-        } catch (error) {
-            throw new Error(`Error updating Profit-Center: ${error.message}`);
-        }
+        return updatedProfitCenter;
+    } catch (error: any) {
+        throw new Error(`Error updating Profit Center: ${error.message}`);
     }
+}
+
 
     async softDelete(id: number) {
         const existingProfitCenter = await this._db.profitCenterMaster.findUnique({
@@ -125,7 +130,7 @@ export class ProfitCenterService {
         const skip = (page - 1) * pageSize;
 
         const where: Prisma.ProfitCenterMasterWhereInput = {
-            Status: 'A',
+            Status: statusWhereClause,
             ...(search
                 ? {
                     OR: [

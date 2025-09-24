@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { statusWhereClause } from 'src/common/helper';
 import { DatabaseService } from 'src/database/database.service';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 
@@ -142,7 +143,7 @@ export class TdsExemptionService {
         const { search = '', page = 1, pageSize = 15 } = params;
         const skip = (page - 1) * pageSize;
         const where: Prisma.TDSExemptionWhereInput = {
-            status: 'A',
+            status: statusWhereClause,
         };
 
         const [items, totalCount] = await this._db.$transaction([
