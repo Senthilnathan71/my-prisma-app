@@ -76,6 +76,57 @@ export class CustomerController {
         return output
     }
 
+    @ApiOperation({ summary: 'Get All Customer With Customer Branches' })
+    @ApiCreatedResponse({
+        description: 'Get All Customers with Branches',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Post('with-branches')
+    async getAllCustomersWithCustomerBranches(@Body() body: CompanyIdDto) {
+        let output = new ResponseData;
+        try {
+            let customerData = await this.customerService.getAllCustomersWithCustomerBranch(body.CompanyMasterSid);
+            this.logger.log(`getAllCustomersWithBranches: ${JSON.stringify(customerData)}`)
+            output.data = customerData;
+            output.message = "All Customer with Branches are successfully fetched";
+        } catch (error) {
+            this.logger.warn(`getAllCustomersWithBranches: ${JSON.stringify(error)}`)
+            output.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                output.message = error.message;
+            } else {
+                output.message = 'Internal Server Error';
+            }
+        }
+        return output
+    }
+    @ApiOperation({ summary: 'Get All Vendor Supplier With Customer Branches' })
+    @ApiCreatedResponse({
+        description: 'Get All Vendors Supplier with Branches',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Post('vendor-supplier')
+    async getAllVendorSuppliersWithBranches(@Body() body: CompanyIdDto) {
+        let output = new ResponseData;
+        try {
+            let customerData = await this.customerService.getAllVendorSuppliersWithBranch(body.CompanyMasterSid);
+            this.logger.log(`getAllVendorSuppliersWithBranches: ${JSON.stringify(customerData)}`)
+            output.data = customerData;
+            output.message = "All Vendor Supplier with Branches are successfully fetched";
+        } catch (error) {
+            this.logger.warn(`getAllVendorSuppliersWithBranches: ${JSON.stringify(error)}`)
+            output.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                output.message = error.message;
+            } else {
+                output.message = 'Internal Server Error';
+            }
+        }
+        return output
+    }
+
 
     @ApiOperation({ summary: 'Get Customer By Id' })
     @ApiCreatedResponse({
