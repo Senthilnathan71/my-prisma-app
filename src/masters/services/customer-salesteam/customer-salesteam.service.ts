@@ -168,30 +168,80 @@ export class CustomerSalesteamService {
         }
     }
 
-    async getAllSalesteamOfCustomer(CustomerMasterSid:number){
+    async getAllSalesteamOfCustomer(CustomerMasterSid: number) {
         try {
             const allBranches = await this._db.customerBranch.findMany({
-                where : {
-                    CustomerMasterSid : CustomerMasterSid,
-                    status : statusWhereClause
+                where: {
+                    CustomerMasterSid,
+                    status: statusWhereClause,
                 },
-                select : {
-                    CustomerBranchSid : true
-                }
-            })
-            const allBranchId = allBranches.map(b => b.CustomerBranchSid);
+                select: {
+                    CustomerBranchSid: true,
+                },
+            });
+
+            const allCustomerBranchId = allBranches.map(b => Number(b.CustomerBranchSid));
+            console.log(allCustomerBranchId);
+            console.log(allCustomerBranchId, typeof allCustomerBranchId[0]);
+
+            const allSaleBranch = await this._db.customerSalesBranch.findMany({
+                where: {
+                    customerBranchSid: { in: allCustomerBranchId }
+                },
+            });
+
+            const allSaleBranchId = allSaleBranch.map(b => Number(b.customerSalesSid));
+            console.log(allSaleBranchId);
+
             const allSalesteam = await this._db.customerSalesTeam.findMany({
-                where : {
-                    // CustomerBranchSid : {
-                    //     in : allBranchId
-                    // },
-                    status : statusWhereClause
+                where: {
+                    status: statusWhereClause,
+                    CustomerSalesSid: { in: allSaleBranchId },
                 },
-                orderBy : {
-                    CustomerSalesSid : 'desc'
-                }
-            })
-            return allSalesteam;
+                include: {
+                    branches: true,
+                },
+                orderBy: {
+                    CustomerSalesSid: 'desc',
+                },
+            });
+
+
+            // const allSalesteam = await this._db.customerSalesTeam.findMany({
+            //     where: {
+            //         status: statusWhereClause,
+            //         branches: {
+            //             some: {
+            //                 customerBranch : {
+            //                     CustomerBranchSid : { in: allBranchId },
+            //                 }
+            //             },
+            //         },
+            //     },
+            //     include: {
+            //         branches: true,
+            //     },
+            //     orderBy: {
+            //         CustomerSalesSid: 'desc',
+            //     },
+            // });
+
+            const formattedSalesteam = allSalesteam.map(salesteam => ({
+                CustomerSalesSid: salesteam.CustomerSalesSid,
+                Salesman: salesteam.Salesman,
+                CompanyMasterSid: salesteam.CompanyMasterSid,
+                EffectiveFrom: salesteam.EffectiveFrom,
+                DepartmentMasterSid: salesteam.DepartmentMasterSid,
+                CSPerson: salesteam.CSPerson,
+                DocPerson: salesteam.DocPerson,
+                status: salesteam.status,
+                branches: (salesteam.branches || []).map(b => ({
+                    id: b.id,
+                    customerBranchSid: b.customerBranchSid,
+                })),
+            }));
+
+            return formattedSalesteam;
         } catch (error) {
             throw error;
         }
@@ -199,46 +249,83 @@ export class CustomerSalesteamService {
 
 
 
-    async saveCustomerSalesteam(customerSalesteam:any){
-        try {
-            return await this._db.$transaction(async (prisma)=>{
-                let finalSalesteam :any[] = [];
-                for(const salesteam of customerSalesteam) {
-                    let updatedSalesteam;
-                    let createdSalesteam;
-                    if(salesteam.CustomerSalesSid){
-                        updatedSalesteam = await prisma.customerSalesTeam.update({
-                            where : {
-                                CustomerSalesSid : salesteam.CustomerSalesSid
-                            },
-                            data : {
-                                Salesman : salesteam.Salesman,
-                                // CustomerBranchSid : salesteam.CustomerBranchSid,
-                                EffectiveFrom : salesteam.EffectiveFrom,
-                                status : salesteam.status,
-                                updatedBy : salesteam.updatedBy,
-                            }
-                        })
-                        finalSalesteam.push(updatedSalesteam);
-                    } else {
-                        createdSalesteam = await prisma.customerSalesTeam.create({
-                            data : {
-                                Salesman : salesteam.Salesman,
-                                // CustomerBranchSid : salesteam.CustomerBranchSid,
-                                EffectiveFrom : salesteam.EffectiveFrom,
-                                status : salesteam.status,
-                                createdBy : salesteam.createdBy
-                            }
-                        })
-                        finalSalesteam.push(createdSalesteam);
+
+async saveCustomerSalesteam(customerSalesteam: any[]) {
+    try {
+        const finalSalesteam: any[] = [];
+        for (const salesteam of customerSalesteam) {
+            const result = await this._db.$transaction(async (tx) => {
+                let updatedSalesteam;
+                let createdSalesteam;
+
+                if (salesteam.CustomerSalesSid) {
+                    updatedSalesteam = await tx.customerSalesTeam.update({
+                        where: { CustomerSalesSid: salesteam.CustomerSalesSid },
+                        data: {
+                            Salesman: salesteam.Salesman,
+                            EffectiveFrom: salesteam.EffectiveFrom,
+                            DepartmentMasterSid: salesteam.DepartmentMasterSid,
+                            status: salesteam.status,
+                            updatedBy: salesteam.updatedBy,
+                            CSPerson: salesteam.CSPerson,
+                            DocPerson: salesteam.DocPerson,
+                        },
+                    });
+
+                    const customerSalesBranch = salesteam.branches || [];
+                    for (const branch of customerSalesBranch) {
+                        if (branch.id) {
+                            await tx.customerSalesBranch.update({
+                                where: { id: branch.id },
+                                data: { customerBranchSid: branch.customerBranchSid },
+                            });
+                        } else {
+                            await tx.customerSalesBranch.create({
+                                data: {
+                                    customerSalesSid: updatedSalesteam.CustomerSalesSid,
+                                    customerBranchSid: branch.customerBranchSid,
+                                },
+                            });
+                        }
                     }
+                    return updatedSalesteam;
+                } else {
+                    createdSalesteam = await tx.customerSalesTeam.create({
+                        data: {
+                            Salesman: salesteam.Salesman,
+                            CompanyMasterSid: salesteam.CompanyMasterSid,
+                            EffectiveFrom: salesteam.EffectiveFrom,
+                            createdBy: salesteam.createdBy,
+                            status: salesteam.status,
+                            DepartmentMasterSid: salesteam.DepartmentMasterSid,
+                            CSPerson: salesteam.CSPerson,
+                            DocPerson: salesteam.DocPerson,
+                        },
+                    });
+
+                    const createdBranches = await Promise.all(
+                        (salesteam.branches || []).map(branch =>
+                            tx.customerSalesBranch.create({
+                                data: {
+                                    customerSalesSid: createdSalesteam.CustomerSalesSid,
+                                    customerBranchSid: branch.customerBranchSid,
+                                },
+                            })
+                        )
+                    );
+                    console.log(createdBranches);
+
+                    return createdSalesteam;
                 }
-                return finalSalesteam;
-            })
-        } catch (error) {
-            throw error;
+            });
+            finalSalesteam.push(result);
         }
+        return finalSalesteam;
+    } catch (error) {
+        throw error;
     }
+}
+
 
 
 }
