@@ -470,6 +470,8 @@ model PortMaster {
   tariffPOO             TariffHeader[]       @relation("POO")
   VoyageMasterDetailPOD VoyageMasterDetail[] @relation("POD")
   VoyageMasterDetailPOL VoyageMasterDetail[] @relation("POL")
+   VoyageMasterHeaderPOD VoyageMasterHeader[] @relation("POD")
+  VoyageMasterHeaderPOL VoyageMasterHeader[] @relation("POL")
   bookingHeader         BookingHeader[]
 }
 
@@ -590,6 +592,7 @@ model PreCustomerMeeting {
   createdBy             String            @db.VarChar(100)
   updatedBy             String?           @db.VarChar(100)
   meetingDate           DateTime
+  meetingDuration       String?
   meetingType           String            @db.VarChar(10)
   leadAssignTo          Int
   meetingStatus         String?           @db.VarChar(10)
@@ -835,6 +838,9 @@ model CustomerMaster {
   revenueCharges          CostRevenueCharges[] @relation("REVENUE")
   CustomerMilestone       CustomerMilestone[]
   PreCustomerMeeting      PreCustomerMeeting[]
+  voyageHeaderMasterCarrier VoyageMasterHeader[]@relation("Carrier")
+  voyageHeaderMasterColoader VoyageMasterHeader[]@relation("Coloader")
+  
 }
 
 model PackageTypeMaster {
