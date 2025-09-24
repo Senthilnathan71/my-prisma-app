@@ -583,6 +583,8 @@ model PreCustomerMaster {
   countryMaster        CountryMaster?       @relation(fields: [CountryMasterSid], references: [CountryMasterSid])
   stateMaster          StateMaster          @relation(fields: [StateMasterSid], references: [StateMasterSid])
   preCustomerMeeting   PreCustomerMeeting[]
+  enquiryHeader        EnquiryHeader[]
+  quoteHeader          QuoteHeader[]
 }
 
 model PreCustomerMeeting {
@@ -627,7 +629,7 @@ model ChargeGroup {
   ChargeGroupSid   Int            @id @default(autoincrement()) @map("ChargeGroupSid")
   CompanyMasterSid Int
   GroupName        String         @db.VarChar(100)
-  Remarks          String         @db.VarChar(100)
+  Remarks          String?         @db.VarChar(100)
   companyMaster    CompanyMaster  @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
   chargeMaster     ChargeMaster[]
 }
@@ -677,6 +679,8 @@ model EnquiryHeader {
   CompanyMasterSid     Int?
   BranchMasterSid      Int?
   DepartmentMasterSid  Int?
+  LeadOrCustomer       String?           @default("C") @db.VarChar(1)
+  PreCustomerMasterSid Int?
   CustomerMasterSid    Int?
   CustomerAddressSid   Int?
   UserMasterSid        Int?
@@ -706,6 +710,8 @@ model EnquiryHeader {
   status               String?           @default("A") @db.Char(1)
   LoginSid             Int?
   EnquiryNumber        String?           @db.VarChar(200)
+  FreightPPCC          String?           @default("Prepaid") @db.VarChar(10)
+  Carrier              Int?
   CustomerBranchSid    Int?
   AuthorizerRemarks    String?           @db.VarChar(100)
   authorizerStatus     ApprovalStatus?
@@ -714,6 +720,7 @@ model EnquiryHeader {
   branchMaster         BranchMaster?     @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
   companyMaster        CompanyMaster?    @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
   customerBranch       CustomerBranch?   @relation(fields: [CustomerBranchSid], references: [CustomerBranchSid])
+  preCustomerMaster    PreCustomerMaster? @relation(fields: [PreCustomerMasterSid], references: [PreCustomerMasterSid])
   departmentMaster     DepartmentMaster? @relation(fields: [DepartmentMasterSid], references: [DepartmentMasterSid])
   menuMaster           MenuMaster?       @relation(fields: [MenuMasterSid], references: [MenuMasterSid])
   userMaster           UserMaster?       @relation(fields: [UserMasterSid], references: [UserMasterSid])
@@ -732,6 +739,7 @@ model EnquiryRoute {
   FDPSid           Int
   CompanyMasterSid Int?
   BranchMasterSid  Int?
+  DepartmentMasterSid Int?
   EnquiryHeaderSid Int
   createdOn        DateTime         @default(now()) @db.Timestamptz(6)
   updatedOn        DateTime         @updatedAt @db.Timestamptz(6)
@@ -741,7 +749,6 @@ model EnquiryRoute {
   LoginSid         Int?
   status           String?          @default("A") @db.Char(1)
   enquiryCargo     EnquiryCargo[]
-  enquiryProduct   EnquiryProduct[]
   branchMaster     BranchMaster?    @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
   companyMaster    CompanyMaster?   @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
   enquiryHeader    EnquiryHeader    @relation(fields: [EnquiryHeaderSid], references: [EnquiryHeaderSid])
@@ -780,6 +787,7 @@ model EnquiryCargo {
   companyMaster    CompanyMaster? @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
   enquiryHeader    EnquiryHeader  @relation(fields: [EnquiryHeaderSid], references: [EnquiryHeaderSid])
   enquiryRoute     EnquiryRoute   @relation(fields: [EnquiryRouteSid], references: [EnquiryRouteSid])
+  enquiryProducts  EnquiryProduct[]
 }
 
 model CustomerMaster {
@@ -931,7 +939,9 @@ model QuoteHeader {
   BranchMasterSid     Int
   EnquirySid          Int?
   DepartmentMasterSid Int?
-  CustomerMasterSid   Int
+  LeadOrCustomer      String?           @default("C") @db.VarChar(1)
+  PreCustomerMasterSid Int?
+  CustomerMasterSid   Int?
   CustomerName        String            @db.VarChar(100)
   CustomerAddress     String            @db.VarChar(300)
   AgentMasterSid      Int?
@@ -967,6 +977,7 @@ model QuoteHeader {
   AuthorizerRemarks   String?           @db.VarChar(100)
   authorizerStatus    ApprovalStatus?
   MenuMasterSid       Int?
+  FreightPPCC         String?           @default("Prepaid") @db.VarChar(10)
   bookingHeader       BookingHeader[]
   houseJob            HouseJob[]
   quoteCarrier        QuoteCarrier[]
@@ -974,7 +985,8 @@ model QuoteHeader {
   branchMaster        BranchMaster      @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
   companyMaster       CompanyMaster     @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
   customerBranch      CustomerBranch?   @relation(fields: [CustomerBranchSid], references: [CustomerBranchSid])
-  customerMaster      CustomerMaster    @relation(fields: [CustomerMasterSid], references: [CustomerMasterSid])
+  customerMaster      CustomerMaster?    @relation(fields: [CustomerMasterSid], references: [CustomerMasterSid])
+  preCustomerMaster   PreCustomerMaster? @relation(fields: [PreCustomerMasterSid], references: [PreCustomerMasterSid])
   departmentMaster    DepartmentMaster? @relation(fields: [DepartmentMasterSid], references: [DepartmentMasterSid])
   enquiryHeader       EnquiryHeader?    @relation(fields: [EnquirySid], references: [EnquiryHeaderSid])
   menuMaster          MenuMaster?       @relation(fields: [MenuMasterSid], references: [MenuMasterSid])
@@ -1059,10 +1071,32 @@ model QuoteCharge {
   CompanyMasterSid  Int
   BranchMasterSid   Int
   ChargeUomSid      Int?
-  CustomerMasterSid Int
+  CustomerMasterSid Int?
   CurrencyMasterSid Int
   CostRevenue       String?        @db.VarChar(10)
   ChargeDisplayName String         @db.VarChar(50)
+  CostChargeUomSid  Int?
+  CostPrepaidCollect String?        @db.VarChar(10)
+  CostCurrencyMasterSid Int?  // Default from Charge master also provide lookup from charge master
+  CostExchangeRate      Decimal?       @db.Decimal(6, 3)
+  CostRate              Decimal?       @db.Decimal(15, 3)
+  CostNumberOfUnit      Decimal?       @db.Decimal(4, 3)
+  CostDrCr            String?       @default("D") @db.Char(1)
+  CostAmount            Decimal?       @db.Decimal(15, 3)
+  CostLocalAmount      Decimal?       @db.Decimal(15, 3)
+  CostAgentMasterSid   Int?
+  CostAgentBranchSid   Int?
+  RevenyeChargeUomSid  Int?
+  RevenuePrepaidCollect String?       @default("Prepaid") @db.VarChar(10)
+  RevenueCurrencyMasterSid Int?  // Default from Charge master also provide lookup from charge master
+  RevenueExchangeRate      Decimal?       @db.Decimal(6, 3)
+  RevenueRate              Decimal?       @db.Decimal(15, 3)
+  RevenueNumberOfUnit      Decimal?       @db.Decimal(4, 3)
+  RevenueDrCr            String?       @default("C") @db.Char(1)
+  RevenueAmount            Decimal?       @db.Decimal(15, 3)
+  RevenueLocalAmount      Decimal?       @db.Decimal(15, 3)
+  RevenueCustomerMasterSid Int?
+  RevenueCustomerBranchSid   Int?
   ExchangeRate      Decimal?       @db.Decimal(6, 3)
   Rate              Decimal?       @db.Decimal(15, 3)
   Qty               Decimal?       @db.Decimal(7, 3)
@@ -1084,7 +1118,7 @@ model QuoteCharge {
   branchMaster      BranchMaster   @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
   companyMaster     CompanyMaster  @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
   currencyMaster    CurrencyMaster @relation(fields: [CurrencyMasterSid], references: [CurrencyMasterSid])
-  customerMaster    CustomerMaster @relation(fields: [CustomerMasterSid], references: [CustomerMasterSid])
+  customerMaster    CustomerMaster? @relation(fields: [CustomerMasterSid], references: [CustomerMasterSid])
   quoteCarrier      QuoteCarrier?  @relation(fields: [QuoteCarrierSid], references: [QuoteCarrierSid])
   quoteHeader       QuoteHeader    @relation(fields: [QuoteHeaderSid], references: [QuoteHeaderSid])
   quoteRoute        QuoteRoute     @relation(fields: [QuoteRouteSid], references: [QuoteRouteSid])
@@ -1115,7 +1149,19 @@ model EnquiryProduct {
   CompanyMasterSid  Int
   BranchMasterSid   Int
   EnquiryHeaderSid  Int
-  EnquiryRouteSid   Int
+  EnquiryCargoSid   Int?
+  ExternalPkg       Int?
+  ExternalQty       Int?
+  GrossWeight       Decimal?       @db.Decimal(9, 3)
+  NetWeight         Decimal?      @db.Decimal(9, 3)
+  Volume            Decimal?      @db.Decimal(9, 3)
+  Length            Int?
+  Width             Int?
+  Height            Int?
+  ChargeableWeight  Decimal?      @db.Decimal(9, 3)
+  IsHaz             String?       @db.Char(1)
+  ImcoClass         Int?
+  PkgGroup          Int?
   Remarks           String        @db.VarChar(100)
   createdOn         DateTime      @default(now()) @db.Timestamptz(6)
   updatedOn         DateTime?     @updatedAt @db.Timestamptz(6)
@@ -1127,7 +1173,7 @@ model EnquiryProduct {
   branchMaster      BranchMaster  @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
   companyMaster     CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
   enquiryHeader     EnquiryHeader @relation(fields: [EnquiryHeaderSid], references: [EnquiryHeaderSid])
-  enquiryRoute      EnquiryRoute  @relation(fields: [EnquiryRouteSid], references: [EnquiryRouteSid])
+  enquiryCargo      EnquiryCargo?  @relation(fields: [EnquiryCargoSid], references: [EnquiryCargoSid])
 }
 
 model UOMMaster {
