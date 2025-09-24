@@ -26,6 +26,9 @@ export class EnquiryHeaderService {
                 const enquiryNumber = `enquiry-${dateString}-${(count + 1).toString().padStart(3, '0')}`
                 // Step 1: Create Enquiry Header
                 const enquiryHeaderPayload: any = {
+                    LeadOrCustomer : payload.LeadOrCustomer,
+                    PreCustomerMasterSid : payload.PreCustomerMasterSid,
+                    FreightPPCC : payload.FreightPPCC,
                     CustomerName: payload.CustomerName,
                     DepartmentMasterSid: Number(payload.DepartmentMasterSid),
                     CustomerMasterSid: Number(payload.CustomerMasterSid),
@@ -247,6 +250,7 @@ export class EnquiryHeaderService {
                 where: { EnquiryHeaderSid: enquiryHeaderSid },
                 data: {
                     CustomerName: payload.CustomerName,
+                    FreightPPCC : payload.FreightPPCC,
                     ShipmentExpectedDate: payload.shipmentDate,
                     ShipmentType: payload.Segment,
                     CustomerAddress: payload.CustomerAddress,
@@ -541,6 +545,14 @@ export class EnquiryHeaderService {
                 skip,
                 take: pageSize,
                 orderBy: { EnquiryHeaderSid: 'desc' },
+                include : {
+                    enquiryRoute : {
+                        select : {
+                            POLSid : true,
+                            PODSid : true,
+                        }
+                    }
+                }
             }),
             this._db.enquiryHeader.count({ where }),
         ]);
@@ -552,8 +564,20 @@ export class EnquiryHeaderService {
                         EnquirySid: item.EnquiryHeaderSid
                     }
                 })
+                const pol = await this._db.portMaster.findFirst({
+                    where: {
+                        PortMasterSid: item.enquiryRoute[0]?.POLSid
+                    }
+                })
+                const pod = await this._db.portMaster.findFirst({
+                    where: {
+                        PortMasterSid: item.enquiryRoute[0]?.PODSid
+                    }
+                })
                 return {
                     ...item,
+                    POL : pol,
+                    POD : pod,
                     quoteNo: quote?.QuoteNumber
                 }
             })

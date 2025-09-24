@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { statusWhereClause } from 'src/common/helper';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
@@ -73,7 +74,82 @@ export class CustomerService {
         }
     }
 
+    // For Dropdowns
+    async getAllCustomersWithCustomerBranch(CompanyMasterSid:number){
+        try {
+            const customerList = await this._db.customerMaster.findMany({
+                where : {
+                    CompanyMasterSid : CompanyMasterSid,
+                    status : "A",
+                    CustomerBranch : {some : {}}
+                },
+                select : {
+                    CustomerMasterSid : true,
+                    CustomerName : true,
+                    CustomerBranch : {
+                        where : {
+                            status : 'A'
+                        },
+                        select : {
+                            CustomerBranchSid : true,
+                            BranchName : true,
+                            Address : true,
+                            Email : true,
+                        }
+                    }
+                }
+            });
+            const formattedCustomerList = customerList.flatMap(customer => {
+                const cusBranches = customer.CustomerBranch.map(branch => ({
+                    CustomerMasterSid : customer.CustomerMasterSid,
+                    CustomerBranchSid : branch.CustomerBranchSid,
+                    CustomerName : customer.CustomerName,
+                    BranchName : branch.BranchName,
+                    Address : branch.Address,
+                    Email : branch.Email
+                }))
+                return cusBranches;
+            })
+            return formattedCustomerList;
+        } catch (error) {
+            throw error;
+        }
+    }
 
+    async getAllVendorSuppliersWithBranch(CompanyMasterSid: number) {
+        try {
+            const suppliers = ['vendor', 'agent'];
+            const customerList = await this._db.customerMaster.findMany({
+                where: {
+                    OR: suppliers.map(type => ({
+                        CustomerType: {
+                            path: [type],
+                            equals: 'isTrue',
+                        },
+                    })),
+                    status: 'A',
+                    CompanyMasterSid: CompanyMasterSid
+                },
+                include: {
+                    CustomerBranch : true
+                }
+            });
+            const formattedCustomerList = customerList.flatMap(customer => {
+                const cusBranches = customer.CustomerBranch.map(branch => ({
+                    CustomerMasterSid: customer.CustomerMasterSid,
+                    CustomerBranchSid: branch.CustomerBranchSid,
+                    CustomerName: customer.CustomerName,
+                    BranchName: branch.BranchName,
+                    Address: branch.Address,
+                    Email: branch.Email
+                }))
+                return cusBranches;
+            })
+            return formattedCustomerList;
+        } catch (error) {
+            throw error;
+        }
+    }
 
     async findOne(customerMasterSid: any) {
         try {

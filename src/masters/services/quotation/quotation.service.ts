@@ -42,6 +42,9 @@ export class QuotationService {
                     status: payload.status || "A",
                     CompanyMasterSid: payload.CompanyMasterSid,
                     BranchMasterSid: payload.BranchMasterSid,
+                    LeadOrCustomer: payload.LeadOrCustomer,
+                    PreCustomerMasterSid: payload.PreCustomerMasterSid,
+                    FreightPPCC: payload.FreightPPCC,
                     // QuoteNumber: quoteNumber,
                     createdBy: payload.createdBy,
                     authorizerStatus: payload.authorizerStatus || 'Pending',
@@ -118,6 +121,10 @@ export class QuotationService {
                         Amount: Number(cargo.Amount),
                         costUnit: cargo.costUnit,
                         costCurrency: cargo.costCurrency,
+                        CostAgentMasterSid: cargo.CostAgentMasterSid,
+                        CostAgentBranchSid: cargo.CostAgentBranchSid,
+                        RevenueCustomerMasterSid: cargo.RevenueCustomerMasterSid,
+                        RevenueCustomerBranchSid: cargo.RevenueCustomerBranchSid,
                         costPerUnit: Number(cargo.costPerUnit),
                         createdBy: payload.createdBy
                     }))
@@ -263,7 +270,7 @@ export class QuotationService {
                     SalesmanSid: payload.SalesmanSid,
                     CustomerName: payload.CustomerName,
                     EnquirySid: payload.EnquirySid ? Number(payload.EnquirySid) : null,
-
+                    FreightPPCC: payload.FreightPPCC,
                     CustomerAddress: payload.CustomerAddress,
                     CustomerBranchSid: payload.CustomerBranchSid,
                     IncoTerms: payload.IncoTerms,
@@ -367,6 +374,10 @@ export class QuotationService {
                                     costUnit: cargoItem.costUnit,
                                     costCurrency: cargoItem.costCurrency,
                                     costPerUnit: Number(cargoItem.costPerUnit),
+                                    CostAgentMasterSid : cargoItem.CostAgentMasterSid,
+                                    CostAgentBranchSid : cargoItem.CostAgentBranchSid,
+                                    RevenueCustomerMasterSid : cargoItem.RevenueCustomerMasterSid,
+                                    RevenueCustomerBranchSid : cargoItem.RevenueCustomerBranchSid,
                                     updatedBy: payload.updatedBy,
                                     updatedOn: new Date(),
                                 }
@@ -387,6 +398,10 @@ export class QuotationService {
                                     QuoteHeaderSid: QuoteHeaderSid,
                                     QuoteRouteSid: routeData.QuoteRouteSid, // Link to the correct route
                                     createdBy: payload.updatedBy,
+                                    CostAgentMasterSid: cargoItem.CostAgentMasterSid,
+                                    CostAgentBranchSid: cargoItem.CostAgentBranchSid,
+                                    RevenueCustomerMasterSid: cargoItem.RevenueCustomerMasterSid,
+                                    RevenueCustomerBranchSid: cargoItem.RevenueCustomerBranchSid,
                                     CompanyMasterSid: updatedQuoteHeader.CompanyMasterSid,
                                     BranchMasterSid: updatedQuoteHeader.BranchMasterSid,
                                     CustomerMasterSid: updatedQuoteHeader.CustomerMasterSid,
