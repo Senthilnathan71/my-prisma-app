@@ -2,7 +2,7 @@ import { BadRequestException, Injectable, Logger, NotFoundException } from '@nes
 import { Prisma } from '@prisma/client';
 import { GlobalConfigService } from 'src/common/config/master-config.service';
 import { MENU_CONFIG_MAP } from 'src/common/config/menu-config';
-import { toCamelCase } from 'src/common/helper';
+import { statusWhereClause, toCamelCase } from 'src/common/helper';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
@@ -422,7 +422,7 @@ export class MenuService {
         const skip = (page - 1) * pageSize;
 
         const where: Prisma.MenuMasterWhereInput = {
-            status: 'A',
+            status: statusWhereClause,
             ...(search
                 ? {
                     OR: [

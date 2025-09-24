@@ -2,6 +2,7 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { equals } from 'class-validator';
 import { isDate } from 'node:util/types';
+import { statusWhereClause } from 'src/common/helper';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
@@ -175,7 +176,7 @@ export class TaxService {
         const { search = '', page = 1, pageSize = 15 } = params;
         const skip = (page - 1) * pageSize;
         const where: Prisma.TaxMasterWhereInput = {
-            Status: 'A',
+            Status: statusWhereClause,
             ...(search
                 ? {
                     OR: [

@@ -422,7 +422,7 @@ export class FfUserMasterService {
         const skip = (page - 1) * pageSize;
 
         const where: Prisma.UserMasterWhereInput = {
-            status: 'A',
+            status: statusWhereClause,
             ...(search
                 ? {
                     OR: [

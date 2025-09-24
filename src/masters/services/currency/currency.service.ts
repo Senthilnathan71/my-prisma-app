@@ -5,6 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { statusWhereClause } from 'src/common/helper';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
@@ -142,7 +143,7 @@ export class CurrencyService {
     const skip = (page - 1) * pageSize;
 
     const where: Prisma.CurrencyMasterWhereInput = {
-      status: 'A',
+      status: statusWhereClause,
       ...(search
         ? {
           OR: [

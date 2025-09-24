@@ -6,6 +6,7 @@ import { SearchListDto } from "src/masters/DTO/search-list.dto";
 import { filterDto } from "src/masters/DTO/search-vessel.dto";
 import { GlobalConfigService } from "src/common/config/master-config.service";
 import { contains } from "class-validator";
+import { statusWhereClause } from "src/common/helper";
 
 @Injectable()
 export class QuotationService {
@@ -547,7 +548,7 @@ export class QuotationService {
         const skip = (page - 1) * pageSize;
 
         const where: Prisma.QuoteHeaderWhereInput = {
-            status: 'A',
+            status: statusWhereClause,
             CompanyMasterSid: activeCompanyId,
             BranchMasterSid: activeBranchId,
             ...(search

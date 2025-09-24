@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { statusWhereClause } from 'src/common/helper';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
@@ -113,7 +114,7 @@ export class ChargeTaxService {
 
         const where: Prisma.ChargeTaxMasterWhereInput = {
 
-            Status: 'A',
+            Status: statusWhereClause,
             CompanyMasterSid: activeCompanyId,
             OR: search ? [
 

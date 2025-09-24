@@ -285,7 +285,7 @@ export class CustomerService {
         const skip = (page - 1) * pageSize;
 
         const where: Prisma.CustomerMasterWhereInput = {
-            status: 'A',
+            status: statusWhereClause,
             CompanyMasterSid: activeCompanyId,
             ...(search
                 ? {
