@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { LeadStatus, Prisma } from '@prisma/client';
 import { statusWhereClause } from 'src/common/helper';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
@@ -14,7 +14,9 @@ export class PreCustomerMeetingService {
             const allMeetings = await this._db.preCustomerMeeting.findMany({
                 where: {
                     status: 'A',
-                    meetingStatus:{ not: 'Completed' },
+                    meetingStatus: {
+                        notIn: ['Completed', 'Confirmed'],
+                    },
                     CompanyMasterSid: CompanyMasterSid,
                     BranchMasterSid: BranchMasterSid
                 },
@@ -22,7 +24,7 @@ export class PreCustomerMeetingService {
                     preCustomerMaster : {
                         select : {
                             preCustomerName : true,
-                            
+                            leadStatus:true
                         }
                     }
                     
@@ -39,6 +41,7 @@ export class PreCustomerMeetingService {
             const createdMeeting = await this._db.preCustomerMeeting.create({
                 data: {
                     ...payload,
+                    
                 },
                 include: {
                     branchMaster: true,
@@ -87,7 +90,9 @@ export class PreCustomerMeetingService {
                 where: {
                     PreCustomerMeetingSid: PreCustomerMeetingSid
                 },
-                data: payload,
+                data: {
+                    ...payload
+                },
                 include: {
                     branchMaster: true,
                     companyMaster: true,

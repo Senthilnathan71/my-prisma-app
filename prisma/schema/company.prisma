@@ -580,6 +580,7 @@ model PreCustomerMaster {
   ServiceOfInterest    String?              @db.VarChar(100)
   SpecificRequirements String?              @db.VarChar(100)
   isQualify            Boolean  @default(false)
+  leadStatus           LeadStatus?  @default(Discovery)
   customerMaster       CustomerMaster[]
   branchMaster         BranchMaster?        @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
   cityMaster           CityMaster           @relation(fields: [CityMasterSid], references: [CityMasterSid])
@@ -615,7 +616,6 @@ model PreCustomerMeeting {
   followUpDate          DateTime?
   followUpNote          String?           @db.VarChar(100)
   meetingNote           String?           @db.VarChar(100)
-  opportunityStage      LeadStatus?       @default(Discovery)
   meetingFollowUp       MeetingFollowup[]
   branchMaster          BranchMaster      @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
   companyMaster         CompanyMaster     @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
