@@ -8,7 +8,7 @@ class CompanyIdDto {
     BranchMasterSid: number;
 }
 
-@Controller('lead')
+@Controller('ff-lead')
 export class LeadController {
     constructor(private leadService: LeadService, private logger: Logger) { }
 

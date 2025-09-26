@@ -12,42 +12,51 @@ export class ZoneService {
   async createNewZone(payload: any, user) {
     this.logger.warn(`createNewZone: ${payload}`);
 
-    const existing = await this._db.zoneMaster.findFirst({
-      where: {
-
-        OR: [
-          {
-            ZoneName: {
-              equals: payload.ZoneName.trim(),
-              mode: 'insensitive',
-            }
-          },
-          {
-            ZoneCode: {
-              equals: payload.ZoneCode.trim(),
-              mode: 'insensitive',
-            }
-          }
-        ]
-      },
-    });
-    if (existing) {
-      if (existing.ZoneName === payload.ZoneName) {
-        throw new BadRequestException('Zone name already exists');
-      }
-      if (existing.ZoneCode === payload.ZoneCode) {
-        throw new BadRequestException('Zone code already exists');
-      }
-    }
     try {
-      const Zone = await this._db.zoneMaster.create({
+      // Duplicate check for ZoneName and ZoneCode (case-insensitive, trimmed)
+      if (payload?.ZoneName || payload?.ZoneCode) {
+        const existingZone = await this._db.zoneMaster.findFirst({
+          where: {
+            OR: [
+              {
+                ZoneName: {
+                  equals: payload.ZoneName?.trim(),
+                  mode: 'insensitive',
+                },
+                status: 'A',
+              },
+              {
+                ZoneCode: {
+                  equals: payload.ZoneCode?.trim(),
+                  mode: 'insensitive',
+                },
+                status: 'A',
+              }
+            ]
+          },
+        });
+
+        if (existingZone) {
+          if (existingZone.ZoneName.toLowerCase() === payload.ZoneName?.trim().toLowerCase()) {
+            throw new BadRequestException('Zone name already exists');
+          }
+          if (existingZone.ZoneCode.toLowerCase() === payload.ZoneCode?.trim().toLowerCase()) {
+            throw new BadRequestException('Zone code already exists');
+          }
+        }
+      }
+
+      const zone = await this._db.zoneMaster.create({
         data: {
           ...payload,
         }
       });
-      return Zone;
+      return zone;
     } catch (error) {
-      console.log(error.stack)
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+      this.logger.error(`Error creating Zone: ${error.message}`, error.stack);
       throw new Error(`Error creating Zone: ${error.message}`);
     }
   }
@@ -91,6 +100,42 @@ export class ZoneService {
       if (!existing) {
         throw new BadRequestException(`Zone with Id : ${id} not exist`);
       }
+
+      // Duplicate check for update (excluding current record)
+      if (newData?.ZoneName || newData?.ZoneCode) {
+        const otherWithSameNameOrCode = await this._db.zoneMaster.findFirst({
+          where: {
+            OR: [
+              {
+                ZoneName: {
+                  equals: newData.ZoneName?.trim(),
+                  mode: 'insensitive',
+                },
+                NOT: { ZoneMasterSid: id },
+                status: 'A',
+              },
+              {
+                ZoneCode: {
+                  equals: newData.ZoneCode?.trim(),
+                  mode: 'insensitive',
+                },
+                NOT: { ZoneMasterSid: id },
+                status: 'A',
+              }
+            ]
+          },
+        });
+
+        if (otherWithSameNameOrCode) {
+          if (otherWithSameNameOrCode.ZoneName.toLowerCase() === newData.ZoneName?.trim().toLowerCase()) {
+            throw new BadRequestException('Zone name already exists');
+          }
+          if (otherWithSameNameOrCode.ZoneCode.toLowerCase() === newData.ZoneCode?.trim().toLowerCase()) {
+            throw new BadRequestException('Zone code already exists');
+          }
+        }
+      }
+
       const updatedData = await this._db.zoneMaster.update({
         where: {
           ZoneMasterSid: id,
@@ -99,6 +144,9 @@ export class ZoneService {
       });
       return updatedData;
     } catch (error) {
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
       throw error;
     }
   }
@@ -178,6 +226,7 @@ export class ZoneService {
       totalCount,
     };
   }
+
   async getAuditLogs(tableName: string, recordId?: string) {
     try {
       const whereClause: any = { tableName };

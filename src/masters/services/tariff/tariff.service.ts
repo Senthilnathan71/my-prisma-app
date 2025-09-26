@@ -1,3 +1,4 @@
+//Tariff.service.ts//
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { GlobalConfigService } from 'src/common/config/master-config.service';
@@ -10,32 +11,99 @@ import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 export class TariffService {
     constructor(private _db: DatabaseService, private logger: Logger, private globalConfigService: GlobalConfigService) { }
 
-    async createNewTariff(newData: any) {
+    /**
+     * Dynamic duplication check based on filled fields
+     */
+    private async checkDuplicateTariff(newData: any, excludeTariffId?: number): Promise<void> {
+        // Define all possible fields for duplication check
+        const possibleFields = [
+            'DepartmentMasterSid',
+            'POLSid', 
+            'PODSid',
+            'Carrier',
+            'FDCSid',
+            'IncoTerms',
+            'AgentSid',
+            'CompanyMasterSid'
+        ];
+
+        // Filter only fields that have values (not null/undefined)
+        const filledFields = possibleFields.filter(field => 
+            newData[field] !== undefined && 
+            newData[field] !== null && 
+            newData[field] !== ''
+        );
+
+        // Must have at least Department, POL, POD for basic duplication check
+        const mandatoryFields = ['DepartmentMasterSid', 'POLSid', 'PODSid', 'CompanyMasterSid'];
+        const missingMandatory = mandatoryFields.filter(field => !filledFields.includes(field));
+        
+        if (missingMandatory.length > 0) {
+            throw new BadRequestException(
+                `Missing mandatory fields for duplication check: ${missingMandatory.join(', ')}`
+            );
+        }
+
+        // Build where clause dynamically based on filled fields
+        const whereClause: any = {
+            status: 'A'
+        };
+
+        // Add only filled fields to where clause
+        filledFields.forEach(field => {
+            whereClause[field] = newData[field];
+        });
+
+        // Exclude current record when updating
+        if (excludeTariffId) {
+            whereClause.TariffHeaderSid = { not: excludeTariffId };
+        }
 
         const existing = await this._db.tariffHeader.findFirst({
-            where: {
-                AND: [
-                    { POLSid: newData.POLSid },
-                    { PODSid: newData.PODSid },
-                    { DepartmentMasterSid: newData.DepartmentMasterSid },
-                    { CompanyMasterSid: newData.CompanyMasterSid },
-                    { status: 'A' }
-                ]
-            },
+            where: whereClause,
         });
 
         if (existing) {
-            throw new BadRequestException('Tariff already exists for these POL and POD combinations.');
+            const fieldNames = this.getFieldNames(filledFields, newData);
+            throw new BadRequestException(
+                `Tariff already exists for the combination: ${fieldNames}`
+            );
         }
+    }
 
+    /**
+     * Get human-readable field names for error message
+     */
+    private getFieldNames(fields: string[], data: any): string {
+        const fieldMap = {
+            'DepartmentMasterSid': 'Department',
+            'POLSid': 'POL',
+            'PODSid': 'POD',
+            'Carrier': 'Carrier',
+            'FDCSid': 'FDC',
+            'IncoTerms': 'Inco Terms',
+            'AgentSid': 'Agent',
+            'CompanyMasterSid': 'Company'
+        };
+
+        return fields.map(field => {
+            const value = data[field];
+            const fieldName = fieldMap[field] || field;
+            return `${fieldName}`;
+        }).join(', ');
+    }
+
+    async createNewTariff(newData: any) {
         try {
+            // Check for duplicates based on filled fields
+            await this.checkDuplicateTariff(newData);
 
             let createdTariff = await this._db.tariffHeader.create({
                 data: {
                     ...newData,
                     CompanyMasterSid: newData.CompanyMasterSid
                 }
-            })
+            });
             return createdTariff;
         } catch (error) {
             throw error;
@@ -46,7 +114,7 @@ export class TariffService {
         try {
             let allTariff = await this._db.tariffHeader.findMany({
                 where: {
-                    status: 'A',
+                    status: statusWhereClause,
                     CompanyMasterSid: CompanyMasterSid
                 },
                 include: {
@@ -56,13 +124,12 @@ export class TariffService {
                         }
                     }
                 }
-            })
+            });
             return allTariff;
         } catch (error) {
             throw error;
         }
     }
-
 
     async getTariffById(TariffHeaderSid: number) {
         try {
@@ -70,7 +137,7 @@ export class TariffService {
                 where: {
                     TariffHeaderSid: TariffHeaderSid
                 }
-            })
+            });
             if (!ourTariff) {
                 throw new BadRequestException(`Tariff with id : ${TariffHeaderSid} not exists`);
             }
@@ -80,46 +147,35 @@ export class TariffService {
         }
     }
 
-
     async updateTariffById(TariffHeaderSid: number, updateData: any) {
         try {
-
-            const existing = await this._db.tariffHeader.findFirst({
-                where: {
-                    POLSid: updateData.POLSid,
-                    PODSid: updateData.PODSid,
-                    DepartmentMasterSid: updateData.DepartmentMasterSid,
-                    CompanyMasterSid: updateData.CompanyMasterSid,
-                    TariffHeaderSid: { not: TariffHeaderSid },
-                    status: 'A'
-                },
-            });
-
-            if (existing) {
-                throw new BadRequestException('Tariff already exists for these POL and POD combinations.');
-            }
-
             let exists = await this._db.tariffHeader.findUnique({
                 where: {
                     TariffHeaderSid: TariffHeaderSid
                 }
-            })
+            });
+            
             if (!exists) {
                 throw new BadRequestException(`Tariff with id : ${TariffHeaderSid} not exists`);
             }
+
+            // Merge existing data with update data
+            const mergedData = { ...exists, ...updateData };
+            
+            // Check for duplicates based on filled fields, excluding current record
+            await this.checkDuplicateTariff(mergedData, TariffHeaderSid);
+
             let updatedTariff = await this._db.tariffHeader.update({
                 where: {
                     TariffHeaderSid: TariffHeaderSid
                 },
                 data: updateData
-            })
+            });
             return updatedTariff;
         } catch (error) {
             throw error;
         }
     }
-
-
 
     async deleteTariffById(TariffHeaderSid: number) {
         try {
@@ -144,10 +200,10 @@ export class TariffService {
                         status: 'D'
                     }
                 })
-                let deletedTariffDetail = await prisma.tariffDetail.updateManyAndReturn({
+                let deletedTariffDetail = await prisma.tariffDetail.updateMany({
                     where: {
                         TariffHeaderSid: TariffHeaderSid,
-                        status: 'D'
+                        status: { not: 'D' }
                     },
                     data: {
                         status: 'D'
@@ -219,7 +275,7 @@ export class TariffService {
                 }
             }
         }).catch((err) => {
-            throw new Error(`Error Occurred : ${JSON.stringify(err), err}`);
+            throw new Error(`Error Occurred : ${JSON.stringify(err)}`);
         })
         return searchResults;
     }
@@ -288,6 +344,7 @@ export class TariffService {
             totalCount,
         }
     }
+
     async getAuditLogs(tableName: string, recordId?: string) {
         try {
             const whereClause: any = { tableName };
