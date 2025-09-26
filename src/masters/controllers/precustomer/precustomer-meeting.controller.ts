@@ -112,6 +112,40 @@ export class PreCustomerMeetingController {
     }
 
 
+
+
+    @ApiOperation({ summary: 'Get All PreCustomerMeetings' })
+    @ApiCreatedResponse({
+        description: 'Get All PreCustomerMeetings',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Get('followup/meetingDate/:CompanyId/:BranchId')
+    async getPreCustomerFollowupMeetings(
+        @Param('CompanyId') companyId: number,
+        @Param('BranchId') branchId: number
+    ) {
+        const output = new ResponseData
+        try {
+            const followupMeetings = await this.preCustomerMeetingService.getPreCustomerFollowupMeetings(+companyId,+branchId)
+            this.logger.log(`getPreCustomerMeetings: ${JSON.stringify(followupMeetings)}`)
+            output.data = followupMeetings;
+            output.message = "All PreCustomerFollowupMeetings are successfully fetched";
+        } catch (error) {
+            this.logger.warn(`getPreCustomerMeetings: ${JSON.stringify(error)}`)
+
+            output.status = false;
+            // Handle error message based on the type of error
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                output.message = error.message;
+            } else {
+                output.message = 'Internal Server Error';
+            }
+        }
+        return output;
+    }
+
+
     @ApiOperation({ summary: 'Get PreCustomer by id' })
     @ApiCreatedResponse({
         description: 'Get PreCustomer By Id',
@@ -167,5 +201,7 @@ export class PreCustomerMeetingController {
         }
         return output;
     }
+
+
 
 }

@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { LeadStatus } from '@prisma/client';
 import { DatabaseService } from 'src/database/database.service';
 import { CreatePreCustomerMeetingDto } from 'src/masters/DTO/create-precustomer-meeting.dto';
 import { CreatePrecustomerDto } from 'src/masters/DTO/create-Precustomer.dto';
@@ -256,6 +257,47 @@ export class PreCustomerMeetingService {
         return result;
     }
 
+
+    async getPreCustomerFollowupMeetings(CompanyMasterSid:number,BranchMasterSid:number){
+        const result = await this._db.meetingFollowup.findMany({
+            where:{
+                CompanyMasterSid:CompanyMasterSid,
+                BranchMasterSid:BranchMasterSid
+            },
+            include:{
+                preCustomerMeeting:{
+                    include:{
+                        preCustomerMaster:{
+                            include:{
+                                customerMaster:true
+                            }
+                        }
+                    }
+                }
+            }
+            // select: {
+            //     preCustomerMaster: {
+            //         select: {
+            //             preCustomerName: true
+            //         }
+            //     },
+            //     customerMaster : {
+            //         select : {
+            //             CustomerName : true
+            //         }
+            //     },
+            //     LeadOrCustomer : true,
+            //     PreCustomerMeetingSid: true,
+            //     meetingDate: true,
+            //     followUpDate: true,
+            //     meetingStatus: true
+            // }
+        })
+            .catch((error) => {
+                return []; // Return an empty array or handle it appropriately
+            });
+        return result;
+    }
 
 
 

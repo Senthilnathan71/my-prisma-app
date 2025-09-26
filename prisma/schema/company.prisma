@@ -75,8 +75,10 @@ model CompanyMaster {
   preCustomerMeeting  PreCustomerMeeting[]
   productMaster       ProductMaster[]
   quoteCarrier        QuoteCarrier[]
+  quoteCargo          QuoteCargo[]
   quoteCharge         QuoteCharge[]
   quoteHeader         QuoteHeader[]
+  quoteProduct        QuoteProduct[]
   quoteRoute          QuoteRoute[]
   roleMaster          RoleMaster[]
   roleMenuMaster      RoleMenuMaster[]
@@ -177,8 +179,10 @@ model BranchMaster {
   preCustomerMaster  PreCustomerMaster[]
   preCustomerMeeting PreCustomerMeeting[]
   quoteCarrier       QuoteCarrier[]
+  quoteCargo         QuoteCargo[]
   quoteCharge        QuoteCharge[]
   quoteHeader        QuoteHeader[]
+  quoteProduct       QuoteProduct[]
   quoteRoute         QuoteRoute[]
   routingHeader      RoutingHeader[]
   shipmentMilestone  ShipmentMilestone[]
@@ -576,6 +580,7 @@ model PreCustomerMaster {
   ServiceOfInterest    String?              @db.VarChar(100)
   SpecificRequirements String?              @db.VarChar(100)
   isQualify            Boolean  @default(false)
+  leadStatus           LeadStatus?  @default(Discovery)
   customerMaster       CustomerMaster[]
   branchMaster         BranchMaster?        @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
   cityMaster           CityMaster           @relation(fields: [CityMasterSid], references: [CityMasterSid])
@@ -611,7 +616,6 @@ model PreCustomerMeeting {
   followUpDate          DateTime?
   followUpNote          String?           @db.VarChar(100)
   meetingNote           String?           @db.VarChar(100)
-  opportunityStage      LeadStatus?       @default(Discovery)
   meetingFollowUp       MeetingFollowup[]
   branchMaster          BranchMaster      @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
   companyMaster         CompanyMaster     @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
@@ -876,7 +880,7 @@ model TariffHeader {
   FDCSid              Int?
   Carrier             Int
   StuffingAt          String           @db.VarChar(10)
-  EffectiveDate       DateTime
+  EffectiveDate       DateTime?
   AgentSid            Int?
   IncoTerms           String?          @db.VarChar(10)
   Remarks             String?          @db.VarChar(100)
@@ -991,6 +995,8 @@ model QuoteHeader {
   enquiryHeader       EnquiryHeader?    @relation(fields: [EnquirySid], references: [EnquiryHeaderSid])
   menuMaster          MenuMaster?       @relation(fields: [MenuMasterSid], references: [MenuMasterSid])
   quoteRoute          QuoteRoute[]
+  quoteCargo          QuoteCargo[]
+  quoteProduct        QuoteProduct[]
   ActivityResourceAllocation ActivityResourceAllocation[]
 }
 
@@ -1030,6 +1036,7 @@ model QuoteRoute {
   ContainerQty        String?
   ContainerType       Int?
   quoteCarrier        QuoteCarrier[]
+  quoteCargo          QuoteCargo[]
   quoteCharge         QuoteCharge[]
   branchMaster        BranchMaster         @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
   customerMaster      CustomerMaster?      @relation(fields: [CarrierMasterSid], references: [CustomerMasterSid])
@@ -1063,6 +1070,80 @@ model QuoteCarrier {
   quoteCharge      QuoteCharge[]
 }
 
+model QuoteCargo {
+  QuoteCargoSid    Int        @id @default(autoincrement()) @map("QuoteCargoSid")
+  CompanyMasterSid Int
+  BranchMasterSid  Int
+  QuoteHeaderSid   Int
+  QuoteRouteSid    Int
+  CreatedOn        DateTime   @default(now()) @db.Timestamptz(6)
+  CreatedBy        String     @db.VarChar(100)
+  UpdatedOn        DateTime   @updatedAt @db.Timestamptz(6)
+  UpdatedBy        String?    @db.VarChar(100)
+  Status           String?    @default("A") @db.Char(1)
+  CargoType        String     @db.VarChar(10)
+  WeightUnitSid    Int?
+  GrossWeight      Decimal?    @db.Decimal(10, 3)
+  NetWeight        Decimal?   @db.Decimal(10, 3)
+  Volume           Decimal?   @db.Decimal(10, 3)
+  ChargeableWeight Decimal?   @db.Decimal(10, 3)
+  ContainerType    String     @db.VarChar(10)
+  Qty              Decimal?   @db.Decimal(5, 0)
+  ShipmentTerms    String?    @db.VarChar(10)
+  ProductName      String?    @db.VarChar(50)
+  PackageType      String?    @db.VarChar(5)
+  PackageQty       Decimal?   @db.Decimal(5, 0)
+  CargoDescription String?    @db.VarChar(200)
+
+  companyMaster    CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+  branchMaster     BranchMaster @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
+  quoteHeader      QuoteHeader @relation(fields: [QuoteHeaderSid], references: [QuoteHeaderSid])
+  uomMaster        UOMMaster? @relation(fields: [WeightUnitSid], references: [UOMMasterSid])
+  quoteRoute       QuoteRoute @relation(fields: [QuoteRouteSid], references: [QuoteRouteSid])
+
+  quoteProduct        QuoteProduct[]
+
+}
+
+
+model QuoteProduct {
+  QuoteProductSid Int @id @default(autoincrement()) @map("QuoteProductSid")
+  Sno             Int
+  ProductSid      Int
+  ProductName     String         @db.VarChar(20)
+  PackageType     String         @db.VarChar(5)
+  CargoDescription 	String         @db.VarChar(100)
+  ProductUnit 		 Int
+  CompanyMasterSid Int
+  BranchMasterSid  Int
+  QuoteHeaderSid   Int
+  QuoteCargoSid 	 Int
+  CreatedOn        DateTime       @default(now()) @db.Timestamptz(6)
+  CreatedBy        String     @db.VarChar(100)
+  UpdatedOn        DateTime   @updatedAt @db.Timestamptz(6)
+  UpdatedBy        String?    @db.VarChar(100)
+  LoginSid         Int?
+  Status           String?        @default("A") @db.Char(1)
+  ExternalPkg		   Int?
+  ExternalQty		   Int?
+  GrossWeight		   Decimal?       @db.Decimal(10, 3)
+  NetWeight		   Decimal?      @db.Decimal(10, 3)
+  Volume			   Decimal?      @db.Decimal(10, 3)
+  Length			   Decimal?      @db.Decimal(10, 3)
+  Width			   Decimal?      @db.Decimal(10, 3)
+  Height			   Decimal?      @db.Decimal(10, 3)
+  ChargeableWeight Decimal?      @db.Decimal(10, 3)
+  IsHaz			   String?       @db.Char(1)
+  ImcoClass		   Int?
+  PkgGroup		   Int?
+  Remarks			   String?       @db.VarChar(200)
+
+  companyMaster    CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+  branchMaster     BranchMaster @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
+  quoteHeader      QuoteHeader @relation(fields: [QuoteHeaderSid], references: [QuoteHeaderSid])
+  quoteCargo       QuoteCargo @relation(fields: [QuoteCargoSid], references: [QuoteCargoSid])
+}
+
 model QuoteCharge {
   QuoteChargeSid    Int            @id @default(autoincrement()) @map("QuoteChargeSid")
   QuoteRouteSid     Int
@@ -1072,7 +1153,7 @@ model QuoteCharge {
   BranchMasterSid   Int
   ChargeUomSid      Int?
   CustomerMasterSid Int?
-  CurrencyMasterSid Int
+  CurrencyMasterSid Int?
   CostRevenue       String?        @db.VarChar(10)
   ChargeDisplayName String         @db.VarChar(50)
   CostChargeUomSid  Int?
@@ -1086,7 +1167,7 @@ model QuoteCharge {
   CostLocalAmount      Decimal?       @db.Decimal(15, 3)
   CostAgentMasterSid   Int?
   CostAgentBranchSid   Int?
-  RevenyeChargeUomSid  Int?
+  RevenueChargeUomSid  Int?
   RevenuePrepaidCollect String?       @default("Prepaid") @db.VarChar(10)
   RevenueCurrencyMasterSid Int?  // Default from Charge master also provide lookup from charge master
   RevenueExchangeRate      Decimal?       @db.Decimal(6, 3)
@@ -1117,7 +1198,7 @@ model QuoteCharge {
   UOMMasterSid      Int?
   branchMaster      BranchMaster   @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
   companyMaster     CompanyMaster  @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
-  currencyMaster    CurrencyMaster @relation(fields: [CurrencyMasterSid], references: [CurrencyMasterSid])
+  currencyMaster    CurrencyMaster? @relation(fields: [CurrencyMasterSid], references: [CurrencyMasterSid])
   customerMaster    CustomerMaster? @relation(fields: [CustomerMasterSid], references: [CustomerMasterSid])
   quoteCarrier      QuoteCarrier?  @relation(fields: [QuoteCarrierSid], references: [QuoteCarrierSid])
   quoteHeader       QuoteHeader    @relation(fields: [QuoteHeaderSid], references: [QuoteHeaderSid])
@@ -1199,6 +1280,7 @@ model UOMMaster {
   bookingProduct     BookingProduct[]
   commodityMaster    CommodityMaster[]
   quoteCharge        QuoteCharge[]
+  quoteCargo         QuoteCargo[]
   tariffDetail       TariffDetail[]
   masterJobContainer MasterJobContainer[]
  CostCharges       CostRevenueCharges[] @relation("COST")
