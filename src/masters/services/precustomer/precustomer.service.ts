@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
+import { LeadStatus } from '@prisma/client';
 import { DatabaseService } from 'src/database/database.service';
 import { CreatePrecustomerDto } from 'src/masters/DTO/create-Precustomer.dto';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
@@ -92,7 +93,8 @@ export class PrecustomerService {
                 leadReferredBy: params.leadReferredBy,
                 createdBy: params['userEmail'],
                 status: params.status || 'A',
-                isQualify: params.isQualify
+                isQualify: params.isQualify,
+                leadStatus: params.leadStatus
             };
 
             if (params.PreCustomerMasterSid) {
