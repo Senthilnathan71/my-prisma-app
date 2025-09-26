@@ -1,3 +1,4 @@
+import { LeadStatus } from "@prisma/client";
 import { IsBoolean, IsDate, IsNumber, IsOptional, IsString } from "class-validator";
 
 export class CreatePrecustomerDto {
@@ -54,4 +55,8 @@ export class CreatePrecustomerDto {
     @IsString()
     @IsOptional()
     createdBy : string
+
+    @IsString()
+    @IsOptional()
+    leadStatus:LeadStatus
 }
