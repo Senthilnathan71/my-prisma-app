@@ -114,10 +114,11 @@ export class VoyageService {
 
     async findOne(VoyageMasterHeaderSid: number) {
         try {
+            console.log("Id",VoyageMasterHeaderSid);
             const voyage = await this._db.voyageMasterHeader.findUnique({
                 where: {
                     VoyageMasterHeaderSid: VoyageMasterHeaderSid,
-                    status: 'A'
+                    status : statusWhereClause
                 },
                 include: {
                     vesselMaster: {
@@ -139,7 +140,7 @@ export class VoyageService {
                     }
                 }
             });
-
+            console.log("Value",voyage);
             if (!voyage) {
                 throw new NotFoundException(`Voyage with ID ${VoyageMasterHeaderSid} not found`);
             }

@@ -10,7 +10,7 @@ class CompanyIdDto {
   CompanyMasterSid: number;
   BranchMasterSid: number;
 }
-@Controller('precustomer')
+@Controller('ff-precustomer')
 
 export class PrecustomerController {
 

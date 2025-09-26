@@ -11,7 +11,7 @@ class CompanyIdDto {
   CompanyMasterSid: number;
   BranchMasterSid: number;
 }
-@Controller('precustomer-meeting')
+@Controller('ff-precustomer-meeting')
 @Auth()
 export class PreCustomerMeetingController {
 
