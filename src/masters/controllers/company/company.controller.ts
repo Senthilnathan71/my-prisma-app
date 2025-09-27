@@ -184,6 +184,32 @@ export class CompanyController {
         return resp;
     }
 
+    @ApiOperation({ summary: 'Get company config' })
+    @ApiCreatedResponse({
+        description: "Get company config",
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Get(':id/config')
+    async getCompanyConfig(@Param('id', ParseIntPipe) companyId: number) {
+        let resp = new ResponseData();
+        try {
+            let res = await this.companyService.getCompanyConfig(companyId);
+            this.logger.log(`Company config fetched: ${JSON.stringify(res)}`);
+            resp.data = res;
+            resp.message = "Company config fetched successfully";
+        } catch (error) {
+            this.logger.warn(`Company config fetch error: ${error}`);
+            resp.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                resp.message = error.message;
+            } else {
+                resp.message = "Internal Server Error";
+            }
+        }
+        return resp;
+    }
+
     @ApiOperation({ summary: 'Save company config' })
     @ApiCreatedResponse({
         description: "Save company config",
