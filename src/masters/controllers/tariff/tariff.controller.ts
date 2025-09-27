@@ -216,14 +216,4 @@ export class TariffController {
         }
         return resp;
     }
-
-
-
-
-
-
-
-
-
-
 }
