@@ -162,6 +162,7 @@ export class CurrencyExchangeService {
                     status: 'A'
                 }
             })
+            console.log(directRecord);
             if (directRecord) {
                 return directRecord.BuyRate;
             }
@@ -173,6 +174,7 @@ export class CurrencyExchangeService {
                     status: 'A'
                 }
             })
+            console.log(inverseRecord);
             if (inverseRecord) {
                 return inverseRecord.SellRate;
             }

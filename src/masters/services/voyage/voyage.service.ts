@@ -581,6 +581,8 @@ export class VoyageService {
                 whereClause.VoyageType = MovementType;
             }
 
+            console.log(whereClause);
+
             const voyages = await this._db.voyageMasterHeader.findMany({
                 where: whereClause,
                 include: {
@@ -591,8 +593,7 @@ export class VoyageService {
                             VesselShortCode: true
                         }
                     }
-                },
-                distinct: ['VesselMasterSid'] // Get unique vessels
+                }
             });
 
             // Extract unique vessels

@@ -12,6 +12,76 @@ import { UomService } from "src/masters/services/uom/uom-master.service";
 export class UomMasterController {
     constructor(private UomService: UomService, private logger: Logger) { }
 
+    @ApiOperation({ summary: 'Get Package Type UOM' })
+    @ApiCreatedResponse({ description: 'Get Package Type UOM', type: ResponseData })
+    @HttpCode(HttpStatus.OK)
+    @Get('package-type-uom')
+    async getPackageTypeUOM() {
+        const resp = new ResponseData();
+        try {
+            const res = await this.UomService.getPackageTypeUOM();
+            this.logger.log(`Package Type UOM : ${JSON.stringify(res)}`);
+            resp.data = res;
+            resp.message = "Package Type UOM is successfully fetched";
+        } catch (error) {
+            this.logger.warn(`Package Type UOM Error : ${JSON.stringify(error)}`, error);
+            resp.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                resp.message = error.message;
+            } else {
+                resp.message = "Internal Server Error";
+            }
+        }
+        return resp;
+    }
+    @ApiOperation({ summary: 'Get All Measurement UOM' })
+    @ApiCreatedResponse({ description: 'Get Measurement UOM', type: ResponseData })
+    @HttpCode(HttpStatus.OK)
+    @Get('measurement-uom')
+    async getMeasurementUOM() {
+        const resp = new ResponseData();
+        try {
+            const res = await this.UomService.getAllMeasurementUOM();
+            this.logger.log(`Measurement UOM : ${JSON.stringify(res)}`);
+            resp.data = res;
+            resp.message = "Measurement UOM is successfully fetched";
+        } catch (error) {
+            this.logger.warn(`Measurement UOM Error : ${JSON.stringify(error)}`, error);
+            resp.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                resp.message = error.message;
+            } else {
+                resp.message = "Internal Server Error";
+            }
+        }
+        return resp;
+    }
+
+    @ApiOperation({ summary: 'Get All Weight UOM' })
+    @ApiCreatedResponse({ description: 'Get Weight UOM', type: ResponseData })
+    @HttpCode(HttpStatus.OK)
+    @Get('weight-uom')
+    async getWeightUOM() {
+        const resp = new ResponseData();
+        try {
+            const res = await this.UomService.getAllWeightUOM();
+            this.logger.log(`Weight UOM : ${JSON.stringify(res)}`);
+            resp.data = res;
+            resp.message = "Weight UOM is successfully fetched";
+        } catch (error) {
+            this.logger.warn(`Weight UOM Error : ${JSON.stringify(error)}`, error);
+            resp.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                resp.message = error.message;
+            } else {
+                resp.message = "Internal Server Error";
+            }
+        }
+        return resp;
+    }
+
+
+
     @ApiOperation({ summary: 'Get All Uom' })
     @ApiCreatedResponse({
         description: 'Get All Uom',
@@ -69,29 +139,6 @@ export class UomMasterController {
             }
         }
         return output
-    }
-
-    @ApiOperation({ summary: 'Get Package Type UOM' })
-    @ApiCreatedResponse({ description: 'Get Package Type UOM', type: ResponseData })
-    @HttpCode(HttpStatus.OK)
-    @Get('package-type-uom')
-    async getPackageTypeUOM() {
-        const resp = new ResponseData();
-        try {
-            const res = await this.UomService.getPackageTypeUOM();
-            this.logger.log(`Package Type UOM : ${JSON.stringify(res)}`);
-            resp.data = res;
-            resp.message = "Package Type UOM is successfully fetched";
-        } catch (error) {
-            this.logger.warn(`Package Type UOM Error : ${JSON.stringify(error)}`, error);
-            resp.status = false;
-            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
-                resp.message = error.message;
-            } else {
-                resp.message = "Internal Server Error";
-            }
-        }
-        return resp;
     }
 
 

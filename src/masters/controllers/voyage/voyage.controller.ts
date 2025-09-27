@@ -270,7 +270,7 @@ export class VoyageController {
     async fetchVesselsByPorts(@Body() payload: any) {
         const output = new ResponseData;
         try {
-            const Voyage = await this.voyageService.getAvailableVessels(payload.POO, payload.POL, payload.POD)
+            const Voyage = await this.voyageService.getAvailableVessels(payload.POL, payload.POD, payload.MovementType)
             this.logger.log(`fetchVesselsByPorts: ${JSON.stringify(Voyage)}`)
             output.data = Voyage
         } catch (error) {

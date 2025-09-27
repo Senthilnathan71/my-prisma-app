@@ -428,6 +428,27 @@ export class QuotationController {
         return resp;
     }
 
+    @ApiOperation({ summary: 'Delete Quote Product' })
+    @ApiCreatedResponse({
+        description: 'Delete Quote Product',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Delete('product/:QuoteProductSid')
+    async deleteProduct(@Param('QuoteProductSid', ParseIntPipe) QuoteProductSid: number) {
+        let output = new ResponseData
+        try {
+            let quote = await this.quotationService.deleteQuoteProduct(QuoteProductSid);
+            this.logger.debug(`deletedQuoteProduct: ${JSON.stringify(QuoteProductSid)}`)
+            output.data = quote;
+            output.message = "Quote Product deleted successfully.";
+        } catch (error) {
+            this.logger.error(`deleteQuoteProduct: ${JSON.stringify(QuoteProductSid)}`)
+            output.message = error.message;
+        }
+        return output;
+    }
+
 
 
 }

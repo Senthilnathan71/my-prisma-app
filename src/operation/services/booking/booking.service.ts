@@ -1493,33 +1493,37 @@ export class BookingService {
                         })
                         : null;
 
-                    const fromCurrencyId = company?.CurrencyMasterSid!;
-                    const fromCurrency = fromCurrencyId
-                        ? await this.globalConfigService.getMasterData('currency_master', fromCurrencyId)
+                    const toCurrencyId = company?.CurrencyMasterSid!;
+                    const toCurrency = toCurrencyId
+                        ? await this.globalConfigService.getMasterData('currency_master', toCurrencyId)
                         : null;
 
-                    const costToCurrency = await this.globalConfigService.getMasterData(
+                    const costFromCurrency = await this.globalConfigService.getMasterData(
                         'currency_master',
                         detail.BuyCurrency
                     );
-                    const revenueToCurrency = await this.globalConfigService.getMasterData(
+                    const revenueFromCurrency = await this.globalConfigService.getMasterData(
                         'currency_master',
                         detail.SaleCurrency
                     );
 
-                    const costExchangeRate = fromCurrency
-                        ? await this.currencyExchangeService.getExchangeRate({
-                            fromCurrencyCode: costToCurrency.currencyCode,
-                            toCurrencyCode: fromCurrency.currencyCode,
+                    const costExchangeRate = 
+                    toCurrency ? 
+                    costFromCurrency === toCurrency ? 
+                    1 : await this.currencyExchangeService.getExchangeRate({
+                            fromCurrencyCode: costFromCurrency.currencyCode,
+                            toCurrencyCode: toCurrency.currencyCode,
                         })
-                        : null;
+                    : null;
 
-                    const revenueExchangeRate = fromCurrency
-                        ? await this.currencyExchangeService.getExchangeRate({
-                            fromCurrencyCode: revenueToCurrency.currencyCode,
-                            toCurrencyCode: fromCurrency.currencyCode,
-                        })
-                        : null;
+                    const revenueExchangeRate =
+                        toCurrency ?
+                            revenueFromCurrency === toCurrency ?
+                                1 : await this.currencyExchangeService.getExchangeRate({
+                                    fromCurrencyCode: revenueFromCurrency.currencyCode,
+                                    toCurrencyCode: toCurrency.currencyCode,
+                                })
+                            : null;
 
                     return {
                         ...detail,
