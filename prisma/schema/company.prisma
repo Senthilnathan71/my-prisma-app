@@ -25,6 +25,7 @@ model CompanyMaster {
   StateMasterSid      Int?
   Pan                 String?                    @db.VarChar(20)
   config              Json?
+  voyageMasterHeader VoyageMasterHeader[]
   attachDocument      AttachDocument[]
   authorityDetail     AuthorityDetail[]
   AuthorityLog        AuthorityLog[]
@@ -145,6 +146,7 @@ model BranchMaster {
   lastHBLNo          Int?                       @default(0)
   lastQuotationNo    Int?                       @default(0)
   lastShipmentNo     Int?                       @default(0)
+  voyageMasterHeader VoyageMasterHeader[]
   attachDocument     AttachDocument[]
   authorityDetail    AuthorityDetail[]
   AuthorityLog       AuthorityLog[]
@@ -298,8 +300,8 @@ model CurrencyExchange {
   EffectiveFrom       DateTime
   FromCurrency        String         @db.VarChar(3)
   ToCurrency          String         @db.VarChar(3)
-  SellRate            Decimal        @db.Decimal(6, 5)
-  BuyRate             Decimal        @db.Decimal(6, 5)
+  SellRate            Decimal?        @db.Decimal(9, 5)
+  BuyRate             Decimal?        @db.Decimal(9, 5)
   BankName            String?         @db.VarChar(50)
   CompanyMasterSid    Int?
   BranchMasterSid     Int?
@@ -499,6 +501,7 @@ model ChargeMaster {
   chargeCode          String               @db.VarChar(5)
   chargeName          String               @db.VarChar(100)
   UOM                 Int?
+  UnitQty             String?
   createdOn           DateTime             @default(now()) @db.Timestamptz(6)
   updatedOn           DateTime             @updatedAt @db.Timestamptz(6)
   deletedAt           DateTime?
@@ -934,6 +937,10 @@ model TariffDetail {
   currencyMasterSale CurrencyMaster @relation("Sale", fields: [SaleCurrency], references: [CurrencyMasterSid])
   tariffHeader       TariffHeader   @relation(fields: [TariffHeaderSid], references: [TariffHeaderSid])
   UOMMaster          UOMMaster      @relation(fields: [UOMSid], references: [UOMMasterSid])
+
+  QuoteCharge     QuoteCharge[]
+  BookingRates   BookingRates[]
+
 }
 
 model QuoteHeader {
@@ -953,7 +960,6 @@ model QuoteHeader {
   AgentAddress        String?           @db.VarChar(300)
   SalesmanSid         Int?
   QuoteSource         String?           @db.VarChar(20)
-  IncoTerms           String?           @db.VarChar(10)
   Remarks             String?           @db.VarChar(100)
   EnquiryRemarks      String?           @db.VarChar(100)
   CarrierPrint        String?           @db.Char(1)
@@ -979,6 +985,8 @@ model QuoteHeader {
   TransportBy         String?           @db.VarChar(200)
   CustomerBranchSid   Int?
   AuthorizerRemarks   String?           @db.VarChar(100)
+  AgreedRate          String?            @db.VarChar(10) @default("N")
+  IncoTermSid           Int?
   authorizerStatus    ApprovalStatus?
   MenuMasterSid       Int?
   FreightPPCC         String?           @default("Prepaid") @db.VarChar(10)
@@ -1051,7 +1059,8 @@ model QuoteCarrier {
   QuoteRouteSid    Int
   QuoteHeaderSid   Int
   CarrierMasterSid Int?
-  CarrierName      String        @db.VarChar(100)
+  CarrierName      String?        @db.VarChar(100)
+  TransitTime      String?
   CompanyMasterSid Int
   BranchMasterSid  Int
   ApprovalStatus   String?       @default("A") @db.Char(1)
@@ -1154,6 +1163,7 @@ model QuoteCharge {
   ChargeUomSid      Int?
   CustomerMasterSid Int?
   CurrencyMasterSid Int?
+  TariffDetailSid   Int?
   CostRevenue       String?        @db.VarChar(10)
   ChargeDisplayName String         @db.VarChar(50)
   CostChargeUomSid  Int?
@@ -1204,6 +1214,9 @@ model QuoteCharge {
   quoteHeader       QuoteHeader    @relation(fields: [QuoteHeaderSid], references: [QuoteHeaderSid])
   quoteRoute        QuoteRoute     @relation(fields: [QuoteRouteSid], references: [QuoteRouteSid])
   uomMaster         UOMMaster?     @relation(fields: [UOMMasterSid], references: [UOMMasterSid])
+  tariffDetail         TariffDetail?     @relation(fields: [TariffDetailSid], references: [TariffDetailSid])
+
+BookingRates BookingRates[]
 }
 
 model RoutingHeader {
@@ -2589,6 +2602,7 @@ model HouseJob {
   updatedBy           String?             @db.VarChar(100)
   status              String?             @default("A") @db.Char(1)
   BookingStatus       String?             @db.VarChar(100)
+  BookingRateSid      Int?
   DepartmentMasterSid Int
   CustomerBranchSid   Int?
   AuthorizerRemarks   String?             @db.VarChar(100)
@@ -2620,6 +2634,8 @@ model HouseJob {
   customerMaster        CustomerMaster  @relation(fields:[CustomerMasterSid], references:[CustomerMasterSid])
   masterJob            MasterJob?     @relation(fields: [MasterJobSid], references: [MasterJobSid])
   bookingHeader        BookingHeader?  @relation(fields: [BookingHeaderSid], references: [BookingHeaderSid])
+  bookingRates        BookingRates?  @relation(fields: [BookingRateSid], references: [BookingRatesSid])
+
   Cargo                   HouseJobCargo[]
   Connections             HouseJobConnection[]
   Others                  HouseJobOthers[]
