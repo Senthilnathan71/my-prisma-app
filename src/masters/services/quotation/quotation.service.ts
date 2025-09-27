@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from "@nestjs/common";
-import { Prisma } from "@prisma/client";
+import { LeadStatus, Prisma } from "@prisma/client";
 import { DatabaseService } from "src/database/database.service";
 import * as moment from 'moment-timezone';
 import { SearchListDto } from "src/masters/DTO/search-list.dto";
@@ -187,6 +187,16 @@ export class QuotationService {
                                 Remarks : quoteCharge.Remarks,
                             }
                         });
+
+                        if (quoteHeader) {
+                            await this._db.preCustomerMaster.update({
+                                where: {
+                                    PreCustomerMasterSid: payload.PreCustomerMasterSid
+                                }, data: {
+                                    leadStatus: LeadStatus.QuotationCreated
+                                }
+                            })
+                        }
 
 
                         return { createdQuoteRoute, createdQuoteCarrier };
