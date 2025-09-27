@@ -878,8 +878,8 @@ model TariffHeader {
   PODTerminal         String           @db.VarChar(5)
   ViaPortSid          Int?
   FDCSid              Int?
-  Carrier             Int
-  StuffingAt          String           @db.VarChar(10)
+  Carrier             Int?
+  StuffingAt          String?           @db.VarChar(10)
   EffectiveDate       DateTime?
   AgentSid            Int?
   IncoTerms           String?          @db.VarChar(10)
@@ -895,7 +895,7 @@ model TariffHeader {
   MovementType        String?          @db.VarChar(10)
   tariffDetail        TariffDetail[]
   customerAgent       CustomerMaster?  @relation("Agent", fields: [AgentSid], references: [CustomerMasterSid])
-  customerCarrier     CustomerMaster   @relation("Carrier", fields: [Carrier], references: [CustomerMasterSid])
+  customerCarrier     CustomerMaster?   @relation("Carrier", fields: [Carrier], references: [CustomerMasterSid])
   companyMaster       CompanyMaster?   @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
   departmentMaster    DepartmentMaster @relation(fields: [DepartmentMasterSid], references: [DepartmentMasterSid])
   portFDC             PortMaster?      @relation("FDC", fields: [FDCSid], references: [PortMasterSid])
@@ -2054,6 +2054,7 @@ model HawbStock {
   AirwayBillType   String          @default("Airline") @db.VarChar(10)
   AirwayBillNumber String          @db.VarChar(20)
   Agent            Int?
+  AWBList          String?
   HAWBSerial       String          @db.VarChar(15)
   NumberofHAWB     Decimal         @db.Decimal(3, 0)
   ReceivedDate     DateTime
@@ -2076,6 +2077,7 @@ model MawbStock {
   BranchMasterSid  Int
   AirwayBillType   String          @default("Airline") @db.VarChar(10)
   MasterBillNumber String          @db.VarChar(20)
+  AWBList          String?
   Agent            Int?
   MAWBSerial       String          @db.VarChar(15)
   NumberofMAWB     Decimal         @db.Decimal(3, 0)
