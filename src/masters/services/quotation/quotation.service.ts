@@ -795,6 +795,8 @@ export class QuotationService {
         }
     }
 
+
+
     async getTariffByQuoteDetails(payload) {
         try {
             const allTariffDetails = await this._db.tariffDetail.findMany({
