@@ -21,6 +21,24 @@ interface ShipmentMilestoneDTO {
     ShipmentNo?: string
 }
 
+interface TariffBookingPayload {
+  EffectiveDate: Date | string;        // required – tariff effective from
+  ExpiredDate: Date | string;          // required – tariff valid until
+  DepartmentMasterSid: number;         // required – department
+  POLSid: number;                      // required – Port of Loading
+  PODSid: number;                      // required – Port of Discharge
+  CompanyMasterSid: number;            // required – company
+
+  // ------- Optional filters --------
+  PORSid?: number;                     // Port of Origin
+  FPODSid?: number;                    // Final Port of Discharge
+  Carrier?: number;                    // Carrier customer id
+  AgentSid?: number;                    // Agent id
+  IncoTerms?: string;                  // e.g., "FOB", "CIF"
+  CargoType?: string;                  // e.g., "FCL", "LCL"
+}
+
+
 @Injectable()
 export class BookingService {
 
@@ -1466,78 +1484,167 @@ export class BookingService {
         }
     }
 
-    async getTariffByBookingDetails(payload) {
-        try {
-            const allTariffDetails = await this._db.tariffDetail.findMany({
-                where: {
-                    EffectiveDate: { lte: new Date(payload.EffectiveDate) },
-                    ExpiredOn: { gte: new Date(payload.ExpiredDate) },
-                    tariffHeader: {
-                        DepartmentMasterSid: payload.DepartmentMasterSid,
-                        POLSid: payload.POLSid,
-                        PODSid: payload.PODSid,
+    // async getTariffByBookingDetails(payload) {
+    //     try {
+    //         const allTariffDetails = await this._db.tariffDetail.findMany({
+    //             where: {
+    //                 EffectiveDate: { lte: new Date(payload.EffectiveDate) },
+    //                 ExpiredOn: { gte: new Date(payload.ExpiredDate) },
+    //                 tariffHeader: {
+    //                     DepartmentMasterSid: payload.DepartmentMasterSid,
+    //                     POLSid: payload.POLSid,
+    //                     PODSid: payload.PODSid,
 
-                        ...(payload.CompanyMasterSid && { CompanyMasterSid: payload.CompanyMasterSid }),
-                        ...(payload.PORSid && { POOSid: payload.PORSid }),
-                        ...(payload.FPODSid && { FDCSid: payload.FPODSid }),
-                    },
-                    ...(payload.CargoType && { CargoType: payload.CargoType }),
-                },
-            });
+    //                     ...(payload.CompanyMasterSid && { CompanyMasterSid: payload.CompanyMasterSid }),
+    //                     ...(payload.PORSid && { POOSid: payload.PORSid }),
+    //                     ...(payload.FPODSid && { FDCSid: payload.FPODSid }),
+    //                 },
+    //                 ...(payload.CargoType && { CargoType: payload.CargoType }),
+    //             },
+    //         });
 
-            const enrichedDetails = await Promise.all(
-                allTariffDetails.map(async (detail) => {
-                    const company = payload.CompanyMasterSid
-                        ? await this._db.companyMaster.findUnique({
-                            where: { CompanyMasterSid: payload.CompanyMasterSid },
-                        })
-                        : null;
+    //         const enrichedDetails = await Promise.all(
+    //             allTariffDetails.map(async (detail) => {
+    //                 const company = payload.CompanyMasterSid
+    //                     ? await this._db.companyMaster.findUnique({
+    //                         where: { CompanyMasterSid: payload.CompanyMasterSid },
+    //                     })
+    //                     : null;
 
-                    const toCurrencyId = company?.CurrencyMasterSid!;
-                    const toCurrency = toCurrencyId
-                        ? await this.globalConfigService.getMasterData('currency_master', toCurrencyId)
-                        : null;
+    //                 const toCurrencyId = company?.CurrencyMasterSid!;
+    //                 const toCurrency = toCurrencyId
+    //                     ? await this.globalConfigService.getMasterData('currency_master', toCurrencyId)
+    //                     : null;
 
-                    const costFromCurrency = await this.globalConfigService.getMasterData(
-                        'currency_master',
-                        detail.BuyCurrency
-                    );
-                    const revenueFromCurrency = await this.globalConfigService.getMasterData(
-                        'currency_master',
-                        detail.SaleCurrency
-                    );
+    //                 const costFromCurrency = await this.globalConfigService.getMasterData(
+    //                     'currency_master',
+    //                     detail.BuyCurrency
+    //                 );
+    //                 const revenueFromCurrency = await this.globalConfigService.getMasterData(
+    //                     'currency_master',
+    //                     detail.SaleCurrency
+    //                 );
 
-                    const costExchangeRate = 
-                    toCurrency ? 
-                    costFromCurrency === toCurrency ? 
-                    1 : await this.currencyExchangeService.getExchangeRate({
-                            fromCurrencyCode: costFromCurrency.currencyCode,
-                            toCurrencyCode: toCurrency.currencyCode,
-                        })
-                    : null;
+    //                 const costExchangeRate = 
+    //                 toCurrency ? 
+    //                 costFromCurrency === toCurrency ? 
+    //                 1 : await this.currencyExchangeService.getExchangeRate({
+    //                         fromCurrencyCode: costFromCurrency.currencyCode,
+    //                         toCurrencyCode: toCurrency.currencyCode,
+    //                     })
+    //                 : null;
 
-                    const revenueExchangeRate =
-                        toCurrency ?
-                            revenueFromCurrency === toCurrency ?
-                                1 : await this.currencyExchangeService.getExchangeRate({
-                                    fromCurrencyCode: revenueFromCurrency.currencyCode,
-                                    toCurrencyCode: toCurrency.currencyCode,
-                                })
-                            : null;
+    //                 const revenueExchangeRate =
+    //                     toCurrency ?
+    //                         revenueFromCurrency === toCurrency ?
+    //                             1 : await this.currencyExchangeService.getExchangeRate({
+    //                                 fromCurrencyCode: revenueFromCurrency.currencyCode,
+    //                                 toCurrencyCode: toCurrency.currencyCode,
+    //                             })
+    //                         : null;
 
-                    return {
-                        ...detail,
-                        costExchangeRate,
-                        revenueExchangeRate,
-                    };
-                })
-            );
+    //                 return {
+    //                     ...detail,
+    //                     costExchangeRate,
+    //                     revenueExchangeRate,
+    //                 };
+    //             })
+    //         );
 
-            return enrichedDetails;
-        } catch (error) {
-            throw error;
-        }
-    }
+    //         return enrichedDetails;
+    //     } catch (error) {
+    //         throw error;
+    //     }
+    // }
+
+
+
+    
+
+async getTariffByBookingDetails(payload:TariffBookingPayload) {
+  try {
+    // ---------- 1️⃣  Dynamic WHERE clause ----------
+    const where: any = {
+      EffectiveDate: { lte: new Date(payload.EffectiveDate) },
+      ExpiredOn:     { gte: new Date(payload.ExpiredDate) },
+      tariffHeader: {
+        DepartmentMasterSid: payload.DepartmentMasterSid,
+        POLSid: payload.POLSid,
+        PODSid: payload.PODSid,
+        CompanyMasterSid: payload.CompanyMasterSid,
+      },
+    };
+
+    // optional filters – add only if provided in payload
+    if (payload.PORSid)   where.tariffHeader.POOSid     = payload.PORSid;    // Port of Origin
+    if (payload.FPODSid)  where.tariffHeader.FDCSid     = payload.FPODSid;   // FDC
+    if (payload.Carrier)  where.tariffHeader.Carrier    = payload.Carrier;   // Carrier customer
+    if (payload.AgentSid) where.tariffHeader.AgentSid   = payload.AgentSid;  // Agent
+    if (payload.IncoTerms) where.tariffHeader.IncoTerms = payload.IncoTerms; // Incoterm
+    if (payload.CargoType) where.CargoType              = payload.CargoType; // Cargo type filter
+
+    // ---------- 2️⃣  Fetch tariff details with header + currency info ----------
+    const allTariffDetails = await this._db.tariffDetail.findMany({
+      where,
+      include: {
+        // include what you may need in the response
+        tariffHeader: true,               // to see Dept/POL/POD etc.
+        currencyMasterBuy: true,          // buy currency details
+        currencyMasterSale: true,         // sale currency details
+        companyMaster: true,              // company if linked
+        UOMMaster: true                   // unit of measure
+      }
+    });
+
+    // ---------- 3️⃣  Enrich each tariff detail ----------
+    const enrichedDetails = await Promise.all(
+      allTariffDetails.map(async (detail) => {
+        const company = payload.CompanyMasterSid
+          ? await this._db.companyMaster.findUnique({
+              where: { CompanyMasterSid: payload.CompanyMasterSid },
+            })
+          : null;
+
+        const toCurrencyId = company?.CurrencyMasterSid;
+        const toCurrency = toCurrencyId
+          ? await this.globalConfigService.getMasterData('currency_master', toCurrencyId)
+          : null;
+
+        const costFromCurrency = detail.currencyMasterBuy;
+        const revenueFromCurrency = detail.currencyMasterSale;
+
+        const costExchangeRate = toCurrency
+          ? (costFromCurrency.currencyCode === toCurrency.currencyCode
+              ? 1
+              : await this.currencyExchangeService.getExchangeRate({
+                  fromCurrencyCode: costFromCurrency.currencyCode,
+                  toCurrencyCode:   toCurrency.currencyCode,
+                }))
+          : null;
+
+        const revenueExchangeRate = toCurrency
+          ? (revenueFromCurrency.currencyCode === toCurrency.currencyCode
+              ? 1
+              : await this.currencyExchangeService.getExchangeRate({
+                  fromCurrencyCode: revenueFromCurrency.currencyCode,
+                  toCurrencyCode:   toCurrency.currencyCode,
+                }))
+          : null;
+
+        return {
+          ...detail,
+          costExchangeRate,
+          revenueExchangeRate,
+        };
+      })
+    );
+
+    // ---------- 4️⃣  Return enriched array ----------
+    return enrichedDetails;
+  } catch (error) {
+    throw error;
+  }
+}
 
 
   
