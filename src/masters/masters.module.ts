@@ -137,6 +137,8 @@ import { ReportMasterController } from './controllers/report-master/report-maste
 import { ReportMasterService } from './services/report-master/report-master.service';
 import { CustomerMilestoneController } from './controllers/customer-milestone/customer-milestone.controller';
 import { CustomerMilestoneService } from './services/customer-milestone/customer-milestone.service';
+import { MawbStockService } from './services/mawb-stock/mawb-stock.service';
+import { MawbStockController } from './controllers/mawb-stock/mawb-stock.controller';
 
 @Module({
   providers: [
@@ -209,7 +211,8 @@ import { CustomerMilestoneService } from './services/customer-milestone/customer
     EmailService,
     ContainerActivityMasterService,
     ReportMasterService,
-    CustomerMilestoneService
+    CustomerMilestoneService,
+    MawbStockService
   ],
   controllers: [
     UserController,
@@ -279,7 +282,8 @@ import { CustomerMilestoneService } from './services/customer-milestone/customer
     ChargeTdsController,
     ContainerActivityMasterController,
     ReportMasterController,
-    CustomerMilestoneController
+    CustomerMilestoneController,
+    MawbStockController
   ],
   exports: [UserService]
 })
