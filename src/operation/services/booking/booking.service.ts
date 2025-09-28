@@ -4,7 +4,7 @@ import { DatabaseService } from 'src/database/database.service';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 import * as moment from 'moment-timezone';
 import { GlobalConfigService } from 'src/common/config/master-config.service';
-import { OperationCommonService } from '../operation-common/operation-common.service';
+import { OperationCommonService, RateDTO } from '../operation-common/operation-common.service';
 import { CurrencyExchangeService } from 'src/masters/services/currency-exchange/currency-exchange.service';
 
 interface CostRevenueDTO {
@@ -423,14 +423,12 @@ export class BookingService {
             if (!ourBooking) {
                 throw new BadRequestException('Error fetching booking record.');
             }
-            const costRevenuePayload: CostRevenueDTO = {
-                MenuMasterSid: ourBooking.MenuMasterSid!,
+            const costRevenuePayload: RateDTO = {
                 CompanyMasterSid: ourBooking.CompanyMasterSid,
                 BranchMasterSid: ourBooking.BranchMasterSid!,
-                TransactionSid: ourBooking.BookingHeaderSid,
-                ShipmentNo: ourBooking.ShipmentNo!
+                BookingHeaderSid: ourBooking.BookingHeaderSid
             }
-            const respectiveCostRevenueCharges = await this.commonService.getAllCostRevenueCharges(costRevenuePayload);
+            const respectiveCostRevenueCharges = await this.commonService.getAllRateCharges(costRevenuePayload);
 
             let voyageDetails;
             if (ourBooking.VoyageMasterSid) {
@@ -1439,7 +1437,7 @@ export class BookingService {
 
     async getAllRateLookups(payload: any) {
         try {
-            const [charges, uoms, docTypes] = await this._db.$transaction([
+            const [charges, uoms, docTypes, Vouchers] = await this._db.$transaction([
                 this._db.chargeMaster.findMany({
                     where: { Status: 'A', CompanyMasterSid: payload.CompanyMasterSid },
                     select: {
@@ -1470,10 +1468,17 @@ export class BookingService {
                         VoucherTypeMasterSid: true,
                         DocumentTypeName: true
                     },
+                }),
+                this._db.voucherHeader.findMany({
+                    where:{Status:'A'},
+                    select:{
+                        VoucherHeaderSid:true,
+                        VoucherNumber:true
+                    }
                 })
 
             ]);
-            return { charges, uoms, docTypes }
+            return { charges, uoms, docTypes, Vouchers}
         } catch (error) {
             console.error('Error fetching Rate Lookups:', error);
             return {

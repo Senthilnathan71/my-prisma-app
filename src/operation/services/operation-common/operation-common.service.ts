@@ -10,6 +10,13 @@ interface CostRevenueDTO {
     ShipmentNo ?: string  
 }
 
+
+export interface RateDTO {
+    CompanyMasterSid ?: number,
+    BranchMasterSid ?: number,
+    BookingHeaderSid?: number
+}
+
 interface ShipmentMilestoneDTO {
     CompanyMasterSid ?: number,
     BranchMasterSid ?: number,
@@ -55,6 +62,23 @@ export class OperationCommonService {
                     ShipmentNo,
                     TransactionSid,
                     status : 'A'
+                }
+            })
+            return allCostRevenueCharges;
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    async getAllRateCharges(payload:RateDTO){
+        try {
+            const { CompanyMasterSid , BranchMasterSid, BookingHeaderSid } = payload;
+            const allCostRevenueCharges = await this._db.bookingRates.findMany({
+                where : {
+                    CompanyMasterSid,
+                    BranchMasterSid,
+                    BookingHeaderSid,
+                    Status : 'A'
                 }
             })
             return allCostRevenueCharges;
