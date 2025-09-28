@@ -608,6 +608,33 @@ export class CompanyService {
             throw error;
         }
     }
+
+    async getCompanyConfig(companyId: number) {
+        try {
+            const company = await this._db.companyMaster.findUnique({
+                where: { CompanyMasterSid: companyId },
+                select: {
+                    CompanyMasterSid: true,
+                    companyName: true,
+                    config: true
+                }
+            });
+
+            if (!company) {
+                throw new BadRequestException(`Company with id ${companyId} not found`);
+            }
+
+            return {
+                CompanyMasterSid: company.CompanyMasterSid,
+                companyName: company.companyName,
+                config: company.config || {}
+            };
+        } catch (error) {
+            console.error('Error fetching company config:', error);
+            throw error;
+        }
+    }
+
     async getFieldConfiguration() {
         try {
             const fieldConfig = await this._db.fieldConfiguration.findFirst({
