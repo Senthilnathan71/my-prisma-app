@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { LeadStatus, Prisma } from '@prisma/client';
 import { contains } from 'class-validator';
 import * as moment from 'moment-timezone';
 import { parseDateFromString, statusWhereClause } from 'src/common/helper';
@@ -125,6 +125,16 @@ export class EnquiryHeaderService {
                         CreatedBy: payload.createdBy,
                     }
                 })
+
+                if(enquiryHeader){
+                    await this._db.preCustomerMaster.update({
+                        where:{
+                            PreCustomerMasterSid: payload.PreCustomerMasterSid
+                        },data:{
+                            leadStatus:LeadStatus.EnquiryGenerated
+                        }
+                    })
+                }
 
                 // Return Success Response
                 return {

@@ -242,7 +242,8 @@ model BookingRates {
   ChargeMasterSid   Int
   ChargeDescription String    @db.VarChar(100)
   ChargeUomSid      Int
-
+QuoteChargeSid      Int?
+TariffDetailSid     Int?
   CostPrepaidCollect    String?  @default("Prepaid") @db.VarChar(10)
   CostCurrencyMasterSid Int?
   CostExchangeRate      Decimal? @db.Decimal(6, 3)
@@ -270,6 +271,8 @@ model BookingRates {
   CostChargeUomSid         Int?
   RevenueChargeUomSid      Int?
   Remarks                  String?            @db.VarChar(100)
+  tariffDetail         TariffDetail?     @relation(fields: [TariffDetailSid], references: [TariffDetailSid])
+  quoteCharge            QuoteCharge?      @relation(fields: [QuoteChargeSid], references: [QuoteChargeSid])
   BookingHeader            BookingHeader      @relation(fields: [BookingHeaderSid], references: [BookingHeaderSid])
   BranchMaster             BranchMaster       @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
   companyMaster            CompanyMaster      @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
@@ -279,6 +282,8 @@ model BookingRates {
   voucherTypeMaster        VoucherTypeMaster? @relation(fields: [VoucherTypeMasterSid], references: [VoucherTypeMasterSid])
   costChargeUOMMaster      UOMMaster?         @relation("COST", fields: [CostChargeUomSid], references: [UOMMasterSid])
   revenueChargeUOMMaster   UOMMaster?         @relation("REVENUE", fields: [RevenueChargeUomSid], references: [UOMMasterSid])
+
+  HouseJob HouseJob[]
 }
 
 model VesselMaster {
@@ -328,7 +333,8 @@ model VoyageMasterHeader {
   CoLoad                String?   @default("N") @db.Char(1)
   Coloader              Int? // from partymaster
   VoyageType            String?   @db.VarChar(10) //( Air, Sea, Road )
-
+  CompanyMasterSid      Int?
+  BranchMasterSid       Int?
   POLSid                 Int? //(port master)
   PODSid                 Int?//(port Master)
   ETA                    DateTime?
@@ -341,6 +347,8 @@ model VoyageMasterHeader {
   MasterJobVoyage        MasterJobVoyage[]
   voyageMasterDetail     VoyageMasterDetail[]
   bookingHeader          BookingHeader[]
+  branchMaster         BranchMaster?  @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
+  companyMaster        CompanyMaster? @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
   portMasterPOD         PortMaster?        @relation("POD", fields: [PODSid], references: [PortMasterSid])
   portMasterPOL         PortMaster?        @relation("POL", fields: [POLSid], references: [PortMasterSid])
   customerMasterCarrier  CustomerMaster?      @relation("Carrier", fields: [Carrier], references: [CustomerMasterSid])

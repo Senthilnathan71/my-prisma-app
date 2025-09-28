@@ -75,7 +75,8 @@ export class AuthController {
                 token: await this.jwtService.sign({
                     id: user.UserMasterSid,
                     projectType: loginData.projectType
-                })
+                }, { expiresIn: '3h' }   // ensure every issued token has a 3h lifetime
+                )
             };
             this.logger.log(`Login successful for email: ${loginData.email}`);
             await this.authService.userHistory(user, loginData, req)

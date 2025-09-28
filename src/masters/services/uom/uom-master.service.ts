@@ -71,6 +71,34 @@ export class UomService {
         }
     }
 
+    async getAllMeasurementUOM(){
+        try {
+            const allMeasurementUOM =await this._db.uOMMaster.findMany({
+                where: {
+                    UOMType : 'M',
+                    status: "A"
+                }
+            });
+            return allMeasurementUOM;
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    async getAllWeightUOM(){
+        try {
+            const allWeightUOM =await this._db.uOMMaster.findMany({
+                where: {
+                    UOMType : 'W',
+                    status: "A"
+                }
+            });
+            return allWeightUOM;
+        } catch (error) {
+            throw error;
+        }
+    }
+
 
     async getAllUom() {
         try {
