@@ -99,6 +99,20 @@ export class UomService {
         }
     }
 
+    async getUOMByType(type:string){
+        try {
+            const uom = await this._db.uOMMaster.findMany({
+                where: {
+                    UOMType : type,
+                    status: "A"
+                }
+            });
+            return uom;
+        } catch (error) {
+            throw error;
+        }
+    }
+
 
     async getAllUom() {
         try {

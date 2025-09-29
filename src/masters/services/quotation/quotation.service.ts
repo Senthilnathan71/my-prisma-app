@@ -17,7 +17,6 @@ export class QuotationService {
 
     async createQuotation(payload) {
         try {
-            return await this._db.$transaction(async (prisma) => {
                 const dateString = moment().format('YYYYMMDD');
                 const count = await this._db.quoteHeader.count({
                     where: { QuoteNumber: { contains: dateString } }
@@ -28,14 +27,13 @@ export class QuotationService {
                 const quoteDate = payload.quoteDate ? new Date(payload.QuoteDate) : new Date();
                 const quoteHeaderPayload: any = {
                     CustomerName: payload.CustomerName,
-                    CustomerMasterSid: Number(payload.CustomerMasterSid),
+                    CustomerMasterSid: Number(payload.CustomerMasterSid) || null,
                     CustomerBranchSid: payload.CustomerBranchSid,
                     QuoteDate: quoteDate,
                     EnquirySid: payload.EnquirySid ? Number(payload.EnquirySid) : null,
                     CustomerAddress: payload.CustomerAddress,
                     Email: payload.Email,
                     CustomerRef: payload.CustomerRef,
-                    IncoTermSid: payload.IncoTerms,
                     ClearanceBy: payload.ClearanceBy,
                     TransportBy: payload.TransportBy,
                     SalesmanSid: payload.SalesmanSid,
@@ -46,18 +44,19 @@ export class QuotationService {
                     LeadOrCustomer: payload.LeadOrCustomer,
                     PreCustomerMasterSid: payload.PreCustomerMasterSid,
                     FreightPPCC: payload.FreightPPCC,
+                    AgreedRate : payload.AgreedRate,
                     // QuoteNumber: quoteNumber,
                     createdBy: payload.createdBy,
                     authorizerStatus: payload.authorizerStatus || 'Pending',
                     AuthorizerRemarks: payload.AuthorizerRemarks || ''
                 };
 
-                const quoteHeader = await prisma.quoteHeader.create({ data: quoteHeaderPayload });
+                const quoteHeader = await this._db.quoteHeader.create({ data: quoteHeaderPayload });
 
-                // Step 2: Create Quote Routes & Quote Carriers
+                // Step 2: Create Quote Routes
                 const quoteRoutes = await Promise.all(
-                    payload.routes.map(async (route,index) => {
-                        const createdQuoteRoute = await prisma.quoteRoute.create({
+                    payload.quoteRoutes.map(async (route,index) => {
+                        const createdQuoteRoute = await this._db.quoteRoute.create({
                             data: {
                                 QuoteHeaderSid: quoteHeader.QuoteHeaderSid,
                                 DepartmentMasterSid: Number(route.DepartmentMasterSid),
@@ -80,23 +79,79 @@ export class QuotationService {
                                 // Need to be removed later
                                 CarrierName : "hello",
                             },
+                        }).catch(error => {
+                            console.log(error);
                         });
 
-                        const createdQuoteCarrier = await prisma.quoteCarrier.create({
-                            data: {
-                                QuoteRouteSid: createdQuoteRoute.QuoteRouteSid,
-                                QuoteHeaderSid: quoteHeader.QuoteHeaderSid,
-                                CarrierMasterSid: route.CarrierMasterSid,
-                                CarrierName: route.CarrierName,
-                                CompanyMasterSid: quoteHeader.CompanyMasterSid,
-                                BranchMasterSid: quoteHeader.BranchMasterSid,
-                                ApprovalStatus: "P",
-                                createdBy: payload.createdBy,
-                            },
-                        });
+                        if(!createdQuoteRoute) return;
 
+                        const allCarriers = route.quoteCarriers || [];
+                        let finalCarriers :any[] = [];
+                        await Promise.all(
+                            allCarriers.map(async (carrier) => {
+                                const createdQuoteCarrier = await this._db.quoteCarrier.create({
+                                    data: {
+                                        QuoteRouteSid: createdQuoteRoute.QuoteRouteSid,
+                                        QuoteHeaderSid: quoteHeader.QuoteHeaderSid,
+                                        CarrierMasterSid: carrier.CarrierMasterSid,
+                                        CarrierName: carrier.CarrierName,
+                                        TransitTime: carrier.TransitTime,
+                                        CompanyMasterSid: quoteHeader.CompanyMasterSid,
+                                        BranchMasterSid: quoteHeader.BranchMasterSid,
+                                        ApprovalStatus: "P",
+                                        createdBy: payload.createdBy,
+                                    },
+                                });
+                                
 
-                        const cargo = route.cargo;
+                                const allCharges = carrier.quoteCharges || [];
+                                let finalCharges :any[] = [];
+                                await Promise.all(
+                                    allCharges.map(async (charge) => {
+                                        const createdCharge = await this._db.quoteCharge.create({
+                                            data: {
+                                                QuoteRouteSid: createdQuoteRoute.QuoteRouteSid,
+                                                QuoteHeaderSid:  quoteHeader.QuoteHeaderSid,
+                                                QuoteCarrierSid: createdQuoteCarrier.QuoteCarrierSid,
+                                                CompanyMasterSid: quoteHeader.CompanyMasterSid,
+                                                BranchMasterSid: quoteHeader.BranchMasterSid,
+                                                createdBy: payload.createdBy,
+                                                status: "A",
+                                                ChargeUomSid: charge.ChargeUomSid,
+                                                ChargeDisplayName: charge.ChargeDisplayName,
+                                                CostChargeUomSid: charge.CostChargeUomSid,
+                                                CostPrepaidCollect: charge.CostPrepaidCollect || "Prepaid",
+                                                CostCurrencyMasterSid: charge.CostCurrencyMasterSid,
+                                                CostExchangeRate: Number(charge.CostExchangeRate) || 0,
+                                                CostRate: Number(charge.CostRate) || 0,
+                                                CostNumberOfUnit: Number(charge.CostNumberOfUnit) || 0,
+                                                CostDrCr: charge.CostDrCr || "D",
+                                                CostAmount: Number(charge.CostAmount) || 0,
+                                                CostLocalAmount: Number(charge.CostLocalAmount) || 0,
+                                                CostAgentMasterSid: charge.CostAgentMasterSid,
+                                                CostAgentBranchSid: charge.CostAgentBranchSid,
+                                                RevenueChargeUomSid: charge.RevenueChargeUomSid,
+                                                RevenuePrepaidCollect: charge.RevenuePrepaidCollect || "Prepaid",
+                                                RevenueCurrencyMasterSid: charge.RevenueCurrencyMasterSid,
+                                                RevenueExchangeRate: Number(charge.RevenueExchangeRate) || 0,
+                                                RevenueRate: Number(charge.RevenueRate) || 0,
+                                                RevenueNumberOfUnit: Number(charge.RevenueNumberOfUnit) || 0,
+                                                RevenueDrCr: charge.RevenueDrCr || "C",
+                                                RevenueAmount: Number(charge.RevenueAmount) || 0,
+                                                RevenueLocalAmount: Number(charge.RevenueLocalAmount) || 0,
+                                                RevenueCustomerMasterSid: charge.RevenueCustomerMasterSid,
+                                                RevenueCustomerBranchSid: charge.RevenueCustomerBranchSid,
+                                                Remarks: charge.Remarks,
+                                            }
+                                        })
+                                        finalCharges.push(createdCharge)
+                                    })
+                                )
+                                createdQuoteCarrier['quoteCharges'] = finalCharges;
+                                finalCarriers.push(createdQuoteCarrier)
+                            })
+                        );
+
                         const quoteCargo = await this._db.quoteCargo.create({
                             data : {
                                 CompanyMasterSid: quoteHeader.CompanyMasterSid,
@@ -105,36 +160,36 @@ export class QuotationService {
                                 QuoteRouteSid: createdQuoteRoute.QuoteRouteSid,
                                 CreatedBy : payload.createdBy,
                                 Status : "A",
-                                CargoType :  route.CargoType,
+                                CargoType :  route.CargoType || '',
                                 WeightUnitSid : route.WeightUnitSid,
                                 GrossWeight : Number(route.GrossWeight) || 0,
                                 NetWeight : Number(route.NetWeight) || 0,
                                 Volume : Number(route.Volume) || 0,
                                 ChargeableWeight : Number(route.ChargeableWeight) || 0,
-                                ContainerType : route.ContainerType,
+                                ContainerType : route.ContainerType || '',
                                 Qty : Number(route.Qty) || 0,
-                                ShipmentTerms : route.ShipmentTerms,
-                                PackageType : route.PackageType,
+                                ShipmentTerms : route.ShipmentTerms || '',
+                                PackageType : route.PackageType || '',
                                 PackageQty : Number(route.PackageQty) || 0,
-                                CargoDescription : route.CargoDescription,
+                                CargoDescription : route.CargoDescription || '',
                             }
                         })
 
                         const products = await this._db.quoteProduct.createMany({
-                            data: payload.routes[index].products.map((product,index) => ({
+                            data: route.quoteProducts.map((product,index) => ({
                                 Sno: index + 1,
                                 ProductSid: product.ProductSid,
-                                ProductName: product.ProductName,
-                                PackageType: product.PackageType,
-                                CargoDescription: product.CargoDescription,
-                                ProductUnit: product.ProductUnit,
+                                ProductName: product.ProductName || '',
+                                PackageType: product.PackageType || '',
+                                CargoDescription: product.CargoDescription || '',
+                                ProductUnit: product.ProductUnit || 0,
                                 CompanyMasterSid: quoteHeader.CompanyMasterSid,
                                 BranchMasterSid: quoteHeader.BranchMasterSid,
                                 QuoteHeaderSid: quoteHeader.QuoteHeaderSid,
                                 QuoteCargoSid: quoteCargo.QuoteCargoSid,
                                 CreatedBy: payload.createdBy,
                                 Status: "A",
-                                ExternalPkg: product.ExternalPkg,
+                                ExternalPkg: product.ExternalPkg || null,
                                 ExternalQty: Number(product.ExternalQty) || 0,
                                 GrossWeight: Number(product.GrossWeight) || 0,
                                 NetWeight: Number(product.NetWeight) || 0,
@@ -143,52 +198,14 @@ export class QuotationService {
                                 Width: Number(product.Width) || 0,
                                 Height: Number(product.Height) || 0,
                                 ChargeableWeight: Number(product.ChargeableWeight) || 0,
-                                IsHaz: product.IsHaz,
-                                ImcoClass: product.ImcoClass,
-                                PkgGroup: product.PkgGroup,
+                                IsHaz: product.IsHaz ? "Y" : "N",
+                                ImcoClass: product.ImcoClass || null,
+                                PkgGroup: Number(product.PkgGroup) || null,
                                 Remarks: product.Remarks
                             }))
                         });
-                        
-                        const quoteCharge = payload.routes[index].charges || [];
-                        const charges = await prisma.quoteCharge.create({
-                            data : {
-                                QuoteRouteSid: createdQuoteRoute.QuoteRouteSid,
-                                QuoteHeaderSid: payload.QuoteHeaderSid,
-                                QuoteCarrierSid: createdQuoteCarrier.QuoteCarrierSid,
-                                CompanyMasterSid: quoteHeader.CompanyMasterSid,
-                                BranchMasterSid: quoteHeader.BranchMasterSid,
-                                createdBy: payload.createdBy,
-                                status: "A",
-                                ChargeUomSid: quoteCharge.ChargeUomSid,
-                                ChargeDisplayName: quoteCharge.ChargeDisplayName,
-                                CostChargeUomSid : quoteCharge.CostChargeUomSid,
-                                CostPrepaidCollect : quoteCharge.CostPrepaidCollect || "Prepaid" ,
-                                CostCurrencyMasterSid : quoteCharge.CostCurrencyMasterSid,
-                                CostExchangeRate : Number(quoteCharge.CostExchangeRate) || 0,
-                                CostRate : Number(quoteCharge.CostRate) || 0,
-                                CostNumberOfUnit : Number(quoteCharge.CostNumberOfUnit) || 0,
-                                CostDrCr : quoteCharge.CostDrCr || "D",
-                                CostAmount : Number(quoteCharge.CostAmount) || 0,
-                                CostLocalAmount : Number(quoteCharge.CostLocalAmount) || 0,
-                                CostAgentMasterSid : quoteCharge.CostAgentMasterSid,
-                                CostAgentBranchSid : quoteCharge.CostAgentBranchSid,
-                                RevenueChargeUomSid : quoteCharge.RevenueChargeUomSid,
-                                RevenuePrepaidCollect : quoteCharge.RevenuePrepaidCollect || "Prepaid",
-                                RevenueCurrencyMasterSid : quoteCharge.RevenueCurrencyMasterSid,
-                                RevenueExchangeRate : Number(quoteCharge.RevenueExchangeRate) || 0,
-                                RevenueRate : Number(quoteCharge.RevenueRate) || 0,
-                                RevenueNumberOfUnit : Number(quoteCharge.RevenueNumberOfUnit) || 0,
-                                RevenueDrCr : quoteCharge.RevenueDrCr || "C",
-                                RevenueAmount : Number(quoteCharge.RevenueAmount) || 0,
-                                RevenueLocalAmount : Number(quoteCharge.RevenueLocalAmount) || 0,
-                                RevenueCustomerMasterSid : quoteCharge.RevenueCustomerMasterSid,
-                                RevenueCustomerBranchSid : quoteCharge.RevenueCustomerBranchSid,
-                                Remarks : quoteCharge.Remarks,
-                            }
-                        });
 
-                        if (quoteHeader) {
+                        if (quoteHeader && payload.LeadOrCustomer === "L") {
                             await this._db.preCustomerMaster.update({
                                 where: {
                                     PreCustomerMasterSid: payload.PreCustomerMasterSid
@@ -199,9 +216,14 @@ export class QuotationService {
                         }
 
 
-                        return { createdQuoteRoute, createdQuoteCarrier };
+                        return {
+                            createdQuoteRoute,
+                            finalCarriers,
+                            quoteCargo,
+                            products
+                        };
                     })
-                );
+                )
 
                 return {
                     message: 'Quote created successfully',
@@ -210,7 +232,6 @@ export class QuotationService {
                         quoteRoutes
                     }
                 };
-            });
         } catch (error) {
             throw new Error(`Transaction failed: ${error.stack}`);
         }
@@ -253,19 +274,28 @@ export class QuotationService {
                     QuoteHeaderSid: quoteId
                 },
                 include: {
-                    quoteRoute: {
-                        where: { status: statusWhereClause },
-                        include: {
-                            quoteCarrier : { where : { status: statusWhereClause } },
-                            quoteCargo : {
-                                where: { Status: statusWhereClause },
-                                include : { 
-                                    quoteProduct : { where : { Status: statusWhereClause } },
+                    quoteRoute : {
+                        where : { status : statusWhereClause},
+                        include : {
+                            // route - carrier - charge
+                            quoteCarrier : { where : 
+                                { status : statusWhereClause},
+                                include : {
+                                    quoteCharge : { where : 
+                                        { status : statusWhereClause}
+                                    }
                                 }
                             },
-                            quoteCharge : {
-                                where: { status: statusWhereClause },
-                            }
+
+                            // route - cargo - product
+                            quoteCargo : { where : 
+                                { Status : statusWhereClause},
+                                include : {
+                                    quoteProduct : { where : 
+                                        { Status : statusWhereClause}
+                                    }
+                                }
+                            },
                         }
                     }
                 }
@@ -277,72 +307,18 @@ export class QuotationService {
 
     async updateQuote(QuoteHeaderSid: number, payload) {
         try {
-            // Step 1: Update Enquiry Header
-            const quoteDate = payload.QuoteDate ? new Date(payload.quoteDate) : new Date();
-
-            let authLogUpdate;
-            if (payload.approvalStatusChange) {
-                const authorityDetail = await this._db.authorityDetail.findFirst({
-                    where: {
-                        CompanyMasterSid: payload.CompanyMasterSid,
-                        BranchMasterSid: payload.BranchMasterSid,
-                        UserMasterSid: payload.UserMasterSid,
-                        status: 'A',
-                        authorityMaster: {
-                            MenuMaster: payload.MenuMaster,
-                            status: 'A',
-                        },
-                    },
-                });
-
-                if (!authorityDetail) {
-                    throw new NotFoundException('AuthorityDetail not found for this user/menu.');
-                }
-
-                authLogUpdate = await this._db.authorityLog.create({
-                    data: {
-                        CompanyMasterSid: payload.CompanyMasterSid,
-                        BranchMasterSid: payload.BranchMasterSid,
-                        CreatedBy: payload.updatedBy,
-                        UpdatedBy: payload.updatedBy,
-                        CreatedOn: new Date(),
-                        UpdatedOn: new Date(),
-                        Status: 'A',
-                        DocumentSid: QuoteHeaderSid,
-                        AuthorityDetailSid: authorityDetail.AuthorityDetailSid,
-                        ApprovalStatus: payload.authorizerStatus,
-                        AuthorisedDate: new Date(),
-                        Remarks: payload.AuthorizerRemarks,
-                    },
-                });
-
-                if (authorityDetail.FinalAuthority === 'Y') {
-
-                    await this._db.quoteHeader.update({
-                        where: { QuoteHeaderSid },
-                        data: {
-                            authorizerStatus: payload.authorizerStatus,
-                            AuthorizerRemarks: payload.AuthorizerRemarks,
-                        },
-                    });
-                }
-            }
-
-
-
             const updatedQuoteHeader = await this._db.quoteHeader.update({
                 where: { QuoteHeaderSid: QuoteHeaderSid },
                 data: {
                     CustomerRef: payload.CustomerRef,
                     Email: payload.Email,
-                    status: payload.status,
+                    status: String(payload.status).charAt(0) || "A",
                     SalesmanSid: payload.SalesmanSid,
                     CustomerName: payload.CustomerName,
                     EnquirySid: payload.EnquirySid ? Number(payload.EnquirySid) : null,
                     FreightPPCC: payload.FreightPPCC,
                     CustomerAddress: payload.CustomerAddress,
                     CustomerBranchSid: payload.CustomerBranchSid,
-                    IncoTermSid: payload.IncoTerms,
                     ClearanceBy: payload.ClearanceBy,
                     TransportBy: payload.TransportBy,
                     Remarks: payload.Remarks,
@@ -351,148 +327,330 @@ export class QuotationService {
                 }
             });
 
-            let finalRouteData: any = [];
-            let finalCargoData: any = [];
 
-            // Step 2: Update or create routes
-            for (const route of payload.routes) {
-                let updateData, createData;
+            // Step 2: Route
+            const routes = payload.quoteRoutes || [];
+            for (const route of routes) {
+                let currentRoute;
 
                 if (route.QuoteRouteSid) {
-                    updateData = await this._db.quoteRoute.update({
+                    currentRoute = await this._db.quoteRoute.update({
                         where: { QuoteRouteSid: route.QuoteRouteSid },
                         data: {
+                            DepartmentMasterSid: Number(route.DepartmentMasterSid),
+                            POLFreeDays: Number(route.POLFreeDays),
+                            PODFreeDays: Number(route.PODFreeDays),
                             PORSid: Number(route.PORSid),
                             POLSid: Number(route.POLSid),
                             PODSid: Number(route.PODSid),
                             FDPSid: Number(route.FPODSid),
-                            CarrierName: route.CarrierName,
-                            CarrierMasterSid: route.CarrierMasterSid,
-                            CargoType: route.CargoType,
+                            Remarks: route.Remarks || '',
+                            CompanyMasterSid: updatedQuoteHeader.CompanyMasterSid,
+                            BranchMasterSid: updatedQuoteHeader.BranchMasterSid,
                             effDate: new Date(route.effDate),
                             expdate: new Date(route.expDate),
-                            twentyft: Number(route.twentyft) || null,
-                            fortyft: Number(route.fortyft) || null,
-                            ContainerType: route.ContainerType,
-                            ContainerQty: route.ContainerQty,
-                            CBM: route.CBM,
-                            ChargeableWeight: route.ChargeableWeight,
                             updatedBy: payload.updatedBy,
-                            updatedOn: new Date(),
-                            ServiceLevel: route.ServiceLevel,
-                            cargoType: route.cargoType,
-                            segmentType: route.segmentType,
-                            POLFreeDays: Number(route.POLFreeDays),
-                            PODFreeDays: Number(route.PODFreeDays),
                             TransitDays: Number(route.TransitDays) || Number(route.transit) || null,
+                            segmentType: route.segmentType,
+                            ServiceLevel: route.ServiceLevel,
+
+                            // Need to be removed later
+                            CarrierName: "hello",
                         }
                     });
                 } else {
-                    createData = await this._db.quoteRoute.create({
+                    currentRoute = await this._db.quoteRoute.create({
                         data: {
-                            PORSid: Number(route.PORSid),
-                            POLSid: Number(route.POLSid),
-                            PODSid: Number(route.PODSid),
-                            FDPSid: Number(route.FPODSid),
-                            CarrierName: route.CarrierName,
-                            CarrierMasterSid: route.CarrierMasterSid,
-                            effDate: new Date(route.effDate),
-                            expdate: new Date(route.expDate),
-                            twentyft: Number(route.twentyft) || null,
-                            fortyft: Number(route.fortyft) || null,
-                            CargoType: route.CargoType,
-                            ContainerType: route.ContainerType,
-                            ContainerQty: route.ContainerQty,
-                            CBM: route.CBM,
-                            ChargeableWeight: route.ChargeableWeight,
-                            cargoType: route.cargoType,
-                            segmentType: route.segmentType,
-                            ServiceLevel: route.ServiceLevel,
-                            POLFreeDays: Number(route.POLFreeDays),
-                            PODFreeDays: Number(route.PODFreeDays),
-                            TransitDays: Number(route.TransitDays) || Number(route.transit) || null,
-                            DepartmentMasterSid: Number(route.DepartmentMasterSid),
-                            CompanyMasterSid: updatedQuoteHeader.CompanyMasterSid,
-                            BranchMasterSid: updatedQuoteHeader.BranchMasterSid,
-                            QuoteHeaderSid: QuoteHeaderSid,
-                            createdBy: payload.updatedBy,
-                        }
+                                QuoteHeaderSid: updatedQuoteHeader.QuoteHeaderSid,
+                                DepartmentMasterSid: Number(route.DepartmentMasterSid),
+                                POLFreeDays: Number(route.POLFreeDays),
+                                PODFreeDays: Number(route.PODFreeDays),
+                                PORSid: Number(route.PORSid),
+                                POLSid: Number(route.POLSid),
+                                PODSid: Number(route.PODSid),
+                                FDPSid: Number(route.FPODSid),
+                                Remarks: route.Remarks || '',
+                                CompanyMasterSid: updatedQuoteHeader.CompanyMasterSid,
+                                BranchMasterSid: updatedQuoteHeader.BranchMasterSid,
+                                effDate: new Date(route.effDate),
+                                expdate: new Date(route.expDate),
+                                createdBy: payload.createdBy,
+                                TransitDays: Number(route.TransitDays) || Number(route.transit) || null,
+                                segmentType: route.segmentType,
+                                ServiceLevel: route.ServiceLevel,
+
+                                // Need to be removed later
+                                CarrierName : "hello",
+                            },
                     });
                 }
 
-                const routeData = updateData || createData;
-                finalRouteData.push(routeData);
-
-                // Step 3: Update or create cargo for each route
-                if (route.cargo && route.cargo.length > 0) {
-                    for (const cargoItem of route.cargo) {
-                        let updateCargoData;
-                        let createCargoData;
-
-                        if (cargoItem.QuoteChargeSid) {
-                            updateCargoData = await this._db.quoteCharge.update({
-                                where: { QuoteChargeSid: cargoItem.QuoteChargeSid },
-                                data: {
-                                    ChargeUomSid: cargoItem.ChargeUomSid,
-                                    ChargeDisplayName: cargoItem.ChargeDisplayName,
-                                    CurrencyMasterSid: cargoItem.CurrencyMasterSid,
-                                    UOMMasterSid: cargoItem.UOMMasterSid,
-                                    Qty: Number(cargoItem.Qty),
-                                    perUnit: Number(cargoItem.perUnit),
-                                    Amount: Number(cargoItem.Amount),
-                                    costUnit: cargoItem.costUnit,
-                                    costCurrency: cargoItem.costCurrency,
-                                    costPerUnit: Number(cargoItem.costPerUnit),
-                                    CostAgentMasterSid : cargoItem.CostAgentMasterSid,
-                                    CostAgentBranchSid : cargoItem.CostAgentBranchSid,
-                                    RevenueCustomerMasterSid : cargoItem.RevenueCustomerMasterSid,
-                                    RevenueCustomerBranchSid : cargoItem.RevenueCustomerBranchSid,
-                                    updatedBy: payload.updatedBy,
-                                    updatedOn: new Date(),
-                                }
-                            });
-                        } else {
-                            createCargoData = await this._db.quoteCharge.create({
-                                data: {
-                                    ChargeUomSid: cargoItem.ChargeUomSid,
-                                    ChargeDisplayName: cargoItem.ChargeDisplayName,
-                                    CurrencyMasterSid: cargoItem.CurrencyMasterSid,
-                                    UOMMasterSid: cargoItem.UOMMasterSid,
-                                    Qty: Number(cargoItem.Qty),
-                                    perUnit: Number(cargoItem.perUnit),
-                                    Amount: Number(cargoItem.Amount),
-                                    costUnit: cargoItem.costUnit,
-                                    costCurrency: cargoItem.costCurrency,
-                                    costPerUnit: Number(cargoItem.costPerUnit),
-                                    QuoteHeaderSid: QuoteHeaderSid,
-                                    QuoteRouteSid: routeData.QuoteRouteSid, // Link to the correct route
-                                    createdBy: payload.updatedBy,
-                                    CostAgentMasterSid: cargoItem.CostAgentMasterSid,
-                                    CostAgentBranchSid: cargoItem.CostAgentBranchSid,
-                                    RevenueCustomerMasterSid: cargoItem.RevenueCustomerMasterSid,
-                                    RevenueCustomerBranchSid: cargoItem.RevenueCustomerBranchSid,
-                                    CompanyMasterSid: updatedQuoteHeader.CompanyMasterSid,
-                                    BranchMasterSid: updatedQuoteHeader.BranchMasterSid,
-                                    CustomerMasterSid: updatedQuoteHeader.CustomerMasterSid,
-                                }
-                            });
-                        }
-
-                        finalCargoData.push(updateCargoData || createCargoData);
+                //  Route - Carrier
+                const allCarriers = route.quoteCarriers || [];
+                for (const carrier of allCarriers) {
+                    let currentCarrier;
+                    if(carrier.QuoteCarrierSid) {
+                        currentCarrier = await this._db.quoteCarrier.update({
+                            where: { QuoteCarrierSid: carrier.QuoteCarrierSid },
+                            data: {
+                                CarrierMasterSid: carrier.CarrierMasterSid || null,
+                                CarrierName: carrier.CarrierName,
+                                TransitTime: carrier.TransitTime,
+                                CompanyMasterSid: updatedQuoteHeader.CompanyMasterSid,
+                                BranchMasterSid: updatedQuoteHeader.BranchMasterSid,
+                                ApprovalStatus: "P",
+                                updatedBy: payload.updatedBy,
+                            },
+                        });
+                        
+                    } else {
+                        currentCarrier = await this._db.quoteCarrier.create({
+                            data: {
+                                QuoteRouteSid: currentRoute.QuoteRouteSid,
+                                QuoteHeaderSid: updatedQuoteHeader.QuoteHeaderSid,
+                                CarrierMasterSid: carrier.CarrierMasterSid,
+                                CarrierName: carrier.CarrierName,
+                                TransitTime: carrier.TransitTime,
+                                CompanyMasterSid: updatedQuoteHeader.CompanyMasterSid,
+                                BranchMasterSid: updatedQuoteHeader.BranchMasterSid,
+                                ApprovalStatus: "P",
+                                createdBy: payload.updatedBy,
+                            },
+                        });
                     }
+
+                    // Route - Carrier - Charge
+                    const allCharges = carrier.quoteCharges || [];
+                    await Promise.all(
+                        allCharges.map(async (chrg) => {
+                            const chPayload = {
+                                ...chrg,
+                                QuoteRouteSid: currentRoute.QuoteRouteSid,
+                                QuoteHeaderSid: updatedQuoteHeader.QuoteHeaderSid,
+                                QuoteCarrierSid: currentCarrier.QuoteCarrierSid,
+                                CompanyMasterSid: updatedQuoteHeader.CompanyMasterSid,
+                                BranchMasterSid: updatedQuoteHeader.BranchMasterSid,
+                                createdBy: payload.updatedBy,
+                                updatedBy: payload.updatedBy,
+                            }
+                            return await this.upsertCharge(chPayload)
+                        })
+                    );
                 }
+
+                let ourCargo;
+                if(route.QuoteCargoSid) {
+                    ourCargo = await this._db.quoteCargo.update({
+                        where: { QuoteCargoSid: route.QuoteCargoSid },
+                        data: {
+                            CargoType: route.CargoType ||"",
+                            WeightUnitSid: route.WeightUnitSid,
+                            GrossWeight: Number(route.GrossWeight) || 0,
+                            NetWeight: Number(route.NetWeight) || 0,
+                            Volume: Number(route.Volume) || 0,
+                            ChargeableWeight: Number(route.ChargeableWeight) || 0,
+                            ContainerType: route.ContainerType || "",
+                            Qty: Number(route.Qty) || 0,
+                            ShipmentTerms: route.ShipmentTerms || "",
+                            PackageType: route.PackageType || "",
+                            PackageQty: Number(route.PackageQty) || 0,
+                            CargoDescription: route.CargoDescription || "",
+                            UpdatedBy: payload.updatedBy,
+                        }
+                    })
+                } else {
+                    ourCargo = await this._db.quoteCargo.create({
+                        data: {
+                            CompanyMasterSid: updatedQuoteHeader.CompanyMasterSid,
+                            BranchMasterSid: updatedQuoteHeader.BranchMasterSid,
+                            QuoteHeaderSid: updatedQuoteHeader.QuoteHeaderSid,
+                            QuoteRouteSid: currentRoute.QuoteRouteSid,
+                            CreatedBy: payload.updatedBy,
+                            Status: "A",
+                            CargoType: route.CargoType ||"",
+                            WeightUnitSid: route.WeightUnitSid,
+                            GrossWeight: Number(route.GrossWeight) || 0,
+                            NetWeight: Number(route.NetWeight) || 0,
+                            Volume: Number(route.Volume) || 0,
+                            ChargeableWeight: Number(route.ChargeableWeight) || 0,
+                            ContainerType: route.ContainerType || "",
+                            Qty: Number(route.Qty) || 0,
+                            ShipmentTerms: route.ShipmentTerms || "",
+                            PackageType: route.PackageType || "",
+                            PackageQty: Number(route.PackageQty) || 0,
+                            CargoDescription: route.CargoDescription || "",
+                        }
+                    })
+                }
+
+                // Route - Cargo - Product
+                const allProducts = route.quoteProducts || [];
+                let x = 0;
+                await Promise.all(
+                    allProducts.map(async (product) => {
+                        const productPayload = {
+                            ...product,
+                            Sno : ++x,
+                            CompanyMasterSid: updatedQuoteHeader.CompanyMasterSid,
+                            BranchMasterSid: updatedQuoteHeader.BranchMasterSid,
+                            QuoteHeaderSid: updatedQuoteHeader.QuoteHeaderSid,
+                            QuoteCargoSid: ourCargo.QuoteCargoSid,
+                            createdBy : payload.updatedBy,
+                            updatedBy : payload.updatedBy,
+                        }
+                        return await this.upsertProduct(productPayload);
+                    })
+                );
             }
 
-            return {
-                status: true,
-                message: 'Enquiry updated successfully',
-                data: {
-                    updatedEnquiryHeader: updatedQuoteHeader,
-                    finalRouteData: finalRouteData, // Now an array
-                    finalCargoData: finalCargoData,  // Now an array
-                    authLogUpdate
-                }
-            };
+            return updatedQuoteHeader;
+        } catch (error) {
+            throw new Error(`Error updating enquiry: ${error.message}`);
+        }
+    }
+
+    async upsertCharge(payload:any) {
+        try {
+            if(payload.QuoteChargeSid) {
+                return await this._db.quoteCharge.update({
+                    where: { QuoteChargeSid: payload.QuoteChargeSid },
+                    data: {
+                        updatedBy: payload.updatedBy,
+                        ChargeUomSid: payload.ChargeUomSid,
+                        ChargeDisplayName: payload.ChargeDisplayName,
+                        CostChargeUomSid: payload.CostChargeUomSid,
+                        CostPrepaidCollect: payload.CostPrepaidCollect || "Prepaid",
+                        CostCurrencyMasterSid: payload.CostCurrencyMasterSid,
+                        CostExchangeRate: Number(payload.CostExchangeRate) || 0,
+                        CostRate: Number(payload.CostRate) || 0,
+                        CostNumberOfUnit: Number(payload.CostNumberOfUnit) || 0,
+                        CostDrCr: payload.CostDrCr || "D",
+                        CostAmount: Number(payload.CostAmount) || 0,
+                        CostLocalAmount: Number(payload.CostLocalAmount) || 0,
+                        CostAgentMasterSid: payload.CostAgentMasterSid,
+                        CostAgentBranchSid: payload.CostAgentBranchSid,
+                        RevenueChargeUomSid: payload.RevenueChargeUomSid,
+                        RevenuePrepaidCollect: payload.RevenuePrepaidCollect || "Prepaid",
+                        RevenueCurrencyMasterSid: payload.RevenueCurrencyMasterSid,
+                        RevenueExchangeRate: Number(payload.RevenueExchangeRate) || 0,
+                        RevenueRate: Number(payload.RevenueRate) || 0,
+                        RevenueNumberOfUnit: Number(payload.RevenueNumberOfUnit) || 0,
+                        RevenueDrCr: payload.RevenueDrCr || "C",
+                        RevenueAmount: Number(payload.RevenueAmount) || 0,
+                        RevenueLocalAmount: Number(payload.RevenueLocalAmount) || 0,
+                        RevenueCustomerMasterSid: payload.RevenueCustomerMasterSid,
+                        RevenueCustomerBranchSid: payload.RevenueCustomerBranchSid,
+                        Qty : Number(payload.Qty) || 0,
+                        Remarks: payload.Remarks,
+                    }
+                });
+            } else {
+                return await this._db.quoteCharge.create({
+                    data: {
+                        QuoteRouteSid: payload.QuoteRouteSid,
+                        QuoteHeaderSid: payload.QuoteHeaderSid,
+                        QuoteCarrierSid: payload.QuoteCarrierSid,
+                        CompanyMasterSid: payload.CompanyMasterSid,
+                        BranchMasterSid: payload.BranchMasterSid,
+                        createdBy: payload.createdBy,
+                        status: "A",
+                        ChargeUomSid: payload.ChargeUomSid,
+                        ChargeDisplayName: payload.ChargeDisplayName,
+                        CostChargeUomSid: payload.CostChargeUomSid,
+                        CostPrepaidCollect: payload.CostPrepaidCollect || "Prepaid",
+                        CostCurrencyMasterSid: payload.CostCurrencyMasterSid,
+                        CostExchangeRate: Number(payload.CostExchangeRate) || 0,
+                        CostRate: Number(payload.CostRate) || 0,
+                        CostNumberOfUnit: Number(payload.CostNumberOfUnit) || 0,
+                        CostDrCr: payload.CostDrCr || "D",
+                        CostAmount: Number(payload.CostAmount) || 0,
+                        CostLocalAmount: Number(payload.CostLocalAmount) || 0,
+                        CostAgentMasterSid: payload.CostAgentMasterSid,
+                        CostAgentBranchSid: payload.CostAgentBranchSid,
+                        RevenueChargeUomSid: payload.RevenueChargeUomSid,
+                        RevenuePrepaidCollect: payload.RevenuePrepaidCollect || "Prepaid",
+                        RevenueCurrencyMasterSid: payload.RevenueCurrencyMasterSid,
+                        RevenueExchangeRate: Number(payload.RevenueExchangeRate) || 0,
+                        RevenueRate: Number(payload.RevenueRate) || 0,
+                        RevenueNumberOfUnit: Number(payload.RevenueNumberOfUnit) || 0,
+                        RevenueDrCr: payload.RevenueDrCr || "C",
+                        RevenueAmount: Number(payload.RevenueAmount) || 0,
+                        RevenueLocalAmount: Number(payload.RevenueLocalAmount) || 0,
+                        RevenueCustomerMasterSid: payload.RevenueCustomerMasterSid,
+                        RevenueCustomerBranchSid: payload.RevenueCustomerBranchSid,
+                        Qty : Number(payload.Qty) || 0,
+                        Remarks: payload.Remarks,
+                    }
+                });
+            }
+        } catch (error) {
+            throw new Error(`Error updating enquiry: ${error.message}`);
+        }
+    }
+
+    async upsertProduct(payload:any) {
+        try {
+            if(payload.QuoteProductSid) {
+                return await this._db.quoteProduct.update({
+                    where: { QuoteProductSid: payload.QuoteProductSid },
+                    data: {
+                        Sno: payload.Sno,
+                        ProductSid: payload.ProductSid,
+                        ProductName: payload.ProductName || "",
+                        PackageType: payload.PackageType || "",
+                        CargoDescription: payload.CargoDescription || "",
+                        ProductUnit: payload.ProductUnit || 0,
+                        CompanyMasterSid: payload.CompanyMasterSid,
+                        BranchMasterSid: payload.BranchMasterSid,
+                        QuoteHeaderSid: payload.QuoteHeaderSid,
+                        QuoteCargoSid: payload.QuoteCargoSid,
+                        UpdatedBy: payload.updatedBy,
+                        ExternalPkg: payload.ExternalPkg || null,
+                        ExternalQty: Number(payload.ExternalQty) || 0,
+                        GrossWeight: Number(payload.GrossWeight) || 0,
+                        NetWeight: Number(payload.NetWeight) || 0,
+                        Volume : Number(payload.Volume) || 0,
+                        Length: Number(payload.Length) || 0,
+                        Width: Number(payload.Width) || 0,
+                        Height: Number(payload.Height) || 0,
+                        ChargeableWeight: Number(payload.ChargeableWeight) || 0,
+                        IsHaz: payload.IsHaz ? "Y" : "N",
+                        ImcoClass: payload.ImcoClass,
+                        PkgGroup: Number(payload.PkgGroup) || null,
+                        Remarks: payload.Remarks,
+                    }
+                });
+            } else {
+                return await this._db.quoteProduct.create({
+                    data: {
+                        Sno: payload.Sno,
+                        ProductSid: payload.ProductSid,
+                        ProductName: payload.ProductName || "",
+                        PackageType: payload.PackageType || "",
+                        CargoDescription: payload.CargoDescription || "",
+                        ProductUnit: payload.ProductUnit || 0,
+                        CompanyMasterSid: payload.CompanyMasterSid,
+                        BranchMasterSid: payload.BranchMasterSid,
+                        QuoteHeaderSid: payload.QuoteHeaderSid,
+                        QuoteCargoSid: payload.QuoteCargoSid,
+                        CreatedBy: payload.updatedBy,
+                        Status: "A",
+                        ExternalPkg: payload.ExternalPkg || null,
+                        ExternalQty: Number(payload.ExternalQty) || 0,
+                        GrossWeight: Number(payload.GrossWeight) || 0,
+                        NetWeight: Number(payload.NetWeight) || 0,
+                        Volume : Number(payload.Volume) || 0,
+                        Length: Number(payload.Length) || 0,
+                        Width: Number(payload.Width) || 0,
+                        Height: Number(payload.Height) || 0,
+                        ChargeableWeight: Number(payload.ChargeableWeight) || 0,
+                        IsHaz: payload.IsHaz ? "Y" : "N",
+                        ImcoClass: payload.ImcoClass || null,
+                        PkgGroup: Number(payload.PkgGroup) || null,
+                        Remarks: payload.Remarks,
+                    }
+                });
+            }
         } catch (error) {
             throw new Error(`Error updating enquiry: ${error.message}`);
         }
@@ -534,11 +692,32 @@ export class QuotationService {
             throw new Error(`Quote with ID ${id} is already deleted`);
         }
 
-        // Perform soft delete by updating deletedAt field
-        return this._db.quoteRoute.update({
+        const deletedCarriers = await this._db.quoteCarrier.updateManyAndReturn({
             where: { QuoteRouteSid: id },
             data: { status: 'D' }
         });
+        const allDeletedCarrierIds = deletedCarriers.map(carrier => carrier.QuoteCarrierSid);
+        const deletedCharges = await this._db.quoteCharge.updateMany({
+            where: { QuoteRouteSid: { in: allDeletedCarrierIds } },
+            data: { status: 'D' }
+        });
+
+        const deletedCargos = await this._db.quoteCargo.updateManyAndReturn({
+            where: { QuoteRouteSid: id },
+            data: { Status: 'D' }
+        });
+        const allDeletedCargoIds = deletedCargos.map(cargo => cargo.QuoteCargoSid);
+        await this._db.quoteProduct.updateMany({
+            where: { QuoteProductSid: { in: allDeletedCargoIds } },
+            data: { Status: 'D' }
+        });
+
+
+        return await this._db.quoteRoute.update({
+            where: { QuoteRouteSid: id },
+            data: { status: 'D' }
+        });
+
     }
 
     async deleteCharge(id: number) {
@@ -659,14 +838,17 @@ export class QuotationService {
                                     departmentName: true
                                 }
                             },
-                            quoteCharge: {
-                                where: {
-                                    status: 'A'
-                                },
+                            quoteCarrier : { 
+                                where : { status : statusWhereClause},
+                                include : { quoteCharge : { where : { status : statusWhereClause}} ,
+                            
+                            }
+                            },
+                            quoteCargo: {
+                                where: { Status: statusWhereClause },
                                 include: {
                                     uomMaster: { select: { UOMCode: true } },
-                                    currencyMaster: { select: { currencyCode: true } },
-
+                                    quoteProduct : {where : { Status : statusWhereClause}}
                                 }
                             }
                         }
@@ -680,60 +862,68 @@ export class QuotationService {
             items.map(async (item) => {
                 const updatedRoutes = await Promise.all(
                     item.quoteRoute.map(async (route) => {
-
                         const [departmentMaster, PortPOL, PortPOD] = await Promise.all([
-                            route.DepartmentMasterSid !== null ?
-                                this.globalConfigService.getMasterData('department_master', route.DepartmentMasterSid) : { departmentName: '' },
-                            route.POLSid !== null ? this.globalConfigService.getMasterData('port_master', route.POLSid) : { PortName: '' },
-                            route.PODSid !== null ?
-                                this.globalConfigService.getMasterData('port_master', route.PODSid) : { PortName: '' }
+                            route.DepartmentMasterSid !== null
+                                ? this.globalConfigService.getMasterData('department_master', route.DepartmentMasterSid)
+                                : { departmentName: '' },
+                            route.POLSid !== null
+                                ? this.globalConfigService.getMasterData('port_master', route.POLSid)
+                                : { PortName: '' },
+                            route.PODSid !== null
+                                ? this.globalConfigService.getMasterData('port_master', route.PODSid)
+                                : { PortName: '' },
                         ]);
 
-                        const updatedCharges = await Promise.all(
-                            route.quoteCharge.map(async (charge) => {
-                                const [uomMaster, currencyMaster] = await Promise.all([
+                        const updatedCarriers = await Promise.all(
+                            route.quoteCarrier.map(async (carrier) => {
+                                const updatedCharges = await Promise.all(
+                                    carrier.quoteCharge.map(async (charge) => {
+                                        const [uomMaster, currencyMaster] = await Promise.all([
+                                            charge.CostChargeUomSid !== null
+                                                ? this.globalConfigService.getMasterData('uom_master', charge.CostChargeUomSid)
+                                                : { UOMMasterSid: null, UOMName: '', UOMCode: '' },
+                                            charge.CostCurrencyMasterSid !== null
+                                                ? this.globalConfigService.getMasterData('currency_master', charge.CostCurrencyMasterSid)
+                                                : { CurrencyMasterSid: null, currencyName: '', currencyCode: '' },
+                                        ]);
 
-                                    charge.UOMMasterSid !== null
-                                        ? this.globalConfigService.getMasterData(
-                                            'uom_master',
-                                            charge.UOMMasterSid
-                                        )
-                                        : { UOMMasterSid: null, UOMName: '', UOMCode: '' },
-
-                                    charge.CurrencyMasterSid !== null
-                                        ? this.globalConfigService.getMasterData(
-                                            'currency_master',
-                                            charge.CurrencyMasterSid
-                                        )
-                                        : { CurrencyMasterSid: null, currencyName: '', currencyCode: '' },
-                                ]);
+                                        return {
+                                            ...charge,
+                                            uomMaster,
+                                            currencyMaster,
+                                        };
+                                    })
+                                );
 
                                 return {
-                                    ...charge,
-                                    uomMaster,
-                                    currencyMaster,
+                                    ...carrier,
+                                    quoteCharge: updatedCharges,
                                 };
                             })
                         );
+
                         return {
                             ...route,
                             departmentMaster,
                             PortPOL,
                             PortPOD,
-                            quoteCharge: updatedCharges,
+                            quoteCarrier: updatedCarriers,
                         };
                     })
-                )
+                );
+
                 return {
                     ...item,
                     quoteRoute: updatedRoutes,
                 };
             })
-        )
+        );
+
         return {
             items,
             totalCount,
         };
+
     }
 
     async getAllSalesperson() {
@@ -841,11 +1031,42 @@ export class QuotationService {
         }
     }
 
+    async deleteQuoteCargo(QuoteCargoSid:number){
+        try {
+
+            // Soft Delete its child (Products)
+            await this._db.quoteProduct.updateMany({
+                where : {
+                    QuoteCargoSid: QuoteCargoSid
+                },
+                data : {
+                    Status : 'D'
+                }
+            })
+
+            // Soft Delete Cargo
+            return await this._db.quoteCargo.update({
+                where: {
+                    QuoteCargoSid: QuoteCargoSid
+                },
+                data : {
+                    Status : 'D'
+                }
+            })
+        } catch (error) {
+            throw new Error(`Error deleting quote cargo: ${error.message}`);
+        }
+    }
+
     async deleteQuoteProduct(QuoteProductSid:number){
         try {
-            return await this._db.quoteProduct.delete({
+            // No child table here
+            return await this._db.quoteProduct.update({
                 where: {
                     QuoteProductSid: QuoteProductSid
+                },
+                data : {
+                    Status : 'D'
                 }
             })
         } catch (error) {
@@ -853,4 +1074,78 @@ export class QuotationService {
         }
     }
 
+    async deleteQuoteCarrier(QuoteCarrierSid:number){
+        try {
+            // Soft Delete its child (Charges)
+            await this._db.quoteCharge.updateMany({
+                where : {
+                    QuoteCarrierSid: QuoteCarrierSid
+                },
+                data : {
+                    status : 'D'
+                }
+            })
+            // Soft Delete Carrier
+            return await this._db.quoteCarrier.update({
+                where: {
+                    QuoteCarrierSid: QuoteCarrierSid
+                },
+                data : {
+                    status : 'D'
+                }
+            })
+        } catch (error) {
+            throw new Error(`Error deleting quote carrier: ${error.message}`);
+        }
+    }
+
 }
+
+
+// let authLogUpdate;
+// if (payload.approvalStatusChange) {
+//     const authorityDetail = await this._db.authorityDetail.findFirst({
+//         where: {
+//             CompanyMasterSid: payload.CompanyMasterSid,
+//             BranchMasterSid: payload.BranchMasterSid,
+//             UserMasterSid: payload.UserMasterSid,
+//             status: 'A',
+//             authorityMaster: {
+//                 MenuMaster: payload.MenuMaster,
+//                 status: 'A',
+//             },
+//         },
+//     });
+
+//     if (!authorityDetail) {
+//         throw new NotFoundException('AuthorityDetail not found for this user/menu.');
+//     }
+
+//     authLogUpdate = await this._db.authorityLog.create({
+//         data: {
+//             CompanyMasterSid: payload.CompanyMasterSid,
+//             BranchMasterSid: payload.BranchMasterSid,
+//             CreatedBy: payload.updatedBy,
+//             UpdatedBy: payload.updatedBy,
+//             CreatedOn: new Date(),
+//             UpdatedOn: new Date(),
+//             Status: 'A',
+//             DocumentSid: QuoteHeaderSid,
+//             AuthorityDetailSid: authorityDetail.AuthorityDetailSid,
+//             ApprovalStatus: payload.authorizerStatus,
+//             AuthorisedDate: new Date(),
+//             Remarks: payload.AuthorizerRemarks,
+//         },
+//     });
+
+//     if (authorityDetail.FinalAuthority === 'Y') {
+
+//         await this._db.quoteHeader.update({
+//             where: { QuoteHeaderSid },
+//             data: {
+//                 authorizerStatus: payload.authorizerStatus,
+//                 AuthorizerRemarks: payload.AuthorizerRemarks,
+//             },
+//         });
+//     }
+// }
