@@ -252,4 +252,26 @@ export class UomService {
             throw new Error(`Error fetching audit logs: ${error.message}`);
         }
     }
+
+    async getChargeUOMBasedOnSegment(segment: 'LCL' | 'FCL' | 'AIR' | 'ALL') {
+  try {
+    let whereCondition: any = {
+      UOMType: "C" // Charge UOMs only
+    };
+
+    // Handle different segment cases
+    if (segment !== 'ALL') {
+      whereCondition.ShipmentType = segment;
+    }
+    // For 'ALL', no ShipmentType filter - get all charge UOMs
+
+    const allChargeUOM = await this._db.uOMMaster.findMany({
+      where: whereCondition
+    });
+    
+    return allChargeUOM;
+  } catch (error) {
+    throw error;
+  }
+}
 }

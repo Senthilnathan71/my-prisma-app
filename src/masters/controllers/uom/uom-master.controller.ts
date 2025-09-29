@@ -11,6 +11,38 @@ import { UomService } from "src/masters/services/uom/uom-master.service";
 
 export class UomMasterController {
     constructor(private UomService: UomService, private logger: Logger) { }
+    @ApiOperation({ summary: 'Get Charge UOM by Segment' })
+@ApiCreatedResponse({ description: 'Get Charge UOM by Segment', type: ResponseData })
+@HttpCode(HttpStatus.OK)
+@Get('charge-uom') // This makes the route /uom/charge-uom
+async getChargeUOM(
+  @Query('segment') segment: 'LCL' | 'FCL' | 'AIR' | 'ALL' = 'ALL', // Use consistent uppercase
+) {
+  const resp = new ResponseData();
+  try {
+    const allowed = new Set(['LCL', 'FCL', 'AIR', 'ALL']);
+    const segmentUpper = segment ? segment.toUpperCase() : 'ALL';
+    
+    if (!allowed.has(segmentUpper)) {
+      throw new BadRequestException('segment must be one of LCL, FCL, AIR, ALL');
+    }
+
+    const res = await this.UomService.getChargeUOMBasedOnSegment(segmentUpper as any);
+    this.logger.log(`Charge UOM (${segmentUpper}) : ${JSON.stringify(res)}`);
+
+    resp.data = res;
+    resp.message = `Charge UOM for segment ${segmentUpper} fetched successfully`;
+  } catch (error) {
+    this.logger.warn(`Charge UOM Error (${segment}) : ${JSON.stringify(error)}`, error);
+    resp.status = false;
+    if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+      resp.message = error.message;
+    } else {
+      resp.message = 'Internal Server Error';
+    }
+  }
+  return resp;
+}
 
     @ApiOperation({ summary: 'Get Package Type UOM' })
     @ApiCreatedResponse({ description: 'Get Package Type UOM', type: ResponseData })
@@ -79,6 +111,8 @@ export class UomMasterController {
         }
         return resp;
     }
+   
+
 
 
 
