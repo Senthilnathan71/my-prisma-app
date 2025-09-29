@@ -96,9 +96,6 @@ export class AuthController {
         }
     }
 
-
-
-
     @ApiOperation({ summary: 'Forgot Password and send a reset password link to the user email' })
     @ApiCreatedResponse({
         description: 'User data',
