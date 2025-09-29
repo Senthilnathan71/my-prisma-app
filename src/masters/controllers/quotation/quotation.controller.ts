@@ -120,9 +120,8 @@ export class QuotationController {
             if (!quote) {
                 throw 'Something went wrong'
             }
-            output.data = quote.data;
+            output.data = quote;
             output.message = `Quotation with id : ${id} is successfully updated`;
-            output.status = quote.status
 
         } catch (error) {
             this.logger.warn(`editQuote: ${JSON.stringify(error), error}`)
@@ -444,6 +443,27 @@ export class QuotationController {
             output.message = "Quote Product deleted successfully.";
         } catch (error) {
             this.logger.error(`deleteQuoteProduct: ${JSON.stringify(QuoteProductSid)}`)
+            output.message = error.message;
+        }
+        return output;
+    }
+
+    @ApiOperation({ summary: 'Delete Quote Carrier' })
+    @ApiCreatedResponse({
+        description: 'Delete Quote Carrier',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Delete('carrier/:QuoteCarrierSid')
+    async deleteCarrier(@Param('QuoteCarrierSid', ParseIntPipe) QuoteCarrierSid: number) {
+        let output = new ResponseData
+        try {
+            let quote = await this.quotationService.deleteQuoteCarrier(QuoteCarrierSid);
+            this.logger.debug(`deletedQuoteCarrier: ${JSON.stringify(QuoteCarrierSid)}`)
+            output.data = quote;
+            output.message = "Quote Carrier deleted successfully.";
+        } catch (error) {
+            this.logger.error(`deleteQuoteCarrier: ${JSON.stringify(QuoteCarrierSid)}`)
             output.message = error.message;
         }
         return output;

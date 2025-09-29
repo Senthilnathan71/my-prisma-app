@@ -797,7 +797,7 @@ export class BookingService {
                 for (const rate of payload.bookingRates) {
                     let createdBookingRate;
                     let updatedBookingRate;
-                    if (!rate.CostRevenueChargesSid) {
+                    if (!rate.BookingRatesSid) {
                         // CREATE
                         createdBookingRate = await prisma.bookingRates.create({
                             data: {
@@ -811,8 +811,9 @@ export class BookingService {
                                 ChargeMasterSid: rate.ChargeMasterSid,
                                 ChargeDescription: rate.ChargeDescription,
                                 CostChargeUomSid: rate.CostChargeUomSid || rate.ChargeUomSid || null,
-                                RevenueChargeUomSid: rate.RevenueChargeUomSid || null,
+                                NoOfUnit : Number(rate.NumberOfUnit),
 
+                                RevenueChargeUomSid: rate.RevenueChargeUomSid || null,
                                 // Cost Side
                                 CostPrepaidCollect: rate.CostPrepaidCollect || "Prepaid",
                                 CostCurrencyMasterSid: rate.CostCurrencyMasterSid || rate.CurrencyMasterSid,
@@ -835,21 +836,25 @@ export class BookingService {
 
                                 // Parties
                                 CustomerMasterSid: rate.CustomerMasterSid,
+                                AgentMasterSid: rate.AgentSid,
+                                AgentBranchSid: rate.AgentBranchSid,
                                 CustomerBranchSid: updatedBooking.CustomerBranchSid,
 
                                 // Vouchers
-                                VoucherHeaderSid: rate.VoucherHeaderSid ? Number(rate.VoucherHeaderSid) : null,
-                                VoucherTypeMasterSid: rate.VoucherTypeSid || null,
+                                CostVoucherHeaderSid: rate.CostVoucherHeaderSid ? Number(rate.CostVoucherHeaderSid) : null,
+                                CostVoucherTypeMasterSid: rate.CostVoucherTypeSid || null,
+                                RevenueVoucherHeaderSid: rate.RevenueVoucherHeaderSid ? Number(rate.RevenueVoucherHeaderSid) : null,
+                                RevenueVoucherTypeMasterSid: rate.RevenueVoucherTypeSid || null,
 
                                 // Metadata
                                 Status: "A",
-                                CreatedBy: payload.createdBy,
+                                CreatedBy: rate.CreatedBy,
                             },
                         });
                     } else {
                         // UPDATE
                         updatedBookingRate = await prisma.bookingRates.update({
-                            where: { BookingRatesSid: rate.CostRevenueChargesSid },
+                            where: { BookingRatesSid: rate.BookingRatesSid },
                             data: {
                                 BookingHeaderSid: updatedBooking.BookingHeaderSid,
                                 CompanyMasterSid: payload.CompanyMasterSid,
@@ -860,6 +865,7 @@ export class BookingService {
                                 ChargeMasterSid: rate.ChargeMasterSid,
                                 ChargeUomSid: rate.ChargeUomSid, // REQUIRED by model
                                 ChargeDescription: rate.ChargeDescription,
+                                NoOfUnit : Number(rate.NumberOfUnit),
                                 CostChargeUomSid: rate.CostChargeUomSid || rate.ChargeUomSid || null,
                                 RevenueChargeUomSid: rate.RevenueChargeUomSid || null,
 
@@ -885,14 +891,18 @@ export class BookingService {
 
                                 // Parties
                                 CustomerMasterSid: rate.CustomerMasterSid,
+                                AgentMasterSid: rate.AgentSid,
+                                AgentBranchSid: rate.AgentBranchSid,
                                 CustomerBranchSid: updatedBooking.CustomerBranchSid,
 
                                 // Vouchers
-                                VoucherHeaderSid: rate.VoucherHeaderSid ? Number(rate.VoucherHeaderSid) : null,
-                                VoucherTypeMasterSid: rate.VoucherTypeSid || null,
-
+                                CostVoucherHeaderSid: rate.CostVoucherHeaderSid ? Number(rate.CostVoucherHeaderSid) : null,
+                                CostVoucherTypeMasterSid: rate.CostVoucherTypeSid || null,
+                                RevenueVoucherHeaderSid: rate.RevenueVoucherHeaderSid ? Number(rate.RevenueVoucherHeaderSid) : null,
+                                RevenueVoucherTypeMasterSid: rate.RevenueVoucherTypeSid || null,
                                 // Metadata
                                 Status: String(rate.status || "A").charAt(0),
+                                CreatedBy: rate.CreatedBy,
                                 UpdatedBy: payload.updatedBy,
                             },
                         });

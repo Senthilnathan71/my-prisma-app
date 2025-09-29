@@ -150,6 +150,30 @@ export class CustomerController {
         return output;
     }
 
+    @Post('check-unique')
+@HttpCode(HttpStatus.OK)
+async checkUnique(@Body() body: {
+  CompanyMasterSid: number;
+  customerName?: string;
+  customerShortCode?: string;
+  excludeCustomerMasterSid?: number;
+}) {
+  const resp = new ResponseData();
+  try {
+    const result = await this.customerService.checkUniqueCustomerFields(body);
+    resp.data = {
+      nameTaken: result.nameTaken,
+      codeTaken: result.codeTaken,
+    };
+    resp.message = result.message; 
+  } catch (e) {
+    this.logger.warn(`checkUnique error: ${e}`);
+    resp.status = false;
+    resp.message = e.message || 'Internal Server Error';
+  }
+  return resp;
+}
+
 
     @ApiOperation({ summary: 'Update Customer By Id' })
     @ApiCreatedResponse({
@@ -187,6 +211,7 @@ export class CustomerController {
         this.logger.warn(`editCustomer: ${output.message}`)
         return output
     }
+
 
 
 

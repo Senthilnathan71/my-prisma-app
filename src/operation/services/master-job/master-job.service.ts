@@ -527,8 +527,8 @@ export class MasterJobService {
                                 RevenueLocalAmount: rate.RevenueLocalAmount,
                                 RevenueCustomerMasterSid: rate.CustomerMasterSid,
                                 RevenueCustomerBranchSid: rate.CustomerBranchSid,
-                                VoucherHeaderSid: rate.VoucherHeaderSid,
-                                VoucherTypeSid: rate.VoucherTypeMasterSid,
+                                VoucherHeaderSid: rate.CostVoucherHeaderSid,
+                                VoucherTypeSid: rate.CostVoucherTypeMasterSid,
                                 RevenueChargeUomSid: rate.RevenueChargeUomSid!,
                                 CostChargeUomSid: rate.CostChargeUomSid!,
                             }))
@@ -1821,8 +1821,8 @@ export class MasterJobService {
                             RevenueLocalAmount: rate.RevenueLocalAmount,
                             RevenueCustomerMasterSid: rate.CustomerMasterSid,
                             RevenueCustomerBranchSid: rate.CustomerBranchSid,
-                            VoucherHeaderSid: rate.VoucherHeaderSid,
-                            VoucherTypeSid: rate.VoucherTypeMasterSid,
+                            VoucherHeaderSid: rate.CostVoucherHeaderSid,
+                            VoucherTypeSid: rate.CostVoucherTypeMasterSid,
                             RevenueChargeUomSid: rate.RevenueChargeUomSid!,
                             CostChargeUomSid: rate.CostChargeUomSid!,
                         }))

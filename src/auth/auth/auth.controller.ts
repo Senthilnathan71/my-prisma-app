@@ -1,6 +1,6 @@
 import { jwtConstants } from './constants';
 import { UserService } from './../../masters/services/user.service';
-import { BadRequestException, Body, Controller, Get, HttpCode, HttpException, HttpStatus, Logger, Patch, Post, Req, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, HttpCode, HttpException, HttpStatus, InternalServerErrorException, Logger, Patch, Post, Req, UnauthorizedException } from '@nestjs/common';
 import { ResponseData } from '../../common/response-data';
 import { AuthService } from './auth.service';
 import { checkPassword, encodePassword } from 'src/common/helper';
@@ -27,37 +27,37 @@ export class AuthController {
         private logger: Logger
     ) { }
 
+
     @ApiOperation({ summary: 'Login' })
     @ApiBody({ type: LoginRequest })
     @ApiCreatedResponse({
         description: 'User logged in successfully',
         type: ResponseData
     })
-    @HttpCode(HttpStatus.OK)
     @Post('login')
+    @HttpCode(HttpStatus.OK) // ensure success returns 200 instead of 201
     async login(@Body() loginData: LoginRequest, @Req() req: any) {
         let output = new ResponseData();
+
         try {
             if (!loginData.email || !loginData.password) {
                 this.logger.warn('Login attempt with missing email or password');
                 throw new BadRequestException('Email and password are required.');
             }
-            this.logger.log(`Attempting login for email: ${loginData.email}`);
 
+            this.logger.log(`Attempting login for email: ${loginData.email}`);
             const user = await this.authService.login({ UserEmail: loginData.email });
+
             if (!user) {
                 this.logger.warn(`Login failed: User does not exist - ${loginData.email}`);
                 throw new UnauthorizedException('User does not exist.');
             }
 
-
             // Salesperson logic
             const isSalesperson = String(user.isSalesperson) === '1';
-
             if (loginData.projectType === 'freight-forwarding' && isSalesperson) {
                 throw new UnauthorizedException('Salesperson not allowed in this app.');
             }
-
             if (loginData.projectType === 'salesperson' && !isSalesperson) {
                 throw new UnauthorizedException('Only salesperson can log in to this app.');
             }
@@ -68,26 +68,33 @@ export class AuthController {
                 throw new UnauthorizedException('Incorrect password.');
             }
 
+            // Successful login — populate ResponseData
             output.status = true;
             output.message = 'Login successful';
             output.data = {
                 user: await this.authService.getUser(user.UserMasterSid),
-                token: await this.jwtService.sign({
-                    id: user.UserMasterSid,
-                    projectType: loginData.projectType
-                }, { expiresIn: '3h' }   // ensure every issued token has a 3h lifetime
+                token: await this.jwtService.sign(
+                    { id: user.UserMasterSid, projectType: loginData.projectType },
+                    { expiresIn: '3h' }
                 )
             };
+
             this.logger.log(`Login successful for email: ${loginData.email}`);
-            await this.authService.userHistory(user, loginData, req)
+            await this.authService.userHistory(user, loginData, req);
+
+            return output; // HTTP 200
         } catch (error) {
             this.logger.error(`Login error for email: ${loginData.email || 'unknown'} - ${error.message}`);
-            output.status = false;
-            output.message = error.message || 'Internal Server Error';
-        }
-        return output;
-    }
 
+            // Rethrow NestJS exceptions to return proper HTTP status codes
+            if (error instanceof UnauthorizedException || error instanceof BadRequestException) {
+                throw error;
+            }
+
+            // For unexpected errors
+            throw new InternalServerErrorException(error.message || 'Internal Server Error');
+        }
+    }
 
     @ApiOperation({ summary: 'Forgot Password and send a reset password link to the user email' })
     @ApiCreatedResponse({

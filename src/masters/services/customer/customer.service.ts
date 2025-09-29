@@ -73,6 +73,76 @@ export class CustomerService {
             throw error
         }
     }
+   async checkUniqueCustomerFields(params: {
+  CompanyMasterSid: number;
+  customerName?: string;
+  customerShortCode?: string;
+  excludeCustomerMasterSid?: number;
+}) {
+  const { CompanyMasterSid, customerName, customerShortCode, excludeCustomerMasterSid } = params;
+
+  // Build OR conditions
+  const orClauses: Prisma.CustomerMasterWhereInput[] = [];
+
+  if (customerName?.trim()) {
+    orClauses.push({
+      CustomerName: {
+        equals: customerName.trim(),
+        mode: Prisma.QueryMode.insensitive,
+      },
+    });
+  }
+
+  if (customerShortCode?.trim()) {
+    orClauses.push({
+      CustomerShortCode: {
+        equals: customerShortCode.trim(),
+        mode: Prisma.QueryMode.insensitive,
+      },
+    });
+  }
+
+  if (orClauses.length === 0) {
+    return { nameTaken: false, codeTaken: false, message: 'No fields provided' };
+  }
+
+  const where: Prisma.CustomerMasterWhereInput = {
+    CompanyMasterSid,
+    status: 'A',
+    OR: orClauses,
+    ...(excludeCustomerMasterSid ? { CustomerMasterSid: { not: excludeCustomerMasterSid } } : {}),
+  };
+
+  const rows = await this._db.customerMaster.findMany({
+    where,
+    select: { CustomerName: true, CustomerShortCode: true },
+  });
+
+  const nameTaken =
+    !!customerName &&
+    rows.some(
+      (r) => (r.CustomerName ?? '').trim().toLowerCase() === customerName.trim().toLowerCase(),
+    );
+
+  const codeTaken =
+    !!customerShortCode &&
+    rows.some(
+      (r) => (r.CustomerShortCode ?? '').trim().toLowerCase() === customerShortCode.trim().toLowerCase(),
+    );
+
+  // 🧠 Build friendly message
+  let message = 'Checked successfully';
+  if (nameTaken && codeTaken) {
+    message = 'Customer name and short code already exist';
+  } else if (nameTaken) {
+    message = 'Customer name already exists';
+  } else if (codeTaken) {
+    message = 'Customer short code already exists';
+  }
+
+  return { nameTaken, codeTaken, message };
+}
+
 
     // For Dropdowns
     async getAllCustomersWithCustomerBranch(CompanyMasterSid:number){

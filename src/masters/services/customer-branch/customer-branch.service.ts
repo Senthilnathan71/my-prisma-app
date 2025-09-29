@@ -113,6 +113,33 @@ export class CustomerBranchService {
         }
     }
 
+    async getBranchSidsByCustomerMasterSid(CustomerMasterSid: number) {
+        try {
+            // Ensure the customer has active branches; return only the SIDs
+            const branches = await this._db.customerBranch.findMany({
+                where: {
+                    CustomerMasterSid,
+                    status: 'A',
+                },
+               
+                orderBy: {
+                    CustomerBranchSid: 'asc',
+                }
+            });
+
+        
+            if (!branches || branches.length === 0) {
+                throw new BadRequestException(
+                    `No active Customer Branches found for CustomerMasterSid: ${CustomerMasterSid}`
+                );
+            }
+
+            return branches; 
+        } catch (error) {
+            throw error;
+        }
+    }
+
     async searchCustomerBranch(data: SearchListDto) {
         const { searchType, filterValue } = data;
         const acceptedType = [
