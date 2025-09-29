@@ -540,6 +540,7 @@ export class QuotationService {
                         RevenueLocalAmount: Number(payload.RevenueLocalAmount) || 0,
                         RevenueCustomerMasterSid: payload.RevenueCustomerMasterSid,
                         RevenueCustomerBranchSid: payload.RevenueCustomerBranchSid,
+                        Qty : Number(payload.Qty) || 0,
                         Remarks: payload.Remarks,
                     }
                 });
@@ -577,6 +578,7 @@ export class QuotationService {
                         RevenueLocalAmount: Number(payload.RevenueLocalAmount) || 0,
                         RevenueCustomerMasterSid: payload.RevenueCustomerMasterSid,
                         RevenueCustomerBranchSid: payload.RevenueCustomerBranchSid,
+                        Qty : Number(payload.Qty) || 0,
                         Remarks: payload.Remarks,
                     }
                 });
@@ -836,14 +838,17 @@ export class QuotationService {
                                     departmentName: true
                                 }
                             },
-                            quoteCharge: {
-                                where: {
-                                    status: 'A'
-                                },
+                            quoteCarrier : { 
+                                where : { status : statusWhereClause},
+                                include : { quoteCharge : { where : { status : statusWhereClause}} ,
+                            
+                            }
+                            },
+                            quoteCargo: {
+                                where: { Status: statusWhereClause },
                                 include: {
                                     uomMaster: { select: { UOMCode: true } },
-                                    currencyMaster: { select: { currencyCode: true } },
-
+                                    quoteProduct : {where : { Status : statusWhereClause}}
                                 }
                             }
                         }
@@ -857,60 +862,68 @@ export class QuotationService {
             items.map(async (item) => {
                 const updatedRoutes = await Promise.all(
                     item.quoteRoute.map(async (route) => {
-
                         const [departmentMaster, PortPOL, PortPOD] = await Promise.all([
-                            route.DepartmentMasterSid !== null ?
-                                this.globalConfigService.getMasterData('department_master', route.DepartmentMasterSid) : { departmentName: '' },
-                            route.POLSid !== null ? this.globalConfigService.getMasterData('port_master', route.POLSid) : { PortName: '' },
-                            route.PODSid !== null ?
-                                this.globalConfigService.getMasterData('port_master', route.PODSid) : { PortName: '' }
+                            route.DepartmentMasterSid !== null
+                                ? this.globalConfigService.getMasterData('department_master', route.DepartmentMasterSid)
+                                : { departmentName: '' },
+                            route.POLSid !== null
+                                ? this.globalConfigService.getMasterData('port_master', route.POLSid)
+                                : { PortName: '' },
+                            route.PODSid !== null
+                                ? this.globalConfigService.getMasterData('port_master', route.PODSid)
+                                : { PortName: '' },
                         ]);
 
-                        const updatedCharges = await Promise.all(
-                            route.quoteCharge.map(async (charge) => {
-                                const [uomMaster, currencyMaster] = await Promise.all([
+                        const updatedCarriers = await Promise.all(
+                            route.quoteCarrier.map(async (carrier) => {
+                                const updatedCharges = await Promise.all(
+                                    carrier.quoteCharge.map(async (charge) => {
+                                        const [uomMaster, currencyMaster] = await Promise.all([
+                                            charge.CostChargeUomSid !== null
+                                                ? this.globalConfigService.getMasterData('uom_master', charge.CostChargeUomSid)
+                                                : { UOMMasterSid: null, UOMName: '', UOMCode: '' },
+                                            charge.CostCurrencyMasterSid !== null
+                                                ? this.globalConfigService.getMasterData('currency_master', charge.CostCurrencyMasterSid)
+                                                : { CurrencyMasterSid: null, currencyName: '', currencyCode: '' },
+                                        ]);
 
-                                    charge.UOMMasterSid !== null
-                                        ? this.globalConfigService.getMasterData(
-                                            'uom_master',
-                                            charge.UOMMasterSid
-                                        )
-                                        : { UOMMasterSid: null, UOMName: '', UOMCode: '' },
-
-                                    charge.CurrencyMasterSid !== null
-                                        ? this.globalConfigService.getMasterData(
-                                            'currency_master',
-                                            charge.CurrencyMasterSid
-                                        )
-                                        : { CurrencyMasterSid: null, currencyName: '', currencyCode: '' },
-                                ]);
+                                        return {
+                                            ...charge,
+                                            uomMaster,
+                                            currencyMaster,
+                                        };
+                                    })
+                                );
 
                                 return {
-                                    ...charge,
-                                    uomMaster,
-                                    currencyMaster,
+                                    ...carrier,
+                                    quoteCharge: updatedCharges,
                                 };
                             })
                         );
+
                         return {
                             ...route,
                             departmentMaster,
                             PortPOL,
                             PortPOD,
-                            quoteCharge: updatedCharges,
+                            quoteCarrier: updatedCarriers,
                         };
                     })
-                )
+                );
+
                 return {
                     ...item,
                     quoteRoute: updatedRoutes,
                 };
             })
-        )
+        );
+
         return {
             items,
             totalCount,
         };
+
     }
 
     async getAllSalesperson() {
