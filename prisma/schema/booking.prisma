@@ -262,12 +262,14 @@ TariffDetailSid     Int?
   RevenueAmount            Decimal            @db.Decimal(15, 3)
   RevenueLocalAmount       Decimal            @db.Decimal(15, 3)
   PrepaidCollect           String?
-  AgentMasterSid           Int?
+  AgentMasterSid           Int?      //Billing party
   AgentBranchSid           Int?
-  CustomerMasterSid        Int
+  CustomerMasterSid        Int      // Agent
   CustomerBranchSid        Int
-  VoucherHeaderSid         Int?
-  VoucherTypeMasterSid     Int?
+  CostVoucherHeaderSid         Int?
+  CostVoucherTypeMasterSid     Int?
+  RevenueVoucherHeaderSid         Int?
+  RevenueVoucherTypeMasterSid     Int?
   CostChargeUomSid         Int?
   RevenueChargeUomSid      Int?
   Remarks                  String?            @db.VarChar(100)
@@ -277,9 +279,12 @@ TariffDetailSid     Int?
   BranchMaster             BranchMaster       @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
   companyMaster            CompanyMaster      @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
   customerBranch           CustomerBranch?    @relation(fields: [CustomerBranchSid], references: [CustomerBranchSid])
-  customerMaster           CustomerMaster?    @relation(fields: [CustomerMasterSid], references: [CustomerMasterSid])
-  voucherHeader            VoucherHeader?     @relation(fields: [VoucherHeaderSid], references: [VoucherHeaderSid])
-  voucherTypeMaster        VoucherTypeMaster? @relation(fields: [VoucherTypeMasterSid], references: [VoucherTypeMasterSid])
+  customerMasterBP          CustomerMaster?    @relation("BillingParty", fields: [CustomerMasterSid], references: [CustomerMasterSid])
+  customerMasterAG           CustomerMaster?    @relation("Agent", fields: [AgentMasterSid], references: [CustomerMasterSid])
+  costVoucherHeader            VoucherHeader?     @relation("COST",fields: [CostVoucherHeaderSid], references: [VoucherHeaderSid])
+  costVoucherTypeMaster        VoucherTypeMaster? @relation("COST",fields: [CostVoucherTypeMasterSid], references: [VoucherTypeMasterSid])
+  revenueVoucherHeader            VoucherHeader?     @relation("REVENUE",fields: [RevenueVoucherHeaderSid], references: [VoucherHeaderSid])
+  revenueVoucherTypeMaster        VoucherTypeMaster? @relation("REVENUE",fields: [RevenueVoucherTypeMasterSid], references: [VoucherTypeMasterSid])
   costChargeUOMMaster      UOMMaster?         @relation("COST", fields: [CostChargeUomSid], references: [UOMMasterSid])
   revenueChargeUOMMaster   UOMMaster?         @relation("REVENUE", fields: [RevenueChargeUomSid], references: [UOMMasterSid])
 

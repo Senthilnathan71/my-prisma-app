@@ -37,8 +37,10 @@ model CostRevenueCharges {
   RevenueLocalAmount       Decimal?  @db.Decimal(15, 3)
   RevenueCustomerMasterSid Int?
   RevenueCustomerBranchSid Int?
-  VoucherHeaderSid         Int?
-  VoucherTypeSid           Int?
+  CostVoucherHeaderSid         Int?
+  CostVoucherTypeMasterSid     Int?
+  RevenueVoucherHeaderSid         Int?
+  RevenueVoucherTypeMasterSid     Int?
   RevenueChargeUomSid      Int
   CostChargeUomSid      Int
 
@@ -54,4 +56,8 @@ model CostRevenueCharges {
   revenueCurrencyMaster CurrencyMaster? @relation("REVENUE", fields: [RevenueCurrencyMasterSid], references: [CurrencyMasterSid])
   costChargeUOMMaster    UOMMaster? @relation("COST", fields: [CostChargeUomSid], references: [UOMMasterSid])
   revenueChargeUOMMaster UOMMaster? @relation("REVENUE", fields: [RevenueChargeUomSid], references: [UOMMasterSid])
+  costVoucherHeader            VoucherHeader?     @relation("COST",fields: [CostVoucherHeaderSid], references: [VoucherHeaderSid])
+  costVoucherTypeMaster        VoucherTypeMaster? @relation("COST",fields: [CostVoucherTypeMasterSid], references: [VoucherTypeMasterSid])
+  revenueVoucherHeader            VoucherHeader?     @relation("REVENUE",fields: [RevenueVoucherHeaderSid], references: [VoucherHeaderSid])
+  revenueVoucherTypeMaster        VoucherTypeMaster? @relation("REVENUE",fields: [RevenueVoucherTypeMasterSid], references: [VoucherTypeMasterSid])
 }
