@@ -59,6 +59,29 @@ export class CustomerBranchController {
         }
         return resp;
     }
+      @HttpCode(HttpStatus.OK)
+    @Get('sids/:CustomerMasterSid')
+    async getBranchSidsByCustomerMasterSid(
+        @Param('CustomerMasterSid', ParseIntPipe) CustomerMasterSid: number,
+    ) {
+        const resp = new ResponseData();
+        try {
+            this.logger.log(`Fetching CustomerBranch SIDs for CustomerMasterSid: ${CustomerMasterSid}`);
+            const res = await this.customerBranchService.getBranchSidsByCustomerMasterSid(CustomerMasterSid);
+            this.logger.debug(`Fetch CustomerBranch SIDs Result: ${JSON.stringify(res)}`);
+            resp.data = res;
+            resp.message = 'Customer Branch SIDs fetched successfully';
+        } catch (error) {
+            this.logger.warn(`Error fetching CustomerBranch SIDs for CustomerMasterSid: ${CustomerMasterSid}`, error as any);
+            resp.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                resp.message = error.message;
+            } else {
+                resp.message = 'Internal Server Error';
+            }
+        }
+        return resp;
+    }
 
     @ApiOperation({ summary: 'Get Customer Branch By Id' })
     @ApiCreatedResponse({
@@ -169,6 +192,12 @@ export class CustomerBranchController {
         }
         return resp;
     }
+    @ApiOperation({ summary: 'Get Customer Branch SIDs by CustomerMasterSid' })
+    @ApiCreatedResponse({
+        description: 'Returns only CustomerBranchSid[] for the given CustomerMasterSid',
+        type: ResponseData
+    })
+  
 
 
     @ApiOperation({ summary: "Search List of CustomerBranch" })
