@@ -2006,7 +2006,8 @@ model VoucherTypeMaster {
   BookingRatesCost       BookingRates[] @relation("COST")
   BookingRatesRevenue      BookingRates[] @relation("REVENUE")
 
-
+CostRevenueChargesCost       CostRevenueCharges[] @relation("COST")
+  CostRevenueChargesRevenue      CostRevenueCharges[] @relation("REVENUE")
 }
 
 model YearMaster {
@@ -2928,6 +2929,8 @@ model VoucherHeader {
   VoucherTransaction VoucherTransaction[]
   BookingRatesCost       BookingRates[] @relation("COST")
   BookingRatesRevenue      BookingRates[] @relation("REVENUE")
+  CostRevenueChargesCost       CostRevenueCharges[] @relation("COST")
+  CostRevenueChargesRevenue      CostRevenueCharges[] @relation("REVENUE")
 }
 
 model VoucherDetail {

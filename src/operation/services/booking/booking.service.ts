@@ -838,8 +838,8 @@ export class BookingService {
                                 CustomerBranchSid: updatedBooking.CustomerBranchSid,
 
                                 // Vouchers
-                                VoucherHeaderSid: rate.VoucherHeaderSid ? Number(rate.VoucherHeaderSid) : null,
-                                VoucherTypeMasterSid: rate.VoucherTypeSid || null,
+                                CostVoucherHeaderSid: rate.VoucherHeaderSid ? Number(rate.VoucherHeaderSid) : null,
+                                CostVoucherTypeMasterSid: rate.VoucherTypeSid || null,
 
                                 // Metadata
                                 Status: "A",
@@ -888,8 +888,8 @@ export class BookingService {
                                 CustomerBranchSid: updatedBooking.CustomerBranchSid,
 
                                 // Vouchers
-                                VoucherHeaderSid: rate.VoucherHeaderSid ? Number(rate.VoucherHeaderSid) : null,
-                                VoucherTypeMasterSid: rate.VoucherTypeSid || null,
+                                CostVoucherHeaderSid: rate.VoucherHeaderSid ? Number(rate.VoucherHeaderSid) : null,
+                                CostVoucherTypeMasterSid: rate.VoucherTypeSid || null,
 
                                 // Metadata
                                 Status: String(rate.status || "A").charAt(0),
