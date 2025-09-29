@@ -242,6 +242,7 @@ model BookingRates {
   ChargeMasterSid   Int
   ChargeDescription String    @db.VarChar(100)
   ChargeUomSid      Int
+  NoOfUnit          Int?
 QuoteChargeSid      Int?
 TariffDetailSid     Int?
   CostPrepaidCollect    String?  @default("Prepaid") @db.VarChar(10)
