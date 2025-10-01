@@ -155,32 +155,26 @@ export class CurrencyExchangeService {
             const fromCurrency = payload.fromCurrencyCode;
             const toCurrency = payload.toCurrencyCode;
 
-            const directRecord = await this._db.currencyExchange.findFirst({
+            const exchangeRate = await this._db.currencyExchange.findFirst({
                 where: {
                     FromCurrency: fromCurrency,
                     ToCurrency: toCurrency,
+                    EffectiveFrom : { gte : new Date()},
                     status: 'A'
                 }
             })
-            console.log(directRecord);
-            if (directRecord) {
-                return directRecord.BuyRate;
+
+            if(!exchangeRate){
+                throw new BadRequestException(`Exchange rate not found for ${fromCurrency} to ${toCurrency}`);
             }
 
-            const inverseRecord = await this._db.currencyExchange.findFirst({
-                where: {
-                    FromCurrency: toCurrency,
-                    ToCurrency: fromCurrency,
-                    status: 'A'
-                }
-            })
-            console.log(inverseRecord);
-            if (inverseRecord) {
-                return inverseRecord.SellRate;
+            if(payload.segment === 'cost'){
+                return exchangeRate.BuyRate;
             }
-
-            return null;
-
+            else{
+                return exchangeRate.SellRate;
+            }
+            
         } catch (error) {
             throw error;
         }
