@@ -9,7 +9,7 @@ class CompanyIdDto {
   CompanyMasterSid: number;
   BranchMasterSid: number;
 }
-@Controller('ff-pre-customer-meeting')
+@Controller('pre-customer-meeting')
 export class PreCustomerMeetingController {
     constructor(
         private preCustomerMeetingService: PreCustomerMeetingService,

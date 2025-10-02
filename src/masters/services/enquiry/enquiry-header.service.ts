@@ -23,17 +23,17 @@ export class EnquiryHeaderService {
                         }
                     }
                 })
+               
                 const enquiryNumber = `enquiry-${dateString}-${(count + 1).toString().padStart(3, '0')}`
                 // Step 1: Create Enquiry Header
                 const enquiryHeaderPayload: any = {
-                    LeadOrCustomer : payload.LeadOrCustomer,
-                    PreCustomerMasterSid : payload.PreCustomerMasterSid,
-                    FreightPPCC : payload.FreightPPCC,
+                    LeadOrCustomer: payload.LeadOrCustomer,
+                    PreCustomerMasterSid: payload.PreCustomerMasterSid ? Number(payload.PreCustomerMasterSid) : null,
+                    FreightPPCC: payload.FreightPPCC,
                     CustomerName: payload.CustomerName,
-                    DepartmentMasterSid: Number(payload.DepartmentMasterSid),
-                    CustomerMasterSid: Number(payload.CustomerMasterSid),
-                    CustomerBranchSid: Number(payload.CustomerBranchSid),
-                    CustomerAddressSid: Number(payload.CustomerBranchSid),
+                    DepartmentMasterSid: payload.DepartmentMasterSid?  Number(payload.CustomerAddressSid):null,
+                    CustomerBranchSid:payload.CustomerBranchSid?  Number(payload.CustomerBranchSid):null,
+                    CustomerAddressSid: payload.CustomerAddressSid?  Number(payload.CustomerAddressSid):null,
                     ShipmentExpectedDate: payload.shipmentDate,
                     ShipmentType: payload.Segment,
                     CustomerAddress: payload.CustomerAddress,
@@ -126,12 +126,12 @@ export class EnquiryHeaderService {
                     }
                 })
 
-                if(enquiryHeader){
+                if (enquiryHeader) {
                     await this._db.preCustomerMaster.update({
-                        where:{
+                        where: {
                             PreCustomerMasterSid: payload.PreCustomerMasterSid
-                        },data:{
-                            leadStatus:LeadStatus.EnquiryGenerated
+                        }, data: {
+                            leadStatus: LeadStatus.EnquiryGenerated
                         }
                     })
                 }
@@ -260,7 +260,7 @@ export class EnquiryHeaderService {
                 where: { EnquiryHeaderSid: enquiryHeaderSid },
                 data: {
                     CustomerName: payload.CustomerName,
-                    FreightPPCC : payload.FreightPPCC,
+                    FreightPPCC: payload.FreightPPCC,
                     ShipmentExpectedDate: payload.shipmentDate,
                     ShipmentType: payload.Segment,
                     CustomerAddress: payload.CustomerAddress,
@@ -535,10 +535,10 @@ export class EnquiryHeaderService {
                 {
                     OR: [
                         { EnquiryNumber: { contains: search, mode: 'insensitive' } },
-                        { quoteHeader: {some: {QuoteNumber: { contains: search, mode: 'insensitive'}}}},
+                        { quoteHeader: { some: { QuoteNumber: { contains: search, mode: 'insensitive' } } } },
                         { CustomerName: { contains: search, mode: 'insensitive' } },
-                        { ShipmentType: {contains: search, mode: 'insensitive'}},
-                        {status: { contains: search, mode: 'insensitive'}},
+                        { ShipmentType: { contains: search, mode: 'insensitive' } },
+                        { status: { contains: search, mode: 'insensitive' } },
                         ...(parsedDate
                             ? [{ ShipmentExpectedDate: { equals: parsedDate } }]
                             : []),
@@ -555,11 +555,11 @@ export class EnquiryHeaderService {
                 skip,
                 take: pageSize,
                 orderBy: { EnquiryHeaderSid: 'desc' },
-                include : {
-                    enquiryRoute : {
-                        select : {
-                            POLSid : true,
-                            PODSid : true,
+                include: {
+                    enquiryRoute: {
+                        select: {
+                            POLSid: true,
+                            PODSid: true,
                         }
                     }
                 }
@@ -586,8 +586,8 @@ export class EnquiryHeaderService {
                 })
                 return {
                     ...item,
-                    POL : pol,
-                    POD : pod,
+                    POL: pol,
+                    POD: pod,
                     quoteNo: quote?.QuoteNumber
                 }
             })
