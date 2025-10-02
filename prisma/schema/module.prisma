@@ -61,9 +61,8 @@ model MenuMaster {
   roleMenuMaster     RoleMenuMaster[]
   terms              TermsAndConditionsMaster[]
   userRoleMaster     UserRoleMaster[]
-  menuConfig MenuConfig[]
-  ReportMaster ReportMaster[]
-
+  menuConfig         MenuConfig[]
+  ReportMaster       ReportMaster[]
 }
 
 model MenuPermission {
