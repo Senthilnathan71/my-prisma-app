@@ -241,7 +241,7 @@ model BookingRates {
   SerialNumber      Decimal?  @db.Decimal(3, 0)
   ChargeMasterSid   Int
   ChargeDescription String    @db.VarChar(100)
-  ChargeUomSid      Int
+  ChargeUomSid      Int?
   NoOfUnit          Int?
 QuoteChargeSid      Int?
 TariffDetailSid     Int?
