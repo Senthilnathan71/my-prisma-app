@@ -944,7 +944,7 @@ export class QuotationService {
 
             const users = await this._db.userMaster.findMany({
                 where: {
-                    UserMasterSid: { in: salesmanIds },
+                    // UserMasterSid: { in: salesmanIds },
                     status: 'A',
                 },
                 select: {

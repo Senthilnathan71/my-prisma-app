@@ -585,7 +585,7 @@ model PreCustomerMaster {
   PurchaseTimeline     String?              @db.VarChar(100)
   ServiceOfInterest    String?              @db.VarChar(100)
   SpecificRequirements String?              @db.VarChar(100)
-  isQualify            Boolean              @default(false)
+  isQualify            String?              @db.Char(1)  @default("N")   //Y OR N
   leadStatus           LeadStatus?          @default(Discovery)
   customerMaster       CustomerMaster[]
   branchMaster         BranchMaster?        @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
