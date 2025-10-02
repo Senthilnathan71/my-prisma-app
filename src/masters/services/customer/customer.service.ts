@@ -10,85 +10,6 @@ export class CustomerService {
     constructor(private _db: DatabaseService, private logger: Logger) { }
 
 
-    // async createCustomer(payload: any) {
-    //     this.logger.warn(`createDepartment: ${payload}`);
-
-
-    //     const existing = await this._db.customerMaster.findFirst({
-    //         where: {
-    //             OR: [
-    //                 {
-    //                     CustomerName: {
-    //                         equals: payload.CustomerName.trim(),
-    //                         mode: 'insensitive',
-    //                     }
-    //                 },
-    //                 {
-    //                     CustomerShortCode: {
-    //                         equals: payload.CustomerShortCode.trim(),
-    //                         mode: 'insensitive',
-    //                     }
-    //                 }
-    //             ]
-    //         },
-    //     });
-
-    //     if (existing) {
-    //         if (existing.CustomerName === payload.CustomerName) {
-    //             throw new BadRequestException('Customer name already exists');
-    //         }
-    //         if (existing.CustomerShortCode === payload.CustomerShortCode) {
-    //             throw new BadRequestException('Customer code already exists');
-    //         }
-    //     }
-    //     let customer;
-    //     try {
-    //         customer = await this._db.customerMaster.create({
-    //             data: payload.customer
-    //         }).catch(err => { throw err })
-
-    //         let customerBranch;
-    //         if (customer && payload.customerBranch) {
-    //             customerBranch = await this._db.customerBranch.createMany({
-    //                 data: {
-    //                     ...payload.customerBranch,
-    //                 }
-    //             }).catch(err => { throw err })
-    //             const customerBranchContact = await this._db.cusBranchContact.createMany({
-    //                 data: payload.customerBranch.customerBranchContact
-    //             }).catch(err => { throw err })
-    //         }
-
-    //         let customerBranchSalesTeam;
-    //         if (customer && customerBranch && payload.customerBranchSalesTeam) {
-    //             customerBranchSalesTeam = await this._db.customerBranch.createMany({
-    //                 data: payload
-    //             })
-    //         }
-    //         let customerBrEmail;
-    //         if (customer && customerBranch && payload.customerBrEmail) {
-    //             customerBrEmail = await this._db.customerBranch.createMany({
-    //                 data: payload
-    //             })
-    //         }
-    //         let customerLogin;
-    //         if (customer && customerBranch && payload.customerLogin) {
-    //             customerLogin = await this._db.customerBranch.createMany({
-    //                 data: payload
-    //             })
-    //         }
-    //         let customerMileStone;
-    //         if (customer && customerBranch && payload.customerMileStone) {
-    //             customerMileStone = await this._db.customerBranch.createMany({
-    //                 data: payload
-    //             })
-    //         }
-    //         return customer;
-    //     } catch (error) {
-    //         throw new Error(`Error creating customer: ${error.message}`);
-    //     }
-    // }
-
     async createCustomer(payload: any) {
         this.logger.log(`createCustomer: ${JSON.stringify(payload)}`);
 
@@ -701,33 +622,6 @@ export class CustomerService {
     }
 
 
-
-
-    // async updateCustomer(CustomerMasterSid: number, payload: any) {
-
-    //     const existing = await this._db.customerMaster.findUnique({
-    //         where: {
-    //             CustomerMasterSid: CustomerMasterSid
-    //         }
-    //     });
-
-    //     if (!existing) {
-    //         throw new Error('Customer is not exists');
-    //     }
-
-    //     try {
-    //         const Customer = await this._db.customerMaster.update({
-    //             where: {
-    //                 CustomerMasterSid: CustomerMasterSid
-    //             }, data: payload
-    //         });
-    //         return Customer;
-    //     } catch (error) {
-    //         throw new Error(`Error updating Customer: ${error.message}`);
-    //     }
-    // }
-
-
     async updateCustomer(CustomerMasterSid: number, payload: any) {
         const existing = await this._db.customerMaster.findUnique({
             where: { CustomerMasterSid }
@@ -817,8 +711,6 @@ export class CustomerService {
             return customer;
         });
     }
-
-
 
     async softDelete(CustomerMasterSid: number) {
         try {
