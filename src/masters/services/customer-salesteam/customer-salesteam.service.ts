@@ -184,13 +184,13 @@ export class CustomerSalesteamService {
             console.log(allCustomerBranchId);
             console.log(allCustomerBranchId, typeof allCustomerBranchId[0]);
 
-            const allSaleBranch = await this._db.customerSalesBranch.findMany({
+            const allSaleBranch = await this._db.customerSalesTeam.findMany({
                 where: {
-                    customerBranchSid: { in: allCustomerBranchId }
+                    CustomerBranchSid: { in: allCustomerBranchId }
                 },
             });
 
-            const allSaleBranchId = allSaleBranch.map(b => Number(b.customerSalesSid));
+            const allSaleBranchId = allSaleBranch.map(b => Number(b.CustomerSalesSid));
             console.log(allSaleBranchId);
 
             const allSalesteam = await this._db.customerSalesTeam.findMany({
@@ -199,7 +199,11 @@ export class CustomerSalesteamService {
                     CustomerSalesSid: { in: allSaleBranchId },
                 },
                 include: {
-                    branches: true,
+                    customerMaster: {
+                        include:{
+                            CustomerBranch:true
+                        }
+                    },
                 },
                 orderBy: {
                     CustomerSalesSid: 'desc',
@@ -235,10 +239,10 @@ export class CustomerSalesteamService {
                 CSPerson: salesteam.CSPerson,
                 DocPerson: salesteam.DocPerson,
                 status: salesteam.status,
-                branches: (salesteam.branches || []).map(b => ({
-                    id: b.id,
-                    customerBranchSid: b.customerBranchSid,
-                })),
+                // branches: (salesteam.cus || []).map(b => ({
+                //     id: b.id,
+                //     customerBranchSid: b.customerBranchSid,
+                // })),
             }));
 
             return formattedSalesteam;
@@ -251,79 +255,79 @@ export class CustomerSalesteamService {
 
 
 async saveCustomerSalesteam(customerSalesteam: any[]) {
-    try {
-        const finalSalesteam: any[] = [];
-        for (const salesteam of customerSalesteam) {
-            const result = await this._db.$transaction(async (tx) => {
-                let updatedSalesteam;
-                let createdSalesteam;
+    // try {
+    //     const finalSalesteam: any[] = [];
+    //     for (const salesteam of customerSalesteam) {
+    //         const result = await this._db.$transaction(async (tx) => {
+    //             let updatedSalesteam;
+    //             let createdSalesteam;
 
-                if (salesteam.CustomerSalesSid) {
-                    updatedSalesteam = await tx.customerSalesTeam.update({
-                        where: { CustomerSalesSid: salesteam.CustomerSalesSid },
-                        data: {
-                            Salesman: salesteam.Salesman,
-                            EffectiveFrom: salesteam.EffectiveFrom,
-                            DepartmentMasterSid: salesteam.DepartmentMasterSid,
-                            status: salesteam.status,
-                            updatedBy: salesteam.updatedBy,
-                            CSPerson: salesteam.CSPerson,
-                            DocPerson: salesteam.DocPerson,
-                        },
-                    });
+    //             if (salesteam.CustomerSalesSid) {
+    //                 updatedSalesteam = await tx.customerSalesTeam.update({
+    //                     where: { CustomerSalesSid: salesteam.CustomerSalesSid },
+    //                     data: {
+    //                         Salesman: salesteam.Salesman,
+    //                         EffectiveFrom: salesteam.EffectiveFrom,
+    //                         DepartmentMasterSid: salesteam.DepartmentMasterSid,
+    //                         status: salesteam.status,
+    //                         updatedBy: salesteam.updatedBy,
+    //                         CSPerson: salesteam.CSPerson,
+    //                         DocPerson: salesteam.DocPerson,
+    //                     },
+    //                 });
 
-                    const customerSalesBranch = salesteam.branches || [];
-                    for (const branch of customerSalesBranch) {
-                        if (branch.id) {
-                            await tx.customerSalesBranch.update({
-                                where: { id: branch.id },
-                                data: { customerBranchSid: branch.customerBranchSid },
-                            });
-                        } else {
-                            await tx.customerSalesBranch.create({
-                                data: {
-                                    customerSalesSid: updatedSalesteam.CustomerSalesSid,
-                                    customerBranchSid: branch.customerBranchSid,
-                                },
-                            });
-                        }
-                    }
-                    return updatedSalesteam;
-                } else {
-                    createdSalesteam = await tx.customerSalesTeam.create({
-                        data: {
-                            Salesman: salesteam.Salesman,
-                            CompanyMasterSid: salesteam.CompanyMasterSid,
-                            EffectiveFrom: salesteam.EffectiveFrom,
-                            createdBy: salesteam.createdBy,
-                            status: salesteam.status,
-                            DepartmentMasterSid: salesteam.DepartmentMasterSid,
-                            CSPerson: salesteam.CSPerson,
-                            DocPerson: salesteam.DocPerson,
-                        },
-                    });
+    //                 const customerSalesBranch = salesteam.branches || [];
+    //                 for (const branch of customerSalesBranch) {
+    //                     if (branch.id) {
+    //                         await tx.customerSalesBranch.update({
+    //                             where: { id: branch.id },
+    //                             data: { customerBranchSid: branch.customerBranchSid },
+    //                         });
+    //                     } else {
+    //                         await tx.customerSalesBranch.create({
+    //                             data: {
+    //                                 customerSalesSid: updatedSalesteam.CustomerSalesSid,
+    //                                 customerBranchSid: branch.customerBranchSid,
+    //                             },
+    //                         });
+    //                     }
+    //                 }
+    //                 return updatedSalesteam;
+    //             } else {
+    //                 createdSalesteam = await tx.customerSalesTeam.create({
+    //                     data: {
+    //                         Salesman: salesteam.Salesman,
+    //                         CompanyMasterSid: salesteam.CompanyMasterSid,
+    //                         EffectiveFrom: salesteam.EffectiveFrom,
+    //                         createdBy: salesteam.createdBy,
+    //                         status: salesteam.status,
+    //                         DepartmentMasterSid: salesteam.DepartmentMasterSid,
+    //                         CSPerson: salesteam.CSPerson,
+    //                         DocPerson: salesteam.DocPerson,
+    //                     },
+    //                 });
 
-                    const createdBranches = await Promise.all(
-                        (salesteam.branches || []).map(branch =>
-                            tx.customerSalesBranch.create({
-                                data: {
-                                    customerSalesSid: createdSalesteam.CustomerSalesSid,
-                                    customerBranchSid: branch.customerBranchSid,
-                                },
-                            })
-                        )
-                    );
-                    console.log(createdBranches);
+    //                 const createdBranches = await Promise.all(
+    //                     (salesteam.branches || []).map(branch =>
+    //                         tx.customerSalesBranch.create({
+    //                             data: {
+    //                                 customerSalesSid: createdSalesteam.CustomerSalesSid,
+    //                                 customerBranchSid: branch.customerBranchSid,
+    //                             },
+    //                         })
+    //                     )
+    //                 );
+    //                 console.log(createdBranches);
 
-                    return createdSalesteam;
-                }
-            });
-            finalSalesteam.push(result);
-        }
-        return finalSalesteam;
-    } catch (error) {
-        throw error;
-    }
+    //                 return createdSalesteam;
+    //             }
+    //         });
+    //         finalSalesteam.push(result);
+    //     }
+    //     return finalSalesteam;
+    // } catch (error) {
+    //     throw error;
+    // }
 }
 
 

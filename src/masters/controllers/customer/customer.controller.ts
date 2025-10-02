@@ -9,6 +9,8 @@ import { CustomerService } from 'src/masters/services/customer/customer.service'
 class CompanyIdDto {
     CompanyMasterSid: number;
 }
+
+@Auth()
 @Controller('customer')
 
 export class CustomerController {

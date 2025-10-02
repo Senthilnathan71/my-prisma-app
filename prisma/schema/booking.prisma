@@ -229,65 +229,65 @@ model BookingOthers {
 }
 
 model BookingRates {
-  BookingRatesSid   Int       @id @default(autoincrement())
-  BookingHeaderSid  Int
-  CompanyMasterSid  Int
-  BranchMasterSid   Int
-  CreatedOn         DateTime  @default(now())
-  CreatedBy         String    @db.VarChar(100)
-  UpdatedOn         DateTime?
-  UpdatedBy         String?   @db.VarChar(100)
-  Status            String?   @default("A") @db.Char(1)
-  SerialNumber      Decimal?  @db.Decimal(3, 0)
-  ChargeMasterSid   Int
-  ChargeDescription String    @db.VarChar(100)
-  ChargeUomSid      Int?
-  NoOfUnit          Int?
-QuoteChargeSid      Int?
-TariffDetailSid     Int?
-  CostPrepaidCollect    String?  @default("Prepaid") @db.VarChar(10)
+  BookingRatesSid       Int       @id @default(autoincrement())
+  BookingHeaderSid      Int
+  CompanyMasterSid      Int
+  BranchMasterSid       Int
+  CreatedOn             DateTime  @default(now())
+  CreatedBy             String    @db.VarChar(100)
+  UpdatedOn             DateTime?
+  UpdatedBy             String?   @db.VarChar(100)
+  Status                String?   @default("A") @db.Char(1)
+  SerialNumber          Decimal?  @db.Decimal(3, 0)
+  ChargeMasterSid       Int
+  ChargeDescription     String    @db.VarChar(100)
+  ChargeUomSid          Int?
+  NoOfUnit              Int?
+  QuoteChargeSid        Int?
+  TariffDetailSid       Int?
+  CostPrepaidCollect    String?   @default("Prepaid") @db.VarChar(10)
   CostCurrencyMasterSid Int?
-  CostExchangeRate      Decimal? @db.Decimal(6, 3)
-  CostRate              Decimal? @db.Decimal(15, 3)
-  CostNumberOfUnit      Decimal? @db.Decimal(4, 3)
-  CostDrCr              String   @db.Char(1)
-  CostAmount            Decimal  @db.Decimal(15, 3)
-  CostLocalAmount       Decimal  @db.Decimal(15, 3)
+  CostExchangeRate      Decimal?  @db.Decimal(6, 3)
+  CostRate              Decimal?  @db.Decimal(15, 3)
+  CostNumberOfUnit      Decimal?  @db.Decimal(4, 3)
+  CostDrCr              String    @db.Char(1)
+  CostAmount            Decimal   @db.Decimal(15, 3)
+  CostLocalAmount       Decimal   @db.Decimal(15, 3)
 
-  RevenuePrepaidCollect    String?
-  RevenueCurrencyMasterSid Int?
-  RevenueExchangeRate      Decimal?           @db.Decimal(6, 3)
-  RevenueRate              Decimal?           @db.Decimal(15, 3)
-  RevenueNumberOfUnit      Decimal?           @db.Decimal(4, 3)
-  RevenueDrCr              String             @db.Char(1)
-  RevenueAmount            Decimal            @db.Decimal(15, 3)
-  RevenueLocalAmount       Decimal            @db.Decimal(15, 3)
-  PrepaidCollect           String?
-  AgentMasterSid           Int?      //Billing party
-  AgentBranchSid           Int?
-  CustomerMasterSid        Int      // Agent
-  CustomerBranchSid        Int
-  CostVoucherHeaderSid         Int?
-  CostVoucherTypeMasterSid     Int?
-  RevenueVoucherHeaderSid         Int?
-  RevenueVoucherTypeMasterSid     Int?
-  CostChargeUomSid         Int?
-  RevenueChargeUomSid      Int?
-  Remarks                  String?            @db.VarChar(100)
-  tariffDetail         TariffDetail?     @relation(fields: [TariffDetailSid], references: [TariffDetailSid])
-  quoteCharge            QuoteCharge?      @relation(fields: [QuoteChargeSid], references: [QuoteChargeSid])
-  BookingHeader            BookingHeader      @relation(fields: [BookingHeaderSid], references: [BookingHeaderSid])
-  BranchMaster             BranchMaster       @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
-  companyMaster            CompanyMaster      @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
-  customerBranch           CustomerBranch?    @relation(fields: [CustomerBranchSid], references: [CustomerBranchSid])
-  customerMasterBP          CustomerMaster?    @relation("BillingParty", fields: [CustomerMasterSid], references: [CustomerMasterSid])
-  customerMasterAG           CustomerMaster?    @relation("Agent", fields: [AgentMasterSid], references: [CustomerMasterSid])
-  costVoucherHeader            VoucherHeader?     @relation("COST",fields: [CostVoucherHeaderSid], references: [VoucherHeaderSid])
-  costVoucherTypeMaster        VoucherTypeMaster? @relation("COST",fields: [CostVoucherTypeMasterSid], references: [VoucherTypeMasterSid])
-  revenueVoucherHeader            VoucherHeader?     @relation("REVENUE",fields: [RevenueVoucherHeaderSid], references: [VoucherHeaderSid])
-  revenueVoucherTypeMaster        VoucherTypeMaster? @relation("REVENUE",fields: [RevenueVoucherTypeMasterSid], references: [VoucherTypeMasterSid])
-  costChargeUOMMaster      UOMMaster?         @relation("COST", fields: [CostChargeUomSid], references: [UOMMasterSid])
-  revenueChargeUOMMaster   UOMMaster?         @relation("REVENUE", fields: [RevenueChargeUomSid], references: [UOMMasterSid])
+  RevenuePrepaidCollect       String?
+  RevenueCurrencyMasterSid    Int?
+  RevenueExchangeRate         Decimal?           @db.Decimal(6, 3)
+  RevenueRate                 Decimal?           @db.Decimal(15, 3)
+  RevenueNumberOfUnit         Decimal?           @db.Decimal(4, 3)
+  RevenueDrCr                 String             @db.Char(1)
+  RevenueAmount               Decimal            @db.Decimal(15, 3)
+  RevenueLocalAmount          Decimal            @db.Decimal(15, 3)
+  PrepaidCollect              String?
+  AgentMasterSid              Int? //Billing party
+  AgentBranchSid              Int?
+  CustomerMasterSid           Int // Agent
+  CustomerBranchSid           Int
+  CostVoucherHeaderSid        Int?
+  CostVoucherTypeMasterSid    Int?
+  RevenueVoucherHeaderSid     Int?
+  RevenueVoucherTypeMasterSid Int?
+  CostChargeUomSid            Int?
+  RevenueChargeUomSid         Int?
+  Remarks                     String?            @db.VarChar(100)
+  tariffDetail                TariffDetail?      @relation(fields: [TariffDetailSid], references: [TariffDetailSid])
+  quoteCharge                 QuoteCharge?       @relation(fields: [QuoteChargeSid], references: [QuoteChargeSid])
+  BookingHeader               BookingHeader      @relation(fields: [BookingHeaderSid], references: [BookingHeaderSid])
+  BranchMaster                BranchMaster       @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
+  companyMaster               CompanyMaster      @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+  customerBranch              CustomerBranch?    @relation(fields: [CustomerBranchSid], references: [CustomerBranchSid])
+  customerMasterBP            CustomerMaster?    @relation("BillingParty", fields: [CustomerMasterSid], references: [CustomerMasterSid])
+  customerMasterAG            CustomerMaster?    @relation("Agent", fields: [AgentMasterSid], references: [CustomerMasterSid])
+  costVoucherHeader           VoucherHeader?     @relation("COST", fields: [CostVoucherHeaderSid], references: [VoucherHeaderSid])
+  costVoucherTypeMaster       VoucherTypeMaster? @relation("COST", fields: [CostVoucherTypeMasterSid], references: [VoucherTypeMasterSid])
+  revenueVoucherHeader        VoucherHeader?     @relation("REVENUE", fields: [RevenueVoucherHeaderSid], references: [VoucherHeaderSid])
+  revenueVoucherTypeMaster    VoucherTypeMaster? @relation("REVENUE", fields: [RevenueVoucherTypeMasterSid], references: [VoucherTypeMasterSid])
+  costChargeUOMMaster         UOMMaster?         @relation("COST", fields: [CostChargeUomSid], references: [UOMMasterSid])
+  revenueChargeUOMMaster      UOMMaster?         @relation("REVENUE", fields: [RevenueChargeUomSid], references: [UOMMasterSid])
 
   HouseJob HouseJob[]
 }
@@ -318,31 +318,31 @@ model VesselMaster {
 }
 
 model VoyageMasterHeader {
-  VesselMasterSid       Int
-  VoyageNo              String    @db.VarChar(10)
-  ViaNumber             String?   @db.VarChar(10)
-  RotationNumber        String    @db.VarChar(10)
-  Remarks               String?   @db.VarChar(200)
-  SCMETA                DateTime
-  SCMETD                DateTime
-  SCMTCargoDescription  String    @db.VarChar(200)
-  ShipIRN               String    @db.VarChar(10)
-  CrewIRN               String    @db.VarChar(10)
-  createdOn             DateTime  @default(now()) @db.Timestamptz(6)
-  updatedOn             DateTime? @updatedAt @db.Timestamptz(6)
-  deletedAt             DateTime?
-  createdBy             String    @db.VarChar(100)
-  updatedBy             String?   @db.VarChar(100)
-  status                String?   @default("A") @db.Char(1)
-  VoyageMasterHeaderSid Int       @id @default(autoincrement()) @map("VoyageMasterHeaderSid")
-  Carrier               Int?
-  CoLoad                String?   @default("N") @db.Char(1)
-  Coloader              Int? // from partymaster
-  VoyageType            String?   @db.VarChar(10) //( Air, Sea, Road )
-  CompanyMasterSid      Int?
-  BranchMasterSid       Int?
+  VesselMasterSid        Int
+  VoyageNo               String               @db.VarChar(10)
+  ViaNumber              String?              @db.VarChar(10)
+  RotationNumber         String               @db.VarChar(10)
+  Remarks                String?              @db.VarChar(200)
+  SCMETA                 DateTime
+  SCMETD                 DateTime
+  SCMTCargoDescription   String               @db.VarChar(200)
+  ShipIRN                String               @db.VarChar(10)
+  CrewIRN                String               @db.VarChar(10)
+  createdOn              DateTime             @default(now()) @db.Timestamptz(6)
+  updatedOn              DateTime?            @updatedAt @db.Timestamptz(6)
+  deletedAt              DateTime?
+  createdBy              String               @db.VarChar(100)
+  updatedBy              String?              @db.VarChar(100)
+  status                 String?              @default("A") @db.Char(1)
+  VoyageMasterHeaderSid  Int                  @id @default(autoincrement()) @map("VoyageMasterHeaderSid")
+  Carrier                Int?
+  CoLoad                 String?              @default("N") @db.Char(1)
+  Coloader               Int? // from partymaster
+  VoyageType             String?              @db.VarChar(10) //( Air, Sea, Road )
+  CompanyMasterSid       Int?
+  BranchMasterSid        Int?
   POLSid                 Int? //(port master)
-  PODSid                 Int?//(port Master)
+  PODSid                 Int? //(port Master)
   ETA                    DateTime?
   ETD                    DateTime?
   ATA                    DateTime?
@@ -353,10 +353,10 @@ model VoyageMasterHeader {
   MasterJobVoyage        MasterJobVoyage[]
   voyageMasterDetail     VoyageMasterDetail[]
   bookingHeader          BookingHeader[]
-  branchMaster         BranchMaster?  @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
-  companyMaster        CompanyMaster? @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
-  portMasterPOD         PortMaster?        @relation("POD", fields: [PODSid], references: [PortMasterSid])
-  portMasterPOL         PortMaster?        @relation("POL", fields: [POLSid], references: [PortMasterSid])
+  branchMaster           BranchMaster?        @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
+  companyMaster          CompanyMaster?       @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+  portMasterPOD          PortMaster?          @relation("POD", fields: [PODSid], references: [PortMasterSid])
+  portMasterPOL          PortMaster?          @relation("POL", fields: [POLSid], references: [PortMasterSid])
   customerMasterCarrier  CustomerMaster?      @relation("Carrier", fields: [Carrier], references: [CustomerMasterSid])
   customerMasterColoader CustomerMaster?      @relation("Coloader", fields: [Coloader], references: [CustomerMasterSid])
   vesselMaster           VesselMaster         @relation(fields: [VesselMasterSid], references: [VesselMasterSid])
