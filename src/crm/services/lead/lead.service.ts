@@ -57,7 +57,8 @@ export class LeadService {
                     Notes: payload.Notes,
                     status: payload.status,
                     createdBy: payload.createdBy,
-
+                    isQualify: payload.isQualify,
+                    leadStatus: payload.leadStatus,
                     // ✅ Fix: connect required relations
                     companyMaster: { connect: { CompanyMasterSid: payload.CompanyMasterSid } },
                     branchMaster: payload.BranchMasterSid ? { connect: { BranchMasterSid: payload.BranchMasterSid } } : undefined,

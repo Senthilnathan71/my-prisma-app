@@ -61,8 +61,8 @@ export class PreCustomerMeetingService {
                 }
                 payload.updatedOn = new Date(); // Only update UpdatedOn
                 payload.updatedBy = params['userEmail']
-                payload.followUpDate = params.followUpDate ? new Date(params.followUpDate + "Z") : null
-                payload.meetingDate = new Date(params.meetingDate + "Z")
+                payload.followUpDate = params.followUpDate ? this.toUTCISO(params.followUpDate) : null,
+                payload.meetingDate = this.toUTCISO(params.meetingDate)
 
                 const data = await this._db.preCustomerMeeting.update({
                     where: { PreCustomerMeetingSid: params.PreCustomerMeetingSid },
@@ -299,6 +299,11 @@ export class PreCustomerMeetingService {
         return result;
     }
 
+
+ toUTCISO(localDateTime: string) {
+  const local = new Date(localDateTime);
+  return new Date(local.getTime() - local.getTimezoneOffset() * 60000).toISOString();
+}
 
 
 }

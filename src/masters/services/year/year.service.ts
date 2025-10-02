@@ -25,22 +25,29 @@ export class YearService {
             throw error;
         }
     }
-
     async createNewYear(payload: any) {
         try {
+            const { CompanyMasterSid, ...rest } = payload;
+
             const createdYear = await this._db.yearMaster.create({
                 data: {
-                    ...payload,
+                    ...rest,
+                    companyMaster: {
+                        connect: { CompanyMasterSid },
+                    },
                 },
                 include: {
-                    companyMaster: true
-                }
+                    companyMaster: true,
+                },
             });
+
             return createdYear;
         } catch (error) {
+            console.log(error.stack);
             throw error;
         }
     }
+
 
     async fetchYearById(YearMasterSid: number) {
         try {
