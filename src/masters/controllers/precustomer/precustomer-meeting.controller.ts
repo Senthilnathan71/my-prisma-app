@@ -11,7 +11,7 @@ class CompanyIdDto {
   CompanyMasterSid: number;
   BranchMasterSid: number;
 }
-@Controller('ff-precustomer-meeting')
+@Controller('ff-pre-customer-meeting')
 @Auth()
 export class PreCustomerMeetingController {
 
@@ -65,7 +65,7 @@ export class PreCustomerMeetingController {
                 throw 'Something went wrong'
             }
             output.data = preCustomer.data;
-           output.message = 'PreCustomerMeeting Created Successfully'
+           output.message = preCustomer.message
             output.status = true
 
         } catch (error) {
@@ -144,6 +144,33 @@ export class PreCustomerMeetingController {
         }
         return output;
     }
+
+
+    @ApiOperation({ summary: 'Get All PreCustomerMeetings' })
+        @ApiCreatedResponse({
+            description: 'Get All PreCustomerMeetings',
+            type: ResponseData
+        })
+        @HttpCode(HttpStatus.OK)
+        @Post()
+        async getAllPreCustomerMeetings(@Body() body: CompanyIdDto) {
+            let resp = new ResponseData();
+            try {
+                let res = await this.preCustomerMeetingService.getAllPreCustomerMeetings(body.CompanyMasterSid, body.BranchMasterSid);
+                this.logger.log(`All PreCustomerMeetings Fetched : ${JSON.stringify(res)}`);
+                resp.data = res;
+                resp.message = "All PreCustomerMeetings are successfully fetched";
+            } catch (error) {
+                this.logger.warn(`Get All PreCustomerMeetings Error : ${JSON.stringify(error)}`, error);
+                resp.status = false;
+                if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                    resp.message = error.message;
+                } else {
+                    resp.message = "Internal Server Error";
+                }
+            }
+            return resp;
+        }
 
 
     @ApiOperation({ summary: 'Get PreCustomer by id' })

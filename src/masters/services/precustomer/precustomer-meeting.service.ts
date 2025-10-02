@@ -8,15 +8,16 @@ import { CreatePrecustomerDto } from 'src/masters/DTO/create-Precustomer.dto';
 export class PreCustomerMeetingService {
     constructor(
         private _db: DatabaseService,
-        private logger : Logger
+        private logger: Logger
     ) { }
 
 
-    async getPreCustomerMastersWithoutMeetings(CompanyMasterSid:number,BranchMasterSid:number) {
+    async getPreCustomerMastersWithoutMeetings(CompanyMasterSid: number, BranchMasterSid: number) {
         const result = await this._db.preCustomerMaster.findMany({
             where: {
-                isQualify:"Y",
-                status:"A",
+                isQualify: "Y",
+                status: "A",
+                leadStatus: LeadStatus.Qualify,
                 CompanyMasterSid: CompanyMasterSid,
                 BranchMasterSid: BranchMasterSid
             },
@@ -24,7 +25,7 @@ export class PreCustomerMeetingService {
                 preCustomerMeeting: true, // Include if needed for debugging, otherwise remove,
                 cityMaster: true,
             },
-            orderBy : {
+            orderBy: {
                 PreCustomerMasterSid: 'desc'
             }
         });
@@ -41,30 +42,33 @@ export class PreCustomerMeetingService {
                 customerProfile: params.customerProfile,
                 meetingNote: params.meetingNote,
                 followUpNote: params.followUpNote,
-                createdBy: params['userEmail'],
+                createdBy: params.createdBy,
                 status: params.status || "A",
                 companyMaster: {
                     connect: { CompanyMasterSid: params.CompanyMasterSid }
                 },
                 branchMaster: {
                     connect: { BranchMasterSid: params.BranchMasterSid }
-                }
+                },
+                meetingDuration: params.meetingDuration
             };
-               console.log('Final payload:', payload); 
+            console.log('Final payload:', payload);
+            let data;
             if (params.PreCustomerMeetingSid) {
                 const existingLead = await this._db.preCustomerMeeting.findUnique({
                     where: { PreCustomerMeetingSid: params.PreCustomerMeetingSid },
+                    include:{meetingFollowUp:true}
                 });
 
                 if (!existingLead) {
                     throw new BadRequestException('Meeting not found');
                 }
                 payload.updatedOn = new Date(); // Only update UpdatedOn
-                payload.updatedBy = params['userEmail']
+                payload.updatedBy = params.createdBy
                 payload.followUpDate = params.followUpDate ? this.toUTCISO(params.followUpDate) : null,
                 payload.meetingDate = this.toUTCISO(params.meetingDate)
 
-                const data = await this._db.preCustomerMeeting.update({
+                data = await this._db.preCustomerMeeting.update({
                     where: { PreCustomerMeetingSid: params.PreCustomerMeetingSid },
                     data: payload,
                     include: {
@@ -72,52 +76,46 @@ export class PreCustomerMeetingService {
                     }
                 })
 
-                const customerPayload = {
-                    PreCustomerMasterSid: data.preCustomerMaster?.PreCustomerMasterSid!,
-                    CountryMasterSid: data.preCustomerMaster?.CountryMasterSid!,
-                    CompanyMasterSid: data.preCustomerMaster?.CompanyMasterSid!,
-                    CustomerName: data.preCustomerMaster?.preCustomerName!,
-                    CustomerAddress1: data.preCustomerMaster?.preCustomerAddress1!,
-                    createdBy: data.preCustomerMaster?.createdBy!,
-                    createdOn: new Date()
+                if (data && (payload.meetingStatus === 'confirmed' || payload.meetingStatus === 'completed')) {
+                    await this._db.preCustomerMaster.update({
+                        where: {
+                            PreCustomerMasterSid: data.preCustomerMaster?.PreCustomerMasterSid
+                        }, data: {
+                            leadStatus: LeadStatus.MeetingCompleted
+                        }
+                    })
                 }
 
-                // if (data.meetingStatus === 'confirmed' && params.LeadOrCustomer === 'L') {
-                //     const customerName = data.preCustomerMaster?.preCustomerName;
 
-                //     if (!customerName) {
-                //         throw new Error('Customer name is missing for confirmed meeting.');
-                //     }
-
-                //     const existCustomer = await this._db.customerMaster.findFirst({
-                //         where: {
-                //             CustomerName: customerName 
-                //         }
-                //     })
-
-                //     if (!existCustomer) {
-                //         await this._db.customerMaster.create({
-                //             data: {
-                //                 ...customerPayload,
-                //                 CustomerName: customerName, // this is now guaranteed to be a string
-
-                //             }
-                //         })
-                //     } else {
-                //         this.logger.warn("Customer already exists!");
-                //     }
-                // }
-
-
-                if (params.followUpDate) {
-                    await this._db.meetingFollowup.create({
+                if (params.followUpDate && !existingLead.followUpDate) {
+                    const followup = await this._db.meetingFollowup.create({
                         data: {
                             PreCustomerMeetingSid: params.PreCustomerMeetingSid,
                             CompanyMasterSid: data.CompanyMasterSid,
                             BranchMasterSid: data.BranchMasterSid,
                             DepartmentMasterSid: params.DepartmentMasterSid,
                             OpportunitySector: params.OpportunitySector,
-                            FollowupDate: params.followUpDate ? new Date(params.followUpDate + "Z") : "",
+                            FollowupDate: params.followUpDate ? this.toUTCISO(params.followUpDate) : "",
+                            FollowupNote: params.followUpNote,
+                            MeetingNote: params.meetingNote,
+                            Remarks: params.remarks ?? null,
+                            createdBy: params['userEmail'],
+                            createdOn: new Date(),
+                            updatedOn: new Date()
+                        }
+                    })
+                }else{
+                    const followup = await this._db.meetingFollowup.update({
+                        where:{
+                            MeetingFollowupSid : existingLead.meetingFollowUp[0].MeetingFollowupSid
+                        },
+                        data: {
+                            PreCustomerMeetingSid: params.PreCustomerMeetingSid,
+                            CompanyMasterSid: data.CompanyMasterSid,
+                            BranchMasterSid: data.BranchMasterSid,
+                            DepartmentMasterSid: params.DepartmentMasterSid,
+                            OpportunitySector: params.OpportunitySector,
+                            FollowupDate: params.followUpDate ? this.toUTCISO(params.followUpDate) : "",
                             FollowupNote: params.followUpNote,
                             MeetingNote: params.meetingNote,
                             Remarks: params.remarks ?? null,
@@ -133,38 +131,52 @@ export class PreCustomerMeetingService {
             } else {
                 payload.createdOn = new Date();
                 payload.updatedOn = new Date();
-                payload.meetingDate = new Date(params.meetingDate + "Z")
                 const payloadData = {
-                        createdBy : params.userEmail || '',
-                        meetingDate : new Date(params.meetingDate + "Z"),
-                        meetingType : params.meetingType,
-                        meetingStatus : params.meetingStatus,
-                        customerProfile : params.customerProfile,
-                        remarks : params.remarks,
-                        status : params.status,
-                        followUpDate : params.followUpDate ? new Date(params.followUpDate + "Z") : null,
-                        followUpNote : params.followUpNote,
-                        meetingNote : params.meetingNote,
-                        leadAssignTo : Number(params.leadAssignTo) || 0,
-                        CompanyMasterSid : params.CompanyMasterSid,
-                        BranchMasterSid : params.BranchMasterSid,
-                        LeadOrCustomer : params.LeadOrCustomer
-                    }
+                    createdBy: params.userEmail || '',
+                    meetingDate: this.toUTCISO(params.meetingDate),
+                    meetingType: params.meetingType,
+                    meetingStatus: params.meetingStatus ? params.meetingStatus : 'Scheduled',
+                    customerProfile: params.customerProfile,
+                    remarks: params.remarks,
+                    meetingDuration: params.meetingDuration,
+                    status: params.status,
+                    followUpDate: params.followUpDate ? this.toUTCISO(params.followUpDate) : null,
+                    followUpNote: params.followUpNote,
+                    meetingNote: params.meetingNote,
+                    leadAssignTo: Number(params.leadAssignTo) || 0,
+                    CompanyMasterSid: params.CompanyMasterSid,
+                    BranchMasterSid: params.BranchMasterSid,
+                    LeadOrCustomer: params.LeadOrCustomer
+                }
 
-                    if(params.LeadOrCustomer === 'L'){
-                        payloadData['PreCustomerMasterSid'] = Number(params.PreCustomerMasterSid)
-                        payloadData['CustomerMasterSid'] = null
-                    } else {
-                        payloadData['PreCustomerMasterSid'] = null
-                        payloadData['CustomerMasterSid'] = Number(params.CustomerMasterSid)
-                    }
+                if (params.LeadOrCustomer === 'L') {
+                    payloadData['PreCustomerMasterSid'] = Number(params.PreCustomerMasterSid)
+                    payloadData['CustomerMasterSid'] = null
+                } else {
+                    payloadData['PreCustomerMasterSid'] = null
+                    payloadData['CustomerMasterSid'] = Number(params.CustomerMasterSid)
+                }
 
                 const newMeeting = await this._db.preCustomerMeeting.create({
-                    data : payloadData
-                });  
-                return { message: 'Meeting created successfully', data: newMeeting };
+                    data: payloadData
+                }).catch(err => { throw err });
+                let mes;
+                if (newMeeting) {
+                    const updateLeadStatus = await this._db.preCustomerMaster.update({
+                        where: {
+                            PreCustomerMasterSid: params.PreCustomerMasterSid
+                        }, data: {
+                            leadStatus: LeadStatus.MeetingScheduled
+                        }
+                    }).catch(err => { throw err })
+                    mes = 'Meeting created successfully'
+                } else {
+                    mes = 'Meeting updated successfully'
+                }
+                return { message: mes, data: newMeeting };
             }
         } catch (error) {
+            console.log(error.stack)
             throw error
         }
     }
@@ -172,18 +184,24 @@ export class PreCustomerMeetingService {
 
     async getPreCustomerMeetingDate() {
         const result = await this._db.preCustomerMeeting.findMany({
+            where:{
+                status:"A",
+                meetingStatus:{
+                        notIn:['confirmed', 'completed']
+                    }
+            },
             select: {
                 preCustomerMaster: {
                     select: {
                         preCustomerName: true
                     }
                 },
-                customerMaster : {
-                    select : {
-                        CustomerName : true
+                customerMaster: {
+                    select: {
+                        CustomerName: true
                     }
                 },
-                LeadOrCustomer : true,
+                LeadOrCustomer: true,
                 PreCustomerMeetingSid: true,
                 meetingDate: true,
                 followUpDate: true,
@@ -214,13 +232,13 @@ export class PreCustomerMeetingService {
 
 
 
-    async todoMeetings(CompanyMasterSid:number,BranchMasterSid:number) {
+    async todoMeetings(CompanyMasterSid: number, BranchMasterSid: number) {
         let result: any = {};
 
         result.inActive = await this._db.preCustomerMaster.findMany({
             where: {
                 status: 'S',
-                CompanyMasterSid:CompanyMasterSid
+                CompanyMasterSid: CompanyMasterSid
             }
         })
 
@@ -258,52 +276,69 @@ export class PreCustomerMeetingService {
     }
 
 
-    async getPreCustomerFollowupMeetings(CompanyMasterSid:number,BranchMasterSid:number){
+    async getPreCustomerFollowupMeetings(CompanyMasterSid: number, BranchMasterSid: number) {
         const result = await this._db.meetingFollowup.findMany({
-            where:{
-                CompanyMasterSid:CompanyMasterSid,
-                BranchMasterSid:BranchMasterSid
-            },
-            include:{
+            where: {
+                CompanyMasterSid: CompanyMasterSid,
+                BranchMasterSid: BranchMasterSid,
+                Status:'A',
                 preCustomerMeeting:{
-                    include:{
-                        preCustomerMaster:{
-                            include:{
-                                customerMaster:true
+                    meetingStatus:{
+                        notIn:['confirmed', 'completed']
+                    }
+                }
+            },
+            include: {
+                preCustomerMeeting: {
+                    include: {
+                        preCustomerMaster: {
+                            include: {
+                                customerMaster: true
                             }
                         }
                     }
                 }
             }
-            // select: {
-            //     preCustomerMaster: {
-            //         select: {
-            //             preCustomerName: true
-            //         }
-            //     },
-            //     customerMaster : {
-            //         select : {
-            //             CustomerName : true
-            //         }
-            //     },
-            //     LeadOrCustomer : true,
-            //     PreCustomerMeetingSid: true,
-            //     meetingDate: true,
-            //     followUpDate: true,
-            //     meetingStatus: true
-            // }
-        })
-            .catch((error) => {
-                return []; // Return an empty array or handle it appropriately
+
+        }).catch((error) => {
+                throw error
             });
         return result;
     }
 
 
- toUTCISO(localDateTime: string) {
-  const local = new Date(localDateTime);
-  return new Date(local.getTime() - local.getTimezoneOffset() * 60000).toISOString();
-}
+    async getAllPreCustomerMeetings(CompanyMasterSid: number, BranchMasterSid: number) {
+        try {
+            const allMeetings = await this._db.preCustomerMeeting.findMany({
+                where: {
+                    status: 'A',
+                    meetingStatus: {
+                        notIn: ['completed', 'confirmed'],
+                    },
+                    CompanyMasterSid: CompanyMasterSid,
+                    BranchMasterSid: BranchMasterSid
+                },
+                include: {
+                    preCustomerMaster: {
+                        select: {
+                            preCustomerName: true,
+                            leadStatus: true
+                        }
+                    }
+
+                }
+            });
+            return allMeetings;
+        } catch (error) {
+            throw error;
+        }
+    }
+
+
+    toUTCISO(localDateTime: string) {
+        const local = new Date(localDateTime);
+        return new Date(local.getTime() - local.getTimezoneOffset() * 60000).toISOString();
+    }
 
 
 }
