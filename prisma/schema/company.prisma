@@ -857,6 +857,7 @@ model CustomerMaster {
   costCharges             CostRevenueCharges[] @relation("COST")
   revenueCharges          CostRevenueCharges[] @relation("REVENUE")
   CustomerMilestone       CustomerMilestone[]
+  CustomerSalesTeam       CustomerSalesTeam[]
   PreCustomerMeeting      PreCustomerMeeting[]
   voyageHeaderMasterCarrier VoyageMasterHeader[]@relation("Carrier")
   voyageHeaderMasterColoader VoyageMasterHeader[]@relation("Coloader")
@@ -1430,6 +1431,8 @@ model CustomerSalesTeam {
   DepartmentMasterSid String[]
   DocPerson           Int?
   CSPerson            Int?
+  CustomerMasterSid    Int?
+  customerMaster       CustomerMaster? @relation(fields: [CustomerMasterSid], references: [CustomerMasterSid])
   companyMaster       CompanyMaster? @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
   branches CustomerSalesBranch[]
 }
