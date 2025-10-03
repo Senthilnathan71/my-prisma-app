@@ -73,7 +73,11 @@ export class CustomerService {
                     const createdBranch = await tx.customerBranch.create({
                         data: {
                             BranchName: branch.BranchName,
-                            StateMasterSid: branch.StateMasterSid,
+                            stateMaster: {
+                                create:{
+                                   StateMasterSid : branch.StateMasterSid
+                                }
+                            },
                             cityMaster:{
                                 create:{
                                     CityMasterSid:branch.CityMasterSid
@@ -82,6 +86,11 @@ export class CustomerService {
                             customerMaster:{
                                 create:{
                                     CustomerMasterSid: customer.CustomerMasterSid
+                                }
+                            },
+                            compantMaster:{
+                                create:{
+                                    CompanyMasterSid: customer.CompanyMasterSid
                                 }
                             },
                             Branch_Type:branch.Branch_Type,
