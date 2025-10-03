@@ -67,35 +67,25 @@ export class CustomerService {
 
 
             // Step 3: Multiple Branches
-            if (payload.customerBranches) {
-                for (const branch of payload.customerBranches) {
-                    // Check branch duplicate
-                    const branchExists = await tx.customerBranch.findFirst({
-                        where: {
-                            CustomerMasterSid: customer.CustomerMasterSid,
-                            BranchName: branch.BranchName.trim()
-                        }
-                    });
-                    if (branchExists) {
-                        throw new BadRequestException(`Branch "${branch.BranchName}" already exists`);
-                    }
+            if ( payload.customerBranches) {
+                for (const branch of  payload.customerBranches) {
 
                     const createdBranch = await tx.customerBranch.create({
                         data: {
-                            BranchName: payload.customerBranches.BranchName,
-                            StateMasterSid: payload.customerBranches.StateMasterSid,
-                            CityMasterSid: payload.customerBranches.CityMasterSid,
-                            Branch_Type: payload.customerBranchesBranch_Type,
-                            Contact_Person: payload.customerBranches.Contact_Person,
-                            Zip_PostBox: payload.customerBranches.Zip_PostBox,
-                            ContactNo: payload.customerBranches.ContactNo,
-                            Email: payload.customerBranches.Email,
-                            Address: payload.customerBranches.Address,
-                            Registered: payload.customerBranches.Registered,
-                            CustomerGstType: payload.customerBranches.CustomerGstType,
-                            GSTNo: payload.customerBranches.GSTNo,
-                            status: payload.customerBranches.status,
-                            createdBy: payload.customerBranches.createdBy,
+                            BranchName: branch.BranchName,
+                            StateMasterSid: branch.StateMasterSid,
+                            CityMasterSid: branch.CityMasterSid,
+                            Branch_Type:branch.Branch_Type,
+                            Contact_Person:  branch.Contact_Person,
+                            Zip_PostBox:  branch.Zip_PostBox,
+                            ContactNo:  branch.ContactNo,
+                            Email:  branch.Email,
+                            Address:  branch.Address,
+                            Registered:  branch.Registered,
+                            CustomerGstType:  branch.CustomerGstType,
+                            GSTNo:  branch.GSTNo,
+                            status:  branch.status,
+                            createdBy:  branch.createdBy,
                             ...payload.branch
                         }
                     });
@@ -527,8 +517,8 @@ export class CustomerService {
             });
 
             // 2️⃣ Handle branches
-            if (payload.customerBranches) {
-                for (const branch of payload.customerBranches) {
+            if ( payload.customerBranches) {
+                for (const branch of  payload.customerBranches) {
                     // destructure relations out of branch
                     const {
                         customerBranchContacts,
