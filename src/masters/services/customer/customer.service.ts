@@ -598,17 +598,6 @@ export class CustomerService {
                         }
                     }
 
-                    // // 6️⃣ Handle CustomerSalesTeam
-                    // if (branch.customerSalesTeams) {
-                    //     for (const sales of branch.customerSalesTeams) {
-                    //         await tx.customerSalesTeam.upsert({
-                    //             where: { CustomerSalesSid: sales.CustomerSalesSid || 0 }, // 0 to force create if no id
-                    //             update: { ...sales },
-                    //             create: { ...sales, CustomerMasterSid }
-                    //         });
-                    //     }
-                    // }
-
 
                     // 6️⃣ Handle CustomerSalesTeam
                     if (branch.customerSalesTeams) {
@@ -625,31 +614,37 @@ export class CustomerService {
                                 },
                             });
 
-                            // 2. Ensure mapping exists in CustomerSalesBranch
-                            const exists = await tx.customerSalesBranch.findFirst({
-                                where: {
-                                    CustomerSalesSid: salesTeam.CustomerSalesSid,
-                                    CustomerBranchSid: branch.CustomerBranchSid,
-                                },
-                            });
+                            // 2. Handle mapping with multiple branchIds
+                            if (branch?.branchIds?.length) {
+                                for (const branchId of branch.branchIds) {
+                                    const exists = await tx.customerSalesBranch.findFirst({
+                                        where: {
+                                            CustomerSalesSid: salesTeam.CustomerSalesSid,
+                                            CustomerBranchSid: branchId,
+                                        },
+                                    });
 
-                            if (!exists) {
-                                await tx.customerSalesBranch.create({
-                                    data: {
-                                        CustomerSalesSid: salesTeam.CustomerSalesSid,
-                                        CustomerBranchSid: branch.CustomerBranchSid,
-                                    },
-                                });
-                            }else{
-                                await tx.customerSalesBranch.update({
-                                    where:{
-                                        CustomerSalesBranchSid: exists.CustomerSalesBranchSid
-                                    },
-                                    data: {
-                                        CustomerSalesSid: salesTeam.CustomerSalesSid,
-                                        CustomerBranchSid: branch.CustomerBranchSid,
-                                    },
-                                });
+                                    if (!exists) {
+                                        // Create mapping
+                                        await tx.customerSalesBranch.create({
+                                            data: {
+                                                CustomerSalesSid: salesTeam.CustomerSalesSid,
+                                                CustomerBranchSid: branchId,
+                                            },
+                                        });
+                                    } else {
+                                        // Update mapping if needed
+                                        await tx.customerSalesBranch.update({
+                                            where: {
+                                                CustomerSalesBranchSid: exists.CustomerSalesBranchSid,
+                                            },
+                                            data: {
+                                                CustomerSalesSid: salesTeam.CustomerSalesSid,
+                                                CustomerBranchSid: branchId,
+                                            },
+                                        });
+                                    }
+                                }
                             }
                         }
                     }
