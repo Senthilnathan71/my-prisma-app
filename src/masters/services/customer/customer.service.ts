@@ -256,15 +256,11 @@ export class CustomerService {
                     },
                     CustomerSalesTeam: {
                         select: {
-                            CustomerSalesBranch: {
+                            customerBranch: {
                                 select: {
-                                    customerBranch: {
-                                        select: {
-                                            CustomerBranchSid: true,
-                                            BranchName: true,
-                                            Branch_Code: true
-                                        }
-                                    },
+                                    CustomerBranchSid: true,
+                                    BranchName: true,
+                                    Branch_Code: true
                                 }
                             },
                             customerMaster: {
@@ -284,12 +280,12 @@ export class CustomerService {
                             DocPersonUser: {
                                 where: { userType: { code: UserTypeCode.docPerson } },
                                 select: {
-                                    UserMasterSid:true,
-                                    userName:true,
+                                    UserMasterSid: true,
+                                    userName: true,
                                     userType: {
                                         select: {
                                             UserTypeSid: true,
-                                            
+
                                         }
                                     }
                                 }
@@ -297,8 +293,8 @@ export class CustomerService {
                             CSPersonUser: {
                                 where: { userType: { code: UserTypeCode.csPerson } },
                                 select: {
-                                    UserMasterSid:true,
-                                    userName:true,
+                                    UserMasterSid: true,
+                                    userName: true,
                                     userType: {
                                         select: {
                                             UserTypeSid: true
@@ -349,12 +345,12 @@ export class CustomerService {
             };
 
             // Attach departments
-            customerData.CustomerBrEmail = customerData.CustomerBrEmail.map(email => ({
+            customerData.CustomerBrEmail = customerData?.CustomerBrEmail.map(email => ({
                 ...email,
                 Departments: enrichDepartments(email.DepartmentMasterSid)
             }));
 
-            customerData.CustomerSalesTeam = customerData.CustomerSalesTeam.map(sales => ({
+            customerData.CustomerSalesTeam = customerData?.CustomerSalesTeam.map(sales => ({
                 ...sales,
                 Departments: enrichDepartments(sales.DepartmentMasterSid)
             }));
@@ -386,13 +382,13 @@ export class CustomerService {
             throw error
         }
     }
-        async getAllExistingCustomers(CompanyMasterSid: number,PreCustomerMasterSid:number) {
+    async getAllExistingCustomers(CompanyMasterSid: number, PreCustomerMasterSid: number) {
         try {
             const customerList = await this._db.customerMaster.findMany({
                 where: {
                     status: 'A',
                     CompanyMasterSid: CompanyMasterSid,
-                    PreCustomerMasterSid : PreCustomerMasterSid
+                    PreCustomerMasterSid: PreCustomerMasterSid
                 }
             })
             return customerList;
@@ -571,8 +567,8 @@ export class CustomerService {
                     // destructure relations out of branch
                     const {
                         customerBranchContacts,
-                        customerBrEmails,
-                        customerLogins,
+                        customerBranchEmails, // 👈 instead of customerBrEmails
+                        customerBranchLogins,
                         customerSalesTeams,
                         customerMilestones,
                         ...branchData
@@ -597,8 +593,8 @@ export class CustomerService {
                     }
 
                     // 4️⃣ Handle CustomerBrEmail
-                    if (branch.customerBrEmails) {
-                        for (const email of branch.customerBrEmails) {
+                    if (branch.customerBranchEmails) {
+                        for (const email of branch.customerBranchEmails) {
                             await tx.customerBrEmail.upsert({
                                 where: { CustomerBrEmailSid: email.CustomerBrEmailSid || 0 }, // 0 to force create if no id
                                 update: { ...email },
@@ -608,8 +604,8 @@ export class CustomerService {
                     }
 
                     // 5️⃣ Handle CustomerLogin
-                    if (branch.customerLogins) {
-                        for (const login of branch.customerLogins) {
+                    if (branch.customerBranchLogins) {
+                        for (const login of branch.customerBranchLogins) {
                             await tx.customerLogin.upsert({
                                 where: { CustomerLoginSid: login.CustomerLoginSid || 0 }, // 0 to force create if no id
                                 update: { ...login },
@@ -627,46 +623,30 @@ export class CustomerService {
                             const salesTeam = await tx.customerSalesTeam.upsert({
                                 where: { CustomerSalesSid: sales.CustomerSalesSid ?? 0 }, // if 0 → create
                                 update: {
-                                    ...sales
+                                    DepartmentMasterSid: sales.DepartmentMasterSid,
+                                    CompanyMasterSid:sales.CompanyMasterSid,
+                                    Salesman: sales.Salesman,
+                                    CSPerson: sales.CSPerson,
+                                    DocPerson: sales.DocPerson,
+                                    EffectiveFrom: sales.EffectiveFrom,
+                                    status: sales.status,
+                                    updatedBy: sales.updatedBy,
+                                    CustomerBranchSid: sales.CustomerSalesBranchSid
                                 },
                                 create: {
-                                    ...sales,
+                                    DepartmentMasterSid: sales.DepartmentMasterSid,
+                                    CompanyMasterSid:sales.CompanyMasterSid,
+                                    Salesman: sales.Salesman,
+                                    CSPerson: sales.CSPerson,
+                                    DocPerson: sales.DocPerson,
+                                    EffectiveFrom: sales.EffectiveFrom,
+                                    status: sales.status,
+                                    createdBy: sales.createdBy,
+                                    CustomerBranchSid: sales.CustomerSalesBranchSid,
                                     CustomerMasterSid,
+
                                 },
-                            });
-
-                            // 2. Handle mapping with multiple branchIds
-                            if (branch?.branchIds?.length) {
-                                for (const branchId of branch.branchIds) {
-                                    const exists = await tx.customerSalesBranch.findFirst({
-                                        where: {
-                                            CustomerSalesSid: salesTeam.CustomerSalesSid,
-                                            CustomerBranchSid: branchId,
-                                        },
-                                    });
-
-                                    if (!exists) {
-                                        // Create mapping
-                                        await tx.customerSalesBranch.create({
-                                            data: {
-                                                CustomerSalesSid: salesTeam.CustomerSalesSid,
-                                                CustomerBranchSid: branchId,
-                                            },
-                                        });
-                                    } else {
-                                        // Update mapping if needed
-                                        await tx.customerSalesBranch.update({
-                                            where: {
-                                                CustomerSalesBranchSid: exists.CustomerSalesBranchSid,
-                                            },
-                                            data: {
-                                                CustomerSalesSid: salesTeam.CustomerSalesSid,
-                                                CustomerBranchSid: branchId,
-                                            },
-                                        });
-                                    }
-                                }
-                            }
+                            })
                         }
                     }
 
