@@ -67,7 +67,7 @@ export class CustomerService {
 
 
             // Step 3: Multiple Branches
-            if ( payload.customerBranches) {
+            if (customer && payload.customerBranches) {
                 for (const branch of  payload.customerBranches) {
 
                     const createdBranch = await tx.customerBranch.create({
@@ -77,6 +77,11 @@ export class CustomerService {
                             cityMaster:{
                                 create:{
                                     CityMasterSid:branch.CityMasterSid
+                                }
+                            },
+                            customerMaster:{
+                                create:{
+                                    CustomerMasterSid: customer.CustomerMasterSid
                                 }
                             },
                             Branch_Type:branch.Branch_Type,
@@ -93,8 +98,37 @@ export class CustomerService {
                             ...payload.branch
                         }
                     });
-
+                    
                     this.logger.log(`branch created: ${JSON.stringify(createdBranch)}`);
+
+
+                 const branchId = createdBranch.CustomerBranchSid;
+
+                    // Step 4: CusBranchContact
+                    if (branch.customerBranchContacts.length > 0) {
+                        for (const contact of branch.customerBranchContacts) {
+                            const exists = await tx.cusBranchContact.findFirst({
+                                where: {
+                                    CustomerMasterSid: customer.CustomerMasterSid,
+                                    CustomerBranchSid: branchId,
+                                    ContactName: contact.ContactName
+                                }
+                            });
+                            if (!exists) {
+                                const branchContact = await tx.cusBranchContact.create({
+                                    data: {
+                                        ...contact,
+                                        CustomerMasterSid: customer.CustomerMasterSid,
+                                        CustomerBranchSid: branchId
+                                    }
+                                });
+
+                                this.logger.log(`branch Contact Created: ${JSON.stringify(branchContact)}`);
+
+                            }
+                        }
+                    }
+
                 }
             }
 
