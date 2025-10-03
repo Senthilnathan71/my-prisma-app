@@ -563,7 +563,7 @@ export class CustomerService {
                     if (branch.customerBranchContacts) {
                         for (const contact of branch.customerBranchContacts) {
                             await tx.cusBranchContact.upsert({
-                                where: { CusBranchContactSid: contact.CustomerSalesSid || 0 }, // 0 to force create if no id
+                                where: { CusBranchContactSid: contact.CusBranchContactSid || 0 }, // 0 to force create if no id
                                 update: { ...contact },
                                 create: { ...contact, CustomerMasterSid, CustomerBranchSid: branchId }
                             });
@@ -574,7 +574,7 @@ export class CustomerService {
                     if (branch.customerBrEmails) {
                         for (const email of branch.customerBrEmails) {
                             await tx.customerBrEmail.upsert({
-                                where: { CustomerBrEmailSid: email.CustomerSalesSid || 0 }, // 0 to force create if no id
+                                where: { CustomerBrEmailSid: email.CustomerBrEmailSid || 0 }, // 0 to force create if no id
                                 update: { ...email },
                                 create: { ...email, CustomerMasterSid, CustomerBranchSid: branchId }
                             });
@@ -585,7 +585,7 @@ export class CustomerService {
                     if (branch.customerLogins) {
                         for (const login of branch.customerLogins) {
                             await tx.customerLogin.upsert({
-                                where: { CustomerLoginSid: login.CustomerSalesSid || 0 }, // 0 to force create if no id
+                                where: { CustomerLoginSid: login.CustomerLoginSid || 0 }, // 0 to force create if no id
                                 update: { ...login },
                                 create: { ...login, CustomerMasterSid, CustomerBranchSid: branchId }
                             });
