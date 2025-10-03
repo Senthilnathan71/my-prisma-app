@@ -380,6 +380,21 @@ export class CustomerService {
             throw error
         }
     }
+        async getAllExistingCustomers(CompanyMasterSid: number,PreCustomerMasterSid:number) {
+        try {
+            const customerList = await this._db.customerMaster.findMany({
+                where: {
+                    status: 'A',
+                    CompanyMasterSid: CompanyMasterSid,
+                    PreCustomerMasterSid : PreCustomerMasterSid
+                }
+            })
+            return customerList;
+        } catch (error) {
+            throw error
+        }
+    }
+
     async checkUniqueCustomerFields(params: {
         CompanyMasterSid: number;
         customerName?: string;

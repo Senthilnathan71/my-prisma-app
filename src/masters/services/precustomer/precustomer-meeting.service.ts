@@ -205,7 +205,8 @@ export class PreCustomerMeetingService {
                 PreCustomerMeetingSid: true,
                 meetingDate: true,
                 followUpDate: true,
-                meetingStatus: true
+                meetingStatus: true,
+                meetingDuration:true
             }
         })
             .catch((error) => {
