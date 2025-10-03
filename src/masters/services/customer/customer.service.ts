@@ -59,8 +59,7 @@ export class CustomerService {
                     CompanyType: payload.customer.CompanyType,
                     createdBy: payload.customer.createdBy,
                     AirlineNumber: payload.customer.AirlineNumber,
-                    AirlineCode: payload.customer.AirlineCode,
-                    ...payload.customer
+                    AirlineCode: payload.customer.AirlineCode
                 }
             });
             this.logger.log(`customerCreated: ${JSON.stringify(customer)}`);
@@ -68,50 +67,33 @@ export class CustomerService {
 
             // Step 3: Multiple Branches
             if (customer && payload.customerBranches) {
-                for (const branch of  payload.customerBranches) {
+                for (const branch of payload.customerBranches) {
 
                     const createdBranch = await tx.customerBranch.create({
                         data: {
                             BranchName: branch.BranchName,
-                            stateMaster: {
-                                create:{
-                                   StateMasterSid : branch.StateMasterSid
-                                }
-                            },
-                            cityMaster:{
-                                create:{
-                                    CityMasterSid:branch.CityMasterSid
-                                }
-                            },
-                            customerMaster:{
-                                create:{
-                                    CustomerMasterSid: customer.CustomerMasterSid
-                                }
-                            },
-                            compantMaster:{
-                                create:{
-                                    CompanyMasterSid: customer.CompanyMasterSid
-                                }
-                            },
-                            Branch_Type:branch.Branch_Type,
-                            Contact_Person:  branch.Contact_Person,
-                            Zip_PostBox:  branch.Zip_PostBox,
-                            ContactNo:  branch.ContactNo,
-                            Email:  branch.Email,
-                            Address:  branch.Address,
-                            Registered:  branch.Registered,
-                            CustomerGstType:  branch.CustomerGstType,
-                            GSTNo:  branch.GSTNo,
-                            status:  branch.status,
-                            createdBy:  branch.createdBy,
-                            ...payload.branch
+                            StateMasterSid: branch.StateMasterSid,
+                            CityMasterSid: branch.CityMasterSid,
+                            CustomerMasterSid: customer.CustomerMasterSid,
+                            CompanyMasterSid: customer.CompanyMasterSid,
+                            Branch_Type: branch.Branch_Type,
+                            Contact_Person: branch.Contact_Person,
+                            Zip_PostBox: branch.Zip_PostBox,
+                            ContactNo: branch.ContactNo,
+                            Email: branch.Email,
+                            Address: branch.Address,
+                            Registered: branch.Registered,
+                            CustomerGstType: branch.CustomerGstType,
+                            GSTNo: branch.GSTNo,
+                            status: branch.status,
+                            createdBy: branch.createdBy,
                         }
                     });
-                    
+
                     this.logger.log(`branch created: ${JSON.stringify(createdBranch)}`);
 
 
-                 const branchId = createdBranch.CustomerBranchSid;
+                    const branchId = createdBranch.CustomerBranchSid;
 
                     // Step 4: CusBranchContact
                     if (branch.customerBranchContacts.length > 0) {
@@ -564,8 +546,8 @@ export class CustomerService {
             });
 
             // 2️⃣ Handle branches
-            if ( payload.customerBranches) {
-                for (const branch of  payload.customerBranches) {
+            if (payload.customerBranches) {
+                for (const branch of payload.customerBranches) {
                     // destructure relations out of branch
                     const {
                         customerBranchContacts,
