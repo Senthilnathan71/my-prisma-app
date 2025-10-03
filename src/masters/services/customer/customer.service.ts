@@ -39,17 +39,6 @@ export class CustomerService {
             // Step 2: Create Customer
             const customer = await tx.customerMaster.create({
                 data: {
-                    CustomerName: payload.customer.CustomerName,
-                    CustomerShortCode: payload.customer.CustomerShortCode,
-                    CustomerType: payload.customer.CustomerType,
-                    PanName: payload.customer.PanName,
-                    PanType: payload.customer.PanType,
-                    CustomerAddress1: payload.customer.CustomerAddress1,
-                    createdBy: payload.customer.createdBy,
-                    CompanyMasterSid: payload.customer.CompanyMasterSid,
-                    CountryMasterSid: payload.customer.CountryMasterSid,
-                    GroupName: payload.customer.GroupName,
-                    status: 'A',
                     ...payload.customer
                 }
             });
@@ -57,7 +46,7 @@ export class CustomerService {
 
 
             // Step 3: Multiple Branches
-            if (payload.customerBranches?.length > 0) {
+            if (payload.customerBranches) {
                 for (const branch of payload.customerBranches) {
                     // Check branch duplicate
                     const branchExists = await tx.customerBranch.findFirst({
@@ -72,16 +61,6 @@ export class CustomerService {
 
                     const createdBranch = await tx.customerBranch.create({
                         data: {
-                            BranchName: branch.BranchName,
-                            StateMasterSid: branch.StateMasterSid,
-                            CityMasterSid: branch.CityMasterSid,
-                            Address: branch.Address,
-                            Email: branch.Email,
-                            Registered: branch.Registered,
-                            ContactNo: branch.ContactNo,
-                            createdBy: branch.createdBy,
-                            CustomerMasterSid: customer.CustomerMasterSid,
-                            CompanyMasterSid: customer.CompanyMasterSid,
                             ...payload.branch
                         }
                     });
@@ -117,7 +96,7 @@ export class CustomerService {
                     }
 
                     // Step 5: CustomerBrEmail
-                    if (branch.customerBrEmails?.length > 0) {
+                    if (branch.customerBrEmails) {
                         for (const email of branch.customerBrEmails) {
                             const exists = await tx.customerBrEmail.findFirst({
                                 where: {
@@ -140,7 +119,7 @@ export class CustomerService {
                     }
 
                     // Step 6: CustomerLogin
-                    if (branch.customerLogins?.length > 0) {
+                    if (branch.customerLogins) {
                         for (const login of branch.customerLogins) {
                             const exists = await tx.customerLogin.findFirst({
                                 where: {
@@ -164,7 +143,7 @@ export class CustomerService {
                     }
 
                     // Step 7: CustomerSalesTeam
-                    if (branch.customerSalesTeams?.length > 0) {
+                    if (branch.customerSalesTeams) {
                         for (const sales of branch.customerSalesTeams) {
                             const exists = await tx.customerSalesTeam.findFirst({
                                 where: {
@@ -189,7 +168,7 @@ export class CustomerService {
                     }
 
                     // Step 8: CustomerMilestone
-                    if (branch.customerMilestones?.length > 0) {
+                    if (branch.customerMilestones) {
                         for (const milestone of branch.customerMilestones) {
                             const exists = await tx.customerMilestone.findFirst({
                                 where: {
@@ -367,15 +346,15 @@ export class CustomerService {
                                 }
                             },
                             salesManUser: {
-                                where: { isSalesperson:'1' },
+                                where: { isSalesperson: '1' },
                                 select: {
                                     UserMasterSid: true,
-                                    userName:true,
-                                    userCode:true
+                                    userName: true,
+                                    userCode: true
                                 }
                             },
                             DocPersonUser: {
-                                 where: { userType:{code:UserTypeCode.docPerson}},
+                                where: { userType: { code: UserTypeCode.docPerson } },
                                 select: {
                                     userType: {
                                         select: {
@@ -385,7 +364,7 @@ export class CustomerService {
                                 }
                             },
                             CSPersonUser: {
-                                where: { userType:{code:UserTypeCode.csPerson}},
+                                where: { userType: { code: UserTypeCode.csPerson } },
                                 select: {
                                     userType: {
                                         select: {
@@ -638,19 +617,27 @@ export class CustomerService {
             });
 
             // 2️⃣ Handle branches
-            if (payload.customerBranches?.length > 0) {
+            if (payload.customerBranches) {
                 for (const branch of payload.customerBranches) {
-
-                    await tx.customerSalesTeam.upsert({
-                        where: { CustomerSalesSid: branch.CustomerSalesSid || 0 }, // 0 to force create if no id
-                        update: { ...branch },
-                        create: { ...branch, CustomerMasterSid }
+                    // destructure relations out of branch
+                    const {
+                        customerBranchContacts,
+                        customerBrEmails,
+                        customerLogins,
+                        customerSalesTeams,
+                        customerMilestones,
+                        ...branchData
+                    } = branch;
+                    await tx.customerBranch.upsert({
+                        where: { CustomerBranchSid: branch.CustomerBranchSid || 0 }, // 0 to force create if no id
+                        update: { ...branchData, updatedBy: branchData.updatedBy},
+                        create: { ...branchData, createdBy: branchData.createdBy, CustomerMasterSid }
                     });
 
                     const branchId = branch.CustomerBranchSid;
 
                     // 3️⃣ Handle cusBranchContact
-                    if (branch.customerBranchContacts?.length) {
+                    if (branch.customerBranchContacts) {
                         for (const contact of branch.customerBranchContacts) {
                             await tx.cusBranchContact.upsert({
                                 where: { CusBranchContactSid: contact.CustomerSalesSid || 0 }, // 0 to force create if no id
@@ -661,7 +648,7 @@ export class CustomerService {
                     }
 
                     // 4️⃣ Handle CustomerBrEmail
-                    if (branch.customerBrEmails?.length) {
+                    if (branch.customerBrEmails) {
                         for (const email of branch.customerBrEmails) {
                             await tx.customerBrEmail.upsert({
                                 where: { CustomerBrEmailSid: email.CustomerSalesSid || 0 }, // 0 to force create if no id
@@ -672,7 +659,7 @@ export class CustomerService {
                     }
 
                     // 5️⃣ Handle CustomerLogin
-                    if (branch.customerLogins?.length) {
+                    if (branch.customerLogins) {
                         for (const login of branch.customerLogins) {
                             await tx.customerLogin.upsert({
                                 where: { CustomerLoginSid: login.CustomerSalesSid || 0 }, // 0 to force create if no id
@@ -684,7 +671,7 @@ export class CustomerService {
                     }
 
                     // 6️⃣ Handle CustomerSalesTeam
-                    if (branch.customerSalesTeams?.length) {
+                    if (branch.customerSalesTeams) {
                         for (const sales of branch.customerSalesTeams) {
                             await tx.customerSalesTeam.upsert({
                                 where: { CustomerSalesSid: sales.CustomerSalesSid || 0 }, // 0 to force create if no id
@@ -695,7 +682,7 @@ export class CustomerService {
                     }
 
                     // 7️⃣ Handle CustomerMilestone
-                    if (branch.customerMilestones?.length) {
+                    if (branch.customerMilestones) {
                         for (const milestone of branch.customerMilestones) {
                             await tx.customerMilestone.upsert({
                                 where: { CustomerMilestoneSid: milestone.CustomerMilestoneSid || 0 },
