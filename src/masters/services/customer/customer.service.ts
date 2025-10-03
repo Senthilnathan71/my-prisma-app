@@ -39,6 +39,27 @@ export class CustomerService {
             // Step 2: Create Customer
             const customer = await tx.customerMaster.create({
                 data: {
+                    CompanyMasterSid: payload.customer.CompanyMasterSid,
+                    CustomerName: payload.customer.CustomerName,
+                    CustomerShortCode: payload.customer.CustomerShortCode,
+                    CustomerAliasName: payload.customer.CustomerAliasName,
+                    CustomerAddress1: payload.customer.CustomerAddress1,
+                    CustomerAddress2: payload.customer.CustomerAddress2,
+                    CountryMasterSid: payload.customer.CountryMasterSid,
+                    CustomerType: payload.customer.CustomerType,
+                    PanName: payload.customer.PanName,
+                    PanType: payload.customer.PanType,
+                    GroupName: payload.customer.GroupName,
+                    Website: payload.customer.Website,
+                    CashCredit: payload.customer.CashCredit,
+                    Network: payload.customer.Network,
+                    Remarks: payload.customer.Remarks,
+                    IsMSME: payload.customer.IsMSME,
+                    RegistrationNo: payload.customer.RegistrationNo,
+                    CompanyType: payload.customer.CompanyType,
+                    createdBy: payload.customer.createdBy,
+                    AirlineNumber: payload.customer.AirlineNumber,
+                    AirlineCode: payload.customer.AirlineCode,
                     ...payload.customer
                 }
             });
@@ -61,136 +82,25 @@ export class CustomerService {
 
                     const createdBranch = await tx.customerBranch.create({
                         data: {
+                            BranchName: payload.customerBranches.BranchName,
+                            StateMasterSid: payload.customerBranches.StateMasterSid,
+                            CityMasterSid: payload.customerBranches.CityMasterSid,
+                            Branch_Type: payload.customerBranchesBranch_Type,
+                            Contact_Person: payload.customerBranches.Contact_Person,
+                            Zip_PostBox: payload.customerBranches.Zip_PostBox,
+                            ContactNo: payload.customerBranches.ContactNo,
+                            Email: payload.customerBranches.Email,
+                            Address: payload.customerBranches.Address,
+                            Registered: payload.customerBranches.Registered,
+                            CustomerGstType: payload.customerBranches.CustomerGstType,
+                            GSTNo: payload.customerBranches.GSTNo,
+                            status: payload.customerBranches.status,
+                            createdBy: payload.customerBranches.createdBy,
                             ...payload.branch
                         }
                     });
 
                     this.logger.log(`branch created: ${JSON.stringify(createdBranch)}`);
-
-
-                    const branchId = createdBranch.CustomerBranchSid;
-
-                    // Step 4: CusBranchContact
-                    if (branch.customerBranchContacts.length > 0) {
-                        for (const contact of branch.customerBranchContacts) {
-                            const exists = await tx.cusBranchContact.findFirst({
-                                where: {
-                                    CustomerMasterSid: customer.CustomerMasterSid,
-                                    CustomerBranchSid: branchId,
-                                    ContactName: contact.ContactName
-                                }
-                            });
-                            if (!exists) {
-                                const branchContact = await tx.cusBranchContact.create({
-                                    data: {
-                                        ...contact,
-                                        CustomerMasterSid: customer.CustomerMasterSid,
-                                        CustomerBranchSid: branchId
-                                    }
-                                });
-
-                                this.logger.log(`branch Contact Created: ${JSON.stringify(branchContact)}`);
-
-                            }
-                        }
-                    }
-
-                    // Step 5: CustomerBrEmail
-                    if (branch.customerBrEmails) {
-                        for (const email of branch.customerBrEmails) {
-                            const exists = await tx.customerBrEmail.findFirst({
-                                where: {
-                                    CustomerMasterSid: customer.CustomerMasterSid,
-                                    CustomerBranchSid: branchId,
-                                    Toemail: email.Toemail
-                                }
-                            });
-                            if (!exists) {
-                                const branchEmail = await tx.customerBrEmail.create({
-                                    data: {
-                                        ...email,
-                                        CustomerMasterSid: customer.CustomerMasterSid,
-                                        CustomerBranchSid: branchId
-                                    }
-                                });
-                                this.logger.log(`Branch Email Created: ${JSON.stringify(branchEmail)}`);
-                            }
-                        }
-                    }
-
-                    // Step 6: CustomerLogin
-                    if (branch.customerLogins) {
-                        for (const login of branch.customerLogins) {
-                            const exists = await tx.customerLogin.findFirst({
-                                where: {
-                                    CustomerMasterSid: customer.CustomerMasterSid,
-                                    CustomerBranchSid: branchId,
-                                    LoginEmail: login.LoginEmail
-                                }
-                            });
-                            if (!exists) {
-                                const customerLogin = await tx.customerLogin.create({
-                                    data: {
-                                        ...login,
-                                        CustomerMasterSid: customer.CustomerMasterSid,
-                                        CustomerBranchSid: branchId
-                                    }
-                                });
-                                this.logger.log(`customerLogin created: ${JSON.stringify(customerLogin)}`);
-
-                            }
-                        }
-                    }
-
-                    // Step 7: CustomerSalesTeam
-                    if (branch.customerSalesTeams) {
-                        for (const sales of branch.customerSalesTeams) {
-                            const exists = await tx.customerSalesTeam.findFirst({
-                                where: {
-                                    CustomerMasterSid: customer.CustomerMasterSid,
-                                    CustomerBranchSid: branchId,
-                                    Salesman: sales.Salesman
-                                }
-                            });
-                            if (!exists) {
-                                const customerSalesTeam = await tx.customerSalesTeam.create({
-                                    data: {
-                                        ...sales,
-                                        CustomerMasterSid: customer.CustomerMasterSid,
-                                        CustomerBranchSid: branchId
-                                    }
-                                });
-
-                                this.logger.log(`customerSalesTeam created: ${JSON.stringify(customerSalesTeam)}`);
-
-                            }
-                        }
-                    }
-
-                    // Step 8: CustomerMilestone
-                    if (branch.customerMilestones) {
-                        for (const milestone of branch.customerMilestones) {
-                            const exists = await tx.customerMilestone.findFirst({
-                                where: {
-                                    CustomerMasterSid: customer.CustomerMasterSid,
-                                    CustomerBranchSid: branchId,
-                                    MilestoneMasterSid: milestone.MilestoneMasterSid
-                                }
-                            });
-                            if (!exists) {
-                                const customerMilestone = await tx.customerMilestone.create({
-                                    data: {
-                                        ...milestone,
-                                        CustomerMasterSid: customer.CustomerMasterSid,
-                                        CustomerBranchSid: branchId
-                                    }
-                                });
-
-                                this.logger.log(`customerMilestone created: ${JSON.stringify(customerMilestone)}`);
-
-                            }
-                        }
-                    }
                 }
             }
 
@@ -630,7 +540,7 @@ export class CustomerService {
                     } = branch;
                     await tx.customerBranch.upsert({
                         where: { CustomerBranchSid: branch.CustomerBranchSid || 0 }, // 0 to force create if no id
-                        update: { ...branchData, updatedBy: branchData.updatedBy},
+                        update: { ...branchData, updatedBy: branchData.updatedBy },
                         create: { ...branchData, createdBy: branchData.createdBy, CustomerMasterSid }
                     });
 
