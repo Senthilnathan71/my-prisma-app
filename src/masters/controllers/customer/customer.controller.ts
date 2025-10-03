@@ -462,5 +462,30 @@ async checkUnique(@Body() body: {
         return resp;
     }
 
+// Existing Customers
 
+    @ApiOperation({ summary: 'Get All Existing CUstomers' })
+    @ApiCreatedResponse({
+        description: 'Get All Existing CUstomers',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Post('existingcustomers')
+    async getallExistngCustomers(@Body() body: any) {
+        let output = new ResponseData;
+        try {
+            let customerData = await this.customerService.getAllExistingCustomers(body.CompanyMasterSid,body.PreCustomerMasterSid);
+            this.logger.log(`getallExistngCustomers: ${JSON.stringify(customerData)}`)
+            output.data = customerData;
+        } catch (error) {
+            this.logger.warn(`getallExistngCustomers: ${JSON.stringify(error)}`)
+            output.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                output.message = error.message;
+            } else {
+                output.message = 'Internal Server Error';
+            }
+        }
+        return output
+    }
 }
