@@ -31,6 +31,7 @@ export class FfUserMasterService {
             const userPayload = {
                 userCode: payload.userCode,
                 userName: payload.userName,
+                designation: payload.designation,
                 userEmail: payload.userEmail,
                 userPassword: hashedPassword,
                 isSalesperson: payload.isSalesperson,
@@ -129,7 +130,15 @@ export class FfUserMasterService {
                             companyMaster: { companyName: 'asc' }
                         },
                         where: {
-                            status: 'A'
+                            status: 'A',
+                            companyMaster:{
+                                userBranchMaster:{
+                                    some: {
+                                        UserMasterSid: UserMasterSid,
+                                        status: 'A',
+                                    }
+                                }
+                            }
                         },
                         include: {
                             companyMaster: {
