@@ -1352,8 +1352,8 @@ model CustomerBranch {
   customerLogin      CustomerLogin[]
   cusBranchContact   CusBranchContact[]
   customerBrEmail    CustomerBrEmail[]
-  CustomerSalesTeam  CustomerSalesTeam[]
-  CustomerMileStone  CustomerMilestone[]
+CustomerSalesBranch CustomerSalesBranch[]  
+CustomerMileStone  CustomerMilestone[]
   costCharges        CostRevenueCharges[] @relation("COST")
   revenueCharges     CostRevenueCharges[] @relation("REVENUE")
 }
@@ -1423,7 +1423,7 @@ model CustomerSalesTeam {
   CustomerSalesSid    Int             @id @default(autoincrement()) @map("CustomerSalesSid")
   Salesman            Int?
   CompanyMasterSid    Int?
-  CustomerBranchSid   Int?
+  CustomerSalesBranchSid Int?
   EffectiveFrom       DateTime
   createdOn           DateTime        @default(now()) @db.Timestamptz(6)
   updatedOn           DateTime?       @updatedAt @db.Timestamptz(6)
@@ -1440,10 +1440,19 @@ model CustomerSalesTeam {
   CSPersonUser            UserMaster?      @relation("CSPerson", fields: [CSPerson], references: [UserMasterSid])
 
   customerMaster      CustomerMaster? @relation(fields: [CustomerMasterSid], references: [CustomerMasterSid])
-  branchMaster        CustomerBranch? @relation(fields: [CustomerBranchSid], references: [CustomerBranchSid])
   companyMaster       CompanyMaster?  @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+
+  CustomerSalesBranch CustomerSalesBranch[]
 }
 
+model CustomerSalesBranch{
+  CustomerSalesBranchSid Int @id @default(autoincrement()) @map("CustomerSalesBranchSid")
+  CustomerSalesSid   Int
+  CustomerBranchSid  Int
+
+  customerSalesTeam        CustomerSalesTeam @relation(fields: [CustomerSalesSid], references: [CustomerSalesSid])
+  customerBranch        CustomerBranch @relation(fields: [CustomerBranchSid], references: [CustomerBranchSid])
+}
 model CustomerSupport {
   CustomerSupportSid  Int              @id @default(autoincrement()) @map("CustomerSupportSid")
   UserMasterSid       Int
