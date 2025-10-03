@@ -98,14 +98,7 @@ export class CustomerService {
                     // Step 4: CusBranchContact
                     if (branch.customerBranchContacts.length > 0) {
                         for (const contact of branch.customerBranchContacts) {
-                            const exists = await tx.cusBranchContact.findFirst({
-                                where: {
-                                    CustomerMasterSid: customer.CustomerMasterSid,
-                                    CustomerBranchSid: branchId,
-                                    ContactName: contact.ContactName
-                                }
-                            });
-                            if (!exists) {
+                            
                                 const branchContact = await tx.cusBranchContact.create({
                                     data: {
                                         ...contact,
@@ -116,7 +109,7 @@ export class CustomerService {
 
                                 this.logger.log(`branch Contact Created: ${JSON.stringify(branchContact)}`);
 
-                            }
+                            
                         }
                     }
 
@@ -158,6 +151,7 @@ export class CustomerService {
                     RegistrationNo: true,
                     CompanyType: true,
                     PanName: true,
+                    PanType:true,
                     status: true,
                     CustomerBranch: {
                         select: {
