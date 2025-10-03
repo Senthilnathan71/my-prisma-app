@@ -284,9 +284,12 @@ export class CustomerService {
                             DocPersonUser: {
                                 where: { userType: { code: UserTypeCode.docPerson } },
                                 select: {
+                                    UserMasterSid:true,
+                                    userName:true,
                                     userType: {
                                         select: {
-                                            UserTypeSid: true
+                                            UserTypeSid: true,
+                                            
                                         }
                                     }
                                 }
@@ -294,6 +297,8 @@ export class CustomerService {
                             CSPersonUser: {
                                 where: { userType: { code: UserTypeCode.csPerson } },
                                 select: {
+                                    UserMasterSid:true,
+                                    userName:true,
                                     userType: {
                                         select: {
                                             UserTypeSid: true
@@ -357,6 +362,7 @@ export class CustomerService {
 
             return customerData
         } catch (error) {
+            console.log(error.stack)
             throw error;
         }
     }
