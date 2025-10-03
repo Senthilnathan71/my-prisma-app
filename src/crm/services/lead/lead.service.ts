@@ -15,7 +15,10 @@ export class LeadService {
                 where: {
                     status: 'A',
                     CompanyMasterSid: CompanyMasterSid,
-                    BranchMasterSid: BranchMasterSid
+                    BranchMasterSid: BranchMasterSid,
+                    customerMaster : {
+                        none : {}
+                    }
                 }
             })
             return allLeads;
