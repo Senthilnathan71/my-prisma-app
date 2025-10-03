@@ -74,7 +74,11 @@ export class CustomerService {
                         data: {
                             BranchName: branch.BranchName,
                             StateMasterSid: branch.StateMasterSid,
-                            CityMasterSid: branch.CityMasterSid,
+                            cityMaster:{
+                                create:{
+                                    CityMasterSid:branch.CityMasterSid
+                                }
+                            },
                             Branch_Type:branch.Branch_Type,
                             Contact_Person:  branch.Contact_Person,
                             Zip_PostBox:  branch.Zip_PostBox,
