@@ -23,7 +23,7 @@ export class AuthorityController {
             let res = await this.authorityService.createNewAuthority(newData);
             this.logger.log(`New Authority Created : ${JSON.stringify(res)}`);
             resp.data = res;
-            resp.message = "New Authority is successfully created"
+            resp.message = `Authority is successfully created`;
         } catch (error) {
             this.logger.warn(`Authority Creation Error : ${JSON.stringify(error), error}`);
             resp.status = false;
@@ -103,7 +103,7 @@ export class AuthorityController {
             let res = await this.authorityService.updateAuthorityById(AuthorityMasterSid, payload);
             this.logger.debug(`Updated Authority : ${JSON.stringify(res)}`);
             resp.data = res;
-            resp.message = `Authority with id : ${AuthorityMasterSid} is successfully updated`;
+            resp.message = `Authority is successfully updated`;
         } catch (error) {
             this.logger.warn(`Authority Update Error : ${JSON.stringify(error), error}`);
             resp.status = false;

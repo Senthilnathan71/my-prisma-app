@@ -75,8 +75,9 @@ export class CountryController {
         this.logger.warn(`createCountry!country: ${JSON.stringify(Country)}`);
         throw 'Something went wrong';
       }
+      const countryName = Country?.countryName || body?.countryName || 'Country';
       output.data = Country;
-      output.message = "New Country is successfully created";
+      output.message = `Country ${countryName} is successfully created`;
     } catch (error) {
       this.logger.warn(`createCountryerror: ${JSON.stringify(error)}`);
       output.status = false;
@@ -137,8 +138,9 @@ export class CountryController {
         this.logger.log(`editCountry: ${JSON.stringify(Country)}`);
         throw 'Something went wrong';
       }
+      const countryName = Country?.countryName || body?.countryName || 'Country';
       output.data = Country;
-      output.message = `Country with id : ${id} is successfully updated`;
+      output.message = `Country ${countryName} is successfully updated`;
     } catch (error) {
       this.logger.warn(`editCountry: ${JSON.stringify(error)}`);
       output.status = false;

@@ -47,8 +47,10 @@ export class StateController {
         this.logger.warn(`createState!!: ${JSON.stringify(state)}`);
         throw 'Something went wrong';
       }
+      const stateName = state?.stateName || body?.stateName || 'State';
       output.data = state;
-      output.message = "New State is successfully created"
+      output.message = `State ${stateName} is successfully created`;
+      // output.message = "New State is successfully created"
     } catch (error) {
       this.logger.warn(`createStateError: ${error}`);
       output.status = false;
@@ -173,8 +175,9 @@ export class StateController {
       } else {
         this.logger.log(`editStateelse: ${state}`);
       }
+      const stateName = state?.stateName || body?.stateName || 'State';
       output.data = state;
-      output.message = `State with id : ${id} is successfully updated`;
+      output.message = `State ${stateName} is successfully updated`;
     } catch (error) {
       this.logger.warn(`editStateerror: ${(JSON.stringify(error), error)}`);
       output.status = false;
