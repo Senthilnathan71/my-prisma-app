@@ -12,14 +12,14 @@ import { PrecustomerService } from './services/precustomer/precustomer.service';
 @Module({
     providers : [
         Logger,
-        PrecustomerController,
+        PrecustomerService,
         EnquiryHeaderService,
         PreCustomerMeetingService,
         BookingService,
         QuotationService
     ],
     controllers : [
-        PrecustomerService,
+        PrecustomerController,
         EnquiryHeaderController,
         PreCustomerMeetingController,
         BookingController,
