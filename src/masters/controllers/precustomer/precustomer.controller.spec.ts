@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { PrecustomerController } from './precustomer.controller';
+import { PrecustomerController } from '../../../crm/controllers/precustomer/precustomer.controller';
 
 describe('PrecustomerController', () => {
   let controller: PrecustomerController;

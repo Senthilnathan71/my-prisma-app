@@ -1,8 +1,8 @@
 import { Logger, Module } from '@nestjs/common';
 import { UserService } from './services/user.service';
 import { UserController } from './controllers/user/user.controller';
-import { PrecustomerController } from './controllers/precustomer/precustomer.controller';
-import { PrecustomerService } from './services/precustomer/precustomer.service';
+import { PrecustomerController } from '../crm/controllers/precustomer/precustomer.controller';
+import { PrecustomerService } from '../crm/services/precustomer/precustomer.service';
 import { CityService } from './services/city/city.service';
 import { RegionController } from './controllers/region/region.controller';
 import { PreCustomerMeetingService } from './services/precustomer/precustomer-meeting.service';

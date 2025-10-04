@@ -1352,8 +1352,8 @@ model CustomerBranch {
   customerLogin      CustomerLogin[]
   cusBranchContact   CusBranchContact[]
   customerBrEmail    CustomerBrEmail[]
-  CustomerSalesTeam  CustomerSalesTeam[]
-  CustomerMileStone  CustomerMilestone[]
+CustomerSalesTeam CustomerSalesTeam[]  
+CustomerMileStone  CustomerMilestone[]
   costCharges        CostRevenueCharges[] @relation("COST")
   revenueCharges     CostRevenueCharges[] @relation("REVENUE")
 }
@@ -1440,8 +1440,9 @@ model CustomerSalesTeam {
   CSPersonUser            UserMaster?      @relation("CSPerson", fields: [CSPerson], references: [UserMasterSid])
 
   customerMaster      CustomerMaster? @relation(fields: [CustomerMasterSid], references: [CustomerMasterSid])
-  branchMaster        CustomerBranch? @relation(fields: [CustomerBranchSid], references: [CustomerBranchSid])
   companyMaster       CompanyMaster?  @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+  customerBranch      CustomerBranch? @relation(fields: [CustomerBranchSid], references: [CustomerBranchSid])
+
 }
 
 model CustomerSupport {

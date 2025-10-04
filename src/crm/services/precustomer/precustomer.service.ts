@@ -1,8 +1,10 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { LeadStatus } from '@prisma/client';
+import { LeadStatus, Prisma } from '@prisma/client';
+import { statusWhereClause } from 'src/common/helper';
 import { DatabaseService } from 'src/database/database.service';
 import { CreatePrecustomerDto } from 'src/masters/DTO/create-Precustomer.dto';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
+import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 
 @Injectable()
 export class PrecustomerService {
@@ -155,38 +157,93 @@ export class PrecustomerService {
     }
 
 
-    async searchPrecustomer(data: SearchListDto) {
-        const { searchType, filterValue } = data;
-        const acceptedTypes = [
-            "status",
-            "preCustomerAddress1",
-            "preCustomerAddress2",
-            "leadAssignTo",
-            "customerType",
-            "contactPerson",
-            "phone",
-            "preCustomerType",
-            "leadReferredBy",
-            "panVat",
-            "preCustomerName",
-            "leadFrom",
-            "email"
-        ];
-        if (!acceptedTypes.includes(searchType)) {
-            throw new BadRequestException('Invalid Search Type');
-        }
-        const searchResults = await this._db.preCustomerMaster.findMany({
-            where: {
-                [searchType]: {
-                    contains: filterValue,
-                    mode: 'insensitive'
-                },
-                status:'A'
-            }
-        }).catch((err) => {
-            throw new Error(`Error Occured ${err}`)
-        })
-        return searchResults;
+    // async searchPrecustomer(data: SearchListDto) {
+    //     const { searchType, filterValue } = data;
+    //     const acceptedTypes = [
+    //         "status",
+    //         "preCustomerAddress1",
+    //         "preCustomerAddress2",
+    //         "leadAssignTo",
+    //         "customerType",
+    //         "contactPerson",
+    //         "phone",
+    //         "preCustomerType",
+    //         "leadReferredBy",
+    //         "panVat",
+    //         "preCustomerName",
+    //         "leadFrom",
+    //         "email"
+    //     ];
+    //     if (!acceptedTypes.includes(searchType)) {
+    //         throw new BadRequestException('Invalid Search Type');
+    //     }
+    //     const searchResults = await this._db.preCustomerMaster.findMany({
+    //         where: {
+    //             [searchType]: {
+    //                 contains: filterValue,
+    //                 mode: 'insensitive'
+    //             },
+    //             status:'A'
+    //         }
+    //     }).catch((err) => {
+    //         throw new Error(`Error Occured ${err}`)
+    //     })
+    //     return searchResults;
+    // }
+
+
+        async searchPrecustomer(params: filterDto) {
+            const { search = '', page = 1, pageSize = 10, activeCompanyId, activeBranchId } = params;
+            const skip = (page - 1) * pageSize;
+    
+            const where: Prisma.PreCustomerMasterWhereInput = {
+                status: statusWhereClause,
+                CompanyMasterSid: activeCompanyId,
+                BranchMasterSid: activeBranchId,
+                ...(search
+                    ? {
+                        OR: [
+                            { preCustomerName: { contains: search, mode: 'insensitive' } },
+                            { phone: { contains: search, mode: 'insensitive' } },
+                            { preCustomerType: { contains: search, mode: 'insensitive' } },
+                            { status: { contains: search, mode: 'insensitive' } },
+                        ],
+                    } : {}
+                ),
+            };
+    
+            const [items, totalCount] = await this._db.$transaction([
+            this._db.preCustomerMaster.findMany({
+                where,
+                skip,
+                take: pageSize,
+                orderBy: { PreCustomerMasterSid: 'desc' },
+                select:{
+                    branchMaster:{
+                        select:{
+                            BranchMasterSid:true,
+                            branchCode:true,
+                            branchName:true
+                        }
+                    },
+                    companyMaster:{
+                        select:{
+                            companyName:true,
+                            companyCode:true,
+                            CompanyMasterSid:true
+                        }
+                    },
+                    preCustomerMeeting:{
+                        select:{
+                            meetingStatus:true
+                        }
+                    }
+                }
+            }),
+            this._db.preCustomerMaster.count({ where }),
+        ]);
+    
+        return { items, totalCount };
     }
 
 

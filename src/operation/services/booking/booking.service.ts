@@ -1634,6 +1634,7 @@ async getTariffByBookingDetails(payload:TariffBookingPayload) {
               : await this.currencyExchangeService.getExchangeRate({
                   fromCurrencyCode: costFromCurrency.currencyCode,
                   toCurrencyCode:   toCurrency.currencyCode,
+                  segment : 'cost'
                 }))
           : null;
 
@@ -1643,6 +1644,7 @@ async getTariffByBookingDetails(payload:TariffBookingPayload) {
               : await this.currencyExchangeService.getExchangeRate({
                   fromCurrencyCode: revenueFromCurrency.currencyCode,
                   toCurrencyCode:   toCurrency.currencyCode,
+                  segment : 'revenue'
                 }))
           : null;
 

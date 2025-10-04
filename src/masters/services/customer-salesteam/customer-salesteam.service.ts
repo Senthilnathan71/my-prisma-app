@@ -184,31 +184,32 @@ export class CustomerSalesteamService {
             console.log(allCustomerBranchId);
             console.log(allCustomerBranchId, typeof allCustomerBranchId[0]);
 
-            const allSaleBranch = await this._db.customerSalesTeam.findMany({
-                where: {
-                    CustomerBranchSid: { in: allCustomerBranchId }
-                },
-            });
+            // const allSaleBranch = await this._db.customerSalesTeam.findMany({
+            //     where: {
+            //         CustomerBranchSid: { in: allCustomerBranchId }
+            //     },
+            // });
 
-            const allSaleBranchId = allSaleBranch.map(b => Number(b.CustomerSalesSid));
-            console.log(allSaleBranchId);
+            const allSaleBranchId = {}
+            // allSaleBranch.map(b => Number(b.CustomerSalesSid));
+            // console.log(allSaleBranchId);
 
-            const allSalesteam = await this._db.customerSalesTeam.findMany({
-                where: {
-                    status: statusWhereClause,
-                    CustomerSalesSid: { in: allSaleBranchId },
-                },
-                include: {
-                    customerMaster: {
-                        include:{
-                            CustomerBranch:true
-                        }
-                    },
-                },
-                orderBy: {
-                    CustomerSalesSid: 'desc',
-                },
-            });
+            // const allSalesteam = await this._db.customerSalesTeam.findMany({
+            //     where: {
+            //         status: statusWhereClause,
+            //         CustomerSalesSid: { in: allSaleBranchId },
+            //     },
+            //     include: {
+            //         customerMaster: {
+            //             include:{
+            //                 CustomerBranch:true
+            //             }
+            //         },
+            //     },
+            //     orderBy: {
+            //         CustomerSalesSid: 'desc',
+            //     },
+            // });
 
 
             // const allSalesteam = await this._db.customerSalesTeam.findMany({
@@ -230,22 +231,22 @@ export class CustomerSalesteamService {
             //     },
             // });
 
-            const formattedSalesteam = allSalesteam.map(salesteam => ({
-                CustomerSalesSid: salesteam.CustomerSalesSid,
-                Salesman: salesteam.Salesman,
-                CompanyMasterSid: salesteam.CompanyMasterSid,
-                EffectiveFrom: salesteam.EffectiveFrom,
-                DepartmentMasterSid: salesteam.DepartmentMasterSid,
-                CSPerson: salesteam.CSPerson,
-                DocPerson: salesteam.DocPerson,
-                status: salesteam.status,
+            // const formattedSalesteam = allSalesteam.map(salesteam => ({
+            //     CustomerSalesSid: salesteam.CustomerSalesSid,
+            //     Salesman: salesteam.Salesman,
+            //     CompanyMasterSid: salesteam.CompanyMasterSid,
+            //     EffectiveFrom: salesteam.EffectiveFrom,
+            //     DepartmentMasterSid: salesteam.DepartmentMasterSid,
+            //     CSPerson: salesteam.CSPerson,
+            //     DocPerson: salesteam.DocPerson,
+            //     status: salesteam.status,
                 // branches: (salesteam.cus || []).map(b => ({
                 //     id: b.id,
                 //     customerBranchSid: b.customerBranchSid,
                 // })),
-            }));
+            // }));
 
-            return formattedSalesteam;
+            return {};
         } catch (error) {
             throw error;
         }

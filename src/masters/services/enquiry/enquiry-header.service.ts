@@ -31,7 +31,8 @@ export class EnquiryHeaderService {
                     PreCustomerMasterSid: payload.PreCustomerMasterSid ? Number(payload.PreCustomerMasterSid) : null,
                     FreightPPCC: payload.FreightPPCC,
                     CustomerName: payload.CustomerName,
-                    DepartmentMasterSid: payload.DepartmentMasterSid?  Number(payload.CustomerAddressSid):null,
+                    DepartmentMasterSid: payload.DepartmentMasterSid ? Number(payload.DepartmentMasterSid) : null,
+                    CustomerMasterSid : payload.CustomerMasterSid ? Number(payload.CustomerMasterSid) : null,
                     CustomerBranchSid:payload.CustomerBranchSid?  Number(payload.CustomerBranchSid):null,
                     CustomerAddressSid: payload.CustomerAddressSid?  Number(payload.CustomerAddressSid):null,
                     ShipmentExpectedDate: payload.shipmentDate,
@@ -125,8 +126,7 @@ export class EnquiryHeaderService {
                         CreatedBy: payload.createdBy,
                     }
                 })
-
-                if (enquiryHeader) {
+                if (enquiryHeader && payload.LeadOrCustomer === "L") {
                     await this._db.preCustomerMaster.update({
                         where: {
                             PreCustomerMasterSid: payload.PreCustomerMasterSid
@@ -572,6 +572,10 @@ export class EnquiryHeaderService {
                 const quote = await this._db.quoteHeader.findFirst({
                     where: {
                         EnquirySid: item.EnquiryHeaderSid
+                    },
+                    select : {
+                        QuoteHeaderSid : true,
+                        QuoteNumber : true
                     }
                 })
                 const pol = await this._db.portMaster.findFirst({
