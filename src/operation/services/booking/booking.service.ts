@@ -1162,6 +1162,23 @@ export class BookingService {
 
     async softDeleteBookingRates(BookingRateSid: number) {
         try {
+            // Check if voucher exists before allowing delete
+            const existingRate = await this._db.bookingRates.findUnique({
+                where: { BookingRatesSid: BookingRateSid },
+                select: {
+                    CostVoucherHeaderSid: true,
+                    RevenueVoucherHeaderSid: true
+                }
+            });
+
+            if (!existingRate) {
+                throw new NotFoundException('Booking rate not found');
+            }
+
+            if (existingRate.CostVoucherHeaderSid || existingRate.RevenueVoucherHeaderSid) {
+                throw new BadRequestException('Cannot delete rate. Voucher already generated for this rate.');
+            }
+
             const deletedBookingConnection = await this._db.bookingRates.update({
                 where: { BookingRatesSid: BookingRateSid },
                 data: { Status: 'D' }
@@ -1169,6 +1186,383 @@ export class BookingService {
             return deletedBookingConnection;
         } catch (error) {
             throw error;
+        }
+    }
+
+    /**
+     * Create a new booking rate manually
+     */
+    async createBookingRate(payload: any) {
+        try {
+            const bookingRate = await this._db.bookingRates.create({
+                data: {
+                    BookingHeaderSid: payload.BookingHeaderSid,
+                    CompanyMasterSid: payload.CompanyMasterSid,
+                    BranchMasterSid: payload.BranchMasterSid,
+                    CreatedBy: payload.CreatedBy,
+
+                    SerialNumber: payload.SerialNumber || null,
+                    ChargeMasterSid: payload.ChargeMasterSid,
+                    ChargeDescription: payload.ChargeDescription,
+                    ChargeUomSid: payload.ChargeUomSid || null,
+                    NoOfUnit: payload.NoOfUnit || null,
+                    QuoteChargeSid: payload.QuoteChargeSid || null,
+                    TariffDetailSid: payload.TariffDetailSid || null,
+
+                    // Cost Section
+                    CostPrepaidCollect: payload.CostPrepaidCollect || 'Prepaid',
+                    CostCurrencyMasterSid: payload.CostCurrencyMasterSid || null,
+                    CostExchangeRate: payload.CostExchangeRate ? Number(payload.CostExchangeRate) : null,
+                    CostRate: payload.CostRate ? Number(payload.CostRate) : null,
+                    CostNumberOfUnit: null, // This field has Decimal(4,3) - not used for main quantity
+                    CostDrCr: payload.CostDrCr || 'D',
+                    CostAmount: Number(payload.CostAmount || 0),
+                    CostLocalAmount: Number(payload.CostLocalAmount || 0),
+                    CostChargeUomSid: payload.CostChargeUomSid || null,
+
+                    // Revenue Section
+                    RevenuePrepaidCollect: payload.RevenuePrepaidCollect || 'Prepaid',
+                    RevenueCurrencyMasterSid: payload.RevenueCurrencyMasterSid || null,
+                    RevenueExchangeRate: payload.RevenueExchangeRate ? Number(payload.RevenueExchangeRate) : null,
+                    RevenueRate: payload.RevenueRate ? Number(payload.RevenueRate) : null,
+                    RevenueNumberOfUnit: null, // This field has Decimal(4,3) - not used for main quantity
+                    RevenueDrCr: payload.RevenueDrCr || 'C',
+                    RevenueAmount: Number(payload.RevenueAmount || 0),
+                    RevenueLocalAmount: Number(payload.RevenueLocalAmount || 0),
+                    PrepaidCollect: payload.PrepaidCollect || null,
+                    AgentMasterSid: payload.AgentMasterSid || null,
+                    AgentBranchSid: payload.AgentBranchSid || null,
+                    CustomerMasterSid: payload.CustomerMasterSid,
+                    CustomerBranchSid: payload.CustomerBranchSid,
+                    RevenueChargeUomSid: payload.RevenueChargeUomSid || null,
+
+                    Remarks: payload.Remarks || null,
+                    Status: 'A'
+                }
+            });
+
+            return bookingRate;
+        } catch (error) {
+            this.logger.error(`Error creating booking rate: ${error.message}`);
+            throw new InternalServerErrorException('Failed to create booking rate');
+        }
+    }
+
+    /**
+     * Update an existing booking rate
+     */
+    async updateBookingRate(BookingRatesSid: number, payload: any) {
+        try {
+            // Check if rate exists and if voucher is generated
+            const existingRate = await this._db.bookingRates.findUnique({
+                where: { BookingRatesSid },
+                select: {
+                    CostVoucherHeaderSid: true,
+                    RevenueVoucherHeaderSid: true
+                }
+            });
+
+            if (!existingRate) {
+                throw new NotFoundException('Booking rate not found');
+            }
+
+            if (existingRate.CostVoucherHeaderSid || existingRate.RevenueVoucherHeaderSid) {
+                throw new BadRequestException('Cannot update rate. Voucher already generated for this rate.');
+            }
+
+            const updateData: any = {
+                UpdatedBy: payload.UpdatedBy,
+                UpdatedOn: new Date()
+            };
+
+            // Only update fields that are provided
+            if (payload.SerialNumber !== undefined) updateData.SerialNumber = payload.SerialNumber;
+            if (payload.ChargeMasterSid !== undefined) updateData.ChargeMasterSid = payload.ChargeMasterSid;
+            if (payload.ChargeDescription !== undefined) updateData.ChargeDescription = payload.ChargeDescription;
+            if (payload.ChargeUomSid !== undefined) updateData.ChargeUomSid = payload.ChargeUomSid;
+            if (payload.NoOfUnit !== undefined) updateData.NoOfUnit = payload.NoOfUnit;
+
+            // Cost Section
+            if (payload.CostPrepaidCollect !== undefined) updateData.CostPrepaidCollect = payload.CostPrepaidCollect;
+            if (payload.CostCurrencyMasterSid !== undefined) updateData.CostCurrencyMasterSid = payload.CostCurrencyMasterSid;
+            if (payload.CostExchangeRate !== undefined) updateData.CostExchangeRate = Number(payload.CostExchangeRate);
+            if (payload.CostRate !== undefined) updateData.CostRate = Number(payload.CostRate);
+            if (payload.CostNumberOfUnit !== undefined) updateData.CostNumberOfUnit = Number(payload.CostNumberOfUnit);
+            if (payload.CostDrCr !== undefined) updateData.CostDrCr = payload.CostDrCr;
+            if (payload.CostAmount !== undefined) updateData.CostAmount = Number(payload.CostAmount);
+            if (payload.CostLocalAmount !== undefined) updateData.CostLocalAmount = Number(payload.CostLocalAmount);
+            if (payload.CostChargeUomSid !== undefined) updateData.CostChargeUomSid = payload.CostChargeUomSid;
+
+            // Revenue Section
+            if (payload.RevenuePrepaidCollect !== undefined) updateData.RevenuePrepaidCollect = payload.RevenuePrepaidCollect;
+            if (payload.RevenueCurrencyMasterSid !== undefined) updateData.RevenueCurrencyMasterSid = payload.RevenueCurrencyMasterSid;
+            if (payload.RevenueExchangeRate !== undefined) updateData.RevenueExchangeRate = Number(payload.RevenueExchangeRate);
+            if (payload.RevenueRate !== undefined) updateData.RevenueRate = Number(payload.RevenueRate);
+            if (payload.RevenueNumberOfUnit !== undefined) updateData.RevenueNumberOfUnit = Number(payload.RevenueNumberOfUnit);
+            if (payload.RevenueDrCr !== undefined) updateData.RevenueDrCr = payload.RevenueDrCr;
+            if (payload.RevenueAmount !== undefined) updateData.RevenueAmount = Number(payload.RevenueAmount);
+            if (payload.RevenueLocalAmount !== undefined) updateData.RevenueLocalAmount = Number(payload.RevenueLocalAmount);
+            if (payload.PrepaidCollect !== undefined) updateData.PrepaidCollect = payload.PrepaidCollect;
+            if (payload.AgentMasterSid !== undefined) updateData.AgentMasterSid = payload.AgentMasterSid;
+            if (payload.AgentBranchSid !== undefined) updateData.AgentBranchSid = payload.AgentBranchSid;
+            if (payload.CustomerMasterSid !== undefined) updateData.CustomerMasterSid = payload.CustomerMasterSid;
+            if (payload.CustomerBranchSid !== undefined) updateData.CustomerBranchSid = payload.CustomerBranchSid;
+            if (payload.RevenueChargeUomSid !== undefined) updateData.RevenueChargeUomSid = payload.RevenueChargeUomSid;
+            if (payload.Remarks !== undefined) updateData.Remarks = payload.Remarks;
+
+            const updatedRate = await this._db.bookingRates.update({
+                where: { BookingRatesSid },
+                data: updateData
+            });
+
+            return updatedRate;
+        } catch (error) {
+            if (error instanceof NotFoundException || error instanceof BadRequestException) {
+                throw error;
+            }
+            this.logger.error(`Error updating booking rate: ${error.message}`);
+            throw new InternalServerErrorException('Failed to update booking rate');
+        }
+    }
+
+    /**
+     * Get all rates for a booking
+     */
+    async getBookingRatesByBookingId(BookingHeaderSid: number) {
+        try {
+            const rates = await this._db.bookingRates.findMany({
+                where: {
+                    BookingHeaderSid,
+                    Status: 'A'
+                },
+                include: {
+                    companyMaster: {
+                        select: { companyName: true }
+                    },
+                    BranchMaster: {
+                        select: { branchName: true }
+                    },
+                    costVoucherHeader: {
+                        select: {
+                            VoucherHeaderSid: true,
+                            VoucherNumber: true,
+                            VoucherDate: true
+                        }
+                    },
+                    revenueVoucherHeader: {
+                        select: {
+                            VoucherHeaderSid: true,
+                            VoucherNumber: true,
+                            VoucherDate: true
+                        }
+                    },
+                    costVoucherTypeMaster: {
+                        select: { VoucherTypeMasterSid: true, DocumentTypeName: true }
+                    },
+                    revenueVoucherTypeMaster: {
+                        select: { VoucherTypeMasterSid: true, DocumentTypeName: true }
+                    }
+                },
+                orderBy: {
+                    SerialNumber: 'asc'
+                }
+            });
+
+            return rates;
+        } catch (error) {
+            this.logger.error(`Error fetching booking rates: ${error.message}`);
+            throw new InternalServerErrorException('Failed to fetch booking rates');
+        }
+    }
+
+    async getBookingRatesWithDetails(BookingHeaderSid: number) {
+        try {
+            const rates = await this._db.bookingRates.findMany({
+                where: {
+                    BookingHeaderSid,
+                    Status: 'A'
+                },
+                include: {
+                    companyMaster: {
+                        select: {
+                            CompanyMasterSid: true,
+                            companyName: true,
+                            CountryMasterSid: true
+                        }
+                    },
+                    BranchMaster: {
+                        select: {
+                            BranchMasterSid: true,
+                            branchName: true,
+                            StateMasterSid: true
+                        }
+                    },
+                    customerMasterBP: {
+                        select: {
+                            CustomerMasterSid: true,
+                            CustomerName: true,
+                            CustomerAddress1: true,
+                            CustomerAddress2: true
+                        }
+                    },
+                    customerBranch: {
+                        select: {
+                            CustomerBranchSid: true,
+                            Address: true,
+                            StateMasterSid: true
+                        }
+                    },
+                    costVoucherHeader: {
+                        select: {
+                            VoucherHeaderSid: true,
+                            VoucherNumber: true,
+                            VoucherDate: true,
+                            VoucherTypeMasterSid: true
+                        }
+                    },
+                    revenueVoucherHeader: {
+                        select: {
+                            VoucherHeaderSid: true,
+                            VoucherNumber: true,
+                            VoucherDate: true,
+                            VoucherTypeMasterSid: true
+                        }
+                    },
+                    costVoucherTypeMaster: {
+                        select: {
+                            VoucherTypeMasterSid: true,
+                            DocumentTypeName: true
+                        }
+                    },
+                    revenueVoucherTypeMaster: {
+                        select: {
+                            VoucherTypeMasterSid: true,
+                            DocumentTypeName: true
+                        }
+                    }
+                },
+                orderBy: {
+                    SerialNumber: 'asc'
+                }
+            });
+
+            // Enrich with state names, charge details, and currency details
+            const enrichedRates = await Promise.all(rates.map(async (rate) => {
+                const enrichments: any = {};
+
+                // Add state name
+                if (rate.customerBranch?.StateMasterSid) {
+                    const state = await this._db.stateMaster.findUnique({
+                        where: { StateMasterSid: rate.customerBranch.StateMasterSid },
+                        select: { stateName: true }
+                    });
+                    enrichments.customerBranch = {
+                        ...rate.customerBranch,
+                        StateName: state?.stateName || ''
+                    };
+                }
+
+                // Add charge master details
+                if (rate.ChargeMasterSid) {
+                    const charge = await this._db.chargeMaster.findUnique({
+                        where: { ChargeMasterSid: rate.ChargeMasterSid },
+                        select: { ChargeMasterSid: true, chargeCode: true, chargeName: true }
+                    });
+                    enrichments.ChargeMaster = charge;
+                }
+
+                // Add revenue currency details
+                if (rate.RevenueCurrencyMasterSid) {
+                    const currency = await this._db.currencyMaster.findUnique({
+                        where: { CurrencyMasterSid: rate.RevenueCurrencyMasterSid },
+                        select: { CurrencyMasterSid: true, currencyCode: true, currencyName: true }
+                    });
+                    enrichments.RevenueCurrencyMaster = currency;
+                }
+
+                // Add cost currency details
+                if (rate.CostCurrencyMasterSid) {
+                    const currency = await this._db.currencyMaster.findUnique({
+                        where: { CurrencyMasterSid: rate.CostCurrencyMasterSid },
+                        select: { CurrencyMasterSid: true, currencyCode: true, currencyName: true }
+                    });
+                    enrichments.CostCurrencyMaster = currency;
+                }
+
+                // Add agent/billing party details
+                if (rate.AgentMasterSid) {
+                    const agent = await this._db.customerMaster.findUnique({
+                        where: { CustomerMasterSid: rate.AgentMasterSid },
+                        select: {
+                            CustomerMasterSid: true,
+                            CustomerName: true,
+                            CustomerAddress1: true,
+                            CustomerAddress2: true
+                        }
+                    });
+                    enrichments.AgentMaster = agent;
+                }
+
+                // Add revenue voucher type details
+                if (rate.RevenueVoucherTypeMasterSid) {
+                    const voucherType = await this._db.voucherTypeMaster.findUnique({
+                        where: { VoucherTypeMasterSid: rate.RevenueVoucherTypeMasterSid },
+                        select: {
+                            VoucherTypeMasterSid: true,
+                            DocumentTypeName: true,
+                            DocumentTypeCode: true
+                        }
+                    });
+                    enrichments.RevenueVoucherType = voucherType;
+                }
+
+                // Add cost voucher type details
+                if (rate.CostVoucherTypeMasterSid) {
+                    const voucherType = await this._db.voucherTypeMaster.findUnique({
+                        where: { VoucherTypeMasterSid: rate.CostVoucherTypeMasterSid },
+                        select: {
+                            VoucherTypeMasterSid: true,
+                            DocumentTypeName: true,
+                            DocumentTypeCode: true
+                        }
+                    });
+                    enrichments.CostVoucherType = voucherType;
+                }
+
+                // Add revenue voucher header details (for voucher number)
+                if (rate.RevenueVoucherHeaderSid) {
+                    const voucherHeader = await this._db.voucherHeader.findUnique({
+                        where: { VoucherHeaderSid: rate.RevenueVoucherHeaderSid },
+                        select: {
+                            VoucherHeaderSid: true,
+                            VoucherNumber: true
+                        }
+                    });
+                    enrichments.RevenueVoucherHeader = voucherHeader;
+                }
+
+                // Add cost voucher header details (for voucher number)
+                if (rate.CostVoucherHeaderSid) {
+                    const voucherHeader = await this._db.voucherHeader.findUnique({
+                        where: { VoucherHeaderSid: rate.CostVoucherHeaderSid },
+                        select: {
+                            VoucherHeaderSid: true,
+                            VoucherNumber: true
+                        }
+                    });
+                    enrichments.CostVoucherHeader = voucherHeader;
+                }
+
+                return {
+                    ...rate,
+                    ...enrichments
+                };
+            }));
+
+            return enrichedRates;
+        } catch (error) {
+            this.logger.error(`Error fetching booking rates with details: ${error.message}`);
+            throw new InternalServerErrorException('Failed to fetch booking rates with details');
         }
     }
 
