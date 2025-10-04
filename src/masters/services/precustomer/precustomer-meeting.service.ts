@@ -4,6 +4,18 @@ import { DatabaseService } from 'src/database/database.service';
 import { CreatePreCustomerMeetingDto } from 'src/masters/DTO/create-precustomer-meeting.dto';
 import { CreatePrecustomerDto } from 'src/masters/DTO/create-Precustomer.dto';
 
+const statusMap: Record<string, LeadStatus> = {
+  "Qualify": LeadStatus.Qualify,
+  "Discovery": LeadStatus.Discovery,
+  "Meeting Scheduled": LeadStatus.MeetingScheduled,
+  "Meeting Completed": LeadStatus.MeetingCompleted,
+  "Enquiry Generated": LeadStatus.EnquiryGenerated,
+  "Quotation Created": LeadStatus.QuotationCreated,
+  "Quotation Confirmed": LeadStatus.QuotationConfirmed,
+  "Contract Signed": LeadStatus.ContractSigned,
+  "Deal Won": LeadStatus.DealWon,
+  "Deal Lost": LeadStatus.DealLost,
+};
 @Injectable()
 export class PreCustomerMeetingService {
     constructor(
@@ -17,8 +29,8 @@ export class PreCustomerMeetingService {
             where: {
                 status: "A",
                 leadStatus: {
-    in: ["MeetingScheduled", "EnquiryGenerated", "QuotationConfirmed", "MeetingCompleted", "QuotationCreated", "Qualify"]
-},
+                    in: ["MeetingScheduled", "EnquiryGenerated", "QuotationConfirmed", "MeetingCompleted", "QuotationCreated", "Qualify"]
+                },
                 CompanyMasterSid: CompanyMasterSid,
                 BranchMasterSid: BranchMasterSid
             },
@@ -58,7 +70,7 @@ export class PreCustomerMeetingService {
             if (params.PreCustomerMeetingSid) {
                 const existingLead = await this._db.preCustomerMeeting.findUnique({
                     where: { PreCustomerMeetingSid: params.PreCustomerMeetingSid },
-                    include:{meetingFollowUp:true}
+                    include: { meetingFollowUp: true }
                 });
 
                 if (!existingLead) {
@@ -67,7 +79,7 @@ export class PreCustomerMeetingService {
                 payload.updatedOn = new Date(); // Only update UpdatedOn
                 payload.updatedBy = params.createdBy
                 payload.followUpDate = params.followUpDate ? this.toUTCISO(params.followUpDate) : null,
-                payload.meetingDate = this.toUTCISO(params.meetingDate)
+                    payload.meetingDate = this.toUTCISO(params.meetingDate)
 
                 data = await this._db.preCustomerMeeting.update({
                     where: { PreCustomerMeetingSid: params.PreCustomerMeetingSid },
@@ -105,10 +117,10 @@ export class PreCustomerMeetingService {
                             updatedOn: new Date()
                         }
                     })
-                }else{
+                } else {
                     const followup = await this._db.meetingFollowup.update({
-                        where:{
-                            MeetingFollowupSid : existingLead.meetingFollowUp[0].MeetingFollowupSid
+                        where: {
+                            MeetingFollowupSid: existingLead.meetingFollowUp[0].MeetingFollowupSid
                         },
                         data: {
                             PreCustomerMeetingSid: params.PreCustomerMeetingSid,
@@ -185,11 +197,11 @@ export class PreCustomerMeetingService {
 
     async getPreCustomerMeetingDate() {
         const result = await this._db.preCustomerMeeting.findMany({
-            where:{
-                status:"A",
-                meetingStatus:{
-                        notIn:['confirmed', 'completed']
-                    }
+            where: {
+                status: "A",
+                meetingStatus: {
+                    notIn: ['confirmed', 'completed']
+                }
             },
             select: {
                 preCustomerMaster: {
@@ -207,7 +219,7 @@ export class PreCustomerMeetingService {
                 meetingDate: true,
                 followUpDate: true,
                 meetingStatus: true,
-                meetingDuration:true
+                meetingDuration: true
             }
         })
             .catch((error) => {
@@ -283,10 +295,10 @@ export class PreCustomerMeetingService {
             where: {
                 CompanyMasterSid: CompanyMasterSid,
                 BranchMasterSid: BranchMasterSid,
-                Status:'A',
-                preCustomerMeeting:{
-                    meetingStatus:{
-                        notIn:['confirmed', 'completed']
+                Status: 'A',
+                preCustomerMeeting: {
+                    meetingStatus: {
+                        notIn: ['confirmed', 'completed']
                     }
                 }
             },
@@ -303,8 +315,8 @@ export class PreCustomerMeetingService {
             }
 
         }).catch((error) => {
-                throw error
-            });
+            throw error
+        });
         return result;
     }
 

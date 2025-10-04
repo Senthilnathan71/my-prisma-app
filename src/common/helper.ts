@@ -1,3 +1,4 @@
+import { LeadStatus } from '@prisma/client';
 import * as bcrypt from 'bcrypt'
 import *as fs from 'fs'
 
