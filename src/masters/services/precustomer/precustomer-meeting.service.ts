@@ -342,7 +342,7 @@ export class PreCustomerMeetingService {
                 where: {
                     status: 'A',
                     meetingStatus: {
-                        in: ['scheduled', 'inProgress', 'onHold'],
+                        in: ['Scheduled', 'In Progress', 'On Hold'],
                     },
                     leadAssignTo: user.UserMasterSid,
                     CompanyMasterSid: CompanyMasterSid,
