@@ -46,7 +46,7 @@ export class MenuService {
 
         try {
             const result = await this._db.$transaction(async (tx) => {
-                const { permissions,menuPermissions,otherPermissions, ...menuPayload } = payload
+                const { permissions, menuPermissions, otherPermissions, ...menuPayload } = payload
                 // 1. Create menu
                 const menu = await tx.menuMaster.create({
                     data: {
@@ -135,13 +135,25 @@ export class MenuService {
             throw error;
         }
     }
-    async getAllMenus() {
+    async getAllMenus(user) {
         try {
+            if (user.userTypeId === 1) {
+                return await this._db.menuMaster.findMany({
+                    where: { status: 'A' },
+                });
+            }
+
+            // Otherwise, filter menus by user roles
+            const roleIds = user.userRoleMaster.map(role => role.RoleMasterSid);
+
             const menuList = await this._db.menuMaster.findMany({
                 where: {
-                    status: 'A'
+                    status: 'A',
+                    roleMenuMaster: {
+                        some: { RoleMasterSid: { in: roleIds } },
+                    },
                 },
-            })
+            });
 
             return menuList;
         } catch (error) {
@@ -157,12 +169,12 @@ export class MenuService {
                     MenuMasterSid: MenuMasterSid,
                     status: 'A'
                 },
-                select:{
-                    permissionName:true,
-                    permissionCode:true,
-                    status:true,
-                    MenuMasterSid:true,
-                    MenuPermissionSid:true
+                select: {
+                    permissionName: true,
+                    permissionCode: true,
+                    status: true,
+                    MenuMasterSid: true,
+                    MenuPermissionSid: true
                 }
             })
             return menuPermissions
@@ -198,8 +210,8 @@ export class MenuService {
         }
 
         try {
-            const { permissions,menuPermissions,otherPermissions, ...menuPayload } = payload;
-            
+            const { permissions, menuPermissions, otherPermissions, ...menuPayload } = payload;
+
             const result = await this._db.$transaction(async (tx) => {
                 // 1. Update menu
                 const { ModuleMasterSid, ...payloadWithoutModule } = menuPayload;
