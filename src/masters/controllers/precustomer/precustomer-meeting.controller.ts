@@ -24,7 +24,7 @@ export class PreCustomerMeetingController {
     })
     @HttpCode(HttpStatus.OK)
     @Post('pendingMeetings')
-    async getPendingMeetings(@Body() body: CompanyIdDto) {
+    async getPendingMeetings(@UserData() user:any, @Body() body: CompanyIdDto) {
         const output = new ResponseData
         try {
             const customers = await this.preCustomerMeetingService.getPreCustomerMastersWithoutMeetings(body.CompanyMasterSid, body.BranchMasterSid)
@@ -52,11 +52,11 @@ export class PreCustomerMeetingController {
     })
     @HttpCode(HttpStatus.OK)
     @Put()
-    async createPrecustomer(@Body() body: CreatePreCustomerMeetingDto) {
+    async createPrecustomer(@UserData() user:any, @Body() body: CreatePreCustomerMeetingDto) {
         this.logger.log(`createPrecustomer: ${JSON.stringify(body)}`)
         let output = new ResponseData
         try {
-            let preCustomer = await this.preCustomerMeetingService.CreateAndUpdatePreCustomerMeeting(body);
+            let preCustomer = await this.preCustomerMeetingService.CreateAndUpdatePreCustomerMeeting(user,body);
             this.logger.log(`createPrecustomer: ${JSON.stringify(preCustomer)}`)
 
             if (!preCustomer) {
@@ -90,10 +90,10 @@ export class PreCustomerMeetingController {
     })
     @HttpCode(HttpStatus.OK)
     @Get('meetingDate')
-    async getPreCustomerMeetings() {
+    async getPreCustomerMeetings(@UserData() user:any,) {
         const output = new ResponseData
         try {
-            const customers = await this.preCustomerMeetingService.getPreCustomerMeetingDate()
+            const customers = await this.preCustomerMeetingService.getPreCustomerMeetingDate(user)
             this.logger.log(`getPreCustomerMeetings: ${JSON.stringify(customers)}`)
             output.data = customers;
             output.message = "All PreCustomerMeetings are successfully fetched";
@@ -123,11 +123,12 @@ export class PreCustomerMeetingController {
     @Get('followup/meetingDate/:CompanyId/:BranchId')
     async getPreCustomerFollowupMeetings(
         @Param('CompanyId') companyId: number,
-        @Param('BranchId') branchId: number
+        @Param('BranchId') branchId: number,
+        @UserData() user:any,
     ) {
         const output = new ResponseData
         try {
-            const followupMeetings = await this.preCustomerMeetingService.getPreCustomerFollowupMeetings(+companyId,+branchId)
+            const followupMeetings = await this.preCustomerMeetingService.getPreCustomerFollowupMeetings(user,+companyId,+branchId)
             this.logger.log(`getPreCustomerMeetings: ${JSON.stringify(followupMeetings)}`)
             output.data = followupMeetings;
             output.message = "All PreCustomerFollowupMeetings are successfully fetched";
@@ -153,10 +154,10 @@ export class PreCustomerMeetingController {
         })
         @HttpCode(HttpStatus.OK)
         @Post()
-        async getAllPreCustomerMeetings(@Body() body: CompanyIdDto) {
+        async getAllPreCustomerMeetings(@UserData() user:any,@Body() body: CompanyIdDto) {
             let resp = new ResponseData();
             try {
-                let res = await this.preCustomerMeetingService.getAllPreCustomerMeetings(body.CompanyMasterSid, body.BranchMasterSid);
+                let res = await this.preCustomerMeetingService.getAllPreCustomerMeetings(user,body.CompanyMasterSid, body.BranchMasterSid);
                 this.logger.log(`All PreCustomerMeetings Fetched : ${JSON.stringify(res)}`);
                 resp.data = res;
                 resp.message = "All PreCustomerMeetings are successfully fetched";
@@ -180,10 +181,10 @@ export class PreCustomerMeetingController {
     })
     @HttpCode(HttpStatus.OK)
     @Get(':id')
-    async getPreCustomer(@Param('id') id: string) {
+    async getPreCustomer(@UserData() user:any,@Param('id') id: string) {
         const output = new ResponseData
         try {
-            const result = await this.preCustomerMeetingService.getPreCustomer(id)
+            const result = await this.preCustomerMeetingService.getPreCustomer(user,id)
             this.logger.log(`getPreCustomer: ${JSON.stringify(result)}`)
             output.data = result;
             output.message = `GetPreCustomer with id : ${id} is successfully fetched`;
@@ -209,10 +210,10 @@ export class PreCustomerMeetingController {
     })
     @HttpCode(HttpStatus.OK)
     @Post('lead/todo')
-    async todoMeetings(@Body() body: CompanyIdDto) {
+    async todoMeetings(@UserData() user:any,@Body() body: CompanyIdDto) {
         const output = new ResponseData
         try {
-            const todo = await this.preCustomerMeetingService.todoMeetings(body.CompanyMasterSid, body.BranchMasterSid)
+            const todo = await this.preCustomerMeetingService.todoMeetings(user,body.CompanyMasterSid, body.BranchMasterSid)
             this.logger.debug(`todoMeetings: ${JSON.stringify(todo)}`)
             output.data = todo;
             output.message = "All TodoMeetings are successfully fetched";
