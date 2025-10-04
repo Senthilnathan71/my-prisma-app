@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from "@nestjs/common";
-import { LeadStatus, Prisma } from "@prisma/client";
+import { ApprovalStatus, LeadStatus, Prisma } from "@prisma/client";
 import { DatabaseService } from "src/database/database.service";
 import * as moment from 'moment-timezone';
 import { SearchListDto } from "src/masters/DTO/search-list.dto";
@@ -98,7 +98,7 @@ export class QuotationService {
                                         TransitTime: carrier.TransitTime,
                                         CompanyMasterSid: quoteHeader.CompanyMasterSid,
                                         BranchMasterSid: quoteHeader.BranchMasterSid,
-                                        ApprovalStatus: "P",
+                                        ApprovalStatus: ApprovalStatus.Pending,
                                         createdBy: payload.createdBy,
                                     },
                                 });
@@ -399,7 +399,7 @@ export class QuotationService {
                                 TransitTime: carrier.TransitTime,
                                 CompanyMasterSid: updatedQuoteHeader.CompanyMasterSid,
                                 BranchMasterSid: updatedQuoteHeader.BranchMasterSid,
-                                ApprovalStatus: "P",
+                                ApprovalStatus: ApprovalStatus.Approved,
                                 updatedBy: payload.updatedBy,
                             },
                         });
@@ -414,7 +414,7 @@ export class QuotationService {
                                 TransitTime: carrier.TransitTime,
                                 CompanyMasterSid: updatedQuoteHeader.CompanyMasterSid,
                                 BranchMasterSid: updatedQuoteHeader.BranchMasterSid,
-                                ApprovalStatus: "P",
+                                ApprovalStatus: ApprovalStatus.Pending,
                                 createdBy: payload.updatedBy,
                             },
                         });
