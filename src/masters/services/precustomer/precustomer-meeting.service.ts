@@ -46,7 +46,7 @@ export class PreCustomerMeetingService {
     }
 
 
-    async CreateAndUpdatePreCustomerMeeting(params: any) {
+    async CreateAndUpdatePreCustomerMeeting(user,params: any) {
         try {
             let output;
             const payload: any = {
@@ -72,7 +72,9 @@ export class PreCustomerMeetingService {
             let existingLead;
             if (params.PreCustomerMeetingSid) {
                 existingLead = await this._db.preCustomerMeeting.findUnique({
-                    where: { PreCustomerMeetingSid: params.PreCustomerMeetingSid },
+                    where: {
+                        PreCustomerMeetingSid: params.PreCustomerMeetingSid, leadAssignTo: user.UserMasterSid
+                    },
                     include: { meetingFollowUp: true }
                 });
 
@@ -142,8 +144,8 @@ export class PreCustomerMeetingService {
                     const followup = await this._db.meetingFollowup.create({
                         data: {
                             preCustomerMeeting: { connect: { PreCustomerMeetingSid: params.PreCustomerMeetingSid ? params.PreCustomerMeetingSid : newMeeting.PreCustomerMeetingSid } }, // ✅ correct
-                            companyMaster: { connect: { CompanyMasterSid: existingLead?.CompanyMasterSid ?  existingLead?.CompanyMasterSid :params.CompanyMasterSid } },
-                            branchMaster: { connect: { BranchMasterSid: existingLead?.BranchMasterSid ? existingLead?.BranchMasterSid:params.BranchMasterSid  } },
+                            companyMaster: { connect: { CompanyMasterSid: existingLead?.CompanyMasterSid ? existingLead?.CompanyMasterSid : params.CompanyMasterSid } },
+                            branchMaster: { connect: { BranchMasterSid: existingLead?.BranchMasterSid ? existingLead?.BranchMasterSid : params.BranchMasterSid } },
                             DepartmentMasterSid: params.DepartmentMasterSid,
                             OpportunitySector: params.OpportunitySector,
                             FollowupDate: params.followUpDate ? this.toUTCISO(params.followUpDate) : "",
@@ -155,15 +157,15 @@ export class PreCustomerMeetingService {
                         }
                     })
                 }
-                if (existingLead?.meetingFollowUp?.length > 1 ) {
+                if (existingLead?.meetingFollowUp?.length > 1) {
                     const followup = await this._db.meetingFollowup.update({
                         where: {
                             MeetingFollowupSid: existingLead.meetingFollowUp['0'].MeetingFollowupSid
                         },
                         data: {
                             preCustomerMeeting: { connect: { PreCustomerMeetingSid: params.PreCustomerMeetingSid } }, // ✅ correct
-                            companyMaster: { connect: { CompanyMasterSid: existingLead?.CompanyMasterSid ?  existingLead?.CompanyMasterSid :params.CompanyMasterSid } },
-                            branchMaster: { connect: { BranchMasterSid: existingLead?.BranchMasterSid ? existingLead?.BranchMasterSid:params.BranchMasterSid  } },
+                            companyMaster: { connect: { CompanyMasterSid: existingLead?.CompanyMasterSid ? existingLead?.CompanyMasterSid : params.CompanyMasterSid } },
+                            branchMaster: { connect: { BranchMasterSid: existingLead?.BranchMasterSid ? existingLead?.BranchMasterSid : params.BranchMasterSid } },
                             DepartmentMasterSid: params.DepartmentMasterSid,
                             OpportunitySector: params.OpportunitySector,
                             FollowupDate: params.followUpDate ? this.toUTCISO(params.followUpDate) : "",
@@ -201,13 +203,14 @@ export class PreCustomerMeetingService {
     }
 
 
-    async getPreCustomerMeetingDate() {
+    async getPreCustomerMeetingDate(user) {
         const result = await this._db.preCustomerMeeting.findMany({
             where: {
                 status: "A",
                 meetingStatus: {
                     notIn: ['confirmed', 'completed']
-                }
+                },
+                leadAssignTo: user.UserMasterSid
             },
             select: {
                 preCustomerMaster: {
@@ -234,10 +237,11 @@ export class PreCustomerMeetingService {
         return result;
     }
 
-    async getPreCustomer(PreCustomerMeetingSid: any) {
+    async getPreCustomer(user, PreCustomerMeetingSid: any) {
         const result = await this._db.preCustomerMeeting.findUnique({
             where: {
-                PreCustomerMeetingSid: Number(PreCustomerMeetingSid)
+                PreCustomerMeetingSid: Number(PreCustomerMeetingSid),
+                leadAssignTo: user.UserMasterSid
             },
             include: {
                 preCustomerMaster: true,
@@ -252,7 +256,7 @@ export class PreCustomerMeetingService {
 
 
 
-    async todoMeetings(CompanyMasterSid: number, BranchMasterSid: number) {
+    async todoMeetings(user, CompanyMasterSid: number, BranchMasterSid: number) {
         let result: any = {};
 
         result.inActive = await this._db.preCustomerMaster.findMany({
@@ -263,6 +267,9 @@ export class PreCustomerMeetingService {
         })
 
         result.notMet = await this._db.preCustomerMeeting.findMany({
+            where: {
+                leadAssignTo: user.UserMasterSid
+            },
             select: {
                 meetingDate: true,
                 preCustomerMaster: {
@@ -275,7 +282,8 @@ export class PreCustomerMeetingService {
 
         result.toMeet = await this._db.preCustomerMeeting.findMany({
             where: {
-                followUpDate: null
+                followUpDate: null,
+                leadAssignTo: user.UserMasterSid
             },
             select: {
                 meetingDate: true,
@@ -296,13 +304,14 @@ export class PreCustomerMeetingService {
     }
 
 
-    async getPreCustomerFollowupMeetings(CompanyMasterSid: number, BranchMasterSid: number) {
+    async getPreCustomerFollowupMeetings(user, CompanyMasterSid: number, BranchMasterSid: number) {
         const result = await this._db.meetingFollowup.findMany({
             where: {
                 CompanyMasterSid: CompanyMasterSid,
                 BranchMasterSid: BranchMasterSid,
                 Status: 'A',
                 preCustomerMeeting: {
+                    leadAssignTo: user.UserMasterSid,
                     meetingStatus: {
                         notIn: ['confirmed', 'completed']
                     }
@@ -327,7 +336,7 @@ export class PreCustomerMeetingService {
     }
 
 
-    async getAllPreCustomerMeetings(CompanyMasterSid: number, BranchMasterSid: number) {
+    async getAllPreCustomerMeetings(user, CompanyMasterSid: number, BranchMasterSid: number) {
         try {
             const allMeetings = await this._db.preCustomerMeeting.findMany({
                 where: {
@@ -335,6 +344,7 @@ export class PreCustomerMeetingService {
                     meetingStatus: {
                         in: ['scheduled', 'inProgress', 'onHold'],
                     },
+                    leadAssignTo: user.UserMasterSid,
                     CompanyMasterSid: CompanyMasterSid,
                     BranchMasterSid: BranchMasterSid
                 },

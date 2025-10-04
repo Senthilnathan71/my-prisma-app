@@ -1,5 +1,6 @@
 import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, Post, Query, UnauthorizedException } from '@nestjs/common';
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
+import { UserData } from 'src/common/decorators/user.decorator';
 import { ResponseData } from 'src/common/response-data';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 import { LeadService } from 'src/masters/services/lead/lead.service';
@@ -19,10 +20,10 @@ export class LeadController {
         })
         @HttpCode(HttpStatus.OK)
         @Post('customer')
-        async getAllCustomer(@Body() body: CompanyIdDto) {
+        async getAllCustomer(@UserData() user:any,@Body() body: CompanyIdDto) {
             const output = new ResponseData
             try {
-                const customers = await this.leadService.getAllCustomer(body.CompanyMasterSid)
+                const customers = await this.leadService.getAllCustomer(user,body.CompanyMasterSid)
                 output.data = customers; 
                 this.logger.log(`getAllCustomer: ${JSON.stringify(customers)}`)
                 output.data = customers;
@@ -47,7 +48,7 @@ export class LeadController {
     })
     @HttpCode(HttpStatus.CREATED)
     @Post('create')
-    async createNewLead(@Body() newData: any) {
+    async createNewLead(@UserData() user:any,@Body() newData: any) {
         let resp = new ResponseData();
         try {
             let res = await this.leadService.createNewLead(newData);
@@ -73,7 +74,7 @@ export class LeadController {
     })
     @HttpCode(HttpStatus.OK)
     @Post()
-    async getAllLead(@Body() body: CompanyIdDto) {
+    async getAllLead(@UserData() user:any,@Body() body: CompanyIdDto) {
         let resp = new ResponseData();
         try {
             let res = await this.leadService.getAllLeads(body.CompanyMasterSid, body.BranchMasterSid);
@@ -99,7 +100,7 @@ export class LeadController {
     })
     @HttpCode(HttpStatus.OK)
     @Get('fetch/:PreCustomerMasterSid')
-    async getLeadById(@Param('PreCustomerMasterSid', ParseIntPipe) PreCustomerMasterSid: number) {
+    async getLeadById(@UserData() user:any,@Param('PreCustomerMasterSid', ParseIntPipe) PreCustomerMasterSid: number) {
         let resp = new ResponseData();
         try {
             this.logger.log(`Getting Lead with id : ${PreCustomerMasterSid}`);
@@ -126,7 +127,7 @@ export class LeadController {
     })
     @HttpCode(HttpStatus.OK)
     @Patch('update/:PreCustomerMasterSid')
-    async updateLeadById(@Param('PreCustomerMasterSid', ParseIntPipe) PreCustomerMasterSid: number, @Body() payload: any) {
+    async updateLeadById(@UserData() user:any,@Param('PreCustomerMasterSid', ParseIntPipe) PreCustomerMasterSid: number, @Body() payload: any) {
         let resp = new ResponseData();
         try {
             this.logger.log(`Updating Lead with id : ${PreCustomerMasterSid}`);
@@ -153,7 +154,7 @@ export class LeadController {
     })
     @HttpCode(HttpStatus.OK)
     @Delete('delete/:PreCustomerMasterSid')
-    async deleteLeadById(@Param('PreCustomerMasterSid', ParseIntPipe) PreCustomerMasterSid: number) {
+    async deleteLeadById(@UserData() user:any,@Param('PreCustomerMasterSid', ParseIntPipe) PreCustomerMasterSid: number) {
         let resp = new ResponseData();
         try {
             this.logger.log(`Deleting Lead with id : ${PreCustomerMasterSid}`);
@@ -180,7 +181,7 @@ export class LeadController {
     })
     @HttpCode(HttpStatus.OK)
     @Post('search-list')
-    async searchLead(@Body() searchParams: filterDto) {
+    async searchLead(@UserData() user:any,@Body() searchParams: filterDto) {
         let resp = new ResponseData();
         try {
             let res = await this.leadService.searchLead(searchParams);
