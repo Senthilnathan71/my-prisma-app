@@ -15,9 +15,8 @@ export class PreCustomerMeetingService {
     async getPreCustomerMastersWithoutMeetings(CompanyMasterSid: number, BranchMasterSid: number) {
         const result = await this._db.preCustomerMaster.findMany({
             where: {
-                isQualify: "Y",
                 status: "A",
-                leadStatus: LeadStatus.Qualify,
+                leadStatus: LeadStatus.QuotationConfirmed,
                 CompanyMasterSid: CompanyMasterSid,
                 BranchMasterSid: BranchMasterSid
             },

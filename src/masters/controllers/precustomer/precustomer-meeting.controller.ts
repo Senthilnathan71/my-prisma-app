@@ -6,7 +6,7 @@ import { UserData } from 'src/common/decorators/user.decorator';
 import { ResponseData } from 'src/common/response-data';
 import { CreatePrecustomerDto } from 'src/masters/DTO/create-Precustomer.dto';
 import { PreCustomerMeetingService } from 'src/masters/services/precustomer/precustomer-meeting.service';
-import { PrecustomerService } from 'src/masters/services/precustomer/precustomer.service';
+import { PrecustomerService } from 'src/crm/services/precustomer/precustomer.service';
 class CompanyIdDto {
   CompanyMasterSid: number;
   BranchMasterSid: number;

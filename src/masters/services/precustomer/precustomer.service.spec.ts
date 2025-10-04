@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { PrecustomerService } from './precustomer.service';
+import { PrecustomerService } from '../../../crm/services/precustomer/precustomer.service';
 
 describe('PrecustomerService', () => {
   let service: PrecustomerService;

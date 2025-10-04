@@ -5,12 +5,13 @@ import { UserData } from 'src/common/decorators/user.decorator';
 import { ResponseData } from 'src/common/response-data';
 import { CreatePrecustomerDto } from 'src/masters/DTO/create-Precustomer.dto';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
-import { PrecustomerService } from 'src/masters/services/precustomer/precustomer.service';
+import { filterDto } from 'src/masters/DTO/search-vessel.dto';
+import { PrecustomerService } from 'src/crm/services/precustomer/precustomer.service';
 class CompanyIdDto {
   CompanyMasterSid: number;
   BranchMasterSid: number;
 }
-@Controller('ff-precustomer')
+@Controller('precustomer')
 
 export class PrecustomerController {
 
@@ -154,31 +155,59 @@ export class PrecustomerController {
     }
 
 
-    @ApiOperation({ summary: 'Search List of PreCustomers' })
-    @ApiCreatedResponse({
-        description: 'Search List of PreCustomers',
-        type: ResponseData
-    })
-    @HttpCode(HttpStatus.OK)
-    @Post('search-list')
-    async searchPreCustomer(@Body() body: SearchListDto) {
-        let resp = new ResponseData();
-        try {
-            let res = await this.precustomerSer.searchPrecustomer(body);
-            this.logger.log(`PreCustomer Search Results : ${JSON.stringify(res)}`);
-            resp.data = res;
-            resp.message = "PreCustomer Search is successfully fetched";
-        } catch (error) {
-            this.logger.warn(`PreCustomer Search Error ${error}`);
-            resp.status = false;
-            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
-                resp.message = error.message;
-            } else {
-                resp.message = "Internal Server Error"
+    // @ApiOperation({ summary: 'Search List of PreCustomers' })
+    // @ApiCreatedResponse({
+    //     description: 'Search List of PreCustomers',
+    //     type: ResponseData
+    // })
+    // @HttpCode(HttpStatus.OK)
+    // @Post('search-list')
+    // async searchPreCustomer(@Body() body: SearchListDto) {
+    //     let resp = new ResponseData();
+    //     try {
+    //         let res = await this.precustomerSer.searchPrecustomer(body);
+    //         this.logger.log(`PreCustomer Search Results : ${JSON.stringify(res)}`);
+    //         resp.data = res;
+    //         resp.message = "PreCustomer Search is successfully fetched";
+    //     } catch (error) {
+    //         this.logger.warn(`PreCustomer Search Error ${error}`);
+    //         resp.status = false;
+    //         if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+    //             resp.message = error.message;
+    //         } else {
+    //             resp.message = "Internal Server Error"
+    //         }
+    //     }
+    //     return resp;
+    // }
+
+
+
+    @ApiOperation({ summary: 'Search List of Lead' })
+        @ApiCreatedResponse({
+            description: 'Search List of Lead',
+            type: ResponseData
+        })
+        @HttpCode(HttpStatus.OK)
+        @Post('search-list')
+        async searchLead(@Body() searchParams: filterDto) {
+            let resp = new ResponseData();
+            try {
+                let res = await this.precustomerSer.searchPrecustomer(searchParams);
+                this.logger.log(`Lead Search Data : ${JSON.stringify(res)}`);
+                resp.data = res;
+                resp.message = "Lead Search is successfully fetched";
+            } catch (error) {
+                this.logger.warn(`Lead Search Error : ${JSON.stringify(error), error}`);
+                resp.status = false;
+                if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                    resp.message = error.message;
+                } else {
+                    resp.message = "Internal Server Error";
+                }
             }
+            return resp;
         }
-        return resp;
-    }
 
 }
 
