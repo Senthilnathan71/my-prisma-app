@@ -547,126 +547,233 @@ export class CustomerService {
 
 
     async updateCustomer(CustomerMasterSid: number, payload: any) {
-        const existing = await this._db.customerMaster.findUnique({
-            where: { CustomerMasterSid }
+    const existing = await this._db.customerMaster.findUnique({
+        where: { CustomerMasterSid }
+    });
+
+    if (!existing) throw new Error('Customer does not exist');
+
+    return this._db.$transaction(async (tx) => {
+        // 1️⃣ Update main customer
+        const customer = await tx.customerMaster.update({
+            where: { CustomerMasterSid },
+            data: payload.customer
         });
 
-        if (!existing) throw new Error('Customer does not exist');
+        // 2️⃣ Handle branches
+        if (payload.customerBranches) {
+            for (const branch of payload.customerBranches) {
+                let branchId: number;
 
-        return this._db.$transaction(async (tx) => {
-
-            // 1️⃣ Update main customer
-            const customer = await tx.customerMaster.update({
-                where: { CustomerMasterSid },
-                data: payload.customer
-            });
-
-            // 2️⃣ Handle branches
-            if (payload.customerBranches) {
-                for (const branch of payload.customerBranches) {
-                    // destructure relations out of branch
-                    const {
-                        customerBranchContacts,
-                        customerBranchEmails, // 👈 instead of customerBrEmails
-                        customerBranchLogins,
-                        customerSalesTeams,
-                        customerMilestones,
-                        ...branchData
-                    } = branch;
-                    await tx.customerBranch.upsert({
-                        where: { CustomerBranchSid: branch.CustomerBranchSid || 0 }, // 0 to force create if no id
-                        update: { ...branchData, updatedBy: branchData.updatedBy },
-                        create: { ...branchData, createdBy: branchData.createdBy, CustomerMasterSid }
+                // Handle branch create/update
+                if (branch.CustomerBranchSid) {
+                    // Update existing branch
+                    const updatedBranch = await tx.customerBranch.update({
+                        where: { CustomerBranchSid: branch.CustomerBranchSid },
+                        data: {
+                            BranchName: branch.BranchName,
+                            StateMasterSid: branch.StateMasterSid,
+                            CityMasterSid: branch.CityMasterSid,
+                            Branch_Type: branch.Branch_Type,
+                            Contact_Person: branch.Contact_Person,
+                            Zip_PostBox: branch.Zip_PostBox,
+                            ContactNo: branch.ContactNo,
+                            Email: branch.Email,
+                            Address: branch.Address,
+                            Registered: branch.Registered,
+                            CustomerGstType: branch.CustomerGstType,
+                            GSTNo: branch.GSTNo,
+                            status: branch.status,
+                            updatedBy: branch.updatedBy,
+                          
+                        }
                     });
+                    branchId = updatedBranch.CustomerBranchSid;
+                } else {
+                    // Create new branch
+                    const createdBranch = await tx.customerBranch.create({
+                        data: {
+                            BranchName: branch.BranchName,
+                            StateMasterSid: branch.StateMasterSid,
+                            CityMasterSid: branch.CityMasterSid,
+                            CustomerMasterSid: customer.CustomerMasterSid,
+                            CompanyMasterSid: customer.CompanyMasterSid,
+                            Branch_Type: branch.Branch_Type,
+                            Contact_Person: branch.Contact_Person,
+                            Zip_PostBox: branch.Zip_PostBox,
+                            ContactNo: branch.ContactNo,
+                            Email: branch.Email,
+                            Address: branch.Address,
+                            Registered: branch.Registered,
+                            CustomerGstType: branch.CustomerGstType,
+                            GSTNo: branch.GSTNo,
+                            status: branch.status,
+                            createdBy: branch.createdBy,
+                            
+                        }
+                    });
+                    branchId = createdBranch.CustomerBranchSid;
+                }
 
-                    const branchId = branch.CustomerBranchSid;
-
-                    // 3️⃣ Handle cusBranchContact
-                    if (branch.customerBranchContacts) {
-                        for (const contact of branch.customerBranchContacts) {
-                            await tx.cusBranchContact.upsert({
-                                where: { CusBranchContactSid: contact.CusBranchContactSid || 0 }, // 0 to force create if no id
-                                update: { ...contact },
-                                create: { ...contact, CustomerMasterSid, CustomerBranchSid: branchId }
+                // 3️⃣ Handle cusBranchContact
+                if (branch.customerBranchContacts && branch.customerBranchContacts) {
+                    for (const contact of branch.customerBranchContacts) {
+                        if (contact.CusBranchContactSid) {
+                            // Update existing contact
+                            await tx.cusBranchContact.update({
+                                where: { CusBranchContactSid: contact.CusBranchContactSid },
+                                data: {
+                                    ...contact,
+                                    CustomerMasterSid: customer.CustomerMasterSid,
+                                    CustomerBranchSid: branchId,
+                                    updatedAt: new Date()
+                                }
+                            });
+                        } else {
+                            // Create new contact
+                            await tx.cusBranchContact.create({
+                                data: {
+                                    ...contact,
+                                    CustomerMasterSid: customer.CustomerMasterSid,
+                                    CustomerBranchSid: branchId,
+                                    createdAt: new Date()
+                                }
                             });
                         }
                     }
+                }
 
-                    // 4️⃣ Handle CustomerBrEmail
-                    if (branch.customerBranchEmails) {
-                        for (const email of branch.customerBranchEmails) {
-                            await tx.customerBrEmail.upsert({
-                                where: { CustomerBrEmailSid: email.CustomerBrEmailSid || 0 }, // 0 to force create if no id
-                                update: { ...email },
-                                create: { ...email, CustomerMasterSid, CustomerBranchSid: branchId }
+                // 4️⃣ Handle CustomerBrEmail
+                if (branch.customerBranchEmails && branch.customerBranchEmails) {
+                    for (const email of branch.customerBranchEmails) {
+                        if (email.CustomerBrEmailSid) {
+                            // Update existing email
+                            await tx.customerBrEmail.update({
+                                where: { CustomerBrEmailSid: email.CustomerBrEmailSid },
+                                data: {
+                                    ...email,
+                                    CustomerMasterSid: customer.CustomerMasterSid,
+                                    CustomerBranchSid: branchId,
+                                    updatedAt: new Date()
+                                }
+                            });
+                        } else {
+                            // Create new email
+                            await tx.customerBrEmail.create({
+                                data: {
+                                    ...email,
+                                    CustomerMasterSid: customer.CustomerMasterSid,
+                                    CustomerBranchSid: branchId,
+                                    createdAt: new Date()
+                                }
                             });
                         }
                     }
+                }
 
-                    // 5️⃣ Handle CustomerLogin
-                    if (branch.customerBranchLogins) {
-                        for (const login of branch.customerBranchLogins) {
-                            await tx.customerLogin.upsert({
-                                where: { CustomerLoginSid: login.CustomerLoginSid || 0 }, // 0 to force create if no id
-                                update: { ...login },
-                                create: { ...login, CustomerMasterSid, CustomerBranchSid: branchId }
+                // 5️⃣ Handle CustomerLogin
+                if (branch.customerBranchLogins && branch.customerBranchLogins) {
+                    for (const login of branch.customerBranchLogins) {
+                        if (login.CustomerLoginSid) {
+                            // Update existing login
+                            await tx.customerLogin.update({
+                                where: { CustomerLoginSid: login.CustomerLoginSid },
+                                data: {
+                                    ...login,
+                                    CustomerMasterSid: customer.CustomerMasterSid,
+                                    CustomerBranchSid: branchId,
+                                    updatedAt: new Date()
+                                }
                             });
-
+                        } else {
+                            // Create new login
+                            await tx.customerLogin.create({
+                                data: {
+                                    ...login,
+                                    CustomerMasterSid: customer.CustomerMasterSid,
+                                    CustomerBranchSid: branchId,
+                                    createdAt: new Date()
+                                }
+                            });
                         }
                     }
+                }
 
-
-                    // 6️⃣ Handle CustomerSalesTeam
-                    if (branch.customerSalesTeams) {
-                        for (const sales of branch.customerSalesTeams) {
-                            // 1. Upsert CustomerSalesTeam
-                            const salesTeam = await tx.customerSalesTeam.upsert({
-                                where: { CustomerSalesSid: sales.CustomerSalesSid ?? 0 }, // if 0 → create
-                                update: {
+                // 6️⃣ Handle CustomerSalesTeam
+                if (branch.customerSalesTeams && branch.customerSalesTeams) {
+                    for (const sales of branch.customerSalesTeams) {
+                        if (sales.CustomerSalesSid) {
+                            // Update existing sales team
+                            await tx.customerSalesTeam.update({
+                                where: { CustomerSalesSid: sales.CustomerSalesSid },
+                                data: {
                                     DepartmentMasterSid: sales.DepartmentMasterSid,
-                                    CompanyMasterSid:sales.CompanyMasterSid,
+                                    CompanyMasterSid: sales.CompanyMasterSid,
                                     Salesman: sales.Salesman,
                                     CSPerson: sales.CSPerson,
                                     DocPerson: sales.DocPerson,
                                     EffectiveFrom: sales.EffectiveFrom,
                                     status: sales.status,
                                     updatedBy: sales.updatedBy,
-                                    CustomerBranchSid: sales.CustomerSalesBranchSid
-                                },
-                                create: {
+                                   
+                                }
+                            });
+                        } else {
+                            // Create new sales team
+                            const salesTeam = await tx.customerSalesTeam.create({
+                                data: {
                                     DepartmentMasterSid: sales.DepartmentMasterSid,
-                                    CompanyMasterSid:sales.CompanyMasterSid,
+                                    CompanyMasterSid: sales.CompanyMasterSid,
                                     Salesman: sales.Salesman,
                                     CSPerson: sales.CSPerson,
                                     DocPerson: sales.DocPerson,
                                     EffectiveFrom: sales.EffectiveFrom,
                                     status: sales.status,
                                     createdBy: sales.createdBy,
-                                    CustomerBranchSid: sales.CustomerSalesBranchSid,
-                                    CustomerMasterSid,
+                                    CustomerMasterSid: customer.CustomerMasterSid,
+                                    
+                                }
+                            });
 
-                                },
-                            })
+
+                            
                         }
                     }
+                }
 
-                    // 7️⃣ Handle CustomerMilestone
-                    if (branch.customerMilestones) {
-                        for (const milestone of branch.customerMilestones) {
-                            await tx.customerMilestone.upsert({
-                                where: { CustomerMilestoneSid: milestone.CustomerMilestoneSid || 0 },
-                                update: { ...milestone },
-                                create: { ...milestone, CustomerMasterSid, CustomerBranchSid: branchId }
+                // 7️⃣ Handle CustomerMilestone
+                if (branch.customerMilestones && branch.customerMilestones.length > 0) {
+                    for (const milestone of branch.customerMilestones) {
+                        if (milestone.CustomerMilestoneSid) {
+                            // Update existing milestone
+                            await tx.customerMilestone.update({
+                                where: { CustomerMilestoneSid: milestone.CustomerMilestoneSid },
+                                data: {
+                                    ...milestone,
+                                    CustomerMasterSid: customer.CustomerMasterSid,
+                                    CustomerBranchSid: branchId,
+                                    updatedAt: new Date()
+                                }
+                            });
+                        } else {
+                            // Create new milestone
+                            await tx.customerMilestone.create({
+                                data: {
+                                    ...milestone,
+                                    CustomerMasterSid: customer.CustomerMasterSid,
+                                    CustomerBranchSid: branchId,
+                                    createdAt: new Date()
+                                }
                             });
                         }
                     }
-
                 }
             }
+        }
 
-            return customer;
-        });
-    }
+        return customer;
+    });
+}
 
     async softDelete(CustomerMasterSid: number) {
         try {
