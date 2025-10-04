@@ -8,7 +8,7 @@ import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 @Injectable()
 export class LeadService {
     constructor(private _db: DatabaseService, private logger: Logger) { }
-async getAllCustomer(CompanyMasterSid:number) {
+async getAllCustomer(user,CompanyMasterSid:number) {
         try {
             const customer = await this._db.customerMaster.findMany({
                 where : {
@@ -18,7 +18,11 @@ async getAllCustomer(CompanyMasterSid:number) {
                 include: {
                     preCustomerMaster: {
                         include: {
-                            preCustomerMeeting: true
+                            preCustomerMeeting: {
+                                where:{
+                                    leadAssignTo:user.UserMasterSid
+                                }
+                            }
                         }
                     }
                 },
@@ -200,26 +204,10 @@ async getAllCustomer(CompanyMasterSid:number) {
             skip,
             take: pageSize,
             orderBy: { PreCustomerMasterSid: 'desc' },
-            select:{
-                branchMaster:{
-                    select:{
-                        BranchMasterSid:true,
-                        branchCode:true,
-                        branchName:true
-                    }
-                },
-                companyMaster:{
-                    select:{
-                        companyName:true,
-                        companyCode:true,
-                        CompanyMasterSid:true
-                    }
-                },
-                preCustomerMeeting:{
-                    select:{
-                        meetingStatus:true
-                    }
-                }
+            include:{
+                branchMaster:true,
+                companyMaster:true,
+                preCustomerMeeting:true
             }
         }),
         this._db.preCustomerMaster.count({ where }),

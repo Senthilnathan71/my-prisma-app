@@ -394,15 +394,25 @@ export class ModuleService {
         // };
 
 
+        // const sortMenus = (menuList: any[]) => {
+        //   return (moduleRoute.title === 'crm')
+        //     ? menuList.sort((a, b) => {
+        //       const orderA = crmOrderNormalized.indexOf(normalize(a.MenuName));
+        //       const orderB = crmOrderNormalized.indexOf(normalize(b.MenuName));
+        //       return (orderA === -1 ? 999 : orderA) - (orderB === -1 ? 999 : orderB);
+        //     })
+        //     : menuList.sort((a, b) => a.MenuName.localeCompare(b.MenuName));
+        // }
+
         const sortMenus = (menuList: any[]) => {
-          return (moduleRoute.title === 'crm')
-            ? menuList.sort((a, b) => {
-              const orderA = crmOrderNormalized.indexOf(normalize(a.MenuName));
-              const orderB = crmOrderNormalized.indexOf(normalize(b.MenuName));
-              return (orderA === -1 ? 999 : orderA) - (orderB === -1 ? 999 : orderB);
-            })
-            : menuList.sort((a, b) => a.MenuName.localeCompare(b.MenuName));
-        }
+  return (moduleRoute.title === 'crm')
+    ? menuList.sort((a, b) => {
+        const orderA = crmOrderNormalized.indexOf(normalize(a.MenuName || ''));
+        const orderB = crmOrderNormalized.indexOf(normalize(b.MenuName || ''));
+        return (orderA === -1 ? 999 : orderA) - (orderB === -1 ? 999 : orderB);
+      })
+    : menuList.sort((a, b) => (a?.MenuName || '').localeCompare(b?.MenuName || ''));
+};
 
         return {
           ...moduleRoute,
@@ -413,7 +423,7 @@ export class ModuleService {
       // Final sort: modules alphabetically
       return moduleRoutes.sort((a, b) => a.title.localeCompare(b.title));
     } catch (error) {
-      console.error('Error fetching menus by roles:', error.message);
+      console.error('Error fetching menus by roles:', error.message,error.stack);
       return [];
     }
   }

@@ -136,8 +136,9 @@ export class CityController {
     try {
       let res = await this.cityService.addCity(body, user);
       this.logger.log(`createdCity : ${JSON.stringify(res)}`);
+      const cityName = res?.cityName || body?.cityName || 'City';
       resp.data = res;
-      resp.message = "New City is successfully created"
+      resp.message = `City ${cityName} is successfully created`;
     }
     catch (error) {
       this.logger.warn(`createCityError : ${JSON.stringify(error)}`);
@@ -175,8 +176,9 @@ export class CityController {
         this.logger.warn(`updateCity!! : ${JSON.stringify(newCity)}`);
         throw 'Something went wrong';
       }
+      const cityName = newCity?.cityName || newData?.cityName || 'City';
       resp.data = newCity;
-      resp.message = `City with id : ${id} is successfully updated`;
+      resp.message = `City ${cityName} is successfully updated`;
     } catch (error) {
       this.logger.warn(`updateCityError : ${JSON.stringify(error)}`);
       resp.status = false;

@@ -174,10 +174,19 @@ export class CountryService {
                 ZoneName: { contains: search, mode: 'insensitive' },
               },
             },
+            // {
+            //   currencyMaster: {
+            //     currencyName: { contains: search, mode: 'insensitive' },
+            //   },
+            // },
             {
-              currencyMaster: {
-                currencyName: { contains: search, mode: 'insensitive' },
-              },
+              currencyMaster:{
+                some:{
+                  currencyName:{
+                    contains:search, mode:'insensitive'
+                  }
+                }
+              }
             },
 
             { status: { contains: search, mode: 'insensitive' } },

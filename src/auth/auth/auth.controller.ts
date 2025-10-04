@@ -55,9 +55,9 @@ export class AuthController {
 
             // Salesperson logic
             const isSalesperson = String(user.isSalesperson) === '1';
-            if (loginData.projectType === 'freight-forwarding' && isSalesperson) {
-                throw new UnauthorizedException('Salesperson not allowed in this app.');
-            }
+            // if (loginData.projectType === 'freight-forwarding' && isSalesperson) {
+            //     throw new UnauthorizedException('Salesperson not allowed in this app.');
+            // }
             if (loginData.projectType === 'salesperson' && !isSalesperson) {
                 throw new UnauthorizedException('Only salesperson can log in to this app.');
             }

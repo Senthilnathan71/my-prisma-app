@@ -26,9 +26,9 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
         const isSalesperson = String(user.isSalesperson) === '1';
 
-        if (payload.projectType === 'freight-forwarding' && isSalesperson) {
-            throw new UnauthorizedException('Salesperson not allowed in this app.');
-        }
+        // if (payload.projectType === 'freight-forwarding' && isSalesperson) {
+        //     throw new UnauthorizedException('Salesperson not allowed in this app.');
+        // }
 
         if (payload.projectType === 'salesperson' && !isSalesperson) {
             throw new UnauthorizedException('Only salesperson can log in to this app.');

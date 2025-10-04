@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { Prisma, UserTypeCode } from '@prisma/client';
+import { LeadStatus, Prisma, UserTypeCode } from '@prisma/client';
 import { statusWhereClause } from 'src/common/helper';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
@@ -496,8 +496,11 @@ export class CustomerService {
             const customerList = await this._db.customerMaster.findMany({
                 where: {
                     status: 'A',
+                    preCustomerMaster:{
+                        PreCustomerMasterSid: PreCustomerMasterSid,
+                        leadStatus: LeadStatus.DealWon
+                    },
                     CompanyMasterSid: CompanyMasterSid,
-                    PreCustomerMasterSid: PreCustomerMasterSid
                 }
             })
             return customerList;

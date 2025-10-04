@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
-import { Prisma } from "@prisma/client";
+import { ApprovalStatus, Prisma } from "@prisma/client";
 import { DatabaseService } from "src/database/database.service";
 import * as moment from 'moment-timezone';
 
@@ -68,7 +68,7 @@ export class QuotationService {
                                 CarrierName: route.Carrier,
                                 CompanyMasterSid: quoteHeader.CompanyMasterSid,
                                 BranchMasterSid: quoteHeader.BranchMasterSid,
-                                ApprovalStatus: "A",
+                                ApprovalStatus: ApprovalStatus.Approved,
                                 createdBy: user['userEmail'],
                             },
                         });
