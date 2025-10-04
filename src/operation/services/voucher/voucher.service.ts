@@ -428,7 +428,7 @@ export class VoucherService {
                         CurrencyCode: currencyCode,
                         CurrencyMasterSid: currencyMasterSid ?? 0,
                         ExchangeRate: exchangeRate,
-                        DrCr: isRevenue ? 'Dr' : 'Cr',
+                        DrCr: isRevenue ? 'Cr' : 'Dr', // Revenue=Cr, Cost=Dr
                         HSSACMasterSid: hsnSACMasterSid,
                         ChargeUOMSid: (isRevenue ? rate.RevenueChargeUomSid : rate.CostChargeUomSid) ?? undefined,
                         TaxableAmount: amount,
