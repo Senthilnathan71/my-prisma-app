@@ -139,9 +139,12 @@ import { CustomerMilestoneController } from './controllers/customer-milestone/cu
 import { CustomerMilestoneService } from './services/customer-milestone/customer-milestone.service';
 import { MawbStockService } from './services/mawb-stock/mawb-stock.service';
 import { MawbStockController } from './controllers/mawb-stock/mawb-stock.controller';
+import { LeadController } from './controllers/lead/lead.controller';
+import { LeadService } from './services/lead/lead.service';
 
 @Module({
   providers: [
+    LeadService,
     UserService,
     Logger,
     PrecustomerService,
@@ -215,6 +218,7 @@ import { MawbStockController } from './controllers/mawb-stock/mawb-stock.control
     MawbStockService
   ],
   controllers: [
+    LeadController,
     UserController,
     CityController,
     PreCustomerMeetingController,
