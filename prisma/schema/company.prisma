@@ -284,11 +284,12 @@ model CurrencyMaster {
   RoundOf           String?              @db.VarChar(100)
   SubUnitIn         String?              @db.VarChar(30)
   CountryMasterSid  Int?
+
+  countryMaster     CountryMaster?       @relation(fields: [CountryMasterSid], references: [CountryMasterSid])
   branchMaster      BranchMaster[]
   COAMaster         COAMaster[]
   chargeMaster      ChargeMaster[]
   companyMaster     CompanyMaster[]
-  countryMaster     CountryMaster[]
   quoteCharge       QuoteCharge[]
   tariffDetailBuy   TariffDetail[]       @relation("Buy")
   tariffDetailSale  TariffDetail[]       @relation("Sale")
@@ -348,11 +349,11 @@ model CountryMaster {
   LoginSid          Int?
   CurrencyMasterSid Int?
   ZoneMasterSid     Int?
+  currencyMaster    CurrencyMaster[]
   branchMaster      BranchMaster[]
   categoryMaster    CategoryMaster[]
   cityMaster        CityMaster[]
   companyMaster     CompanyMaster[]
-  currencyMaster    CurrencyMaster?     @relation(fields: [CurrencyMasterSid], references: [CurrencyMasterSid])
   zoneMaster        ZoneMaster?         @relation(fields: [ZoneMasterSid], references: [ZoneMasterSid])
   customerMaster    CustomerMaster[]
   portMaster        PortMaster[]
@@ -1071,7 +1072,7 @@ model QuoteCarrier {
   TransitTime      String?
   CompanyMasterSid Int
   BranchMasterSid  Int
-  ApprovalStatus   String?       @default("A") @db.Char(1)
+  ApprovalStatus   ApprovalStatus?  @default(Pending)
   ApprovedBy       String?       @db.VarChar(20)
   Remarks          String?       @db.VarChar(100)
   createdOn        DateTime      @default(now()) @db.Timestamptz(6)
