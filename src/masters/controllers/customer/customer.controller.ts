@@ -1,10 +1,11 @@
-import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, Post, Query, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, Post, Query, UnauthorizedException, UsePipes, ValidationPipe } from '@nestjs/common';
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
 import { Auth } from 'src/common/decorators/auth.decorator';
 import { UserData } from 'src/common/decorators/user.decorator';
 import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
+import { CreateUpdateCustomerDto } from 'src/masters/DTO/customer.dto';
 import { CustomerService } from 'src/masters/services/customer/customer.service';
 class CompanyIdDto {
     CompanyMasterSid: number;
@@ -23,11 +24,12 @@ export class CustomerController {
     })
     @HttpCode(HttpStatus.CREATED)
     @Post('create')
-    async createCustomer(@Body() body: any) {
+    @UsePipes(new ValidationPipe({ transform: true, whitelist: true }))
+    async createCustomer(@Body() body: CreateUpdateCustomerDto, @UserData() user: any) {
         this.logger.log(`createDepartmentdata: ${JSON.stringify(body)}`)
         let output = new ResponseData
         try {
-            let customer = await this.customerService.createCustomer(body);
+            let customer = await this.customerService.createCustomer(body, user);
             this.logger.debug(`createCustomer: ${JSON.stringify(customer)}`)
             if (!customer) {
                 this.logger.warn(`createCustomer!!: ${JSON.stringify(customer)}`)
@@ -184,11 +186,12 @@ async checkUnique(@Body() body: {
     })
     @HttpCode(HttpStatus.OK)
     @Patch('update/:id')
-    async editCustomer(@Param('id', ParseIntPipe) id: number, @Body() body: any) {
+    @UsePipes(new ValidationPipe({ transform: true, whitelist: true }))
+    async editCustomer(@Param('id', ParseIntPipe) id: number, @Body() body: CreateUpdateCustomerDto, @UserData() user: any) {
         this.logger.log(`editCustomer: ${JSON.stringify(body)}`)
         let output = new ResponseData
         try {
-            let Customer = await this.customerService.updateCustomer(id, body);
+            let Customer = await this.customerService.updateCustomer(id, body, user);
             this.logger.log(`editCustomer: ${JSON.stringify(Customer)}`)
 
             if (!Customer) {

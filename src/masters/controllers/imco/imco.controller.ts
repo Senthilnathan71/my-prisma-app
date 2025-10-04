@@ -22,8 +22,9 @@ export class ImcoController {
         try {
             let res = await this.imcoService.createNewIMCO(newData);
             this.logger.log(`New IMCO Created : ${JSON.stringify(res)}`);
+            const imcoName = newData?.ImcoName || 'Imco';
             resp.data = res;
-            resp.message = "New IMCO is successfully created"
+            resp.message = `Imco ${imcoName} is successfully created`;
         } catch (error) {
             this.logger.warn(`IMCO Creation Error : ${JSON.stringify(error), error}`);
             resp.status = false;
@@ -108,8 +109,9 @@ export class ImcoController {
             this.logger.log(`Updating IMCO with id : ${ImcoMasterSid}`);
             let res = await this.imcoService.updateimcoMasterById(ImcoMasterSid, payload);
             this.logger.debug(`Updated IMCO : ${JSON.stringify(res)}`);
+            const imcoName = payload?.ImcoName || 'Imco';
             resp.data = res;
-            resp.message = `IMCO with id : ${ImcoMasterSid} is successfully updated`;
+            resp.message = `Imco ${imcoName}  is successfully updated`;
         } catch (error) {
             this.logger.warn(`IMCO Updation Error : ${JSON.stringify(error), error}`);
             resp.status = false;

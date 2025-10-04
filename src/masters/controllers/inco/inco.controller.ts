@@ -27,8 +27,9 @@ export class IncoController {
                 this.logger.warn(`createInco!!: ${JSON.stringify(Inco)}`)
                 throw 'Something went wrong'
             }
+            const incoName = Inco?.IncoName || body?.IncoName || 'Inco';
             output.data = Inco
-            output.message = 'Inco Created Successfully'
+            output.message = `Inco ${incoName} is successfully created`;
         } catch (error) {
             this.logger.warn(`createIncoError: ${error}`)
             output.status = false;
@@ -109,8 +110,9 @@ export class IncoController {
             } else {
                 this.logger.log(`editIncoelse: ${Inco}`)
             }
+            const incoName = Inco?.IncoName || body?.IncoName || 'Inco';
             output.data = Inco;
-            output.message = `Inco with id : ${id} is successfully updated`;
+            output.message = `Inco ${incoName} is successfully updated`;
         } catch (error) {
             this.logger.warn(`editIncoError: ${JSON.stringify(error), error}`)
             output.status = false;
