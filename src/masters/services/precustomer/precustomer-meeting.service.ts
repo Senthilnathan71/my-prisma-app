@@ -315,7 +315,7 @@ export class PreCustomerMeetingService {
                 where: {
                     status: 'A',
                     meetingStatus: {
-                        notIn: ['completed', 'confirmed'],
+                        in: ['scheduled', 'inProgress', 'onHold'],
                     },
                     CompanyMasterSid: CompanyMasterSid,
                     BranchMasterSid: BranchMasterSid
