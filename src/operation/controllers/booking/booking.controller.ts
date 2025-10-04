@@ -246,6 +246,112 @@ export class BookingController {
         return output
     }
 
+    @ApiOperation({ summary: 'Create Booking Rate' })
+    @ApiCreatedResponse({
+        description: 'Booking Rate created successfully',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.CREATED)
+    @Post('rates/create')
+    async createBookingRate(@Body() body: any) {
+        let output = new ResponseData()
+        this.logger.log(`createBookingRate: ${JSON.stringify(body)}`)
+        try {
+            let bookingRate = await this.bookingService.createBookingRate(body);
+            this.logger.debug(`createBookingRate: ${JSON.stringify(bookingRate)}`)
+            output.data = bookingRate;
+            output.message = "Booking Rate created successfully";
+        } catch (error) {
+            this.logger.warn(`createBookingRate: ${JSON.stringify(error), error}`)
+            output.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                output.message = error.message;
+            } else {
+                output.message = "Internal Server Error";
+            }
+        }
+        return output
+    }
+
+    @ApiOperation({ summary: 'Update Booking Rate' })
+    @ApiCreatedResponse({
+        description: 'Booking Rate updated successfully',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Patch('rates/update/:BookingRatesSid')
+    async updateBookingRate(@Param('BookingRatesSid', ParseIntPipe) BookingRatesSid: number, @Body() body: any) {
+        let output = new ResponseData
+        try {
+            let bookingRate = await this.bookingService.updateBookingRate(BookingRatesSid, body);
+            this.logger.debug(`updateBookingRate: ${JSON.stringify(bookingRate)}`)
+            output.data = bookingRate;
+            output.message = "Booking Rate updated successfully";
+
+        } catch (error) {
+            this.logger.warn(`updateBookingRate: ${JSON.stringify(error), error}`)
+            output.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                output.message = error.message;
+            } else {
+                output.message = error;
+            }
+        }
+        return output
+    }
+
+    @ApiOperation({ summary: 'Get Booking Rates by Booking ID' })
+    @ApiCreatedResponse({
+        description: 'Booking Rates fetched successfully',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Get('rates/:BookingHeaderSid')
+    async getBookingRatesByBookingId(@Param('BookingHeaderSid', ParseIntPipe) BookingHeaderSid: number) {
+        const output = new ResponseData();
+        try {
+            const bookingRates = await this.bookingService.getBookingRatesByBookingId(BookingHeaderSid)
+            this.logger.debug(`getBookingRatesByBookingId: ${JSON.stringify(bookingRates)}`)
+            output.data = bookingRates;
+            output.message = "Booking Rates fetched successfully"
+        } catch (error) {
+            this.logger.warn(`getBookingRatesByBookingId: ${JSON.stringify(error), error}`)
+            output.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                output.message = error.message;
+            } else {
+                output.message = 'Internal Server Error';
+            }
+        }
+        return output;
+    }
+
+    @ApiOperation({ summary: 'Get Booking Rates with Full Details' })
+    @ApiCreatedResponse({
+        description: 'Booking Rates with full details fetched successfully',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Get('rates-with-details/:BookingHeaderSid')
+    async getBookingRatesWithDetails(@Param('BookingHeaderSid', ParseIntPipe) BookingHeaderSid: number) {
+        const output = new ResponseData();
+        try {
+            const bookingRates = await this.bookingService.getBookingRatesWithDetails(BookingHeaderSid)
+            this.logger.debug(`getBookingRatesWithDetails: ${JSON.stringify(bookingRates)}`)
+            output.data = bookingRates;
+            output.message = "Booking Rates with details fetched successfully"
+        } catch (error) {
+            this.logger.warn(`getBookingRatesWithDetails: ${JSON.stringify(error), error}`)
+            output.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                output.message = error.message;
+            } else {
+                output.message = 'Internal Server Error';
+            }
+        }
+        return output;
+    }
+
     @ApiOperation({ summary: 'Get All Booking Header Lookups' })
     @ApiCreatedResponse({
         description: 'All Booking Header Lookups are fetched successfully',
