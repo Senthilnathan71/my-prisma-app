@@ -2829,6 +2829,9 @@ enum ApprovalStatus {
   Pending
   Approved
   Rejected
+  WaitingForFinalApproval
+  WaitingForCustomerApproval
+  Counter
 }
 
 enum LeadStatus {
