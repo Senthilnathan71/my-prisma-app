@@ -200,26 +200,10 @@ async getAllCustomer(CompanyMasterSid:number) {
             skip,
             take: pageSize,
             orderBy: { PreCustomerMasterSid: 'desc' },
-            select:{
-                branchMaster:{
-                    select:{
-                        BranchMasterSid:true,
-                        branchCode:true,
-                        branchName:true
-                    }
-                },
-                companyMaster:{
-                    select:{
-                        companyName:true,
-                        companyCode:true,
-                        CompanyMasterSid:true
-                    }
-                },
-                preCustomerMeeting:{
-                    select:{
-                        meetingStatus:true
-                    }
-                }
+            include:{
+                branchMaster:true,
+                companyMaster:true,
+                preCustomerMeeting:true
             }
         }),
         this._db.preCustomerMaster.count({ where }),
