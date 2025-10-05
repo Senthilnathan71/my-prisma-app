@@ -152,7 +152,7 @@ export class PreCustomerMeetingService {
                             FollowupNote: params.followUpNote,
                             MeetingNote: params.meetingNote,
                             Remarks: params.remarks ?? null,
-                            createdBy: params['userEmail'],
+                            createdBy: user['userEmail'],
 
                         }
                     })
@@ -172,8 +172,8 @@ export class PreCustomerMeetingService {
                             FollowupNote: params.followUpNote,
                             MeetingNote: params.meetingNote,
                             Remarks: params.remarks ?? null,
-                            createdBy: params['userEmail'],
-                            updatedBy: params['userEmail']
+                            createdBy: user['userEmail'],
+                            updatedBy: user['userEmail']
                         }
                     })
                 }
@@ -207,9 +207,6 @@ export class PreCustomerMeetingService {
         const result = await this._db.preCustomerMeeting.findMany({
             where: {
                 status: "A",
-                meetingStatus: {
-                    notIn: ['confirmed', 'completed']
-                },
                 leadAssignTo: user.UserMasterSid
             },
             select: {
@@ -312,9 +309,6 @@ export class PreCustomerMeetingService {
                 Status: 'A',
                 preCustomerMeeting: {
                     leadAssignTo: user.UserMasterSid,
-                    meetingStatus: {
-                        notIn: ['confirmed', 'completed']
-                    }
                 }
             },
             include: {

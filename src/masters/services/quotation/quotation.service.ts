@@ -8,6 +8,19 @@ import { GlobalConfigService } from "src/common/config/master-config.service";
 import { contains } from "class-validator";
 import { statusWhereClause } from "src/common/helper";
 
+interface authLogDTO {
+    CompanyMasterSid : number,
+    BranchMasterSid : number,
+    Status : string,
+    LevelOfAuthorization : string,
+    AuthorizerId : number,
+    AuthorizedStatus : ApprovalStatus,
+    DocumentSid : number,
+    Remarks : string,
+    CreatedBy : string,
+    AuthorityDetailSid : number,
+    AuthorisedDate : Date,
+}
 @Injectable()
 export class QuotationService {
     constructor(
@@ -47,8 +60,10 @@ export class QuotationService {
                     AgreedRate : payload.AgreedRate,
                     // QuoteNumber: quoteNumber,
                     createdBy: payload.createdBy,
-                    authorizerStatus: payload.authorizerStatus || 'Pending',
-                    AuthorizerRemarks: payload.AuthorizerRemarks || ''
+                    InternalApprovedBy : payload.InternalApprovedBy || null,
+                    InternalApprovedOn : payload.InternalApprovedBy ? new Date() : null,
+                    CustomerApprovedBy : payload.CustomerApprovedBy || null,
+                    CustomerApprovedOn : payload.CustomerApprovedBy ? new Date() : null,
                 };
 
                 const quoteHeader = await this._db.quoteHeader.create({ data: quoteHeaderPayload });
@@ -77,7 +92,7 @@ export class QuotationService {
                                 ServiceLevel: route.ServiceLevel,
 
                                 // Need to be removed later
-                                CarrierName : "hello",
+                                // CarrierName : "hello",
                             },
                         }).catch(error => {
                             console.log(error);
@@ -330,6 +345,7 @@ export class QuotationService {
 
 
             // Step 2: Route
+            let finalRoutes : any[] = [];
             const routes = payload.quoteRoutes || [];
             for (const route of routes) {
                 let currentRoute;
@@ -356,7 +372,7 @@ export class QuotationService {
                             ServiceLevel: route.ServiceLevel,
 
                             // Need to be removed later
-                            CarrierName: "hello",
+                            // CarrierName: "hello",
                         }
                     });
                 } else {
@@ -381,12 +397,14 @@ export class QuotationService {
                                 ServiceLevel: route.ServiceLevel,
 
                                 // Need to be removed later
-                                CarrierName : "hello",
+                                // CarrierName : "hello",
                             },
                     });
                 }
+                
 
                 //  Route - Carrier
+                let finalCarriers : any[] = [];
                 const allCarriers = route.quoteCarriers || [];
                 for (const carrier of allCarriers) {
                     let currentCarrier;
@@ -399,7 +417,7 @@ export class QuotationService {
                                 TransitTime: carrier.TransitTime,
                                 CompanyMasterSid: updatedQuoteHeader.CompanyMasterSid,
                                 BranchMasterSid: updatedQuoteHeader.BranchMasterSid,
-                                ApprovalStatus: ApprovalStatus.Approved,
+                                ApprovalStatus: carrier.ApprovalStatus || ApprovalStatus.Pending,
                                 updatedBy: payload.updatedBy,
                             },
                         });
@@ -421,8 +439,9 @@ export class QuotationService {
                     }
 
                     // Route - Carrier - Charge
+                    let finalCharges : any[] = []; 
                     const allCharges = carrier.quoteCharges || [];
-                    await Promise.all(
+                    finalCharges = await Promise.all(
                         allCharges.map(async (chrg) => {
                             const chPayload = {
                                 ...chrg,
@@ -437,7 +456,10 @@ export class QuotationService {
                             return await this.upsertCharge(chPayload)
                         })
                     );
+                    currentCarrier.quoteCharges = finalCharges;
+                    finalCarriers.push(currentCarrier);
                 }
+                currentRoute.quoteCarriers = finalCarriers;
 
                 let ourCargo;
                 if(route.QuoteCargoSid) {
@@ -483,6 +505,7 @@ export class QuotationService {
                         }
                     })
                 }
+                finalRoutes.push(currentRoute);
 
                 // Route - Cargo - Product
                 const allProducts = route.quoteProducts || [];
@@ -504,9 +527,72 @@ export class QuotationService {
                 );
             }
 
+            let createdAuthLog;
+            const authPayload = payload.authDetails;
+            if(authPayload.canAuthorize){
+
+               createdAuthLog = await this._db.authorityLog.create({
+                    data: {
+                        CompanyMasterSid: payload.CompanyMasterSid,
+                        BranchMasterSid: payload.BranchMasterSid,
+                        CreatedBy: payload.updatedBy,
+                        Status: 'A',
+                        AuthorityDetailSid: authPayload.AuthorityDetailSid,
+                        AuthorisedDate: new Date(),
+                        ApprovalStatus: authPayload.ApprovalStatus,
+                        DocumentSid: updatedQuoteHeader.QuoteHeaderSid,
+                        Remarks: payload.AuthorizerRemarks || '',
+                    },
+                });
+            }
+
+            const atleastOneApprovedCarrier = finalRoutes.some(route => {
+                console.log(route);
+                return route.quoteCarriers.some(carrier => {
+                    console.log(carrier);
+                    return carrier.ApprovalStatus === "WaitingForCustomerApproval"
+                })
+            })
+
+
+            // if approved
+            if(updatedQuoteHeader && updatedQuoteHeader.LeadOrCustomer === "L" && atleastOneApprovedCarrier){
+                const createdCustomer = await this._db.customerMaster.create({
+                    data : {
+                        CompanyMasterSid : updatedQuoteHeader.CompanyMasterSid,
+                        PreCustomerMasterSid : updatedQuoteHeader.PreCustomerMasterSid,
+                        CustomerName : updatedQuoteHeader.CustomerName,
+                        CustomerAddress1 : updatedQuoteHeader.CustomerAddress,
+                        createdBy : payload.updatedBy,
+                    }
+                })
+
+                const updatedLead = await this._db.preCustomerMaster.update({
+                    where: {
+                        PreCustomerMasterSid: updatedQuoteHeader.PreCustomerMasterSid!
+                    }, data: {
+                        leadStatus: LeadStatus.DealWon
+                    }
+                })
+            }
+
+
+
             return updatedQuoteHeader;
         } catch (error) {
             throw new Error(`Error updating enquiry: ${error.message}`);
+        }
+    }
+
+
+    async handleQuotationAuthLog(payload : authLogDTO) {
+        try {
+            const authLog = await this._db.authorityLog.create({
+                data : payload
+            });
+            return authLog;
+        } catch (error) {
+            throw error;
         }
     }
 
@@ -1099,6 +1185,67 @@ export class QuotationService {
             throw new Error(`Error deleting quote carrier: ${error.message}`);
         }
     }
+
+    // async checkIfUserIsAuthorizerForQuotation(payload:any){
+    //     const authorizer = await this._db.authorityDetail.findFirst({
+    //         where: {
+    //             UserMasterSid: payload.UserMasterSid,
+    //             CompanyMasterSid: payload.CompanyMasterSid,
+    //             BranchMasterSid: payload.BranchMasterSid,
+    //             status: 'A',
+    //             authorityMaster: {
+    //                 status: 'A',
+    //                 MenuMaster: payload.MenuMasterSid,
+    //                 CompanyMasterSid: payload.CompanyMasterSid,
+    //                 BranchMasterSid: payload.BranchMasterSid
+    //             }
+    //         },
+    //         select: {
+    //             AuthorityDetailSid: true,
+    //             AuthorityLevel : true,
+    //         }
+    //     });
+
+    //     if (!authorizer) {
+    //         return { 
+    //             isAuthorizer : false, 
+    //             isAlreadyAuthorized : false, 
+    //             AuthorityDetailSid : null,
+    //             AuthorityLevel : null,
+    //             message: "User is not an authorizer for this menu."
+    //         };
+    //     }
+
+    //     const alreadyAuthorized = await this._db.authorityLog.findFirst({
+    //         where: {
+    //             AuthorityDetailSid: authorizer.AuthorityDetailSid,
+    //             DocumentSid: payload.DocumentSid,
+    //             Status: 'A'
+    //         },
+    //         select: {
+    //             AuthorityLogSid: true
+    //         }
+    //     });
+
+    //     if (alreadyAuthorized) {
+    //         return {
+    //             isAuthorizer: true,
+    //             isAlreadyAuthorized: true,
+    //             AuthorityDetailSid: authorizer.AuthorityDetailSid,
+    //             AuthorityLevel: authorizer.AuthorityLevel,
+    //             message: "User is authorized and has not yet approved this document."
+    //         };
+    //     }
+
+    //     return {
+    //         isAuthorizer: true,
+    //         isAlreadyAuthorized: false,
+    //         AuthorityDetailSid: authorizer.AuthorityDetailSid,
+    //         AuthorityLevel: authorizer.AuthorityLevel,
+    //         message: "User is a valid authorizer for this menu."
+    //     };
+
+    // }
 
 }
 

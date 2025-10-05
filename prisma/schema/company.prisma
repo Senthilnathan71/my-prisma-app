@@ -622,7 +622,7 @@ model PreCustomerMeeting {
   PreCustomerMeetingSid Int                @id @default(autoincrement()) @map("PreCustomerMeetingSid")
   followUpDate          DateTime?
   followUpNote          String?            @db.VarChar(100)
-  meetingNote           String?            @db.VarChar(100)
+  meetingNote           String?            @db.VarChar(500)
   meetingFollowUp       MeetingFollowup[]
   branchMaster          BranchMaster       @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
   companyMaster         CompanyMaster      @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])

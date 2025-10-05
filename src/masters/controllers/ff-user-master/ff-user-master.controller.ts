@@ -23,8 +23,9 @@ export class FfUserMasterController {
         try {
             let res = await this.ffUserMasterService.createNewFfUser(newData);
             this.logger.log(`New User Created : ${JSON.stringify(res)}`);
+            const userName = newData?.userName || 'User';
             resp.data = res;
-            resp.message = "New User is successfully created"
+            resp.message = `User ${userName} is successfully created`;
         } catch (error) {
             this.logger.warn(`User Creation Error : ${JSON.stringify(error), error}`);
             resp.status = false;
@@ -160,8 +161,9 @@ export class FfUserMasterController {
             this.logger.log(`Updating User with id : ${UserMasterSid}`);
             let res = await this.ffUserMasterService.updateFfUserById(UserMasterSid, payload);
             this.logger.debug(`Updated User : ${JSON.stringify(res)}`);
+            const userName = payload?.userName || 'User';
             resp.data = res;
-            resp.message = `User with id : ${UserMasterSid} is successfully updated`;
+            resp.message = `User ${userName} is successfully updated`;
         } catch (error) {
             this.logger.warn(`User Updation Error : ${JSON.stringify(error), error}`);
             resp.status = false;

@@ -548,12 +548,19 @@ export class AuthorityService {
                 }
             },
             select: {
-                AuthorityDetailSid: true
+                AuthorityDetailSid: true,
+                AuthorityLevel: true,
             }
         });
 
         if (!authorizer) {
-            return { canAuthorize: false, alreadyApproved: false, message: "User is not an authorizer for this menu." };
+            return { 
+                canAuthorize: false, 
+                alreadyApproved: false,
+                AuthorityDetailSid : null,
+                AuthorityLevel : null,
+                message: "User is not an authorizer for this menu." 
+            };
         }
 
         // 2. Check if user already authorized the document
@@ -569,10 +576,22 @@ export class AuthorityService {
         });
 
         if (alreadyAuthorized) {
-            return { canAuthorize: true, alreadyApproved: true, message: "User has already authorized this document." };
+            return { 
+                canAuthorize: true, 
+                alreadyApproved: true, 
+                AuthorityDetailSid: authorizer.AuthorityDetailSid,
+                AuthorityLevel: authorizer.AuthorityLevel,
+                message: "User has already authorized this document." 
+            };
         }
 
-        return { canAuthorize: true, alreadyApproved: false, message: "User is authorized and has not yet approved this document." };
+        return {
+            canAuthorize: true,
+            alreadyApproved: false,
+            AuthorityDetailSid: authorizer.AuthorityDetailSid,
+            AuthorityLevel: authorizer.AuthorityLevel,
+            message: "User is a valid authorizer for this menu."
+        };
     }
 
 
