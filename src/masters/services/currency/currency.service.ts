@@ -68,6 +68,28 @@ export class CurrencyService {
         where: {
           status: 'A',
         },
+        select:{
+          CurrencyMasterSid:true,
+          CountryMasterSid:true,
+          countryMaster:{
+            select:{
+              CountryMasterSid:true,
+              countryName: true,
+              countryCode: true
+            }
+          },
+         currencyName: true,
+          currencyCode: true,
+          amountDecimal:true,
+          exchangeDecimal:true,
+          CurrencySubUnit:true,
+          CurrencyUnit: true,
+          Symbol:true,
+          ShortCode: true,
+          RoundOf:true,
+          SubUnitIn: true,
+          status:true
+        }
       });
       return currencyList;
     } catch (error) {
@@ -81,6 +103,27 @@ export class CurrencyService {
         where: {
           CurrencyMasterSid: CurrencyMasterSid,
         },
+        select:{
+          CurrencyMasterSid:true,
+          CountryMasterSid:true,
+          countryMaster:{
+            select:{
+              countryName: true,
+              countryCode: true
+            }
+          },
+          currencyName: true,
+          currencyCode: true,
+          amountDecimal:true,
+          exchangeDecimal:true,
+          CurrencySubUnit:true,
+          CurrencyUnit: true,
+          Symbol:true,
+          ShortCode: true,
+          RoundOf:true,
+          SubUnitIn: true,
+          status:true
+        }
       });
     } catch (error) {
       throw error;
