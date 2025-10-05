@@ -64,7 +64,8 @@ export class CustomerService {
                     CompanyType: payload.customer.CompanyType,
                     createdBy: userEmail,
                     AirlineNumber: payload.customer.AirlineNumber,
-                    AirlineCode: payload.customer.AirlineCode
+                    AirlineCode: payload.customer.AirlineCode,
+                    status: payload.customer.status
                 }
             });
             this.logger.log(`customerCreated: ${JSON.stringify(customer)}`);
