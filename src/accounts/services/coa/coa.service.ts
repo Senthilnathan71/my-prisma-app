@@ -22,6 +22,23 @@ export class CoaService {
             throw error;
         }
     }
+     async getCoaWithSubledger(CompanyMasterSid: number) {
+        try {
+            const coaWithSubledger = await this._db.cOAMaster.findMany({
+                where: {
+                    Status: 'A',
+                    CompanyMasterSid: CompanyMasterSid,
+                    SubledgerName: 'Y'
+                },
+                orderBy: { COAMasterSid: 'desc' },
+            });
+            
+            return coaWithSubledger;
+        } catch (error) {
+            this.logger.warn(`Get Coa with Subledger Error: ${error}`);
+            throw error;
+        }
+    }
 
     async createNewCoa(payload) {
         try {
