@@ -207,9 +207,6 @@ export class PreCustomerMeetingService {
         const result = await this._db.preCustomerMeeting.findMany({
             where: {
                 status: "A",
-                meetingStatus: {
-                    notIn: ['confirmed', 'completed']
-                },
                 leadAssignTo: user.UserMasterSid
             },
             select: {
@@ -312,9 +309,6 @@ export class PreCustomerMeetingService {
                 Status: 'A',
                 preCustomerMeeting: {
                     leadAssignTo: user.UserMasterSid,
-                    meetingStatus: {
-                        notIn: ['confirmed', 'completed']
-                    }
                 }
             },
             include: {
