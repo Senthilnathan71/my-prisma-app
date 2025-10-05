@@ -76,10 +76,10 @@ export class MenuController {
     })
     @HttpCode(HttpStatus.OK)
     @Get()
-    async getAllMenus() {
+    async getAllMenus(@UserData() user:any) {
         let output = new ResponseData;
         try {
-            let menuData = await this.menuService.getAllMenus();
+            let menuData = await this.menuService.getAllMenus(user);
             this.logger.log(`getAllmenus: ${JSON.stringify(menuData)}`)
             output.data = menuData;
             output.message = "All Menu are successfully fetched";

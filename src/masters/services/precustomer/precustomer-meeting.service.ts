@@ -152,7 +152,7 @@ export class PreCustomerMeetingService {
                             FollowupNote: params.followUpNote,
                             MeetingNote: params.meetingNote,
                             Remarks: params.remarks ?? null,
-                            createdBy: params['userEmail'],
+                            createdBy: user['userEmail'],
 
                         }
                     })
@@ -172,8 +172,8 @@ export class PreCustomerMeetingService {
                             FollowupNote: params.followUpNote,
                             MeetingNote: params.meetingNote,
                             Remarks: params.remarks ?? null,
-                            createdBy: params['userEmail'],
-                            updatedBy: params['userEmail']
+                            createdBy: user['userEmail'],
+                            updatedBy: user['userEmail']
                         }
                     })
                 }
@@ -342,7 +342,7 @@ export class PreCustomerMeetingService {
                 where: {
                     status: 'A',
                     meetingStatus: {
-                        in: ['scheduled', 'inProgress', 'onHold'],
+                        in: ['Scheduled', 'In Progress', 'On Hold'],
                     },
                     leadAssignTo: user.UserMasterSid,
                     CompanyMasterSid: CompanyMasterSid,
