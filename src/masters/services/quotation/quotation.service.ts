@@ -6,7 +6,7 @@ import { SearchListDto } from "src/masters/DTO/search-list.dto";
 import { filterDto } from "src/masters/DTO/search-vessel.dto";
 import { GlobalConfigService } from "src/common/config/master-config.service";
 import { contains } from "class-validator";
-import { statusWhereClause } from "src/common/helper";
+import { statusWhereClause, toCamelCase } from "src/common/helper";
 
 interface authLogDTO {
     CompanyMasterSid : number,
@@ -323,6 +323,9 @@ export class QuotationService {
 
     async updateQuote(QuoteHeaderSid: number, payload) {
         try {
+            // Approval Based Payload
+            const authPayload = payload.authDetails;
+
             const updatedQuoteHeader = await this._db.quoteHeader.update({
                 where: { QuoteHeaderSid: QuoteHeaderSid },
                 data: {
@@ -339,6 +342,7 @@ export class QuotationService {
                     TransportBy: payload.TransportBy,
                     Remarks: payload.Remarks,
                     updatedBy: payload.updatedBy,
+                    InternalApprovedBy : authPayload.InternalApprovedBy || null,
                     updatedOn: new Date()
                 }
             });
@@ -370,9 +374,6 @@ export class QuotationService {
                             TransitDays: Number(route.TransitDays) || Number(route.transit) || null,
                             segmentType: route.segmentType,
                             ServiceLevel: route.ServiceLevel,
-
-                            // Need to be removed later
-                            // CarrierName: "hello",
                         }
                     });
                 } else {
@@ -395,9 +396,6 @@ export class QuotationService {
                                 TransitDays: Number(route.TransitDays) || Number(route.transit) || null,
                                 segmentType: route.segmentType,
                                 ServiceLevel: route.ServiceLevel,
-
-                                // Need to be removed later
-                                // CarrierName : "hello",
                             },
                     });
                 }
@@ -417,7 +415,8 @@ export class QuotationService {
                                 TransitTime: carrier.TransitTime,
                                 CompanyMasterSid: updatedQuoteHeader.CompanyMasterSid,
                                 BranchMasterSid: updatedQuoteHeader.BranchMasterSid,
-                                ApprovalStatus: carrier.ApprovalStatus || ApprovalStatus.Pending,
+                                ApprovalStatus: carrier.authorizerStatus || ApprovalStatus.Pending,
+                                ApprovedBy : carrier.ApprovedBy,
                                 updatedBy: payload.updatedBy,
                             },
                         });
@@ -528,7 +527,7 @@ export class QuotationService {
             }
 
             let createdAuthLog;
-            const authPayload = payload.authDetails;
+            
             if(authPayload.canAuthorize){
 
                createdAuthLog = await this._db.authorityLog.create({
@@ -547,21 +546,50 @@ export class QuotationService {
             }
 
             const atleastOneApprovedCarrier = finalRoutes.some(route => {
-                console.log(route);
                 return route.quoteCarriers.some(carrier => {
-                    console.log(carrier);
-                    return carrier.ApprovalStatus === "WaitingForCustomerApproval"
+                    return carrier.ApprovalStatus === "Approved"
                 })
             })
 
 
             // if approved
-            if(updatedQuoteHeader && updatedQuoteHeader.LeadOrCustomer === "L" && atleastOneApprovedCarrier){
-                const createdCustomer = await this._db.customerMaster.create({
+            let createdCustomer;
+            if(updatedQuoteHeader && updatedQuoteHeader.LeadOrCustomer === "L" && updatedQuoteHeader.PreCustomerMasterSid && atleastOneApprovedCarrier){
+                let ourLead = await this._db.preCustomerMaster.findUnique({
+                    where : {
+                        PreCustomerMasterSid: updatedQuoteHeader.PreCustomerMasterSid
+                    },
+                    include : {
+                        customerMaster : true
+                    }
+                });
+
+                if(!ourLead){
+                    console.error("Lead not found");
+                }
+
+                const ourLeadCustomer =  ourLead?.customerMaster?.length
+                console.log(ourLeadCustomer,'ourLeadCustomer')
+
+                if(ourLeadCustomer){
+                    throw new BadRequestException("Customer has been already created for this lead");
+                }
+
+                let formattedCustomerType;
+                if(ourLead?.customerType){
+                    const correctedCustomerType = toCamelCase(ourLead?.customerType);
+                    if(correctedCustomerType){
+                        formattedCustomerType[correctedCustomerType] = "isTrue"
+                    }
+                }
+
+                createdCustomer = await this._db.customerMaster.create({
                     data : {
                         CompanyMasterSid : updatedQuoteHeader.CompanyMasterSid,
                         PreCustomerMasterSid : updatedQuoteHeader.PreCustomerMasterSid,
                         CustomerName : updatedQuoteHeader.CustomerName,
+                        CountryMasterSid : ourLead?.CountryMasterSid,
+                        CustomerType : formattedCustomerType || {},
                         CustomerAddress1 : updatedQuoteHeader.CustomerAddress,
                         createdBy : payload.updatedBy,
                     }
@@ -571,16 +599,20 @@ export class QuotationService {
                     where: {
                         PreCustomerMasterSid: updatedQuoteHeader.PreCustomerMasterSid!
                     }, data: {
-                        leadStatus: LeadStatus.DealWon
+                        leadStatus: LeadStatus.QuotationConfirmed
                     }
                 })
             }
 
 
 
-            return updatedQuoteHeader;
+            return {
+                ...updatedQuoteHeader,
+                createdAuthLog,
+                createdCustomer
+            }
         } catch (error) {
-            throw new Error(`Error updating enquiry: ${error.message}`);
+            throw error;
         }
     }
 
@@ -944,7 +976,6 @@ export class QuotationService {
             }),
             this._db.quoteHeader.count({ where }),
         ]);
-        console.log(items);
         items = await Promise.all(
             items.map(async (item) => {
                 const updatedRoutes = await Promise.all(

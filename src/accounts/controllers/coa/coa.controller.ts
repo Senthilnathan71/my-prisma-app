@@ -71,6 +71,33 @@ export class CoaController {
     }
 
 
+     @ApiOperation({ summary: 'Get COA with SubledgerName = "yes"' })
+    @ApiCreatedResponse({
+        description: 'Get COA records where SubledgerName is "yes"',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Post('with-subledger')
+    async getCoaWithSubledger(@Body() body: CompanyIdDto) {
+        let resp = new ResponseData();
+        try {
+            let res = await this.coaService.getCoaWithSubledger(body.CompanyMasterSid);
+            this.logger.log(`Coa with SubledgerName='yes' Fetched : ${JSON.stringify(res)}`);
+            resp.data = res;
+            resp.message = "Coa records with SubledgerName='yes' are successfully fetched";
+        } catch (error) {
+            this.logger.warn(`Get Coa with Subledger Error : ${JSON.stringify(error), error}`);
+            resp.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                resp.message = error.message;
+            } else {
+                resp.message = "Internal Server Error";
+            }
+        }
+        return resp;
+    }
+
+
 
     @ApiOperation({ summary: 'Get Coa by Id' })
     @ApiCreatedResponse({
