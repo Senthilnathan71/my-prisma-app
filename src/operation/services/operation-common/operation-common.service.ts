@@ -79,6 +79,32 @@ export class OperationCommonService {
                     BranchMasterSid,
                     BookingHeaderSid,
                     Status : 'A'
+                },
+                include: {
+                    revenueVoucherHeader: {
+                        select: {
+                            VoucherNumber: true,
+                            VoucherHeaderSid: true
+                        }
+                    },
+                    revenueVoucherTypeMaster: {
+                        select: {
+                            DocumentTypeName: true,
+                            VoucherTypeMasterSid: true
+                        }
+                    },
+                    costVoucherHeader: {
+                        select: {
+                            VoucherNumber: true,
+                            VoucherHeaderSid: true
+                        }
+                    },
+                    costVoucherTypeMaster: {
+                        select: {
+                            DocumentTypeName: true,
+                            VoucherTypeMasterSid: true
+                        }
+                    }
                 }
             })
             return allCostRevenueCharges;

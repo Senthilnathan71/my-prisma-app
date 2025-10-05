@@ -54,7 +54,9 @@ export class VoucherController {
                 selectedRateIds: body.selectedRateIds.map(id => Number(id)),
                 billingPartySid: Number(body.billingPartySid),
                 customerBranchSid: body.customerBranchSid ? Number(body.customerBranchSid) : undefined,
-                createdBy: body.createdBy || 'System'
+                createdBy: body.createdBy || 'System',
+                invoiceHeader: body.invoiceHeader,
+                chargeTaxGroups: body.chargeTaxGroups
             });
 
             this.logger.debug(`generateVoucherFromBooking result: ${JSON.stringify(result)}`);

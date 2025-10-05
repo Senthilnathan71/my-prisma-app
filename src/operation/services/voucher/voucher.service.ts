@@ -1,6 +1,23 @@
 import { BadRequestException, Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
 import { DatabaseService } from 'src/database/database.service';
 
+interface InvoiceHeaderDTO {
+    currencyMasterSid?: number;
+    currencyCode?: string;
+    exchangeRate?: number;
+    billingPartyName?: string;
+    billingPartyAddress?: string;
+}
+
+interface ChargeTaxGroupDTO {
+    bookingRatesSid: number;
+    taxMasterSid: number;
+    taxName: string;
+    taxRate: number;
+    taxType: string;
+    isInterState?: boolean; // Whether this charge is inter-state (IGST) or intra-state (CGST+SGST)
+}
+
 interface VoucherGenerationDTO {
     bookingHeaderSid: number;
     companyMasterSid: number;
@@ -11,6 +28,8 @@ interface VoucherGenerationDTO {
     billingPartySid: number;
     customerBranchSid?: number;
     createdBy?: string;
+    invoiceHeader?: InvoiceHeaderDTO;
+    chargeTaxGroups?: ChargeTaxGroupDTO[];
 }
 
 interface VoucherDetailDTO {
@@ -360,6 +379,15 @@ export class VoucherService {
                 let subtotal = 0;
                 const voucherDetails: VoucherDetailDTO[] = [];
 
+                // Create a map of charge tax groups for quick lookup
+                const chargeTaxGroupMap = new Map<number, ChargeTaxGroupDTO>();
+                if (payload.chargeTaxGroups && payload.chargeTaxGroups.length > 0) {
+                    payload.chargeTaxGroups.forEach(ctg => {
+                        chargeTaxGroupMap.set(ctg.bookingRatesSid, ctg);
+                    });
+                    this.logger.log(`Using ${payload.chargeTaxGroups.length} manually selected tax groups from frontend`);
+                }
+
                 // Enrich booking rates with charge master and currency details for voucher creation
                 const enrichedRates = await Promise.all(bookingRates.map(async (rate) => {
                     const isRevenue = payload.voucherType === 'Invoice';
@@ -375,10 +403,8 @@ export class VoucherService {
                         currencyCode = currency?.currencyCode || 'USD';
                     }
 
-                    // Fetch charge master for HSN/SAC and tax details
+                    // Fetch charge master for HSN/SAC
                     let hsnSACMasterSid: number | undefined = undefined;
-                    let taxPercentage1 = 0;
-                    let taxPercentage2 = 0;
                     if (rate.ChargeMasterSid) {
                         const chargeMaster = await tx.chargeMaster.findUnique({
                             where: { ChargeMasterSid: rate.ChargeMasterSid },
@@ -388,9 +414,7 @@ export class VoucherService {
                                     select: {
                                         hSSACMaster: {
                                             select: {
-                                                HSSACMasterSid: true,
-                                                TaxRate: true,
-                                                TaxType: true
+                                                HSSACMasterSid: true
                                             }
                                         }
                                     }
@@ -399,14 +423,7 @@ export class VoucherService {
                         });
 
                         if (chargeMaster?.chargeTaxMapping?.[0]?.hSSACMaster) {
-                            const taxMaster = chargeMaster.chargeTaxMapping[0].hSSACMaster;
-                            hsnSACMasterSid = taxMaster.HSSACMasterSid;
-                            const taxRate = Number(taxMaster.TaxRate || 0);
-
-                            // For GST, split into CGST + SGST (intra-state) or IGST (inter-state)
-                            // For simplicity, we'll split evenly for CGST/SGST
-                            taxPercentage1 = taxRate / 2; // CGST or SGST
-                            taxPercentage2 = taxRate / 2; // SGST (if intra-state)
+                            hsnSACMasterSid = chargeMaster.chargeTaxMapping[0].hSSACMaster.HSSACMasterSid;
                         }
                     }
 
@@ -415,8 +432,42 @@ export class VoucherService {
                     const exchangeRate = Number(isRevenue ? (rate.RevenueExchangeRate || 1) : (rate.CostExchangeRate || 1));
                     const perUnit = Number(isRevenue ? (rate.RevenueRate || 0) : (rate.CostRate || 0));
 
-                    const taxAmount1 = (amount * taxPercentage1) / 100;
-                    const taxAmount2 = (amount * taxPercentage2) / 100;
+                    // Calculate tax using manually selected tax group if available
+                    let taxPercentage1 = 0;
+                    let taxPercentage2 = 0;
+                    let taxPercentageIGST = 0;
+                    let taxAmount1 = 0;
+                    let taxAmount2 = 0;
+                    let taxAmountIGST = 0;
+
+                    const manualTaxGroup = chargeTaxGroupMap.get(rate.BookingRatesSid);
+                    if (manualTaxGroup) {
+                        const taxRate = Number(manualTaxGroup.taxRate);
+                        const isGSTType = manualTaxGroup.taxType === 'GST' || manualTaxGroup.taxType === 'Input' || manualTaxGroup.taxType === 'Output';
+                        const isInterState = manualTaxGroup.isInterState || false;
+
+                        this.logger.log(`Using manual tax for charge ${rate.BookingRatesSid}: ${manualTaxGroup.taxName} (${taxRate}%, ${manualTaxGroup.taxType}, InterState: ${isInterState})`);
+
+                        if (isGSTType) {
+                            if (isInterState) {
+                                // Inter-state: IGST
+                                taxPercentageIGST = taxRate;
+                                taxAmountIGST = (amount * taxPercentageIGST) / 100;
+                                this.logger.log(`Applying IGST ${taxRate}% = ${taxAmountIGST}`);
+                            } else {
+                                // Intra-state: CGST + SGST (split evenly)
+                                taxPercentage1 = taxRate / 2; // CGST
+                                taxPercentage2 = taxRate / 2; // SGST
+                                taxAmount1 = (amount * taxPercentage1) / 100;
+                                taxAmount2 = (amount * taxPercentage2) / 100;
+                                this.logger.log(`Applying CGST ${taxPercentage1}% = ${taxAmount1}, SGST ${taxPercentage2}% = ${taxAmount2}`);
+                            }
+                        } else if (manualTaxGroup.taxType === 'VAT') {
+                            // For VAT: single tax
+                            taxPercentage1 = taxRate;
+                            taxAmount1 = (amount * taxPercentage1) / 100;
+                        }
+                    }
 
                     return {
                         ChargeMasterSid: rate.ChargeMasterSid,
@@ -435,7 +486,9 @@ export class VoucherService {
                         TaxPercentage1: taxPercentage1,
                         TaxAmount1: taxAmount1,
                         TaxPercentage2: taxPercentage2,
-                        TaxAmount2: taxAmount2
+                        TaxAmount2: taxAmount2,
+                        TaxPercentageIGST: taxPercentageIGST,
+                        TaxAmountIGST: taxAmountIGST
                     };
                 }));
 
@@ -465,7 +518,17 @@ export class VoucherService {
                     throw new BadRequestException(`COA with ID ${voucherTypeMaster.COALedger} not found. Please verify VoucherTypeMaster configuration.`);
                 }
 
-                this.logger.log(`Creating voucher header with PartyMasterSid (SubledgerMasterSid): ${subledger.SubledgerMasterSid}, VoucherNumber: ${voucherNumber}`);
+                this.logger.log(`Creating voucher header with PartyMasterSid (SubledgerMasterSid): ${subledger.SubledgerMasterSid} for Customer: ${payload.billingPartySid}, VoucherNumber: ${voucherNumber}`);
+
+                // Get currency and exchange rate from invoice header or use defaults
+                let currencyMasterSid: number | undefined;
+                let exchangeRate = 1;
+
+                if (payload.invoiceHeader) {
+                    currencyMasterSid = payload.invoiceHeader.currencyMasterSid;
+                    exchangeRate = payload.invoiceHeader.exchangeRate || 1;
+                    this.logger.log(`Using invoice header currency: ${payload.invoiceHeader.currencyCode} (SID: ${currencyMasterSid}), Exchange Rate: ${exchangeRate}`);
+                }
 
                 const voucherHeader = await tx.voucherHeader.create({
                     data: {
@@ -478,11 +541,13 @@ export class VoucherService {
                         CompanyMasterSid: payload.companyMasterSid,
                         BranchMasterSid: payload.branchMasterSid,
                         VoucherTypeMasterSid: voucherTypeMaster.VoucherTypeMasterSid,
-                        PartyMasterSid: subledger.SubledgerMasterSid, // Use SubledgerMasterSid, not CustomerMasterSid
+                        PartyMasterSid: subledger.SubledgerMasterSid, // Must use SubledgerMasterSid per DB schema constraint
                         PartyName: partyName,
                         PartyAddress: partyAddress,
                         CustomerBranchSid: payload.customerBranchSid,
                         InvoiceType: 'REG',
+                        CurrencyMasterSid: currencyMasterSid,
+                        ExchangeRate: exchangeRate,
                         Status: 'A',
                         CreatedBy: createdBy
                     }
