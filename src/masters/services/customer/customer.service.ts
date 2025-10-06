@@ -83,6 +83,7 @@ export class CustomerService {
                     const createdBranch = await tx.customerBranch.create({
                         data: {
                             BranchName: branch.BranchName,
+                            Branch_Code: branch.Branch_Code,
                             StateMasterSid: branch.StateMasterSid,
                             CityMasterSid: branch.CityMasterSid,
                             CustomerMasterSid: customer.CustomerMasterSid,
@@ -95,7 +96,7 @@ export class CustomerService {
                             Address: branch.Address,
                             Registered: branch.Registered,
                             CustomerGstType: branch.CustomerGstType,
-                            GSTNo: branch.GSTNo,
+                            GSTNo: branch.GSTNo|| '', 
                             status: branch.status,
                             createdBy: userEmail,
                         }
@@ -223,7 +224,7 @@ export class CustomerService {
             const customerData: any = await this._db.customerMaster.findUnique({
                 where: {
                     CustomerMasterSid: customerMasterSid,
-                    status: 'A',
+                    status: statusWhereClause,
                 },
                 select: {
                     CustomerMasterSid: true,
@@ -235,6 +236,7 @@ export class CustomerService {
                         }
                     },
                     CustomerName: true,
+                    CompanyMasterSid:true,
                     CustomerShortCode: true,
                     CustomerType: true,
                     CustomerAliasName: true,
@@ -250,9 +252,11 @@ export class CustomerService {
                     CompanyType: true,
                     PanName: true,
                     PanType: true,
+                    AirlineCode:true,
+                    AirlineNumber:true,
                     status: true,
                     CustomerBranch: {
-                        where: { status: 'A' },
+                        where: { status: statusWhereClause },
                         select: {
                             CustomerBranchSid: true,
                             customerMaster: {
@@ -275,6 +279,7 @@ export class CustomerService {
                                     CityMasterSid: true,
                                 }
                             },
+                            CompanyMasterSid:true,
                             BranchName: true,
                             Branch_Type: true,
                             Branch_Code: true,
@@ -289,7 +294,7 @@ export class CustomerService {
                             Registered: true,
                             status: true,
                             cusBranchContact: {
-                                where: { status: 'A' },
+                                where: { status: statusWhereClause },
                                 select: {
                                     customerBranch: {
                                         select: {
@@ -780,6 +785,7 @@ export class CustomerService {
                     data: {
                         BranchName: branch.BranchName,
                         StateMasterSid: branch.StateMasterSid,
+                        Branch_Code: branch.Branch_Code, 
                         CityMasterSid: branch.CityMasterSid,
                         Branch_Type: branch.Branch_Type,
                         Contact_Person: branch.Contact_Person,
@@ -789,7 +795,7 @@ export class CustomerService {
                         Address: branch.Address,
                         Registered: branch.Registered,
                         CustomerGstType: branch.CustomerGstType,
-                        GSTNo: branch.GSTNo,
+                        GSTNo: branch.GSTNo|| '', 
                         status: branch.status,
                         updatedBy: userEmail
                     }
@@ -801,6 +807,7 @@ export class CustomerService {
                     data: {
                         BranchName: branch.BranchName,
                         StateMasterSid: branch.StateMasterSid,
+                        Branch_Code: branch.Branch_Code ,
                         CityMasterSid: branch.CityMasterSid,
                         CustomerMasterSid: customer.CustomerMasterSid,
                         CompanyMasterSid: customer.CompanyMasterSid,
@@ -812,7 +819,7 @@ export class CustomerService {
                         Address: branch.Address,
                         Registered: branch.Registered,
                         CustomerGstType: branch.CustomerGstType,
-                        GSTNo: branch.GSTNo,
+                        GSTNo: branch.GSTNo|| '', 
                         status: branch.status,
                         createdBy: userEmail
                     }
@@ -907,6 +914,7 @@ export class CustomerService {
                         await tx.customerBrEmail.update({
                             where: { CustomerBrEmailSid: email.CustomerBrEmailSid },
                             data: {
+                                CustomerBranchSid: branchId,
                                 Toemail: email.Toemail,
                                 CCemail: email.CCemail,
                                 DepartmentMasterSid: email.DepartmentMasterSid,
@@ -965,6 +973,7 @@ export class CustomerService {
                         await tx.customerLogin.update({
                             where: { CustomerLoginSid: login.CustomerLoginSid },
                             data: {
+                                CustomerBranchSid: branchId,
                                 LoginName: login.LoginName,
                                 LoginEmail: login.LoginEmail,
                                 LoginPassword: login.LoginPassword,
@@ -1021,6 +1030,7 @@ export class CustomerService {
                         await tx.customerSalesTeam.update({
                             where: { CustomerSalesSid: sales.CustomerSalesSid },
                             data: {
+                                CustomerBranchSid: branchId,
                                 DepartmentMasterSid: sales.DepartmentMasterSid, // Array of integers
                                 Salesman: sales.Salesman,
                                 CSPerson: sales.CSPerson,

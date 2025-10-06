@@ -360,6 +360,12 @@ export class CustomerBranchDto {
     BranchName: string;
 
     @IsString()
+    @IsOptional() 
+    @MaxLength(10)
+    Branch_Code?: string;
+
+
+    @IsString()
     @IsOptional()
     @MaxLength(20)
     Branch_Type?: string;
@@ -401,10 +407,10 @@ export class CustomerBranchDto {
 
     @IsString()
     @IsOptional()
-    @Length(15, 15)
-    @Matches(/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/, {
-        message: 'Invalid GST number format'
-    })
+    // @Length(15, 15)
+    // @Matches(/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/, {
+    //     message: 'Invalid GST number format'
+    // })
     GSTNo?: string;
 
     @IsString()
