@@ -1572,8 +1572,26 @@ export class BookingService {
         try {
             const [customers, salesmans, shippers, consignees, agents, carriers, forwarder, notify] = await this._db.$transaction([
                 this._db.customerMaster.findMany({
-                    where: { CompanyMasterSid: payload.CompanyMasterSid, CustomerType: { path: ['customer'], equals: 'isTrue' }, status: 'A' },
-                    select: { CustomerMasterSid: true, CustomerName: true, CustomerAddress1: true }
+                    where: {
+                        CompanyMasterSid: payload.CompanyMasterSid,
+                        status: "A",
+                        CustomerBranch: { some: {} }
+                    },
+                    select: {
+                        CustomerMasterSid: true,
+                        CustomerName: true,
+                        CustomerBranch: {
+                            where: {
+                                status: 'A'
+                            },
+                            select: {
+                                CustomerBranchSid: true,
+                                BranchName: true,
+                                Address: true,
+                                Email: true,
+                            }
+                        }
+                    }
                 }),
                 this._db.customerSalesTeam.findMany({
                     where: { CompanyMasterSid: payload.CompanyMasterSid, status: 'A' },
@@ -1604,6 +1622,17 @@ export class BookingService {
                     select: { CustomerMasterSid: true, CustomerName: true, CustomerAddress1: true }
                 })
             ]);
+            const formattedCustomerList = customers.flatMap(customer => {
+                const cusBranches = customer.CustomerBranch.map(branch => ({
+                    CustomerMasterSid: customer.CustomerMasterSid,
+                    CustomerBranchSid: branch.CustomerBranchSid,
+                    CustomerName: customer.CustomerName,
+                    BranchName: branch.BranchName,
+                    Address: branch.Address,
+                    Email: branch.Email
+                }))
+                return cusBranches;
+            })
             const processedAgents = agents.map((agent) => {
                 const agentCountry = agent.countryMaster?.countryName
                 return {
@@ -1623,7 +1652,7 @@ export class BookingService {
                 })
             );
 
-            return { customers, salesmans: processedSalesmans, shippers, consignees, agents: processedAgents, carriers, forwarder, notify };
+            return { customers : formattedCustomerList, salesmans: processedSalesmans, shippers, consignees, agents: processedAgents, carriers, forwarder, notify };
         } catch (error) {
             console.error('Error fetching Customer Related Lookups:', error);
             return {
@@ -1665,14 +1694,21 @@ export class BookingService {
                         PortMasterSid: true,
                         PortName: true,
                         PortCode: true,
-                        PortType: true
+                        PortType: true,
+                        countryMaster : {
+                            select : {
+                                countryName : true
+                            }
+                        }
                     },
                 }),
                 this._db.incoMaster.findMany({
                     where: { Status: 'A' },
                     select: {
                         IncoMasterSid: true,
+                        IncoCode : true,
                         IncoName: true,
+                        OceanFreight : true
                     },
                 }),
                 this._db.companyMaster.findFirst({

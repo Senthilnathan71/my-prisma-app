@@ -159,7 +159,7 @@ export class CurrencyExchangeService {
                 where: {
                     FromCurrency: fromCurrency,
                     ToCurrency: toCurrency,
-                    EffectiveFrom : { gte : new Date()},
+                    EffectiveFrom : { lte : new Date()},
                     status: 'A'
                 }
             })
@@ -169,10 +169,10 @@ export class CurrencyExchangeService {
             }
 
             if(payload.segment === 'cost'){
-                return exchangeRate.BuyRate;
+                return exchangeRate?.BuyRate || null;
             }
             else{
-                return exchangeRate.SellRate;
+                return exchangeRate?.SellRate || null;
             }
             
         } catch (error) {

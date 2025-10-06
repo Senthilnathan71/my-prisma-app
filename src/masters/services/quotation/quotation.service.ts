@@ -575,11 +575,12 @@ export class QuotationService {
                     throw new BadRequestException("Customer has been already created for this lead");
                 }
 
-                let formattedCustomerType;
-                if(ourLead?.customerType){
-                    const correctedCustomerType = toCamelCase(ourLead?.customerType);
-                    if(correctedCustomerType){
-                        formattedCustomerType[correctedCustomerType] = "isTrue"
+                const customerTypes: Record<string, string> = {};
+                if(ourLead?.preCustomerType){
+                    const customerTypeKey = toCamelCase(ourLead?.preCustomerType);
+                    if (customerTypeKey) {
+                        customerTypes[customerTypeKey] = 'isTrue';
+                        customerTypes.customer = 'isTrue';
                     }
                 }
 
@@ -589,9 +590,18 @@ export class QuotationService {
                         PreCustomerMasterSid : updatedQuoteHeader.PreCustomerMasterSid,
                         CustomerName : updatedQuoteHeader.CustomerName,
                         CountryMasterSid : ourLead?.CountryMasterSid,
-                        CustomerType : formattedCustomerType || {},
+                        CustomerType : customerTypes || {},
                         CustomerAddress1 : updatedQuoteHeader.CustomerAddress,
                         createdBy : payload.updatedBy,
+                    }
+                })
+
+                let updatedHeader = await this._db.quoteHeader.update({
+                    where: {
+                        QuoteHeaderSid: QuoteHeaderSid
+                    }, data: {
+                        LeadOrCustomer : "C",
+                        CustomerMasterSid : createdCustomer.CustomerMasterSid
                     }
                 })
 
