@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { LeadStatus, Prisma } from '@prisma/client';
+import { ApprovalStatus, LeadStatus, Prisma } from '@prisma/client';
 import { contains } from 'class-validator';
 import * as moment from 'moment-timezone';
 import { parseDateFromString, statusWhereClause } from 'src/common/helper';
@@ -593,6 +593,123 @@ export class EnquiryHeaderService {
                     POL: pol,
                     POD: pod,
                     quoteNo: quote?.QuoteNumber
+                }
+            })
+        )
+
+        return {
+            items,
+            totalCount,
+        };
+    }
+
+    async searchPendingEnquiry(params: filterDto) {
+        const { search = '', page = 1, pageSize = 10, activeCompanyId, activeBranchId } = params;
+        const skip = (page - 1) * pageSize;
+        const parsedDate = parseDateFromString(search);
+
+        const allDepartmentWithName = await this._db.departmentMaster.findMany({
+            where: {
+                departmentName: { contains: search, mode: 'insensitive' },
+                Status: 'A',
+            },
+            select: {
+                DepartmentMasterSid: true,
+            }
+        });
+
+        const filteredDepartmentIds = allDepartmentWithName.map(dep => dep.DepartmentMasterSid);
+
+        const ports = await this._db.portMaster.findMany({
+            where: {
+                PortCode: { contains: search, mode: 'insensitive' },
+                status: 'A'
+            },
+            select: {
+                PortMasterSid: true,
+            }
+        });
+
+        const portWithSearchOnlyIds = ports.map(p => p.PortMasterSid);
+
+        const where: Prisma.EnquiryHeaderWhereInput = {
+            status: statusWhereClause,
+            authorizerStatus: ApprovalStatus.Pending,
+            CompanyMasterSid: activeCompanyId,
+            BranchMasterSid: activeBranchId,
+            ...(search ?
+                {
+                    OR: [
+                        { EnquiryNumber: { contains: search, mode: 'insensitive' } },
+                        { CustomerName: { contains: search, mode: 'insensitive' } },
+                        { DepartmentMasterSid: { in: filteredDepartmentIds } },
+                        { enquiryRoute: { some: { POLSid: { in: portWithSearchOnlyIds } } } },
+                        { enquiryRoute: { some: { PODSid: { in: portWithSearchOnlyIds } } } },
+                        { status: { contains: search, mode: 'insensitive' } },
+                        ...(parsedDate
+                            ? [
+                                { EnquiryDate: { equals: parsedDate } },
+                            ]
+                            : []),
+                    ],
+                } : {}
+            )
+        }
+
+        let items;
+        let totalCount;
+        [items, totalCount] = await this._db.$transaction([
+            this._db.enquiryHeader.findMany({
+                where,
+                skip,
+                take: pageSize,
+                orderBy: { EnquiryHeaderSid: 'desc' },
+                include: {
+                    enquiryRoute: {
+                        include: {
+                            enquiryCargo: true,
+                        }
+                    },
+                    enquiryOther: true
+                }
+            }),
+            this._db.enquiryHeader.count({ where }),
+        ]);
+
+        items = await Promise.all(
+            items.map(async (item) => {
+                let dept;
+                if (item?.DepartmentMasterSid) {
+                    dept = await this._db.departmentMaster.findFirst({
+                        where: {
+                            DepartmentMasterSid: item.DepartmentMasterSid
+                        },
+                        select: {
+                            departmentName: true
+                        }
+                    })
+                }
+                const pol = await this._db.portMaster.findFirst({
+                    where: {
+                        PortMasterSid: item.enquiryRoute[0]?.POLSid
+                    },
+                    select : {
+                        PortCode : true
+                    }
+                })
+                const pod = await this._db.portMaster.findFirst({
+                    where: {
+                        PortMasterSid: item.enquiryRoute[0]?.PODSid
+                    },
+                    select : {
+                        PortCode : true
+                    }
+                })
+                return {
+                    ...item,
+                    department : dept,
+                    POL: pol,
+                    POD: pod,
                 }
             })
         )
