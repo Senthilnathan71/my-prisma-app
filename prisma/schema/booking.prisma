@@ -321,13 +321,13 @@ model VoyageMasterHeader {
   VesselMasterSid        Int
   VoyageNo               String               @db.VarChar(10)
   ViaNumber              String?              @db.VarChar(10)
-  RotationNumber         String               @db.VarChar(10)
+  RotationNumber         String?               @db.VarChar(10)
   Remarks                String?              @db.VarChar(200)
-  SCMETA                 DateTime
-  SCMETD                 DateTime
-  SCMTCargoDescription   String               @db.VarChar(200)
-  ShipIRN                String               @db.VarChar(10)
-  CrewIRN                String               @db.VarChar(10)
+  SCMETA                 DateTime?
+  SCMETD                 DateTime?
+  SCMTCargoDescription   String?              @db.VarChar(200)
+  ShipIRN                String?              @db.VarChar(10)
+  CrewIRN                String?               @db.VarChar(10)
   createdOn              DateTime             @default(now()) @db.Timestamptz(6)
   updatedOn              DateTime?            @updatedAt @db.Timestamptz(6)
   deletedAt              DateTime?

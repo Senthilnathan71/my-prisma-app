@@ -30,23 +30,81 @@ export class HawbStockService {
         }
     }
 
-    async createNewHawbStock(payload) {
+    // async createNewHawbStock(payload) {
+    //     try {
+    //         const createdHawbStock = await this._db.hawbStock.create({
+    //             data: {
+    //                 ...payload,
+    //             },
+    //             include: {
+    //                 branchMaster: true,
+    //                 companyMaster: true,
+    //                 customerMaster: true
+    //             }
+    //         });
+    //         return createdHawbStock;
+    //     } catch (error) {
+    //         throw error;
+    //     }
+    // }
+
+    async createNewHawbStock(payload: any) {
         try {
-            const createdHawbStock = await this._db.hawbStock.create({
-                data: {
-                    ...payload,
-                },
-                include: {
-                    branchMaster: true,
-                    companyMaster: true,
-                    customerMaster: true
-                }
+          // Parse AWBList from frontend payload
+        //   const awbList = payload.AWBList ? JSON.parse(payload.AWBList) : [];
+            const awbList = payload.AWBList || [];
+          if (!Array.isArray(awbList) || awbList.length === 0) {
+            throw new BadRequestException(
+              'AWB list is required to create HAWB stocks',
+            );
+          }
+    
+          const createdRecords: any[] = [];
+    
+          // Loop through each AWB item to create separate HAWB stock records
+          let i = 1;
+          for (const awbItem of awbList) {
+            const record = await this._db.hawbStock.create({
+              data: {
+                CompanyMasterSid: payload.CompanyMasterSid,
+                BranchMasterSid: payload.BranchMasterSid,
+                AirwayBillType: payload.AirwayBillType || 'Airline',
+                AirwayBillNumber: payload.AirwayBillNumber,
+                Agent: payload.Agent ? Number(payload.Agent) : null,
+                HAWBSerial: payload.HAWBSerial || '',
+                NumberofHAWB: i++, // each record = 1 HAWB
+                ReceivedDate: awbItem.ReceivedDate
+                  ? new Date(awbItem.ReceivedDate)
+                  : new Date(),
+                StockStatus: 'Free',
+                Remarks: awbItem.Remarks || payload.Remarks || null,
+                createdBy: payload.createdBy,
+                updatedBy: payload.updatedBy,
+                status: payload.status || 'A',
+              },
+            //   include: {
+            //     branchMaster: true,
+            //     companyMaster: true,
+            //     customerMaster: true,
+            //   },
             });
-            return createdHawbStock;
+    
+            createdRecords.push(record);
+          }
+    
+          return {
+            message: `${createdRecords.length} HAWB stock record(s) created successfully.`,
+            data: createdRecords,
+          };
         } catch (error) {
-            throw error;
+          console.error('Error creating HAWB Stock:', error);
+          throw new BadRequestException(
+            error.message || 'Failed to create HAWB Stocks',
+          );
         }
-    }
+      }
+
+
 
     async fetchHawbStockById(HawbStockSid: number) {
         try {
@@ -70,31 +128,35 @@ export class HawbStockService {
     }
 
     async updateHawbStockById(HawbStockSid: number, payload) {
-        try {
-            const exist = await this._db.hawbStock.findUnique({
-                where: {
-                    HawbStockSid: HawbStockSid
-                }
-            });
-            if (!exist) {
-                throw new BadRequestException(`HAWB Stock with Id : ${HawbStockSid} not exists`);
-            }
-            const updatedHawbStock = await this._db.hawbStock.update({
-                where: {
-                    HawbStockSid: HawbStockSid
-                },
-                data: payload,
-                include: {
-                    branchMaster: true,
-                    companyMaster: true,
-                    customerMaster: true
-                }
-            });
-            return updatedHawbStock;
-        } catch (error) {
-            throw error;
+    try {
+        const exist = await this._db.hawbStock.findUnique({
+            where: { HawbStockSid }
+        });
+
+        if (!exist) {
+            throw new BadRequestException(`HAWB Stock with Id : ${HawbStockSid} not exists`);
         }
+
+        // Remove AWBList from payload if not provided (edit mode)
+        const { AWBList, ...dataToUpdate } = payload;
+
+        const updatedHawbStock = await this._db.hawbStock.update({
+            where: { HawbStockSid },
+            data: dataToUpdate,  // AWBList is omitted
+            include: {
+                branchMaster: true,
+                companyMaster: true,
+                customerMaster: true
+            }
+        });
+
+        return updatedHawbStock;
+
+    } catch (error) {
+        throw error;
     }
+}
+
 
     async deleteHawbStock(HawbStockSid: number) {
         try {

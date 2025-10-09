@@ -29,23 +29,61 @@ export class MawbStockService {
             }
         }
     
-        async createNewMawbStock(payload) {
-            try {
-                const createdMawbStock = await this._db.mawbStock.create({
-                    data: {
-                        ...payload,
-                    },
-                    include: {
-                        branchMaster: true,
-                        companyMaster: true,
-                        customerMaster: true
-                    }
-                });
-                return createdMawbStock;
-            } catch (error) {
-                throw error;
-            }
+        async createNewMawbStock(payload: any) {
+        try {
+          // Parse AWBList from frontend payload
+        //   const awbList = payload.AWBList ? JSON.parse(payload.AWBList) : [];
+            const awbList = payload.AWBList || [];
+          if (!Array.isArray(awbList) || awbList.length === 0) {
+            throw new BadRequestException(
+              'AWB list is required to create MAWB stocks',
+            );
+          }
+    
+          const createdRecords: any[] = [];
+    
+          // Loop through each AWB item to create separate MAWB stock records
+          let i = 1;
+          for (const awbItem of awbList) {
+            const record = await this._db.mawbStock.create({
+              data: {
+                CompanyMasterSid: payload.CompanyMasterSid,
+                BranchMasterSid: payload.BranchMasterSid,
+                AirwayBillType: payload.AirwayBillType || 'Airline',
+                MasterBillNumber: payload.MasterBillNumber,
+                Agent: payload.Agent ? Number(payload.Agent) : null,
+                MAWBSerial: payload.MAWBSerial || '',
+                NumberofMAWB: i++, // each record = 1 MAWB
+                ReceivedDate: awbItem.ReceivedDate
+                  ? new Date(awbItem.ReceivedDate)
+                  : new Date(),
+                StockStatus: 'Free',
+                Remarks: awbItem.Remarks || payload.Remarks || null,
+                createdBy: payload.createdBy,
+                updatedBy: payload.updatedBy,
+                status: payload.status || 'A',
+              },
+            //   include: {
+            //     branchMaster: true,
+            //     companyMaster: true,
+            //     customerMaster: true,
+            //   },
+            });
+    
+            createdRecords.push(record);
+          }
+    
+          return {
+            message: `${createdRecords.length} MAWB stock record(s) created successfully.`,
+            data: createdRecords,
+          };
+        } catch (error) {
+          console.error('Error creating MAWB Stock:', error);
+          throw new BadRequestException(
+            error.message || 'Failed to create MAWB Stocks',
+          );
         }
+      }
     
         async fetchMawbStockById(MawbStockSid: number) {
             try {
@@ -68,32 +106,35 @@ export class MawbStockService {
             }
         }
     
-        async updateMawbStockById(MawbStockSid: number, payload) {
-            try {
-                const exist = await this._db.mawbStock.findUnique({
-                    where: {
-                        MawbStockSid: MawbStockSid
-                    }
-                });
-                if (!exist) {
-                    throw new BadRequestException(`MAWB Stock with Id : ${MawbStockSid} not exists`);
-                }
-                const updatedMawbStock = await this._db.mawbStock.update({
-                    where: {
-                        MawbStockSid: MawbStockSid
-                    },
-                    data: payload,
-                    include: {
-                        branchMaster: true,
-                        companyMaster: true,
-                        customerMaster: true
-                    }
-                });
-                return updatedMawbStock;
-            } catch (error) {
-                throw error;
-            }
+         async updateMawbStockById(MawbStockSid: number, payload) {
+    try {
+        const exist = await this._db.mawbStock.findUnique({
+            where: { MawbStockSid }
+        });
+
+        if (!exist) {
+            throw new BadRequestException(`MAWB Stock with Id : ${MawbStockSid} not exists`);
         }
+
+        // Remove AWBList from payload if not provided (edit mode)
+        const { AWBList, ...dataToUpdate } = payload;
+
+        const updatedMawbStock = await this._db.mawbStock.update({
+            where: { MawbStockSid },
+            data: dataToUpdate,  // AWBList is omitted
+            include: {
+                branchMaster: true,
+                companyMaster: true,
+                customerMaster: true
+            }
+        });
+
+        return updatedMawbStock;
+
+    } catch (error) {
+        throw error;
+    }
+}
     
         async deleteMawbStock(MawbStockSid: number) {
             try {
