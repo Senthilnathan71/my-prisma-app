@@ -1,5 +1,6 @@
 import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, Post, Query, UnauthorizedException } from '@nestjs/common';
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
+import { Auth } from 'src/common/decorators/auth.decorator';
 import { UserData } from 'src/common/decorators/user.decorator';
 import { ResponseData } from 'src/common/response-data';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
@@ -8,7 +9,7 @@ class CompanyIdDto {
     CompanyMasterSid: number;
     BranchMasterSid: number;
 }
-
+@Auth()
 @Controller('ff-lead')
 export class LeadController {
     constructor(private leadService: LeadService, private logger: Logger) { }

@@ -1,8 +1,10 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
-import { LeadStatus } from '@prisma/client';
+import { LeadStatus, Prisma } from '@prisma/client';
+import { parseDateFromString, statusWhereClause } from 'src/common/helper';
 import { DatabaseService } from 'src/database/database.service';
 import { CreatePreCustomerMeetingDto } from 'src/masters/DTO/create-precustomer-meeting.dto';
 import { CreatePrecustomerDto } from 'src/masters/DTO/create-Precustomer.dto';
+import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 
 const statusMap: Record<string, LeadStatus> = {
     "Qualify": LeadStatus.Qualify,
@@ -362,6 +364,80 @@ export class PreCustomerMeetingService {
     toUTCISO(localDateTime: string) {
         const local = new Date(localDateTime);
         return new Date(local.getTime() - local.getTimezoneOffset() * 60000).toISOString();
+    }
+    async searchPreCustomerMeeting(params: filterDto) {
+        const { search = '', page = 1, pageSize = 10, activeCompanyId, activeBranchId } = params;
+        const skip = (page - 1) * pageSize;
+        const parsedDate = parseDateFromString(search);
+    
+        const where: Prisma.PreCustomerMeetingWhereInput = {
+            status: statusWhereClause,
+             meetingStatus: {
+                        in: ['Scheduled', 'In Progress', 'On Hold'],
+                    },
+            CompanyMasterSid: activeCompanyId,
+            BranchMasterSid: activeBranchId,
+            ...(search ?
+                {
+                    OR: [
+                        { meetingType: { contains: search, mode: 'insensitive' } },
+                        { meetingStatus: { contains: search, mode: 'insensitive' } },
+                        { followUpNote: { contains: search, mode: 'insensitive' } },
+                        { meetingNote: { contains: search, mode: 'insensitive' } },
+                        { remarks: { contains: search, mode: 'insensitive' } },
+                        { preCustomerMaster: { preCustomerName: { contains: search, mode: 'insensitive' } } },
+                        (!isNaN(Number(search)) ? { leadAssignTo: Number(search) } : {}),
+                        ...(parsedDate
+                            ? [
+                                { meetingDate: { equals: parsedDate } },
+                                { followUpDate: { equals: parsedDate } },
+                            ]
+                            : []),
+                    ],
+                } : {}
+            )
+        };
+    
+        let items;
+        let totalCount;
+        [items, totalCount] = await this._db.$transaction([
+            this._db.preCustomerMeeting.findMany({
+                where,
+                skip,
+                take: pageSize,
+                orderBy: { PreCustomerMeetingSid: 'desc' },
+                include: {
+                    branchMaster: true,
+                    companyMaster: true,
+                    preCustomerMaster: true,
+                },
+            }),
+            this._db.preCustomerMeeting.count({ where }),
+        ]);
+    
+        // Enrich data with sales person names
+        items = await Promise.all(
+            items.map(async (item) => {
+                const salesPerson = await this._db.userMaster.findFirst({
+                    where: {
+                        UserMasterSid: item.leadAssignTo
+                    },
+                    select: {
+                        userName: true
+                    }
+                });
+    
+                return {
+                    ...item,
+                    salesPersonName: salesPerson?.userName || 'N/A'
+                };
+            })
+        );
+    
+        return {
+            items,
+            totalCount,
+        };
     }
 
 

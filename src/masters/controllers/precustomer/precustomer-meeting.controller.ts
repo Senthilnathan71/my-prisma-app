@@ -7,6 +7,7 @@ import { ResponseData } from 'src/common/response-data';
 import { CreatePrecustomerDto } from 'src/masters/DTO/create-Precustomer.dto';
 import { PreCustomerMeetingService } from 'src/masters/services/precustomer/precustomer-meeting.service';
 import { PrecustomerService } from 'src/crm/services/precustomer/precustomer.service';
+import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 class CompanyIdDto {
   CompanyMasterSid: number;
   BranchMasterSid: number;
@@ -229,6 +230,37 @@ export class PreCustomerMeetingController {
         }
         return output;
     }
+      @ApiOperation({ summary: 'Search List of PreCustomerMeetings' })
+    @ApiCreatedResponse({
+        description: 'Search List of PreCustomerMeetings',
+        type: ResponseData
+    })
+    @ApiOperation({ summary: 'Search List of PreCustomerMeetings' })
+    @ApiCreatedResponse({
+        description: 'Search List of PreCustomerMeetings',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Post('search-list')
+    async searchList(@Body() searchParams: filterDto) {
+        let resp = new ResponseData();
+        try {
+            let res = await this.preCustomerMeetingService.searchPreCustomerMeeting(searchParams);
+            this.logger.log(`PreCustomerMeeting Search Results : ${JSON.stringify(res)}`);
+            resp.data = res;
+            resp.message = "PreCustomerMeeting Search results are successfully fetched";
+        } catch (error) {
+            this.logger.warn(`PreCustomerMeeting Search Error : ${JSON.stringify(error)}`, error);
+            resp.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                resp.message = error.message;
+            } else {
+                resp.message = "Internal Server Error";
+            }
+        }
+        return resp;
+    }
+
 
 
 

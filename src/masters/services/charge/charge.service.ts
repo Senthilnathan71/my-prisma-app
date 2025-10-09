@@ -83,7 +83,7 @@ export class ChargeService {
             if (payload.chargeTds) {
                 const chargeTdsPayload = payload.chargeTds.map(chargeTds => ({
                     ChargeMasterSid: charge.ChargeMasterSid,
-                    TDSSet: chargeTds.TDSSet,
+                    TDSSet: chargeTds.TDSSet || null,
                     EffectiveFrom: chargeTds.EffectiveFrom ? new Date(chargeTds.EffectiveFrom + "Z") : null ,
                     createdBy: payload.createdBy, 
                     updatedBy: payload.createdBy, // Add updatedBy
@@ -252,7 +252,7 @@ export class ChargeService {
                 // Create new TDS records
                 const chargeTdsPayload = chargeTds.map(chargeTds => ({
                     ChargeMasterSid: ChargeMasterSid,
-                    TDSSet: chargeTds.TDSSet,
+                    TDSSet: chargeTds.TDSSet || null,
                    EffectiveFrom: chargeTds.EffectiveFrom ? new Date(chargeTds.EffectiveFrom + "Z") : null ,
                     createdBy: payload.updatedBy,
                     updatedBy: payload.updatedBy,
