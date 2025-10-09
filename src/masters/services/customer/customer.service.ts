@@ -1312,6 +1312,56 @@ export class CustomerService {
             throw error;
         }
     }
+   async searchCustomersByName(
+    CompanyMasterSid: number, 
+    searchTerm: string,
+    excludeCustomerMasterSids: number[] = []
+) {
+    try {
+        this.logger.log(`searchCustomersByName service called: ${CompanyMasterSid}, ${searchTerm}, ${excludeCustomerMasterSids}`);
+        
+        if (!searchTerm || searchTerm.trim().length === 0) {
+            return [];
+        }
+
+        const searchText = searchTerm.trim();
+        
+        const where: Prisma.CustomerMasterWhereInput = {
+            CompanyMasterSid: CompanyMasterSid,
+            status: 'A',
+            CustomerName: {
+                contains: searchText,
+                mode: 'insensitive'
+            }
+        };
+
+        // Exclude already selected customers if provided
+        if (excludeCustomerMasterSids && excludeCustomerMasterSids.length > 0) {
+            where.CustomerMasterSid = {
+                notIn: excludeCustomerMasterSids
+            };
+        }
+
+        const customers = await this._db.customerMaster.findMany({
+            where,
+            select: {
+                CustomerMasterSid: true,
+                CustomerName: true,
+                CustomerShortCode: true
+            },
+            take: 50, // Limit results
+            orderBy: {
+                CustomerName: 'asc'
+            }
+        });
+
+        this.logger.log(`searchCustomersByName found ${customers.length} customers`);
+        return customers;
+    } catch (error) {
+        this.logger.error(`searchCustomersByName service error: ${error}`);
+        throw new BadRequestException('Error searching customers by name');
+    }
+}
     async getAllShippers(CompanyMasterSid: number) {
         try {
             const allAgents = await this._db.customerMaster.findMany({

@@ -230,8 +230,39 @@ async checkUnique(@Body() body: {
     async softDelete(@Param('id', ParseIntPipe) id: number) {
         return this.customerService.softDelete(id);
     }
-
-
+@ApiOperation({ summary: 'Search Customers by Name' })
+@ApiCreatedResponse({
+    description: 'Search Customers by Name',
+    type: ResponseData
+})
+@HttpCode(HttpStatus.OK)
+@Post('search-by-name')
+async searchCustomersByName(@Body() body: { 
+    CompanyMasterSid: number; 
+    searchTerm: string;
+    excludeCustomerMasterSids?: number[];
+}) {
+    this.logger.log(`searchCustomersByName called with: ${JSON.stringify(body)}`);
+    let output = new ResponseData;
+    try {
+        let customerData = await this.customerService.searchCustomersByName(
+            body.CompanyMasterSid, 
+            body.searchTerm,
+            body.excludeCustomerMasterSids
+        );
+        output.data = customerData;
+        output.message = "Customers searched successfully";
+    } catch (error) {
+        this.logger.error(`searchCustomersByName error: ${JSON.stringify(error)}`)
+        output.status = false;
+        if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+            output.message = error.message;
+        } else {
+            output.message = 'Internal Server Error';
+        }
+    }
+    return output
+}
 
     @ApiOperation({ summary: 'Search List of Customer' })
     @ApiCreatedResponse({

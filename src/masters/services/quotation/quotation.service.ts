@@ -923,6 +923,20 @@ export class QuotationService {
         const { search = '', page = 1, pageSize = 15, activeCompanyId, activeBranchId } = params;
         const skip = (page - 1) * pageSize;
 
+
+        const ports = await this._db.portMaster.findMany({
+            where: {
+                PortCode: { contains: search, mode: 'insensitive' },
+                status: 'A'
+            },
+            select: {
+                PortMasterSid: true,
+            }
+        });
+
+        const portWithSearchOnlyIds = ports.map(p => p.PortMasterSid);
+
+
         const where: Prisma.QuoteHeaderWhereInput = {
             status: statusWhereClause,
             CompanyMasterSid: activeCompanyId,
@@ -930,20 +944,15 @@ export class QuotationService {
             ...(search
                 ? {
                     OR: [
-                        { enquiryHeader: { EnquiryNumber: { contains: search, mode: 'insensitive'}}},
-                        { enquiryHeader: { CustomerName: { contains: search, mode: 'insensitive'}}},
-                        { enquiryHeader: { ShipmentType: { contains: search, mode: 'insensitive'}}},
-                        { enquiryHeader: { enquiryRoute: {some: { POLSid: Number(search)}}}},
-                        { enquiryHeader: { enquiryRoute: {some: { PODSid: Number(search)}}}},
                         { QuoteNumber: { contains: search, mode: 'insensitive' } },
-                        { CustomerName: { contains: search, mode: 'insensitive' } },
-                        { departmentMaster: {departmentName: {contains: search, mode: 'insensitive'}}},
-                        { quoteRoute: {some: { POLSid: Number(search)}}},
-                        { quoteRoute: {some: { PODSid: Number(search)}}},
-                        { status: {contains: search, mode: 'insensitive'}},
                         ...(!isNaN(new Date(search).getTime())
                             ? [{ QuoteDate: new Date(search) }]
                             : []),
+                        { CustomerName: { contains: search, mode: 'insensitive' } },
+                        { quoteRoute : {some : {departmentMaster : {departmentName : {contains: search, mode: 'insensitive'}}}}},
+                        { quoteRoute: { some: { POLSid: { in : portWithSearchOnlyIds } } } },
+                        { quoteRoute: { some: { PODSid: { in : portWithSearchOnlyIds } } } },
+                        { status: {contains: search, mode: 'insensitive'}},
                     ],
                 }
                 : {}),

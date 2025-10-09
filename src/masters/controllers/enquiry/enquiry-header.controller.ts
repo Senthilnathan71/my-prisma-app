@@ -222,6 +222,32 @@ export class EnquiryHeaderController {
         return output;
     }
 
+    @ApiOperation({ summary: 'Search Pending Enquiries' })
+    @ApiCreatedResponse({
+        description: 'Search pending enquiries successfully',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Post('pending-enquiries/search-list')
+    async searchPendingEnquiries(@Body() searchParams: filterDto) {
+        let resp = new ResponseData();
+        try {
+            let res = await this.enquiryHeaderService.searchPendingEnquiry(searchParams);
+            this.logger.log(`Pending Enquiries Search Data : ${JSON.stringify(res)}`);
+            resp.data = res;
+            resp.message = "Pending enquiries fetched successfully";
+        } catch (error) {
+            this.logger.warn(`Pending Enquiries Search Error : ${JSON.stringify(error),error}`);
+            resp.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                resp.message = error.message;
+            } else {
+                resp.message = "Internal Server Error";
+            }
+        }
+        return resp;
+    }
+
     @ApiOperation({ summary: 'Search List of Enquiry' })
     @ApiCreatedResponse({
         description: 'Search List of Enquiry',
@@ -247,6 +273,7 @@ export class EnquiryHeaderController {
         }
         return resp;
     }
+
 
     @ApiOperation({ summary: 'Get Audit Logs for a Table/Record' })
     @ApiCreatedResponse({ description: 'Fetch audit logs', type: ResponseData })
