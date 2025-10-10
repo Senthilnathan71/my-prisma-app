@@ -229,7 +229,10 @@ export class MasterJobService {
                     })
                 }
 
-                return createdMasterJob;
+                return {
+                    ...createdMasterJob,
+                    ...createdVoyage
+                }
             })
 
             // SHIPMENT PART
@@ -549,6 +552,13 @@ export class MasterJobService {
                             MBLNo: newMasterJob.MBLNo,
                             MBLDate: newMasterJob.MBLDate,
                             BookingStatus: 'Stuffed',
+                            
+                            // If Sailing schedule changed during Loading Plan
+                            VoyageMasterSid :newMasterJob.VoyageMasterSid,
+                            VesselName : newMasterJob.VesselName,
+                            VoyageNo : newMasterJob.VoyageNo,
+                            ETA : newMasterJob.ETA,
+                            ETD : newMasterJob.ETD,
                         },
                     }).catch(err => {
                         console.error('bookingHeader update error:', err);

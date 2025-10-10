@@ -106,6 +106,9 @@ export class LoadingPlanService {
                         POL: booking.POL,
                         POD: booking.POD,
                         FPD: booking.FPD,
+                        VesselName : booking.VesselName,
+                        VoyageNo : booking.VoyageNo,
+                        VoyageMasterSid : booking.VoyageMasterSid,
                         NoOfPackage: booking.bookingCargo[0]?.NoOfPackage,
                         GrossWeight: booking.bookingCargo[0]?.GrossWeight,
                         NetWeight : booking.bookingCargo[0]?.NetWeight,
@@ -327,6 +330,7 @@ export class LoadingPlanService {
                             MasterNoSid : masterJobInfo.MasterJobSid,
                             MBLNo : masterJobInfo.MBLNo,
                             MBLDate : masterJobInfo.MBLDate,
+                            VesselName : masterJobInfo.VesselName,
                             BookingStatus : 'Stuffed'
                         }
                     });
@@ -351,65 +355,35 @@ export class LoadingPlanService {
 
     async getAllVesselWithVoyage(payload: VesselVoyageDTO) {
         const { POL, POD } = payload;
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
 
         // First find voyages that have both POL and POD
         const voyagesWithBothPorts = await this._db.voyageMasterHeader.findMany({
             where: {
                 status: 'A',
+                ETD : { gte : today },
                 VoyageType: 'Sea',
                 AND: [
-                    {
-                        voyageMasterDetail: {
-                            some: {
-                                POLSid: POL,
-                                status : 'A'
-                            }
-                        }
-                    },
-                    {
-                        voyageMasterDetail: {
-                            some: {
-                                POLSid: POD,
-                                status : 'A'
-                            }
-                        }
-                    }
+                    { POLSid :  POL },
+                    { PODSid :  POD }
                 ]
             },
             include: {
-                voyageMasterDetail: {
-                    where: {
-                        OR: [
-                            { POLSid: POL },
-                            { POLSid: POD }
-                        ]
-                    },
-                    orderBy: {
-                        Sno: 'asc'
-                    }
-                },
                 vesselMaster : { select : {VesselName : true}}
             }
         });
 
-        const validVoyages = voyagesWithBothPorts.filter(voyage => {
-            const polDetail = voyage.voyageMasterDetail.find(detail => detail.POLSid === POL);
-            const podDetail = voyage.voyageMasterDetail.find(detail => detail.POLSid === POD);
-            const todayDate = new Date();
-            todayDate.setHours(0, 0, 0, 0);
-            return polDetail && podDetail && podDetail.Sno > polDetail.Sno && polDetail.ETD >= todayDate;
-        }).map(voy => {
-            const polDetail = voy.voyageMasterDetail.find(detail => detail.POLSid === POL)!;
-            const podDetail = voy.voyageMasterDetail.find(detail => detail.POLSid === POD)!;
+        const validVoyages = voyagesWithBothPorts.map(voy => {
             return {
                 VoyageMasterSid : voy.VoyageMasterHeaderSid,
                 VesselName: voy.vesselMaster?.VesselName,
                 VoyageNo: voy.VoyageNo,
-                POL: polDetail.POLSid,
-                POD: podDetail.POLSid,
-                PortCutoff : polDetail.PortCutoff,
-                ETD: polDetail.ETD,
-                ETA: podDetail.ETA
+                POL: voy.POLSid,
+                POD: voy.POLSid,
+                PortCutoff : voy.PortCutoff,
+                ETD: voy.ETD,
+                ETA: voy.ETA
             }
         });
 
