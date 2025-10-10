@@ -66,6 +66,7 @@ export class UserService {
     async findUserById(where: any) {
         const userData = await this._db.userMaster.findFirst({
             where: {
+                status:"A",
                 userEmail: where.UserEmail
             }
         })
