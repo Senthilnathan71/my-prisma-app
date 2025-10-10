@@ -163,6 +163,9 @@ export class FfUserMasterService {
                         where: {
                             status: 'A'
                         },
+                        include:{
+                            roleMaster:true
+                        }
                     }
                 }
             })
