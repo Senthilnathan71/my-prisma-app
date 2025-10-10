@@ -21,6 +21,7 @@ export class SplitbookingController {
             const splitedProducts = await this.splitBookingService.splitBooking(payload);
             this.logger.debug('Split Booking results',splitedProducts);
             resp.message = 'Booking Splited Successfully';
+            resp.data = splitedProducts.newBooking;
         } catch (error) {
             resp.status = false;
             this.logger.error('Error while spliting booking', error);
