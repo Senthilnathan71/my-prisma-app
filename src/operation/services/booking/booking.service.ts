@@ -1475,7 +1475,16 @@ export class BookingService {
                 if (rate.RevenueCurrencyMasterSid) {
                     const currency = await this._db.currencyMaster.findUnique({
                         where: { CurrencyMasterSid: rate.RevenueCurrencyMasterSid },
-                        select: { CurrencyMasterSid: true, currencyCode: true, currencyName: true }
+                        select: {
+                            CurrencyMasterSid: true, currencyCode: true, currencyName: true,
+                            countryMaster: {
+                                select: {
+                                    CountryMasterSid: true,
+                                    countryName: true,
+                                    countryCode: true
+                                }
+                            },
+                        }
                     });
                     enrichments.RevenueCurrencyMaster = currency;
                 }
@@ -1484,7 +1493,15 @@ export class BookingService {
                 if (rate.CostCurrencyMasterSid) {
                     const currency = await this._db.currencyMaster.findUnique({
                         where: { CurrencyMasterSid: rate.CostCurrencyMasterSid },
-                        select: { CurrencyMasterSid: true, currencyCode: true, currencyName: true }
+                        select: { CurrencyMasterSid: true, currencyCode: true, currencyName: true,
+                            countryMaster: {
+                                select: {
+                                    CountryMasterSid: true,
+                                    countryName: true,
+                                    countryCode: true
+                                }
+                            },
+                         }
                     });
                     enrichments.CostCurrencyMaster = currency;
                 }
@@ -1570,13 +1587,22 @@ export class BookingService {
 
     async getCustomerRelatedLookups(payload: any) {
         try {
-            const [customers, salesmans, shippers, consignees, agents, carriers, forwarder, notify] = await this._db.$transaction([
+            const [customers, salesmans, shippers, consignees, agents, carriers, forwarder, notify, yard, cfs] = await this._db.$transaction([
                 this._db.customerMaster.findMany({
-                    where: {
-                        CompanyMasterSid: payload.CompanyMasterSid,
-                        status: "A",
-                        CustomerBranch: { some: {} }
-                    },
+                    // where: {
+                    //     CompanyMasterSid: payload.CompanyMasterSid,
+                    //     status: "A",
+                    //     CustomerBranch: { some: {} }
+                    // },
+                     where: {
+                    CompanyMasterSid: payload.CompanyMasterSid,
+                    status: 'A',
+                    CustomerBranch: { some: {} },
+                    AND: [
+                        { CustomerType: { path: ['customer'], equals: 'isTrue' } },
+                        { CustomerType: { path: ['carrier'], equals: 'isFalse' } }
+                    ]
+                },
                     select: {
                         CustomerMasterSid: true,
                         CustomerName: true,
@@ -1620,6 +1646,14 @@ export class BookingService {
                 this._db.customerMaster.findMany({
                     where: { CompanyMasterSid: payload.CompanyMasterSid, CustomerType: { path: ['notify'], equals: 'isTrue' }, status: 'A' },
                     select: { CustomerMasterSid: true, CustomerName: true, CustomerAddress1: true }
+                }),
+                this._db.customerMaster.findMany({
+                    where: { CompanyMasterSid: payload.CompanyMasterSid, CustomerType: { path: ['yard'], equals: 'isTrue' }, status: 'A' },
+                    select: { CustomerMasterSid: true, CustomerName: true, CustomerAddress1: true }
+                }),
+                this._db.customerMaster.findMany({
+                    where: { CompanyMasterSid: payload.CompanyMasterSid, CustomerType: { path: ['cFS'], equals: 'isTrue' }, status: 'A' },
+                    select: { CustomerMasterSid: true, CustomerName: true, CustomerAddress1: true }
                 })
             ]);
             const formattedCustomerList = customers.flatMap(customer => {
@@ -1652,7 +1686,7 @@ export class BookingService {
                 })
             );
 
-            return { customers : formattedCustomerList, salesmans: processedSalesmans, shippers, consignees, agents: processedAgents, carriers, forwarder, notify };
+            return { customers : formattedCustomerList, salesmans: processedSalesmans, shippers, consignees, agents: processedAgents, carriers, forwarder, notify ,yards:yard,cfs};
         } catch (error) {
             console.error('Error fetching Customer Related Lookups:', error);
             return {
@@ -1663,7 +1697,9 @@ export class BookingService {
                 agents: [],
                 carriers: [],
                 forwarder: [],
-                notify: []
+                notify: [],
+                yard:[],
+                cFS:[],
             };
         }
     }
@@ -1709,6 +1745,7 @@ export class BookingService {
                         IncoCode : true,
                         IncoName: true,
                         OceanFreight : true
+                        
                     },
                 }),
                 this._db.companyMaster.findFirst({
@@ -1758,7 +1795,14 @@ export class BookingService {
                 select: {
                     CurrencyMasterSid: true,
                     currencyName: true,
-                    currencyCode: true
+                    currencyCode: true,
+                    countryMaster: {
+                                select: {
+                                    CountryMasterSid: true,
+                                    countryName: true,
+                                    countryCode: true
+                                }
+                            },
                 }
             })
             return allContainerTypes;
