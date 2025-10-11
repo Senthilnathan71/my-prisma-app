@@ -1,63 +1,62 @@
 model CostRevenueCharges {
-  CostRevenueChargesSid       Int       @id @default(autoincrement())
+  CostRevenueChargesSid       Int                @id @default(autoincrement())
   TransactionSid              Int?
   MenuMasterSid               Int
-  ShipmentNo                  String?   @db.VarChar
-  MasterJobNo                 String?   @db.VarChar
+  ShipmentNo                  String?            @db.VarChar
+  MasterJobNo                 String?            @db.VarChar
   CompanyMasterSid            Int
   BranchMasterSid             Int
-  createdOn                   DateTime  @default(now()) @db.Timestamptz(6)
-  updatedOn                   DateTime? @updatedAt @db.Timestamptz(6)
-  deletedAt                   DateTime?
-  createdBy                   String    @db.VarChar(100)
-  updatedBy                   String?   @db.VarChar(100)
-  status                      String?   @default("A") @db.Char(1)
-  Remarks                     String?   @db.VarChar(100)
-  SerialNumber                Decimal?  @db.Decimal(3, 0)
+  SerialNumber                Decimal?           @db.Decimal(3, 0)
   ChargeMasterSid             Int?
-  ChargeDescription           String?   @db.VarChar(100)
+  ChargeDescription           String?            @db.VarChar(100)
   ChargeUomSid                Int?
-  CostPrepaidCollect          String?   @db.VarChar(10)
-  CostCurrencyMasterSid       Int?
-  CostExchangeRate            Decimal?  @db.Decimal(6, 3)
-  CostRate                    Decimal?  @db.Decimal(15, 3)
-  CostNumberOfUnit            Decimal?  @db.Decimal(4, 3)
-  CostDrCr                    String?   @db.Char(1)
-  CostAmount                  Decimal?  @db.Decimal(15, 3)
-  CostLocalAmount             Decimal?  @db.Decimal(15, 3)
-  CostAgentMasterSid          Int?
+  createdOn                   DateTime           @default(now()) @db.Timestamptz(6)
+  updatedOn                   DateTime?          @updatedAt @db.Timestamptz(6)
+  deletedAt                   DateTime?
+  createdBy                   String             @db.VarChar(100)
+  updatedBy                   String?            @db.VarChar(100)
+  status                      String?            @default("A") @db.Char(1)
+  Remarks                     String?            @db.VarChar(100)
   CostAgentBranchSid          Int?
-  RevenuePrepaidCollect       String?   @db.VarChar(10)
+  CostAgentMasterSid          Int?
+  CostAmount                  Decimal?           @db.Decimal(15, 3)
+  CostChargeUomSid            Int
+  CostCurrencyMasterSid       Int?
+  CostDrCr                    String?            @db.Char(1)
+  CostExchangeRate            Decimal?           @db.Decimal(6, 3)
+  CostLocalAmount             Decimal?           @db.Decimal(15, 3)
+  CostNumberOfUnit            Decimal?           @db.Decimal(4, 3)
+  CostPrepaidCollect          String?            @db.VarChar(10)
+  CostRate                    Decimal?           @db.Decimal(15, 3)
+  RevenueAmount               Decimal?           @db.Decimal(15, 3)
+  RevenueChargeUomSid         Int
   RevenueCurrencyMasterSid    Int?
-  RevenueExchangeRate         Decimal?  @db.Decimal(6, 3)
-  RevenueRate                 Decimal?  @db.Decimal(15, 3)
-  RevenueNumberOfUnit         Decimal?  @db.Decimal(4, 3)
-  RevenueDrCr                 String?   @db.Char(1)
-  RevenueAmount               Decimal?  @db.Decimal(15, 3)
-  RevenueLocalAmount          Decimal?  @db.Decimal(15, 3)
-  RevenueCustomerMasterSid    Int?
   RevenueCustomerBranchSid    Int?
+  RevenueCustomerMasterSid    Int?
+  RevenueDrCr                 String?            @db.Char(1)
+  RevenueExchangeRate         Decimal?           @db.Decimal(6, 3)
+  RevenueLocalAmount          Decimal?           @db.Decimal(15, 3)
+  RevenueNumberOfUnit         Decimal?           @db.Decimal(4, 3)
+  RevenuePrepaidCollect       String?            @db.VarChar(10)
+  RevenueRate                 Decimal?           @db.Decimal(15, 3)
   CostVoucherHeaderSid        Int?
   CostVoucherTypeMasterSid    Int?
   RevenueVoucherHeaderSid     Int?
   RevenueVoucherTypeMasterSid Int?
-  RevenueChargeUomSid         Int
-  CostChargeUomSid            Int
-
-  branchMaster             BranchMaster       @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
-  chargeMaster             ChargeMaster?      @relation(fields: [ChargeMasterSid], references: [ChargeMasterSid])
-  companyMaster            CompanyMaster      @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
-  menuMaster               MenuMaster         @relation(fields: [MenuMasterSid], references: [MenuMasterSid])
-  costCustomerBranch       CustomerBranch?    @relation("COST", fields: [CostAgentBranchSid], references: [CustomerBranchSid])
-  revenueCustomerBranch    CustomerBranch?    @relation("REVENUE", fields: [RevenueCustomerBranchSid], references: [CustomerBranchSid])
-  costCustomerMaster       CustomerMaster?    @relation("COST", fields: [CostAgentMasterSid], references: [CustomerMasterSid])
-  revenueCustomerMaster    CustomerMaster?    @relation("REVENUE", fields: [RevenueCustomerMasterSid], references: [CustomerMasterSid])
-  costCurrencyMaster       CurrencyMaster?    @relation("COST", fields: [CostCurrencyMasterSid], references: [CurrencyMasterSid])
-  revenueCurrencyMaster    CurrencyMaster?    @relation("REVENUE", fields: [RevenueCurrencyMasterSid], references: [CurrencyMasterSid])
-  costChargeUOMMaster      UOMMaster?         @relation("COST", fields: [CostChargeUomSid], references: [UOMMasterSid])
-  revenueChargeUOMMaster   UOMMaster?         @relation("REVENUE", fields: [RevenueChargeUomSid], references: [UOMMasterSid])
-  costVoucherHeader        VoucherHeader?     @relation("COST", fields: [CostVoucherHeaderSid], references: [VoucherHeaderSid])
-  costVoucherTypeMaster    VoucherTypeMaster? @relation("COST", fields: [CostVoucherTypeMasterSid], references: [VoucherTypeMasterSid])
-  revenueVoucherHeader     VoucherHeader?     @relation("REVENUE", fields: [RevenueVoucherHeaderSid], references: [VoucherHeaderSid])
-  revenueVoucherTypeMaster VoucherTypeMaster? @relation("REVENUE", fields: [RevenueVoucherTypeMasterSid], references: [VoucherTypeMasterSid])
+  branchMaster                BranchMaster       @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
+  chargeMaster                ChargeMaster?      @relation(fields: [ChargeMasterSid], references: [ChargeMasterSid])
+  companyMaster               CompanyMaster      @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+  costCustomerBranch          CustomerBranch?    @relation("COST", fields: [CostAgentBranchSid], references: [CustomerBranchSid])
+  costCustomerMaster          CustomerMaster?    @relation("COST", fields: [CostAgentMasterSid], references: [CustomerMasterSid])
+  costChargeUOMMaster         UOMMaster          @relation("COST", fields: [CostChargeUomSid], references: [UOMMasterSid])
+  costCurrencyMaster          CurrencyMaster?    @relation("COST", fields: [CostCurrencyMasterSid], references: [CurrencyMasterSid])
+  costVoucherHeader           VoucherHeader?     @relation("COST", fields: [CostVoucherHeaderSid], references: [VoucherHeaderSid])
+  costVoucherTypeMaster       VoucherTypeMaster? @relation("COST", fields: [CostVoucherTypeMasterSid], references: [VoucherTypeMasterSid])
+  menuMaster                  MenuMaster         @relation(fields: [MenuMasterSid], references: [MenuMasterSid])
+  revenueChargeUOMMaster      UOMMaster          @relation("REVENUE", fields: [RevenueChargeUomSid], references: [UOMMasterSid])
+  revenueCurrencyMaster       CurrencyMaster?    @relation("REVENUE", fields: [RevenueCurrencyMasterSid], references: [CurrencyMasterSid])
+  revenueCustomerBranch       CustomerBranch?    @relation("REVENUE", fields: [RevenueCustomerBranchSid], references: [CustomerBranchSid])
+  revenueCustomerMaster       CustomerMaster?    @relation("REVENUE", fields: [RevenueCustomerMasterSid], references: [CustomerMasterSid])
+  revenueVoucherHeader        VoucherHeader?     @relation("REVENUE", fields: [RevenueVoucherHeaderSid], references: [VoucherHeaderSid])
+  revenueVoucherTypeMaster    VoucherTypeMaster? @relation("REVENUE", fields: [RevenueVoucherTypeMasterSid], references: [VoucherTypeMasterSid])
 }

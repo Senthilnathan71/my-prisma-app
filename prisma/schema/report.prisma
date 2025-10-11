@@ -1,60 +1,45 @@
 model ReportMaster {
   /// Primary Key (uses PostgreSQL sequence `reportmaster_id_seq`)
-  ReportMasterSid Int @id @default(autoincrement())
-
+  ReportMasterSid       Int                  @id @default(autoincrement())
   /// Audit columns
-  CreatedOn DateTime @default(now())
-  CreatedBy String   @db.VarChar(100)
-  UpdatedOn DateTime @default(now())
-  UpdatedBy String?  @db.VarChar(100)
-
+  CreatedOn             DateTime             @default(now())
+  CreatedBy             String               @db.VarChar(100)
+  UpdatedOn             DateTime             @default(now())
+  UpdatedBy             String?              @db.VarChar(100)
   /// Status: e.g. 'A' (Active), 'I' (Inactive)
-  Status String @default("A") @db.Char(1)
-
+  Status                String               @default("A") @db.Char(1)
   /// Report meta
-  ReportName        String @db.VarChar(100)
-  ReportDisplayName String @db.VarChar(100)
-
+  ReportName            String               @db.VarChar(100)
+  ReportDisplayName     String               @db.VarChar(100)
   /// Foreign Key to MenuMaster
-  ReportMenuSid Int
-  // relation can be added once MenuMaster model exists:
-
+  ReportMenuSid         Int
   /// Type & Format
-  ReportType   String? @db.VarChar(10)
-  ReportFormat String  @db.Char(5) // e.g. "XL", "XML", "PDF"
-
+  ReportType            String?              @db.VarChar(10)
+  ReportFormat          String               @db.Char(5)
   /// Array of company IDs that should not see this report
   ReportExcludedCompany Json?
-
-  menuMaster         MenuMaster           @relation(fields: [ReportMenuSid], references: [MenuMasterSid])
-  ReportMasterDetail ReportMasterDetail[]
+  menuMaster            MenuMaster           @relation(fields: [ReportMenuSid], references: [MenuMasterSid])
+  ReportMasterDetail    ReportMasterDetail[]
 }
 
 model ReportMasterDetail {
   /// Primary Key (PostgreSQL sequence: vouchermatching_id_seq)
-  ReportMasterDetailSid Int @id @default(autoincrement())
-
+  ReportMasterDetailSid Int          @id @default(autoincrement())
   /// Audit columns
-  CreatedOn DateTime @default(now())
-  CreatedBy String   @db.VarChar(100)
-  UpdatedOn DateTime @default(now())
-  UpdatedBy String?  @db.VarChar(100)
-
+  CreatedOn             DateTime     @default(now())
+  CreatedBy             String       @db.VarChar(100)
+  UpdatedOn             DateTime     @default(now())
+  UpdatedBy             String?      @db.VarChar(100)
   /// Status
-  Status String @default("A") @db.Char(1)
-
+  Status                String       @default("A") @db.Char(1)
   /// Parameter information
-  ParameterName      String @db.VarChar(20)
-  ParameterFieldType String @db.VarChar(10) // string, date, number, dropdown/lookup
-
+  ParameterName         String       @db.VarChar(20)
+  ParameterFieldType    String       @db.VarChar(10)
   /// DropDown values
-  // If you prefer a single text column with comma-separated values, use:
-  DropDownValue Json?
-
+  DropDownValue         Json?
   /// Optional query to fetch dropdown data dynamically
-  ParameterQuery String? @db.VarChar(500)
-
+  ParameterQuery        String?      @db.VarChar(500)
   /// Foreign key to ReportMaster
-  ReportMasterSid Int
-  reportMaster    ReportMaster @relation(fields: [ReportMasterSid], references: [ReportMasterSid])
+  ReportMasterSid       Int
+  reportMaster          ReportMaster @relation(fields: [ReportMasterSid], references: [ReportMasterSid])
 }
