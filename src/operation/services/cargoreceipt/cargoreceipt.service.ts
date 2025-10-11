@@ -12,22 +12,14 @@ export class CargoreceiptService {
       const booking = await this._db.bookingHeader.findFirst({
         where: {
           BookingHeaderSid,
-          departmentMaster: {
-            ExportImport: 'Export',
-            FCLLCL: 'LCL',
-          },
+          departmentMaster: { ExportImport: 'Export', FCLLCL: 'LCL' },
           HBLNo: null,
-          status: 'A'
+          status: 'A',
         },
         select: {
           BookingHeaderSid: true,
           BookingNo: true,
           BookingDateTime: true,
-          departmentMaster: {
-            select: {
-              departmentName: true,
-            }
-          },
           CustomerName: true,
           HBLNo: true,
           VesselName: true,
@@ -36,6 +28,7 @@ export class CargoreceiptService {
           POD: true,
           POL: true,
           FPD: true,
+          departmentMaster: { select: { departmentName: true } },
           bookingProduct: {
             select: {
               ProductName: true,
@@ -49,11 +42,25 @@ export class CargoreceiptService {
               CargoRecDate: true,
               CFS: true,
               RecdPack: true,
-            }
-          }
+            },
+          },
         },
       });
-      return booking;
+
+      if (!booking) return null;
+
+      // Format decimals and dates
+      const formattedProducts = booking.bookingProduct.map(p => ({
+        ...p,
+        ExternlQty: p.ExternlQty != null ? p.ExternlQty.toString() : null,
+        GrossWeight: p.GrossWeight != null ? Number(p.GrossWeight).toFixed(3) : null,
+        NetWeight: p.NetWeight != null ? Number(p.NetWeight).toFixed(3) : null,
+        Volume: p.Volume != null ? Number(p.Volume).toFixed(3) : null,
+        CargoRecDate: p.CargoRecDate ? p.CargoRecDate.toISOString().split('T')[0] : null,
+        RecdPack: p.RecdPack != null ? p.RecdPack.toString() : null,
+      }));
+
+      return { ...booking, bookingProduct: formattedProducts };
     } catch (error) {
       this.logger.error('Error fetching LCL Export Booking by ID', error);
       throw error;
@@ -84,12 +91,14 @@ export class CargoreceiptService {
         const cargoRecDate = productData.CargoRecDate ? new Date(productData.CargoRecDate) : null;
 
         const updateData = {
-          GrossWeight: productData.GrossWeight?.toString(),
-          NetWeight: productData.NetWeight?.toString(),
-          ExternlQty: productData.ExternlQty?.toString(),
-          Volume: productData.Volume?.toString(),
-          CargoRecDate: cargoRecDate,
-        };
+  GrossWeight: productData.GrossWeight != null ? productData.GrossWeight.toString() : null,
+  NetWeight: productData.NetWeight != null ? productData.NetWeight.toString() : null,
+  ExternlQty: productData.ExternlQty != null ? productData.ExternlQty.toString() : null,
+  Volume: productData.Volume != null ? productData.Volume.toString() : null,
+  CargoRecDate: productData.CargoRecDate ? new Date(productData.CargoRecDate) : null,
+  CFS: productData.CFS,
+  RecdPack: productData.RecdPack != null ? productData.RecdPack.toString() : null,
+};
 
         const updateResult = await this._db.bookingProduct.updateMany({
           where: {
@@ -123,10 +132,12 @@ export class CargoreceiptService {
       const formattedProducts = products.map(p => ({
         ...p,
         ExternlQty: Number(p.ExternlQty),
-        GrossWeight: Number(p.GrossWeight),
-        NetWeight: Number(p.NetWeight),
-        Volume: Number(p.Volume),
+        GrossWeight:p.GrossWeight != null ? Number(p.GrossWeight).toFixed(3) : null,
+        NetWeight: p.NetWeight != null ? Number(p.NetWeight).toFixed(3) : null,
+        Volume: p.Volume != null ? Number(p.Volume).toFixed(3) : null,
         CargoRecDate: p.CargoRecDate ? p.CargoRecDate.toISOString().split('T')[0] : null,
+        CFS:p.CFS,
+        RecdPack: Number(p.RecdPack),
       }));
 
       const statusUpdatedBooking = await this._db.bookingHeader.update({
@@ -154,14 +165,13 @@ export class CargoreceiptService {
 
 
 
-  async search(params: filterDto) {
+   async search(params: filterDto) {
     const { search = '', page = 1, pageSize = 15 } = params;
     const skip = (page - 1) * pageSize;
 
     const where: Prisma.BookingHeaderWhereInput = {
       status: 'A',
       HBLNo: null,
-      BookingStatus : 'Booked',
       departmentMaster: {
         ExportImport: 'Export',
         FCLLCL: 'LCL',
@@ -176,59 +186,84 @@ export class CargoreceiptService {
             { POL: { contains: search, mode: 'insensitive' } },
             { POD: { contains: search, mode: 'insensitive' } },
             { FPD: { contains: search, mode: 'insensitive' } },
-            { status: { contains: search, mode: 'insensitive' } }
+            { status: { contains: search, mode: 'insensitive' } },
+            { BookingStatus: { contains: search, mode: 'insensitive' } }
           ],
         }
         : {}
       ),
     };
 
-    const [items, totalCount] = await this._db.$transaction([
-      this._db.bookingHeader.findMany({
-        where,
-        skip,
-        take: pageSize,
-        orderBy: { BookingDateTime: 'asc' },
-        select: {
-          BookingHeaderSid: true,
-          BookingNo: true,
-          BookingDateTime: true,
-          CustomerName: true,
-          VesselName: true,
-          BookingStatus:true,
-          VoyageNo: true,
-          POO: true,
-          POL: true,
-          POD: true,
-          FPD: true,
-          departmentMaster: {
-            select: {
-              departmentName: true,
-            }
-          },
-          status: true,
-          bookingProduct: {
-            select: {
-              ProductName: true,
-              ShippingBillNo: true,
-              ExternaPkg: true,
-              ExternlQty: true,
-              GrossWeight: true,
-              NetWeight: true,
-              Volume: true,
-              CargoRecDate: true,
-              CFS: true,
-              RecdPack: true,
-            }
+    // First, get all bookings that match the basic criteria
+    const allBookings = await this._db.bookingHeader.findMany({
+      where,
+      orderBy: { BookingDateTime: 'asc' },
+      select: {
+        BookingHeaderSid: true,
+        BookingNo: true,
+        BookingDateTime: true,
+        CustomerName: true,
+        VesselName: true,
+        VoyageNo: true,
+        POO: true,
+        POL: true,
+        POD: true,
+        FPD: true,
+        BookingStatus: true,
+        departmentMaster: {
+          select: {
+            departmentName: true,
+          }
+        },
+        status: true,
+        bookingProduct: {
+          select: {
+            ProductName: true,
+            ShippingBillNo: true,
+            ExternaPkg: true,
+            ExternlQty: true,
+            GrossWeight: true,
+            NetWeight: true,
+            Volume: true,
+            CargoRecDate: true,
+            CFS: true,
+            RecdPack: true,
           }
         }
-      }),
-      this._db.bookingHeader.count({ where }),
-    ]);
+      }
+    });
+
+    // Filter bookings based on status and recdPack logic
+    const filteredBookings = allBookings.filter(booking => {
+      // Only include 'Booked' and 'Cargo Received' statuses
+      if (booking.BookingStatus === 'Booked') {
+        return true;
+      }
+      
+      // For 'Cargo Received' status, check the recdPack vs externlQty condition
+      if (booking.BookingStatus === 'Cargo Received') {
+        // Check if any product has recdPack < externlQty
+        const hasIncompleteProducts = booking.bookingProduct.some(product => {
+          const recdPack = Number(product.RecdPack) || 0;
+          const externlQty = Number(product.ExternlQty) || 0;
+          return recdPack < externlQty;
+        });
+        
+        // Only include if there are incomplete products
+        return hasIncompleteProducts;
+      }
+      
+      // Exclude all other statuses (including 'Stuffed')
+      return false;
+    });
+
+    // Apply pagination to the filtered results
+    const paginatedItems = filteredBookings.slice(skip, skip + pageSize);
+    const totalCount = filteredBookings.length;
 
     return {
-      items,
+      items: paginatedItems,
       totalCount,
-    }
+    };
   }
 }

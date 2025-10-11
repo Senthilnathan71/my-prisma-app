@@ -72,18 +72,23 @@ async splitBooking(payload: SplitDTO) {
     splitType: prod.splitType.toLowerCase() as 'full' | 'part'
   }));
 
-  // 1. Don't allow to tick all rows
-  const totalProducts = await this._db.bookingProduct.count({
-    where: { BookingHeaderSid: bookingSid }
-  });
+  // 1. Fetch total products
+const totalProducts = await this._db.bookingProduct.count({
+  where: { BookingHeaderSid: bookingSid }
+});
 
-  if (normalizedProducts.length === totalProducts) {
-    throw new BadRequestException(
-      'You cannot split all products. At least one product must remain.'
-    );
-  }
+// 2. Only block if all products are selected AND all are full split
+const allSelected = normalizedProducts.length === totalProducts;
+const allFullSelected = normalizedProducts.every(p => p.splitType === 'full');
 
-  // 2. Fetch parent booking
+if (allSelected && allFullSelected) {
+  throw new BadRequestException(
+    'You cannot split all products fully. At least one product must remain.'
+  );
+}
+
+
+  // 3. Fetch parent booking
   const parentBooking = await this._db.bookingHeader.findUnique({
     where: { BookingHeaderSid: bookingSid },
     include: { bookingProduct: true }
@@ -91,7 +96,7 @@ async splitBooking(payload: SplitDTO) {
 
   if (!parentBooking) throw new BadRequestException('Booking not found');
 
-  // 3. Create new booking
+  // 4. Create new booking
   const newBooking = await this._db.bookingHeader.create({
     data: {
       ...parentBooking,
@@ -110,30 +115,34 @@ async splitBooking(payload: SplitDTO) {
     });
     if (!oldProduct) continue;
 
-    // 4. Handle split per product
+    // 5. Handle full split
     if (prod.splitType === 'full') {
       const moved = await this._db.bookingProduct.update({
         where: { BookingProductSid: prod.BookingProductSid },
         data: { BookingHeaderSid: newBooking.BookingHeaderSid }
       });
       newProducts.push(moved);
-    } else if (prod.splitType === 'part') {
+    } 
+    // 6. Handle partial split
+    else if (prod.splitType === 'part') {
       if (!prod.PartPackages || !prod.PartGrossWeight || !prod.PartCBM) {
         throw new BadRequestException(
           'Part split requires package, weight and CBM values'
         );
       }
 
-      // Validate that part quantities don't exceed original
-      if (prod.PartPackages > Number(oldProduct.ExternlQty) ||
-          prod.PartGrossWeight > Number(oldProduct.GrossWeight) ||
-          prod.PartCBM > Number(oldProduct.Volume)) {
+      // Validate quantities
+      if (
+        prod.PartPackages > Number(oldProduct.ExternlQty) ||
+        prod.PartGrossWeight > Number(oldProduct.GrossWeight) ||
+        prod.PartCBM > Number(oldProduct.Volume)
+      ) {
         throw new BadRequestException(
           'Part quantities cannot exceed original product quantities'
         );
       }
 
-      // Reduce old booking product
+      // Reduce old product
       const reduced = await this._db.bookingProduct.update({
         where: { BookingProductSid: prod.BookingProductSid },
         data: {
@@ -144,7 +153,7 @@ async splitBooking(payload: SplitDTO) {
       });
       updatedOldProducts.push(reduced);
 
-      // Add new product under new booking
+      // Add new product to new booking
       const newProduct = await this._db.bookingProduct.create({
         data: {
           ...oldProduct,
@@ -170,6 +179,7 @@ async splitBooking(payload: SplitDTO) {
     updatedOldProducts
   };
 }
+
 
   private async generateNewBookingNo(): Promise<string> {
     const dateString = moment().format('YYYYMMDD');
