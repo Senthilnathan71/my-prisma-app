@@ -165,7 +165,8 @@ export class CurrencyExchangeService {
             })
 
             if(!exchangeRate){
-                throw new BadRequestException(`Exchange rate not found for ${fromCurrency} to ${toCurrency}`);
+                console.error('Exchange rate not found');
+                return null;
             }
 
             if(payload.segment === 'cost'){
