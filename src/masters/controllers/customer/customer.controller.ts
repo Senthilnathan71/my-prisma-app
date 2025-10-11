@@ -315,56 +315,56 @@ async searchCustomersByName(@Body() body: {
         }
         return output
     }
-    @ApiOperation({ summary: 'Get All Shipper' })
-    @ApiCreatedResponse({
-        description: 'Get All Shipper',
-        type: ResponseData
-    })
-    @HttpCode(HttpStatus.OK)
-    @Post('shipper')
-    async getAllShippers(@Body() body: CompanyIdDto) {
-        let output = new ResponseData;
-        try {
-            let customerData = await this.customerService.getAllShippers(body.CompanyMasterSid);
-            this.logger.log(`getAllShippers: ${JSON.stringify(customerData)}`)
-            output.data = customerData;
-            output.message = "All shipper are successfully fetched";
-        } catch (error) {
-            this.logger.warn(`getAllShippers: ${JSON.stringify(error)}`)
-            output.status = false;
-            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
-                output.message = error.message;
-            } else {
-                output.message = 'Internal Server Error';
-            }
-        }
-        return output
-    }
-    @ApiOperation({ summary: 'Get All Consignee' })
-    @ApiCreatedResponse({
-        description: 'Get All Consignee',
-        type: ResponseData
-    })
-    @HttpCode(HttpStatus.OK)
-    @Post('consignee')
-    async getAllConsignees(@Body() body: CompanyIdDto) {
-        let output = new ResponseData;
-        try {
-            let customerData = await this.customerService.getAllConsignee(body.CompanyMasterSid);
-            this.logger.log(`getAllConsignees: ${JSON.stringify(customerData)}`)
-            output.data = customerData;
-            output.message = "All consignee are successfully fetched";
-        } catch (error) {
-            this.logger.warn(`getAllConsignees: ${JSON.stringify(error)}`)
-            output.status = false;
-            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
-                output.message = error.message;
-            } else {
-                output.message = 'Internal Server Error';
-            }
-        }
-        return output
-    }
+    // @ApiOperation({ summary: 'Get All Shipper' })
+    // @ApiCreatedResponse({
+    //     description: 'Get All Shipper',
+    //     type: ResponseData
+    // })
+    // @HttpCode(HttpStatus.OK)
+    // @Post('shipper')
+    // async getAllShippers(@Body() body: CompanyIdDto) {
+    //     let output = new ResponseData;
+    //     try {
+    //         let customerData = await this.customerService.getAllShippers(body.CompanyMasterSid);
+    //         this.logger.log(`getAllShippers: ${JSON.stringify(customerData)}`)
+    //         output.data = customerData;
+    //         output.message = "All shipper are successfully fetched";
+    //     } catch (error) {
+    //         this.logger.warn(`getAllShippers: ${JSON.stringify(error)}`)
+    //         output.status = false;
+    //         if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+    //             output.message = error.message;
+    //         } else {
+    //             output.message = 'Internal Server Error';
+    //         }
+    //     }
+    //     return output
+    // }
+    // @ApiOperation({ summary: 'Get All Consignee' })
+    // @ApiCreatedResponse({
+    //     description: 'Get All Consignee',
+    //     type: ResponseData
+    // })
+    // @HttpCode(HttpStatus.OK)
+    // @Post('consignee')
+    // async getAllConsignees(@Body() body: CompanyIdDto) {
+    //     let output = new ResponseData;
+    //     try {
+    //         let customerData = await this.customerService.getAllConsignee(body.CompanyMasterSid);
+    //         this.logger.log(`getAllConsignees: ${JSON.stringify(customerData)}`)
+    //         output.data = customerData;
+    //         output.message = "All consignee are successfully fetched";
+    //     } catch (error) {
+    //         this.logger.warn(`getAllConsignees: ${JSON.stringify(error)}`)
+    //         output.status = false;
+    //         if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+    //             output.message = error.message;
+    //         } else {
+    //             output.message = 'Internal Server Error';
+    //         }
+    //     }
+    //     return output
+    // }
     @ApiOperation({ summary: 'Get All Agent' })
     @ApiCreatedResponse({
         description: 'Get All Agent',
@@ -414,56 +414,56 @@ async searchCustomersByName(@Body() body: {
         return output
     }
 
-    @ApiOperation({ summary: 'Get All CFS' })
-    @ApiCreatedResponse({
-        description: 'Get All CFS',
-        type: ResponseData
-    })
-    @HttpCode(HttpStatus.OK)
-    @Post('cfs')
-    async getAllCFS(@Body() body: CompanyIdDto) {
-        let output = new ResponseData;
-        try {
-            let customerData = await this.customerService.getAllCFS(body.CompanyMasterSid);
-            this.logger.log(`getAllCFS: ${JSON.stringify(customerData)}`)
-            output.data = customerData;
-            output.message = "All CFS are successfully fetched";
-        } catch (error) {
-            this.logger.warn(`getAllCFS: ${JSON.stringify(error)}`)
-            output.status = false;
-            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
-                output.message = error.message;
-            } else {
-                output.message = 'Internal Server Error';
-            }
-        }
-        return output
-    }
+    // @ApiOperation({ summary: 'Get All CFS' })
+    // @ApiCreatedResponse({
+    //     description: 'Get All CFS',
+    //     type: ResponseData
+    // })
+    // @HttpCode(HttpStatus.OK)
+    // @Post('cfs')
+    // async getAllCFS(@Body() body: CompanyIdDto) {
+    //     let output = new ResponseData;
+    //     try {
+    //         let customerData = await this.customerService.getAllCFS(body.CompanyMasterSid);
+    //         this.logger.log(`getAllCFS: ${JSON.stringify(customerData)}`)
+    //         output.data = customerData;
+    //         output.message = "All CFS are successfully fetched";
+    //     } catch (error) {
+    //         this.logger.warn(`getAllCFS: ${JSON.stringify(error)}`)
+    //         output.status = false;
+    //         if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+    //             output.message = error.message;
+    //         } else {
+    //             output.message = 'Internal Server Error';
+    //         }
+    //     }
+    //     return output
+    // }
 
-    @ApiOperation({ summary: 'Get All Suppliers' })
-    @ApiCreatedResponse({
-        description: 'Get All Suppliers',
-        type: ResponseData
-    })
-    @HttpCode(HttpStatus.OK)
-    @Post('suppliers')
-    async getAllSuppliers(@Body() body: CompanyIdDto) {
-        let output = new ResponseData();
-        try {
-            let customerData = await this.customerService.getAllSuppliers(body.CompanyMasterSid);
-            this.logger.log(`getAllSuppliers: ${JSON.stringify(customerData)}`)
-            output.data = customerData;
-        } catch (error) {
-            this.logger.warn(`getAllSuppliers: ${JSON.stringify(error)}`)
-            output.status = false;
-            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
-                output.message = error.message;
-            } else {
-                output.message = 'Internal Server Error';
-            }
-        }
-        return output
-    }
+    // @ApiOperation({ summary: 'Get All Suppliers' })
+    // @ApiCreatedResponse({
+    //     description: 'Get All Suppliers',
+    //     type: ResponseData
+    // })
+    // @HttpCode(HttpStatus.OK)
+    // @Post('suppliers')
+    // async getAllSuppliers(@Body() body: CompanyIdDto) {
+    //     let output = new ResponseData();
+    //     try {
+    //         let customerData = await this.customerService.getAllSuppliers(body.CompanyMasterSid);
+    //         this.logger.log(`getAllSuppliers: ${JSON.stringify(customerData)}`)
+    //         output.data = customerData;
+    //     } catch (error) {
+    //         this.logger.warn(`getAllSuppliers: ${JSON.stringify(error)}`)
+    //         output.status = false;
+    //         if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+    //             output.message = error.message;
+    //         } else {
+    //             output.message = 'Internal Server Error';
+    //         }
+    //     }
+    //     return output
+    // }
     @ApiOperation({ summary: 'Get Audit Logs for a Table/Record' })
     @ApiCreatedResponse({ description: 'Fetch audit logs', type: ResponseData })
     @HttpCode(HttpStatus.OK)
@@ -522,4 +522,31 @@ async searchCustomersByName(@Body() body: {
         }
         return output
     }
+
+
+    @ApiOperation({ summary: 'Get All Suppliers' })
+    @ApiCreatedResponse({
+        description: 'Get All Suppliers',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Post('customer_type/filter')
+    async getCustomerByType(@Body() body: any) {
+        let output = new ResponseData();
+        try {
+            let customerData = await this.customerService.getCustomerByType(body.CompanyMasterSid, body?.types);
+            this.logger.log(`getCustomerByType: ${JSON.stringify(customerData)}`)
+            output.data = customerData;
+        } catch (error) {
+            this.logger.warn(`getCustomerByType: ${JSON.stringify(error)}`)
+            output.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                output.message = error.message;
+            } else {
+                output.message = 'Internal Server Error';
+            }
+        }
+        return output
+    }
+
 }

@@ -37,7 +37,7 @@ FROM
       FROM
         "HouseJob"
       WHERE
-        ("HouseJob"."Status" = 'A' :: bpchar)
+        ("HouseJob".status = 'A' :: bpchar)
       GROUP BY
         "HouseJob"."MasterJobSid"
     ) hc ON ((mj."MasterJobSid" = hc."MasterJobSid"))

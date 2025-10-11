@@ -96,7 +96,7 @@ export class CustomerService {
                             Address: branch.Address,
                             Registered: branch.Registered,
                             CustomerGstType: branch.CustomerGstType,
-                            GSTNo: branch.GSTNo|| '', 
+                            GSTNo: branch.GSTNo || '',
                             status: branch.status,
                             createdBy: userEmail,
                         }
@@ -236,7 +236,7 @@ export class CustomerService {
                         }
                     },
                     CustomerName: true,
-                    CompanyMasterSid:true,
+                    CompanyMasterSid: true,
                     CustomerShortCode: true,
                     CustomerType: true,
                     CustomerAliasName: true,
@@ -252,8 +252,8 @@ export class CustomerService {
                     CompanyType: true,
                     PanName: true,
                     PanType: true,
-                    AirlineCode:true,
-                    AirlineNumber:true,
+                    AirlineCode: true,
+                    AirlineNumber: true,
                     status: true,
                     CustomerBranch: {
                         where: { status: statusWhereClause },
@@ -279,7 +279,7 @@ export class CustomerService {
                                     CityMasterSid: true,
                                 }
                             },
-                            CompanyMasterSid:true,
+                            CompanyMasterSid: true,
                             BranchName: true,
                             Branch_Type: true,
                             Branch_Code: true,
@@ -502,7 +502,7 @@ export class CustomerService {
             const customerList = await this._db.customerMaster.findMany({
                 where: {
                     status: 'A',
-                    preCustomerMaster:{
+                    preCustomerMaster: {
                         PreCustomerMasterSid: PreCustomerMasterSid,
                         leadStatus: LeadStatus.DealWon
                     },
@@ -665,466 +665,466 @@ export class CustomerService {
 
 
     async updateCustomer(CustomerMasterSid: number, payload: CreateUpdateCustomerDto, user: any) {
-    this.logger.log(`updateCustomer: ${JSON.stringify(payload)}`);
-    this.logger.log(`User from JWT: ${JSON.stringify(user)}`);
+        this.logger.log(`updateCustomer: ${JSON.stringify(payload)}`);
+        this.logger.log(`User from JWT: ${JSON.stringify(user)}`);
 
-    // Extract user email from JWT token
-    const userEmail = user?.UserEmail || user?.email || user?.userEmail;
+        // Extract user email from JWT token
+        const userEmail = user?.UserEmail || user?.email || user?.userEmail;
 
-    const existing = await this._db.customerMaster.findUnique({
-        where: { CustomerMasterSid }
-    });
-
-    if (!existing) {
-        throw new NotFoundException(`Customer with ID ${CustomerMasterSid} not found`);
-    }
-
-    // Validate duplicate name/code (excluding current customer)
-    const duplicateCheck = await this.checkUniqueCustomerFields({
-        CompanyMasterSid: payload.customer.CompanyMasterSid,
-        customerName: payload.customer.CustomerName,
-        customerShortCode: payload.customer.CustomerShortCode,
-        excludeCustomerMasterSid: CustomerMasterSid
-    });
-
-    if (duplicateCheck.nameTaken || duplicateCheck.codeTaken) {
-        throw new BadRequestException(duplicateCheck.message);
-    }
-
-    // Validate at least one branch
-    if (!payload.customerBranches || payload.customerBranches.length === 0) {
-        throw new BadRequestException('At least one branch is required');
-    }
-
-    return this._db.$transaction(async (tx) => {
-        // 1️⃣ Update main customer
-        const customer = await tx.customerMaster.update({
-            where: { CustomerMasterSid },
-            data: {
-                CompanyMasterSid: payload.customer.CompanyMasterSid,
-                CustomerName: payload.customer.CustomerName,
-                CustomerShortCode: payload.customer.CustomerShortCode,
-                CustomerAliasName: payload.customer.CustomerAliasName,
-                CustomerAddress1: payload.customer.CustomerAddress1,
-                CustomerAddress2: payload.customer.CustomerAddress2,
-                CountryMasterSid: payload.customer.CountryMasterSid,
-                CustomerType: payload.customer.CustomerType,
-                PanName: payload.customer.PanName,
-                PanType: payload.customer.PanType,
-                GroupName: payload.customer.GroupName,
-                Website: payload.customer.Website,
-                CashCredit: payload.customer.CashCredit,
-                Network: payload.customer.Network,
-                Remarks: payload.customer.Remarks,
-                IsMSME: payload.customer.IsMSME,
-                RegistrationNo: payload.customer.RegistrationNo,
-                CompanyType: payload.customer.CompanyType,
-                AirlineNumber: payload.customer.AirlineNumber,
-                AirlineCode: payload.customer.AirlineCode,
-                status: payload.customer.status,
-                updatedBy: userEmail
-            }
+        const existing = await this._db.customerMaster.findUnique({
+            where: { CustomerMasterSid }
         });
 
-        // 2️⃣ Get existing branches to identify deletions
-        const existingBranches = await tx.customerBranch.findMany({
-            where: { CustomerMasterSid, status: 'A' },
-            select: { CustomerBranchSid: true }
-        });
-
-        const incomingBranchIds = payload.customerBranches
-            .filter(b => b.CustomerBranchSid)
-            .map(b => b.CustomerBranchSid);
-
-        const branchIdsToDelete = existingBranches
-            .filter(eb => !incomingBranchIds.includes(eb.CustomerBranchSid))
-            .map(eb => eb.CustomerBranchSid);
-
-        // Soft delete removed branches and their children
-        if (branchIdsToDelete.length > 0) {
-            await tx.customerBranch.updateMany({
-                where: { CustomerBranchSid: { in: branchIdsToDelete } },
-                data: { status: 'D' }
-            });
-
-            await tx.cusBranchContact.updateMany({
-                where: { CustomerBranchSid: { in: branchIdsToDelete } },
-                data: { status: 'D' }
-            });
-
-            await tx.customerBrEmail.updateMany({
-                where: { CustomerBranchSid: { in: branchIdsToDelete } },
-                data: { status: 'D' }
-            });
-
-            await tx.customerLogin.updateMany({
-                where: { CustomerBranchSid: { in: branchIdsToDelete } },
-                data: { status: 'D' }
-            });
-
-            await tx.customerSalesTeam.updateMany({
-                where: { CustomerBranchSid: { in: branchIdsToDelete } },
-                data: { status: 'D' }
-            });
-
-            await tx.customerMilestone.updateMany({
-                where: { CustomerBranchSid: { in: branchIdsToDelete } },
-                data: { Status: 'D' }
-            });
+        if (!existing) {
+            throw new NotFoundException(`Customer with ID ${CustomerMasterSid} not found`);
         }
 
-        // 3️⃣ Handle branches
-        for (const branch of payload.customerBranches) {
-            let branchId: number;
+        // Validate duplicate name/code (excluding current customer)
+        const duplicateCheck = await this.checkUniqueCustomerFields({
+            CompanyMasterSid: payload.customer.CompanyMasterSid,
+            customerName: payload.customer.CustomerName,
+            customerShortCode: payload.customer.CustomerShortCode,
+            excludeCustomerMasterSid: CustomerMasterSid
+        });
 
-            // Handle branch create/update
-            if (branch.CustomerBranchSid) {
-                // Update existing branch
-                const updatedBranch = await tx.customerBranch.update({
-                    where: { CustomerBranchSid: branch.CustomerBranchSid },
-                    data: {
-                        BranchName: branch.BranchName,
-                        StateMasterSid: branch.StateMasterSid,
-                        Branch_Code: branch.Branch_Code, 
-                        CityMasterSid: branch.CityMasterSid,
-                        Branch_Type: branch.Branch_Type,
-                        Contact_Person: branch.Contact_Person,
-                        Zip_PostBox: branch.Zip_PostBox,
-                        ContactNo: branch.ContactNo,
-                        Email: branch.Email,
-                        Address: branch.Address,
-                        Registered: branch.Registered,
-                        CustomerGstType: branch.CustomerGstType,
-                        GSTNo: branch.GSTNo|| '', 
-                        status: branch.status,
-                        updatedBy: userEmail
-                    }
-                });
-                branchId = updatedBranch.CustomerBranchSid;
-            } else {
-                // Create new branch
-                const createdBranch = await tx.customerBranch.create({
-                    data: {
-                        BranchName: branch.BranchName,
-                        StateMasterSid: branch.StateMasterSid,
-                        Branch_Code: branch.Branch_Code ,
-                        CityMasterSid: branch.CityMasterSid,
-                        CustomerMasterSid: customer.CustomerMasterSid,
-                        CompanyMasterSid: customer.CompanyMasterSid,
-                        Branch_Type: branch.Branch_Type,
-                        Contact_Person: branch.Contact_Person,
-                        Zip_PostBox: branch.Zip_PostBox,
-                        ContactNo: branch.ContactNo,
-                        Email: branch.Email,
-                        Address: branch.Address,
-                        Registered: branch.Registered,
-                        CustomerGstType: branch.CustomerGstType,
-                        GSTNo: branch.GSTNo|| '', 
-                        status: branch.status,
-                        createdBy: userEmail
-                    }
-                });
-                branchId = createdBranch.CustomerBranchSid;
-            }
+        if (duplicateCheck.nameTaken || duplicateCheck.codeTaken) {
+            throw new BadRequestException(duplicateCheck.message);
+        }
 
-            // 4️⃣ Handle CusBranchContact
-            if (branch.customerBranchContacts && branch.customerBranchContacts.length > 0) {
-                const existingContacts = await tx.cusBranchContact.findMany({
-                    where: { CustomerBranchSid: branchId, status: 'A' },
-                    select: { CusBranchContactSid: true }
-                });
+        // Validate at least one branch
+        if (!payload.customerBranches || payload.customerBranches.length === 0) {
+            throw new BadRequestException('At least one branch is required');
+        }
 
-                const incomingContactIds = branch.customerBranchContacts
-                    .filter(c => c.CusBranchContactSid)
-                    .map(c => c.CusBranchContactSid);
-
-                const contactIdsToDelete = existingContacts
-                    .filter(ec => !incomingContactIds.includes(ec.CusBranchContactSid))
-                    .map(ec => ec.CusBranchContactSid);
-
-                if (contactIdsToDelete.length > 0) {
-                    await tx.cusBranchContact.updateMany({
-                        where: { CusBranchContactSid: { in: contactIdsToDelete } },
-                        data: { status: 'D' }
-                    });
+        return this._db.$transaction(async (tx) => {
+            // 1️⃣ Update main customer
+            const customer = await tx.customerMaster.update({
+                where: { CustomerMasterSid },
+                data: {
+                    CompanyMasterSid: payload.customer.CompanyMasterSid,
+                    CustomerName: payload.customer.CustomerName,
+                    CustomerShortCode: payload.customer.CustomerShortCode,
+                    CustomerAliasName: payload.customer.CustomerAliasName,
+                    CustomerAddress1: payload.customer.CustomerAddress1,
+                    CustomerAddress2: payload.customer.CustomerAddress2,
+                    CountryMasterSid: payload.customer.CountryMasterSid,
+                    CustomerType: payload.customer.CustomerType,
+                    PanName: payload.customer.PanName,
+                    PanType: payload.customer.PanType,
+                    GroupName: payload.customer.GroupName,
+                    Website: payload.customer.Website,
+                    CashCredit: payload.customer.CashCredit,
+                    Network: payload.customer.Network,
+                    Remarks: payload.customer.Remarks,
+                    IsMSME: payload.customer.IsMSME,
+                    RegistrationNo: payload.customer.RegistrationNo,
+                    CompanyType: payload.customer.CompanyType,
+                    AirlineNumber: payload.customer.AirlineNumber,
+                    AirlineCode: payload.customer.AirlineCode,
+                    status: payload.customer.status,
+                    updatedBy: userEmail
                 }
+            });
 
-                for (const contact of branch.customerBranchContacts) {
-                    if (contact.CusBranchContactSid) {
-                        await tx.cusBranchContact.update({
-                            where: { CusBranchContactSid: contact.CusBranchContactSid },
-                            data: {
-                                ContactType: contact.ContactType,
-                                ContactName: contact.ContactName,
-                                ContactNo: contact.ContactNo,
-                                MobileNo: contact.MobileNo,
-                                Email: contact.Email,
-                                status: contact.status,
-                                updatedBy: userEmail
-                            }
-                        });
-                    } else {
-                        await tx.cusBranchContact.create({
-                            data: {
-                                ContactType: contact.ContactType,
-                                ContactName: contact.ContactName,
-                                ContactNo: contact.ContactNo,
-                                MobileNo: contact.MobileNo,
-                                Email: contact.Email,
-                                status: contact.status,
-                                createdBy: userEmail,
-                                CustomerMasterSid: customer.CustomerMasterSid,
-                                CustomerBranchSid: branchId
-                            }
-                        });
-                    }
-                }
-            } else {
-                // Delete all existing contacts if none provided
+            // 2️⃣ Get existing branches to identify deletions
+            const existingBranches = await tx.customerBranch.findMany({
+                where: { CustomerMasterSid, status: 'A' },
+                select: { CustomerBranchSid: true }
+            });
+
+            const incomingBranchIds = payload.customerBranches
+                .filter(b => b.CustomerBranchSid)
+                .map(b => b.CustomerBranchSid);
+
+            const branchIdsToDelete = existingBranches
+                .filter(eb => !incomingBranchIds.includes(eb.CustomerBranchSid))
+                .map(eb => eb.CustomerBranchSid);
+
+            // Soft delete removed branches and their children
+            if (branchIdsToDelete.length > 0) {
+                await tx.customerBranch.updateMany({
+                    where: { CustomerBranchSid: { in: branchIdsToDelete } },
+                    data: { status: 'D' }
+                });
+
                 await tx.cusBranchContact.updateMany({
-                    where: { CustomerBranchSid: branchId, status: 'A' },
+                    where: { CustomerBranchSid: { in: branchIdsToDelete } },
                     data: { status: 'D' }
                 });
-            }
 
-            // 5️⃣ Handle CustomerBrEmail
-            if (branch.customerBranchEmails && branch.customerBranchEmails.length > 0) {
-                const existingEmails = await tx.customerBrEmail.findMany({
-                    where: { CustomerBranchSid: branchId, status: 'A' },
-                    select: { CustomerBrEmailSid: true }
-                });
-
-                const incomingEmailIds = branch.customerBranchEmails
-                    .filter(e => e.CustomerBrEmailSid)
-                    .map(e => e.CustomerBrEmailSid);
-
-                const emailIdsToDelete = existingEmails
-                    .filter(ee => !incomingEmailIds.includes(ee.CustomerBrEmailSid))
-                    .map(ee => ee.CustomerBrEmailSid);
-
-                if (emailIdsToDelete.length > 0) {
-                    await tx.customerBrEmail.updateMany({
-                        where: { CustomerBrEmailSid: { in: emailIdsToDelete } },
-                        data: { status: 'D' }
-                    });
-                }
-
-                for (const email of branch.customerBranchEmails) {
-                    if (email.CustomerBrEmailSid) {
-                        await tx.customerBrEmail.update({
-                            where: { CustomerBrEmailSid: email.CustomerBrEmailSid },
-                            data: {
-                                CustomerBranchSid: branchId,
-                                Toemail: email.Toemail,
-                                CCemail: email.CCemail,
-                                DepartmentMasterSid: email.DepartmentMasterSid,
-                                MenuMasterSid: email.MenuMasterSid,
-                                status: email.status,
-                                updatedBy: userEmail
-                            }
-                        });
-                    } else {
-                        await tx.customerBrEmail.create({
-                            data: {
-                                Toemail: email.Toemail,
-                                CCemail: email.CCemail,
-                                DepartmentMasterSid: email.DepartmentMasterSid,
-                                MenuMasterSid: email.MenuMasterSid,
-                                status: email.status,
-                                createdBy: userEmail,
-                                CustomerMasterSid: customer.CustomerMasterSid,
-                                CustomerBranchSid: branchId,
-                                CompanyMasterSid: customer.CompanyMasterSid
-                            }
-                        });
-                    }
-                }
-            } else {
                 await tx.customerBrEmail.updateMany({
-                    where: { CustomerBranchSid: branchId, status: 'A' },
+                    where: { CustomerBranchSid: { in: branchIdsToDelete } },
                     data: { status: 'D' }
                 });
-            }
 
-            // 6️⃣ Handle CustomerLogin
-            if (branch.customerBranchLogins && branch.customerBranchLogins.length > 0) {
-                const existingLogins = await tx.customerLogin.findMany({
-                    where: { CustomerBranchSid: branchId, status: 'A' },
-                    select: { CustomerLoginSid: true }
-                });
-
-                const incomingLoginIds = branch.customerBranchLogins
-                    .filter(l => l.CustomerLoginSid)
-                    .map(l => l.CustomerLoginSid);
-
-                const loginIdsToDelete = existingLogins
-                    .filter(el => !incomingLoginIds.includes(el.CustomerLoginSid))
-                    .map(el => el.CustomerLoginSid);
-
-                if (loginIdsToDelete.length > 0) {
-                    await tx.customerLogin.updateMany({
-                        where: { CustomerLoginSid: { in: loginIdsToDelete } },
-                        data: { status: 'D' }
-                    });
-                }
-
-                for (const login of branch.customerBranchLogins) {
-                    if (login.CustomerLoginSid) {
-                        await tx.customerLogin.update({
-                            where: { CustomerLoginSid: login.CustomerLoginSid },
-                            data: {
-                                CustomerBranchSid: branchId,
-                                LoginName: login.LoginName,
-                                LoginEmail: login.LoginEmail,
-                                LoginPassword: login.LoginPassword,
-                                status: login.status,
-                                updatedBy: userEmail
-                            }
-                        });
-                    } else {
-                        await tx.customerLogin.create({
-                            data: {
-                                LoginName: login.LoginName,
-                                LoginEmail: login.LoginEmail,
-                                LoginPassword: login.LoginPassword,
-                                status: login.status,
-                                createdBy: userEmail,
-                                CustomerMasterSid: customer.CustomerMasterSid,
-                                CustomerBranchSid: branchId,
-                                CompanyMasterSid: customer.CompanyMasterSid
-                            }
-                        });
-                    }
-                }
-            } else {
                 await tx.customerLogin.updateMany({
-                    where: { CustomerBranchSid: branchId, status: 'A' },
+                    where: { CustomerBranchSid: { in: branchIdsToDelete } },
                     data: { status: 'D' }
                 });
-            }
 
-            // 7️⃣ Handle CustomerSalesTeam
-            if (branch.customerSalesTeams && branch.customerSalesTeams.length > 0) {
-                const existingSalesTeams = await tx.customerSalesTeam.findMany({
-                    where: { CustomerBranchSid: branchId, status: 'A' },
-                    select: { CustomerSalesSid: true }
-                });
-
-                const incomingSalesIds = branch.customerSalesTeams
-                    .filter(s => s.CustomerSalesSid)
-                    .map(s => s.CustomerSalesSid);
-
-                const salesIdsToDelete = existingSalesTeams
-                    .filter(es => !incomingSalesIds.includes(es.CustomerSalesSid))
-                    .map(es => es.CustomerSalesSid);
-
-                if (salesIdsToDelete.length > 0) {
-                    await tx.customerSalesTeam.updateMany({
-                        where: { CustomerSalesSid: { in: salesIdsToDelete } },
-                        data: { status: 'D' }
-                    });
-                }
-
-                for (const sales of branch.customerSalesTeams) {
-                    if (sales.CustomerSalesSid) {
-                        await tx.customerSalesTeam.update({
-                            where: { CustomerSalesSid: sales.CustomerSalesSid },
-                            data: {
-                                CustomerBranchSid: branchId,
-                                DepartmentMasterSid: sales.DepartmentMasterSid, // Array of integers
-                                Salesman: sales.Salesman,
-                                CSPerson: sales.CSPerson,
-                                DocPerson: sales.DocPerson,
-                                EffectiveFrom: sales.EffectiveFrom,
-                                status: sales.status,
-                                updatedBy: userEmail
-                            }
-                        });
-                    } else {
-                        await tx.customerSalesTeam.create({
-                            data: {
-                                DepartmentMasterSid: sales.DepartmentMasterSid, // Array of integers
-                                Salesman: sales.Salesman,
-                                CSPerson: sales.CSPerson,
-                                DocPerson: sales.DocPerson,
-                                EffectiveFrom: sales.EffectiveFrom,
-                                status: sales.status,
-                                createdBy: userEmail,
-                                CustomerMasterSid: customer.CustomerMasterSid,
-                                CustomerBranchSid: branchId,
-                                CompanyMasterSid: customer.CompanyMasterSid
-                            }
-                        });
-                    }
-                }
-            } else {
                 await tx.customerSalesTeam.updateMany({
-                    where: { CustomerBranchSid: branchId, status: 'A' },
+                    where: { CustomerBranchSid: { in: branchIdsToDelete } },
                     data: { status: 'D' }
                 });
-            }
 
-            // 8️⃣ Handle CustomerMilestone
-            if (branch.customerMilestones && branch.customerMilestones.length > 0) {
-                const existingMilestones = await tx.customerMilestone.findMany({
-                    where: { CustomerBranchSid: branchId, Status: 'A' },
-                    select: { CustomerMilestoneSid: true }
-                });
-
-                const incomingMilestoneIds = branch.customerMilestones
-                    .filter(m => m.CustomerMilestoneSid)
-                    .map(m => m.CustomerMilestoneSid);
-
-                const milestoneIdsToDelete = existingMilestones
-                    .filter(em => !incomingMilestoneIds.includes(em.CustomerMilestoneSid))
-                    .map(em => em.CustomerMilestoneSid);
-
-                if (milestoneIdsToDelete.length > 0) {
-                    await tx.customerMilestone.updateMany({
-                        where: { CustomerMilestoneSid: { in: milestoneIdsToDelete } },
-                        data: { Status: 'D' }
-                    });
-                }
-
-                for (const milestone of branch.customerMilestones) {
-                    if (milestone.CustomerMilestoneSid) {
-                        await tx.customerMilestone.update({
-                            where: { CustomerMilestoneSid: milestone.CustomerMilestoneSid },
-                            data: {
-                                MilestoneMasterSid: milestone.MilestoneMasterSid,
-                                UpdateType: milestone.UpdateType,
-                                ContactInfo: milestone.ContactInfo,
-                                EffectiveFrom: milestone.EffectiveFrom,
-                                Status: milestone.Status,
-                                UpdatedBy: userEmail
-                            }
-                        });
-                    } else {
-                        await tx.customerMilestone.create({
-                            data: {
-                                MilestoneMasterSid: milestone.MilestoneMasterSid,
-                                UpdateType: milestone.UpdateType,
-                                ContactInfo: milestone.ContactInfo,
-                                EffectiveFrom: milestone.EffectiveFrom,
-                                Status: milestone.Status,
-                                CreatedBy: userEmail,
-                                CustomerMasterSid: customer.CustomerMasterSid,
-                                CustomerBranchSid: branchId
-                            }
-                        });
-                    }
-                }
-            } else {
                 await tx.customerMilestone.updateMany({
-                    where: { CustomerBranchSid: branchId, Status: 'A' },
+                    where: { CustomerBranchSid: { in: branchIdsToDelete } },
                     data: { Status: 'D' }
                 });
             }
-        }
 
-        return customer;
-    });
-}
+            // 3️⃣ Handle branches
+            for (const branch of payload.customerBranches) {
+                let branchId: number;
+
+                // Handle branch create/update
+                if (branch.CustomerBranchSid) {
+                    // Update existing branch
+                    const updatedBranch = await tx.customerBranch.update({
+                        where: { CustomerBranchSid: branch.CustomerBranchSid },
+                        data: {
+                            BranchName: branch.BranchName,
+                            StateMasterSid: branch.StateMasterSid,
+                            Branch_Code: branch.Branch_Code,
+                            CityMasterSid: branch.CityMasterSid,
+                            Branch_Type: branch.Branch_Type,
+                            Contact_Person: branch.Contact_Person,
+                            Zip_PostBox: branch.Zip_PostBox,
+                            ContactNo: branch.ContactNo,
+                            Email: branch.Email,
+                            Address: branch.Address,
+                            Registered: branch.Registered,
+                            CustomerGstType: branch.CustomerGstType,
+                            GSTNo: branch.GSTNo || '',
+                            status: branch.status,
+                            updatedBy: userEmail
+                        }
+                    });
+                    branchId = updatedBranch.CustomerBranchSid;
+                } else {
+                    // Create new branch
+                    const createdBranch = await tx.customerBranch.create({
+                        data: {
+                            BranchName: branch.BranchName,
+                            StateMasterSid: branch.StateMasterSid,
+                            Branch_Code: branch.Branch_Code,
+                            CityMasterSid: branch.CityMasterSid,
+                            CustomerMasterSid: customer.CustomerMasterSid,
+                            CompanyMasterSid: customer.CompanyMasterSid,
+                            Branch_Type: branch.Branch_Type,
+                            Contact_Person: branch.Contact_Person,
+                            Zip_PostBox: branch.Zip_PostBox,
+                            ContactNo: branch.ContactNo,
+                            Email: branch.Email,
+                            Address: branch.Address,
+                            Registered: branch.Registered,
+                            CustomerGstType: branch.CustomerGstType,
+                            GSTNo: branch.GSTNo || '',
+                            status: branch.status,
+                            createdBy: userEmail
+                        }
+                    });
+                    branchId = createdBranch.CustomerBranchSid;
+                }
+
+                // 4️⃣ Handle CusBranchContact
+                if (branch.customerBranchContacts && branch.customerBranchContacts.length > 0) {
+                    const existingContacts = await tx.cusBranchContact.findMany({
+                        where: { CustomerBranchSid: branchId, status: 'A' },
+                        select: { CusBranchContactSid: true }
+                    });
+
+                    const incomingContactIds = branch.customerBranchContacts
+                        .filter(c => c.CusBranchContactSid)
+                        .map(c => c.CusBranchContactSid);
+
+                    const contactIdsToDelete = existingContacts
+                        .filter(ec => !incomingContactIds.includes(ec.CusBranchContactSid))
+                        .map(ec => ec.CusBranchContactSid);
+
+                    if (contactIdsToDelete.length > 0) {
+                        await tx.cusBranchContact.updateMany({
+                            where: { CusBranchContactSid: { in: contactIdsToDelete } },
+                            data: { status: 'D' }
+                        });
+                    }
+
+                    for (const contact of branch.customerBranchContacts) {
+                        if (contact.CusBranchContactSid) {
+                            await tx.cusBranchContact.update({
+                                where: { CusBranchContactSid: contact.CusBranchContactSid },
+                                data: {
+                                    ContactType: contact.ContactType,
+                                    ContactName: contact.ContactName,
+                                    ContactNo: contact.ContactNo,
+                                    MobileNo: contact.MobileNo,
+                                    Email: contact.Email,
+                                    status: contact.status,
+                                    updatedBy: userEmail
+                                }
+                            });
+                        } else {
+                            await tx.cusBranchContact.create({
+                                data: {
+                                    ContactType: contact.ContactType,
+                                    ContactName: contact.ContactName,
+                                    ContactNo: contact.ContactNo,
+                                    MobileNo: contact.MobileNo,
+                                    Email: contact.Email,
+                                    status: contact.status,
+                                    createdBy: userEmail,
+                                    CustomerMasterSid: customer.CustomerMasterSid,
+                                    CustomerBranchSid: branchId
+                                }
+                            });
+                        }
+                    }
+                } else {
+                    // Delete all existing contacts if none provided
+                    await tx.cusBranchContact.updateMany({
+                        where: { CustomerBranchSid: branchId, status: 'A' },
+                        data: { status: 'D' }
+                    });
+                }
+
+                // 5️⃣ Handle CustomerBrEmail
+                if (branch.customerBranchEmails && branch.customerBranchEmails.length > 0) {
+                    const existingEmails = await tx.customerBrEmail.findMany({
+                        where: { CustomerBranchSid: branchId, status: 'A' },
+                        select: { CustomerBrEmailSid: true }
+                    });
+
+                    const incomingEmailIds = branch.customerBranchEmails
+                        .filter(e => e.CustomerBrEmailSid)
+                        .map(e => e.CustomerBrEmailSid);
+
+                    const emailIdsToDelete = existingEmails
+                        .filter(ee => !incomingEmailIds.includes(ee.CustomerBrEmailSid))
+                        .map(ee => ee.CustomerBrEmailSid);
+
+                    if (emailIdsToDelete.length > 0) {
+                        await tx.customerBrEmail.updateMany({
+                            where: { CustomerBrEmailSid: { in: emailIdsToDelete } },
+                            data: { status: 'D' }
+                        });
+                    }
+
+                    for (const email of branch.customerBranchEmails) {
+                        if (email.CustomerBrEmailSid) {
+                            await tx.customerBrEmail.update({
+                                where: { CustomerBrEmailSid: email.CustomerBrEmailSid },
+                                data: {
+                                    CustomerBranchSid: branchId,
+                                    Toemail: email.Toemail,
+                                    CCemail: email.CCemail,
+                                    DepartmentMasterSid: email.DepartmentMasterSid,
+                                    MenuMasterSid: email.MenuMasterSid,
+                                    status: email.status,
+                                    updatedBy: userEmail
+                                }
+                            });
+                        } else {
+                            await tx.customerBrEmail.create({
+                                data: {
+                                    Toemail: email.Toemail,
+                                    CCemail: email.CCemail,
+                                    DepartmentMasterSid: email.DepartmentMasterSid,
+                                    MenuMasterSid: email.MenuMasterSid,
+                                    status: email.status,
+                                    createdBy: userEmail,
+                                    CustomerMasterSid: customer.CustomerMasterSid,
+                                    CustomerBranchSid: branchId,
+                                    CompanyMasterSid: customer.CompanyMasterSid
+                                }
+                            });
+                        }
+                    }
+                } else {
+                    await tx.customerBrEmail.updateMany({
+                        where: { CustomerBranchSid: branchId, status: 'A' },
+                        data: { status: 'D' }
+                    });
+                }
+
+                // 6️⃣ Handle CustomerLogin
+                if (branch.customerBranchLogins && branch.customerBranchLogins.length > 0) {
+                    const existingLogins = await tx.customerLogin.findMany({
+                        where: { CustomerBranchSid: branchId, status: 'A' },
+                        select: { CustomerLoginSid: true }
+                    });
+
+                    const incomingLoginIds = branch.customerBranchLogins
+                        .filter(l => l.CustomerLoginSid)
+                        .map(l => l.CustomerLoginSid);
+
+                    const loginIdsToDelete = existingLogins
+                        .filter(el => !incomingLoginIds.includes(el.CustomerLoginSid))
+                        .map(el => el.CustomerLoginSid);
+
+                    if (loginIdsToDelete.length > 0) {
+                        await tx.customerLogin.updateMany({
+                            where: { CustomerLoginSid: { in: loginIdsToDelete } },
+                            data: { status: 'D' }
+                        });
+                    }
+
+                    for (const login of branch.customerBranchLogins) {
+                        if (login.CustomerLoginSid) {
+                            await tx.customerLogin.update({
+                                where: { CustomerLoginSid: login.CustomerLoginSid },
+                                data: {
+                                    CustomerBranchSid: branchId,
+                                    LoginName: login.LoginName,
+                                    LoginEmail: login.LoginEmail,
+                                    LoginPassword: login.LoginPassword,
+                                    status: login.status,
+                                    updatedBy: userEmail
+                                }
+                            });
+                        } else {
+                            await tx.customerLogin.create({
+                                data: {
+                                    LoginName: login.LoginName,
+                                    LoginEmail: login.LoginEmail,
+                                    LoginPassword: login.LoginPassword,
+                                    status: login.status,
+                                    createdBy: userEmail,
+                                    CustomerMasterSid: customer.CustomerMasterSid,
+                                    CustomerBranchSid: branchId,
+                                    CompanyMasterSid: customer.CompanyMasterSid
+                                }
+                            });
+                        }
+                    }
+                } else {
+                    await tx.customerLogin.updateMany({
+                        where: { CustomerBranchSid: branchId, status: 'A' },
+                        data: { status: 'D' }
+                    });
+                }
+
+                // 7️⃣ Handle CustomerSalesTeam
+                if (branch.customerSalesTeams && branch.customerSalesTeams.length > 0) {
+                    const existingSalesTeams = await tx.customerSalesTeam.findMany({
+                        where: { CustomerBranchSid: branchId, status: 'A' },
+                        select: { CustomerSalesSid: true }
+                    });
+
+                    const incomingSalesIds = branch.customerSalesTeams
+                        .filter(s => s.CustomerSalesSid)
+                        .map(s => s.CustomerSalesSid);
+
+                    const salesIdsToDelete = existingSalesTeams
+                        .filter(es => !incomingSalesIds.includes(es.CustomerSalesSid))
+                        .map(es => es.CustomerSalesSid);
+
+                    if (salesIdsToDelete.length > 0) {
+                        await tx.customerSalesTeam.updateMany({
+                            where: { CustomerSalesSid: { in: salesIdsToDelete } },
+                            data: { status: 'D' }
+                        });
+                    }
+
+                    for (const sales of branch.customerSalesTeams) {
+                        if (sales.CustomerSalesSid) {
+                            await tx.customerSalesTeam.update({
+                                where: { CustomerSalesSid: sales.CustomerSalesSid },
+                                data: {
+                                    CustomerBranchSid: branchId,
+                                    DepartmentMasterSid: sales.DepartmentMasterSid, // Array of integers
+                                    Salesman: sales.Salesman,
+                                    CSPerson: sales.CSPerson,
+                                    DocPerson: sales.DocPerson,
+                                    EffectiveFrom: sales.EffectiveFrom,
+                                    status: sales.status,
+                                    updatedBy: userEmail
+                                }
+                            });
+                        } else {
+                            await tx.customerSalesTeam.create({
+                                data: {
+                                    DepartmentMasterSid: sales.DepartmentMasterSid, // Array of integers
+                                    Salesman: sales.Salesman,
+                                    CSPerson: sales.CSPerson,
+                                    DocPerson: sales.DocPerson,
+                                    EffectiveFrom: sales.EffectiveFrom,
+                                    status: sales.status,
+                                    createdBy: userEmail,
+                                    CustomerMasterSid: customer.CustomerMasterSid,
+                                    CustomerBranchSid: branchId,
+                                    CompanyMasterSid: customer.CompanyMasterSid
+                                }
+                            });
+                        }
+                    }
+                } else {
+                    await tx.customerSalesTeam.updateMany({
+                        where: { CustomerBranchSid: branchId, status: 'A' },
+                        data: { status: 'D' }
+                    });
+                }
+
+                // 8️⃣ Handle CustomerMilestone
+                if (branch.customerMilestones && branch.customerMilestones.length > 0) {
+                    const existingMilestones = await tx.customerMilestone.findMany({
+                        where: { CustomerBranchSid: branchId, Status: 'A' },
+                        select: { CustomerMilestoneSid: true }
+                    });
+
+                    const incomingMilestoneIds = branch.customerMilestones
+                        .filter(m => m.CustomerMilestoneSid)
+                        .map(m => m.CustomerMilestoneSid);
+
+                    const milestoneIdsToDelete = existingMilestones
+                        .filter(em => !incomingMilestoneIds.includes(em.CustomerMilestoneSid))
+                        .map(em => em.CustomerMilestoneSid);
+
+                    if (milestoneIdsToDelete.length > 0) {
+                        await tx.customerMilestone.updateMany({
+                            where: { CustomerMilestoneSid: { in: milestoneIdsToDelete } },
+                            data: { Status: 'D' }
+                        });
+                    }
+
+                    for (const milestone of branch.customerMilestones) {
+                        if (milestone.CustomerMilestoneSid) {
+                            await tx.customerMilestone.update({
+                                where: { CustomerMilestoneSid: milestone.CustomerMilestoneSid },
+                                data: {
+                                    MilestoneMasterSid: milestone.MilestoneMasterSid,
+                                    UpdateType: milestone.UpdateType,
+                                    ContactInfo: milestone.ContactInfo,
+                                    EffectiveFrom: milestone.EffectiveFrom,
+                                    Status: milestone.Status,
+                                    UpdatedBy: userEmail
+                                }
+                            });
+                        } else {
+                            await tx.customerMilestone.create({
+                                data: {
+                                    MilestoneMasterSid: milestone.MilestoneMasterSid,
+                                    UpdateType: milestone.UpdateType,
+                                    ContactInfo: milestone.ContactInfo,
+                                    EffectiveFrom: milestone.EffectiveFrom,
+                                    Status: milestone.Status,
+                                    CreatedBy: userEmail,
+                                    CustomerMasterSid: customer.CustomerMasterSid,
+                                    CustomerBranchSid: branchId
+                                }
+                            });
+                        }
+                    }
+                } else {
+                    await tx.customerMilestone.updateMany({
+                        where: { CustomerBranchSid: branchId, Status: 'A' },
+                        data: { Status: 'D' }
+                    });
+                }
+            }
+
+            return customer;
+        });
+    }
 
     async softDelete(CustomerMasterSid: number) {
         const existingCustomer = await this._db.customerMaster.findUnique({
@@ -1312,90 +1312,90 @@ export class CustomerService {
             throw error;
         }
     }
-   async searchCustomersByName(
-    CompanyMasterSid: number, 
-    searchTerm: string,
-    excludeCustomerMasterSids: number[] = []
-) {
-    try {
-        this.logger.log(`searchCustomersByName service called: ${CompanyMasterSid}, ${searchTerm}, ${excludeCustomerMasterSids}`);
-        
-        if (!searchTerm || searchTerm.trim().length === 0) {
-            return [];
-        }
+    async searchCustomersByName(
+        CompanyMasterSid: number,
+        searchTerm: string,
+        excludeCustomerMasterSids: number[] = []
+    ) {
+        try {
+            this.logger.log(`searchCustomersByName service called: ${CompanyMasterSid}, ${searchTerm}, ${excludeCustomerMasterSids}`);
 
-        const searchText = searchTerm.trim();
-        
-        const where: Prisma.CustomerMasterWhereInput = {
-            CompanyMasterSid: CompanyMasterSid,
-            status: 'A',
-            CustomerName: {
-                contains: searchText,
-                mode: 'insensitive'
+            if (!searchTerm || searchTerm.trim().length === 0) {
+                return [];
             }
-        };
 
-        // Exclude already selected customers if provided
-        if (excludeCustomerMasterSids && excludeCustomerMasterSids.length > 0) {
-            where.CustomerMasterSid = {
-                notIn: excludeCustomerMasterSids
+            const searchText = searchTerm.trim();
+
+            const where: Prisma.CustomerMasterWhereInput = {
+                CompanyMasterSid: CompanyMasterSid,
+                status: 'A',
+                CustomerName: {
+                    contains: searchText,
+                    mode: 'insensitive'
+                }
             };
-        }
 
-        const customers = await this._db.customerMaster.findMany({
-            where,
-            select: {
-                CustomerMasterSid: true,
-                CustomerName: true,
-                CustomerShortCode: true
-            },
-            take: 50, // Limit results
-            orderBy: {
-                CustomerName: 'asc'
+            // Exclude already selected customers if provided
+            if (excludeCustomerMasterSids && excludeCustomerMasterSids.length > 0) {
+                where.CustomerMasterSid = {
+                    notIn: excludeCustomerMasterSids
+                };
             }
-        });
 
-        this.logger.log(`searchCustomersByName found ${customers.length} customers`);
-        return customers;
-    } catch (error) {
-        this.logger.error(`searchCustomersByName service error: ${error}`);
-        throw new BadRequestException('Error searching customers by name');
-    }
-}
-    async getAllShippers(CompanyMasterSid: number) {
-        try {
-            const allAgents = await this._db.customerMaster.findMany({
-                where: {
-                    CustomerType: {
-                        path: ['shipper'],
-                        equals: 'isTrue'
-                    },
-                    status: 'A',
-                    CompanyMasterSid: CompanyMasterSid
+            const customers = await this._db.customerMaster.findMany({
+                where,
+                select: {
+                    CustomerMasterSid: true,
+                    CustomerName: true,
+                    CustomerShortCode: true
+                },
+                take: 50, // Limit results
+                orderBy: {
+                    CustomerName: 'asc'
                 }
-            })
-            return allAgents;
+            });
+
+            this.logger.log(`searchCustomersByName found ${customers.length} customers`);
+            return customers;
         } catch (error) {
-            throw error;
+            this.logger.error(`searchCustomersByName service error: ${error}`);
+            throw new BadRequestException('Error searching customers by name');
         }
     }
-    async getAllConsignee(CompanyMasterSid: number) {
-        try {
-            const allAgents = await this._db.customerMaster.findMany({
-                where: {
-                    CustomerType: {
-                        path: ['consignee'],
-                        equals: 'isTrue'
-                    },
-                    status: 'A',
-                    CompanyMasterSid: CompanyMasterSid
-                }
-            })
-            return allAgents;
-        } catch (error) {
-            throw error;
-        }
-    }
+    // async getAllShippers(CompanyMasterSid: number) {
+    //     try {
+    //         const allAgents = await this._db.customerMaster.findMany({
+    //             where: {
+    //                 CustomerType: {
+    //                     path: ['shipper'],
+    //                     equals: 'isTrue'
+    //                 },
+    //                 status: 'A',
+    //                 CompanyMasterSid: CompanyMasterSid
+    //             }
+    //         })
+    //         return allAgents;
+    //     } catch (error) {
+    //         throw error;
+    //     }
+    // }
+    // async getAllConsignee(CompanyMasterSid: number) {
+    //     try {
+    //         const allAgents = await this._db.customerMaster.findMany({
+    //             where: {
+    //                 CustomerType: {
+    //                     path: ['consignee'],
+    //                     equals: 'isTrue'
+    //                 },
+    //                 status: 'A',
+    //                 CompanyMasterSid: CompanyMasterSid
+    //             }
+    //         })
+    //         return allAgents;
+    //     } catch (error) {
+    //         throw error;
+    //     }
+    // }
     async getAllTransporters(CompanyMasterSid: number) {
         try {
             const allAgents = await this._db.customerMaster.findMany({
@@ -1413,52 +1413,52 @@ export class CustomerService {
             throw error;
         }
     }
-    async getAllCFS(CompanyMasterSid: number) {
-        try {
-            const allAgents = await this._db.customerMaster.findMany({
-                where: {
-                    CustomerType: {
-                        path: ['cFS'],
-                        equals: 'isTrue'
-                    },
-                    status: 'A',
-                    CompanyMasterSid: CompanyMasterSid
-                }
-            })
-            return allAgents;
-        } catch (error) {
-            throw error;
-        }
-    }
+    // async getAllCFS(CompanyMasterSid: number) {
+    //     try {
+    //         const allAgents = await this._db.customerMaster.findMany({
+    //             where: {
+    //                 CustomerType: {
+    //                     path: ['cFS'],
+    //                     equals: 'isTrue'
+    //                 },
+    //                 status: 'A',
+    //                 CompanyMasterSid: CompanyMasterSid
+    //             }
+    //         })
+    //         return allAgents;
+    //     } catch (error) {
+    //         throw error;
+    //     }
+    // }
 
-    async getAllSuppliers(CompanyMasterSid: number) {
-        try {
-            const suppliers = ['vendor', 'transporter', 'agent'];
-            const allSuppliers = await this._db.customerMaster.findMany({
-                where: {
-                    OR: suppliers.map(type => ({
-                        CustomerType: {
-                            path: [type],
-                            equals: 'isTrue',
-                        },
-                    })),
-                    status: 'A',
-                    CompanyMasterSid: CompanyMasterSid
-                },
-                include: {
-                    countryMaster: {
-                        select: {
-                            countryName: true
-                        }
-                    }
-                }
-            });
+    // async getAllSuppliers(CompanyMasterSid: number) {
+    //     try {
+    //         const suppliers = ['vendor', 'transporter', 'agent'];
+    //         const allSuppliers = await this._db.customerMaster.findMany({
+    //             where: {
+    //                 OR: suppliers.map(type => ({
+    //                     CustomerType: {
+    //                         path: [type],
+    //                         equals: 'isTrue',
+    //                     },
+    //                 })),
+    //                 status: 'A',
+    //                 CompanyMasterSid: CompanyMasterSid
+    //             },
+    //             include: {
+    //                 countryMaster: {
+    //                     select: {
+    //                         countryName: true
+    //                     }
+    //                 }
+    //             }
+    //         });
 
-            return allSuppliers;
-        } catch (error) {
-            throw error;
-        }
-    }
+    //         return allSuppliers;
+    //     } catch (error) {
+    //         throw error;
+    //     }
+    // }
     async getAuditLogs(tableName: string, recordId?: string) {
         try {
             const whereClause: any = { tableName };
@@ -1476,5 +1476,43 @@ export class CustomerService {
         }
     }
 
+
+    async getCustomerByType(CompanyMasterSid: number, types?: string[]) {
+        try {
+            if (!types || types.length === 0) {
+                // If no types provided, return all active customers for the company
+                return this._db.customerMaster.findMany({
+                    where: {
+                        status: 'A',
+                        CompanyMasterSid,
+                    },
+                });
+            }
+
+            // If types provided, build OR conditions dynamically
+            const jsonFilters = types.map(type => ({
+                CustomerType: { path: [type], equals: 'isTrue' }
+            }));
+
+            const customers = await this._db.customerMaster.findMany({
+                where: {
+                    status: 'A',
+                    CompanyMasterSid,
+                    OR: jsonFilters
+                },
+                include: {
+                    countryMaster: {
+                        select: {
+                            countryName: true
+                        }
+                    }
+                }
+            });
+
+            return customers;
+        } catch (error) {
+            throw error;
+        }
+    }
 
 }

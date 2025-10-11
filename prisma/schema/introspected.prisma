@@ -27,7 +27,7 @@ view vMasterJobIndexPage {
   CompanyMasterSid Int?
   BranchMasterSid  Int?
   departmentName   String?
-  MasterJobNumber  String?   @db.VarChar(20)
+  MasterJobNumber  String?   @db.VarChar(100)
   MasterJobDate    DateTime? @db.Date
   MBLNo            String?   @db.VarChar(20)
   MBLDate          DateTime? @db.Date
