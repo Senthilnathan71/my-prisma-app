@@ -403,5 +403,6 @@ interface LoadingPlanDTO {
 }
 interface VesselVoyageDTO {
     POL : number,
-    POD : number
+    POD : number,
+    segment : 'Sea' | 'Air' | 'Road'
 }
