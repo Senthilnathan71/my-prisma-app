@@ -11,6 +11,8 @@ import { LookupsService } from './services/lookups/lookups.service';
 import { FollowupController } from './controllers/followup/followup.controller';
 import { FollowupService } from './services/followup/followup.service';
 import { SchedulerService } from './services/scheduler/scheduler.service';
+import { AttachDocumentController } from './controllers/attach-document/attach-document.controller';
+import { AttachDocumentService } from './services/attach-document/attach-document.service';
 
 @Module({
     controllers: [
@@ -19,6 +21,7 @@ import { SchedulerService } from './services/scheduler/scheduler.service';
         emailLogController,
         LookupsController,
         FollowupController,
+        AttachDocumentController
     ],
     providers: [
         Logger,
@@ -28,7 +31,8 @@ import { SchedulerService } from './services/scheduler/scheduler.service';
         EmailService,
         LookupsService,
         FollowupService,
-        SchedulerService
+        SchedulerService,
+        AttachDocumentService
     ]
 })
 export class CommonModule { }

@@ -2104,6 +2104,8 @@ model AttachDocument {
   CompanyMasterSid  Int
   BranchMasterSid   Int
   DocumentSid       Int?
+  MenuMasterSid     Int?
+  menuName          Int?
   AttachDocmentNo   String        @db.VarChar(20)
   DocumentDate      DateTime      @db.Date
   FileName          String        @db.VarChar(30)
@@ -2121,6 +2123,7 @@ model AttachDocument {
   Remarks           String?       @db.VarChar(500)
   branchMaster      BranchMaster  @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
   companyMaster     CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+  menuMaster        MenuMaster? @relation(fields: [MenuMasterSid], references: [MenuMasterSid])
 }
 
 model EmailLog {

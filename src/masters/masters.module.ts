@@ -106,9 +106,6 @@ import { UserTypeController } from './controllers/user-type/user-type.controller
 import { UserTypeService } from './services/user-type/user-type.service';
 import { DocumentTypeController } from './controllers/document-type/document-type.controller';
 import { DocumentTypeService } from './services/document-type/document-type.service';
-
-import { AttachDocumentController } from './controllers/attach-document/attach-document.controller';
-import { AttachDocumentService } from './services/attach-document/attach-document.service';
 import { YearController } from './controllers/year/year.controller';
 import { YearService } from './services/year/year.service';
 import { IncoService } from './services/inco/inco.service';
@@ -200,7 +197,6 @@ import { LeadService } from './services/lead/lead.service';
     UserTypeService,
     DocumentTypeService,
     HawbStockService,
-    AttachDocumentService,
     YearService,
     IncoService,
     ProfitCenterService,
@@ -274,7 +270,6 @@ import { LeadService } from './services/lead/lead.service';
     UserTypeController,
     DocumentTypeController,
     HawbStockController,
-    AttachDocumentController,
     YearController,
     IncoController,
     ProfitCenterController,
