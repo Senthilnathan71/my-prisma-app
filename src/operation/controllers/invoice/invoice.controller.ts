@@ -3,10 +3,28 @@ import { ApiOperation, ApiCreatedResponse } from '@nestjs/swagger';
 import { ResponseData } from 'src/common/response-data';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 import { InvoiceService } from 'src/operation/services/invoice/invoice.service';
+import { EmailService } from 'src/email/email.service';
 
 class CompanyIdDto {
   CompanyMasterSid: number;
   BranchMasterSid: number;
+}
+
+class SendInvoiceEmailDto {
+  from: string;
+  to: string;
+  cc?: string;
+  subject: string;
+  message: string;
+  pdfBase64: string;
+  filename: string;
+  invoiceDetails?: {
+    companyName?: string;
+    invoiceNumber?: string;
+    invoiceDate?: string;
+    totalAmount?: string;
+    currency?: string;
+  };
 }
 
 @Controller('invoice')
@@ -15,6 +33,7 @@ export class InvoiceController {
 
   constructor(
     private readonly invoiceService: InvoiceService,
+    private readonly emailService: EmailService,
   ) { }
 
   @ApiOperation({ summary: 'Create Invoice' })
@@ -177,5 +196,50 @@ export class InvoiceController {
       }
     }
     return resp;
+  }
+
+  @ApiOperation({ summary: 'Send Invoice Email with PDF Attachment' })
+  @ApiCreatedResponse({
+    description: 'Invoice email sent successfully',
+    type: ResponseData
+  })
+  @HttpCode(HttpStatus.OK)
+  @Post('send-email')
+  async sendInvoiceEmail(@Body() payload: SendInvoiceEmailDto) {
+    const output = new ResponseData();
+    this.logger.log(`sendInvoiceEmail to: ${payload.to}`);
+    try {
+      // Validate required fields
+      if (!payload.from || !payload.to || !payload.subject || !payload.pdfBase64 || !payload.filename) {
+        throw new BadRequestException('Missing required fields: from, to, subject, pdfBase64, filename');
+      }
+
+      // Convert base64 PDF to buffer
+      const pdfBuffer = Buffer.from(payload.pdfBase64, 'base64');
+
+      // Send email using email service
+      await this.emailService.sendInvoiceEmail({
+        from: payload.from,
+        to: payload.to,
+        cc: payload.cc,
+        subject: payload.subject,
+        message: payload.message || 'Please find attached invoice.',
+        pdfBuffer: pdfBuffer,
+        filename: payload.filename,
+        invoiceDetails: payload.invoiceDetails
+      });
+
+      output.data = { emailSent: true };
+      output.message = "Invoice email sent successfully";
+    } catch (error) {
+      this.logger.warn('sendInvoiceEmail error', (error as any)?.stack || (error as any)?.message || error);
+      output.status = false;
+      if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+        output.message = (error as any).message || 'Bad request';
+      } else {
+        output.message = (error as any)?.message || 'Failed to send invoice email';
+      }
+    }
+    return output;
   }
 }
