@@ -3,7 +3,7 @@ import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
 import { FilesUploadInterceptor } from 'src/common/decorators/file-upload.decorator';
 import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
-import { AttachDocumentService } from 'src/masters/services/attach-document/attach-document.service';
+import { AttachDocumentService } from 'src/common/services/attach-document/attach-document.service';
 
 
 @Controller('attach-document')
