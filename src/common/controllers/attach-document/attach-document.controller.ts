@@ -4,14 +4,15 @@ import { FilesUploadInterceptor } from 'src/common/decorators/file-upload.decora
 import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { AttachDocumentService } from 'src/common/services/attach-document/attach-document.service';
-import { DynamicFilesUploadInterceptor } from 'src/common/decorators/attach-document.decorator';
 import { CreateAttachDocumentDto } from 'src/common/dto/attach-document.dto';
 import * as fs from "fs";
 import * as path from "path";
 import { ConfigService } from '@nestjs/config';
+import { MenuService } from 'src/masters/services/menu/menu.service';
+import { DynamicFilesUploadInterceptor } from 'src/common/decorators/edoc.decorator';
 @Controller('attach-document')
 export class AttachDocumentController {
-    constructor(private configService:ConfigService,private attachDocumentService: AttachDocumentService, private logger: Logger) { }
+    constructor(private configService:ConfigService,private menuMasterService:MenuService, private attachDocumentService: AttachDocumentService, private logger: Logger) { }
 
     @ApiOperation({ summary: 'Create new Attach Document' })
     @ApiCreatedResponse({
@@ -27,16 +28,16 @@ export class AttachDocumentController {
             if (!files || files.length === 0) {
       throw new BadRequestException("No files uploaded");
     }
-
+   const menuName:any = await this.menuMasterService.findOne(Number(newData.MenuMasterSid))
     // 1️⃣ Save DB record
-    const res = await this.attachDocumentService.createNewAttachDocument(files, newData);
+    const res = await this.attachDocumentService.createNewAttachDocument(files, newData,menuName?.MenuName);
 
     // 2️⃣ Save files to disk after DB success
     const baseDestination = this.configService.get("UPLOAD_EDOC_PATH");
 
     files.forEach(file => {
-      const componentName:any = newData.menuName;
-      const recordId:any = newData.DocumentSid; // Use DB-generated ID
+      const componentName:any = menuName?.MenuName;
+      const recordId:any = menuName?.MenuMasterSid; // Use DB-generated ID
 
       const folderPath = path.join(baseDestination, componentName, recordId.toString());
       if (!fs.existsSync(folderPath)) fs.mkdirSync(folderPath, { recursive: true });
@@ -56,6 +57,7 @@ export class AttachDocumentController {
     resp.message = "New Attach Document is successfully created";
     this.logger.log(`New Attach Document Created: ${JSON.stringify(res)}`);
         } catch (error) {
+            console.log(error.stack)
             this.logger.warn(`Attach Document Creation Error : ${JSON.stringify(error)}`);
             resp.status = false;
             if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
@@ -99,12 +101,15 @@ export class AttachDocumentController {
         type: ResponseData
     })
     @HttpCode(HttpStatus.OK)
-    @Get('fetch/:AttachDocumentSid')
-    async getAttachDocumentById(@Param('AttachDocumentSid', ParseIntPipe) AttachDocumentSid: number) {
+    @Get('fetch/:menuMasterSid/:AttachDocumentSid')
+    async getAttachDocumentById(
+        @Param('AttachDocumentSid', ParseIntPipe) AttachDocumentSid: number,
+        @Param('DocumentSid', ParseIntPipe) DocumentSid: number
+    ) {
         let resp = new ResponseData();
         try {
             this.logger.log(`Getting Attach Document with id : ${AttachDocumentSid}`);
-            let res = await this.attachDocumentService.fetchAttachDocumentById(AttachDocumentSid);
+            let res = await this.attachDocumentService.fetchAttachDocumentById(AttachDocumentSid,DocumentSid);
             this.logger.debug(`Fetched Attach Document : ${JSON.stringify(res)}`);
             resp.data = res;
             resp.message = `Attach Document with id : ${AttachDocumentSid} is successfully fetched`;

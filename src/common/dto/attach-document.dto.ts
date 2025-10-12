@@ -3,21 +3,17 @@ import { IsInt, IsOptional, IsString, IsDateString, MaxLength, IsIn } from 'clas
 
 export class CreateAttachDocumentDto {
   @ApiProperty({ })
-  @IsInt()
   CompanyMasterSid: number;
 
   @ApiProperty({ })
-  @IsInt()
   BranchMasterSid: number;
 
   @ApiProperty({ required: false })
   @IsOptional()
-  @IsInt()
   DocumentSid?: number;
 
   @ApiProperty({ required: false })
   @IsOptional()
-  @IsInt()
   MenuMasterSid?: number;
 
   @ApiProperty({ required: false })
