@@ -403,27 +403,20 @@ export class VoucherService {
                         currencyCode = currency?.currencyCode || 'USD';
                     }
 
-                    // Fetch charge master for HSN/SAC
+                    // Fetch HSN/SAC Master ID from chargeTaxMapping
                     let hsnSACMasterSid: number | undefined = undefined;
+
                     if (rate.ChargeMasterSid) {
-                        const chargeMaster = await tx.chargeMaster.findUnique({
+                        const chargeTaxMapping = await tx.chargeTaxMapping.findFirst({
                             where: { ChargeMasterSid: rate.ChargeMasterSid },
                             select: {
-                                HSNSAC: true,
-                                chargeTaxMapping: {
-                                    select: {
-                                        hSSACMaster: {
-                                            select: {
-                                                HSSACMasterSid: true
-                                            }
-                                        }
-                                    }
-                                }
+                                HSSACMasterSid: true
                             }
                         });
 
-                        if (chargeMaster?.chargeTaxMapping?.[0]?.hSSACMaster) {
-                            hsnSACMasterSid = chargeMaster.chargeTaxMapping[0].hSSACMaster.HSSACMasterSid;
+                        if (chargeTaxMapping?.HSSACMasterSid) {
+                            hsnSACMasterSid = chargeTaxMapping.HSSACMasterSid;
+                            this.logger.log(`HSN/SAC for charge ${rate.ChargeMasterSid}: HSSACMasterSid = ${hsnSACMasterSid}`);
                         }
                     }
 
@@ -450,10 +443,12 @@ export class VoucherService {
 
                         if (isGSTType) {
                             if (isInterState) {
-                                // Inter-state: IGST
-                                taxPercentageIGST = taxRate;
-                                taxAmountIGST = (amount * taxPercentageIGST) / 100;
-                                this.logger.log(`Applying IGST ${taxRate}% = ${taxAmountIGST}`);
+                                // Inter-state: IGST - store in Tax1 field (no separate IGST columns in DB)
+                                taxPercentage1 = taxRate;
+                                taxAmount1 = (amount * taxPercentage1) / 100;
+                                taxPercentageIGST = taxRate; // For frontend display
+                                taxAmountIGST = taxAmount1;  // For frontend display
+                                this.logger.log(`Applying IGST ${taxRate}% = ${taxAmount1} (stored in Tax1 field)`);
                             } else {
                                 // Intra-state: CGST + SGST (split evenly)
                                 taxPercentage1 = taxRate / 2; // CGST
@@ -600,9 +595,43 @@ export class VoucherService {
                     }
                 });
 
+                // 12. Fetch complete voucher with all relations for frontend display
+                const completeVoucher = await tx.voucherHeader.findUnique({
+                    where: { VoucherHeaderSid: voucherHeader.VoucherHeaderSid },
+                    include: {
+                        VoucherDetail: {
+                            where: { Status: 'A' },
+                            include: {
+                                chargeMaster: {
+                                    include: {
+                                        chargeTaxMaster: {
+                                            select: {
+                                                ChargeTaxMasterSid: true,
+                                                HSNCode: true,
+                                                description: true,
+                                                TaxGroup: true,
+                                                TaxRate: true
+                                            }
+                                        }
+                                    }
+                                },
+                                currencyMaster: true,
+                                hSSACMaster: true
+                            }
+                        },
+                        currencyMaster: true,
+                        subledgerMaster: true,
+                        customerBranch: true
+                    }
+                });
+
+                if (!completeVoucher) {
+                    throw new InternalServerErrorException('Failed to fetch created voucher');
+                }
+
                 return {
-                    voucherHeader,
-                    voucherDetails,
+                    voucherHeader: completeVoucher,
+                    voucherDetails: completeVoucher.VoucherDetail,
                     updatedRatesCount: payload.selectedRateIds.length
                 };
             });

@@ -106,8 +106,40 @@ export class OperationCommonService {
                         }
                     }
                 }
-            })
-            return allCostRevenueCharges;
+            });
+
+            // Enrich with ChargeMaster and chargeTaxMaster data
+            const enrichedRates = await Promise.all(allCostRevenueCharges.map(async (rate) => {
+                let chargeMasterData: any = null;
+
+                if (rate.ChargeMasterSid) {
+                    chargeMasterData = await this._db.chargeMaster.findUnique({
+                        where: { ChargeMasterSid: rate.ChargeMasterSid },
+                        select: {
+                            ChargeMasterSid: true,
+                            chargeCode: true,
+                            chargeName: true,
+                            HSNSAC: true,
+                            chargeTaxMaster: {
+                                select: {
+                                    ChargeTaxMasterSid: true,
+                                    HSNCode: true,
+                                    description: true,
+                                    TaxGroup: true,
+                                    TaxRate: true
+                                }
+                            }
+                        }
+                    });
+                }
+
+                return {
+                    ...rate,
+                    ChargeMaster: chargeMasterData
+                };
+            }));
+
+            return enrichedRates;
         } catch (error) {
             throw error;
         }

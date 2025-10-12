@@ -1462,11 +1462,25 @@ export class BookingService {
                     };
                 }
 
-                // Add charge master details
+                // Add charge master details with tax master
                 if (rate.ChargeMasterSid) {
                     const charge = await this._db.chargeMaster.findUnique({
                         where: { ChargeMasterSid: rate.ChargeMasterSid },
-                        select: { ChargeMasterSid: true, chargeCode: true, chargeName: true }
+                        select: {
+                            ChargeMasterSid: true,
+                            chargeCode: true,
+                            chargeName: true,
+                            HSNSAC: true,
+                            chargeTaxMaster: {
+                                select: {
+                                    ChargeTaxMasterSid: true,
+                                    HSNCode: true,
+                                    description: true,
+                                    TaxGroup: true,
+                                    TaxRate: true
+                                }
+                            }
+                        }
                     });
                     enrichments.ChargeMaster = charge;
                 }
@@ -2052,8 +2066,8 @@ export class BookingService {
 
 async getTariffByBookingDetails(payload:TariffBookingPayload) {
   try {
-    // ---------- 1️⃣  Dynamic WHERE clause ----------
-    const where: any = {
+    // ---------- 1️⃣  First Priority Search: Dynamic WHERE clause with all optional filters ----------
+    const whereWithOptionalFilters: any = {
       EffectiveDate: { lte: new Date(payload.EffectiveDate) },
       ExpiredOn:     { gte: new Date(payload.ExpiredDate) },
       tariffHeader: {
@@ -2064,28 +2078,85 @@ async getTariffByBookingDetails(payload:TariffBookingPayload) {
       },
     };
 
-    // optional filters – add only if provided in payload
-    if (payload.PORSid)   where.tariffHeader.POOSid     = payload.PORSid;    // Port of Origin
-    if (payload.FPODSid)  where.tariffHeader.FDCSid     = payload.FPODSid;   // FDC
-    if (payload.Carrier)  where.tariffHeader.Carrier    = payload.Carrier;   // Carrier customer
-    if (payload.AgentSid) where.tariffHeader.AgentSid   = payload.AgentSid;  // Agent
-    if (payload.IncoTerms) where.tariffHeader.IncoTerms = payload.IncoTerms; // Incoterm
-    if (payload.CargoType) where.CargoType              = payload.CargoType; // Cargo type filter
+    // Track if we have optional filters
+    let hasOptionalFilters = false;
 
-    // ---------- 2️⃣  Fetch tariff details with header + currency info ----------
-    const allTariffDetails = await this._db.tariffDetail.findMany({
-      where,
-      include: {
-        // include what you may need in the response
-        tariffHeader: true,               // to see Dept/POL/POD etc.
-        currencyMasterBuy: true,          // buy currency details
-        currencyMasterSale: true,         // sale currency details
-        companyMaster: true,              // company if linked
-        UOMMaster: true                   // unit of measure
-      }
+    // optional filters – add only if provided in payload
+    if (payload.PORSid) {
+      whereWithOptionalFilters.tariffHeader.POOSid = payload.PORSid;
+      hasOptionalFilters = true;
+    }
+    if (payload.FPODSid) {
+      whereWithOptionalFilters.tariffHeader.FDCSid = payload.FPODSid;
+      hasOptionalFilters = true;
+    }
+    if (payload.Carrier) {
+      whereWithOptionalFilters.tariffHeader.Carrier = payload.Carrier;
+      hasOptionalFilters = true;
+    }
+    if (payload.AgentSid) {
+      whereWithOptionalFilters.tariffHeader.AgentSid = payload.AgentSid;
+      hasOptionalFilters = true;
+    }
+    if (payload.IncoTerms) {
+      whereWithOptionalFilters.tariffHeader.IncoTerms = payload.IncoTerms;
+      hasOptionalFilters = true;
+    }
+    if (payload.CargoType) {
+      whereWithOptionalFilters.CargoType = payload.CargoType;
+      hasOptionalFilters = true;
+    }
+
+    const includeClause = {
+      tariffHeader: true,               // to see Dept/POL/POD etc.
+      currencyMasterBuy: true,          // buy currency details
+      currencyMasterSale: true,         // sale currency details
+      companyMaster: true,              // company if linked
+      UOMMaster: true                   // unit of measure
+    };
+
+    // ---------- 2️⃣  Fetch tariff details with all filters ----------
+    let allTariffDetails = await this._db.tariffDetail.findMany({
+      where: whereWithOptionalFilters,
+      include: includeClause
     });
 
-    // ---------- 3️⃣  Enrich each tariff detail ----------
+    let isStandardRate = false;
+
+    // ---------- 3️⃣  Fallback to Standard Rate if no results and optional filters were used ----------
+    if (allTariffDetails.length === 0 && hasOptionalFilters) {
+      this.logger.log('No tariff found with optional filters, falling back to standard rate search');
+
+      // Build standard rate query (only mandatory fields)
+      const whereStandardRate: any = {
+        EffectiveDate: { lte: new Date(payload.EffectiveDate) },
+        ExpiredOn:     { gte: new Date(payload.ExpiredDate) },
+        tariffHeader: {
+          DepartmentMasterSid: payload.DepartmentMasterSid,
+          POLSid: payload.POLSid,
+          PODSid: payload.PODSid,
+          CompanyMasterSid: payload.CompanyMasterSid,
+        },
+      };
+
+      allTariffDetails = await this._db.tariffDetail.findMany({
+        where: whereStandardRate,
+        include: includeClause
+      });
+
+      if (allTariffDetails.length > 0) {
+        isStandardRate = true;
+        this.logger.log(`Found ${allTariffDetails.length} standard rates`);
+      }
+    }
+
+    // ---------- 4️⃣  If still no results, return empty array ----------
+    if (allTariffDetails.length === 0) {
+      this.logger.log('No tariff details found for the given criteria');
+      return [];
+    }
+
+    // ---------- 5️⃣  Enrich each tariff detail ----------
     const enrichedDetails = await Promise.all(
       allTariffDetails.map(async (detail) => {
         const company = payload.CompanyMasterSid
@@ -2126,11 +2197,12 @@ async getTariffByBookingDetails(payload:TariffBookingPayload) {
           ...detail,
           costExchangeRate,
           revenueExchangeRate,
+          isStandardRate, // Flag to indicate if this is a standard rate
         };
       })
     );
 
-    // ---------- 4️⃣  Return enriched array ----------
+    // ---------- 6️⃣  Return enriched array ----------
     return enrichedDetails;
   } catch (error) {
     throw error;

@@ -122,7 +122,19 @@ export class InvoiceService {
           VoucherDetail: {
             where: { Status: 'A' },
             include: {
-              chargeMaster: true,
+              chargeMaster: {
+                include: {
+                  chargeTaxMaster: {
+                    select: {
+                      ChargeTaxMasterSid: true,
+                      HSNCode: true,
+                      description: true,
+                      TaxGroup: true,
+                      TaxRate: true
+                    }
+                  }
+                }
+              },
               currencyMaster: true,
               hSSACMaster: true,
               masterJob: true,
