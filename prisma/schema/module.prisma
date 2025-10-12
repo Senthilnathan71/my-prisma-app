@@ -55,14 +55,14 @@ model MenuMaster {
   enquiryHeader      EnquiryHeader[]
   houseJob           HouseJob[]
   MasterJob          MasterJob[]
+  menuConfig         MenuConfig[]
   moduleMaster       ModuleMaster               @relation(fields: [ModuleMasterSid], references: [ModuleMasterSid])
   menuPermission     MenuPermission[]
   quoteHeader        QuoteHeader[]
+  ReportMaster       ReportMaster[]
   roleMenuMaster     RoleMenuMaster[]
   terms              TermsAndConditionsMaster[]
   userRoleMaster     UserRoleMaster[]
-  menuConfig         MenuConfig[]
-  ReportMaster       ReportMaster[]
 }
 
 model MenuPermission {
