@@ -13,8 +13,15 @@ import { FollowupService } from './services/followup/followup.service';
 import { SchedulerService } from './services/scheduler/scheduler.service';
 import { AttachDocumentController } from './controllers/attach-document/attach-document.controller';
 import { AttachDocumentService } from './services/attach-document/attach-document.service';
+import { MenuService } from 'src/masters/services/menu/menu.service';
+import { ConfigModule } from '@nestjs/config';
+import { GlobalConfigService } from './config/master-config.service';
+import { MastersModule } from 'src/masters/masters.module';
 
 @Module({
+    imports:[
+        MastersModule
+    ],
     controllers: [
         RecentScreenController,
         FavouriteScreenController,
