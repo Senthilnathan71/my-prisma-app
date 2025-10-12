@@ -50,6 +50,11 @@ export class UserService {
                                         include : {
                                             branchMaster : true
                                         }
+                                    },
+                                    countryMaster:{
+                                        select:{
+                                            countryName:true
+                                        }
                                     }
                                 }
                             }

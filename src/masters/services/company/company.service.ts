@@ -181,6 +181,11 @@ export class CompanyService {
                     companyName: 'asc'
                 },
                 include: {
+                    countryMaster:{
+                        select:{
+                            countryName:true
+                        }
+                    },
                     branchMaster: {
                         include: {
                             branchBank: {
