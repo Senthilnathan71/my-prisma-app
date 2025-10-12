@@ -6,30 +6,55 @@ import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { AttachDocumentService } from 'src/common/services/attach-document/attach-document.service';
 import { DynamicFilesUploadInterceptor } from 'src/common/decorators/attach-document.decorator';
 import { CreateAttachDocumentDto } from 'src/common/dto/attach-document.dto';
-
-
+import * as fs from "fs";
+import * as path from "path";
+import { ConfigService } from '@nestjs/config';
 @Controller('attach-document')
 export class AttachDocumentController {
-    constructor(private attachDocumentService: AttachDocumentService, private logger: Logger) { }
+    constructor(private configService:ConfigService,private attachDocumentService: AttachDocumentService, private logger: Logger) { }
 
     @ApiOperation({ summary: 'Create new Attach Document' })
     @ApiCreatedResponse({
         description: 'Create new Attach Document',
         type: ResponseData
     })
-    @DynamicFilesUploadInterceptor("files", "UPLOAD_EDOC_PATH", 10, 20)
+    @DynamicFilesUploadInterceptor("files", 10, 20)
     @HttpCode(HttpStatus.CREATED)
     @Post('create')
     async createNewAttachDocument(@UploadedFiles() files: Express.Multer.File[], @Body() newData: CreateAttachDocumentDto) {
         let resp = new ResponseData();
         try {
             if (!files || files.length === 0) {
-                throw new BadRequestException("No files uploaded");
-            }
-            let res = await this.attachDocumentService.createNewAttachDocument(files, newData);
-            this.logger.log(`New Attach Document Created : ${JSON.stringify(res)}`);
-            resp.data = res;
-            resp.message = "New Attach Document is successfully created"
+      throw new BadRequestException("No files uploaded");
+    }
+
+    // 1️⃣ Save DB record
+    const res = await this.attachDocumentService.createNewAttachDocument(files, newData);
+
+    // 2️⃣ Save files to disk after DB success
+    const baseDestination = this.configService.get("UPLOAD_EDOC_PATH");
+
+    files.forEach(file => {
+      const componentName:any = newData.menuName;
+      const recordId:any = newData.DocumentSid; // Use DB-generated ID
+
+      const folderPath = path.join(baseDestination, componentName, recordId.toString());
+      if (!fs.existsSync(folderPath)) fs.mkdirSync(folderPath, { recursive: true });
+
+      const ext = path.extname(file.originalname);
+      const name = file.originalname
+        .replace(/[^\w\s.]/g, "")
+        .replace(/\s+/g, "_");
+      const timestamp = Date.now();
+      const rand = Math.floor(1000 + Math.random() * 9000);
+      const fileName = `${name.split(".")[0]}_${timestamp}_${rand}${ext}`;
+
+      fs.writeFileSync(path.join(folderPath, fileName), file.buffer);
+    });
+
+    resp.data = res;
+    resp.message = "New Attach Document is successfully created";
+    this.logger.log(`New Attach Document Created: ${JSON.stringify(res)}`);
         } catch (error) {
             this.logger.warn(`Attach Document Creation Error : ${JSON.stringify(error)}`);
             resp.status = false;

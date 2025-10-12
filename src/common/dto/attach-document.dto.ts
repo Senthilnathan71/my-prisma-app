@@ -22,8 +22,8 @@ export class CreateAttachDocumentDto {
 
   @ApiProperty({ required: false })
   @IsOptional()
-  @IsInt()
-  menuName?: number;
+  @IsString()
+  menuName?: string;
 
   @ApiProperty()
   @IsString()

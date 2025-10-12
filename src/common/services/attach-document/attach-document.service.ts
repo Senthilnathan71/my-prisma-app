@@ -28,13 +28,18 @@ export class AttachDocumentService {
         files: Express.Multer.File[],
         uploadDto: CreateAttachDocumentDto) {
         try {
+            const menuName:any = await this._db.menuMaster.findUnique({
+                where:{
+                    MenuMasterSid:uploadDto.MenuMasterSid
+                },select:{MenuName:true}
+            })
             const edocRecords = await Promise.all(
                 files.map(async (file) => {
                     return await this._db.attachDocument.create({
                         data: {
                             CompanyMasterSid: uploadDto.CompanyMasterSid,
                             BranchMasterSid: uploadDto.BranchMasterSid,
-                            menuName: uploadDto.menuName,
+                            menuName: menuName || null,
                             DocumentSid: Number(uploadDto.DocumentSid),
                             AttachDocmentNo: uploadDto.AttachDocmentNo,
                             DocumentDate: uploadDto.DocumentDate ? new Date(uploadDto.DocumentDate) : '',
@@ -46,13 +51,14 @@ export class AttachDocumentService {
                             FollowupDate: uploadDto.FollowupDate ? new Date(uploadDto.FollowupDate) : null,
                             Remarks: uploadDto.Remarks,
                             status: uploadDto.status,
-                            createdBy: uploadDto.createdBy,
+                            createdBy: uploadDto.createdBy || 'system',
                         },
                     });
                 })
             );
             return edocRecords;
         } catch (error) {
+            console.log(error.stack)
             throw error;
         }
     }

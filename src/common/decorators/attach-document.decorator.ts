@@ -1,77 +1,19 @@
-// decorators/dynamic-files-upload.decorator.ts
 import { applyDecorators, UseInterceptors } from "@nestjs/common";
-import { ConfigService } from "@nestjs/config";
 import { FilesInterceptor } from "@nestjs/platform-express";
-import { diskStorage } from "multer";
-import { extname } from "path";
-import * as fs from "fs";
-import * as path from "path";
+import { memoryStorage } from "multer";
 
 export function DynamicFilesUploadInterceptor(
   fieldName: string,
-  destinationKey: string,
   maxFiles = 10,
   fileSizeMB = 20
 ) {
   return applyDecorators(
     UseInterceptors(
       FilesInterceptor(fieldName, maxFiles, {
-        storage: diskStorage({
-          destination: (req, file, cb) => {
-            try {
-              const configService = new ConfigService();
-              const baseDestination = configService.get(destinationKey);
-              
-              // Check if base destination exists
-              if (!baseDestination) {
-                return cb(
-                  new Error(`Configuration key "${destinationKey}" not found`),
-                  ""
-                );
-              }
-
-              // Get component name and record ID from request body
-              const componentName = req.body.componentName; // e.g., "Lead"
-              const recordId = req.body.recordId; // e.g., "11"
-
-              if (!componentName || !recordId) {
-                return cb(
-                  new Error("componentName and recordId are required in the request body"),
-                  ""
-                );
-              }
-
-              // Create path: baseDestination/ComponentName/recordId/
-              const fullPath = path.join(
-                baseDestination,
-                componentName,
-                recordId.toString()
-              );
-
-              // Create directories if they don't exist
-              if (!fs.existsSync(fullPath)) {
-                fs.mkdirSync(fullPath, { recursive: true });
-              }
-
-              cb(null, fullPath);
-            } catch (error) {
-              cb(error as Error, "");
-            }
-          },
-          filename: (req, file, cb) => {
-            try {
-              const name = file.originalname
-                .replace(/[^\w\s.]/g, "")
-                .replace(/\s+/g, "_");
-              const ext = extname(file.originalname);
-              const timestamp = Date.now();
-              const rand = Math.floor(1000 + Math.random() * 9000);
-              cb(null, `${name.split(".")[0]}_${timestamp}_${rand}${ext}`);
-            } catch (error) {
-              cb(error as Error, "");
-            }
-          },
-        }),
+        storage: memoryStorage(), // Store files in memory first
+        limits: {
+          fileSize: 1024 * 1024 * fileSizeMB,
+        },
         fileFilter: (req, file, cb) => {
           const allowedMimes = [
             "application/pdf",
@@ -94,9 +36,6 @@ export function DynamicFilesUploadInterceptor(
               false
             );
           }
-        },
-        limits: {
-          fileSize: 1024 * 1024 * fileSizeMB,
         },
       })
     )

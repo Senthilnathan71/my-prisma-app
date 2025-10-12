@@ -2105,7 +2105,7 @@ model AttachDocument {
   BranchMasterSid   Int
   DocumentSid       Int?
   MenuMasterSid     Int?
-  menuName          Int?
+  menuName          String?       @db.VarChar(50)
   AttachDocmentNo   String        @db.VarChar(20)
   DocumentDate      DateTime      @db.Date
   FileName          String        @db.VarChar(30)
