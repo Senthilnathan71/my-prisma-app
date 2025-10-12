@@ -284,7 +284,7 @@ import { LeadService } from './services/lead/lead.service';
     CustomerMilestoneController,
     MawbStockController
   ],
-  exports: [UserService]
+  exports: [UserService,MenuService]
 })
 
 export class MastersModule { }

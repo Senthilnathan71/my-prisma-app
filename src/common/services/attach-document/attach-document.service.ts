@@ -1,7 +1,8 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
-
+import * as path from 'path'
+import { CreateAttachDocumentDto } from 'src/common/dto/attach-document.dto';
 @Injectable()
 export class AttachDocumentService {
     constructor(private _db: DatabaseService) { }
@@ -10,7 +11,7 @@ export class AttachDocumentService {
         try {
             const allAttachDocuments = await this._db.attachDocument.findMany({
                 where: {
-                    status : 'A'
+                    status: 'A'
                 },
                 include: {
                     companyMaster: true,
@@ -23,28 +24,50 @@ export class AttachDocumentService {
         }
     }
 
-    async createNewAttachDocument(payload: any) {
+    async createNewAttachDocument(
+        files: Express.Multer.File[],
+        uploadDto: CreateAttachDocumentDto,
+        menuName:any    
+    ) {
         try {
-            const createdAttachDocument = await this._db.attachDocument.create({
-                data: {
-                    ...payload,
-                },
-                include: {
-                    companyMaster: true,
-                    branchMaster: true
-                }
-            });
-            return createdAttachDocument;
+            const edocRecords = await Promise.all(
+                files.map(async (file) => {
+                          console.log('Processing file:', file?.originalname);
+                    return await this._db.attachDocument.create({
+                        data: {
+                            CompanyMasterSid: Number(uploadDto.CompanyMasterSid),
+                            BranchMasterSid: Number(uploadDto.BranchMasterSid),
+                            MenuMasterSid: Number(uploadDto.MenuMasterSid),
+                            menuName: menuName || null,
+                            DocumentSid: Number(uploadDto.DocumentSid),
+                            AttachDocmentNo: uploadDto.AttachDocmentNo,
+                            DocumentDate: new Date(uploadDto.DocumentDate),
+                            FileName: file?.originalname,
+                            Documenttype: uploadDto.Documenttype || (file?.originalname ? path.extname(file.originalname).substring(1) : ''),
+                            ReceivedDate: uploadDto.ReceivedDate ? new Date(uploadDto.ReceivedDate) : null,
+                            SentDate: uploadDto.SentDate ? new Date(uploadDto.SentDate) : null,
+                            FollowupRequire: uploadDto.FollowupRequire || '',
+                            FollowupDate: uploadDto.FollowupDate ? new Date(uploadDto.FollowupDate) : null,
+                            Remarks: uploadDto.Remarks,
+                            status: uploadDto.status,
+                            createdBy: uploadDto.createdBy || 'system',
+                        },
+                    });
+                })
+            );
+            return edocRecords;
         } catch (error) {
+            console.log(error.stack)
             throw error;
         }
     }
 
-    async fetchAttachDocumentById(AttachDocumentSid: number) {
+    async fetchAttachDocumentById(AttachDocumentSid: number,DocumentSid:number) {
         try {
-            const attachDocument = await this._db.attachDocument.findUnique({
+            const attachDocument = await this._db.attachDocument.findMany({
                 where: {
-                    AttachDocumentSid: AttachDocumentSid
+                    AttachDocumentSid: AttachDocumentSid,
+                    DocumentSid:DocumentSid,
                 },
                 include: {
                     companyMaster: true,
@@ -104,7 +127,7 @@ export class AttachDocumentService {
                     AttachDocumentSid: AttachDocumentSid
                 },
                 data: {
-                    status : 'D'
+                    status: 'D'
                 },
                 include: {
                     companyMaster: true,
@@ -170,7 +193,7 @@ export class AttachDocumentService {
         const searchResults = await this._db.attachDocument.findMany({
             where: {
                 ...whereClause,
-                status : 'A'
+                status: 'A'
             },
             include: {
                 companyMaster: true,
