@@ -18,42 +18,58 @@ export function DynamicFilesUploadInterceptor(
       FilesInterceptor(fieldName, maxFiles, {
         storage: diskStorage({
           destination: (req, file, cb) => {
-            const configService = new ConfigService();
-            const baseDestination = configService.get(destinationKey);
-            
-            // Get component name and record ID from request body
-            const componentName = req.body.componentName; // e.g., "Lead"
-            const recordId = req.body.recordId; // e.g., "11"
+            try {
+              const configService = new ConfigService();
+              const baseDestination = configService.get(destinationKey);
+              
+              // Check if base destination exists
+              if (!baseDestination) {
+                return cb(
+                  new Error(`Configuration key "${destinationKey}" not found`),
+                  ""
+                );
+              }
 
-            if (!componentName || !recordId) {
-              return cb(
-                new Error("componentName and recordId are required in the request body"),
-                null
+              // Get component name and record ID from request body
+              const componentName = req.body.componentName; // e.g., "Lead"
+              const recordId = req.body.recordId; // e.g., "11"
+
+              if (!componentName || !recordId) {
+                return cb(
+                  new Error("componentName and recordId are required in the request body"),
+                  ""
+                );
+              }
+
+              // Create path: baseDestination/ComponentName/recordId/
+              const fullPath = path.join(
+                baseDestination,
+                componentName,
+                recordId.toString()
               );
+
+              // Create directories if they don't exist
+              if (!fs.existsSync(fullPath)) {
+                fs.mkdirSync(fullPath, { recursive: true });
+              }
+
+              cb(null, fullPath);
+            } catch (error) {
+              cb(error as Error, "");
             }
-
-            // Create path: baseDestination/ComponentName/recordId/
-            const fullPath = path.join(
-              baseDestination,
-              componentName,
-              recordId.toString()
-            );
-
-            // Create directories if they don't exist
-            if (!fs.existsSync(fullPath)) {
-              fs.mkdirSync(fullPath, { recursive: true });
-            }
-
-            cb(null, fullPath);
           },
           filename: (req, file, cb) => {
-            const name = file.originalname
-              .replace(/[^\w\s.]/g, "")
-              .replace(/\s+/g, "_");
-            const ext = extname(file.originalname);
-            const timestamp = Date.now();
-            const rand = Math.floor(1000 + Math.random() * 9000);
-            cb(null, `${name.split(".")[0]}_${timestamp}_${rand}${ext}`);
+            try {
+              const name = file.originalname
+                .replace(/[^\w\s.]/g, "")
+                .replace(/\s+/g, "_");
+              const ext = extname(file.originalname);
+              const timestamp = Date.now();
+              const rand = Math.floor(1000 + Math.random() * 9000);
+              cb(null, `${name.split(".")[0]}_${timestamp}_${rand}${ext}`);
+            } catch (error) {
+              cb(error as Error, "");
+            }
           },
         }),
         fileFilter: (req, file, cb) => {

@@ -1,9 +1,11 @@
-import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, Post, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, Post, UnauthorizedException, UploadedFiles } from '@nestjs/common';
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
 import { FilesUploadInterceptor } from 'src/common/decorators/file-upload.decorator';
 import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { AttachDocumentService } from 'src/common/services/attach-document/attach-document.service';
+import { DynamicFilesUploadInterceptor } from 'src/common/decorators/attach-document.decorator';
+import { CreateAttachDocumentDto } from 'src/common/dto/attach-document.dto';
 
 
 @Controller('attach-document')
@@ -15,13 +17,16 @@ export class AttachDocumentController {
         description: 'Create new Attach Document',
         type: ResponseData
     })
-    @FilesUploadInterceptor('documents', 'UPLOAD_DOC_PATH')
-    @HttpCode(HttpStatus.OK)
+    @DynamicFilesUploadInterceptor("files", "UPLOAD_EDOC_PATH", 10, 20)
+    @HttpCode(HttpStatus.CREATED)
     @Post('create')
-    async createNewAttachDocument(@Body() newData: any) {
+    async createNewAttachDocument(@UploadedFiles() files: Express.Multer.File[], @Body() newData: CreateAttachDocumentDto) {
         let resp = new ResponseData();
         try {
-            let res = await this.attachDocumentService.createNewAttachDocument(newData);
+            if (!files || files.length === 0) {
+                throw new BadRequestException("No files uploaded");
+            }
+            let res = await this.attachDocumentService.createNewAttachDocument(files, newData);
             this.logger.log(`New Attach Document Created : ${JSON.stringify(res)}`);
             resp.data = res;
             resp.message = "New Attach Document is successfully created"

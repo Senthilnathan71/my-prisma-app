@@ -2111,6 +2111,7 @@ model AttachDocument {
   FileName          String        @db.VarChar(30)
   Documenttype      String        @db.VarChar(20)
   ReceivedDate      DateTime?     @db.Date
+  SentDate      DateTime?     @db.Date
   FollowupRequire   String?       @default("N") @db.Char(1)
   FollowupDate      DateTime?     @db.Date
   Public            String        @default("N") @db.Char(1)
