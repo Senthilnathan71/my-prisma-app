@@ -62,6 +62,7 @@ export class MasterJobService {
                     DGApprovedDate: payload.DGApprovedDate ? new Date(payload.DGApprovedDate) : null,
                     CommodityDescription: payload.CommodityDescription?.substring(0, 20) || '',
                     MarksandNumber: payload.MarksandNumber?.substring(0, 20) || '',
+                   
                 }
 
                 const createdMasterJob = await prisma.masterJob.create({
@@ -723,6 +724,7 @@ export class MasterJobService {
                     ChargeableWeight: Number(payload.ChargeableWeight),
                     Volume: Number(payload.Volume),
                     Haz: payload.Haz,
+                    Status: payload.Status,
                     DGBookingDate: payload.DGBookingDate ? new Date(payload.DGBookingDate) : null,
                     DGApprovedDate: payload.DGApprovedDate ? new Date(payload.DGApprovedDate) : null,
                     CommodityDescription: payload.CommodityDescription?.substring(0, 20) || '',
