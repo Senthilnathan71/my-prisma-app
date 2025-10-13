@@ -38,7 +38,7 @@ export class CreateAttachDocumentDto {
   @ApiProperty({ })
   @IsString()
   @MaxLength(20)
-  Documenttype: string;
+  DocumentType: string;
 
   @ApiProperty({ required: false })
   @IsOptional()
