@@ -146,7 +146,7 @@ export class EmailService {
                 attachments: (data.attachments || []).map((file: Express.Multer.File) => {
                     return {
                     filename: file.originalname,
-                    path: file.path, 
+                    path: file.path,
                     contentType: file.mimetype,
                     }
                 })
@@ -161,6 +161,172 @@ export class EmailService {
                 HttpStatus.EXPECTATION_FAILED
             );
         }
+    }
+
+    async sendInvoiceEmail(data: {
+        from: string;
+        to: string;
+        cc?: string;
+        subject: string;
+        message: string;
+        pdfBuffer: Buffer;
+        filename: string;
+        invoiceDetails?: any;
+    }): Promise<boolean> {
+        try {
+            // Create HTML email body with invoice details
+            const htmlBody = this.createInvoiceEmailTemplate(data.message, data.invoiceDetails);
+
+            const mailOptions: any = {
+                from: data.from || '"Dofi-Infosys" <noreply@dofi.co>',
+                to: data.to,
+                subject: data.subject,
+                html: htmlBody,
+                attachments: [
+                    {
+                        filename: data.filename,
+                        content: data.pdfBuffer,
+                        contentType: 'application/pdf',
+                    }
+                ]
+            };
+
+            // Add CC if provided
+            if (data.cc && data.cc.trim() !== '') {
+                mailOptions.cc = data.cc;
+            }
+
+            const info = await this.transporter.sendMail(mailOptions);
+            this.logger.log(`Invoice email sent successfully: ${info.messageId}`);
+            return true;
+        } catch (err) {
+            this.logger.warn(`sendInvoiceEmail error: ${JSON.stringify(err)}`);
+            throw new HttpException(
+                { message: `Error sending invoice email: ${err.message}` },
+                HttpStatus.EXPECTATION_FAILED
+            );
+        }
+    }
+
+    private createInvoiceEmailTemplate(message: string, invoiceDetails?: any): string {
+        const companyName = invoiceDetails?.companyName || 'Dofi-Infosys';
+        const invoiceNumber = invoiceDetails?.invoiceNumber || 'N/A';
+        const invoiceDate = invoiceDetails?.invoiceDate || 'N/A';
+        const totalAmount = invoiceDetails?.totalAmount || 'N/A';
+        const currency = invoiceDetails?.currency || '';
+
+        return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Invoice Email</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            background-color: #4CAF50;
+            color: white;
+            padding: 20px;
+            text-align: center;
+            border-radius: 5px 5px 0 0;
+        }
+        .content {
+            background-color: #f9f9f9;
+            padding: 30px;
+            border: 1px solid #ddd;
+            border-top: none;
+        }
+        .invoice-details {
+            background-color: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 5px;
+            border-left: 4px solid #4CAF50;
+        }
+        .invoice-details table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .invoice-details td {
+            padding: 8px 0;
+        }
+        .invoice-details td:first-child {
+            font-weight: bold;
+            width: 40%;
+        }
+        .message {
+            margin: 20px 0;
+            white-space: pre-wrap;
+        }
+        .footer {
+            background-color: #333;
+            color: white;
+            padding: 20px;
+            text-align: center;
+            font-size: 12px;
+            border-radius: 0 0 5px 5px;
+        }
+        .btn {
+            display: inline-block;
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>${companyName}</h1>
+        <p>Invoice Notification</p>
+    </div>
+
+    <div class="content">
+        <h2>Invoice Details</h2>
+
+        <div class="invoice-details">
+            <table>
+                <tr>
+                    <td>Invoice Number:</td>
+                    <td>${invoiceNumber}</td>
+                </tr>
+                <tr>
+                    <td>Invoice Date:</td>
+                    <td>${invoiceDate}</td>
+                </tr>
+                <tr>
+                    <td>Total Amount:</td>
+                    <td><strong>${currency} ${totalAmount}</strong></td>
+                </tr>
+            </table>
+        </div>
+
+        <div class="message">
+            ${message}
+        </div>
+
+        <p>Please find the attached invoice PDF for your reference.</p>
+
+        <p>If you have any questions or concerns, please don't hesitate to contact us.</p>
+    </div>
+
+    <div class="footer">
+        <p>&copy; ${new Date().getFullYear()} ${companyName}. All rights reserved.</p>
+        <p>This is an automated email. Please do not reply to this message.</p>
+    </div>
+</body>
+</html>
+        `;
     }
 
 }

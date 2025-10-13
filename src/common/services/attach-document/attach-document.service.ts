@@ -26,42 +26,48 @@ export class AttachDocumentService {
 
     async createNewAttachDocument(
         files: Express.Multer.File[],
-        uploadDto: CreateAttachDocumentDto) {
+        uploadDto: CreateAttachDocumentDto,
+        menuName:any    
+    ) {
         try {
             const edocRecords = await Promise.all(
                 files.map(async (file) => {
+                          console.log('Processing file:', file?.originalname);
                     return await this._db.attachDocument.create({
                         data: {
-                            CompanyMasterSid: uploadDto.CompanyMasterSid,
-                            BranchMasterSid: uploadDto.BranchMasterSid,
-                            menuName: uploadDto.menuName,
+                            CompanyMasterSid: Number(uploadDto.CompanyMasterSid),
+                            BranchMasterSid: Number(uploadDto.BranchMasterSid),
+                            MenuMasterSid: Number(uploadDto.MenuMasterSid),
+                            menuName: menuName || null,
                             DocumentSid: Number(uploadDto.DocumentSid),
                             AttachDocmentNo: uploadDto.AttachDocmentNo,
-                            DocumentDate: uploadDto.DocumentDate ? new Date(uploadDto.DocumentDate) : '',
-                            FileName: file.originalname,
-                            Documenttype: uploadDto.Documenttype || path.extname(file.originalname).substring(1),
+                            DocumentDate: new Date(uploadDto.DocumentDate),
+                            FileName: file?.originalname,
+                            Documenttype: uploadDto.Documenttype || (file?.originalname ? path.extname(file.originalname).substring(1) : ''),
                             ReceivedDate: uploadDto.ReceivedDate ? new Date(uploadDto.ReceivedDate) : null,
                             SentDate: uploadDto.SentDate ? new Date(uploadDto.SentDate) : null,
                             FollowupRequire: uploadDto.FollowupRequire || '',
                             FollowupDate: uploadDto.FollowupDate ? new Date(uploadDto.FollowupDate) : null,
                             Remarks: uploadDto.Remarks,
                             status: uploadDto.status,
-                            createdBy: uploadDto.createdBy,
+                            createdBy: uploadDto.createdBy || 'system',
                         },
                     });
                 })
             );
             return edocRecords;
         } catch (error) {
+            console.log(error.stack)
             throw error;
         }
     }
 
-    async fetchAttachDocumentById(AttachDocumentSid: number) {
+    async fetchAttachDocumentById(AttachDocumentSid: number,DocumentSid:number) {
         try {
-            const attachDocument = await this._db.attachDocument.findUnique({
+            const attachDocument = await this._db.attachDocument.findMany({
                 where: {
-                    AttachDocumentSid: AttachDocumentSid
+                    AttachDocumentSid: AttachDocumentSid,
+                    DocumentSid:DocumentSid,
                 },
                 include: {
                     companyMaster: true,
