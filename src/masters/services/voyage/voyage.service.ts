@@ -710,49 +710,48 @@ export class VoyageService {
         }
     }
 
-    // Additional helper method to get voyages by multiple POL/POD combinations
-    async getVoyagesByMultiplePolPod(polPodList: Array<{POLSid: number, PODSid: number}>) {
-        try {
-            const whereClause: any = {
+    // Used in Booking , Loading Plan
+    async getAllVesselWithVoyage(payload: VesselVoyageDTO) {
+        const { POL, POD ,segment} = payload;
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        // First find voyages that have both POL and POD
+        const voyagesWithBothPorts = await this._db.voyageMasterHeader.findMany({
+            where: {
                 status: 'A',
-                OR: polPodList.map(polPod => ({
-                    AND: [
-                        { POLSid: polPod.POLSid },
-                        { PODSid: polPod.PODSid }
-                    ]
-                }))
-            };
+                ETD : { gte : today },
+                VoyageType: segment,
+                AND: [
+                    { POLSid :  POL },
+                    { PODSid :  POD }
+                ]
+            },
+            include: {
+                vesselMaster : { select : {VesselName : true}}
+            }
+        });
 
-            const voyages = await this._db.voyageMasterHeader.findMany({
-                where: whereClause,
-                include: {
-                    vesselMaster: {
-                        select: {
-                            VesselName: true
-                        }
-                    },
-                    portMasterPOL: {
-                        select: {
-                            PortCode: true,
-                            PortName: true
-                        }
-                    },
-                    portMasterPOD: {
-                        select: {
-                            PortCode: true,
-                            PortName: true
-                        }
-                    }
-                },
-                orderBy: {
-                    ETD: 'asc'
-                }
-            });
+        const validVoyages = voyagesWithBothPorts.map(voy => {
+            return {
+                VoyageMasterSid : voy.VoyageMasterHeaderSid,
+                VesselName: voy.vesselMaster?.VesselName,
+                VoyageNo: voy.VoyageNo,
+                POL: voy.POLSid,
+                POD: voy.POLSid,
+                PortCutoff : voy.PortCutoff,
+                ETD: voy.ETD,
+                ETA: voy.ETA
+            }
+        });
 
-            return voyages;
-        } catch (error) {
-            this.logger.error(`Error getting voyages by multiple POL/POD: ${error.message}`);
-            throw new BadRequestException('Error fetching voyages');
-        }
+        return validVoyages;
     }
+
+
+}
+interface VesselVoyageDTO {
+    POL : number,
+    POD : number,
+    segment : 'Sea' | 'Air' | 'Road'
 }

@@ -43,6 +43,33 @@ export class VoyageController {
         return output
     }
 
+    
+    @ApiOperation({ summary: 'Get all vessel with voyage' })
+    @ApiCreatedResponse({
+        description: 'Vessel with voyage fetched successfully',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Post('vesselWithVoyage')
+    async getVesselWithVoyage(@Body() body: VesselVoyageDTO) {
+        let resp = new ResponseData();
+        try {
+            this.logger.log(`getVesselWithVoyage: ${JSON.stringify(body)}`)
+            const vesselWithVoyage = await this.voyageService.getAllVesselWithVoyage(body);
+            this.logger.debug(`getVesselWithVoyage: ${JSON.stringify(vesselWithVoyage)}`)
+            resp.data = vesselWithVoyage;
+            resp.message = 'Vessel with voyage fetched successfully';
+        } catch (error) {
+            resp.status = false;
+            this.logger.error('Error loading vessel with voyage', JSON.stringify(error), error)
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                resp.message = error.message;
+            } else {
+                resp.message = 'Internal Server Error';
+            }
+        }
+        return resp;
+    }
 
     @ApiOperation({ summary: 'Get All Voyage' })
     @ApiCreatedResponse({
@@ -300,4 +327,10 @@ export class VoyageController {
         }
         return output;
     }
+
+}
+interface VesselVoyageDTO {
+    POL : number,
+    POD : number,
+    segment : 'Sea' | 'Air' | 'Road'
 }
