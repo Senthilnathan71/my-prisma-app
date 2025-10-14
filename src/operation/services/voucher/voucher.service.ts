@@ -403,20 +403,45 @@ export class VoucherService {
                         currencyCode = currency?.currencyCode || 'USD';
                     }
 
-                    // Fetch HSN/SAC Master ID from chargeTaxMapping
+                    // Fetch HSN/SAC Master ID by looking up HSN code in HSSACMaster table
                     let hsnSACMasterSid: number | undefined = undefined;
 
                     if (rate.ChargeMasterSid) {
-                        const chargeTaxMapping = await tx.chargeTaxMapping.findFirst({
+                        // Step 1: Get HSN Code from chargeMaster's chargeTaxMaster relationship
+                        const chargeMaster = await tx.chargeMaster.findUnique({
                             where: { ChargeMasterSid: rate.ChargeMasterSid },
                             select: {
-                                HSSACMasterSid: true
+                                chargeTaxMaster: {
+                                    take: 1,
+                                    select: {
+                                        ChargeTaxMasterSid: true,
+                                        HSNCode: true
+                                    }
+                                }
                             }
                         });
 
-                        if (chargeTaxMapping?.HSSACMasterSid) {
-                            hsnSACMasterSid = chargeTaxMapping.HSSACMasterSid;
-                            this.logger.log(`HSN/SAC for charge ${rate.ChargeMasterSid}: HSSACMasterSid = ${hsnSACMasterSid}`);
+                        if (chargeMaster?.chargeTaxMaster && chargeMaster.chargeTaxMaster.length > 0) {
+                            const hsnCode = chargeMaster.chargeTaxMaster[0].HSNCode;
+
+                            if (hsnCode) {
+                                // Step 2: Find the HSSACMasterSid from HSSACMaster table using the HSN Code
+                                const hssacMaster = await tx.hSSACMaster.findFirst({
+                                    where: { HSSACCode: hsnCode },
+                                    select: { HSSACMasterSid: true }
+                                });
+
+                                if (hssacMaster) {
+                                    hsnSACMasterSid = hssacMaster.HSSACMasterSid;
+                                    this.logger.log(`HSN/SAC for charge ${rate.ChargeMasterSid}: HSNCode = ${hsnCode}, HSSACMasterSid = ${hsnSACMasterSid}`);
+                                } else {
+                                    this.logger.warn(`No HSSACMaster found for HSNCode: ${hsnCode} (ChargeMasterSid: ${rate.ChargeMasterSid})`);
+                                }
+                            } else {
+                                this.logger.warn(`No HSNCode found in chargeTaxMaster for ChargeMasterSid ${rate.ChargeMasterSid}`);
+                            }
+                        } else {
+                            this.logger.warn(`No chargeTaxMaster found for ChargeMasterSid ${rate.ChargeMasterSid}`);
                         }
                     }
 

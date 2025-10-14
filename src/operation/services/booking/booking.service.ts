@@ -1194,6 +1194,11 @@ export class BookingService {
      */
     async createBookingRate(payload: any) {
         try {
+            // Validate that BookingHeader exists
+            if (!payload.BookingHeaderSid) {
+                throw new BadRequestException('BookingHeaderSid is required');
+            }
+
             const bookingRate = await this._db.bookingRates.create({
                 data: {
                     BookingHeaderSid: payload.BookingHeaderSid,
