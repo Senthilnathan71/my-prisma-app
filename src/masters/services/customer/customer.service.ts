@@ -497,13 +497,12 @@ export class CustomerService {
             throw error
         }
     }
-    async getAllExistingCustomers(CompanyMasterSid: number, PreCustomerMasterSid: number) {
+    async  getAllExistingCustomers(CompanyMasterSid: number, PreCustomerMasterSid: number) {
         try {
             const customerList = await this._db.customerMaster.findMany({
                 where: {
                     status: 'A',
                     preCustomerMaster: {
-                        PreCustomerMasterSid: PreCustomerMasterSid,
                         leadStatus: LeadStatus.DealWon
                     },
                     CompanyMasterSid: CompanyMasterSid,

@@ -1,11 +1,16 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
-import * as path from 'path'
+import * as fs from 'fs';
+import * as path from 'path';
 import { CreateAttachDocumentDto } from 'src/common/dto/attach-document.dto';
+import { ConfigService } from '@nestjs/config';
 @Injectable()
 export class AttachDocumentService {
-    constructor(private _db: DatabaseService) { }
+    constructor(
+        private _db: DatabaseService,
+        private configService: ConfigService
+    ) { }
 
     async getAllAttachDocuments() {
         try {
@@ -43,7 +48,7 @@ export class AttachDocumentService {
                             AttachDocmentNo: uploadDto.AttachDocmentNo,
                             DocumentDate: new Date(uploadDto.DocumentDate),
                             FileName: file?.originalname,
-                            Documenttype: uploadDto.Documenttype || (file?.originalname ? path.extname(file.originalname).substring(1) : ''),
+                            Documenttype: uploadDto.DocumentType || (file?.originalname ? path.extname(file.originalname).substring(1) : ''),
                             ReceivedDate: uploadDto.ReceivedDate ? new Date(uploadDto.ReceivedDate) : null,
                             SentDate: uploadDto.SentDate ? new Date(uploadDto.SentDate) : null,
                             FollowupRequire: uploadDto.FollowupRequire || '',
@@ -62,12 +67,11 @@ export class AttachDocumentService {
         }
     }
 
-    async fetchAttachDocumentById(AttachDocumentSid: number,DocumentSid:number) {
+    async fetchAttachDocumentById(AttachDocumentSid: number) {
         try {
             const attachDocument = await this._db.attachDocument.findMany({
                 where: {
                     AttachDocumentSid: AttachDocumentSid,
-                    DocumentSid:DocumentSid,
                 },
                 include: {
                     companyMaster: true,
@@ -205,4 +209,62 @@ export class AttachDocumentService {
 
         return searchResults;
     }
+
+    async fetchAttachDocumentByFolder(menuMasterSid: number, DocumentSid: number) {
+    const UPLOAD_EDOC_PATH = this.configService.get("UPLOAD_EDOC_PATH");
+    try {
+      // Step 1: Get menu name from MenuMaster
+      const menu = await this._db.menuMaster.findUnique({
+        where: { MenuMasterSid: Number(menuMasterSid) },
+        select: { MenuName: true },
+      });
+
+      if (!menu) {
+        throw new BadRequestException(`MenuMaster not found for ID ${menuMasterSid}`);
+      }
+
+      const menuName = menu.MenuName;
+      const folderPath = path.join(UPLOAD_EDOC_PATH, menuName, String(DocumentSid));
+
+      // Step 2: Check if folder exists
+      if (!fs.existsSync(folderPath)) {
+        throw new BadRequestException(`Folder not found: ${folderPath}`);
+      }
+
+      // Step 3: Read files inside the folder
+      const files = fs.readdirSync(folderPath);
+
+      if (files.length === 0) {
+        throw new BadRequestException(`No files found inside folder: ${folderPath}`);
+      }
+
+      if (files.length > 1) {
+      }
+
+      const selectedFileName = files[0];
+
+      // Step 4: Query database to find the record
+      const attachDocument = await this._db.attachDocument.findFirst({
+        where: {
+          MenuMasterSid: Number(menuMasterSid),
+          DocumentSid: DocumentSid,
+          FileName: selectedFileName,
+        },
+        include: {
+          companyMaster: true,
+          branchMaster: true,
+          menuMaster: true,
+        },
+      });
+
+      if (!attachDocument) {
+        throw new BadRequestException(`AttachDocument record not found for file: ${selectedFileName}`);
+      }
+
+      return attachDocument;
+    } catch (error) {
+      throw error;
+    }
+  }
+
 }
