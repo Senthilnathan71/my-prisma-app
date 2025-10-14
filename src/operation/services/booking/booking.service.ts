@@ -71,7 +71,7 @@ export class BookingService {
                     |--------------------------------------------------
                 */
 
-                newBooking = await prisma.bookingHeader.create({
+                const createBookingHeader = await prisma.bookingHeader.create({
                     data: {
                         // Section - 1 
                         CompanyMasterSid: payload.CompanyMasterSid,
@@ -127,6 +127,8 @@ export class BookingService {
                         BookingStatus: 'Booked'
                     }
                 })
+
+                return {...createBookingHeader}
             })
             /**
                 |--------------------------------------------------
@@ -135,9 +137,9 @@ export class BookingService {
             */
             const cargoPayload = payload.bookingCargo ?? {};
             const cargoData = {
-                CompanyMasterSid: newBooking.CompanyMasterSid,
-                BranchMasterSid: newBooking.BranchMasterSid,
-                BookingHeaderSid: newBooking.BookingHeaderSid,
+                CompanyMasterSid: bookingHeader.CompanyMasterSid,
+                BranchMasterSid: bookingHeader.BranchMasterSid,
+                BookingHeaderSid: bookingHeader.BookingHeaderSid,
                 CargoType: cargoPayload.CargoType,
                 ContainerType: cargoPayload.ContainerType,
                 NoofContainers: Number(cargoPayload.NoofContainers),
@@ -170,7 +172,7 @@ export class BookingService {
 
             const allProducts: any[] = (payload.bookingProducts || []).map(product => {
                 const productData = {
-                    BookingHeaderSid: newBooking.BookingHeaderSid,
+                    BookingHeaderSid: bookingHeader.BookingHeaderSid,
                     ProductName: product.ProductName || '',
                     ShippingBillNo: product.ShippingBillNo || '',
                     ShippingBillDate: product.ShippingBillDate || '',
@@ -212,7 +214,7 @@ export class BookingService {
             const otherPayload = payload.bookingOther ?? {};
 
             const otherData = {
-                BookingHeaderSid: newBooking.BookingHeaderSid,
+                BookingHeaderSid: bookingHeader.BookingHeaderSid,
                 CustomerRefNo: otherPayload.CustomerRefNo || '',
                 YardCFS: otherPayload.YardCFS || '',
                 HBLNo: otherPayload.HBLNo || '',
@@ -262,7 +264,7 @@ export class BookingService {
 
             const allConnections: any[] = (payload.bookingConnections || []).map(connection => {
                 const connectionData = {
-                    BookingHeaderSid: newBooking.BookingHeaderSid,
+                    BookingHeaderSid: bookingHeader.BookingHeaderSid,
                     Mode: connection.Mode,
                     VesselName: connection.VesselName,
                     VoyageNo: connection.VoyageNo,
@@ -291,55 +293,58 @@ export class BookingService {
                 |--------------------------------------------------
             */
             let allRates: any[] = (payload.bookingRates || []).map(
-                rate => {
+                (rate,index) => {
                     return {
-                        BookingHeaderSid: newBooking.BookingHeaderSid,
-                        CompanyMasterSid: payload.CompanyMasterSid,
-                        BranchMasterSid: payload.BranchMasterSid,
-                        SerialNumber: Number(rate.SerialNumber),
-                        MenuMasterSid: payload.MenuMasterSid,
-                        // Charge Master
-                        ChargeMasterSid: rate.ChargeMasterSid,
-                        ChargeDescription: rate.ChargeDescription,
-                        // COST side
-                        CostPrepaidCollect: rate.PrepaidCollect || "Prepaid",
-                        CostCurrencyMasterSid: rate.CurrencyMasterSid,
-                        CostExchangeRate: Number(rate.ExchangeRate),
-                        CostRate: Number(rate.Rate),
-                        CostNumberOfUnit: Number(rate.NumberOfUnit),
-                        CostDrCr: rate.DrCr,
-                        CostAmount: Number(rate.Amount),
-                        CostLocalAmount: Number(rate.LocalAmount),
-                        CostChargeUomSid: rate.ChargeUomSid,
-                        // REVENUE side (optional — map if you capture revenue separately, else keep nulls)
-                        RevenuePrepaidCollect: rate.RevenuePrepaidCollect || null,
-                        RevenueCurrencyMasterSid: rate.RevenueCurrencyMasterSid || null,
-                        RevenueExchangeRate: rate.RevenueExchangeRate ? Number(rate.RevenueExchangeRate) : null,
-                        RevenueRate: rate.RevenueRate ? Number(rate.RevenueRate) : null,
-                        RevenueNumberOfUnit: rate.RevenueNumberOfUnit ? Number(rate.RevenueNumberOfUnit) : null,
-                        RevenueDrCr: rate.RevenueDrCr || null,
-                        RevenueAmount: rate.RevenueAmount ? Number(rate.RevenueAmount) : 0,
-                        RevenueLocalAmount: rate.RevenueLocalAmount ? Number(rate.RevenueLocalAmount) : 0,
-                        RevenueChargeUomSid: rate.RevenueChargeUomSid || null,
-                        // Parties
-                        CustomerMasterSid: rate.CustomerMasterSid,
-                        CustomerBranchSid: newBooking.CustomerBranchSid,
-                        AgentMasterSid: rate.AgentMasterSid || null,
-                        AgentBranchSid: rate.AgentBranchSid || null,
-                        // Vouchers
-                        VoucherHeaderSid: rate.VoucherHeaderSid ? Number(rate.VoucherHeaderSid) : null,
-                        VoucherTypeMasterSid: rate.VoucherTypeSid || null,
-                        // Other fields
-                        Remarks: rate.Remarks || null,
-                        Status: "A",
-                        CreatedBy: payload.createdBy,
-                    };
+                    BookingHeaderSid: bookingHeader.BookingHeaderSid,
+                    CompanyMasterSid: payload.CompanyMasterSid,
+                    BranchMasterSid: payload.BranchMasterSid,
+                    // MenuMasterSid : payload.MenuMasterSid,
+                    CreatedBy: payload.createdBy,
+
+                    SerialNumber: (index + 1) || null,
+                    ChargeMasterSid: rate.ChargeMasterSid,
+                    ChargeDescription: rate.ChargeDescription,
+                    ChargeUomSid: rate.RevenueChargeUomSid || null,
+                    NoOfUnit: Number(rate.NumberOfUnit) || null,
+                    QuoteChargeSid: rate.QuoteChargeSid || null,
+                    TariffDetailSid: rate.TariffDetailSid || null,
+
+                    // Cost Section
+                    CostPrepaidCollect: rate.CostPrepaidCollect || 'Prepaid',
+                    CostCurrencyMasterSid: rate.CostCurrencyMasterSid || null,
+                    CostExchangeRate: rate.CostExchangeRate ? Number(rate.CostExchangeRate) : null,
+                    CostRate: rate.CostRate ? Number(rate.CostRate) : null,
+                    CostNumberOfUnit: null, // This field has Decimal(4,3) - not used for main quantity
+                    CostDrCr: rate.CostDrCr || 'D',
+                    CostAmount: Number(rate.CostAmount || 0),
+                    CostLocalAmount: Number(rate.CostLocalAmount || 0),
+                    CostChargeUomSid: rate.CostChargeUomSid || null,
+
+                    // Revenue Section
+                    RevenuePrepaidCollect: rate.RevenuePrepaidCollect || 'Prepaid',
+                    RevenueCurrencyMasterSid: rate.RevenueCurrencyMasterSid || null,
+                    RevenueExchangeRate: rate.RevenueExchangeRate ? Number(rate.RevenueExchangeRate) : null,
+                    RevenueRate: rate.RevenueRate ? Number(rate.RevenueRate) : null,
+                    RevenueNumberOfUnit: null, // This field has Decimal(4,3) - not used for main quantity
+                    RevenueDrCr: rate.RevenueDrCr || 'C',
+                    RevenueAmount: Number(rate.RevenueAmount || 0),
+                    RevenueLocalAmount: Number(rate.RevenueLocalAmount || 0),
+                    PrepaidCollect: rate.PrepaidCollect || null,
+                    AgentMasterSid: rate.AgentSid || null,
+                    AgentBranchSid: rate.AgentBranchSid || null,
+                    CustomerMasterSid: rate.CustomerMasterSid,
+                    CustomerBranchSid: rate.CustomerBranchSid,
+                    RevenueChargeUomSid: rate.RevenueChargeUomSid || null,
+
+                    Remarks: rate.Remarks || null,
+                    Status: 'A'
+                }
                 }
             )
 
             let createdRates;
             if (allRates.length > 0) {
-                createdRates = await this._db.costRevenueCharges.createMany({
+                createdRates = await this._db.bookingRates.createMany({
                     data: allRates
                 }).catch(err => {
                     throw new InternalServerErrorException('Something went wrong while creating costRevenueCharges', err)
@@ -354,9 +359,9 @@ export class BookingService {
 
             const allMilestones: any[] = (payload.milestones || []).map((milestone) => {
                 const milestoneData = {
-                    ShipmentNo: newBooking.ShipmentNo,
-                    CompanyMasterSid: newBooking.CompanyMasterSid,
-                    BranchMasterSid: newBooking.BranchMasterSid,
+                    ShipmentNo: bookingHeader.ShipmentNo,
+                    CompanyMasterSid: bookingHeader.CompanyMasterSid,
+                    BranchMasterSid: bookingHeader.BranchMasterSid,
                     CreatedBy: payload.createdBy,
                     Status: 'A',
                     MilestoneMasterSid: milestone.MilestoneMasterSid,
@@ -795,6 +800,7 @@ export class BookingService {
                 */
 
                 const finalBookingRates: any[] = [];
+                let itemIndex = 1;
                 for (const rate of payload.bookingRates) {
                     let createdBookingRate;
                     let updatedBookingRate;
@@ -805,52 +811,47 @@ export class BookingService {
                                 BookingHeaderSid: updatedBooking.BookingHeaderSid,
                                 CompanyMasterSid: payload.CompanyMasterSid,
                                 BranchMasterSid: payload.BranchMasterSid,
-                                SerialNumber: Number(rate.SerialNumber),
-                                ChargeUomSid: rate.ChargeUomSid,
+                                // MenuMasterSid : payload.MenuMasterSid,
+                                CreatedBy: payload.updatedBy,
 
-                                // Charges
+                                SerialNumber: itemIndex++ || null,
                                 ChargeMasterSid: rate.ChargeMasterSid,
                                 ChargeDescription: rate.ChargeDescription,
-                                CostChargeUomSid: rate.CostChargeUomSid || rate.ChargeUomSid || null,
-                                NoOfUnit : Number(rate.NumberOfUnit),
+                                ChargeUomSid: rate.RevenueChargeUomSid || null,
+                                NoOfUnit: Number(rate.NumberOfUnit) || null,
+                                QuoteChargeSid: rate.QuoteChargeSid || null,
+                                TariffDetailSid: rate.TariffDetailSid || null,
 
-                                RevenueChargeUomSid: rate.RevenueChargeUomSid || null,
-                                // Cost Side
-                                CostPrepaidCollect: rate.CostPrepaidCollect || "Prepaid",
-                                CostCurrencyMasterSid: rate.CostCurrencyMasterSid || rate.CurrencyMasterSid,
-                                CostExchangeRate: Number(rate.CostExchangeRate || rate.ExchangeRate || 0),
-                                CostRate: Number(rate.CostRate || rate.Rate || 0),
-                                CostNumberOfUnit: Number(rate.CostNumberOfUnit || rate.NumberOfUnit || 0),
-                                CostDrCr: rate.CostDrCr || rate.DrCr,
-                                CostAmount: Number(rate.CostAmount || rate.Amount || 0),
-                                CostLocalAmount: Number(rate.CostLocalAmount || rate.LocalAmount || 0),
+                                // Cost Section
+                                CostPrepaidCollect: rate.CostPrepaidCollect || 'Prepaid',
+                                CostCurrencyMasterSid: rate.CostCurrencyMasterSid || null,
+                                CostExchangeRate: rate.CostExchangeRate ? Number(rate.CostExchangeRate) : null,
+                                CostRate: rate.CostRate ? Number(rate.CostRate) : null,
+                                CostNumberOfUnit: null, // This field has Decimal(4,3) - not used for main quantity
+                                CostDrCr: rate.CostDrCr || 'D',
+                                CostAmount: Number(rate.CostAmount || 0),
+                                CostLocalAmount: Number(rate.CostLocalAmount || 0),
+                                CostChargeUomSid: rate.CostChargeUomSid || null,
 
-                                // Revenue Side
-                                RevenuePrepaidCollect: rate.RevenuePrepaidCollect || null,
-                                RevenueCurrencyMasterSid: rate.RevenueCurrencyMasterSid || rate.CurrencyMasterSid || null,
+                                // Revenue Section
+                                RevenuePrepaidCollect: rate.RevenuePrepaidCollect || 'Prepaid',
+                                RevenueCurrencyMasterSid: rate.RevenueCurrencyMasterSid || null,
                                 RevenueExchangeRate: rate.RevenueExchangeRate ? Number(rate.RevenueExchangeRate) : null,
                                 RevenueRate: rate.RevenueRate ? Number(rate.RevenueRate) : null,
-                                RevenueNumberOfUnit: rate.RevenueNumberOfUnit ? Number(rate.RevenueNumberOfUnit) : null,
-                                RevenueDrCr: rate.RevenueDrCr || null,
-                                RevenueAmount: rate.RevenueAmount ? Number(rate.RevenueAmount) : 0,
-                                RevenueLocalAmount: rate.RevenueLocalAmount ? Number(rate.RevenueLocalAmount) : 0,
-
-                                // Parties
+                                RevenueNumberOfUnit: null, // This field has Decimal(4,3) - not used for main quantity
+                                RevenueDrCr: rate.RevenueDrCr || 'C',
+                                RevenueAmount: Number(rate.RevenueAmount || 0),
+                                RevenueLocalAmount: Number(rate.RevenueLocalAmount || 0),
+                                PrepaidCollect: rate.PrepaidCollect || null,
+                                AgentMasterSid: rate.AgentSid || null,
+                                AgentBranchSid: rate.AgentBranchSid || null,
                                 CustomerMasterSid: rate.CustomerMasterSid,
-                                AgentMasterSid: rate.AgentSid,
-                                AgentBranchSid: rate.AgentBranchSid,
-                                CustomerBranchSid: updatedBooking.CustomerBranchSid,
+                                CustomerBranchSid: rate.CustomerBranchSid,
+                                RevenueChargeUomSid: rate.RevenueChargeUomSid || null,
 
-                                // Vouchers
-                                CostVoucherHeaderSid: rate.CostVoucherHeaderSid ? Number(rate.CostVoucherHeaderSid) : null,
-                                CostVoucherTypeMasterSid: rate.CostVoucherTypeSid || null,
-                                RevenueVoucherHeaderSid: rate.RevenueVoucherHeaderSid ? Number(rate.RevenueVoucherHeaderSid) : null,
-                                RevenueVoucherTypeMasterSid: rate.RevenueVoucherTypeSid || null,
-
-                                // Metadata
-                                Status: "A",
-                                CreatedBy: rate.CreatedBy,
-                            },
+                                Remarks: rate.Remarks || null,
+                                Status: 'A'
+                            }
                         });
                     } else {
                         // UPDATE
@@ -860,52 +861,47 @@ export class BookingService {
                                 BookingHeaderSid: updatedBooking.BookingHeaderSid,
                                 CompanyMasterSid: payload.CompanyMasterSid,
                                 BranchMasterSid: payload.BranchMasterSid,
-                                SerialNumber: Number(rate.SerialNumber),
+                                // MenuMasterSid : payload.MenuMasterSid,
+                                CreatedBy: payload.updatedBy,
 
-                                // Charges
+                                SerialNumber: itemIndex || null,
                                 ChargeMasterSid: rate.ChargeMasterSid,
-                                ChargeUomSid: rate.ChargeUomSid, // REQUIRED by model
                                 ChargeDescription: rate.ChargeDescription,
-                                NoOfUnit : Number(rate.NumberOfUnit),
-                                CostChargeUomSid: rate.CostChargeUomSid || rate.ChargeUomSid || null,
-                                RevenueChargeUomSid: rate.RevenueChargeUomSid || null,
+                                ChargeUomSid: rate.RevenueChargeUomSid || null,
+                                NoOfUnit: Number(rate.NumberOfUnit) || null,
+                                QuoteChargeSid: rate.QuoteChargeSid || null,
+                                TariffDetailSid: rate.TariffDetailSid || null,
 
-                                // Cost Side
-                                CostPrepaidCollect: rate.CostPrepaidCollect || "Prepaid",
-                                CostCurrencyMasterSid: rate.CostCurrencyMasterSid || rate.CurrencyMasterSid,
-                                CostExchangeRate: Number(rate.CostExchangeRate || rate.ExchangeRate || 0),
-                                CostRate: Number(rate.CostRate || rate.Rate || 0),
-                                CostNumberOfUnit: Number(rate.CostNumberOfUnit || rate.NumberOfUnit || 0),
-                                CostDrCr: rate.CostDrCr || rate.DrCr,
-                                CostAmount: Number(rate.CostAmount || rate.Amount || 0),
-                                CostLocalAmount: Number(rate.CostLocalAmount || rate.LocalAmount || 0),
+                                // Cost Section
+                                CostPrepaidCollect: rate.CostPrepaidCollect || 'Prepaid',
+                                CostCurrencyMasterSid: rate.CostCurrencyMasterSid || null,
+                                CostExchangeRate: rate.CostExchangeRate ? Number(rate.CostExchangeRate) : null,
+                                CostRate: rate.CostRate ? Number(rate.CostRate) : null,
+                                CostNumberOfUnit: null, // This field has Decimal(4,3) - not used for main quantity
+                                CostDrCr: rate.CostDrCr || 'D',
+                                CostAmount: Number(rate.CostAmount || 0),
+                                CostLocalAmount: Number(rate.CostLocalAmount || 0),
+                                CostChargeUomSid: rate.CostChargeUomSid || null,
 
-                                // Revenue Side (optional update if exists)
-                                RevenuePrepaidCollect: rate.RevenuePrepaidCollect || null,
+                                // Revenue Section
+                                RevenuePrepaidCollect: rate.RevenuePrepaidCollect || 'Prepaid',
                                 RevenueCurrencyMasterSid: rate.RevenueCurrencyMasterSid || null,
                                 RevenueExchangeRate: rate.RevenueExchangeRate ? Number(rate.RevenueExchangeRate) : null,
                                 RevenueRate: rate.RevenueRate ? Number(rate.RevenueRate) : null,
-                                RevenueNumberOfUnit: rate.RevenueNumberOfUnit ? Number(rate.RevenueNumberOfUnit) : null,
-                                RevenueDrCr: rate.RevenueDrCr || null,
-                                RevenueAmount: rate.RevenueAmount ? Number(rate.RevenueAmount) : 0,
-                                RevenueLocalAmount: rate.RevenueLocalAmount ? Number(rate.RevenueLocalAmount) : 0,
-
-                                // Parties
+                                RevenueNumberOfUnit: null, // This field has Decimal(4,3) - not used for main quantity
+                                RevenueDrCr: rate.RevenueDrCr || 'C',
+                                RevenueAmount: Number(rate.RevenueAmount || 0),
+                                RevenueLocalAmount: Number(rate.RevenueLocalAmount || 0),
+                                PrepaidCollect: rate.PrepaidCollect || null,
+                                AgentMasterSid: rate.AgentSid || null,
+                                AgentBranchSid: rate.AgentBranchSid || null,
                                 CustomerMasterSid: rate.CustomerMasterSid,
-                                AgentMasterSid: rate.AgentSid,
-                                AgentBranchSid: rate.AgentBranchSid,
-                                CustomerBranchSid: updatedBooking.CustomerBranchSid,
+                                CustomerBranchSid: rate.CustomerBranchSid,
+                                RevenueChargeUomSid: rate.RevenueChargeUomSid || null,
 
-                                // Vouchers
-                                CostVoucherHeaderSid: rate.CostVoucherHeaderSid ? Number(rate.CostVoucherHeaderSid) : null,
-                                CostVoucherTypeMasterSid: rate.CostVoucherTypeSid || null,
-                                RevenueVoucherHeaderSid: rate.RevenueVoucherHeaderSid ? Number(rate.RevenueVoucherHeaderSid) : null,
-                                RevenueVoucherTypeMasterSid: rate.RevenueVoucherTypeSid || null,
-                                // Metadata
-                                Status: String(rate.status || "A").charAt(0),
-                                CreatedBy: rate.CreatedBy,
-                                UpdatedBy: payload.updatedBy,
-                            },
+                                Remarks: rate.Remarks || null,
+                                Status: String(payload.status).charAt(0) || 'A',
+                            }
                         });
                     }
 
@@ -2009,11 +2005,13 @@ async getTariffByBookingDetails(payload:TariffBookingPayload) {
     const whereWithOptionalFilters: any = {
       EffectiveDate: { lte: new Date(payload.EffectiveDate) },
       ExpiredOn:     { gte: new Date(payload.ExpiredDate) },
+      status : 'A',
       tariffHeader: {
         DepartmentMasterSid: payload.DepartmentMasterSid,
         POLSid: payload.POLSid,
         PODSid: payload.PODSid,
         CompanyMasterSid: payload.CompanyMasterSid,
+        status : 'A'
       },
     };
 
