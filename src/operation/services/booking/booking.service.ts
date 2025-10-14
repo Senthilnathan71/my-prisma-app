@@ -6,6 +6,7 @@ import * as moment from 'moment-timezone';
 import { GlobalConfigService } from 'src/common/config/master-config.service';
 import { OperationCommonService, RateDTO } from '../operation-common/operation-common.service';
 import { CurrencyExchangeService } from 'src/masters/services/currency-exchange/currency-exchange.service';
+import { statusWhereClause } from 'src/common/helper';
 
 interface CostRevenueDTO {
     MenuMasterSid?: number,
@@ -174,7 +175,7 @@ export class BookingService {
                     ShippingBillNo: product.ShippingBillNo || '',
                     ShippingBillDate: product.ShippingBillDate || '',
                     CargoRecDate: product.CargoRecDate ? new Date(product.CargoRecDate) : null,
-                    ExternaPkg: product.ExternaPkg || '',
+                    ExternaPkg: String(product.ExternaPkg) || '',
                     ExternlQty: product.ExternlQty || '',
                     GrossWeight: Number(product.GrossWeight) || 0,
                     NetWeight: Number(product.NetWeight) || 0,
@@ -605,7 +606,7 @@ export class BookingService {
                                 ShippingBillNo: product.ShippingBillNo,
                                 ShippingBillDate: product.ShippingBillDate,
                                 CargoRecDate: product.CargoRecDate ? new Date(product.CargoRecDate) : null,
-                                ExternaPkg: product.ExternaPkg,
+                                ExternaPkg: String(product.ExternaPkg),
                                 ExternlQty: product.ExternlQty,
                                 GrossWeight: Number(product.GrossWeight),
                                 NetWeight: Number(product.NetWeight),
@@ -630,7 +631,7 @@ export class BookingService {
                                 ShippingBillNo: product.ShippingBillNo,
                                 ShippingBillDate: product.ShippingBillDate,
                                 CargoRecDate: product.CargoRecDate ? new Date(product.CargoRecDate) : null,
-                                ExternaPkg: product.ExternaPkg,
+                                ExternaPkg: String(product.ExternaPkg),
                                 ExternlQty: product.ExternlQty,
                                 GrossWeight: Number(product.GrossWeight),
                                 NetWeight: Number(product.NetWeight),
@@ -1065,7 +1066,7 @@ export class BookingService {
         const where: Prisma.BookingHeaderWhereInput = {
             CompanyMasterSid: activeCompanyId,
             BranchMasterSid: activeBranchId,
-            status: 'A',
+            status: statusWhereClause,
             ...(search && {
                 OR: [
                     { BookingNo: { contains: search, mode: 'insensitive' } },
@@ -1723,68 +1724,6 @@ export class BookingService {
         }
     }
 
-    async getAllHeaderLookups(payload: any) {
-        try {
-            const [departments, vessels, ports, incos, country] = await this._db.$transaction([
-                this._db.departmentMaster.findMany({
-                    where: { Status: 'A', CompanyMasterSid: payload.CompanyMasterSid },
-                    select: {
-                        DepartmentMasterSid: true,
-                        departmentName: true,
-                        departmentType: true,
-                        FCLLCL: true,
-                        ExportImport: true,
-                    }
-                }),
-                this._db.vesselMaster.findMany({
-                    where: { status: 'A' },
-                    select: {
-                        VesselMasterSid: true,
-                        VesselName: true
-                    },
-                }),
-                this._db.portMaster.findMany({
-                    where: { status: 'A' },
-                    select: {
-                        PortMasterSid: true,
-                        PortName: true,
-                        PortCode: true,
-                        PortType: true,
-                        countryMaster : {
-                            select : {
-                                countryName : true
-                            }
-                        }
-                    },
-                }),
-                this._db.incoMaster.findMany({
-                    where: { Status: 'A' },
-                    select: {
-                        IncoMasterSid: true,
-                        IncoCode : true,
-                        IncoName: true,
-                        OceanFreight : true
-                        
-                    },
-                }),
-                this._db.companyMaster.findFirst({
-                    where: { CompanyMasterSid: payload.CompanyMasterSid },
-                    select: {
-                        countryMaster: { select: { countryName: true } }
-                    }
-                })
-            ]);
-            return { departments, vessels, ports, incos, country }
-        } catch (error) {
-            console.error('Error fetching Header Lookups:', error);
-            return {
-                departments: [],
-                vessels: [],
-                ports: [],
-                incos: []
-            };
-        }
-    }
 
     async getAllContainerTypes() {
         try {

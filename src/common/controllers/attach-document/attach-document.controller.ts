@@ -32,25 +32,21 @@ export class AttachDocumentController {
     // 1️⃣ Save DB record
     const res = await this.attachDocumentService.createNewAttachDocument(files, newData,menuName?.MenuName);
 
-    // 2️⃣ Save files to disk after DB success
-    const baseDestination = this.configService.get("UPLOAD_EDOC_PATH");
+     // 2️⃣ Get DB values (file name & ID)
+    const baseDestination = this.configService.get('UPLOAD_EDOC_PATH');
+    const componentName: any = menuName?.MenuName;
+    const recordId: any = newData.DocumentSid;
 
-    files.forEach(file => {
-      const componentName:any = menuName?.MenuName;
-      const recordId:any = menuName?.MenuMasterSid; // Use DB-generated ID
-
+    files.forEach((file, index) => {
       const folderPath = path.join(baseDestination, componentName, recordId.toString());
       if (!fs.existsSync(folderPath)) fs.mkdirSync(folderPath, { recursive: true });
 
-      const ext = path.extname(file.originalname);
-      const name = file.originalname
-        .replace(/[^\w\s.]/g, "")
-        .replace(/\s+/g, "_");
-      const timestamp = Date.now();
-      const rand = Math.floor(1000 + Math.random() * 9000);
-      const fileName = `${name.split(".")[0]}_${timestamp}_${rand}${ext}`;
+      // Use DB file name directly (from newData or res)
+      const dbFileName =
+        newData.FileName || file.originalname; // prefer DB filename if available
 
-      fs.writeFileSync(path.join(folderPath, fileName), file.buffer);
+      // Save file with DB name (exactly)
+      fs.writeFileSync(path.join(folderPath, dbFileName), file.buffer);
     });
 
     resp.data = res;
@@ -101,15 +97,12 @@ export class AttachDocumentController {
         type: ResponseData
     })
     @HttpCode(HttpStatus.OK)
-    @Get('fetch/:menuMasterSid/:AttachDocumentSid')
-    async getAttachDocumentById(
-        @Param('AttachDocumentSid', ParseIntPipe) AttachDocumentSid: number,
-        @Param('DocumentSid', ParseIntPipe) DocumentSid: number
-    ) {
+    @Get('fetch/:AttachDocumentSid')
+    async getAttachDocumentById(@Param('AttachDocumentSid', ParseIntPipe) AttachDocumentSid: number) {
         let resp = new ResponseData();
         try {
             this.logger.log(`Getting Attach Document with id : ${AttachDocumentSid}`);
-            let res = await this.attachDocumentService.fetchAttachDocumentById(AttachDocumentSid,DocumentSid);
+            let res = await this.attachDocumentService.fetchAttachDocumentById(AttachDocumentSid);
             this.logger.debug(`Fetched Attach Document : ${JSON.stringify(res)}`);
             resp.data = res;
             resp.message = `Attach Document with id : ${AttachDocumentSid} is successfully fetched`;
@@ -205,4 +198,32 @@ export class AttachDocumentController {
         }
         return resp;
     }
+
+    @ApiOperation({ summary: 'Fetch Attach Document by Folder Structure' })
+@ApiCreatedResponse({
+  description: 'Fetch Attach Document by Folder Structure',
+  type: ResponseData
+})
+@HttpCode(HttpStatus.OK)
+@Post('fetch-by-folder')
+async fetchAttachDocumentByFolder(@Body() body: { menuMasterSid: number; DocumentSid: number }) {
+  const resp = new ResponseData();
+
+  try {
+    const { menuMasterSid, DocumentSid } = body;
+    this.logger.log(`Fetching AttachDocument for MenuMasterSid: ${menuMasterSid}, DocumentSid: ${DocumentSid}`);
+
+    const result = await this.attachDocumentService.fetchAttachDocumentByFolder(menuMasterSid, DocumentSid);
+
+    resp.data = result;
+    resp.message = 'Attach Document successfully fetched from folder structure';
+  } catch (error) {
+    this.logger.warn(`Fetch Attach Document by Folder Error: ${error.message}`);
+    resp.status = false;
+    resp.message = error.message || 'Internal Server Error';
+  }
+
+  return resp;
+}
+
 }

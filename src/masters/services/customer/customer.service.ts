@@ -497,13 +497,12 @@ export class CustomerService {
             throw error
         }
     }
-    async getAllExistingCustomers(CompanyMasterSid: number, PreCustomerMasterSid: number) {
+    async  getAllExistingCustomers(CompanyMasterSid: number, PreCustomerMasterSid: number) {
         try {
             const customerList = await this._db.customerMaster.findMany({
                 where: {
                     status: 'A',
                     preCustomerMaster: {
-                        PreCustomerMasterSid: PreCustomerMasterSid,
                         leadStatus: LeadStatus.DealWon
                     },
                     CompanyMasterSid: CompanyMasterSid,
@@ -1501,6 +1500,7 @@ export class CustomerService {
                     OR: jsonFilters
                 },
                 include: {
+                    CustomerBranch : true,
                     countryMaster: {
                         select: {
                             countryName: true
@@ -1509,7 +1509,20 @@ export class CustomerService {
                 }
             });
 
-            return customers;
+            const formattedCustomerList = customers.flatMap(cus =>{
+                return cus.CustomerBranch.map(branch => ({
+                    CustomerMasterSid: cus.CustomerMasterSid,
+                    CustomerName: cus.CustomerName,
+                    CustomerType : cus.CustomerType,
+                    CustomerAddress1 : cus.CustomerAddress1,
+                    CustomerBranchSid: branch.CustomerBranchSid,
+                    BranchName: branch.BranchName,
+                    Address: branch.Address,
+                    Email: branch.Email
+                }))
+            })
+
+            return formattedCustomerList;
         } catch (error) {
             throw error;
         }

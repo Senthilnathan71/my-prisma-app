@@ -352,32 +352,6 @@ export class BookingController {
         return output;
     }
 
-    @ApiOperation({ summary: 'Get All Booking Header Lookups' })
-    @ApiCreatedResponse({
-        description: 'All Booking Header Lookups are fetched successfully',
-        type: ResponseData
-    })
-    @HttpCode(HttpStatus.OK)
-    @Post('header-lookup')
-    async getAllHeaderLookups(@Body() payload: any) {
-        const output = new ResponseData();
-        try {
-            const bookings = await this.bookingService.getAllHeaderLookups(payload)
-            this.logger.debug(`getAllHeaderLookups: ${JSON.stringify(bookings)}`)
-            output.data = bookings;
-            output.message = "All Header Lookups fetched successfully"
-        } catch (error) {
-            this.logger.warn(`getAllHeaderLookups: ${JSON.stringify(error), error}`)
-            output.status = false;
-            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
-                output.message = error.message;
-            } else {
-                output.message = 'Internal Server Error';
-            }
-        }
-        return output;
-    }
-
 
     @ApiOperation({ summary: 'Get Customer Related Lookups' })
     @ApiCreatedResponse({
