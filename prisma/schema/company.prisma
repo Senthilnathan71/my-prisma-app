@@ -695,6 +695,7 @@ model EnquiryHeader {
   AgentAddressSid            Int?
   EnquiryType                String?                      @db.VarChar(10)
   EnquiryBy                  String?                      @db.VarChar(10)
+  CustomerRef                String?                      @db.VarChar(100)
   IncoTerms                  String?                      @db.VarChar(50)
   ShipmentExpectedDate       DateTime
   ClearanceBy                String?                      @db.VarChar(10)
@@ -2224,6 +2225,7 @@ model COAMaster {
   LedgerType         String               @db.VarChar(20)
   Ledgername2        String?              @db.VarChar(50)
   LedgerCurrency     Int?
+  LedgerCategory	   String?              @db.VarChar(10) //Category,Group,Subgroup,Ledger
   JobNoRequire       String               @default("N") @db.Char(1)
   HSNRequire         String               @default("N") @db.Char(1)
   ProfitandLoss      String               @default("N") @db.Char(1)
