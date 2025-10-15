@@ -695,6 +695,7 @@ model EnquiryHeader {
   AgentAddressSid            Int?
   EnquiryType                String?                      @db.VarChar(10)
   EnquiryBy                  String?                      @db.VarChar(10)
+  CustomerRef                String?                      @db.VarChar(100)
   IncoTerms                  String?                      @db.VarChar(50)
   ShipmentExpectedDate       DateTime
   ClearanceBy                String?                      @db.VarChar(10)
@@ -2216,18 +2217,19 @@ model TaxMaster {
 
 model COAMaster {
   COAMasterSid       Int                  @id @default(autoincrement()) @map("COAMasterSid")
-  GroupName          String               @db.VarChar(50)
-  SubGroupName       String               @db.VarChar(50)
-  LedgerName         String               @db.VarChar(50)
+  GroupName          String?               @db.VarChar(50)
+  SubGroupName       String?              @db.VarChar(50)
+  LedgerName         String?              @db.VarChar(50)
   SubledgerName      String?              @db.VarChar(100)
-  LedgerCode         String               @db.VarChar(12)
-  LedgerType         String               @db.VarChar(20)
+  LedgerCode         String?              @db.VarChar(12)
+  LedgerType         String?               @db.VarChar(20)
   Ledgername2        String?              @db.VarChar(50)
   LedgerCurrency     Int?
-  JobNoRequire       String               @default("N") @db.Char(1)
-  HSNRequire         String               @default("N") @db.Char(1)
-  ProfitandLoss      String               @default("N") @db.Char(1)
-  BalanceSheet       String               @default("N") @db.Char(1)
+  LedgerCategory	   String?               @db.VarChar(10) //Category,Group,Subgroup,Ledger
+  JobNoRequire       String?              @default("N") @db.Char(1)
+  HSNRequire         String?               @default("N") @db.Char(1)
+  ProfitandLoss      String?               @default("N") @db.Char(1)
+  BalanceSheet       String?               @default("N") @db.Char(1)
   Remarks            String?              @db.VarChar(100)
   CreatedOn          DateTime             @default(now())
   CreatedBy          String               @db.VarChar(100)

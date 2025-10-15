@@ -84,7 +84,7 @@ export class ChargeService {
                 const chargeTdsPayload = payload.chargeTds.map(chargeTds => ({
                     ChargeMasterSid: charge.ChargeMasterSid,
                     TDSSet: chargeTds.TDSSet || null,
-                    EffectiveFrom: chargeTds.EffectiveFrom ? new Date(chargeTds.EffectiveFrom + "Z") : null ,
+                    EffectiveFrom: chargeTds.EffectiveFrom ? new Date(chargeTds.EffectiveFrom): null,
                     createdBy: payload.createdBy, 
                     updatedBy: payload.createdBy, // Add updatedBy
 
@@ -253,7 +253,7 @@ export class ChargeService {
                 const chargeTdsPayload = chargeTds.map(chargeTds => ({
                     ChargeMasterSid: ChargeMasterSid,
                     TDSSet: chargeTds.TDSSet || null,
-                   EffectiveFrom: chargeTds.EffectiveFrom ? new Date(chargeTds.EffectiveFrom + "Z") : null ,
+                   EffectiveFrom: chargeTds.EffectiveFrom ? new Date(chargeTds.EffectiveFrom): null,
                     createdBy: payload.updatedBy,
                     updatedBy: payload.updatedBy,
                 }));

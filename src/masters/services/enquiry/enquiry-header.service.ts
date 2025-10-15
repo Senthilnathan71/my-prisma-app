@@ -49,6 +49,7 @@ export class EnquiryHeaderService {
                     BranchMasterSid: payload.BranchMasterSid,
                     UserMasterSid: payload.UserMasterSid,
                     createdBy: payload.createdBy,
+                    CustomerRef:payload.CustomerRef,
                     // EnquiryNumber: "",
                     EnquiryDate: new Date(),
                     authorizerStatus: payload.authorizerStatus || "Pending"
@@ -270,9 +271,11 @@ export class EnquiryHeaderService {
                     ClearanceBy: payload.ClearanceBy,
                     TransportBy: payload.TransportBy,
                     Remarks: payload.Remarks,
+                     CustomerRef:payload.CustomerRef,
                     status: statusUpdate,
                     updatedBy: payload.updatedBy,
                     updatedOn: new Date(),
+                    
                 }
             });
 
