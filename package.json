@@ -53,6 +53,7 @@
     "pdfjs-dist": "^5.4.149",
     "pg": "^8.13.1",
     "pg-hstore": "^2.3.4",
+    "pug": "^3.0.3",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
     "sharp": "^0.34.3",

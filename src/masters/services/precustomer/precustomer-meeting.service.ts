@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { LeadStatus, Prisma } from '@prisma/client';
-import { parseDateFromString, statusWhereClause } from 'src/common/helper';
+import { parseDateFromString, statusWhereClause, toUTCISO } from 'src/common/helper';
 import { DatabaseService } from 'src/database/database.service';
 import { CreatePreCustomerMeetingDto } from 'src/masters/DTO/create-precustomer-meeting.dto';
 import { CreatePrecustomerDto } from 'src/masters/DTO/create-Precustomer.dto';
@@ -85,8 +85,8 @@ export class PreCustomerMeetingService {
                 }
                 payload.updatedOn = new Date(); // Only update UpdatedOn
                 payload.updatedBy = params.createdBy
-                payload.followUpDate = params.followUpDate ? this.toUTCISO(params.followUpDate) : null,
-                    payload.meetingDate = this.toUTCISO(params.meetingDate)
+                payload.followUpDate = params.followUpDate ? toUTCISO(params.followUpDate) : null,
+                    payload.meetingDate = toUTCISO(params.meetingDate)
 
                 updatePreCustomer = await this._db.preCustomerMeeting.update({
                     where: { PreCustomerMeetingSid: params.PreCustomerMeetingSid },
@@ -112,14 +112,14 @@ export class PreCustomerMeetingService {
                 payload.updatedOn = new Date();
                 const payloadData = {
                     createdBy: params.userEmail || '',
-                    meetingDate: this.toUTCISO(params.meetingDate),
+                    meetingDate: toUTCISO(params.meetingDate),
                     meetingType: params.meetingType,
                     meetingStatus: params.meetingStatus ? params.meetingStatus : 'Scheduled',
                     customerProfile: params.customerProfile,
                     remarks: params.remarks,
                     meetingDuration: params.meetingDuration,
                     status: params.status,
-                    followUpDate: params.followUpDate ? this.toUTCISO(params.followUpDate) : null,
+                    followUpDate: params.followUpDate ? toUTCISO(params.followUpDate) : null,
                     followUpNote: params.followUpNote,
                     meetingNote: params.meetingNote,
                     leadAssignTo: Number(params.leadAssignTo) || 0,
@@ -150,7 +150,7 @@ export class PreCustomerMeetingService {
                             branchMaster: { connect: { BranchMasterSid: existingLead?.BranchMasterSid ? existingLead?.BranchMasterSid : params.BranchMasterSid } },
                             DepartmentMasterSid: params.DepartmentMasterSid,
                             OpportunitySector: params.OpportunitySector,
-                            FollowupDate: params.followUpDate ? this.toUTCISO(params.followUpDate) : "",
+                            FollowupDate: params.followUpDate ? toUTCISO(params.followUpDate) : "",
                             FollowupNote: params.followUpNote,
                             MeetingNote: params.meetingNote,
                             Remarks: params.remarks ?? null,
@@ -170,7 +170,7 @@ export class PreCustomerMeetingService {
                             branchMaster: { connect: { BranchMasterSid: existingLead?.BranchMasterSid ? existingLead?.BranchMasterSid : params.BranchMasterSid } },
                             DepartmentMasterSid: params.DepartmentMasterSid,
                             OpportunitySector: params.OpportunitySector,
-                            FollowupDate: params.followUpDate ? this.toUTCISO(params.followUpDate) : "",
+                            FollowupDate: params.followUpDate ? toUTCISO(params.followUpDate) : "",
                             FollowupNote: params.followUpNote,
                             MeetingNote: params.meetingNote,
                             Remarks: params.remarks ?? null,
@@ -361,10 +361,7 @@ export class PreCustomerMeetingService {
     }
 
 
-    toUTCISO(localDateTime: string) {
-        const local = new Date(localDateTime);
-        return new Date(local.getTime() - local.getTimezoneOffset() * 60000).toISOString();
-    }
+    
     async searchPreCustomerMeeting(params: filterDto) {
         const { search = '', page = 1, pageSize = 10, activeCompanyId, activeBranchId } = params;
         const skip = (page - 1) * pageSize;
