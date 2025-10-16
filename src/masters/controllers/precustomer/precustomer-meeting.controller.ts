@@ -242,10 +242,10 @@ export class PreCustomerMeetingController {
     })
     @HttpCode(HttpStatus.OK)
     @Post('search-list')
-    async searchList(@Body() searchParams: filterDto) {
+    async searchList(@Body() searchParams: filterDto,@UserData() user:any) {
         let resp = new ResponseData();
         try {
-            let res = await this.preCustomerMeetingService.searchPreCustomerMeeting(searchParams);
+            let res = await this.preCustomerMeetingService.searchPreCustomerMeeting(searchParams,user);
             this.logger.log(`PreCustomerMeeting Search Results : ${JSON.stringify(res)}`);
             resp.data = res;
             resp.message = "PreCustomerMeeting Search results are successfully fetched";

@@ -12,7 +12,6 @@ export class CoaService {
         try {
             const allCoa = await this._db.cOAMaster.findMany({
                 where: {
-
                     Status: 'A',
                     CompanyMasterSid: CompanyMasterSid
                 }
@@ -22,7 +21,57 @@ export class CoaService {
             throw error;
         }
     }
-     async getCoaWithSubledger(CompanyMasterSid: number) {
+
+    async getAllGroupsByCategory(category: string, CompanyMasterSid: number) {
+        try {
+            const groups = await this._db.cOAMaster.findMany({
+                where: {
+                    Category: category,
+                    LedgerCategory: 'Group',
+                    Status: 'A',
+                    CompanyMasterSid: CompanyMasterSid
+                },
+                distinct: ['GroupName'],
+                select: {
+                    GroupName: true
+                },
+                orderBy: {
+                    GroupName: 'asc'
+                }
+            });
+            
+            return groups.map(group => group.GroupName).filter(name => name && name.trim() !== '');
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    async getAllSubgroupsByGroup(category: string, groupName: string, CompanyMasterSid: number) {
+        try {
+            const subgroups = await this._db.cOAMaster.findMany({
+                where: {
+                    Category: category,
+                    GroupName: groupName,
+                    LedgerCategory: 'Subgroup',
+                    Status: 'A',
+                    CompanyMasterSid: CompanyMasterSid,
+                },
+                distinct: ['SubGroupName'],
+                select: {
+                    SubGroupName: true
+                },
+                orderBy: {
+                    SubGroupName: 'asc'
+                }
+            });
+            
+            return subgroups.map(subgroup => subgroup.SubGroupName).filter(name => name && name.trim() !== '');
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    async getCoaWithSubledger(CompanyMasterSid: number) {
         try {
             const coaWithSubledger = await this._db.cOAMaster.findMany({
                 where: {
@@ -42,10 +91,28 @@ export class CoaService {
 
     async createNewCoa(payload) {
         try {
+            // Validate based on LedgerCategory
+            if (payload.LedgerCategory === 'Group') {
+                // For Group, SubGroupName should be empty
+                payload.SubGroupName = '';
+            } else if (payload.LedgerCategory === 'Subgroup') {
+                // For Subgroup, GroupName is required and SubGroupName should not be empty
+                if (!payload.GroupName || payload.GroupName.trim() === '') {
+                    throw new BadRequestException('GroupName is required for Subgroup');
+                }
+            } else if (payload.LedgerCategory === 'Ledger') {
+                // For Ledger, both GroupName and SubGroupName are required
+                if (!payload.GroupName || payload.GroupName.trim() === '') {
+                    throw new BadRequestException('GroupName is required for Ledger');
+                }
+                if (!payload.SubGroupName || payload.SubGroupName.trim() === '') {
+                    throw new BadRequestException('SubGroupName is required for Ledger');
+                }
+            }
+
             const createdCoa = await this._db.cOAMaster.create({
                 data: {
                     ...payload,
-
                 }
             })
             return createdCoa;
@@ -59,7 +126,6 @@ export class CoaService {
             const ourCoa = await this._db.cOAMaster.findUnique({
                 where: {
                     COAMasterSid: COAMasterSid,
-
                 }
             })
             if (!ourCoa) {
@@ -71,24 +137,89 @@ export class CoaService {
         }
     }
 
+    private async hasChildSubgroups(groupName: string | null, category: string | null, CompanyMasterSid: number): Promise<boolean> {
+        if (!groupName || !category) return false;
+        
+        const childCount = await this._db.cOAMaster.count({
+            where: {
+                GroupName: groupName,
+                Category: category,
+                LedgerCategory: 'Subgroup',
+                Status: 'A',
+                CompanyMasterSid: CompanyMasterSid
+            }
+        });
+        return childCount > 0;
+    }
+
+    private async hasChildLedgers(groupName: string | null, category: string | null, CompanyMasterSid: number): Promise<boolean> {
+        if (!groupName || !category) return false;
+        
+        const childCount = await this._db.cOAMaster.count({
+            where: {
+                GroupName: groupName,
+                Category: category,
+                LedgerCategory: 'Ledger',
+                Status: 'A',
+                CompanyMasterSid: CompanyMasterSid
+            }
+        });
+        return childCount > 0;
+    }
+
+    private async hasChildLedgersInSubgroup(subGroupName: string | null, category: string | null, CompanyMasterSid: number): Promise<boolean> {
+        if (!subGroupName || !category) return false;
+        
+        const childCount = await this._db.cOAMaster.count({
+            where: {
+                SubGroupName: subGroupName,
+                Category: category,
+                LedgerCategory: 'Ledger',
+                Status: 'A',
+                CompanyMasterSid: CompanyMasterSid
+            }
+        });
+        return childCount > 0;
+    }
+
     async updateCoaById(COAMasterSid: number, payload) {
         try {
             const exist = await this._db.cOAMaster.findUnique({
                 where: {
                     COAMasterSid: COAMasterSid,
-
                 }
             })
             if (!exist) {
                 throw new BadRequestException(`Coa with Id : ${COAMasterSid} not exists`);
             }
+
+            // Check if trying to suspend and has child records
+            if (payload.Status === 'S' || payload.Status === 'suspended') {
+                // Check if it's a Group and has child Subgroups or Ledgers
+                if (exist.LedgerCategory === 'Group') {
+                    const hasSubgroups = await this.hasChildSubgroups(exist.GroupName, exist.Category, exist.CompanyMasterSid);
+                    const hasLedgers = await this.hasChildLedgers(exist.GroupName, exist.Category, exist.CompanyMasterSid);
+                    
+                    if (hasSubgroups || hasLedgers) {
+                        throw new BadRequestException(`Cannot suspend Group '${exist.GroupName}' as it is linked to Subgroups or Ledgers`);
+                    }
+                }
+
+                // Check if it's a Subgroup and has child Ledgers
+                if (exist.LedgerCategory === 'Subgroup') {
+                    const hasLedgers = await this.hasChildLedgersInSubgroup(exist.SubGroupName, exist.Category, exist.CompanyMasterSid);
+                    
+                    if (hasLedgers) {
+                        throw new BadRequestException(`Cannot suspend Subgroup '${exist.SubGroupName}' as it is linked to Ledgers`);
+                    }
+                }
+            }
+
             const updatedCoa = this._db.cOAMaster.update({
                 where: {
                     COAMasterSid: COAMasterSid,
-
                 },
                 data: {
-
                     UpdatedOn: new Date(),
                     ...payload,
                 }
@@ -98,7 +229,6 @@ export class CoaService {
             throw error;
         }
     }
-
 
     async deleteCOA(COAMasterSid: number) {
         try {
@@ -113,6 +243,26 @@ export class CoaService {
             if (exist.Status === 'D') {
                 throw new BadRequestException(`Coa with Id : ${COAMasterSid} is already deleted`);
             }
+
+            // Check if it's a Group and has child Subgroups or Ledgers
+            if (exist.LedgerCategory === 'Group') {
+                const hasSubgroups = await this.hasChildSubgroups(exist.GroupName, exist.Category, exist.CompanyMasterSid);
+                const hasLedgers = await this.hasChildLedgers(exist.GroupName, exist.Category, exist.CompanyMasterSid);
+                
+                if (hasSubgroups || hasLedgers) {
+                    throw new BadRequestException(`Cannot delete Group '${exist.GroupName}' as it is linked to Subgroups or Ledgers`);
+                }
+            }
+
+            // Check if it's a Subgroup and has child Ledgers
+            if (exist.LedgerCategory === 'Subgroup') {
+                const hasLedgers = await this.hasChildLedgersInSubgroup(exist.SubGroupName, exist.Category, exist.CompanyMasterSid);
+                
+                if (hasLedgers) {
+                    throw new BadRequestException(`Cannot delete Subgroup '${exist.SubGroupName}' as it is linked to Ledgers`);
+                }
+            }
+
             const deletedCoa = this._db.cOAMaster.update({
                 where: {
                     COAMasterSid: COAMasterSid
@@ -127,12 +277,10 @@ export class CoaService {
         }
     }
 
-
     async searchCoa(params: filterDto) {
         const { search = '', page = 1, pageSize = 10, activeCompanyId } = params;
         const skip = (page - 1) * pageSize;
         const where: Prisma.COAMasterWhereInput = {
-
             Status: statusWhereClause,
             CompanyMasterSid: activeCompanyId,
             ...(search
@@ -149,11 +297,6 @@ export class CoaService {
                         ...('suspended'.includes(search.toLowerCase())
                             ? [{ Status: 'S' }]
                             : []),
-
-                        // { LedgerType: { contains: search, mode: 'insensitive' } },
-                        // { SubledgerName: { contains: search, mode: 'insensitive' } },
-                        // { CurrencyMaster : {currencyName : {contains : search ,mode : 'insensitive'}}},
-                        // { Remarks: { contains: search, mode: 'insensitive' } },
                     ]
                 }
                 : {}),
@@ -194,4 +337,3 @@ export class CoaService {
         }
     }
 }
-
