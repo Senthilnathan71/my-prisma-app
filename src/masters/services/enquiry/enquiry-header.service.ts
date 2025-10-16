@@ -539,7 +539,7 @@ export class EnquiryHeaderService {
                 {
                     OR: [
                         { EnquiryNumber: { contains: search, mode: 'insensitive' } },
-                        { quoteHeader:  { QuoteNumber: { contains: search, mode: 'insensitive' } } },
+                        { quoteHeader: { QuoteNumber: { contains: search, mode: 'insensitive' } } },
                         { CustomerName: { contains: search, mode: 'insensitive' } },
                         { ShipmentType: { contains: search, mode: 'insensitive' } },
                         { status: { contains: search, mode: 'insensitive' } },
