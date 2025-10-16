@@ -1,3 +1,4 @@
+
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { statusWhereClause } from 'src/common/helper';
@@ -89,7 +90,127 @@ export class CoaService {
         }
     }
 
-    async createNewCoa(payload) {
+    /**
+     * Check for duplicate COA entries based on business rules
+     */
+    private async checkForDuplicates(payload: any, existingCoaSid?: number): Promise<void> {
+        const { 
+            Category, 
+            LedgerCategory, 
+            GroupName, 
+            SubGroupName, 
+            LedgerName, 
+            LedgerCode,
+            CompanyMasterSid 
+        } = payload;
+
+        // Base where clause excluding current record and deleted records
+        const baseWhere: any = {
+            Status: { in: ['A', 'S'] }, // Check both Active and Suspended
+            CompanyMasterSid: CompanyMasterSid,
+            NOT: existingCoaSid ? { COAMasterSid: existingCoaSid } : undefined
+        };
+
+        // 1. Check duplicate ledger code
+        if (LedgerCode) {
+            const duplicateCode = await this._db.cOAMaster.findFirst({
+                where: {
+                    ...baseWhere,
+                    LedgerCode: LedgerCode
+                }
+            });
+
+            if (duplicateCode) {
+                throw new BadRequestException(
+                    `Ledger Code '${LedgerCode}' already exists for ${duplicateCode.LedgerName}`
+                );
+            }
+        }
+
+        // 2. Check duplicate ledger name
+        if (LedgerName) {
+            const duplicateName = await this._db.cOAMaster.findFirst({
+                where: {
+                    ...baseWhere,
+                    LedgerName: LedgerName
+                }
+            });
+
+            if (duplicateName) {
+                throw new BadRequestException(
+                    `Ledger Name '${LedgerName}' already exists with code ${duplicateName.LedgerCode}`
+                );
+            }
+        }
+
+        // 3. Check combinations based on LedgerCategory
+        if (LedgerCategory === 'Group') {
+            // For Group: Category + LedgerCategory + GroupName must be unique
+            const duplicateGroup = await this._db.cOAMaster.findFirst({
+                where: {
+                    ...baseWhere,
+                    Category: Category,
+                    LedgerCategory: 'Group',
+                    GroupName: GroupName
+                }
+            });
+
+            if (duplicateGroup) {
+                throw new BadRequestException(
+                    `Group '${GroupName}' already exists in category '${Category}'`
+                );
+            }
+
+        } else if (LedgerCategory === 'Subgroup') {
+            // For Subgroup: Category + LedgerCategory + GroupName + SubGroupName must be unique
+            if (!GroupName || GroupName.trim() === '') {
+                throw new BadRequestException('GroupName is required for Subgroup');
+            }
+
+            const duplicateSubgroup = await this._db.cOAMaster.findFirst({
+                where: {
+                    ...baseWhere,
+                    Category: Category,
+                    LedgerCategory: 'Subgroup',
+                    GroupName: GroupName,
+                    SubGroupName: SubGroupName
+                }
+            });
+
+            if (duplicateSubgroup) {
+                throw new BadRequestException(
+                    `Subgroup '${SubGroupName}' already exists in group '${GroupName}' and category '${Category}'`
+                );
+            }
+
+        } else if (LedgerCategory === 'Ledger') {
+            // For Ledger: Category + LedgerCategory + GroupName + SubGroupName must be unique
+            if (!GroupName || GroupName.trim() === '') {
+                throw new BadRequestException('GroupName is required for Ledger');
+            }
+            if (!SubGroupName || SubGroupName.trim() === '') {
+                throw new BadRequestException('SubGroupName is required for Ledger');
+            }
+
+            const duplicateLedgerStructure = await this._db.cOAMaster.findFirst({
+                where: {
+                    ...baseWhere,
+                    Category: Category,
+                    LedgerCategory: 'Ledger',
+                    GroupName: GroupName,
+                    SubGroupName: SubGroupName
+                }
+            });
+
+            if (duplicateLedgerStructure) {
+                throw new BadRequestException(
+                    `A ledger already exists with the same structure in category '${Category}', group '${GroupName}', and subgroup '${SubGroupName}'`
+                );
+            }
+        }
+    }
+
+    async createNewCoa(payload: any) {
         try {
             // Validate based on LedgerCategory
             if (payload.LedgerCategory === 'Group') {
@@ -110,9 +231,14 @@ export class CoaService {
                 }
             }
 
+            // Check for duplicates before creation
+            await this.checkForDuplicates(payload);
+
             const createdCoa = await this._db.cOAMaster.create({
                 data: {
                     ...payload,
+                    CreatedOn: new Date(),
+                    UpdatedOn: new Date(),
                 }
             })
             return createdCoa;
@@ -182,7 +308,7 @@ export class CoaService {
         return childCount > 0;
     }
 
-    async updateCoaById(COAMasterSid: number, payload) {
+    async updateCoaById(COAMasterSid: number, payload: any) {
         try {
             const exist = await this._db.cOAMaster.findUnique({
                 where: {
@@ -192,6 +318,12 @@ export class CoaService {
             if (!exist) {
                 throw new BadRequestException(`Coa with Id : ${COAMasterSid} not exists`);
             }
+
+            // Check for duplicates before update (excluding current record)
+            await this.checkForDuplicates(
+                { ...exist, ...payload, CompanyMasterSid: exist.CompanyMasterSid }, 
+                COAMasterSid
+            );
 
             // Check if trying to suspend and has child records
             if (payload.Status === 'S' || payload.Status === 'suspended') {
@@ -215,7 +347,7 @@ export class CoaService {
                 }
             }
 
-            const updatedCoa = this._db.cOAMaster.update({
+            const updatedCoa = await this._db.cOAMaster.update({
                 where: {
                     COAMasterSid: COAMasterSid,
                 },
@@ -263,12 +395,13 @@ export class CoaService {
                 }
             }
 
-            const deletedCoa = this._db.cOAMaster.update({
+            const deletedCoa = await this._db.cOAMaster.update({
                 where: {
                     COAMasterSid: COAMasterSid
                 },
                 data: {
-                    Status: 'D'
+                    Status: 'D',
+                    UpdatedOn: new Date()
                 }
             })
             return deletedCoa;

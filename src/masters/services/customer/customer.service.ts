@@ -663,7 +663,7 @@ export class CustomerService {
     }
 
 
-    async updateCustomer(CustomerMasterSid: number, payload: CreateUpdateCustomerDto, user: any) {
+    async updateCustomer(CustomerMasterSid: number, payload: any, user: any) {
         this.logger.log(`updateCustomer: ${JSON.stringify(payload)}`);
         this.logger.log(`User from JWT: ${JSON.stringify(user)}`);
 
