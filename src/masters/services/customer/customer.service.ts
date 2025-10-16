@@ -1119,7 +1119,33 @@ export class CustomerService {
                         data: { Status: 'D' }
                     });
                 }
+
+                if(branch.status === "S"){
+                    await Promise.all([
+                    tx.cusBranchContact.updateMany({
+                        where: { CustomerBranchSid: branch.CustomerBranchSid },
+                        data: { status: 'S' },
+                    }),
+                    tx.customerBrEmail.updateMany({
+                        where: { CustomerBranchSid: branch.CustomerBranchSid },
+                        data: { status: 'S' },
+                    }),
+                    tx.customerLogin.updateMany({
+                        where: { CustomerBranchSid: branch.CustomerBranchSid },
+                        data: { status: 'S' },
+                    }),
+                    tx.customerSalesTeam.updateMany({
+                        where: { CustomerBranchSid: branch.CustomerBranchSid },
+                        data: { status: 'S' },
+                    }),
+                    tx.customerMilestone.updateMany({
+                        where: { CustomerBranchSid: branch.CustomerBranchSid },
+                        data: { Status: 'S' },
+                    }),
+                ]);
+                } 
             }
+
 
             return customer;
         });

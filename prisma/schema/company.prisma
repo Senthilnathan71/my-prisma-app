@@ -688,6 +688,7 @@ model EnquiryHeader {
   DepartmentMasterSid        Int?
   CustomerMasterSid          Int?
   CustomerAddressSid         Int?
+  QuoteHeaderSid             Int?                         @unique()
   UserMasterSid              Int?
   CustomerName               String                       @db.VarChar(100)
   CustomerAddress            String?                      @db.VarChar(300)
@@ -736,7 +737,7 @@ model EnquiryHeader {
   enquiryOther               EnquiryOther[]
   enquiryProduct             EnquiryProduct[]
   enquiryRoute               EnquiryRoute[]
-  quoteHeader                QuoteHeader[]
+  quoteHeader                QuoteHeader?                @relation(fields: [QuoteHeaderSid], references: [QuoteHeaderSid])
 }
 
 model EnquiryRoute {
@@ -1004,11 +1005,13 @@ model QuoteHeader {
   customerBranch             CustomerBranch?              @relation(fields: [CustomerBranchSid], references: [CustomerBranchSid])
   customerMaster             CustomerMaster?              @relation(fields: [CustomerMasterSid], references: [CustomerMasterSid])
   departmentMaster           DepartmentMaster?            @relation(fields: [DepartmentMasterSid], references: [DepartmentMasterSid])
-  enquiryHeader              EnquiryHeader?               @relation(fields: [EnquirySid], references: [EnquiryHeaderSid])
+  // enquiryHeader              EnquiryHeader?               @relation(fields: [EnquirySid], references: [EnquiryHeaderSid])
   menuMaster                 MenuMaster?                  @relation(fields: [MenuMasterSid], references: [MenuMasterSid])
   preCustomerMaster          PreCustomerMaster?           @relation(fields: [PreCustomerMasterSid], references: [PreCustomerMasterSid])
   quoteProduct               QuoteProduct[]
   quoteRoute                 QuoteRoute[]
+
+  EnquiryHeader              EnquiryHeader?
 }
 
 model QuoteRoute {
@@ -2373,7 +2376,7 @@ model ContainerActivity {
   JobMasterSid         Int
   ContainerNumber      String?                 @db.VarChar(11)
   ContainerType        Int
-  ActivityCode         String                  @db.VarChar(5)
+  ActivityCode         String                   @db.VarChar(5)
   ActivityName         String                  @db.VarChar(100)
   ActivityDate         DateTime
   ActivityFrom         String?                 @db.VarChar(10)
