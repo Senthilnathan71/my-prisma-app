@@ -417,6 +417,7 @@ export class QuotationService {
                                 BranchMasterSid: updatedQuoteHeader.BranchMasterSid,
                                 ApprovalStatus: carrier.authorizerStatus || ApprovalStatus.Pending,
                                 ApprovedBy : carrier.ApprovedBy,
+                                Remarks : carrier.authorizerRemarks,
                                 updatedBy: payload.updatedBy,
                             },
                         });
@@ -432,6 +433,7 @@ export class QuotationService {
                                 CompanyMasterSid: updatedQuoteHeader.CompanyMasterSid,
                                 BranchMasterSid: updatedQuoteHeader.BranchMasterSid,
                                 ApprovalStatus: ApprovalStatus.Pending,
+                                Remarks : carrier.authorizerRemarks,
                                 createdBy: payload.updatedBy,
                             },
                         });

@@ -1,6 +1,6 @@
 import { CreatePreCustomerMeetingDto } from './../../DTO/create-precustomer-meeting.dto';
 import { BadRequestException, Body, Controller, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Post, Put, UnauthorizedException } from '@nestjs/common';
-import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
+import { ApiCreatedResponse, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { Auth } from 'src/common/decorators/auth.decorator';
 import { UserData } from 'src/common/decorators/user.decorator';
 import { ResponseData } from 'src/common/response-data';
@@ -112,7 +112,32 @@ export class PreCustomerMeetingController {
         return output;
     }
 
-
+    @ApiOperation({summary : 'Get Salesman of Lead'})
+    @ApiResponse({
+        type : ResponseData,
+        description : 'Salesman of Lead',
+    })
+    @HttpCode(HttpStatus.OK)
+    @Get('salespersonForLead/:PreCustomerMasterSid')
+    async salespersonForLead(@Param('PreCustomerMasterSid',ParseIntPipe) PreCustomerMasterSid: number) {
+        let resp = new ResponseData();
+        try {
+            let result = await this.preCustomerMeetingService.getSalesmanOfPreCustomer(PreCustomerMasterSid);
+            this.logger.log(`salespersonForLead: ${JSON.stringify(result)}`)
+            resp.data = result;
+            resp.message = "Salesman of Lead";
+        } catch (error) {
+            this.logger.warn(`salespersonForLead: ${JSON.stringify(error)}`)
+            resp.status = false;
+            // Handle error message based on the type of error
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                resp.message = error.message;
+            } else {
+                resp.message = "Internal Server Error";
+            }
+        }
+        return resp;
+    }
 
 
     @ApiOperation({ summary: 'Get All PreCustomerMeetings' })
