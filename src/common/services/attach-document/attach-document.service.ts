@@ -6,11 +6,14 @@ import * as path from 'path';
 import { CreateAttachDocumentDto } from 'src/common/dto/attach-document.dto';
 import { ConfigService } from '@nestjs/config';
 import { EmailService } from 'src/email/email.service';
+import * as pug from 'pug';
+
 @Injectable()
 export class AttachDocumentService {
     constructor(
         private _db: DatabaseService,
         private configService: ConfigService,
+        private emailService: EmailService
     ) { }
 
     async getAllAttachDocuments() {
@@ -249,9 +252,55 @@ export class AttachDocumentService {
                     });
                 }
 
+
+
                 return updatedAttachDocument;
             });
 
+            // --- 📨 Step 4: Send Email if required ---
+            if (payload.sentEmail === 'Y') {
+                const templatePath = path.join(process.cwd(), 'src', 'email', 'templates', 'followup-email.pug');
+
+                const html = pug.renderFile(templatePath, {
+                    recipientName: 'User',
+                    fileName: result.FileName,
+                    link: '#',
+                    followupDate: result.FollowupDate
+                        ? new Date(result.FollowupDate).toLocaleDateString()
+                        : 'N/A',
+                    remarks: payload.FollowupRemarks || '',
+                });
+
+                // ✅ Get file for email attachment (new or existing)
+                let attachmentFile:any;
+
+                if (files && files.length > 0) {
+                    attachmentFile = {
+                        filename: files[0].originalname,
+                        content: files[0].buffer,
+                        contentType: files[0].mimetype,
+                    };
+                } else {
+                    const existingFilePath = path.join(folderPath, exist.FileName);
+                    if (fs.existsSync(existingFilePath)) {
+                        const fileBuffer = fs.readFileSync(existingFilePath);
+                        attachmentFile = {
+                            filename: exist.FileName,
+                            content: fileBuffer,
+                            contentType: 'application/octet-stream',
+                        };
+                    }
+                }
+
+                // ✅ Send email with whichever file is available
+                await this.emailService.sendFollowupEmail({
+                    email: 'developer1@dofi.co', // Replace or parametrize
+                    cc: '',
+                    subject: payload.emailSubject || 'Follow-up Document Updated',
+                    html,
+                    file: attachmentFile,
+                });
+            }
             return result;
         } catch (error) {
             console.error('Error in updateAttachDocumentById:', error);
