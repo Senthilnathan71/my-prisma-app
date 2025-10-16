@@ -466,4 +466,22 @@ export class PreCustomerMeetingService {
         totalCount,
     };
 }
+    async getSalesmanOfPreCustomer(PreCustomerMasterSid:number){
+        try {
+            const customerMeeting = await this._db.preCustomerMeeting.findMany({
+                where: {
+                    PreCustomerMasterSid: PreCustomerMasterSid,
+                    status : "A",
+                    customerMaster : {}
+                }
+            })
+            if(customerMeeting.length === 0){
+                return null;
+            }
+            const salesPersonId = customerMeeting[0].leadAssignTo;
+            return salesPersonId;
+        } catch (error) {
+            throw error;
+        }
+    }
 }
