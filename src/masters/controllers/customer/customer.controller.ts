@@ -187,7 +187,7 @@ async checkUnique(@Body() body: {
     @HttpCode(HttpStatus.OK)
     @Patch('update/:id')
     @UsePipes(new ValidationPipe({ transform: true, whitelist: true }))
-    async editCustomer(@Param('id', ParseIntPipe) id: number, @Body() body: CreateUpdateCustomerDto, @UserData() user: any) {
+    async editCustomer(@Param('id', ParseIntPipe) id: number, @Body() body: any, @UserData() user: any) {
         this.logger.log(`editCustomer: ${JSON.stringify(body)}`)
         let output = new ResponseData
         try {

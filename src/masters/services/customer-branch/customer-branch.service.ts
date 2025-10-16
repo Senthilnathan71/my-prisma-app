@@ -97,17 +97,45 @@ export class CustomerBranchService {
             if (!existing) {
                 throw new BadRequestException(`Customer Branch with id :${CustomerBranchSid} is not exists`)
             }
-            if (existing.status === 'D') {
-                throw new BadRequestException(`Customer Branch with id : ${CustomerBranchSid} is already deleted`);
-            }
-            const deletedData = await this._db.customerBranch.update({
-                where: {
-                    CustomerBranchSid: CustomerBranchSid
-                }, data: {
-                    status : 'D'
-                }
-            })
-            return deletedData;
+
+            // Step 2: Suspend branch and related tables in a transaction
+            await this._db.$transaction(async (tx) => {
+                // Suspend Customer Branch
+                await tx.customerBranch.update({
+                    where: { CustomerBranchSid: CustomerBranchSid },
+                    data: { status: 'S' },
+                });
+
+                // Suspend all related child tables
+                await Promise.all([
+                    tx.cusBranchContact.updateMany({
+                        where: { CustomerBranchSid: CustomerBranchSid },
+                        data: { status: 'S' },
+                    }),
+                    tx.customerBrEmail.updateMany({
+                        where: { CustomerBranchSid: CustomerBranchSid },
+                        data: { status: 'S' },
+                    }),
+                    tx.customerLogin.updateMany({
+                        where: { CustomerBranchSid: CustomerBranchSid },
+                        data: { status: 'S' },
+                    }),
+                    tx.customerSalesTeam.updateMany({
+                        where: { CustomerBranchSid: CustomerBranchSid },
+                        data: { status: 'S' },
+                    }),
+                    tx.customerMilestone.updateMany({
+                        where: { CustomerBranchSid: CustomerBranchSid },
+                        data: { Status: 'S' },
+                    }),
+                ]);
+            });
+
+            // Step 3: Return success message
+            return {
+                message: 'Customer Branch and all related records suspended successfully',
+            };
+      
         } catch (error) {
             throw error;
         }

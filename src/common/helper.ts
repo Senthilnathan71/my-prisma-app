@@ -91,3 +91,9 @@ export function toCamelCase(str: string): string {
     )
     .join('');
 }
+
+
+export function toUTCISO(localDateTime: string) {
+        const local = new Date(localDateTime);
+        return new Date(local.getTime() - local.getTimezoneOffset() * 60000).toISOString();
+    }

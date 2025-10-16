@@ -5,15 +5,25 @@ import { Auth } from 'src/common/decorators/auth.decorator';
 import { UserData } from 'src/common/decorators/user.decorator';
 import { ResponseData } from 'src/common/response-data';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
+
 class CompanyIdDto {
     CompanyMasterSid: number;
 }
 
-@Controller('coa')
+class CategoryDto {
+    Category: string;
+    CompanyMasterSid: number;
+}
 
+class GroupDto {
+    Category: string;
+    GroupName: string;
+    CompanyMasterSid: number;
+}
+
+@Controller('coa')
 export class CoaController {
     constructor(private coaService: CoaService, private logger: Logger) { }
-
 
     @ApiOperation({ summary: 'Create new Coa' })
     @ApiCreatedResponse({
@@ -24,7 +34,6 @@ export class CoaController {
     @Post('create')
     async createNewCoa(@Body() newData: any) {
         let resp = new ResponseData();
-        console.log();
         try {
             let res = await this.coaService.createNewCoa(newData);
             this.logger.log(`New Coa Created : ${JSON.stringify(res)}`);
@@ -41,8 +50,6 @@ export class CoaController {
         }
         return resp;
     }
-
-
 
     @ApiOperation({ summary: 'Get All Coa' })
     @ApiCreatedResponse({
@@ -70,8 +77,59 @@ export class CoaController {
         return resp;
     }
 
+    @ApiOperation({ summary: 'Get All Groups by Category' })
+    @ApiCreatedResponse({
+        description: 'Get All Groups by Category',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Post('groups-by-category')
+    async getAllGroupsByCategory(@Body() body: CategoryDto) {
+        let resp = new ResponseData();
+        try {
+            let res = await this.coaService.getAllGroupsByCategory(body.Category, body.CompanyMasterSid);
+            this.logger.log(`Groups by Category Fetched : ${JSON.stringify(res)}`);
+            resp.data = res;
+            resp.message = "Groups by category are successfully fetched";
+        } catch (error) {
+            this.logger.warn(`Get Groups by Category Error : ${JSON.stringify(error), error}`);
+            resp.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                resp.message = error.message;
+            } else {
+                resp.message = "Internal Server Error";
+            }
+        }
+        return resp;
+    }
 
-     @ApiOperation({ summary: 'Get COA with SubledgerName = "yes"' })
+    @ApiOperation({ summary: 'Get All Subgroups by Group' })
+    @ApiCreatedResponse({
+        description: 'Get All Subgroups by Group',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Post('subgroups-by-group')
+    async getAllSubgroupsByGroup(@Body() body: GroupDto) {
+        let resp = new ResponseData();
+        try {
+            let res = await this.coaService.getAllSubgroupsByGroup(body.Category, body.GroupName, body.CompanyMasterSid);
+            this.logger.log(`Subgroups by Group Fetched : ${JSON.stringify(res)}`);
+            resp.data = res;
+            resp.message = "Subgroups by group are successfully fetched";
+        } catch (error) {
+            this.logger.warn(`Get Subgroups by Group Error : ${JSON.stringify(error), error}`);
+            resp.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                resp.message = error.message;
+            } else {
+                resp.message = "Internal Server Error";
+            }
+        }
+        return resp;
+    }
+
+    @ApiOperation({ summary: 'Get COA with SubledgerName = "yes"' })
     @ApiCreatedResponse({
         description: 'Get COA records where SubledgerName is "yes"',
         type: ResponseData
@@ -96,8 +154,6 @@ export class CoaController {
         }
         return resp;
     }
-
-
 
     @ApiOperation({ summary: 'Get Coa by Id' })
     @ApiCreatedResponse({
@@ -126,8 +182,6 @@ export class CoaController {
         return resp;
     }
 
-
-
     @ApiOperation({ summary: 'Update Coa by Id' })
     @ApiCreatedResponse({
         description: 'Update Coa by Id',
@@ -154,8 +208,6 @@ export class CoaController {
         }
         return resp;
     }
-
-
 
     @ApiOperation({ summary: 'Delete Coa by Id' })
     @ApiCreatedResponse({
@@ -184,8 +236,6 @@ export class CoaController {
         return resp;
     }
 
-
-
     @ApiOperation({ summary: 'Search List of Coa' })
     @ApiCreatedResponse({
         description: 'Search List of Coa',
@@ -211,7 +261,6 @@ export class CoaController {
         }
         return resp;
     }
-
 
     @ApiOperation({ summary: 'Get Audit Logs for a Table/Record' })
     @ApiCreatedResponse({ description: 'Fetch audit logs', type: ResponseData })
@@ -244,5 +293,4 @@ export class CoaController {
         }
         return resp;
     }
-
 }

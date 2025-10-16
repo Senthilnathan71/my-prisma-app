@@ -58,12 +58,17 @@ export class CreateAttachDocumentDto {
   @ApiProperty({  required: false })
   @IsOptional()
   @IsDateString()
-  FollowupDate?: Date;
+  FollowupDate: Date;
 
   @ApiProperty({ required: false })
   @IsOptional()
   @IsIn(['Y', 'N'])
   Public?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsIn(['Y', 'N'])
+  sentEmail?: string;
 
   @ApiProperty({ })
   @IsString()
@@ -80,13 +85,30 @@ export class CreateAttachDocumentDto {
   @IsOptional()
   @IsString()
   @MaxLength(1)
-  status?: string;
+  EdocStatus?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  @MaxLength(1)
+  FollowupStatus?: string;
 
   @ApiProperty({ required: false })
   @IsOptional()
   @IsString()
   @MaxLength(500)
-  Remarks?: string;
+  EdocRemarks?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  FollowupRemarks?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  FollowupAction: string
 }
 
 export class UpdateAttachDocumentDto extends PartialType(CreateAttachDocumentDto) {}
