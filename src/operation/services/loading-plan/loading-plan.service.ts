@@ -60,26 +60,26 @@ export class LoadingPlanService {
                         UserMasterSid : null,
                         userName : ''
                     };
-                    const allCostRevenueCharges = await this._db.costRevenueCharges.findMany({
+                    const allCostRevenueCharges = await this._db.bookingRates.findMany({
                         where: {
                             CompanyMasterSid: booking.CompanyMasterSid,
                             BranchMasterSid: booking.BranchMasterSid!,
-                            MenuMasterSid : booking.MenuMasterSid!,
-                            TransactionSid: booking.BookingHeaderSid,
-                            ShipmentNo : booking.BookingNo,
-                            status: 'A'
+                            BookingHeaderSid: booking.BookingHeaderSid,
+                            Status: 'A'
                         }
                     })
-                    // const allCosts = allCostRevenueCharges.filter(charge => charge.CostRevenue === 'Cost');
-                    // const allRevenues = allCostRevenueCharges.filter(charge => charge.CostRevenue === 'Revenue');
-                    // const totalCost = allCosts.reduce((acc, curr) => {
-                    //     const amount = curr.LocalAmount ? curr.LocalAmount.toNumber() : 0;
-                    //     return acc + amount;
-                    // },0.0);
-                    // const totalRevenue = allRevenues.reduce((acc, curr) => {
-                    //     const amount = curr.LocalAmount ? curr.LocalAmount.toNumber() : 0;
-                    //     return acc + amount;
-                    // },0.0);
+                    const allCosts :any=[]
+                    // allCostRevenueCharges.filter(charge => charge.CostRevenue === 'Cost');
+                    const allRevenues:any = []
+                    // allCostRevenueCharges.filter(charge => charge.CostRevenue === 'Revenue');
+                    const totalCost = allCosts.reduce((acc, curr) => {
+                        const amount = curr.CostLocalAmount ? curr.CostLocalAmount.toNumber() : 0;
+                        return acc + amount;
+                    },0.0);
+                    const totalRevenue = allRevenues.reduce((acc, curr) => {
+                        const amount = curr.RevenueLocalAmount ? curr.RevenueLocalAmount.toNumber() : 0;
+                        return acc + amount;
+                    },0.0);
 
 
                     return {
@@ -115,8 +115,8 @@ export class LoadingPlanService {
                         Volume: booking.bookingCargo[0]?.Volume,
                         CargoType : booking.bookingCargo[0]?.CargoType,
                         BookingStatus : booking.BookingStatus,
-                        // totalCost: totalCost.toFixed(2),
-                        // totalRevenue : totalRevenue.toFixed(2),
+                        totalCost: totalCost.toFixed(2),
+                        totalRevenue : totalRevenue.toFixed(2),
                     }
                 })
             );
