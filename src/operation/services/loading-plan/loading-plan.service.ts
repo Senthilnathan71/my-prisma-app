@@ -51,7 +51,8 @@ export class LoadingPlanService {
                 where : whereClause,
                 include : {
                     bookingCargo : true,
-                    departmentMaster : {select : {departmentName : true}}
+                    departmentMaster : {select : {departmentName : true}},
+                    bookingRates : { where : {Status : 'A'}}
                 }
             })
             const enrichedBookings = await Promise.all(
@@ -60,26 +61,14 @@ export class LoadingPlanService {
                         UserMasterSid : null,
                         userName : ''
                     };
-                    const allCostRevenueCharges = await this._db.costRevenueCharges.findMany({
-                        where: {
-                            CompanyMasterSid: booking.CompanyMasterSid,
-                            BranchMasterSid: booking.BranchMasterSid!,
-                            MenuMasterSid : booking.MenuMasterSid!,
-                            TransactionSid: booking.BookingHeaderSid,
-                            ShipmentNo : booking.BookingNo,
-                            status: 'A'
-                        }
-                    })
-                    // const allCosts = allCostRevenueCharges.filter(charge => charge.CostRevenue === 'Cost');
-                    // const allRevenues = allCostRevenueCharges.filter(charge => charge.CostRevenue === 'Revenue');
-                    // const totalCost = allCosts.reduce((acc, curr) => {
-                    //     const amount = curr.LocalAmount ? curr.LocalAmount.toNumber() : 0;
-                    //     return acc + amount;
-                    // },0.0);
-                    // const totalRevenue = allRevenues.reduce((acc, curr) => {
-                    //     const amount = curr.LocalAmount ? curr.LocalAmount.toNumber() : 0;
-                    //     return acc + amount;
-                    // },0.0);
+                    const totalCost = (booking.bookingRates || []).reduce((acc, curr) => {
+                        const amount = curr.CostLocalAmount ? (curr.CostDrCr === "D" ? curr.CostLocalAmount.toNumber() : -curr.CostLocalAmount.toNumber()) : 0;
+                        return acc + amount;
+                    },0.0);
+                    const totalRevenue = (booking.bookingRates || []).reduce((acc, curr) => {
+                        const amount = curr.RevenueLocalAmount ? (curr.RevenueDrCr === "C" ? curr.RevenueLocalAmount.toNumber() : -curr.RevenueLocalAmount.toNumber()) : 0;
+                        return acc + amount;
+                    },0.0);
 
 
                     return {
@@ -115,8 +104,8 @@ export class LoadingPlanService {
                         Volume: booking.bookingCargo[0]?.Volume,
                         CargoType : booking.bookingCargo[0]?.CargoType,
                         BookingStatus : booking.BookingStatus,
-                        // totalCost: totalCost.toFixed(2),
-                        // totalRevenue : totalRevenue.toFixed(2),
+                        totalCost: totalCost.toFixed(2),
+                        totalRevenue : totalRevenue.toFixed(2),
                     }
                 })
             );

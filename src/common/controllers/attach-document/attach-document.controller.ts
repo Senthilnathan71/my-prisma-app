@@ -6,13 +6,18 @@ import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { AttachDocumentService } from 'src/common/services/attach-document/attach-document.service';
 import { CreateAttachDocumentDto } from 'src/common/dto/attach-document.dto';
 import * as fs from "fs";
+import * as pug from 'pug';
 import * as path from "path";
 import { ConfigService } from '@nestjs/config';
 import { MenuService } from 'src/masters/services/menu/menu.service';
 import { DynamicFilesUploadInterceptor } from 'src/common/decorators/edoc.decorator';
+import { UserData } from 'src/common/decorators/user.decorator';
+import { EmailService } from 'src/email/email.service';
 @Controller('attach-document')
 export class AttachDocumentController {
-    constructor(private configService:ConfigService,private menuMasterService:MenuService, private attachDocumentService: AttachDocumentService, private logger: Logger) { }
+    constructor(private configService: ConfigService,
+        private emailService: EmailService,
+        private menuMasterService: MenuService, private attachDocumentService: AttachDocumentService, private logger: Logger) { }
 
     @ApiOperation({ summary: 'Create new Attach Document' })
     @ApiCreatedResponse({
@@ -22,36 +27,60 @@ export class AttachDocumentController {
     @DynamicFilesUploadInterceptor("files", 10, 20)
     @HttpCode(HttpStatus.CREATED)
     @Post('create')
-    async createNewAttachDocument(@UploadedFiles() files: Express.Multer.File[], @Body() newData: CreateAttachDocumentDto) {
+    async createNewAttachDocument(@UploadedFiles() files: Express.Multer.File[], @Body() newData: any, @UserData() user: any) {
         let resp = new ResponseData();
         try {
             if (!files || files.length === 0) {
-      throw new BadRequestException("No files uploaded");
-    }
-   const menuName:any = await this.menuMasterService.findOne(Number(newData.MenuMasterSid))
-    // 1️⃣ Save DB record
-    const res = await this.attachDocumentService.createNewAttachDocument(files, newData,menuName?.MenuName);
+                throw new BadRequestException("No files uploaded");
+            }
+            const menuName: any = await this.menuMasterService.findOne(Number(newData.MenuMasterSid))
+            // 1️⃣ Save DB record
+            const res = await this.attachDocumentService.createNewAttachDocument(files, newData, menuName?.MenuName, user);
 
-     // 2️⃣ Get DB values (file name & ID)
-    const baseDestination = this.configService.get('UPLOAD_EDOC_PATH');
-    const componentName: any = menuName?.MenuName;
-    const recordId: any = newData.DocumentSid;
+            // 2️⃣ Get config and directory info
+            const baseDestination = this.configService.get('UPLOAD_EDOC_PATH');
+            const componentName: any = menuName?.MenuName;
+            const recordId: any = newData.DocumentSid;
 
-    files.forEach((file, index) => {
-      const folderPath = path.join(baseDestination, componentName, recordId.toString());
-      if (!fs.existsSync(folderPath)) fs.mkdirSync(folderPath, { recursive: true });
+            // Ensure base folder exists
+            const folderPath = path.join(baseDestination, componentName, recordId.toString());
+            if (!fs.existsSync(folderPath)) fs.mkdirSync(folderPath, { recursive: true });
 
-      // Use DB file name directly (from newData or res)
-      const dbFileName =
-        newData.FileName || file.originalname; // prefer DB filename if available
+            // 3️⃣ Save each file with the DB file name
+            res.forEach(async (docRecord, index) => {
+                const file = files[index];
+                const dbFileName = docRecord.FileName; // ✅ take file name from DB
+                const savePath = path.join(folderPath, dbFileName);
 
-      // Save file with DB name (exactly)
-      fs.writeFileSync(path.join(folderPath, dbFileName), file.buffer);
-    });
+                fs.writeFileSync(savePath, file.buffer);
+                // Step 3: Send email if sentEmail is 'Y'
+                if (newData.sentEmail === 'Y') {
+                    // Render Pug template
+                    const templatePath = path.join(process.cwd(), 'src', 'email', 'templates', 'followup-email.pug');
+                    const html = pug.renderFile(templatePath, {
+                        recipientName: 'User',
+                        fileName: file.originalname,
+                        link: '#',
+                        followupDate: newData.FollowupDate
+                            ? new Date(newData.FollowupDate).toLocaleDateString()
+                            : 'N/A',
+                        remarks: newData.FollowupRemarks || '',
+                    });
+                    // Send email
+                    await this.emailService.sendFollowupEmail({
+                        email: 'developer1@dofi.co',  //for testing use your email
+                        cc: '',
+                        subject: newData.emailSubject || 'Follow-up Document',
+                        html: html,
+                        file: file,
+                    });
+                }
+                console.log(`✅ File saved: ${savePath}`);
+            });
 
-    resp.data = res;
-    resp.message = "New Attach Document is successfully created";
-    this.logger.log(`New Attach Document Created: ${JSON.stringify(res)}`);
+            resp.data = res;
+            resp.message = "New Attach Document is successfully created";
+            this.logger.log(`New Attach Document Created: ${JSON.stringify(res)}`);
         } catch (error) {
             console.log(error.stack)
             this.logger.warn(`Attach Document Creation Error : ${JSON.stringify(error)}`);
@@ -123,14 +152,14 @@ export class AttachDocumentController {
         description: 'Update Attach Document by Id',
         type: ResponseData
     })
-    @FilesUploadInterceptor('documents', 'UPLOAD_DOC_PATH')
+    @DynamicFilesUploadInterceptor("files", 10, 20)
     @HttpCode(HttpStatus.OK)
     @Patch('update/:AttachDocumentSid')
-    async updateAttachDocumentById(@Param('AttachDocumentSid', ParseIntPipe) AttachDocumentSid: number, @Body() payload: any) {
+    async updateAttachDocumentById(@UploadedFiles() files: Express.Multer.File[], @Param('AttachDocumentSid', ParseIntPipe) AttachDocumentSid: number, @Body() payload: any) {
         let resp = new ResponseData();
         try {
             this.logger.log(`Updating Attach Document with id : ${AttachDocumentSid}`);
-            let res = await this.attachDocumentService.updateAttachDocumentById(AttachDocumentSid, payload);
+            let res = await this.attachDocumentService.updateAttachDocumentById(files, AttachDocumentSid, payload);
             this.logger.debug(`Updated Attach Document : ${JSON.stringify(res)}`);
             resp.data = res;
             resp.message = `Attach Document with id : ${AttachDocumentSid} is successfully updated`;
@@ -200,30 +229,30 @@ export class AttachDocumentController {
     }
 
     @ApiOperation({ summary: 'Fetch Attach Document by Folder Structure' })
-@ApiCreatedResponse({
-  description: 'Fetch Attach Document by Folder Structure',
-  type: ResponseData
-})
-@HttpCode(HttpStatus.OK)
-@Post('fetch-by-folder')
-async fetchAttachDocumentByFolder(@Body() body: { menuMasterSid: number; DocumentSid: number }) {
-  const resp = new ResponseData();
+    @ApiCreatedResponse({
+        description: 'Fetch Attach Document by Folder Structure',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Post('fetch-by-folder')
+    async fetchAttachDocumentByFolder(@Body() body: { menuMasterSid: number; DocumentSid: number }) {
+        const resp = new ResponseData();
 
-  try {
-    const { menuMasterSid, DocumentSid } = body;
-    this.logger.log(`Fetching AttachDocument for MenuMasterSid: ${menuMasterSid}, DocumentSid: ${DocumentSid}`);
+        try {
+            const { menuMasterSid, DocumentSid } = body;
+            this.logger.log(`Fetching AttachDocument for MenuMasterSid: ${menuMasterSid}, DocumentSid: ${DocumentSid}`);
 
-    const result = await this.attachDocumentService.fetchAttachDocumentByFolder(menuMasterSid, DocumentSid);
+            const result = await this.attachDocumentService.fetchAttachDocumentByFolder(menuMasterSid, DocumentSid);
 
-    resp.data = result;
-    resp.message = 'Attach Document successfully fetched from folder structure';
-  } catch (error) {
-    this.logger.warn(`Fetch Attach Document by Folder Error: ${error.message}`);
-    resp.status = false;
-    resp.message = error.message || 'Internal Server Error';
-  }
+            resp.data = result;
+            resp.message = 'Attach Document successfully fetched from folder structure';
+        } catch (error) {
+            this.logger.warn(`Fetch Attach Document by Folder Error: ${error.message}`);
+            resp.status = false;
+            resp.message = error.message || 'Internal Server Error';
+        }
 
-  return resp;
-}
+        return resp;
+    }
 
 }

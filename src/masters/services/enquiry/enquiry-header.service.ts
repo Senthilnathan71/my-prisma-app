@@ -271,7 +271,8 @@ export class EnquiryHeaderService {
                     ClearanceBy: payload.ClearanceBy,
                     TransportBy: payload.TransportBy,
                     Remarks: payload.Remarks,
-                     CustomerRef:payload.CustomerRef,
+                    CustomerRef:payload.CustomerRef,
+                    UserMasterSid : payload.UserMasterSid,
                     status: statusUpdate,
                     updatedBy: payload.updatedBy,
                     updatedOn: new Date(),
@@ -538,7 +539,7 @@ export class EnquiryHeaderService {
                 {
                     OR: [
                         { EnquiryNumber: { contains: search, mode: 'insensitive' } },
-                        { quoteHeader: { some: { QuoteNumber: { contains: search, mode: 'insensitive' } } } },
+                        { quoteHeader: { QuoteNumber: { contains: search, mode: 'insensitive' } } },
                         { CustomerName: { contains: search, mode: 'insensitive' } },
                         { ShipmentType: { contains: search, mode: 'insensitive' } },
                         { status: { contains: search, mode: 'insensitive' } },
@@ -595,6 +596,7 @@ export class EnquiryHeaderService {
                     ...item,
                     POL: pol,
                     POD: pod,
+                    QuoteHeaderSid : quote?.QuoteHeaderSid,
                     quoteNo: quote?.QuoteNumber
                 }
             })
