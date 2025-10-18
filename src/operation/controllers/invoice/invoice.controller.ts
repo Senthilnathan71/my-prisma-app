@@ -11,7 +11,8 @@ class CompanyIdDto {
 }
 
 class SendInvoiceEmailDto {
-  from: string;
+  companyId: number;
+  from?: string;
   to: string;
   cc?: string;
   subject: string;
@@ -207,18 +208,19 @@ export class InvoiceController {
   @Post('send-email')
   async sendInvoiceEmail(@Body() payload: SendInvoiceEmailDto) {
     const output = new ResponseData();
-    this.logger.log(`sendInvoiceEmail to: ${payload.to}`);
+    this.logger.log(`sendInvoiceEmail to: ${payload.to}, companyId: ${payload.companyId}`);
     try {
       // Validate required fields
-      if (!payload.from || !payload.to || !payload.subject || !payload.pdfBase64 || !payload.filename) {
-        throw new BadRequestException('Missing required fields: from, to, subject, pdfBase64, filename');
+      if (!payload.companyId || !payload.to || !payload.subject || !payload.pdfBase64 || !payload.filename) {
+        throw new BadRequestException('Missing required fields: companyId, to, subject, pdfBase64, filename');
       }
 
       // Convert base64 PDF to buffer
       const pdfBuffer = Buffer.from(payload.pdfBase64, 'base64');
 
-      // Send email using email service
+      // Send email using email service with company config
       await this.emailService.sendInvoiceEmail({
+        companyId: payload.companyId,
         from: payload.from,
         to: payload.to,
         cc: payload.cc,

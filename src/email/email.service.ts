@@ -1,15 +1,31 @@
 
 import { HttpException, HttpStatus, Injectable, Logger } from "@nestjs/common";
-import * as nodemailer from 'nodemailer'
-@Injectable()
+import * as nodemailer from 'nodemailer';
+import { DatabaseService } from "src/database/database.service";
 
+interface EmailConfig {
+    smtpHost: string;
+    smtpPort: number;
+    smtpSecure: boolean;
+    smtpUser: string;
+    smtpPassword: string;
+    fromEmail: string;
+    fromName: string;
+    replyToEmail?: string;
+}
+
+@Injectable()
 export class EmailService {
     public cc: Array<string> = []
     public applicationName: String = 'CRM'
 
     private transporter: nodemailer.Transporter
 
-    constructor(private logger: Logger) {
+    constructor(
+        private logger: Logger,
+        private db: DatabaseService
+    ) {
+        // Default transporter for backward compatibility
         this.transporter = nodemailer.createTransport({
             host: 'smtp.zoho.com',
             port: 587,
@@ -19,13 +35,61 @@ export class EmailService {
                 pass: 'admin@CRM',
             },
             tls: {
-                rejectUnauthorized: false, // Ignore self-signed certificate issues
+                rejectUnauthorized: false,
             },
-            debug: true, // Enable debugging
-            logger: true, // Log everything
+            debug: true,
+            logger: true,
         });
+    }
 
+    /**
+     * Create a transporter with company-specific email configuration
+     */
+    private createTransporterFromConfig(emailConfig: EmailConfig): nodemailer.Transporter {
+        return nodemailer.createTransport({
+            host: emailConfig.smtpHost,
+            port: emailConfig.smtpPort,
+            secure: emailConfig.smtpSecure,
+            auth: {
+                user: emailConfig.smtpUser,
+                pass: emailConfig.smtpPassword,
+            },
+            tls: {
+                rejectUnauthorized: false,
+            },
+            debug: true,
+            logger: true,
+        });
+    }
 
+    /**
+     * Get email configuration from company config
+     */
+    async getCompanyEmailConfig(companyId: number): Promise<EmailConfig | null> {
+        try {
+            const company = await this.db.companyMaster.findUnique({
+                where: { CompanyMasterSid: companyId },
+                select: { config: true }
+            });
+
+            if (!company || !company.config) {
+                this.logger.warn(`No config found for company ${companyId}`);
+                return null;
+            }
+
+            const config = company.config as any;
+            const emailConfig = config?.systemSettings?.emailConfig;
+
+            if (!emailConfig || !emailConfig.smtpHost || !emailConfig.fromEmail) {
+                this.logger.warn(`Invalid email config for company ${companyId}`);
+                return null;
+            }
+
+            return emailConfig as EmailConfig;
+        } catch (error) {
+            this.logger.error(`Error fetching company email config: ${error.message}`);
+            return null;
+        }
     }
 
     async sendForgotPasswordMail(data: any): Promise<boolean> {
@@ -164,7 +228,8 @@ export class EmailService {
     }
 
     async sendInvoiceEmail(data: {
-        from: string;
+        companyId: number;
+        from?: string;
         to: string;
         cc?: string;
         subject: string;
@@ -174,11 +239,32 @@ export class EmailService {
         invoiceDetails?: any;
     }): Promise<boolean> {
         try {
+            // Get company email configuration
+            const emailConfig = await this.getCompanyEmailConfig(data.companyId);
+
+            // Determine which transporter to use
+            let transporterToUse: nodemailer.Transporter;
+            let fromAddress: string;
+            let replyTo: string | undefined;
+
+            if (emailConfig) {
+                // Use company-specific email configuration
+                transporterToUse = this.createTransporterFromConfig(emailConfig);
+                fromAddress = data.from || `"${emailConfig.fromName}" <${emailConfig.fromEmail}>`;
+                replyTo = emailConfig.replyToEmail;
+                this.logger.log(`Using company-specific email config for company ${data.companyId}`);
+            } else {
+                // Fallback to default transporter
+                transporterToUse = this.transporter;
+                fromAddress = data.from || '"Dofi-Infosys" <noreply@dofi.co>';
+                this.logger.warn(`Using default email config (company config not found for company ${data.companyId})`);
+            }
+
             // Create HTML email body with invoice details
             const htmlBody = this.createInvoiceEmailTemplate(data.message, data.invoiceDetails);
 
             const mailOptions: any = {
-                from: data.from || '"Dofi-Infosys" <noreply@dofi.co>',
+                from: fromAddress,
                 to: data.to,
                 subject: data.subject,
                 html: htmlBody,
@@ -191,12 +277,17 @@ export class EmailService {
                 ]
             };
 
+            // Add reply-to if available
+            if (replyTo) {
+                mailOptions.replyTo = replyTo;
+            }
+
             // Add CC if provided
             if (data.cc && data.cc.trim() !== '') {
                 mailOptions.cc = data.cc;
             }
 
-            const info = await this.transporter.sendMail(mailOptions);
+            const info = await transporterToUse.sendMail(mailOptions);
             this.logger.log(`Invoice email sent successfully: ${info.messageId}`);
             return true;
         } catch (err) {
