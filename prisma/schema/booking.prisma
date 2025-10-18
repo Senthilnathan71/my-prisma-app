@@ -242,8 +242,8 @@ model BookingRates {
   ChargeMasterSid             Int
   ChargeDescription           String             @db.VarChar(100)
   ChargeUomSid                Int?
-  CustomerMasterSid           Int
-  CustomerBranchSid           Int
+  CustomerMasterSid           Int?
+  CustomerBranchSid           Int?
   Remarks                     String?            @db.VarChar(100)
   AgentBranchSid              Int?
   AgentMasterSid              Int?
@@ -280,8 +280,8 @@ model BookingRates {
   costChargeUOMMaster         UOMMaster?         @relation("COST", fields: [CostChargeUomSid], references: [UOMMasterSid])
   costVoucherHeader           VoucherHeader?     @relation("COST", fields: [CostVoucherHeaderSid], references: [VoucherHeaderSid])
   costVoucherTypeMaster       VoucherTypeMaster? @relation("COST", fields: [CostVoucherTypeMasterSid], references: [VoucherTypeMasterSid])
-  customerBranch              CustomerBranch     @relation(fields: [CustomerBranchSid], references: [CustomerBranchSid])
-  customerMasterBP            CustomerMaster     @relation("BillingParty", fields: [CustomerMasterSid], references: [CustomerMasterSid])
+  customerBranch              CustomerBranch?     @relation(fields: [CustomerBranchSid], references: [CustomerBranchSid])
+  customerMasterBP            CustomerMaster?     @relation("BillingParty", fields: [CustomerMasterSid], references: [CustomerMasterSid])
   quoteCharge                 QuoteCharge?       @relation(fields: [QuoteChargeSid], references: [QuoteChargeSid])
   revenueChargeUOMMaster      UOMMaster?         @relation("REVENUE", fields: [RevenueChargeUomSid], references: [UOMMasterSid])
   revenueVoucherHeader        VoucherHeader?     @relation("REVENUE", fields: [RevenueVoucherHeaderSid], references: [VoucherHeaderSid])

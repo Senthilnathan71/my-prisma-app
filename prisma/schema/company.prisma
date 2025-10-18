@@ -294,6 +294,7 @@ model CurrencyMaster {
   tariffDetailSale  TariffDetail[]       @relation("Sale")
   VoucherDetail     VoucherDetail[]
   VoucherHeader     VoucherHeader[]
+  branchBank        BranchBank[]
 }
 
 model CurrencyExchange {
@@ -737,7 +738,7 @@ model EnquiryHeader {
   enquiryOther               EnquiryOther[]
   enquiryProduct             EnquiryProduct[]
   enquiryRoute               EnquiryRoute[]
-  quoteHeader                QuoteHeader?                @relation(fields: [QuoteHeaderSid], references: [QuoteHeaderSid])
+  quoteHeader                QuoteHeader?                 @relation(fields: [QuoteHeaderSid], references: [QuoteHeaderSid])
 }
 
 model EnquiryRoute {
@@ -1011,7 +1012,7 @@ model QuoteHeader {
   quoteProduct               QuoteProduct[]
   quoteRoute                 QuoteRoute[]
 
-  EnquiryHeader              EnquiryHeader?
+  EnquiryHeader EnquiryHeader?
 }
 
 model QuoteRoute {
@@ -1475,22 +1476,25 @@ model CustomerMilestone {
 }
 
 model BranchBank {
-  BranchBankSid   Int          @id @default(autoincrement()) @map("BranchBankSid")
-  BankCode        String?      @db.VarChar(50)
-  BankName        String       @db.VarChar(100)
-  BankAddress     String?      @db.VarChar(500)
-  IFSCCode        String?      @db.VarChar(20)
-  BankAccountNo   String?      @db.VarChar(50)
-  BeneficiaryName String?      @db.VarChar(100)
-  BranchMasterSid Int
-  createdOn       DateTime     @default(now()) @db.Timestamptz(6)
-  updatedOn       DateTime?    @updatedAt @db.Timestamptz(6)
-  deletedAt       DateTime?
-  createdBy       String       @db.VarChar(100)
-  updatedBy       String?      @db.VarChar(100)
-  status          String?      @default("A") @db.Char(1)
-  Remarks         String?      @db.VarChar(300)
-  branchMaster    BranchMaster @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
+  BranchBankSid     Int             @id @default(autoincrement()) @map("BranchBankSid")
+  BankCode          String?         @db.VarChar(50)
+  BankName          String          @db.VarChar(100)
+  BankAddress       String?         @db.VarChar(500)
+  IFSCCode          String?         @db.VarChar(20)
+  BankAccountNo     String?         @db.VarChar(50)
+  BeneficiaryName   String?         @db.VarChar(100)
+  BranchMasterSid   Int
+  createdOn         DateTime        @default(now()) @db.Timestamptz(6)
+  updatedOn         DateTime?       @updatedAt @db.Timestamptz(6)
+  deletedAt         DateTime?
+  createdBy         String          @db.VarChar(100)
+  updatedBy         String?         @db.VarChar(100)
+  status            String?         @default("A") @db.Char(1)
+  Remarks           String?         @db.VarChar(300)
+  PrintOnInvoice    String?         @db.VarChar(1)
+  CurrencyMasterSid Int?
+  branchMaster      BranchMaster    @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
+  currencyMaster    CurrencyMaster? @relation(fields: [CurrencyMasterSid], references: [CurrencyMasterSid])
 }
 
 model UserCompanyMaster {
@@ -2115,7 +2119,7 @@ model AttachDocument {
   FileName          String        @db.VarChar(30)
   Documenttype      String        @db.VarChar(20)
   ReceivedDate      DateTime?     @db.Date
-  SentDate      DateTime?     @db.Date
+  SentDate          DateTime?     @db.Date
   FollowupRequire   String?       @default("N") @db.Char(1)
   FollowupDate      DateTime?     @db.Date
   Public            String        @default("N") @db.Char(1)
@@ -2128,7 +2132,7 @@ model AttachDocument {
   Remarks           String?       @db.VarChar(500)
   branchMaster      BranchMaster  @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
   companyMaster     CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
-  menuMaster        MenuMaster? @relation(fields: [MenuMasterSid], references: [MenuMasterSid])
+  menuMaster        MenuMaster?   @relation(fields: [MenuMasterSid], references: [MenuMasterSid])
 }
 
 model EmailLog {
@@ -2220,19 +2224,19 @@ model TaxMaster {
 
 model COAMaster {
   COAMasterSid       Int                  @id @default(autoincrement()) @map("COAMasterSid")
-  GroupName          String?               @db.VarChar(50)
+  GroupName          String?              @db.VarChar(50)
   SubGroupName       String?              @db.VarChar(50)
   LedgerName         String?              @db.VarChar(50)
   SubledgerName      String?              @db.VarChar(100)
   LedgerCode         String?              @db.VarChar(12)
-  LedgerType         String?               @db.VarChar(20)
+  LedgerType         String?              @db.VarChar(20)
   Ledgername2        String?              @db.VarChar(50)
   LedgerCurrency     Int?
-  LedgerCategory	   String?               @db.VarChar(10) //Category,Group,Subgroup,Ledger
+  LedgerCategory     String?              @db.VarChar(10) //Category,Group,Subgroup,Ledger
   JobNoRequire       String?              @default("N") @db.Char(1)
-  HSNRequire         String?               @default("N") @db.Char(1)
-  ProfitandLoss      String?               @default("N") @db.Char(1)
-  BalanceSheet       String?               @default("N") @db.Char(1)
+  HSNRequire         String?              @default("N") @db.Char(1)
+  ProfitandLoss      String?              @default("N") @db.Char(1)
+  BalanceSheet       String?              @default("N") @db.Char(1)
   Remarks            String?              @db.VarChar(100)
   CreatedOn          DateTime             @default(now())
   CreatedBy          String               @db.VarChar(100)
@@ -2376,7 +2380,7 @@ model ContainerActivity {
   JobMasterSid         Int
   ContainerNumber      String?                 @db.VarChar(11)
   ContainerType        Int
-  ActivityCode         String                   @db.VarChar(5)
+  ActivityCode         String                  @db.VarChar(5)
   ActivityName         String                  @db.VarChar(100)
   ActivityDate         DateTime
   ActivityFrom         String?                 @db.VarChar(10)
