@@ -292,5 +292,59 @@ export class FfUserMasterController {
         return resp;
     }
 
+    @ApiOperation({ summary: 'Get User Based on User Type' })
+    @ApiCreatedResponse({
+        description: 'Get User Based on User Type',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Get('user-type/:userType')
+    async getUserBasedOnUserType(@Param('userType') userType: string) {
+        let resp = new ResponseData();
+        try {
+            this.logger.log(`Getting User Based on User Type : ${userType}`);
+            let res = await this.ffUserMasterService.getUserBasedOnUserType(userType);
+            this.logger.debug(`Fetched ffUser : ${JSON.stringify(res)}`);
+            resp.data = res;
+            resp.message = `User Based on User Type : ${userType} is successfully fetched`;
+        } catch (error) {
+            this.logger.warn(`Get User Based on User Type Error : ${JSON.stringify(error), error}`);
+            resp.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                resp.message = error.message;
+            } else {
+                resp.message = "Internal Server Error";
+            }
+        }
+        return resp;
+    }
+
+    @ApiOperation({ summary: 'Get All Salesperson' })
+    @ApiCreatedResponse({
+        description: 'Get All Salesperson',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Get('salesperson')
+    async getAllSalesperson() {
+        let resp = new ResponseData();
+        try {
+            this.logger.log(`Getting All Salesperson`);
+            let res = await this.ffUserMasterService.getAllSalesperson();
+            this.logger.debug(`Fetched ffUser : ${JSON.stringify(res)}`);
+            resp.data = res;
+            resp.message = "All Salesperson are successfully fetched";
+        } catch (error) {
+            this.logger.warn(`Get All Salesperson Error : ${JSON.stringify(error), error}`);
+            resp.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                resp.message = error.message;
+            } else {
+                resp.message = "Internal Server Error";
+            }
+        }
+        return resp;
+    }
+
     
 }

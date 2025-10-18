@@ -1057,6 +1057,20 @@ export class BookingService {
                 orderBy: [{ ShipmentNo: 'asc' }, { ShipmentMilestoneSid: 'desc' }],
             });
             shipmentNosByMilestone = [...new Map(milestones.map(m => [m.ShipmentNo, m])).keys()];
+
+
+            const ports = await this._db.portMaster.findMany({
+                where: {
+                    PortCode: { contains: search, mode: 'insensitive' },
+                    PortName: { contains: search, mode: 'insensitive' },
+                    status: 'A'
+                },
+                select: {
+                    PortCode: true,
+                }
+            });
+
+            const portWithSearchOnlyIds = ports.map(p => p.PortCode);
         }
 
         const where: Prisma.BookingHeaderWhereInput = {
@@ -1067,6 +1081,7 @@ export class BookingService {
                 OR: [
                     { BookingNo: { contains: search, mode: 'insensitive' } },
                     { departmentMaster: { departmentName: { contains: search, mode: 'insensitive' } } },
+                    { CustomerName: { contains: search, mode: 'insensitive' } },
                     { POL: { contains: search, mode: 'insensitive' } },
                     { POD: { contains: search, mode: 'insensitive' } },
                     { FPD: { contains: search, mode: 'insensitive' } },
@@ -1085,7 +1100,7 @@ export class BookingService {
                 where,
                 skip,
                 take: pageSize,
-                orderBy: { BookingHeaderSid: 'desc' }
+                orderBy: { BookingNo: 'desc' }
             }),
             this._db.bookingHeader.count({ where }),
         ]);
@@ -1102,7 +1117,7 @@ export class BookingService {
 
                     item.SalesmanSid !== null ?
                         this.globalConfigService.getMasterData('user_master', item.SalesmanSid) :
-                        { UserMasterSid: null, userName: '' }
+                        { UserMasterSid: null, userName: '' },
                 ])
                 return {
                     ...item,

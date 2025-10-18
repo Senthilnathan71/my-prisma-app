@@ -532,8 +532,29 @@ export class AuthorityService {
         return { items: paginatedResults, totalCount };
     }
 
-
+    /**
+    * Checks whether a given user is an authorized approver for a specific menu and document,
+    * and returns additional metadata such as the total number of active authorizers.
+    *
+    * @async
+    * @param {Object} payload - The input data used for authorization checks.
+    * @param {number} payload.UserMasterSid - Current User's Sid.
+    * @param {number} payload.CompanyMasterSid - Current User's Active Company's Sid.
+    * @param {number} payload.BranchMasterSid -Current User's Active Branch's Sid.
+    * @param {number} payload.MenuMasterSid - Menu identifier for which authorization is being checked.
+    * @param {number} payload.DocumentSid - Document identifier for which authorization is being checked.
+    * @returns {Promise<{
+    *   canAuthorize: boolean,
+    *   alreadyApproved: boolean,
+    *   AuthorityDetailSid: number | null,
+    *   AuthorityLevel: number | null,
+    *   totalNumberOfAuthorizers: number,
+    *   message: string
+    * }>} An object indicating whether the user can authorize, has already approved,
+    * and how many total active authorizers exist for that menu.
+    */
     async isUserAuthorizer(payload: any) {
+        // 1. Find if user is an active authorizer
         const authorizer = await this._db.authorityDetail.findFirst({
             where: {
                 UserMasterSid: payload.UserMasterSid,
@@ -553,17 +574,34 @@ export class AuthorityService {
             }
         });
 
+        // 2. Count total active authorizers for this menu
+        const totalNumberOfAuthorizers = await this._db.authorityDetail.count({
+            where: {
+                status: 'A',
+                CompanyMasterSid: payload.CompanyMasterSid,
+                BranchMasterSid: payload.BranchMasterSid,
+                authorityMaster: {
+                    status: 'A',
+                    MenuMaster: payload.MenuMasterSid,
+                    CompanyMasterSid: payload.CompanyMasterSid,
+                    BranchMasterSid: payload.BranchMasterSid
+                }
+            }
+        });
+
+        // 3. If user is not an authorizer
         if (!authorizer) {
-            return { 
-                canAuthorize: false, 
+            return {
+                canAuthorize: false,
                 alreadyApproved: false,
-                AuthorityDetailSid : null,
-                AuthorityLevel : null,
-                message: "User is not an authorizer for this menu." 
+                AuthorityDetailSid: null,
+                AuthorityLevel: null,
+                totalNumberOfAuthorizers,
+                message: "User is not an authorizer for this menu."
             };
         }
 
-        // 2. Check if user already authorized the document
+        // 4. Check if user already authorized this document
         const alreadyAuthorized = await this._db.authorityLog.findFirst({
             where: {
                 AuthorityDetailSid: authorizer.AuthorityDetailSid,
@@ -575,13 +613,15 @@ export class AuthorityService {
             }
         });
 
+        // 5. Return based on already authorized state
         if (alreadyAuthorized) {
-            return { 
-                canAuthorize: true, 
-                alreadyApproved: true, 
+            return {
+                canAuthorize: true,
+                alreadyApproved: true,
                 AuthorityDetailSid: authorizer.AuthorityDetailSid,
                 AuthorityLevel: authorizer.AuthorityLevel,
-                message: "User has already authorized this document." 
+                totalNumberOfAuthorizers,
+                message: "User has already authorized this document."
             };
         }
 
@@ -590,6 +630,7 @@ export class AuthorityService {
             alreadyApproved: false,
             AuthorityDetailSid: authorizer.AuthorityDetailSid,
             AuthorityLevel: authorizer.AuthorityLevel,
+            totalNumberOfAuthorizers,
             message: "User is a valid authorizer for this menu."
         };
     }
