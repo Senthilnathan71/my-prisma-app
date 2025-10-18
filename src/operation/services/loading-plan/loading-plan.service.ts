@@ -62,11 +62,11 @@ export class LoadingPlanService {
                         userName : ''
                     };
                     const totalCost = (booking.bookingRates || []).reduce((acc, curr) => {
-                        const amount = curr.CostLocalAmount ? curr.CostLocalAmount.toNumber() : 0;
+                        const amount = curr.CostLocalAmount ? (curr.CostDrCr === "D" ? curr.CostLocalAmount.toNumber() : -curr.CostLocalAmount.toNumber()) : 0;
                         return acc + amount;
                     },0.0);
                     const totalRevenue = (booking.bookingRates || []).reduce((acc, curr) => {
-                        const amount = curr.RevenueLocalAmount ? curr.RevenueLocalAmount.toNumber() : 0;
+                        const amount = curr.RevenueLocalAmount ? (curr.RevenueDrCr === "C" ? curr.RevenueLocalAmount.toNumber() : -curr.RevenueLocalAmount.toNumber()) : 0;
                         return acc + amount;
                     },0.0);
 
