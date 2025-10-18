@@ -7,6 +7,7 @@ interface InvoiceHeaderDTO {
     exchangeRate?: number;
     billingPartyName?: string;
     billingPartyAddress?: string;
+    gstType?: string; // GST Type: B2B, B2CS, B2CL, EXWP, EXWOP
 }
 
 interface ChargeTaxGroupDTO {
@@ -568,6 +569,7 @@ export class VoucherService {
                         InvoiceType: 'REG',
                         CurrencyMasterSid: currencyMasterSid,
                         ExchangeRate: exchangeRate,
+                        GSTType: payload.invoiceHeader?.gstType || null, // GST Type for Indian companies
                         Status: 'A',
                         CreatedBy: createdBy
                     }
