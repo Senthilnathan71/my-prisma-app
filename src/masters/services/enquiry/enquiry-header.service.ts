@@ -273,6 +273,7 @@ export class EnquiryHeaderService {
                     Remarks: payload.Remarks,
                     CustomerRef:payload.CustomerRef,
                     UserMasterSid : payload.UserMasterSid,
+                    authorizerStatus : payload.authorizerStatus,
                     status: statusUpdate,
                     updatedBy: payload.updatedBy,
                     updatedOn: new Date(),
@@ -565,6 +566,12 @@ export class EnquiryHeaderService {
                             POLSid: true,
                             PODSid: true,
                         }
+                    },
+                    quoteHeader : {
+                        select : {
+                            QuoteHeaderSid : true,
+                            QuoteNumber : true
+                        }
                     }
                 }
             }),
@@ -573,15 +580,6 @@ export class EnquiryHeaderService {
 
         items = await Promise.all(
             items.map(async (item) => {
-                const quote = await this._db.quoteHeader.findFirst({
-                    where: {
-                        EnquirySid: item.EnquiryHeaderSid
-                    },
-                    select : {
-                        QuoteHeaderSid : true,
-                        QuoteNumber : true
-                    }
-                })
                 const pol = await this._db.portMaster.findFirst({
                     where: {
                         PortMasterSid: item.enquiryRoute[0]?.POLSid
@@ -595,9 +593,7 @@ export class EnquiryHeaderService {
                 return {
                     ...item,
                     POL: pol,
-                    POD: pod,
-                    QuoteHeaderSid : quote?.QuoteHeaderSid,
-                    quoteNo: quote?.QuoteNumber
+                    POD: pod
                 }
             })
         )
@@ -628,6 +624,7 @@ export class EnquiryHeaderService {
         const ports = await this._db.portMaster.findMany({
             where: {
                 PortCode: { contains: search, mode: 'insensitive' },
+                PortName: { contains: search, mode: 'insensitive' },
                 status: 'A'
             },
             select: {
@@ -639,7 +636,8 @@ export class EnquiryHeaderService {
 
         const where: Prisma.EnquiryHeaderWhereInput = {
             status: statusWhereClause,
-            authorizerStatus: ApprovalStatus.Pending,
+            authorizerStatus: ApprovalStatus.Approved,
+            QuoteHeaderSid : null,
             CompanyMasterSid: activeCompanyId,
             BranchMasterSid: activeBranchId,
             ...(search ?
@@ -699,6 +697,7 @@ export class EnquiryHeaderService {
                         PortMasterSid: item.enquiryRoute[0]?.POLSid
                     },
                     select : {
+                        PortName : true,
                         PortCode : true
                     }
                 })
@@ -707,6 +706,7 @@ export class EnquiryHeaderService {
                         PortMasterSid: item.enquiryRoute[0]?.PODSid
                     },
                     select : {
+                        PortName : true,
                         PortCode : true
                     }
                 })
