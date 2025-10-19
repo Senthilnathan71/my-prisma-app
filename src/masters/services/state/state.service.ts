@@ -70,6 +70,9 @@ export class StateService {
           CountryMasterSid: CountryMasterSid,
           status: 'A'
         },
+        include: {
+          countryMaster: true,
+        }
       });
       return stateList;
     } catch (error) {

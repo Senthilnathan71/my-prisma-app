@@ -523,6 +523,32 @@ async searchCustomersByName(@Body() body: {
         return output
     }
 
+     @ApiOperation({ summary: 'Search List of Existing Customer' })
+    @ApiCreatedResponse({
+        description: 'Search List of Existing Customer',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Post('search-ExistingCustomers')
+    async searchExistingCustomers(@UserData() user:any,@Body() searchParams: filterDto) {
+        let resp = new ResponseData();
+        try {
+            let res = await this.customerService.searchExistingCustomers(searchParams);
+            this.logger.log(`ExistingCustomers Search Data : ${JSON.stringify(res)}`);
+            resp.data = res;
+            resp.message = "ExistingCustomers Search is successfully fetched";
+        } catch (error) {
+            this.logger.warn(`ExistingCustomers Search Error : ${JSON.stringify(error), error}`);
+            resp.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                resp.message = error.message;
+            } else {
+                resp.message = "Internal Server Error";
+            }
+        }
+        return resp;
+    }
+
 
     @ApiOperation({ summary: 'Get All Suppliers' })
     @ApiCreatedResponse({

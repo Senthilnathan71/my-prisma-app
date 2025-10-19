@@ -45,6 +45,32 @@ export class PreCustomerMeetingController {
         return output;
     }
 
+    @ApiOperation({ summary: 'Search List of Opportunity' })
+    @ApiCreatedResponse({
+        description: 'Search List of Opportunity',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Post('search-Opportunity')
+    async searchOpportunity(@UserData() user:any,@Body() searchParams: filterDto) {
+        let resp = new ResponseData();
+        try {
+            let res = await this.preCustomerMeetingService.searchOpportunity(searchParams);
+            this.logger.log(`Opportunity Search Data : ${JSON.stringify(res)}`);
+            resp.data = res;
+            resp.message = "Opportunity Search is successfully fetched";
+        } catch (error) {
+            this.logger.warn(`Opportunity Search Error : ${JSON.stringify(error), error}`);
+            resp.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                resp.message = error.message;
+            } else {
+                resp.message = "Internal Server Error";
+            }
+        }
+        return resp;
+    }
+
 
     @ApiOperation({ summary: 'Create And Update PreCustomer' })
     @ApiCreatedResponse({
