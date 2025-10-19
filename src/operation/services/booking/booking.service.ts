@@ -382,6 +382,15 @@ export class BookingService {
                 })
             }
 
+            if(bookingHeader.QuotationHeaderSid){
+                await this._db.quoteHeader.update({
+                    where: { QuoteHeaderSid: bookingHeader.QuotationHeaderSid },
+                    data: {
+                        BookingHeaderSid : bookingHeader.BookingHeaderSid
+                    }
+                })
+            }
+
             return {
                 bookingHeader,
                 createdCargos,

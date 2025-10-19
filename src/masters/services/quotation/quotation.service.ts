@@ -158,6 +158,7 @@ export class QuotationService {
                                                 RevenueCustomerMasterSid: charge.RevenueCustomerMasterSid,
                                                 RevenueCustomerBranchSid: charge.RevenueCustomerBranchSid,
                                                 Remarks: charge.Remarks,
+                                                TariffDetailSid : charge.TariffDetailSid
                                             }
                                         })
                                         finalCharges.push(createdCharge)
@@ -972,6 +973,7 @@ export class QuotationService {
                         { quoteRoute : {some : {departmentMaster : {departmentName : {contains: search, mode: 'insensitive'}}}}},
                         { quoteRoute: { some: { POLSid: { in : portWithSearchOnlyIds } } } },
                         { quoteRoute: { some: { PODSid: { in : portWithSearchOnlyIds } } } },
+                        { bookingHeader : { BookingNo : { contains: search, mode: 'insensitive' } } },
                         { status: {contains: search, mode: 'insensitive'}},
                     ],
                 }
@@ -986,6 +988,12 @@ export class QuotationService {
                 take: pageSize,
                 orderBy: { QuoteHeaderSid: 'desc' },
                 include: {
+                    bookingHeader : {
+                        select : {
+                            BookingHeaderSid : true,
+                            BookingNo : true
+                        }
+                    },
                     quoteRoute: {
                         where: {
                             status: 'A'
