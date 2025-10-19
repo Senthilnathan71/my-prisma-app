@@ -207,7 +207,10 @@ async getAllCustomer(user,CompanyMasterSid:number) {
             include:{
                 branchMaster:true,
                 companyMaster:true,
-                preCustomerMeeting:true
+                preCustomerMeeting:true,
+                countryMaster:true,
+                stateMaster:true,
+                cityMaster:true,
             }
         }),
         this._db.preCustomerMaster.count({ where }),
