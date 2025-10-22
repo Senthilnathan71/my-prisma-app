@@ -48,6 +48,46 @@ export class PreCustomerMeetingService {
         return result;
     }
 
+     async searchOpportunity(params: filterDto) {
+        const { search = '',page = 1, pageSize = 10, activeCompanyId, activeBranchId} = params;
+        const skip = (page - 1) * pageSize;
+
+        const where: Prisma.PreCustomerMasterWhereInput = {
+            status: statusWhereClause,
+            leadStatus: {
+                    in: ["MeetingScheduled", "EnquiryGenerated", "QuotationConfirmed", "MeetingCompleted", "QuotationCreated", "Qualify"]
+            },
+            CompanyMasterSid: activeCompanyId,
+            BranchMasterSid: activeBranchId,
+            ...(search
+                ? {
+                    OR: [
+                        { preCustomerName: {contains: search, mode: 'insensitive'}},
+                        { cityMaster: { cityName: { contains: search, mode: 'insensitive'}}},
+                        { contactPerson: {contains: search,  mode: 'insensitive'}},
+                        { phone: { contains: search, mode: 'insensitive'}},
+                    ],
+                } : {}
+            ),
+        };
+        const [items, totalCount] = await this._db.$transaction([
+            this._db.preCustomerMaster.findMany({
+                where,
+                skip,
+                take: pageSize,
+                orderBy: { PreCustomerMasterSid: 'desc'},
+                include: {
+                    preCustomerMeeting: true, // Include if needed for debugging, otherwise remove,
+                    cityMaster: true,
+                }
+            }),
+            this._db.preCustomerMaster.count({where}),
+        ]);
+
+        return { items, totalCount}
+    }
+
+
 
     async CreateAndUpdatePreCustomerMeeting(user,params: any) {
         try {

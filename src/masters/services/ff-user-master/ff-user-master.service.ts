@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { Prisma, UserTypeCode } from '@prisma/client';
 import { encodePassword, statusWhereClause } from 'src/common/helper';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
@@ -540,6 +540,44 @@ export class FfUserMasterService {
                 }
             })
             return allDocs;
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    async getUserBasedOnUserType(userType : string){
+        try {
+            if (!(userType in UserTypeCode)) {
+                throw new BadRequestException(`Invalid userType '${userType}'. Expected one of: ${Object.keys(UserTypeCode).join(', ')}`);
+            }
+
+            const allDocs = await this._db.userMaster.findMany({
+                where: {
+                    userType : { code : UserTypeCode[userType]},
+                    status: 'A',
+                },
+                omit: {
+                    userPassword: true
+                }
+            })
+            return allDocs;
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    async getAllSalesperson(){
+        try {
+            const allSalespersons = await this._db.userMaster.findMany({
+                where: {
+                    status: 'A',
+                    isSalesperson : '1'
+                },
+                omit: {
+                    userPassword: true
+                }
+            })
+            return allSalespersons;
         } catch (error) {
             throw error;
         }

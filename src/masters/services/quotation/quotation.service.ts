@@ -158,6 +158,7 @@ export class QuotationService {
                                                 RevenueCustomerMasterSid: charge.RevenueCustomerMasterSid,
                                                 RevenueCustomerBranchSid: charge.RevenueCustomerBranchSid,
                                                 Remarks: charge.Remarks,
+                                                TariffDetailSid : charge.TariffDetailSid
                                             }
                                         })
                                         finalCharges.push(createdCharge)
@@ -227,6 +228,16 @@ export class QuotationService {
                                     PreCustomerMasterSid: payload.PreCustomerMasterSid
                                 }, data: {
                                     leadStatus: LeadStatus.QuotationCreated
+                                }
+                            })
+                        }
+
+                        if(payload.EnquirySid){
+                            await this._db.enquiryHeader.update({
+                                where: {
+                                    EnquiryHeaderSid: payload.EnquirySid
+                                }, data: {
+                                    QuoteHeaderSid : quoteHeader.QuoteHeaderSid
                                 }
                             })
                         }
@@ -598,14 +609,21 @@ export class QuotationService {
                     }
                 })
 
+                let updateData = {
+                    LeadOrCustomer: "C",
+                    CustomerMasterSid: createdCustomer.CustomerMasterSid
+                }
                 let updatedHeader = await this._db.quoteHeader.update({
                     where: {
                         QuoteHeaderSid: QuoteHeaderSid
-                    }, data: {
-                        LeadOrCustomer : "C",
-                        CustomerMasterSid : createdCustomer.CustomerMasterSid
-                    }
+                    }, data: updateData
                 })
+
+                if(updatedQuoteHeader.EnquirySid){
+                    await this._db.enquiryHeader.update({
+                        where : { EnquiryHeaderSid : updatedQuoteHeader.EnquirySid },data : updateData
+                    })
+                }
 
                 const updatedLead = await this._db.preCustomerMaster.update({
                     where: {
@@ -929,6 +947,7 @@ export class QuotationService {
         const ports = await this._db.portMaster.findMany({
             where: {
                 PortCode: { contains: search, mode: 'insensitive' },
+                PortName: { contains: search, mode: 'insensitive' },
                 status: 'A'
             },
             select: {
@@ -954,6 +973,7 @@ export class QuotationService {
                         { quoteRoute : {some : {departmentMaster : {departmentName : {contains: search, mode: 'insensitive'}}}}},
                         { quoteRoute: { some: { POLSid: { in : portWithSearchOnlyIds } } } },
                         { quoteRoute: { some: { PODSid: { in : portWithSearchOnlyIds } } } },
+                        { bookingHeader : { BookingNo : { contains: search, mode: 'insensitive' } } },
                         { status: {contains: search, mode: 'insensitive'}},
                     ],
                 }
@@ -968,6 +988,12 @@ export class QuotationService {
                 take: pageSize,
                 orderBy: { QuoteHeaderSid: 'desc' },
                 include: {
+                    bookingHeader : {
+                        select : {
+                            BookingHeaderSid : true,
+                            BookingNo : true
+                        }
+                    },
                     quoteRoute: {
                         where: {
                             status: 'A'

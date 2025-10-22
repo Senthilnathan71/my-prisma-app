@@ -954,6 +954,7 @@ model QuoteHeader {
   CompanyMasterSid           Int
   BranchMasterSid            Int
   EnquirySid                 Int?
+  BookingHeaderSid           Int?                         @unique
   DepartmentMasterSid        Int?
   CustomerMasterSid          Int?
   CustomerName               String                       @db.VarChar(100)
@@ -996,7 +997,6 @@ model QuoteHeader {
   AgreedRate                 String?                      @default("N") @db.VarChar(10)
   IncoTermSid                Int?
   ActivityResourceAllocation ActivityResourceAllocation[]
-  bookingHeader              BookingHeader[]
   houseJob                   HouseJob[]
   quoteCargo                 QuoteCargo[]
   quoteCarrier               QuoteCarrier[]
@@ -1006,7 +1006,7 @@ model QuoteHeader {
   customerBranch             CustomerBranch?              @relation(fields: [CustomerBranchSid], references: [CustomerBranchSid])
   customerMaster             CustomerMaster?              @relation(fields: [CustomerMasterSid], references: [CustomerMasterSid])
   departmentMaster           DepartmentMaster?            @relation(fields: [DepartmentMasterSid], references: [DepartmentMasterSid])
-  // enquiryHeader              EnquiryHeader?               @relation(fields: [EnquirySid], references: [EnquiryHeaderSid])
+  bookingHeader              BookingHeader?               @relation(fields: [BookingHeaderSid], references: [BookingHeaderSid])
   menuMaster                 MenuMaster?                  @relation(fields: [MenuMasterSid], references: [MenuMasterSid])
   preCustomerMaster          PreCustomerMaster?           @relation(fields: [PreCustomerMasterSid], references: [PreCustomerMasterSid])
   quoteProduct               QuoteProduct[]

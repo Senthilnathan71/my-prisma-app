@@ -74,7 +74,7 @@ model BookingHeader {
   customerBranch             CustomerBranch?              @relation(fields: [CustomerBranchSid], references: [CustomerBranchSid])
   departmentMaster           DepartmentMaster             @relation(fields: [DepartmentMasterSid], references: [DepartmentMasterSid])
   menuMaster                 MenuMaster?                  @relation(fields: [MenuMasterSid], references: [MenuMasterSid])
-  quotationHeader            QuoteHeader?                 @relation(fields: [QuotationHeaderSid], references: [QuoteHeaderSid])
+  quotationHeader            QuoteHeader?
   portMaster                 PortMaster?                  @relation(fields: [TsPortSid], references: [PortMasterSid])
   voyageMasterHeader         VoyageMasterHeader?          @relation(fields: [VoyageMasterSid], references: [VoyageMasterHeaderSid])
   bookingOthers              BookingOthers[]

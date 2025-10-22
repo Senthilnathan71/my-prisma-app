@@ -514,6 +514,41 @@ export class CustomerService {
         }
     }
 
+    async searchExistingCustomers(params: filterDto) {
+        const { search = '',page = 1, pageSize = 10, activeCompanyId} = params;
+        const skip = (page - 1) * pageSize;
+
+        const where: Prisma.CustomerMasterWhereInput = {
+            status: statusWhereClause,
+            preCustomerMaster: {
+                        leadStatus: LeadStatus.DealWon
+                    },
+            CompanyMasterSid: activeCompanyId,
+            ...(search
+                ? {
+                    OR: [
+                        { CustomerName: {contains: search, mode: 'insensitive'}},
+                        { CustomerAddress1: {contains: search,  mode: 'insensitive'}},
+                    ],
+                } : {}
+            ),
+        };
+        const [items, totalCount] = await this._db.$transaction([
+            this._db.customerMaster.findMany({
+                where,
+                skip,
+                take: pageSize,
+                orderBy: { CustomerMasterSid: 'desc'},
+                include: {
+                    preCustomerMaster: true, // Include if needed for debugging, otherwise remove,
+                }
+            }),
+            this._db.customerMaster.count({where}),
+        ]);
+
+        return { items, totalCount}
+    }
+
     async checkUniqueCustomerFields(params: {
         CompanyMasterSid: number;
         customerName?: string;
