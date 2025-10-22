@@ -26,6 +26,8 @@ import { SplitbookingService } from './services/splitbooking/splitbooking.servic
 import { SplitbookingController } from './controllers/splitbooking/splitbooking.controller';
 import { VoucherService } from './services/voucher/voucher.service';
 import { VoucherController } from './controllers/voucher/voucher.controller';
+import { VendorInvoiceService } from './services/vendor-invoice/vendor-invoice.service';
+import { VendorInvoiceController } from './controllers/vendor-invoice/vendor-invoice.controller';
 
 @Module({
         providers: [
@@ -44,7 +46,8 @@ import { VoucherController } from './controllers/voucher/voucher.controller';
                 MergeBookingService,
                 HouseJobService,
                 SplitbookingService,
-                VoucherService
+                VoucherService,
+                VendorInvoiceService
         ],
         controllers: [
                 BookingController,
@@ -58,7 +61,8 @@ import { VoucherController } from './controllers/voucher/voucher.controller';
                 DocumentController,
                 HouseJobController,
                 SplitbookingController,
-                VoucherController
+                VoucherController,
+                VendorInvoiceController
         ]
 })
 export class OperationModule { }

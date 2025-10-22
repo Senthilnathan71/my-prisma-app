@@ -606,6 +606,50 @@ export class VoucherService {
                     });
                 }
 
+                // 10.5. Create TDS record for Vendor Invoice
+                if (payload.voucherType === 'Vendor Invoice') {
+                    try {
+                        const tdsConfig = await this.getVendorTDSMapping(payload.billingPartySid, tx);
+
+                        if (tdsConfig) {
+                            // Calculate total taxable amount
+                            const totalTaxableAmount = voucherDetails.reduce((sum, detail) => {
+                                return sum + Number(detail.TaxableAmount || detail.Amount || 0);
+                            }, 0);
+
+                            // Calculate TDS amount
+                            const tdsAmount = (totalTaxableAmount * Number(tdsConfig.tdsRate)) / 100;
+
+                            this.logger.log(`Creating TDS record: Taxable=${totalTaxableAmount}, Rate=${tdsConfig.tdsRate}%, Amount=${tdsAmount}`);
+
+                            // Create VoucherTDS record
+                            await tx.voucherTDS.create({
+                                data: {
+                                    VoucherHeaderSid: voucherHeader.VoucherHeaderSid,
+                                    VoucherDetailSid: voucherHeader.VoucherHeaderSid, // Will be updated to first detail if needed
+                                    CompanyMasterSid: payload.companyMasterSid,
+                                    BranchMasterSid: payload.branchMasterSid,
+                                    TDSSetRateSid: tdsConfig.tdsSetRateSid,
+                                    ITSectionCode: tdsConfig.itSectionCode,
+                                    TDSRate: tdsConfig.tdsRate,
+                                    TaxableAmount: totalTaxableAmount,
+                                    TDSAmount: tdsAmount,
+                                    Reason: '', // Optional field for zero TDS reason
+                                    CreatedBy: payload.createdBy || 'System',
+                                    Status: 'A'
+                                }
+                            });
+
+                            this.logger.log('TDS record created successfully');
+                        } else {
+                            this.logger.warn(`No TDS configuration found for vendor ${payload.billingPartySid}`);
+                        }
+                    } catch (tdsError) {
+                        this.logger.error(`Error creating TDS record: ${tdsError.message}`);
+                        // Don't fail the entire transaction, just log the error
+                    }
+                }
+
                 // 11. Update BookingRates with voucher reference
                 const isRevenue = payload.voucherType === 'Invoice';
                 const voucherHeaderField = isRevenue ? 'RevenueVoucherHeaderSid' : 'CostVoucherHeaderSid';
@@ -697,5 +741,68 @@ export class VoucherService {
             this.logger.error(`Error updating booking rates with voucher: ${error.message}`);
             throw new InternalServerErrorException('Failed to update booking rates with voucher');
         }
+    }
+
+    /**
+     * Get vendor TDS mapping configuration
+     * Fetches TDS configuration from SupplierTdsMapping and TDSSetRate tables
+     */
+    async getVendorTDSMapping(vendorMasterSid: number, tx?: any): Promise<any> {
+        try {
+            const db = tx || this._db;
+
+            // Fetch SupplierTdsMapping for the vendor
+            const supplierMapping = await db.supplierTdsMapping.findFirst({
+                where: {
+                    CustomerMasterSid: vendorMasterSid,
+                    Status: 'A',
+                    // Check if current date is within effective dates
+                    EffectiveFrom: { lte: new Date() },
+                    EffectiveTo: { gte: new Date() }
+                },
+                include: {
+                    tdsSetHeader: {
+                        include: {
+                            tdsSetRate: {
+                                where: { status: 'A' },
+                                orderBy: { EffectiveFrom: 'desc' },
+                                take: 1
+                            }
+                        }
+                    }
+                }
+            });
+
+            if (!supplierMapping || !supplierMapping.tdsSetHeader?.tdsSetRate?.length) {
+                this.logger.warn(`No active TDS mapping found for vendor ${vendorMasterSid}`);
+                return null;
+            }
+
+            const tdsSetRate = supplierMapping.tdsSetHeader.tdsSetRate[0];
+
+            return {
+                tdsSetRateSid: tdsSetRate.TDSSetRateSid,
+                tdsSetHeaderSid: supplierMapping.TDSSetHeaderSid,
+                tdsSetName: supplierMapping.tdsSetHeader.TDSSetName,
+                itSectionCode: tdsSetRate.ITSectionCode,
+                tdsRate: Number(tdsSetRate.TDSRate),
+                companyType: supplierMapping.CompanyType,
+                certificateNo: supplierMapping.CertificateNo,
+                certificatePercentage: supplierMapping.CertificatePercentage ? Number(supplierMapping.CertificatePercentage) : null,
+                taxExempt: supplierMapping.TaxExempt === 'Y',
+                effectiveFrom: supplierMapping.EffectiveFrom,
+                effectiveTo: supplierMapping.EffectiveTo
+            };
+        } catch (error) {
+            this.logger.error(`Error fetching vendor TDS mapping: ${error.message}`);
+            return null;
+        }
+    }
+
+    /**
+     * Calculate TDS amount based on taxable amount and TDS rate
+     */
+    calculateTDSAmount(taxableAmount: number, tdsRate: number): number {
+        return Math.round((taxableAmount * tdsRate) / 100 * 100) / 100; // Round to 2 decimal places
     }
 }
