@@ -2021,6 +2021,9 @@ model YearMaster {
   status           String?       @default("A") @db.Char(1)
   Remarks          String?       @db.VarChar(500)
   companyMaster    CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+
+   VoucherTransaction VoucherTransaction[]
+   VoucherDetail VoucherDetail[]
 }
 
 model TandCTransaction {
@@ -2927,6 +2930,7 @@ model VoucherDetail {
   ChargeDescription   String?              @db.VarChar(100)
   LedgerMasterSid     Int?
   COAMasterSid        Int?
+  YearMasterSid       Int?
   HSSACMasterSid      Int?
   DepartmentMasterSid Int?
   HouseJobSid         Int?
@@ -2951,6 +2955,8 @@ model VoucherDetail {
   ProfitCenter        Int?
   Remarks             String?              @db.VarChar(200)
   ChargeUOMSid        Int?
+
+  yearMaster         YearMaster?       @relation(fields: [YearMasterSid], references: [YearMasterSid])
   BranchMaster        BranchMaster         @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
   coaMaster           COAMaster?           @relation(fields: [COAMasterSid], references: [COAMasterSid])
   chargeMaster        ChargeMaster?        @relation(fields: [ChargeMasterSid], references: [ChargeMasterSid])
@@ -3021,6 +3027,7 @@ model VoucherTransaction {
   BranchMasterSid       Int
   VoucherHeaderSid      Int
   VoucherDetailSid      Int
+  YearMasterSid         Int?
   VoucherNumber         String              @db.VarChar(20)
   VoucherType           Int
   VoucherDate           DateTime
@@ -3056,6 +3063,7 @@ model VoucherTransaction {
   subledgerMaster       SubledgerMaster     @relation(fields: [LedgerMasterSid], references: [SubledgerMasterSid])
   masterJob             MasterJob           @relation(fields: [MasterJobSid], references: [MasterJobSid])
   ProfitCenterMaster    ProfitCenterMaster? @relation(fields: [ProfitCenter], references: [ProfitCenterMasterSid])
+  yearMaster         YearMaster?       @relation(fields: [YearMasterSid], references: [YearMasterSid])
   VoucherDetail         VoucherDetail       @relation(fields: [VoucherDetailSid], references: [VoucherDetailSid])
   VoucherHeader         VoucherHeader       @relation(fields: [VoucherHeaderSid], references: [VoucherHeaderSid])
   voucherTypeMaster     VoucherTypeMaster   @relation(fields: [VoucherTypeMasterSid], references: [VoucherTypeMasterSid])
