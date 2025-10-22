@@ -137,7 +137,19 @@ export class InvoiceService {
               },
               currencyMaster: true,
               hSSACMaster: true,
-              masterJob: true,
+              masterJob: {
+                where: {
+                  Status: 'A',
+                },
+                include: {
+                  voyages: {
+                    where: { Status: 'A' }
+                  },
+                  others:{
+                    where:{Status:'A'}
+                  }
+                }
+              },
               houseJob: true
             }
           },
