@@ -50,6 +50,8 @@ export class EnquiryHeaderService {
                     UserMasterSid: payload.UserMasterSid,
                     createdBy: payload.createdBy,
                     CustomerRef:payload.CustomerRef,
+                    ContactPerson:payload.ContactPerson,
+                    ContactNumber:payload.ContactNumber,
                     // EnquiryNumber: "",
                     EnquiryDate: new Date(),
                     authorizerStatus: payload.authorizerStatus || "Pending"
@@ -277,7 +279,8 @@ export class EnquiryHeaderService {
                     status: statusUpdate,
                     updatedBy: payload.updatedBy,
                     updatedOn: new Date(),
-                    
+                     ContactPerson:payload.ContactPerson,
+                    ContactNumber:payload.ContactNumber,
                 }
             });
 

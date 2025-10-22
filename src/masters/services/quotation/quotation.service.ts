@@ -46,6 +46,8 @@ export class QuotationService {
                     EnquirySid: payload.EnquirySid ? Number(payload.EnquirySid) : null,
                     CustomerAddress: payload.CustomerAddress,
                     Email: payload.Email,
+                    ContactPerson:payload.ContactPerson,
+                    ContactNumber:payload.ContactNumber,
                     CustomerRef: payload.CustomerRef,
                     ClearanceBy: payload.ClearanceBy,
                     TransportBy: payload.TransportBy,
@@ -64,6 +66,7 @@ export class QuotationService {
                     InternalApprovedOn : payload.InternalApprovedBy ? new Date() : null,
                     CustomerApprovedBy : payload.CustomerApprovedBy || null,
                     CustomerApprovedOn : payload.CustomerApprovedBy ? new Date() : null,
+                  
                 };
 
                 const quoteHeader = await this._db.quoteHeader.create({ data: quoteHeaderPayload });
@@ -342,6 +345,8 @@ export class QuotationService {
                 data: {
                     CustomerRef: payload.CustomerRef,
                     Email: payload.Email,
+                    ContactPerson:payload.ContactPerson,
+                    ContactNumber:payload.ContactNumber,
                     status: String(payload.status).charAt(0) || "A",
                     SalesmanSid: payload.SalesmanSid,
                     CustomerName: payload.CustomerName,
@@ -354,7 +359,8 @@ export class QuotationService {
                     Remarks: payload.Remarks,
                     updatedBy: payload.updatedBy,
                     InternalApprovedBy : authPayload.InternalApprovedBy || null,
-                    updatedOn: new Date()
+                    updatedOn: new Date(),
+
                 }
             });
 

@@ -641,6 +641,8 @@ export class CustomerService {
                             BranchName: true,
                             Address: true,
                             Email: true,
+                            Contact_Person : true,
+                            ContactNo : true
                         }
                     }
                 }
@@ -652,7 +654,9 @@ export class CustomerService {
                     CustomerName: customer.CustomerName,
                     BranchName: branch.BranchName,
                     Address: branch.Address,
-                    Email: branch.Email
+                    Email: branch.Email,
+                    ContactPerson : branch.Contact_Person,
+                    ContactNumber : branch.ContactNo
                 }))
                 return cusBranches;
             })
