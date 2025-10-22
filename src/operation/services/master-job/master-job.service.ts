@@ -324,7 +324,7 @@ export class MasterJobService {
                             MovementType: bookingHeader.MovementType || '',
                             DoValid: bookingHeader.DoValid ? new Date(bookingHeader.DoValid) : null,
                             IsServiceJob: bookingHeader.IsServiceJob || '',
-                            createdBy: bookingHeader.createdBy || '',
+                            createdBy: payload.CreatedBy || '',
                             status: bookingHeader.status || '',
                             BookingStatus: bookingHeader.BookingStatus || '',
                             DepartmentMasterSid: bookingHeader.DepartmentMasterSid,
@@ -372,7 +372,7 @@ export class MasterJobService {
                                 PackageType: cargo.PackageType || null,
                                 Qty: cargo.Qty || 0,
                                 ShipmentTerms: cargo.ShipmentTerms || '',
-                                createdBy: cargo.createdBy,
+                                createdBy:  payload.CreatedBy || '',
                                 updatedBy: cargo.updatedBy || null,
                                 status: 'A',
                                 FreightTerms: cargo.FreightTerms || '',
@@ -411,7 +411,7 @@ export class MasterJobService {
                                 Width: product.Width || 0,
                                 UomMasterSid: product.UomMasterSid || null,
                                 MarksAndNumber: '',
-                                createdBy: product.createdBy,
+                                createdBy: payload.CreatedBy || '',
                             }))
                         }).catch(err => {
                             console.error('HouseJobProduct createMany error:', err);
@@ -431,7 +431,7 @@ export class MasterJobService {
                                 ETA: connection.ETA ? new Date(connection.ETA) : null,
                                 Remarks: connection.Remarks || '',
                                 status: 'A',
-                                createdBy: connection.createdBy,
+                                createdBy:  payload.CreatedBy || '',
                                 updatedBy: connection.updatedBy || null,
                             }))
                         }).catch(err => {
@@ -470,7 +470,7 @@ export class MasterJobService {
                                 ExternalRemarks: other.ExternalRemarks,
                                 SwitchBL: other.SwitchBL,
                                 TransporterName: other.TransporterName,
-                                createdBy: other.createdBy || '',
+                                createdBy:  payload.CreatedBy || '',
                                 status: 'A',
                                 Forwarder: other.Forwarder || '',
                                 ForwarderAddress: other.ForwarderAddress || '',
@@ -506,14 +506,14 @@ export class MasterJobService {
                                 MasterJobNo: newMasterJob.MasterJobNumber,
                                 CompanyMasterSid: houseJob.CompanyMasterSid,
                                 BranchMasterSid: houseJob.BranchMasterSid!,
-                                createdBy: payload.createdBy,
+                                createdBy:  payload.CreatedBy || '',
                                 status: "A",
                                 Remarks: rate.Remarks,
                                 SerialNumber: rate.SerialNumber,
                                 ChargeMasterSid: rate.ChargeMasterSid,
                                 ChargeDescription: rate.ChargeDescription,
                                 ChargeUomSid: rate.ChargeUomSid,
-                                NoOfUnit: rate.NoOfUnit,
+                                // NoOfUnit: rate.NoOfUnit,
                                 CostPrepaidCollect: rate.CostPrepaidCollect,
                                 CostCurrencyMasterSid: rate.CostCurrencyMasterSid,
                                 CostExchangeRate: rate.CostExchangeRate,
@@ -555,7 +555,9 @@ export class MasterJobService {
                                 },
                                 data: {
                                     MasterJobSid: newMasterJob.MasterJobSid,
-                                    HouseJobSid: houseJob.HouseJobSid
+                                    HouseJobSid: houseJob.HouseJobSid,
+                                    MasterNumber : newMasterJob.MBLNo,
+                                    HouseNumber : houseJob.HBLNo,
                                 }
                             }).catch(err => {
                                 console.error('Revenue VoucherHeader update error:', err);
