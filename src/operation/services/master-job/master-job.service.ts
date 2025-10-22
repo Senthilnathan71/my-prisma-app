@@ -495,6 +495,8 @@ export class MasterJobService {
 
 
                     const allRates = bookingRates || [];
+                    const allRevenueVouchers = allRates.filter(rate => rate.RevenueVoucherHeaderSid !== null).map(rate => rate.RevenueVoucherHeaderSid);
+                    const allCostVouchers = allRates.filter(rate => rate.CostVoucherHeaderSid !== null).map(rate => rate.CostVoucherHeaderSid);
                     if (allRates.length > 0) {
                         await this._db.costRevenueCharges.createMany({
                             data: allRates.map(rate => ({
@@ -544,6 +546,38 @@ export class MasterJobService {
                         });
                     }
 
+                    /** Updating Vouchers with MasterJobSid && HouseJobSid */
+                    if(allRevenueVouchers.length > 0) {
+                        for (const revenueVoucher of allRevenueVouchers) {
+                            await this._db.voucherHeader.update({
+                                where: {
+                                    VoucherHeaderSid: revenueVoucher!
+                                },
+                                data: {
+                                    MasterJobSid: newMasterJob.MasterJobSid,
+                                    HouseJobSid: houseJob.HouseJobSid
+                                }
+                            }).catch(err => {
+                                console.error('Revenue VoucherHeader update error:', err);
+                            });
+                        }
+                    }
+                    if(allCostVouchers.length > 0) {
+                        for (const costVoucher of allCostVouchers) {
+                            await this._db.voucherHeader.update({
+                                where: {
+                                    VoucherHeaderSid: costVoucher!
+                                },
+                                data: {
+                                    MasterJobSid: newMasterJob.MasterJobSid,
+                                    HouseJobSid: houseJob.HouseJobSid
+                                }
+                            }).catch(err => {
+                                console.error('Cost VoucherHeader update error:', err);
+                            });
+                        }
+                    }
+
 
                     await this._db.bookingHeader.update({
                         where: { BookingHeaderSid: bookingHeader.BookingHeaderSid },
@@ -552,6 +586,7 @@ export class MasterJobService {
                             MasterNoSid: newMasterJob.MasterJobSid,
                             MBLNo: newMasterJob.MBLNo,
                             MBLDate: newMasterJob.MBLDate,
+                            HBLNo : houseJob?.HBLNo,
                             BookingStatus: 'Stuffed',
                             
                             // If Sailing schedule changed during Loading Plan

@@ -53,6 +53,9 @@ export class LoadingPlanService {
                     bookingCargo : true,
                     departmentMaster : {select : {departmentName : true}},
                     bookingRates : { where : {Status : 'A'}}
+                },
+                orderBy : {
+                    BookingHeaderSid : 'desc'
                 }
             })
             const enrichedBookings = await Promise.all(
@@ -97,6 +100,8 @@ export class LoadingPlanService {
                         FPD: booking.FPD,
                         VesselName : booking.VesselName,
                         VoyageNo : booking.VoyageNo,
+                        ETD : booking.ETD,
+                        ETA : booking.ETA,
                         VoyageMasterSid : booking.VoyageMasterSid,
                         NoOfPackage: booking.bookingCargo[0]?.NoOfPackage,
                         GrossWeight: booking.bookingCargo[0]?.GrossWeight,

@@ -1109,7 +1109,7 @@ export class BookingService {
                 where,
                 skip,
                 take: pageSize,
-                orderBy: { BookingNo: 'desc' }
+                orderBy: { BookingHeaderSid: 'desc' }
             }),
             this._db.bookingHeader.count({ where }),
         ]);
