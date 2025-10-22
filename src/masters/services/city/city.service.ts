@@ -45,6 +45,10 @@ export class CityService {
         where: {
           StateMasterSid: StateMasterSid,
         },
+        include:{
+          countryMaster: true,
+          stateMaster: true
+        }
       });
       return ourCity;
     } catch (error) {
