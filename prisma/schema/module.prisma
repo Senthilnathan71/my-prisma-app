@@ -63,7 +63,7 @@ model MenuMaster {
   roleMenuMaster     RoleMenuMaster[]
   terms              TermsAndConditionsMaster[]
   userRoleMaster     UserRoleMaster[]
-  attachDocument     AttachDocument[]
+  AttachDocumentGroup     AttachDocumentGroup[]
 
 }
 

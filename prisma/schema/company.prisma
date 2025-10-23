@@ -26,7 +26,7 @@ model CompanyMaster {
   Pan                        String?                      @db.VarChar(20)
   config                     Json?
   ActivityResourceAllocation ActivityResourceAllocation[]
-  attachDocument             AttachDocument[]
+  AttachDocumentGroup             AttachDocumentGroup[]
   authorityDetail            AuthorityDetail[]
   AuthorityLog               AuthorityLog[]
   authorityMaster            AuthorityMaster[]
@@ -147,7 +147,7 @@ model BranchMaster {
   lastQuotationNo            Int?                         @default(0)
   lastShipmentNo             Int?                         @default(0)
   ActivityResourceAllocation ActivityResourceAllocation[]
-  attachDocument             AttachDocument[]
+  AttachDocumentGroup             AttachDocumentGroup[]
   authorityDetail            AuthorityDetail[]
   AuthorityLog               AuthorityLog[]
   authorityMaster            AuthorityMaster[]
@@ -2115,33 +2115,55 @@ model MawbStock {
   companyMaster    CompanyMaster   @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
 }
 
-model AttachDocument {
-  AttachDocumentSid Int           @id @default(autoincrement()) @map("AttachDocumentSid")
-  CompanyMasterSid  Int
-  BranchMasterSid   Int
-  DocumentSid       Int?
-  MenuMasterSid     Int?
-  menuName          String?       @db.VarChar(50)
-  AttachDocmentNo   String        @db.VarChar(20)
-  DocumentDate      DateTime      @db.Date
-  FileName          String        @db.VarChar(30)
-  Documenttype      String        @db.VarChar(20)
-  ReceivedDate      DateTime?     @db.Date
-  SentDate          DateTime?     @db.Date
-  FollowupRequire   String?       @default("N") @db.Char(1)
-  FollowupDate      DateTime?     @db.Date
-  Public            String        @default("N") @db.Char(1)
-  createdOn         DateTime      @default(now()) @db.Timestamptz(6)
-  updatedOn         DateTime?     @updatedAt @db.Timestamptz(6)
-  deletedAt         DateTime?
-  createdBy         String        @db.VarChar(100)
-  updatedBy         String?       @db.VarChar(100)
-  status            String?       @default("A") @db.Char(1)
-  Remarks           String?       @db.VarChar(500)
-  branchMaster      BranchMaster  @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
-  companyMaster     CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
-  menuMaster        MenuMaster?   @relation(fields: [MenuMasterSid], references: [MenuMasterSid])
+model AttachDocumentGroup {
+  AttachDocumentGroupSid Int           @id @default(autoincrement())
+  CompanyMasterSid        Int
+  BranchMasterSid         Int
+  MenuMasterSid           Int?
+  MenuName                String?       @db.VarChar(50)
+  DocumentSid             Int?
+  Remarks                 String?       @db.VarChar(500)
+  createdOn               DateTime      @default(now()) @db.Timestamptz(6)
+  createdBy               String        @db.VarChar(100)
+  updatedOn               DateTime?     @updatedAt @db.Timestamptz(6)
+  updatedBy               String?       @db.VarChar(100)
+  deletedAt               DateTime?
+  status                  String?       @default("A") @db.Char(1)
+
+  attachFiles             AttachDocument[]
+  branchMaster     BranchMaster    @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
+  companyMaster    CompanyMaster   @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+  menuMaster    MenuMaster?   @relation(fields: [MenuMasterSid], references: [MenuMasterSid])
+
 }
+
+model AttachDocument {
+  AttachDocumentSid       Int              @id @default(autoincrement())
+  AttachDocumentGroupSid  Int
+  FileName                String           @db.VarChar(100)
+  FilePath                String           @db.VarChar(500)
+  DocumentType            String           @db.VarChar(20)
+  AttachDocmentNo         String?          @db.VarChar(20)
+  DocumentDate            DateTime?        @db.Date
+  ReceivedDate            DateTime?        @db.Date
+  SentDate                DateTime?        @db.Date
+  FollowupRequire         String?          @default("N") @db.Char(1)
+  FollowupDate            DateTime?        @db.Date
+  Public                  String           @default("N") @db.Char(1)
+  createdOn               DateTime         @default(now()) @db.Timestamptz(6)
+  updatedOn               DateTime?        @updatedAt @db.Timestamptz(6)
+  deletedAt               DateTime?
+  createdBy               String           @db.VarChar(100)
+  updatedBy               String?          @db.VarChar(100)
+  status                  String?          @default("A") @db.Char(1)
+
+  attachGroup             AttachDocumentGroup @relation(fields: [AttachDocumentGroupSid], references: [AttachDocumentGroupSid])
+}
+
+
+
+
+
 
 model EmailLog {
   EmailLogSid      Int           @id @default(autoincrement()) @map("EmailLogSid")
