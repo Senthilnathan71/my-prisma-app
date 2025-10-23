@@ -439,6 +439,7 @@ model DepartmentMaster {
   VoucherDetail       VoucherDetail[]
   VoucherHeader       VoucherHeader[]
   VoucherTransaction  VoucherTransaction[]
+  SubledgerMaster     SubledgerMaster[]
 }
 
 model PortMaster {
@@ -2271,9 +2272,10 @@ model SubledgerMaster {
   SubledgerName       String               @db.VarChar(1000)
   SubledgerType       String               @default("Customer") @db.VarChar(20)
   SubledgerMappingSid Int?
-  COAMasterSid        Int
+  COAMasterSid        Int?
   DrCOAMasterSid      Int?
   CrCOAMasterSid      Int?
+  DepartmentMasterSid Int?
   AccrualCOAMasterSid Int?
   CreatedOn           DateTime             @default(now())
   CreatedBy           String               @db.VarChar(100)
@@ -2282,10 +2284,12 @@ model SubledgerMaster {
   deletedAt           DateTime?
   Remarks             String?              @db.VarChar(100)
   Status              String               @default("A") @db.VarChar(10)
-  CoaMaster           COAMaster            @relation(fields: [COAMasterSid], references: [COAMasterSid])
+  CoaMaster           COAMaster?            @relation(fields: [COAMasterSid], references: [COAMasterSid])
   CoaMasterDb         COAMaster?           @relation("Debtor", fields: [DrCOAMasterSid], references: [COAMasterSid])
   CoaMasterCr         COAMaster?           @relation("Creditor", fields: [CrCOAMasterSid], references: [COAMasterSid])
   CoaMasterAcc        COAMaster?           @relation("Accrual", fields: [AccrualCOAMasterSid], references: [COAMasterSid])
+  departmentMaster        DepartmentMaster?           @relation(fields: [DepartmentMasterSid], references: [DepartmentMasterSid])
+
   VoucherDetail       VoucherDetail[]
   VoucherHeader       VoucherHeader[]
   VoucherTransaction  VoucherTransaction[]
