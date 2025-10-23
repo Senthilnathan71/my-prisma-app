@@ -1918,4 +1918,463 @@ export class MasterJobService {
         }
 }
 
+    /**
+     * Process bulk upload from Excel file
+     */
+    async processBulkUpload(
+        masterJobData: any,
+        houseJobsData: any[],
+        companyMasterSid: number,
+        branchMasterSid: number,
+        createdBy: string
+    ) {
+        try {
+            const result = await this._db.$transaction(async (prisma) => {
+                // Generate Master Job Number
+                const dateString = moment().format('YYYYMMDD');
+                const count = await prisma.masterJob.count({
+                    where: { MasterJobNumber: { contains: dateString } }
+                });
+                const masterJobNumber = `MASTER-${dateString}-${(count + 1).toString().padStart(3, '0')}`;
+
+                // Create Master Job
+                const masterJobPayload = {
+                    MasterJobNumber: masterJobNumber,
+                    MasterJobDate: masterJobData.MasterJobDate || new Date(),
+                    CreatedBy: createdBy,
+                    Status: 'A',
+                    CompanyMasterSid: companyMasterSid,
+                    BranchMasterSid: branchMasterSid,
+                    DepartmentMasterSid: masterJobData.DepartmentMasterSid,
+                    FreightPPCC: masterJobData.FreightPPCC || 'Prepaid',
+                    DestinationAgent: masterJobData.DestinationAgent,
+                    DestinationAgentName: masterJobData.DestinationAgentName,
+                    DestinationAgentAddress: masterJobData.DestinationAgentAddress?.substring(0, 300) || '',
+                    MBLNo: masterJobData.MBLNo || masterJobNumber,
+                    MBLDate: masterJobData.MBLDate || new Date(),
+                    BLReleaseType: masterJobData.BLReleaseType,
+                    NoofOriginal: masterJobData.NoofOriginal || 3,
+                    OriginAgent: masterJobData.OriginAgent,
+                    POO: masterJobData.POO || '',
+                    POL: masterJobData.POL,
+                    POD: masterJobData.POD,
+                    FPD: masterJobData.FPD || '',
+                    POLTerminal: masterJobData.POLTerminal?.substring(0, 100) || '',
+                    PODTerminal: masterJobData.PODTerminal?.substring(0, 100) || '',
+                    MovementType: masterJobData.MovementType,
+                    ShipmentTerms: masterJobData.ShipmentTerms,
+                    PkgType: masterJobData.PkgType,
+                    NoOfPkg: masterJobData.NoOfPkg,
+                    WeightIn: masterJobData.WeightIn,
+                    GrossWeight: masterJobData.GrossWeight,
+                    NetWeight: masterJobData.NetWeight,
+                    ChargeableWeight: masterJobData.ChargeableWeight,
+                    Volume: masterJobData.Volume,
+                    Haz: masterJobData.Haz,
+                    DGBookingDate: masterJobData.DGBookingDate,
+                    DGApprovedDate: masterJobData.DGApprovedDate,
+                    CommodityDescription: masterJobData.CommodityDescription?.substring(0, 3000) || '',
+                    MarksandNumber: masterJobData.MarksandNumber?.substring(0, 500) || '',
+                    MenuMasterSid: masterJobData.MenuMasterSid,
+                    TsPortSid: masterJobData.TsPortSid,
+                };
+
+                const createdMasterJob = await prisma.masterJob.create({
+                    data: masterJobPayload
+                });
+
+                // Create Master Job Voyages
+                if (masterJobData.voyages && masterJobData.voyages.length > 0) {
+                    for (const voyage of masterJobData.voyages) {
+                        await prisma.masterJobVoyage.create({
+                            data: {
+                                MasterJobSid: createdMasterJob.MasterJobSid,
+                                VoyageMasterSid: voyage.VoyageMasterSid,
+                                VesselName: voyage.VesselName,
+                                VoyageNo: voyage.VoyageNo,
+                                ETD: voyage.ETD,
+                                ETA: voyage.ETA,
+                                ATA: voyage.ATA,
+                                ATD: voyage.ATD,
+                                DestinationATA: voyage.DestinationATA,
+                                CarrierSid: voyage.CarrierSid,
+                                CarrierName: voyage.CarrierName,
+                                Status: 'A'
+                            }
+                        });
+                    }
+                }
+
+                // Create Master Job Containers
+                if (masterJobData.containers && masterJobData.containers.length > 0) {
+                    for (const container of masterJobData.containers) {
+                        await prisma.masterJobContainer.create({
+                            data: {
+                                MasterJobSid: createdMasterJob.MasterJobSid,
+                                ContainerType: container.ContainerType,
+                                ContainerNumber: container.ContainerNumber,
+                                LineSeal: container.LineSeal,
+                                CustomsSeal: container.CustomsSeal,
+                                HsCode: container.HsCode,
+                                CommodityDescription: container.CommodityDescription,
+                                PkgType: container.PkgType,
+                                NoOfPkg: container.NoOfPkg,
+                                GrossWeight: container.GrossWeight,
+                                NetWeight: container.NetWeight,
+                                ChargeableWeight: container.ChargeableWeight,
+                                Volume: container.Volume,
+                                IsSoc: container.IsSoc,
+                                CreatedBy: createdBy,
+                                Status: 'A'
+                            }
+                        });
+                    }
+                }
+
+                // Create Master Job Connections
+                if (masterJobData.connections && masterJobData.connections.length > 0) {
+                    for (const connection of masterJobData.connections) {
+                        await prisma.masterJobConnection.create({
+                            data: {
+                                MasterJobSid: createdMasterJob.MasterJobSid,
+                                Mode: connection.Mode,
+                                POL: connection.POL,
+                                POD: connection.POD,
+                                VesselName: connection.VesselName,
+                                VoyageNo: connection.VoyageNo,
+                                ETD: connection.ETD,
+                                ETA: connection.ETA,
+                                ATD: connection.ATD,
+                                ATA: connection.ATA,
+                                Remarks: connection.Remarks,
+                                Status: 'A',
+                                CreatedBy: createdBy,
+                                CreatedOn: new Date()
+                            }
+                        });
+                    }
+                }
+
+                // Create Master Job Others
+                if (masterJobData.others) {
+                    await prisma.masterJobOthers.create({
+                        data: {
+                            MasterJobSid: createdMasterJob.MasterJobSid,
+                            CreatedBy: createdBy,
+                            Status: 'A',
+                            Yard: masterJobData.others.Yard,
+                            YardAddress: masterJobData.others.YardAddress,
+                            Transporter: masterJobData.others.Transporter,
+                            HandlingInformation: masterJobData.others.HandlingInformation,
+                            InternalNote: masterJobData.others.InternalNote,
+                            CFS: masterJobData.others.CFS,
+                            CFSAddress: masterJobData.others.CFSAddress,
+                            StuffingStartDate: masterJobData.others.StuffingStartDate,
+                            StuffingEndDate: masterJobData.others.StuffingEndDate,
+                            CurrencyCode: masterJobData.others.CurrencyCode,
+                            SellExchangeRate: masterJobData.others.SellExchangeRate,
+                            AgentExchangeRate: masterJobData.others.AgentExchangeRate,
+                            Coload: masterJobData.others.Coload,
+                            CoLoader: masterJobData.others.CoLoader,
+                            ExportDoNo: masterJobData.others.ExportDoNo
+                        }
+                    });
+                }
+
+                // Create House Jobs
+                const createdHouseJobs: Array<{ HouseJobSid: number; BookingNo: string; HBLNo: string | null }> = [];
+
+                for (let i = 0; i < houseJobsData.length; i++) {
+                    const houseJobData = houseJobsData[i];
+
+                    // Generate House Job/Booking Number
+                    const houseJobCount = await prisma.houseJob.count({
+                        where: { BookingNo: { contains: dateString } }
+                    });
+                    const bookingNo = `HJ-${dateString}-${(houseJobCount + i + 1).toString().padStart(3, '0')}`;
+
+                    // Create House Job
+                    const houseJobPayload = {
+                        MasterJobSid: createdMasterJob.MasterJobSid,
+                        CompanyMasterSid: companyMasterSid,
+                        BranchMasterSid: branchMasterSid,
+                        DepartmentMasterSid: houseJobData.DepartmentMasterSid || masterJobData.DepartmentMasterSid,
+                        ShipmentNo: houseJobData.ShipmentNo,
+                        BookingNo: bookingNo,
+                        HBLNo: houseJobData.HBLNo || bookingNo,
+                        CustomerMasterSid: houseJobData.CustomerMasterSid,
+                        CustomerName: houseJobData.CustomerName,
+                        CustomerAddress: houseJobData.CustomerAddress,
+                        IncoTerms: houseJobData.IncoTerms,
+                        DestinationAgent: houseJobData.DestinationAgent,
+                        AgentName: houseJobData.AgentName,
+                        AgentAddress: houseJobData.AgentAddress,
+                        ShipperName: houseJobData.ShipperName,
+                        ShipperAddress: houseJobData.ShipperAddress,
+                        ConsigneeName: houseJobData.ConsigneeName,
+                        ConsigneeAddress: houseJobData.ConsigneeAddress,
+                        ShipmentType: houseJobData.ShipmentType,
+                        NominatedBy: houseJobData.NominatedBy,
+                        POL: houseJobData.POL,
+                        POD: houseJobData.POD,
+                        FPD: houseJobData.FPD,
+                        POO: houseJobData.POO,
+                        ETD: houseJobData.ETD,
+                        ETA: houseJobData.ETA,
+                        MovementType: houseJobData.MovementType,
+                        Notify: houseJobData.Notify,
+                        NotifyAddress: houseJobData.NotifyAddress,
+                        createdBy: createdBy,
+                        status: 'A',
+                        createdOn: new Date(),
+                        MenuMasterSid: masterJobData.MenuMasterSid,
+                        CustomerBranchSid: houseJobData.CustomerBranchSid
+                    };
+
+                    const createdHouseJob = await prisma.houseJob.create({
+                        data: houseJobPayload
+                    });
+
+                    // Create House Job Cargo
+                    if (houseJobData.cargo && houseJobData.cargo.length > 0) {
+                        for (const cargo of houseJobData.cargo) {
+                            await prisma.houseJobCargo.create({
+                                data: {
+                                    HouseJobSid: createdHouseJob.HouseJobSid,
+                                    CompanyMasterSid: companyMasterSid,
+                                    BranchMasterSid: branchMasterSid,
+                                    CargoType: cargo.CargoType,
+                                    ContainerType: cargo.ContainerType,
+                                    GrossWeight: cargo.GrossWeight,
+                                    NetWeight: cargo.NetWeight,
+                                    Volume: cargo.Volume,
+                                    ChargeableWeight: cargo.ChargeableWeight,
+                                    PackageType: cargo.PackageType,
+                                    NoOfPackage: cargo.NoOfPackage,
+                                    FreightAmount: cargo.FreightAmount,
+                                    ShipmentTerms: cargo.ShipmentTerms,
+                                    FreightTerms: cargo.FreightTerms,
+                                    ModeOfTransport: cargo.ModeOfTransport,
+                                    MovementType: cargo.MovementType,
+                                    NoofContainers: cargo.NoofContainers,
+                                    Qty: cargo.Qty,
+                                    StuffingAt: cargo.StuffingAt,
+                                    CommodityDescription: cargo.CommodityDescription,
+                                    MarksAndNumber: cargo.MarksAndNumber,
+                                    createdBy: createdBy,
+                                    status: 'A'
+                                }
+                            });
+                        }
+                    }
+
+                    // Create House Job Products
+                    if (houseJobData.products && houseJobData.products.length > 0) {
+                        for (const product of houseJobData.products) {
+                            await prisma.houseJobProduct.create({
+                                data: {
+                                    HouseJobSid: createdHouseJob.HouseJobSid,
+                                    ProductName: product.ProductName,
+                                    ProductDescription: product.ProductDescription,
+                                    ShippingBillNo: product.ShippingBillNo,
+                                    ShippingBillDate: product.ShippingBillDate,
+                                    ExternaPkg: product.ExternaPkg,
+                                    ExternlQty: product.ExternlQty,
+                                    InternalPkg: product.InternalPkg,
+                                    InternalQty: product.InternalQty,
+                                    GrossWeight: product.GrossWeight,
+                                    NetWeight: product.NetWeight,
+                                    Volume: product.Volume,
+                                    Height: product.Height,
+                                    ImcoClass: product.ImcoClass,
+                                    IsHaz: product.IsHaz,
+                                    Length: product.Length,
+                                    PkgGroup: product.PkgGroup,
+                                    UnNo: product.UnNo,
+                                    Width: product.Width,
+                                    MarksAndNumber: product.MarksAndNumber,
+                                    ContainerNo: product.ContainerNo,
+                                    createdBy: createdBy,
+                                    status: 'A'
+                                }
+                            });
+                        }
+                    }
+
+                    // Create House Job Connections
+                    if (houseJobData.connections && houseJobData.connections.length > 0) {
+                        for (const connection of houseJobData.connections) {
+                            await prisma.houseJobConnection.create({
+                                data: {
+                                    HouseJobSid: createdHouseJob.HouseJobSid,
+                                    Mode: connection.Mode,
+                                    POL: connection.POL,
+                                    POD: connection.POD,
+                                    VesselName: connection.VesselName,
+                                    VoyageNo: connection.VoyageNo,
+                                    ETD: connection.ETD,
+                                    ETA: connection.ETA,
+                                    Remarks: connection.Remarks,
+                                    createdBy: createdBy,
+                                    status: 'A'
+                                }
+                            });
+                        }
+                    }
+
+                    // Create House Job Others
+                    if (houseJobData.others) {
+                        await prisma.houseJobOthers.create({
+                            data: {
+                                HouseJobSid: createdHouseJob.HouseJobSid,
+                                CustomerRefNo: houseJobData.others.CustomerRefNo,
+                                OperationUser: houseJobData.others.OperationUser,
+                                DocumentationUser: houseJobData.others.DocumentationUser,
+                                CustomerServiceuser: houseJobData.others.CustomerServiceuser,
+                                NotifyParty: houseJobData.others.NotifyParty,
+                                NotifyPartyAddress: houseJobData.others.NotifyPartyAddress,
+                                CHAName: houseJobData.others.CHAName,
+                                PickupMode: houseJobData.others.PickupMode,
+                                YardCFS: houseJobData.others.YardCFS,
+                                LocalTransport: houseJobData.others.LocalTransport,
+                                OverseasTransport: houseJobData.others.OverseasTransport,
+                                OverseasClearance: houseJobData.others.OverseasClearance,
+                                PickupPlace: houseJobData.others.PickupPlace,
+                                PickupDate: houseJobData.others.PickupDate,
+                                PickupAddress: houseJobData.others.PickupAddress,
+                                DeliveryPlace: houseJobData.others.DeliveryPlace,
+                                DeliveryDate: houseJobData.others.DeliveryDate,
+                                DeliveryAddress: houseJobData.others.DeliveryAddress,
+                                CargoCurrency: houseJobData.others.CargoCurrency,
+                                CargoValue: houseJobData.others.CargoValue,
+                                DeliveryMode: houseJobData.others.DeliveryMode,
+                                ExternalRemarks: houseJobData.others.ExternalRemarks,
+                                SwitchBL: houseJobData.others.SwitchBL,
+                                TransporterName: houseJobData.others.TransporterName,
+                                Forwarder: houseJobData.others.Forwarder,
+                                ForwarderAddress: houseJobData.others.ForwarderAddress,
+                                Coloader: houseJobData.others.Coloader,
+                                createdBy: createdBy,
+                                status: 'A'
+                            }
+                        });
+                    }
+
+                    createdHouseJobs.push({
+                        HouseJobSid: createdHouseJob.HouseJobSid,
+                        BookingNo: createdHouseJob.BookingNo,
+                        HBLNo: createdHouseJob.HBLNo
+                    });
+                }
+
+                return {
+                    masterJobSid: createdMasterJob.MasterJobSid,
+                    masterJobNumber: createdMasterJob.MasterJobNumber,
+                    houseJobs: createdHouseJobs
+                };
+            });
+
+            return result;
+        } catch (error) {
+            this.logger.error(`Error processing bulk upload: ${error.message}`, error.stack);
+            throw error;
+        }
+    }
+
+    /**
+     * Validate bulk upload data
+     */
+    async validateBulkUploadData(masterJobData: any, houseJobsData: any[]) {
+        const errors: any[] = [];
+
+        // Validate Master Job required fields
+        if (!masterJobData.POL) {
+            errors.push({
+                field: 'POL',
+                message: 'Port of Loading is required',
+                sheet: 'Master Job',
+                row: 2
+            });
+        }
+
+        if (!masterJobData.POD) {
+            errors.push({
+                field: 'POD',
+                message: 'Port of Discharge is required',
+                sheet: 'Master Job',
+                row: 2
+            });
+        }
+
+        if (!masterJobData.FPD) {
+            errors.push({
+                field: 'FPD',
+                message: 'Final Place of Delivery is required',
+                sheet: 'Master Job',
+                row: 2
+            });
+        }
+
+        if (!masterJobData.DepartmentMasterSid) {
+            errors.push({
+                field: 'DepartmentMasterSid',
+                message: 'Department is required',
+                sheet: 'Master Job',
+                row: 2
+            });
+        }
+
+        // Validate House Jobs
+        if (!houseJobsData || houseJobsData.length === 0) {
+            errors.push({
+                field: 'HouseJobs',
+                message: 'At least one House Job is required',
+                sheet: 'House Jobs'
+            });
+        } else {
+            for (let i = 0; i < houseJobsData.length; i++) {
+                const houseJob = houseJobsData[i];
+                const rowNum = i + 2;
+
+                if (!houseJob.BookingNo) {
+                    errors.push({
+                        field: 'BookingNo',
+                        message: 'Booking Number is required',
+                        sheet: 'House Jobs',
+                        row: rowNum
+                    });
+                }
+
+                if (!houseJob.CustomerMasterSid) {
+                    errors.push({
+                        field: 'CustomerMasterSid',
+                        message: 'Customer is required',
+                        sheet: 'House Jobs',
+                        row: rowNum
+                    });
+                }
+
+                if (!houseJob.POL) {
+                    errors.push({
+                        field: 'POL',
+                        message: 'Port of Loading is required',
+                        sheet: 'House Jobs',
+                        row: rowNum
+                    });
+                }
+
+                if (!houseJob.POD) {
+                    errors.push({
+                        field: 'POD',
+                        message: 'Port of Discharge is required',
+                        sheet: 'House Jobs',
+                        row: rowNum
+                    });
+                }
+            }
+        }
+
+        return errors;
+    }
+
 }

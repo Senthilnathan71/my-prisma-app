@@ -28,6 +28,7 @@ import { VoucherService } from './services/voucher/voucher.service';
 import { VoucherController } from './controllers/voucher/voucher.controller';
 import { VendorInvoiceService } from './services/vendor-invoice/vendor-invoice.service';
 import { VendorInvoiceController } from './controllers/vendor-invoice/vendor-invoice.controller';
+import { ExcelParserService } from 'src/common/services/excel-parser/excel-parser.service';
 
 @Module({
         providers: [
@@ -47,7 +48,8 @@ import { VendorInvoiceController } from './controllers/vendor-invoice/vendor-inv
                 HouseJobService,
                 SplitbookingService,
                 VoucherService,
-                VendorInvoiceService
+                VendorInvoiceService,
+                ExcelParserService
         ],
         controllers: [
                 BookingController,
