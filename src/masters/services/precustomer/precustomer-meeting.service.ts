@@ -97,7 +97,7 @@ export class PreCustomerMeetingService {
                 leadAssignTo: Number(params.leadAssignTo),
                 meetingStatus: params.meetingStatus,
                 customerProfile: params.customerProfile,
-                meetingNote: params.meetingNote,
+                meetingNote: params.meetingNote ||'',
                 followUpNote: params.followUpNote,
                 createdBy: params.createdBy,
                 status: params.status || "A",
