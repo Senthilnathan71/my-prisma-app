@@ -43,6 +43,34 @@ export class CompanyController {
         return resp;
     }
 
+    @ApiOperation({ summary: 'Get Bank Details for Currency' })
+    @ApiCreatedResponse({
+        description: "Get Bank Details for Currency",
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Post('bank-details')
+    async getBankDetails(
+        @Body() payload: any,
+    ){
+        const resp = new ResponseData();
+        try {
+            const res = await this.companyService.getBankDetails(payload);
+            this.logger.log(`Bank Details fetched: ${JSON.stringify(res)}`);
+            resp.data = res;
+            resp.message = "Bank Details fetched successfully";
+        } catch (error) {
+            this.logger.warn(`Bank Details fetch error: ${error}`);
+            resp.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                resp.message = error.message;
+            } else {
+                resp.message = "Internal Server Error";
+            }
+        }
+        return resp;
+    }
+
 
     @ApiOperation({ summary: 'Get All Company' })
     @ApiCreatedResponse({
