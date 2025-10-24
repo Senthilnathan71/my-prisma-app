@@ -201,5 +201,58 @@ export class SubledgermasterController {
         }
         return resp;
     }
+    // subledgermaster.controller.ts - Add these new endpoints
+
+@ApiOperation({ summary: 'Get Subledger Master by Type' })
+@ApiCreatedResponse({
+    description: 'Get Subledger Master by Type',
+    type: ResponseData
+})
+@HttpCode(HttpStatus.OK)
+@Get('type/:subledgerType')
+async getSubledgerMasterByType(@Param('subledgerType') subledgerType: string) {
+    let resp = new ResponseData();
+    try {
+        let res = await this.SubledgermasterService.getSubledgerMasterByType(subledgerType);
+        this.logger.log(`SubledgerMaster by Type Fetched : ${JSON.stringify(res)}`);
+        resp.data = res;
+        resp.message = "SubledgerMaster by type successfully fetched";
+    } catch (error) {
+        this.logger.warn(`Get SubledgerMaster by Type Error : ${JSON.stringify(error), error}`);
+        resp.status = false;
+        if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+            resp.message = error.message;
+        } else {
+            resp.message = "Internal Server Error";
+        }
+    }
+    return resp;
+}
+
+@ApiOperation({ summary: 'Bulk Update Subledger Master' })
+@ApiCreatedResponse({
+    description: 'Bulk Update Subledger Master',
+    type: ResponseData
+})
+@HttpCode(HttpStatus.OK)
+@Patch('bulk-update')
+async bulkUpdateSubledgerMaster(@Body() payload: { updates: any[] }) {
+    let resp = new ResponseData();
+    try {
+        let res = await this.SubledgermasterService.bulkUpdateSubledgerMaster(payload.updates);
+        this.logger.log(`SubledgerMaster Bulk Updated : ${JSON.stringify(res)}`);
+        resp.data = res;
+        resp.message = "SubledgerMaster successfully updated in bulk";
+    } catch (error) {
+        this.logger.warn(`SubledgerMaster Bulk Update Error : ${JSON.stringify(error), error}`);
+        resp.status = false;
+        if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+            resp.message = error.message;
+        } else {
+            resp.message = "Internal Server Error";
+        }
+    }
+    return resp;
+}
 
 }

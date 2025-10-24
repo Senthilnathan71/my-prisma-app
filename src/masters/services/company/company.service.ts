@@ -128,6 +128,8 @@ export class CompanyService {
                                 BeneficiaryName: bank.BeneficiaryName,
                                 status: bank.status,
                                 Remarks: bank.Remarks || null,
+                                PrintOnInvoice : bank.PrintOnInvoice || 'N',
+                                CurrencyMasterSid : bank.CurrencyMasterSid || null,
                                 BranchMasterSid: createdBranch.BranchMasterSid,
                                 createdBy: user.userEmail
                             }));
@@ -436,6 +438,8 @@ export class CompanyService {
                                 BeneficiaryName: bank.BeneficiaryName,
                                 status: bank.status,
                                 Remarks: bank.Remarks || null,
+                                PrintOnInvoice : bank.PrintOnInvoice || 'N',
+                                CurrencyMasterSid : bank.CurrencyMasterSid || null,
                                 BranchMasterSid: branchOperation.BranchMasterSid,
                                 createdBy: user.userEmail
                             }));
@@ -846,6 +850,22 @@ export class CompanyService {
             throw new Error(`Error fetching audit logs: ${error.message}`);
         }
     }
+
+    async getBankDetails(payload: any) {
+        try {
+            const bankDetails = await this._db.branchBank.findFirst({
+                where: {
+                    BranchMasterSid: payload.BranchMasterSid,
+                    CurrencyMasterSid : payload.CurrencyMasterSid,
+                    status: 'A'
+                }
+            });
+            return bankDetails;
+        } catch (error) {
+            throw error;
+        }
+    }
+
 }
 interface Company {
     CompanyMasterSid: number;

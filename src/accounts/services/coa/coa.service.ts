@@ -22,6 +22,24 @@ export class CoaService {
             throw error;
         }
     }
+    async getCOAByLedgerType(LedgerType: string, CompanyMasterSid: number) {
+    try {
+        const coa = await this._db.cOAMaster.findMany({
+            where: {
+                LedgerType: LedgerType,
+                Status: "A",
+                SubledgerName: 'Y',
+                CompanyMasterSid: CompanyMasterSid
+            },
+            orderBy: {
+                LedgerName: 'asc'
+            }
+        });
+        return coa;
+    } catch (error) {
+        throw error;
+    }
+}
 
     async getAllGroupsByCategory(category: string, CompanyMasterSid: number) {
         try {
@@ -90,9 +108,7 @@ export class CoaService {
         }
     }
 
-    /**
-     * Check for duplicate COA entries based on business rules
-     */
+   
     private async checkForDuplicates(payload: any, existingCoaSid?: number): Promise<void> {
         const { 
             Category, 
@@ -106,7 +122,7 @@ export class CoaService {
 
         // Base where clause excluding current record and deleted records
         const baseWhere: any = {
-            Status: { in: ['A', 'S'] }, // Check both Active and Suspended
+            Status: { in: ['A', 'S'] }, 
             CompanyMasterSid: CompanyMasterSid,
             NOT: existingCoaSid ? { COAMasterSid: existingCoaSid } : undefined
         };
@@ -162,7 +178,7 @@ export class CoaService {
             }
 
         } else if (LedgerCategory === 'Subgroup') {
-            // For Subgroup: Category + LedgerCategory + GroupName + SubGroupName must be unique
+            
             if (!GroupName || GroupName.trim() === '') {
                 throw new BadRequestException('GroupName is required for Subgroup');
             }
@@ -183,30 +199,35 @@ export class CoaService {
                 );
             }
 
-        } else if (LedgerCategory === 'Ledger') {
-            // For Ledger: Category + LedgerCategory + GroupName + SubGroupName must be unique
-            if (!GroupName || GroupName.trim() === '') {
-                throw new BadRequestException('GroupName is required for Ledger');
-            }
-            if (!SubGroupName || SubGroupName.trim() === '') {
-                throw new BadRequestException('SubGroupName is required for Ledger');
-            }
+          } else if (LedgerCategory === 'Ledger') {
+      
+        if (!GroupName || GroupName.trim() === '') {
+            throw new BadRequestException('GroupName is required for Ledger');
+        }
+        if (!SubGroupName || SubGroupName.trim() === '') {
+            throw new BadRequestException('SubGroupName is required for Ledger');
+        }
+        if (!LedgerName || LedgerName.trim() === '') {
+            throw new BadRequestException('LedgerName is required for Ledger');
+        }
 
-            const duplicateLedgerStructure = await this._db.cOAMaster.findFirst({
-                where: {
-                    ...baseWhere,
-                    Category: Category,
-                    LedgerCategory: 'Ledger',
-                    GroupName: GroupName,
-                    SubGroupName: SubGroupName
-                }
-            });
-
-            if (duplicateLedgerStructure) {
-                throw new BadRequestException(
-                    `A ledger already exists with the same structure in category '${Category}', group '${GroupName}', and subgroup '${SubGroupName}'`
-                );
+       
+        const duplicateLedgerName = await this._db.cOAMaster.findFirst({
+            where: {
+                ...baseWhere,
+                Category: Category,
+                LedgerCategory: 'Ledger',
+                GroupName: GroupName,
+                SubGroupName: SubGroupName,
+                LedgerName: LedgerName
             }
+        });
+
+        if (duplicateLedgerName) {
+            throw new BadRequestException(
+                `Ledger Name '${LedgerName}' already exists in group '${GroupName}' and subgroup '${SubGroupName}'. Please use a different ledger name.`
+            );
+        }
         }
     }
 

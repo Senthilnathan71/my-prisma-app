@@ -124,7 +124,7 @@ export class BookingService {
                         GeneralNote: payload.GeneralNote,
                         NominatedBy: payload.NominatedBy,
                         ShipmentNo: BookingNo,
-                        BookingStatus: 'Booked'
+                        BookingStatus: payload.BookingStatus || 'Booked'
                     }
                 })
 
@@ -171,7 +171,7 @@ export class BookingService {
             */
 
             const allProducts: any[] = (payload.bookingProducts || []).map(product => {
-                const productData = {
+                let productData = {
                     BookingHeaderSid: bookingHeader.BookingHeaderSid,
                     ProductName: product.ProductName || '',
                     ShippingBillNo: product.ShippingBillNo || '',
@@ -192,6 +192,9 @@ export class BookingService {
                     UomMasterSid: product.UomMasterSid || null,
                     createdBy: payload.createdBy,
                     status: 'A',
+                }
+                if(product.CargoRecDate){
+                    productData['RecdPack'] = product.ExternlQty;
                 }
                 return productData;
             }) || [];
@@ -543,7 +546,8 @@ export class BookingService {
                         FreightTerms: payload.FreightTerms,
                         InternalNote: payload.InternalNote,
                         GeneralNote: payload.GeneralNote,
-                        NominatedBy: payload.NominatedBy
+                        NominatedBy: payload.NominatedBy,
+                        BookingStatus: payload.BookingStatus || 'Booked'
                     }
                 })
 
@@ -633,6 +637,7 @@ export class BookingService {
                                 Width: product.Width,
                                 Height: product.Height,
                                 UomMasterSid: product.UomMasterSid,
+                                RecdPack : product.CargoRecDate ? product.ExternlQty : null,
                                 updatedBy: payload.updatedBy,
                                 status: product.status
                             }
@@ -1097,6 +1102,7 @@ export class BookingService {
                     { VesselName: { contains: search, mode: 'insensitive' } },
                     { VoyageNo: { contains: search, mode: 'insensitive' } },
                     ...(salesmanIds.length ? [{ SalesmanSid: { in: salesmanIds } }] : []),
+                    { BookingStatus : {contains : search , mode : 'insensitive'}},
                     ...(shipmentNosByMilestone.length ? [{ ShipmentNo: { in: shipmentNosByMilestone } }] : []),
                 ],
             }),
@@ -2094,16 +2100,21 @@ async getTariffByBookingDetails(payload:TariffBookingPayload) {
       this.logger.log('No tariff found with optional filters, falling back to standard rate search');
 
       // Build standard rate query (only mandatory fields)
-      const whereStandardRate: any = {
-        EffectiveDate: { lte: new Date(payload.EffectiveDate) },
-        ExpiredOn:     { gte: new Date(payload.ExpiredDate) },
-        tariffHeader: {
-          DepartmentMasterSid: payload.DepartmentMasterSid,
-          POLSid: payload.POLSid,
-          PODSid: payload.PODSid,
-          CompanyMasterSid: payload.CompanyMasterSid,
-        },
-      };
+        const whereStandardRate: any = {
+            EffectiveDate: { lte: new Date(payload.EffectiveDate) },
+            ExpiredOn: { gte: new Date(payload.ExpiredDate) },
+            tariffHeader: {
+                DepartmentMasterSid: payload.DepartmentMasterSid,
+                POLSid: payload.POLSid,
+                PODSid: payload.PODSid,
+                CompanyMasterSid: payload.CompanyMasterSid,
+                POOSid: null,
+                FDCSid: null,
+                Carrier: null,
+                AgentSid: null,
+                IncoTerms: null,
+            },
+        };
 
       allTariffDetails = await this._db.tariffDetail.findMany({
         where: whereStandardRate,

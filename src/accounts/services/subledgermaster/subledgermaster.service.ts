@@ -61,7 +61,7 @@ export class SubledgermasterService {
             if (!exist) {
                 throw new BadRequestException(`SubledgerMaster with Id : ${SubledgerMasterSid} not exists`);
             }
-            const updatedSuledgerMaster = this._db.subledgerMaster.update({
+            const updatedSuledgerMaster = await this._db.subledgerMaster.update({
                 where: {
                     SubledgerMasterSid: SubledgerMasterSid
                 },
@@ -86,7 +86,7 @@ export class SubledgermasterService {
             if (exist.Status === "D") {
                 throw new BadRequestException(`SubledgerMaster with Id :${SubledgerMasterSid} is already deleted`)
             }
-            const deletedSuledgerMaster = this._db.subledgerMaster.update({
+            const deletedSuledgerMaster = await this._db.subledgerMaster.update({
                 where: {
                     SubledgerMasterSid: SubledgerMasterSid
                 },
@@ -99,7 +99,6 @@ export class SubledgermasterService {
             throw error;
         }
     }
-
 
     async searchSubledgerMaster(params: filterDto) {
         const { search = '', page = 1, pageSize = 10 } = params;
@@ -190,4 +189,63 @@ export class SubledgermasterService {
             throw new Error(`Error fetching audit logs: ${error.message}`);
         }
     }
+
+    // New methods for Party and Charge tabs
+    async getSubledgerMasterByType(subledgerType: string) {
+        try {
+            const subledgers = await this._db.subledgerMaster.findMany({
+                where: {
+                    SubledgerType: subledgerType,
+                    Status: { in: ["A", "S"] } // Include both Active and Suspended
+                },
+                include: {
+                    CoaMaster: {
+                        include: {
+                            CurrencyMaster: {
+                                select: {
+                                    currencyName: true,
+                                    currencyCode: true
+                                }
+                            }
+                        }
+                    },
+                    departmentMaster: true
+                }
+            });
+            return subledgers;
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    async bulkUpdateSubledgerMaster(updates: any[]) {
+        try {
+            const results = [];
+            
+            for (const update of updates) {
+                const { SubledgerMasterSid, ...updateData } = update;
+                
+                const exist = await this._db.subledgerMaster.findUnique({
+                    where: { SubledgerMasterSid }
+                });
+                
+                if (!exist) {
+                    throw new BadRequestException(`SubledgerMaster with Id: ${SubledgerMasterSid} not exists`);
+                }
+                
+                const updated = await this._db.subledgerMaster.update({
+                    where: { SubledgerMasterSid },
+                    data: updateData
+                });
+                
+                // results.push(updated);
+            }
+            
+            return results;
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    
 }

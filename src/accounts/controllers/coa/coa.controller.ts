@@ -103,6 +103,28 @@ export class CoaController {
         return resp;
     }
 
+    @ApiOperation({ summary: 'Get COA by LedgerType' })
+    @ApiCreatedResponse({ description: 'Get COA by LedgerType', type: ResponseData })
+    @HttpCode(HttpStatus.OK)
+    @Post('ledger-type')
+    async getCOAByLedgerType(@Body() body: { LedgerType: string; CompanyMasterSid: number }) {
+        const resp = new ResponseData();
+        try {
+            const res = await this.coaService.getCOAByLedgerType(body.LedgerType, body.CompanyMasterSid);
+            this.logger.log(`COA by LedgerType : ${JSON.stringify(res)}`);
+            resp.data = res;
+            resp.message = "COA by LedgerType is successfully fetched";
+        } catch (error) {
+            this.logger.warn(`COA by LedgerType Error : ${JSON.stringify(error)}`, error);
+            resp.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                resp.message = error.message;
+            } else {
+                resp.message = "Internal Server Error";
+            }
+        }
+        return resp;
+    }
     @ApiOperation({ summary: 'Get All Subgroups by Group' })
     @ApiCreatedResponse({
         description: 'Get All Subgroups by Group',
