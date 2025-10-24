@@ -22,6 +22,24 @@ export class CoaService {
             throw error;
         }
     }
+    async getCOAByLedgerType(LedgerType: string, CompanyMasterSid: number) {
+    try {
+        const coa = await this._db.cOAMaster.findMany({
+            where: {
+                LedgerType: LedgerType,
+                Status: "A",
+                SubledgerName: 'Y',
+                CompanyMasterSid: CompanyMasterSid
+            },
+            orderBy: {
+                LedgerName: 'asc'
+            }
+        });
+        return coa;
+    } catch (error) {
+        throw error;
+    }
+}
 
     async getAllGroupsByCategory(category: string, CompanyMasterSid: number) {
         try {
