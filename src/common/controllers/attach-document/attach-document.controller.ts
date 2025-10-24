@@ -99,6 +99,8 @@ async fetchAttachDocumentByFolder(@Body() body: { menuMasterSid: number; documen
 }
 
 
+
+
 // @ApiOperation({ summary: 'Get All Attach Documents' })
     // @ApiCreatedResponse({
     //     description: 'Get All Attach Documents',
@@ -151,7 +153,7 @@ async fetchAttachDocumentByFolder(@Body() body: { menuMasterSid: number; documen
     //     }
     //     return resp;
     // }
-    
+
     // @ApiOperation({ summary: 'Delete Attach Document by Id' })
     // @ApiCreatedResponse({
     //     description: 'Delete Attach Document by Id',

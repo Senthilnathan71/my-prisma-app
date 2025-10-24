@@ -43,6 +43,7 @@ export class AttachDocumentService {
             const folderPath = path.join(basePath, menuName, String(uploadDto.DocumentSid));
             if (!fs.existsSync(folderPath)) fs.mkdirSync(folderPath, { recursive: true });
 
+            
             // 3️⃣ Create AttachDocument entries
             const createdFiles: any = [];
             for (const file of files) {
@@ -66,8 +67,58 @@ export class AttachDocumentService {
                     },
                 });
 
+                let followupRes;
+                    if (uploadDto.FollowupRequired === 'Y') {
+                        followupRes = await this._db.followup.create({
+                            data: {
+                                CompanyMasterSid: uploadDto.CompanyMasterSid,
+                                BranchMasterSid: uploadDto.BranchMasterSid,
+                                DocumentSid: uploadDto.DocumentSid,
+                                AttachDocmentNo: record.AttachDocmentNo,
+                                DocumentDate: record.DocumentDate,
+                                FileName: record.FileName,
+                                Documenttype: record.Documenttype,
+                                ReceivedDate: uploadDto.ReceivedDate,
+                                FollowupRequire: uploadDto.FollowupRequired,
+                                FollowupDate: uploadDto.FollowupDate ? new Date(uploadDto.FollowupDate) : "",
+                                FollowupAction: uploadDto.FollowupAction,
+                                Remarks: uploadDto.FollowupRemarks,
+                                Public: uploadDto.Public,
+                                sentEmail: uploadDto.sentEmail,
+                                Status: uploadDto.FollowupStatus,
+                                CreatedBy: uploadDto.createdBy,
+                            },
+                        });
+                    }
+
+                if (uploadDto.sentEmail === 'Y') {
+                    const templatePath = path.join(process.cwd(), 'src', 'email', 'templates', 'followup-email.pug');
+                    const html = pug.renderFile(templatePath, {
+                        recipientName: 'User',
+                        fileName: record.FileName,
+                        link: '#',
+                        followupDate: record .FollowupDate ? new Date(record.FollowupDate).toLocaleDateString() : 'N/A',
+                        remarks: uploadDto.FollowupRemarks || '',
+                    });
+
+                    // attach first new file or existing
+                    const attachmentFile = files && files.length > 0
+                        ? { filename: files[0].originalname, content: files[0].buffer, contentType: files[0].mimetype }
+                        : { filename: record.FileName, content: fs.readFileSync(path.join(folderPath, record.FileName)), contentType: 'application/octet-stream' };
+
+                    await this.emailService.sendFollowupEmail({
+                        email: 'developer1@dofi.co',
+                        cc: '',
+                        subject: 'Follow-up Document Updated',
+                        html,
+                        file: attachmentFile,
+                    });
+                }
+
                 createdFiles.push(record);
             }
+
+            
 
             return { group, createdFiles };
         } catch (error) {
