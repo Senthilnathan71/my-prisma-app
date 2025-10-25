@@ -50,7 +50,7 @@ export class TariffService {
         };
 
         // Add only filled fields to where clause
-        filledFields.forEach(field => {
+        possibleFields.forEach(field => {
             whereClause[field] = newData[field];
         });
 

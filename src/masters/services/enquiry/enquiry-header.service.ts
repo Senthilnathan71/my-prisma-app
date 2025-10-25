@@ -44,7 +44,7 @@ export class EnquiryHeaderService {
                     ClearanceBy: payload.ClearanceBy,
                     TransportBy: payload.TransportBy,
                     Remarks: payload.Remarks,
-                    status: payload.status || "A",
+                    status: String(payload.status).charAt(0) || "A",
                     CompanyMasterSid: payload.CompanyMasterSid,
                     BranchMasterSid: payload.BranchMasterSid,
                     UserMasterSid: payload.UserMasterSid,
