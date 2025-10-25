@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, Post, UnauthorizedException, UploadedFiles } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get,Res, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, Post, Query, UnauthorizedException, UploadedFiles, Req } from '@nestjs/common';
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
 import { FilesUploadInterceptor } from 'src/common/decorators/file-upload.decorator';
 import { ResponseData } from 'src/common/response-data';
@@ -13,6 +13,8 @@ import { MenuService } from 'src/masters/services/menu/menu.service';
 import { DynamicFilesUploadInterceptor } from 'src/common/decorators/edoc.decorator';
 import { UserData } from 'src/common/decorators/user.decorator';
 import { EmailService } from 'src/email/email.service';
+import { Response,Request } from 'express'; // 👈 import this
+
 @Controller('attach-document')
 export class AttachDocumentController {
     constructor(private configService: ConfigService,
@@ -80,13 +82,13 @@ async updateAttachDocumentById(
 @ApiOperation({ summary: 'Fetch Attach Document by Folder Structure' })
 @ApiCreatedResponse({ description: 'Fetch Attach Document by Folder Structure', type: ResponseData })
 @HttpCode(HttpStatus.OK)
-async fetchAttachDocumentByFolder(@Body() body: { menuMasterSid: number; documentSid: number }) {
+async fetchAttachDocumentByFolder(@Body() body: { menuMasterSid: number; DocumentSid: number }) {
   const resp = new ResponseData();
   try {
-    const { menuMasterSid, documentSid } = body;
-    this.logger.log(`Fetching AttachDocument for MenuMasterSid: ${menuMasterSid}, DocumentSid: ${documentSid}`);
+    const { menuMasterSid, DocumentSid } = body;
+    this.logger.log(`Fetching AttachDocument for MenuMasterSid: ${menuMasterSid}, DocumentSid: ${DocumentSid}`);
 
-    const result = await this.attachDocumentService.fetchAttachDocumentByFolder(menuMasterSid, documentSid);
+    const result = await this.attachDocumentService.fetchAttachDocumentByFolder(menuMasterSid, DocumentSid);
 
     resp.data = result;
     resp.message = 'Attach Document successfully fetched from folder structure';
@@ -99,6 +101,86 @@ async fetchAttachDocumentByFolder(@Body() body: { menuMasterSid: number; documen
 }
 
 
+
+
+@Post('download')
+  @ApiOperation({ summary: 'Download file by name (POST body)' })
+  @HttpCode(HttpStatus.OK)
+  async downloadFile(
+    @Body() body: { menuMasterSid: number; documentSid: number; fileName: string },
+    @Res() res: Response,
+  ) {
+    try {
+      const { menuMasterSid, documentSid, fileName } = body;
+
+      const fileData = await this.attachDocumentService.downloadFileByName(
+        menuMasterSid,
+        documentSid,
+        fileName,
+      );
+
+      res.setHeader('Content-Type', fileData.mimeType);
+      res.setHeader('Content-Disposition', `attachment; filename="${fileData.fileName}"`);
+      res.send(fileData.buffer);
+    } catch (error) {
+      this.logger.error(`File download error: ${error.message}`);
+      res.status(500).send({ message: 'Error downloading file' });
+    }
+  }
+
+  @Post('preview')
+async previewFile(
+  @Body() body: { menuMasterSid: number; documentSid: number; fileName: string },
+  @Req() req: Request,
+  @Res() res: Response,
+) {
+  const { menuMasterSid, documentSid, fileName } = body;
+
+  const fileData = await this.attachDocumentService.downloadFileByName(
+    menuMasterSid,
+    documentSid,
+    fileName,
+  );
+    const menu:any = await this.menuMasterService.findOne(Number(menuMasterSid));
+
+  
+
+  const ext:any = fileName.split('.').pop()?.toLowerCase();
+
+ 
+//   if (['xls', 'xlsx', 'doc', 'docx'].includes(ext)) {
+//   const publicUrl = `${req.protocol}://${req.get('host')}/freight-forwarding-assets/Edoc/${menu.MenuName}/${documentSid}/${fileName}`;
+//   return res.json({ url: publicUrl });
+// }  
+
+
+  // PDF / Image / Text → send blob
+  res.setHeader('Content-Type', fileData.mimeType);
+  res.setHeader('Content-Disposition', `inline; filename="${fileData.fileName}"`);
+  res.send(fileData.buffer);
+}
+
+
+
+  @Delete('delete/:AttachDocumentSid')
+@ApiOperation({ summary: 'Delete attach document file' })
+@HttpCode(HttpStatus.OK)
+async deleteAttachDocumentFile(
+    @Param('AttachDocumentSid', ParseIntPipe) AttachDocumentSid: number
+) {
+    const resp = new ResponseData();
+    try {
+        const result = await this.attachDocumentService.deleteAttachDocumentFile(AttachDocumentSid);
+        resp.data = result;
+        resp.message = result.message;
+        this.logger.log(`File deleted: ${AttachDocumentSid}`);
+    } catch (error) {
+        this.logger.error(`Delete error: ${error.message}`);
+        resp.status = false;
+        resp.message = error.message || 'Delete failed';
+    }
+    return resp;
+}
 
 
 // @ApiOperation({ summary: 'Get All Attach Documents' })
