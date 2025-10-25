@@ -21,6 +21,10 @@ export class ExcelParserService {
    */
   parseExcelFile(buffer: Buffer): {
     masterJob: any;
+    containers: any[];
+    voyages: any[];
+    connections: any[];
+    others: any;
     houseJobs: any[];
     errors: BulkUploadValidationError[];
   } {
@@ -47,7 +51,7 @@ export class ExcelParserService {
       }
 
       if (errors.length > 0) {
-        return { masterJob: null, houseJobs: [], errors };
+        return { masterJob: null, containers: [], voyages: [], connections: [], others: null, houseJobs: [], errors };
       }
 
       // Parse Master Job sheet
@@ -81,18 +85,36 @@ export class ExcelParserService {
       }
 
       if (errors.length > 0) {
-        return { masterJob: null, houseJobs: [], errors };
+        return { masterJob: null, containers: [], voyages: [], connections: [], others: null, houseJobs: [], errors };
       }
 
       // Parse master job (first row only)
       const masterJob = this.parseMasterJobRow(masterJobData[0], errors);
 
-      // Parse house jobs (all rows)
-      const houseJobs = houseJobsData.map((row, index) =>
-        this.parseHouseJobRow(row, index + 2, errors)
-      );
+      // Parse Containers sheet (optional)
+      const containers = this.parseContainersSheet(workbook, errors);
 
-      return { masterJob, houseJobs, errors };
+      // Parse Master Voyages sheet (optional)
+      const voyages = this.parseMasterVoyagesSheet(workbook, errors);
+
+      // Parse Master Connections sheet (optional)
+      const connections = this.parseMasterConnectionsSheet(workbook, errors);
+
+      // Parse Master Others sheet (optional)
+      const others = this.parseMasterOthersSheet(workbook, errors);
+
+      // Parse House Jobs with their child data
+      const houseJobs = houseJobsData.map((row: any, index) => {
+        const shipmentNo = this.getStringValue(row['Shipment Number']) || '';
+        return {
+          ...this.parseHouseJobRow(row, index + 2, errors),
+          cargo: this.parseHouseCargoForShipment(workbook, shipmentNo, errors),
+          products: this.parseHouseProductsForShipment(workbook, shipmentNo, errors),
+          connections: this.parseHouseConnectionsForShipment(workbook, shipmentNo, errors),
+        };
+      });
+
+      return { masterJob, containers, voyages, connections, others, houseJobs, errors };
     } catch (error) {
       this.logger.error(`Error parsing Excel file: ${error.message}`, error.stack);
       throw new BadRequestException('Invalid Excel file format');
@@ -132,15 +154,6 @@ export class ExcelParserService {
         DGBookingDate: this.parseDateValue(row['DG Booking Date']),
         DGApprovedDate: this.parseDateValue(row['DG Approved Date']),
       };
-
-      // Parse containers if provided (could be in separate rows or as JSON)
-      masterJob.containers = this.parseContainerData(row);
-
-      // Parse voyage information
-      masterJob.voyages = this.parseVoyageData(row);
-
-      // Parse connection information
-      masterJob.connections = this.parseConnectionData(row);
 
       return masterJob;
     } catch (error) {
@@ -187,18 +200,6 @@ export class ExcelParserService {
         ShipmentType: this.getStringValue(row['Shipment Type']),
       };
 
-      // Parse cargo information
-      houseJob.cargo = this.parseCargoData(row);
-
-      // Parse product information
-      houseJob.products = this.parseProductData(row);
-
-      // Parse connection information for house job
-      houseJob.connections = this.parseHouseConnectionData(row);
-
-      // Parse others information
-      houseJob.others = this.parseHouseOthersData(row);
-
       return houseJob;
     } catch (error) {
       errors.push({
@@ -212,202 +213,266 @@ export class ExcelParserService {
   }
 
   /**
-   * Parse container data from row
+   * Parse Containers sheet
    */
-  private parseContainerData(row: any): MasterJobContainerBulkDto[] {
-    const containers: MasterJobContainerBulkDto[] = [];
+  private parseContainersSheet(workbook: XLSX.WorkBook, errors: BulkUploadValidationError[]): any[] {
+    if (!workbook.SheetNames.includes('Containers')) {
+      return [];
+    }
 
-    // Check if container data exists
-    const containerNumber = this.getStringValue(row['Container Number']);
-    const containerType = this.getNumberValue(row['Container Type']);
+    try {
+      const containersSheet = workbook.Sheets['Containers'];
+      const containersData = XLSX.utils.sheet_to_json(containersSheet, { defval: null, raw: false });
 
-    if (containerNumber && containerType) {
-      containers.push({
-        ContainerNumber: containerNumber,
-        ContainerType: containerType,
+      return containersData.map((row: any, index) => ({
+        ContainerNumber: this.getStringValue(row['Container Number']),
+        ContainerType: this.getNumberValue(row['Container Type']),
         LineSeal: this.getStringValue(row['Line Seal']),
         CustomsSeal: this.getStringValue(row['Customs Seal']),
         HsCode: this.getStringValue(row['HS Code']),
-        CommodityDescription: this.getStringValue(row['Container Commodity']),
-        PkgType: this.getNumberValue(row['Container Package Type']),
-        NoOfPkg: this.getNumberValue(row['Container No of Packages']),
-        GrossWeight: this.getDecimalValue(row['Container Gross Weight']),
-        NetWeight: this.getDecimalValue(row['Container Net Weight']),
-        ChargeableWeight: this.getDecimalValue(row['Container Chargeable Weight']),
-        Volume: this.getDecimalValue(row['Container Volume']),
+        CommodityDescription: this.getStringValue(row['Commodity Description']),
+        PkgType: this.getNumberValue(row['Package Type']),
+        NoOfPkg: this.getNumberValue(row['No of Packages']),
+        GrossWeight: this.getDecimalValue(row['Gross Weight']),
+        NetWeight: this.getDecimalValue(row['Net Weight']),
+        ChargeableWeight: this.getDecimalValue(row['Chargeable Weight']),
+        Volume: this.getDecimalValue(row['Volume (CBM)']),
         IsSoc: this.getBooleanValue(row['Is SOC (Y/N)']),
+      }));
+    } catch (error) {
+      errors.push({
+        field: 'Sheet',
+        message: `Error parsing Containers sheet: ${error.message}`,
+        sheet: 'Containers',
       });
+      return [];
     }
-
-    return containers;
   }
 
   /**
-   * Parse voyage data from row
+   * Parse Master Voyages sheet
    */
-  private parseVoyageData(row: any): MasterJobVoyageBulkDto[] {
-    const voyages: MasterJobVoyageBulkDto[] = [];
+  private parseMasterVoyagesSheet(workbook: XLSX.WorkBook, errors: BulkUploadValidationError[]): any[] {
+    if (!workbook.SheetNames.includes('Master Voyages')) {
+      return [];
+    }
 
-    const vesselName = this.getStringValue(row['Vessel Name']);
-    if (vesselName) {
-      voyages.push({
-        VesselName: vesselName,
+    try {
+      const voyagesSheet = workbook.Sheets['Master Voyages'];
+      const voyagesData = XLSX.utils.sheet_to_json(voyagesSheet, { defval: null, raw: false });
+
+      return voyagesData.map((row: any, index) => ({
+        VesselName: this.getStringValue(row['Vessel Name']),
         VoyageNo: this.getStringValue(row['Voyage Number']),
-        ETD: this.parseDateValue(row['Vessel ETD']),
-        ETA: this.parseDateValue(row['Vessel ETA']),
-        ATA: this.parseDateValue(row['Vessel ATA']),
-        ATD: this.parseDateValue(row['Vessel ATD']),
+        ETD: this.parseDateValue(row['ETD']),
+        ETA: this.parseDateValue(row['ETA']),
+        ATA: this.parseDateValue(row['ATA']),
+        ATD: this.parseDateValue(row['ATD']),
+        DestinationATA: this.parseDateValue(row['Destination ATA']),
         CarrierName: this.getStringValue(row['Carrier Name']),
+      }));
+    } catch (error) {
+      errors.push({
+        field: 'Sheet',
+        message: `Error parsing Master Voyages sheet: ${error.message}`,
+        sheet: 'Master Voyages',
       });
+      return [];
     }
-
-    return voyages;
   }
 
   /**
-   * Parse connection data from row
+   * Parse Master Connections sheet
    */
-  private parseConnectionData(row: any): MasterJobConnectionBulkDto[] {
-    const connections: MasterJobConnectionBulkDto[] = [];
-
-    const connectionPOL = this.getStringValue(row['Connection POL']);
-    const connectionPOD = this.getStringValue(row['Connection POD']);
-
-    if (connectionPOL && connectionPOD) {
-      connections.push({
-        POL: connectionPOL,
-        POD: connectionPOD,
-        VesselName: this.getStringValue(row['Connection Vessel']),
-        VoyageNo: this.getStringValue(row['Connection Voyage']),
-        Mode: this.getStringValue(row['Connection Mode']),
-        ETD: this.parseDateValue(row['Connection ETD']),
-        ETA: this.parseDateValue(row['Connection ETA']),
-        Remarks: this.getStringValue(row['Connection Remarks']),
-      });
+  private parseMasterConnectionsSheet(workbook: XLSX.WorkBook, errors: BulkUploadValidationError[]): any[] {
+    if (!workbook.SheetNames.includes('Master Connections')) {
+      return [];
     }
 
-    return connections;
+    try {
+      const connectionsSheet = workbook.Sheets['Master Connections'];
+      const connectionsData = XLSX.utils.sheet_to_json(connectionsSheet, { defval: null, raw: false });
+
+      return connectionsData.map((row: any, index) => ({
+        Mode: this.getStringValue(row['Mode']),
+        POL: this.getStringValue(row['POL (Port Code)']),
+        POD: this.getStringValue(row['POD (Port Code)']),
+        VesselName: this.getStringValue(row['Vessel Name']),
+        VoyageNo: this.getStringValue(row['Voyage Number']),
+        ETD: this.parseDateValue(row['ETD']),
+        ETA: this.parseDateValue(row['ETA']),
+        ATD: this.parseDateValue(row['ATD']),
+        ATA: this.parseDateValue(row['ATA']),
+        Remarks: this.getStringValue(row['Remarks']),
+      }));
+    } catch (error) {
+      errors.push({
+        field: 'Sheet',
+        message: `Error parsing Master Connections sheet: ${error.message}`,
+        sheet: 'Master Connections',
+      });
+      return [];
+    }
   }
 
   /**
-   * Parse cargo data for house job
+   * Parse Master Others sheet
    */
-  private parseCargoData(row: any): HouseJobCargoBulkDto[] {
-    const cargo: HouseJobCargoBulkDto[] = [];
-
-    const cargoType = this.getStringValue(row['Cargo Type']);
-    const grossWeight = this.getDecimalValue(row['Cargo Gross Weight']);
-
-    if (cargoType && grossWeight !== undefined) {
-      cargo.push({
-        CargoType: cargoType,
-        GrossWeight: grossWeight,
-        NetWeight: this.getDecimalValue(row['Cargo Net Weight']),
-        Volume: this.getDecimalValue(row['Cargo Volume']),
-        ChargeableWeight: this.getDecimalValue(row['Cargo Chargeable Weight']),
-        NoOfPackage: this.getNumberValue(row['Cargo No of Packages']),
-        PackageType: this.getNumberValue(row['Cargo Package Type']),
-        FreightAmount: this.getStringValue(row['Freight Amount']),
-        ShipmentTerms: this.getStringValue(row['Cargo Shipment Terms']),
-        FreightTerms: this.getStringValue(row['Freight Terms']),
-        ModeOfTransport: this.getStringValue(row['Mode of Transport']),
-        MovementType: this.getStringValue(row['Cargo Movement Type']),
-        NoofContainers: this.getNumberValue(row['No of Containers']),
-        StuffingAt: this.getStringValue(row['Stuffing At']),
-        CommodityDescription: this.getStringValue(row['Cargo Commodity']),
-        MarksAndNumber: this.getStringValue(row['Cargo Marks']),
-      });
-    }
-
-    return cargo;
-  }
-
-  /**
-   * Parse product data for house job
-   */
-  private parseProductData(row: any): HouseJobProductBulkDto[] {
-    const products: HouseJobProductBulkDto[] = [];
-
-    const productName = this.getStringValue(row['Product Name']);
-    const shippingBillNo = this.getStringValue(row['Shipping Bill Number']);
-    const grossWeight = this.getDecimalValue(row['Product Gross Weight']);
-
-    if (productName && shippingBillNo && grossWeight !== undefined) {
-      products.push({
-        ProductName: productName,
-        ProductDescription: this.getStringValue(row['Product Description']),
-        ShippingBillNo: shippingBillNo,
-        ShippingBillDate: this.parseDateValue(row['Shipping Bill Date']),
-        GrossWeight: grossWeight,
-        NetWeight: this.getDecimalValue(row['Product Net Weight']),
-        Volume: this.getDecimalValue(row['Product Volume']),
-        IsHaz: this.getBooleanValue(row['Product Hazardous (Y/N)']),
-        UnNo: this.getStringValue(row['UN Number']),
-        ImcoClass: this.getStringValue(row['IMCO Class']),
-        PkgGroup: this.getStringValue(row['Package Group']),
-        MarksAndNumber: this.getStringValue(row['Product Marks']),
-        ContainerNo: this.getStringValue(row['Product Container Number']),
-      });
-    }
-
-    return products;
-  }
-
-  /**
-   * Parse house job connection data
-   */
-  private parseHouseConnectionData(row: any): HouseJobConnectionBulkDto[] {
-    const connections: HouseJobConnectionBulkDto[] = [];
-
-    const vesselName = this.getStringValue(row['House Vessel Name']);
-    const voyageNo = this.getStringValue(row['House Voyage Number']);
-    const pol = this.getStringValue(row['House Connection POL']) || this.getStringValue(row['POL']);
-    const pod = this.getStringValue(row['House Connection POD']) || this.getStringValue(row['POD']);
-
-    if (vesselName && voyageNo && pol && pod) {
-      connections.push({
-        POL: pol,
-        POD: pod,
-        VesselName: vesselName,
-        VoyageNo: voyageNo,
-        Mode: this.getStringValue(row['House Connection Mode']),
-        ETD: this.parseDateValue(row['House Connection ETD']),
-        ETA: this.parseDateValue(row['House Connection ETA']),
-        Remarks: this.getStringValue(row['House Connection Remarks']),
-      });
-    }
-
-    return connections;
-  }
-
-  /**
-   * Parse house job others data
-   */
-  private parseHouseOthersData(row: any): any {
-    const customerRefNo = this.getStringValue(row['Customer Reference Number']);
-
-    if (!customerRefNo) {
+  private parseMasterOthersSheet(workbook: XLSX.WorkBook, errors: BulkUploadValidationError[]): any {
+    if (!workbook.SheetNames.includes('Master Others')) {
       return null;
     }
 
-    return {
-      CustomerRefNo: customerRefNo,
-      NotifyParty: this.getStringValue(row['Notify Party']),
-      NotifyPartyAddress: this.getStringValue(row['Notify Address']),
-      CHAName: this.getStringValue(row['CHA Name']),
-      YardCFS: this.getStringValue(row['Yard/CFS']),
-      PickupPlace: this.getStringValue(row['Pickup Place']),
-      PickupDate: this.parseDateValue(row['Pickup Date']),
-      PickupAddress: this.getStringValue(row['Pickup Address']),
-      DeliveryPlace: this.getStringValue(row['Delivery Place']),
-      DeliveryDate: this.getStringValue(row['Delivery Date']),
-      DeliveryAddress: this.getStringValue(row['Delivery Address']),
-      CargoCurrency: this.getStringValue(row['Cargo Currency']),
-      CargoValue: this.getDecimalValue(row['Cargo Value']),
-      LocalTransport: this.getBooleanValue(row['Local Transport (Y/N)']),
-      OverseasTransport: this.getBooleanValue(row['Overseas Transport (Y/N)']),
-      TransporterName: this.getStringValue(row['Transporter Name']),
-    };
+    try {
+      const othersSheet = workbook.Sheets['Master Others'];
+      const othersData = XLSX.utils.sheet_to_json(othersSheet, { defval: null, raw: false });
+
+      if (othersData.length === 0) {
+        return null;
+      }
+
+      const row: any = othersData[0];
+      return {
+        Yard: this.getStringValue(row['Yard']),
+        YardAddress: this.getStringValue(row['Yard Address']),
+        Transporter: this.getStringValue(row['Transporter']),
+        HandlingInformation: this.getStringValue(row['Handling Information']),
+        InternalNote: this.getStringValue(row['Internal Note']),
+        CFS: this.getStringValue(row['CFS']),
+        CFSAddress: this.getStringValue(row['CFS Address']),
+        StuffingStartDate: this.parseDateValue(row['Stuffing Start Date']),
+        StuffingEndDate: this.parseDateValue(row['Stuffing End Date']),
+        CurrencyCode: this.getStringValue(row['Currency Code']),
+        SellExchangeRate: this.getDecimalValue(row['Sell Exchange Rate']),
+        AgentExchangeRate: this.getDecimalValue(row['Agent Exchange Rate']),
+        Coload: this.getBooleanValue(row['Coload (Y/N)']),
+        CoLoader: this.getStringValue(row['Co Loader']),
+        ExportDoNo: this.getStringValue(row['Export DO Number']),
+        ExportDoDate: this.parseDateValue(row['Export DO Date']),
+        SOBDate: this.parseDateValue(row['SOB Date']),
+      };
+    } catch (error) {
+      errors.push({
+        field: 'Sheet',
+        message: `Error parsing Master Others sheet: ${error.message}`,
+        sheet: 'Master Others',
+      });
+      return null;
+    }
+  }
+
+  /**
+   * Parse House Cargo sheet for specific shipment
+   */
+  private parseHouseCargoForShipment(workbook: XLSX.WorkBook, shipmentNo: string, errors: BulkUploadValidationError[]): any[] {
+    if (!workbook.SheetNames.includes('House Cargo') || !shipmentNo) {
+      return [];
+    }
+
+    try {
+      const cargoSheet = workbook.Sheets['House Cargo'];
+      const cargoData = XLSX.utils.sheet_to_json(cargoSheet, { defval: null, raw: false });
+
+      return cargoData
+        .filter((row: any) => this.getStringValue(row['Shipment Number']) === shipmentNo)
+        .map((row: any) => ({
+          CargoType: this.getStringValue(row['Cargo Type']),
+          GrossWeight: this.getDecimalValue(row['Gross Weight']),
+          NetWeight: this.getDecimalValue(row['Net Weight']),
+          Volume: this.getDecimalValue(row['Volume (CBM)']),
+          ChargeableWeight: this.getDecimalValue(row['Chargeable Weight']),
+          NoOfPackage: this.getNumberValue(row['No of Packages']),
+          PackageType: this.getNumberValue(row['Package Type']),
+          ContainerNumber: this.getStringValue(row['Container Number']),
+          ContainerType: this.getNumberValue(row['Container Type']),
+          CommodityDescription: this.getStringValue(row['Commodity Description']),
+          MarksAndNumber: this.getStringValue(row['Marks and Number']),
+          FreightAmount: this.getStringValue(row['Freight Amount']),
+        }));
+    } catch (error) {
+      errors.push({
+        field: 'Sheet',
+        message: `Error parsing House Cargo sheet: ${error.message}`,
+        sheet: 'House Cargo',
+      });
+      return [];
+    }
+  }
+
+  /**
+   * Parse House Products sheet for specific shipment
+   */
+  private parseHouseProductsForShipment(workbook: XLSX.WorkBook, shipmentNo: string, errors: BulkUploadValidationError[]): any[] {
+    if (!workbook.SheetNames.includes('House Products') || !shipmentNo) {
+      return [];
+    }
+
+    try {
+      const productsSheet = workbook.Sheets['House Products'];
+      const productsData = XLSX.utils.sheet_to_json(productsSheet, { defval: null, raw: false });
+
+      return productsData
+        .filter((row: any) => this.getStringValue(row['Shipment Number']) === shipmentNo)
+        .map((row: any) => ({
+          ProductName: this.getStringValue(row['Product Name']),
+          ProductDescription: this.getStringValue(row['Product Description']),
+          ShippingBillNo: this.getStringValue(row['Shipping Bill Number']),
+          ShippingBillDate: this.parseDateValue(row['Shipping Bill Date']),
+          GrossWeight: this.getDecimalValue(row['Gross Weight']),
+          NetWeight: this.getDecimalValue(row['Net Weight']),
+          Volume: this.getDecimalValue(row['Volume (CBM)']),
+          PkgType: this.getNumberValue(row['Package Type']),
+          NoOfPkg: this.getNumberValue(row['No of Packages']),
+          ChargeableWeight: this.getDecimalValue(row['Chargeable Weight']),
+          IsHaz: this.getBooleanValue(row['Hazardous (Y/N)']),
+          UnNo: this.getStringValue(row['UN Number']),
+          ImcoClass: this.getStringValue(row['IMCO Class']),
+          HsCode: this.getStringValue(row['HS Code']),
+        }));
+    } catch (error) {
+      errors.push({
+        field: 'Sheet',
+        message: `Error parsing House Products sheet: ${error.message}`,
+        sheet: 'House Products',
+      });
+      return [];
+    }
+  }
+
+  /**
+   * Parse House Connections sheet for specific shipment
+   */
+  private parseHouseConnectionsForShipment(workbook: XLSX.WorkBook, shipmentNo: string, errors: BulkUploadValidationError[]): any[] {
+    if (!workbook.SheetNames.includes('House Connections') || !shipmentNo) {
+      return [];
+    }
+
+    try {
+      const connectionsSheet = workbook.Sheets['House Connections'];
+      const connectionsData = XLSX.utils.sheet_to_json(connectionsSheet, { defval: null, raw: false });
+
+      return connectionsData
+        .filter((row: any) => this.getStringValue(row['Shipment Number']) === shipmentNo)
+        .map((row: any) => ({
+          Mode: this.getStringValue(row['Mode']),
+          POL: this.getStringValue(row['POL (Port Code)']),
+          POD: this.getStringValue(row['POD (Port Code)']),
+          VesselName: this.getStringValue(row['Vessel Name']),
+          VoyageNo: this.getStringValue(row['Voyage Number']),
+          ETD: this.parseDateValue(row['ETD']),
+          ETA: this.parseDateValue(row['ETA']),
+          ATD: this.parseDateValue(row['ATD']),
+          ATA: this.parseDateValue(row['ATA']),
+          Remarks: this.getStringValue(row['Remarks']),
+        }));
+    } catch (error) {
+      errors.push({
+        field: 'Sheet',
+        message: `Error parsing House Connections sheet: ${error.message}`,
+        sheet: 'House Connections',
+      });
+      return [];
+    }
   }
 
   /**
@@ -612,6 +677,250 @@ export class ExcelParserService {
 
     const houseJobWs = XLSX.utils.aoa_to_sheet([houseJobHeaders, houseJobSample]);
     XLSX.utils.book_append_sheet(workbook, houseJobWs, 'House Jobs');
+
+    // Create Containers sheet
+    const containersHeaders = [
+      'Container Number',
+      'Container Type',
+      'Line Seal',
+      'Customs Seal',
+      'HS Code',
+      'Commodity Description',
+      'Package Type',
+      'No of Packages',
+      'Gross Weight',
+      'Net Weight',
+      'Chargeable Weight',
+      'Volume (CBM)',
+      'Is SOC (Y/N)',
+    ];
+
+    const containersSample = [
+      'TCLU1234567',
+      '40',
+      'MSC001',
+      'CUST001',
+      '8471.30',
+      'Electronic Equipment',
+      '10',
+      '100',
+      '5000',
+      '4800',
+      '5000',
+      '25.5',
+      'N',
+    ];
+
+    const containersWs = XLSX.utils.aoa_to_sheet([containersHeaders, containersSample]);
+    XLSX.utils.book_append_sheet(workbook, containersWs, 'Containers');
+
+    // Create Master Voyages sheet
+    const masterVoyagesHeaders = [
+      'Vessel Name',
+      'Voyage Number',
+      'ETD',
+      'ETA',
+      'ATA',
+      'ATD',
+      'Destination ATA',
+      'Carrier Name',
+    ];
+
+    const masterVoyagesSample = [
+      'MSC EMMA',
+      'V123',
+      '2025-01-25',
+      '2025-02-15',
+      '2025-02-16',
+      '2025-01-26',
+      '2025-02-20',
+      'MSC',
+    ];
+
+    const masterVoyagesWs = XLSX.utils.aoa_to_sheet([masterVoyagesHeaders, masterVoyagesSample]);
+    XLSX.utils.book_append_sheet(workbook, masterVoyagesWs, 'Master Voyages');
+
+    // Create Master Connections sheet
+    const masterConnectionsHeaders = [
+      'Mode',
+      'POL (Port Code)',
+      'POD (Port Code)',
+      'Vessel Name',
+      'Voyage Number',
+      'ETD',
+      'ETA',
+      'ATD',
+      'ATA',
+      'Remarks',
+    ];
+
+    const masterConnectionsSample = [
+      'Sea',
+      'INCCU',
+      'AEJEA',
+      'MSC EMMA',
+      'V123',
+      '2025-01-25',
+      '2025-02-15',
+      '2025-01-26',
+      '2025-02-16',
+      'Direct connection',
+    ];
+
+    const masterConnectionsWs = XLSX.utils.aoa_to_sheet([masterConnectionsHeaders, masterConnectionsSample]);
+    XLSX.utils.book_append_sheet(workbook, masterConnectionsWs, 'Master Connections');
+
+    // Create Master Others sheet
+    const masterOthersHeaders = [
+      'Yard',
+      'Yard Address',
+      'Transporter',
+      'Handling Information',
+      'Internal Note',
+      'CFS',
+      'CFS Address',
+      'Stuffing Start Date',
+      'Stuffing End Date',
+      'Currency Code',
+      'Sell Exchange Rate',
+      'Agent Exchange Rate',
+      'Coload (Y/N)',
+      'Co Loader',
+      'Export DO Number',
+      'Export DO Date',
+      'SOB Date',
+    ];
+
+    const masterOthersSample = [
+      'Chennai Yard',
+      '123 Yard St, Chennai',
+      'ABC Transport',
+      'Handle with care',
+      'Priority shipment',
+      'Chennai CFS',
+      '456 CFS Ave, Chennai',
+      '2025-01-20',
+      '2025-01-22',
+      'USD',
+      '83.50',
+      '83.00',
+      'N',
+      '',
+      'DO123456',
+      '2025-01-18',
+      '2025-01-15',
+    ];
+
+    const masterOthersWs = XLSX.utils.aoa_to_sheet([masterOthersHeaders, masterOthersSample]);
+    XLSX.utils.book_append_sheet(workbook, masterOthersWs, 'Master Others');
+
+    // Create House Cargo sheet
+    const houseCargoHeaders = [
+      'Shipment Number',
+      'Cargo Type',
+      'Gross Weight',
+      'Net Weight',
+      'Volume (CBM)',
+      'Chargeable Weight',
+      'No of Packages',
+      'Package Type',
+      'Container Number',
+      'Container Type',
+      'Commodity Description',
+      'Marks and Number',
+      'Freight Amount',
+    ];
+
+    const houseCargoSample = [
+      'SHIP-001',
+      'General',
+      '2500',
+      '2400',
+      '12.5',
+      '2500',
+      '50',
+      '10',
+      'TCLU1234567',
+      '40',
+      'Electronic Goods',
+      'Sample Marks',
+      '5000',
+    ];
+
+    const houseCargoWs = XLSX.utils.aoa_to_sheet([houseCargoHeaders, houseCargoSample]);
+    XLSX.utils.book_append_sheet(workbook, houseCargoWs, 'House Cargo');
+
+    // Create House Products sheet
+    const houseProductsHeaders = [
+      'Shipment Number',
+      'Product Name',
+      'Product Description',
+      'Shipping Bill Number',
+      'Shipping Bill Date',
+      'Gross Weight',
+      'Net Weight',
+      'Volume (CBM)',
+      'Package Type',
+      'No of Packages',
+      'Chargeable Weight',
+      'Hazardous (Y/N)',
+      'UN Number',
+      'IMCO Class',
+      'HS Code',
+    ];
+
+    const houseProductsSample = [
+      'SHIP-001',
+      'Laptops',
+      'Dell Laptops',
+      'SB123456',
+      '2025-01-15',
+      '1000',
+      '950',
+      '5.0',
+      '10',
+      '20',
+      '1000',
+      'N',
+      '',
+      '',
+      '8471.30',
+    ];
+
+    const houseProductsWs = XLSX.utils.aoa_to_sheet([houseProductsHeaders, houseProductsSample]);
+    XLSX.utils.book_append_sheet(workbook, houseProductsWs, 'House Products');
+
+    // Create House Connections sheet
+    const houseConnectionsHeaders = [
+      'Shipment Number',
+      'Mode',
+      'POL (Port Code)',
+      'POD (Port Code)',
+      'Vessel Name',
+      'Voyage Number',
+      'ETD',
+      'ETA',
+      'ATD',
+      'ATA',
+      'Remarks',
+    ];
+
+    const houseConnectionsSample = [
+      'SHIP-001',
+      'Sea',
+      'INCCU',
+      'AEJEA',
+      'MSC EMMA',
+      'V123',
+      '2025-01-25',
+      '2025-02-15',
+      '2025-01-26',
+      '2025-02-16',
+      'Direct route',
+    ];
+
+    const houseConnectionsWs = XLSX.utils.aoa_to_sheet([houseConnectionsHeaders, houseConnectionsSample]);
+    XLSX.utils.book_append_sheet(workbook, houseConnectionsWs, 'House Connections');
 
     // Generate buffer
     const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });

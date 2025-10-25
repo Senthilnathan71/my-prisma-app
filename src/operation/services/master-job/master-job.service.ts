@@ -1926,7 +1926,11 @@ export class MasterJobService {
         houseJobsData: any[],
         companyMasterSid: number,
         branchMasterSid: number,
-        createdBy: string
+        createdBy: string,
+        containers?: any[],
+        voyages?: any[],
+        connections?: any[],
+        others?: any
     ) {
         try {
             // Perform lookups before transaction
@@ -2057,8 +2061,8 @@ export class MasterJobService {
                 });
 
                 // Create Master Job Voyages
-                if (masterJobData.voyages && masterJobData.voyages.length > 0) {
-                    for (const voyage of masterJobData.voyages) {
+                if (voyages && voyages.length > 0) {
+                    for (const voyage of voyages) {
                         await prisma.masterJobVoyage.create({
                             data: {
                                 MasterJobSid: createdMasterJob.MasterJobSid,
@@ -2079,8 +2083,8 @@ export class MasterJobService {
                 }
 
                 // Create Master Job Containers
-                if (masterJobData.containers && masterJobData.containers.length > 0) {
-                    for (const container of masterJobData.containers) {
+                if (containers && containers.length > 0) {
+                    for (const container of containers) {
                         await prisma.masterJobContainer.create({
                             data: {
                                 MasterJobSid: createdMasterJob.MasterJobSid,
@@ -2105,8 +2109,8 @@ export class MasterJobService {
                 }
 
                 // Create Master Job Connections
-                if (masterJobData.connections && masterJobData.connections.length > 0) {
-                    for (const connection of masterJobData.connections) {
+                if (connections && connections.length > 0) {
+                    for (const connection of connections) {
                         await prisma.masterJobConnection.create({
                             data: {
                                 MasterJobSid: createdMasterJob.MasterJobSid,
@@ -2129,29 +2133,39 @@ export class MasterJobService {
                 }
 
                 // Create Master Job Others
-                if (masterJobData.others) {
+                if (others) {
                     await prisma.masterJobOthers.create({
                         data: {
                             MasterJobSid: createdMasterJob.MasterJobSid,
                             CreatedBy: createdBy,
                             Status: 'A',
-                            Yard: masterJobData.others.Yard,
-                            YardAddress: masterJobData.others.YardAddress,
-                            Transporter: masterJobData.others.Transporter,
-                            HandlingInformation: masterJobData.others.HandlingInformation,
-                            InternalNote: masterJobData.others.InternalNote,
-                            CFS: masterJobData.others.CFS,
-                            CFSAddress: masterJobData.others.CFSAddress,
-                            StuffingStartDate: parseDate(masterJobData.others.StuffingStartDate),
-                            StuffingEndDate: parseDate(masterJobData.others.StuffingEndDate),
-                            CurrencyCode: masterJobData.others.CurrencyCode,
-                            SellExchangeRate: masterJobData.others.SellExchangeRate,
-                            AgentExchangeRate: masterJobData.others.AgentExchangeRate,
-                            Coload: masterJobData.others.Coload,
-                            CoLoader: masterJobData.others.CoLoader,
-                            ExportDoNo: masterJobData.others.ExportDoNo
+                            Yard: others.Yard,
+                            YardAddress: others.YardAddress,
+                            Transporter: others.Transporter,
+                            HandlingInformation: others.HandlingInformation,
+                            InternalNote: others.InternalNote,
+                            CFS: others.CFS,
+                            CFSAddress: others.CFSAddress,
+                            StuffingStartDate: parseDate(others.StuffingStartDate),
+                            StuffingEndDate: parseDate(others.StuffingEndDate),
+                            CurrencyCode: others.CurrencyCode,
+                            SellExchangeRate: others.SellExchangeRate,
+                            AgentExchangeRate: others.AgentExchangeRate,
+                            Coload: others.Coload,
+                            CoLoader: others.CoLoader,
+                            ExportDoNo: others.ExportDoNo
                         }
                     });
+                }
+
+                // Lookup HouseJob Menu
+                const houseJobMenu = await prisma.menuConfig.findFirst({
+                    where: {
+                        ModelName: 'HouseJob'
+                    }
+                });
+                if (!houseJobMenu) {
+                    throw new Error('HouseJob Menu not found in menu configuration');
                 }
 
                 // Create House Jobs
@@ -2171,7 +2185,7 @@ export class MasterJobService {
                         MasterJobSid: createdMasterJob.MasterJobSid,
                         CompanyMasterSid: companyMasterSid,
                         BranchMasterSid: branchMasterSid,
-                        DepartmentMasterSid: houseJobData.DepartmentMasterSid || masterJobData.DepartmentMasterSid,
+                        DepartmentMasterSid: masterJobData.DepartmentMasterSid,
                         ShipmentNo: houseJobData.ShipmentNo,
                         BookingNo: bookingNo,
                         HBLNo: houseJobData.HBLNo || bookingNo,
@@ -2200,7 +2214,7 @@ export class MasterJobService {
                         createdBy: createdBy,
                         status: 'A',
                         createdOn: new Date(),
-                        MenuMasterSid: masterJobData.MenuMasterSid,
+                        MenuMasterSid: houseJobMenu.MenuMasterSid,
                         CustomerBranchSid: houseJobData.CustomerBranchSid
                     };
 
@@ -2357,7 +2371,15 @@ export class MasterJobService {
     /**
      * Validate bulk upload data
      */
-    async validateBulkUploadData(masterJobData: any, houseJobsData: any[], companyMasterSid?: number) {
+    async validateBulkUploadData(
+        masterJobData: any,
+        houseJobsData: any[],
+        companyMasterSid?: number,
+        containers?: any[],
+        voyages?: any[],
+        connections?: any[],
+        others?: any
+    ) {
         const errors: any[] = [];
 
         // Validate Master Job required fields

@@ -417,14 +417,22 @@ export class MasterJobController {
         try {
             this.logger.log(`Processing bulk upload: ${JSON.stringify(payload)}`);
 
-            const { masterJob, houseJobs, companyMasterSid, branchMasterSid, createdBy } = payload;
+            const { masterJob, houseJobs, containers, voyages, connections, others, companyMasterSid, branchMasterSid, createdBy } = payload;
 
             if (!masterJob || !houseJobs || houseJobs.length === 0) {
                 throw new BadRequestException('Invalid payload: Master Job and House Jobs data required');
             }
 
             // Validate the data
-            const validationErrors = await this.masterJobService.validateBulkUploadData(masterJob, houseJobs, companyMasterSid);
+            const validationErrors = await this.masterJobService.validateBulkUploadData(
+                masterJob,
+                houseJobs,
+                companyMasterSid,
+                containers,
+                voyages,
+                connections,
+                others
+            );
 
             if (validationErrors && validationErrors.length > 0) {
                 resp.status = false;
@@ -439,7 +447,11 @@ export class MasterJobController {
                 houseJobs,
                 companyMasterSid,
                 branchMasterSid,
-                createdBy
+                createdBy,
+                containers,
+                voyages,
+                connections,
+                others
             );
 
             this.logger.debug(`Bulk upload processed successfully: ${JSON.stringify(result)}`);
