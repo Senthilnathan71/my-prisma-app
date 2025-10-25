@@ -105,13 +105,13 @@ export class ExcelParserService {
   private parseMasterJobRow(row: any, errors: BulkUploadValidationError[]): any {
     try {
       const masterJob: any = {
-        MasterJobNumber: this.getStringValue(row['Master Job Number']),
         MasterJobDate: this.parseDateValue(row['Master Job Date']),
+        Department: this.getStringValue(row['Department']),
         FreightPPCC: this.getStringValue(row['Freight PP/CC']),
-        POO: this.getStringValue(row['POO (Port of Origin)']),
-        POL: this.getStringValue(row['POL (Port of Loading)']),
-        POD: this.getStringValue(row['POD (Port of Discharge)']),
-        FPD: this.getStringValue(row['FPD (Final Place of Delivery)']),
+        POO: this.getStringValue(row['POO (Port Code)']),
+        POL: this.getStringValue(row['POL (Port Code)']),
+        POD: this.getStringValue(row['POD (Port Code)']),
+        FPD: this.getStringValue(row['FPD (Port Code)']),
         POLTerminal: this.getStringValue(row['POL Terminal']),
         PODTerminal: this.getStringValue(row['POD Terminal']),
         MovementType: this.getStringValue(row['Movement Type']),
@@ -164,8 +164,6 @@ export class ExcelParserService {
   ): any {
     try {
       const houseJob: any = {
-        BookingNo: this.getStringValue(row['Booking Number']),
-        HBLNo: this.getStringValue(row['HBL Number']),
         ShipmentNo: this.getStringValue(row['Shipment Number']),
         CustomerName: this.getStringValue(row['Customer Name']),
         CustomerAddress: this.getStringValue(row['Customer Address']),
@@ -174,10 +172,10 @@ export class ExcelParserService {
         ShipperAddress: this.getStringValue(row['Shipper Address']),
         ConsigneeName: this.getStringValue(row['Consignee Name']),
         ConsigneeAddress: this.getStringValue(row['Consignee Address']),
-        POL: this.getStringValue(row['POL']),
-        POD: this.getStringValue(row['POD']),
-        FPD: this.getStringValue(row['FPD']),
-        POO: this.getStringValue(row['POO']),
+        POL: this.getStringValue(row['POL (Port Code)']),
+        POD: this.getStringValue(row['POD (Port Code)']),
+        FPD: this.getStringValue(row['FPD (Port Code)']),
+        POO: this.getStringValue(row['POO (Port Code)']),
         ETD: this.parseDateValue(row['ETD']),
         ETA: this.parseDateValue(row['ETA']),
         MovementType: this.getStringValue(row['Movement Type']),
@@ -465,13 +463,13 @@ export class ExcelParserService {
 
     // Create Master Job sheet
     const masterJobHeaders = [
-      'Master Job Number',
       'Master Job Date',
+      'Department',
       'Freight PP/CC',
-      'POO (Port of Origin)',
-      'POL (Port of Loading)',
-      'POD (Port of Discharge)',
-      'FPD (Final Place of Delivery)',
+      'POO (Port Code)',
+      'POL (Port Code)',
+      'POD (Port Code)',
+      'FPD (Port Code)',
       'POL Terminal',
       'POD Terminal',
       'Movement Type',
@@ -499,13 +497,13 @@ export class ExcelParserService {
     ];
 
     const masterJobSample = [
-      'MJ-2025-001',
       '2025-01-15',
+      'LCL EXPORT',
       'Prepaid',
-      'Chennai',
-      'INMAA1',
-      'USNYC1',
-      'New York',
+      'INCCU',
+      'INCCU',
+      'AEJEA',
+      'AEJEA',
       'Terminal 1',
       'Terminal 2',
       'FCL',
@@ -537,8 +535,6 @@ export class ExcelParserService {
 
     // Create House Jobs sheet
     const houseJobHeaders = [
-      'Booking Number',
-      'HBL Number',
       'Shipment Number',
       'Customer Name',
       'Customer Address',
@@ -547,10 +543,10 @@ export class ExcelParserService {
       'Shipper Address',
       'Consignee Name',
       'Consignee Address',
-      'POL',
-      'POD',
-      'FPD',
-      'POO',
+      'POL (Port Code)',
+      'POD (Port Code)',
+      'FPD (Port Code)',
+      'POO (Port Code)',
       'ETD',
       'ETA',
       'Movement Type',
@@ -577,8 +573,6 @@ export class ExcelParserService {
     ];
 
     const houseJobSample = [
-      'BK-2025-001',
-      'HBL-123456',
       'SHIP-001',
       'ABC Company',
       '456 Customer St',
@@ -587,10 +581,10 @@ export class ExcelParserService {
       '789 Shipper Ave',
       'Consignee Ltd',
       '321 Consignee Rd',
-      'INMAA1',
-      'USNYC1',
-      'New York',
-      'Chennai',
+      'INCCU',
+      'AEJEA',
+      'AEJEA',
+      'INCCU',
       '2025-01-25',
       '2025-02-15',
       'FCL',

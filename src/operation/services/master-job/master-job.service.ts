@@ -676,7 +676,7 @@ export class MasterJobService {
                 const allCostRevenueCharges = await prisma.costRevenueCharges.findMany({
                     where: {
                         TransactionSid: MasterJobSid,
-                        MenuMasterSid: masterJobDetails?.MenuMasterSid!,
+                        ...(masterJobDetails?.MenuMasterSid && { MenuMasterSid: masterJobDetails.MenuMasterSid }),
                         CompanyMasterSid: masterJobDetails?.CompanyMasterSid,
                         BranchMasterSid: masterJobDetails?.BranchMasterSid,
                         MasterJobNo: masterJobDetails?.MasterJobNumber,
@@ -1402,7 +1402,7 @@ export class MasterJobService {
                 const deletedCostRevenueCharges = await prisma.costRevenueCharges.updateMany({
                     where: {
                         TransactionSid: MasterJobSid,
-                        MenuMasterSid: deletedMasterJob.MenuMasterSid!,
+                        ...(deletedMasterJob.MenuMasterSid && { MenuMasterSid: deletedMasterJob.MenuMasterSid }),
                         CompanyMasterSid: deletedMasterJob.CompanyMasterSid,
                         BranchMasterSid: deletedMasterJob.BranchMasterSid,
                         MasterJobNo: deletedMasterJob.MasterJobNumber,
@@ -1929,7 +1929,67 @@ export class MasterJobService {
         createdBy: string
     ) {
         try {
+            // Perform lookups before transaction
+            // 1. Lookup Department by name
+            if (masterJobData.Department) {
+                const department = await this.lookupDepartmentByName(masterJobData.Department, companyMasterSid);
+                if (department) {
+                    masterJobData.DepartmentMasterSid = department.DepartmentMasterSid;
+                }
+            }
+
+            // 2. Lookup Destination Agent by name
+            if (masterJobData.DestinationAgentName) {
+                const destinationAgent = await this.lookupCustomerByName(masterJobData.DestinationAgentName, companyMasterSid);
+                if (destinationAgent) {
+                    masterJobData.DestinationAgent = destinationAgent.CustomerMasterSid;
+                }
+            }
+
+            // 3. Lookup customers/shippers/agents for each house job
+            for (const houseJob of houseJobsData) {
+                // Lookup Customer
+                if (houseJob.CustomerName) {
+                    const customer = await this.lookupCustomerByName(houseJob.CustomerName, companyMasterSid);
+                    if (customer) {
+                        houseJob.CustomerMasterSid = customer.CustomerMasterSid;
+                    }
+                }
+
+                // Lookup Shipper (in customer table)
+                if (houseJob.ShipperName) {
+                    const shipper = await this.lookupCustomerByName(houseJob.ShipperName, companyMasterSid);
+                    if (shipper) {
+                        houseJob.ShipperSid = shipper.CustomerMasterSid;
+                    }
+                }
+
+                // Lookup Consignee (in customer table)
+                if (houseJob.ConsigneeName) {
+                    const consignee = await this.lookupCustomerByName(houseJob.ConsigneeName, companyMasterSid);
+                    if (consignee) {
+                        houseJob.ConsigneeSid = consignee.CustomerMasterSid;
+                    }
+                }
+
+                // Lookup Agent
+                if (houseJob.AgentName) {
+                    const agent = await this.lookupCustomerByName(houseJob.AgentName, companyMasterSid);
+                    if (agent) {
+                        houseJob.DestinationAgent = agent.CustomerMasterSid;
+                    }
+                }
+            }
+
             const result = await this._db.$transaction(async (prisma) => {
+                // Helper function to parse date strings to Date objects
+                const parseDate = (value: any): Date | undefined => {
+                    if (!value) return undefined;
+                    if (value instanceof Date) return value;
+                    const date = new Date(value);
+                    return isNaN(date.getTime()) ? undefined : date;
+                };
+
                 // Generate Master Job Number
                 const dateString = moment().format('YYYYMMDD');
                 const count = await prisma.masterJob.count({
@@ -1937,10 +1997,23 @@ export class MasterJobService {
                 });
                 const masterJobNumber = `MASTER-${dateString}-${(count + 1).toString().padStart(3, '0')}`;
 
+                // Helper function to parse numeric values
+                const parseNumeric = (value: any): number | undefined => {
+                    if (value === null || value === undefined || value === '') return undefined;
+                    const num = Number(value);
+                    return isNaN(num) ? undefined : num;
+                };
+
+                const parseInteger = (value: any): number | undefined => {
+                    if (value === null || value === undefined || value === '') return undefined;
+                    const num = parseInt(value, 10);
+                    return isNaN(num) ? undefined : num;
+                };
+
                 // Create Master Job
                 const masterJobPayload = {
                     MasterJobNumber: masterJobNumber,
-                    MasterJobDate: masterJobData.MasterJobDate || new Date(),
+                    MasterJobDate: parseDate(masterJobData.MasterJobDate) || new Date(),
                     CreatedBy: createdBy,
                     Status: 'A',
                     CompanyMasterSid: companyMasterSid,
@@ -1951,7 +2024,7 @@ export class MasterJobService {
                     DestinationAgentName: masterJobData.DestinationAgentName,
                     DestinationAgentAddress: masterJobData.DestinationAgentAddress?.substring(0, 300) || '',
                     MBLNo: masterJobData.MBLNo || masterJobNumber,
-                    MBLDate: masterJobData.MBLDate || new Date(),
+                    MBLDate: parseDate(masterJobData.MBLDate) || new Date(),
                     BLReleaseType: masterJobData.BLReleaseType,
                     NoofOriginal: masterJobData.NoofOriginal || 3,
                     OriginAgent: masterJobData.OriginAgent,
@@ -1963,16 +2036,16 @@ export class MasterJobService {
                     PODTerminal: masterJobData.PODTerminal?.substring(0, 100) || '',
                     MovementType: masterJobData.MovementType,
                     ShipmentTerms: masterJobData.ShipmentTerms,
-                    PkgType: masterJobData.PkgType,
-                    NoOfPkg: masterJobData.NoOfPkg,
+                    PkgType: parseInteger(masterJobData.PkgType),
+                    NoOfPkg: parseInteger(masterJobData.NoOfPkg),
                     WeightIn: masterJobData.WeightIn,
-                    GrossWeight: masterJobData.GrossWeight,
-                    NetWeight: masterJobData.NetWeight,
-                    ChargeableWeight: masterJobData.ChargeableWeight,
-                    Volume: masterJobData.Volume,
+                    GrossWeight: parseNumeric(masterJobData.GrossWeight),
+                    NetWeight: parseNumeric(masterJobData.NetWeight),
+                    ChargeableWeight: parseNumeric(masterJobData.ChargeableWeight),
+                    Volume: parseNumeric(masterJobData.Volume),
                     Haz: masterJobData.Haz,
-                    DGBookingDate: masterJobData.DGBookingDate,
-                    DGApprovedDate: masterJobData.DGApprovedDate,
+                    DGBookingDate: parseDate(masterJobData.DGBookingDate),
+                    DGApprovedDate: parseDate(masterJobData.DGApprovedDate),
                     CommodityDescription: masterJobData.CommodityDescription?.substring(0, 3000) || '',
                     MarksandNumber: masterJobData.MarksandNumber?.substring(0, 500) || '',
                     MenuMasterSid: masterJobData.MenuMasterSid,
@@ -1992,11 +2065,11 @@ export class MasterJobService {
                                 VoyageMasterSid: voyage.VoyageMasterSid,
                                 VesselName: voyage.VesselName,
                                 VoyageNo: voyage.VoyageNo,
-                                ETD: voyage.ETD,
-                                ETA: voyage.ETA,
-                                ATA: voyage.ATA,
-                                ATD: voyage.ATD,
-                                DestinationATA: voyage.DestinationATA,
+                                ETD: parseDate(voyage.ETD),
+                                ETA: parseDate(voyage.ETA),
+                                ATA: parseDate(voyage.ATA),
+                                ATD: parseDate(voyage.ATD),
+                                DestinationATA: parseDate(voyage.DestinationATA),
                                 CarrierSid: voyage.CarrierSid,
                                 CarrierName: voyage.CarrierName,
                                 Status: 'A'
@@ -2042,10 +2115,10 @@ export class MasterJobService {
                                 POD: connection.POD,
                                 VesselName: connection.VesselName,
                                 VoyageNo: connection.VoyageNo,
-                                ETD: connection.ETD,
-                                ETA: connection.ETA,
-                                ATD: connection.ATD,
-                                ATA: connection.ATA,
+                                ETD: parseDate(connection.ETD),
+                                ETA: parseDate(connection.ETA),
+                                ATD: parseDate(connection.ATD),
+                                ATA: parseDate(connection.ATA),
                                 Remarks: connection.Remarks,
                                 Status: 'A',
                                 CreatedBy: createdBy,
@@ -2069,8 +2142,8 @@ export class MasterJobService {
                             InternalNote: masterJobData.others.InternalNote,
                             CFS: masterJobData.others.CFS,
                             CFSAddress: masterJobData.others.CFSAddress,
-                            StuffingStartDate: masterJobData.others.StuffingStartDate,
-                            StuffingEndDate: masterJobData.others.StuffingEndDate,
+                            StuffingStartDate: parseDate(masterJobData.others.StuffingStartDate),
+                            StuffingEndDate: parseDate(masterJobData.others.StuffingEndDate),
                             CurrencyCode: masterJobData.others.CurrencyCode,
                             SellExchangeRate: masterJobData.others.SellExchangeRate,
                             AgentExchangeRate: masterJobData.others.AgentExchangeRate,
@@ -2119,8 +2192,8 @@ export class MasterJobService {
                         POD: houseJobData.POD,
                         FPD: houseJobData.FPD,
                         POO: houseJobData.POO,
-                        ETD: houseJobData.ETD,
-                        ETA: houseJobData.ETA,
+                        ETD: parseDate(houseJobData.ETD),
+                        ETA: parseDate(houseJobData.ETA),
                         MovementType: houseJobData.MovementType,
                         Notify: houseJobData.Notify,
                         NotifyAddress: houseJobData.NotifyAddress,
@@ -2284,44 +2357,105 @@ export class MasterJobService {
     /**
      * Validate bulk upload data
      */
-    async validateBulkUploadData(masterJobData: any, houseJobsData: any[]) {
+    async validateBulkUploadData(masterJobData: any, houseJobsData: any[], companyMasterSid?: number) {
         const errors: any[] = [];
 
         // Validate Master Job required fields
-        if (!masterJobData.POL) {
+        // 1. Validate Department
+        if (!masterJobData.Department) {
             errors.push({
-                field: 'POL',
-                message: 'Port of Loading is required',
-                sheet: 'Master Job',
-                row: 2
-            });
-        }
-
-        if (!masterJobData.POD) {
-            errors.push({
-                field: 'POD',
-                message: 'Port of Discharge is required',
-                sheet: 'Master Job',
-                row: 2
-            });
-        }
-
-        if (!masterJobData.FPD) {
-            errors.push({
-                field: 'FPD',
-                message: 'Final Place of Delivery is required',
-                sheet: 'Master Job',
-                row: 2
-            });
-        }
-
-        if (!masterJobData.DepartmentMasterSid) {
-            errors.push({
-                field: 'DepartmentMasterSid',
+                field: 'Department',
                 message: 'Department is required',
                 sheet: 'Master Job',
                 row: 2
             });
+        } else if (companyMasterSid) {
+            const department = await this.lookupDepartmentByName(masterJobData.Department, companyMasterSid);
+            if (!department) {
+                errors.push({
+                    field: 'Department',
+                    message: `Department '${masterJobData.Department}' not found in master data`,
+                    sheet: 'Master Job',
+                    row: 2
+                });
+            }
+        }
+
+        // 2. Validate Port Codes
+        if (!masterJobData.POL) {
+            errors.push({
+                field: 'POL (Port Code)',
+                message: 'Port of Loading is required',
+                sheet: 'Master Job',
+                row: 2
+            });
+        } else {
+            const port = await this.lookupPortByCode(masterJobData.POL);
+            if (!port) {
+                errors.push({
+                    field: 'POL (Port Code)',
+                    message: `Port code '${masterJobData.POL}' not found in master data`,
+                    sheet: 'Master Job',
+                    row: 2
+                });
+            }
+        }
+
+        if (!masterJobData.POD) {
+            errors.push({
+                field: 'POD (Port Code)',
+                message: 'Port of Discharge is required',
+                sheet: 'Master Job',
+                row: 2
+            });
+        } else {
+            const port = await this.lookupPortByCode(masterJobData.POD);
+            if (!port) {
+                errors.push({
+                    field: 'POD (Port Code)',
+                    message: `Port code '${masterJobData.POD}' not found in master data`,
+                    sheet: 'Master Job',
+                    row: 2
+                });
+            }
+        }
+
+        // Validate POO and FPD if provided
+        if (masterJobData.POO) {
+            const port = await this.lookupPortByCode(masterJobData.POO);
+            if (!port) {
+                errors.push({
+                    field: 'POO (Port Code)',
+                    message: `Port code '${masterJobData.POO}' not found in master data`,
+                    sheet: 'Master Job',
+                    row: 2
+                });
+            }
+        }
+
+        if (masterJobData.FPD) {
+            const port = await this.lookupPortByCode(masterJobData.FPD);
+            if (!port) {
+                errors.push({
+                    field: 'FPD (Port Code)',
+                    message: `Port code '${masterJobData.FPD}' not found in master data`,
+                    sheet: 'Master Job',
+                    row: 2
+                });
+            }
+        }
+
+        // 3. Validate Destination Agent if provided
+        if (masterJobData.DestinationAgentName && companyMasterSid) {
+            const agent = await this.lookupCustomerByName(masterJobData.DestinationAgentName, companyMasterSid);
+            if (!agent) {
+                errors.push({
+                    field: 'Destination Agent Name',
+                    message: `Destination agent '${masterJobData.DestinationAgentName}' not found in customer master`,
+                    sheet: 'Master Job',
+                    row: 2
+                });
+            }
         }
 
         // Validate House Jobs
@@ -2336,45 +2470,197 @@ export class MasterJobService {
                 const houseJob = houseJobsData[i];
                 const rowNum = i + 2;
 
-                if (!houseJob.BookingNo) {
+                // Validate Customer Name
+                if (!houseJob.CustomerName) {
                     errors.push({
-                        field: 'BookingNo',
-                        message: 'Booking Number is required',
+                        field: 'Customer Name',
+                        message: 'Customer Name is required',
                         sheet: 'House Jobs',
                         row: rowNum
                     });
+                } else if (companyMasterSid) {
+                    const customer = await this.lookupCustomerByName(houseJob.CustomerName, companyMasterSid);
+                    if (!customer) {
+                        errors.push({
+                            field: 'Customer Name',
+                            message: `Customer '${houseJob.CustomerName}' not found in customer master`,
+                            sheet: 'House Jobs',
+                            row: rowNum
+                        });
+                    }
                 }
 
-                if (!houseJob.CustomerMasterSid) {
-                    errors.push({
-                        field: 'CustomerMasterSid',
-                        message: 'Customer is required',
-                        sheet: 'House Jobs',
-                        row: rowNum
-                    });
+                // Validate Shipper Name if provided
+                if (houseJob.ShipperName && companyMasterSid) {
+                    const shipper = await this.lookupCustomerByName(houseJob.ShipperName, companyMasterSid);
+                    if (!shipper) {
+                        errors.push({
+                            field: 'Shipper Name',
+                            message: `Shipper '${houseJob.ShipperName}' not found in customer master`,
+                            sheet: 'House Jobs',
+                            row: rowNum
+                        });
+                    }
                 }
 
+                // Validate Consignee Name if provided
+                if (houseJob.ConsigneeName && companyMasterSid) {
+                    const consignee = await this.lookupCustomerByName(houseJob.ConsigneeName, companyMasterSid);
+                    if (!consignee) {
+                        errors.push({
+                            field: 'Consignee Name',
+                            message: `Consignee '${houseJob.ConsigneeName}' not found in customer master`,
+                            sheet: 'House Jobs',
+                            row: rowNum
+                        });
+                    }
+                }
+
+                // Validate Agent Name if provided
+                if (houseJob.AgentName && companyMasterSid) {
+                    const agent = await this.lookupCustomerByName(houseJob.AgentName, companyMasterSid);
+                    if (!agent) {
+                        errors.push({
+                            field: 'Agent Name',
+                            message: `Agent '${houseJob.AgentName}' not found in customer master`,
+                            sheet: 'House Jobs',
+                            row: rowNum
+                        });
+                    }
+                }
+
+                // Validate Port Codes
                 if (!houseJob.POL) {
                     errors.push({
-                        field: 'POL',
+                        field: 'POL (Port Code)',
                         message: 'Port of Loading is required',
                         sheet: 'House Jobs',
                         row: rowNum
                     });
+                } else {
+                    const port = await this.lookupPortByCode(houseJob.POL);
+                    if (!port) {
+                        errors.push({
+                            field: 'POL (Port Code)',
+                            message: `Port code '${houseJob.POL}' not found in master data`,
+                            sheet: 'House Jobs',
+                            row: rowNum
+                        });
+                    }
                 }
 
                 if (!houseJob.POD) {
                     errors.push({
-                        field: 'POD',
+                        field: 'POD (Port Code)',
                         message: 'Port of Discharge is required',
                         sheet: 'House Jobs',
                         row: rowNum
                     });
+                } else {
+                    const port = await this.lookupPortByCode(houseJob.POD);
+                    if (!port) {
+                        errors.push({
+                            field: 'POD (Port Code)',
+                            message: `Port code '${houseJob.POD}' not found in master data`,
+                            sheet: 'House Jobs',
+                            row: rowNum
+                        });
+                    }
+                }
+
+                // Validate POO and FPD if provided
+                if (houseJob.POO) {
+                    const port = await this.lookupPortByCode(houseJob.POO);
+                    if (!port) {
+                        errors.push({
+                            field: 'POO (Port Code)',
+                            message: `Port code '${houseJob.POO}' not found in master data`,
+                            sheet: 'House Jobs',
+                            row: rowNum
+                        });
+                    }
+                }
+
+                if (houseJob.FPD) {
+                    const port = await this.lookupPortByCode(houseJob.FPD);
+                    if (!port) {
+                        errors.push({
+                            field: 'FPD (Port Code)',
+                            message: `Port code '${houseJob.FPD}' not found in master data`,
+                            sheet: 'House Jobs',
+                            row: rowNum
+                        });
+                    }
                 }
             }
         }
 
         return errors;
+    }
+
+    /**
+     * Lookup Department by name (case-insensitive)
+     */
+    async lookupDepartmentByName(departmentName: string, companyMasterSid: number): Promise<any> {
+        if (!departmentName) {
+            return null;
+        }
+
+        const department = await this._db.departmentMaster.findFirst({
+            where: {
+                departmentName: {
+                    equals: departmentName.trim(),
+                    mode: 'insensitive'
+                },
+                CompanyMasterSid: companyMasterSid,
+                Status: 'A'
+            }
+        });
+
+        return department;
+    }
+
+    /**
+     * Lookup Port by port code
+     */
+    async lookupPortByCode(portCode: string): Promise<any> {
+        if (!portCode) {
+            return null;
+        }
+
+        const port = await this._db.portMaster.findFirst({
+            where: {
+                PortCode: {
+                    equals: portCode.trim(),
+                    mode: 'insensitive'
+                },
+                status: 'A'
+            }
+        });
+
+        return port;
+    }
+
+    /**
+     * Lookup Customer by name (case-insensitive)
+     */
+    async lookupCustomerByName(customerName: string, companyMasterSid: number): Promise<any> {
+        if (!customerName) {
+            return null;
+        }
+
+        const customer = await this._db.customerMaster.findFirst({
+            where: {
+                CustomerName: {
+                    equals: customerName.trim(),
+                    mode: 'insensitive'
+                },
+                CompanyMasterSid: companyMasterSid,
+                status: 'A'
+            }
+        });
+
+        return customer;
     }
 
 }

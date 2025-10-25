@@ -424,7 +424,7 @@ export class MasterJobController {
             }
 
             // Validate the data
-            const validationErrors = await this.masterJobService.validateBulkUploadData(masterJob, houseJobs);
+            const validationErrors = await this.masterJobService.validateBulkUploadData(masterJob, houseJobs, companyMasterSid);
 
             if (validationErrors && validationErrors.length > 0) {
                 resp.status = false;
