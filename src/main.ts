@@ -6,17 +6,18 @@ import { json, urlencoded } from 'express';
 
 async function bootstrap() {
 
+
   //Dont comment this code and commit the code while merge
-  // const httpsOptions = {
-  //   key: fs.readFileSync('/var/opt/npm-ssl/privkey.pem'),  // Update path
-  //   cert: fs.readFileSync('/var/opt/npm-ssl/fullchain.pem'),   // Update path
-  // };
+  const httpsOptions = {
+    key: fs.readFileSync('/var/opt/npm-ssl/privkey.pem'),  // Update path
+    cert: fs.readFileSync('/var/opt/npm-ssl/fullchain.pem'),   // Update path
+  };
 
 
 
   //Dont comment this code and commit the code while merge
   const app = await NestFactory.create(AppModule,
-    // { httpsOptions }
+    { httpsOptions }
   );
 
 
