@@ -137,25 +137,11 @@ export class InvoiceService {
               },
               currencyMaster: true,
               hSSACMaster: true,
-              masterJob: {
-                where: {
-                  Status: 'A',
-                },
-                include: {
-                  voyages: {
-                    where: { Status: 'A' }
-                  },
-                  others:{
-                    where:{Status:'A'}
-                  }
-                }
-              },
-              houseJob: true
             }
           },
           VoucherOthers: { where: { Status: 'A' } },
-          masterJob: true,
-          houseJob: true,
+          masterJob: { where: { Status: 'A' } },
+          houseJob: { where: { status: 'A' } },
           currencyMaster: true,
           subledgerMaster: true,
           customerBranch: true,

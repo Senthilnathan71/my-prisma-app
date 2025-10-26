@@ -1652,6 +1652,17 @@ export class BookingService {
                     select: {
                         CustomerMasterSid: true,
                         CustomerName: true,
+                        PanType: true,
+                        countryMaster:{
+                            where:{
+                                status:'A'
+                            },
+                            select:{
+                               CountryMasterSid: true,
+                               countryName: true,
+                               countryCode: true
+                            }
+                        },
                         CustomerBranch: {
                             where: {
                                 status: 'A'
@@ -1661,6 +1672,7 @@ export class BookingService {
                                 BranchName: true,
                                 Address: true,
                                 Email: true,
+                                GSTNo: true,
                             }
                         }
                     }
@@ -1709,7 +1721,11 @@ export class BookingService {
                     CustomerName: customer.CustomerName,
                     BranchName: branch.BranchName,
                     Address: branch.Address,
-                    Email: branch.Email
+                    Email: branch.Email,
+                    GSTNo:branch.GSTNo,
+                    PanType:customer.PanType,
+                    CountryMasterSid:customer.countryMaster,
+                    
                 }))
                 return cusBranches;
             })
