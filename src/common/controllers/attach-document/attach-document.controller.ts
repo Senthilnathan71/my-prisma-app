@@ -147,12 +147,11 @@ async previewFile(
 
   const ext:any = fileName.split('.').pop()?.toLowerCase();
 
- 
-//   if (['xls', 'xlsx', 'doc', 'docx'].includes(ext)) {
-//   const publicUrl = `${req.protocol}://${req.get('host')}/freight-forwarding-assets/Edoc/${menu.MenuName}/${documentSid}/${fileName}`;
-//   return res.json({ url: publicUrl });
-// }  
-
+  // Office files (Excel, Word) → return public URL for Office Online viewer
+  if (['xls', 'xlsx', 'doc', 'docx'].includes(ext)) {
+    const publicUrl = `${req.protocol}://${req.get('host')}/freight-forwarding-assets/Edoc/${menu.MenuName}/${documentSid}/${fileName}`;
+    return res.json({ url: publicUrl });
+  }
 
   // PDF / Image / Text → send blob
   res.setHeader('Content-Type', fileData.mimeType);
