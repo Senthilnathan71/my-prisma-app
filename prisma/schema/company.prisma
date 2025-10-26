@@ -53,6 +53,8 @@ model CompanyMaster {
   customerMaster             CustomerMaster[]
   customerSalesTeam          CustomerSalesTeam[]
   customerSupport            CustomerSupport[]
+  customerCreditRequest      CustomerCreditRequest[]
+  customerKyc                CustomerKyc[]
   departmentMaster           DepartmentMaster[]
   divisionMaster             DivisionMaster[]
   emailLog                   EmailLog[]
@@ -70,6 +72,8 @@ model CompanyMaster {
   meetingFollowup            MeetingFollowup[]
   milestoneMaster            MilestoneMaster[]
   packageTypeMaster          PackageTypeMaster[]
+  paymentRequest             PaymentRequest[]
+  paymentRequestDetail       PaymentRequestDetail[]
   preCustomerEvent           PreCustomerEvent[]
   preCustomerMaster          PreCustomerMaster[]
   preCustomerMeeting         PreCustomerMeeting[]
@@ -177,6 +181,8 @@ model BranchMaster {
   MawbStock                  MawbStock[]
   meetingFollowUp            MeetingFollowup[]
   milestoneMaster            MilestoneMaster[]
+  paymentRequest             PaymentRequest[]
+  paymentRequestDetail       PaymentRequestDetail[]
   preCustomerMaster          PreCustomerMaster[]
   preCustomerMeeting         PreCustomerMeeting[]
   quoteCargo                 QuoteCargo[]
@@ -233,6 +239,7 @@ model UserMaster {
   CustomerSalesTeamDoc               CustomerSalesTeam[]          @relation("DocPerson")
   CustomerSalesTeamSales             CustomerSalesTeam[]          @relation("Salesman")
   customerSupport                    CustomerSupport[]
+  customerCreditRequest              CustomerCreditRequest[]
   enquiryHeader                      EnquiryHeader[]
   shortCut                           ShortCut[]
   userBranchMaster                   UserBranchMaster[]
@@ -289,6 +296,7 @@ model CurrencyMaster {
   CostCharges       CostRevenueCharges[] @relation("COST")
   RevenueCharges    CostRevenueCharges[] @relation("REVENUE")
   countryMaster     CountryMaster?       @relation(fields: [CountryMasterSid], references: [CountryMasterSid])
+  paymentRequestDetail PaymentRequestDetail[]
   quoteCharge       QuoteCharge[]
   tariffDetailBuy   TariffDetail[]       @relation("Buy")
   tariffDetailSale  TariffDetail[]       @relation("Sale")
@@ -427,12 +435,14 @@ model DepartmentMaster {
   Remarks             String?              @db.VarChar(20)
   bookingHeader       BookingHeader[]
   customerSupport     CustomerSupport[]
+  customerCreditRequest CustomerCreditRequest[]
   companyMaster       CompanyMaster?       @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
   terms               DepartmentOnTerms[]
   enquiryHeader       EnquiryHeader[]
   houseJob            HouseJob[]
   meetingFollowUp     MeetingFollowup[]
   milestoneMaster     MilestoneMaster[]
+  paymentRequest      PaymentRequest[]
   quoteHeader         QuoteHeader[]
   quoteRoute          QuoteRoute[]
   tariffHeader        TariffHeader[]
@@ -526,6 +536,7 @@ model ChargeMaster {
   chargeTaxMaster     ChargeTaxMaster[]
   chargeTds           ChargeTds[]
   costRevenueCharges  CostRevenueCharges[]
+  paymentRequestDetail PaymentRequestDetail[]
   VoucherDetail       VoucherDetail[]
 }
 
@@ -845,6 +856,7 @@ model CustomerMaster {
   CustomerBrEmail            CustomerBrEmail[]
   CustomerBranch             CustomerBranch[]
   CustomerLogin              CustomerLogin[]
+  customerKyc                CustomerKyc[]
   companyMaster              CompanyMaster?       @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
   countryMaster              CountryMaster?       @relation(fields: [CountryMasterSid], references: [CountryMasterSid])
   portMaster                 PortMaster?          @relation(fields: [PortMasterSid], references: [PortMasterSid])
@@ -854,6 +866,8 @@ model CustomerMaster {
   hawbStock                  HawbStock[]
   houseJob                   HouseJob[]
   mawbStock                  MawbStock[]
+  paymentRequest             PaymentRequest[]
+  paymentRequestDetail       PaymentRequestDetail[]
   PreCustomerMeeting         PreCustomerMeeting[]
   productMaster              ProductMaster[]
   quoteCharge                QuoteCharge[]
@@ -1304,6 +1318,7 @@ model UOMMaster {
   RevenueCharges     CostRevenueCharges[] @relation("REVENUE")
   houseJobProduct    HouseJobProduct[]
   masterJobContainer MasterJobContainer[]
+  paymentRequestDetail PaymentRequestDetail[]
   quoteCargo         QuoteCargo[]
   quoteCharge        QuoteCharge[]
   tariffDetail       TariffDetail[]
@@ -1350,8 +1365,11 @@ model CustomerBranch {
   CustomerMileStone  CustomerMilestone[]
   CustomerSalesTeam  CustomerSalesTeam[]
   customerSupport    CustomerSupport[]
+  customerCreditRequest CustomerCreditRequest[]
+  customerKyc        CustomerKyc[]
   enquiryHeader      EnquiryHeader[]
   houseJob           HouseJob[]
+  paymentRequestDetail PaymentRequestDetail[]
   quoteHeader        QuoteHeader[]
   supplierTdsMapping SupplierTdsMapping[]
   VoucherHeader      VoucherHeader[]
@@ -2517,6 +2535,7 @@ model MasterJob {
   containers                 MasterJobContainer[]
   others                     MasterJobOthers[]
   voyages                    MasterJobVoyage[]
+  paymentRequest             PaymentRequest[]
   VoucherDetail              VoucherDetail[]
   VoucherHeader              VoucherHeader[]
   VoucherTransaction         VoucherTransaction[]
@@ -2681,6 +2700,7 @@ model HouseJob {
   Connections                HouseJobConnection[]
   Others                     HouseJobOthers[]
   Products                   HouseJobProduct[]
+  paymentRequest             PaymentRequest[]
   ShipmentMilestone          ShipmentMilestone[]
   VoucherDetail              VoucherDetail[]
   VoucherHeader              VoucherHeader[]
@@ -3093,6 +3113,123 @@ model VoucherTransaction {
   VoucherDetail         VoucherDetail       @relation(fields: [VoucherDetailSid], references: [VoucherDetailSid])
   VoucherHeader         VoucherHeader       @relation(fields: [VoucherHeaderSid], references: [VoucherHeaderSid])
   voucherTypeMaster     VoucherTypeMaster   @relation(fields: [VoucherTypeMasterSid], references: [VoucherTypeMasterSid])
+}
+
+model PaymentRequest {
+  PaymentRequestSid         Int                 @id @default(autoincrement())@map("PaymentRequestSid")
+  PaymentRequestNumber      String              @db.VarChar(20)
+  PaymentRequestDate        DateTime            @db.Date
+  CreatedOn                 DateTime            @default(now()) @db.Timestamptz(6)
+  CreatedBy                 String              @db.VarChar(100)
+  UpdatedOn                 DateTime?           @updatedAt @db.Timestamptz(6)
+  UpdatedBy                 String?             @db.VarChar(100)
+  CompanyMasterSid          Int
+  BranchMasterSid           Int
+  CashBank                  String?              @db.VarChar(10)
+  DepartmentMasterSid       Int
+  PaymentRequestStatus      ApprovalStatus
+  Party                     Int
+  PayableTo                 String              @db.VarChar(100)
+  BookingSid                Int?
+  MasterJobSid              Int?
+  HouseJobSid               Int?
+  Remarks                   String?             @db.VarChar(100)
+  Status                    String              @default("A") @db.Char(1)
+  VoucherSid                Int?
+
+  company             CompanyMaster       @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+  customer                     CustomerMaster      @relation(fields: [Party], references: [CustomerMasterSid])
+  branch              BranchMaster  @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
+  dept                DepartmentMaster    @relation(fields: [DepartmentMasterSid], references: [DepartmentMasterSid])
+  bookingHeader             BookingHeader?      @relation(fields: [BookingSid], references: [BookingHeaderSid])
+  masterJob                 MasterJob?          @relation(fields: [MasterJobSid], references: [MasterJobSid])
+  houseJob                  HouseJob?           @relation(fields: [HouseJobSid], references: [HouseJobSid])
+  
+  paymentRequestDetails     PaymentRequestDetail[]
+}
+
+model PaymentRequestDetail {
+  PaymentRequestDtlSid      Int              @id @default(autoincrement()) @map("PaymentRequestDtlSid")
+  PaymentRequestSid         Int
+  CreatedOn                 DateTime            @default(now()) @db.Timestamptz(6)
+  CreatedBy                 String              @db.VarChar(100)
+  UpdatedOn                 DateTime?            @updatedAt @db.Timestamptz(6)
+  UpdatedBy                 String?             @db.VarChar(100)
+  CompanyMasterSid          Int
+  BranchMasterSid           Int
+  SerialNumber              Decimal?            @db.Decimal(3, 0)
+  ChargeMasterSid           Int?
+  ChargeDescription         String?             @db.VarChar(100)
+  CostChargeUomSid          Int?
+  CostCurrencyMasterSid     Int?
+  CostExchangeRate          Decimal?            @db.Decimal(9, 3)
+  CostRate                  Decimal?            @db.Decimal(15, 3)
+  CostNumberOfUnit          Decimal?            @db.Decimal(4, 3)
+  CostDrCr                  String?             @db.Char(1)
+  CostAmount                Decimal?            @db.Decimal(15, 3)
+  CostLocalAmount           Decimal?            @db.Decimal(15, 3)
+  CostAgentMasterSid        Int?
+  CostAgentBranchSid        Int?
+
+  // --- Relations ---
+  PaymentRequestHeader      PaymentRequest      @relation(fields: [PaymentRequestSid], references: [PaymentRequestSid])
+  Company                   CompanyMaster       @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+  Branch                    BranchMaster        @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
+  Charge                    ChargeMaster?       @relation(fields: [ChargeMasterSid], references: [ChargeMasterSid])
+  uomMaster         UOMMaster?          @relation(fields: [CostChargeUomSid], references: [UOMMasterSid])
+  currency                  CurrencyMaster?      @relation(fields: [CostCurrencyMasterSid], references: [CurrencyMasterSid])
+  agent                     CustomerMaster?        @relation(fields: [CostAgentMasterSid], references: [CustomerMasterSid])
+  agentBranch               CustomerBranch?        @relation(fields: [CostAgentBranchSid], references: [CustomerBranchSid])
+}
+
+model CustomerCreditRequest {
+  CustomerCreditRequestSid  Int                 @id @default(autoincrement()) @map("CustomerCreditRequestSid")
+  CustomerMasterSid         Int
+  CreatedOn                 DateTime            @default(now())@db.Timestamptz(6)
+  CreatedBy                 String              @db.VarChar(100)
+  UpdatedOn                 DateTime            @updatedAt @db.Timestamptz(6)
+  UpdatedBy                 String?             @db.VarChar(100)
+  Status                    String              @default("A") @db.Char(1)
+  CompanyMasterSid          Int
+  DepartmentMasterSid       Int?
+  CustomerBranchSid         Int?
+  SalesmanSid               Int?
+  CreditDays                Int
+  CreditLimit               Int
+  PublishedDays             Int
+  PublishedLimit            Int
+  EffectiveFrom             DateTime
+  EffectiveTo               DateTime
+  ApprovalStatus            ApprovalStatus
+
+  // --- Relations ---
+  company                   CompanyMaster       @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+  salesman                  UserMaster?         @relation(fields: [SalesmanSid], references: [UserMasterSid])
+  department                DepartmentMaster?   @relation(fields: [DepartmentMasterSid], references: [DepartmentMasterSid])
+  customerBranch            CustomerBranch?     @relation(fields: [CustomerBranchSid], references: [CustomerBranchSid])
+
+  customerKyc               CustomerKyc[]
+}
+
+model CustomerKyc {
+  CustomerKycSid            Int                 @id @default(autoincrement()) @map("CustomerKycSid")
+  CustomerMasterSid         Int?
+  CreatedOn                 DateTime            @default(now()) @db.Timestamptz(6)
+  CreatedBy                 String              @db.VarChar(100)
+  UpdatedOn                 DateTime?            @updatedAt @db.Timestamptz(6)
+  UpdatedBy                 String?             @db.VarChar(100)
+  CompanyMasterSid          Int
+  CustomerCreditRequestSid  Int
+  CustomerBranchSid         Int?
+  KycSno                    Int
+  KycDocName                String              @db.VarChar(30)
+  KycDocNumber              String              @db.VarChar(30)
+  AttachDocumentSid         Int
+
+  company                   CompanyMaster       @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+  customer                  CustomerMaster?     @relation(fields: [CustomerMasterSid], references: [CustomerMasterSid])
+  customerBranch            CustomerBranch?     @relation(fields: [CustomerBranchSid], references: [CustomerBranchSid])
+  creditRequest             CustomerCreditRequest @relation(fields: [CustomerCreditRequestSid], references: [CustomerCreditRequestSid])
 }
 
 enum ApprovalStatus {
