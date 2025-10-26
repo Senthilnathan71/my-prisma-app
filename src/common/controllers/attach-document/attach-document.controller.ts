@@ -145,15 +145,7 @@ async previewFile(
 
   
 
-  const ext:any = fileName.split('.').pop()?.toLowerCase();
-
-  // Office files (Excel, Word) → return public URL for Office Online viewer
-  if (['xls', 'xlsx', 'doc', 'docx'].includes(ext)) {
-    const publicUrl = `${req.protocol}://${req.get('host')}/freight-forwarding-assets/Edoc/${menu.MenuName}/${documentSid}/${fileName}`;
-    return res.json({ url: publicUrl });
-  }
-
-  // PDF / Image / Text → send blob
+  // All files → send blob (client-side rendering for Office files)
   res.setHeader('Content-Type', fileData.mimeType);
   res.setHeader('Content-Disposition', `inline; filename="${fileData.fileName}"`);
   res.send(fileData.buffer);
