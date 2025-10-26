@@ -454,10 +454,17 @@ export class MasterJobController {
                 others
             );
 
-            this.logger.debug(`Bulk upload processed successfully: ${JSON.stringify(result)}`);
+            this.logger.debug(`Bulk upload processed: ${JSON.stringify(result)}`);
 
-            resp.message = 'Master Job and House Jobs created successfully';
-            resp.data = result;
+            // Check if service returned an error (e.g., duplicate MBL Number)
+            if (result && typeof result === 'object' && 'status' in result && result.status === false) {
+                resp.status = false;
+                resp.message = (result as any).message;
+                resp.data = (result as any).data;
+            } else {
+                resp.message = 'Master Job and House Jobs created successfully';
+                resp.data = result;
+            }
 
         } catch (error) {
             resp.status = false;
