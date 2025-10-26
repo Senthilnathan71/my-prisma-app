@@ -2997,6 +2997,7 @@ model VoucherDetail {
   Amount              Decimal              @db.Decimal(15, 3)
   LocalAmount         Decimal              @db.Decimal(15, 3)
   InvoiceType         String?              @db.VarChar(10)
+  PartyAmount         Decimal?              @db.Decimal(15,3)
   CostCenter          Int?
   ProfitCenter        Int?
   Remarks             String?              @db.VarChar(200)
