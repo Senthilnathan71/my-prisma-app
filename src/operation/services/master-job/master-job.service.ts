@@ -1985,6 +1985,22 @@ export class MasterJobService {
                 }
             }
 
+            // Check for duplicate MBL Number
+            if (masterJobData.MBLNo) {
+                const isDuplicate = await this.checkDuplicateMBLNumber(
+                    masterJobData.MBLNo,
+                    companyMasterSid
+                );
+
+                if (isDuplicate) {
+                    return {
+                        status: false,
+                        message: `MBL Number '${masterJobData.MBLNo}' already exists. Please use a unique MBL Number.`,
+                        data: null
+                    };
+                }
+            }
+
             const result = await this._db.$transaction(async (prisma) => {
                 // Helper function to parse date strings to Date objects
                 const parseDate = (value: any): Date | undefined => {
@@ -2683,6 +2699,28 @@ export class MasterJobService {
         });
 
         return customer;
+    }
+
+    /**
+     * Check if MBL Number already exists for the company
+     */
+    async checkDuplicateMBLNumber(mblNo: string, companyMasterSid: number): Promise<boolean> {
+        if (!mblNo) {
+            return false;
+        }
+
+        const existing = await this._db.masterJob.findFirst({
+            where: {
+                MBLNo: {
+                    equals: mblNo.trim(),
+                    mode: 'insensitive'
+                },
+                CompanyMasterSid: companyMasterSid,
+                Status: 'A'  // Only check active records
+            }
+        });
+
+        return !!existing;
     }
 
 }
