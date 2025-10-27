@@ -29,6 +29,8 @@ import { VoucherController } from './controllers/voucher/voucher.controller';
 import { VendorInvoiceService } from './services/vendor-invoice/vendor-invoice.service';
 import { VendorInvoiceController } from './controllers/vendor-invoice/vendor-invoice.controller';
 import { ExcelParserService } from 'src/common/services/excel-parser/excel-parser.service';
+import { CreditRequestService } from './services/credit-request/credit-request.service';
+import { CreditRequestController } from './controllers/credit-request/credit-request.controller';
 
 @Module({
         providers: [
@@ -49,7 +51,8 @@ import { ExcelParserService } from 'src/common/services/excel-parser/excel-parse
                 SplitbookingService,
                 VoucherService,
                 VendorInvoiceService,
-                ExcelParserService
+                ExcelParserService,
+                CreditRequestService
         ],
         controllers: [
                 BookingController,
@@ -64,7 +67,8 @@ import { ExcelParserService } from 'src/common/services/excel-parser/excel-parse
                 HouseJobController,
                 SplitbookingController,
                 VoucherController,
-                VendorInvoiceController
+                VendorInvoiceController,
+                CreditRequestController
         ]
 })
 export class OperationModule { }
