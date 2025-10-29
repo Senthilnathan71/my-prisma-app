@@ -862,6 +862,7 @@ model CustomerMaster {
   countryMaster              CountryMaster?       @relation(fields: [CountryMasterSid], references: [CountryMasterSid])
   portMaster                 PortMaster?          @relation(fields: [PortMasterSid], references: [PortMasterSid])
   preCustomerMaster          PreCustomerMaster?   @relation(fields: [PreCustomerMasterSid], references: [PreCustomerMasterSid])
+  customerCreditRequest      CustomerCreditRequest[]
   CustomerMilestone          CustomerMilestone[]
   CustomerSalesTeam          CustomerSalesTeam[]
   hawbStock                  HawbStock[]
@@ -3216,6 +3217,7 @@ model CustomerCreditRequest {
   salesman                  UserMaster?         @relation(fields: [SalesmanSid], references: [UserMasterSid])
   department                DepartmentMaster?   @relation(fields: [DepartmentMasterSid], references: [DepartmentMasterSid])
   customerBranch            CustomerBranch?     @relation(fields: [CustomerBranchSid], references: [CustomerBranchSid])
+  customerMaster            CustomerMaster?     @relation(fields: [CustomerMasterSid], references: [CustomerMasterSid])
 
   customerKyc               CustomerKyc[]
 }
