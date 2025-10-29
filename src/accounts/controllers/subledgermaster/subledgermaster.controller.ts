@@ -62,6 +62,61 @@ export class SubledgermasterController {
         return resp;
     }
 
+    
+    @ApiOperation({summary : "Get All Mapped Creditors"})
+    @ApiCreatedResponse({
+        description : "Get All Mapped Creditors",
+        type : ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Post('mapped-creditors')
+    async getAllMappedCustomerCreditors(@Body() payload:any) {
+        let resp = new ResponseData();
+        try {
+            let res = await this.SubledgermasterService.getAllMappedCustomerCreditors(payload);
+            this.logger.log(`All Mapped Creditors Fetched : ${JSON.stringify(res)}`);
+            resp.data = res;
+            resp.message = "All Mapped Creditors are successfully fetched";
+        } catch (error) {
+            this.logger.warn(`Get All Mapped Creditors Error : ${JSON.stringify(error), error}`);
+            resp.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                resp.message = error.message;
+            } else {
+                resp.message = "Internal Server Error";
+            }
+        }
+        return resp;
+    }
+
+    @ApiOperation({summary : "Get All Mapped Customer Debtors"})
+    @ApiCreatedResponse({
+        description : "Get All Mapped Customer Debtors",
+        type : ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Post('mapped-debtors')
+    async getAllMappedCustomerDebtors(@Body() payload:any) {
+        let resp = new ResponseData();
+        try {
+            let res = await this.SubledgermasterService.getAllMappedCustomerDebtors(payload);
+            this.logger.log(`All Mapped Debtors Fetched : ${JSON.stringify(res)}`);
+            resp.data = res;
+            resp.message = "All Mapped Debtors are successfully fetched";
+        } catch (error) {
+            this.logger.warn(`Get All Mapped Debtors Error : ${JSON.stringify(error), error}`);
+            resp.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                resp.message = error.message;
+            } else {
+                resp.message = "Internal Server Error";
+            }
+        }
+        return resp;
+    }
+
+
+
     @ApiOperation({ summary: 'Get SubledgerMaster by Id' })
     @ApiCreatedResponse({
         description: 'Get SubledgerMaster by Id',
@@ -254,5 +309,4 @@ async bulkUpdateSubledgerMaster(@Body() payload: { updates: any[] }) {
     }
     return resp;
 }
-
 }

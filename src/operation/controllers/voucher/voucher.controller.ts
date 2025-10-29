@@ -23,7 +23,7 @@ export class VoucherController {
 
         try {
             // Validate required fields
-            if (!body.bookingHeaderSid) {
+            if (!body.ParentSid) {
                 throw new BadRequestException('Booking Header SID is required');
             }
             if (!body.selectedRateIds || !Array.isArray(body.selectedRateIds) || body.selectedRateIds.length === 0) {
@@ -46,7 +46,7 @@ export class VoucherController {
             }
 
             const result = await this.voucherService.createVoucherFromBookingRates({
-                bookingHeaderSid: Number(body.bookingHeaderSid),
+                bookingHeaderSid: Number(body.ParentSid),
                 companyMasterSid: Number(body.companyMasterSid),
                 branchMasterSid: Number(body.branchMasterSid),
                 voucherTypeMasterSid: body.voucherTypeMasterSid ? Number(body.voucherTypeMasterSid) : undefined,
