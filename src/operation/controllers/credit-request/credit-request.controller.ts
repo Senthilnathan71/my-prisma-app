@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Delete, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, Post, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, Post, Res, UnauthorizedException } from '@nestjs/common';
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
 import { UserData } from 'src/common/decorators/user.decorator';
 import { ResponseData } from 'src/common/response-data';
@@ -163,5 +163,32 @@ export class CreditRequestController {
     @Delete('delete/:CustomerCreditRequestSid')
     async deleteCreditRequest(@Param('CustomerCreditRequestSid', ParseIntPipe) CustomerCreditRequestSid: number) {
         return this.creditRequestService.deleteCreditRequest(CustomerCreditRequestSid);
+    }
+
+    @ApiOperation({ summary: 'Get customer by id'})
+    @ApiCreatedResponse({
+        description: 'Get customer by id',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Get('fetch/:CustomerMasterSid')
+    async getCustomerById(@Param('CustomerMasterSid', ParseIntPipe) CustomerMasterSid: number) {
+        let resp = new ResponseData();
+        try {
+            this.logger.log(`Get customer by id: ${CustomerMasterSid}`);
+            let res = await this.creditRequestService.getCustomerById(CustomerMasterSid);
+            this.logger.debug(`Get customer by id: ${JSON.stringify(res)}`);
+            resp.data = res;
+            resp.message = `Get customerby id: ${CustomerMasterSid} is fetched`
+        } catch (error) {
+            this.logger.warn(`Get customer by id: ${JSON.stringify(error)}`);
+            resp.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                resp.message = error.message;
+            } else {
+                resp.message = 'Internal Server Error';
+            }
+        }
+        return resp;
     }
 }
