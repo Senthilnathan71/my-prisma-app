@@ -2963,6 +2963,7 @@ model VoucherHeader {
 
 model VoucherDetail {
   VoucherDetailSid    Int                  @id @default(autoincrement())
+  VoucherTransactionSid	Int?               @unique
   CreatedOn           DateTime             @default(now())
   CreatedBy           String               @db.VarChar(100)
   UpdatedOn           DateTime             @default(now())
@@ -3018,11 +3019,14 @@ model VoucherDetail {
   ProfitCenterMaster  ProfitCenterMaster?  @relation(fields: [ProfitCenter], references: [ProfitCenterMasterSid])
   VoucherHeader       VoucherHeader        @relation(fields: [VoucherHeaderSid], references: [VoucherHeaderSid])
   VoucherTDS          VoucherTDS[]
-  VoucherTransaction  VoucherTransaction[]
+  // VoucherTransaction  VoucherTransaction[]
+    voucherTransaction      VoucherTransaction? @relation(fields: [VoucherTransactionSid], references: [VoucherTransactionSid])
+
 }
 
 model VoucherOthers {
   VoucherOthersSid  Int           @id @default(autoincrement())
+  BookingHeaderSid	Int?
   CreatedOn         DateTime      @default(now())
   CreatedBy         String        @db.VarChar(100)
   UpdatedOn         DateTime      @default(now())
@@ -3037,6 +3041,7 @@ model VoucherOthers {
   IRNQRCode         String?       @db.VarChar(300)
   IRNStatus         String?       @db.VarChar(10)
   VoucherHeader     VoucherHeader @relation(fields: [VoucherHeaderSid], references: [VoucherHeaderSid])
+  bookingHeader     BookingHeader? @relation(fields: [BookingHeaderSid], references: [BookingHeaderSid])
 }
 
 model VoucherTDS {
@@ -3111,7 +3116,8 @@ model VoucherTransaction {
   masterJob             MasterJob           @relation(fields: [MasterJobSid], references: [MasterJobSid])
   ProfitCenterMaster    ProfitCenterMaster? @relation(fields: [ProfitCenter], references: [ProfitCenterMasterSid])
   yearMaster         YearMaster?       @relation(fields: [YearMasterSid], references: [YearMasterSid])
-  VoucherDetail         VoucherDetail       @relation(fields: [VoucherDetailSid], references: [VoucherDetailSid])
+  // VoucherDetail         VoucherDetail       @relation(fields: [VoucherDetailSid], references: [VoucherDetailSid])
+  voucherDetail         VoucherDetail?
   VoucherHeader         VoucherHeader       @relation(fields: [VoucherHeaderSid], references: [VoucherHeaderSid])
   voucherTypeMaster     VoucherTypeMaster   @relation(fields: [VoucherTypeMasterSid], references: [VoucherTypeMasterSid])
 }
