@@ -89,6 +89,7 @@ model CompanyMaster {
   routingHeader              RoutingHeader[]
   shipmentMilestone          ShipmentMilestone[]
   ShippingInstruction        ShippingInstruction[]
+  subledgerMaster            SubledgerMaster[]
   supplierTdsMapping         SupplierTdsMapping[]
   tdsSetHeader               TDSSetHeader[]
   tandCTransaction           TandCTransaction[]
@@ -2324,12 +2325,13 @@ model SubledgerMaster {
   deletedAt           DateTime?
   Remarks             String?              @db.VarChar(100)
   Status              String               @default("A") @db.VarChar(10)
+  CompanyMasterSid    Int?
   CoaMaster           COAMaster?            @relation(fields: [COAMasterSid], references: [COAMasterSid])
   CoaMasterDb         COAMaster?           @relation("Debtor", fields: [DrCOAMasterSid], references: [COAMasterSid])
   CoaMasterCr         COAMaster?           @relation("Creditor", fields: [CrCOAMasterSid], references: [COAMasterSid])
   CoaMasterAcc        COAMaster?           @relation("Accrual", fields: [AccrualCOAMasterSid], references: [COAMasterSid])
   departmentMaster        DepartmentMaster?           @relation(fields: [DepartmentMasterSid], references: [DepartmentMasterSid])
-
+  companyMaster          CompanyMaster?           @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
   VoucherDetail       VoucherDetail[]
   VoucherHeader       VoucherHeader[]
   VoucherTransaction  VoucherTransaction[]
