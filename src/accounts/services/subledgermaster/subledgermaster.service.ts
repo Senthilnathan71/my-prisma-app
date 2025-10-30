@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { equal } from 'node:assert';
 import { statusWhereClause } from 'src/common/helper';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
@@ -247,5 +248,129 @@ export class SubledgermasterService {
         }
     }
 
-    
+    async getAllMappedCustomerCreditors(payload : any) {
+        try {
+            const allCustomerCreditors = await this._db.subledgerMaster.findMany({
+                where: {
+                    Status: "A",
+                    SubledgerType : "Customer",
+                    CrCOAMasterSid : { not : null},
+                    SubledgerMappingSid : {not : null},
+                    CompanyMasterSid : payload.CompanyMasterSid
+                },
+                select : {
+                    SubledgerMappingSid : true,
+                    CrCOAMasterSid : true
+                }
+            })
+            const allMappedCustomerSubledgersIds = allCustomerCreditors.map(customerCreditor => customerCreditor.SubledgerMappingSid!);
+
+            // Create a map of Customer to Ledger mapping
+            const ledgerToCustomerMapping = new Map<number, number>();
+            allCustomerCreditors.forEach(customerCreditor => {
+                ledgerToCustomerMapping.set(customerCreditor.SubledgerMappingSid!, customerCreditor.CrCOAMasterSid!);
+            });
+
+            // Get all customers with subleder mapped
+            const allCreditors = await this._db.customerMaster.findMany({
+                where : {
+                    CustomerMasterSid : { in : allMappedCustomerSubledgersIds},
+                    CompanyMasterSid : payload.CompanyMasterSid
+                },
+                select : {
+                    CustomerMasterSid : true,
+                    CustomerName : true,
+                    CustomerBranch : {
+                        where : {status : 'A'},
+                        select : {
+                            CustomerBranchSid : true,
+                            BranchName : true,
+                            Address : true,
+                            Email : true
+                        }
+                    }
+                }
+            })
+            return allCreditors.flatMap(deptor =>{
+                const COAMappedId = ledgerToCustomerMapping.get(deptor.CustomerMasterSid);
+                return deptor.CustomerBranch.map(branch => {
+                    return {
+                        CustomerMasterSid : deptor.CustomerMasterSid,
+                        CustomerBranchSid : branch.CustomerBranchSid,
+                        BranchName : branch.BranchName,
+                        CustomerName : deptor.CustomerName,
+                        Address : branch.Address,
+                        Email : branch.Email,
+                        COAMappedId : COAMappedId
+                    }
+                })
+            });
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    // Used in Cost - Revenue
+    async getAllMappedCustomerDebtors(payload:any){
+        try {
+            const allCustomerDebtors = await this._db.subledgerMaster.findMany({
+                where: {
+                    Status: "A",
+                    SubledgerType : "Customer",
+                    DrCOAMasterSid : { not : null},
+                    SubledgerMappingSid : {not : null},
+                    CompanyMasterSid : payload.CompanyMasterSid
+                },
+                select : {
+                    SubledgerMappingSid : true,
+                    DrCOAMasterSid : true
+                }
+            })
+            const allMappedCustomerSubledgersIds = allCustomerDebtors.map(customerDebtor => customerDebtor.SubledgerMappingSid!);
+
+            // Create a map of Customer to Ledger mapping
+            const ledgerToCustomerMapping = new Map<number, number>();
+            allCustomerDebtors.forEach(customerDebtor => {
+                ledgerToCustomerMapping.set(customerDebtor.SubledgerMappingSid!, customerDebtor.DrCOAMasterSid!);
+            });
+
+            // Get all customers with subleder mapped
+            const allDebtors = await this._db.customerMaster.findMany({
+                where : {
+                    CustomerMasterSid : { in : allMappedCustomerSubledgersIds},
+                    CompanyMasterSid : payload.CompanyMasterSid
+                },
+                select : {
+                    CustomerMasterSid : true,
+                    CustomerName : true,
+                    CustomerAddress1 : true,
+                    CustomerBranch : {
+                        where : {status : 'A'},
+                        select : {
+                            CustomerBranchSid : true,
+                            BranchName : true,
+                            Address : true,
+                            Email : true
+                        }
+                    }
+                }
+            })
+            return allDebtors.flatMap(deptor =>{
+                const COAMappedId = ledgerToCustomerMapping.get(deptor.CustomerMasterSid);
+                return deptor.CustomerBranch.map(branch => {
+                    return {
+                        CustomerMasterSid : deptor.CustomerMasterSid,
+                        CustomerBranchSid : branch.CustomerBranchSid,
+                        BranchName : branch.BranchName,
+                        CustomerName : deptor.CustomerName,
+                        Address : branch.Address,
+                        Email : branch.Email,
+                        COAMappedId : COAMappedId
+                    }
+                })
+            });
+        } catch (error) {
+            throw error;
+        }
+    }
 }

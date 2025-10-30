@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { GlobalConfigService } from 'src/common/config/master-config.service';
 import { statusWhereClause } from 'src/common/helper';
@@ -14,8 +14,11 @@ export class CreditRequestService {
         const skip = (page - 1) * pageSize;
 
         const where: Prisma.CustomerMasterWhereInput = {
-            status: statusWhereClause,
+            status: 'A',
             CashCredit: 'Credit',
+            CustomerType: {
+                path: ['customer'], equals: 'isTrue'
+            },
             CompanyMasterSid: activeCompanyId,
             ...(search
                 ? {
@@ -35,10 +38,22 @@ export class CreditRequestService {
                 skip,
                 take: pageSize,
                 orderBy: { CustomerMasterSid: 'desc' },
+                include : {
+                    countryMaster: {
+                        select: {
+                            countryName: true,
+                        }
+                    }
+                }
             }),
             this._db.customerMaster.count({ where }),
         ])
-        return {items, totalCount};
+        const enrichedItems = items.map((item) => ({
+    ...item,
+    CountryName: item.countryMaster?.countryName || null,
+  }));
+
+        return {items: enrichedItems, totalCount};
     }
 
     async getDepartment(dept) {
@@ -176,5 +191,19 @@ export class CreditRequestService {
         } catch (error) {
             throw error;
         }
+    }
+
+    async getCustomerById(CustomerMasterSid: number) {
+        return await this._db.customerMaster.findUnique({
+            where: {
+                CustomerMasterSid: CustomerMasterSid,
+            }, include: {
+                customerCreditRequest: true,
+                customerKyc: true,
+            }
+        }).catch(err => {
+            this.logger.warn(`Credit Request Service: findOne failed`)
+            throw new InternalServerErrorException("Credit Request Service error: Something went wrong.")
+        })
     }
 }

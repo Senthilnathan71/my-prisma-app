@@ -174,6 +174,7 @@ export class MasterJobService {
                 }
 
                 let createdCostRevenueCharges: any;
+                let itemIndex = 1;
                 const allCostRevenueCharges = payload?.costRevenueCharges || [];
                 if (allCostRevenueCharges.length > 0) {
                     const costRevenueChargesPayload = allCostRevenueCharges.map(item => ({
@@ -183,23 +184,43 @@ export class MasterJobService {
                         MasterJobNo: createdMasterJob.MasterJobNumber,
                         CompanyMasterSid: payload.CompanyMasterSid,
                         BranchMasterSid: payload.BranchMasterSid,
-                        SerialNumber: item.SerialNumber ? Number(item.SerialNumber) : null,
+
+                        SerialNumber: itemIndex++,
                         ChargeMasterSid: item.ChargeMasterSid ? Number(item.ChargeMasterSid) : null,
                         ChargeDescription: item.ChargeDescription,
+
                         ChargeUomSid: item.ChargeUomSid ? Number(item.ChargeUomSid) : null,
-                        Cost: item.PrepaidCollect,
-                        // CostRevenue: item.CostRevenue,
-                        CostCurrencyMasterSid: item.CurrencyMasterSid ? Number(item.CurrencyMasterSid) : null,
-                        ExchangeRate: item.ExchangeRate ? Number(item.ExchangeRate) : null,
-                        Rate: item.Rate ? Number(item.Rate) : null,
-                        NumberOfUnit: item.NumberOfUnit ? Number(item.NumberOfUnit) : null,
-                        DrCr: item.DrCr,
-                        Amount: item.Amount ? Number(item.Amount) : null,
-                        LocalAmount: item.LocalAmount ? Number(item.LocalAmount) : null,
-                        CustomerMasterSid: item.CustomerMasterSid ? Number(item.CustomerMasterSid) : null,
-                        CustomerBranchSid: item.CustomerBranchSid ? Number(item.CustomerBranchSid) : null,
-                        VoucherHeaderSid: null,
-                        VoucherTypeSid: null,
+                        RevenueChargeUomSid: item.RevenueChargeUomSid ? Number(item.RevenueChargeUomSid) : null,
+                        CostChargeUomSid: item.CostChargeUomSid ? Number(item.CostChargeUomSid) : null,
+                        RevenueNumberOfUnit : item.RevenueNumberOfUnit ? Number(item.RevenueNumberOfUnit) : null,
+                        CostNumberOfUnit : item.CostNumberOfUnit ? Number(item.CostNumberOfUnit) : null,
+
+                        // Revenue Section
+                        RevenueCurrencyMasterSid: item.RevenueCurrencyMasterSid ? item.RevenueCurrencyMasterSid : null,
+                        RevenueExchangeRate : item.RevenueExchangeRate ? Number(item.RevenueExchangeRate) : null,
+                        RevenueRate : item.RevenueRate ? Number(item.RevenueRate) : null,
+                        RevenueAmount : item.RevenueAmount ? Number(item.RevenueAmount) : null,
+                        RevenueLocalAmount : item.RevenueLocalAmount ? Number(item.RevenueLocalAmount) : null,
+                        RevenueDrCr : item.RevenueDrCr,
+                        RevenueCustomerMasterSid: item.RevenueCustomerMasterSid ? Number(item.RevenueCustomerMasterSid) : null,
+                        RevenueCustomerBranchSid: item.RevenueCustomerBranchSid ? Number(item.RevenueCustomerBranchSid) : null,
+                        RevenuePrepaidCollect : item.RevenuePrepaidCollect,
+                        RevenueVoucherHeaderSid: item.RevenueVoucherHeaderSid ? Number(item.RevenueVoucherHeaderSid) : null,
+                        RevenueVoucherTypeMasterSid: item.RevenueVoucherTypeMasterSid ? Number(item.RevenueVoucherTypeMasterSid) : null,
+
+                        // Cost Section
+                        CostCurrencyMasterSid: item.CostCurrencyMasterSid ? item.CostCurrencyMasterSid : null,
+                        CostExchangeRate : item.CostExchangeRate ? Number(item.CostExchangeRate) : null,
+                        CostRate : item.CostRate ? Number(item.CostRate) : null,
+                        CostAmount : item.CostAmount ? Number(item.CostAmount) : null,
+                        CostLocalAmount : item.CostLocalAmount ? Number(item.CostLocalAmount) : null,
+                        CostDrCr : item.CostDrCr,
+                        CostAgentMasterSid: item.CostAgentMasterSid ? Number(item.CostAgentMasterSid) : null,
+                        CostAgentBranchSid: item.CostAgentBranchSid ? Number(item.CostAgentBranchSid) : null,
+                        CostPrepaidCollect : item.CostPrepaidCollect,
+                        CostVoucherHeaderSid: item.CostVoucherHeaderSid ? Number(item.CostVoucherHeaderSid) : null,
+                        CostVoucherTypeMasterSid: item.CostVoucherTypeMasterSid ? Number(item.CostVoucherTypeMasterSid) : null,
+                        
                         createdBy: payload.CreatedBy,
                         status: "A",
                         Remarks: item.Remarks
@@ -497,6 +518,7 @@ export class MasterJobService {
                     const allRates = bookingRates || [];
                     const allRevenueVouchers = allRates.filter(rate => rate.RevenueVoucherHeaderSid !== null).map(rate => rate.RevenueVoucherHeaderSid);
                     const allCostVouchers = allRates.filter(rate => rate.CostVoucherHeaderSid !== null).map(rate => rate.CostVoucherHeaderSid);
+                    let houseChargeIndex = 1;
                     if (allRates.length > 0) {
                         await this._db.costRevenueCharges.createMany({
                             data: allRates.map(rate => ({
@@ -508,38 +530,43 @@ export class MasterJobService {
                                 BranchMasterSid: houseJob.BranchMasterSid!,
                                 createdBy:  payload.CreatedBy || '',
                                 status: "A",
-                                Remarks: rate.Remarks,
-                                SerialNumber: rate.SerialNumber,
+                                Remarks: rate.Remarks || '',
+
+                                SerialNumber: houseChargeIndex++,
                                 ChargeMasterSid: rate.ChargeMasterSid,
                                 ChargeDescription: rate.ChargeDescription,
                                 ChargeUomSid: rate.ChargeUomSid,
-                                // NoOfUnit: rate.NoOfUnit,
-                                CostPrepaidCollect: rate.CostPrepaidCollect,
-                                CostCurrencyMasterSid: rate.CostCurrencyMasterSid,
-                                CostExchangeRate: rate.CostExchangeRate,
-                                CostRate: rate.CostRate,
-                                CostNumberOfUnit: rate.CostNumberOfUnit,
-                                CostDrCr: rate.CostDrCr,
-                                CostAmount: rate.CostAmount,
-                                CostLocalAmount: rate.CostLocalAmount,
-                                CostAgentMasterSid: rate.AgentMasterSid,
-                                CostAgentBranchSid: rate.AgentBranchSid,
-                                RevenuePrepaidCollect: rate.RevenuePrepaidCollect,
-                                RevenueCurrencyMasterSid: rate.RevenueCurrencyMasterSid,
-                                RevenueExchangeRate: rate.RevenueExchangeRate,
-                                RevenueRate: rate.RevenueRate,
-                                RevenueNumberOfUnit: rate.RevenueNumberOfUnit,
-                                RevenueDrCr: rate.RevenueDrCr,
-                                RevenueAmount: rate.RevenueAmount,
-                                RevenueLocalAmount: rate.RevenueLocalAmount,
-                                RevenueCustomerMasterSid: rate.CustomerMasterSid,
-                                RevenueCustomerBranchSid: rate.CustomerBranchSid,
-                                CostVoucherHeaderSid: rate.CostVoucherHeaderSid,
-                                CostVoucherTypeMasterSid: rate.CostVoucherTypeMasterSid,
-                                RevenueVoucherHeaderSid: rate.RevenueVoucherHeaderSid,
-                                RevenueVoucherTypeMasterSid: rate.RevenueVoucherTypeMasterSid,
                                 RevenueChargeUomSid: rate.RevenueChargeUomSid!,
                                 CostChargeUomSid: rate.CostChargeUomSid!,
+                                RevenueNumberOfUnit : rate.RevenueNumberOfUnit,
+                                CostNumberOfUnit : rate.CostNumberOfUnit,
+
+                                // Revenue Section
+                                RevenueCurrencyMasterSid: rate.RevenueCurrencyMasterSid,
+                                RevenueExchangeRate : rate.RevenueExchangeRate,
+                                RevenueRate : rate.RevenueRate,
+                                RevenueAmount : rate.RevenueAmount,
+                                RevenueLocalAmount : rate.RevenueLocalAmount,
+                                RevenueDrCr : rate.RevenueDrCr,
+                                RevenueCustomerMasterSid: rate.CustomerMasterSid,
+                                RevenueCustomerBranchSid: rate.CustomerBranchSid,
+                                RevenuePrepaidCollect : rate.RevenuePrepaidCollect,
+                                RevenueVoucherHeaderSid: rate.RevenueVoucherHeaderSid,
+                                RevenueVoucherTypeMasterSid: rate.RevenueVoucherTypeMasterSid,
+
+                                // Cost Section
+                                CostCurrencyMasterSid: rate.CostCurrencyMasterSid,
+                                CostExchangeRate : rate.CostExchangeRate,
+                                CostRate : rate.CostRate,
+                                CostAmount : rate.CostAmount,
+                                CostLocalAmount : rate.CostLocalAmount,
+                                CostDrCr : rate.CostDrCr,
+                                CostAgentMasterSid: rate.AgentMasterSid,
+                                CostAgentBranchSid: rate.AgentBranchSid,
+                                CostPrepaidCollect : rate.CostPrepaidCollect,
+                                CostVoucherHeaderSid: rate.CostVoucherHeaderSid,
+                                CostVoucherTypeMasterSid: rate.CostVoucherTypeMasterSid,
+                                
                             }))
                         }).catch(err => {
                             console.error('HouseJobRates createMany error:', err);
@@ -989,68 +1016,124 @@ export class MasterJobService {
 
                 const finalCharges: any[] = [];
                 const allCostRevenueCharges = payload?.costRevenueCharges || [];
+                let itemIndex = 1;
                 for (const item of allCostRevenueCharges) {
                     let createdCharge;
                     let updatedCharge;
-                    if (item.CostRevenueChargesSid) {
+                    if (item.RateSid) {
                         // update
                         const costRevenueChargesPayload = {
-                            SerialNumber: item.SerialNumber ? Number(item.SerialNumber) : null,
+                            TransactionSid : updatedMasterJob.MasterJobSid ||  item.RateSid,
+                            ShipmentNo : updatedMasterJob.MasterJobNumber,
+                            MasterJobNo : updatedMasterJob.MasterJobNumber,
+                            updatedBy : payload.UpdatedBy || '',
+                            status : String(item.status).charAt(0) || 'A',
+                            Remarks : item.Remarks || '',
+
+                            SerialNumber: itemIndex++,
                             ChargeMasterSid: item.ChargeMasterSid ? Number(item.ChargeMasterSid) : null,
                             ChargeDescription: item.ChargeDescription,
                             ChargeUomSid: item.ChargeUomSid ? Number(item.ChargeUomSid) : null,
-                            PrepaidCollect: item.PrepaidCollect,
-                            CostRevenue: item.CostRevenue,
-                            CurrencyMasterSid: item.CurrencyMasterSid ? Number(item.CurrencyMasterSid) : null,
-                            ExchangeRate: item.ExchangeRate ? Number(item.ExchangeRate) : null,
-                            Rate: item.Rate ? Number(item.Rate) : null,
-                            NumberOfUnit: item.NumberOfUnit ? Number(item.NumberOfUnit) : null,
-                            DrCr: item.DrCr,
-                            Amount: item.Amount ? Number(item.Amount) : null,
-                            LocalAmount: item.LocalAmount ? Number(item.LocalAmount) : null,
-                            CustomerMasterSid: item.CustomerMasterSid ? Number(item.CustomerMasterSid) : null,
-                            CustomerBranchSid: item.CustomerBranchSid ? Number(item.CustomerBranchSid) : null,
-                            Remarks: item.Remarks
+                            RevenueChargeUomSid: 
+                            (item.RevenueChargeUomSid ? Number(item.RevenueChargeUomSid) : null) ||
+                            (item.ChargeUomSid ? Number(item.ChargeUomSid) : null)!,
+                            CostChargeUomSid: 
+                            (item.CostChargeUomSid! ? Number(item.CostChargeUomSid) : null) || 
+                            (item.ChargeUomSid ? Number(item.ChargeUomSid) : null)!,
+                            RevenueNumberOfUnit : 
+                            (item.RevenueNumberOfUnit ? Number(item.RevenueNumberOfUnit) : null) || 
+                            (item.NoOfUnit ? Number(item.NoOfUnit) : null)!,
+                            CostNumberOfUnit : 
+                            (item.CostNumberOfUnit ? Number(item.CostNumberOfUnit) : null) ||
+                            (item.NoOfUnit ? Number(item.NoOfUnit) : null)!,
+
+                            // Revenue Section
+                            RevenueCurrencyMasterSid: item.RevenueCurrencyMasterSid ? Number(item.RevenueCurrencyMasterSid) : null,
+                            RevenueExchangeRate : item.RevenueExchangeRate ? Number(item.RevenueExchangeRate) : null,
+                            RevenueRate : item.RevenueRate ? Number(item.RevenueRate) : null,
+                            RevenueAmount : item.RevenueAmount ? Number(item.RevenueAmount) : null,
+                            RevenueLocalAmount : item.RevenueLocalAmount ? Number(item.RevenueLocalAmount) : null,
+                            RevenueDrCr : item.RevenueDrCr,
+                            RevenueCustomerMasterSid: item.RevenueCustomerMasterSid ? Number(item.RevenueCustomerMasterSid) : null,
+                            RevenueCustomerBranchSid: item.RevenueCustomerBranchSid ? Number(item.RevenueCustomerBranchSid) : null,
+                            RevenuePrepaidCollect : item.RevenuePrepaidCollect,
+                            RevenueVoucherHeaderSid: item.RevenueVoucherHeaderSid ? Number(item.RevenueVoucherHeaderSid) : null,
+                            RevenueVoucherTypeMasterSid: item.RevenueVoucherTypeMasterSid ? Number(item.RevenueVoucherTypeMasterSid) : null,
+
+                            // Cost Section
+                            CostCurrencyMasterSid: item.CostCurrencyMasterSid ? Number(item.CostCurrencyMasterSid) : null,
+                            CostExchangeRate : item.CostExchangeRate ? Number(item.CostExchangeRate) : null,
+                            CostRate : item.CostRate ? Number(item.CostRate) : null,
+                            CostAmount : item.CostAmount ? Number(item.CostAmount) : null,
+                            CostLocalAmount : item.CostLocalAmount ? Number(item.CostLocalAmount) : null,
+                            CostDrCr : item.CostDrCr,
+                            CostAgentMasterSid: item.CostAgentMasterSid ? Number(item.CostAgentMasterSid) : null,
+                            CostAgentBranchSid: item.CostAgentBranchSid ? Number(item.CostAgentBranchSid) : null,
+                            CostPrepaidCollect : item.CostPrepaidCollect,
+                            CostVoucherHeaderSid: item.CostVoucherHeaderSid ? Number(item.CostVoucherHeaderSid) : null,
+                            CostVoucherTypeMasterSid: item.CostVoucherTypeMasterSid ? Number(item.CostVoucherTypeMasterSid) : null,
+
                         }
                         updatedCharge = await prisma.costRevenueCharges.update({
                             where: {
-                                CostRevenueChargesSid: item.CostRevenueChargesSid
+                                CostRevenueChargesSid: item.RateSid
                             },
                             data: costRevenueChargesPayload
                         })
                     } else {
                         // create
                         const costRevenueChargesPayload = {
-                            TransactionSid: payload.MasterJobSid,
+                            TransactionSid: updatedMasterJob.MasterJobSid,
                             MenuMasterSid: payload.MenuMasterSid,
                             ShipmentNo: updatedMasterJob.MasterJobNumber,
                             MasterJobNo: updatedMasterJob.MasterJobNumber,
                             CompanyMasterSid: payload.CompanyMasterSid,
                             BranchMasterSid: payload.BranchMasterSid,
-                            SerialNumber: item.SerialNumber ? Number(item.SerialNumber) : null,
+
+                            SerialNumber: itemIndex++,
                             ChargeMasterSid: item.ChargeMasterSid ? Number(item.ChargeMasterSid) : null,
                             ChargeDescription: item.ChargeDescription,
+
                             ChargeUomSid: item.ChargeUomSid ? Number(item.ChargeUomSid) : null,
-                            PrepaidCollect: item.PrepaidCollect,
-                            CostRevenue: item.CostRevenue,
-                            CurrencyMasterSid: item.CurrencyMasterSid ? Number(item.CurrencyMasterSid) : null,
-                            ExchangeRate: item.ExchangeRate ? Number(item.ExchangeRate) : null,
-                            Rate: item.Rate ? Number(item.Rate) : null,
-                            NumberOfUnit: item.NumberOfUnit ? Number(item.NumberOfUnit) : null,
-                            DrCr: item.DrCr,
-                            Amount: item.Amount ? Number(item.Amount) : null,
-                            LocalAmount: item.LocalAmount ? Number(item.LocalAmount) : null,
-                            CustomerMasterSid: item.CustomerMasterSid ? Number(item.CustomerMasterSid) : null,
-                            CustomerBranchSid: item.CustomerBranchSid ? Number(item.CustomerBranchSid) : null,
-                            VoucherHeaderSid: item.VoucherHeaderSid ? Number(item.VoucherHeaderSid) : null,
-                            VoucherTypeSid: item.VoucherTypeSid ? Number(item.VoucherTypeSid) : null,
+                            RevenueChargeUomSid: Number(item.RevenueChargeUomSid),
+                            CostChargeUomSid: Number(item.CostChargeUomSid),
+                            RevenueNumberOfUnit: item.RevenueNumberOfUnit ? Number(item.RevenueNumberOfUnit) : null,
+                            CostNumberOfUnit: item.CostNumberOfUnit ? Number(item.CostNumberOfUnit) : null,
+
+                            // Revenue Section
+                            RevenueCurrencyMasterSid: item.RevenueCurrencyMasterSid ? item.RevenueCurrencyMasterSid : null,
+                            RevenueExchangeRate: item.RevenueExchangeRate ? Number(item.RevenueExchangeRate) : null,
+                            RevenueRate: item.RevenueRate ? Number(item.RevenueRate) : null,
+                            RevenueAmount: item.RevenueAmount ? Number(item.RevenueAmount) : null,
+                            RevenueLocalAmount: item.RevenueLocalAmount ? Number(item.RevenueLocalAmount) : null,
+                            RevenueDrCr: item.RevenueDrCr,
+                            RevenueCustomerMasterSid: item.RevenueCustomerMasterSid ? Number(item.RevenueCustomerMasterSid) : null,
+                            RevenueCustomerBranchSid: item.RevenueCustomerBranchSid ? Number(item.RevenueCustomerBranchSid) : null,
+                            RevenuePrepaidCollect: item.RevenuePrepaidCollect,
+                            RevenueVoucherHeaderSid: item.RevenueVoucherHeaderSid ? Number(item.RevenueVoucherHeaderSid) : null,
+                            RevenueVoucherTypeMasterSid: item.RevenueVoucherTypeMasterSid ? Number(item.RevenueVoucherTypeMasterSid) : null,
+
+                            // Cost Section
+                            CostCurrencyMasterSid: item.CostCurrencyMasterSid ? item.CostCurrencyMasterSid : null,
+                            CostExchangeRate: item.CostExchangeRate ? Number(item.CostExchangeRate) : null,
+                            CostRate: item.CostRate ? Number(item.CostRate) : null,
+                            CostAmount: item.CostAmount ? Number(item.CostAmount) : null,
+                            CostLocalAmount: item.CostLocalAmount ? Number(item.CostLocalAmount) : null,
+                            CostDrCr: item.CostDrCr,
+                            CostAgentMasterSid: item.CostAgentMasterSid ? Number(item.CostAgentMasterSid) : null,
+                            CostAgentBranchSid: item.CostAgentBranchSid ? Number(item.CostAgentBranchSid) : null,
+                            CostPrepaidCollect: item.CostPrepaidCollect,
+                            CostVoucherHeaderSid: item.CostVoucherHeaderSid ? Number(item.CostVoucherHeaderSid) : null,
+                            CostVoucherTypeMasterSid: item.CostVoucherTypeMasterSid ? Number(item.CostVoucherTypeMasterSid) : null,
+
                             createdBy: payload.CreatedBy,
                             status: "A",
                             Remarks: item.Remarks
                         }
-                        // createdCharge = await prisma.costRevenueCharges.create({
-                        //     data: costRevenueChargesPayload
-                        // })
+
+                        createdCharge = await prisma.costRevenueCharges.create({
+                            data: costRevenueChargesPayload
+                        })
                     }
                     finalCharges.push(createdCharge || updatedCharge);
                 }

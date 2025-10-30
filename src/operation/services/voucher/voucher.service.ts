@@ -11,7 +11,7 @@ interface InvoiceHeaderDTO {
 }
 
 interface ChargeTaxGroupDTO {
-    bookingRatesSid: number;
+    RateSid: number;
     taxMasterSid: number;
     taxName: string;
     taxRate: number;
@@ -384,7 +384,7 @@ export class VoucherService {
                 const chargeTaxGroupMap = new Map<number, ChargeTaxGroupDTO>();
                 if (payload.chargeTaxGroups && payload.chargeTaxGroups.length > 0) {
                     payload.chargeTaxGroups.forEach(ctg => {
-                        chargeTaxGroupMap.set(ctg.bookingRatesSid, ctg);
+                        chargeTaxGroupMap.set(ctg.RateSid, ctg);
                     });
                     this.logger.log(`Using ${payload.chargeTaxGroups.length} manually selected tax groups from frontend`);
                 }

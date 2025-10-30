@@ -89,6 +89,7 @@ model CompanyMaster {
   routingHeader              RoutingHeader[]
   shipmentMilestone          ShipmentMilestone[]
   ShippingInstruction        ShippingInstruction[]
+  subledgerMaster            SubledgerMaster[]
   supplierTdsMapping         SupplierTdsMapping[]
   tdsSetHeader               TDSSetHeader[]
   tandCTransaction           TandCTransaction[]
@@ -861,6 +862,7 @@ model CustomerMaster {
   countryMaster              CountryMaster?       @relation(fields: [CountryMasterSid], references: [CountryMasterSid])
   portMaster                 PortMaster?          @relation(fields: [PortMasterSid], references: [PortMasterSid])
   preCustomerMaster          PreCustomerMaster?   @relation(fields: [PreCustomerMasterSid], references: [PreCustomerMasterSid])
+  customerCreditRequest      CustomerCreditRequest[]
   CustomerMilestone          CustomerMilestone[]
   CustomerSalesTeam          CustomerSalesTeam[]
   hawbStock                  HawbStock[]
@@ -2324,12 +2326,13 @@ model SubledgerMaster {
   deletedAt           DateTime?
   Remarks             String?              @db.VarChar(100)
   Status              String               @default("A") @db.VarChar(10)
+  CompanyMasterSid    Int?
   CoaMaster           COAMaster?            @relation(fields: [COAMasterSid], references: [COAMasterSid])
   CoaMasterDb         COAMaster?           @relation("Debtor", fields: [DrCOAMasterSid], references: [COAMasterSid])
   CoaMasterCr         COAMaster?           @relation("Creditor", fields: [CrCOAMasterSid], references: [COAMasterSid])
   CoaMasterAcc        COAMaster?           @relation("Accrual", fields: [AccrualCOAMasterSid], references: [COAMasterSid])
   departmentMaster        DepartmentMaster?           @relation(fields: [DepartmentMasterSid], references: [DepartmentMasterSid])
-
+  companyMaster          CompanyMaster?           @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
   VoucherDetail       VoucherDetail[]
   VoucherHeader       VoucherHeader[]
   VoucherTransaction  VoucherTransaction[]
@@ -2963,6 +2966,7 @@ model VoucherHeader {
 
 model VoucherDetail {
   VoucherDetailSid    Int                  @id @default(autoincrement())
+  VoucherTransactionSid	Int?               @unique
   CreatedOn           DateTime             @default(now())
   CreatedBy           String               @db.VarChar(100)
   UpdatedOn           DateTime             @default(now())
@@ -3018,11 +3022,14 @@ model VoucherDetail {
   ProfitCenterMaster  ProfitCenterMaster?  @relation(fields: [ProfitCenter], references: [ProfitCenterMasterSid])
   VoucherHeader       VoucherHeader        @relation(fields: [VoucherHeaderSid], references: [VoucherHeaderSid])
   VoucherTDS          VoucherTDS[]
-  VoucherTransaction  VoucherTransaction[]
+  // VoucherTransaction  VoucherTransaction[]
+    voucherTransaction      VoucherTransaction? @relation(fields: [VoucherTransactionSid], references: [VoucherTransactionSid])
+
 }
 
 model VoucherOthers {
   VoucherOthersSid  Int           @id @default(autoincrement())
+  BookingHeaderSid	Int?
   CreatedOn         DateTime      @default(now())
   CreatedBy         String        @db.VarChar(100)
   UpdatedOn         DateTime      @default(now())
@@ -3037,6 +3044,7 @@ model VoucherOthers {
   IRNQRCode         String?       @db.VarChar(300)
   IRNStatus         String?       @db.VarChar(10)
   VoucherHeader     VoucherHeader @relation(fields: [VoucherHeaderSid], references: [VoucherHeaderSid])
+  bookingHeader     BookingHeader? @relation(fields: [BookingHeaderSid], references: [BookingHeaderSid])
 }
 
 model VoucherTDS {
@@ -3111,7 +3119,8 @@ model VoucherTransaction {
   masterJob             MasterJob           @relation(fields: [MasterJobSid], references: [MasterJobSid])
   ProfitCenterMaster    ProfitCenterMaster? @relation(fields: [ProfitCenter], references: [ProfitCenterMasterSid])
   yearMaster         YearMaster?       @relation(fields: [YearMasterSid], references: [YearMasterSid])
-  VoucherDetail         VoucherDetail       @relation(fields: [VoucherDetailSid], references: [VoucherDetailSid])
+  // VoucherDetail         VoucherDetail       @relation(fields: [VoucherDetailSid], references: [VoucherDetailSid])
+  voucherDetail         VoucherDetail?
   VoucherHeader         VoucherHeader       @relation(fields: [VoucherHeaderSid], references: [VoucherHeaderSid])
   voucherTypeMaster     VoucherTypeMaster   @relation(fields: [VoucherTypeMasterSid], references: [VoucherTypeMasterSid])
 }
@@ -3208,6 +3217,7 @@ model CustomerCreditRequest {
   salesman                  UserMaster?         @relation(fields: [SalesmanSid], references: [UserMasterSid])
   department                DepartmentMaster?   @relation(fields: [DepartmentMasterSid], references: [DepartmentMasterSid])
   customerBranch            CustomerBranch?     @relation(fields: [CustomerBranchSid], references: [CustomerBranchSid])
+  customerMaster            CustomerMaster?     @relation(fields: [CustomerMasterSid], references: [CustomerMasterSid])
 
   customerKyc               CustomerKyc[]
 }
