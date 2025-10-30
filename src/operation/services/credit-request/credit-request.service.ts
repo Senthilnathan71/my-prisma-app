@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, InternalServerErrorException, Logger, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { GlobalConfigService } from 'src/common/config/master-config.service';
 import { statusWhereClause } from 'src/common/helper';
@@ -61,10 +61,12 @@ export class CreditRequestService {
             const allSalesman = await this._db.customerSalesTeam.findMany({
                 where: {
                     CompanyMasterSid: dept.CompanyMasterSid,
-                    EffectiveFrom: { lte: dept.EffectiveFrom},
+                    EffectiveFrom: { lte: new Date() },
                     status: 'A',
                     CustomerMasterSid: dept.CustomerMasterSid,
-                    CustomerBranchSid: dept.CustomerBranchSid
+                     CustomerBranchSid: typeof dept.CustomerBranchSid === 'object'
+          ? dept.CustomerBranchSid.id
+          : dept.CustomerBranchSid,
                 },
                 select : {
                     DepartmentMasterSid: true,
@@ -78,9 +80,8 @@ export class CreditRequestService {
                 const deptArr =salesman.DepartmentMasterSid;
                 if(deptArr.length > 0){
                     deptArr.forEach(deptId => {
-                        if(!uniqueDeptIds.has(parseInt(deptId))){
-                            uniqueDeptIds.add(parseInt(deptId));
-                        }
+                        const id = parseInt(deptId);
+          if (!uniqueDeptIds.has(id)) uniqueDeptIds.add(id);
                     })
                 }
             })
@@ -100,71 +101,154 @@ export class CreditRequestService {
         }
     }
 
-    async getSalesperson(salesman){
-        try { 
-            const salesPerson = await this._db.customerSalesTeam.findMany({
-                where:{
-                    CompanyMasterSid: salesman.CompanyMasterSid,
-                    EffectiveFrom:{ lte : salesman.EffectiveFrom},
-                    status: 'A',
-                    CustomerMasterSid: salesman.CustomerMasterSid,
-                    DepartmentMasterSid: {
-                        has: salesman.DepartmentMasterSid
-                    },
-                    CustomerBranchSid: salesman.CustomerBranchSid
-                },
-                orderBy: {
-                    CustomerSalesSid: 'desc'
-                }
-            });
-            
-            let enrichedSalesperson = await Promise.all(
-            salesPerson.map(async (item) => {
-                const [salesman] = await Promise.all([
-                    item.Salesman !== null ?
-                        this.globalConfigService.getMasterData('user_master', item.Salesman) :
-                        { UserMasterSid: null, userName: '' },
-                ])
-                return {
-                    ...item,
-                    salesman
-                }
-            })
-        )
-            return enrichedSalesperson;
-        } catch (error) {
-            throw error
-        }
+   async getSalesperson(salesman) {
+  try {
+    const deptValue = salesman.DepartmentMasterSid;
+
+    const salesPerson = await this._db.customerSalesTeam.findMany({
+      where: {
+        CompanyMasterSid: salesman.CompanyMasterSid,
+        EffectiveFrom: { lte: new Date() },
+        status: 'A',
+        CustomerMasterSid: salesman.CustomerMasterSid,
+        CustomerBranchSid: salesman.CustomerBranchSid,
+        ...(deptValue && {
+          DepartmentMasterSid: Array.isArray(deptValue)
+            ? { hasSome: deptValue.map(String) } // if you have multiple department SIDs
+            : { has: String(deptValue) }         // if only one
+        }),
+      },
+      orderBy: { CustomerSalesSid: 'desc' },
+    });
+
+    const enrichedSalesperson = await Promise.all(
+      salesPerson.map(async (item) => {
+        const salesmanData = item.Salesman
+          ? await this.globalConfigService.getMasterData('user_master', item.Salesman)
+          : { UserMasterSid: null, userName: '' };
+        return { ...item, salesman: salesmanData };
+      })
+    );
+
+    return enrichedSalesperson;
+  } catch (error) {
+    throw error;
+  }
+}
+
+
+
+    
+async createCreditRequest(payload: any, user) {
+  try {
+    const { customerCreditRequest, ...customerData } = payload;
+
+    if (!customerCreditRequest || customerCreditRequest.length === 0) {
+      throw new BadRequestException('No credit request data provided');
     }
 
-    async createCreditRequest(payload: any, user) {
-        try {
-            const credit = await this._db.customerCreditRequest.create({
-                data: {
-                   ...payload, 
-                }
-            });
-            return credit;
-        } catch (error) {
-            throw new Error(`Error creating credit request: ${error.message}`);
-        }
+    const createdRecords = await this._db.$transaction(
+      customerCreditRequest.map((credit) =>
+        this._db.customerCreditRequest.create({
+          data: {
+            ...credit,
+            EffectiveFrom: credit.EffectiveFrom ? new Date(credit.EffectiveFrom) : null,
+            EffectiveTo: credit.EffectiveTo ? new Date(credit.EffectiveTo) : null,
+            CompanyMasterSid: customerData.CompanyMasterSid,
+            CustomerMasterSid: customerData.CustomerMasterSid,
+            CreatedBy: customerData.CreatedBy || user?.email || 'system',
+          },
+        })
+      )
+    );
+
+    return {
+      status: true,
+      message: 'Credit request(s) created successfully',
+      data: createdRecords,
+    };
+  } catch (error) {
+    this.logger.error('Error creating credit request:', error);
+    throw new InternalServerErrorException(
+      `Error creating credit request: ${error.message}`,
+    );
+  }
+}
+
+   async updateCreditRequest(CustomerCreditRequestSid: number, payload: any, user) {
+  try {
+    if (!CustomerCreditRequestSid) {
+      throw new BadRequestException('CustomerCreditRequestSid is required');
     }
 
-    async updateCreditRequest(CustomerCreditRequestSid: number, payload: any, user) {
-        try {
-            const credit = await this._db.customerCreditRequest.update({
-                where: {
-                  CustomerCreditRequestSid: CustomerCreditRequestSid  
-                },
-                data: {
-                    ...payload,
-                }
-            });
-            return credit;
-        } catch (error) {
-            throw new Error(`Error updating credit request: ${error.message}`);
-        }
+    // Check if the record exists
+    const existingRecord = await this._db.customerCreditRequest.findUnique({
+      where: { CustomerCreditRequestSid },
+    });
+
+    if (!existingRecord) {
+      throw new NotFoundException(`Credit request with ID ${CustomerCreditRequestSid} not found`);
     }
+
+    // Destructure and exclude relational IDs
+    const {
+      CustomerCreditRequestSid: _,
+      CompanyMasterSid,
+      CustomerMasterSid,
+      CustomerBranchSid,
+      DepartmentMasterSid,
+      SalesmanSid,
+      ...updateData
+    } = payload;
+
+    const updatedRecord = await this._db.customerCreditRequest.update({
+      where: { CustomerCreditRequestSid },
+      data: {
+        ...updateData,
+
+        // ✅ Convert date strings to Date objects
+        EffectiveFrom: payload.EffectiveFrom
+          ? new Date(payload.EffectiveFrom)
+          : existingRecord.EffectiveFrom,
+        EffectiveTo: payload.EffectiveTo
+          ? new Date(payload.EffectiveTo)
+          : existingRecord.EffectiveTo,
+
+        // ✅ Prisma-managed updated fields
+        UpdatedBy: user?.email || 'system', // correct field name
+        // UpdatedOn is automatically handled by Prisma @updatedAt
+
+        // ✅ Relation connects
+        ...(CompanyMasterSid && {
+          company: { connect: { CompanyMasterSid } },
+        }),
+        ...(CustomerMasterSid && {
+          customerMaster: { connect: { CustomerMasterSid } },
+        }),
+        ...(CustomerBranchSid && {
+          customerBranch: { connect: { CustomerBranchSid } },
+        }),
+        ...(DepartmentMasterSid && {
+          department: { connect: { DepartmentMasterSid } },
+        }),
+        ...(SalesmanSid && {
+          salesman: { connect: { UserMasterSid: SalesmanSid } },
+        }),
+      },
+    });
+
+    return {
+      status: true,
+      message: 'Credit request updated successfully',
+      data: updatedRecord,
+    };
+  } catch (error) {
+    this.logger.error('Error updating credit request:', error);
+    throw new InternalServerErrorException(
+      `Error updating credit request: ${error.message}`,
+    );
+  }
+}
 
     async deleteCreditRequest(CustomerCreditRequestSid: number) {
         try {
@@ -194,16 +278,40 @@ export class CreditRequestService {
     }
 
     async getCustomerById(CustomerMasterSid: number) {
-        return await this._db.customerMaster.findUnique({
-            where: {
-                CustomerMasterSid: CustomerMasterSid,
-            }, include: {
-                customerCreditRequest: true,
-                customerKyc: true,
-            }
-        }).catch(err => {
-            this.logger.warn(`Credit Request Service: findOne failed`)
-            throw new InternalServerErrorException("Credit Request Service error: Something went wrong.")
-        })
+  try {
+    const customer = await this._db.customerMaster.findUnique({
+      where: { CustomerMasterSid },
+      include: {
+        countryMaster: {
+          select: { countryName: true },
+        },
+        CustomerBranch: true,
+        customerCreditRequest: {
+          include: {
+            company: { select: { companyName: true } },
+            department: { select: { departmentName: true } },
+            salesman: { select: { userName: true } },
+          },
+        },
+        customerKyc: true,
+      },
+    });
+
+    if (!customer) {
+      throw new BadRequestException(`Customer with id ${CustomerMasterSid} not found`);
     }
+
+    // Patch additional fields
+    return {
+      ...customer,
+      CustomerName: customer.CustomerName,
+      Country: customer.countryMaster?.countryName || null,
+      Status: customer.status,
+    };
+  } catch (err) {
+    this.logger.warn(`Credit Request Service: findOne failed`);
+    throw new InternalServerErrorException('Credit Request Service error: Something went wrong.');
+  }
+}
+
 }
