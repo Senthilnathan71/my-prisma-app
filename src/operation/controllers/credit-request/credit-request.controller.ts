@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, Post, Res, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, NotFoundException, Param, ParseIntPipe, Patch, Post, Res, UnauthorizedException } from '@nestjs/common';
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
 import { UserData } from 'src/common/decorators/user.decorator';
 import { ResponseData } from 'src/common/response-data';
@@ -8,6 +8,31 @@ import { CreditRequestService } from 'src/operation/services/credit-request/cred
 @Controller('credit-request')
 export class CreditRequestController {
     constructor(private creditRequestService: CreditRequestService, private logger: Logger) { }
+
+    @ApiOperation({ summary: 'Get Salesperson'})
+    @ApiCreatedResponse({
+        description: 'Get Salesperson',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Post('fetch/salesperson')
+    async getSalesperson(@Body() body: any) {
+        const output = new ResponseData;
+        try {
+            const salesman = await this.creditRequestService.getSalesperson(body);
+            output.data = salesman;
+            this.logger.log(`getSalesperson: ${JSON.stringify(salesman)}`)
+        } catch (error) {
+            this.logger.warn(`getSalesperson: ${JSON.stringify(error),error}`)
+            output.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                output.message = error.message;
+            } else {
+                output.message = 'Internal Server Error';
+            }
+        }
+        return output;
+    }
 
     @ApiOperation({ summary: 'Search Credit Customer'})
     @ApiCreatedResponse({
@@ -33,31 +58,6 @@ export class CreditRequestController {
             }
         }
         return resp;
-    }
-
-    @ApiOperation({ summary: 'Get Salesperson'})
-    @ApiCreatedResponse({
-        description: 'Get Salesperson',
-        type: ResponseData
-    })
-    @HttpCode(HttpStatus.OK)
-    @Post('fetch/salesperson')
-    async getSalesperson(@Body() body: any) {
-        const output = new ResponseData;
-        try {
-            const salesman = await this.creditRequestService.getSalesperson(body);
-            output.data = salesman;
-            this.logger.log(`getSalesperson: ${JSON.stringify(salesman)}`)
-        } catch (error) {
-            this.logger.warn(`getSalesperson: ${JSON.stringify(error),error}`)
-            output.status = false;
-            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
-                output.message = error.message;
-            } else {
-                output.message = 'Internal Server Error';
-            }
-        }
-        return output;
     }
 
     @ApiOperation({ summary: 'Get Department'})
@@ -117,42 +117,50 @@ export class CreditRequestController {
         return output
     }
 
-    @ApiOperation({ summary: 'Update credit request by id'})
-    @ApiCreatedResponse({
-        description: 'Update credit request by id',
-        type: ResponseData
-    })
-    @HttpCode(HttpStatus.OK)
-    @Patch('update/:CustomerCreditRequestSid')
-    async updateCreditRequest(@Param('CustomerCreditRequestSid', ParseIntPipe) CustomerCreditRequestSid: number, @Body() body: any, @UserData() user: any) {
-        this.logger.log(`updateCreditRequest: ${JSON.stringify(body)}`)
-        let output = new ResponseData
-        try {
-            let credit = await this.creditRequestService.updateCreditRequest(CustomerCreditRequestSid, body, user);
-            this.logger.log(`updateCreditRequest: ${JSON.stringify(credit)}`)
+    @ApiOperation({ summary: 'Update credit request by id' })
+@ApiCreatedResponse({
+  description: 'Update credit request by id',
+  type: ResponseData,
+})
+@HttpCode(HttpStatus.OK)
+@Patch('update/:CustomerCreditRequestSid')
+async updateCreditRequest(
+  @Param('CustomerCreditRequestSid', ParseIntPipe) CustomerCreditRequestSid: number,
+  @Body() body: any,
+  @UserData() user: any,
+) {
+  const output = new ResponseData();
+  this.logger.log(`updateCreditRequest -> ID: ${CustomerCreditRequestSid}, Payload: ${JSON.stringify(body)}`);
 
-            if (!credit) {
-                this.logger.log(`updateCreditRequest!!: ${JSON.stringify(credit)}`)
-                throw 'Something went wrong'
-            } else {
-                this.logger.log(`updateCreditRequestelse: ${credit}`)
-            }
-            output.data = credit;
-            output.message = `Credit Request with id : ${CustomerCreditRequestSid} is successfully updated`;
-        } catch (error) {
-            this.logger.warn(`updateCreditRequestError: ${JSON.stringify(error),error}`)
-            output.status = false;
-            // Handle error message based on the type of error
-            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
-                this.logger.warn(`updateCreditRequestError: ${error}`)
-                output.message = error.message;
-            } else {
-                output.message = error;
-            }           
-            this.logger.warn(`updateCreditRequestMessage: ${output.message}`)       
-            return output
-        }
+  try {
+    const credit = await this.creditRequestService.updateCreditRequest(CustomerCreditRequestSid, body, user);
+
+    if (!credit || !credit.status) {
+      throw new BadRequestException('Something went wrong while updating the credit request');
     }
+
+    output.status = true;
+    output.data = credit.data;
+    output.message = `Credit Request with ID ${CustomerCreditRequestSid} successfully updated`;
+
+    this.logger.log(`updateCreditRequest Success -> ${JSON.stringify(credit.data)}`);
+  } catch (error) {
+    this.logger.error(`updateCreditRequestError -> ${error.message || error}`);
+
+    output.status = false;
+
+    if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+      output.message = error.message;
+    } else if (error instanceof NotFoundException) {
+      output.message = `Credit Request with ID ${CustomerCreditRequestSid} not found`;
+    } else {
+      output.message = error.message || 'Internal server error while updating credit request';
+    }
+  }
+
+  return output;
+}
+
 
     @ApiOperation({ summary: 'Delete credit request by id'})
     @ApiCreatedResponse({
