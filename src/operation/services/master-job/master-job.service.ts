@@ -206,7 +206,7 @@ export class MasterJobService {
                         RevenueCustomerBranchSid: item.RevenueCustomerBranchSid ? Number(item.RevenueCustomerBranchSid) : null,
                         RevenuePrepaidCollect : item.RevenuePrepaidCollect,
                         RevenueVoucherHeaderSid: item.RevenueVoucherHeaderSid ? Number(item.RevenueVoucherHeaderSid) : null,
-                        RevenueVoucherTypeMasterSid: item.RevenueVoucherTypeMasterSid ? Number(item.RevenueVoucherTypeMasterSid) : null,
+                        RevenueVoucherTypeMasterSid: item.RevenueVoucherTypeSid ? Number(item.RevenueVoucherTypeSid) : null,
 
                         // Cost Section
                         CostCurrencyMasterSid: item.CostCurrencyMasterSid ? item.CostCurrencyMasterSid : null,
@@ -219,7 +219,7 @@ export class MasterJobService {
                         CostAgentBranchSid: item.CostAgentBranchSid ? Number(item.CostAgentBranchSid) : null,
                         CostPrepaidCollect : item.CostPrepaidCollect,
                         CostVoucherHeaderSid: item.CostVoucherHeaderSid ? Number(item.CostVoucherHeaderSid) : null,
-                        CostVoucherTypeMasterSid: item.CostVoucherTypeMasterSid ? Number(item.CostVoucherTypeMasterSid) : null,
+                        CostVoucherTypeMasterSid: item.CostVoucherTypeSid ? Number(item.CostVoucherTypeSid) : null,
                         
                         createdBy: payload.CreatedBy,
                         status: "A",
@@ -708,6 +708,35 @@ export class MasterJobService {
                         BranchMasterSid: masterJobDetails?.BranchMasterSid,
                         MasterJobNo: masterJobDetails?.MasterJobNumber,
                         status: "A"
+                    },
+                    include: {
+                        revenueVoucherHeader: {
+                            select: {
+                                VoucherNumber: true,
+                                VoucherHeaderSid: true
+                            }
+                        },
+                        revenueVoucherTypeMaster: {
+                            select: {
+                                DocumentTypeName: true,
+                                VoucherTypeMasterSid: true
+                            }
+                        },
+                        costVoucherHeader: {
+                            select: {
+                                VoucherNumber: true,
+                                VoucherHeaderSid: true
+                            }
+                        },
+                        costVoucherTypeMaster: {
+                            select: {
+                                DocumentTypeName: true,
+                                VoucherTypeMasterSid: true
+                            }
+                        }
+                    },
+                    orderBy : {
+                        SerialNumber : 'asc'
                     }
                 })
                 const allActivities = await prisma.containerActivity.findMany({
@@ -1058,7 +1087,7 @@ export class MasterJobService {
                             RevenueCustomerBranchSid: item.RevenueCustomerBranchSid ? Number(item.RevenueCustomerBranchSid) : null,
                             RevenuePrepaidCollect : item.RevenuePrepaidCollect,
                             RevenueVoucherHeaderSid: item.RevenueVoucherHeaderSid ? Number(item.RevenueVoucherHeaderSid) : null,
-                            RevenueVoucherTypeMasterSid: item.RevenueVoucherTypeMasterSid ? Number(item.RevenueVoucherTypeMasterSid) : null,
+                            RevenueVoucherTypeMasterSid: item.RevenueVoucherTypeSid ? Number(item.RevenueVoucherTypeSid) : null,
 
                             // Cost Section
                             CostCurrencyMasterSid: item.CostCurrencyMasterSid ? Number(item.CostCurrencyMasterSid) : null,
@@ -1071,7 +1100,7 @@ export class MasterJobService {
                             CostAgentBranchSid: item.CostAgentBranchSid ? Number(item.CostAgentBranchSid) : null,
                             CostPrepaidCollect : item.CostPrepaidCollect,
                             CostVoucherHeaderSid: item.CostVoucherHeaderSid ? Number(item.CostVoucherHeaderSid) : null,
-                            CostVoucherTypeMasterSid: item.CostVoucherTypeMasterSid ? Number(item.CostVoucherTypeMasterSid) : null,
+                            CostVoucherTypeMasterSid: item.CostVoucherTypeSid ? Number(item.CostVoucherTypeSid) : null,
 
                         }
                         updatedCharge = await prisma.costRevenueCharges.update({
@@ -1111,7 +1140,7 @@ export class MasterJobService {
                             RevenueCustomerBranchSid: item.RevenueCustomerBranchSid ? Number(item.RevenueCustomerBranchSid) : null,
                             RevenuePrepaidCollect: item.RevenuePrepaidCollect,
                             RevenueVoucherHeaderSid: item.RevenueVoucherHeaderSid ? Number(item.RevenueVoucherHeaderSid) : null,
-                            RevenueVoucherTypeMasterSid: item.RevenueVoucherTypeMasterSid ? Number(item.RevenueVoucherTypeMasterSid) : null,
+                            RevenueVoucherTypeMasterSid: item.RevenueVoucherTypeSid ? Number(item.RevenueVoucherTypeSid) : null,
 
                             // Cost Section
                             CostCurrencyMasterSid: item.CostCurrencyMasterSid ? item.CostCurrencyMasterSid : null,
@@ -1124,7 +1153,7 @@ export class MasterJobService {
                             CostAgentBranchSid: item.CostAgentBranchSid ? Number(item.CostAgentBranchSid) : null,
                             CostPrepaidCollect: item.CostPrepaidCollect,
                             CostVoucherHeaderSid: item.CostVoucherHeaderSid ? Number(item.CostVoucherHeaderSid) : null,
-                            CostVoucherTypeMasterSid: item.CostVoucherTypeMasterSid ? Number(item.CostVoucherTypeMasterSid) : null,
+                            CostVoucherTypeMasterSid: item.CostVoucherTypeSid ? Number(item.CostVoucherTypeSid) : null,
 
                             createdBy: payload.CreatedBy,
                             status: "A",

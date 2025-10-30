@@ -79,6 +79,38 @@ export class OperationCommonController {
         return output
     }
 
+    @ApiOperation({ summary: 'Get All Cost Revenue Charge with details' })
+    @ApiCreatedResponse({
+        description: 'All Cost Revenue Charge with details are fetched successfully',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Post('cost-revenue/fetchWithDetails')
+    async getAllCostRevenueChargeWithDetails(
+        @Body() payload:{ 
+            MenuMasterSid:number,
+            TransactionSid:number,
+            modelName:string
+        } ) {
+        let output = new ResponseData()
+        try {
+
+            let lookupDatas = await this.commonService.getCostRevenueChargesWithDetails(payload);
+            this.logger.debug(`getAllCostRevenueChargeWithDetails: ${JSON.stringify(lookupDatas)}`)
+            output.data = lookupDatas;
+            output.message = "All Cost Revenue Charge with details are fetched successfully";
+            
+        } catch (error) {
+            this.logger.warn(`getAllCostRevenueChargeWithDetails error: ${JSON.stringify(error), error}`)
+            output.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                output.message = error.message;
+            } else {
+                output.message = error;
+            }
+        }
+        return output
+    }
 
     @ApiOperation({ summary: 'Create Shipment Milestone' })
     @ApiCreatedResponse({

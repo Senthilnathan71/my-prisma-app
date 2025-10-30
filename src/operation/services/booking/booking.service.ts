@@ -907,7 +907,7 @@ export class BookingService {
                                 CustomerBranchSid: rate.RevenueCustomerBranchSid,
                                 RevenuePrepaidCollect: rate.RevenuePrepaidCollect || 'Prepaid',
                                 RevenueVoucherHeaderSid: rate.RevenueVoucherHeaderSid || null,
-                                RevenueVoucherTypeMasterSid: rate.RevenueVoucherTypeMasterSid || null,
+                                RevenueVoucherTypeMasterSid: rate.RevenueVoucherTypeSid || null,
 
                                 // Cost Section
                                 CostCurrencyMasterSid: rate.CostCurrencyMasterSid || null,
@@ -920,7 +920,7 @@ export class BookingService {
                                 AgentBranchSid: rate.CostAgentBranchSid || null,
                                 CostPrepaidCollect: rate.CostPrepaidCollect || 'Prepaid',
                                 CostVoucherHeaderSid: rate.CostVoucherHeaderSid || null,
-                                CostVoucherTypeMasterSid: rate.CostVoucherTypeMasterSid || null,
+                                CostVoucherTypeMasterSid: rate.CostVoucherTypeSid || null,
 
 
                                 // PrepaidCollect: rate.PrepaidCollect || null,
@@ -1454,7 +1454,9 @@ export class BookingService {
                         select: {
                             CustomerBranchSid: true,
                             Address: true,
-                            StateMasterSid: true
+                            StateMasterSid: true,
+                            CityMasterSid : true,
+                            Zip_PostBox : true
                         }
                     },
                     costVoucherHeader: {
@@ -1501,9 +1503,14 @@ export class BookingService {
                         where: { StateMasterSid: rate.customerBranch.StateMasterSid },
                         select: { stateName: true }
                     });
+                    const city = await this._db.cityMaster.findUnique({
+                        where: { CityMasterSid: rate.customerBranch.CityMasterSid },
+                        select: { cityName: true }
+                    });
                     enrichments.customerBranch = {
                         ...rate.customerBranch,
-                        StateName: state?.stateName || ''
+                        stateMaster : state,
+                        cityMaster : city
                     };
                 }
 

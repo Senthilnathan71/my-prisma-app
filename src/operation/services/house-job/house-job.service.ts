@@ -129,68 +129,6 @@ export class HouseJobService {
                 })
             })
 
-            // let finalHouseJobCargo;
-            // const cargoPayload = payload.houseJobCargo || [];
-            // const HouseJobCargoSid = cargoPayload.HouseJobCargoSid;
-            // if (HouseJobCargoSid) {
-            //     finalHouseJobCargo = await this._db.houseJobCargo.update({
-            //         where: {
-            //             HouseJobCargoSid: HouseJobCargoSid
-            //         },
-            //         data: {
-            //             HouseJobSid,
-            //             CompanyMasterSid: payload.CompanyMasterSid || null,
-            //             BranchMasterSid: payload.BranchMasterSid || null,
-            //             NoOfPackage: Number(cargoPayload.NoOfPackage) || 0,
-            //             FreightAmount: String(cargoPayload.FreightAmount) || "0",
-            //             CargoType: cargoPayload.CargoType,
-            //             WeightUnitSid: cargoPayload.WeightUnit || 0,
-            //             GrossWeight: Number(cargoPayload.GrossWeight) || 0,
-            //             NetWeight: Number(cargoPayload.NetWeight) || 0,
-            //             Volume: Number(cargoPayload.Volume) || 0,
-            //             ChargeableWeight: Number(cargoPayload.ChargeableWeight) || 0,
-            //             PackageType: cargoPayload.PackageType || 0,
-            //             Qty: Number(cargoPayload.Qty) || 0,
-            //             ShipmentTerms: cargoPayload.ShipmentTerms || '',
-            //             createdBy: payload.createdBy,
-            //             updatedBy: payload.updatedBy || null,
-            //             status: 'A',
-            //             FreightTerms: cargoPayload.FreightTerms || '',
-            //             MovementType: cargoPayload.MovementType || '',
-            //             ModeOfTransport: cargoPayload.ModeOfTransport || '',
-            //             NoofContainers: Number(cargoPayload.NoofContainers) || 0,
-            //             StuffingAt: cargoPayload.StuffingAt || ''
-            //         }
-            //     })
-            // } else {
-            //     finalHouseJobCargo = await this._db.houseJobCargo.create({
-            //         data: {
-            //             HouseJobSid,
-            //             CompanyMasterSid: payload.CompanyMasterSid || null,
-            //             BranchMasterSid: payload.BranchMasterSid || null,
-            //             NoOfPackage: Number(cargoPayload.NoOfPackage) || 0,
-            //             FreightAmount: String(cargoPayload.FreightAmount) || "0",
-            //             CargoType: cargoPayload.CargoType,
-            //             WeightUnitSid: cargoPayload.WeightUnit || 0,
-            //             GrossWeight: Number(cargoPayload.GrossWeight) || 0,
-            //             NetWeight: Number(cargoPayload.NetWeight) || 0,
-            //             Volume: Number(cargoPayload.Volume) || 0,
-            //             ChargeableWeight: Number(cargoPayload.ChargeableWeight) || 0,
-            //             PackageType: cargoPayload.PackageType || 0,
-            //             Qty: Number(cargoPayload.Qty) || 0,
-            //             ShipmentTerms: cargoPayload.ShipmentTerms || '',
-            //             createdBy: payload.createdBy,
-            //             updatedBy: payload.updatedBy || null,
-            //             status: 'A',
-            //             FreightTerms: cargoPayload.FreightTerms || '',
-            //             MovementType: cargoPayload.MovementType || '',
-            //             ModeOfTransport: cargoPayload.ModeOfTransport || '',
-            //             NoofContainers: Number(cargoPayload.NoofContainers) || 0,
-            //             StuffingAt: cargoPayload.StuffingAt || ''
-            //         }
-                    
-            //     })
-            // }
             let finalHouseJobCargo;
 
             // Only run cargo logic if we actually have a cargo payload
@@ -400,8 +338,7 @@ export class HouseJobService {
                     data: {
                         HouseJobSid: Number(HouseJobSid),
                         CustomerRefNo: otherPayload.CustomerRefNo || '',
-                        CarrierBookingRef: otherPayload.CarrierBookingRef || '',
-                        CarrierBookingDate: otherPayload.CarrierBookingDate ? new Date(otherPayload.CarrierBookingDate) : null,
+                        OperationUser : otherPayload.OperationUser || '',
                         DocumentationUser: otherPayload.DocumentationUser || '',
                         CustomerServiceuser: otherPayload.CustomerServiceuser || '',
                         NotifyParty: otherPayload.NotifyParty || '',
@@ -416,7 +353,7 @@ export class HouseJobService {
                         PickupDate: otherPayload.PickupDate ? new Date(otherPayload.PickupDate) : null,
                         PickupAddress: otherPayload.PickupAddress || '',
                         DeliveryPlace: otherPayload.DeliveryPlace || '',
-                        DeliveryDate: otherPayload.DeliveryDate,
+                        DeliveryDate: otherPayload.DeliveryDate || "",
                         DeliveryAddress: otherPayload.DeliveryAddress || '',
                         CargoCurrency: otherPayload.CargoCurrency || '',
                         CargoValue: Number(otherPayload.CargoValue) || 0,
@@ -424,33 +361,32 @@ export class HouseJobService {
                         ExternalRemarks: otherPayload.ExternalRemarks || '',
                         SwitchBL: otherPayload.SwitchBL || '',
                         TransporterName: otherPayload.TransporterName || '',
-                        createdBy: payload.createdBy,
-                        updatedBy: payload.updatedBy || null,
-                        status: 'A',
+                        AgentAddress: otherPayload.AgentAddress || '',
+                        BacktoBack: otherPayload.BackToBack || '',
+                        CarrierBookingRef: otherPayload.CarrierBookingRef || '',
+                        CarrierBookingDate: otherPayload.CarrierBookingDate ? new Date(otherPayload.CarrierBookingDate) : null,
+                        Coloader: otherPayload.Coloader || '',
                         Forwarder: otherPayload.Forwarder || '',
                         ForwarderAddress: otherPayload.ForwarderAddress || '',
                         HBLNo: otherPayload.HBLNo || '',
-                        BacktoBack: otherPayload.BacktoBack || '',
-                        Depo: otherPayload.Depo || '',
+                        Notify2: otherPayload.Notify2 || '',
+                        NotifyAddress2: otherPayload.NotifyAddress2 || '',
                         ROValidity: otherPayload.ROValidity || '',
                         ReleaseType: otherPayload.ReleaseType || '',
-                        AgentAddress: otherPayload.AgentAddress || '',
                         SwitchBLAgent: otherPayload.SwitchBLAgent || '',
                         SwitchBLConsignee: otherPayload.SwitchBLConsignee || '',
                         SwitchBLShipper: otherPayload.SwitchBLShipper || '',
                         SwitchLocation: otherPayload.SwitchLocation || '',
-                        Coloader: otherPayload.Coloader || '',
-                        Notify2: otherPayload.Notify2 || '',
-                        NotifyAddress2: otherPayload.NotifyAddress2 || '',
+                        status: 'A',
+                        updatedBy: payload.updatedBy || null,
                     }
                 })
             } else {
                 finalHouseJobOthers = await this._db.houseJobOthers.create({
                     data: {
                         HouseJobSid: Number(HouseJobSid),
-                        CustomerRefNo: otherPayload.CustomerRefNo,
-                        CarrierBookingRef: otherPayload.CarrierBookingRef || '',
-                        CarrierBookingDate: otherPayload.CarrierBookingDate ? new Date(otherPayload.CarrierBookingDate) : null,
+                        CustomerRefNo: otherPayload.CustomerRefNo || '',
+                        OperationUser : otherPayload.OperationUser || '',
                         DocumentationUser: otherPayload.DocumentationUser || '',
                         CustomerServiceuser: otherPayload.CustomerServiceuser || '',
                         NotifyParty: otherPayload.NotifyParty || '',
@@ -465,7 +401,7 @@ export class HouseJobService {
                         PickupDate: otherPayload.PickupDate ? new Date(otherPayload.PickupDate) : null,
                         PickupAddress: otherPayload.PickupAddress || '',
                         DeliveryPlace: otherPayload.DeliveryPlace || '',
-                        DeliveryDate: otherPayload.DeliveryDate,
+                        DeliveryDate: otherPayload.DeliveryDate || "",
                         DeliveryAddress: otherPayload.DeliveryAddress || '',
                         CargoCurrency: otherPayload.CargoCurrency || '',
                         CargoValue: Number(otherPayload.CargoValue) || 0,
@@ -473,28 +409,165 @@ export class HouseJobService {
                         ExternalRemarks: otherPayload.ExternalRemarks || '',
                         SwitchBL: otherPayload.SwitchBL || '',
                         TransporterName: otherPayload.TransporterName || '',
-                        createdBy: payload.createdBy,
-                        updatedBy: payload.updatedBy || null,
-                        status: 'A',
+                        AgentAddress: otherPayload.AgentAddress || '',
+                        BacktoBack: otherPayload.BackToBack || '',
+                        CarrierBookingRef: otherPayload.CarrierBookingRef || '',
+                        CarrierBookingDate: otherPayload.CarrierBookingDate ? new Date(otherPayload.CarrierBookingDate) : null,
+                        Coloader: otherPayload.Coloader || '',
                         Forwarder: otherPayload.Forwarder || '',
                         ForwarderAddress: otherPayload.ForwarderAddress || '',
                         HBLNo: otherPayload.HBLNo || '',
-                        BacktoBack: otherPayload.BacktoBack || '',
-                        Depo: otherPayload.Depo || '',
+                        Notify2: otherPayload.Notify2 || '',
+                        NotifyAddress2: otherPayload.NotifyAddress2 || '',
                         ROValidity: otherPayload.ROValidity || '',
                         ReleaseType: otherPayload.ReleaseType || '',
-                        AgentAddress: otherPayload.AgentAddress || '',
                         SwitchBLAgent: otherPayload.SwitchBLAgent || '',
                         SwitchBLConsignee: otherPayload.SwitchBLConsignee || '',
                         SwitchBLShipper: otherPayload.SwitchBLShipper || '',
                         SwitchLocation: otherPayload.SwitchLocation || '',
-                        Coloader: otherPayload.Coloader || '',
-                        Notify2: otherPayload.Notify2 || '',
-                        NotifyAddress2: otherPayload.NotifyAddress2 || ''
+                        status: 'A',
+                        createdBy: payload.updatedBy || null,
                     }
                     
                 })
             }
+            const finalCharges: any[] = [];
+                const allCostRevenueCharges = payload?.bookingRates || [];
+                let menuConfig;
+                if(allCostRevenueCharges.length > 0){
+                    menuConfig = await this._db.menuConfig.findFirst({
+                        where : {
+                            ModelName : "HouseJob"
+                        }
+                    })
+                }
+
+                if(!menuConfig || !menuConfig.MenuMasterSid){
+                    throw new BadRequestException("Menu Sid is missing")
+                }
+
+                let itemIndex = 1;
+                for (const item of allCostRevenueCharges) {
+                    let createdCharge;
+                    let updatedCharge;
+                    if (item.RateSid) {
+                        // update
+                        const costRevenueChargesPayload = {
+                            TransactionSid : updatedHouseJob.HouseJobSid ||  item.RateSid,
+                            MenuMasterSid : menuConfig.MenuMasterSid,
+                            ShipmentNo : updatedHouseJob.ShipmentNo,
+                            MasterJobNo : updatedHouseJob.MBLNo,
+                            updatedBy : payload.updatedBy || payload.createdBy || '',
+                            status : String(item.status).charAt(0) || 'A',
+                            Remarks : item.Remarks || '',
+
+                            SerialNumber: itemIndex++,
+                            ChargeMasterSid: item.ChargeMasterSid ? Number(item.ChargeMasterSid) : null,
+                            ChargeDescription: item.ChargeDescription,
+                            ChargeUomSid: item.ChargeUomSid ? Number(item.ChargeUomSid) : null,
+                            RevenueChargeUomSid: 
+                            (item.RevenueChargeUomSid ? Number(item.RevenueChargeUomSid) : null) ||
+                            (item.ChargeUomSid ? Number(item.ChargeUomSid) : null)!,
+                            CostChargeUomSid: 
+                            (item.CostChargeUomSid! ? Number(item.CostChargeUomSid) : null) || 
+                            (item.ChargeUomSid ? Number(item.ChargeUomSid) : null)!,
+                            RevenueNumberOfUnit : 
+                            (item.RevenueNumberOfUnit ? Number(item.RevenueNumberOfUnit) : null) || 
+                            (item.NoOfUnit ? Number(item.NoOfUnit) : null)!,
+                            CostNumberOfUnit : 
+                            (item.CostNumberOfUnit ? Number(item.CostNumberOfUnit) : null) ||
+                            (item.NoOfUnit ? Number(item.NoOfUnit) : null)!,
+
+                            // Revenue Section
+                            RevenueCurrencyMasterSid: item.RevenueCurrencyMasterSid ? Number(item.RevenueCurrencyMasterSid) : null,
+                            RevenueExchangeRate : item.RevenueExchangeRate ? Number(item.RevenueExchangeRate) : null,
+                            RevenueRate : item.RevenueRate ? Number(item.RevenueRate) : null,
+                            RevenueAmount : item.RevenueAmount ? Number(item.RevenueAmount) : null,
+                            RevenueLocalAmount : item.RevenueLocalAmount ? Number(item.RevenueLocalAmount) : null,
+                            RevenueDrCr : item.RevenueDrCr,
+                            RevenueCustomerMasterSid: item.RevenueCustomerMasterSid ? Number(item.RevenueCustomerMasterSid) : null,
+                            RevenueCustomerBranchSid: item.RevenueCustomerBranchSid ? Number(item.RevenueCustomerBranchSid) : null,
+                            RevenuePrepaidCollect : item.RevenuePrepaidCollect,
+                            RevenueVoucherHeaderSid: item.RevenueVoucherHeaderSid ? Number(item.RevenueVoucherHeaderSid) : null,
+                            RevenueVoucherTypeMasterSid: item.RevenueVoucherTypeSid ? Number(item.RevenueVoucherTypeSid) : null,
+
+                            // Cost Section
+                            CostCurrencyMasterSid: item.CostCurrencyMasterSid ? Number(item.CostCurrencyMasterSid) : null,
+                            CostExchangeRate : item.CostExchangeRate ? Number(item.CostExchangeRate) : null,
+                            CostRate : item.CostRate ? Number(item.CostRate) : null,
+                            CostAmount : item.CostAmount ? Number(item.CostAmount) : null,
+                            CostLocalAmount : item.CostLocalAmount ? Number(item.CostLocalAmount) : null,
+                            CostDrCr : item.CostDrCr,
+                            CostAgentMasterSid: item.CostAgentMasterSid ? Number(item.CostAgentMasterSid) : null,
+                            CostAgentBranchSid: item.CostAgentBranchSid ? Number(item.CostAgentBranchSid) : null,
+                            CostPrepaidCollect : item.CostPrepaidCollect,
+                            CostVoucherHeaderSid: item.CostVoucherHeaderSid ? Number(item.CostVoucherHeaderSid) : null,
+                            CostVoucherTypeMasterSid: item.CostVoucherTypeSid ? Number(item.CostVoucherTypeSid) : null,
+
+                        }
+                        updatedCharge = await this._db.costRevenueCharges.update({
+                            where: {
+                                CostRevenueChargesSid: item.RateSid
+                            },
+                            data: costRevenueChargesPayload
+                        })
+                    } else {
+                        // create
+                        const costRevenueChargesPayload = {
+                            TransactionSid: updatedHouseJob.MasterJobSid,
+                            MenuMasterSid : menuConfig.MenuMasterSid,
+                            ShipmentNo: updatedHouseJob.ShipmentNo,
+                            MasterJobNo: updatedHouseJob.MBLNo,
+                            CompanyMasterSid: payload.CompanyMasterSid,
+                            BranchMasterSid: payload.BranchMasterSid,
+
+                            SerialNumber: itemIndex++,
+                            ChargeMasterSid: item.ChargeMasterSid ? Number(item.ChargeMasterSid) : null,
+                            ChargeDescription: item.ChargeDescription,
+
+                            ChargeUomSid: item.ChargeUomSid ? Number(item.ChargeUomSid) : null,
+                            RevenueChargeUomSid: Number(item.RevenueChargeUomSid),
+                            CostChargeUomSid: Number(item.CostChargeUomSid),
+                            RevenueNumberOfUnit: item.RevenueNumberOfUnit ? Number(item.RevenueNumberOfUnit) : null,
+                            CostNumberOfUnit: item.CostNumberOfUnit ? Number(item.CostNumberOfUnit) : null,
+
+                            // Revenue Section
+                            RevenueCurrencyMasterSid: item.RevenueCurrencyMasterSid ? item.RevenueCurrencyMasterSid : null,
+                            RevenueExchangeRate: item.RevenueExchangeRate ? Number(item.RevenueExchangeRate) : null,
+                            RevenueRate: item.RevenueRate ? Number(item.RevenueRate) : null,
+                            RevenueAmount: item.RevenueAmount ? Number(item.RevenueAmount) : null,
+                            RevenueLocalAmount: item.RevenueLocalAmount ? Number(item.RevenueLocalAmount) : null,
+                            RevenueDrCr: item.RevenueDrCr,
+                            RevenueCustomerMasterSid: item.RevenueCustomerMasterSid ? Number(item.RevenueCustomerMasterSid) : null,
+                            RevenueCustomerBranchSid: item.RevenueCustomerBranchSid ? Number(item.RevenueCustomerBranchSid) : null,
+                            RevenuePrepaidCollect: item.RevenuePrepaidCollect,
+                            RevenueVoucherHeaderSid: item.RevenueVoucherHeaderSid ? Number(item.RevenueVoucherHeaderSid) : null,
+                            RevenueVoucherTypeMasterSid: item.RevenueVoucherTypeSid ? Number(item.RevenueVoucherTypeSid) : null,
+
+                            // Cost Section
+                            CostCurrencyMasterSid: item.CostCurrencyMasterSid ? item.CostCurrencyMasterSid : null,
+                            CostExchangeRate: item.CostExchangeRate ? Number(item.CostExchangeRate) : null,
+                            CostRate: item.CostRate ? Number(item.CostRate) : null,
+                            CostAmount: item.CostAmount ? Number(item.CostAmount) : null,
+                            CostLocalAmount: item.CostLocalAmount ? Number(item.CostLocalAmount) : null,
+                            CostDrCr: item.CostDrCr,
+                            CostAgentMasterSid: item.CostAgentMasterSid ? Number(item.CostAgentMasterSid) : null,
+                            CostAgentBranchSid: item.CostAgentBranchSid ? Number(item.CostAgentBranchSid) : null,
+                            CostPrepaidCollect: item.CostPrepaidCollect,
+                            CostVoucherHeaderSid: item.CostVoucherHeaderSid ? Number(item.CostVoucherHeaderSid) : null,
+                            CostVoucherTypeMasterSid: item.CostVoucherTypeSid ? Number(item.CostVoucherTypeSid) : null,
+
+                            createdBy: payload.updatedBy,
+                            status: "A",
+                            Remarks: item.Remarks
+                        }
+
+                        createdCharge = await this._db.costRevenueCharges.create({
+                            data: costRevenueChargesPayload
+                        })
+                    }
+                    finalCharges.push(createdCharge || updatedCharge);
+                }
 
             return updatedHouseJob;
         }

@@ -1,5 +1,5 @@
 
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { DatabaseService } from 'src/database/database.service';
 
 interface CostRevenueDTO {
@@ -65,6 +65,184 @@ export class OperationCommonService {
                 }
             })
             return allCostRevenueCharges;
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    // Used in Cost - Revenue for Voucher Generation
+    async getCostRevenueChargesWithDetails(payload:{MenuMasterSid:number,TransactionSid:number,modelName:string}){
+        try {
+            let { MenuMasterSid , TransactionSid ,modelName } = payload;
+            if(!TransactionSid){
+                throw new BadRequestException("Transaction SID is required");
+            }
+            if(!MenuMasterSid){
+                // Possiblilty for HouseJob
+                if(!modelName){
+                    throw new BadRequestException("Model Name is required");
+                }
+                const menuConfig = await this._db.menuConfig.findFirst({
+                    where : {
+                        ModelName : modelName
+                    }
+                })
+                if(!menuConfig || !menuConfig.MenuMasterSid){
+                    throw new BadRequestException("Menu Master SID is required");
+                }
+                MenuMasterSid = menuConfig.MenuMasterSid;
+            }
+            const allCostRevenueCharges = await this._db.costRevenueCharges.findMany({
+                where : {
+                    MenuMasterSid,
+                    TransactionSid,
+                    status : 'A'
+                },
+                include : {
+                    companyMaster : {
+                        select : {
+                            CompanyMasterSid : true,
+                            companyName : true,
+                            CountryMasterSid : true
+                        }
+                    },
+                    branchMaster : {
+                        select : {
+                            BranchMasterSid : true,
+                            branchName : true,
+                            StateMasterSid : true
+                        }
+                    },
+                    chargeMaster : {
+                        select : {
+                            ChargeMasterSid : true,
+                            chargeCode : true,
+                            chargeName : true,
+                            HSNSAC : true,
+                            chargeTaxMaster : {
+                                select : {
+                                    ChargeTaxMasterSid : true,
+                                    HSNCode : true,
+                                    description : true,
+                                    TaxGroup : true,
+                                    TaxRate : true
+                                }
+                            }
+                        }
+                    },
+                    revenueCurrencyMaster : {
+                        select : {
+                            CurrencyMasterSid : true,
+                            currencyName : true,
+                            currencyCode : true,
+                            countryMaster : {
+                                select : {
+                                    CountryMasterSid : true,
+                                    countryName : true,
+                                    countryCode : true
+                                }
+                            }
+                        }
+                    },
+                    costCurrencyMaster : {
+                        select : {
+                            CurrencyMasterSid : true,
+                            currencyName : true,
+                            currencyCode : true,
+                            countryMaster : {
+                                select : {
+                                    CountryMasterSid : true,
+                                    countryName : true,
+                                    countryCode : true
+                                }
+                            }
+                        }
+                    },
+                    revenueCustomerMaster : {
+                        select : {
+                            CustomerMasterSid : true,
+                            CustomerName : true,
+                            CustomerAddress1 : true,
+                            CustomerAddress2 : true
+                        }
+                    },
+                    revenueCustomerBranch : {
+                        select : {
+                            CustomerBranchSid : true,
+                            Address : true,
+                            stateMaster : {
+                                select : { stateName : true},
+                            },
+                            cityMaster : {select : {cityName : true}},
+                            Zip_PostBox : true,
+                        }
+                    },
+                    costCustomerMaster : {
+                        select : {
+                            CustomerMasterSid : true,
+                            CustomerName : true,
+                            CustomerAddress1 : true,
+                            CustomerAddress2 : true
+                        }
+                    },
+                    costCustomerBranch : {
+                        select : {
+                            CustomerBranchSid : true,
+                            Address : true,
+                            StateMasterSid : true
+                        }
+                    },
+                    costVoucherHeader : {
+                        select : {
+                            VoucherHeaderSid : true,
+                            VoucherNumber : true
+                        }
+                    },
+                    revenueVoucherHeader : {
+                        select : {
+                            VoucherHeaderSid : true,
+                            VoucherNumber : true
+                        }
+                    },
+                    revenueVoucherTypeMaster : {
+                        select : {
+                            VoucherTypeMasterSid : true,
+                            DocumentTypeName : true
+                        }
+                    },
+                    costVoucherTypeMaster : {
+                        select : {
+                            VoucherTypeMasterSid : true,
+                            DocumentTypeName : true
+                        }
+                    },
+                },
+                orderBy : {
+                    SerialNumber : 'asc'
+                }
+            });
+
+            // Formatted data
+            const formattedData = allCostRevenueCharges.map(charge => {
+                const {companyMaster,branchMaster,chargeMaster,revenueCurrencyMaster,costCurrencyMaster,revenueCustomerMaster,revenueCustomerBranch,costCustomerMaster,costCustomerBranch,costVoucherHeader,revenueVoucherHeader,costVoucherTypeMaster,revenueVoucherTypeMaster,...chargeData} = charge;
+                return {
+                    ...chargeData,
+                    companyMaster,
+                    BranchMaster : branchMaster,
+                    ChargeMaster : chargeMaster,
+                    RevenueCurrencyMaster : revenueCurrencyMaster,
+                    CostCurrencyMaster : costCurrencyMaster,
+                    customerMasterBP : revenueCustomerMaster,
+                    customerBranch : revenueCustomerBranch,
+                    AgentMaster : costCustomerMaster,
+                    AgentBranch : costCustomerBranch,
+                    costVoucherHeader : costVoucherHeader,
+                    revenueVoucherHeader : revenueVoucherHeader,
+                    costVoucherTypeMaster : costVoucherTypeMaster,
+                    revenueVoucherTypeMaster : revenueVoucherTypeMaster,
+                }
+            });
+            return formattedData;
         } catch (error) {
             throw error;
         }
