@@ -73,6 +73,12 @@ export class LoadingPlanService {
                         return acc + amount;
                     },0.0);
 
+                    const agentName = booking.DestinationAgent ?
+                     (await this._db.customerMaster.findFirst({
+                        where : {CustomerMasterSid : booking.DestinationAgent},
+                        select : {CustomerName : true}
+                    }))?.CustomerName :
+                    {CustomerName : ''}
 
                     return {
                         BookingHeaderSid : booking.BookingHeaderSid,
@@ -90,6 +96,7 @@ export class LoadingPlanService {
                         ConsigneeName: booking.ConsigneeName,
                         ConsigneeAddress : booking.ConsigneeAddress,
                         DestinationAgent : booking.DestinationAgent,
+                        AgentName : agentName,
                         MasterNoSid : booking.MasterNoSid,
                         MBLNo : booking.MBLNo,
                         MBLDate : booking.MBLDate,

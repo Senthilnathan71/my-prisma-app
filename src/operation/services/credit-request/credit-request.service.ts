@@ -1,10 +1,46 @@
 import { BadRequestException, Injectable, InternalServerErrorException, Logger, NotFoundException } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { ApprovalStatus, Prisma } from '@prisma/client';
 import { GlobalConfigService } from 'src/common/config/master-config.service';
 import { statusWhereClause } from 'src/common/helper';
 import { DatabaseService } from 'src/database/database.service';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 
+export interface CustomerCreditRequestInterface {
+  CustomerCreditRequestSid?: number;
+  CustomerMasterSid: number;
+  CompanyMasterSid: number;
+  DepartmentMasterSid?: number | null;
+  CustomerBranchSid?: number | null;
+  SalesmanSid?: number | null;
+  CreditDays: number;
+  CreditLimit: number;
+  PublishedDays: number;
+  PublishedLimit: number;
+  EffectiveFrom: Date | string;
+  EffectiveTo: Date | string;
+  ApprovalStatus?: ApprovalStatus | null;
+  CreatedBy: string;
+  UpdatedBy?: string;
+  Status?: string;
+}
+ 
+export interface CustomerKycInterface {
+  CustomerKycSid?: number;
+  CustomerMasterSid?: number | null;
+  CompanyMasterSid: number;
+  CustomerCreditRequestSid: number;
+  CustomerBranchSid?: number | null;
+  KycSno: number;
+  KycDocName: string;
+  KycDocNumber: string;
+  AttachDocumentSid?: number | null;
+  CreatedBy: string;
+  UpdatedBy?: string;
+}
+ 
+export interface CustomerCreditRequestWithKycInterface extends CustomerCreditRequestInterface {
+  customerKyc: CustomerKycInterface[];
+}
 @Injectable()
 export class CreditRequestService {
     constructor(private _db: DatabaseService, private logger: Logger,private globalConfigService: GlobalConfigService) { }
@@ -137,181 +173,315 @@ export class CreditRequestService {
 }
 
 
-
-    
-async createCreditRequest(payload: any, user) {
-  try {
-    const { customerCreditRequest, ...customerData } = payload;
-
-    if (!customerCreditRequest || customerCreditRequest.length === 0) {
-      throw new BadRequestException('No credit request data provided');
-    }
-
-    const createdRecords = await this._db.$transaction(
-      customerCreditRequest.map((credit) =>
-        this._db.customerCreditRequest.create({
-          data: {
-            ...credit,
-            EffectiveFrom: credit.EffectiveFrom ? new Date(credit.EffectiveFrom) : null,
-            EffectiveTo: credit.EffectiveTo ? new Date(credit.EffectiveTo) : null,
-            CompanyMasterSid: customerData.CompanyMasterSid,
-            CustomerMasterSid: customerData.CustomerMasterSid,
-            CreatedBy: customerData.CreatedBy || user?.email || 'system',
-          },
-        })
-      )
-    );
-
-    return {
-      status: true,
-      message: 'Credit request(s) created successfully',
-      data: createdRecords,
-    };
-  } catch (error) {
-    this.logger.error('Error creating credit request:', error);
-    throw new InternalServerErrorException(
-      `Error creating credit request: ${error.message}`,
-    );
-  }
-}
-
-   async updateCreditRequest(CustomerCreditRequestSid: number, payload: any, user) {
-  try {
-    if (!CustomerCreditRequestSid) {
-      throw new BadRequestException('CustomerCreditRequestSid is required');
-    }
-
-    // Check if the record exists
-    const existingRecord = await this._db.customerCreditRequest.findUnique({
-      where: { CustomerCreditRequestSid },
-    });
-
-    if (!existingRecord) {
-      throw new NotFoundException(`Credit request with ID ${CustomerCreditRequestSid} not found`);
-    }
-
-    // Destructure and exclude relational IDs
-    const {
-      CustomerCreditRequestSid: _,
-      CompanyMasterSid,
-      CustomerMasterSid,
-      CustomerBranchSid,
-      DepartmentMasterSid,
-      SalesmanSid,
-      ...updateData
-    } = payload;
-
-    const updatedRecord = await this._db.customerCreditRequest.update({
-      where: { CustomerCreditRequestSid },
-      data: {
-        ...updateData,
-
-        // ✅ Convert date strings to Date objects
-        EffectiveFrom: payload.EffectiveFrom
-          ? new Date(payload.EffectiveFrom)
-          : existingRecord.EffectiveFrom,
-        EffectiveTo: payload.EffectiveTo
-          ? new Date(payload.EffectiveTo)
-          : existingRecord.EffectiveTo,
-
-        // ✅ Prisma-managed updated fields
-        UpdatedBy: user?.email || 'system', // correct field name
-        // UpdatedOn is automatically handled by Prisma @updatedAt
-
-        // ✅ Relation connects
-        ...(CompanyMasterSid && {
-          company: { connect: { CompanyMasterSid } },
-        }),
-        ...(CustomerMasterSid && {
-          customerMaster: { connect: { CustomerMasterSid } },
-        }),
-        ...(CustomerBranchSid && {
-          customerBranch: { connect: { CustomerBranchSid } },
-        }),
-        ...(DepartmentMasterSid && {
-          department: { connect: { DepartmentMasterSid } },
-        }),
-        ...(SalesmanSid && {
-          salesman: { connect: { UserMasterSid: SalesmanSid } },
-        }),
-      },
-    });
-
-    return {
-      status: true,
-      message: 'Credit request updated successfully',
-      data: updatedRecord,
-    };
-  } catch (error) {
-    this.logger.error('Error updating credit request:', error);
-    throw new InternalServerErrorException(
-      `Error updating credit request: ${error.message}`,
-    );
-  }
-}
-
-    async deleteCreditRequest(CustomerCreditRequestSid: number) {
-        try {
-            const existing = await this._db.customerCreditRequest.findUnique({
-                where: {
-                    CustomerCreditRequestSid: CustomerCreditRequestSid
+    /**
+   * Get all credit requests for a customer with KYC details
+   * @param CustomerMasterSid - Customer Master SID
+   * @returns Array of credit requests with related KYC records
+   */
+  async getCreditRequestOfCustomer(CustomerMasterSid: number) {
+    try {
+      const creditRequests = await this._db.customerMaster.findMany({
+        where: {
+          CustomerMasterSid: CustomerMasterSid,
+        },
+        include: {
+            countryMaster: {
+                select: {
+                    countryName: true,
                 }
-            })
-            if (!existing) {
-                throw new BadRequestException(`Credit Request with  id: ${CustomerCreditRequestSid} not exists`);
-            }
-            if (existing.Status === 'D') {
-                throw new BadRequestException(`Credit Request with  id: ${CustomerCreditRequestSid} is already deleted`);
-            }
-            const deletedCreditRequest = await this._db.customerCreditRequest.update({
-                where: {
-                    CustomerCreditRequestSid: CustomerCreditRequestSid
+            },
+            CustomerBranch: true,
+          customerCreditRequest : {
+            where : {Status : 'A'},
+            include : {
+                company: {
+                    select: {
+                        companyName: true
+                    }
                 },
-                data: {
-                    Status: 'D'
-                }
-            })
-            return deletedCreditRequest;
-        } catch (error) {
-            throw error;
-        }
-    }
-
-    async getCustomerById(CustomerMasterSid: number) {
-  try {
-    const customer = await this._db.customerMaster.findUnique({
-      where: { CustomerMasterSid },
-      include: {
-        countryMaster: {
-          select: { countryName: true },
-        },
-        CustomerBranch: true,
-        customerCreditRequest: {
-          include: {
-            company: { select: { companyName: true } },
-            department: { select: { departmentName: true } },
-            salesman: { select: { userName: true } },
+                department: {
+                    select: {
+                        departmentName: true
+                    }
+                },
+                salesman: {
+                    select: {
+                        userName: true
+                    }
+                },
+              customerKyc : true
+            },
+            orderBy : { CustomerCreditRequestSid : 'asc'}
           },
         },
-        customerKyc: true,
-      },
-    });
-
-    if (!customer) {
-      throw new BadRequestException(`Customer with id ${CustomerMasterSid} not found`);
+       
+      });
+ 
+      return creditRequests;
+    } catch (error) {
+      this.logger.error(
+        `Error fetching credit requests for customer ${CustomerMasterSid}: ${error.message}`,
+      );
+      throw error;
     }
-
-    // Patch additional fields
-    return {
-      ...customer,
-      CustomerName: customer.CustomerName,
-      Country: customer.countryMaster?.countryName || null,
-      Status: customer.status,
-    };
-  } catch (err) {
-    this.logger.warn(`Credit Request Service: findOne failed`);
-    throw new InternalServerErrorException('Credit Request Service error: Something went wrong.');
   }
-}
+
+     /**
+   * Create a single credit request without KYC
+   * @param payload - Credit request data
+   * @returns Created credit request
+   */
+  async createSingleCustomerCreditReq(payload: CustomerCreditRequestInterface) {
+    try {
+      const creditRequest = await this._db.customerCreditRequest.create({
+        data: {
+          CustomerMasterSid: payload.CustomerMasterSid,
+          CompanyMasterSid: payload.CompanyMasterSid,
+          DepartmentMasterSid: payload.DepartmentMasterSid || null,
+          CustomerBranchSid: payload.CustomerBranchSid || null,
+          SalesmanSid: payload.SalesmanSid || null,
+          CreditDays: payload.CreditDays,
+          CreditLimit: payload.CreditLimit,
+          PublishedDays: payload.PublishedDays,
+          PublishedLimit: payload.PublishedLimit,
+          EffectiveFrom: new Date(payload.EffectiveFrom),
+          EffectiveTo: new Date(payload.EffectiveTo),
+          ApprovalStatus: payload.ApprovalStatus || ApprovalStatus.Pending,
+          CreatedBy: payload.CreatedBy,
+          Status: 'A',
+        },
+      });
+ 
+      return creditRequest;
+    } catch (error) {
+      this.logger.error(
+        `Error creating credit request: ${error.message}`,
+      );
+      throw error;
+    }
+  }
+
+      /**
+   * Create a single customer KYC record
+   * @param payload - KYC data
+   * @returns Created KYC record
+   */
+  async createSingleCustomerKyc(payload: CustomerKycInterface) {
+    try {
+      const kyc = await this._db.customerKyc.create({
+        data: {
+          CustomerMasterSid: payload.CustomerMasterSid || null,
+          CompanyMasterSid: payload.CompanyMasterSid,
+          CustomerCreditRequestSid: payload.CustomerCreditRequestSid,
+          CustomerBranchSid: payload.CustomerBranchSid || null,
+          KycSno: payload.KycSno,
+          KycDocName: payload.KycDocName,
+          KycDocNumber: payload.KycDocNumber,
+          AttachDocumentSid: payload.AttachDocumentSid || null,
+          CreatedBy: payload.CreatedBy,
+        }
+      });
+ 
+      return kyc;
+    } catch (error) {
+      this.logger.error(`Error creating customer KYC: ${error.message}`);
+      throw error;
+    }
+  }
+
+    /**
+   * Create credit requests with KYC documents in a transaction
+   * @param payload - Array of credit requests with nested KYC documents
+   * @returns Array of created credit requests with their KYC records
+   */
+  async createCustomerCreditReqWithKyc(
+    payload: CustomerCreditRequestWithKycInterface[],
+  ) {
+    try {
+      const result = await this._db.$transaction(async (prisma) => {
+        const createdRecords : any[] = [];
+ 
+        for (const item of payload) {
+          // Create credit request
+          const creditRequest = await this.createSingleCustomerCreditReq({
+              CustomerMasterSid: item.CustomerMasterSid,
+              CompanyMasterSid: item.CompanyMasterSid,
+              DepartmentMasterSid: item.DepartmentMasterSid || null,
+              CustomerBranchSid: item.CustomerBranchSid || null,
+              SalesmanSid: item.SalesmanSid || null,
+              CreditDays: item.CreditDays ,
+              CreditLimit: item.CreditLimit,
+              PublishedDays: item.PublishedDays,
+              PublishedLimit: item.PublishedLimit,
+              EffectiveFrom: new Date(item.EffectiveFrom),
+              EffectiveTo: new Date(item.EffectiveTo),
+              ApprovalStatus: item.ApprovalStatus,
+              CreatedBy: item.CreatedBy,
+              Status: 'A',
+            })
+ 
+          const kycRecords : any[] = [];
+ 
+          // Create KYC records if provided
+          if (item.customerKyc && item.customerKyc.length > 0) {
+            for (const kycItem of item.customerKyc) {
+              const kyc = await this.createSingleCustomerKyc({
+                  CustomerMasterSid: kycItem.CustomerMasterSid || null,
+                  CompanyMasterSid: kycItem.CompanyMasterSid,
+                  CustomerCreditRequestSid:
+                    creditRequest.CustomerCreditRequestSid,
+                  CustomerBranchSid: kycItem.CustomerBranchSid || null,
+                  KycSno: kycItem.KycSno,
+                  KycDocName: kycItem.KycDocName,
+                  KycDocNumber: kycItem.KycDocNumber,
+                  AttachDocumentSid: kycItem.AttachDocumentSid || null,
+                  CreatedBy: kycItem.CreatedBy || 'system',
+              })
+ 
+              kycRecords.push(kyc);
+            }
+          }
+ 
+          createdRecords.push({
+            ...creditRequest,
+            kycRecords,
+          });
+        }
+ 
+        return createdRecords;
+      });
+ 
+      return result;
+    } catch (error) {
+      this.logger.error(
+        `Error creating credit request with KYC: ${error.message}`,
+      );
+      throw error;
+    }
+  }
+
+/**
+   * Update or create credit requests with KYC documents in a transaction
+   * @param payload - Array of credit requests with nested KYC documents
+   * @returns Array of updated/created credit requests with their KYC records
+   */
+  async updateCustomerCreditReqWithKyc(
+    payload: any[]
+  ) {
+    try {
+      const result = await this._db.$transaction(async (prisma) => {
+        const processedRecords : any[] = [];
+ 
+        for (const item of payload) {
+          let creditRequest;
+ 
+          // Update or create credit request
+          if (item.CustomerCreditRequestSid) {
+            // Update existing credit request
+            creditRequest = await prisma.customerCreditRequest.update({
+              where: {
+                CustomerCreditRequestSid: item.CustomerCreditRequestSid,
+              },
+              data: {
+                CustomerMasterSid: item.CustomerMasterSid,
+                CompanyMasterSid: item.CompanyMasterSid,
+                DepartmentMasterSid: item.DepartmentMasterSid || null,
+                CustomerBranchSid: item.CustomerBranchSid || null,
+                SalesmanSid: item.SalesmanSid || null,
+                CreditDays: item.CreditDays,
+                CreditLimit: item.CreditLimit,
+                PublishedDays: item.PublishedDays,
+                PublishedLimit: item.PublishedLimit,
+                EffectiveFrom: new Date(item.EffectiveFrom),
+                EffectiveTo: new Date(item.EffectiveTo),
+                ApprovalStatus: item.ApprovalStatus,
+                UpdatedBy: item.UpdatedBy || item.CreatedBy,
+                UpdatedOn: new Date(),
+              },
+            });
+          } else {
+            // Create new credit request
+            creditRequest = await this.createSingleCustomerCreditReq({
+                CustomerMasterSid: item.CustomerMasterSid,
+                CompanyMasterSid: item.CompanyMasterSid,
+                DepartmentMasterSid: item.DepartmentMasterSid || null,
+                CustomerBranchSid: item.CustomerBranchSid || null,
+                SalesmanSid: item.SalesmanSid || null,
+                CreditDays: item.CreditDays,
+                CreditLimit: item.CreditLimit,
+                PublishedDays: item.PublishedDays,
+                PublishedLimit: item.PublishedLimit,
+                EffectiveFrom: new Date(item.EffectiveFrom),
+                EffectiveTo: new Date(item.EffectiveTo),
+                ApprovalStatus: item.ApprovalStatus,
+                CreatedBy: item.CreatedBy,
+                Status: 'A',
+            });
+          }
+ 
+          const kycRecords : any[] = [];
+ 
+          // Update or create KYC records if provided
+          if (item.customerKyc && item.customerKyc.length > 0) {
+            for (const kycItem of item.customerKyc) {
+              let kyc;
+ 
+              if (kycItem.CustomerKycSid) {
+                // Update existing KYC record
+                kyc = await prisma.customerKyc.update({
+                  where: {
+                    CustomerKycSid: kycItem.CustomerKycSid,
+                  },
+                  data: {
+                    CustomerMasterSid: kycItem.CustomerMasterSid || null,
+                    CompanyMasterSid: kycItem.CompanyMasterSid,
+                    CustomerCreditRequestSid:
+                      creditRequest.CustomerCreditRequestSid,
+                    CustomerBranchSid: kycItem.CustomerBranchSid || null,
+                    KycSno: kycItem.KycSno,
+                    KycDocName: kycItem.KycDocName,
+                    KycDocNumber: kycItem.KycDocNumber,
+                    AttachDocumentSid: kycItem.AttachDocumentSid || null,
+                    UpdatedBy: kycItem.UpdatedBy || kycItem.CreatedBy,
+                    UpdatedOn: new Date(),
+                  },
+                });
+              } else {
+                // Create new KYC record
+                kyc = await this.createSingleCustomerKyc({
+                    CustomerMasterSid: kycItem.CustomerMasterSid || null,
+                    CompanyMasterSid: kycItem.CompanyMasterSid,
+                    CustomerCreditRequestSid:
+                      creditRequest.CustomerCreditRequestSid,
+                    CustomerBranchSid: kycItem.CustomerBranchSid || null,
+                    KycSno: kycItem.KycSno,
+                    KycDocName: kycItem.KycDocName,
+                    KycDocNumber: kycItem.KycDocNumber,
+                    AttachDocumentSid: kycItem.AttachDocumentSid || null,
+                    CreatedBy: kycItem.CreatedBy,
+                });
+              }
+ 
+              kycRecords.push(kyc);
+            }
+          }
+ 
+          processedRecords.push({
+            ...creditRequest,
+            kycRecords,
+          });
+        }
+ 
+        return processedRecords;
+      });
+ 
+      return result;
+    } catch (error) {
+      this.logger.error(
+        `Error updating credit request with KYC: ${error.message}`,
+      );
+      throw error;
+    }
+  }
 
 }
