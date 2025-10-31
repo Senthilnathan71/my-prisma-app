@@ -772,6 +772,7 @@ export class VoucherService {
                 const costRevenueCharges = await tx.costRevenueCharges.findMany({
                     where: {
                         MenuMasterSid: payload.menuMasterSid,
+                        TransactionSid : payload.jobSid,
                         CostRevenueChargesSid: { in: payload.selectedRateIds },
                         status: 'A'
                     }

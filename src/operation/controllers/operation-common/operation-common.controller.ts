@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Delete, HttpCode, HttpStatus, Logger, Post, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Post, UnauthorizedException } from '@nestjs/common';
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
 import { ResponseData } from 'src/common/response-data';
 import { OperationCommonService } from 'src/operation/services/operation-common/operation-common.service';
@@ -173,7 +173,7 @@ export class OperationCommonController {
     })
     @HttpCode(HttpStatus.OK)
     @Delete('delete-cost-revenue/:CostRevenueChargesSid')
-    async softDeleteCostRevenueCharge(@Body('CostRevenueChargesSid') CostRevenueChargesSid: number) {
+    async softDeleteCostRevenueCharge(@Param('CostRevenueChargesSid',ParseIntPipe) CostRevenueChargesSid: number) {
         let output = new ResponseData()
         try {
             let lookupDatas = await this.commonService.softDeleteCostRevenueCharges(CostRevenueChargesSid);

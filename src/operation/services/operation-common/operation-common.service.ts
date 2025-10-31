@@ -6,8 +6,7 @@ interface CostRevenueDTO {
     MenuMasterSid ?: number,
     CompanyMasterSid ?: number,
     BranchMasterSid ?: number,
-    TransactionSid ?: number,
-    ShipmentNo ?: string  
+    TransactionSid ?: number
 }
 
 
@@ -51,17 +50,45 @@ export class OperationCommonService {
         }
     }
 
-    async getAllCostRevenueCharges(payload:CostRevenueDTO){
+    async getAllCostRevenueCharges(payload: CostRevenueDTO) {
         try {
-            const { MenuMasterSid , CompanyMasterSid , BranchMasterSid , ShipmentNo , TransactionSid } = payload;
+            const { MenuMasterSid, CompanyMasterSid, BranchMasterSid, TransactionSid } = payload;
             const allCostRevenueCharges = await this._db.costRevenueCharges.findMany({
-                where : {
+                where: {
+                    TransactionSid,
                     MenuMasterSid,
                     CompanyMasterSid,
                     BranchMasterSid,
-                    ShipmentNo,
-                    TransactionSid,
-                    status : 'A'
+                    status: 'A'
+                },
+                include: {
+                    revenueVoucherHeader: {
+                        select: {
+                            VoucherNumber: true,
+                            VoucherHeaderSid: true
+                        }
+                    },
+                    revenueVoucherTypeMaster: {
+                        select: {
+                            DocumentTypeName: true,
+                            VoucherTypeMasterSid: true
+                        }
+                    },
+                    costVoucherHeader: {
+                        select: {
+                            VoucherNumber: true,
+                            VoucherHeaderSid: true
+                        }
+                    },
+                    costVoucherTypeMaster: {
+                        select: {
+                            DocumentTypeName: true,
+                            VoucherTypeMasterSid: true
+                        }
+                    }
+                },
+                orderBy: {
+                    SerialNumber: 'asc'
                 }
             })
             return allCostRevenueCharges;
@@ -77,7 +104,7 @@ export class OperationCommonService {
             if(!TransactionSid){
                 throw new BadRequestException("Transaction SID is required");
             }
-            if(!MenuMasterSid){
+            if(MenuMasterSid === -1){
                 // Possiblilty for HouseJob
                 if(!modelName){
                     throw new BadRequestException("Model Name is required");

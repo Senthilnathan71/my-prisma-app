@@ -34,11 +34,10 @@ export class HouseJobService {
                 throw new BadRequestException('Error fetching house job record.');
             }
             const costRevenuePayload = {
+                TransactionSid : ourHouseJob.HouseJobSid,
+                MenuMasterSid : ourHouseJob.MenuMasterSid!,
                 CompanyMasterSid : ourHouseJob.CompanyMasterSid,
                 BranchMasterSid : ourHouseJob.BranchMasterSid!,
-                ShipmentNo : ourHouseJob.ShipmentNo!,
-                MenuMasterSid : ourHouseJob.MenuMasterSid!,
-                TransactionSid : ourHouseJob.HouseJobSid
             }
 
             const costRevenueCharges = await this.commonService.getAllCostRevenueCharges(costRevenuePayload);
@@ -55,6 +54,14 @@ export class HouseJobService {
     async updateHouseJobById(HouseJobSid: number, payload: any) {
         try {
             const updatedHouseJob = await this._db.$transaction(async (prisma) => {
+                const menuConfig = await this._db.menuConfig.findFirst({
+                    where: {
+                        ModelName: 'HouseJob'
+                    }
+                })
+                if (!menuConfig || !menuConfig.MenuMasterSid) {
+                    throw new BadRequestException("Menu Sid is missing")
+                }
                 return await prisma.houseJob.update({
                     where: {
                         HouseJobSid: HouseJobSid
@@ -109,7 +116,7 @@ export class HouseJobService {
                         CustomerBranchSid : payload.CustomerBranchSid || null,
                         AuthorizerRemarks : payload.AuthorizerRemarks || '',
                         authorizerStatus : payload.authorizerStatus,
-                        MenuMasterSid : payload.MenuMasterSid,
+                        MenuMasterSid : menuConfig.MenuMasterSid,
                         CarrierSid : payload.CarrierSid || null,
                         CarrierName : payload.CarrierName || '',
                         Coload : payload.Coload || '',
