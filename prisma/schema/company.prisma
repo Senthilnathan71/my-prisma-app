@@ -3235,7 +3235,7 @@ model CustomerKyc {
   KycSno                    Int
   KycDocName                String              @db.VarChar(30)
   KycDocNumber              String              @db.VarChar(30)
-  AttachDocumentSid         Int
+  AttachDocumentSid         Int?
 
   company                   CompanyMaster       @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
   customer                  CustomerMaster?     @relation(fields: [CustomerMasterSid], references: [CustomerMasterSid])
