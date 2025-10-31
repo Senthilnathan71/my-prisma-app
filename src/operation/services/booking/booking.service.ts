@@ -312,8 +312,8 @@ export class BookingService {
                     CostChargeUomSid: rate.CostChargeUomSid || null,
 
                     NoOfUnit: Number(rate.NoOfUnit) || null,
-                    // RevenueNumberOfUnit: Number(rate.RevenueNumberOfUnit) || null, // This field has Decimal(4,3) - not used for main quantity
-                    // CostNumberOfUnit: Number(rate.CostNumberOfUnit) || null, // This field has Decimal(4,3) - not used for main quantity
+                    RevenueNumberOfUnit: Number(rate.RevenueNumberOfUnit) || null, // This field has Decimal(4,3) - not used for main quantity
+                    CostNumberOfUnit: Number(rate.CostNumberOfUnit) || null, // This field has Decimal(4,3) - not used for main quantity
 
                     
                     // Revenue Section
@@ -839,8 +839,8 @@ export class BookingService {
                                 CostChargeUomSid: rate.CostChargeUomSid || null,
 
                                 NoOfUnit: Number(rate.NoOfUnit) || null,
-                                RevenueNumberOfUnit: Number(rate.RevenueNumberOfUnit) || null, // This field has Decimal(4,3) - not used for main quantity
-                                CostNumberOfUnit: Number(rate.CostNumberOfUnit) || null, // This field has Decimal(4,3) - not used for main quantity
+                                RevenueNumberOfUnit: Number(rate.RevenueNumberOfUnit) ||  Number(rate.NoOfUnit) || null, // This field has Decimal(4,3) - not used for main quantity
+                                CostNumberOfUnit: Number(rate.CostNumberOfUnit) ||  Number(rate.NoOfUnit) || null, // This field has Decimal(4,3) - not used for main quantity
 
 
                                 // Revenue Section
