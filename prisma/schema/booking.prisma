@@ -290,6 +290,7 @@ model BookingRates {
   revenueVoucherTypeMaster    VoucherTypeMaster? @relation("REVENUE", fields: [RevenueVoucherTypeMasterSid], references: [VoucherTypeMasterSid])
   tariffDetail                TariffDetail?      @relation(fields: [TariffDetailSid], references: [TariffDetailSid])
   HouseJob                    HouseJob[]
+  CostRevenueCharges          CostRevenueCharges[]
 }
 
 model VesselMaster {
