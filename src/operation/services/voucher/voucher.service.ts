@@ -8,6 +8,7 @@ interface InvoiceHeaderDTO {
     billingPartyName?: string;
     billingPartyAddress?: string;
     gstType?: string; // GST Type: B2B, B2CS, B2CL, EXWP, EXWOP
+    GST_VAT?: string;
 }
 
 interface ChargeTaxGroupDTO {
@@ -565,6 +566,7 @@ export class VoucherService {
                         PartyMasterSid: subledger.SubledgerMasterSid, // Must use SubledgerMasterSid per DB schema constraint
                         PartyName: partyName,
                         PartyAddress: partyAddress,
+                        GST_VAT: payload?.invoiceHeader?.GST_VAT,
                         CustomerBranchSid: payload.customerBranchSid,
                         InvoiceType: 'REG',
                         CurrencyMasterSid: currencyMasterSid,
@@ -1073,6 +1075,7 @@ export class VoucherService {
                         HouseNumber : payload.houseNumber || null,
                         MasterNumber : payload.masterNumber || null,
                         PartyName: partyName,
+                        GST_VAT: payload?.invoiceHeader?.GST_VAT,
                         PartyAddress: partyAddress,
                         CustomerBranchSid: payload.customerBranchSid,
                         InvoiceType: 'REG',
