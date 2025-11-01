@@ -105,6 +105,8 @@ model CompanyMaster {
   voucherTypeMaster          VoucherTypeMaster[]
   voyageMasterHeader         VoyageMasterHeader[]
   yearMaster                 YearMaster[]
+  VoucherMatchingHeader      VoucherMatchingHeader[]
+  VoucherMatching            VoucherMatching[]
 }
 
 model BranchMaster {
@@ -203,6 +205,8 @@ model BranchMaster {
   VoucherTransaction         VoucherTransaction[]
   voucherTypeMaster          VoucherTypeMaster[]
   voyageMasterHeader         VoyageMasterHeader[]
+  VoucherMatchingHeader      VoucherMatchingHeader[]
+  VoucherMatching            VoucherMatching[]
 }
 
 model UserMaster {
@@ -2307,6 +2311,7 @@ model COAMaster {
   SubledgerMasterDb  SubledgerMaster[]    @relation("Debtor")
   SubledgerMasterCr  SubledgerMaster[]    @relation("Creditor")
   SubledgerMasterAcc SubledgerMaster[]    @relation("Accrual")
+  voucherMatchings VoucherMatching[]
 }
 
 model SubledgerMaster {
@@ -2894,6 +2899,7 @@ model MenuConfig {
   menuMaster    MenuMaster @relation(fields: [MenuMasterSid], references: [MenuMasterSid], onDelete: Cascade)
 }
 
+//voucher
 model VoucherHeader {
   VoucherHeaderSid          Int                  @id @default(autoincrement()) @map("EnquiryHeaderSid")
   CreatedOn                 DateTime             @default(now())
@@ -2962,6 +2968,8 @@ model VoucherHeader {
   VoucherOthers             VoucherOthers[]
   VoucherTDS                VoucherTDS[]
   VoucherTransaction        VoucherTransaction[]
+  voucherMatchings VoucherMatching[]
+
 }
 
 model VoucherDetail {
@@ -3023,6 +3031,8 @@ model VoucherDetail {
   VoucherHeader       VoucherHeader        @relation(fields: [VoucherHeaderSid], references: [VoucherHeaderSid])
   VoucherTDS          VoucherTDS[]
   // VoucherTransaction  VoucherTransaction[]
+  voucherMatchings VoucherMatching[]
+
     voucherTransaction      VoucherTransaction? @relation(fields: [VoucherTransactionSid], references: [VoucherTransactionSid])
 
 }
@@ -3123,6 +3133,68 @@ model VoucherTransaction {
   voucherDetail         VoucherDetail?
   VoucherHeader         VoucherHeader       @relation(fields: [VoucherHeaderSid], references: [VoucherHeaderSid])
   voucherTypeMaster     VoucherTypeMaster   @relation(fields: [VoucherTypeMasterSid], references: [VoucherTypeMasterSid])
+
+  voucherMatchings VoucherMatching[]
+
+}
+
+model VoucherMatchingHeader {
+  VoucherMatchingHeaderSid Int      @id @default(autoincrement())
+  CreatedOn                 DateTime @default(now())
+  CreatedBy                 String   @db.VarChar(100)
+  UpdatedOn                 DateTime @default(now())
+  UpdatedBy                 String?  @db.VarChar(100)
+  Status                    String   @default("A") @db.Char(1)
+  CompanyMasterSid          Int
+  BranchMasterSid           Int
+  VoucherMatchingNo         String   @db.VarChar(20)
+  VoucherMatchingDate       DateTime
+  Narration                 String?  @db.VarChar(100)
+  Remarks                   String?  @db.VarChar(100)
+
+  // Relations
+  company CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+  branch  BranchMaster  @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
+  voucherMatchings VoucherMatching[]
+
+}
+
+model VoucherMatching {
+  VoucherMatchingSid       Int      @id @default(autoincrement())
+  CreatedOn                DateTime @default(now())
+  CreatedBy                String   @db.VarChar(100)
+  UpdatedOn                DateTime @default(now())
+  UpdatedBy                String?  @db.VarChar(100)
+  Status                   String   @default("A") @db.Char(1)
+  CompanyMasterSid         Int
+  BranchMasterSid          Int
+  VoucherMatchingHeaderSid Int
+  VoucherHeaderSid         Int
+  VoucherDetailSid         Int
+  VoucherTransactionSid    Int
+  VoucherMatchingDate      DateTime
+  VoucherType              Int
+  Sno                      Decimal  @db.Decimal(4, 0)
+  COAMasterSid             Int?
+  CurrencyCode             String   @db.VarChar(3)
+  ExchangeRate             Decimal  @db.Decimal(6, 3)
+  DrCr                     String   @db.Char(1)
+  Amount                   Decimal  @db.Decimal(15, 3)
+  LocalAmount              Decimal  @db.Decimal(15, 3)
+  MatchingType             String   @db.VarChar(10)
+
+  // Relations
+  CoaMaster           COAMaster?            @relation(fields: [COAMasterSid], references: [COAMasterSid])
+  VoucherHeader       VoucherHeader        @relation(fields: [VoucherHeaderSid], references: [VoucherHeaderSid])
+  VoucherDetail       VoucherDetail        @relation(fields: [VoucherDetailSid], references: [VoucherDetailSid])
+  VoucherTransaction       VoucherTransaction        @relation(fields: [VoucherTransactionSid], references: [VoucherTransactionSid])
+  header  VoucherMatchingHeader @relation(fields: [VoucherMatchingHeaderSid], references: [VoucherMatchingHeaderSid])
+  company CompanyMaster          @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+  branch  BranchMaster           @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
+
+
+
+  @@map("VoucherMatching")
 }
 
 model PaymentRequest {
