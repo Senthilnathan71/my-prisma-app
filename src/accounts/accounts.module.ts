@@ -5,20 +5,24 @@ import { SupplierTdsMappingController } from './controllers/supplier-tds-mapping
 import { SupplierTdsMappingService } from './services/supplier-tds-mapping/supplier-tds-mapping.service';
 import { SubledgermasterController } from './controllers/subledgermaster/subledgermaster.controller';
 import { SubledgermasterService } from './services/subledgermaster/subledgermaster.service';
+import { VoucherPostingController } from './controllers/voucher-posting/voucher-posting.controller';
+import { VoucherPostingService } from './services/voucher-posting/voucher-posting.service';
 import { GlobalConfigService } from 'src/common/config/master-config.service';
 
 @Module({
     controllers: [
         CoaController,
         SupplierTdsMappingController,
-        SubledgermasterController
+        SubledgermasterController,
+        VoucherPostingController
     ],
     providers: [
         Logger,
         GlobalConfigService,
         CoaService,
         SupplierTdsMappingService,
-        SubledgermasterService
+        SubledgermasterService,
+        VoucherPostingService
     ]
 })
 export class AccountsModule { }
