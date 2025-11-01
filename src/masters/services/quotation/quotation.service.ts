@@ -733,6 +733,7 @@ export class QuotationService {
                         RevenueLocalAmount: Number(payload.RevenueLocalAmount) || 0,
                         RevenueCustomerMasterSid: payload.RevenueCustomerMasterSid,
                         RevenueCustomerBranchSid: payload.RevenueCustomerBranchSid,
+                        TariffDetailSid : payload.TariffDetailSid,
                         Qty : Number(payload.Qty) || 0,
                         Remarks: payload.Remarks,
                     }

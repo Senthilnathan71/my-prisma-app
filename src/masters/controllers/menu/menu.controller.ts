@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, Post, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, Post, Query, UnauthorizedException } from '@nestjs/common';
 import { ApiOperation, ApiCreatedResponse } from '@nestjs/swagger';
 import { Auth } from 'src/common/decorators/auth.decorator';
 import { UserData } from 'src/common/decorators/user.decorator';
@@ -67,6 +67,34 @@ export class MenuController {
         }
         return output;
     }
+
+    
+    @ApiOperation({ summary: 'Get Menu Id By Menu Name' })
+    @ApiCreatedResponse({
+        description: 'Get Menu Id By Menu Name',
+        type: ResponseData,
+    })
+    @HttpCode(HttpStatus.OK)
+    @Get('get-by-name')
+    async getMenuSidByName(@Query('menuName') menuName: string) {
+        const output = new ResponseData();
+        try {
+            const menu = await this.menuService.getMenuSidByName(menuName);
+            this.logger.log(`getMenuSidByName: ${JSON.stringify(menu)}`);
+            output.data = menu;
+            output.message = `Menu with name: ${menuName} is successfully fetched`;
+        } catch (error) {
+            this.logger.warn(`getMenuSidByName: ${JSON.stringify(error),error}`);
+            output.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                output.message = error.message;
+            } else {
+                output.message = 'Internal Server Error';
+            }
+        }
+        return output;
+    }
+
 
 
     @ApiOperation({ summary: 'Get All Menus' })
@@ -268,4 +296,5 @@ export class MenuController {
         }
         return output;
     }
+
 }
