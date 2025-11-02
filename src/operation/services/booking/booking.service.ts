@@ -1447,7 +1447,15 @@ export class BookingService {
                             CustomerMasterSid: true,
                             CustomerName: true,
                             CustomerAddress1: true,
-                            CustomerAddress2: true
+                            CustomerAddress2: true,
+                            PanType: true,
+                            countryMaster: {
+                                select: {
+                                    CountryMasterSid: true,
+                                    countryName: true,
+                                    countryCode: true
+                                }
+                            }
                         }
                     },
                     customerBranch: {
@@ -1456,7 +1464,9 @@ export class BookingService {
                             Address: true,
                             StateMasterSid: true,
                             CityMasterSid : true,
-                            Zip_PostBox : true
+                            Zip_PostBox : true,
+                            GSTNo : true,
+                            Registered : true,
                         }
                     },
                     costVoucherHeader: {
@@ -1580,11 +1590,36 @@ export class BookingService {
                             CustomerMasterSid: true,
                             CustomerName: true,
                             CustomerAddress1: true,
-                            CustomerAddress2: true
-                        }
+                            CustomerAddress2: true,
+                            PanType: true,  
+                            CountryMasterSid: true,
+                            countryMaster: {
+                                select: {
+                                    countryName: true,
+                                    countryCode: true
+                                }
+                            }
+                        },
+                        
+                        
                     });
                     enrichments.AgentMaster = agent;
                 }
+                if(rate.AgentBranchSid){
+                            const agentBranch = await this._db.customerBranch.findUnique({
+                                where: { CustomerBranchSid: rate.AgentBranchSid },
+                                select: {
+                                    CustomerBranchSid: true,
+                                    Address: true,
+                                    StateMasterSid: true,
+                                    CityMasterSid: true,
+                                    Zip_PostBox: true,
+                                    GSTNo: true,
+                                    Registered: true
+                                }
+                            });
+                            enrichments.AgentBranch = agentBranch;
+                        }
 
                 // Add revenue voucher type details
                 if (rate.RevenueVoucherTypeMasterSid) {

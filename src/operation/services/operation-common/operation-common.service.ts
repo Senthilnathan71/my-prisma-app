@@ -98,7 +98,7 @@ export class OperationCommonService {
     }
 
     // Used in Cost - Revenue for Voucher Generation
-    async getCostRevenueChargesWithDetails(payload:{MenuMasterSid:number,TransactionSid:number,modelName:string}){
+    async   getCostRevenueChargesWithDetails(payload:{MenuMasterSid:number,TransactionSid:number,modelName:string}){
         try {
             let { MenuMasterSid , TransactionSid ,modelName } = payload;
             if(!TransactionSid){
@@ -190,7 +190,16 @@ export class OperationCommonService {
                             CustomerMasterSid : true,
                             CustomerName : true,
                             CustomerAddress1 : true,
-                            CustomerAddress2 : true
+                            CustomerAddress2 : true,
+                            PanType : true,
+                            CountryMasterSid : true,
+                            countryMaster : {
+                                select : {
+                                    CountryMasterSid : true,
+                                    countryName : true,
+                                    countryCode : true
+                                }
+                            }
                         }
                     },
                     revenueCustomerBranch : {
@@ -202,6 +211,8 @@ export class OperationCommonService {
                             },
                             cityMaster : {select : {cityName : true}},
                             Zip_PostBox : true,
+                            GSTNo : true,
+                            Registered : true,
                         }
                     },
                     costCustomerMaster : {
@@ -209,14 +220,24 @@ export class OperationCommonService {
                             CustomerMasterSid : true,
                             CustomerName : true,
                             CustomerAddress1 : true,
-                            CustomerAddress2 : true
+                            CustomerAddress2 : true,
+                            PanType : true,
+                            countryMaster : {
+                                select : {
+                                    CountryMasterSid : true,
+                                    countryName : true,
+                                    countryCode : true
+                                }
+                            }
                         }
                     },
                     costCustomerBranch : {
                         select : {
                             CustomerBranchSid : true,
                             Address : true,
-                            StateMasterSid : true
+                            StateMasterSid : true,
+                            GSTNo : true,
+                            Registered : true,
                         }
                     },
                     costVoucherHeader : {
