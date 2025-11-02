@@ -2154,6 +2154,7 @@ model AttachDocumentGroup {
   deletedAt               DateTime?
   status                  String?       @default("A") @db.Char(1)
 
+  customerKYC             CustomerKyc[]
   attachFiles             AttachDocument[]
   branchMaster     BranchMaster    @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
   companyMaster    CompanyMaster   @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
@@ -3308,11 +3309,12 @@ model CustomerKyc {
   KycDocName                String              @db.VarChar(30)
   KycDocNumber              String              @db.VarChar(30)
   AttachDocumentSid         Int?
-
+  AttachDocumentGroupSid    Int?
   company                   CompanyMaster       @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
   customer                  CustomerMaster?     @relation(fields: [CustomerMasterSid], references: [CustomerMasterSid])
   customerBranch            CustomerBranch?     @relation(fields: [CustomerBranchSid], references: [CustomerBranchSid])
   creditRequest             CustomerCreditRequest @relation(fields: [CustomerCreditRequestSid], references: [CustomerCreditRequestSid])
+  attachDocumentGroup       AttachDocumentGroup? @relation(fields: [AttachDocumentGroupSid], references: [AttachDocumentGroupSid])
 }
 
 enum ApprovalStatus {
