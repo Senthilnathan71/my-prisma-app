@@ -38,3 +38,19 @@ view vMasterJobIndexPage {
   NoOfHouses       Int?
   Status           String?   @db.Char(1)
 }
+
+/// The underlying view does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+view vARAP {
+  VoucherNumber    String?   @db.VarChar(20)
+  VoucherHeaderSid Int?
+  VoucherDate      DateTime?
+  DocumentTypeCode String?   @db.VarChar(5)
+  CurrencyCode     String?   @db.Char(3)
+  Amount           Decimal?  @db.Decimal(15, 3)
+  LocalAmount      Decimal?  @db.Decimal(15, 3)
+  BookingHeaderSid Int?
+  CompanyMasterSid Int?
+  HBLNo            String?   @db.VarChar(200)
+
+  @@ignore
+}
