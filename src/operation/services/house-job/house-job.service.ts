@@ -513,7 +513,7 @@ export class HouseJobService {
                     } else {
                         // create
                         const costRevenueChargesPayload = {
-                            TransactionSid: updatedHouseJob.MasterJobSid,
+                            TransactionSid: updatedHouseJob.HouseJobSid,
                             MenuMasterSid : houseMenuId || payload.MenuMasterSid,
                             ShipmentNo: updatedHouseJob.ShipmentNo,
                             MasterJobNo: updatedHouseJob.MBLNo,
