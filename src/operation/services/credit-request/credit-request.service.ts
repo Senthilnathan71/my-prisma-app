@@ -222,6 +222,8 @@ export class CreditRequestService {
 }
 
 
+
+
     /**
    * Get all credit requests for a customer with KYC details
    * @param CustomerMasterSid - Customer Master SID
@@ -239,7 +241,11 @@ export class CreditRequestService {
                     countryName: true,
                 }
             },
-            CustomerBranch: true,
+            CustomerBranch: {
+                where: {
+                    status: 'A',
+                }
+            },
           customerCreditRequest : {
             where : {Status : 'A'},
             include : {
