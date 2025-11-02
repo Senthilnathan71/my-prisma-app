@@ -73,7 +73,32 @@ export class DepartmentController {
         }
         return output
     }
-
+    @ApiOperation({ summary: 'Get Department by type' })
+@ApiCreatedResponse({ description: 'Get Department by type', type: ResponseData })
+@HttpCode(HttpStatus.OK)
+@Post('department-type') 
+async getDepartmentByType(
+    @Query('type') type: string,
+    @Body() body: CompanyIdDto
+) {
+    const resp = new ResponseData();
+    try {
+        const res = await this.departmentService.getDepartmentByType(type, body.CompanyMasterSid);
+        this.logger.log(`Department by type : ${JSON.stringify(res)}`);
+        resp.data = res;
+        resp.message = "Department by type is successfully fetched";
+    } catch (error) {
+        this.logger.warn(`Department by type Error : ${JSON.stringify(error)}`, error);
+        resp.status = false;
+        if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+            resp.message = error.message;
+        } else {
+            resp.message = "Internal Server Error";
+        }
+    }
+    return resp;
+}
+   
 
     @ApiOperation({ summary: 'Get Department By Id' })
     @ApiCreatedResponse({
