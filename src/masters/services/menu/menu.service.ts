@@ -511,4 +511,23 @@ export class MenuService {
             throw error;
         }
     }
+
+    // Used for Master Jobs and House Jobs
+    async getMenuSidByName(menuName:string){
+        try {
+            const menu = await this._db.menuMaster.findFirst({
+                where: {
+                    MenuName: menuName
+                },
+            })
+            if(!menu || menu.MenuMasterSid === null){
+                throw new Error('Menu not found');
+            }
+            return menu?.MenuMasterSid;
+        } catch (error) {
+            throw error;
+        }
+    }
+
+
 }

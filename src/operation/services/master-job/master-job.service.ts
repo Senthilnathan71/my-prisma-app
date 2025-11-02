@@ -6,12 +6,13 @@ import { create } from 'domain';
 import { stat } from 'fs';
 import { parseDateFromString } from 'src/common/helper';
 import { LoadingPlanService } from '../loading-plan/loading-plan.service';
+import { MenuService } from 'src/masters/services/menu/menu.service';
 @Injectable()
 export class MasterJobService {
     constructor(
         private _db: DatabaseService,
         private logger: Logger,
-        private loadingPlanService: LoadingPlanService,
+        private menuMasterService : MenuService,
     ) { }
 
     async createNewMasterJob(payload: any) {
@@ -22,6 +23,9 @@ export class MasterJobService {
                 const count = await prisma.masterJob.count({
                     where: { MasterJobNumber: { contains: dateString } }
                 })
+
+                const masterJobMenuId = await this.menuMasterService.getMenuSidByName('Master Job');
+
                 const MasterJobNumber = `MASTER-${dateString}-${(count + 1).toString().padStart(3, '0')}`;
 
                 const headerPayload = {
@@ -29,7 +33,7 @@ export class MasterJobService {
                     MasterJobDate: payload.MasterJobDate ? new Date(payload.MasterJobDate) : new Date(),
                     CreatedBy: payload.CreatedBy,
                     Status: "A",
-                    MenuMasterSid: payload.MenuMasterSid,
+                    MenuMasterSid: masterJobMenuId || payload.MenuMasterSid,
                     CompanyMasterSid: payload.CompanyMasterSid,
                     BranchMasterSid: payload.BranchMasterSid,
                     DepartmentMasterSid: payload.DepartmentMasterSid,
@@ -37,7 +41,7 @@ export class MasterJobService {
                     DestinationAgent: payload.DestinationAgent,
                     DestinationAgentName: payload.DestinationAgentName,
                     DestinationAgentAddress: payload.DestinationAgentAddress?.substring(0, 20) || '',
-                    MBLNo: MasterJobNumber,
+                    MBLNo: payload.MBLNo || "",
                     MBLDate: payload.MasterJobDate ? new Date(payload.MasterJobDate) : new Date(),
                     BLReleaseType: payload.BLReleaseType,
                     NoofOriginal: Number(payload.NoofOriginal) || 3,
@@ -179,7 +183,7 @@ export class MasterJobService {
                 if (allCostRevenueCharges.length > 0) {
                     const costRevenueChargesPayload = allCostRevenueCharges.map(item => ({
                         TransactionSid: createdMasterJob.MasterJobSid,
-                        MenuMasterSid: payload.MenuMasterSid,
+                        MenuMasterSid:  masterJobMenuId || payload.MenuMasterSid,
                         ShipmentNo: createdMasterJob.MasterJobNumber,
                         MasterJobNo: createdMasterJob.MasterJobNumber,
                         CompanyMasterSid: payload.CompanyMasterSid,
@@ -292,13 +296,8 @@ export class MasterJobService {
                     hblSerial += 1;
                     const HBLNo = `HOUSE-${dateString}-${hblSerial.toString().padStart(3, '0')}`;
 
-                    const houseJobMenu = await this._db.menuConfig.findFirst({
-                        where: {
-                            ModelName: 'HouseJob'
-                        }
-                    })
+                    const houseJobMenuId = await this.menuMasterService.getMenuSidByName('House Job');
 
-                    if (!houseJobMenu) throw new Error('HouseJob Menu not found');
 
                     // Step 1: Create main house job
                     const houseJob = await this._db.houseJob.create({
@@ -352,7 +351,7 @@ export class MasterJobService {
                             CustomerBranchSid: bookingHeader.CustomerBranchSid || null,
                             AuthorizerRemarks: bookingHeader.AuthorizerRemarks || '',
                             authorizerStatus: bookingHeader.authorizerStatus,
-                            MenuMasterSid: houseJobMenu.MenuMasterSid,
+                            MenuMasterSid: houseJobMenuId ||  payload.MenuMasterSid,
                             CarrierSid: bookingHeader.CarrierSid || null,
                             CarrierName: bookingHeader.CarrierName || '',
                             Coload: bookingHeader.Coload || '',
@@ -365,7 +364,7 @@ export class MasterJobService {
                             Nominated: bookingHeader.Nominated || '',
                             PODTerminal: bookingHeader.PODTerminal || '',
                             ShipmentNo: bookingHeader.ShipmentNo || '',
-                            OriginAgent: bookingHeader.OriginAgent || '',
+                            OriginAgent: bookingHeader.OriginAgent || ''
                         },
                     }).catch(err => {
                         console.error('HouseJobCargo createMany error:', err);
@@ -523,7 +522,7 @@ export class MasterJobService {
                         await this._db.costRevenueCharges.createMany({
                             data: allRates.map(rate => ({
                                 TransactionSid: houseJob.HouseJobSid,
-                                MenuMasterSid: houseJobMenu.MenuMasterSid,
+                                MenuMasterSid: houseJobMenuId ||  payload.MenuMasterSid,
                                 ShipmentNo: houseJob.ShipmentNo,
                                 MasterJobNo: newMasterJob.MasterJobNumber,
                                 CompanyMasterSid: houseJob.CompanyMasterSid,
@@ -567,6 +566,7 @@ export class MasterJobService {
                                 CostVoucherHeaderSid: rate.CostVoucherHeaderSid,
                                 CostVoucherTypeMasterSid: rate.CostVoucherTypeMasterSid,
                                 
+                                BookingRateSid : rate.BookingRatesSid,
                             }))
                         }).catch(err => {
                             console.error('HouseJobRates createMany error:', err);
@@ -599,7 +599,9 @@ export class MasterJobService {
                                 },
                                 data: {
                                     MasterJobSid: newMasterJob.MasterJobSid,
-                                    HouseJobSid: houseJob.HouseJobSid
+                                    HouseJobSid: houseJob.HouseJobSid,
+                                    MasterNumber : newMasterJob.MBLNo,
+                                    HouseNumber : houseJob.HBLNo,
                                 }
                             }).catch(err => {
                                 console.error('Cost VoucherHeader update error:', err);
@@ -636,20 +638,32 @@ export class MasterJobService {
             if (recordToUpdateShipment.length > 0) {
                 let houseJobNeedUpdateIds = recordToUpdateShipment.map(shipment => shipment.HBLNo);
                 for (const hblNo of houseJobNeedUpdateIds) {
-                    const ourBooking = await this._db.houseJob.findFirst({
+                    const ourHouse = await this._db.houseJob.findFirst({
                         where: {
                             HBLNo: hblNo
                         }
                     })
-                    if (!ourBooking) continue;
+                    if (!ourHouse) continue;
                     const updatedHouseJob = await this._db.houseJob.update({
-                        where: { HouseJobSid: ourBooking.HouseJobSid },
+                        where: { HouseJobSid: ourHouse.HouseJobSid },
                         data: {
                             MasterJobSid: newMasterJob.MasterJobSid,
                         }
                     }).catch(err => {
                         console.error('houseJob update error:', err);
                     });
+
+                    const updatedBooking = await this._db.bookingHeader.update({
+                        where : { BookingHeaderSid: ourHouse.BookingHeaderSid! },
+                        data : {
+                            MasterNoSid : newMasterJob.MasterJobSid,
+                            MBLNo : newMasterJob.MBLNo,
+                            MBLDate : newMasterJob.MBLDate,
+                            BookingStatus : 'Stuffed',
+                        }
+                    }).catch(error => 
+                        console.error('Error updating booking header', error
+                    ));
                 }
             }
 
@@ -702,8 +716,8 @@ export class MasterJobService {
                 })
                 const allCostRevenueCharges = await prisma.costRevenueCharges.findMany({
                     where: {
-                        TransactionSid: MasterJobSid,
-                        ...(masterJobDetails?.MenuMasterSid && { MenuMasterSid: masterJobDetails.MenuMasterSid }),
+                        TransactionSid: MasterJobSid, 
+                        MenuMasterSid: masterJobDetails?.MenuMasterSid!,
                         CompanyMasterSid: masterJobDetails?.CompanyMasterSid,
                         BranchMasterSid: masterJobDetails?.BranchMasterSid,
                         MasterJobNo: masterJobDetails?.MasterJobNumber,
@@ -791,6 +805,9 @@ export class MasterJobService {
     async updateMasterJob(payload: any) {
         try {
             const updatedMasterJob = await this._db.$transaction(async (prisma) => {
+                
+                const masterJobMenuId = await this.menuMasterService.getMenuSidByName('Master Job');
+
                 const headerPayload = {
                     FreightPPCC: payload.FreightPPCC,
                     DestinationAgent: payload.DestinationAgent,
@@ -1053,6 +1070,7 @@ export class MasterJobService {
                         // update
                         const costRevenueChargesPayload = {
                             TransactionSid : updatedMasterJob.MasterJobSid ||  item.RateSid,
+                            MenuMasterSid: masterJobMenuId || updatedMasterJob.MenuMasterSid!,
                             ShipmentNo : updatedMasterJob.MasterJobNumber,
                             MasterJobNo : updatedMasterJob.MasterJobNumber,
                             updatedBy : payload.UpdatedBy || '',
@@ -1113,7 +1131,7 @@ export class MasterJobService {
                         // create
                         const costRevenueChargesPayload = {
                             TransactionSid: updatedMasterJob.MasterJobSid,
-                            MenuMasterSid: payload.MenuMasterSid,
+                            MenuMasterSid: masterJobMenuId || updatedMasterJob.MenuMasterSid!,
                             ShipmentNo: updatedMasterJob.MasterJobNumber,
                             MasterJobNo: updatedMasterJob.MasterJobNumber,
                             CompanyMasterSid: payload.CompanyMasterSid,
@@ -1243,7 +1261,7 @@ export class MasterJobService {
 
                 const dateString = moment().format('YYYYMMDD');
                 let hblBaseCount = await this._db.houseJob.count({
-                    where: { BookingNo: { contains: dateString } },
+                    where: { HBLNo: { contains: dateString } },
                 });
                 let hblSerial = hblBaseCount;
 
@@ -1254,14 +1272,8 @@ export class MasterJobService {
                     hblSerial += 1;
                     const HBLNo = `HOUSE-${dateString}-${hblSerial.toString().padStart(3, '0')}`;
 
-                    const menuConfig = await this._db.menuConfig.findFirst({
-                        where: {
-                            ModelName: 'HouseJob'
-                        }
-                    })
-                    if (!menuConfig || !menuConfig.MenuMasterSid) {
-                        throw new BadRequestException("Menu Sid is missing")
-                    }
+                    const houseJobMenuId = await this.menuMasterService.getMenuSidByName('House Job');
+                    
 
                     // Step 1: Create main house job
                     let houseJob = await this._db.houseJob.create({
@@ -1315,7 +1327,7 @@ export class MasterJobService {
                             CustomerBranchSid: bookingHeader.CustomerBranchSid || null,
                             AuthorizerRemarks: bookingHeader.AuthorizerRemarks || '',
                             authorizerStatus: bookingHeader.authorizerStatus,
-                            MenuMasterSid: menuConfig.MenuMasterSid,
+                            MenuMasterSid: houseJobMenuId ||  payload.MenuMasterSid,
                             CarrierSid: bookingHeader.CarrierSid || null,
                             CarrierName: bookingHeader.CarrierName || '',
                             Coload: bookingHeader.Coload || '',
@@ -1486,7 +1498,7 @@ export class MasterJobService {
                         await this._db.costRevenueCharges.createMany({
                             data: allRates.map(rate => ({
                                 TransactionSid: houseJob.HouseJobSid,
-                                MenuMasterSid: menuConfig.MenuMasterSid,
+                                MenuMasterSid: houseJobMenuId || houseJob.MenuMasterSid!,
                                 ShipmentNo: houseJob.ShipmentNo,
                                 MasterJobNo: updatedMasterJob.MasterJobNumber,
                                 CompanyMasterSid: houseJob.CompanyMasterSid,
@@ -1530,10 +1542,46 @@ export class MasterJobService {
                                 CostVoucherHeaderSid: rate.CostVoucherHeaderSid,
                                 CostVoucherTypeMasterSid: rate.CostVoucherTypeMasterSid,
                                 
+                                BookingRateSid : rate.BookingRatesSid,
                             }))
                         }).catch(err => {
                             console.error('HouseJobRates createMany error:', err);
                         });
+                    }
+
+                    if(allRevenueVouchers.length > 0) {
+                        for (const revenueVoucher of allRevenueVouchers) {
+                            await this._db.voucherHeader.update({
+                                where: {
+                                    VoucherHeaderSid: revenueVoucher!
+                                },
+                                data: {
+                                    MasterJobSid: updatedMasterJob.MasterJobSid,
+                                    HouseJobSid: houseJob.HouseJobSid,
+                                    MasterNumber : updatedMasterJob.MBLNo,
+                                    HouseNumber : houseJob.HBLNo,
+                                }
+                            }).catch(err => {
+                                console.error('Revenue VoucherHeader update error:', err);
+                            });
+                        }
+                    }
+                    if(allCostVouchers.length > 0) {
+                        for (const costVoucher of allCostVouchers) {
+                            await this._db.voucherHeader.update({
+                                where: {
+                                    VoucherHeaderSid: costVoucher!
+                                },
+                                data: {
+                                    MasterJobSid: updatedMasterJob.MasterJobSid,
+                                    HouseJobSid: houseJob.HouseJobSid,
+                                    MasterNumber : updatedMasterJob.MBLNo,
+                                    HouseNumber : houseJob.HBLNo,
+                                }
+                            }).catch(err => {
+                                console.error('Cost VoucherHeader update error:', err);
+                            });
+                        }
                     }
 
                     await this._db.bookingHeader.update({
@@ -1549,27 +1597,40 @@ export class MasterJobService {
                         console.error('bookingHeader update error:', err);
                     });
 
-                    // allCreatedHouseJobs.push(houseJob);
+                    allCreatedHouseJobs.push(houseJob);
                 }
             }
 
             if (recordToUpdateShipment.length > 0) {
                 let houseJobNeedUpdateIds = recordToUpdateShipment.map(shipment => shipment.HBLNo);
                 for (const houseNo of houseJobNeedUpdateIds) {
-                    const ourBooking = await this._db.houseJob.findFirst({
+                    const ourHouse = await this._db.houseJob.findFirst({
                         where: {
                             HBLNo: houseNo
                         }
                     })
-                    if (!ourBooking) continue;
+                    if (!ourHouse) continue;
                     const updatedHouseJob = await this._db.houseJob.update({
-                        where: { HouseJobSid: ourBooking.HouseJobSid },
+                        where: { HouseJobSid: ourHouse.HouseJobSid },
                         data: {
                             MasterJobSid: updatedMasterJob.MasterJobSid,
                         }
                     }).catch(err => {
                         console.error('houseJob update error:', err);
                     });
+
+                    const updatedBooking = await this._db.bookingHeader.update({
+                        where : { BookingHeaderSid: ourHouse.BookingHeaderSid! },
+                        data : {
+                            MasterNoSid : updatedMasterJob.MasterJobSid,
+                            MBLNo : updatedMasterJob.MBLNo,
+                            MBLDate : updatedMasterJob.MBLDate,
+                            BookingStatus : 'Stuffed',
+                        }
+                    }).catch(error => 
+                        console.error('Error updating booking header', error
+                    ));
+
                 }
             }
 
@@ -1790,7 +1851,7 @@ export class MasterJobService {
             })
             const ourBooking = await this._db.bookingHeader.findFirst({
                 where: {
-                    BookingNo: detachedHouse.BookingNo
+                    BookingHeaderSid: detachedHouse.BookingHeaderSid!
                 }
             })
 

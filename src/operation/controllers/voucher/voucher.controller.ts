@@ -49,7 +49,6 @@ export class VoucherController {
                 bookingHeaderSid: Number(body.ParentSid),
                 companyMasterSid: Number(body.companyMasterSid),
                 branchMasterSid: Number(body.branchMasterSid),
-
                 voucherTypeMasterSid: body.voucherTypeMasterSid ? Number(body.voucherTypeMasterSid) : undefined,
                 voucherType: body.voucherType,
                 selectedRateIds: body.selectedRateIds.map(id => Number(id)),

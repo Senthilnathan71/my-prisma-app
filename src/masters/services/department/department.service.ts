@@ -71,7 +71,20 @@ export class DepartmentService {
             throw error
         }
     }
-
+async getDepartmentByType(type: string,CompanyMasterSid: number,) {
+    try {
+        const department = await this._db.departmentMaster.findMany({
+            where: {
+                 CompanyMasterSid: CompanyMasterSid,
+                departmentType: type,
+                Status: "A"
+            }
+        });
+        return department;
+    } catch (error) {
+        throw error;
+    }
+}
 
 
     async findOne(DepartmentMasterSid: any) {
