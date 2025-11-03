@@ -789,7 +789,7 @@ model EnquiryCargo {
   BranchMasterSid  Int?
   EnquiryHeaderSid Int
   EnquiryRouteSid  Int
-  CargoType        String?           @db.VarChar(50)
+  CargoType        String           @db.VarChar(50)
   WeightUnitSid    Int?
   GrossWeight      Decimal          @db.Decimal(10, 3)
   NetWeight        Decimal?         @db.Decimal(10, 3)
@@ -2138,26 +2138,24 @@ model MawbStock {
 }
 
 model AttachDocumentGroup {
-  AttachDocumentGroupSid Int           @id @default(autoincrement())
-  CompanyMasterSid        Int
-  BranchMasterSid         Int
-  MenuMasterSid           Int?
-  MenuName                String?       @db.VarChar(50)
-  DocumentSid             Int?
-  Remarks                 String?       @db.VarChar(500)
-  createdOn               DateTime      @default(now()) @db.Timestamptz(6)
-  createdBy               String        @db.VarChar(100)
-  updatedOn               DateTime?     @updatedAt @db.Timestamptz(6)
-  updatedBy               String?       @db.VarChar(100)
-  deletedAt               DateTime?
-  status                  String?       @default("A") @db.Char(1)
-
-  customerKYC             CustomerKyc[]
-  attachFiles             AttachDocument[]
-  branchMaster     BranchMaster    @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
-  companyMaster    CompanyMaster   @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
-  menuMaster    MenuMaster?   @relation(fields: [MenuMasterSid], references: [MenuMasterSid])
-
+  AttachDocumentGroupSid Int              @id @default(autoincrement())
+  CompanyMasterSid       Int
+  BranchMasterSid        Int
+  MenuMasterSid          Int?
+  MenuName               String?          @db.VarChar(50)
+  DocumentSid            Int?
+  Remarks                String?          @db.VarChar(500)
+  createdOn              DateTime         @default(now()) @db.Timestamptz(6)
+  createdBy              String           @db.VarChar(100)
+  updatedOn              DateTime?        @updatedAt @db.Timestamptz(6)
+  updatedBy              String?          @db.VarChar(100)
+  deletedAt              DateTime?
+  status                 String?          @default("A") @db.Char(1)
+  attachFiles            AttachDocument[]
+  branchMaster           BranchMaster     @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
+  companyMaster          CompanyMaster    @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+  menuMaster             MenuMaster?      @relation(fields: [MenuMasterSid], references: [MenuMasterSid])
+  customerKYC            CustomerKyc[]
 }
 
 model AttachDocument {
@@ -3265,25 +3263,25 @@ model CustomerCreditRequest {
 }
 
 model CustomerKyc {
-  CustomerKycSid            Int                 @id @default(autoincrement()) @map("CustomerKycSid")
-  CustomerMasterSid         Int?
-  CreatedOn                 DateTime            @default(now()) @db.Timestamptz(6)
-  CreatedBy                 String              @db.VarChar(100)
-  UpdatedOn                 DateTime?            @updatedAt @db.Timestamptz(6)
-  UpdatedBy                 String?             @db.VarChar(100)
-  CompanyMasterSid          Int
-  CustomerCreditRequestSid  Int
-  CustomerBranchSid         Int?
-  KycSno                    Int
-  KycDocName                String              @db.VarChar(30)
-  KycDocNumber              String              @db.VarChar(30)
-  AttachDocumentSid         Int?
-  AttachDocumentGroupSid    Int?
-  company                   CompanyMaster       @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
-  customer                  CustomerMaster?     @relation(fields: [CustomerMasterSid], references: [CustomerMasterSid])
-  customerBranch            CustomerBranch?     @relation(fields: [CustomerBranchSid], references: [CustomerBranchSid])
-  creditRequest             CustomerCreditRequest @relation(fields: [CustomerCreditRequestSid], references: [CustomerCreditRequestSid])
-  attachDocumentGroup       AttachDocumentGroup? @relation(fields: [AttachDocumentGroupSid], references: [AttachDocumentGroupSid])
+  CustomerKycSid           Int                   @id @default(autoincrement()) @map("CustomerKycSid")
+  CustomerMasterSid        Int?
+  CreatedOn                DateTime              @default(now()) @db.Timestamptz(6)
+  CreatedBy                String                @db.VarChar(100)
+  UpdatedOn                DateTime?             @updatedAt @db.Timestamptz(6)
+  UpdatedBy                String?               @db.VarChar(100)
+  CompanyMasterSid         Int
+  CustomerCreditRequestSid Int
+  CustomerBranchSid        Int?
+  KycSno                   Int
+  KycDocName               String                @db.VarChar(30)
+  KycDocNumber             String                @db.VarChar(30)
+  AttachDocumentSid        Int?
+  AttachDocumentGroupSid   Int?
+  attachDocumentGroup      AttachDocumentGroup?  @relation(fields: [AttachDocumentGroupSid], references: [AttachDocumentGroupSid])
+  company                  CompanyMaster         @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+  customerBranch           CustomerBranch?       @relation(fields: [CustomerBranchSid], references: [CustomerBranchSid])
+  creditRequest            CustomerCreditRequest @relation(fields: [CustomerCreditRequestSid], references: [CustomerCreditRequestSid])
+  customer                 CustomerMaster?       @relation(fields: [CustomerMasterSid], references: [CustomerMasterSid])
 }
 
 enum ApprovalStatus {
