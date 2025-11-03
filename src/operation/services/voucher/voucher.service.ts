@@ -32,6 +32,7 @@ interface VoucherGenerationDTO {
     createdBy?: string;
     invoiceHeader?: InvoiceHeaderDTO;
     chargeTaxGroups?: ChargeTaxGroupDTO[];
+    DepartmentMasterSid?: number;
 }
 
 interface VoucherDetailDTO {
@@ -52,6 +53,7 @@ interface VoucherDetailDTO {
     HSSACMasterSid?: number;
     ChargeUOMSid?: number;
     DrCr?: string;
+    DepartmentMasterSid?: number;
 }
 
 @Injectable()
@@ -510,7 +512,8 @@ export class VoucherService {
                         TaxPercentage2: taxPercentage2,
                         TaxAmount2: taxAmount2,
                         TaxPercentageIGST: taxPercentageIGST,
-                        TaxAmountIGST: taxAmountIGST
+                        TaxAmountIGST: taxAmountIGST,
+                        DepartmentMasterSid: payload.DepartmentMasterSid,
                     };
                 }));
 
@@ -603,7 +606,8 @@ export class VoucherService {
                             DrCr: detail.DrCr,
                             HSSACMasterSid: detail.HSSACMasterSid,
                             ChargeUOMSid: detail.ChargeUOMSid,
-                            CreatedBy: payload.createdBy || 'System'
+                            CreatedBy: payload.createdBy || 'System',
+                            DepartmentMasterSid: detail.DepartmentMasterSid,
                         }
                     });
                 }
@@ -1016,7 +1020,8 @@ export class VoucherService {
                         TaxPercentage2: taxPercentage2,
                         TaxAmount2: taxAmount2,
                         TaxPercentageIGST: taxPercentageIGST,
-                        TaxAmountIGST: taxAmountIGST
+                        TaxAmountIGST: taxAmountIGST,
+                        DepartmentMasterSid: payload.DepartmentMasterSid,
                     };
                 }));
 
@@ -1113,6 +1118,7 @@ export class VoucherService {
                             DrCr: detail.DrCr,
                             HSSACMasterSid: detail.HSSACMasterSid,
                             ChargeUOMSid: detail.ChargeUOMSid,
+                            DepartmentMasterSid: detail.DepartmentMasterSid,
                             CreatedBy: payload.createdBy || 'System'
                         }
                     });

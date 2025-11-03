@@ -56,7 +56,8 @@ export class VoucherController {
                 customerBranchSid: body.customerBranchSid ? Number(body.customerBranchSid) : undefined,
                 createdBy: body.createdBy || 'System',
                 invoiceHeader: body.invoiceHeader,
-                chargeTaxGroups: body.chargeTaxGroups
+                chargeTaxGroups: body.chargeTaxGroups,
+                DepartmentMasterSid: body.DepartmentMasterSid,
             });
 
             this.logger.debug(`generateVoucherFromBooking result: ${JSON.stringify(result)}`);
@@ -126,7 +127,8 @@ export class VoucherController {
                 customerBranchSid: body.customerBranchSid ? Number(body.customerBranchSid) : undefined,
                 createdBy: body.createdBy || 'System',
                 invoiceHeader: body.invoiceHeader,
-                chargeTaxGroups: body.chargeTaxGroups
+                chargeTaxGroups: body.chargeTaxGroups,
+                DepartmentMasterSid: body.DepartmentMasterSid,
             });
 
             this.logger.debug(`generateVoucherFromJobs result: ${JSON.stringify(result)}`);
