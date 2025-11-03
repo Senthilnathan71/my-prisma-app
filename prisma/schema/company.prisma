@@ -2891,7 +2891,7 @@ model MenuConfig {
 }
 
 model VoucherHeader {
-  VoucherHeaderSid          Int                  @id @default(autoincrement())
+  VoucherHeaderSid          Int                  @id @default(autoincrement()) @map("VoucherHeaderSid")
   CreatedOn                 DateTime             @default(now())
   CreatedBy                 String               @db.VarChar(100)
   UpdatedOn                 DateTime             @default(now())
