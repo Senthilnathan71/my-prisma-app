@@ -277,27 +277,35 @@ export class SubledgermasterService {
                     CustomerMasterSid : { in : allMappedCustomerSubledgersIds},
                     CompanyMasterSid : payload.CompanyMasterSid
                 },
-                select : {
-                    CustomerMasterSid : true,
-                    CustomerName : true,
-                    CustomerAddress1 : true,
+                select: {
+                    CustomerMasterSid: true,
+                    CustomerName: true,
+                    CustomerAddress1: true,
                     PanType: true,
                     countryMaster: {
-                        where: { status: 'A'},
+                        where: { status: 'A' },
                         select: {
                             CountryMasterSid: true,
-                            countryName: true,  
+                            countryName: true,
                             countryCode: true
                         }
                     },
-                    CustomerBranch : {
-                        where : {status : 'A'},
-                        select : {
-                            CustomerBranchSid : true,
-                            BranchName : true,
-                            Address : true,
-                            Email : true,
-                            GSTNo: true                       }
+                    CustomerBranch: {
+                        where: { status: 'A' },
+                        select: {
+                            CustomerBranchSid: true,
+                            BranchName: true,
+                            Address: true,
+                            Email: true,
+                            GSTNo: true,
+                            stateMaster:{
+                                select:{
+                                    StateMasterSid : true,
+                                    stateName : true,
+                                    stateCode : true
+                                }
+                            }
+                        }
                     }
                 }
             })
@@ -314,6 +322,7 @@ export class SubledgermasterService {
                         CustomerName : deptor.CustomerName,
                         Address : branch.Address,
                         Email : branch.Email,
+                        stateMaster : branch.stateMaster,
                         COAMappedId : COAMappedId
                     }
                 })
