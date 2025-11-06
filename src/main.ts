@@ -23,9 +23,9 @@ async function bootstrap() {
 
   // Use below for local test
   
-  // const app = await NestFactory.create(AppModule,
-  //   {  }
-  // );
+  const app = await NestFactory.create(AppModule,
+    // {  }
+  );
 
   app.enableCors();
   app.use(json({ limit: '200mb' }));
