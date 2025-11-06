@@ -372,6 +372,7 @@ model CountryMaster {
   stateMaster       StateMaster[]
   tdsSetRate        TDSSetRate[]
   userMaster        UserMaster[]
+  taxMaster         TaxMaster[]
 }
 
 model StateMaster {
@@ -2251,20 +2252,23 @@ model ProfitCenterMaster {
 }
 
 model TaxMaster {
-  TaxMasterSid  Int       @id @default(autoincrement()) @map("TaxMasterSid")
-  TaxCode       String    @db.VarChar(10)
-  TaxName       String    @db.VarChar(20)
-  TaxType       String    @db.VarChar(6)
-  EffectiveFrom DateTime  @db.Date
-  TaxRate       Decimal   @db.Decimal(4, 2)
-  TaxExempt     String    @default("N") @db.Char(1)
-  CreatedOn     DateTime  @default(now()) @db.Timestamp(6)
-  CreatedBy     String    @db.VarChar(100)
-  UpdatedOn     DateTime  @default(now()) @db.Timestamp(6)
-  deletedAt     DateTime?
-  UpdatedBy     String?   @db.VarChar(100)
-  Remarks       String?   @db.VarChar(100)
-  Status        String?   @default("A") @db.VarChar(10)
+  TaxMasterSid     Int       @id @default(autoincrement()) @map("TaxMasterSid")
+  TaxCode          String    @db.VarChar(10)
+  TaxName          String    @db.VarChar(20)
+  TaxType          String    @db.VarChar(6)
+  EffectiveFrom    DateTime  @db.Date
+  TaxRate          Decimal   @db.Decimal(4, 2)
+  TaxExempt        String    @default("N") @db.Char(1)
+  CountryMasterSid Int?
+  CreatedOn        DateTime  @default(now()) @db.Timestamp(6)
+  CreatedBy        String    @db.VarChar(100)
+  UpdatedOn        DateTime  @default(now()) @db.Timestamp(6)
+  deletedAt        DateTime?
+  UpdatedBy        String?   @db.VarChar(100)
+  Remarks          String?   @db.VarChar(100)
+  Status           String?   @default("A") @db.VarChar(10)
+
+  countryMaster CountryMaster? @relation(fields: [CountryMasterSid], references: [CountryMasterSid])
 }
 
 model COAMaster {
@@ -2940,6 +2944,7 @@ model VoucherHeader {
   ClearanceDate             DateTime?
   CreditNoteReason          String?              @db.VarChar(100)
   VoucherTypeMasterSid      Int
+  PostStatus                String?              @default("U") @db.Char(1)
   BookingRatesCost          BookingRates[]       @relation("COST")
   BookingRatesRevenue       BookingRates[]       @relation("REVENUE")
   CostRevenueChargesCost    CostRevenueCharges[] @relation("COST")
