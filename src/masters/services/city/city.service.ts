@@ -44,6 +44,7 @@ export class CityService {
       const ourCity = await this._db.cityMaster.findMany({
         where: {
           StateMasterSid: StateMasterSid,
+          status: 'A'
         },
         include:{
           countryMaster: true,
