@@ -297,7 +297,7 @@ export class InvoiceService {
                 InvoiceType: detail.InvoiceType,
                 CostCenter: detail.CostCenter ? Number(detail.CostCenter) : null,
                 ProfitCenter: detail.ProfitCenter ? Number(detail.ProfitCenter) : null,
-                Remarks: detail.Remarks
+                Remarks: detail.Remarks,
               };
             })
           );

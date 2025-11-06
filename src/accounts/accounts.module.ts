@@ -9,6 +9,8 @@ import { OutstandingController } from './controllers/outstanding/outstanding.con
 import { OutstandingService } from './services/outstanding/outstanding.service';
 import { ReceiptController } from './controllers/receipt/receipt.controller';
 import { ReceiptService } from './services/receipt/receipt.service';
+import { VoucherPostingController } from './controllers/voucher-posting/voucher-posting.controller';
+import { VoucherPostingService } from './services/voucher-posting/voucher-posting.service';
 import { GlobalConfigService } from 'src/common/config/master-config.service';
 
 @Module({
@@ -17,16 +19,17 @@ import { GlobalConfigService } from 'src/common/config/master-config.service';
         SupplierTdsMappingController,
         SubledgermasterController,
         OutstandingController,
-        ReceiptController
+        ReceiptController,
+        VoucherPostingController
     ],
     providers: [
-        Logger,
         GlobalConfigService,
         CoaService,
         SupplierTdsMappingService,
         SubledgermasterService,
         OutstandingService,
-        ReceiptService
+        ReceiptService,
+        VoucherPostingService
     ]
 })
 export class AccountsModule { }

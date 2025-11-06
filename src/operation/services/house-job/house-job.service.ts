@@ -1,12 +1,14 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { DatabaseService } from 'src/database/database.service';
 import { OperationCommonService } from '../operation-common/operation-common.service';
+import { MenuService } from 'src/masters/services/menu/menu.service';
 
 @Injectable()
 export class HouseJobService {
     constructor(
         private _db: DatabaseService,
-        private commonService: OperationCommonService
+        private commonService: OperationCommonService,
+        private menuService : MenuService
     ) { }
 
     async getHouseJobById(HouseJobSid: number) {
@@ -33,9 +35,12 @@ export class HouseJobService {
             if(!ourHouseJob){
                 throw new BadRequestException('Error fetching house job record.');
             }
+
+            const menuId = await this.menuService.getMenuSidByName("House Job");
+
             const costRevenuePayload = {
                 TransactionSid : ourHouseJob.HouseJobSid,
-                MenuMasterSid : ourHouseJob.MenuMasterSid!,
+                MenuMasterSid : menuId || ourHouseJob.MenuMasterSid!,
                 CompanyMasterSid : ourHouseJob.CompanyMasterSid,
                 BranchMasterSid : ourHouseJob.BranchMasterSid!,
             }
@@ -54,14 +59,9 @@ export class HouseJobService {
     async updateHouseJobById(HouseJobSid: number, payload: any) {
         try {
             const updatedHouseJob = await this._db.$transaction(async (prisma) => {
-                const menuConfig = await this._db.menuConfig.findFirst({
-                    where: {
-                        ModelName: 'HouseJob'
-                    }
-                })
-                if (!menuConfig || !menuConfig.MenuMasterSid) {
-                    throw new BadRequestException("Menu Sid is missing")
-                }
+                
+                const menuId = await this.menuService.getMenuSidByName("House Job");
+
                 return await prisma.houseJob.update({
                     where: {
                         HouseJobSid: HouseJobSid
@@ -116,7 +116,7 @@ export class HouseJobService {
                         CustomerBranchSid : payload.CustomerBranchSid || null,
                         AuthorizerRemarks : payload.AuthorizerRemarks || '',
                         authorizerStatus : payload.authorizerStatus,
-                        MenuMasterSid : menuConfig.MenuMasterSid,
+                        MenuMasterSid : menuId || payload.MenuMasterSid,
                         CarrierSid : payload.CarrierSid || null,
                         CarrierName : payload.CarrierName || '',
                         Coload : payload.Coload || '',
@@ -440,17 +440,9 @@ export class HouseJobService {
             }
             const finalCharges: any[] = [];
                 const allCostRevenueCharges = payload?.bookingRates || [];
-                let menuConfig;
+                let houseMenuId;
                 if(allCostRevenueCharges.length > 0){
-                    menuConfig = await this._db.menuConfig.findFirst({
-                        where : {
-                            ModelName : "HouseJob"
-                        }
-                    })
-                }
-
-                if(!menuConfig || !menuConfig.MenuMasterSid){
-                    throw new BadRequestException("Menu Sid is missing")
+                    houseMenuId = await this.menuService.getMenuSidByName("House Job");
                 }
 
                 let itemIndex = 1;
@@ -461,7 +453,7 @@ export class HouseJobService {
                         // update
                         const costRevenueChargesPayload = {
                             TransactionSid : updatedHouseJob.HouseJobSid ||  item.RateSid,
-                            MenuMasterSid : menuConfig.MenuMasterSid,
+                            MenuMasterSid : houseMenuId || payload.MenuMasterSid ,
                             ShipmentNo : updatedHouseJob.ShipmentNo,
                             MasterJobNo : updatedHouseJob.MBLNo,
                             updatedBy : payload.updatedBy || payload.createdBy || '',
@@ -521,8 +513,8 @@ export class HouseJobService {
                     } else {
                         // create
                         const costRevenueChargesPayload = {
-                            TransactionSid: updatedHouseJob.MasterJobSid,
-                            MenuMasterSid : menuConfig.MenuMasterSid,
+                            TransactionSid: updatedHouseJob.HouseJobSid,
+                            MenuMasterSid : houseMenuId || payload.MenuMasterSid,
                             ShipmentNo: updatedHouseJob.ShipmentNo,
                             MasterJobNo: updatedHouseJob.MBLNo,
                             CompanyMasterSid: payload.CompanyMasterSid,

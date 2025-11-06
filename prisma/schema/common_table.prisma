@@ -44,8 +44,7 @@ model CostRevenueCharges {
   RevenueVoucherHeaderSid     Int?
   RevenueVoucherTypeMasterSid Int?
   BookingRateSid              Int?
-
-  bookingRates                BookingRates?       @relation(fields: [BookingRateSid], references: [BookingRatesSid])
+  bookingRates                BookingRates?      @relation(fields: [BookingRateSid], references: [BookingRatesSid])
   branchMaster                BranchMaster       @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
   chargeMaster                ChargeMaster?      @relation(fields: [ChargeMasterSid], references: [ChargeMasterSid])
   companyMaster               CompanyMaster      @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])

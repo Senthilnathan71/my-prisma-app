@@ -2,6 +2,7 @@ import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatu
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
 import { UserData } from 'src/common/decorators/user.decorator';
 import { ResponseData } from 'src/common/response-data';
+import { CreditLimitDto, OutstandingDto, OutstandingByJobDto, ValidateCreditDto, CreditSummaryDto, CustomerTypeDto, PaymentStatusDto } from 'src/masters/DTO/credit-limit.dto';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 import { CreditRequestService, CustomerCreditRequestInterface, CustomerCreditRequestWithKycInterface, CustomerKycInterface } from 'src/operation/services/credit-request/credit-request.service';
 
@@ -314,5 +315,222 @@ export class CreditRequestController {
  
     return output;
   }
+  
+  @ApiOperation({ summary: 'Get credit limit details for a customer' })
+  @ApiCreatedResponse({
+    description: 'Credit limit details retrieved successfully',
+    type: ResponseData,
+  })
+  @HttpCode(HttpStatus.OK)
+  @Post('credit-limit')
+  async getCreditLimit(@Body() body: CreditLimitDto) {
+    const output = new ResponseData();
+    try {
+      const creditLimit = await this.creditRequestService.getCreditLimit(body);
+      output.data = creditLimit;
+      output.message = 'Credit limit retrieved successfully';
+      this.logger.log(`getCreditLimit: ${JSON.stringify(creditLimit)}`);
+    } catch (error) {
+      this.logger.warn(`getCreditLimit: ${JSON.stringify(error)}, ${error}`);
+      output.status = false;
+      if (
+        error instanceof BadRequestException ||
+        error instanceof UnauthorizedException
+      ) {
+        output.message = error.message;
+      } else {
+        output.message = error.message || 'Internal Server Error';
+      }
+    }
+    return output;
+  }
 
+  @ApiOperation({ summary: 'Calculate outstanding amount for a customer' })
+  @ApiCreatedResponse({
+    description: 'Outstanding calculated successfully',
+    type: ResponseData,
+  })
+  @HttpCode(HttpStatus.OK)
+  @Post('outstanding')
+  async getOutstanding(@Body() body: OutstandingDto) {
+    const output = new ResponseData();
+    try {
+      const outstanding = await this.creditRequestService.getOutstanding(body);
+      output.data = outstanding;
+      output.message = 'Outstanding calculated successfully';
+      this.logger.log(`getOutstanding: ${JSON.stringify(outstanding)}`);
+    } catch (error) {
+      this.logger.warn(`getOutstanding: ${JSON.stringify(error)}, ${error}`);
+      output.status = false;
+      if (
+        error instanceof BadRequestException ||
+        error instanceof UnauthorizedException
+      ) {
+        output.message = error.message;
+      } else {
+        output.message = error.message || 'Internal Server Error';
+      }
+    }
+    return output;
+  }
+
+  @ApiOperation({ summary: 'Get outstanding breakdown by job' })
+  @ApiCreatedResponse({
+    description: 'Outstanding by job retrieved successfully',
+    type: ResponseData,
+  })
+  @HttpCode(HttpStatus.OK)
+  @Post('outstanding-by-job')
+  async getOutstandingByJob(@Body() body: OutstandingByJobDto) {
+    const output = new ResponseData();
+    try {
+      const outstanding = await this.creditRequestService.getOutstandingByJob(
+        body.customerMasterSid,
+        body.companyMasterSid,
+      );
+      output.data = outstanding;
+      output.message = 'Outstanding by job retrieved successfully';
+      this.logger.log(`getOutstandingByJob: ${JSON.stringify(outstanding)}`);
+    } catch (error) {
+      this.logger.warn(`getOutstandingByJob: ${JSON.stringify(error)}, ${error}`);
+      output.status = false;
+      if (
+        error instanceof BadRequestException ||
+        error instanceof UnauthorizedException
+      ) {
+        output.message = error.message;
+      } else {
+        output.message = error.message || 'Internal Server Error';
+      }
+    }
+    return output;
+  }
+
+  @ApiOperation({ summary: 'Validate credit for BL/DO issuance' })
+  @ApiCreatedResponse({
+    description: 'Credit validation performed successfully',
+    type: ResponseData,
+  })
+  @HttpCode(HttpStatus.OK)
+  @Post('validate')
+  async validateCredit(@Body() body: ValidateCreditDto) {
+    const output = new ResponseData();
+    try {
+      const validation = await this.creditRequestService.validateCreditForDocument(body);
+      output.data = validation;
+      
+      if (validation.isValid) {
+        output.message = 'Credit validation passed';
+      } else {
+        output.status = false;
+        output.message = 'Credit validation failed';
+      }
+      
+      this.logger.log(`validateCredit: ${JSON.stringify(validation)}`);
+    } catch (error) {
+      this.logger.warn(`validateCredit: ${JSON.stringify(error)}, ${error}`);
+      output.status = false;
+      if (
+        error instanceof BadRequestException ||
+        error instanceof UnauthorizedException
+      ) {
+        output.message = error.message;
+      } else {
+        output.message = error.message || 'Internal Server Error';
+      }
+    }
+    return output;
+  }
+
+  @ApiOperation({ summary: 'Get credit summary for a customer' })
+  @ApiCreatedResponse({
+    description: 'Credit summary retrieved successfully',
+    type: ResponseData,
+  })
+  @HttpCode(HttpStatus.OK)
+  @Post('credit-summary')
+  async getCreditSummary(@Body() body: CreditSummaryDto) {
+    const output = new ResponseData();
+    try {
+      const summary = await this.creditRequestService.getCreditSummary(body);
+      output.data = summary;
+      output.message = 'Credit summary retrieved successfully';
+      this.logger.log(`getCreditSummary: ${JSON.stringify(summary)}`);
+    } catch (error) {
+      this.logger.warn(`getCreditSummary: ${JSON.stringify(error)}, ${error}`);
+      output.status = false;
+      if (
+        error instanceof BadRequestException ||
+        error instanceof UnauthorizedException
+      ) {
+        output.message = error.message;
+      } else {
+        output.message = error.message || 'Internal Server Error';
+      }
+    }
+    return output;
+  }
+
+  @ApiOperation({ summary: 'Check customer type (CASH or CREDIT)' })
+  @ApiCreatedResponse({
+    description: 'Customer type retrieved successfully',
+    type: ResponseData,
+  })
+  @HttpCode(HttpStatus.OK)
+  @Post('customer-type')
+  async getCustomerType(@Body() body: CustomerTypeDto) {
+    const output = new ResponseData();
+    try {
+      const customerType = await this.creditRequestService.getCustomerType(
+        body.customerMasterSid,
+      );
+      output.data = { type: customerType };
+      output.message = 'Customer type retrieved successfully';
+      this.logger.log(`getCustomerType: ${customerType}`);
+    } catch (error) {
+      this.logger.warn(`getCustomerType: ${JSON.stringify(error)}, ${error}`);
+      output.status = false;
+      if (
+        error instanceof BadRequestException ||
+        error instanceof UnauthorizedException
+      ) {
+        output.message = error.message;
+      } else {
+        output.message = error.message || 'Internal Server Error';
+      }
+    }
+    return output;
+  }
+
+  @ApiOperation({ summary: 'Check if invoice is paid for Master/House Job' })
+  @ApiCreatedResponse({
+    description: 'Payment status retrieved successfully',
+    type: ResponseData,
+  })
+  @HttpCode(HttpStatus.OK)
+  @Post('payment-status')
+  async checkPaymentStatus(@Body() body: PaymentStatusDto) {
+    const output = new ResponseData();
+    try {
+      const isPaid = await this.creditRequestService.checkInvoicePaymentStatus(
+        body.masterJobSid,
+        body.houseJobSid,
+      );
+      output.data = { isPaid };
+      output.message = 'Payment status retrieved successfully';
+      this.logger.log(`checkPaymentStatus: ${isPaid}`);
+    } catch (error) {
+      this.logger.warn(`checkPaymentStatus: ${JSON.stringify(error)}, ${error}`);
+      output.status = false;
+      if (
+        error instanceof BadRequestException ||
+        error instanceof UnauthorizedException
+      ) {
+        output.message = error.message;
+      } else {
+        output.message = error.message || 'Internal Server Error';
+      }
+    }
+    return output;
+  }
 }
