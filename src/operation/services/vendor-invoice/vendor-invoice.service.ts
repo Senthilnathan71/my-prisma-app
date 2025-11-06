@@ -120,6 +120,7 @@ export class VendorInvoiceService {
                                 ExchangeRate: detail.ExchangeRate || payload.ExchangeRate || 1,
                                 DrCr: detail.DrCr || 'Dr', // Vendor invoice = Debit (payable)
                                 LedgerMasterSid: detail.LedgerMasterSid,
+                                COAMasterSid: detail.COAMasterSid,
                                 MasterJobSid: detail.MasterJobSid || payload.MasterJobSid,
                                 HouseJobSid: detail.HouseJobSid || payload.HouseJobSid,
                                 CreatedBy: payload.CreatedBy || 'System',
@@ -390,6 +391,7 @@ export class VendorInvoiceService {
                                 ExchangeRate: detail.ExchangeRate || payload.ExchangeRate || 1,
                                 DrCr: detail.DrCr || 'Dr',
                                 LedgerMasterSid: detail.LedgerMasterSid,
+                                COAMasterSid: detail.COAMasterSid,
                                 MasterJobSid: detail.MasterJobSid || payload.MasterJobSid,
                                 HouseJobSid: detail.HouseJobSid || payload.HouseJobSid,
                                 CreatedBy: payload.UpdatedBy || 'System',

@@ -88,6 +88,32 @@ export class SubledgermasterController {
         }
         return resp;
     }
+    
+    @ApiOperation({summary : "Get All Mapped charge Debtors"})
+    @ApiCreatedResponse({
+        description : "Get All Mapped charge Debtors",
+        type : ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Post('mapped-charge-debtors')
+    async getAllMappedChargeDebtors(@Body() payload:any) {
+        let resp = new ResponseData();
+        try {
+            let res = await this.SubledgermasterService.getAllMappedChargeDebtors(payload);
+            this.logger.log(`All Mapped Charge Debtors Fetched : ${JSON.stringify(res)}`);
+            resp.data = res;
+            resp.message = "All Mapped Charge Debtors are successfully fetched";
+        } catch (error) {
+            this.logger.warn(`Get All Mapped Charge Debtors Error : ${JSON.stringify(error), error}`);
+            resp.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                resp.message = error.message;
+            } else {
+                resp.message = "Internal Server Error";
+            }
+        }
+        return resp;
+    }
 
     @ApiOperation({summary : "Get All Mapped Customer Debtors"})
     @ApiCreatedResponse({

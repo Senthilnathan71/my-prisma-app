@@ -248,89 +248,95 @@ export class SubledgermasterService {
         }
     }
 
-    async getAllMappedCustomerCreditors(payload : any) {
-        try {
-            const allCustomerCreditors = await this._db.subledgerMaster.findMany({
-                where: {
-                    Status: "A",
-                    SubledgerType : "Customer",
-                    CrCOAMasterSid : { not : null},
-                    SubledgerMappingSid : {not : null},
-                    CompanyMasterSid : payload.CompanyMasterSid
-                },
-                select : {
-                    SubledgerMappingSid : true,
-                    CrCOAMasterSid : true
-                }
-            })
-            const allMappedCustomerSubledgersIds = allCustomerCreditors.map(customerCreditor => customerCreditor.SubledgerMappingSid!);
+   async getAllMappedCustomerCreditors(payload : any) {
+    try {
+        const allCustomerCreditors = await this._db.subledgerMaster.findMany({
+            where: {
+                Status: "A",
+                SubledgerType : "Customer",
+                CrCOAMasterSid : { not : null},
+                SubledgerMappingSid : {not : null},
+                CompanyMasterSid : payload.CompanyMasterSid
+            },
+            select : {
+                SubledgerMasterSid: true, // ADD THIS
+                SubledgerMappingSid : true,
+                CrCOAMasterSid : true
+            }
+        })
+        const allMappedCustomerSubledgersIds = allCustomerCreditors.map(customerCreditor => customerCreditor.SubledgerMappingSid!);
 
-            // Create a map of Customer to Ledger mapping
-            const ledgerToCustomerMapping = new Map<number, number>();
-            allCustomerCreditors.forEach(customerCreditor => {
-                ledgerToCustomerMapping.set(customerCreditor.SubledgerMappingSid!, customerCreditor.CrCOAMasterSid!);
+        // Create a map of Customer to Ledger mapping INCLUDING SubledgerMasterSid
+        const ledgerToCustomerMapping = new Map<number, { crCOAMasterSid: number, subledgerMasterSid: number }>();
+        allCustomerCreditors.forEach(customerCreditor => {
+            ledgerToCustomerMapping.set(customerCreditor.SubledgerMappingSid!, {
+                crCOAMasterSid: customerCreditor.CrCOAMasterSid!,
+                subledgerMasterSid: customerCreditor.SubledgerMasterSid // ADD THIS
             });
+        });
 
-            // Get all customers with subleder mapped
-            const allCreditors = await this._db.customerMaster.findMany({
-                where : {
-                    CustomerMasterSid : { in : allMappedCustomerSubledgersIds},
-                    CompanyMasterSid : payload.CompanyMasterSid
+        // Get all customers with subledger mapped
+        const allCreditors = await this._db.customerMaster.findMany({
+            where : {
+                CustomerMasterSid : { in : allMappedCustomerSubledgersIds},
+                CompanyMasterSid : payload.CompanyMasterSid
+            },
+            select: {
+                CustomerMasterSid: true,
+                CustomerName: true,
+                CustomerAddress1: true,
+                PanType: true,
+                countryMaster: {
+                    where: { status: 'A' },
+                    select: {
+                        CountryMasterSid: true,
+                        countryName: true,
+                        countryCode: true
+                    }
                 },
-                select: {
-                    CustomerMasterSid: true,
-                    CustomerName: true,
-                    CustomerAddress1: true,
-                    PanType: true,
-                    countryMaster: {
-                        where: { status: 'A' },
-                        select: {
-                            CountryMasterSid: true,
-                            countryName: true,
-                            countryCode: true
-                        }
-                    },
-                    CustomerBranch: {
-                        where: { status: 'A' },
-                        select: {
-                            CustomerBranchSid: true,
-                            BranchName: true,
-                            Address: true,
-                            Email: true,
-                            GSTNo: true,
-                            stateMaster:{
-                                select:{
-                                    StateMasterSid : true,
-                                    stateName : true,
-                                    stateCode : true
-                                }
+                CustomerBranch: {
+                    where: { status: 'A' },
+                    select: {
+                        CustomerBranchSid: true,
+                        BranchName: true,
+                        Address: true,
+                        Email: true,
+                        GSTNo: true,
+                        stateMaster:{
+                            select:{
+                                StateMasterSid : true,
+                                stateName : true,
+                                stateCode : true
                             }
                         }
                     }
                 }
+            }
+        })
+        
+        return allCreditors.flatMap(deptor =>{
+            const mapping = ledgerToCustomerMapping.get(deptor.CustomerMasterSid);
+            return deptor.CustomerBranch.map(branch => {
+                return {
+                    CustomerMasterSid : deptor.CustomerMasterSid,
+                    CustomerBranchSid : branch.CustomerBranchSid,
+                    BranchName : branch.BranchName,
+                    PanType: deptor.PanType,
+                    countryMaster: deptor.countryMaster,
+                    GSTNo : branch.GSTNo,
+                    CustomerName : deptor.CustomerName,
+                    Address : branch.Address,
+                    Email : branch.Email,
+                    stateMaster : branch.stateMaster,
+                    COAMappedId : mapping?.crCOAMasterSid,
+                    SubledgerMasterSid: mapping?.subledgerMasterSid // ADD THIS
+                }
             })
-            return allCreditors.flatMap(deptor =>{
-                const COAMappedId = ledgerToCustomerMapping.get(deptor.CustomerMasterSid);
-                return deptor.CustomerBranch.map(branch => {
-                    return {
-                        CustomerMasterSid : deptor.CustomerMasterSid,
-                        CustomerBranchSid : branch.CustomerBranchSid,
-                        BranchName : branch.BranchName,
-                        PanType: deptor.PanType,
-                        countryMaster: deptor.countryMaster,
-                        GSTNo : branch.GSTNo,
-                        CustomerName : deptor.CustomerName,
-                        Address : branch.Address,
-                        Email : branch.Email,
-                        stateMaster : branch.stateMaster,
-                        COAMappedId : COAMappedId
-                    }
-                })
-            });
-        } catch (error) {
-            throw error;
-        }
+        });
+    } catch (error) {
+        throw error;
     }
+}
 
     // Used in Cost - Revenue
     async getAllMappedCustomerDebtors(payload:any){
@@ -408,4 +414,89 @@ export class SubledgermasterService {
             throw error;
         }
     }
+    async getAllMappedChargeDebtors(payload: any) {
+    try {
+        const allChargeDebtors = await this._db.subledgerMaster.findMany({
+            where: {
+                Status: "A",
+                SubledgerType: "Charge",
+                DrCOAMasterSid: { not: null },
+                SubledgerMappingSid: { not: null },
+                CompanyMasterSid: payload.CompanyMasterSid,
+            },
+            select: {
+                
+                SubledgerMasterSid: true,
+                SubledgerMappingSid: true,
+                DrCOAMasterSid: true
+            }
+        });
+
+        const allMappedChargeSubledgersIds = allChargeDebtors.map(chargeDebtor => chargeDebtor.SubledgerMappingSid!);
+
+        // Create a map of Charge to Ledger mapping INCLUDING SubledgerMasterSid
+        const ledgerToChargeMapping = new Map<number, { DrCOAMasterSid: number, subledgerMasterSid: number  }>();
+        allChargeDebtors.forEach(chargeDebtor => {
+            ledgerToChargeMapping.set(chargeDebtor.SubledgerMappingSid!, {
+                DrCOAMasterSid: chargeDebtor.DrCOAMasterSid!,
+                subledgerMasterSid: chargeDebtor.SubledgerMasterSid                                                    
+            });
+        });
+
+        // Get all charges with subledger mapped
+        const allDebtors = await this._db.chargeMaster.findMany({
+            where: {
+                ChargeMasterSid: { in: allMappedChargeSubledgersIds },
+                CompanyMasterSid: payload.CompanyMasterSid
+            },
+            select: {
+                ChargeMasterSid: true,
+                chargeCode: true,
+                chargeName: true,  
+                UOM: true,
+                chargeTaxMaster: {
+                    where: {
+                        Status: "A"
+                    },
+                    select: {
+                        HSNCode: true,
+                        description: true,
+                        TaxRate: true,
+                        ChargeTaxMasterSid: true,
+                        CompanyMasterSid: true,
+                        Status: true
+                    }
+                },
+                chargeTds: {
+                    where: {
+                        status: "A"
+                    },
+                    select: {
+                        ChargeTdsSid: true,
+                        TDSSet: true,
+                        EffectiveFrom: true,
+                    }
+                }
+            }
+        });
+
+        return allDebtors.map(charge => {
+            const mapping = ledgerToChargeMapping.get(charge.ChargeMasterSid);
+            return {
+                ChargeMasterSid: charge.ChargeMasterSid,
+                chargeCode: charge.chargeCode,
+                chargeName: charge.chargeName,
+                UOM: charge.UOM,
+                ChargeTaxMaster: charge.chargeTaxMaster,
+                ChargeTds: charge.chargeTds,
+                DrCOAMappedId: mapping?.DrCOAMasterSid,
+                SubledgerMasterSid: mapping?.subledgerMasterSid,
+            };
+        });
+
+    } catch (error) {
+        throw error;
+    }
+}
+    
 }
