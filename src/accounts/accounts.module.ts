@@ -29,7 +29,8 @@ import { GlobalConfigService } from 'src/common/config/master-config.service';
         SubledgermasterService,
         OutstandingService,
         ReceiptService,
-        VoucherPostingService
+        VoucherPostingService,
+        Logger
     ]
 })
 export class AccountsModule { }
