@@ -138,6 +138,8 @@ import { MawbStockService } from './services/mawb-stock/mawb-stock.service';
 import { MawbStockController } from './controllers/mawb-stock/mawb-stock.controller';
 import { LeadController } from './controllers/lead/lead.controller';
 import { LeadService } from './services/lead/lead.service';
+import { TaxGroupService } from './services/tax-group/tax-group.service';
+import { TaxGroupController } from './controllers/tax-group/tax-group.controller';
 
 @Module({
   providers: [
@@ -211,7 +213,8 @@ import { LeadService } from './services/lead/lead.service';
     ContainerActivityMasterService,
     ReportMasterService,
     CustomerMilestoneService,
-    MawbStockService
+    MawbStockService,
+    TaxGroupService
   ],
   controllers: [
     LeadController,
@@ -282,7 +285,8 @@ import { LeadService } from './services/lead/lead.service';
     ContainerActivityMasterController,
     ReportMasterController,
     CustomerMilestoneController,
-    MawbStockController
+    MawbStockController,
+    TaxGroupController
   ],
   exports: [UserService,MenuService]
 })
