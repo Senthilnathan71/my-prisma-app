@@ -72,7 +72,7 @@ export class ReceiptService {
 
         // Filter out fully paid if requested
         if (!searchDto.IncludeFullyPaid) {
-          return invoices.filter((inv) => Math.abs(inv.OutstandingAmount) > 0.01);
+          return invoices.filter((inv) => Math.abs(inv.OutstandingAmount) > 0);  // No tolerance
         }
 
         return invoices;

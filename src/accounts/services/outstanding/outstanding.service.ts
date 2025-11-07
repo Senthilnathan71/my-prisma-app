@@ -53,28 +53,31 @@ export class OutstandingService {
         );
       }
 
+      /** Update : Voucher Reversal also follows the same logic
+       *  Scenerio explained : for 5000 rs invoice and the customer already receipt for 2500 . and Now if the invoice is reversed , the outstanding amount should be zero
+       */
       // Check if this is a reversed voucher
-      if (voucherTransaction.VoucherHeader?.ReversalVoucher !== null) {
-        this.logger.warn(
-          `Voucher ${voucherTransactionSid} is reversed (ReversalVoucher: ${voucherTransaction.VoucherHeader.ReversalVoucher})`,
-        );
-        // Return zero outstanding for reversed vouchers
-        return {
-          companyMasterSid: companyMasterSid,
-          voucherTransactionSid: voucherTransactionSid,
-          voucherNumber: voucherTransaction.VoucherNumber,
-          originalCurrencyAmount: 0,
-          originalLocalAmount: 0,
-          matchedCurrencyAmount: 0,
-          matchedLocalAmount: 0,
-          outstandingCurrencyAmount: 0,
-          outstandingLocalAmount: 0,
-          currencyCode: voucherTransaction.CurrencyCode || 'USD',
-          drCr: voucherTransaction.DrCr,
-          voucherDate: voucherTransaction.VoucherDate,
-          partyName: voucherTransaction.subledgerMaster?.SubledgerName,
-        };
-      }
+      // if (voucherTransaction.VoucherHeader?.ReversalVoucher !== null) {
+      //   this.logger.warn(
+      //     `Voucher ${voucherTransactionSid} is reversed (ReversalVoucher: ${voucherTransaction.VoucherHeader.ReversalVoucher})`,
+      //   );
+      //   // Return zero outstanding for reversed vouchers
+      //   return {
+      //     companyMasterSid: companyMasterSid,
+      //     voucherTransactionSid: voucherTransactionSid,
+      //     voucherNumber: voucherTransaction.VoucherNumber,
+      //     originalCurrencyAmount: 0,
+      //     originalLocalAmount: 0,
+      //     matchedCurrencyAmount: 0,
+      //     matchedLocalAmount: 0,
+      //     outstandingCurrencyAmount: 0,
+      //     outstandingLocalAmount: 0,
+      //     currencyCode: voucherTransaction.CurrencyCode || 'USD',
+      //     drCr: voucherTransaction.DrCr,
+      //     voucherDate: voucherTransaction.VoucherDate,
+      //     partyName: voucherTransaction.subledgerMaster?.SubledgerName,
+      //   };
+      // }
 
       // Get original amounts
       const originalCurrencyAmount = this.toNumber(voucherTransaction.Amount);
@@ -157,9 +160,12 @@ export class OutstandingService {
           CompanyMasterSid: companyMasterSid,
           LedgerMasterSid: ledgerMasterSid,
           Status: 'A',
-          VoucherHeader: {
-            ReversalVoucher: null, // Exclude reversed vouchers
-          },
+          /** Update : Voucher Reversal also follows the same logic
+          *  Scenerio explained : for 5000 rs invoice and the customer already receipt for 2500 . and Now if the invoice is reversed , the outstanding amount should be zero
+          */
+          // VoucherHeader: {
+          //   ReversalVoucher: null, // Exclude reversed vouchers
+          // },
         },
         include: {
           VoucherHeader: true,
@@ -218,7 +224,7 @@ export class OutstandingService {
         const outstandingLocalAmount = this.roundToDecimal(originalLocalAmount - matchedLocalAmount, 2);
 
         // Only include if there's outstanding balance
-        if (Math.abs(outstandingCurrencyAmount) > 0.01 || Math.abs(outstandingLocalAmount) > 0.01) {
+        if (Math.abs(outstandingCurrencyAmount) > 0 || Math.abs(outstandingLocalAmount) > 0) {
           transactions.push({
             voucherTransactionSid: vt.VoucherTransactionSid,
             voucherNumber: vt.VoucherNumber,

@@ -1,6 +1,13 @@
-import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, IsNumber, IsString, IsArray, IsOptional, IsDateString, IsIn } from 'class-validator';
+import { ApiOperation, ApiProperty } from '@nestjs/swagger';
+import { IsNotEmpty, IsNumber, IsString, IsArray, IsOptional, IsDateString, IsIn,  IsInt,
+  MaxLength,
+  Length,
+  IsDate, } from 'class-validator';
+import {
 
+} from 'class-validator';
+import { Type } from 'class-transformer';
+import { Decimal } from '@prisma/client/runtime/library';
 /**
  * DTO for individual voucher line item in posting payload
  */
@@ -155,6 +162,14 @@ export class TaxSummaryDto {
   @ApiProperty({ description: 'COA Master Sid for tax account', example: 78 })
   @IsNumber()
   coaMasterSid: number;
+
+  @ApiProperty({ description: 'Ledger Master Sid for tax account', example: 78 })
+  @IsNumber()
+  ledgerMasterSid: number;
+
+  @ApiProperty({ description: 'Debtor / Creditor indicator', enum: ['D', 'C'], example: 'D' })
+  @IsString()
+  DrCr: string | null;
 }
 
 /**
@@ -316,4 +331,272 @@ export class DraftVoucherResponseDto {
 
   @ApiProperty({ description: 'Current posting status' })
   postingStatus?: string;
+}
+
+export class VoucherDetailDto {
+  @IsInt()
+  VoucherDetailSid: number ;
+
+  @IsInt()
+  CompanyMasterSid: number;
+
+  @IsInt()
+  BranchMasterSid: number;
+
+  @IsInt()
+  VoucherHeaderSid: number;
+
+  @IsInt()
+  Sno: Decimal;
+
+  @IsOptional()
+  @IsInt()
+  ChargeMasterSid : number | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  ChargeDescription : string | null;
+
+  @IsOptional()
+  @IsInt()
+  LedgerMasterSid : number | null;
+
+  @IsOptional()
+  @IsInt()
+  COAMasterSid : number | null;
+
+  @IsOptional()
+  @IsInt()
+  HSSACMasterSid : number | null;
+
+  @IsOptional()
+  @IsInt()
+  DepartmentMasterSid: number | null;
+
+  @IsOptional()
+  @IsInt()
+  HouseJobSid : number | null;
+
+  @IsOptional()
+  @IsInt()
+  MasterJobSid : number | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(10)
+  CostRevenue: string | null;
+
+  @IsInt()
+  CurrencyMasterSid: number;
+
+  @IsString()
+  @Length(3, 3)
+  CurrencyCode: string;
+
+  @IsNumber({ maxDecimalPlaces: 3 })
+  @Type(() => Number)
+  ExchangeRate: Decimal;
+
+  @IsNumber({ maxDecimalPlaces: 3 })
+  @Type(() => Number)
+  Rate: Decimal;
+
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 3 })
+  @Type(() => Number)
+  NumberOfUnit: Decimal | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  Narration?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  DrCr: string | null;
+
+  @IsNumber({ maxDecimalPlaces: 3 })
+  @Type(() => Number)
+  TaxableAmount: Decimal;
+
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 2 })
+  TaxPercentage1?: Decimal | null;
+
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 3 })
+  TaxAmount1?:  Decimal | null;
+
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 2 })
+  TaxPercentage2?:  Decimal | null;
+
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 3 })
+  TaxAmount2?:  Decimal | null;
+
+  @IsNumber({ maxDecimalPlaces: 3 })
+  @Type(() => Number)
+  Amount: Decimal;
+
+  @IsNumber({ maxDecimalPlaces: 3 })
+  @Type(() => Number)
+  LocalAmount: Decimal;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(10)
+  InvoiceType?: string | null;
+
+  @IsOptional()
+  @IsInt()
+  CostCenter?: number | null;
+
+  @IsOptional()
+  @IsInt()
+  ProfitCenter?: number | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  Remarks?: string | null;
+
+  @IsOptional()
+  @IsInt()
+  ChargeUOMSid?: number | null;
+
+  @IsOptional()
+  @IsInt()
+  YearMasterSid?: number | null;
+
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 3 })
+  @Type(() => Number)
+  PartyAmount?: Decimal | null;
+
+  @IsOptional()
+  @IsInt()
+  VoucherTransactionSid?: number | null;
+
+  @IsOptional()
+  hSSACMaster ?: any | null;
+
+}
+export class HSSACMasterDto {
+  @IsString()
+  @MaxLength(200)
+  HSSACCode: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  HSSACName?: string;
+
+  @IsString()
+  @MaxLength(100)
+  ServiceName: string;
+
+  @IsNumber({ maxDecimalPlaces: 3 })
+  @Type(() => Number)
+  TaxRate: number;
+
+  @IsString()
+  @MaxLength(10)
+  TaxType: string;
+
+  @IsDate()
+  @Type(() => Date)
+  EffectiveFrom: Date;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(300)
+  Remarks?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(10)
+  ClassificationType?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(700)
+  HSNSACDescription?: string;
+}
+
+export class PostVoucherDTO {
+  @ApiProperty({ description: 'Whether posting succeeded', example: true })
+  success: boolean;
+
+  @ApiProperty({ description: 'Voucher Header Sid that was posted', example: 100 })
+  @IsNumber()
+  voucherHeaderSid : number;
+
+  @ApiProperty({ description: 'Company Master Sid', example: 1 })
+  @IsNumber()
+  companyMasterSid: number;
+
+  @ApiProperty({ description: 'Branch Master Sid', example: 1 })
+  @IsNumber()
+  branchMasterSid : number;
+
+  @ApiProperty({ description : 'Voucher Number', example: 'INV/2024/001' })
+  voucherNumber?: string;
+
+  @ApiProperty({ description: 'VoucherType', example: 1 })
+  voucherType?: number;
+
+  @ApiProperty({ description: 'Voucher date in YYYY-MM-DD format', example: '2024-11-01' })
+  voucherDate?: string;
+
+  @ApiProperty({ description: 'Posting date in YYYY-MM-DD format', example: '2024-11-01' })
+  postDate?: string;
+
+  @ApiProperty({description : 'PartyMasterSid', example: 1 })
+  @IsNumber()
+  partyMasterSid?: number;
+
+  @ApiProperty({description : 'COAMasterSid', example: 1 })
+  @IsNumber()
+  coaMasterSid?: number;
+
+  @ApiProperty({description : 'SubledgerMasterSid', example: 1 })
+  @IsNumber()
+  ledgerMasterSid?: number;
+
+  @ApiProperty({description : 'SubledgerMasterSid', example: 1 })
+  @IsNumber()
+  currencyMasterSid : number;
+
+  @ApiProperty({description : 'CurrencyCode', example: 'INR' })
+  @IsString()
+  currencyCode : string;
+
+  @ApiProperty({description : 'Exchange Rate', example: 2.56 })
+  @IsNumber()
+  exchangeRate : string;
+
+  @ApiProperty({description : 'VoucherTypeMasterSid', example: 1 })
+  @IsNumber()
+  voucherTypeMasterSid?: number;
+  
+  @ApiProperty({description : 'Narration', example: 'INR' })
+  @IsString()
+  narration : string;
+
+  @ApiProperty({description : 'PartyAmount', example: 12000 })
+  @IsNumber()
+  partyAmount : number;
+
+  @ApiProperty({description : 'PostStatus',enum:['U','P'] ,example: 'U' })
+  postStatus?: string;
+
+  @ApiProperty({description : 'Charge Line Items', type: [VoucherDetailDto] })
+  @IsArray()
+  chargeLineItems: VoucherDetailDto[];
+
+  @ApiProperty({description : 'CreatedBy', example: 'System' })
+  createdBy : string;
 }
