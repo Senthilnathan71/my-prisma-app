@@ -22,11 +22,11 @@ view vDepartmentLookup {
 }
 
 view vMasterJobIndexPage {
-  unique_id        Int       @unique
-  MasterJobSid     Int?
+  MasterJobSid     Int      @unique
   CompanyMasterSid Int?
   BranchMasterSid  Int?
-  departmentName   String?
+  departmentName   String?   @db.VarChar(20)
+  departmentType   String?   @db.VarChar(10)
   MasterJobNumber  String?   @db.VarChar(100)
   MasterJobDate    DateTime? @db.Date
   MBLNo            String?   @db.VarChar(20)
@@ -39,7 +39,7 @@ view vMasterJobIndexPage {
   Status           String?   @db.Char(1)
 }
 
-/// The underlying view does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+
 view vARAP {
   VoucherNumber    String?   @db.VarChar(20)
   VoucherHeaderSid Int?
@@ -48,9 +48,7 @@ view vARAP {
   CurrencyCode     String?   @db.Char(3)
   Amount           Decimal?  @db.Decimal(15, 3)
   LocalAmount      Decimal?  @db.Decimal(15, 3)
-  BookingHeaderSid Int?
+  BookingHeaderSid Int       @unique
   CompanyMasterSid Int?
   HBLNo            String?   @db.VarChar(200)
-
-  @@ignore
 }
