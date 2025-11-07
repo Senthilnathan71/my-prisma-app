@@ -44,21 +44,21 @@ export class MawbStockService {
     
           // Loop through each AWB item to create separate MAWB stock records
           let i = 1;
-          for (const awbItem of awbList) {
+          for (const formattedAWB  of awbList) {
             const record = await this._db.mawbStock.create({
               data: {
                 CompanyMasterSid: payload.CompanyMasterSid,
                 BranchMasterSid: payload.BranchMasterSid,
                 AirwayBillType: payload.AirwayBillType || 'Airline',
-                MasterBillNumber: payload.MasterBillNumber,
+                MasterBillNumber: formattedAWB,
                 Agent: payload.Agent ? Number(payload.Agent) : null,
                 MAWBSerial: payload.MAWBSerial || '',
                 NumberofMAWB: i++, // each record = 1 MAWB
-                ReceivedDate: awbItem.ReceivedDate
-                  ? new Date(awbItem.ReceivedDate)
+                ReceivedDate: payload.ReceivedDate
+                  ? new Date(payload.ReceivedDate)
                   : new Date(),
                 StockStatus: 'Free',
-                Remarks: awbItem.Remarks || payload.Remarks || null,
+                Remarks: payload.Remarks || payload.Remarks || null,
                 createdBy: payload.createdBy,
                 updatedBy: payload.updatedBy,
                 status: payload.status || 'A',

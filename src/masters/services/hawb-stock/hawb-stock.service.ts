@@ -63,21 +63,21 @@ export class HawbStockService {
     
           // Loop through each AWB item to create separate HAWB stock records
           let i = 1;
-          for (const awbItem of awbList) {
+          for (const formattedAWB of awbList) {
             const record = await this._db.hawbStock.create({
               data: {
                 CompanyMasterSid: payload.CompanyMasterSid,
                 BranchMasterSid: payload.BranchMasterSid,
                 AirwayBillType: payload.AirwayBillType || 'Airline',
-                AirwayBillNumber: payload.AirwayBillNumber,
+                AirwayBillNumber: formattedAWB,
                 Agent: payload.Agent ? Number(payload.Agent) : null,
                 HAWBSerial: payload.HAWBSerial || '',
                 NumberofHAWB: i++, // each record = 1 HAWB
-                ReceivedDate: awbItem.ReceivedDate
-                  ? new Date(awbItem.ReceivedDate)
+                ReceivedDate: payload.ReceivedDate
+                  ? new Date(payload.ReceivedDate)
                   : new Date(),
                 StockStatus: 'Free',
-                Remarks: awbItem.Remarks || payload.Remarks || null,
+                Remarks: payload.Remarks || payload.Remarks || null,
                 createdBy: payload.createdBy,
                 updatedBy: payload.updatedBy,
                 status: payload.status || 'A',
