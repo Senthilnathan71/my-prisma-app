@@ -189,6 +189,7 @@ export class BookingService {
                     Length: product.Length,
                     Width: product.Width,
                     Height: product.Height,
+                    Volumetric: Number(product.Volumetric) || 0,
                     UomMasterSid: product.UomMasterSid || null,
                     createdBy: payload.createdBy,
                     status: 'A',
@@ -639,6 +640,7 @@ export class BookingService {
                                 Length: product.Length,
                                 Width: product.Width,
                                 Height: product.Height,
+                                Volumetric: Number(product.Volumetric),
                                 UomMasterSid: product.UomMasterSid,
                                 RecdPack : product.CargoRecDate ? product.ExternlQty : null,
                                 updatedBy: payload.updatedBy,
@@ -665,6 +667,7 @@ export class BookingService {
                                 Length: product.Length,
                                 Width: product.Width,
                                 Height: product.Height,
+                                Volumetric: Number(product.Volumetric),
                                 UomMasterSid: product.UomMasterSid,
                                 createdBy: payload.updatedBy,
                                 status: 'A'
