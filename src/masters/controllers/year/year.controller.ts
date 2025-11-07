@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, Post, Query, Res, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, NotFoundException, Param, ParseIntPipe, Patch, Post, Query, Res, UnauthorizedException } from '@nestjs/common';
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
 import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
@@ -83,6 +83,61 @@ export class YearController {
             this.logger.warn(`Get Year by Id Error : ${JSON.stringify(error)}`);
             resp.status = false;
             if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                resp.message = error.message;
+            } else {
+                resp.message = "Internal Server Error";
+            }
+        }
+        return resp;
+    }
+
+    @ApiOperation({ summary: 'Get All Years by User Email' })
+    @ApiCreatedResponse({
+        description: 'Get All Years by User Email',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Get('user/:userEmail')
+    async getYearByUserEmail(@Param('userEmail') userEmail: string) {
+        let resp = new ResponseData();
+        try {
+            this.logger.log(`Getting Year with mail : ${userEmail}`);
+            let res = await this.yearService.getAllYearMaster(userEmail);
+            this.logger.debug(`Fetched Year : ${JSON.stringify(res)}`);
+            resp.data = res;
+            resp.message = `Year with id : ${userEmail} is successfully fetched`;
+        } catch (error) {
+            this.logger.warn(`Get Year by Id Error : ${JSON.stringify(error)}`);
+            resp.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException || error instanceof NotFoundException) {
+                resp.message = error.message;
+            } else {
+                resp.message = "Internal Server Error";
+            }
+        }
+        return resp;
+    }
+
+    
+    @ApiOperation({ summary: 'Get All Years by Company Id' })
+    @ApiCreatedResponse({
+        description: 'Get All Years by Company Id',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Get('company/:CompanyMasterSid')
+    async getYearByCompanyId(@Param('CompanyMasterSid', ParseIntPipe) CompanyMasterSid: number) {
+        let resp = new ResponseData();
+        try {
+            this.logger.log(`Getting Years with CompanyMasterSid : ${CompanyMasterSid}`);
+            let res = await this.yearService.getFinancialYearsByCompany(CompanyMasterSid);
+            this.logger.debug(`Fetched Year : ${JSON.stringify(res)}`);
+            resp.data = res;
+            resp.message = `Years with CompanyMasterSid : ${CompanyMasterSid} is successfully fetched`;
+        } catch (error) {
+            this.logger.warn(`Get Years by CompanyMasterSid Error : ${JSON.stringify(error)}`);
+            resp.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException || error instanceof NotFoundException) {
                 resp.message = error.message;
             } else {
                 resp.message = "Internal Server Error";

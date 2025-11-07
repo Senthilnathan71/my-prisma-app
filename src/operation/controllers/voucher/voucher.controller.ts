@@ -146,4 +146,54 @@ export class VoucherController {
         return output;
     }
 
+
+    @ApiOperation({ summary: 'Post Voucher' })
+    @ApiCreatedResponse({
+        description: 'Voucher has been posted successfully',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Post('post-voucher')
+    async postVoucher(@Body() body: any) {
+        let output = new ResponseData();
+        this.logger.log(`generateVoucherFromJobs request body: ${JSON.stringify(body)}`);
+
+        try {
+            if(!body.VoucherHeaderSid){
+                throw new BadRequestException('Voucher Header SID is required');
+            }
+            if(!body.CompanyMasterSid){
+                throw new BadRequestException('Company Master SID is required');
+            }
+            if(!body.BranchMasterSid){
+                throw new BadRequestException('Branch Master SID is required');
+            }
+            if(!body.YearMasterSid){
+                throw new BadRequestException('Financial year Sid is required');
+            }
+            if(!body.PostedBy){
+                throw new BadRequestException('Posted By is required');
+            }
+            const result = await this.voucherService.postVoucherByVoucherSid({
+                voucherHeaderSid : Number(body.VoucherHeaderSid),
+                companyMasterSid : Number(body.CompanyMasterSid),
+                branchMasterSid : Number(body.BranchMasterSid),
+                yearMasterSid : Number(body.YearMasterSid),
+                postedBy : body.PostedBy
+            });
+            this.logger.debug(`postVoucher result: ${JSON.stringify(result)}`);
+            output.data = result;
+            output.message = "Voucher posted successfully";
+        } catch (error) {
+            this.logger.warn(`postVoucher error: ${JSON.stringify(error), error}`);
+            output.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                output.message = error.message;
+            } else {
+                output.message = error;
+            }
+        }
+        return output;
+    }
+
 }

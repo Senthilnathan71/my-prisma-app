@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { statusWhereClause } from 'src/common/helper';
 import { DatabaseService } from 'src/database/database.service';
@@ -63,6 +63,77 @@ export class YearService {
                 throw new BadRequestException(`Year with Id : ${YearMasterSid} not exists`);
             }
             return year;
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    async getAllYearMaster(email: string) {
+        try {
+            const user = await this._db.userMaster.findFirst({
+                where: { userEmail: email },
+                include: {
+                    userCompanyMaster: {
+                        where: {
+                            IsDefault: 'Y',
+                            status: 'A',
+                        },
+                    },
+                },
+            });
+
+            if (!user) {
+                throw new NotFoundException(`User with email ${email} not found.`);
+            }
+
+            const defaultCompany = user.userCompanyMaster[0];
+            if (!defaultCompany) {
+                throw new NotFoundException(`No default company found for user ${email}.`);
+            }
+
+            const financialYears = await this._db.yearMaster.findMany({
+                where: {
+                    CompanyMasterSid: defaultCompany.CompanyMasterSid,
+                    status: 'A'
+                },
+                select: {
+                    YearMasterSid: true,
+                    YearName: true,
+                    CurrentYear : true
+                },
+                orderBy: {
+                    YearName: 'desc'
+                }
+            });
+
+            return financialYears;
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    async getFinancialYearsByCompany(companyId: number) {
+        try {
+            const financialYears = await this._db.yearMaster.findMany({
+                where: {
+                    CompanyMasterSid: companyId,
+                    status: 'A',
+                },
+                select: {
+                    YearMasterSid: true,
+                    YearName: true,
+                    CurrentYear : true
+                },
+                orderBy: {
+                    YearName: 'desc',
+                },
+            });
+
+            if (!financialYears.length) {
+                throw new NotFoundException(`No financial years found for this company.`);
+            }
+
+            return financialYears;
         } catch (error) {
             throw error;
         }
