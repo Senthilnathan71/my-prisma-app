@@ -172,31 +172,39 @@ export class VendorInvoiceController {
     return output;
   }
 
-  @ApiOperation({ summary: 'Search pending costs for vendor invoice generation' })
-  @ApiCreatedResponse({
-    description: 'Pending costs search results',
-    type: ResponseData
-  })
-  @HttpCode(HttpStatus.OK)
-  @Post('search-pending-costs')
-  async searchPendingCosts(@Body() criteria: any) {
-    const output = new ResponseData();
-    try {
-      const finalOutput = await this.vendorInvoiceService.searchPendingCosts(criteria);
-      this.logger.debug(`searchPendingCosts: returned ${Array.isArray(finalOutput) ? finalOutput.length : 0} items`);
-      output.data = finalOutput;
-      output.message = "Pending costs search completed";
-    } catch (error) {
-      this.logger.warn('searchPendingCosts error', (error as any)?.stack || (error as any)?.message || error);
-      output.status = false;
-      if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
-        output.message = (error as any).message || 'Bad request';
-      } else {
-        output.message = 'Internal Server Error';
-      }
+ // vendor-invoice.controller.ts - Add this endpoint
+
+@ApiOperation({ summary: 'Search pending costs for vendor invoice' })
+@ApiCreatedResponse({
+  description: 'Pending costs search results',
+  type: ResponseData
+})
+@HttpCode(HttpStatus.OK)
+@Post('search-pending-costs')
+async searchPendingCosts(@Body() payload: {
+  searchType: string;
+  searchValue: string;
+  vendorSid?: number;
+  companyMasterSid: number;
+  branchMasterSid: number;
+}) {
+  const output = new ResponseData();
+  try {
+    const finalOutput = await this.vendorInvoiceService.searchPendingCosts(payload);
+    this.logger.debug(`searchPendingCosts: returned ${finalOutput?.items?.length || 0} items`);
+    output.data = finalOutput;
+    output.message = finalOutput.message || "Pending costs search completed";
+  } catch (error) {
+    this.logger.warn('searchPendingCosts error', (error as any)?.stack || (error as any)?.message || error);
+    output.status = false;
+    if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+      output.message = (error as any).message || 'Bad request';
+    } else {
+      output.message = 'Internal Server Error';
     }
-    return output;
   }
+  return output;
+}
 
   @ApiOperation({ summary: 'Get vendor TDS mapping configuration' })
   @ApiCreatedResponse({
@@ -223,4 +231,5 @@ export class VendorInvoiceController {
     }
     return output;
   }
+  
 }

@@ -281,12 +281,14 @@ export class VendorInvoiceService {
                         where: { Status: 'A' }
                     },
                     subledgerMaster: true,
+                    customerBranch: true,
                     currencyMaster: true,
                     masterJob: true,
                     houseJob: true,
-                    voucherTypeMaster: true
+                    voucherTypeMaster: true,
+                    
                 }
-            });
+            }); 
 
             if (!vendorInvoice) {
                 throw new NotFoundException(`Vendor Invoice with ID ${VoucherHeaderSid} not found`);
@@ -591,144 +593,235 @@ export class VendorInvoiceService {
             throw new InternalServerErrorException('Failed to search vendor invoices');
         }
     }
+ // vendor-invoice.service.ts - Add this method
 
-    /**
-     * Search pending costs from BookingRates or CostRevenueCharges
-     * Based on source: 'booking' or 'housejob'
-     */
-    async searchPendingCosts(criteria: any): Promise<any[]> {
-        try {
-            const {
-                searchType,
-                searchValue,
-                vendorSid,
-                source = 'booking' // 'booking' or 'housejob'
-            } = criteria;
-
-            // Search from BookingRates (for booking entry)
-            if (source === 'booking') {
-                return await this.searchPendingCostsFromBookingRates(searchType, searchValue, vendorSid);
-            }
-
-            // Search from CostRevenueCharges (for house job)
-            return await this.searchPendingCostsFromCostRevenue(searchType, searchValue, vendorSid);
-        } catch (error) {
-            this.logger.error(`Error searching pending costs: ${error.message}`);
-            throw new InternalServerErrorException('Failed to search pending costs');
-        }
+async searchPendingCosts(searchCriteria: {
+  searchType: string;
+  searchValue: string;
+  vendorSid?: number;
+  companyMasterSid: number;
+  branchMasterSid: number;
+}): Promise<any> {
+  try {
+    const { searchType, searchValue, vendorSid, companyMasterSid, branchMasterSid } = searchCriteria;
+    
+    if (!searchValue?.trim()) {
+      throw new BadRequestException('Search value is required');
     }
 
-    /**
-     * Search pending costs from BookingRates
-     */
-    private async searchPendingCostsFromBookingRates(searchType: string, searchValue: string, vendorSid?: number): Promise<any[]> {
-        const where: any = {
-            CostVoucherHeaderSid: null, // Pending costs only
-            CostAmount: { gt: 0 },
+    // Step 1: Determine search target and build where clause
+    let jobRecord: any = null;
+    let transactionSid: number | null = null;
+    let menuName = '';
+    
+    // Normalize search value
+    const normalizedSearch = searchValue.trim().toUpperCase();
+
+    switch (searchType.toLowerCase()) {
+      case 'master job':
+      case 'masterjob':
+        jobRecord = await this._db.masterJob.findFirst({
+          where: {
+            MasterJobNumber: { contains: normalizedSearch, mode: 'insensitive' },
+            CompanyMasterSid: companyMasterSid,
+            BranchMasterSid: branchMasterSid,
             Status: 'A'
-        };
-
-        // Add search filter
-        switch (searchType) {
-            case 'Master Job':
-                const masterJob = await this._db.masterJob.findFirst({
-                    where: { MasterJobNumber: searchValue }
-                });
-                if (masterJob) {
-                    where.MasterJobSid = masterJob.MasterJobSid;
-                }
-                break;
-            case 'House Job':
-                const houseJob = await this._db.houseJob.findFirst({
-                    where: { BookingNo: searchValue }
-                });
-                if (houseJob) {
-                    where.HouseJobSid = houseJob.HouseJobSid;
-                }
-                break;
-            case 'MBL No':
-                const bookingByMBL = await this._db.bookingHeader.findFirst({
-                    where: { MBLNo: searchValue }
-                });
-                if (bookingByMBL) {
-                    where.BookingHeaderSid = bookingByMBL.BookingHeaderSid;
-                }
-                break;
-            case 'HBL No':
-                where.HBLNo = searchValue;
-                break;
-            case 'Container No':
-                where.ContainerNo = searchValue;
-                break;
-        }
-
-        // Filter by vendor if provided
-        if (vendorSid) {
-            where.AgentMasterSid = vendorSid;
-        }
-
-        const costs = await this._db.bookingRates.findMany({
-            where,
-            include: {
-                customerMasterAG: true,
-                BookingHeader: true
-            }
+          }
         });
+        
+        if (jobRecord) {
+          transactionSid = jobRecord.MasterJobSid;
+          menuName = 'MasterJob';
+        }
+        break;
 
-        return costs;
+      case 'house job':
+      case 'housejob':
+        jobRecord = await this._db.houseJob.findFirst({
+          where: {
+            OR: [
+              { BookingNo: { contains: normalizedSearch, mode: 'insensitive' } },
+              { HBLNo: { contains: normalizedSearch, mode: 'insensitive' } }
+            ],
+            CompanyMasterSid: companyMasterSid,
+            BranchMasterSid: branchMasterSid,
+            status: 'A'
+          }
+        });
+        
+        if (jobRecord) {
+          transactionSid = jobRecord.HouseJobSid;
+          menuName = 'HouseJob';
+        }
+        break;
+
+      case 'mbl no':
+      case 'mblno':
+        jobRecord = await this._db.masterJob.findFirst({
+          where: {
+            MBLNo: { contains: normalizedSearch, mode: 'insensitive' },
+            CompanyMasterSid: companyMasterSid,
+            BranchMasterSid: branchMasterSid,
+            Status: 'A',
+            
+          }
+        });
+        
+        if (jobRecord) {
+          transactionSid = jobRecord.MasterJobSid;
+          menuName = 'MasterJob';
+        }
+        break;
+
+      case 'hbl no':
+      case 'hblno':
+        jobRecord = await this._db.houseJob.findFirst({
+          where: {
+            HBLNo: { contains: normalizedSearch, mode: 'insensitive' },
+            CompanyMasterSid: companyMasterSid,
+            BranchMasterSid: branchMasterSid,
+            status: 'A'
+          }
+        });
+        
+        if (jobRecord) {
+          transactionSid = jobRecord.HouseJobSid;
+          menuName = 'HouseJob';
+        }
+        break;
+
+      case 'container no':
+      case 'containerno':
+        const containerRecord = await this._db.masterJobContainer.findFirst({
+          where: {
+            ContainerNumber: { contains: normalizedSearch, mode: 'insensitive' }
+          },
+          include: {
+            masterJob: {
+              select: {
+                MasterJobSid: true,
+                MasterJobNumber: true,
+                MBLNo: true,
+                CompanyMasterSid: true,
+                BranchMasterSid: true,
+                MenuMasterSid: true,
+                Status: true
+              }
+            }
+          }
+        });
+        
+        if (containerRecord?.masterJob && containerRecord.masterJob.Status === 'A') {
+          jobRecord = containerRecord.masterJob;
+          transactionSid = jobRecord.MasterJobSid;
+          menuName = 'MasterJob';
+        }
+        break;
+
+      default:
+        throw new BadRequestException(`Unsupported search type: ${searchType}`);
     }
 
-    /**
-     * Search pending costs from CostRevenueCharges
-     */
-    private async searchPendingCostsFromCostRevenue(searchType: string, searchValue: string, vendorSid?: number): Promise<any[]> {
-        const where: any = {
-            CostVoucherHeaderSid: null,
-            DrCr: 'Dr', // Costs are debits
-            Status: 'A'
-        };
-
-        // Add search filter (similar to BookingRates)
-        switch (searchType) {
-            case 'Master Job':
-                const masterJob = await this._db.masterJob.findFirst({
-                    where: { MasterJobNumber: searchValue }
-                });
-                if (masterJob) {
-                    where.MasterJobSid = masterJob.MasterJobSid;
-                }
-                break;
-            case 'House Job':
-                const houseJob = await this._db.houseJob.findFirst({
-                    where: { BookingNo: searchValue }
-                });
-                if (houseJob) {
-                    where.HouseJobSid = houseJob.HouseJobSid;
-                }
-                break;
-            // Add other search types as needed
-        }
-
-        // Filter by vendor if provided
-        if (vendorSid) {
-            where.AgentMasterSid = vendorSid;
-        }
-
-        const costs = await this._db.costRevenueCharges.findMany({
-            where,
-            include: {
-                chargeMaster: true,
-                costCurrencyMaster: true,
-                costCustomerMaster: true
-            }
-        });
-
-        return costs;
+    if (!jobRecord || !transactionSid) {
+      return {
+        items: [],
+        message: 'No matching job found for the search criteria'
+      };
     }
 
-    /**
-     * Get vendor TDS configuration
-     */
+    // Step 2: Build cost/revenue query - FIXED WHERE CLAUSE
+    const whereClause: any = {
+      CompanyMasterSid: companyMasterSid,
+      BranchMasterSid: branchMasterSid,
+      status: 'A',
+      CostVoucherHeaderSid: null, // Only pending costs (not invoiced yet)
+    };
+
+    // Add transaction-specific filters based on menu type
+     if (menuName === 'MasterJob') {
+      whereClause.MasterJobNo = jobRecord.MasterJobNumber;
+    } else if (menuName === 'HouseJob') {
+      whereClause.ShipmentNo = jobRecord.BookingNo;
+    }
+
+    // Add vendor filter if provided
+    if (vendorSid) {
+      whereClause.CostAgentMasterSid = vendorSid;
+    }
+
+    console.log('DEBUG - Search Criteria:', {
+      searchType,
+      searchValue,
+      vendorSid,
+      companyMasterSid,
+      branchMasterSid
+    });
+
+    console.log('DEBUG - Where Clause:', whereClause);
+
+    // Step 3: Fetch pending costs
+    const pendingCosts = await this._db.costRevenueCharges.findMany({
+      where: whereClause,
+      include: {
+        chargeMaster: true,
+        costChargeUOMMaster: true,
+        costCurrencyMaster: true,
+        costCustomerMaster: true,
+        costCustomerBranch: true
+      },
+      orderBy: {
+        SerialNumber: 'asc'
+      }
+    });
+
+    console.log('DEBUG - Found pending costs:', pendingCosts.length);
+
+    // Step 4: Transform results
+    const transformedCosts = pendingCosts.map(cost => ({
+      CostRevenueChargesSid: cost.CostRevenueChargesSid,
+      ChargeMasterSid: cost.ChargeMasterSid,
+      ChargeDescription: cost.ChargeDescription || cost.chargeMaster?.chargeName || '',
+      ChargeCode: cost.chargeMaster?.chargeCode || '',
+      NumberOfUnit: cost.CostNumberOfUnit || 1,
+      Rate: cost.CostRate || 0,
+      CostAmount: cost.CostAmount || 0,
+      CostExchangeRate: cost.CostExchangeRate || 1,
+      CurrencyCode: cost.costCurrencyMaster?.currencyCode || '',
+      CurrencyMasterSid: cost.CostCurrencyMasterSid,
+      UOMCode: cost.costChargeUOMMaster?.UOMCode || '',
+      ChargeUOMSid: cost.CostChargeUomSid,
+      VendorName: cost.costCustomerMaster?.CustomerName || '',
+      VendorSid: cost.CostAgentMasterSid,
+      JobNo: menuName === 'MasterJob' ? jobRecord.MasterJobNumber : jobRecord.BookingNo,
+      MBLNo: jobRecord.MBLNo || '',
+      HBLNo: menuName === 'HouseJob' ? jobRecord.HBLNo : '',
+      MasterJobSid: menuName === 'MasterJob' ? transactionSid : jobRecord.MasterJobSid,
+      HouseJobSid: menuName === 'HouseJob' ? transactionSid : null,
+      Remarks: cost.Remarks || '',
+      selected: false // UI selection flag
+    }));
+
+    return {
+      items: transformedCosts,
+      jobInfo: {
+        menuName,
+        transactionSid,
+        jobNumber: menuName === 'MasterJob' ? jobRecord.MasterJobNumber : jobRecord.BookingNo,
+        mblNo: jobRecord.MBLNo,
+        hblNo: menuName === 'HouseJob' ? jobRecord.HBLNo : null
+      },
+      message: `Found ${transformedCosts.length} pending cost(s)`
+    };
+
+  } catch (error) {
+    this.logger.error(`Error searching pending costs: ${error.message}`);
+    if (error instanceof BadRequestException) {
+      throw error;
+    }
+    throw new InternalServerErrorException('Failed to search pending costs');
+  }
+}
+   
     async getVendorTDSConfiguration(vendorMasterSid: number): Promise<any> {
         try {
             return await this.voucherService.getVendorTDSMapping(vendorMasterSid);
