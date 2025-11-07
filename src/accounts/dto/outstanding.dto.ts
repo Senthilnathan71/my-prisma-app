@@ -82,6 +82,9 @@ export class CustomerOutstandingTransactionDto {
   @ApiProperty({ description: 'Currency code', example: 'USD' })
   currencyCode: string;
 
+  @ApiProperty({ description: 'Exchange rate', example: 1.0 })
+  exchangeRate: number;
+
   @ApiProperty({ description: 'Debit or Credit indicator', example: 'D' })
   drCr: string;
 

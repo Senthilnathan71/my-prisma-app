@@ -217,6 +217,11 @@ export class OutstandingService {
         );
         const outstandingLocalAmount = this.roundToDecimal(originalLocalAmount - matchedLocalAmount, 2);
 
+        // Calculate exchange rate
+        const exchangeRate = originalCurrencyAmount !== 0
+          ? this.roundToDecimal(originalLocalAmount / originalCurrencyAmount, 4)
+          : 1.0;
+
         // Only include if there's outstanding balance
         if (Math.abs(outstandingCurrencyAmount) > 0.01 || Math.abs(outstandingLocalAmount) > 0.01) {
           transactions.push({
@@ -231,6 +236,7 @@ export class OutstandingService {
             outstandingCurrencyAmount: outstandingCurrencyAmount,
             outstandingLocalAmount: outstandingLocalAmount,
             currencyCode: vt.CurrencyCode || 'USD',
+            exchangeRate: exchangeRate,
             drCr: vt.DrCr,
             chargeDescription: vt.ChargeDescription,
           });
