@@ -561,6 +561,10 @@ model ChargeTaxMaster {
   ChargeTaxMasterSid Int           @id @default(autoincrement()) @map("ChargeTaxMasterSid")
   CompanyMasterSid   Int
   chargeTaxMasterSid Int?
+  HSSACMasterSid     Int?
+  TaxGroupSid        Int?
+  taxGroup           TaxGroup?     @relation(fields: [TaxGroupSid], references: [TaxGroupSid])
+  hssacMaster        HSSACMaster?  @relation(fields: [HSSACMasterSid], references: [HSSACMasterSid])
   companyMaster      CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
   chargeMaster       ChargeMaster? @relation(fields: [chargeTaxMasterSid], references: [ChargeMasterSid])
 }
@@ -1620,6 +1624,7 @@ model HSSACMaster {
   ClassificationType String?            @db.VarChar(10)
   HSNSACDescription  String?            @db.VarChar(700)
   TaxGroupSid        Int?
+  ChargeTaxMaster    ChargeTaxMaster[]
   chargeTaxMapping   ChargeTaxMapping[]
   commodityMaster    CommodityMaster[]
   taxGroup           TaxGroup?          @relation(fields: [TaxGroupSid], references: [TaxGroupSid])
@@ -2254,16 +2259,17 @@ model ProfitCenterMaster {
 }
 
 model TaxGroup {
-  TaxGroupSid Int           @id @default(autoincrement()) @map("TaxGroupSid")
-  TaxGroup    String        @db.VarChar(10)
-  TaxRate     Decimal       @db.Decimal(4, 2)
-  CreatedOn   DateTime      @default(now()) @db.Timestamp(6)
-  CreatedBy   String        @db.VarChar(100)
-  UpdatedOn   DateTime?     @default(now()) @db.Timestamp(6)
-  UpdatedBy   String?       @db.VarChar(100)
-  Status      String        @default("A") @db.Char(1)
-  hssacMaster HSSACMaster[]
-  taxMaster   TaxMaster[]
+  TaxGroupSid     Int               @id @default(autoincrement()) @map("TaxGroupSid")
+  TaxGroup        String            @db.VarChar(10)
+  TaxRate         Decimal           @db.Decimal(4, 2)
+  CreatedOn       DateTime          @default(now()) @db.Timestamp(6)
+  CreatedBy       String            @db.VarChar(100)
+  UpdatedOn       DateTime?         @default(now()) @db.Timestamp(6)
+  UpdatedBy       String?           @db.VarChar(100)
+  Status          String            @default("A") @db.Char(1)
+  hssacMaster     HSSACMaster[]
+  taxMaster       TaxMaster[]
+  ChargeTaxMaster ChargeTaxMaster[]
 
   @@index([Status])
 }
