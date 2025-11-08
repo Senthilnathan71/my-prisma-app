@@ -497,6 +497,25 @@ export class MenuService {
         }
     }
 
+    async getMenusByModules(moduleIds: number[]) {
+  try {
+    const menus = await this._db.menuMaster.findMany({
+      where: {
+        ModuleMasterSid: {
+          in: moduleIds
+        },
+        status: 'A'
+      },
+      orderBy: {
+        ModuleMasterSid: 'asc'
+      }
+    });
+    return menus;
+  } catch (error) {
+    throw error;
+  }
+}
+
     async getSubMenuList(moduleId) {
         try {
             const submenus = await this._db.menuMaster.findMany({

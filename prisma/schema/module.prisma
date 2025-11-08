@@ -102,6 +102,7 @@ model RoleMenuMaster {
   RoleMenuMasterSid Int            @id @default(autoincrement()) @map("RoleMenuMasterSid")
   RoleMasterSid     Int
   MenuMasterSid     Int
+  DisplayName       String?
   CompanyMasterSid  Int?
   InsertRole        String?        @default("Y") @db.Char(1)
   ViewRole          String?        @default("Y") @db.Char(1)
