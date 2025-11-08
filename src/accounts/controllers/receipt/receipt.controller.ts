@@ -12,6 +12,8 @@ import {
   HttpStatus,
   Logger,
   UseGuards,
+  BadRequestException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { ReceiptService } from '../../services/receipt/receipt.service';
 import {
@@ -23,6 +25,9 @@ import {
   UpdateReceiptDto,
   ReverseReceiptDto,
 } from '../../dto/receipt.dto';
+import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
+import { ResponseData } from 'src/common/response-data';
+import { PrismaClientValidationError } from '@prisma/client/runtime/library';
 
 /**
  * Receipt Voucher Controller
@@ -129,6 +134,37 @@ export class ReceiptController {
       throw error;
     }
   }
+
+  
+  @ApiOperation({ summary: 'Search Receipts with filters' })
+  @ApiCreatedResponse({
+    description: 'Receipts search results',
+    type: ResponseData
+  })
+  @HttpCode(HttpStatus.OK)
+  @Post('search-list')
+  async searchReceipts(@Body() payload: any) {
+    const output = new ResponseData();
+    try {
+      const finalOutput = await this.receiptService.searchReceipts(payload);
+      this.logger.debug(`searchReceipts: returned ${finalOutput?.items?.length || 0} items`);
+      output.data = finalOutput;
+      output.message = "Receipts search completed";
+    } catch (error) {
+      this.logger.warn('searchReceipts error', (error as any)?.stack || (error as any)?.message || error);
+      output.status = false;
+      if(error instanceof PrismaClientValidationError){
+        output.message = error.message;
+      }
+      if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+        output.message = (error as any).message || 'Bad request';
+      } else {
+        output.message = 'Internal Server Error';
+      }
+    }
+    return output;
+  }
+
 
   /**
    * Get receipt voucher by ID
