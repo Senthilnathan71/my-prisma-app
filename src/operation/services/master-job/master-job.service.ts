@@ -7,6 +7,16 @@ import { stat } from 'fs';
 import { parseDateFromString } from 'src/common/helper';
 import { LoadingPlanService } from '../loading-plan/loading-plan.service';
 import { MenuService } from 'src/masters/services/menu/menu.service';
+
+interface searchMasterJob { 
+    search: string, 
+    page: number, 
+    pageSize: number, 
+    activeCompanyId: number, 
+    activeBranchId: number, 
+    departmentType: string
+}
+
 @Injectable()
 export class MasterJobService {
     constructor(
@@ -1726,8 +1736,8 @@ export class MasterJobService {
     }
 
 
-    async searchMasterJobList(params: any) {
-        const { search = '', page = 1, pageSize = 15, activeCompanyId, activeBranchId } = params;
+    async searchMasterJobList(params: searchMasterJob) {
+        const { search = '', page = 1, pageSize = 15, activeCompanyId, activeBranchId , departmentType } = params;
         const skip = (page - 1) * pageSize;
 
         const parsedDate = parseDateFromString(search);
@@ -1759,6 +1769,10 @@ export class MasterJobService {
                     ],
                 }
                 : {}),
+            ...(departmentType === "Air" ? 
+                { departmentType: departmentType } : 
+                { departmentType : {not : {equals : 'Air'}} }
+            )
         };
         const [items, totalCount] = await this._db.$transaction([
             this._db.vMasterJobIndexPage.findMany({

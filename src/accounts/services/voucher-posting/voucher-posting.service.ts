@@ -351,7 +351,7 @@ export class VoucherPostingService {
       this.logger.log('Summarizing taxes by HS/SAC code');
 
       // Group details by HS/SAC code and tax percentage
-      const taxGroups = new Map<string, TaxSummaryDto>();
+      const taxGroups = new Map<string, any>();
 
       for (const detail of details) {
         // Skip if no tax

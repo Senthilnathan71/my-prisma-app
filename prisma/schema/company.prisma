@@ -371,8 +371,8 @@ model CountryMaster {
   preCustomerMaster PreCustomerMaster[]
   stateMaster       StateMaster[]
   tdsSetRate        TDSSetRate[]
-  userMaster        UserMaster[]
   taxMaster         TaxMaster[]
+  userMaster        UserMaster[]
 }
 
 model StateMaster {
@@ -561,6 +561,10 @@ model ChargeTaxMaster {
   ChargeTaxMasterSid Int           @id @default(autoincrement()) @map("ChargeTaxMasterSid")
   CompanyMasterSid   Int
   chargeTaxMasterSid Int?
+  HSSACMasterSid     Int?
+  TaxGroupSid        Int?
+  taxGroup           TaxGroup?     @relation(fields: [TaxGroupSid], references: [TaxGroupSid])
+  hssacMaster        HSSACMaster?  @relation(fields: [HSSACMasterSid], references: [HSSACMasterSid])
   companyMaster      CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
   chargeMaster       ChargeMaster? @relation(fields: [chargeTaxMasterSid], references: [ChargeMasterSid])
 }
@@ -1607,7 +1611,6 @@ model HSSACMaster {
   HSSACCode          String             @db.VarChar(200)
   HSSACName          String?            @db.VarChar(200)
   ServiceName        String             @db.VarChar(100)
-  TaxGroupSid        Int?
   TaxRate            Decimal            @db.Decimal(10, 3)
   TaxType            String             @db.VarChar(10)
   EffectiveFrom      DateTime
@@ -1620,11 +1623,11 @@ model HSSACMaster {
   Remarks            String?            @db.VarChar(300)
   ClassificationType String?            @db.VarChar(10)
   HSNSACDescription  String?            @db.VarChar(700)
-
-  taxGroup           TaxGroup?          @relation(fields: [TaxGroupSid], references: [TaxGroupSid])
-
+  TaxGroupSid        Int?
+  ChargeTaxMaster    ChargeTaxMaster[]
   chargeTaxMapping   ChargeTaxMapping[]
   commodityMaster    CommodityMaster[]
+  taxGroup           TaxGroup?          @relation(fields: [TaxGroupSid], references: [TaxGroupSid])
   VoucherDetail      VoucherDetail[]
 }
 
@@ -2256,42 +2259,41 @@ model ProfitCenterMaster {
 }
 
 model TaxGroup {
-  TaxGroupSid Int      @id @default(autoincrement()) @map("TaxGroupSid")
-  TaxGroup    String   @db.VarChar(10)
-  TaxRate     Decimal  @db.Decimal(4, 2)
-  CreatedOn   DateTime @default(now()) @db.Timestamp(6)
-  CreatedBy   String   @db.VarChar(100)
-  UpdatedOn   DateTime? @default(now()) @db.Timestamp(6)
-  UpdatedBy   String?  @db.VarChar(100)
-  Status      String   @default("A") @db.Char(1)
+  TaxGroupSid     Int               @id @default(autoincrement()) @map("TaxGroupSid")
+  TaxGroup        String            @db.VarChar(10)
+  TaxRate         Decimal           @db.Decimal(4, 2)
+  CreatedOn       DateTime          @default(now()) @db.Timestamp(6)
+  CreatedBy       String            @db.VarChar(100)
+  UpdatedOn       DateTime?         @default(now()) @db.Timestamp(6)
+  UpdatedBy       String?           @db.VarChar(100)
+  Status          String            @default("A") @db.Char(1)
+  hssacMaster     HSSACMaster[]
+  taxMaster       TaxMaster[]
+  ChargeTaxMaster ChargeTaxMaster[]
 
-  hssacMaster HSSACMaster[]
-  taxMaster   TaxMaster[]
   @@index([Status])
 }
 
-
 model TaxMaster {
-  TaxMasterSid     Int       @id @default(autoincrement()) @map("TaxMasterSid")
-  TaxCode          String    @db.VarChar(10)
-  TaxName          String    @db.VarChar(20)
-  TaxType          String    @db.VarChar(6)
-  EffectiveFrom    DateTime  @db.Date
-  TaxRate          Decimal   @db.Decimal(4, 2)
-  TaxExempt        String    @default("N") @db.Char(1)
-  CountryMasterSid Int?
-  TaxGroupSid      Int?
-  TaxCategory      String?   @db.VarChar(10)  // Values - Inter , Intra
-  CreatedOn        DateTime  @default(now()) @db.Timestamp(6)
-  CreatedBy        String    @db.VarChar(100)
-  UpdatedOn        DateTime  @default(now()) @db.Timestamp(6)
+  TaxMasterSid     Int            @id @default(autoincrement()) @map("TaxMasterSid")
+  TaxCode          String         @db.VarChar(10)
+  TaxName          String         @db.VarChar(20)
+  TaxType          String         @db.VarChar(6)
+  EffectiveFrom    DateTime       @db.Date
+  TaxRate          Decimal        @db.Decimal(4, 2)
+  TaxExempt        String         @default("N") @db.Char(1)
+  CreatedOn        DateTime       @default(now()) @db.Timestamp(6)
+  CreatedBy        String         @db.VarChar(100)
+  UpdatedOn        DateTime       @default(now()) @db.Timestamp(6)
   deletedAt        DateTime?
-  UpdatedBy        String?   @db.VarChar(100)
-  Remarks          String?   @db.VarChar(100)
-  Status           String?   @default("A") @db.VarChar(10)
-
-  countryMaster CountryMaster? @relation(fields: [CountryMasterSid], references: [CountryMasterSid])
-  taxGroup      TaxGroup?       @relation(fields: [TaxGroupSid], references: [TaxGroupSid])
+  UpdatedBy        String?        @db.VarChar(100)
+  Remarks          String?        @db.VarChar(100)
+  Status           String?        @default("A") @db.VarChar(10)
+  CountryMasterSid Int?
+  TaxCategory      String?        @db.VarChar(10)
+  TaxGroupSid      Int?
+  countryMaster    CountryMaster? @relation(fields: [CountryMasterSid], references: [CountryMasterSid])
+  taxGroup         TaxGroup?      @relation(fields: [TaxGroupSid], references: [TaxGroupSid])
 }
 
 model COAMaster {
@@ -2805,7 +2807,7 @@ model HouseJobProduct {
   updatedOn          DateTime?  @updatedAt @db.Timestamptz(6)
   MarksAndNumber     String?    @db.VarChar(200)
   ContainerNo        String?    @db.VarChar(11)
-  Volumetric         Decimal?       @db.Decimal(10, 3)
+  Volumetric         Decimal?   @db.Decimal(10, 3)
   HouseJob           HouseJob   @relation(fields: [HouseJobSid], references: [HouseJobSid])
   uomMaster          UOMMaster? @relation(fields: [UomMasterSid], references: [UOMMasterSid])
 }
@@ -2919,7 +2921,6 @@ model MenuConfig {
 }
 
 model VoucherHeader {
-  VoucherHeaderSid          Int                  @id @default(autoincrement()) @map("VoucherHeaderSid")
   CreatedOn                 DateTime             @default(now())
   CreatedBy                 String               @db.VarChar(100)
   UpdatedOn                 DateTime             @default(now())
@@ -2968,6 +2969,7 @@ model VoucherHeader {
   ClearanceDate             DateTime?
   CreditNoteReason          String?              @db.VarChar(100)
   VoucherTypeMasterSid      Int
+  VoucherHeaderSid          Int                  @id @default(autoincrement()) @map("VoucherHeaderSid")
   PostStatus                String?              @default("U") @db.Char(1)
   BookingRatesCost          BookingRates[]       @relation("COST")
   BookingRatesRevenue       BookingRates[]       @relation("REVENUE")
@@ -3133,7 +3135,7 @@ model VoucherTransaction {
   TransType             String              @db.VarChar(5)
   VoucherTypeMasterSid  Int
   YearMasterSid         Int?
-  isAutoGenerated       String?              @db.Char(1)
+  isAutoGenerated       String?             @db.Char(1)
   voucherDetail         VoucherDetail?
   voucherMatchings      VoucherMatching[]
   BranchMaster          BranchMaster        @relation(fields: [BranchMasterSid], references: [BranchMasterSid])

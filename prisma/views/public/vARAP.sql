@@ -19,14 +19,14 @@ FROM
       JOIN "VoucherHeader" vh ON (
         (
           (
-            br."RevenueVoucherHeaderSid" = vh."VoucherHeaderSid"
-          )
-          OR (
             (
+              br."RevenueVoucherHeaderSid" = vh."VoucherHeaderSid"
+            )
+            OR (
               br."CostVoucherHeaderSid" = vh."VoucherHeaderSid"
             )
-            AND (vh."Status" = 'A' :: bpchar)
           )
+          AND (vh."Status" = 'A' :: bpchar)
         )
       )
     )
