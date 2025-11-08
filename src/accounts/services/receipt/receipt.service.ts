@@ -1,4 +1,4 @@
-import { Injectable, Logger, BadRequestException, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, BadRequestException, NotFoundException, InternalServerErrorException } from '@nestjs/common';
 import { DatabaseService } from 'src/database/database.service';
 import { OutstandingService } from '../outstanding/outstanding.service';
 import {
@@ -14,6 +14,9 @@ import {
   MatchedInvoiceDto,
 } from '../../dto/receipt.dto';
 import { Prisma } from '@prisma/client';
+import { SearchListDto } from 'src/masters/DTO/search-list.dto';
+import { filterDto } from 'src/masters/DTO/search-vessel.dto';
+import { isNumber } from 'class-validator';
 
 /**
  * Receipt Voucher Service
@@ -869,4 +872,77 @@ export class ReceiptService {
       take: 100,
     });
   }
+
+  /**
+   * Search Receipt with filters and pagination
+   */
+  async searchReceipts(params: any): Promise<any> {
+    try {
+      const {
+        search = '',
+        page = 1,
+        pageSize = 10,
+        sortColumn = 'VoucherNumber',
+        sortDirection = 'desc'
+      } = params;
+
+      const skip = (page - 1) * pageSize;
+      const take = Number(pageSize);
+
+      const isSearchTextANumber = !isNaN(Number(search)) && search.trim() !== '';
+
+      let normalizedCashBank = "";
+      if(String(search).trim() === 'cash' || String(search).trim() === 'Cash'){
+        normalizedCashBank = "C";
+      } else if(String(search).trim() === 'bank' || String(search).trim() === 'Bank'){
+        normalizedCashBank = "D";
+      }
+
+      const where: Prisma.VoucherHeaderWhereInput = {
+        voucherTypeMaster: {
+          DocumentTypeName: 'Receipt'
+        },
+        Status: 'A'
+      };
+
+      // Add search filter
+      if (search) {
+        where.OR = [
+          { VoucherNumber: { contains: search, mode: 'insensitive' } },
+          // { CashOrBank: { contains: normalizedCashBank, mode: 'insensitive' } },
+          { PartyName: { contains: search, mode: 'insensitive' } },
+          { CurrencyCode: { contains: search, mode: 'insensitive' } },
+          { PostStatus: { contains: search, mode: 'insensitive' } },
+          ...(!isNaN(new Date(search).getTime())
+          ? [{ VoucherDate: new Date(search) }]
+          : []),
+          ...(isSearchTextANumber ? [{ LocalAmount: search }] : []),
+        ];
+      }
+
+      const [items, totalCount] = await Promise.all([
+        this._db.voucherHeader.findMany({
+          where,
+          orderBy: {
+            [sortColumn]: sortDirection
+          },
+          skip,
+          take
+        }),
+        this._db.voucherHeader.count({ where })
+      ]);
+
+
+      return {
+        items,
+        totalCount,
+        page: Number(page),
+        pageSize: Number(pageSize)
+      };
+    } catch (error) {
+      this.logger.error(`Error searching receipts: ${error.message}`);
+      throw new InternalServerErrorException('Failed to search receipts');
+    }
+  }
+
 }

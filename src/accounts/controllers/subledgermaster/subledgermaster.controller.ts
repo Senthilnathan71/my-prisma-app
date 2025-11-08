@@ -335,4 +335,43 @@ async bulkUpdateSubledgerMaster(@Body() payload: { updates: any[] }) {
     }
     return resp;
 }
+
+    @ApiOperation({ summary: 'Get Ledger for Tax Group' })
+    @ApiCreatedResponse({
+        description: 'Get Ledger for Tax Group',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Post('tax-group')
+    async getLedgerForTaxGroup(@Body() payload: any) {
+        let resp = new ResponseData();
+        try {
+            if(!payload.taxGroup){
+                throw new BadRequestException('taxGroup is required');
+            }
+            if(!payload.InputOrOutput || (payload.InputOrOutput !== 'Input' && payload.InputOrOutput !== 'Output')){
+                throw new BadRequestException('Input Or Output is required and must be either Input or Output');
+            }
+            if(!payload.TaxCategory || (payload.TaxCategory !== 'Intra' && payload.TaxCategory !== 'Inter')){
+                throw new BadRequestException('Tax Category is required and must be either Intra or Inter');
+            }
+            if(!payload.CountryMasterSid){
+                throw new BadRequestException('Country Master Sid is required');
+            }
+            let res = await this.SubledgermasterService.getLedgerForTaxGroup(payload.taxGroup, payload.InputOrOutput, payload.TaxCategory, payload.CountryMasterSid);
+            this.logger.log(`Ledger for Tax Group Fetched : ${JSON.stringify(res)}`);
+            resp.data = res;
+            resp.message = "Ledger for Tax Group Fetched";
+        } catch (error) {
+            this.logger.warn(`Get Ledger for Tax Group Error : ${JSON.stringify(error), error}`);
+            resp.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                resp.message = error.message;
+            } else {
+                resp.message = "Internal Server Error";
+            }
+        }
+        return resp;
+    }
+
 }
