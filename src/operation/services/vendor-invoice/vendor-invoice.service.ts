@@ -608,6 +608,7 @@ async searchPendingCosts(searchCriteria: {
     if (!searchValue?.trim()) {
       throw new BadRequestException('Search value is required');
     }
+    
 
     // Step 1: Determine search target and build where clause
     let jobRecord: any = null;
@@ -792,6 +793,7 @@ async searchPendingCosts(searchCriteria: {
       ChargeUOMSid: cost.CostChargeUomSid,
       VendorName: cost.costCustomerMaster?.CustomerName || '',
       VendorSid: cost.CostAgentMasterSid,
+      vendorAddress:cost.CostAgentBranchSid,
       JobNo: menuName === 'MasterJob' ? jobRecord.MasterJobNumber : jobRecord.BookingNo,
       MBLNo: jobRecord.MBLNo || '',
       HBLNo: menuName === 'HouseJob' ? jobRecord.HBLNo : '',
