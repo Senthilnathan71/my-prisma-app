@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { DatabaseService } from 'src/database/database.service';
 import * as moment from 'moment-timezone';
 import { Prisma } from '@prisma/client';
@@ -3026,6 +3026,136 @@ export class MasterJobService {
         });
 
         return !!existing;
+    }
+
+    /**
+     * Get report data for a specific report type
+     * Used by the generic report system
+     */
+    async getReportData(masterJobSid: number, reportType: string): Promise<any> {
+        const masterJob = await this._db.masterJob.findUnique({
+            where: { MasterJobSid: masterJobSid },
+            include: {
+                CompanyMaster: true,
+                BranchMaster: true,
+                containers: {
+                    where: { Status: 'A' },
+                    include: {
+                        UOMMaster: true,
+                    },
+                },
+                houseJob: {
+                    where: { status: 'A' },
+                    include: {
+                        Cargo: true,
+                    },
+                },
+                voyages: {
+                    include: {
+                        voyageMasterHeader: true,
+                    },
+                },
+                others: true,
+            },
+        });
+
+        if (!masterJob) {
+            throw new NotFoundException(`Master Job with ID ${masterJobSid} not found`);
+        }
+
+        // Get the first voyage for vessel/ETD/ETA details
+        const primaryVoyage = masterJob.voyages && masterJob.voyages.length > 0 ? masterJob.voyages[0] : null;
+
+        // Fetch container type data for all containers
+        const containerTypeIds = [...new Set(masterJob.containers?.map(c => c.ContainerType).filter(Boolean) || [])];
+        const containerTypes = containerTypeIds.length > 0
+            ? await this._db.containerTypeMaster.findMany({
+                where: { ContainerTypeMasterSid: { in: containerTypeIds } }
+              })
+            : [];
+        const containerTypeMap = new Map(containerTypes.map(ct => [ct.ContainerTypeMasterSid, ct]));
+
+        // Format data based on report type
+        const baseData = {
+            company: {
+                name: masterJob.CompanyMaster?.companyName || '',
+                branchName: masterJob.BranchMaster?.branchName || '',
+                address: masterJob.BranchMaster?.addressLine1 || masterJob.CompanyMaster?.addressLine1 || '',
+                addressLine2: masterJob.BranchMaster?.addressLine2 || masterJob.CompanyMaster?.addressLine2 || '',
+                city: '', // City is in CityMaster relation, not directly in CompanyMaster
+                state: '', // State is in StateMaster relation, not directly in CompanyMaster
+                postalCode: masterJob.BranchMaster?.postalCode || masterJob.CompanyMaster?.postal_code || '',
+                country: '', // Country is in CountryMaster relation, not directly in CompanyMaster
+                logoUrl: masterJob.BranchMaster?.companyLogo || masterJob.BranchMaster?.reportLogo || masterJob.CompanyMaster?.companyLogo || masterJob.CompanyMaster?.reportLogo || '',
+                phone: masterJob.BranchMaster?.phoneNumber || masterJob.CompanyMaster?.phoneNumber || '',
+                email: masterJob.BranchMaster?.email || masterJob.CompanyMaster?.email || '',
+                website: masterJob.BranchMaster?.webSite || masterJob.CompanyMaster?.webSite || '',
+                gst: masterJob.BranchMaster?.taxRegistrationNo || '',
+                pan: masterJob.CompanyMaster?.Pan || '',
+            },
+            masterJob: {
+                jobNumber: masterJob.MasterJobNumber || '',
+                jobDate: masterJob.MasterJobDate,
+                mblNumber: masterJob.MBLNo || '',
+                mblDate: masterJob.MBLDate,
+                destinationAgent: masterJob.DestinationAgent,
+                destinationAgentName: masterJob.DestinationAgentName || '',
+                destinationAgentAddress: masterJob.DestinationAgentAddress || '',
+                customerName: '', // MasterJob has no customer relation - this is stored elsewhere
+                shipperName: '', // MasterJob has no shipper relation - stored as string if needed
+                consigneeName: '', // MasterJob has no consignee relation - stored as string if needed
+                vesselName: primaryVoyage?.VesselName ||'',
+                voyageNumber: primaryVoyage?.VoyageNo ||'',
+                pol: masterJob.POL || '',
+                pod: masterJob.POD || '',
+                poo: masterJob.POO || '',
+                finalDestination: masterJob.FPD || '',
+                etd: primaryVoyage?.ETD || primaryVoyage?.voyageMasterHeader?.ETD,
+                eta: primaryVoyage?.ETA || primaryVoyage?.voyageMasterHeader?.ETA,
+                commodity: masterJob.CommodityDescription || '',
+                serviceType: masterJob.MovementType || 'FCL',
+                totalPackages: masterJob.NoOfPkg || 0,
+                grossWeight: masterJob.GrossWeight || 0,
+                netWeight: masterJob.NetWeight || 0,
+                volume: masterJob.Volume || 0,
+                remarks: '',
+                freightTerms: masterJob.FreightPPCC || '',
+            },
+            containers: (masterJob.containers || []).map((c: any) => {
+                const containerTypeMaster = containerTypeMap.get(c.ContainerType);
+                return {
+                    containerNumber: c.ContainerNumber || '',
+                    containerType: containerTypeMaster?.ContainerSize || containerTypeMaster?.ContainerName || '',
+                    sealNumber: c.LineSeal || c.CustomsSeal || '',
+                    weight: c.GrossWeight || 0,
+                    cbm: c.Volume || 0,
+                    packages: c.NoOfPkg || 0,
+                    status: c.Status === 'A' ? 'Loaded' : 'Empty',
+                    commodityDescription: c.CommodityDescription || '',
+                };
+            }),
+            houseJobs: (masterJob.houseJob || []).map((h: any) => {
+                // Sum up cargo details from HouseJobCargo
+                const totalPackages = h.Cargo?.reduce((sum: number, cargo: any) => sum + (cargo.NoOfPackage || 0), 0) || 0;
+                const totalWeight = h.Cargo?.reduce((sum: number, cargo: any) => sum + parseFloat(cargo.GrossWeight || 0), 0) || 0;
+                const totalVolume = h.Cargo?.reduce((sum: number, cargo: any) => sum + parseFloat(cargo.Volume || 0), 0) || 0;
+
+                return {
+                    hblNumber: h.HBLNo || '',
+                    consigneeName: h.ConsigneeName || '',
+                    commodity: h.Cargo && h.Cargo.length > 0 ? h.Cargo[0].CommodityDescription || '' : '',
+                    packages: totalPackages,
+                    weight: totalWeight,
+                    cbm: totalVolume,
+                };
+            }),
+            printInfo: {
+                printedBy: 'System User', // TODO: Get from auth context
+                printedOn: new Date(),
+            },
+        };
+
+        return baseData;
     }
 
 }

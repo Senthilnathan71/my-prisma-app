@@ -34,8 +34,10 @@ import { CreditRequestController } from './controllers/credit-request/credit-req
 import { MenuService } from 'src/masters/services/menu/menu.service';
 import { ServiceJobService } from './services/service-job/service-job.service';
 import { ServiceJobController } from './controllers/service-job/service-job.controller';
+import { CommonModule } from 'src/common/common.module';
 
 @Module({
+        imports: [CommonModule],
         providers: [
                 Logger,
                 EmailService,

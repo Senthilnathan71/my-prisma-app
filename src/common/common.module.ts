@@ -17,6 +17,7 @@ import { MenuService } from 'src/masters/services/menu/menu.service';
 import { ConfigModule } from '@nestjs/config';
 import { GlobalConfigService } from './config/master-config.service';
 import { MastersModule } from 'src/masters/masters.module';
+import { ReportEmailService } from './services/report-email.service';
 
 @Module({
     imports:[
@@ -39,7 +40,11 @@ import { MastersModule } from 'src/masters/masters.module';
         LookupsService,
         FollowupService,
         SchedulerService,
-        AttachDocumentService
+        AttachDocumentService,
+        ReportEmailService
+    ],
+    exports: [
+        ReportEmailService
     ]
 })
 export class CommonModule { }
