@@ -34,6 +34,8 @@ import { CreditRequestController } from './controllers/credit-request/credit-req
 import { MenuService } from 'src/masters/services/menu/menu.service';
 import { ServiceJobService } from './services/service-job/service-job.service';
 import { ServiceJobController } from './controllers/service-job/service-job.controller';
+import { CreditNoteService } from './services/credit-note/credit-note.service';
+import { CreditNoteController } from './controllers/credit-note/credit-note.controller';
 
 @Module({
         providers: [
@@ -57,7 +59,8 @@ import { ServiceJobController } from './controllers/service-job/service-job.cont
                 ExcelParserService,
                 CreditRequestService,
                 MenuService,
-                ServiceJobService
+                ServiceJobService,
+                CreditNoteService
         ],
         controllers: [
                 BookingController,
@@ -74,7 +77,8 @@ import { ServiceJobController } from './controllers/service-job/service-job.cont
                 VoucherController,
                 VendorInvoiceController,
                 CreditRequestController,
-                ServiceJobController
+                ServiceJobController,
+                CreditNoteController
         ]
 })
 export class OperationModule { }
