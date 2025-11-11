@@ -107,6 +107,8 @@ model CompanyMaster {
   voucherTypeMaster          VoucherTypeMaster[]
   voyageMasterHeader         VoyageMasterHeader[]
   yearMaster                 YearMaster[]
+  RoleMenuHeader             RoleMenuHeader[]
+  RoleMenuDetail             RoleMenuDetail[]
 }
 
 model BranchMaster {
