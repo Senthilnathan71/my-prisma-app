@@ -21,7 +21,7 @@ export class RoleMenuController {
     async createNewRoleMenu(@Body() newData: any) {
         let resp = new ResponseData();
         try {
-            let res = await this.RoleMenuService.createNewRoleMenu(newData);
+            let res = await this.RoleMenuService.createRoleMenu(newData);
             this.logger.log(`New RoleMenu Created : ${JSON.stringify(res)}`);
             resp.data = res;
             resp.message = "New RoleMenu is successfully created"
@@ -78,7 +78,7 @@ export class RoleMenuController {
         let resp = new ResponseData();
         try {
             this.logger.log(`Getting RoleMenu with id : ${RoleMenuMasterSid}`);
-            let res = await this.RoleMenuService.fetchroleMenuById(RoleMenuMasterSid);
+            let res = await this.RoleMenuService.getRoleMenuById(RoleMenuMasterSid);
             this.logger.debug(`Fetched RoleMenu : ${JSON.stringify(res)}`);
             resp.data = res;
             resp.message = `RoleMenu with id : ${RoleMenuMasterSid} is successfully fetched`;
@@ -107,7 +107,7 @@ export class RoleMenuController {
         let resp = new ResponseData();
         try {
             this.logger.log(`Updating RoleMenu with id : ${RoleMenuMasterSid}`);
-            let res = await this.RoleMenuService.updateRoleMenuById(RoleMenuMasterSid, payload);
+            let res = await this.RoleMenuService.updateRoleMenu(RoleMenuMasterSid, payload);
             this.logger.debug(`Updated RoleMenu : ${JSON.stringify(res)}`);
             resp.data = res;
             resp.message = `RoleMenu with id : ${RoleMenuMasterSid} is successfully updated`;
@@ -165,7 +165,7 @@ export class RoleMenuController {
     async searchRoleMenu(@Body() searchData: filterDto) {
         let resp = new ResponseData();
         try {
-            let res = await this.RoleMenuService.searchRoleMenu(searchData);
+            let res = await this.RoleMenuService.searchRoleMenuList(searchData);
             this.logger.log(`RoleMenu Search Results :${JSON.stringify(res)}`);
             resp.data = res;
             resp.message = "RoleMenu Search results are successfully fetched"
