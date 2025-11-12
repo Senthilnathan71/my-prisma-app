@@ -248,7 +248,7 @@ export class OutstandingInvoiceDto {
   VoucherHeaderSid: number;
   VoucherNumber: string;
   VoucherDate: string;
-  VoucherType: number;
+  VoucherType: string | number;
   LedgerMasterSid: number;
   CustomerName: string;
   OriginalAmount: number;
