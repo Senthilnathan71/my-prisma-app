@@ -190,6 +190,17 @@ export class TaxService {
                             TaxRate: { equals: Number(search) }
                         }]),
                         { Remarks: { contains: search, mode: 'insensitive' } },
+                         {
+                        taxGroup: {
+                            TaxGroup: { contains: search, mode: 'insensitive' }
+                        }
+                    },
+                    // Also search in Country name
+                    {
+                        countryMaster: {
+                            countryName: { contains: search, mode: 'insensitive' }
+                        }
+                    }
                     ]
                 }
                 : {}),
@@ -201,6 +212,21 @@ export class TaxService {
                 skip,
                 take: pageSize,
                 orderBy: { TaxMasterSid: 'desc' },
+                include: {
+                taxGroup: {  
+                    select: {
+                        TaxGroupSid: true,
+                        TaxGroup: true,
+                        TaxRate: true
+                    }
+                },
+                 countryMaster: {
+                    select: {
+                        countryName: true,
+                        CountryMasterSid: true
+                    }
+                }
+            },
             }),
             this._db.taxMaster.count({ where }),
         ]);
