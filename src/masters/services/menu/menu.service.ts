@@ -489,7 +489,7 @@ export class MenuService {
                 where: {
                     ModuleMasterSid: ModuleMasterSid,
                     status: 'A'
-                },
+                },include:{menuPermission:true}
             })
             return menus;
         } catch (error) {
