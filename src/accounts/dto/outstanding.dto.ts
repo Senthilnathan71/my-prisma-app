@@ -59,7 +59,7 @@ export class CustomerOutstandingTransactionDto {
   voucherDate: Date;
 
   @ApiProperty({ description: 'Voucher Type', example: 1 })
-  voucherType: number;
+  voucherType: string;
 
   @ApiProperty({ description: 'Original amount in transaction currency', example: 10000.00 })
   originalCurrencyAmount: number;

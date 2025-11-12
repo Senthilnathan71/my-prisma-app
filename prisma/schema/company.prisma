@@ -2716,6 +2716,8 @@ model HouseJob {
   updatedBy                  String?                      @db.VarChar(100)
   updatedOn                  DateTime?                    @updatedAt @db.Timestamptz(6)
   BookingRateSid             Int?
+  HBLDate                    DateTime?
+  HBLType                    String?                      @db.VarChar(12)
   ActivityResourceAllocation ActivityResourceAllocation[]
   bookingHeader              BookingHeader?               @relation(fields: [BookingHeaderSid], references: [BookingHeaderSid])
   bookingRates               BookingRates?                @relation(fields: [BookingRateSid], references: [BookingRatesSid])
@@ -2975,6 +2977,8 @@ model VoucherHeader {
   CreditNoteReason          String?              @db.VarChar(100)
   VoucherTypeMasterSid      Int
   VoucherHeaderSid          Int                  @id @default(autoincrement()) @map("VoucherHeaderSid")
+  CashOrBank                String?              @default("C") @db.Char(1)
+  MultiBranch               String?              @default("N") @db.Char(1)
   PostStatus                String?              @default("U") @db.Char(1)
   BookingRatesCost          BookingRates[]       @relation("COST")
   BookingRatesRevenue       BookingRates[]       @relation("REVENUE")
@@ -3337,8 +3341,8 @@ model NetworkMaster {
   NetworkType      String   @default("Forwarders") @db.VarChar(10)
 
   // Relations
-  CompanyMaster CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
-  CountryMaster CountryMaster @relation(fields: [CountrySid], references: [CountryMasterSid])
+  companyMaster CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+  countryMaster CountryMaster @relation(fields: [CountrySid], references: [CountryMasterSid])
 
   @@index([CompanyMasterSid], map: "network_company")
   @@index([CountrySid], map: "network_country")
