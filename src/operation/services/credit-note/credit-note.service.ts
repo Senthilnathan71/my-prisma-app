@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
-import moment from 'moment';
+import * as moment from 'moment';
 import { DatabaseService } from 'src/database/database.service';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 
@@ -96,7 +96,10 @@ export class CreditNoteService {
     async allInvoices() {
     try {
       const result = await this._db.voucherHeader.findMany({
-        where: { Status: 'A' },
+        where: { 
+          Status: 'A',
+          PostStatus: 'P'
+         },
       });
       return result;
     } catch (error) {
@@ -108,14 +111,20 @@ export class CreditNoteService {
      async fetchCreditNotes() {
        try {
          const result = await this._db.voucherHeader.findMany({
-           where: { Status: 'A' },
+           where: { 
+            voucherTypeMaster: {
+                        DocumentTypeName: 'Credit Note'
+                    },
+            Status: 'A' 
+        },
            include: {
              VoucherDetail: { where: { Status: 'A' } },
              VoucherOthers: { where: { Status: 'A' } },
              masterJob: true,
              houseJob: true,
              currencyMaster: true,
-             subledgerMaster: true
+             subledgerMaster: true,
+             voucherTypeMaster: true,
            }
          });
          return result;
@@ -199,25 +208,20 @@ export class CreditNoteService {
            }
    
            // Normalize VoucherTypeMasterSid
-           const rawVoucherTypeMasterSid = (payload && payload.VoucherTypeMasterSid != null && payload.VoucherTypeMasterSid !== '')
-             ? Number(payload.VoucherTypeMasterSid)
-             : null;
-           let validatedVoucherTypeMasterSid: number | null = null;
-           if (rawVoucherTypeMasterSid !== null) {
-             if (Number.isNaN(rawVoucherTypeMasterSid)) {
-               this.logger.warn(`createInvoice: incoming VoucherTypeMasterSid not a number: ${payload.VoucherTypeMasterSid}`);
-             } else {
-               const vtExists = await prisma.voucherTypeMaster.findUnique({
-                 where: { VoucherTypeMasterSid: rawVoucherTypeMasterSid },
-                 select: { VoucherTypeMasterSid: true }
-               });
-               if (vtExists) {
-                 validatedVoucherTypeMasterSid = rawVoucherTypeMasterSid;
-               } else {
-                 this.logger.warn(`createInvoice: incoming VoucherTypeMasterSid ${rawVoucherTypeMasterSid} does not exist. Omitting field to avoid FK error.`);
-               }
-             }
-           }
+           const voucherTypeMaster = await prisma.voucherTypeMaster.findFirst({
+                    where: {
+                        DocumentTypeName: 'Credit Note',
+                        CompanyMasterSid: payload.CompanyMasterSid,
+                        BranchMasterSid: payload.BranchMasterSid,
+                        status: 'A'
+                    }
+                });
+
+                if (!voucherTypeMaster) {
+                    throw new BadRequestException(
+                        'Vendor Invoice voucher type not configured. Please configure "Vendor Invoice" in VoucherTypeMaster.'
+                    );
+                }
    
            // Resolve PartyName (ensure string) - this handles numeric branch id passed in PartyName
            const resolvedPartyName = await this.resolvePartyName(payload, prisma);
@@ -229,29 +233,20 @@ export class CreditNoteService {
              PostDate: payload.PostDate ? new Date(payload.PostDate) : new Date(),
              CreatedBy: payload.CreatedBy,
              Status: "A",
-             CompanyMasterSid: payload.CompanyMasterSid,
-             BranchMasterSid: payload.BranchMasterSid,
              VoucherType: payload.VoucherType,
-             ...(validatedVoucherTypeMasterSid !== null ? { VoucherTypeMasterSid: validatedVoucherTypeMasterSid } : {}),
-             PartyMasterSid: providedPartySid,
+             voucherTypeMaster: voucherTypeMaster.VoucherTypeMasterSid,
              PartyName: resolvedPartyName ?? (payload.PartyName !== undefined && payload.PartyName !== null ? String(payload.PartyName) : null),
              PartyAddress: payload.PartyAddress,
-             CustomerBranchSid: payload.CustomerBranchSid || null,
              PlaceOfSupply: payload.PlaceOfSupply,
              State: payload.State,
-             COAMasterSid: payload.COAMasterSid,
              GST_VAT: payload.GST_VAT,
              InvoiceType: payload.InvoiceType,
              TaxNumber: payload.TaxNumber,
              GSTType: payload.GSTType,
              CreditNoteReason: payload.CreditNoteReason,
              Remarks: payload.Remarks,
-             DepartmentMasterSid: payload.DepartmentMasterSid,
              HouseNumber: payload.HouseNumber,
              MasterNumber: payload.MasterNumber,
-             HouseJobSid: payload.HouseJobSid,
-             MasterJobSid: payload.MasterJobSid,
-             CurrencyMasterSid: payload.CurrencyMasterSid,
              CurrencyCode: payload.CurrencyCode,
              ExchangeRate: payload.ExchangeRate ? Number(payload.ExchangeRate) : null,
              Amount: payload.Amount ? Number(payload.Amount) : null,
@@ -260,13 +255,65 @@ export class CreditNoteService {
              DocumentNumber: payload.DocumentNumber || '',
              DocumentDate: payload.DocumentDate ? new Date(payload.DocumentDate) : null,
              Narration: payload.Narration,
+             ReversalVoucher: payload.ReversalVoucher || null,
            };
    
+             // Clean up undefined values
+      Object.keys(voucherHeaderPayload).forEach(key => {
+        if (voucherHeaderPayload[key] === undefined) {
+          delete voucherHeaderPayload[key];
+        }
+      });
            this.logger.debug(`createInvoice - voucherHeaderPayload: ${JSON.stringify(voucherHeaderPayload)}`);
    
            // Create VoucherHeader
            const voucherHeader = await prisma.voucherHeader.create({
-             data: voucherHeaderPayload as Prisma.VoucherHeaderUncheckedCreateInput
+             data: {
+          ...voucherHeaderPayload,
+          // Add the BranchMaster relation connection
+          BranchMaster: {
+            connect: {
+              BranchMasterSid: payload.BranchMasterSid
+            }
+          },
+          CompanyMaster: {
+            connect: {
+              CompanyMasterSid: payload.CompanyMasterSid
+            }
+          },
+          coaMaster: {
+            connect: {
+              COAMasterSid: payload.COAMasterSid || 1
+            }
+          },
+          currencyMaster: {
+            connect: {
+              CurrencyMasterSid: payload.CurrencyMasterSid
+            }
+          },
+          voucherTypeMaster: {
+            connect: {
+              VoucherTypeMasterSid: voucherTypeMaster.VoucherTypeMasterSid
+            }
+          },
+          // Only connect if PartyMasterSid is provided
+          ...(providedPartySid && {
+            subledgerMaster: {
+              connect: {
+                SubledgerMasterSid: providedPartySid
+              }
+            }
+          }),
+          // Only connect if CompanyMasterSid is provided
+          ...(payload.CompanyMasterSid && {
+            CompanyMaster: {
+              connect: {
+                CompanyMasterSid: payload.CompanyMasterSid
+              }
+            }
+          })
+        } as Prisma.VoucherHeaderUncheckedCreateInput
+
            });
    
            // Create VoucherDetail rows with proper CurrencyMasterSid mapping
@@ -603,7 +650,6 @@ export class CreditNoteService {
            where,
            skip,
            take: pageSize,
-           orderBy: { VoucherHeaderSid: 'desc' },
            include: {
              VoucherDetail: {
                where: { Status: 'A' },
@@ -615,7 +661,9 @@ export class CreditNoteService {
                         currencyMaster: true,
              masterJob: true,
              houseJob: true,
-           }
+             
+           },
+           orderBy: { VoucherHeaderSid: 'desc' }
          }),
          this._db.voucherHeader.count({ where }),
        ]);
@@ -628,6 +676,7 @@ export class CreditNoteService {
                 BillDate: item.DocumentDate,
                 MBLNo: item.MasterNumber,
                 HBLNo: item.HouseNumber
+                
             }));
    
        return {
