@@ -97,14 +97,19 @@ export class InvoiceService {
   async fetchInvoices() {
     try {
       const result = await this._db.voucherHeader.findMany({
-        where: { Status: 'A' },
+        where: { Status: 'A',
+           voucherTypeMaster: {
+          DocumentTypeName: 'Invoice'
+        }
+         },
         include: {
           VoucherDetail: { where: { Status: 'A' } },
           VoucherOthers: { where: { Status: 'A' } },
           masterJob: true,
           houseJob: true,
           currencyMaster: true,
-          subledgerMaster: true
+          subledgerMaster: true,
+          voucherTypeMaster: true
         }
       });
       return result;
@@ -120,7 +125,11 @@ export class InvoiceService {
         where: { VoucherHeaderSid: VoucherHeaderSid, Status: 'A' } as any,
         include: {
           VoucherDetail: {
-            where: { Status: 'A' },
+            where: { Status: 'A' ,
+              voucherTypeMaster: {
+          DocumentTypeName: 'Invoice'
+        }
+            }as any,
             include: {
               chargeMaster: {
                 include: {
@@ -145,7 +154,8 @@ export class InvoiceService {
           currencyMaster: true,
           subledgerMaster: true,
           customerBranch: true,
-          departmentMaster: true
+          departmentMaster: true,
+          voucherTypeMaster: true
         }
       });
 
@@ -559,6 +569,9 @@ export class InvoiceService {
       CompanyMasterSid: activeCompanyId,
       BranchMasterSid: activeBranchId,
       Status: 'A',
+      voucherTypeMaster: {
+      DocumentTypeName: 'Invoice'
+    },
       ...(search && {
         OR: [
           { VoucherNumber: { contains: search, mode: 'insensitive' } },
