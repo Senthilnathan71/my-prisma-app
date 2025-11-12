@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, Post, UnauthorizedException } from '@nestjs/common';
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
 import { ResponseData } from 'src/common/response-data';
 import { HouseJobService } from 'src/operation/services/house-job/house-job.service';
@@ -35,6 +35,35 @@ export class HouseJobController {
         }
         return resp;
     }
+
+  @ApiOperation({
+    summary: 'Get House Job by MasterJobSid',
+  })
+  @ApiCreatedResponse({
+    description: 'Get House Job by MasterJobSid',
+    type: ResponseData
+  })
+  @HttpCode(HttpStatus.OK)
+  @Post('fetchByMaster')
+  async getHouseJobByMasterJobSid(@Body() payload: any) {
+    let resp = new ResponseData();
+    try {
+      this.logger.log(`Fetching House Job by MasterJobSid : ${JSON.stringify(payload)}`);
+      const result = await this.houseJobService.getHouseJobByMasterJobSid(payload);
+      this.logger.debug(`Fetched House Job by MasterJobSid : ${JSON.stringify(result)}`);
+      resp.message = 'House Job By MasterJobSid is fetched successfully';
+      resp.data = result;
+    } catch (error) {
+      resp.status = false;
+      this.logger.warn(`Error in fetching House Job by MasterJobSid : ${JSON.stringify(error), error}`);
+      if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+        resp.message = error.message;
+      } else {
+        resp.message = 'Internal Server Error';
+      }
+    }
+    return resp;
+  }
 
   @ApiOperation({ summary: 'Update House Job Data' })
   @ApiCreatedResponse({

@@ -56,6 +56,28 @@ export class HouseJobService {
             throw error;
         }
     }
+
+    async getHouseJobByMasterJobSid(payload:any) {
+        try {
+            const {MasterJobSid,CompanyMasterSid,BranchMasterSid} = payload;
+            const ourHouseJob = await this._db.houseJob.findMany({
+                where: {
+                    MasterJobSid: MasterJobSid,
+                    CompanyMasterSid: CompanyMasterSid,
+                    BranchMasterSid: BranchMasterSid,
+                    status: 'A'
+                },
+                select :{
+                    HouseJobSid : true,
+                    HBLNo : true
+                }
+            })
+            return ourHouseJob;
+        } catch (error) {
+            throw error;
+        }
+    }
+
     async updateHouseJobById(HouseJobSid: number, payload: any) {
         try {
             const updatedHouseJob = await this._db.$transaction(async (prisma) => {

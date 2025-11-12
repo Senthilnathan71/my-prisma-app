@@ -57,6 +57,25 @@ export class SubledgermasterService {
         }
     }
 
+    async getAllMappedLedgerByCOAId(COAMasterSid : number, CompanyMasterSid : number){
+        try {
+            const subledgerWithCOA = await this._db.subledgerMaster.findMany({
+                where: {
+                    Status: "A",
+                    DrCOAMasterSid : COAMasterSid,
+                    CompanyMasterSid : CompanyMasterSid
+                },
+                select : {
+                    SubledgerMasterSid : true,
+                    SubledgerName : true,
+                }
+            })
+            return subledgerWithCOA;
+        } catch (error) {
+            throw error;
+        }
+    }
+
     async updateSubledgerMasterById(SubledgerMasterSid: number, payload) {
         try {
             const exist = await this._db.subledgerMaster.findUnique({
@@ -357,18 +376,20 @@ export class SubledgermasterService {
                 select : {
                     SubledgerMasterSid : true,
                     SubledgerMappingSid : true,
-                    DrCOAMasterSid : true
+                    DrCOAMasterSid : true,
+                    SubledgerName : true
                 }
             })
             const allMappedCustomerSubledgersIds = allCustomerDebtors.map(customerDebtor => customerDebtor.SubledgerMappingSid!);
 
             // Create a map of Customer to Ledger mapping
-            const ledgerToCustomerMapping = new Map<number, { DrCOAMasterSid: number, SubledgerMasterSid: number }>();
+            const ledgerToCustomerMapping = new Map<number, { DrCOAMasterSid: number, SubledgerMasterSid: number , SubledgerName : string }>();
             allCustomerDebtors.forEach(customerDebtor => {
                 ledgerToCustomerMapping.set(customerDebtor.SubledgerMappingSid!,
                     {
                         DrCOAMasterSid: customerDebtor.DrCOAMasterSid!,
-                        SubledgerMasterSid: customerDebtor.SubledgerMasterSid
+                        SubledgerMasterSid: customerDebtor.SubledgerMasterSid,
+                        SubledgerName: customerDebtor.SubledgerName
                     });
             });
 
@@ -417,7 +438,8 @@ export class SubledgermasterService {
                         Address : branch.Address,
                         Email : branch.Email,
                         COAMappedId : COAMappedId?.DrCOAMasterSid,
-                        SubledgerMasterSid: COAMappedId?.SubledgerMasterSid
+                        SubledgerMasterSid: COAMappedId?.SubledgerMasterSid,
+                        SubledgerName: 'Y',
                     }
                 })
             });

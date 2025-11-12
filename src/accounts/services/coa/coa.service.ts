@@ -28,7 +28,7 @@ export class CoaService {
             where: {
                 LedgerType: LedgerType,
                 Status: "A",
-                SubledgerName: 'Y',
+                SubledgerName: 'N',
                 CompanyMasterSid: CompanyMasterSid
             },
             orderBy: {
@@ -85,6 +85,38 @@ export class CoaService {
             });
             
             return subgroups.map(subgroup => subgroup.SubGroupName).filter(name => name && name.trim() !== '');
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    /**
+     * it is common service to get Chart of Accounts for the specified ledger category
+     * @param ledgerCategory it can be Ledger , Group or SubGroup
+     * @param CompanyMasterSid Company's Sid
+     * @returns returns all the Chart of Accounts with specified ledger category
+     * Used in below components :
+     * 1. Receipt detail part
+     * 
+     */
+    async getCOAByLedgerCategory(ledgerCategory: string, CompanyMasterSid: number) {
+        try {
+            const allCoaWithSpecificLedgerCategory = await this._db.cOAMaster.findMany({
+                where: {
+                    LedgerCategory: ledgerCategory,
+                    Status: 'A',
+                    CompanyMasterSid: CompanyMasterSid
+                },
+                select: {
+                    COAMasterSid: true,
+                    LedgerName: true,
+                    SubledgerName : true  // is subledgermapped?
+                },
+                orderBy: {
+                    LedgerName: 'asc'
+                }
+            });
+            return allCoaWithSpecificLedgerCategory;
         } catch (error) {
             throw error;
         }
@@ -488,6 +520,31 @@ export class CoaService {
         } catch (error) {
             this.logger.warn(`getAuditLogsError: ${error}`);
             throw new Error(`Error fetching audit logs: ${error.message}`);
+        }
+    }
+
+    async getCOAByItsLedgerType(LedgerType: string | string[], CompanyMasterSid: number) {
+        try {
+            const whereClause : any = {
+                Status : 'A',
+                CompanyMasterSid : CompanyMasterSid
+            }
+            if (Array.isArray(LedgerType)) {
+                whereClause.LedgerType = {
+                    in: LedgerType
+                }
+            } else {
+                whereClause.LedgerType = LedgerType
+            }
+            const coa = await this._db.cOAMaster.findMany({
+                where: whereClause,
+                orderBy: {
+                    LedgerName: 'asc'
+                }
+            });
+            return coa;
+        } catch (error) {
+            throw error;
         }
     }
 }

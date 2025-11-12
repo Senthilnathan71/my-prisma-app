@@ -73,25 +73,26 @@ export class ReceiptController {
    */
   @Post()
   @HttpCode(HttpStatus.CREATED)
-  async createReceipt(@Body() createDto: CreateReceiptDto): Promise<{
-    status: boolean;
-    message: string;
-    data: ReceiptResponseDto;
-  }> {
-    this.logger.log(`Creating receipt for customer ${createDto.LedgerMasterSid}`);
-
+  async createReceipt(@Body() payload: any){
+    let resp = new ResponseData();
+    
     try {
-      const receipt = await this.receiptService.createReceipt(createDto);
-
-      return {
-        status: true,
-        message: 'Receipt created successfully',
-        data: receipt,
-      };
+      this.logger.log(`Creating receipt for customer ${payload.LedgerMasterSid}`);
+      const receipt = await this.receiptService.createNewReceipt(payload);
+      resp.data = receipt;
+      resp.message = 'Receipt created successfully';
     } catch (error) {
-      this.logger.error(`Failed to create receipt: ${error.message}`, error.stack);
-      throw error;
+      resp.status = false;
+      this.logger.warn(`Error creating receipt: ${JSON.stringify(error),error}`);
+      if(error instanceof PrismaClientValidationError){
+        resp.message = error.message
+      } else if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+        resp.message = (error as any).message || 'Bad request';
+      } else {
+        resp.message = 'Internal Server Error';
+      }
     }
+    return resp;
   }
 
   /**
@@ -174,26 +175,27 @@ export class ReceiptController {
    *
    * Example: GET /api/accounts/receipt/123
    */
-  @Get(':id')
-  async getReceiptById(@Param('id', ParseIntPipe) id: number): Promise<{
-    status: boolean;
-    message: string;
-    data: any;
-  }> {
-    this.logger.log(`Getting receipt ${id}`);
-
+  @HttpCode(HttpStatus.OK)
+  @Post('fetch')
+  async getReceiptById(@Body() payload: any) {
+    let response = new ResponseData();
+    
     try {
-      const receipt = await this.receiptService.getReceiptById(id);
-
-      return {
-        status: true,
-        message: 'Receipt retrieved successfully',
-        data: receipt,
-      };
+      this.logger.log(`Getting receipt ${JSON.stringify(payload)}`);
+      const receipt = await this.receiptService.getReceiptById(payload.VoucherHeaderSid,payload.CompanyMasterSid,payload.BranchMasterSid);
+      this.logger.log(`Receipt fetched : ${JSON.stringify(receipt)}`);
+      response.data = receipt;
+      response.message = "Receipt is successfully fetched";
     } catch (error) {
-      this.logger.error(`Failed to get receipt: ${error.message}`, error.stack);
-      throw error;
+      response.status = false;
+      this.logger.warn(`Receipt fetching error : ${JSON.stringify(error), error}`);
+      if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+        response.message = error.message;
+      } else {
+        response.message = "Internal Server Error";
+      }
     }
+    return response;
   }
 
   /**

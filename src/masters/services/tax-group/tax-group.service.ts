@@ -16,7 +16,13 @@ export class TaxGroupService {
                 const allTax = await this._db.taxGroup.findMany({
                     where: {
                         Status: 'A',
-                    }
+                    },
+                    select: {
+                        TaxGroupSid: true,
+                        TaxGroup: true,
+                        TaxRate: true,
+                        Status: true,
+                    },
                 })
                 return allTax;
             } catch (error) {

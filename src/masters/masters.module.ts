@@ -140,6 +140,8 @@ import { LeadController } from './controllers/lead/lead.controller';
 import { LeadService } from './services/lead/lead.service';
 import { TaxGroupService } from './services/tax-group/tax-group.service';
 import { TaxGroupController } from './controllers/tax-group/tax-group.controller';
+import { NetworkMasterService } from './services/network-master/network-master.service';
+import { NetworkMasterController } from './controllers/network-master/network-master.controller';
 
 @Module({
   providers: [
@@ -214,7 +216,8 @@ import { TaxGroupController } from './controllers/tax-group/tax-group.controller
     ReportMasterService,
     CustomerMilestoneService,
     MawbStockService,
-    TaxGroupService
+    TaxGroupService,
+    NetworkMasterService
   ],
   controllers: [
     LeadController,
@@ -286,7 +289,8 @@ import { TaxGroupController } from './controllers/tax-group/tax-group.controller
     ReportMasterController,
     CustomerMilestoneController,
     MawbStockController,
-    TaxGroupController
+    TaxGroupController,
+    NetworkMasterController
   ],
   exports: [UserService,MenuService]
 })

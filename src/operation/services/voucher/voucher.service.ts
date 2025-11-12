@@ -1318,6 +1318,7 @@ export class VoucherService {
             return null;
         }
     }
+    
 
     /**
      * Calculate TDS amount based on taxable amount and TDS rate
@@ -1759,5 +1760,30 @@ export class VoucherService {
         return drCr;
     }
 
+  async softDeleteVoucherDetail(VoucherDetailSid: number): Promise<void> {
+    try {
+        const result = await this._db.voucherDetail.update({
+            where: { 
+                VoucherDetailSid: VoucherDetailSid,
+                Status: 'A' 
+            },
+            data: {
+                Status: 'D',
+            }
+        });
+
+        if (!result) {
+            throw new BadRequestException(`Voucher detail with ID ${VoucherDetailSid} not found or already deleted`);
+        }
+
+        this.logger.log(`Soft deleted voucher detail with ID: ${VoucherDetailSid}`);
+    } catch (error) {
+        this.logger.error(`Error soft deleting voucher detail ${VoucherDetailSid}: ${error.message}`);
+        if (error instanceof BadRequestException) {
+            throw error;
+        }
+        throw new InternalServerErrorException('Failed to soft delete voucher detail');
+    }
+}
 
 }
