@@ -174,6 +174,9 @@ export class OutstandingService {
               Status: 'A',
             },
           },
+          voucherTypeMaster : {
+            select : {DocumentTypeName : true}
+          }
         },
         orderBy: {
           VoucherDate: 'asc',
@@ -229,7 +232,7 @@ export class OutstandingService {
             voucherTransactionSid: vt.VoucherTransactionSid,
             voucherNumber: vt.VoucherNumber,
             voucherDate: vt.VoucherDate,
-            voucherType: vt.VoucherType,
+            voucherType: vt.voucherTypeMaster?.DocumentTypeName,
             originalCurrencyAmount: this.roundToDecimal(originalCurrencyAmount, 2),
             originalLocalAmount: this.roundToDecimal(originalLocalAmount, 2),
             matchedCurrencyAmount: this.roundToDecimal(matchedCurrencyAmount, 2),
@@ -238,7 +241,7 @@ export class OutstandingService {
             outstandingLocalAmount: outstandingLocalAmount,
             currencyCode: vt.CurrencyCode || 'USD',
             drCr: vt.DrCr,
-            chargeDescription: vt.ChargeDescription,
+            chargeDescription: vt.ChargeDescription || "",
           });
 
           totalOutstandingCurrency += outstandingCurrencyAmount;
