@@ -85,6 +85,18 @@ export class OperationCommonService {
                             DocumentTypeName: true,
                             VoucherTypeMasterSid: true
                         }
+                    },
+                    revenueCustomerMaster : {
+                        select : {
+                            CustomerMasterSid : true,
+                            CustomerName : true,
+                        }
+                    },
+                    costCustomerMaster : {
+                        select : {
+                            CustomerMasterSid : true,
+                            CustomerName : true
+                        }
                     }
                 },
                 orderBy: {
