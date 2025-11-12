@@ -315,4 +315,68 @@ export class CoaController {
         }
         return resp;
     }
+
+     @ApiOperation({ summary : 'Get List of COA by its LedgerType' })
+    @ApiCreatedResponse({
+        description: 'Get List of COA by its LedgerType',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Post('ledger-category')
+    async getCoaByLedgerCategory(@Body() body: { LedgerCategory: string ; CompanyMasterSid: number }) {
+        let resp = new ResponseData();
+        try {
+            if(!body.LedgerCategory){
+                throw new BadRequestException('LedgerCategory is required');
+            }
+            if(!body.CompanyMasterSid){
+                throw new BadRequestException('CompanyMasterSid is required');
+            }
+            let res = await this.coaService.getCOAByLedgerCategory(body.LedgerCategory, body.CompanyMasterSid);
+            this.logger.log(`Coa by LedgerCategory : ${JSON.stringify(res)}`);
+            resp.data = res;
+            resp.message = "Coa by LedgerCategory is successfully fetched";
+        } catch (error) {
+            this.logger.warn(`Get Coa by LedgerCategory Error : ${JSON.stringify(error), error}`);
+            resp.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                resp.message = error.message;
+            } else {
+                resp.message = "Internal Server Error";
+            }
+        }
+        return resp;
+    }
+
+    @ApiOperation({ summary : 'Get List of COA by its LedgerType' })
+    @ApiCreatedResponse({
+        description: 'Get List of COA by its LedgerType',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Post('ledger-type')
+    async getCoaByLedgerType(@Body() body: { LedgerType: string | string[]; CompanyMasterSid: number }) {
+        let resp = new ResponseData();
+        try {
+            if(!body.LedgerType){
+                throw new BadRequestException('LedgerType is required');
+            }
+            if(!body.CompanyMasterSid){
+                throw new BadRequestException('CompanyMasterSid is required');
+            }
+            let res = await this.coaService.getCOAByItsLedgerType(body.LedgerType, body.CompanyMasterSid);
+            this.logger.log(`Coa by LedgerType : ${JSON.stringify(res)}`);
+            resp.data = res;
+            resp.message = "Coa by LedgerType is successfully fetched";
+        } catch (error) {
+            this.logger.warn(`Get Coa by LedgerType Error : ${JSON.stringify(error), error}`);
+            resp.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                resp.message = error.message;
+            } else {
+                resp.message = "Internal Server Error";
+            }
+        }
+        return resp;
+    }
 }

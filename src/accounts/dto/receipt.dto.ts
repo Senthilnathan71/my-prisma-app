@@ -26,6 +26,10 @@ export class CreateReceiptDto {
 
   @IsNotEmpty()
   @IsNumber()
+  YearMasterSid: number;
+
+  @IsNotEmpty()
+  @IsNumber()
   LedgerMasterSid: number; // Customer
 
   @IsNotEmpty()

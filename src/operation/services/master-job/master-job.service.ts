@@ -3077,4 +3077,25 @@ export class MasterJobService {
         return !!existing;
     }
 
+    async getMasterJobByDepartmentid(payload:any){
+        try {
+            const {DepartmentMasterSid,CompanyMasterSid,BranchMasterSid} = payload;
+            const masterJob = await this._db.masterJob.findMany({
+                where: {
+                    MasterJobNumber : {not : null},
+                    DepartmentMasterSid: DepartmentMasterSid,
+                    CompanyMasterSid: CompanyMasterSid,
+                    BranchMasterSid: BranchMasterSid,
+                    Status: 'A'
+                },
+                select : {
+                    MasterJobSid : true,
+                    MasterJobNumber : true,
+                }
+            })
+            return masterJob;
+        } catch (error) {
+            throw error;
+        }
+    }
 }

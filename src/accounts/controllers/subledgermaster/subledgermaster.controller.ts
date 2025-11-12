@@ -62,6 +62,32 @@ export class SubledgermasterController {
         return resp;
     }
 
+    @ApiOperation({summary : "Get All Mapped Ledgers by COA"})
+    @ApiCreatedResponse({
+        description : "Get All Mapped Ledgers by COA",
+        type : ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Post('coa/mapped')
+    async getAllMappedLedgerByCOA(@Body() payload:any) {
+        let resp = new ResponseData();
+        try {
+            let res = await this.SubledgermasterService.getAllMappedLedgerByCOAId(payload.COAMasterSid, payload.CompanyMasterSid);
+            this.logger.log(`All Mapped Ledgers For this COA Fetched : ${JSON.stringify(res)}`);
+            resp.data = res;
+            resp.message = "All Mapped Ledgers For this COA are successfully fetched";
+        } catch (error) {
+            this.logger.warn(`Get All Mapped Ledgers For this COA Error : ${JSON.stringify(error), error}`);
+            resp.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                resp.message = error.message;
+            } else {
+                resp.message = "Internal Server Error";
+            }
+        }
+        return resp;
+    }
+
     
     @ApiOperation({summary : "Get All Mapped Creditors"})
     @ApiCreatedResponse({
