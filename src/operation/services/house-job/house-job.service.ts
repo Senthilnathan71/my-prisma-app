@@ -29,7 +29,8 @@ export class HouseJobService {
                     },
                     Products: {
                         where : {status : 'A'}
-                    }
+                    },
+                    masterJob: true,
                 }
             })
             if(!ourHouseJob){
@@ -178,6 +179,7 @@ export class HouseJobService {
                             NoOfPackage: Number(cargoPayload.NoOfPackage) || 0,
                             FreightAmount: String(cargoPayload.FreightAmount ?? '0'),
                             CargoType: cargoPayload.CargoType ?? '',
+                            ContainerType: cargoPayload.ContainerType ?? '',
                             WeightUnitSid: cargoPayload.WeightUnit || 0,
                             GrossWeight: Number(cargoPayload.GrossWeight) || 0,
                             NetWeight: Number(cargoPayload.NetWeight) || 0,
@@ -206,6 +208,7 @@ export class HouseJobService {
                             NoOfPackage: Number(cargoPayload.NoOfPackage) || 0,
                             FreightAmount: String(cargoPayload.FreightAmount ?? '0'),
                             CargoType: cargoPayload.CargoType ?? '',
+                            ContainerType: cargoPayload.ContainerType ?? '',
                             WeightUnitSid: cargoPayload.WeightUnit || 0,
                             GrossWeight: Number(cargoPayload.GrossWeight) || 0,
                             NetWeight: Number(cargoPayload.NetWeight) || 0,
@@ -290,7 +293,7 @@ export class HouseJobService {
                                 RecdPack: product.RecdPack || '',
                                 CargoRecDate: product.CargoRecDate ? new Date(product.CargoRecDate) : null,
                                 CFS: product.CFS || '',
-                                createdBy: payload.createdBy,
+                                createdBy: payload.update,
                                 status: product.status ? String(product.status).charAt(0) : 'A',
                                 Height: product.Height || 0,
                                 Volumetric: Number(product.Volumetric) || 0,
