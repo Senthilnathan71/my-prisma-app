@@ -179,7 +179,10 @@ export class VoucherController {
                 companyMasterSid : Number(body.CompanyMasterSid),
                 branchMasterSid : Number(body.BranchMasterSid),
                 yearMasterSid : Number(body.YearMasterSid),
-                postedBy : body.PostedBy
+                localCurrencyMasterSid : Number(body.LocalCurrencyMasterSid),
+                localCurrencyCode : body.LocalCurrencyCode,
+                postedBy : body.PostedBy,
+                taxDetails : body.TaxDetails
             });
             this.logger.debug(`postVoucher result: ${JSON.stringify(result)}`);
             output.data = result;

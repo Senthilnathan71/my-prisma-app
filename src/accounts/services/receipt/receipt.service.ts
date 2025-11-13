@@ -1085,6 +1085,24 @@ export class ReceiptService {
         //   data: voucherTransactionsPayload,
         // });
 
+      const voucherMatchingHeader = await prisma.voucherMatchingHeader.create({
+        data: {
+          CompanyMasterSid: voucherHeader.CompanyMasterSid,
+          BranchMasterSid: voucherHeader.BranchMasterSid,
+          VoucherMatchingNo: voucherHeader.VoucherNumber,
+          VoucherMatchingDate: voucherHeader.PostDate,
+          Narration: voucherHeader.Narration,
+          Status: 'A',
+          CreatedBy: voucherHeader.CreatedBy,
+          UpdatedBy: voucherHeader.CreatedBy,
+        },
+      });
+
+      // 9. Create VoucherMatching records
+      const partyDetail = detailItems.map((item, index) => ({
+        
+      }));
+
         return {
           voucherHeader
         };

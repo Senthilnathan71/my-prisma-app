@@ -160,6 +160,9 @@ export class OutstandingService {
           CompanyMasterSid: companyMasterSid,
           LedgerMasterSid: ledgerMasterSid,
           Status: 'A',
+          voucherTypeMaster : {
+            DocumentTypeName : {not : 'Receipt'}
+          }
           /** Update : Voucher Reversal also follows the same logic
           *  Scenerio explained : for 5000 rs invoice and the customer already receipt for 2500 . and Now if the invoice is reversed , the outstanding amount should be zero
           */
