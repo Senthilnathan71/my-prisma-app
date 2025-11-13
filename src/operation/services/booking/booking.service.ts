@@ -1903,6 +1903,7 @@ export class BookingService {
                     select: {
                         UOMMasterSid: true,
                         UOMName: true,
+                        UOMCode : true
                     },
                 }),
 
