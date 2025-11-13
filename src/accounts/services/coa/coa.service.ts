@@ -28,7 +28,7 @@ export class CoaService {
             where: {
                 LedgerType: LedgerType,
                 Status: "A",
-                SubledgerName: 'N',
+                SubledgerName: 'Y',
                 CompanyMasterSid: CompanyMasterSid
             },
             orderBy: {
