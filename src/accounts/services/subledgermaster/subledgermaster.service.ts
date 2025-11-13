@@ -216,11 +216,12 @@ export class SubledgermasterService {
     }
 
     // New methods for Party and Charge tabs
-    async getSubledgerMasterByType(subledgerType: string) {
+    async getSubledgerMasterByType(subledgerType: string,CompanyMasterSid: number) {
         try {
             const subledgers = await this._db.subledgerMaster.findMany({
                 where: {
                     SubledgerType: subledgerType,
+                     CompanyMasterSid: CompanyMasterSid,
                     Status: { in: ["A", "S"] } // Include both Active and Suspended
                 },
                 include: {

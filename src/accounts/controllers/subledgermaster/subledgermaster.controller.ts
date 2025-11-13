@@ -4,7 +4,9 @@ import { SubledgermasterService } from 'src/accounts/services/subledgermaster/su
 import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
-
+class CompanyIdDto {
+    CompanyMasterSid: number;
+}
 @Controller('subledgermaster')
 export class SubledgermasterController {
     constructor(private SubledgermasterService: SubledgermasterService, private logger: Logger) { }
@@ -317,10 +319,10 @@ export class SubledgermasterController {
 })
 @HttpCode(HttpStatus.OK)
 @Get('type/:subledgerType')
-async getSubledgerMasterByType(@Param('subledgerType') subledgerType: string) {
+async getSubledgerMasterByType(@Param('subledgerType') subledgerType: string,  @Query('CompanyMasterSid', ParseIntPipe) CompanyMasterSid: number) {
     let resp = new ResponseData();
     try {
-        let res = await this.SubledgermasterService.getSubledgerMasterByType(subledgerType);
+        let res = await this.SubledgermasterService.getSubledgerMasterByType(subledgerType,CompanyMasterSid);
         this.logger.log(`SubledgerMaster by Type Fetched : ${JSON.stringify(res)}`);
         resp.data = res;
         resp.message = "SubledgerMaster by type successfully fetched";

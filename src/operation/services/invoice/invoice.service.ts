@@ -98,9 +98,9 @@ export class InvoiceService {
     try {
       const result = await this._db.voucherHeader.findMany({
         where: { Status: 'A',
-           voucherTypeMaster: {
-          DocumentTypeName: 'Invoice'
-        }
+        //    voucherTypeMaster: {
+        //   DocumentTypeName: 'Invoice'
+        // }
          },
         include: {
           VoucherDetail: { where: { Status: 'A' } },
@@ -126,10 +126,10 @@ export class InvoiceService {
         include: {
           VoucherDetail: {
             where: { Status: 'A' ,
-              voucherTypeMaster: {
-          DocumentTypeName: 'Invoice'
-        }
-            }as any,
+        //       voucherTypeMaster: {
+        //   DocumentTypeName: 'Invoice'
+        // }
+            },
             include: {
               chargeMaster: {
                 include: {
