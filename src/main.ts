@@ -8,24 +8,24 @@ async function bootstrap() {
 
 
   //Dont comment this code and commit the code while merge
-  // const httpsOptions = {
-  //   key: fs.readFileSync('/var/opt/npm-ssl/privkey.pem'),  // Update path
-  //   cert: fs.readFileSync('/var/opt/npm-ssl/fullchain.pem'),   // Update path
-  // };
+  const httpsOptions = {
+    key: fs.readFileSync('/var/opt/npm-ssl/privkey.pem'),  // Update path
+    cert: fs.readFileSync('/var/opt/npm-ssl/fullchain.pem'),   // Update path
+  };
 
 
 
   //Dont comment this code and commit the code while merge
-  // const app = await NestFactory.create(AppModule,
-  //   { httpsOptions }
-  // );
+  const app = await NestFactory.create(AppModule,
+    { httpsOptions }
+  );
 
 
   // Use below for local test
   
-  const app = await NestFactory.create(AppModule,
-    // {  }
-  );
+  // const app = await NestFactory.create(AppModule,
+  //   // {  }
+  // );
 
   app.enableCors();
   app.use(json({ limit: '200mb' }));
