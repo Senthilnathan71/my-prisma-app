@@ -176,23 +176,25 @@ export class HouseJobService {
                             HouseJobSid,
                             CompanyMasterSid: payload.CompanyMasterSid ?? null,
                             BranchMasterSid: payload.BranchMasterSid ?? null,
-                            NoOfPackage: Number(cargoPayload.NoOfPackage) || 0,
+                            NoOfPackage: Number(cargoPayload.NoOfPackage) ,
                             FreightAmount: String(cargoPayload.FreightAmount ?? '0'),
                             CargoType: cargoPayload.CargoType ?? '',
-                            ContainerType: cargoPayload.ContainerType ?? '',
-                            WeightUnitSid: cargoPayload.WeightUnit || 0,
-                            GrossWeight: Number(cargoPayload.GrossWeight) || 0,
-                            NetWeight: Number(cargoPayload.NetWeight) || 0,
-                            Volume: Number(cargoPayload.Volume) || 0,
+                            ContainerType: cargoPayload.ContainerType ?? null,
+                            WeightUnitSid: cargoPayload.WeightUnit,
+                            GrossWeight: Number(cargoPayload.GrossWeight) ,
+                            NetWeight: Number(cargoPayload.NetWeight) ,
+                            Volume: Number(cargoPayload.Volume) ,
                             ChargeableWeight: Number(cargoPayload.ChargeableWeight) || 0,
-                            PackageType: cargoPayload.PackageType || 0,
-                            Qty: Number(cargoPayload.Qty) || 0,
+                            PackageType: cargoPayload.PackageType ,
+                            Qty: Number(cargoPayload.Qty) ,
                             ShipmentTerms: cargoPayload.ShipmentTerms || '',
-                            createdBy: payload.createdBy,          // required
+                            createdBy: payload.updatedBy,          // required
                             updatedBy: payload.updatedBy ?? null,
                             status: 'A',
                             FreightTerms: cargoPayload.FreightTerms || '',
                             MovementType: cargoPayload.MovementType || '',
+                            CommodityDescription: cargoPayload.CommodityDescription || '',
+                            MarksAndNumber  : cargoPayload.MarksAndNumber || '',
                             ModeOfTransport: cargoPayload.ModeOfTransport || '',
                             NoofContainers: Number(cargoPayload.NoofContainers) || 0,
                             StuffingAt: cargoPayload.StuffingAt || '',
@@ -205,23 +207,25 @@ export class HouseJobService {
                             HouseJobSid,
                             CompanyMasterSid: payload.CompanyMasterSid ?? null,
                             BranchMasterSid: payload.BranchMasterSid ?? null,
-                            NoOfPackage: Number(cargoPayload.NoOfPackage) || 0,
+                            NoOfPackage: Number(cargoPayload.NoOfPackage) ,
                             FreightAmount: String(cargoPayload.FreightAmount ?? '0'),
                             CargoType: cargoPayload.CargoType ?? '',
-                            ContainerType: cargoPayload.ContainerType ?? '',
-                            WeightUnitSid: cargoPayload.WeightUnit || 0,
-                            GrossWeight: Number(cargoPayload.GrossWeight) || 0,
-                            NetWeight: Number(cargoPayload.NetWeight) || 0,
-                            Volume: Number(cargoPayload.Volume) || 0,
+                            ContainerType: cargoPayload.ContainerType ?? null,
+                            WeightUnitSid: cargoPayload.WeightUnit ,
+                            GrossWeight: Number(cargoPayload.GrossWeight) ,
+                            NetWeight: Number(cargoPayload.NetWeight) ,
+                            Volume: Number(cargoPayload.Volume) ,
                             ChargeableWeight: Number(cargoPayload.ChargeableWeight) || 0,
-                            PackageType: cargoPayload.PackageType || 0,
-                            Qty: Number(cargoPayload.Qty) || 0,
+                            PackageType: cargoPayload.PackageType ,
+                            Qty: Number(cargoPayload.Qty) ,
                             ShipmentTerms: cargoPayload.ShipmentTerms || '',
-                            createdBy: payload.createdBy,          // required
+                            createdBy: payload.updatedBy,          // required
                             updatedBy: payload.updatedBy ?? null,
                             status: 'A',
                             FreightTerms: cargoPayload.FreightTerms || '',
                             MovementType: cargoPayload.MovementType || '',
+                            CommodityDescription: cargoPayload.CommodityDescription || '',
+                            MarksAndNumber  : cargoPayload.MarksAndNumber || '',
                             ModeOfTransport: cargoPayload.ModeOfTransport || '',
                             NoofContainers: Number(cargoPayload.NoofContainers) || 0,
                             StuffingAt: cargoPayload.StuffingAt || '',
@@ -595,7 +599,15 @@ export class HouseJobService {
                     finalCharges.push(createdCharge || updatedCharge);
                 }
 
-            return updatedHouseJob;
+           return {
+                houseJob: updatedHouseJob,
+                houseJobCargo: finalHouseJobCargo,
+                houseJobProduct: finalHouseJobProduct,
+                houseConnections: finalHouseConnections,
+                houseJobOthers: finalHouseJobOthers,
+                bookingRates: finalCharges,
+                costRevenueCharges: finalCharges
+            };
         }
         catch (error) {
             throw error;
