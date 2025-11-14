@@ -88,6 +88,34 @@ export class CreditNoteController {
     }
     return output;
   }
+
+  @ApiOperation({ summary: 'Get Invoice by ID' })
+  @ApiCreatedResponse({
+    description: 'Invoice data fetched successfully by ID',
+    type: ResponseData
+  })
+  @HttpCode(HttpStatus.OK)
+  // route uses lowercase param name - keep it consistent here
+  @Get('fetch/invoice/:voucherHeaderSid')
+  async getInvoiceById(@Param('voucherHeaderSid', ParseIntPipe) voucherHeaderSid: number) {
+    const output = new ResponseData();
+    try {
+      const finalOutput = await this.creditNoteService.findInvoiceById(voucherHeaderSid);
+      this.logger.debug(`getVoucherHeaderById: ${JSON.stringify(finalOutput)}`);
+      output.data = finalOutput;
+      output.message = "Invoice data fetched successfully by ID";
+    } catch (error) {
+      this.logger.warn('getVoucherHeaderById error', (error as any)?.stack || (error as any)?.message || error);
+      output.status = false;
+      if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+        output.message = (error as any).message || 'Bad request';
+      } else {
+        // return error message/stack only if you want to expose it — here we set the object
+        output.message = (error as any) || 'Internal Server Error';
+      }
+    }
+    return output;
+  }
     
       @ApiOperation({ summary: 'Get All Invoices' })
       @ApiCreatedResponse({
