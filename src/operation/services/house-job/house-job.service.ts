@@ -30,6 +30,11 @@ export class HouseJobService {
                     Products: {
                         where : {status : 'A'}
                     },
+                    houseJobBOE:{
+                        where:{
+                            Status:'A'
+                        }
+                    },
                     masterJob: true,
                 }
             })
