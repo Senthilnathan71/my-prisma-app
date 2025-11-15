@@ -20,7 +20,7 @@ export class VendorCreditNoteService {
                                const count = await tx.voucherHeader.count({
                                  where: { VoucherNumber: { contains: dateString } }
                                });
-                               const VoucherNumber = `CN-${dateString}-${(count + 1).toString().padStart(3, '0')}`;
+                               const VoucherNumber = `VCN-${dateString}-${(count + 1).toString().padStart(3, '0')}`;
                     // Validate vendor exists
                     if (!payload.PartyMasterSid) {
                         throw new BadRequestException('Vendor (PartyMasterSid) is required');
@@ -67,6 +67,7 @@ export class VendorCreditNoteService {
                             PartyName: payload.PartyName || '',
                             PartyAddress: payload.PartyAddress || '',
                             CustomerBranchSid: payload.CustomerBranchSid,
+                            PostStatus: payload.PostStatus,
                             PlaceOfSupply: payload.PlaceOfSupply,
                             GST_VAT: payload.GSTNo || payload.GST_VAT,
                             InvoiceType: payload.InvoiceType || 'B2B',
@@ -114,7 +115,7 @@ export class VendorCreditNoteService {
                                     CurrencyCode: detail.CurrencyCode || payload.CurrencyCode,
                                     CurrencyMasterSid: detail.CurrencyMasterSid || currencyMasterSid,
                                     ExchangeRate: detail.ExchangeRate || payload.ExchangeRate || 1,
-                                    DrCr: detail.DrCr || 'Dr', // Vendor CreditNote = Debit (payable)
+                                    DrCr: detail.DrCr || 'D', // Vendor CreditNote = Debit (payable)
                                     LedgerMasterSid: detail.LedgerMasterSid,
                                     COAMasterSid: detail.COAMasterSid,
                                     MasterJobSid: detail.MasterJobSid || payload.MasterJobSid,
@@ -129,49 +130,47 @@ export class VendorCreditNoteService {
                     }
     
                     // Create VoucherTDS if TDS data provided or fetch from vendor mapping
-                    if (payload.VoucherTDS || totalTaxableAmount > 0) {
-                        try {
-                            let tdsData = payload.VoucherTDS;
+                    // if (payload.VoucherTDS || totalTaxableAmount > 0) {
+                    //     try {
+                    //         let tdsData = payload.VoucherTDS;
     
-                            // If TDS data not provided in payload, fetch from vendor mapping
-                            if (!tdsData) {
-                                const tdsConfig = await this.voucherService.getVendorTDSMapping(payload.PartyMasterSid, tx);
-                                if (tdsConfig) {
-                                    const tdsAmount = this.voucherService.calculateTDSAmount(totalTaxableAmount, tdsConfig.tdsRate);
-                                    tdsData = {
-                                        TDSSetRateSid: tdsConfig.tdsSetRateSid,
-                                        ITSectionCode: tdsConfig.itSectionCode,
-                                        TDSRate: tdsConfig.tdsRate,
-                                        TaxableAmount: totalTaxableAmount,
-                                        TDSAmount: tdsAmount,
-                                        Reason: ''
-                                    };
-                                }
-                            }
+                    //         if (!tdsData) {
+                    //             const tdsConfig = await this.voucherService.getVendorTDSMapping(payload.PartyMasterSid, tx);
+                    //             if (tdsConfig) {
+                    //                 const tdsAmount = this.voucherService.calculateTDSAmount(totalTaxableAmount, tdsConfig.tdsRate);
+                    //                 tdsData = {
+                    //                     TDSSetRateSid: tdsConfig.tdsSetRateSid,
+                    //                     ITSectionCode: tdsConfig.itSectionCode || '',
+                    //                     TDSRate: tdsConfig.tdsRate,
+                    //                     TaxableAmount: totalTaxableAmount,
+                    //                     TDSAmount: tdsAmount,
+                    //                     Reason: ''
+                    //                 };
+                    //             }
+                    //         }
     
-                            if (tdsData) {
-                                await tx.voucherTDS.create({
-                                    data: {
-                                        VoucherHeaderSid: voucherHeader.VoucherHeaderSid,
-                                        VoucherDetailSid: voucherHeader.VoucherHeaderSid, // Can be updated to specific detail
-                                        CompanyMasterSid: payload.CompanyMasterSid,
-                                        BranchMasterSid: payload.BranchMasterSid,
-                                        TDSSetRateSid: tdsData.TDSSetRateSid,
-                                        ITSectionCode: tdsData.ITSectionCode,
-                                        TDSRate: tdsData.TDSRate || 0,
-                                        TaxableAmount: tdsData.TaxableAmount || totalTaxableAmount,
-                                        TDSAmount: tdsData.TDSAmount || 0,
-                                        Reason: tdsData.Reason || '',
-                                        CreatedBy: payload.CreatedBy || 'System',
-                                        Status: 'A'
-                                    }
-                                });
-                            }
-                        } catch (tdsError) {
-                            this.logger.warn(`TDS creation error: ${tdsError.message}`);
-                            // Don't fail the transaction for TDS errors
-                        }
-                    }
+                    //         if (tdsData) {
+                    //             await tx.voucherTDS.create({
+                    //                 data: {
+                    //                     VoucherHeaderSid: voucherHeader.VoucherHeaderSid,
+                    //                     VoucherDetailSid: voucherHeader.VoucherHeaderSid, // Can be updated to specific detail
+                    //                     CompanyMasterSid: payload.CompanyMasterSid,
+                    //                     BranchMasterSid: payload.BranchMasterSid,
+                    //                     TDSSetRateSid: tdsData.TDSSetRateSid,
+                    //                     ITSectionCode: tdsData.ITSectionCode || '',
+                    //                     TDSRate: tdsData.TDSRate || 0,
+                    //                     TaxableAmount: tdsData.TaxableAmount || totalTaxableAmount,
+                    //                     TDSAmount: tdsData.TDSAmount || 0,
+                    //                     Reason: tdsData.Reason || '',
+                    //                     CreatedBy: payload.CreatedBy || 'System',
+                    //                     Status: 'A'
+                    //                 }
+                    //             });
+                    //         }
+                    //     } catch (tdsError) {
+                    //         this.logger.warn(`TDS creation error: ${tdsError.message}`);
+                    //     }
+                    // }
     
                     // Create VoucherOthers if provided
                     if (payload.VoucherOthers) {
@@ -219,7 +218,7 @@ export class VendorCreditNoteService {
                 },
                 include: {
                     VoucherDetail: true,
-                    VoucherTDS: true,
+                    // VoucherTDS: true,
                     VoucherOthers: true,
                     subledgerMaster: true,
                     currencyMaster: true,
@@ -257,16 +256,16 @@ export class VendorCreditNoteService {
                                 currencyMaster: true
                             }
                         },
-                        VoucherTDS: {
-                            where: { Status: 'A' },
-                            include: {
-                                TDSSetRate: {
-                                    include: {
-                                        tdsSetHeader: true
-                                    }
-                                }
-                            }
-                        },
+                        // VoucherTDS: {
+                        //     where: { Status: 'A' },
+                        //     include: {
+                        //         TDSSetRate: {
+                        //             include: {
+                        //                 tdsSetHeader: true
+                        //             }
+                        //         }
+                        //     }
+                        // },
                         VoucherOthers: {
                             where: { Status: 'A' }
                         },
@@ -294,7 +293,7 @@ export class VendorCreditNoteService {
             }
         }
 
-        async updateVendorInvoice(VoucherHeaderSid: number, payload: any): Promise<any> {
+        async updateVendorCreditNote(VoucherHeaderSid: number, payload: any): Promise<any> {
         try {
             return await this._db.$transaction(async (tx) => {
                 // Check if vendor invoice exists
@@ -303,7 +302,7 @@ export class VendorCreditNoteService {
                 });
 
                 if (!existing) {
-                    throw new NotFoundException(`Vendor Invoice with ID ${VoucherHeaderSid} not found`);
+                    throw new NotFoundException(`Vendor CreditNote with ID ${VoucherHeaderSid} not found`);
                 }
 
                 // Get currency master ID if needed
@@ -330,6 +329,7 @@ export class VendorCreditNoteService {
                         CurrencyMasterSid: currencyMasterSid,
                         CurrencyCode: payload.CurrencyCode,
                         ExchangeRate: payload.ExchangeRate,
+                        PostStatus: payload.PostStatus,
                         DocumentNumber: payload.BillNo || payload.DocumentNumber,
                         DocumentDate: payload.BillDate ? new Date(payload.BillDate) : undefined,
                         Amount: payload.BillAmt || payload.Amount,
@@ -378,7 +378,7 @@ export class VendorCreditNoteService {
                                 CurrencyCode: detail.CurrencyCode || payload.CurrencyCode,
                                 CurrencyMasterSid: detail.CurrencyMasterSid || currencyMasterSid,
                                 ExchangeRate: detail.ExchangeRate || payload.ExchangeRate || 1,
-                                DrCr: detail.DrCr || 'Dr',
+                                DrCr: detail.DrCr || 'D',
                                 LedgerMasterSid: detail.LedgerMasterSid,
                                 COAMasterSid: detail.COAMasterSid,
                                 MasterJobSid: detail.MasterJobSid || payload.MasterJobSid,
@@ -392,29 +392,29 @@ export class VendorCreditNoteService {
                     }
 
                     // Update TDS
-                    await tx.voucherTDS.updateMany({
-                        where: { VoucherHeaderSid },
-                        data: { Status: 'D' }
-                    });
+                    // await tx.voucherTDS.updateMany({
+                    //     where: { VoucherHeaderSid },
+                    //     data: { Status: 'D' }
+                    // });
 
-                    if (payload.VoucherTDS && totalTaxableAmount > 0) {
-                        await tx.voucherTDS.create({
-                            data: {
-                                VoucherHeaderSid,
-                                VoucherDetailSid: VoucherHeaderSid,
-                                CompanyMasterSid: existing.CompanyMasterSid,
-                                BranchMasterSid: existing.BranchMasterSid,
-                                TDSSetRateSid: payload.VoucherTDS.TDSSetRateSid,
-                                ITSectionCode: payload.VoucherTDS.ITSectionCode,
-                                TDSRate: payload.VoucherTDS.TDSRate || 0,
-                                TaxableAmount: totalTaxableAmount,
-                                TDSAmount: payload.VoucherTDS.TDSAmount || 0,
-                                Reason: payload.VoucherTDS.Reason || '',
-                                CreatedBy: payload.UpdatedBy || 'System',
-                                Status: 'A'
-                            }
-                        });
-                    }
+                    // if (payload.VoucherTDS && totalTaxableAmount > 0) {
+                    //     await tx.voucherTDS.create({
+                    //         data: {
+                    //             VoucherHeaderSid: VoucherHeaderSid,
+                    //             VoucherDetailSid: VoucherHeaderSid,
+                    //             CompanyMasterSid: payload.CompanyMasterSid,
+                    //             BranchMasterSid: payload.BranchMasterSid,
+                    //             TDSSetRateSid: payload.VoucherTDS.TDSSetRateSid,
+                    //             ITSectionCode: payload.VoucherTDS.ITSectionCode || '',
+                    //             TDSRate: payload.VoucherTDS.TDSRate || 0,
+                    //             TaxableAmount: totalTaxableAmount,
+                    //             TDSAmount: payload.VoucherTDS.TDSAmount || 0,
+                    //             Reason: payload.VoucherTDS.Reason || '',
+                    //             CreatedBy: payload.UpdatedBy || 'System',
+                    //             Status: 'A'
+                    //         }
+                    //     });
+                    // }
                 }
 
                 // Update VoucherOthers
@@ -440,11 +440,223 @@ export class VendorCreditNoteService {
                 return await this.fetchVendorCreditNoteById(VoucherHeaderSid, tx);
             });
         } catch (error) {
-            this.logger.error(`Error updating vendor invoice: ${error.message}`);
+            this.logger.error(`Error updating vendor creditNote: ${error.message}`);
             if (error instanceof NotFoundException || error instanceof BadRequestException) {
                 throw error;
             }
-            throw new InternalServerErrorException('Failed to update vendor invoice');
+            throw new InternalServerErrorException('Failed to update vendor creditNote');
         }
     }
+
+    async deleteVendorCreditNote(VoucherHeaderSid: number): Promise<any> {
+            try {
+                return await this._db.$transaction(async (tx) => {
+                    // Check if exists
+                    const existing = await tx.voucherHeader.findUnique({
+                        where: { VoucherHeaderSid }
+                    });
+    
+                    if (!existing) {
+                        throw new NotFoundException(`Vendor CreditNode with ID ${VoucherHeaderSid} not found`);
+                    }
+    
+                    // Soft delete header
+                    await tx.voucherHeader.update({
+                        where: { VoucherHeaderSid },
+                        data: {
+                            Status: 'D',
+                            UpdatedOn: new Date()
+                        }
+                    });
+    
+                    // Soft delete details
+                    await tx.voucherDetail.updateMany({
+                        where: { VoucherHeaderSid },
+                        data: { Status: 'D' }
+                    });
+    
+                    // Soft delete TDS
+                    // await tx.voucherTDS.updateMany({
+                    //     where: { VoucherHeaderSid },
+                    //     data: { Status: 'D' }
+                    // });
+    
+                    // Soft delete others
+                    await tx.voucherOthers.updateMany({
+                        where: { VoucherHeaderSid },
+                        data: { Status: 'D' }
+                    });
+    
+                    return { deleted: true, VoucherHeaderSid };
+                });
+            } catch (error) {
+                this.logger.error(`Error deleting vendor CreditNote: ${error.message}`);
+                if (error instanceof NotFoundException) {
+                    throw error;
+                }
+                throw new InternalServerErrorException('Failed to delete vendor creditNote');
+            }
+        }
+    async searchVendorCreditNotes(params: any): Promise<any> {
+            try {
+                const {
+                    search = '',
+                    page = 1,
+                    pageSize = 10,
+                    sortColumn = 'VoucherDate',
+                    sortDirection = 'desc'
+                } = params;
+    
+                const skip = (page - 1) * pageSize;
+                const take = Number(pageSize);
+    
+                const where: any = {
+                    voucherTypeMaster: {
+                        DocumentTypeName: 'Vendor Credit Note'
+                    },
+                    Status: 'A'
+                };
+    
+                // Add search filter
+                if (search) {
+                    where.OR = [
+                        { VoucherNumber: { contains: search, mode: 'insensitive' } },
+                        { PartyName: { contains: search, mode: 'insensitive' } },
+                        { DocumentNumber: { contains: search, mode: 'insensitive' } },
+                        { MasterNumber: { contains: search, mode: 'insensitive' } },
+                        { HouseNumber: { contains: search, mode: 'insensitive' } }
+                    ];
+                }
+    
+                const [items, totalCount] = await Promise.all([
+                    this._db.voucherHeader.findMany({
+                        where,
+                        include: {
+                            VoucherDetail: {
+                                where: { Status: 'A' }
+                            },
+                            // VoucherTDS: {
+                            //     where: { Status: 'A' }
+                            // },
+                            subledgerMaster: true,
+                            currencyMaster: true
+                        },
+                        orderBy: {
+                            [sortColumn]: sortDirection
+                        },
+                        skip,
+                        take
+                    }),
+                    this._db.voucherHeader.count({ where })
+                ]);
+    
+                // Calculate local amount and TDS amount for each invoice
+                const enrichedItems = items.map(item => ({
+                    ...item,
+                    LocalAmount: item.VoucherDetail?.reduce((sum, d) => sum + Number(d.LocalAmount || 0), 0) || 0,
+                    // TDSAmount: item.VoucherTDS?.[0]?.TDSAmount || 0,
+                    VendorName: item.PartyName,
+                    BillNo: item.DocumentNumber,
+                    BillDate: item.DocumentDate,
+                    MBLNo: item.MasterNumber,
+                    HBLNo: item.HouseNumber
+                }));
+    
+                return {
+                    items: enrichedItems,
+                    totalCount,
+                    page: Number(page),
+                    pageSize: Number(pageSize)
+                };
+            } catch (error) {
+                this.logger.error(`Error searching vendor creditNotes: ${error.message}`);
+                throw new InternalServerErrorException('Failed to search vendor creditNotes');
+            }
+        }
+
+        async fetchVendorInvoices(): Promise<any[]> {
+        try {
+            const vendorInvoices = await this._db.voucherHeader.findMany({
+                where: {
+                    voucherTypeMaster: {
+                        DocumentTypeName: 'Vendor Invoice'
+                    },
+                    Status: 'A',
+                    PostStatus: 'P'
+                },
+            });
+
+            return vendorInvoices;
+        } catch (error) {
+            this.logger.error(`Error fetching vendor invoices: ${error.message}`);
+            throw new InternalServerErrorException('Failed to fetch vendor invoices');
+        }
+    }
+
+    async fetchVendorInvoiceById(VoucherHeaderSid: number, tx?: any): Promise<any> {
+        try {
+            const db = tx || this._db;
+
+            const vendorInvoice = await db.voucherHeader.findUnique({
+                where: { VoucherHeaderSid },
+                include: {
+                    // VoucherDetail: {
+                    //     where: { Status: 'A' },
+                    //     include: {
+                    //         chargeMaster: {
+                    //             include: {
+                    //                 chargeTaxMaster: true
+                    //             }
+                    //         },
+                    //         hSSACMaster: true,
+                    //         currencyMaster: true
+                    //     }
+                    // },
+                    // VoucherTDS: {
+                    //     where: { Status: 'A' },
+                    //     include: {
+                    //         TDSSetRate: {
+                    //             include: {
+                    //                 tdsSetHeader: true
+                    //             }
+                    //         }
+                    //     }
+                    // },
+                    VoucherOthers: {
+                        where: { Status: 'A' }
+                    },
+                    subledgerMaster: true,
+                    customerBranch: true,
+                    currencyMaster: true,
+                    masterJob: true,
+                    houseJob: true,
+                    voucherTypeMaster: true,
+                    VoucherTransaction: {
+                where: {
+                  OR: [
+                    { IsAutoGenerated: 'N' },
+                    { IsAutoGenerated: null }
+                  ]
+                },
+                include : {
+                  voucherDetail : true
+                }
+            }
+                }
+            }); 
+
+            if (!vendorInvoice) {
+                throw new NotFoundException(`Vendor Invoice with ID ${VoucherHeaderSid} not found`);
+            }
+
+            return vendorInvoice;
+        } catch (error) {
+            this.logger.error(`Error fetching vendor invoice by ID: ${error.message}`);
+            if (error instanceof NotFoundException) {
+                throw error;
+            }
+            throw new InternalServerErrorException('Failed to fetch vendor invoice');
+        }
+    }
+
 }
