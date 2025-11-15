@@ -523,7 +523,7 @@ export class CoaService {
         }
     }
 
-    async getCOAByItsLedgerType(LedgerType: string | string[], CompanyMasterSid: number) {
+    async getCOAByCashOrBank(LedgerType: 'Cash' | 'Bank', CompanyMasterSid: number) {
         try {
             const whereClause : any = {
                 Status : 'A',

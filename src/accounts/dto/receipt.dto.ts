@@ -10,6 +10,7 @@ import {
   IsBoolean,
 } from 'class-validator';
 import { Type } from 'class-transformer';
+import { VoucherDetailDto } from './voucher-posting.dto';
 
 /**
  * DTO for creating a receipt voucher
@@ -394,4 +395,65 @@ export class ReverseReceiptDto {
   @IsOptional()
   @IsString()
   ReversedBy?: string;
+}
+
+export class VoucherMatchingPayload {
+  @IsNotEmpty()
+  @IsNumber()
+  CompanyMasterSid: number;
+
+  @IsNotEmpty()
+  @IsNumber()
+  BranchMasterSid: number;
+
+  @IsNotEmpty()
+  @IsNumber()
+  VoucherHeaderSid : number;
+
+  @IsString()
+  voucherTypeInName : string;
+
+  @IsNotEmpty()
+  @IsNumber()
+  VoucherTypeMasterSid : number;
+
+  @IsNotEmpty()
+  @IsDate()
+  PostDate : Date;
+  
+  @IsNotEmpty()
+  @IsString()
+  Narration : string;
+  
+  @IsNotEmpty()
+  @IsString()
+  createdBy : string;
+  
+  @IsNotEmpty()
+  voucherMatching : any;
+  
+  @IsNotEmpty()
+  @Type(()=>VoucherDetailDto)
+  partyVoucherDetail: VoucherDetailDto;
+
+  @IsNotEmpty()
+  @IsNumber()
+  /**
+   * Bill Matching Currency Amount
+   * 
+   * It is the sum of currency amount that user provided against this receipt
+   * In receipt case , it is the sum of currency amount in voucherMatching's Matching Part (right part)
+   */
+  BillMatchingCurrencyAmount : number;
+
+  @IsNotEmpty()
+  @IsNumber()
+  /**
+   * Bill Matching Local Amount
+   * 
+   * It is the sum of local amount that user provided against this receipt
+   * In receipt case , it is the sum of local amount in voucherMatching's Matching Part (right part)
+   */
+  BillMatchingLocalAmount : number;
+
 }
