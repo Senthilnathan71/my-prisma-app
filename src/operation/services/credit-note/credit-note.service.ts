@@ -99,6 +99,9 @@ export class CreditNoteService {
         where: { 
           Status: 'A',
           PostStatus: 'P',
+          voucherTypeMaster: {
+            DocumentTypeName: 'Invoice'
+          }
          },
       });
       return result;
@@ -113,30 +116,6 @@ export class CreditNoteService {
         const voucherHeader = await this._db.voucherHeader.findUnique({
           where: { VoucherHeaderSid: VoucherHeaderSid, Status: 'A' } as any,
           include: {
-          //   VoucherDetail: {
-          //     where: { Status: 'A' ,
-          // //       voucherTypeMaster: {
-          // //   DocumentTypeName: 'Invoice'
-          // // }
-          //     },
-          //     include: {
-          //       chargeMaster: {
-          //         include: {
-          //           chargeTaxMaster: {
-          //             select: {
-          //               ChargeTaxMasterSid: true,
-          //               HSNCode: true,
-          //               description: true,
-          //               TaxGroup: true,
-          //               TaxRate: true
-          //             }
-          //           }
-          //         }
-          //       },
-          //       currencyMaster: true,
-          //       hSSACMaster: true,
-          //     }
-          //   },
             VoucherOthers: { where: { Status: 'A' } },
             masterJob: { where: { Status: 'A' } },
             houseJob: { where: { status: 'A' } },
@@ -326,7 +305,7 @@ export class CreditNoteService {
           delete voucherHeaderPayload[key];
         }
       });
-           this.logger.debug(`createInvoice - voucherHeaderPayload: ${JSON.stringify(voucherHeaderPayload)}`);
+           this.logger.debug(`createCreditNote - voucherHeaderPayload: ${JSON.stringify(voucherHeaderPayload)}`);
    
            // Create VoucherHeader
            const voucherHeader = await prisma.voucherHeader.create({
@@ -452,11 +431,11 @@ export class CreditNoteService {
            return voucherHeader;
          });
        } catch (error) {
-         this.logger.error(`createInvoice Error: ${error?.message}`, error?.stack);
+         this.logger.error(`createCreditNote Error: ${error?.message}`, error?.stack);
          if (error instanceof BadRequestException) {
            throw error;
          }
-         throw new InternalServerErrorException('Something Went Wrong While Creating Invoice');
+         throw new InternalServerErrorException('Something Went Wrong While Creating CreditNote');
        }
      }
    
@@ -632,7 +611,7 @@ export class CreditNoteService {
          if (error instanceof BadRequestException) {
            throw error;
          }
-         throw new InternalServerErrorException('Something Went Wrong While Updating Invoice');
+         throw new InternalServerErrorException('Something Went Wrong While Updating CreditNote');
        }
      }
    
@@ -748,8 +727,8 @@ export class CreditNoteService {
                 pageSize: Number(pageSize)
             };
      } catch (error) {
-            this.logger.error(`Error searching vendor invoices: ${error.message}`);
-            throw new InternalServerErrorException('Failed to search vendor invoices');
+            this.logger.error(`Error searching vendor creditNotes: ${error.message}`);
+            throw new InternalServerErrorException('Failed to search vendor creditNotes');
         }
     }
 }
