@@ -251,10 +251,13 @@ export class InterBranchJVDto {
 export class OutstandingInvoiceDto {
   VoucherTransactionSid: number;
   VoucherHeaderSid: number;
+  VoucherDetailSid: number;
   VoucherNumber: string;
   VoucherDate: string;
+  VoucherTypeMasterSid: number;
   VoucherType: string | number;
-  LedgerMasterSid: number;
+  LedgerMasterSid: number | null;
+  COAMasterSid : number | null;
   CustomerName: string;
   OriginalAmount: number;
   OriginalCurrencyAmount: number;

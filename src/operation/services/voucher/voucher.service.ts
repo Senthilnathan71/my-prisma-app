@@ -2071,6 +2071,7 @@ export class VoucherService {
                     Status : 'A',
                     CompanyMasterSid : payload.CompanyMasterSid,
                     BranchMasterSid : payload.BranchMasterSid,
+                    VoucherHeaderSid : payload.VoucherHeaderSid,
                     VoucherMatchingNo : newNumber,
                     VoucherMatchingDate : payload.PostDate,
                     Narration : payload.Narration,
@@ -2087,15 +2088,15 @@ export class VoucherService {
                     CompanyMasterSid : payload.CompanyMasterSid,
                     BranchMasterSid : payload.BranchMasterSid,
                     VoucherMatchingHeaderSid : createdVoucherHeader.VoucherMatchingHeaderSid,
-                    VoucherHeaderSid : partyDetail.VoucherHeaderSid,
+                    VoucherHeaderSid : payload.VoucherHeaderSid,
                     VoucherDetailSid : partyDetail.VoucherDetailSid,
                     VoucherTransactionSid : partyDetail.VoucherTransactionSid!,
-                    MatchingTransactionSid : payload.VoucherHeaderSid, // receiptId,
+                    MatchingTransactionSid : partyDetail.VoucherTransactionSid, // receiptId,
                     VoucherMatchingDate : payload.PostDate,
                     VoucherType : payload.VoucherTypeMasterSid,
                     Sno : partyDetail.Sno,
                     COAMasterSid : partyDetail.COAMasterSid,
-                    // LedgerMasterSid : partyDetail.LedgerMasterSid!,
+                    LedgerMasterSid : partyDetail.LedgerMasterSid!,
                     CurrencyCode : partyDetail.CurrencyCode,
                     ExchangeRate : partyDetail.ExchangeRate,
                     DrCr : partyDetail.DrCr! || getPartyDrCr(payload.voucherTypeInName)!,
@@ -2107,6 +2108,7 @@ export class VoucherService {
             allMatchingDetails.push(partyMatchingDetail);
 
             const matchings = payload.voucherMatching;
+            let index = 1;
             for (const matching of matchings) {
                 const matchingDetail = await prisma.voucherMatching.create({
                     data: {
@@ -2118,15 +2120,15 @@ export class VoucherService {
                         VoucherHeaderSid: matching.VoucherHeaderSid,
                         VoucherDetailSid: matching.VoucherDetailSid,
                         VoucherTransactionSid: matching.VoucherTransactionSid,
-                        MatchingTransactionSid: matching.MatchingTransactionSid,
-                        VoucherMatchingDate: matching.VoucherMatchingDate,
+                        MatchingTransactionSid: null,
+                        VoucherMatchingDate: payload.PostDate,
                         VoucherType: matching.VoucherType,
-                        Sno: matching.Sno,
+                        Sno: index++,
                         COAMasterSid: matching.COAMasterSid,
-                        // LedgerMasterSid: matching.LedgerMasterSid,
+                        LedgerMasterSid: matching.LedgerMasterSid,
                         CurrencyCode: matching.CurrencyCode,
                         ExchangeRate: matching.ExchangeRate,
-                        DrCr: matching.DrCr,
+                        DrCr: String(matching.DrCr).charAt(0),
                         Amount: matching.Amount,
                         LocalAmount: matching.LocalAmount,
                         MatchingType: 'Object'
