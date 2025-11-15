@@ -52,14 +52,38 @@ export class CustomerOutstandingTransactionDto {
   @ApiProperty({ description: 'Voucher Transaction Sid', example: 100 })
   voucherTransactionSid: number;
 
+  @ApiProperty({ description: 'Voucher Header Sid', example: 100 })
+  voucherHeaderSid: number;
+
+  @ApiProperty({ description: 'Voucher Detail Sid', example: 100 })
+  voucherDetailSid: number;
+
   @ApiProperty({ description: 'Voucher Number', example: 'INV/2024/001' })
   voucherNumber: string;
 
   @ApiProperty({ description: 'Voucher Date' })
   voucherDate: Date;
 
+  @ApiProperty({ description: 'Voucher Type Master Sid', example: 1 })
+  voucherTypeMasterSid: number;
+
   @ApiProperty({ description: 'Voucher Type', example: 1 })
   voucherType: string;
+
+  @ApiProperty({ description: 'Ledger Master Sid', example: 1 })
+  ledgerMasterSid?: number;
+
+  @ApiProperty({ description: 'COA Master Sid', example: 1 })
+  coaMasterSid?: number;
+
+  @ApiProperty({ description: 'Dr/Cr', example: 'D' })
+  DrCr?: string;
+
+  @ApiProperty({ description: 'CurrencyCode', example: "INR" })
+  CurrencyCode?: string;
+
+  @ApiProperty({ description: 'Exchange Rate', example: 1.2 })
+  ExchangeRate?: number;
 
   @ApiProperty({ description: 'Original amount in transaction currency', example: 10000.00 })
   originalCurrencyAmount: number;

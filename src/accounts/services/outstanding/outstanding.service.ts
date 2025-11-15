@@ -166,7 +166,8 @@ export class OutstandingService {
           ],
           voucherTypeMaster : {
             DocumentTypeName : {not : 'Receipt'}
-          }
+          },
+          VoucherHeader : { PostStatus : 'P'}
           /**
            * UPDATE:
            * Voucher Reversal also follows the same logic.
@@ -241,8 +242,13 @@ export class OutstandingService {
         if (Math.abs(outstandingCurrencyAmount) > 0 || Math.abs(outstandingLocalAmount) > 0) {
           transactions.push({
             voucherTransactionSid: vt.VoucherTransactionSid,
+            voucherHeaderSid: vt.VoucherHeaderSid,
+            voucherDetailSid: vt.VoucherDetailSid,
             voucherNumber: vt.VoucherNumber,
             voucherDate: vt.VoucherDate,
+            voucherTypeMasterSid: vt.VoucherTypeMasterSid,
+            ledgerMasterSid: vt.LedgerMasterSid!,
+            coaMasterSid: vt.COAMasterSid!,
             voucherType: vt.voucherTypeMaster?.DocumentTypeName,
             originalCurrencyAmount: this.toNumber(originalCurrencyAmount),
             originalLocalAmount: this.toNumber(originalLocalAmount),
