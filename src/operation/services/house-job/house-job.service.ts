@@ -34,8 +34,21 @@ export class HouseJobService {
                         where:{
                             Status:'A'
                         }
-                    },
-                    masterJob: true,
+                    },                    
+                    masterJob:  {
+                        
+                        where:{Status : 'A',
+                       
+                        },
+                        select:{
+                            containers:true,
+                            MasterJobSid:true,
+                            others:true
+                        },
+                       
+                    } 
+                    
+                    
                 }
             })
             if(!ourHouseJob){
@@ -302,7 +315,7 @@ export class HouseJobService {
                                 RecdPack: product.RecdPack || '',
                                 CargoRecDate: product.CargoRecDate ? new Date(product.CargoRecDate) : null,
                                 CFS: product.CFS || '',
-                                createdBy: payload.update,
+                                createdBy: payload.updatedBy,
                                 status: product.status ? String(product.status).charAt(0) : 'A',
                                 Height: product.Height || 0,
                                 Volumetric: Number(product.Volumetric) || 0,
@@ -420,6 +433,9 @@ export class HouseJobService {
                         SwitchBLConsignee: otherPayload.SwitchBLConsignee || '',
                         SwitchBLShipper: otherPayload.SwitchBLShipper || '',
                         SwitchLocation: otherPayload.SwitchLocation || '',
+                        Depo: otherPayload.Depo,
+                        DONo: otherPayload.DONo || '', 
+                        DODate: otherPayload.DoDate ? new Date(otherPayload.DODate) : null,
                         status: 'A',
                         updatedBy: payload.updatedBy || null,
                     }
@@ -446,7 +462,7 @@ export class HouseJobService {
                         DeliveryPlace: otherPayload.DeliveryPlace || '',
                         DeliveryDate: otherPayload.DeliveryDate || "",
                         DeliveryAddress: otherPayload.DeliveryAddress || '',
-                        CargoCurrency: otherPayload.CargoCurrency || '',
+                        CargoCurrency: otherPayload.CargoCurrency ,
                         CargoValue: Number(otherPayload.CargoValue) || 0,
                         DeliveryMode: otherPayload.DeliveryMode || '',
                         ExternalRemarks: otherPayload.ExternalRemarks || '',
@@ -468,6 +484,9 @@ export class HouseJobService {
                         SwitchBLConsignee: otherPayload.SwitchBLConsignee || '',
                         SwitchBLShipper: otherPayload.SwitchBLShipper || '',
                         SwitchLocation: otherPayload.SwitchLocation || '',
+                        Depo: otherPayload.Depo,
+                        DONo: otherPayload.DONo || '', 
+                        DODate: otherPayload.DoDate ? new Date(otherPayload.DODate) : null,
                         status: 'A',
                         createdBy: payload.updatedBy || null,
                     }
