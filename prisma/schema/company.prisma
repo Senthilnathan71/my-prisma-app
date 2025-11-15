@@ -184,7 +184,6 @@ model BranchMaster {
   followup                   Followup[]
   hawbStock                  HawbStock[]
   houseJob                   HouseJob[]
-  houseJobBOE                HouseJobBOE[]
   HouseJobCargo              HouseJobCargo[]
   MasterJob                  MasterJob[]
   MawbStock                  MawbStock[]
@@ -3006,6 +3005,7 @@ model VoucherHeader {
   masterJob                 MasterJob?           @relation(fields: [MasterJobSid], references: [MasterJobSid])
   subledgerMaster           SubledgerMaster      @relation(fields: [PartyMasterSid], references: [SubledgerMasterSid])
   voucherTypeMaster         VoucherTypeMaster    @relation(fields: [VoucherTypeMasterSid], references: [VoucherTypeMasterSid])
+  voucherMatchingHeader     VoucherMatchingHeader[]
   voucherMatchings          VoucherMatching[]
   VoucherOthers             VoucherOthers[]
   VoucherTDS                VoucherTDS[]
@@ -3183,6 +3183,7 @@ model VoucherMatchingHeader {
   Status                   String            @default("A") @db.Char(1)
   CompanyMasterSid         Int
   BranchMasterSid          Int
+  VoucherHeaderSid         Int?
   VoucherMatchingNo        String            @db.VarChar(20)
   VoucherMatchingDate      DateTime
   Narration                String?           @db.VarChar(100)
@@ -3190,6 +3191,7 @@ model VoucherMatchingHeader {
   voucherMatchings         VoucherMatching[]
   branch                   BranchMaster      @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
   company                  CompanyMaster     @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+  voucherHeader            VoucherHeader?    @relation(fields: [VoucherHeaderSid], references: [VoucherHeaderSid])
 }
 
 model VoucherMatching {
@@ -3410,8 +3412,6 @@ model HouseJobBOE {
   // Relations
   houseJob                    HouseJob      @relation(fields: [HouseJobSid], references: [HouseJobSid])
   companyMaster               CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
-  branchMaster                BranchMaster? @relation(fields: [branchMasterBranchMasterSid], references: [BranchMasterSid])
-  branchMasterBranchMasterSid Int?
 
   @@index([Status])
   @@index([HouseJobSid])
