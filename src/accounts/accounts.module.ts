@@ -11,6 +11,8 @@ import { ReceiptController } from './controllers/receipt/receipt.controller';
 import { ReceiptService } from './services/receipt/receipt.service';
 import { VoucherPostingController } from './controllers/voucher-posting/voucher-posting.controller';
 import { VoucherPostingService } from './services/voucher-posting/voucher-posting.service';
+import { JournalVoucherController } from './controllers/journal-voucher/journal-voucher.controller';
+import { JournalVoucherService } from './services/journal-voucher/journal-voucher.service';
 import { GlobalConfigService } from 'src/common/config/master-config.service';
 
 @Module({
@@ -20,7 +22,8 @@ import { GlobalConfigService } from 'src/common/config/master-config.service';
         SubledgermasterController,
         OutstandingController,
         ReceiptController,
-        VoucherPostingController
+        VoucherPostingController,
+        JournalVoucherController
     ],
     providers: [
         GlobalConfigService,
@@ -30,6 +33,7 @@ import { GlobalConfigService } from 'src/common/config/master-config.service';
         OutstandingService,
         ReceiptService,
         VoucherPostingService,
+        JournalVoucherService,
         Logger
     ]
 })
