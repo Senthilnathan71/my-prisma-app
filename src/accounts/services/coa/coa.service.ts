@@ -547,4 +547,59 @@ export class CoaService {
             throw error;
         }
     }
+
+    /**
+     * Get all distinct Groups by Company for Trial Balance
+     */
+    async getGroupsByCompany(CompanyMasterSid: number) {
+        try {
+            const groups = await this._db.cOAMaster.findMany({
+                where: {
+                    LedgerCategory: 'Group',
+                    Status: 'A',
+                    CompanyMasterSid: CompanyMasterSid
+                },
+                distinct: ['GroupName'],
+                select: {
+                    GroupName: true
+                },
+                orderBy: {
+                    GroupName: 'asc'
+                }
+            });
+
+            return groups.map(group => ({ GroupName: group.GroupName }))
+                .filter(item => item.GroupName && item.GroupName.trim() !== '');
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    /**
+     * Get all distinct SubGroups by Company for Trial Balance
+     */
+    async getSubGroupsByCompany(CompanyMasterSid: number) {
+        try {
+            const subgroups = await this._db.cOAMaster.findMany({
+                where: {
+                    LedgerCategory: 'Sub Group',
+                    Status: 'A',
+                    CompanyMasterSid: CompanyMasterSid,
+                    SubGroupName: { not: null }
+                },
+                distinct: ['SubGroupName'],
+                select: {
+                    SubGroupName: true
+                },
+                orderBy: {
+                    SubGroupName: 'asc'
+                }
+            });
+
+            return subgroups.map(sg => ({ SubGroupName: sg.SubGroupName }))
+                .filter(item => item.SubGroupName && item.SubGroupName.trim() !== '');
+        } catch (error) {
+            throw error;
+        }
+    }
 }

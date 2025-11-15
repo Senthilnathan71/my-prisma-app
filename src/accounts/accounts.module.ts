@@ -13,6 +13,8 @@ import { VoucherPostingController } from './controllers/voucher-posting/voucher-
 import { VoucherPostingService } from './services/voucher-posting/voucher-posting.service';
 import { JournalVoucherController } from './controllers/journal-voucher/journal-voucher.controller';
 import { JournalVoucherService } from './services/journal-voucher/journal-voucher.service';
+import { TrialBalanceController } from './controllers/trial-balance/trial-balance.controller';
+import { TrialBalanceService } from './services/trial-balance/trial-balance.service';
 import { GlobalConfigService } from 'src/common/config/master-config.service';
 
 @Module({
@@ -23,7 +25,8 @@ import { GlobalConfigService } from 'src/common/config/master-config.service';
         OutstandingController,
         ReceiptController,
         VoucherPostingController,
-        JournalVoucherController
+        JournalVoucherController,
+        TrialBalanceController
     ],
     providers: [
         GlobalConfigService,
@@ -34,6 +37,7 @@ import { GlobalConfigService } from 'src/common/config/master-config.service';
         ReceiptService,
         VoucherPostingService,
         JournalVoucherService,
+        TrialBalanceService,
         Logger
     ]
 })

@@ -379,4 +379,56 @@ export class CoaController {
         }
         return resp;
     }
+
+    @ApiOperation({ summary: 'Get All Groups by Company' })
+    @ApiCreatedResponse({
+        description: 'Get All Groups by Company',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Post('groups-by-company')
+    async getGroupsByCompany(@Body() body: CompanyIdDto) {
+        let resp = new ResponseData();
+        try {
+            let res = await this.coaService.getGroupsByCompany(body.CompanyMasterSid);
+            this.logger.log(`Groups by Company Fetched : ${JSON.stringify(res)}`);
+            resp.data = res;
+            resp.message = "Groups are successfully fetched";
+        } catch (error) {
+            this.logger.warn(`Get Groups Error : ${JSON.stringify(error), error}`);
+            resp.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                resp.message = error.message;
+            } else {
+                resp.message = "Internal Server Error";
+            }
+        }
+        return resp;
+    }
+
+    @ApiOperation({ summary: 'Get All SubGroups by Company' })
+    @ApiCreatedResponse({
+        description: 'Get All SubGroups by Company',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Post('subgroups-by-company')
+    async getSubGroupsByCompany(@Body() body: CompanyIdDto) {
+        let resp = new ResponseData();
+        try {
+            let res = await this.coaService.getSubGroupsByCompany(body.CompanyMasterSid);
+            this.logger.log(`SubGroups by Company Fetched : ${JSON.stringify(res)}`);
+            resp.data = res;
+            resp.message = "SubGroups are successfully fetched";
+        } catch (error) {
+            this.logger.warn(`Get SubGroups Error : ${JSON.stringify(error), error}`);
+            resp.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                resp.message = error.message;
+            } else {
+                resp.message = "Internal Server Error";
+            }
+        }
+        return resp;
+    }
 }

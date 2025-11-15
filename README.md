@@ -24,7 +24,17 @@
 
 ## Description
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+CRM Mobile API - NestJS-based backend for Freight Forwarding Management System.
+
+This API provides comprehensive business logic for freight forwarding operations including:
+- **CRM Management**: Leads, enquiries, quotations, and customer management
+- **Master Data**: Ports, vessels, charges, currencies, and configuration
+- **Accounts Module**: Financial operations, vouchers, and chart of accounts
+  - **Journal Voucher**: Multi-currency accounting entries with multi-country tax support
+  - **Payment/Receipt Vouchers**: Payment and receipt processing
+  - **Voucher Posting**: Centralized posting to general ledger
+- **Booking & Operations**: Booking management, shipment tracking
+- **Multi-tenant**: Company and branch-level data isolation
 
 ## Project setup
 
@@ -57,6 +67,51 @@ $ npm run test:e2e
 # test coverage
 $ npm run test:cov
 ```
+
+## Database
+
+This project uses PostgreSQL with Prisma ORM.
+
+```bash
+# Generate Prisma client
+$ npx prisma generate
+
+# Run database migrations
+$ npx prisma migrate dev
+
+# Push schema changes (development)
+$ npx prisma db push
+
+# Seed master data
+$ npm run seed
+```
+
+## Key Features
+
+### Journal Voucher Management
+Complete accounting voucher entry system with:
+- ✅ Multi-currency support with automatic exchange rate fetching
+- ✅ Multi-country tax calculation (India: CGST/SGST/IGST, UAE: VAT)
+- ✅ Draft and Post workflow with immutable posted records
+- ✅ Real-time debit/credit balance validation
+- ✅ Company/Branch multi-tenant isolation
+- ✅ Financial year validation
+- ✅ Cost/Profit center allocation
+- ✅ Master/House job references
+
+**API Endpoints:**
+- `POST /accounts/journal-voucher` - Create journal voucher
+- `GET /accounts/journal-voucher/list` - List with pagination and filters
+- `GET /accounts/journal-voucher/:id` - Get by ID
+- `PUT /accounts/journal-voucher/:id` - Update (unposted only)
+- `DELETE /accounts/journal-voucher/:id` - Delete (unposted only)
+- `POST /accounts/journal-voucher/:id/validate` - Validate before posting
+- `POST /accounts/journal-voucher/:id/post` - Post to general ledger
+
+**Developer Guide:** See `../JOURNAL_VOUCHER_DEVELOPER_GUIDE.md` for comprehensive documentation.
+
+### API Documentation
+Swagger documentation available at: `http://localhost:3000/api`
 
 ## Deployment
 
