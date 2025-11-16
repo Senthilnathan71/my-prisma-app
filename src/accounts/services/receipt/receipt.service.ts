@@ -141,7 +141,7 @@ export class ReceiptService {
       const outstandingAmount = Number(txn.Amount) - matchedAmount;
 
       // Skip fully paid if not requested
-      if (!searchDto.IncludeFullyPaid && Math.abs(outstandingAmount) < 0) {
+      if (!searchDto.IncludeFullyPaid && Math.abs(outstandingAmount) <= 0) {
         continue;
       }
 
@@ -167,7 +167,7 @@ export class ReceiptService {
       });
     }
 
-    return results;
+    return results.filter(r => (r.OutstandingAmount > 0 || r.OutstandingCurrencyAmount > 0));
   }
 
   /**
