@@ -84,9 +84,7 @@ export class ReceiptController {
     } catch (error) {
       resp.status = false;
       this.logger.warn(`Error creating receipt: ${JSON.stringify(error),error}`);
-      if(error instanceof PrismaClientValidationError){
-        resp.message = error.message
-      } else if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+      if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
         resp.message = (error as any).message || 'Bad request';
       } else {
         resp.message = 'Internal Server Error';

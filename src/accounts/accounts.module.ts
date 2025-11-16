@@ -16,6 +16,7 @@ import { JournalVoucherService } from './services/journal-voucher/journal-vouche
 import { TrialBalanceController } from './controllers/trial-balance/trial-balance.controller';
 import { TrialBalanceService } from './services/trial-balance/trial-balance.service';
 import { GlobalConfigService } from 'src/common/config/master-config.service';
+import { VoucherService } from 'src/operation/services/voucher/voucher.service';
 
 @Module({
     controllers: [
@@ -38,7 +39,8 @@ import { GlobalConfigService } from 'src/common/config/master-config.service';
         VoucherPostingService,
         JournalVoucherService,
         TrialBalanceService,
-        Logger
+        Logger,
+        VoucherService
     ]
 })
 export class AccountsModule { }

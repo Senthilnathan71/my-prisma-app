@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, HttpCode, HttpStatus, Logger, Post, UnauthorizedException } from "@nestjs/common";
+import { BadRequestException, Body, Controller, Delete, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Post, UnauthorizedException } from "@nestjs/common";
 import { ApiCreatedResponse, ApiOperation } from "@nestjs/swagger";
 import { ResponseData } from "src/common/response-data";
 import { VoucherService } from "src/operation/services/voucher/voucher.service";
@@ -199,4 +199,34 @@ export class VoucherController {
         return output;
     }
 
+
+    @ApiOperation({ summary : 'Delete Voucher Detail By VoucherDetailSid'})
+    @ApiCreatedResponse({
+        description: 'Voucher Detail has been deleted successfully',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Delete('delete-detail/:id')
+    async deleteVoucherDetail(@Param('id', ParseIntPipe) VoucherDetailSid: number) {
+        let output = new ResponseData();
+        this.logger.log(`deleteVoucherDetail request body: ${JSON.stringify(VoucherDetailSid)}`);
+        try {
+            if(!VoucherDetailSid){
+                throw new BadRequestException('Voucher Detail SID is required');
+            }
+            const result = await this.voucherService.softDeleteVoucherDetail(VoucherDetailSid);
+            this.logger.debug(`deleteVoucherDetail result: ${JSON.stringify(result)}`);
+            output.data = result;
+            output.message = "Voucher Detail has been deleted successfully";
+        } catch (error) {
+            this.logger.warn(`deleteVoucherDetail error: ${JSON.stringify(error), error}`);
+            output.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                output.message = error.message;
+            } else {
+                output.message = error;
+            }
+        }
+        return output;
+    }
 }
