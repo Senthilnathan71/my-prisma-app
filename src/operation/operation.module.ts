@@ -41,6 +41,7 @@ import { DocVendorInvoiceController } from './controllers/document/doc-vendorinv
 import { BoeController } from './controllers/boe/boe.controller';
 import { BoeService } from './services/boe/boe.service';
 import { VendorCreditNoteService } from './services/vendor-credit-note/vendor-credit-note.service';
+import { VendorCreditNoteController } from './controllers/vendor-credit-note/vendor-credit-note.controller';
 
 @Module({
         providers: [
@@ -89,7 +90,7 @@ import { VendorCreditNoteService } from './services/vendor-credit-note/vendor-cr
                 CreditNoteController,
                 DocVendorInvoiceController,
                 BoeController,
-                VendorInvoiceController
+                VendorCreditNoteController
         ]
 })
 export class OperationModule { }
