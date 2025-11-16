@@ -41,9 +41,10 @@ export class HouseJobService {
                        
                         },
                         select:{
-                            containers:true,
                             MasterJobSid:true,
-                            others:true
+                            NoofOriginal:true,
+                            containers:true,
+                            others:true,
                         },
                        
                     } 
