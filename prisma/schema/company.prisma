@@ -66,6 +66,8 @@ model CompanyMaster {
   followup                   Followup[]
   hawbStock                  HawbStock[]
   houseJob                   HouseJob[]
+  houseJobCustoms            HouseJobCustoms[]
+  houseJobVehicle            HouseJobVehicle[]
   houseJobBOE                HouseJobBOE[]
   HouseJobCargo              HouseJobCargo[]
   MasterJob                  MasterJob[]
@@ -2740,7 +2742,10 @@ model HouseJob {
   quotationHeader            QuoteHeader?                 @relation(fields: [QuotationHeaderSid], references: [QuoteHeaderSid])
   portMaster                 PortMaster?                  @relation(fields: [TsPortSid], references: [PortMasterSid])
   voyageMasterHeader         VoyageMasterHeader?          @relation(fields: [VoyageMasterSid], references: [VoyageMasterHeaderSid])
+
   houseJobBOE                HouseJobBOE[]
+  houseJobCustoms            HouseJobCustoms[]
+  houseJobVehicle            HouseJobVehicle[]
   Cargo                      HouseJobCargo[]
   Connections                HouseJobConnection[]
   Others                     HouseJobOthers[]
@@ -3420,6 +3425,80 @@ model HouseJobBOE {
   @@index([Status])
   @@index([HouseJobSid])
 }
+
+
+model HouseJobVehicle {
+  HouseJobVehicleSid Int      @id @default(autoincrement())  @map("HouseJobVehicleSid")
+  CreatedOn          DateTime @default(now())
+  CreatedBy          String   @db.VarChar(100)
+  UpdatedOn          DateTime @default(now())
+  UpdatedBy          String?  @db.VarChar(100)
+  Status             String   @db.Char(1) @default("A")
+  CompanyMasterSid   Int
+  HouseJobSid        Int
+
+  VehicleIndicator   String?  @db.Char(1) // V,E,X
+  UsedNew            String?  @db.Char(1) // U,N
+  ChassisNo          String?  @db.VarChar(24)
+  CaseNo             String?  @db.VarChar(24)
+  Make               String?  @db.VarChar(20)
+  Model              String?  @db.VarChar(20)
+  EngineNo           String?  @db.VarChar(30)
+  YearBuilt          String?  @db.VarChar(4)
+  Color              String?  @db.VarChar(16)
+  Rolling            String?  @db.Char(1) // R,S
+  GoodsDescription   String?  @db.VarChar(200)
+  Weight             Decimal? @db.Decimal(9, 3)
+  Volume             Decimal? @db.Decimal(9, 3)
+  Remarks            String?  @db.VarChar(200)
+
+  // RELATIONS
+  houseJob      HouseJob       @relation(fields: [HouseJobSid], references: [HouseJobSid])
+  companyMaster CompanyMaster  @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+}
+
+
+model HouseJobCustoms {
+  HouseJobCustomsSid Int      @id @default(autoincrement())  @map("HouseJobCustomsSid")
+  CreatedOn          DateTime @default(now())
+  CreatedBy          String   @db.VarChar(100)
+  UpdatedOn          DateTime @default(now())
+  UpdatedBy          String?  @db.VarChar(100)
+  Status             String   @db.Char(1) @default("A")
+  CompanyMasterSid   Int
+  HouseJobSid        Int
+
+  LineCode           String   @db.VarChar(6)
+  VoyageAgentCode    String   @db.VarChar(6)
+  RotationNumber     String   @db.VarChar(6)
+  ManifestSequence   String   @db.VarChar(5)
+  CargoCode          String   @db.Char(1)
+  StorageRequest     String?  @db.Char(1)
+  PackageTypeCode    String   @db.Char(3)
+  FreightTonne       Decimal? @db.Decimal(9, 3)
+  NoOfPallets        Decimal? @db.Decimal(4,0)
+  SLACIndicator      String?  @db.Char(1)
+  ImporterCode       String   @db.VarChar(5)
+
+  SerialNumber       Decimal  @db.Decimal(6,0)
+  UsedOrNew          String?  @db.Char(1)
+  UNHSCode           String   @db.VarChar(10)
+  UNNumber           String?  @db.VarChar(5)
+  FlashPoints        Decimal? @db.Decimal(4, 1)
+  TemperatureUnit    String?  @db.Char(1)
+  HazStorageRequest  String?  @db.Char(1)
+  RefrigerationRequired String? @db.Char(1)
+  MinTemperature     Decimal? @db.Decimal(4, 1)
+  MaxTemperature     Decimal? @db.Decimal(4, 1)
+  RefTemperatureUnit String?  @db.Char(1)
+
+  // RELATIONS
+  houseJob      HouseJob      @relation(fields: [HouseJobSid], references: [HouseJobSid])
+  companyMaster CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+
+}
+
+
 
 enum ApprovalStatus {
   Pending

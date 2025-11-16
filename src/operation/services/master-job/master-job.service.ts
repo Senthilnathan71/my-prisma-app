@@ -1898,7 +1898,7 @@ export class MasterJobService {
 
             return logs;
         } catch (error) {
-            this.logger.warn(`getAuditLogsError: ${error}`);
+            this.logger.warn(`getAuditLogsError: ${error}`);    
             throw new Error(`Error fetching audit logs: ${error.message}`);
         }
     }
