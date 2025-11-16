@@ -752,6 +752,7 @@ export class MasterJobService {
                         masterJobConnection: { where: { Status: 'A' } },
                         containers: { where: { Status: 'A' } },
                         others: { where: { Status: 'A' } },
+                        houseJob:{ where :{ status: 'A'}}
                     }
                 })
                 const allShipments = await prisma.houseJob.findMany({
@@ -1897,7 +1898,7 @@ export class MasterJobService {
 
             return logs;
         } catch (error) {
-            this.logger.warn(`getAuditLogsError: ${error}`);
+            this.logger.warn(`getAuditLogsError: ${error}`);    
             throw new Error(`Error fetching audit logs: ${error.message}`);
         }
     }

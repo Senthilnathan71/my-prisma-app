@@ -34,6 +34,16 @@ export class HouseJobService {
                         where:{
                             Status:'A'
                         }
+                    }, 
+                     houseJobVehicle:{
+                        where:{
+                            Status:'A'
+                        }
+                    }, 
+                     houseJobCustoms:{
+                        where:{
+                            Status:'A'
+                        }
                     },                    
                     masterJob:  {
                         
@@ -41,9 +51,10 @@ export class HouseJobService {
                        
                         },
                         select:{
-                            containers:true,
                             MasterJobSid:true,
-                            others:true
+                            NoofOriginal:true,
+                            containers:true,
+                            others:true,
                         },
                        
                     } 

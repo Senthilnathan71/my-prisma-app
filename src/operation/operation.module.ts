@@ -41,6 +41,11 @@ import { DocVendorInvoiceController } from './controllers/document/doc-vendorinv
 import { BoeController } from './controllers/boe/boe.controller';
 import { BoeService } from './services/boe/boe.service';
 import { VendorCreditNoteService } from './services/vendor-credit-note/vendor-credit-note.service';
+import { VendorCreditNoteController } from './controllers/vendor-credit-note/vendor-credit-note.controller';
+import { VehicleController } from './controllers/vehicle/vehicle.controller';
+import { CustomsController } from './controllers/customs/customs.controller';
+import { VehicleService } from './services/vehicle/vehicle.service';
+import { CustomsService } from './services/customs/customs.service';
 
 @Module({
         providers: [
@@ -68,7 +73,9 @@ import { VendorCreditNoteService } from './services/vendor-credit-note/vendor-cr
                 CreditNoteService,
                 DocVendorInvoiceService,
                 BoeService,
-                VendorCreditNoteService
+                VendorCreditNoteService,
+                VehicleService,
+                CustomsService
         ],
         controllers: [
                 BookingController,
@@ -89,7 +96,9 @@ import { VendorCreditNoteService } from './services/vendor-credit-note/vendor-cr
                 CreditNoteController,
                 DocVendorInvoiceController,
                 BoeController,
-                VendorInvoiceController
+                VendorCreditNoteController,
+                VehicleController,
+                CustomsController
         ]
 })
 export class OperationModule { }
