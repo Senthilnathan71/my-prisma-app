@@ -11,6 +11,10 @@ import { ReceiptController } from './controllers/receipt/receipt.controller';
 import { ReceiptService } from './services/receipt/receipt.service';
 import { VoucherPostingController } from './controllers/voucher-posting/voucher-posting.controller';
 import { VoucherPostingService } from './services/voucher-posting/voucher-posting.service';
+import { JournalVoucherController } from './controllers/journal-voucher/journal-voucher.controller';
+import { JournalVoucherService } from './services/journal-voucher/journal-voucher.service';
+import { TrialBalanceController } from './controllers/trial-balance/trial-balance.controller';
+import { TrialBalanceService } from './services/trial-balance/trial-balance.service';
 import { GlobalConfigService } from 'src/common/config/master-config.service';
 import { VoucherService } from 'src/operation/services/voucher/voucher.service';
 
@@ -21,7 +25,9 @@ import { VoucherService } from 'src/operation/services/voucher/voucher.service';
         SubledgermasterController,
         OutstandingController,
         ReceiptController,
-        VoucherPostingController
+        VoucherPostingController,
+        JournalVoucherController,
+        TrialBalanceController
     ],
     providers: [
         GlobalConfigService,
@@ -31,6 +37,8 @@ import { VoucherService } from 'src/operation/services/voucher/voucher.service';
         OutstandingService,
         ReceiptService,
         VoucherPostingService,
+        JournalVoucherService,
+        TrialBalanceService,
         Logger,
         VoucherService
     ]

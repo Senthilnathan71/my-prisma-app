@@ -2278,7 +2278,7 @@ model TaxGroup {
   hssacMaster     HSSACMaster[]
   taxMaster       TaxMaster[]
   ChargeTaxMaster ChargeTaxMaster[]
-
+  subledgerMaster SubledgerMaster[]
   @@index([Status])
 }
 
@@ -2346,7 +2346,7 @@ model SubledgerMaster {
   SubledgerMasterSid  Int                  @id @default(autoincrement()) @map("SubledgerMasterSid")
   SubledgerName       String               @db.VarChar(1000)
   SubledgerType       String               @default("Customer") @db.VarChar(20)
-  SubledgerMappingSid Int?
+  SubledgerMappingSid Int?                  // Store Primary Key here ie. TaxMasterSid,ChargeMasterSid etc
   COAMasterSid        Int?
   CreatedOn           DateTime             @default(now())
   CreatedBy           String               @db.VarChar(100)
@@ -2355,6 +2355,9 @@ model SubledgerMaster {
   deletedAt           DateTime?
   Remarks             String?              @db.VarChar(100)
   Status              String               @default("A") @db.VarChar(10)
+  TaxGroup            Int?
+  TaxCode             String?              @db.VarChar(10)
+  TaxType             String?              @db.VarChar(6)     // For Input / Output
   AccrualCOAMasterSid Int?
   CrCOAMasterSid      Int?
   DrCOAMasterSid      Int?
@@ -2366,6 +2369,7 @@ model SubledgerMaster {
   CoaMasterCr         COAMaster?           @relation("Creditor", fields: [CrCOAMasterSid], references: [COAMasterSid])
   departmentMaster    DepartmentMaster?    @relation(fields: [DepartmentMasterSid], references: [DepartmentMasterSid])
   CoaMasterDb         COAMaster?           @relation("Debtor", fields: [DrCOAMasterSid], references: [COAMasterSid])
+  taxGroup            TaxGroup?            @relation(fields: [TaxGroup], references: [TaxGroupSid])
   VoucherDetail       VoucherDetail[]
   VoucherHeader       VoucherHeader[]
   voucherMatching     VoucherMatching[]
