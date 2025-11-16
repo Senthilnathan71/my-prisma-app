@@ -14,6 +14,7 @@ import { VoucherPostingService } from './services/voucher-posting/voucher-postin
 import { JournalVoucherController } from './controllers/journal-voucher/journal-voucher.controller';
 import { JournalVoucherService } from './services/journal-voucher/journal-voucher.service';
 import { GlobalConfigService } from 'src/common/config/master-config.service';
+import { VoucherService } from 'src/operation/services/voucher/voucher.service';
 
 @Module({
     controllers: [
@@ -34,7 +35,8 @@ import { GlobalConfigService } from 'src/common/config/master-config.service';
         ReceiptService,
         VoucherPostingService,
         JournalVoucherService,
-        Logger
+        Logger,
+        VoucherService
     ]
 })
 export class AccountsModule { }

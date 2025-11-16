@@ -60,6 +60,7 @@ model MenuMaster {
   moduleMaster        ModuleMaster               @relation(fields: [ModuleMasterSid], references: [ModuleMasterSid])
   menuPermission      MenuPermission[]
   quoteHeader         QuoteHeader[]
+  refDocument         RefDocument[]
   ReportMaster        ReportMaster[]
   roleMenuMaster      RoleMenuMaster[]
   terms               TermsAndConditionsMaster[]
