@@ -29,12 +29,12 @@ export class TaxService {
         const existing = await this._db.taxMaster.findFirst({
             where: {
                 OR: [
-                    {
-                        TaxCode: {
-                            equals: payload.TaxCode.trim(),
-                            mode: 'insensitive'
-                        }
-                    },
+                    // {
+                    //     TaxCode: {
+                    //         equals: payload.TaxCode.trim(),
+                    //         mode: 'insensitive'
+                    //     }
+                    // },
                     {
                         TaxName: {
                             equals: payload.TaxName.trim(),
@@ -95,10 +95,10 @@ export class TaxService {
                     {
                         OR: [
                             {
-                                TaxCode: {
-                                    equals: payload.TaxCode?.trim(),
-                                    mode: 'insensitive'
-                                }
+                                // TaxCode: {
+                                //     equals: payload.TaxCode?.trim(),
+                                //     mode: 'insensitive'
+                                // }
                             },
                             {
                                 TaxName: {
