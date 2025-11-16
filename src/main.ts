@@ -6,7 +6,9 @@ import { json, urlencoded } from 'express';
 
 async function bootstrap() {
 
-
+  const ENV = process.env.ENVIRONMENT || 'Development';
+  let app;
+  
   //Dont comment this code and commit the code while merge
   // const httpsOptions = {
   //   key: fs.readFileSync('/var/opt/npm-ssl/privkey.pem'),  // Update path
@@ -16,9 +18,36 @@ async function bootstrap() {
 
 
   //Dont comment this code and commit the code while merge
-  const app = await NestFactory.create(AppModule,
-    // { httpsOptions }
-  );
+  // app = await NestFactory.create(AppModule,
+  //   { httpsOptions }
+  // );
+
+  console.log(`🚀 Starting Nest App in ${ENV} mode...`);
+
+  if (ENV === 'Production') {
+    // Path to your SSL certificate files
+    const sslKeyPath = '/var/opt/npm-ssl/privkey.pem';
+    const sslCertPath = '/var/opt/npm-ssl/fullchain.pem';
+
+    // Validate file existence (optional but safe)
+    if (!fs.existsSync(sslKeyPath) || !fs.existsSync(sslCertPath)) {
+      console.error('❌ SSL certificate files missing!');
+      process.exit(1);
+    }
+
+    const httpsOptions = {
+      key: fs.readFileSync(sslKeyPath),
+      cert: fs.readFileSync(sslCertPath),
+    };
+
+    // ---- PRODUCTION HTTPS ----
+    app = await NestFactory.create(AppModule, { httpsOptions });
+    console.log('🔐 HTTPS enabled for production');
+  } else {
+    // ---- DEVELOPMENT HTTP ----
+    app = await NestFactory.create(AppModule);
+    console.log('🌐 HTTP enabled for development');
+  }
 
 
   // Use below for local test
