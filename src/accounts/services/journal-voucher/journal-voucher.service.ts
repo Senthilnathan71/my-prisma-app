@@ -1,763 +1,697 @@
-import {
-  Injectable,
-  NotFoundException,
-  BadRequestException,
-  ConflictException,
+import { 
+  BadRequestException, 
+  Injectable, 
+  InternalServerErrorException, 
+  Logger, 
+  NotFoundException 
 } from '@nestjs/common';
-import { DatabaseService } from '../../../database/database.service';
-import {
-  CreateJournalVoucherDto,
-  UpdateJournalVoucherDto,
-  JournalVoucherListQueryDto,
-  JournalVoucherResponseDto,
-} from '../../dto/journal-voucher.dto';
+import { DatabaseService } from 'src/database/database.service';
+import { VoucherService } from 'src/operation/services/voucher/voucher.service';
 
 @Injectable()
 export class JournalVoucherService {
-  constructor(private readonly databaseService: DatabaseService) {}
-
-  /**
-   * Create a new journal voucher in draft mode
-   */
-  async create(
-    createDto: CreateJournalVoucherDto,
-  ): Promise<JournalVoucherResponseDto> {
-    const {
-      CompanyMasterSid,
-      BranchMasterSid,
-      VoucherDate,
-      Narration,
-      Remarks,
-      Status,
-      details,
-    } = createDto;
-
-    // Validate financial year
-    await this.validateFinancialYear(VoucherDate, CompanyMasterSid);
-
-    // Validate debit/credit balance
-    this.validateDebitCreditBalance(details);
-
-    // Generate voucher number
-    const voucherNumber = await this.generateVoucherNumber(
-      CompanyMasterSid,
-      BranchMasterSid,
-      VoucherDate,
-    );
-
-    // Get voucher type for Journal Voucher
-    const voucherType = await this.getJournalVoucherType(CompanyMasterSid);
-
-    // Calculate totals
-    const { debitTotal, creditTotal, totalAmount, totalLocalAmount } =
-      this.calculateTotals(details);
-
-    // Process tax lines based on company country
-    const processedDetails = await this.processTaxLines(
-      details,
-      CompanyMasterSid,
-      BranchMasterSid,
-    );
-
-    // Create voucher header and details in transaction
-    const result = await this.databaseService.$transaction(async (prisma) => {
-      // Create header
-      const header = await prisma.voucherHeader.create({
-        data: {
-          CompanyMasterSid,
-          BranchMasterSid,
-          VoucherNumber: voucherNumber,
-          VoucherType: voucherType.VoucherTypeMasterSid,
-          VoucherDate: new Date(VoucherDate),
-          PostDate: new Date(VoucherDate), // Default to voucher date
-          VoucherTypeMasterSid: voucherType.VoucherTypeMasterSid,
-          PartyMasterSid: 0, // Required - 0 for journal voucher
-          PartyName: '', // Required field - empty for journal voucher
-          COAMasterSid: 0, // Required - 0 for journal voucher
-          PostStatus: 'U', // Unposted
-          SetoffStatus: 'Draft',
-          Amount: totalAmount,
-          LocalAmount: totalLocalAmount,
-          Narration: Narration || '',
-          Remarks: Remarks || null,
-          Status: Status || 'Active',
-          CreatedBy: '1', // TODO: Get from auth context
-          CreatedOn: new Date(),
-        },
-      });
-
-      // Create details
-      const createdDetails = await Promise.all(
-        processedDetails.map((detail, index) =>
-          prisma.voucherDetail.create({
-            data: {
-              VoucherHeaderSid: header.VoucherHeaderSid,
-              CompanyMasterSid: CompanyMasterSid,
-              BranchMasterSid: BranchMasterSid,
-              Sno: index + 1,
-              COAMasterSid: detail.COAMasterSid,
-              LedgerMasterSid: detail.LedgerMasterSid || null,
-              CurrencyMasterSid: detail.CurrencyMasterSid,
-              CurrencyCode: detail.CurrencyCode || null,
-              ExchangeRate: detail.ExchangeRate,
-              Rate: detail.ExchangeRate, // Same as exchange rate
-              Amount: detail.Amount,
-              TaxableAmount: detail.LocalAmount, // Taxable amount is local amount
-              LocalAmount: detail.LocalAmount,
-              DrCr: detail.DrCr,
-              Narration: detail.Narration || null,
-              DepartmentMasterSid: detail.DepartmentMasterSid || null,
-              ChargeMasterSid: detail.ChargeMasterSid || null,
-              ChargeDescription: detail.ChargeDescription || null,
-              MasterJobSid: detail.MasterJobSid || null,
-              HouseJobSid: detail.HouseJobSid || null,
-              TaxPercentage1: detail.TaxPercentage1 || null,
-              TaxAmount1: detail.TaxAmount1 || null,
-              TaxPercentage2: detail.TaxPercentage2 || null,
-              TaxAmount2: detail.TaxAmount2 || null,
-              CostCenter: detail.CostCenterMasterSid || null,
-              ProfitCenter: detail.ProfitCenterMasterSid || null,
-              Status: 'Active',
-              CreatedBy: '1', // TODO: Get from auth context
-              CreatedOn: new Date(),
-            },
-          }),
-        ),
-      );
-
-      return { header, details: createdDetails };
-    });
-
-    return this.mapToResponseDto(result.header, result.details);
-  }
-
-  /**
-   * Get journal voucher by ID
-   */
-  async findById(id: number, companyMasterSid: number, branchMasterSid: number): Promise<JournalVoucherResponseDto> {
-    const voucher = await this.databaseService.voucherHeader.findFirst({
-      where: {
-        VoucherHeaderSid: id,
-        CompanyMasterSid: companyMasterSid,
-        BranchMasterSid: branchMasterSid,
-      },
-      include: {
-        VoucherDetail: {
-          orderBy: { Sno: 'asc' },
-        },
-        CompanyMaster: true,
-        BranchMaster: true,
-      },
-    });
-
-    if (!voucher) {
-      throw new NotFoundException(`Journal voucher with ID ${id} not found`);
-    }
-
-    return this.mapToResponseDto(voucher, voucher.VoucherDetail);
-  }
-
-  /**
-   * List journal vouchers with pagination and filters
-   */
-  async findAll(query: JournalVoucherListQueryDto) {
-    const {
-      CompanyMasterSid,
-      BranchMasterSid,
-      page = 1,
-      limit = 20,
-      voucherNumber,
-      fromDate,
-      toDate,
-      postStatus,
-      searchTerm,
-    } = query;
-
-    const skip = (page - 1) * limit;
-
-    const where: any = {
-      CompanyMasterSid,
-      BranchMasterSid,
-    };
-
-    if (voucherNumber) {
-      where.VoucherNumber = { contains: voucherNumber };
-    }
-
-    if (fromDate || toDate) {
-      where.VoucherDate = {};
-      if (fromDate) where.VoucherDate.gte = new Date(fromDate);
-      if (toDate) where.VoucherDate.lte = new Date(toDate);
-    }
-
-    if (postStatus) {
-      where.PostStatus = postStatus;
-    }
-
-    if (searchTerm) {
-      where.OR = [
-        { VoucherNumber: { contains: searchTerm } },
-        { Narration: { contains: searchTerm } },
-        { Remarks: { contains: searchTerm } },
-      ];
-    }
-
-    const [vouchers, total] = await Promise.all([
-      this.databaseService.voucherHeader.findMany({
-        where,
-        include: {
-          VoucherDetail: {
-            orderBy: { Sno: 'asc' },
-          },
-        },
-        orderBy: { VoucherDate: 'desc' },
-        skip,
-        take: limit,
-      }),
-      this.databaseService.voucherHeader.count({ where }),
-    ]);
-
-    const data = vouchers.map((v) => this.mapToResponseDto(v, v.VoucherDetail));
-
-    return {
-      data,
-      total,
-      page,
-      limit,
-      totalPages: Math.ceil(total / limit),
-    };
-  }
-
-  /**
-   * Update journal voucher (only unposted vouchers can be updated)
-   */
-  async update(
-    id: number,
-    updateDto: UpdateJournalVoucherDto,
-    companyMasterSid: number,
-    branchMasterSid: number,
-  ): Promise<JournalVoucherResponseDto> {
-    // Check if voucher exists and is unposted
-    const existing = await this.databaseService.voucherHeader.findFirst({
-      where: {
-        VoucherHeaderSid: id,
-        CompanyMasterSid: companyMasterSid,
-        BranchMasterSid: branchMasterSid,
-      },
-      include: { VoucherDetail: true },
-    });
-
-    if (!existing) {
-      throw new NotFoundException(`Journal voucher with ID ${id} not found`);
-    }
-
-    if (existing.PostStatus === 'P') {
-      throw new BadRequestException('Cannot update posted voucher');
-    }
-
-    const { VoucherDate, Narration, Remarks, Status, details } = updateDto;
-
-    // If voucher date is being updated, validate financial year
-    if (VoucherDate) {
-      await this.validateFinancialYear(
-        VoucherDate,
-        existing.CompanyMasterSid,
-      );
-    }
-
-    // If details are being updated, validate balance
-    if (details) {
-      this.validateDebitCreditBalance(details);
-
-      // Process tax lines
-      const processedDetails = await this.processTaxLines(
-        details,
-        existing.CompanyMasterSid,
-        existing.BranchMasterSid,
-      );
-
-      const { debitTotal, creditTotal, totalAmount, totalLocalAmount } =
-        this.calculateTotals(processedDetails);
-
-      // Update in transaction
-      const result = await this.databaseService.$transaction(async (prisma) => {
-        // Delete existing details
-        await prisma.voucherDetail.deleteMany({
-          where: { VoucherHeaderSid: id },
-        });
-
-        // Update header
-        const header = await prisma.voucherHeader.update({
-          where: { VoucherHeaderSid: id },
-          data: {
-            VoucherDate: VoucherDate ? new Date(VoucherDate) : undefined,
-            Narration: Narration !== undefined ? Narration : undefined,
-            Remarks: Remarks !== undefined ? Remarks : undefined,
-            Status: Status !== undefined ? Status : undefined,
-            Amount: totalAmount,
-            LocalAmount: totalLocalAmount,
-            UpdatedBy: '1', // TODO: Get from auth context
-            UpdatedOn: new Date(),
-          },
-        });
-
-        // Create new details
-        const createdDetails = await Promise.all(
-          processedDetails.map((detail, index) =>
-            prisma.voucherDetail.create({
-              data: {
-                VoucherHeaderSid: id,
-                CompanyMasterSid: existing.CompanyMasterSid,
-                BranchMasterSid: existing.BranchMasterSid,
-                Sno: index + 1,
-                COAMasterSid: detail.COAMasterSid,
-                LedgerMasterSid: detail.LedgerMasterSid || null,
-                CurrencyMasterSid: detail.CurrencyMasterSid,
-                CurrencyCode: detail.CurrencyCode || null,
-                ExchangeRate: detail.ExchangeRate,
-                Rate: detail.ExchangeRate, // Same as exchange rate
-                Amount: detail.Amount,
-                TaxableAmount: detail.LocalAmount, // Taxable amount is local amount
-                LocalAmount: detail.LocalAmount,
-                DrCr: detail.DrCr,
-                Narration: detail.Narration || null,
-                DepartmentMasterSid: detail.DepartmentMasterSid || null,
-                ChargeMasterSid: detail.ChargeMasterSid || null,
-                ChargeDescription: detail.ChargeDescription || null,
-                MasterJobSid: detail.MasterJobSid || null,
-                HouseJobSid: detail.HouseJobSid || null,
-                TaxPercentage1: detail.TaxPercentage1 || null,
-                TaxAmount1: detail.TaxAmount1 || null,
-                TaxPercentage2: detail.TaxPercentage2 || null,
-                TaxAmount2: detail.TaxAmount2 || null,
-                CostCenter: detail.CostCenterMasterSid || null,
-                ProfitCenter: detail.ProfitCenterMasterSid || null,
-                Status: 'Active',
-                CreatedBy: '1', // TODO: Get from auth context
-                CreatedOn: new Date(),
-              },
-            }),
-          ),
-        );
-
-        return { header, details: createdDetails };
-      });
-
-      return this.mapToResponseDto(result.header, result.details);
-    } else {
-      // Update header only
-      const header = await this.databaseService.voucherHeader.update({
-        where: { VoucherHeaderSid: id },
-        data: {
-          VoucherDate: VoucherDate ? new Date(VoucherDate) : undefined,
-          Narration: Narration !== undefined ? Narration : undefined,
-          Remarks: Remarks !== undefined ? Remarks : undefined,
-          Status: Status !== undefined ? Status : undefined,
-          UpdatedBy: '1', // TODO: Get from auth context
-          UpdatedOn: new Date(),
-        },
-        include: { VoucherDetail: true },
-      });
-
-      return this.mapToResponseDto(header, header.VoucherDetail);
-    }
-  }
-
-  /**
-   * Delete journal voucher (only unposted vouchers can be deleted)
-   */
-  async delete(id: number, companyMasterSid: number, branchMasterSid: number): Promise<{ message: string }> {
-    const existing = await this.databaseService.voucherHeader.findFirst({
-      where: {
-        VoucherHeaderSid: id,
-        CompanyMasterSid: companyMasterSid,
-        BranchMasterSid: branchMasterSid,
-      },
-    });
-
-    if (!existing) {
-      throw new NotFoundException(`Journal voucher with ID ${id} not found`);
-    }
-
-    if (existing.PostStatus === 'P') {
-      throw new BadRequestException('Cannot delete posted voucher');
-    }
-
-    await this.databaseService.$transaction(async (prisma) => {
-      // Delete details first (foreign key constraint)
-      await prisma.voucherDetail.deleteMany({
-        where: { VoucherHeaderSid: id },
-      });
-
-      // Delete header
-      await prisma.voucherHeader.delete({
-        where: { VoucherHeaderSid: id },
-      });
-    });
-
-    return { message: 'Journal voucher deleted successfully' };
-  }
-
-  /**
-   * Validate financial year
-   */
-  private async validateFinancialYear(
-    voucherDate: string,
-    companyMasterSid: number,
-  ): Promise<void> {
-    const date = new Date(voucherDate);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    // Check if voucher date is not in future
-    if (date > today) {
-      throw new BadRequestException(
-        'Voucher date cannot be in the future. Please select today or a past date.',
-      );
-    }
-
-    // Check if voucher date falls within an active financial year
-    const year = await this.databaseService.yearMaster.findFirst({
-      where: {
-        CompanyMasterSid: companyMasterSid,
-        StartDate: { lte: date },
-        EndDate: { gte: date },
-        CurrentYear: 'Y',
-      },
-    });
-
-    if (!year) {
-      throw new BadRequestException(
-        'Voucher date must be within the current financial year range.',
-      );
-    }
-  }
-
-  /**
-   * Validate debit/credit balance
-   */
-  private validateDebitCreditBalance(details: any[]): void {
-    const debitTotal = details
-      .filter((d) => d.DrCr === 'D')
-      .reduce((sum, d) => sum + d.LocalAmount, 0);
-
-    const creditTotal = details
-      .filter((d) => d.DrCr === 'C')
-      .reduce((sum, d) => sum + d.LocalAmount, 0);
-
-    const difference = Math.abs(debitTotal - creditTotal);
-
-    if (difference > 0.01) {
-      // Allow 0.01 tolerance for floating point
-      throw new BadRequestException(
-        `Debit and Credit totals must be equal. Debit: ${debitTotal.toFixed(2)}, Credit: ${creditTotal.toFixed(2)}, Difference: ${difference.toFixed(2)}`,
-      );
-    }
-  }
-
-  /**
-   * Generate voucher number
-   */
-  private async generateVoucherNumber(
-    companyMasterSid: number,
-    branchMasterSid: number,
-    voucherDate: string,
-  ): Promise<string> {
-    const voucherType = await this.getJournalVoucherType(companyMasterSid);
-
-    if (!voucherType) {
-      throw new NotFoundException('Journal Voucher type not configured');
-    }
-
-    const {
-      DocumentTypeCode,
-      DocumentStartingNo,
-      DocumentSLNoLength,
-      BranchFlag,
-    } = voucherType;
-
-    // Get last voucher number
-    const lastVoucher = await this.databaseService.voucherHeader.findFirst({
-      where: {
-        CompanyMasterSid: companyMasterSid,
-        VoucherTypeMasterSid: voucherType.VoucherTypeMasterSid,
-        ...(BranchFlag === 'Y' ? { BranchMasterSid: branchMasterSid } : {}),
-      },
-      orderBy: { VoucherHeaderSid: 'desc' },
-    });
-
-    let nextNumber = Number(DocumentStartingNo) || 1;
-
-    if (lastVoucher && lastVoucher.VoucherNumber) {
-      // Extract number from last voucher
-      const match = lastVoucher.VoucherNumber.match(/\d+$/);
-      if (match) {
-        nextNumber = parseInt(match[0]) + 1;
-      }
-    }
-
-    // Apply reset logic (if needed, based on financial year, month, etc.)
-    // For simplicity, we'll just increment
-
-    // Format number with padding
-    const paddedNumber = String(nextNumber).padStart(Number(DocumentSLNoLength) || 4, '0');
-
-    return `${DocumentTypeCode}${paddedNumber}`;
-  }
-
-  /**
-   * Get Journal Voucher type configuration
-   */
-  private async getJournalVoucherType(companyMasterSid: number) {
-    const voucherType = await this.databaseService.voucherTypeMaster.findFirst({
-      where: {
-        CompanyMasterSid: companyMasterSid,
-        DocumentTypeCode: 'JV',
-      },
-    });
-
-    if (!voucherType) {
-      throw new NotFoundException(
-        'Journal Voucher type is not configured in VoucherTypeMaster',
-      );
-    }
-
-    return voucherType;
-  }
-
-  /**
-   * Calculate totals
-   */
-  private calculateTotals(details: any[]) {
-    const debitTotal = details
-      .filter((d) => d.DrCr === 'D')
-      .reduce((sum, d) => sum + d.LocalAmount, 0);
-
-    const creditTotal = details
-      .filter((d) => d.DrCr === 'C')
-      .reduce((sum, d) => sum + d.LocalAmount, 0);
-
-    const totalAmount = details.reduce((sum, d) => sum + d.Amount, 0);
-    const totalLocalAmount = details.reduce(
-      (sum, d) => sum + d.LocalAmount,
-      0,
-    );
-
-    return { debitTotal, creditTotal, totalAmount, totalLocalAmount };
-  }
-
-  /**
-   * Process tax lines based on company country
-   */
-  private async processTaxLines(
-    details: any[],
-    companyMasterSid: number,
-    branchMasterSid: number,
-  ): Promise<any[]> {
-    // Get company country
-    const company = await this.databaseService.companyMaster.findUnique({
-      where: { CompanyMasterSid: companyMasterSid },
-    });
-
-    if (!company) {
-      throw new NotFoundException('Company not found');
-    }
-
-    const country = company.CountryMasterSid;
-
-    // Get country name for tax logic
-    let countryName = '';
-    if (country) {
-      const countryMaster = await this.databaseService.countryMaster.findUnique({
-        where: { CountryMasterSid: country },
-      });
-      countryName = countryMaster?.countryName?.toUpperCase() || '';
-    }
-
-    const processedDetails: any[] = [];
-
-    for (const detail of details) {
-      // Add the main detail line
-      processedDetails.push(detail);
-
-      // If this detail has tax and is not already a tax line
-      if (
-        detail.ChargeMasterSid &&
-        detail.TaxPercentage1 &&
-        !detail.isAutoTaxLine
-      ) {
-        // Get COA for tax ledgers (need to be configured in system)
-        const taxCOAs = await this.getTaxCOAs(companyMasterSid, countryName);
-
-        // India: CGST/SGST or IGST
-        if (countryName === 'INDIA') {
-          const isInterstate = await this.checkInterstate(
-            company,
-            detail.LedgerMasterSid,
-          );
-
-          if (isInterstate) {
-            // IGST
-            const igstAmount =
-              (detail.LocalAmount * (detail.TaxPercentage1 || 0)) / 100;
-            if (igstAmount > 0 && taxCOAs.IGST) {
-              processedDetails.push({
-                ...detail,
-                COAMasterSid: taxCOAs.IGST,
-                Amount: igstAmount / detail.ExchangeRate,
-                LocalAmount: igstAmount,
-                TaxPercentage1: null,
-                TaxAmount1: null,
-                TaxPercentage2: null,
-                TaxAmount2: null,
-                Narration: `IGST @ ${detail.TaxPercentage1}%`,
-                isAutoTaxLine: true,
-              });
-            }
-          } else {
-            // CGST + SGST (split equally)
-            const halfTax = (detail.TaxPercentage1 || 0) / 2;
-            const cgstAmount = (detail.LocalAmount * halfTax) / 100;
-            const sgstAmount = (detail.LocalAmount * halfTax) / 100;
-
-            if (cgstAmount > 0 && taxCOAs.CGST) {
-              processedDetails.push({
-                ...detail,
-                COAMasterSid: taxCOAs.CGST,
-                Amount: cgstAmount / detail.ExchangeRate,
-                LocalAmount: cgstAmount,
-                TaxPercentage1: null,
-                TaxAmount1: null,
-                TaxPercentage2: null,
-                TaxAmount2: null,
-                Narration: `CGST @ ${halfTax}%`,
-                isAutoTaxLine: true,
-              });
-            }
-
-            if (sgstAmount > 0 && taxCOAs.SGST) {
-              processedDetails.push({
-                ...detail,
-                COAMasterSid: taxCOAs.SGST,
-                Amount: sgstAmount / detail.ExchangeRate,
-                LocalAmount: sgstAmount,
-                TaxPercentage1: null,
-                TaxAmount1: null,
-                TaxPercentage2: null,
-                TaxAmount2: null,
-                Narration: `SGST @ ${halfTax}%`,
-                isAutoTaxLine: true,
-              });
-            }
-          }
-        } else if (
-          countryName.includes('UAE') ||
-          countryName.includes('DUBAI') ||
-          countryName.includes('EMIRATES')
-        ) {
-          // VAT for UAE/Middle East
-          const vatAmount =
-            (detail.LocalAmount * (detail.TaxPercentage1 || 0)) / 100;
-          if (vatAmount > 0 && taxCOAs.VAT) {
-            processedDetails.push({
-              ...detail,
-              COAMasterSid: taxCOAs.VAT,
-              Amount: vatAmount / detail.ExchangeRate,
-              LocalAmount: vatAmount,
-              TaxPercentage1: null,
-              TaxAmount1: null,
-              TaxPercentage2: null,
-              TaxAmount2: null,
-              Narration: `VAT @ ${detail.TaxPercentage1}%`,
-              isAutoTaxLine: true,
+    private readonly logger = new Logger(JournalVoucherService.name);
+
+    constructor(
+        private readonly _db: DatabaseService,
+        private readonly voucherService: VoucherService
+    ) {}
+
+    /**
+     * Create Journal Voucher
+     */
+    async createJournalVoucher(payload: any): Promise<any> {
+        try {
+            return await this._db.$transaction(async (tx) => {
+                // Get VoucherTypeMaster for "Journal Voucher"
+                const voucherTypeMaster = await tx.voucherTypeMaster.findFirst({
+                    where: {
+                        DocumentTypeName: 'Journal Voucher',
+                        CompanyMasterSid: payload.CompanyMasterSid,
+                        BranchMasterSid: payload.BranchMasterSid,
+                        status: 'A'
+                    }
+                });
+
+                if (!voucherTypeMaster) {
+                    throw new BadRequestException(
+                        'Journal Voucher voucher type not configured. Please configure "Journal Voucher" in VoucherTypeMaster.'
+                    );
+                }
+
+                // Generate voucher number
+                const voucherNumber = await this.voucherService.generateVoucherNumberFromConfig(
+                    voucherTypeMaster,
+                    payload.CompanyMasterSid,
+                    payload.BranchMasterSid,
+                    tx
+                );
+
+                // Get currency master ID
+                let currencyMasterSid = payload.CurrencyMasterSid;
+                if (!currencyMasterSid && payload.CurrencyCode) {
+                    const currency = await tx.currencyMaster.findFirst({
+                        where: { currencyCode: payload.CurrencyCode }
+                    });
+                    currencyMasterSid = currency?.CurrencyMasterSid;
+                }
+
+                // Validate debit/credit balance
+                this.validateDebitCreditBalance(payload.VoucherDetail || []);
+
+                // Get a valid PartyMasterSid for journal voucher (use company as party or find a system account)
+                let partyMasterSid = payload.PartyMasterSid;
+                let partyName = payload.PartyName || '';
+                
+                // If no party provided, use company as the default party for journal vouchers
+                if (!partyMasterSid) {
+                    const company = await tx.companyMaster.findUnique({
+                        where: { CompanyMasterSid: payload.CompanyMasterSid },
+                        select: { CompanyMasterSid: true, companyName: true }
+                    });
+                    
+                    if (company) {
+                        // Find or create a subledger for the company
+                        const companySubledger = await tx.subledgerMaster.findFirst({
+                            where: {
+                                CompanyMasterSid: payload.CompanyMasterSid,
+                                // CustomerName: { contains: company.companyName }
+                            }
+                        });
+                        
+                        if (companySubledger) {
+                            partyMasterSid = companySubledger.SubledgerMasterSid;
+                            // partyName = companySubledger.customerName;
+                        } else {
+                            // Create a system party for journal vouchers
+                            const systemParty = await tx.subledgerMaster.findFirst({
+                                where: {
+                                    CompanyMasterSid: payload.CompanyMasterSid,
+                                    // CustomerName: 'System Journal Account'
+                                }
+                            });
+                            
+                            if (systemParty) {
+                                partyMasterSid = systemParty.SubledgerMasterSid;
+                                // partyName = systemParty.CustomerName;
+                            } else {
+                                throw new BadRequestException(
+                                    'No valid party found for journal voucher. Please configure a system account.'
+                                );
+                            }
+                        }
+                    }
+                }
+
+                // Get COAMasterSid - use the one from voucher type or find a default
+                let coaMasterSid = payload.COAMasterSid;
+                if (!coaMasterSid) {
+                    // Use the COA from voucher type master or find a default COA
+                    coaMasterSid = voucherTypeMaster.COALedger;
+                    
+                    if (!coaMasterSid) {
+                        // Find a default COA for journal entries
+                        const defaultCOA = await tx.cOAMaster.findFirst({
+                            where: {
+                                CompanyMasterSid: payload.CompanyMasterSid,
+                                LedgerCategory: 'Ledger',
+                                Status: 'Active'
+                            }
+                        });
+                        
+                        if (defaultCOA) {
+                            coaMasterSid = defaultCOA.COAMasterSid;
+                        } else {
+                            throw new BadRequestException(
+                                'No default COA found for journal voucher. Please configure Chart of Accounts.'
+                            );
+                        }
+                    }
+                }
+
+                // Create VoucherHeader
+                const voucherHeader = await tx.voucherHeader.create({
+                    data: {
+                        VoucherNumber: voucherNumber,
+                        VoucherDate: payload.VoucherDate ? new Date(payload.VoucherDate) : new Date(),
+                        PostDate: payload.PostDate ? new Date(payload.PostDate) : new Date(),
+                        VoucherType: voucherTypeMaster.VoucherTypeMasterSid,
+                        Narration: payload.Narration || '',
+                        COAMasterSid: coaMasterSid,
+                        CompanyMasterSid: payload.CompanyMasterSid,
+                        BranchMasterSid: payload.BranchMasterSid,
+                        VoucherTypeMasterSid: voucherTypeMaster.VoucherTypeMasterSid,
+                        PartyMasterSid: partyMasterSid,
+                        PartyName: partyName,
+                        PartyAddress: payload.PartyAddress || '',
+                        PlaceOfSupply: payload.PlaceOfSupply,
+                        PostStatus: payload.PostStatus || 'U',
+                        GST_VAT: payload.GSTNo || payload.GST_VAT,
+                        InvoiceType: payload.InvoiceType || 'B2B',
+                        GSTType: payload.GSTType,
+                        CurrencyMasterSid: currencyMasterSid,
+                        CurrencyCode: payload.CurrencyCode,
+                        ExchangeRate: payload.ExchangeRate || 1,
+                        DocumentNumber: payload.DocumentNumber,
+                        DocumentDate: payload.DocumentDate ? new Date(payload.DocumentDate) : null,
+                        Amount: payload.Amount,
+                        LocalAmount: payload.LocalAmount,
+                        NetAmount: payload.NetAmount,
+                        MasterJobSid: payload.MasterJobSid,
+                        HouseJobSid: payload.HouseJobSid,
+                        MasterNumber: payload.MasterNumber,
+                        HouseNumber: payload.HouseNumber,
+                        Remarks: payload.Remarks,
+                        Status: payload.status || 'A',
+                        CreatedBy: payload.CreatedBy || 'System'
+                    }
+                });
+
+                // Create VoucherDetails
+                if (payload.VoucherDetail && Array.isArray(payload.VoucherDetail)) {
+                    let sno = 1;
+                    for (const detail of payload.VoucherDetail) {
+                        await tx.voucherDetail.create({
+                            data: {
+                                VoucherHeaderSid: voucherHeader.VoucherHeaderSid,
+                                Sno: sno++,
+                                CompanyMasterSid: payload.CompanyMasterSid,
+                                BranchMasterSid: payload.BranchMasterSid,
+                                ChargeMasterSid: detail.ChargeMasterSid,
+                                ChargeDescription: detail.ChargeDescription || '',
+                                HSSACMasterSid: detail.HSSACMasterSid,
+                                ChargeUOMSid: detail.ChargeUOMSid,
+                                NumberOfUnit: detail.NumberOfUnit || 1,
+                                Rate: detail.Rate || 0,
+                                Amount: detail.Amount || 0,
+                                TaxableAmount: detail.TaxableAmount || detail.Amount || 0,
+                                TaxPercentage1: detail.TaxPercentage1 || 0,
+                                TaxAmount1: detail.TaxAmount1 || 0,
+                                TaxPercentage2: detail.TaxPercentage2 || 0,
+                                TaxAmount2: detail.TaxAmount2 || 0,
+                                LocalAmount: detail.LocalAmount || 0,
+                                CurrencyCode: detail.CurrencyCode || payload.CurrencyCode,
+                                CurrencyMasterSid: detail.CurrencyMasterSid || currencyMasterSid,
+                                ExchangeRate: detail.ExchangeRate || payload.ExchangeRate || 1,
+                                DrCr: detail.DrCr || 'D',
+                                LedgerMasterSid: detail.LedgerMasterSid,
+                                COAMasterSid: detail.COAMasterSid,
+                                DepartmentMasterSid: detail.DepartmentMasterSid,
+                                MasterJobSid: detail.MasterJobSid || payload.MasterJobSid,
+                                HouseJobSid: detail.HouseJobSid || payload.HouseJobSid,
+                                CostCenter: detail.CostCenterMasterSid,
+                                ProfitCenter: detail.ProfitCenterMasterSid,
+                                CreatedBy: payload.CreatedBy || 'System',
+                                Status: 'A'
+                            }
+                        });
+                    }
+                }
+
+                // Fetch complete journal voucher with relations
+                const completeJournalVoucher = await this.fetchJournalVoucherById(voucherHeader.VoucherHeaderSid, tx);
+
+                return {
+                    newVoucher: completeJournalVoucher,
+                    VoucherHeaderSid: voucherHeader.VoucherHeaderSid,
+                    VoucherNumber: voucherNumber
+                };
             });
-          }
+        } catch (error) {
+            this.logger.error(`Error creating journal voucher: ${error.message}`);
+            if (error instanceof BadRequestException) {
+                throw error;
+            }
+            throw new InternalServerErrorException('Failed to create journal voucher');
         }
-      }
     }
 
-    return processedDetails;
-  }
+    /**
+     * Fetch all journal vouchers
+     */
+    async fetchJournalVouchers(): Promise<any[]> {
+        try {
+            const journalVouchers = await this._db.voucherHeader.findMany({
+                where: {
+                    voucherTypeMaster: {
+                        DocumentTypeName: 'Journal Voucher'
+                    },
+                    Status: 'A'
+                },
+                include: {
+                    VoucherDetail: true,
+                    VoucherOthers: true,
+                    subledgerMaster: true,
+                    currencyMaster: true,
+                    masterJob: true,
+                    houseJob: true,
+                    voucherTypeMaster: true
+                },
+                orderBy: {
+                    VoucherDate: 'desc'
+                }
+            });
 
-  /**
-   * Check if transaction is interstate (India)
-   * NOTE: StateMasterSid doesn't exist in SubledgerMaster schema
-   * This is a simplified implementation - returns false (intrastate) by default
-   * TODO: Implement proper state checking when state information is available
-   */
-  private async checkInterstate(
-    company: any,
-    ledgerMasterSid?: number,
-  ): Promise<boolean> {
-    // Simplified implementation - always return false (use CGST+SGST)
-    // In production, state information should come from a related table or different source
-    return false;
-  }
-
-  /**
-   * Get tax COA mappings based on country
-   */
-  private async getTaxCOAs(companyMasterSid: number, countryName: string) {
-    // In a production system, these should be configured in VoucherTypeMaster or a separate tax configuration table
-    // For now, we'll fetch by ledger name pattern
-
-    const coaList = await this.databaseService.cOAMaster.findMany({
-      where: {
-        CompanyMasterSid: companyMasterSid,
-        Status: 'Active',
-      },
-    });
-
-    const result: any = {};
-
-    if (countryName === 'INDIA') {
-      result.CGST = coaList.find((c) =>
-        c.LedgerName?.toUpperCase().includes('CGST'),
-      )?.COAMasterSid;
-      result.SGST = coaList.find((c) =>
-        c.LedgerName?.toUpperCase().includes('SGST'),
-      )?.COAMasterSid;
-      result.IGST = coaList.find((c) =>
-        c.LedgerName?.toUpperCase().includes('IGST'),
-      )?.COAMasterSid;
-    } else {
-      result.VAT = coaList.find((c) =>
-        c.LedgerName?.toUpperCase().includes('VAT'),
-      )?.COAMasterSid;
+            return journalVouchers;
+        } catch (error) {
+            this.logger.error(`Error fetching journal vouchers: ${error.message}`);
+            throw new InternalServerErrorException('Failed to fetch journal vouchers');
+        }
     }
 
-    return result;
-  }
+    /**
+     * Fetch journal voucher by ID
+     */
+    async fetchJournalVoucherById(VoucherHeaderSid: number, tx?: any): Promise<any> {
+        try {
+            const db = tx || this._db;
 
-  /**
-   * Map to response DTO
-   */
-  private mapToResponseDto(header: any, details: any[]): JournalVoucherResponseDto {
-    const debitTotal = details
-      .filter((d) => d.DrCr === 'D')
-      .reduce((sum, d) => sum + (d.LocalAmount || 0), 0);
+            const journalVoucher = await db.voucherHeader.findUnique({
+                where: { VoucherHeaderSid },
+                include: {
+                    VoucherDetail: {
+                        where: { Status: 'A' },
+                        include: {
+                            chargeMaster: {
+                                include: {
+                                    chargeTaxMaster: true
+                                }
+                            },
+                            hSSACMaster: true,
+                            currencyMaster: true,
+                            subledgerMaster: true,
+                            departmentMaster: true,
+                            masterJob: true,
+                            houseJob: true
+                        }
+                    },
+                    VoucherOthers: {
+                        where: { Status: 'A' }
+                    },
+                    subledgerMaster: true,
+                    currencyMaster: true,
+                    masterJob: true,
+                    houseJob: true,
+                    voucherTypeMaster: true,
+                }
+            });
 
-    const creditTotal = details
-      .filter((d) => d.DrCr === 'C')
-      .reduce((sum, d) => sum + (d.LocalAmount || 0), 0);
+            if (!journalVoucher) {
+                throw new NotFoundException(`Journal Voucher with ID ${VoucherHeaderSid} not found`);
+            }
 
-    const isBalanced = Math.abs(debitTotal - creditTotal) <= 0.01;
+            return journalVoucher;
+        } catch (error) {
+            this.logger.error(`Error fetching journal voucher by ID: ${error.message}`);
+            if (error instanceof NotFoundException) {
+                throw error;
+            }
+            throw new InternalServerErrorException('Failed to fetch journal voucher');
+        }
+    }
 
-    return {
-      VoucherHeaderSid: header.VoucherHeaderSid,
-      VoucherNumber: header.VoucherNumber,
-      VoucherDate: header.VoucherDate,
-      PostDate: header.PostDate,
-      PostStatus: header.PostStatus,
-      Narration: header.Narration,
-      Remarks: header.Remarks,
-      Status: header.Status,
-      Amount: header.Amount || 0,
-      LocalAmount: header.LocalAmount || 0,
-      details: details,
-      DebitTotal: debitTotal,
-      CreditTotal: creditTotal,
-      IsBalanced: isBalanced,
-    };
-  }
+    /**
+     * Update journal voucher
+     */
+    async updateJournalVoucher(VoucherHeaderSid: number, payload: any): Promise<any> {
+        try {
+            return await this._db.$transaction(async (tx) => {
+                // Check if journal voucher exists
+                const existing = await tx.voucherHeader.findUnique({
+                    where: { VoucherHeaderSid }
+                });
+
+                if (!existing) {
+                    throw new NotFoundException(`Journal Voucher with ID ${VoucherHeaderSid} not found`);
+                }
+
+                if (existing.PostStatus === 'P') {
+                    throw new BadRequestException('Cannot update posted journal voucher');
+                }
+
+                // Validate debit/credit balance if details are being updated
+                if (payload.VoucherDetail && Array.isArray(payload.VoucherDetail)) {
+                    this.validateDebitCreditBalance(payload.VoucherDetail);
+                }
+
+                // Get currency master ID if needed
+                let currencyMasterSid = payload.CurrencyMasterSid;
+                if (!currencyMasterSid && payload.CurrencyCode) {
+                    const currency = await tx.currencyMaster.findFirst({
+                        where: { currencyCode: payload.CurrencyCode }
+                    });
+                    currencyMasterSid = currency?.CurrencyMasterSid;
+                }
+
+                // Update VoucherHeader
+                await tx.voucherHeader.update({
+                    where: { VoucherHeaderSid },
+                    data: {
+                        VoucherDate: payload.VoucherDate ? new Date(payload.VoucherDate) : undefined,
+                        Narration: payload.Narration,
+                        PartyMasterSid: payload.PartyMasterSid,
+                        PartyName: payload.PartyName,
+                        PartyAddress: payload.PartyAddress,
+                        PlaceOfSupply: payload.PlaceOfSupply,
+                        GST_VAT: payload.GSTNo || payload.GST_VAT,
+                        InvoiceType: payload.InvoiceType,
+                        CurrencyMasterSid: currencyMasterSid,
+                        CurrencyCode: payload.CurrencyCode,
+                        ExchangeRate: payload.ExchangeRate,
+                        PostStatus: payload.PostStatus,
+                        DocumentNumber: payload.DocumentNumber,
+                        DocumentDate: payload.DocumentDate ? new Date(payload.DocumentDate) : undefined,
+                        Amount: payload.Amount,
+                        LocalAmount: payload.LocalAmount,
+                        NetAmount: payload.NetAmount,
+                        MasterJobSid: payload.MasterJobSid,
+                        HouseJobSid: payload.HouseJobSid,
+                        MasterNumber: payload.MasterNumber,
+                        HouseNumber: payload.HouseNumber,
+                        Remarks: payload.Remarks,
+                        Status: payload.status,
+                        UpdatedBy: payload.UpdatedBy || 'System',
+                        UpdatedOn: new Date()
+                    }
+                });
+
+                // Update VoucherDetails with proper update logic
+if (payload.VoucherDetail && Array.isArray(payload.VoucherDetail)) {
+    let sno = 1;
+    
+    for (const detail of payload.VoucherDetail) {
+        const detailData = {
+            Sno: sno++,
+            CompanyMasterSid: existing.CompanyMasterSid,
+            BranchMasterSid: existing.BranchMasterSid,
+            ChargeMasterSid: detail.ChargeMasterSid,
+            ChargeDescription: detail.ChargeDescription || '',
+            HSSACMasterSid: detail.HSSACMasterSid,
+            ChargeUOMSid: detail.ChargeUOMSid,
+            NumberOfUnit: detail.NumberOfUnit || 1,
+            Rate: detail.Rate || 0,
+            Amount: detail.Amount || 0,
+            TaxableAmount: detail.TaxableAmount || detail.Amount || 0,
+            TaxPercentage1: detail.TaxPercentage1 || 0,
+            TaxAmount1: detail.TaxAmount1 || 0,
+            TaxPercentage2: detail.TaxPercentage2 || 0,
+            TaxAmount2: detail.TaxAmount2 || 0,
+            LocalAmount: detail.LocalAmount || 0,
+            CurrencyCode: detail.CurrencyCode || payload.CurrencyCode,
+            CurrencyMasterSid: detail.CurrencyMasterSid || currencyMasterSid,
+            ExchangeRate: detail.ExchangeRate || payload.ExchangeRate || 1,
+            DrCr: detail.DrCr || 'D',
+            LedgerMasterSid: detail.LedgerMasterSid,
+            COAMasterSid: detail.COAMasterSid,
+            DepartmentMasterSid: detail.DepartmentMasterSid,
+            MasterJobSid: detail.MasterJobSid || payload.MasterJobSid,
+            HouseJobSid: detail.HouseJobSid || payload.HouseJobSid,
+            CostCenter: detail.CostCenterMasterSid,
+            ProfitCenter: detail.ProfitCenterMasterSid,
+            UpdatedBy: payload.UpdatedBy || 'System',
+            UpdatedOn: new Date(),
+            Status: 'A'
+        };
+
+        // ALWAYS UPDATE existing detail - don't create new records
+        if (detail.VoucherDetailSid) {
+            await tx.voucherDetail.update({
+                where: { 
+                    VoucherDetailSid: detail.VoucherDetailSid
+                },
+                data: detailData
+            });
+        }
+    }
+
+    // Handle details that are not in the payload - mark them as deleted
+    const incomingDetailSids = payload.VoucherDetail
+        .map(d => d.VoucherDetailSid)
+        .filter(sid => sid); // Remove null/undefined
+
+    if (incomingDetailSids.length > 0) {
+        await tx.voucherDetail.updateMany({
+            where: {
+                VoucherHeaderSid,
+                VoucherDetailSid: { notIn: incomingDetailSids },
+                Status: 'A'
+            },
+            data: {
+                Status: 'D',
+                UpdatedBy: payload.UpdatedBy || 'System',
+                UpdatedOn: new Date()
+            }
+        });
+    }
+}
+                // Update VoucherOthers if provided
+                if (payload.VoucherOthers) {
+                    await tx.voucherOthers.updateMany({
+                        where: { VoucherHeaderSid },
+                        data: { Status: 'D' }
+                    });
+
+                    await tx.voucherOthers.create({
+                        data: {
+                            VoucherHeaderSid,
+                            ContainerNumber: payload.VoucherOthers.ContainerNumber || '',
+                            VoucherNote: payload.VoucherOthers.VoucherNote || '',
+                            Footer: payload.VoucherOthers.Footer || '',
+                            CreatedBy: payload.UpdatedBy || 'System',
+                            Status: 'A'
+                        }
+                    });
+                }
+
+                // Fetch updated journal voucher
+                return await this.fetchJournalVoucherById(VoucherHeaderSid, tx);
+            });
+        } catch (error) {
+            this.logger.error(`Error updating journal voucher: ${error.message}`);
+            if (error instanceof NotFoundException || error instanceof BadRequestException) {
+                throw error;
+            }
+            throw new InternalServerErrorException('Failed to update journal voucher');
+        }
+    }
+
+    /**
+     * Delete journal voucher (soft delete)
+     */
+    async deleteJournalVoucher(VoucherHeaderSid: number): Promise<any> {
+        try {
+            return await this._db.$transaction(async (tx) => {
+                // Check if exists
+                const existing = await tx.voucherHeader.findUnique({
+                    where: { VoucherHeaderSid }
+                });
+
+                if (!existing) {
+                    throw new NotFoundException(`Journal Voucher with ID ${VoucherHeaderSid} not found`);
+                }
+
+                if (existing.PostStatus === 'P') {
+                    throw new BadRequestException('Cannot delete posted journal voucher');
+                }
+
+                // Soft delete header
+                await tx.voucherHeader.update({
+                    where: { VoucherHeaderSid },
+                    data: {
+                        Status: 'D',
+                        UpdatedOn: new Date()
+                    }
+                });
+
+                // Soft delete details
+                await tx.voucherDetail.updateMany({
+                    where: { VoucherHeaderSid },
+                    data: { Status: 'D' }
+                });
+
+                // Soft delete others
+                await tx.voucherOthers.updateMany({
+                    where: { VoucherHeaderSid },
+                    data: { Status: 'D' }
+                });
+
+                return { deleted: true, VoucherHeaderSid };
+            });
+        } catch (error) {
+            this.logger.error(`Error deleting journal voucher: ${error.message}`);
+            if (error instanceof NotFoundException || error instanceof BadRequestException) {
+                throw error;
+            }
+            throw new InternalServerErrorException('Failed to delete journal voucher');
+        }
+    }
+
+    /**
+     * Search journal vouchers with filters and pagination
+     */
+    async searchJournalVouchers(params: any): Promise<any> {
+        try {
+            const {
+                search = '',
+                page = 1,
+                pageSize = 10,
+                sortColumn = 'VoucherDate',
+                sortDirection = 'desc',
+                postStatus,
+                fromDate,
+                toDate
+            } = params;
+
+            const skip = (page - 1) * pageSize;
+            const take = Number(pageSize);
+
+            const where: any = {
+                voucherTypeMaster: {
+                    DocumentTypeName: 'Journal Voucher'
+                },
+                Status: 'A'
+            };
+
+            // Add search filter
+            if (search) {
+                where.OR = [
+                    { VoucherNumber: { contains: search, mode: 'insensitive' } },
+                    { Narration: { contains: search, mode: 'insensitive' } },
+                    { Remarks: { contains: search, mode: 'insensitive' } },
+                    { PartyName: { contains: search, mode: 'insensitive' } },
+                    { DocumentNumber: { contains: search, mode: 'insensitive' } }
+                ];
+            }
+
+            // Add post status filter
+            if (postStatus) {
+                where.PostStatus = postStatus;
+            }
+
+            // Add date range filter
+            if (fromDate || toDate) {
+                where.VoucherDate = {};
+                if (fromDate) where.VoucherDate.gte = new Date(fromDate);
+                if (toDate) where.VoucherDate.lte = new Date(toDate);
+            }
+
+            const [items, totalCount] = await Promise.all([
+                this._db.voucherHeader.findMany({
+                    where,
+                    include: {
+                        VoucherDetail: {
+                            where: { Status: 'A' }
+                        },
+                        VoucherOthers: {
+                            where: { Status: 'A' }
+                        },
+                        subledgerMaster: true,
+                        currencyMaster: true,
+                        voucherTypeMaster: true
+                    },
+                    orderBy: {
+                        [sortColumn]: sortDirection
+                    },
+                    skip,
+                    take
+                }),
+                this._db.voucherHeader.count({ where })
+            ]);
+
+            // Calculate totals for each voucher
+            const enrichedItems = items.map(item => ({
+                ...item,
+                DebitTotal: item.VoucherDetail?.filter(d => d.DrCr === 'D')?.reduce((sum, d) => sum + Number(d.LocalAmount || 0), 0) || 0,
+                CreditTotal: item.VoucherDetail?.filter(d => d.DrCr === 'C')?.reduce((sum, d) => sum + Number(d.LocalAmount || 0), 0) || 0,
+                TotalAmount: item.VoucherDetail?.reduce((sum, d) => sum + Number(d.LocalAmount || 0), 0) || 0,
+                IsBalanced: Math.abs(
+                    (item.VoucherDetail?.filter(d => d.DrCr === 'D')?.reduce((sum, d) => sum + Number(d.LocalAmount || 0), 0) || 0) -
+                    (item.VoucherDetail?.filter(d => d.DrCr === 'C')?.reduce((sum, d) => sum + Number(d.LocalAmount || 0), 0) || 0)
+                ) <= 0.01
+            }));
+
+            return {
+                items: enrichedItems,
+                totalCount,
+                page: Number(page),
+                pageSize: Number(pageSize)
+            };
+        } catch (error) {
+            this.logger.error(`Error searching journal vouchers: ${error.message}`);
+            throw new InternalServerErrorException('Failed to search journal vouchers');
+        }
+    }
+
+    /**
+     * Post journal voucher
+     */
+    async postJournalVoucher(VoucherHeaderSid: number): Promise<any> {
+        try {
+            return await this._db.$transaction(async (tx) => {
+                // Check if voucher exists
+                const existing = await tx.voucherHeader.findUnique({
+                    where: { VoucherHeaderSid },
+                    include: {
+                        VoucherDetail: {
+                            where: { Status: 'A' }
+                        }
+                    }
+                });
+
+                if (!existing) {
+                    throw new NotFoundException(`Journal Voucher with ID ${VoucherHeaderSid} not found`);
+                }
+
+                if (existing.PostStatus === 'P') {
+                    throw new BadRequestException('Journal Voucher is already posted');
+                }
+
+                // Validate debit/credit balance before posting
+                this.validateDebitCreditBalance(existing.VoucherDetail);
+
+                // Update voucher header to posted status
+                await tx.voucherHeader.update({
+                    where: { VoucherHeaderSid },
+                    data: {
+                        PostStatus: 'P',
+                        PostDate: new Date(),
+                        UpdatedBy: 'System',
+                        UpdatedOn: new Date()
+                    }
+                });
+
+                // Create voucher transactions (if needed for your system)
+                // This would depend on your specific accounting system requirements
+
+                return { posted: true, VoucherHeaderSid, PostDate: new Date() };
+            });
+        } catch (error) {
+            this.logger.error(`Error posting journal voucher: ${error.message}`);
+            if (error instanceof NotFoundException || error instanceof BadRequestException) {
+                throw error;
+            }
+            throw new InternalServerErrorException('Failed to post journal voucher');
+        }
+    }
+
+    /**
+     * Validate debit/credit balance
+     */
+    private validateDebitCreditBalance(details: any[]): void {
+        const debitTotal = details
+            .filter(d => d.DrCr === 'D')
+            .reduce((sum, d) => sum + Number(d.LocalAmount || 0), 0);
+
+        const creditTotal = details
+            .filter(d => d.DrCr === 'C')
+            .reduce((sum, d) => sum + Number(d.LocalAmount || 0), 0);
+
+        const difference = Math.abs(debitTotal - creditTotal);
+
+        if (difference > 0.01) {
+            throw new BadRequestException(
+                `Debit and Credit totals must be equal. Debit: ${debitTotal.toFixed(2)}, Credit: ${creditTotal.toFixed(2)}, Difference: ${difference.toFixed(2)}`
+            );
+        }
+    }
 }
