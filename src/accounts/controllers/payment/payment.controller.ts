@@ -12,6 +12,8 @@ import {
   Logger,
   ParseIntPipe,
   ValidationPipe,
+  UnauthorizedException,
+  BadRequestException,
 } from '@nestjs/common';
 import { PaymentService } from '../../services/payment/payment.service';
 import {
@@ -22,7 +24,10 @@ import {
   PaymentFilterDto,
   UpdatePaymentDto,
   ReversePaymentDto,
+  SearchPaymentDto,
 } from '../../dto/payment.dto';
+import { ResponseData } from 'src/common/response-data';
+import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 
 /**
  * Payment Voucher Controller
@@ -164,6 +169,30 @@ export class PaymentController {
       this.logger.error(`Failed to fetch payment vouchers: ${error.message}`, error.stack);
       throw error;
     }
+  }
+
+  /**
+   * Search Payment Voucher with filters
+   */
+
+  @Post('search-list')
+  @HttpCode(HttpStatus.OK)
+  async searchPayments(@Body() searchDto: filterDto){
+    let resp = new ResponseData();
+    try {
+      this.logger.log(`Searching payment vouchers with criteria: ${JSON.stringify(searchDto)}`);
+      resp.data = await this.paymentService.searchPayments(searchDto);
+      this.logger.debug("Search Payment Result : " + JSON.stringify(resp.data));
+      resp.message = 'Payment vouchers fetched successfully';
+    } catch (error) {
+      resp.status = false;
+      if(error instanceof BadRequestException || error instanceof UnauthorizedException){
+        resp.message = error.message;
+      } else {
+        resp.message = 'Failed to fetch payment vouchers';
+      }
+    }
+    return resp;
   }
 
   /**
