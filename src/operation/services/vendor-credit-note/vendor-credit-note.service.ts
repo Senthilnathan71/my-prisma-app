@@ -541,9 +541,7 @@ export class VendorCreditNoteService {
                             subledgerMaster: true,
                             currencyMaster: true
                         },
-                        orderBy: {
-                            [sortColumn]: sortDirection
-                        },
+                        orderBy: { VoucherHeaderSid: 'desc' },
                         skip,
                         take
                     }),
