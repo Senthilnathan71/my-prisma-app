@@ -65,7 +65,7 @@ export class PaymentService {
           VoucherHeaderSid: 0,
           VoucherNumber: txn.voucherNumber,
           VoucherDate: typeof txn.voucherDate === 'string' ? txn.voucherDate : txn.voucherDate.toISOString(),
-          VoucherType: txn.voucherType,
+          VoucherType: Number(txn.voucherType),
           LedgerMasterSid: vendorOutstanding.ledgerMasterSid,
           VendorName: vendorOutstanding.customerName || '',
           BranchName: undefined,
