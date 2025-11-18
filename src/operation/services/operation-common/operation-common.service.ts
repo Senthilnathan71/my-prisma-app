@@ -250,6 +250,12 @@ export class OperationCommonService {
                             StateMasterSid : true,
                             GSTNo : true,
                             Registered : true,
+                            stateMaster : {
+                                select : {
+                                    StateMasterSid : true,
+                                    stateName : true,
+                                }
+                            }
                         }
                     },
                     costVoucherHeader : {
