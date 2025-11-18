@@ -1,157 +1,214 @@
-import {
-  Controller,
-  Get,
-  Post,
-  Put,
-  Delete,
-  Body,
-  Param,
-  Query,
-  ParseIntPipe,
-  HttpCode,
-  HttpStatus,
+import { 
+  BadRequestException, 
+  Body, 
+  Controller, 
+  Delete, 
+  Get, 
+  HttpCode, 
+  HttpStatus, 
+  Logger, 
+  Param, 
+  ParseIntPipe, 
+  Patch, 
+  Post, 
+  UnauthorizedException 
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
-import { JournalVoucherService } from '../../services/journal-voucher/journal-voucher.service';
-import { VoucherPostingService } from '../../services/voucher-posting/voucher-posting.service';
-import {
-  CreateJournalVoucherDto,
-  UpdateJournalVoucherDto,
-  JournalVoucherListQueryDto,
-  JournalVoucherResponseDto,
-} from '../../dto/journal-voucher.dto';
+import { ApiOperation, ApiCreatedResponse } from '@nestjs/swagger';
+import { ResponseData } from 'src/common/response-data';
+import { JournalVoucherService } from 'src/accounts/services/journal-voucher/journal-voucher.service';
 
-@ApiTags('Journal Voucher')
 @Controller('accounts/journal-voucher')
 export class JournalVoucherController {
+  private readonly logger = new Logger(JournalVoucherController.name);
+
   constructor(
     private readonly journalVoucherService: JournalVoucherService,
-    private readonly voucherPostingService: VoucherPostingService,
-  ) {}
+  ) { }
 
-  @Post()
-  @ApiOperation({ summary: 'Create a new journal voucher (draft)' })
-  @ApiResponse({
-    status: 201,
-    description: 'Journal voucher created successfully',
-    type: JournalVoucherResponseDto,
+  @ApiOperation({ summary: 'Create Journal Voucher' })
+  @ApiCreatedResponse({
+    description: 'Journal Voucher created successfully',
+    type: ResponseData
   })
-  @ApiResponse({ status: 400, description: 'Bad request - validation error' })
-  async create(
-    @Body() createDto: CreateJournalVoucherDto,
-  ): Promise<JournalVoucherResponseDto> {
-    return this.journalVoucherService.create(createDto);
-  }
-
-  @Get('list')
-  @ApiOperation({ summary: 'Get list of journal vouchers with pagination and filters' })
-  @ApiResponse({
-    status: 200,
-    description: 'List of journal vouchers retrieved successfully',
-  })
-  async findAll(@Query() query: JournalVoucherListQueryDto) {
-    return this.journalVoucherService.findAll(query);
-  }
-
-  @Get(':id')
-  @ApiOperation({ summary: 'Get journal voucher by ID' })
-  @ApiParam({ name: 'id', description: 'Voucher Header Sid' })
-  @ApiResponse({
-    status: 200,
-    description: 'Journal voucher retrieved successfully',
-    type: JournalVoucherResponseDto,
-  })
-  @ApiResponse({ status: 404, description: 'Journal voucher not found' })
-  async findOne(
-    @Param('id', ParseIntPipe) id: number,
-    @Query('CompanyMasterSid', ParseIntPipe) companyMasterSid: number,
-    @Query('BranchMasterSid', ParseIntPipe) branchMasterSid: number,
-  ): Promise<JournalVoucherResponseDto> {
-    return this.journalVoucherService.findById(id, companyMasterSid, branchMasterSid);
-  }
-
-  @Put(':id')
-  @ApiOperation({ summary: 'Update journal voucher (unposted only)' })
-  @ApiParam({ name: 'id', description: 'Voucher Header Sid' })
-  @ApiResponse({
-    status: 200,
-    description: 'Journal voucher updated successfully',
-    type: JournalVoucherResponseDto,
-  })
-  @ApiResponse({ status: 400, description: 'Cannot update posted voucher' })
-  @ApiResponse({ status: 404, description: 'Journal voucher not found' })
-  async update(
-    @Param('id', ParseIntPipe) id: number,
-    @Body() updateDto: UpdateJournalVoucherDto,
-    @Query('CompanyMasterSid', ParseIntPipe) companyMasterSid: number,
-    @Query('BranchMasterSid', ParseIntPipe) branchMasterSid: number,
-  ): Promise<JournalVoucherResponseDto> {
-    return this.journalVoucherService.update(id, updateDto, companyMasterSid, branchMasterSid);
-  }
-
-  @Delete(':id')
-  @ApiOperation({ summary: 'Delete journal voucher (unposted only)' })
-  @ApiParam({ name: 'id', description: 'Voucher Header Sid' })
-  @ApiResponse({
-    status: 200,
-    description: 'Journal voucher deleted successfully',
-  })
-  @ApiResponse({ status: 400, description: 'Cannot delete posted voucher' })
-  @ApiResponse({ status: 404, description: 'Journal voucher not found' })
-  @HttpCode(HttpStatus.OK)
-  async delete(
-    @Param('id', ParseIntPipe) id: number,
-    @Query('CompanyMasterSid', ParseIntPipe) companyMasterSid: number,
-    @Query('BranchMasterSid', ParseIntPipe) branchMasterSid: number,
-  ) {
-    return this.journalVoucherService.delete(id, companyMasterSid, branchMasterSid);
-  }
-
-  @Post(':id/validate')
-  @ApiOperation({ summary: 'Validate journal voucher before posting' })
-  @ApiParam({ name: 'id', description: 'Voucher Header Sid' })
-  @ApiResponse({
-    status: 200,
-    description: 'Validation result',
-  })
-  async validate(@Param('id', ParseIntPipe) id: number) {
-    return this.voucherPostingService.validateVoucher(id);
-  }
-
-  @Post(':id/post')
-  @ApiOperation({ summary: 'Post journal voucher to VoucherTransaction' })
-  @ApiParam({ name: 'id', description: 'Voucher Header Sid' })
-  @ApiResponse({
-    status: 200,
-    description: 'Journal voucher posted successfully',
-  })
-  @ApiResponse({
-    status: 400,
-    description: 'Voucher validation failed or already posted',
-  })
-  @ApiResponse({ status: 404, description: 'Journal voucher not found' })
-  async post(@Param('id', ParseIntPipe) id: number) {
-    // First validate
-    const validation = await this.voucherPostingService.validateVoucher(id);
-
-    if (!validation.isValid) {
-      return {
-        success: false,
-        message: 'Validation failed',
-        errors: validation.errors,
-      };
+  @HttpCode(HttpStatus.CREATED)
+  @Post('create')
+  async createJournalVoucher(@Body() payload: any) {
+    const output = new ResponseData();
+    this.logger.log(`createJournalVoucher payload: ${JSON.stringify(payload)}`);
+    try {
+      const finalOutput = await this.journalVoucherService.createJournalVoucher(payload);
+      this.logger.debug(`createJournalVoucher result: ${JSON.stringify(finalOutput)}`);
+      output.data = finalOutput;
+      output.message = "Journal Voucher created successfully";
+    } catch (error) {
+      this.logger.warn('createJournalVoucher error', (error as any)?.stack || (error as any)?.message || error);
+      output.status = false;
+      if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+        output.message = (error as any).message || 'Bad request';
+      } else {
+        output.message = "Internal Server Error";
+      }
     }
+    return output;
+  }
 
-    // Prepare posting payload
-    const payload = await this.voucherPostingService.preparePostingPayload(id);
+  @ApiOperation({ summary: 'Get All Journal Vouchers' })
+  @ApiCreatedResponse({
+    description: 'All Journal Vouchers fetched successfully',
+    type: ResponseData
+  })
+  @HttpCode(HttpStatus.OK)
+  @Get()
+  async getAllJournalVouchers() {
+    const output = new ResponseData();
+    try {
+      const finalOutput = await this.journalVoucherService.fetchJournalVouchers();
+      this.logger.debug(`getAllJournalVouchers: returned ${Array.isArray(finalOutput) ? finalOutput.length : 0} items`);
+      output.data = finalOutput;
+      output.message = "All Journal Vouchers fetched successfully";
+    } catch (error) {
+      this.logger.warn('getAllJournalVouchers error', (error as any)?.stack || (error as any)?.message || error);
+      output.status = false;
+      if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+        output.message = (error as any).message || 'Bad request';
+      } else {
+        output.message = 'Internal Server Error';
+      }
+    }
+    return output;
+  }
 
-    // Then post
-    const result = await this.voucherPostingService.postVoucher(payload);
+  @ApiOperation({ summary: 'Get Journal Voucher by ID' })
+  @ApiCreatedResponse({
+    description: 'Journal Voucher data fetched successfully by ID',
+    type: ResponseData
+  })
+  @HttpCode(HttpStatus.OK)
+  @Get('fetch/:VoucherHeaderSid')
+  async getJournalVoucherById(@Param('VoucherHeaderSid', ParseIntPipe) VoucherHeaderSid: number) {
+    const output = new ResponseData();
+    try {
+      const finalOutput = await this.journalVoucherService.fetchJournalVoucherById(VoucherHeaderSid);
+      this.logger.debug(`getJournalVoucherById: ${VoucherHeaderSid}`);
+      output.data = finalOutput;
+      output.message = "Journal Voucher data fetched successfully";
+    } catch (error) {
+      this.logger.warn(`getJournalVoucherById error for ID ${VoucherHeaderSid}`, (error as any)?.stack || (error as any)?.message || error);
+      output.status = false;
+      if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+        output.message = (error as any).message || 'Bad request';
+      } else {
+        output.message = 'Internal Server Error';
+      }
+    }
+    return output;
+  }
 
-    return {
-      success: true,
-      message: 'Journal voucher posted successfully',
-      data: result,
-    };
+  @ApiOperation({ summary: 'Update Journal Voucher by ID' })
+  @ApiCreatedResponse({
+    description: 'Journal Voucher updated successfully',
+    type: ResponseData
+  })
+  @HttpCode(HttpStatus.OK)
+  @Patch('update/:VoucherHeaderSid')
+  async updateJournalVoucher(
+    @Param('VoucherHeaderSid', ParseIntPipe) VoucherHeaderSid: number,
+    @Body() payload: any
+  ) {
+    const output = new ResponseData();
+    this.logger.log(`updateJournalVoucher ID: ${VoucherHeaderSid}, payload: ${JSON.stringify(payload)}`);
+    try {
+      const finalOutput = await this.journalVoucherService.updateJournalVoucher(VoucherHeaderSid, payload);
+      this.logger.debug(`updateJournalVoucher result: ${JSON.stringify(finalOutput)}`);
+      output.data = finalOutput;
+      output.message = "Journal Voucher updated successfully";
+    } catch (error) {
+      this.logger.warn(`updateJournalVoucher error for ID ${VoucherHeaderSid}`, (error as any)?.stack || (error as any)?.message || error);
+      output.status = false;
+      if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+        output.message = (error as any).message || 'Bad request';
+      } else {
+        output.message = "Internal Server Error";
+      }
+    }
+    return output;
+  }
+
+  @ApiOperation({ summary: 'Delete Journal Voucher by ID' })
+  @ApiCreatedResponse({
+    description: 'Journal Voucher deleted successfully',
+    type: ResponseData
+  })
+  @HttpCode(HttpStatus.OK)
+  @Delete('deleteVoucher/:VoucherHeaderSid')
+  async deleteJournalVoucher(@Param('VoucherHeaderSid', ParseIntPipe) VoucherHeaderSid: number) {
+    const output = new ResponseData();
+    try {
+      const finalOutput = await this.journalVoucherService.deleteJournalVoucher(VoucherHeaderSid);
+      this.logger.debug(`deleteJournalVoucher: ${VoucherHeaderSid}`);
+      output.data = finalOutput;
+      output.message = "Journal Voucher deleted successfully";
+    } catch (error) {
+      this.logger.warn(`deleteJournalVoucher error for ID ${VoucherHeaderSid}`, (error as any)?.stack || (error as any)?.message || error);
+      output.status = false;
+      if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+        output.message = (error as any).message || 'Bad request';
+      } else {
+        output.message = 'Internal Server Error';
+      }
+    }
+    return output;
+  }
+
+  @ApiOperation({ summary: 'Search Journal Vouchers with filters' })
+  @ApiCreatedResponse({
+    description: 'Journal Vouchers search results',
+    type: ResponseData
+  })
+  @HttpCode(HttpStatus.OK)
+  @Post('search-list')
+  async searchJournalVouchers(@Body() payload: any) {
+    const output = new ResponseData();
+    try {
+      const finalOutput = await this.journalVoucherService.searchJournalVouchers(payload);
+      this.logger.debug(`searchJournalVouchers: returned ${finalOutput?.items?.length || 0} items`);
+      output.data = finalOutput;
+      output.message = "Journal Vouchers search completed";
+    } catch (error) {
+      this.logger.warn('searchJournalVouchers error', (error as any)?.stack || (error as any)?.message || error);
+      output.status = false;
+      if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+        output.message = (error as any).message || 'Bad request';
+      } else {
+        output.message = 'Internal Server Error';
+      }
+    }
+    return output;
+  }
+
+  @ApiOperation({ summary: 'Post Journal Voucher' })
+  @ApiCreatedResponse({
+    description: 'Journal Voucher posted successfully',
+    type: ResponseData
+  })
+  @HttpCode(HttpStatus.OK)
+  @Post('post/:VoucherHeaderSid')
+  async postJournalVoucher(@Param('VoucherHeaderSid', ParseIntPipe) VoucherHeaderSid: number) {
+    const output = new ResponseData();
+    try {
+      const finalOutput = await this.journalVoucherService.postJournalVoucher(VoucherHeaderSid);
+      this.logger.debug(`postJournalVoucher: ${VoucherHeaderSid}`);
+      output.data = finalOutput;
+      output.message = "Journal Voucher posted successfully";
+    } catch (error) {
+      this.logger.warn(`postJournalVoucher error for ID ${VoucherHeaderSid}`, (error as any)?.stack || (error as any)?.message || error);
+      output.status = false;
+      if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+        output.message = (error as any).message || 'Bad request';
+      } else {
+        output.message = 'Internal Server Error';
+      }
+    }
+    return output;
   }
 }
