@@ -46,6 +46,8 @@ import { VehicleController } from './controllers/vehicle/vehicle.controller';
 import { CustomsController } from './controllers/customs/customs.controller';
 import { VehicleService } from './services/vehicle/vehicle.service';
 import { CustomsService } from './services/customs/customs.service';
+import { ReverseVoucherService } from './services/reverse-voucher/reverse-voucher.service';
+import { ReverseVoucherController } from './controllers/reverse-voucher/reverse-voucher.controller';
 
 @Module({
         providers: [
@@ -75,7 +77,8 @@ import { CustomsService } from './services/customs/customs.service';
                 BoeService,
                 VendorCreditNoteService,
                 VehicleService,
-                CustomsService
+                CustomsService,
+                ReverseVoucherService
         ],
         controllers: [
                 BookingController,
@@ -98,7 +101,8 @@ import { CustomsService } from './services/customs/customs.service';
                 BoeController,
                 VendorCreditNoteController,
                 VehicleController,
-                CustomsController
+                CustomsController,
+                ReverseVoucherController
         ]
 })
 export class OperationModule { }
