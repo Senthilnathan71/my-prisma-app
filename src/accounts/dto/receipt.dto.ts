@@ -259,11 +259,11 @@ export class OutstandingInvoiceDto {
   LedgerMasterSid: number | null;
   COAMasterSid : number | null;
   CustomerName: string;
-  OriginalAmount: number;
   OriginalCurrencyAmount: number;
+  OriginalLocalAmount: number;
   MatchedAmount: number;
   MatchedCurrencyAmount: number;
-  OutstandingAmount: number;
+  OutstandingLocalAmount: number;
   OutstandingCurrencyAmount: number;
   CurrencyCode: string;
   DrCr: string;
