@@ -8,12 +8,12 @@ import { parseDateFromString } from 'src/common/helper';
 import { LoadingPlanService } from '../loading-plan/loading-plan.service';
 import { MenuService } from 'src/masters/services/menu/menu.service';
 
-interface searchMasterJob { 
-    search: string, 
-    page: number, 
-    pageSize: number, 
-    activeCompanyId: number, 
-    activeBranchId: number, 
+interface searchMasterJob {
+    search: string,
+    page: number,
+    pageSize: number,
+    activeCompanyId: number,
+    activeBranchId: number,
     departmentType: string
 }
 
@@ -22,7 +22,7 @@ export class MasterJobService {
     constructor(
         private _db: DatabaseService,
         private logger: Logger,
-        private menuMasterService : MenuService,
+        private menuMasterService: MenuService,
     ) { }
 
     async createNewMasterJob(payload: any) {
@@ -37,46 +37,46 @@ export class MasterJobService {
                 const masterJobMenuId = await this.menuMasterService.getMenuSidByName('Master Job');
 
                 const MasterJobNumber = `MASTER-${dateString}-${(count + 1).toString().padStart(3, '0')}`;
-                 let departmentType: string | null = null;
-                 let assignedMBLNo = payload.MBLNo || "";
-                 if (payload.DepartmentMasterSid) {
-                const department = await prisma.departmentMaster.findUnique({
-                    where: { DepartmentMasterSid: payload.DepartmentMasterSid },
-                    select: { departmentType: true }
-                });
-                departmentType = department?.departmentType ?? null;
-            }
-
-            // If department type is Air, allocate MAWB from stock
-            if (departmentType === 'Air') {
-                // Find the first available MAWB with StockStatus = 'Free'
-                const availableMawb = await prisma.mawbStock.findFirst({
-                    where: { 
-                        StockStatus: 'Free',
-                        status: 'A', // Matching exact field name from schema (lowercase)
-                        CompanyMasterSid: payload.CompanyMasterSid,
-                        BranchMasterSid: payload.BranchMasterSid
-                    },
-                    orderBy: { MawbStockSid: 'asc' } // Get the oldest free stock first
-                });
-
-                if (!availableMawb) {
-                    throw new Error('No free MAWB stock available for Air department');
+                let departmentType: string | null = null;
+                let assignedMBLNo = payload.MBLNo || "";
+                if (payload.DepartmentMasterSid) {
+                    const department = await prisma.departmentMaster.findUnique({
+                        where: { DepartmentMasterSid: payload.DepartmentMasterSid },
+                        select: { departmentType: true }
+                    });
+                    departmentType = department?.departmentType ?? null;
                 }
 
-                // Assign the MasterBillNumber to MBLNo
-                assignedMBLNo = availableMawb.MasterBillNumber;
+                // If department type is Air, allocate MAWB from stock
+                if (departmentType === 'Air') {
+                    // Find the first available MAWB with StockStatus = 'Free'
+                    const availableMawb = await prisma.mawbStock.findFirst({
+                        where: {
+                            StockStatus: 'Free',
+                            status: 'A', // Matching exact field name from schema (lowercase)
+                            CompanyMasterSid: payload.CompanyMasterSid,
+                            BranchMasterSid: payload.BranchMasterSid
+                        },
+                        orderBy: { MawbStockSid: 'asc' } // Get the oldest free stock first
+                    });
 
-                // Update the MAWB stock status to 'Blocked'
-                await prisma.mawbStock.update({
-                    where: { MawbStockSid: availableMawb.MawbStockSid },
-                    data: { 
-                        StockStatus: 'Blocked',
-                        updatedBy: payload.CreatedBy, // Matching exact field name (lowercase)
-                        updatedOn: new Date()
+                    if (!availableMawb) {
+                        throw new Error('No free MAWB stock available for Air department');
                     }
-                });
-            }
+
+                    // Assign the MasterBillNumber to MBLNo
+                    assignedMBLNo = availableMawb.MasterBillNumber;
+
+                    // Update the MAWB stock status to 'Blocked'
+                    await prisma.mawbStock.update({
+                        where: { MawbStockSid: availableMawb.MawbStockSid },
+                        data: {
+                            StockStatus: 'Blocked',
+                            updatedBy: payload.CreatedBy, // Matching exact field name (lowercase)
+                            updatedOn: new Date()
+                        }
+                    });
+                }
                 const headerPayload = {
                     MasterJobNumber: MasterJobNumber,
                     MasterJobDate: payload.MasterJobDate ? new Date(payload.MasterJobDate) : new Date(),
@@ -115,7 +115,7 @@ export class MasterJobService {
                     DGApprovedDate: payload.DGApprovedDate ? new Date(payload.DGApprovedDate) : null,
                     CommodityDescription: payload.CommodityDescription?.substring(0, 20) || '',
                     MarksandNumber: payload.MarksandNumber?.substring(0, 20) || '',
-                   
+
                 }
 
                 const createdMasterJob = await prisma.masterJob.create({
@@ -232,7 +232,7 @@ export class MasterJobService {
                 if (allCostRevenueCharges.length > 0) {
                     const costRevenueChargesPayload = allCostRevenueCharges.map(item => ({
                         TransactionSid: createdMasterJob.MasterJobSid,
-                        MenuMasterSid:  masterJobMenuId || payload.MenuMasterSid,
+                        MenuMasterSid: masterJobMenuId || payload.MenuMasterSid,
                         ShipmentNo: createdMasterJob.MasterJobNumber,
                         MasterJobNo: createdMasterJob.MasterJobNumber,
                         CompanyMasterSid: payload.CompanyMasterSid,
@@ -245,35 +245,35 @@ export class MasterJobService {
                         ChargeUomSid: item.ChargeUomSid ? Number(item.ChargeUomSid) : null,
                         RevenueChargeUomSid: item.RevenueChargeUomSid ? Number(item.RevenueChargeUomSid) : null,
                         CostChargeUomSid: item.CostChargeUomSid ? Number(item.CostChargeUomSid) : null,
-                        RevenueNumberOfUnit : item.RevenueNumberOfUnit ? Number(item.RevenueNumberOfUnit) : null,
-                        CostNumberOfUnit : item.CostNumberOfUnit ? Number(item.CostNumberOfUnit) : null,
+                        RevenueNumberOfUnit: item.RevenueNumberOfUnit ? Number(item.RevenueNumberOfUnit) : null,
+                        CostNumberOfUnit: item.CostNumberOfUnit ? Number(item.CostNumberOfUnit) : null,
 
                         // Revenue Section
                         RevenueCurrencyMasterSid: item.RevenueCurrencyMasterSid ? item.RevenueCurrencyMasterSid : null,
-                        RevenueExchangeRate : item.RevenueExchangeRate ? Number(item.RevenueExchangeRate) : null,
-                        RevenueRate : item.RevenueRate ? Number(item.RevenueRate) : null,
-                        RevenueAmount : item.RevenueAmount ? Number(item.RevenueAmount) : null,
-                        RevenueLocalAmount : item.RevenueLocalAmount ? Number(item.RevenueLocalAmount) : null,
-                        RevenueDrCr : item.RevenueDrCr,
+                        RevenueExchangeRate: item.RevenueExchangeRate ? Number(item.RevenueExchangeRate) : null,
+                        RevenueRate: item.RevenueRate ? Number(item.RevenueRate) : null,
+                        RevenueAmount: item.RevenueAmount ? Number(item.RevenueAmount) : null,
+                        RevenueLocalAmount: item.RevenueLocalAmount ? Number(item.RevenueLocalAmount) : null,
+                        RevenueDrCr: item.RevenueDrCr,
                         RevenueCustomerMasterSid: item.RevenueCustomerMasterSid ? Number(item.RevenueCustomerMasterSid) : null,
                         RevenueCustomerBranchSid: item.RevenueCustomerBranchSid ? Number(item.RevenueCustomerBranchSid) : null,
-                        RevenuePrepaidCollect : item.RevenuePrepaidCollect,
+                        RevenuePrepaidCollect: item.RevenuePrepaidCollect,
                         RevenueVoucherHeaderSid: item.RevenueVoucherHeaderSid ? Number(item.RevenueVoucherHeaderSid) : null,
                         RevenueVoucherTypeMasterSid: item.RevenueVoucherTypeSid ? Number(item.RevenueVoucherTypeSid) : null,
 
                         // Cost Section
                         CostCurrencyMasterSid: item.CostCurrencyMasterSid ? item.CostCurrencyMasterSid : null,
-                        CostExchangeRate : item.CostExchangeRate ? Number(item.CostExchangeRate) : null,
-                        CostRate : item.CostRate ? Number(item.CostRate) : null,
-                        CostAmount : item.CostAmount ? Number(item.CostAmount) : null,
-                        CostLocalAmount : item.CostLocalAmount ? Number(item.CostLocalAmount) : null,
-                        CostDrCr : item.CostDrCr,
+                        CostExchangeRate: item.CostExchangeRate ? Number(item.CostExchangeRate) : null,
+                        CostRate: item.CostRate ? Number(item.CostRate) : null,
+                        CostAmount: item.CostAmount ? Number(item.CostAmount) : null,
+                        CostLocalAmount: item.CostLocalAmount ? Number(item.CostLocalAmount) : null,
+                        CostDrCr: item.CostDrCr,
                         CostAgentMasterSid: item.CostAgentMasterSid ? Number(item.CostAgentMasterSid) : null,
                         CostAgentBranchSid: item.CostAgentBranchSid ? Number(item.CostAgentBranchSid) : null,
-                        CostPrepaidCollect : item.CostPrepaidCollect,
+                        CostPrepaidCollect: item.CostPrepaidCollect,
                         CostVoucherHeaderSid: item.CostVoucherHeaderSid ? Number(item.CostVoucherHeaderSid) : null,
                         CostVoucherTypeMasterSid: item.CostVoucherTypeSid ? Number(item.CostVoucherTypeSid) : null,
-                        
+
                         createdBy: payload.CreatedBy,
                         status: "A",
                         Remarks: item.Remarks
@@ -400,7 +400,7 @@ export class MasterJobService {
                             CustomerBranchSid: bookingHeader.CustomerBranchSid || null,
                             AuthorizerRemarks: bookingHeader.AuthorizerRemarks || '',
                             authorizerStatus: bookingHeader.authorizerStatus,
-                            MenuMasterSid: houseJobMenuId ||  payload.MenuMasterSid,
+                            MenuMasterSid: houseJobMenuId || payload.MenuMasterSid,
                             CarrierSid: bookingHeader.CarrierSid || null,
                             CarrierName: bookingHeader.CarrierName || '',
                             Coload: bookingHeader.Coload || '',
@@ -441,7 +441,7 @@ export class MasterJobService {
                                 PackageType: cargo.PackageType || null,
                                 Qty: cargo.Qty || 0,
                                 ShipmentTerms: cargo.ShipmentTerms || '',
-                                createdBy:  payload.CreatedBy || '',
+                                createdBy: payload.CreatedBy || '',
                                 updatedBy: cargo.updatedBy || null,
                                 status: 'A',
                                 FreightTerms: cargo.FreightTerms || '',
@@ -500,7 +500,7 @@ export class MasterJobService {
                                 ETA: connection.ETA ? new Date(connection.ETA) : null,
                                 Remarks: connection.Remarks || '',
                                 status: 'A',
-                                createdBy:  payload.CreatedBy || '',
+                                createdBy: payload.CreatedBy || '',
                                 updatedBy: connection.updatedBy || null,
                             }))
                         }).catch(err => {
@@ -539,7 +539,7 @@ export class MasterJobService {
                                 ExternalRemarks: other.ExternalRemarks,
                                 SwitchBL: other.SwitchBL,
                                 TransporterName: other.TransporterName,
-                                createdBy:  payload.CreatedBy || '',
+                                createdBy: payload.CreatedBy || '',
                                 status: 'A',
                                 Forwarder: other.Forwarder || '',
                                 ForwarderAddress: other.ForwarderAddress || '',
@@ -571,12 +571,12 @@ export class MasterJobService {
                         await this._db.costRevenueCharges.createMany({
                             data: allRates.map(rate => ({
                                 TransactionSid: houseJob.HouseJobSid,
-                                MenuMasterSid: houseJobMenuId ||  payload.MenuMasterSid,
+                                MenuMasterSid: houseJobMenuId || payload.MenuMasterSid,
                                 ShipmentNo: houseJob.ShipmentNo,
                                 MasterJobNo: newMasterJob.MasterJobNumber,
                                 CompanyMasterSid: houseJob.CompanyMasterSid,
                                 BranchMasterSid: houseJob.BranchMasterSid!,
-                                createdBy:  payload.CreatedBy || '',
+                                createdBy: payload.CreatedBy || '',
                                 status: "A",
                                 Remarks: rate.Remarks || '',
 
@@ -586,36 +586,36 @@ export class MasterJobService {
                                 ChargeUomSid: rate.ChargeUomSid,
                                 RevenueChargeUomSid: rate.RevenueChargeUomSid!,
                                 CostChargeUomSid: rate.CostChargeUomSid!,
-                                RevenueNumberOfUnit : rate.RevenueNumberOfUnit,
-                                CostNumberOfUnit : rate.CostNumberOfUnit,
+                                RevenueNumberOfUnit: rate.RevenueNumberOfUnit,
+                                CostNumberOfUnit: rate.CostNumberOfUnit,
 
                                 // Revenue Section
                                 RevenueCurrencyMasterSid: rate.RevenueCurrencyMasterSid,
-                                RevenueExchangeRate : rate.RevenueExchangeRate,
-                                RevenueRate : rate.RevenueRate,
-                                RevenueAmount : rate.RevenueAmount,
-                                RevenueLocalAmount : rate.RevenueLocalAmount,
-                                RevenueDrCr : rate.RevenueDrCr,
+                                RevenueExchangeRate: rate.RevenueExchangeRate,
+                                RevenueRate: rate.RevenueRate,
+                                RevenueAmount: rate.RevenueAmount,
+                                RevenueLocalAmount: rate.RevenueLocalAmount,
+                                RevenueDrCr: rate.RevenueDrCr,
                                 RevenueCustomerMasterSid: rate.CustomerMasterSid,
                                 RevenueCustomerBranchSid: rate.CustomerBranchSid,
-                                RevenuePrepaidCollect : rate.RevenuePrepaidCollect,
+                                RevenuePrepaidCollect: rate.RevenuePrepaidCollect,
                                 RevenueVoucherHeaderSid: rate.RevenueVoucherHeaderSid,
                                 RevenueVoucherTypeMasterSid: rate.RevenueVoucherTypeMasterSid,
 
                                 // Cost Section
                                 CostCurrencyMasterSid: rate.CostCurrencyMasterSid,
-                                CostExchangeRate : rate.CostExchangeRate,
-                                CostRate : rate.CostRate,
-                                CostAmount : rate.CostAmount,
-                                CostLocalAmount : rate.CostLocalAmount,
-                                CostDrCr : rate.CostDrCr,
+                                CostExchangeRate: rate.CostExchangeRate,
+                                CostRate: rate.CostRate,
+                                CostAmount: rate.CostAmount,
+                                CostLocalAmount: rate.CostLocalAmount,
+                                CostDrCr: rate.CostDrCr,
                                 CostAgentMasterSid: rate.AgentMasterSid,
                                 CostAgentBranchSid: rate.AgentBranchSid,
-                                CostPrepaidCollect : rate.CostPrepaidCollect,
+                                CostPrepaidCollect: rate.CostPrepaidCollect,
                                 CostVoucherHeaderSid: rate.CostVoucherHeaderSid,
                                 CostVoucherTypeMasterSid: rate.CostVoucherTypeMasterSid,
-                                
-                                BookingRateSid : rate.BookingRatesSid,
+
+                                BookingRateSid: rate.BookingRatesSid,
                             }))
                         }).catch(err => {
                             console.error('HouseJobRates createMany error:', err);
@@ -623,7 +623,7 @@ export class MasterJobService {
                     }
 
                     /** Updating Vouchers with MasterJobSid && HouseJobSid */
-                    if(allRevenueVouchers.length > 0) {
+                    if (allRevenueVouchers.length > 0) {
                         for (const revenueVoucher of allRevenueVouchers) {
                             await this._db.voucherHeader.update({
                                 where: {
@@ -632,15 +632,15 @@ export class MasterJobService {
                                 data: {
                                     MasterJobSid: newMasterJob.MasterJobSid,
                                     HouseJobSid: houseJob.HouseJobSid,
-                                    MasterNumber : newMasterJob.MBLNo,
-                                    HouseNumber : houseJob.HBLNo,
+                                    MasterNumber: newMasterJob.MBLNo,
+                                    HouseNumber: houseJob.HBLNo,
                                 }
                             }).catch(err => {
                                 console.error('Revenue VoucherHeader update error:', err);
                             });
                         }
                     }
-                    if(allCostVouchers.length > 0) {
+                    if (allCostVouchers.length > 0) {
                         for (const costVoucher of allCostVouchers) {
                             await this._db.voucherHeader.update({
                                 where: {
@@ -649,8 +649,8 @@ export class MasterJobService {
                                 data: {
                                     MasterJobSid: newMasterJob.MasterJobSid,
                                     HouseJobSid: houseJob.HouseJobSid,
-                                    MasterNumber : newMasterJob.MBLNo,
-                                    HouseNumber : houseJob.HBLNo,
+                                    MasterNumber: newMasterJob.MBLNo,
+                                    HouseNumber: houseJob.HBLNo,
                                 }
                             }).catch(err => {
                                 console.error('Cost VoucherHeader update error:', err);
@@ -666,15 +666,15 @@ export class MasterJobService {
                             MasterNoSid: newMasterJob.MasterJobSid,
                             MBLNo: newMasterJob.MBLNo,
                             MBLDate: newMasterJob.MBLDate,
-                            HBLNo : houseJob?.HBLNo,
+                            HBLNo: houseJob?.HBLNo,
                             BookingStatus: 'Stuffed',
-                            
+
                             // If Sailing schedule changed during Loading Plan
-                            VoyageMasterSid :newMasterJob.VoyageMasterSid,
-                            VesselName : newMasterJob.VesselName,
-                            VoyageNo : newMasterJob.VoyageNo,
-                            ETA : newMasterJob.ETA,
-                            ETD : newMasterJob.ETD,
+                            VoyageMasterSid: newMasterJob.VoyageMasterSid,
+                            VesselName: newMasterJob.VesselName,
+                            VoyageNo: newMasterJob.VoyageNo,
+                            ETA: newMasterJob.ETA,
+                            ETD: newMasterJob.ETD,
                         },
                     }).catch(err => {
                         console.error('bookingHeader update error:', err);
@@ -703,16 +703,16 @@ export class MasterJobService {
                     });
 
                     const updatedBooking = await this._db.bookingHeader.update({
-                        where : { BookingHeaderSid: ourHouse.BookingHeaderSid! },
-                        data : {
-                            MasterNoSid : newMasterJob.MasterJobSid,
-                            MBLNo : newMasterJob.MBLNo,
-                            MBLDate : newMasterJob.MBLDate,
-                            BookingStatus : 'Stuffed',
+                        where: { BookingHeaderSid: ourHouse.BookingHeaderSid! },
+                        data: {
+                            MasterNoSid: newMasterJob.MasterJobSid,
+                            MBLNo: newMasterJob.MBLNo,
+                            MBLDate: newMasterJob.MBLDate,
+                            BookingStatus: 'Stuffed',
                         }
-                    }).catch(error => 
+                    }).catch(error =>
                         console.error('Error updating booking header', error
-                    ));
+                        ));
                 }
             }
 
@@ -752,7 +752,7 @@ export class MasterJobService {
                         masterJobConnection: { where: { Status: 'A' } },
                         containers: { where: { Status: 'A' } },
                         others: { where: { Status: 'A' } },
-                        houseJob:{ where :{ status: 'A'}}
+                        houseJob: { where: { status: 'A' } }
                     }
                 })
                 const allShipments = await prisma.houseJob.findMany({
@@ -766,7 +766,7 @@ export class MasterJobService {
                 })
                 const allCostRevenueCharges = await prisma.costRevenueCharges.findMany({
                     where: {
-                        TransactionSid: MasterJobSid, 
+                        TransactionSid: MasterJobSid,
                         MenuMasterSid: masterJobDetails?.MenuMasterSid!,
                         CompanyMasterSid: masterJobDetails?.CompanyMasterSid,
                         BranchMasterSid: masterJobDetails?.BranchMasterSid,
@@ -798,21 +798,21 @@ export class MasterJobService {
                                 VoucherTypeMasterSid: true
                             }
                         },
-                        revenueCustomerMaster : {
-                            select : {
-                                CustomerMasterSid : true,
-                                CustomerName : true
+                        revenueCustomerMaster: {
+                            select: {
+                                CustomerMasterSid: true,
+                                CustomerName: true
                             }
                         },
-                        costCustomerMaster : {
-                            select : {
-                                CustomerMasterSid : true,
-                                CustomerName : true
+                        costCustomerMaster: {
+                            select: {
+                                CustomerMasterSid: true,
+                                CustomerName: true
                             }
                         }
                     },
-                    orderBy : {
-                        SerialNumber : 'asc'
+                    orderBy: {
+                        SerialNumber: 'asc'
                     }
                 })
                 const allActivities = await prisma.containerActivity.findMany({
@@ -867,7 +867,7 @@ export class MasterJobService {
     async updateMasterJob(payload: any) {
         try {
             const updatedMasterJob = await this._db.$transaction(async (prisma) => {
-                
+
                 const masterJobMenuId = await this.menuMasterService.getMenuSidByName('Master Job');
 
                 const headerPayload = {
@@ -1129,54 +1129,54 @@ export class MasterJobService {
                     if (item.RateSid) {
                         // update
                         const costRevenueChargesPayload = {
-                            TransactionSid : updatedMasterJob.MasterJobSid ||  item.RateSid,
+                            TransactionSid: updatedMasterJob.MasterJobSid || item.RateSid,
                             MenuMasterSid: masterJobMenuId || updatedMasterJob.MenuMasterSid!,
-                            ShipmentNo : updatedMasterJob.MasterJobNumber,
-                            MasterJobNo : updatedMasterJob.MasterJobNumber,
-                            updatedBy : payload.UpdatedBy || '',
-                            status : String(item.status).charAt(0) || 'A',
-                            Remarks : item.Remarks || '',
+                            ShipmentNo: updatedMasterJob.MasterJobNumber,
+                            MasterJobNo: updatedMasterJob.MasterJobNumber,
+                            updatedBy: payload.UpdatedBy || '',
+                            status: String(item.status).charAt(0) || 'A',
+                            Remarks: item.Remarks || '',
 
                             SerialNumber: itemIndex++,
                             ChargeMasterSid: item.ChargeMasterSid ? Number(item.ChargeMasterSid) : null,
                             ChargeDescription: item.ChargeDescription,
                             ChargeUomSid: item.ChargeUomSid ? Number(item.ChargeUomSid) : null,
-                            RevenueChargeUomSid: 
-                            (item.RevenueChargeUomSid ? Number(item.RevenueChargeUomSid) : null) ||
-                            (item.ChargeUomSid ? Number(item.ChargeUomSid) : null)!,
-                            CostChargeUomSid: 
-                            (item.CostChargeUomSid! ? Number(item.CostChargeUomSid) : null) || 
-                            (item.ChargeUomSid ? Number(item.ChargeUomSid) : null)!,
-                            RevenueNumberOfUnit : 
-                            (item.RevenueNumberOfUnit ? Number(item.RevenueNumberOfUnit) : null) || 
-                            (item.NoOfUnit ? Number(item.NoOfUnit) : null)!,
-                            CostNumberOfUnit : 
-                            (item.CostNumberOfUnit ? Number(item.CostNumberOfUnit) : null) ||
-                            (item.NoOfUnit ? Number(item.NoOfUnit) : null)!,
+                            RevenueChargeUomSid:
+                                (item.RevenueChargeUomSid ? Number(item.RevenueChargeUomSid) : null) ||
+                                (item.ChargeUomSid ? Number(item.ChargeUomSid) : null)!,
+                            CostChargeUomSid:
+                                (item.CostChargeUomSid! ? Number(item.CostChargeUomSid) : null) ||
+                                (item.ChargeUomSid ? Number(item.ChargeUomSid) : null)!,
+                            RevenueNumberOfUnit:
+                                (item.RevenueNumberOfUnit ? Number(item.RevenueNumberOfUnit) : null) ||
+                                (item.NoOfUnit ? Number(item.NoOfUnit) : null)!,
+                            CostNumberOfUnit:
+                                (item.CostNumberOfUnit ? Number(item.CostNumberOfUnit) : null) ||
+                                (item.NoOfUnit ? Number(item.NoOfUnit) : null)!,
 
                             // Revenue Section
                             RevenueCurrencyMasterSid: item.RevenueCurrencyMasterSid ? Number(item.RevenueCurrencyMasterSid) : null,
-                            RevenueExchangeRate : item.RevenueExchangeRate ? Number(item.RevenueExchangeRate) : null,
-                            RevenueRate : item.RevenueRate ? Number(item.RevenueRate) : null,
-                            RevenueAmount : item.RevenueAmount ? Number(item.RevenueAmount) : null,
-                            RevenueLocalAmount : item.RevenueLocalAmount ? Number(item.RevenueLocalAmount) : null,
-                            RevenueDrCr : item.RevenueDrCr,
+                            RevenueExchangeRate: item.RevenueExchangeRate ? Number(item.RevenueExchangeRate) : null,
+                            RevenueRate: item.RevenueRate ? Number(item.RevenueRate) : null,
+                            RevenueAmount: item.RevenueAmount ? Number(item.RevenueAmount) : null,
+                            RevenueLocalAmount: item.RevenueLocalAmount ? Number(item.RevenueLocalAmount) : null,
+                            RevenueDrCr: item.RevenueDrCr,
                             RevenueCustomerMasterSid: item.RevenueCustomerMasterSid ? Number(item.RevenueCustomerMasterSid) : null,
                             RevenueCustomerBranchSid: item.RevenueCustomerBranchSid ? Number(item.RevenueCustomerBranchSid) : null,
-                            RevenuePrepaidCollect : item.RevenuePrepaidCollect,
+                            RevenuePrepaidCollect: item.RevenuePrepaidCollect,
                             RevenueVoucherHeaderSid: item.RevenueVoucherHeaderSid ? Number(item.RevenueVoucherHeaderSid) : null,
                             RevenueVoucherTypeMasterSid: item.RevenueVoucherTypeSid ? Number(item.RevenueVoucherTypeSid) : null,
 
                             // Cost Section
                             CostCurrencyMasterSid: item.CostCurrencyMasterSid ? Number(item.CostCurrencyMasterSid) : null,
-                            CostExchangeRate : item.CostExchangeRate ? Number(item.CostExchangeRate) : null,
-                            CostRate : item.CostRate ? Number(item.CostRate) : null,
-                            CostAmount : item.CostAmount ? Number(item.CostAmount) : null,
-                            CostLocalAmount : item.CostLocalAmount ? Number(item.CostLocalAmount) : null,
-                            CostDrCr : item.CostDrCr,
+                            CostExchangeRate: item.CostExchangeRate ? Number(item.CostExchangeRate) : null,
+                            CostRate: item.CostRate ? Number(item.CostRate) : null,
+                            CostAmount: item.CostAmount ? Number(item.CostAmount) : null,
+                            CostLocalAmount: item.CostLocalAmount ? Number(item.CostLocalAmount) : null,
+                            CostDrCr: item.CostDrCr,
                             CostAgentMasterSid: item.CostAgentMasterSid ? Number(item.CostAgentMasterSid) : null,
                             CostAgentBranchSid: item.CostAgentBranchSid ? Number(item.CostAgentBranchSid) : null,
-                            CostPrepaidCollect : item.CostPrepaidCollect,
+                            CostPrepaidCollect: item.CostPrepaidCollect,
                             CostVoucherHeaderSid: item.CostVoucherHeaderSid ? Number(item.CostVoucherHeaderSid) : null,
                             CostVoucherTypeMasterSid: item.CostVoucherTypeSid ? Number(item.CostVoucherTypeSid) : null,
 
@@ -1333,7 +1333,7 @@ export class MasterJobService {
                     const HBLNo = `HOUSE-${dateString}-${hblSerial.toString().padStart(3, '0')}`;
 
                     const houseJobMenuId = await this.menuMasterService.getMenuSidByName('House Job');
-                    
+
 
                     // Step 1: Create main house job
                     let houseJob = await this._db.houseJob.create({
@@ -1387,7 +1387,7 @@ export class MasterJobService {
                             CustomerBranchSid: bookingHeader.CustomerBranchSid || null,
                             AuthorizerRemarks: bookingHeader.AuthorizerRemarks || '',
                             authorizerStatus: bookingHeader.authorizerStatus,
-                            MenuMasterSid: houseJobMenuId ||  payload.MenuMasterSid,
+                            MenuMasterSid: houseJobMenuId || payload.MenuMasterSid,
                             CarrierSid: bookingHeader.CarrierSid || null,
                             CarrierName: bookingHeader.CarrierName || '',
                             Coload: bookingHeader.Coload || '',
@@ -1428,7 +1428,7 @@ export class MasterJobService {
                                 PackageType: cargo.PackageType || null,
                                 Qty: cargo.Qty || 0,
                                 ShipmentTerms: cargo.ShipmentTerms || '',
-                                createdBy:  payload.CreatedBy || '',
+                                createdBy: payload.CreatedBy || '',
                                 updatedBy: cargo.updatedBy || null,
                                 status: 'A',
                                 FreightTerms: cargo.FreightTerms || '',
@@ -1487,7 +1487,7 @@ export class MasterJobService {
                                 ETA: connection.ETA ? new Date(connection.ETA) : null,
                                 Remarks: connection.Remarks || '',
                                 status: 'A',
-                                createdBy:  payload.CreatedBy || '',
+                                createdBy: payload.CreatedBy || '',
                                 updatedBy: connection.updatedBy || null,
                             }))
                         }).catch(err => {
@@ -1526,7 +1526,7 @@ export class MasterJobService {
                                 ExternalRemarks: other.ExternalRemarks,
                                 SwitchBL: other.SwitchBL,
                                 TransporterName: other.TransporterName,
-                                createdBy:  payload.CreatedBy || '',
+                                createdBy: payload.CreatedBy || '',
                                 status: 'A',
                                 Forwarder: other.Forwarder || '',
                                 ForwarderAddress: other.ForwarderAddress || '',
@@ -1549,7 +1549,7 @@ export class MasterJobService {
                         });
                     }
 
-                    
+
                     const allRates = bookingRates || [];
                     const allRevenueVouchers = allRates.filter(rate => rate.RevenueVoucherHeaderSid !== null).map(rate => rate.RevenueVoucherHeaderSid);
                     const allCostVouchers = allRates.filter(rate => rate.CostVoucherHeaderSid !== null).map(rate => rate.CostVoucherHeaderSid);
@@ -1563,7 +1563,7 @@ export class MasterJobService {
                                 MasterJobNo: updatedMasterJob.MasterJobNumber,
                                 CompanyMasterSid: houseJob.CompanyMasterSid,
                                 BranchMasterSid: houseJob.BranchMasterSid!,
-                                createdBy:  payload.CreatedBy || '',
+                                createdBy: payload.CreatedBy || '',
                                 status: "A",
                                 Remarks: rate.Remarks || '',
 
@@ -1573,43 +1573,43 @@ export class MasterJobService {
                                 ChargeUomSid: rate.ChargeUomSid,
                                 RevenueChargeUomSid: rate.RevenueChargeUomSid!,
                                 CostChargeUomSid: rate.CostChargeUomSid!,
-                                RevenueNumberOfUnit : rate.RevenueNumberOfUnit,
-                                CostNumberOfUnit : rate.CostNumberOfUnit,
+                                RevenueNumberOfUnit: rate.RevenueNumberOfUnit,
+                                CostNumberOfUnit: rate.CostNumberOfUnit,
 
                                 // Revenue Section
                                 RevenueCurrencyMasterSid: rate.RevenueCurrencyMasterSid,
-                                RevenueExchangeRate : rate.RevenueExchangeRate,
-                                RevenueRate : rate.RevenueRate,
-                                RevenueAmount : rate.RevenueAmount,
-                                RevenueLocalAmount : rate.RevenueLocalAmount,
-                                RevenueDrCr : rate.RevenueDrCr,
+                                RevenueExchangeRate: rate.RevenueExchangeRate,
+                                RevenueRate: rate.RevenueRate,
+                                RevenueAmount: rate.RevenueAmount,
+                                RevenueLocalAmount: rate.RevenueLocalAmount,
+                                RevenueDrCr: rate.RevenueDrCr,
                                 RevenueCustomerMasterSid: rate.CustomerMasterSid,
                                 RevenueCustomerBranchSid: rate.CustomerBranchSid,
-                                RevenuePrepaidCollect : rate.RevenuePrepaidCollect,
+                                RevenuePrepaidCollect: rate.RevenuePrepaidCollect,
                                 RevenueVoucherHeaderSid: rate.RevenueVoucherHeaderSid,
                                 RevenueVoucherTypeMasterSid: rate.RevenueVoucherTypeMasterSid,
 
                                 // Cost Section
                                 CostCurrencyMasterSid: rate.CostCurrencyMasterSid,
-                                CostExchangeRate : rate.CostExchangeRate,
-                                CostRate : rate.CostRate,
-                                CostAmount : rate.CostAmount,
-                                CostLocalAmount : rate.CostLocalAmount,
-                                CostDrCr : rate.CostDrCr,
+                                CostExchangeRate: rate.CostExchangeRate,
+                                CostRate: rate.CostRate,
+                                CostAmount: rate.CostAmount,
+                                CostLocalAmount: rate.CostLocalAmount,
+                                CostDrCr: rate.CostDrCr,
                                 CostAgentMasterSid: rate.AgentMasterSid,
                                 CostAgentBranchSid: rate.AgentBranchSid,
-                                CostPrepaidCollect : rate.CostPrepaidCollect,
+                                CostPrepaidCollect: rate.CostPrepaidCollect,
                                 CostVoucherHeaderSid: rate.CostVoucherHeaderSid,
                                 CostVoucherTypeMasterSid: rate.CostVoucherTypeMasterSid,
-                                
-                                BookingRateSid : rate.BookingRatesSid,
+
+                                BookingRateSid: rate.BookingRatesSid,
                             }))
                         }).catch(err => {
                             console.error('HouseJobRates createMany error:', err);
                         });
                     }
 
-                    if(allRevenueVouchers.length > 0) {
+                    if (allRevenueVouchers.length > 0) {
                         for (const revenueVoucher of allRevenueVouchers) {
                             await this._db.voucherHeader.update({
                                 where: {
@@ -1618,15 +1618,15 @@ export class MasterJobService {
                                 data: {
                                     MasterJobSid: updatedMasterJob.MasterJobSid,
                                     HouseJobSid: houseJob.HouseJobSid,
-                                    MasterNumber : updatedMasterJob.MBLNo,
-                                    HouseNumber : houseJob.HBLNo,
+                                    MasterNumber: updatedMasterJob.MBLNo,
+                                    HouseNumber: houseJob.HBLNo,
                                 }
                             }).catch(err => {
                                 console.error('Revenue VoucherHeader update error:', err);
                             });
                         }
                     }
-                    if(allCostVouchers.length > 0) {
+                    if (allCostVouchers.length > 0) {
                         for (const costVoucher of allCostVouchers) {
                             await this._db.voucherHeader.update({
                                 where: {
@@ -1635,8 +1635,8 @@ export class MasterJobService {
                                 data: {
                                     MasterJobSid: updatedMasterJob.MasterJobSid,
                                     HouseJobSid: houseJob.HouseJobSid,
-                                    MasterNumber : updatedMasterJob.MBLNo,
-                                    HouseNumber : houseJob.HBLNo,
+                                    MasterNumber: updatedMasterJob.MBLNo,
+                                    HouseNumber: houseJob.HBLNo,
                                 }
                             }).catch(err => {
                                 console.error('Cost VoucherHeader update error:', err);
@@ -1680,16 +1680,16 @@ export class MasterJobService {
                     });
 
                     const updatedBooking = await this._db.bookingHeader.update({
-                        where : { BookingHeaderSid: ourHouse.BookingHeaderSid! },
-                        data : {
-                            MasterNoSid : updatedMasterJob.MasterJobSid,
-                            MBLNo : updatedMasterJob.MBLNo,
-                            MBLDate : updatedMasterJob.MBLDate,
-                            BookingStatus : 'Stuffed',
+                        where: { BookingHeaderSid: ourHouse.BookingHeaderSid! },
+                        data: {
+                            MasterNoSid: updatedMasterJob.MasterJobSid,
+                            MBLNo: updatedMasterJob.MBLNo,
+                            MBLDate: updatedMasterJob.MBLDate,
+                            BookingStatus: 'Stuffed',
                         }
-                    }).catch(error => 
+                    }).catch(error =>
                         console.error('Error updating booking header', error
-                    ));
+                        ));
 
                 }
             }
@@ -1787,7 +1787,7 @@ export class MasterJobService {
 
 
     async searchMasterJobList(params: searchMasterJob) {
-        const { search = '', page = 1, pageSize = 15, activeCompanyId, activeBranchId , departmentType } = params;
+        const { search = '', page = 1, pageSize = 15, activeCompanyId, activeBranchId, departmentType } = params;
         const skip = (page - 1) * pageSize;
 
         const parsedDate = parseDateFromString(search);
@@ -1819,9 +1819,9 @@ export class MasterJobService {
                     ],
                 }
                 : {}),
-            ...(departmentType === "Air" ? 
-                { departmentType: departmentType } : 
-                { departmentType : {not : {equals : 'Air'}} }
+            ...(departmentType === "Air" ?
+                { departmentType: departmentType } :
+                { departmentType: { not: { equals: 'Air' } } }
             )
         };
         const [items, totalCount] = await this._db.$transaction([
@@ -1898,7 +1898,7 @@ export class MasterJobService {
 
             return logs;
         } catch (error) {
-            this.logger.warn(`getAuditLogsError: ${error}`);    
+            this.logger.warn(`getAuditLogsError: ${error}`);
             throw new Error(`Error fetching audit logs: ${error.message}`);
         }
     }
@@ -2249,29 +2249,29 @@ export class MasterJobService {
                 });
 
                 allCreatedHouseJobs.push({
-                    HouseJobSid : houseJob.HouseJobSid,
-                    BookingHeaderSid : houseJob.BookingHeaderSid,
-                    BookingNo : houseJob.BookingNo,
-                    BookingDateTime : houseJob.BookingDateTime,
-                    CustomerName : houseJob.CustomerName,
-                    CustomerAddress : houseJob.CustomerAddress,
-                    ShipperName : houseJob.ShipperName,
-                    ShipperAddress : houseJob.ShipperAddress,
-                    ConsigneeName : houseJob.ConsigneeName,
-                    ConsigneeAddress : houseJob.ConsigneeAddress,
-                    DestinationAgent : houseJob.DestinationAgent,
-                    MBLDate : houseJob.MBLDate,
-                    MasterJobSid : houseJob.MasterJobSid,
-                    POL : houseJob.POL,
-                    POD : houseJob.POD,
-                    FreightTerms : houseJob.FreightTerms,
+                    HouseJobSid: houseJob.HouseJobSid,
+                    BookingHeaderSid: houseJob.BookingHeaderSid,
+                    BookingNo: houseJob.BookingNo,
+                    BookingDateTime: houseJob.BookingDateTime,
+                    CustomerName: houseJob.CustomerName,
+                    CustomerAddress: houseJob.CustomerAddress,
+                    ShipperName: houseJob.ShipperName,
+                    ShipperAddress: houseJob.ShipperAddress,
+                    ConsigneeName: houseJob.ConsigneeName,
+                    ConsigneeAddress: houseJob.ConsigneeAddress,
+                    DestinationAgent: houseJob.DestinationAgent,
+                    MBLDate: houseJob.MBLDate,
+                    MasterJobSid: houseJob.MasterJobSid,
+                    POL: houseJob.POL,
+                    POD: houseJob.POD,
+                    FreightTerms: houseJob.FreightTerms,
                 });
             }
             return allCreatedHouseJobs
         } catch (error) {
             throw error;
         }
-}
+    }
 
     /**
      * Process bulk upload from Excel file
@@ -3078,20 +3078,20 @@ export class MasterJobService {
         return !!existing;
     }
 
-    async getMasterJobByDepartmentid(payload:any){
+    async getMasterJobByDepartmentid(payload: any) {
         try {
-            const {DepartmentMasterSid,CompanyMasterSid,BranchMasterSid} = payload;
+            const { DepartmentMasterSid, CompanyMasterSid, BranchMasterSid } = payload;
             const masterJob = await this._db.masterJob.findMany({
                 where: {
-                    MasterJobNumber : {not : null},
+                    MasterJobNumber: { not: null },
                     DepartmentMasterSid: DepartmentMasterSid,
                     CompanyMasterSid: CompanyMasterSid,
                     BranchMasterSid: BranchMasterSid,
                     Status: 'A'
                 },
-                select : {
-                    MasterJobSid : true,
-                    MasterJobNumber : true,
+                select: {
+                    MasterJobSid: true,
+                    MasterJobNumber: true,
                 }
             })
             return masterJob;
@@ -3099,4 +3099,235 @@ export class MasterJobService {
             throw error;
         }
     }
+
+
+
+    async createBookingFromMasterJob(payload: any) {
+        return await this._db.$transaction(async (tx) => {
+
+            const { houseJobSid, createdBy } = payload;
+
+            // 1. Fetch Master House Job with relations
+            const houseJob = await tx.houseJob.findFirst({
+                where: { HouseJobSid: houseJobSid, deletedAt: null },
+                include: {
+                    Cargo: true,
+                    Products: true,
+                    Others: true,
+                }
+            });
+
+            if (!houseJob) {
+                throw new BadRequestException("House Job not found");
+            }
+
+            if (houseJob.JobType !== 'Transhipment') {
+                throw new BadRequestException("Only Transhipment job can create booking");
+            }
+
+            // -------------------------------
+            // 2. Create Booking Header
+            // -------------------------------
+            const bookingHeader = await tx.bookingHeader.create({
+                data: {
+                    BookingNo: houseJob.BookingNo,
+                    BookingDateTime: new Date(),
+                    CompanyMasterSid: houseJob.CompanyMasterSid,
+                    BranchMasterSid: houseJob.BranchMasterSid,
+                    CustomerMasterSid: houseJob.CustomerMasterSid,
+                    CustomerName: houseJob.CustomerName,
+                    CustomerAddress: houseJob.CustomerAddress,
+                    SalesmanSid: houseJob.SalesmanSid,
+                    CargoExpectedon: houseJob.CargoExpectedon,
+                    FreightTerms: houseJob.FreightTerms,
+                    POO: houseJob.POO,
+                    POL: houseJob.POL,
+                    POD: houseJob.POD,
+                    FPD: houseJob.FPD,
+                    TsPortSid: houseJob.TsPortSid,
+                    POLTerminal: houseJob.POLTerminal,
+                    VoyageMasterSid: houseJob.VoyageMasterSid,
+                    VesselName: houseJob.VesselName,
+                    VoyageNo: houseJob.VoyageNo,
+                    ETD: houseJob.ETD,
+                    ETA: houseJob.ETA,
+                    IncoTerms: houseJob.IncoTerms,
+                    BLLocation: houseJob.BLLocation,
+                    ShipperName: houseJob.ShipperName,
+                    ShipperAddress: houseJob.ShipperAddress,
+                    ConsigneeName: houseJob.ConsigneeName,
+                    ConsigneeAddress: houseJob.ConsigneeAddress,
+                    ClearanceRequire: houseJob.ClearanceRequire,
+                    ShipmentType: houseJob.ShipmentType,
+                    DestinationAgent: houseJob.DestinationAgent,
+                    AgentName: houseJob.AgentName,
+                    AgentAddress: houseJob.AgentAddress,
+                    HouseNo: houseJob.HouseNo,
+                    QuotationHeaderSid: houseJob.QuotationHeaderSid,
+                    EnquiryHeaderSid: houseJob.EnquiryHeaderSid,
+                    MovementType: houseJob.MovementType,
+                    DoValid: houseJob.DoValid,
+                    IsServiceJob: houseJob.IsServiceJob,
+                    createdBy: createdBy,
+                    DepartmentMasterSid: houseJob.DepartmentMasterSid,
+                    CustomerBranchSid: houseJob.CustomerBranchSid,
+                    MenuMasterSid: houseJob.MenuMasterSid,
+                    CarrierName: houseJob.CarrierName,
+                    Coload: houseJob.Coload,
+                    GeneralNote: houseJob.GeneralNote,
+                    HBLNo: houseJob.HBLNo,
+                    InternalNote: houseJob.InternalNote,
+                    MBLDate: houseJob.MBLDate,
+                    MBLNo: houseJob.MBLNo,
+                    Nominated: houseJob.Nominated,
+                    NominatedBy: houseJob.NominatedBy,
+                    Notify: houseJob.Notify,
+                    NotifyAddress: houseJob.NotifyAddress,
+                    PODTerminal: houseJob.PODTerminal,
+                    ShipmentNo: houseJob.ShipmentNo,
+                    OriginAgent: houseJob.OriginAgent,
+                    BookingStatus: houseJob.BookingStatus,
+                    CarrierSid: houseJob.CarrierSid,
+                    JobType: houseJob.JobType,
+                    status: "A"
+                }
+            });
+
+            const bookingHeaderSid = bookingHeader.BookingHeaderSid;
+
+            // --------------------------------------------------
+            // 3. Insert Booking Cargo (copy from HouseJobCargo)
+            // --------------------------------------------------
+            if (houseJob.Cargo?.length) {
+                for (const c of houseJob.Cargo) {
+                    await tx.bookingCargo.create({
+                        data: {
+                            BookingHeaderSid: bookingHeaderSid,
+                            CompanyMasterSid: c.CompanyMasterSid,
+                            BranchMasterSid: c.BranchMasterSid,
+                            NoOfPackage: c.NoOfPackage,
+                            FreightAmount: c.FreightAmount,
+                            CargoType: c.CargoType,
+                            WeightUnitSid: c.WeightUnitSid,
+                            GrossWeight: c.GrossWeight,
+                            NetWeight: c.NetWeight,
+                            Volume: c.Volume,
+                            ChargeableWeight: c.ChargeableWeight,
+                            Qty: c.Qty,
+                            ShipmentTerms: c.ShipmentTerms,
+                            FreightTerms: c.FreightTerms,
+                            MovementType: c.MovementType,
+                            NoofContainers: c.NoofContainers,
+                            StuffingAt: c.StuffingAt,
+                            ModeOfTransport: c.ModeOfTransport,
+                            PackageType: c.PackageType,
+                            ContainerType: c.ContainerType,
+                            createdBy: createdBy,
+                        }
+                    });
+                }
+            }
+
+            // --------------------------------------------------
+            // 4. Insert Booking Products (copy from HouseJobProduct)
+            // --------------------------------------------------
+            if (houseJob.Products?.length) {
+                for (const p of houseJob.Products) {
+                    await tx.bookingProduct.create({
+                        data: {
+                            BookingHeaderSid: bookingHeaderSid,
+                            ProductName: p.ProductName,
+                            ProductDescription: p.ProductDescription,
+                            ShippingBillNo: p.ShippingBillNo,
+                            ShippingBillDate: p.ShippingBillDate,
+                            ExternaPkg: p.ExternaPkg,
+                            ExternlQty: p.ExternlQty,
+                            InternalPkg: p.InternalPkg,
+                            InternalQty: p.InternalQty,
+                            GrossWeight: p.GrossWeight,
+                            NetWeight: p.NetWeight,
+                            Volume: p.Volume,
+                            Height: p.Height,
+                            ImcoClass: p.ImcoClass,
+                            IsHaz: p.IsHaz,
+                            Length: p.Length,
+                            PkgGroup: p.PkgGroup,
+                            UnNo: p.UnNo,
+                            Width: p.Width,
+                            UomMasterSid: p.UomMasterSid,
+                            ActualGrWeight: p.ActualGrWeight,
+                            ActualQty: p.ActualQty,
+                            ActualVolume: p.ActualVolume,
+                            CFS: p.CFS,
+                            CargoRecDate: p.CargoRecDate,
+                            RecdPack: p.RecdPack,
+                            Volumetric: p.Volumetric,
+                            createdBy: createdBy,
+                        }
+                    });
+                }
+            }
+
+            // --------------------------------------------------
+            // 5. Insert Booking Others (copy from HouseJobOthers)
+            // --------------------------------------------------
+            if (houseJob.Others?.length) {
+                for (const o of houseJob.Others) {
+                    await tx.bookingOthers.create({
+                        data: {
+                            BookingHeaderSid: bookingHeaderSid,
+                            CustomerRefNo: o.CustomerRefNo,
+                            OperationUser: o.OperationUser,
+                            DocumentationUser: o.DocumentationUser,
+                            CustomerServiceuser: o.CustomerServiceuser,
+                            NotifyParty: o.NotifyParty,
+                            NotifyPartyAddress: o.NotifyPartyAddress,
+                            CHAName: o.CHAName,
+                            PickupMode: o.PickupMode,
+                            YardCFS: o.YardCFS,
+                            LocalTransport: o.LocalTransport,
+                            OverseasTransport: o.OverseasTransport,
+                            OverseasClearance: o.OverseasClearance,
+                            PickupPlace: o.PickupPlace,
+                            PickupDate: o.PickupDate,
+                            PickupAddress: o.PickupAddress,
+                            DeliveryPlace: o.DeliveryPlace,
+                            DeliveryDate: o.DeliveryDate,
+                            DeliveryAddress: o.DeliveryAddress,
+                            CargoCurrency: o.CargoCurrency,
+                            CargoValue: o.CargoValue,
+                            DeliveryMode: o.DeliveryMode,
+                            ExternalRemarks: o.ExternalRemarks,
+                            SwitchBL: o.SwitchBL,
+                            TransporterName: o.TransporterName,
+                            Forwarder: o.Forwarder,
+                            ForwarderAddress: o.ForwarderAddress,
+                            HBLNo: o.HBLNo,
+                            BacktoBack: o.BacktoBack,
+                            Depo: o.Depo,
+                            ROValidity: o.ROValidity,
+                            ReleaseType: o.ReleaseType,
+                            AgentAddress: o.AgentAddress,
+                            SwitchBLAgent: o.SwitchBLAgent,
+                            SwitchBLConsignee: o.SwitchBLConsignee,
+                            SwitchBLShipper: o.SwitchBLShipper,
+                            SwitchLocation: o.SwitchLocation,
+                            Coloader: o.Coloader,
+                            Notify2: o.Notify2,
+                            NotifyAddress2: o.NotifyAddress2,
+                            CarrierBookingDate: o.CarrierBookingDate,
+                            CarrierBookingRef: o.CarrierBookingRef,
+                            createdBy: createdBy,
+                        }
+                    });
+                }
+            }
+
+            return {
+                bookingHeaderSid,
+                message: "Booking created successfully from Master Job"
+            };
+        });
+    }
+
 }
