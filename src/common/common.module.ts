@@ -17,6 +17,8 @@ import { MenuService } from 'src/masters/services/menu/menu.service';
 import { ConfigModule } from '@nestjs/config';
 import { GlobalConfigService } from './config/master-config.service';
 import { MastersModule } from 'src/masters/masters.module';
+import { DocReferenceController } from './controllers/doc-reference/doc-reference.controller';
+import { DocReferenceService } from './services/doc-reference/doc-reference.service';
 
 @Module({
     imports:[
@@ -28,7 +30,8 @@ import { MastersModule } from 'src/masters/masters.module';
         emailLogController,
         LookupsController,
         FollowupController,
-        AttachDocumentController
+        AttachDocumentController,
+        DocReferenceController,
     ],
     providers: [
         Logger,
@@ -39,7 +42,8 @@ import { MastersModule } from 'src/masters/masters.module';
         LookupsService,
         FollowupService,
         SchedulerService,
-        AttachDocumentService
+        AttachDocumentService,
+        DocReferenceService,
     ]
 })
 export class CommonModule { }
