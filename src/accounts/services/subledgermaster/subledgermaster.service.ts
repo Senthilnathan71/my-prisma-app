@@ -57,14 +57,23 @@ export class SubledgermasterService {
         }
     }
 
-    async getAllMappedLedgerByCOAId(COAMasterSid : number, CompanyMasterSid : number){
+    async getAllMappedLedgerByCOAId(COAMasterSid : number, CompanyMasterSid : number,DrCr : string){
         try {
+            const whereClause : Prisma.SubledgerMasterWhereInput = {
+                Status: "A",
+                CompanyMasterSid : CompanyMasterSid,
+            }
+
+            if(DrCr === "D"){
+                whereClause.DrCOAMasterSid = COAMasterSid
+            } else if(DrCr === "C"){
+                whereClause.CrCOAMasterSid = COAMasterSid
+            } else {
+                throw new Error("Invalid DrCr")
+            }
+
             const subledgerWithCOA = await this._db.subledgerMaster.findMany({
-                where: {
-                    Status: "A",
-                    DrCOAMasterSid : COAMasterSid,
-                    CompanyMasterSid : CompanyMasterSid
-                },
+                where: whereClause,
                 select : {
                     SubledgerMasterSid : true,
                     SubledgerName : true,
@@ -286,17 +295,19 @@ export class SubledgermasterService {
             select : {
                 SubledgerMasterSid: true, // ADD THIS
                 SubledgerMappingSid : true,
-                CrCOAMasterSid : true
+                CrCOAMasterSid : true,
+                SubledgerName : true
             }
         })
         const allMappedCustomerSubledgersIds = allCustomerCreditors.map(customerCreditor => customerCreditor.SubledgerMappingSid!);
 
         // Create a map of Customer to Ledger mapping INCLUDING SubledgerMasterSid
-        const ledgerToCustomerMapping = new Map<number, { crCOAMasterSid: number, subledgerMasterSid: number }>();
+        const ledgerToCustomerMapping = new Map<number, { crCOAMasterSid: number, subledgerMasterSid: number,SubledgerName : string }>();
         allCustomerCreditors.forEach(customerCreditor => {
             ledgerToCustomerMapping.set(customerCreditor.SubledgerMappingSid!, {
                 crCOAMasterSid: customerCreditor.CrCOAMasterSid!,
-                subledgerMasterSid: customerCreditor.SubledgerMasterSid // ADD THIS
+                subledgerMasterSid: customerCreditor.SubledgerMasterSid, // ADD THIS
+                SubledgerName : customerCreditor.SubledgerName
             });
         });
 
@@ -354,7 +365,8 @@ export class SubledgermasterService {
                     Email : branch.Email,
                     stateMaster : branch.stateMaster,
                     COAMappedId : mapping?.crCOAMasterSid,
-                    SubledgerMasterSid: mapping?.subledgerMasterSid // ADD THIS
+                    SubledgerMasterSid: mapping?.subledgerMasterSid, // ADD THIS
+                    SubledgerName: 'Y'
                 }
             })
         });
@@ -420,7 +432,14 @@ export class SubledgermasterService {
                             BranchName : true,
                             Address : true,
                             Email : true,
-                            GSTNo : true
+                            GSTNo : true,
+                            stateMaster:{
+                                select: {
+                                    StateMasterSid: true,
+                                    stateName: true,
+                                    stateCode: true
+                                }
+                            }
                         }
                     }
                 }
@@ -459,7 +478,6 @@ export class SubledgermasterService {
                 CompanyMasterSid: payload.CompanyMasterSid,
             },
             select: {
-                
                 SubledgerMasterSid: true,
                 SubledgerMappingSid: true,
                 DrCOAMasterSid: true
@@ -552,11 +570,10 @@ export class SubledgermasterService {
     };
 
     // Dynamically add the filter for TaxGroupSid based on whether a single ID or an array is provided.
-    if (typeof taxGroup === 'number') {
-      whereClause.TaxGroupSid = taxGroup;
-    } else {
-      whereClause.TaxGroupSid = { in: taxGroup };
-    }
+    whereClause.TaxGroupSid =
+      typeof taxGroup === 'number'
+        ? taxGroup
+        : { in: taxGroup };
 
     const taxGroupLedgers = await this._db.taxGroup.findMany({
       where: whereClause,

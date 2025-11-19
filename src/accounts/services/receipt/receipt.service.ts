@@ -1176,6 +1176,8 @@ export class ReceiptService {
   async searchReceipts(params: any): Promise<any> {
     try {
       const {
+        activeCompanyId,
+        activeBranchId,
         search = '',
         page = 1,
         pageSize = 10,
@@ -1196,6 +1198,8 @@ export class ReceiptService {
       }
 
       const where: Prisma.VoucherHeaderWhereInput = {
+        CompanyMasterSid: activeCompanyId,
+        BranchMasterSid: activeBranchId,
         voucherTypeMaster: {
           DocumentTypeName: 'Receipt'
         },

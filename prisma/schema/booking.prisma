@@ -83,6 +83,7 @@ model BookingHeader {
   houseJob                   HouseJob[]
   paymentRequest             PaymentRequest[]
   quotationHeader            QuoteHeader?
+  VoucherHeader              VoucherHeader[]
   VoucherOthers              VoucherOthers[]
 }
 

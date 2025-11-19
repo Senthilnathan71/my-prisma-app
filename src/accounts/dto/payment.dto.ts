@@ -10,6 +10,7 @@ import {
   IsBoolean,
   IsEnum,
   MaxLength,
+  IsDefined,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -526,6 +527,36 @@ export class UpdatePaymentDto {
   @IsOptional()
   @IsString()
   UpdatedBy?: string;
+}
+
+/**
+ * Search payments DTO
+ */
+export class SearchPaymentDto {
+  @IsDefined({ message: 'Company master is required' })
+  @IsNumber()
+  CompanyMasterSid: number;
+
+  @IsDefined({ message: 'Branch master is required' })
+  @IsNumber()
+  BranchMasterSid: number;
+
+  @IsOptional()
+  @IsNumber()
+  search : string;
+
+  @IsOptional()
+  page : number;
+
+  @IsOptional()
+  pageSize : number;
+
+  @IsOptional()
+  sortColumn : string;
+
+  @IsOptional()
+  sortDirection : string;
+
 }
 
 /**

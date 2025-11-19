@@ -8,6 +8,8 @@ export const PARTY_VTYPE_DRCR_MAP = {
   "Payment Voucher": { DrCr: "D" },  // Party Debited (We pay Vendor)
   "Debit Note": { DrCr: "D" },       // Party Debited (They owe us more)
   "Credit Note": { DrCr: "C" },      // Party Credited (We owe them)
+  "Vendor Credit Note" : { DrCr: "D" }, // Party Debited (They owe us more)
+  "Journal Voucher" : { DrCr : "D"} 
 } as const;
 
 export type VoucherType = keyof typeof PARTY_VTYPE_DRCR_MAP;
@@ -38,4 +40,28 @@ export type TaxDrCrType = typeof TAX_VTYPE_DRCR_MAP[TaxVoucherType]["DrCr"];
 
 export const getTaxDrCr = (voucherType: TaxVoucherType): TaxDrCrType | undefined => {
   return TAX_VTYPE_DRCR_MAP[voucherType]?.DrCr;
+};
+
+
+/**
+ * Voucher Type those can have exchange rate jv
+ * exchange rate jv is created when :
+ * Sum of currency debits and credits = 0
+ * Sum of local debits and credits > 0
+ */
+const typeWithExJv = ["Receipt", "Payment Voucher","Journal Voucher"];
+export const checkIfExJvApplicable = (voucherType: string): boolean => {
+  return typeWithExJv.includes(voucherType);
+};
+
+/**
+ * Voucher Type those can have Voucher Matching
+ * Voucher Matching is created when :
+ * We generate a invoice for a customer
+ * The customer pays us back
+ * We have a matching record for the invoice
+ */
+const typeWithMatching = ["Credit Note", "Vendor Credit Note", "Payment Voucher", "Receipt"];
+export const checkIfMatchingApplicable = (voucherType: string): boolean => {
+  return typeWithMatching.includes(voucherType);
 };
