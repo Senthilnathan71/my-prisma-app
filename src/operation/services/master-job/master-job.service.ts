@@ -752,7 +752,23 @@ export class MasterJobService {
                         masterJobConnection: { where: { Status: 'A' } },
                         containers: { where: { Status: 'A' } },
                         others: { where: { Status: 'A' } },
-                        houseJob: { where: { status: 'A' } }
+                        houseJob:  {
+                        where:{status : 'A',
+                        },
+                        select:{
+                            HBLNo:true,
+                            ShipperName:true,
+                            ShipperAddress:true,
+                            ConsigneeName:true,
+                            ConsigneeAddress:true,
+                            Notify:true,
+                            NotifyAddress:true,
+                            FreightTerms:true,
+                            Cargo: true,
+                            Products: true,
+                            Others:true,  
+                        }, 
+                    } 
                     }
                 })
                 const allShipments = await prisma.houseJob.findMany({
