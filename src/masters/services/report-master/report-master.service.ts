@@ -238,4 +238,134 @@ export class ReportMasterService {
       throw new Error(`Error fetching audit logs: ${error.message}`);
     }
   }
+
+  async getReportParameters(reportId: number) {
+    try {
+      const parameters = await this._db.reportMasterDetail.findMany({
+        where: {
+          ReportMasterSid: reportId,
+          Status: "A"
+        },
+        orderBy: { ReportMasterDetailSid: 'asc' }
+      });
+      return parameters;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async addReportParameter(reportId: number, parameterData: any) {
+    try {
+      // Verify report exists
+      const report = await this._db.reportMaster.findUnique({
+        where: { ReportMasterSid: reportId }
+      });
+
+      if (!report) {
+        throw new BadRequestException(`Report with id: ${reportId} not found`);
+      }
+
+      const parameter = await this._db.reportMasterDetail.create({
+        data: {
+          CreatedBy: parameterData.CreatedBy,
+          Status: parameterData.Status || "A",
+          ParameterName: parameterData.ParameterName,
+          ParameterFieldType: parameterData.ParameterFieldType,
+          DropDownValue: parameterData.DropDownValue,
+          ParameterQuery: parameterData.ParameterQuery,
+          ReportMasterSid: reportId
+        }
+      });
+
+      return parameter;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async updateReportParameter(parameterId: number, parameterData: any) {
+    try {
+      const existing = await this._db.reportMasterDetail.findUnique({
+        where: { ReportMasterDetailSid: parameterId }
+      });
+
+      if (!existing) {
+        throw new BadRequestException(`Parameter with id: ${parameterId} not found`);
+      }
+
+      const updated = await this._db.reportMasterDetail.update({
+        where: { ReportMasterDetailSid: parameterId },
+        data: {
+          UpdatedBy: parameterData.UpdatedBy,
+          Status: parameterData.Status,
+          ParameterName: parameterData.ParameterName,
+          ParameterFieldType: parameterData.ParameterFieldType,
+          DropDownValue: parameterData.DropDownValue,
+          ParameterQuery: parameterData.ParameterQuery,
+        }
+      });
+
+      return updated;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async deleteReportParameter(parameterId: number) {
+    try {
+      const existing = await this._db.reportMasterDetail.findUnique({
+        where: { ReportMasterDetailSid: parameterId }
+      });
+
+      if (!existing) {
+        throw new BadRequestException(`Parameter with id: ${parameterId} not found`);
+      }
+
+      if (existing.Status === "D") {
+        throw new BadRequestException(`Parameter with id: ${parameterId} is already deleted`);
+      }
+
+      const deleted = await this._db.reportMasterDetail.update({
+        where: { ReportMasterDetailSid: parameterId },
+        data: { Status: "D" }
+      });
+
+      return deleted;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async getReportsByCompany(companyId: number) {
+    try {
+      const allReports = await this._db.reportMaster.findMany({
+        where: {
+          Status: "A"
+        },
+        include: {
+          ReportMasterDetail: {
+            where: { Status: "A" },
+            orderBy: { ReportMasterDetailSid: 'asc' }
+          }
+        }
+      });
+
+      // Filter reports based on ReportExcludedCompany
+      const filteredReports = allReports.filter(report => {
+        if (!report.ReportExcludedCompany) return true;
+
+        // Check if ReportExcludedCompany is an array
+        const excludedCompanies = Array.isArray(report.ReportExcludedCompany)
+          ? report.ReportExcludedCompany
+          : [];
+
+        // Return true if company is NOT in excluded list
+        return !excludedCompanies.includes(companyId);
+      });
+
+      return filteredReports;
+    } catch (error) {
+      throw error;
+    }
+  }
 }

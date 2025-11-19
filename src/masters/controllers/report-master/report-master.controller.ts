@@ -22,6 +22,7 @@ import { ReportMasterService } from 'src/masters/services/report-master/report-m
 
 @Controller('report-master')
 export class ReportMasterController {
+    
     constructor(
         private reportMasterService: ReportMasterService,
         private logger: Logger,
@@ -187,6 +188,120 @@ export class ReportMasterController {
             this.logger.warn(`getAuditLogsError: ${error}`);
             resp.status = false;
             resp.message = error.message || 'Internal Server Error';
+        }
+        return resp;
+    }
+
+    @ApiOperation({ summary: 'Get Report Parameters by Report ID' })
+    @ApiCreatedResponse({ description: 'Get report parameters', type: ResponseData })
+    @HttpCode(HttpStatus.OK)
+    @Get(':id/parameters')
+    async getReportParameters(@Param('id', ParseIntPipe) id: number) {
+        const resp = new ResponseData();
+        try {
+            const res = await this.reportMasterService.getReportParameters(id);
+            this.logger.log(`getReportParameters: ${JSON.stringify(res)}`);
+            resp.data = res;
+            resp.message = `Parameters for Report with id: ${id} fetched successfully`;
+        } catch (error) {
+            this.logger.warn(`getReportParametersError: ${JSON.stringify(error)}`);
+            resp.status = false;
+            resp.message = error instanceof BadRequestException || error instanceof UnauthorizedException
+                ? error.message
+                : 'Internal Server Error';
+        }
+        return resp;
+    }
+
+    @ApiOperation({ summary: 'Add Report Parameter' })
+    @ApiCreatedResponse({ description: 'Add new parameter to report', type: ResponseData })
+    @HttpCode(HttpStatus.CREATED)
+    @Post(':id/parameters')
+    async addReportParameter(@Param('id', ParseIntPipe) id: number, @Body() parameterData: any) {
+        const resp = new ResponseData();
+        this.logger.log(`addReportParameter: ${JSON.stringify(parameterData)}`);
+        try {
+            const res = await this.reportMasterService.addReportParameter(id, parameterData);
+            this.logger.debug(`Created Parameter: ${JSON.stringify(res)}`);
+            if (!res) throw 'Something went wrong';
+            resp.data = res;
+            resp.message = 'Report parameter added successfully';
+        } catch (error) {
+            this.logger.warn(`addReportParameterError: ${JSON.stringify(error)}`);
+            resp.status = false;
+            resp.message = error instanceof BadRequestException || error instanceof UnauthorizedException
+                ? error.message
+                : 'Internal Server Error';
+        }
+        return resp;
+    }
+
+    @ApiOperation({ summary: 'Update Report Parameter' })
+    @ApiCreatedResponse({ description: 'Update report parameter', type: ResponseData })
+    @HttpCode(HttpStatus.OK)
+    @Patch('parameters/:parameterId')
+    async updateReportParameter(
+        @Param('parameterId', ParseIntPipe) parameterId: number,
+        @Body() parameterData: any
+    ) {
+        const resp = new ResponseData();
+        this.logger.log(`updateReportParameter: ${JSON.stringify(parameterData)}`);
+        try {
+            const res = await this.reportMasterService.updateReportParameter(parameterId, parameterData);
+            this.logger.log(`updateReportParameter: ${JSON.stringify(res)}`);
+            if (!res) throw 'Something went wrong';
+            resp.data = res;
+            resp.message = `Parameter with id: ${parameterId} updated successfully`;
+        } catch (error) {
+            this.logger.warn(`updateReportParameterError: ${JSON.stringify(error)}`);
+            resp.status = false;
+            resp.message = error instanceof BadRequestException || error instanceof UnauthorizedException
+                ? error.message
+                : 'Internal Server Error';
+        }
+        return resp;
+    }
+
+    @ApiOperation({ summary: 'Delete Report Parameter' })
+    @ApiCreatedResponse({ description: 'Delete report parameter', type: ResponseData })
+    @HttpCode(HttpStatus.OK)
+    @Delete('parameters/:parameterId')
+    async deleteReportParameter(@Param('parameterId', ParseIntPipe) parameterId: number) {
+        const resp = new ResponseData();
+        this.logger.log(`Deleting Parameter with id: ${parameterId}`);
+        try {
+            const res = await this.reportMasterService.deleteReportParameter(parameterId);
+            this.logger.log(`Deleted Parameter: ${JSON.stringify(res)}`);
+            if (!res) throw 'Something went wrong';
+            resp.data = res;
+            resp.message = `Parameter with id: ${parameterId} deleted successfully`;
+        } catch (error) {
+            this.logger.warn(`deleteReportParameterError: ${JSON.stringify(error)}`);
+            resp.status = false;
+            resp.message = error instanceof BadRequestException || error instanceof UnauthorizedException
+                ? error.message
+                : 'Internal Server Error';
+        }
+        return resp;
+    }
+
+    @ApiOperation({ summary: 'Get Reports by Company ID' })
+    @ApiCreatedResponse({ description: 'Get reports filtered by company', type: ResponseData })
+    @HttpCode(HttpStatus.OK)
+    @Get('company/:companyId')
+    async getReportsByCompany(@Param('companyId', ParseIntPipe) companyId: number) {
+        const resp = new ResponseData();
+        try {
+            const res = await this.reportMasterService.getReportsByCompany(companyId);
+            this.logger.log(`getReportsByCompany: ${JSON.stringify(res)}`);
+            resp.data = res;
+            resp.message = `Reports for company: ${companyId} fetched successfully`;
+        } catch (error) {
+            this.logger.warn(`getReportsByCompanyError: ${JSON.stringify(error)}`);
+            resp.status = false;
+            resp.message = error instanceof BadRequestException || error instanceof UnauthorizedException
+                ? error.message
+                : 'Internal Server Error';
         }
         return resp;
     }

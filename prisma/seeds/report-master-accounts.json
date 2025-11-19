@@ -1,0 +1,123 @@
+[
+  {
+    "ReportMasterSid": 1,
+    "CreatedBy": "ffadmin@crm.com",
+    "Status": "A",
+    "ReportName": "ageing-report",
+    "ReportDisplayName": "Ageing Report",
+    "ReportMenuSid": 172,
+    "ReportType": "ACCOUNTS",
+    "ReportFormat": "BOTH",
+    "ReportExcludedCompany": null
+  },
+  {
+    "ReportMasterSid": 2,
+    "CreatedBy": "ffadmin@crm.com",
+    "Status": "A",
+    "ReportName": "outstanding-report",
+    "ReportDisplayName": "Outstanding Report",
+    "ReportMenuSid": 172,
+    "ReportType": "ACCOUNTS",
+    "ReportFormat": "BOTH",
+    "ReportExcludedCompany": null
+  },
+  {
+    "ReportMasterSid": 3,
+    "CreatedBy": "ffadmin@crm.com",
+    "Status": "A",
+    "ReportName": "statement-ledger-report",
+    "ReportDisplayName": "Statement/Ledger Report",
+    "ReportMenuSid": 172,
+    "ReportType": "ACCOUNTS",
+    "ReportFormat": "BOTH",
+    "ReportExcludedCompany": null
+  },
+  {
+    "ReportMasterSid": 4,
+    "CreatedBy": "ffadmin@crm.com",
+    "Status": "A",
+    "ReportName": "trial-balance",
+    "ReportDisplayName": "Trial Balance",
+    "ReportMenuSid": 172,
+    "ReportType": "ACCOUNTS",
+    "ReportFormat": "BOTH",
+    "ReportExcludedCompany": null
+  },
+  {
+    "ReportMasterSid": 5,
+    "CreatedBy": "ffadmin@crm.com",
+    "Status": "A",
+    "ReportName": "profit-loss",
+    "ReportDisplayName": "Profit & Loss",
+    "ReportMenuSid": 172,
+    "ReportType": "ACCOUNTS",
+    "ReportFormat": "BOTH",
+    "ReportExcludedCompany": null
+  },
+  {
+    "ReportMasterSid": 6,
+    "CreatedBy": "ffadmin@crm.com",
+    "Status": "A",
+    "ReportName": "balance-sheet",
+    "ReportDisplayName": "Balance Sheet",
+    "ReportMenuSid": 172,
+    "ReportType": "ACCOUNTS",
+    "ReportFormat": "BOTH",
+    "ReportExcludedCompany": null
+  },
+  {
+    "ReportMasterSid": 7,
+    "CreatedBy": "ffadmin@crm.com",
+    "Status": "A",
+    "ReportName": "vat-receivable-report",
+    "ReportDisplayName": "VAT Receivable Report",
+    "ReportMenuSid": 172,
+    "ReportType": "ACCOUNTS",
+    "ReportFormat": "BOTH",
+    "ReportExcludedCompany": null
+  },
+  {
+    "ReportMasterSid": 8,
+    "CreatedBy": "ffadmin@crm.com",
+    "Status": "A",
+    "ReportName": "vat-payable-report",
+    "ReportDisplayName": "VAT Payable Report",
+    "ReportMenuSid": 172,
+    "ReportType": "ACCOUNTS",
+    "ReportFormat": "BOTH",
+    "ReportExcludedCompany": null
+  },
+  {
+    "ReportMasterSid": 9,
+    "CreatedBy": "ffadmin@crm.com",
+    "Status": "A",
+    "ReportName": "profit-summary-report",
+    "ReportDisplayName": "Profit Summary Report By Dept, Job",
+    "ReportMenuSid": 172,
+    "ReportType": "ACCOUNTS",
+    "ReportFormat": "BOTH",
+    "ReportExcludedCompany": null
+  },
+  {
+    "ReportMasterSid": 10,
+    "CreatedBy": "ffadmin@crm.com",
+    "Status": "A",
+    "ReportName": "matching-list-report",
+    "ReportDisplayName": "Matching List for Receipt/Payment",
+    "ReportMenuSid": 172,
+    "ReportType": "ACCOUNTS",
+    "ReportFormat": "BOTH",
+    "ReportExcludedCompany": null
+  },
+  {
+    "ReportMasterSid": 11,
+    "CreatedBy": "ffadmin@crm.com",
+    "Status": "A",
+    "ReportName": "top-n-customer",
+    "ReportDisplayName": "TOP N Customer",
+    "ReportMenuSid": 172,
+    "ReportType": "ACCOUNTS",
+    "ReportFormat": "BOTH",
+    "ReportExcludedCompany": null
+  }
+]

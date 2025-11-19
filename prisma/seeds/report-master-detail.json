@@ -1,0 +1,724 @@
+[
+  {
+    "ReportMasterDetailSid": 1,
+    "CreatedBy": "ffadmin@crm.com",
+    "Status": "A",
+    "ParameterName": "fromDate",
+    "ParameterFieldType": "DATE",
+    "DropDownValue": null,
+    "ParameterQuery": null,
+    "ReportMasterSid": 1
+  },
+  {
+    "ReportMasterDetailSid": 2,
+    "CreatedBy": "ffadmin@crm.com",
+    "Status": "A",
+    "ParameterName": "toDate",
+    "ParameterFieldType": "DATE",
+    "DropDownValue": null,
+    "ParameterQuery": null,
+    "ReportMasterSid": 1
+  },
+  {
+    "ReportMasterDetailSid": 3,
+    "CreatedBy": "ffadmin@crm.com",
+    "Status": "A",
+    "ParameterName": "ageingType",
+    "ParameterFieldType": "DROPDOWN",
+    "DropDownValue": [
+      {"label": "30-60-90 Days", "value": "30_60_90"},
+      {"label": "15-30-45-60 Days", "value": "15_30_45_60"},
+      {"label": "Custom", "value": "custom"}
+    ],
+    "ParameterQuery": null,
+    "ReportMasterSid": 1
+  },
+  {
+    "ReportMasterDetailSid": 4,
+    "CreatedBy": "ffadmin@crm.com",
+    "Status": "A",
+    "ParameterName": "subledger",
+    "ParameterFieldType": "DROPDOWN",
+    "DropDownValue": null,
+    "ParameterQuery": "SELECT SubledgerMasterSid as value, SubledgerName as label FROM SubledgerMaster WHERE Status = 'A'",
+    "ReportMasterSid": 1
+  },
+  {
+    "ReportMasterDetailSid": 5,
+    "CreatedBy": "ffadmin@crm.com",
+    "Status": "A",
+    "ParameterName": "fromDate",
+    "ParameterFieldType": "DATE",
+    "DropDownValue": null,
+    "ParameterQuery": null,
+    "ReportMasterSid": 2
+  },
+  {
+    "ReportMasterDetailSid": 6,
+    "CreatedBy": "ffadmin@crm.com",
+    "Status": "A",
+    "ParameterName": "toDate",
+    "ParameterFieldType": "DATE",
+    "DropDownValue": null,
+    "ParameterQuery": null,
+    "ReportMasterSid": 2
+  },
+  {
+    "ReportMasterDetailSid": 7,
+    "CreatedBy": "ffadmin@crm.com",
+    "Status": "A",
+    "ParameterName": "subledger",
+    "ParameterFieldType": "DROPDOWN",
+    "DropDownValue": null,
+    "ParameterQuery": "SELECT SubledgerMasterSid as value, SubledgerName as label FROM SubledgerMaster WHERE Status = 'A'",
+    "ReportMasterSid": 2
+  },
+  {
+    "ReportMasterDetailSid": 8,
+    "CreatedBy": "ffadmin@crm.com",
+    "Status": "A",
+    "ParameterName": "outstandingType",
+    "ParameterFieldType": "DROPDOWN",
+    "DropDownValue": [
+      {"label": "Receivable", "value": "receivable"},
+      {"label": "Payable", "value": "payable"},
+      {"label": "Both", "value": "both"}
+    ],
+    "ParameterQuery": null,
+    "ReportMasterSid": 2
+  },
+  {
+    "ReportMasterDetailSid": 9,
+    "CreatedBy": "ffadmin@crm.com",
+    "Status": "A",
+    "ParameterName": "fromDate",
+    "ParameterFieldType": "DATE",
+    "DropDownValue": null,
+    "ParameterQuery": null,
+    "ReportMasterSid": 3
+  },
+  {
+    "ReportMasterDetailSid": 10,
+    "CreatedBy": "ffadmin@crm.com",
+    "Status": "A",
+    "ParameterName": "toDate",
+    "ParameterFieldType": "DATE",
+    "DropDownValue": null,
+    "ParameterQuery": null,
+    "ReportMasterSid": 3
+  },
+  {
+    "ReportMasterDetailSid": 11,
+    "CreatedBy": "ffadmin@crm.com",
+    "Status": "A",
+    "ParameterName": "coaMaster",
+    "ParameterFieldType": "DROPDOWN",
+    "DropDownValue": null,
+    "ParameterQuery": "SELECT COAMasterSid as value, COAName as label FROM COAMaster WHERE Status = 'A'",
+    "ReportMasterSid": 3
+  },
+  {
+    "ReportMasterDetailSid": 12,
+    "CreatedBy": "ffadmin@crm.com",
+    "Status": "A",
+    "ParameterName": "subledger",
+    "ParameterFieldType": "DROPDOWN",
+    "DropDownValue": null,
+    "ParameterQuery": "SELECT SubledgerMasterSid as value, SubledgerName as label FROM SubledgerMaster WHERE Status = 'A'",
+    "ReportMasterSid": 3
+  },
+  {
+    "ReportMasterDetailSid": 13,
+    "CreatedBy": "ffadmin@crm.com",
+    "Status": "A",
+    "ParameterName": "financialYear",
+    "ParameterFieldType": "DROPDOWN",
+    "DropDownValue": null,
+    "ParameterQuery": "SELECT YearMasterSid as value, YearName as label FROM YearMaster WHERE Status = 'A'",
+    "ReportMasterSid": 4
+  },
+  {
+    "ReportMasterDetailSid": 14,
+    "CreatedBy": "ffadmin@crm.com",
+    "Status": "A",
+    "ParameterName": "fromDate",
+    "ParameterFieldType": "DATE",
+    "DropDownValue": null,
+    "ParameterQuery": null,
+    "ReportMasterSid": 4
+  },
+  {
+    "ReportMasterDetailSid": 15,
+    "CreatedBy": "ffadmin@crm.com",
+    "Status": "A",
+    "ParameterName": "toDate",
+    "ParameterFieldType": "DATE",
+    "DropDownValue": null,
+    "ParameterQuery": null,
+    "ReportMasterSid": 4
+  },
+  {
+    "ReportMasterDetailSid": 16,
+    "CreatedBy": "ffadmin@crm.com",
+    "Status": "A",
+    "ParameterName": "groupBy",
+    "ParameterFieldType": "DROPDOWN",
+    "DropDownValue": [
+      {"label": "Group", "value": "group"},
+      {"label": "Sub Group", "value": "subgroup"},
+      {"label": "Both", "value": "both"}
+    ],
+    "ParameterQuery": null,
+    "ReportMasterSid": 4
+  },
+  {
+    "ReportMasterDetailSid": 17,
+    "CreatedBy": "ffadmin@crm.com",
+    "Status": "A",
+    "ParameterName": "financialYear",
+    "ParameterFieldType": "DROPDOWN",
+    "DropDownValue": null,
+    "ParameterQuery": "SELECT YearMasterSid as value, YearName as label FROM YearMaster WHERE Status = 'A'",
+    "ReportMasterSid": 5
+  },
+  {
+    "ReportMasterDetailSid": 18,
+    "CreatedBy": "ffadmin@crm.com",
+    "Status": "A",
+    "ParameterName": "fromDate",
+    "ParameterFieldType": "DATE",
+    "DropDownValue": null,
+    "ParameterQuery": null,
+    "ReportMasterSid": 5
+  },
+  {
+    "ReportMasterDetailSid": 19,
+    "CreatedBy": "ffadmin@crm.com",
+    "Status": "A",
+    "ParameterName": "toDate",
+    "ParameterFieldType": "DATE",
+    "DropDownValue": null,
+    "ParameterQuery": null,
+    "ReportMasterSid": 5
+  },
+  {
+    "ReportMasterDetailSid": 20,
+    "CreatedBy": "ffadmin@crm.com",
+    "Status": "A",
+    "ParameterName": "reportFormat",
+    "ParameterFieldType": "DROPDOWN",
+    "DropDownValue": [
+      {"label": "Detailed", "value": "detailed"},
+      {"label": "Summary", "value": "summary"}
+    ],
+    "ParameterQuery": null,
+    "ReportMasterSid": 5
+  },
+  {
+    "ReportMasterDetailSid": 21,
+    "CreatedBy": "ffadmin@crm.com",
+    "Status": "A",
+    "ParameterName": "asOfDate",
+    "ParameterFieldType": "DATE",
+    "DropDownValue": null,
+    "ParameterQuery": null,
+    "ReportMasterSid": 6
+  },
+  {
+    "ReportMasterDetailSid": 22,
+    "CreatedBy": "ffadmin@crm.com",
+    "Status": "A",
+    "ParameterName": "financialYear",
+    "ParameterFieldType": "DROPDOWN",
+    "DropDownValue": null,
+    "ParameterQuery": "SELECT YearMasterSid as value, YearName as label FROM YearMaster WHERE Status = 'A'",
+    "ReportMasterSid": 6
+  },
+  {
+    "ReportMasterDetailSid": 23,
+    "CreatedBy": "ffadmin@crm.com",
+    "Status": "A",
+    "ParameterName": "reportFormat",
+    "ParameterFieldType": "DROPDOWN",
+    "DropDownValue": [
+      {"label": "Detailed", "value": "detailed"},
+      {"label": "Summary", "value": "summary"}
+    ],
+    "ParameterQuery": null,
+    "ReportMasterSid": 6
+  },
+  {
+    "ReportMasterDetailSid": 24,
+    "CreatedBy": "ffadmin@crm.com",
+    "Status": "A",
+    "ParameterName": "fromDate",
+    "ParameterFieldType": "DATE",
+    "DropDownValue": null,
+    "ParameterQuery": null,
+    "ReportMasterSid": 7
+  },
+  {
+    "ReportMasterDetailSid": 25,
+    "CreatedBy": "ffadmin@crm.com",
+    "Status": "A",
+    "ParameterName": "toDate",
+    "ParameterFieldType": "DATE",
+    "DropDownValue": null,
+    "ParameterQuery": null,
+    "ReportMasterSid": 7
+  },
+  {
+    "ReportMasterDetailSid": 26,
+    "CreatedBy": "ffadmin@crm.com",
+    "Status": "A",
+    "ParameterName": "taxPeriod",
+    "ParameterFieldType": "DROPDOWN",
+    "DropDownValue": [
+      {"label": "Q1", "value": "Q1"},
+      {"label": "Q2", "value": "Q2"},
+      {"label": "Q3", "value": "Q3"},
+      {"label": "Q4", "value": "Q4"},
+      {"label": "Custom", "value": "custom"}
+    ],
+    "ParameterQuery": null,
+    "ReportMasterSid": 7
+  },
+  {
+    "ReportMasterDetailSid": 27,
+    "CreatedBy": "ffadmin@crm.com",
+    "Status": "A",
+    "ParameterName": "fromDate",
+    "ParameterFieldType": "DATE",
+    "DropDownValue": null,
+    "ParameterQuery": null,
+    "ReportMasterSid": 8
+  },
+  {
+    "ReportMasterDetailSid": 28,
+    "CreatedBy": "ffadmin@crm.com",
+    "Status": "A",
+    "ParameterName": "toDate",
+    "ParameterFieldType": "DATE",
+    "DropDownValue": null,
+    "ParameterQuery": null,
+    "ReportMasterSid": 8
+  },
+  {
+    "ReportMasterDetailSid": 29,
+    "CreatedBy": "ffadmin@crm.com",
+    "Status": "A",
+    "ParameterName": "taxPeriod",
+    "ParameterFieldType": "DROPDOWN",
+    "DropDownValue": [
+      {"label": "Q1", "value": "Q1"},
+      {"label": "Q2", "value": "Q2"},
+      {"label": "Q3", "value": "Q3"},
+      {"label": "Q4", "value": "Q4"},
+      {"label": "Custom", "value": "custom"}
+    ],
+    "ParameterQuery": null,
+    "ReportMasterSid": 8
+  },
+  {
+    "ReportMasterDetailSid": 30,
+    "CreatedBy": "ffadmin@crm.com",
+    "Status": "A",
+    "ParameterName": "fromDate",
+    "ParameterFieldType": "DATE",
+    "DropDownValue": null,
+    "ParameterQuery": null,
+    "ReportMasterSid": 9
+  },
+  {
+    "ReportMasterDetailSid": 31,
+    "CreatedBy": "ffadmin@crm.com",
+    "Status": "A",
+    "ParameterName": "toDate",
+    "ParameterFieldType": "DATE",
+    "DropDownValue": null,
+    "ParameterQuery": null,
+    "ReportMasterSid": 9
+  },
+  {
+    "ReportMasterDetailSid": 32,
+    "CreatedBy": "ffadmin@crm.com",
+    "Status": "A",
+    "ParameterName": "groupBy",
+    "ParameterFieldType": "DROPDOWN",
+    "DropDownValue": [
+      {"label": "Department", "value": "department"},
+      {"label": "Job", "value": "job"},
+      {"label": "Both", "value": "both"}
+    ],
+    "ParameterQuery": null,
+    "ReportMasterSid": 9
+  },
+  {
+    "ReportMasterDetailSid": 33,
+    "CreatedBy": "ffadmin@crm.com",
+    "Status": "A",
+    "ParameterName": "department",
+    "ParameterFieldType": "DROPDOWN",
+    "DropDownValue": null,
+    "ParameterQuery": "SELECT CostCenterMasterSid as value, CostCenterName as label FROM CostCenterMaster WHERE Status = 'A'",
+    "ReportMasterSid": 9
+  },
+  {
+    "ReportMasterDetailSid": 34,
+    "CreatedBy": "ffadmin@crm.com",
+    "Status": "A",
+    "ParameterName": "fromDate",
+    "ParameterFieldType": "DATE",
+    "DropDownValue": null,
+    "ParameterQuery": null,
+    "ReportMasterSid": 10
+  },
+  {
+    "ReportMasterDetailSid": 35,
+    "CreatedBy": "ffadmin@crm.com",
+    "Status": "A",
+    "ParameterName": "toDate",
+    "ParameterFieldType": "DATE",
+    "DropDownValue": null,
+    "ParameterQuery": null,
+    "ReportMasterSid": 10
+  },
+  {
+    "ReportMasterDetailSid": 36,
+    "CreatedBy": "ffadmin@crm.com",
+    "Status": "A",
+    "ParameterName": "voucherType",
+    "ParameterFieldType": "DROPDOWN",
+    "DropDownValue": [
+      {"label": "Receipt", "value": "receipt"},
+      {"label": "Payment", "value": "payment"},
+      {"label": "Both", "value": "both"}
+    ],
+    "ParameterQuery": null,
+    "ReportMasterSid": 10
+  },
+  {
+    "ReportMasterDetailSid": 37,
+    "CreatedBy": "ffadmin@crm.com",
+    "Status": "A",
+    "ParameterName": "matchingStatus",
+    "ParameterFieldType": "DROPDOWN",
+    "DropDownValue": [
+      {"label": "Matched", "value": "matched"},
+      {"label": "Unmatched", "value": "unmatched"},
+      {"label": "All", "value": "all"}
+    ],
+    "ParameterQuery": null,
+    "ReportMasterSid": 10
+  },
+  {
+    "ReportMasterDetailSid": 38,
+    "CreatedBy": "ffadmin@crm.com",
+    "Status": "A",
+    "ParameterName": "fromDate",
+    "ParameterFieldType": "DATE",
+    "DropDownValue": null,
+    "ParameterQuery": null,
+    "ReportMasterSid": 11
+  },
+  {
+    "ReportMasterDetailSid": 39,
+    "CreatedBy": "ffadmin@crm.com",
+    "Status": "A",
+    "ParameterName": "toDate",
+    "ParameterFieldType": "DATE",
+    "DropDownValue": null,
+    "ParameterQuery": null,
+    "ReportMasterSid": 11
+  },
+  {
+    "ReportMasterDetailSid": 40,
+    "CreatedBy": "ffadmin@crm.com",
+    "Status": "A",
+    "ParameterName": "topN",
+    "ParameterFieldType": "NUMBER",
+    "DropDownValue": [
+      {"label": "Top 10", "value": "10"},
+      {"label": "Top 20", "value": "20"},
+      {"label": "Top 50", "value": "50"},
+      {"label": "Top 100", "value": "100"}
+    ],
+    "ParameterQuery": null,
+    "ReportMasterSid": 11
+  },
+  {
+    "ReportMasterDetailSid": 41,
+    "CreatedBy": "ffadmin@crm.com",
+    "Status": "A",
+    "ParameterName": "sortBy",
+    "ParameterFieldType": "DROPDOWN",
+    "DropDownValue": [
+      {"label": "Revenue", "value": "revenue"},
+      {"label": "Profit", "value": "profit"},
+      {"label": "Volume", "value": "volume"}
+    ],
+    "ParameterQuery": null,
+    "ReportMasterSid": 11
+  },
+  {
+    "ReportMasterDetailSid": 42,
+    "CreatedBy": "ffadmin@crm.com",
+    "Status": "A",
+    "ParameterName": "fromDate",
+    "ParameterFieldType": "DATE",
+    "DropDownValue": null,
+    "ParameterQuery": null,
+    "ReportMasterSid": 12
+  },
+  {
+    "ReportMasterDetailSid": 43,
+    "CreatedBy": "ffadmin@crm.com",
+    "Status": "A",
+    "ParameterName": "toDate",
+    "ParameterFieldType": "DATE",
+    "DropDownValue": null,
+    "ParameterQuery": null,
+    "ReportMasterSid": 12
+  },
+  {
+    "ReportMasterDetailSid": 44,
+    "CreatedBy": "ffadmin@crm.com",
+    "Status": "A",
+    "ParameterName": "blStatus",
+    "ParameterFieldType": "DROPDOWN",
+    "DropDownValue": [
+      {"label": "Issued", "value": "issued"},
+      {"label": "Not Issued", "value": "not_issued"},
+      {"label": "All", "value": "all"}
+    ],
+    "ParameterQuery": null,
+    "ReportMasterSid": 12
+  },
+  {
+    "ReportMasterDetailSid": 45,
+    "CreatedBy": "ffadmin@crm.com",
+    "Status": "A",
+    "ParameterName": "customer",
+    "ParameterFieldType": "DROPDOWN",
+    "DropDownValue": null,
+    "ParameterQuery": "SELECT CustomerMasterSid as value, CustomerName as label FROM CustomerMaster WHERE Status = 'A'",
+    "ReportMasterSid": 12
+  },
+  {
+    "ReportMasterDetailSid": 46,
+    "CreatedBy": "ffadmin@crm.com",
+    "Status": "A",
+    "ParameterName": "fromDate",
+    "ParameterFieldType": "DATE",
+    "DropDownValue": null,
+    "ParameterQuery": null,
+    "ReportMasterSid": 13
+  },
+  {
+    "ReportMasterDetailSid": 47,
+    "CreatedBy": "ffadmin@crm.com",
+    "Status": "A",
+    "ParameterName": "toDate",
+    "ParameterFieldType": "DATE",
+    "DropDownValue": null,
+    "ParameterQuery": null,
+    "ReportMasterSid": 13
+  },
+  {
+    "ReportMasterDetailSid": 48,
+    "CreatedBy": "ffadmin@crm.com",
+    "Status": "A",
+    "ParameterName": "shipmentStatus",
+    "ParameterFieldType": "DROPDOWN",
+    "DropDownValue": [
+      {"label": "Pending", "value": "pending"},
+      {"label": "In Transit", "value": "in_transit"},
+      {"label": "Delivered", "value": "delivered"},
+      {"label": "All", "value": "all"}
+    ],
+    "ParameterQuery": null,
+    "ReportMasterSid": 13
+  },
+  {
+    "ReportMasterDetailSid": 49,
+    "CreatedBy": "ffadmin@crm.com",
+    "Status": "A",
+    "ParameterName": "port",
+    "ParameterFieldType": "DROPDOWN",
+    "DropDownValue": null,
+    "ParameterQuery": "SELECT PortMasterSid as value, PortName as label FROM PortMaster WHERE Status = 'A'",
+    "ReportMasterSid": 13
+  },
+  {
+    "ReportMasterDetailSid": 50,
+    "CreatedBy": "ffadmin@crm.com",
+    "Status": "A",
+    "ParameterName": "fromDate",
+    "ParameterFieldType": "DATE",
+    "DropDownValue": null,
+    "ParameterQuery": null,
+    "ReportMasterSid": 14
+  },
+  {
+    "ReportMasterDetailSid": 51,
+    "CreatedBy": "ffadmin@crm.com",
+    "Status": "A",
+    "ParameterName": "toDate",
+    "ParameterFieldType": "DATE",
+    "DropDownValue": null,
+    "ParameterQuery": null,
+    "ReportMasterSid": 14
+  },
+  {
+    "ReportMasterDetailSid": 52,
+    "CreatedBy": "ffadmin@crm.com",
+    "Status": "A",
+    "ParameterName": "containerType",
+    "ParameterFieldType": "DROPDOWN",
+    "DropDownValue": null,
+    "ParameterQuery": "SELECT ContainerTypeMasterSid as value, ContainerTypeName as label FROM ContainerTypeMaster WHERE Status = 'A'",
+    "ReportMasterSid": 14
+  },
+  {
+    "ReportMasterDetailSid": 53,
+    "CreatedBy": "ffadmin@crm.com",
+    "Status": "A",
+    "ParameterName": "masterJob",
+    "ParameterFieldType": "DROPDOWN",
+    "DropDownValue": null,
+    "ParameterQuery": "SELECT MasterJobSid as value, MasterJobNo as label FROM MasterJob WHERE Status = 'A'",
+    "ReportMasterSid": 14
+  },
+  {
+    "ReportMasterDetailSid": 54,
+    "CreatedBy": "ffadmin@crm.com",
+    "Status": "A",
+    "ParameterName": "fromDate",
+    "ParameterFieldType": "DATE",
+    "DropDownValue": null,
+    "ParameterQuery": null,
+    "ReportMasterSid": 15
+  },
+  {
+    "ReportMasterDetailSid": 55,
+    "CreatedBy": "ffadmin@crm.com",
+    "Status": "A",
+    "ParameterName": "toDate",
+    "ParameterFieldType": "DATE",
+    "DropDownValue": null,
+    "ParameterQuery": null,
+    "ReportMasterSid": 15
+  },
+  {
+    "ReportMasterDetailSid": 56,
+    "CreatedBy": "ffadmin@crm.com",
+    "Status": "A",
+    "ParameterName": "containerType",
+    "ParameterFieldType": "DROPDOWN",
+    "DropDownValue": null,
+    "ParameterQuery": "SELECT ContainerTypeMasterSid as value, ContainerTypeName as label FROM ContainerTypeMaster WHERE Status = 'A'",
+    "ReportMasterSid": 15
+  },
+  {
+    "ReportMasterDetailSid": 57,
+    "CreatedBy": "ffadmin@crm.com",
+    "Status": "A",
+    "ParameterName": "kpiMetric",
+    "ParameterFieldType": "DROPDOWN",
+    "DropDownValue": [
+      {"label": "Utilization Rate", "value": "utilization"},
+      {"label": "Turnover Time", "value": "turnover"},
+      {"label": "Cost per Container", "value": "cost"},
+      {"label": "All Metrics", "value": "all"}
+    ],
+    "ParameterQuery": null,
+    "ReportMasterSid": 15
+  },
+  {
+    "ReportMasterDetailSid": 58,
+    "CreatedBy": "ffadmin@crm.com",
+    "Status": "A",
+    "ParameterName": "fromDate",
+    "ParameterFieldType": "DATE",
+    "DropDownValue": null,
+    "ParameterQuery": null,
+    "ReportMasterSid": 16
+  },
+  {
+    "ReportMasterDetailSid": 59,
+    "CreatedBy": "ffadmin@crm.com",
+    "Status": "A",
+    "ParameterName": "toDate",
+    "ParameterFieldType": "DATE",
+    "DropDownValue": null,
+    "ParameterQuery": null,
+    "ReportMasterSid": 16
+  },
+  {
+    "ReportMasterDetailSid": 60,
+    "CreatedBy": "ffadmin@crm.com",
+    "Status": "A",
+    "ParameterName": "doStatus",
+    "ParameterFieldType": "DROPDOWN",
+    "DropDownValue": [
+      {"label": "Issued", "value": "issued"},
+      {"label": "Not Issued", "value": "not_issued"},
+      {"label": "All", "value": "all"}
+    ],
+    "ParameterQuery": null,
+    "ReportMasterSid": 16
+  },
+  {
+    "ReportMasterDetailSid": 61,
+    "CreatedBy": "ffadmin@crm.com",
+    "Status": "A",
+    "ParameterName": "customer",
+    "ParameterFieldType": "DROPDOWN",
+    "DropDownValue": null,
+    "ParameterQuery": "SELECT CustomerMasterSid as value, CustomerName as label FROM CustomerMaster WHERE Status = 'A'",
+    "ReportMasterSid": 16
+  },
+  {
+    "ReportMasterDetailSid": 62,
+    "CreatedBy": "ffadmin@crm.com",
+    "Status": "A",
+    "ParameterName": "fromDate",
+    "ParameterFieldType": "DATE",
+    "DropDownValue": null,
+    "ParameterQuery": null,
+    "ReportMasterSid": 17
+  },
+  {
+    "ReportMasterDetailSid": 63,
+    "CreatedBy": "ffadmin@crm.com",
+    "Status": "A",
+    "ParameterName": "toDate",
+    "ParameterFieldType": "DATE",
+    "DropDownValue": null,
+    "ParameterQuery": null,
+    "ReportMasterSid": 17
+  },
+  {
+    "ReportMasterDetailSid": 64,
+    "CreatedBy": "ffadmin@crm.com",
+    "Status": "A",
+    "ParameterName": "includeFinancials",
+    "ParameterFieldType": "DROPDOWN",
+    "DropDownValue": [
+      {"label": "Yes", "value": "yes"},
+      {"label": "No", "value": "no"}
+    ],
+    "ParameterQuery": null,
+    "ReportMasterSid": 17
+  },
+  {
+    "ReportMasterDetailSid": 65,
+    "CreatedBy": "ffadmin@crm.com",
+    "Status": "A",
+    "ParameterName": "port",
+    "ParameterFieldType": "DROPDOWN",
+    "DropDownValue": null,
+    "ParameterQuery": "SELECT PortMasterSid as value, PortName as label FROM PortMaster WHERE Status = 'A'",
+    "ReportMasterSid": 17
+  }
+]

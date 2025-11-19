@@ -47,4 +47,22 @@ export const SEED_FILES: { name: string; table: string }[] = [
     //     name:'hssac',
     //     table: 'HSSACMaster'
     // },
+
+    // Reports module seed files
+    {
+        name: 'menu-master-reports',
+        table: 'MenuMaster'
+    },
+    {
+        name: 'report-master-accounts',
+        table: 'ReportMaster'
+    },
+    {
+        name: 'report-master-operation',
+        table: 'ReportMaster'
+    },
+    {
+        name: 'report-master-detail',
+        table: 'ReportMasterDetail'
+    },
 ]

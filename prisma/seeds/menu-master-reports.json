@@ -1,0 +1,28 @@
+[
+  {
+    "MenuMasterSid": 172,
+    "MenuCode": "AR1",
+    "MenuName": "Accounts Reports",
+    "ModuleMasterSid": 7,
+    "ModuleName": "Account",
+    "createdBy": "ffadmin@crm.com",
+    "icon": "mdi mdi-chart-bar",
+    "path": "/accounts/reports",
+    "parentId": null,
+    "status": "A",
+    "Remarks": "Accounts module reports menu"
+  },
+  {
+    "MenuMasterSid": 173,
+    "MenuCode": "OR1",
+    "MenuName": "Operation Reports",
+    "ModuleMasterSid": 11,
+    "ModuleName": "Operation",
+    "createdBy": "ffadmin@crm.com",
+    "icon": "mdi mdi-chart-line",
+    "path": "/operation/reports",
+    "parentId": null,
+    "status": "A",
+    "Remarks": "Operation module reports menu"
+  }
+]

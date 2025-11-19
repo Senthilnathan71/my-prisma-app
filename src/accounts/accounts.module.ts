@@ -15,7 +15,10 @@ import { JournalVoucherController } from './controllers/journal-voucher/journal-
 import { JournalVoucherService } from './services/journal-voucher/journal-voucher.service';
 import { TrialBalanceController } from './controllers/trial-balance/trial-balance.controller';
 import { TrialBalanceService } from './services/trial-balance/trial-balance.service';
+import { AccountsReportsController } from './controllers/accounts-reports/accounts-reports.controller';
+import { AccountsReportsService } from './services/accounts-reports/accounts-reports.service';
 import { GlobalConfigService } from 'src/common/config/master-config.service';
+import { ReportExportService } from 'src/common/services/report-export.service';
 
 @Module({
     controllers: [
@@ -26,7 +29,8 @@ import { GlobalConfigService } from 'src/common/config/master-config.service';
         ReceiptController,
         VoucherPostingController,
         JournalVoucherController,
-        TrialBalanceController
+        TrialBalanceController,
+        AccountsReportsController
     ],
     providers: [
         GlobalConfigService,
@@ -38,6 +42,8 @@ import { GlobalConfigService } from 'src/common/config/master-config.service';
         VoucherPostingService,
         JournalVoucherService,
         TrialBalanceService,
+        AccountsReportsService,
+        ReportExportService,
         Logger
     ]
 })

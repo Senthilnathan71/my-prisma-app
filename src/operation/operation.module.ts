@@ -38,6 +38,9 @@ import { CreditNoteService } from './services/credit-note/credit-note.service';
 import { CreditNoteController } from './controllers/credit-note/credit-note.controller';
 import { DocVendorInvoiceService } from './services/document/doc-vendorinvoice.service';
 import { DocVendorInvoiceController } from './controllers/document/doc-vendorinvoice.controller';
+import { OperationReportsController } from './controllers/operation-reports/operation-reports.controller';
+import { OperationReportsService } from './services/operation-reports/operation-reports.service';
+import { ReportExportService } from 'src/common/services/report-export.service';
 
 @Module({
         providers: [
@@ -63,7 +66,9 @@ import { DocVendorInvoiceController } from './controllers/document/doc-vendorinv
                 MenuService,
                 ServiceJobService,
                 CreditNoteService,
-                DocVendorInvoiceService
+                DocVendorInvoiceService,
+                OperationReportsService,
+                ReportExportService
         ],
         controllers: [
                 BookingController,
@@ -82,7 +87,8 @@ import { DocVendorInvoiceController } from './controllers/document/doc-vendorinv
                 CreditRequestController,
                 ServiceJobController,
                 CreditNoteController,
-                DocVendorInvoiceController
+                DocVendorInvoiceController,
+                OperationReportsController
         ]
 })
 export class OperationModule { }
