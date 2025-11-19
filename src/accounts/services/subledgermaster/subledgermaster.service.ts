@@ -570,11 +570,10 @@ export class SubledgermasterService {
     };
 
     // Dynamically add the filter for TaxGroupSid based on whether a single ID or an array is provided.
-    if (typeof taxGroup === 'number') {
-      whereClause.TaxGroupSid = taxGroup;
-    } else {
-      whereClause.TaxGroupSid = { in: taxGroup };
-    }
+    whereClause.TaxGroupSid =
+      typeof taxGroup === 'number'
+        ? taxGroup
+        : { in: taxGroup };
 
     const taxGroupLedgers = await this._db.taxGroup.findMany({
       where: whereClause,
