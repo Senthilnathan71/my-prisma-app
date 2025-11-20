@@ -173,6 +173,10 @@ export class SearchOutstandingDto {
 
   @IsOptional()
   @IsString()
+  VendorInvoiceNumber?: string;
+
+  @IsOptional()
+  @IsString()
   HouseNumber?: string;
 
   @IsOptional()

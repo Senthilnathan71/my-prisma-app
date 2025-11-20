@@ -1411,21 +1411,23 @@ export class ReceiptService {
               }
             })
           );
-
-        const newVoucherMatchings = await this.voucherService.createVoucherMatching({
-          CompanyMasterSid: payload.companyMasterSid,
-          BranchMasterSid: payload.branchMasterSid,
-          VoucherHeaderSid: payload.voucherHeaderSid,
-          voucherTypeInName: voucher?.voucherTypeMaster.DocumentTypeName,
-          VoucherTypeMasterSid: voucher?.voucherTypeMaster.VoucherTypeMasterSid,
-          PostDate: voucher.PostDate,
-          Narration: `${voucher.VoucherNumber} ${voucher.VoucherDate.toISOString().split('T')[0]} ${voucher.CurrencyCode} ${voucher.Amount}`,
-          createdBy: payload.postedBy,
-          voucherMatching: allValidMatchings,
-          partyVoucherDetail: partyDetail,
-          BillMatchingCurrencyAmount: billMatchingCurrencyAmount,
-          BillMatchingLocalAmount: billMatchingLocalAmount,
-        }, tx);
+        let newVoucherMatchings: any;
+        if (billMatchingCurrencyAmount > 0 || billMatchingLocalAmount > 0) {
+          newVoucherMatchings = await this.voucherService.createVoucherMatching({
+            CompanyMasterSid: payload.companyMasterSid,
+            BranchMasterSid: payload.branchMasterSid,
+            VoucherHeaderSid: payload.voucherHeaderSid,
+            voucherTypeInName: voucher?.voucherTypeMaster.DocumentTypeName,
+            VoucherTypeMasterSid: voucher?.voucherTypeMaster.VoucherTypeMasterSid,
+            PostDate: voucher.PostDate,
+            Narration: `${voucher.VoucherNumber} ${voucher.VoucherDate.toISOString().split('T')[0]} ${voucher.CurrencyCode} ${voucher.Amount}`,
+            createdBy: payload.postedBy,
+            voucherMatching: allValidMatchings,
+            partyVoucherDetail: partyDetail,
+            BillMatchingCurrencyAmount: billMatchingCurrencyAmount,
+            BillMatchingLocalAmount: billMatchingLocalAmount,
+          }, tx);
+        }
 
         const updatedVoucher = await tx.voucherHeader.update({
           where: {

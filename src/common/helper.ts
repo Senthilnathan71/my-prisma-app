@@ -1,4 +1,5 @@
 import { LeadStatus } from '@prisma/client';
+import { Decimal } from '@prisma/client/runtime/library';
 import * as bcrypt from 'bcrypt'
 import *as fs from 'fs'
 
@@ -97,3 +98,33 @@ export function toUTCISO(localDateTime: string) {
         const local = new Date(localDateTime);
         return new Date(local.getTime() - local.getTimezoneOffset() * 60000).toISOString();
     }
+
+/**
+  * Helper: Converts Prisma Decimal to number
+*/
+export function toNumber(value: any): number {
+  if (value === null || value === undefined) {
+    return 0;
+  }
+  if (typeof value === 'number') {
+    return value;
+  }
+  if (value instanceof Decimal) {
+    return value.toNumber();
+  }
+  return parseFloat(value.toString()) || 0;
+}
+
+/**
+ * Round an amount to the specified number of decimal places.
+ * Handles negative decimals, invalid inputs, and floating precision safely.
+ */
+export function roundAmount(amount: number, decimalPlaces: number): number {
+  if (isNaN(amount) || amount === null || amount === undefined) return 0;
+  if (isNaN(decimalPlaces) || decimalPlaces < 0) decimalPlaces = 0;
+
+  const factor = Math.pow(10, decimalPlaces);
+
+  // Fix floating-point issues: (e.g., 1.005 → 1.01)
+  return Math.round((amount + Number.EPSILON) * factor) / factor;
+}
