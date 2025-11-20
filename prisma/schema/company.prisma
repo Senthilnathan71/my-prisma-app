@@ -34,6 +34,7 @@ model CompanyMaster {
   bookingHeader              BookingHeader[]
   bookingRates               BookingRates[]
   BookingCro                 BookingCro[]
+  BranchConfiguration        BranchConfiguration[]
   branchMaster               BranchMaster[]
   COAMaster                  COAMaster[]
   categoryMaster             CategoryMaster[]
@@ -44,6 +45,7 @@ model CompanyMaster {
   countryMaster              CountryMaster?               @relation(fields: [CountryMasterSid], references: [CountryMasterSid])
   currencyMaster             CurrencyMaster?              @relation(fields: [CurrencyMasterSid], references: [CurrencyMasterSid])
   stateMaster                StateMaster?                 @relation(fields: [StateMasterSid], references: [StateMasterSid])
+  CompanyConfiguration       CompanyConfiguration[]
   costRevenueCharges         CostRevenueCharges[]
   currencyExchange           CurrencyExchange[]
   cusBranchContact           CusBranchContact[]
@@ -170,6 +172,7 @@ model BranchMaster {
   bookingHeader              BookingHeader[]
   bookingRates               BookingRates[]
   BookingCro                 BookingCro[]
+  BranchConfiguration        BranchConfiguration[]
   branchBank                 BranchBank[]
   BranchLut                  BranchLut[]
   cityMaster                 CityMaster                   @relation(fields: [CityMasterSid], references: [CityMasterSid])
@@ -1039,6 +1042,7 @@ model QuoteHeader {
   BookingHeaderSid           Int?                         @unique
   ContactNumber              String?                      @db.VarChar(20)
   ContactPerson              String?                      @db.VarChar(20)
+  RateLock                   String?                      @default("N") @db.Char(1)
   ActivityResourceAllocation ActivityResourceAllocation[]
   EnquiryHeader              EnquiryHeader?
   houseJob                   HouseJob[]
@@ -1865,7 +1869,7 @@ model ImcoMaster {
 model BLClauseMaster {
   BLClauseMasterSid Int       @id @default(autoincrement()) @map("BLClauseMasterSid")
   ClauseDescription String    @db.VarChar(500)
-  Keyword           String    @db.VarChar(5)
+  Keyword           String    @db.VarChar(20)
   Sortorder         Decimal?  @db.Decimal(2, 0)
   createdOn         DateTime  @default(now()) @db.Timestamptz(6)
   updatedOn         DateTime? @updatedAt @db.Timestamptz(6)
@@ -2653,6 +2657,7 @@ model MasterJobContainer {
   CustomsSeal           String?    @db.VarChar(10)
   HsCode                String?    @db.VarChar(10)
   CommodityDescription  String?    @db.VarChar(500)
+  MarksandNumber        String?    @db.VarChar(200)
   PkgType               Int?
   NoOfPkg               Int?
   GrossWeight           Decimal?   @db.Decimal(10, 3)
