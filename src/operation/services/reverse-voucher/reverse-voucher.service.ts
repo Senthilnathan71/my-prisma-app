@@ -13,9 +13,9 @@ export class ReverseVoucherService {
         async createReverseVoucher(payload: any): Promise<any> {
                 try {
                     return await this._db.$transaction(async (tx) => {
-                        if (!payload.PartyMasterSid) {
-                            throw new BadRequestException('Vendor (PartyMasterSid) is required');
-                        }
+                        // if (!payload.PartyMasterSid) {
+                        //     throw new BadRequestException('Vendor (PartyMasterSid) is required');
+                        // }
         
                         const voucherTypeMaster = await tx.voucherTypeMaster.findFirst({
                             where: {
@@ -82,7 +82,8 @@ export class ReverseVoucherService {
                                 HouseNumber: payload.HBLNo,
                                 Remarks: payload.Remarks,
                                 Status: payload.status || 'A',
-                                CreatedBy: payload.CreatedBy || 'System'
+                                CreatedBy: payload.CreatedBy || 'System',
+                                ReversalVoucher: payload.ReversalVoucher || null,
                             }
                         });
         
@@ -598,9 +599,12 @@ export class ReverseVoucherService {
                     try {
                         const vouchers = await this._db.voucherHeader.findMany({
                             where: {
-                                voucherMatchings: {},
+                                voucherMatchings: {
+                                    none: {} 
+                                },
                                 Status: 'A',
-                                PostStatus: 'P'
+                                PostStatus: 'P',
+                                VoucherDetail: {}
                             },
                         });
             
@@ -670,4 +674,231 @@ export class ReverseVoucherService {
                         throw new InternalServerErrorException('Failed to fetch vouchers');
                     }
                 }
+                async postReversalVoucher(
+  payload: {
+    voucherHeaderSid: number,
+    companyMasterSid: number,
+    branchMasterSid: number,
+    yearMasterSid: number,
+    localCurrencyMasterSid: number,
+    localCurrencyCode: string,
+    postedBy: string,
+    taxDetails: {
+      CountryMasterSid: number,
+      countryName: string,
+      TaxCategory: 'Inter' | 'Intra',
+      EffectiveFrom: Date,
+      TaxType: 'Input' | 'Output',
+    }
+  }
+) {
+  try {
+    return await this._db.$transaction(async (tx) => {
+
+      // Fetch voucher
+      const voucher = await tx.voucherHeader.findUnique({
+        where: {
+          VoucherHeaderSid: payload.voucherHeaderSid,
+          CompanyMasterSid: payload.companyMasterSid,
+          BranchMasterSid: payload.branchMasterSid,
+          Status: 'A'
+        },
+        include: {
+          VoucherDetail: {
+            where: { Status: 'A' },
+            orderBy: { Sno: 'asc' }
+          },
+          SourceMatchingDetail: true,
+          voucherTypeMaster: true
+        }
+      });
+
+      if (!voucher) throw new BadRequestException('Voucher not found.');
+      if (voucher.PostStatus === 'P') throw new BadRequestException('Voucher is already posted.');
+      if (!voucher.VoucherDetail?.length) throw new BadRequestException('No detail lines are found.');
+      if (!voucher.voucherTypeMaster) throw new BadRequestException('Voucher type is not found.');
+
+      const {
+        voucherTypeMaster,
+        SourceMatchingDetail,
+        VoucherDetail,
+        ...VoucherHeader
+      } = voucher;
+
+      // Validate FY year
+      const yearMaster = await tx.yearMaster.findUnique({
+        where: {
+          CompanyMasterSid: payload.companyMasterSid,
+          YearMasterSid: payload.yearMasterSid,
+          status: 'A'
+        },
+        select: {
+          StartDate: true,
+          EndDate: true
+        }
+      });
+
+      if (!yearMaster) throw new BadRequestException("Year master not found.");
+
+      const voucherDate = new Date(voucher.VoucherDate);
+      const startDate = new Date(yearMaster.StartDate);
+      const endDate = new Date(yearMaster.EndDate);
+
+      if (voucherDate < startDate || voucherDate > endDate) {
+        throw new Error('Voucher date is outside of current financial year.');
+      }
+
+      // Validate debit/credit
+      let sumOfCurrencyDebits = 0;
+      let sumOfCurrencyCredits = 0;
+
+      VoucherDetail.forEach(detail =>
+        detail.DrCr === 'D'
+          ? (sumOfCurrencyDebits += (detail.Amount).toNumber())
+          : (sumOfCurrencyCredits += (detail.Amount).toNumber())
+      );
+
+      if (sumOfCurrencyCredits - sumOfCurrencyDebits !== 0) {
+        throw new BadRequestException('Sum of currency debits and credits should be zero.');
+      }
+
+      // Validate local amounts
+      let sumOfLocalDebits = 0;
+      let sumOfLocalCredits = 0;
+
+      VoucherDetail.forEach(detail =>
+        detail.DrCr === 'D'
+          ? (sumOfLocalDebits += detail.LocalAmount.toNumber())
+          : (sumOfLocalCredits += detail.LocalAmount.toNumber())
+      );
+
+      // Check exchange rate mismatch
+      let allDetails = [...VoucherDetail];
+ 
+      // Prepare voucher transaction payload
+      const voucherTransactionsPayload = allDetails.map((item) => ({
+        CreatedBy: item.CreatedBy,
+        Status: 'A',
+        CompanyMasterSid: item.CompanyMasterSid,
+        BranchMasterSid: item.BranchMasterSid,
+        VoucherHeaderSid: voucher.VoucherHeaderSid,
+        VoucherDetailSid: item.VoucherDetailSid,
+        VoucherNumber: voucher.VoucherNumber,
+        VoucherType: voucher.VoucherType,
+        VoucherDate: voucher.VoucherDate,
+        PostDate: voucher.PostDate,
+        GST_VAT: voucher.GST_VAT || "",
+        Sno: item.Sno,
+        ChargeDescription: item.ChargeDescription || "",
+        LedgerMasterSid: item.LedgerMasterSid ?? null,
+        COAMasterSid: item.COAMasterSid ?? null,
+        DepartmentMasterSid: item.DepartmentMasterSid ?? null,
+        HouseJobSid: item.HouseJobSid ?? null,
+        MasterJobSid: item.MasterJobSid ?? null,
+        CostRevenue: item.CostRevenue || "",
+        CurrencyCode: item.CurrencyCode || "",
+        ExchangeRate: item.ExchangeRate ?? 1,
+        Rate: item.Rate ?? 0,
+        NumberOfUnit: item.NumberOfUnit ?? 0,
+        Narration: item.Narration || "",
+        DrCr: `${item.DrCr}`.charAt(0),
+        TaxableAmount: item.TaxableAmount ?? 0,
+        Amount: item.Amount ?? 0,
+        LocalAmount: item.LocalAmount ?? 0,
+        CostCenter: item.CostCenter ?? null,
+        ProfitCenter: item.ProfitCenter ?? null,
+        TransType: "",
+        VoucherTypeMasterSid: voucherTypeMaster.VoucherTypeMasterSid,
+        YearMasterSid: item.YearMasterSid ?? null,
+        IsAutoGenerated: 'N'
+      }));
+
+      // Insert Voucher Transactions
+      const allTransactions = await tx.voucherTransaction.createManyAndReturn({
+        data: voucherTransactionsPayload
+      });
+
+      // Update voucher details with transaction sid
+      const allCompleteDetails : any[] = [];
+      for (const vt of allTransactions) {
+        const completeDetail = await tx.voucherDetail.update({
+          where: { VoucherDetailSid: vt.VoucherDetailSid },
+          data: { VoucherTransactionSid: vt.VoucherTransactionSid },
+          include: {
+            subledgerMaster: {
+              select: { SubledgerType: true }
+            }
+          }
+        });
+        allCompleteDetails.push(completeDetail);
+      }
+
+      // Matching: Party details
+      const partyDetail = allCompleteDetails.find(
+        vd => vd.subledgerMaster?.SubledgerType === 'Customer'
+      );
+
+      const billMatchingCurrencyAmount = allCompleteDetails.reduce(
+        (sum, detail) => sum + Number(detail.Amount),
+        0
+      );
+
+      const billMatchingLocalAmount = allCompleteDetails.reduce(
+        (sum, detail) => sum + Number(detail.LocalAmount),
+        0
+      );
+
+      // Find reversal voucher customer entry
+      const object = await tx.voucherTransaction.findFirst({
+        where: {
+          VoucherHeaderSid: voucher.ReversalVoucher!,
+          Status: 'A',
+          subledgerMaster: { SubledgerType: 'Customer' }
+        }
+      });
+
+
+      // Create voucher matching
+      let newVoucherMatchings: any;
+
+      if (partyDetail && object && (billMatchingCurrencyAmount > 0 || billMatchingLocalAmount > 0)) {
+        newVoucherMatchings = await this.voucherService.createVoucherMatching({
+          CompanyMasterSid: payload.companyMasterSid,
+          BranchMasterSid: payload.branchMasterSid,
+          VoucherHeaderSid: payload.voucherHeaderSid,
+          voucherTypeInName: voucher.voucherTypeMaster.DocumentTypeName,
+          VoucherTypeMasterSid: voucher.voucherTypeMaster.VoucherTypeMasterSid,
+          PostDate: voucher.PostDate,
+          Narration: `${voucher.VoucherNumber} ${voucher.VoucherDate.toISOString().split('T')[0]} ${voucher.CurrencyCode} ${voucher.Amount}`,
+          createdBy: payload.postedBy,
+          voucherMatching: [object],
+          partyVoucherDetail: partyDetail,
+          BillMatchingCurrencyAmount: billMatchingCurrencyAmount,
+          BillMatchingLocalAmount: billMatchingLocalAmount
+        }, tx);
+      }
+
+      // Update voucher as posted
+      const updatedVoucher = await tx.voucherHeader.update({
+        where: {
+          VoucherHeaderSid: voucher.VoucherHeaderSid
+        },
+        data: {
+          PostStatus: 'P',
+          PostDate: voucher.PostDate,
+          UpdatedBy: payload.postedBy
+        }
+      });
+
+      return {
+        ...updatedVoucher,
+        voucherDetail: allCompleteDetails,
+        voucherMatchings: newVoucherMatchings
+      };
+    });
+
+  } catch (error) {
+    throw error;
+  }
+}
 }

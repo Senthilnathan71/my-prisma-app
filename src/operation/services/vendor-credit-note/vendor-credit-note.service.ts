@@ -84,7 +84,8 @@ export class VendorCreditNoteService {
                             HouseNumber: payload.HBLNo,
                             Remarks: payload.Remarks,
                             Status: payload.status || 'A',
-                            CreatedBy: payload.CreatedBy || 'System'
+                            CreatedBy: payload.CreatedBy || 'System',
+                            ReversalVoucher: payload.ReversalVoucher || null,
                         }
                     });
     
