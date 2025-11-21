@@ -616,8 +616,8 @@ export class PaymentService {
                 const allValidMatchings = await Promise.all(
                     (SourceMatchingDetail || [])
                         .filter(matching =>
-                            matching.Amount.toNumber() > 0 ||
-                            matching.LocalAmount.toNumber() > 0
+                            toNumber(matching.MatchingAmount) > 0 ||
+                            toNumber(matching.MatchingLocalAmount) > 0
                         )
                         .map(async (matching) => {
                             // taking invoice information from each matching detail
@@ -644,7 +644,7 @@ export class PaymentService {
                                 CurrencyCode: matching?.CurrencyCode || null,
                                 ExchangeRate: matching?.ExchangeRate || null,
                                 DrCr: transaction?.DrCr || null,
-                                Amount: matching.MatchingCurrency,
+                                Amount: matching.MatchingAmount,
                                 LocalAmount: matching.MatchingLocalAmount,
                             }
                         })
