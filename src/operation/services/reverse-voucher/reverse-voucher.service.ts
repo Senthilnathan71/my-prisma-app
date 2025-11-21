@@ -572,16 +572,48 @@ export class ReverseVoucherService {
                             ]);
                 
                             // Calculate local amount and TDS amount for each invoice
-                            const enrichedItems = items.map(item => ({
-                                ...item,
-                                LocalAmount: item.VoucherDetail?.reduce((sum, d) => sum + Number(d.LocalAmount || 0), 0) || 0,
-                                // TDSAmount: item.VoucherTDS?.[0]?.TDSAmount || 0,
-                                VendorName: item.PartyName,
-                                BillNo: item.DocumentNumber,
-                                BillDate: item.DocumentDate,
-                                MBLNo: item.MasterNumber,
-                                HBLNo: item.HouseNumber
-                            }));
+                            const enrichedItems = await Promise.all(items.map(async (item) => {
+                                if (item.ReversalVoucher) {
+                                    const reversalVoucher = await this._db.voucherHeader.findUnique({
+                                        where: {
+                                            VoucherHeaderSid: item.ReversalVoucher!
+                                        },
+                                        select: {
+                                            VoucherNumber: true,
+                                            voucherTypeMaster: {
+                                                select: { DocumentTypeName: true }
+                                            }
+                                        }
+                                    });
+                                    return {
+                                        ...item,
+                                        reversalVoucherNumber: reversalVoucher?.VoucherNumber || "",
+                                        reversalVoucherType: reversalVoucher?.voucherTypeMaster?.DocumentTypeName || null,
+                                        LocalAmount: item.VoucherDetail?.reduce((sum, d) => sum + Number(d.LocalAmount || 0), 0) || 0,
+                                        // TDSAmount: item.VoucherTDS?.[0]?.TDSAmount || 0,
+                                        VendorName: item.PartyName,
+                                        BillNo: item.DocumentNumber,
+                                        BillDate: item.DocumentDate,
+                                        MBLNo: item.MasterNumber,
+                                        HBLNo: item.HouseNumber
+                                    };
+                                } else {
+                                    return {
+                                        ...item,
+                                        reversalVoucherNumber:  "",
+                                        reversalVoucherType:  null,
+                                        LocalAmount: item.VoucherDetail?.reduce((sum, d) => sum + Number(d.LocalAmount || 0), 0) || 0,
+                                        // TDSAmount: item.VoucherTDS?.[0]?.TDSAmount || 0,
+                                        VendorName: item.PartyName,
+                                        BillNo: item.DocumentNumber,
+                                        BillDate: item.DocumentDate,
+                                        MBLNo: item.MasterNumber,
+                                        HBLNo: item.HouseNumber
+                                    };
+                                }
+                                
+                            })
+                            );
                 
                             return {
                                 items: enrichedItems,
@@ -857,6 +889,7 @@ export class ReverseVoucherService {
         }
       });
 
+    //   if (!object) throw new BadRequestException('Reversal Voucher not found');
 
       // Create voucher matching
       let newVoucherMatchings: any;
