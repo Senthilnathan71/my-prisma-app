@@ -47,9 +47,9 @@ export class TaxService {
         });
 
         if (existing) {
-            if (existing.TaxCode === payload.TaxCode) {
-                throw new BadRequestException('Tax code already exists');
-            }
+            // if (existing.TaxCode === payload.TaxCode) {
+            //     throw new BadRequestException('Tax code already exists');
+            // }
             if (existing.TaxName === payload.TaxName) {
                 throw new BadRequestException('Tax name already exists');
             }
@@ -114,9 +114,9 @@ export class TaxService {
         });
 
         if (duplicate) {
-            if (duplicate.TaxCode === payload.TaxCode) {
-                throw new BadRequestException('Tax code already exists');
-            }
+            // if (duplicate.TaxCode === payload.TaxCode) {
+            //     throw new BadRequestException('Tax code already exists');
+            // }
             if (duplicate.TaxName === payload.TaxName) {
                 throw new BadRequestException('Tax name already exists');
             }

@@ -162,6 +162,7 @@ export class OperationCommonService {
                                 select : {
                                     ChargeTaxMasterSid : true,
                                     HSNCode : true,
+                                    TaxGroupSid : true,
                                     description : true,
                                     TaxGroup : true,
                                     TaxRate : true
@@ -250,6 +251,12 @@ export class OperationCommonService {
                             StateMasterSid : true,
                             GSTNo : true,
                             Registered : true,
+                            stateMaster : {
+                                select : {
+                                    StateMasterSid : true,
+                                    stateName : true,
+                                }
+                            }
                         }
                     },
                     costVoucherHeader : {

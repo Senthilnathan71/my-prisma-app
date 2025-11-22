@@ -1,0 +1,34 @@
+model CompanyConfiguration {
+  CompanyConfigurationSid Int       @id @default(autoincrement()) @map("CompanyConfigurationSid")
+  CreatedOn               DateTime  @default(now()) @db.Timestamptz(6)
+  CreatedBy               String    @db.VarChar(100)
+  UpdatedOn               DateTime  @default(now()) @db.Timestamptz(6)
+  UpdatedBy               String?   @db.VarChar(100)
+  Status                  String    @default("A") @db.Char(1)
+  CompanyMasterSid        Int
+  ConfigurationName       String    @db.VarChar(50)
+  ConfigurationValue      String    @db.VarChar(200)
+
+  CompanyMaster CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+
+  @@index([CompanyMasterSid])
+}
+
+model BranchConfiguration {
+  BranchConfigurationSid Int       @id @default(autoincrement()) @map("BranchConfigurationSid")
+  CreatedOn              DateTime  @default(now()) @db.Timestamptz(6)
+  CreatedBy              String    @db.VarChar(100)
+  UpdatedOn              DateTime  @default(now()) @db.Timestamptz(6)
+  UpdatedBy              String?   @db.VarChar(100)
+  Status                 String    @default("A") @db.Char(1)
+  CompanyMasterSid       Int
+  BranchMasterSid        Int
+  ConfigurationName      String    @db.VarChar(50)
+  ConfigurationValue     String    @db.VarChar(200)
+
+  CompanyMaster CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+  BranchMaster  BranchMaster  @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
+
+  @@index([CompanyMasterSid])
+  @@index([BranchMasterSid])
+}

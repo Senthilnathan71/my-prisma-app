@@ -10,7 +10,6 @@ import { OutstandingService } from './services/outstanding/outstanding.service';
 import { ReceiptController } from './controllers/receipt/receipt.controller';
 import { ReceiptService } from './services/receipt/receipt.service';
 import { PaymentController } from './controllers/payment/payment.controller';
-import { PaymentService } from './services/payment/payment.service';
 import { VoucherPostingController } from './controllers/voucher-posting/voucher-posting.controller';
 import { VoucherPostingService } from './services/voucher-posting/voucher-posting.service';
 import { JournalVoucherController } from './controllers/journal-voucher/journal-voucher.controller';
@@ -19,6 +18,7 @@ import { TrialBalanceController } from './controllers/trial-balance/trial-balanc
 import { TrialBalanceService } from './services/trial-balance/trial-balance.service';
 import { GlobalConfigService } from 'src/common/config/master-config.service';
 import { VoucherService } from 'src/operation/services/voucher/voucher.service';
+import { PaymentService } from './services/payment/payment.service';
 
 @Module({
     controllers: [

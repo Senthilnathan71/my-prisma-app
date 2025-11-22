@@ -150,7 +150,29 @@ export class InvoiceService {
           },
           VoucherOthers: { where: { Status: 'A' } },
           masterJob: { where: { Status: 'A' } },
-          houseJob: { where: { status: 'A' } },
+          houseJob: { 
+            where: { status: 'A' },
+            include : {
+              Cargo : {
+                select : {
+                  NoOfPackage : true,
+                  GrossWeight : true,
+                  Volume : true
+                }
+              },
+              Others : {
+                select : {
+                  YardCFS : true,
+                  CustomerRefNo:true,
+                }
+              },
+              Products:{
+                select:{
+                  ShippingBillNo:true,
+                }
+              }
+            }
+           },
           currencyMaster: true,
           subledgerMaster: true,
           customerBranch: true,

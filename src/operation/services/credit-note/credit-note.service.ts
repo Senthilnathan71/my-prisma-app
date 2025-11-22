@@ -274,8 +274,7 @@ export class CreditNoteService {
              PostDate: payload.PostDate ? new Date(payload.PostDate) : new Date(),
              CreatedBy: payload.CreatedBy,
              Status: "A",
-             VoucherType: payload.VoucherType,
-             voucherTypeMaster: voucherTypeMaster.VoucherTypeMasterSid,
+             VoucherType: voucherTypeMaster.VoucherTypeMasterSid,
              PartyName: resolvedPartyName ?? (payload.PartyName !== undefined && payload.PartyName !== null ? String(payload.PartyName) : null),
              PartyAddress: payload.PartyAddress,
              PlaceOfSupply: payload.PlaceOfSupply,
@@ -507,7 +506,7 @@ export class CreditNoteService {
            });
    
            // Update VoucherDetail rows with proper CurrencyMasterSid mapping
-           if (payload.VoucherDetail && Array.isArray(payload.VoucherDetail) && payload.VoucherDetail.length > 0) {
+          if (payload.VoucherDetail && Array.isArray(payload.VoucherDetail) && payload.VoucherDetail.length > 0) {
 
   const voucherDetailsPayload = await Promise.all(
     payload.VoucherDetail.map(async (detail: any, index: number) => {
@@ -519,7 +518,6 @@ export class CreditNoteService {
         VoucherDetailSid: detail.VoucherDetailSid ? Number(detail.VoucherDetailSid) : null,
         VoucherHeaderSid: VoucherHeaderSid,
         CreatedBy: payload.UpdatedBy,
-        UpdatedBy: payload.UpdatedBy,
         Status: "A",
         CompanyMasterSid: existingVoucher.CompanyMasterSid,
         BranchMasterSid: existingVoucher.BranchMasterSid,
@@ -552,7 +550,8 @@ export class CreditNoteService {
         InvoiceType: detail.InvoiceType,
         CostCenter: detail.CostCenter ? Number(detail.CostCenter) : null,
         ProfitCenter: detail.ProfitCenter ? Number(detail.ProfitCenter) : null,
-        Remarks: detail.Remarks
+        Remarks: detail.Remarks,
+        CreditNoteReason: detail.CreditNoteReason,
       };
     })
   );
@@ -568,12 +567,11 @@ export class CreditNoteService {
     } else {
       // CREATE new
       await prisma.voucherDetail.create({
-        data: detail
+        data: detail,
       });
     }
   }
 }
-   
            // Update or create VoucherOthers
            if (payload.VoucherOthers) {
              const existingOthers = await prisma.voucherOthers.findFirst({

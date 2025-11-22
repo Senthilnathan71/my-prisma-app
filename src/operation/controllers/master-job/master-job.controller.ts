@@ -566,6 +566,28 @@ export class MasterJobController {
         } catch (error) {
             resp.status = false;
             this.logger.warn(`Error fetching report data: ${JSON.stringify(error)}, ${error}`);
+        }
+        return resp;
+    }
+
+    @ApiOperation({ summary: 'Create Booking From Master Job' })
+    @ApiCreatedResponse({
+        description: 'Create Booking from Master Job',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.CREATED)
+    @Post('booking-create/transhipment')
+    async createBookingFromMasterJob(@Body() payload:any){
+        let resp = new ResponseData();
+        try {
+            this.logger.log(`Creating Booking From Master Job : ${JSON.stringify(payload)}`);
+            const result = await this.masterJobService.createBookingFromMasterJob(payload);
+            this.logger.debug(`Creating Booking From Master Job : ${JSON.stringify(result)}`);
+            resp.data = result;
+            resp.message = 'Booking Created From Master Job Successfully';
+        } catch (error) {
+            resp.status = false;
+            this.logger.warn(`Error in creating booking from Master Job : ${JSON.stringify(error),error}`);
             if(error instanceof BadRequestException || error instanceof UnauthorizedException){
                 resp.message = error.message;
             } else {
@@ -635,4 +657,5 @@ export class MasterJobController {
         }
         return resp;
     }
+
 }

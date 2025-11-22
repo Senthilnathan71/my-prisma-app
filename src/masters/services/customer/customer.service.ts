@@ -627,6 +627,10 @@ export class CustomerService {
                 where: {
                     CompanyMasterSid: CompanyMasterSid,
                     status: "A",
+                    CustomerType : { 
+                        path : ['customer'],
+                        equals : 'isTrue'
+                    },
                     CustomerBranch: { some: {} }
                 },
                 select: {

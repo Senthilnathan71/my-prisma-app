@@ -53,6 +53,8 @@ export class HouseJobService {
                         select:{
                             MasterJobSid:true,
                             NoofOriginal:true,
+                            MasterJobNumber:true,
+                            WeightIn:true,
                             containers:true,
                             others:true,
                         },
