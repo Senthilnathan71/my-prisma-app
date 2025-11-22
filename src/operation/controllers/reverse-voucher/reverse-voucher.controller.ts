@@ -223,4 +223,43 @@ export class ReverseVoucherController {
         }
         return output;
       }
+
+      @Post('post')
+@HttpCode(HttpStatus.CREATED)
+async postReversalVoucher(
+  @Body() payload: any,
+) {
+  let resp = new ResponseData();
+  this.logger.log(`Posting Reversal Voucher for company ${payload.CompanyMasterSid}`);
+
+  try {
+    const payment = await this.reverseVoucherService.postReversalVoucher({
+      voucherHeaderSid: Number(payload.VoucherHeaderSid),
+      companyMasterSid: Number(payload.CompanyMasterSid),
+      branchMasterSid: Number(payload.BranchMasterSid),
+      yearMasterSid: Number(payload.YearMasterSid),
+      localCurrencyMasterSid: Number(payload.LocalCurrencyMasterSid),
+      localCurrencyCode: payload.LocalCurrencyCode,
+      postedBy: payload.PostedBy,
+      taxDetails: payload.TaxDetails,
+    });
+
+    this.logger.log(`Reversal voucher posted successfully: ${payment?.VoucherNumber}`);
+
+    resp.data = payment;
+    resp.message = "Reversal voucher posted successfully";
+  } catch (error) {
+    this.logger.error(`Failed to post reversal voucher: ${error.message}`, error.stack);
+    resp.status = false;
+
+    if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+      resp.message = error.message;
+    } else {
+      resp.message = "Internal Server Error";
+    }
+  }
+
+  return resp;
+}
+
 }
