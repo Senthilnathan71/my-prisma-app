@@ -84,9 +84,38 @@ export class ReceiptController {
     } catch (error) {
       resp.status = false;
       this.logger.warn(`Error creating receipt: ${JSON.stringify(error),error}`);
-      if(error instanceof PrismaClientValidationError){
-        resp.message = error.message
-      } else if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+      if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+        resp.message = (error as any).message || 'Bad request';
+      } else {
+        resp.message = 'Internal Server Error';
+      }
+    }
+    return resp;
+  }
+
+  @Post('post-receipt')
+  @HttpCode(HttpStatus.CREATED)
+  async postReceipt(@Body() payload: any){
+    let resp = new ResponseData();
+    
+    try {
+      this.logger.log(`Posting receipt ${payload}`);
+      const receipt = await this.receiptService.postReceipt({
+        voucherHeaderSid: Number(payload.VoucherHeaderSid),
+        companyMasterSid: Number(payload.CompanyMasterSid),
+        branchMasterSid: Number(payload.BranchMasterSid),
+        yearMasterSid: Number(payload.YearMasterSid),
+        localCurrencyMasterSid: Number(payload.LocalCurrencyMasterSid),
+        localCurrencyCode: payload.LocalCurrencyCode,
+        postedBy: payload.PostedBy,
+        taxDetails: payload.TaxDetails
+      });
+      resp.data = receipt;
+      resp.message = 'Receipt posted successfully';
+    } catch (error) {
+      resp.status = false;
+      this.logger.warn(`Error posting receipt: ${JSON.stringify(error),error}`);
+      if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
         resp.message = (error as any).message || 'Bad request';
       } else {
         resp.message = 'Internal Server Error';

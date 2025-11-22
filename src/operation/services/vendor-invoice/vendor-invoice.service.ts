@@ -72,6 +72,7 @@ export class VendorInvoiceService {
                         PartyAddress: payload.PartyAddress || '',
                         CustomerBranchSid: payload.CustomerBranchSid,
                         PlaceOfSupply: payload.PlaceOfSupply,
+                        PostStatus: payload.PostStatus,
                         GST_VAT: payload.GSTNo || payload.GST_VAT,
                         InvoiceType: payload.InvoiceType || 'B2B',
                         GSTType: payload.GSTType,
@@ -118,7 +119,7 @@ export class VendorInvoiceService {
                                 CurrencyCode: detail.CurrencyCode || payload.CurrencyCode,
                                 CurrencyMasterSid: detail.CurrencyMasterSid || currencyMasterSid,
                                 ExchangeRate: detail.ExchangeRate || payload.ExchangeRate || 1,
-                                DrCr: detail.DrCr || 'Dr', // Vendor invoice = Debit (payable)
+                                DrCr: detail.DrCr || 'D', // Vendor invoice = Debit (payable)
                                 LedgerMasterSid: detail.LedgerMasterSid,
                                 COAMasterSid: detail.COAMasterSid,
                                 MasterJobSid: detail.MasterJobSid || payload.MasterJobSid,
@@ -144,7 +145,7 @@ export class VendorInvoiceService {
                                 const tdsAmount = this.voucherService.calculateTDSAmount(totalTaxableAmount, tdsConfig.tdsRate);
                                 tdsData = {
                                     TDSSetRateSid: tdsConfig.tdsSetRateSid,
-                                    ITSectionCode: tdsConfig.itSectionCode,
+                                    ITSectionCode: tdsConfig.itSectionCode || '',
                                     TDSRate: tdsConfig.tdsRate,
                                     TaxableAmount: totalTaxableAmount,
                                     TDSAmount: tdsAmount,
@@ -161,7 +162,7 @@ export class VendorInvoiceService {
                                     CompanyMasterSid: payload.CompanyMasterSid,
                                     BranchMasterSid: payload.BranchMasterSid,
                                     TDSSetRateSid: tdsData.TDSSetRateSid,
-                                    ITSectionCode: tdsData.ITSectionCode,
+                                    ITSectionCode: tdsData.ITSectionCode || '',
                                     TDSRate: tdsData.TDSRate || 0,
                                     TaxableAmount: tdsData.TaxableAmount || totalTaxableAmount,
                                     TDSAmount: tdsData.TDSAmount || 0,
@@ -343,6 +344,7 @@ export class VendorInvoiceService {
                         CurrencyMasterSid: currencyMasterSid,
                         CurrencyCode: payload.CurrencyCode,
                         ExchangeRate: payload.ExchangeRate,
+                        PostStatus: payload.PostStatus,
                         DocumentNumber: payload.BillNo || payload.DocumentNumber,
                         DocumentDate: payload.BillDate ? new Date(payload.BillDate) : undefined,
                         Amount: payload.BillAmt || payload.Amount,
@@ -359,75 +361,116 @@ export class VendorInvoiceService {
 
                 // Update VoucherDetails
                 if (payload.VoucherDetail && Array.isArray(payload.VoucherDetail)) {
+                    const incomingIds = payload.VoucherDetail
+        .filter(d => d.VoucherDetailSid)
+        .map(d => d.VoucherDetailSid);
                     // Delete existing details
                     await tx.voucherDetail.updateMany({
-                        where: { VoucherHeaderSid },
+                        where: { VoucherHeaderSid,
+                            VoucherDetailSid: { notIn: incomingIds }
+                         },
                         data: { Status: 'D' }
                     });
 
                     // Create new details
                     let sno = 1;
-                    let totalTaxableAmount = 0;
                     for (const detail of payload.VoucherDetail) {
-                        await tx.voucherDetail.create({
-                            data: {
-                                VoucherHeaderSid,
-                                Sno: sno++,
-                                CompanyMasterSid: existing.CompanyMasterSid,
-                                BranchMasterSid: existing.BranchMasterSid,
-                                ChargeMasterSid: detail.ChargeMasterSid,
-                                ChargeDescription: detail.ChargeDescription || '',
-                                HSSACMasterSid: detail.HSSACMasterSid,
-                                ChargeUOMSid: detail.ChargeUOMSid,
-                                NumberOfUnit: detail.NumberOfUnit || 1,
-                                Rate: detail.Rate || 0,
-                                Amount: detail.Amount || 0,
-                                TaxableAmount: detail.TaxableAmount || detail.Amount || 0,
-                                TaxPercentage1: detail.TaxPercentage1 || 0,
-                                TaxAmount1: detail.TaxAmount1 || 0,
-                                TaxPercentage2: detail.TaxPercentage2 || 0,
-                                TaxAmount2: detail.TaxAmount2 || 0,
-                                LocalAmount: detail.LocalAmount || 0,
-                                CurrencyCode: detail.CurrencyCode || payload.CurrencyCode,
-                                CurrencyMasterSid: detail.CurrencyMasterSid || currencyMasterSid,
-                                ExchangeRate: detail.ExchangeRate || payload.ExchangeRate || 1,
-                                DrCr: detail.DrCr || 'Dr',
-                                LedgerMasterSid: detail.LedgerMasterSid,
-                                COAMasterSid: detail.COAMasterSid,
-                                MasterJobSid: detail.MasterJobSid || payload.MasterJobSid,
-                                HouseJobSid: detail.HouseJobSid || payload.HouseJobSid,
-                                CreatedBy: payload.UpdatedBy || 'System',
-                                Status: 'A'
-                            }
-                        });
+        if (detail.VoucherDetailSid) {
+            // -------------------------------
+            // UPDATE EXISTING ROW
+            // -------------------------------
+            await tx.voucherDetail.update({
+                where: { VoucherDetailSid: detail.VoucherDetailSid },
+                data: {
+                    Sno: sno++,
+                    ChargeMasterSid: detail.ChargeMasterSid,
+                    ChargeDescription: detail.ChargeDescription || '',
+                    HSSACMasterSid: detail.HSSACMasterSid,
+                    ChargeUOMSid: detail.ChargeUOMSid,
+                    NumberOfUnit: detail.NumberOfUnit || 1,
+                    Rate: detail.Rate || 0,
+                    Amount: detail.Amount || 0,
+                    TaxableAmount: detail.TaxableAmount || detail.Amount || 0,
+                    TaxPercentage1: detail.TaxPercentage1 || 0,
+                    TaxAmount1: detail.TaxAmount1 || 0,
+                    TaxPercentage2: detail.TaxPercentage2 || 0,
+                    TaxAmount2: detail.TaxAmount2 || 0,
+                    LocalAmount: detail.LocalAmount || 0,
+                    CurrencyCode: detail.CurrencyCode || payload.CurrencyCode,
+                    CurrencyMasterSid: detail.CurrencyMasterSid || currencyMasterSid,
+                    ExchangeRate: detail.ExchangeRate || payload.ExchangeRate || 1,
+                    DrCr: detail.DrCr || 'D',
+                    LedgerMasterSid: detail.LedgerMasterSid,
+                    COAMasterSid: detail.COAMasterSid,
+                    MasterJobSid: detail.MasterJobSid || payload.MasterJobSid,
+                    HouseJobSid: detail.HouseJobSid || payload.HouseJobSid,
+                    UpdatedBy: payload.UpdatedBy || 'System',
+                    Status: 'A'
+                }
+            });
 
-                        totalTaxableAmount += Number(detail.TaxableAmount || detail.Amount || 0);
-                    }
+        } else {
+            // -------------------------------
+            // CREATE NEW ROW
+            // -------------------------------
+            await tx.voucherDetail.create({
+                data: {
+                    VoucherHeaderSid,
+                    Sno: sno++,
+                    CompanyMasterSid: existing.CompanyMasterSid,
+                    BranchMasterSid: existing.BranchMasterSid,
+                    ChargeMasterSid: detail.ChargeMasterSid,
+                    ChargeDescription: detail.ChargeDescription || '',
+                    HSSACMasterSid: detail.HSSACMasterSid,
+                    ChargeUOMSid: detail.ChargeUOMSid,
+                    NumberOfUnit: detail.NumberOfUnit || 1,
+                    Rate: detail.Rate || 0,
+                    Amount: detail.Amount || 0,
+                    TaxableAmount: detail.TaxableAmount || detail.Amount || 0,
+                    TaxPercentage1: detail.TaxPercentage1 || 0,
+                    TaxAmount1: detail.TaxAmount1 || 0,
+                    TaxPercentage2: detail.TaxPercentage2 || 0,
+                    TaxAmount2: detail.TaxAmount2 || 0,
+                    LocalAmount: detail.LocalAmount || 0,
+                    CurrencyCode: detail.CurrencyCode || payload.CurrencyCode,
+                    CurrencyMasterSid: detail.CurrencyMasterSid || currencyMasterSid,
+                    ExchangeRate: detail.ExchangeRate || payload.ExchangeRate || 1,
+                    DrCr: detail.DrCr || 'D',
+                    LedgerMasterSid: detail.LedgerMasterSid,
+                    COAMasterSid: detail.COAMasterSid,
+                    MasterJobSid: detail.MasterJobSid || payload.MasterJobSid,
+                    HouseJobSid: detail.HouseJobSid || payload.HouseJobSid,
+                    CreatedBy: payload.UpdatedBy || 'System',
+                    Status: 'A'
+                }
+            });
+        }
+    }
 
                     // Update TDS
-                    await tx.voucherTDS.updateMany({
-                        where: { VoucherHeaderSid },
-                        data: { Status: 'D' }
-                    });
+                    // await tx.voucherTDS.updateMany({
+                    //     where: { VoucherHeaderSid },
+                    //     data: { Status: 'D' }
+                    // });
 
-                    if (payload.VoucherTDS && totalTaxableAmount > 0) {
-                        await tx.voucherTDS.create({
-                            data: {
-                                VoucherHeaderSid,
-                                VoucherDetailSid: VoucherHeaderSid,
-                                CompanyMasterSid: existing.CompanyMasterSid,
-                                BranchMasterSid: existing.BranchMasterSid,
-                                TDSSetRateSid: payload.VoucherTDS.TDSSetRateSid,
-                                ITSectionCode: payload.VoucherTDS.ITSectionCode,
-                                TDSRate: payload.VoucherTDS.TDSRate || 0,
-                                TaxableAmount: totalTaxableAmount,
-                                TDSAmount: payload.VoucherTDS.TDSAmount || 0,
-                                Reason: payload.VoucherTDS.Reason || '',
-                                CreatedBy: payload.UpdatedBy || 'System',
-                                Status: 'A'
-                            }
-                        });
-                    }
+                    // if (payload.VoucherTDS && totalTaxableAmount > 0) {
+                    //     await tx.voucherTDS.create({
+                    //         data: {
+                    //             VoucherHeaderSid: VoucherHeaderSid,
+                    //             VoucherDetailSid: VoucherHeaderSid,
+                    //             CompanyMasterSid: payload.CompanyMasterSid,
+                    //             BranchMasterSid: payload.BranchMasterSid,
+                    //             TDSSetRateSid: payload.VoucherTDS.TDSSetRateSid,
+                    //             ITSectionCode: payload.VoucherTDS.ITSectionCode || '',
+                    //             TDSRate: payload.VoucherTDS.TDSRate || 0,
+                    //             TaxableAmount: totalTaxableAmount,
+                    //             TDSAmount: payload.VoucherTDS.TDSAmount || 0,
+                    //             Reason: payload.VoucherTDS.Reason || '',
+                    //             CreatedBy: payload.UpdatedBy || 'System',
+                    //             Status: 'A'
+                    //         }
+                    //     });
+                    // }
                 }
 
                 // Update VoucherOthers

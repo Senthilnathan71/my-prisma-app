@@ -12,11 +12,16 @@ import {
   UpdateReceiptDto,
   ReverseReceiptDto,
   MatchedInvoiceDto,
+  VoucherMatchingPayload,
 } from '../../dto/receipt.dto';
-import { Prisma } from '@prisma/client';
+import { Prisma, PrismaClient } from '@prisma/client';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 import { isNumber } from 'class-validator';
+import { VoucherService } from 'src/operation/services/voucher/voucher.service';
+import moment from 'moment';
+import { Decimal } from '@prisma/client/runtime/library';
+import { toNumber } from 'src/common/helper';
 
 /**
  * Receipt Voucher Service
@@ -36,6 +41,7 @@ export class ReceiptService {
   constructor(
     private readonly _db: DatabaseService,
     private readonly outstandingService: OutstandingService, // REUSE existing service
+    private readonly voucherService: VoucherService
   ) {}
 
   /**
@@ -56,26 +62,30 @@ export class ReceiptService {
         // Convert to OutstandingInvoiceDto format
         const invoices: OutstandingInvoiceDto[] = customerOutstanding.transactions.map((txn) => ({
           VoucherTransactionSid: txn.voucherTransactionSid,
-          VoucherHeaderSid: 0, // Will be populated from join
+          VoucherHeaderSid: txn.voucherHeaderSid,
+          VoucherDetailSid: txn.voucherDetailSid,
           VoucherNumber: txn.voucherNumber,
           VoucherDate: typeof txn.voucherDate === 'string' ? txn.voucherDate : txn.voucherDate.toISOString(),
+          VoucherTypeMasterSid : txn.voucherTypeMasterSid,
+          COAMasterSid : txn.coaMasterSid!,
           VoucherType: txn.voucherType,
-          LedgerMasterSid: customerOutstanding.ledgerMasterSid,
+          LedgerMasterSid: txn.ledgerMasterSid!,
           CustomerName: customerOutstanding.customerName || '',
-          OriginalAmount: txn.originalLocalAmount,
           OriginalCurrencyAmount: txn.originalCurrencyAmount,
+          OriginalLocalAmount: txn.originalLocalAmount,
           MatchedAmount: txn.matchedLocalAmount,
           MatchedCurrencyAmount: txn.matchedCurrencyAmount,
-          OutstandingAmount: txn.outstandingLocalAmount,
+          OutstandingLocalAmount: txn.outstandingCurrencyAmount * txn.exchangeRate,
           OutstandingCurrencyAmount: txn.outstandingCurrencyAmount,
           CurrencyCode: txn.currencyCode,
+          ExchangeRate: txn.exchangeRate,
           DrCr: txn.drCr,
           ChargeDescription: txn.chargeDescription,
         }));
 
         // Filter out fully paid if requested
         if (!searchDto.IncludeFullyPaid) {
-          return invoices.filter((inv) => Math.abs(inv.OutstandingAmount) > 0);  // No tolerance
+          return invoices.filter((inv) => Math.abs(inv.OutstandingLocalAmount) > 0);  // No tolerance
         }
 
         return invoices;
@@ -95,16 +105,15 @@ export class ReceiptService {
   private async advancedSearchOutstanding(searchDto: SearchOutstandingDto): Promise<OutstandingInvoiceDto[]> {
     const whereConditions: Prisma.VoucherTransactionWhereInput = {
       CompanyMasterSid: searchDto.CompanyMasterSid,
-      Status: 'A',
-      VoucherHeader: {
-        ReversalVoucher: null,
+      subledgerMaster : {
+        SubledgerType : 'Customer'
       },
+      Status: 'A',
     };
 
     // Build dynamic where clause based on search criteria
     if (searchDto.InvoiceNumber) {
       whereConditions.VoucherHeader = {
-        ReversalVoucher: null,
         VoucherNumber: { contains: searchDto.InvoiceNumber, mode: 'insensitive' },
       };
     }
@@ -114,6 +123,9 @@ export class ReceiptService {
       include: {
         VoucherHeader: true,
         subledgerMaster: true,
+        voucherTypeMaster : {
+          select : { DocumentTypeName : true }
+        },
         voucherMatchings: {
           where: { Status: 'A' },
         },
@@ -132,30 +144,33 @@ export class ReceiptService {
       const outstandingAmount = Number(txn.Amount) - matchedAmount;
 
       // Skip fully paid if not requested
-      if (!searchDto.IncludeFullyPaid && Math.abs(outstandingAmount) < 0.01) {
+      if (!searchDto.IncludeFullyPaid && Math.abs(outstandingAmount) <= 0) {
         continue;
       }
 
       results.push({
         VoucherTransactionSid: txn.VoucherTransactionSid,
         VoucherHeaderSid: txn.VoucherHeaderSid,
+        VoucherDetailSid : txn.VoucherDetailSid,
         VoucherNumber: txn.VoucherHeader.VoucherNumber,
         VoucherDate: txn.VoucherDate.toISOString(),
-        VoucherType: txn.VoucherType,
-        LedgerMasterSid: txn.LedgerMasterSid || 0,
+        VoucherTypeMasterSid : txn.VoucherTypeMasterSid,
+        VoucherType: txn.voucherTypeMaster?.DocumentTypeName,
+        LedgerMasterSid: txn.LedgerMasterSid || null,
+        COAMasterSid: txn.COAMasterSid || null,
         CustomerName: txn.subledgerMaster?.SubledgerName || '',
-        OriginalAmount: Number(txn.Amount),
         OriginalCurrencyAmount: Number(txn.Amount),
+        OriginalLocalAmount: Number(txn.LocalAmount),
         MatchedAmount: matchedAmount,
         MatchedCurrencyAmount: 0, // Would need to sum currency amounts
-        OutstandingAmount: outstandingAmount,
+        OutstandingLocalAmount: outstandingAmount,
         OutstandingCurrencyAmount: Number(txn.Amount) - matchedAmount,
         CurrencyCode: txn.CurrencyCode || 'INR',
         DrCr: txn.DrCr,
       });
     }
 
-    return results;
+    return results.filter(r => (r.OutstandingLocalAmount > 0 || r.OutstandingCurrencyAmount > 0));
   }
 
   /**
@@ -824,16 +839,7 @@ export class ReceiptService {
             Status : 'A'
           }
         },
-        VoucherTransaction: {
-          where : {
-            Status : 'A'
-          }
-        },
-        voucherMatchings: {
-          where : {
-            Status : 'A'
-          }
-        },
+        SourceMatchingDetail : true
       },
     });
 
@@ -841,7 +847,62 @@ export class ReceiptService {
       throw new NotFoundException(`Receipt ${voucherHeaderSid} not found`);
     }
 
-    return receipt;
+    const {SourceMatchingDetail,VoucherDetail ,...VoucherHeader} = receipt;
+    const formattedMatchingDetail = await Promise.all(SourceMatchingDetail.map(async (detail) => {
+      const transactionDetail = await this._db.voucherTransaction.findUnique({
+        where: { VoucherTransactionSid: detail.VoucherTransactionSid },
+        select: {
+          VoucherNumber: true,
+          VoucherDate: true,
+          VoucherTypeMasterSid: true,
+          voucherTypeMaster: { select: { DocumentTypeName: true } },
+          LedgerMasterSid: true,
+          COAMasterSid: true,
+          Amount: true,
+          LocalAmount: true,
+          voucherMatchings: { where: { Status: 'A' } },
+        }
+      });
+
+      if (!transactionDetail) {
+        throw new NotFoundException(`Transaction not found`);
+      }
+
+      const matchedAmount = transactionDetail.voucherMatchings.reduce((sum, m) => sum + Number(m.Amount), 0);
+      const outstandingAmount = Number(transactionDetail.Amount) - matchedAmount;
+
+      return {
+        VoucherMatchingHeaderSid: detail.VoucherMatchingHeaderSid,
+        VoucherMatchingSid: detail.MatchingDetailSid,
+        VoucherTransactionSid: detail.VoucherTransactionSid,
+        VoucherDetailSid: detail.VoucherDetailSid,
+        VoucherHeaderSid: detail.VoucherHeaderSid,
+        LedgerMasterSid: transactionDetail?.LedgerMasterSid,
+        COAMasterSid: transactionDetail?.COAMasterSid,
+        VoucherNumber: transactionDetail?.VoucherNumber,
+        VoucherTypeMasterSid: transactionDetail?.VoucherTypeMasterSid,
+        VoucherType: transactionDetail?.voucherTypeMaster?.DocumentTypeName,
+        VoucherDate: transactionDetail?.VoucherDate,
+        DrCr: detail.DrCr,
+        CurrencyCode : detail.CurrencyCode,
+        ExchangeRate: detail.ExchangeRate || 1,
+        OriginalCurrencyAmount: transactionDetail?.Amount,
+        OriginalLocalAmount: transactionDetail?.LocalAmount,
+        OutstandingCurrencyAmount: outstandingAmount,
+        OutstandingLocalAmount: outstandingAmount * Number(detail.ExchangeRate),
+        MatchingCurrency : detail.MatchingCurrency,
+        MatchingExRate : detail.MatchingExRate,
+        MatchingAmount: detail.MatchingAmount,
+        MatchingLocalAmount: detail.MatchingLocalAmount,
+        MatchingTDSAmount : detail.MatchingTDSAmount
+      };
+    }));
+
+    return {
+      ...VoucherHeader,
+      VoucherDetail : VoucherDetail,
+      voucherMatchings : formattedMatchingDetail
+    };
   }
 
   /**
@@ -891,6 +952,7 @@ export class ReceiptService {
   async createNewReceipt(payload: any) {
     try {
       return await this._db.$transaction(async (prisma) => {
+
         // 1. Get VoucherType for 'Receipt'
         const voucherType = await prisma.voucherTypeMaster.findFirst({
           where: {
@@ -900,6 +962,7 @@ export class ReceiptService {
         if (!voucherType) {
           throw new BadRequestException('Receipt Voucher Type not found');
         }
+
         // 2. Generate voucher number
         const voucherNumber = await this.generateReceiptNumber(
           payload.CompanyMasterSid,
@@ -1029,21 +1092,41 @@ export class ReceiptService {
         }));
 
         // 6. Create VoucherDetail for Receipt
-        const createdDetails = await prisma.voucherDetail.createMany({
+        const createdDetails = await prisma.voucherDetail.createManyAndReturn({
           data: allDetailPayload,
         });
 
-        // Getting VoucherDetail records
-        // const voucherDetails = await prisma.voucherDetail.findMany({
-        //   where: { 
-        //     VoucherHeaderSid: voucherHeader.VoucherHeaderSid , 
-        //     Status : 'A' 
-        //   },
-        //   orderBy: { Sno: 'asc' }
-        // });
 
-        // 7. Prepare VoucherTransaction payload array
-        // const voucherTransactionsPayload = voucherDetails.map((item, index) => ({
+        const allMatchings = payload.voucherMatching || [];
+        const matchingDetails = allMatchings.map((matching, index) => {
+          return {
+            Sno: index + 1,
+            VoucherHeaderSid: matching.VoucherHeaderSid, // VoucherHeaderSid(invoice)
+            VoucherDetailSid: matching.VoucherDetailSid,  // VoucherDetailSid(invoice)
+            VoucherTransactionSid: matching.VoucherTransactionSid, // VoucherTransactionSid(invoice)
+            VoucherType: String(matching.VoucherType).toUpperCase().substring(0, 4), // VoucherType(invoice)
+            CurrencyCode: matching.CurrencyCode, // CurrencyCode(invoice)
+            ExchangeRate: matching.ExchangeRate, // ExchangeRate(invoice)
+            DrCr: String(matching.DrCr).toUpperCase().charAt(0),                 // DrCr(invoice)
+            Amount: matching.Amount,             // Amount(invoice)
+            LocalAmount: matching.LocalAmount,   // LocalAmount(invoice)
+            MatchingCurrency : matching.MatchingCurrency,
+            MatchingExRate : matching.MatchingExRate,
+            MatchingAmount: matching.MatchingAmount,  // MatchingAmount(user input/receipt)
+            MatchingLocalAmount: matching.MatchingLocalAmount,       // MatchingLocalAmount(user input / receipt)
+            MatchingTDSAmount : matching.MatchingTDSAmount,
+            SourceVoucherHeaderSid: voucherHeader.VoucherHeaderSid, // SourceVoucherHeaderSid(receipt)
+          }
+        });
+
+        const finalMatchingDetails = await prisma.matchingDetail.createManyAndReturn({
+          data: matchingDetails
+        });
+
+
+
+        // // 7. Prepare VoucherTransaction payload array
+        // const voucherTransactionsPayload = createdDetails.map((item, index) => ({
         //   CreatedBy: item.CreatedBy,
         //   Status: 'A',
         //   CompanyMasterSid: item.CompanyMasterSid,
@@ -1077,36 +1160,294 @@ export class ReceiptService {
         //   TransType: detailItems[index]?.TransType || "",
         //   VoucherTypeMasterSid: voucherType.VoucherTypeMasterSid,
         //   YearMasterSid: item.YearMasterSid ?? null,
-        //   isAutoGenerated: 'N',
+        //   IsAutoGenerated: 'N',
         // }));
 
-        // 8. Bulk create VoucherTransaction records
-        // await prisma.voucherTransaction.createMany({
+        // // 8. Bulk create VoucherTransaction records
+        // const allTransactions = await prisma.voucherTransaction.createManyAndReturn({
         //   data: voucherTransactionsPayload,
         // });
 
-      const voucherMatchingHeader = await prisma.voucherMatchingHeader.create({
-        data: {
-          CompanyMasterSid: voucherHeader.CompanyMasterSid,
-          BranchMasterSid: voucherHeader.BranchMasterSid,
-          VoucherMatchingNo: voucherHeader.VoucherNumber,
-          VoucherMatchingDate: voucherHeader.PostDate,
-          Narration: voucherHeader.Narration,
-          Status: 'A',
-          CreatedBy: voucherHeader.CreatedBy,
-          UpdatedBy: voucherHeader.CreatedBy,
-        },
-      });
+        // const allCompleteDetails : any[] = [];
+        // for (const voucherTransaction of allTransactions) {
+        //   const completeDetail = await prisma.voucherDetail.update({
+        //     where :{
+        //       VoucherDetailSid : voucherTransaction.VoucherDetailSid
+        //     },
+        //     data : {
+        //       VoucherTransactionSid : voucherTransaction.VoucherTransactionSid
+        //     }
+        //   })
+        //   allCompleteDetails.push(completeDetail);
+        // }
 
-      // 9. Create VoucherMatching records
-      const partyDetail = detailItems.map((item, index) => ({
-        
-      }));
+        // // Getting VoucherDetail records with VoucherTransactionSid
+        // const voucherDetails = await prisma.voucherDetail.findMany({
+        //   where: { 
+        //     VoucherHeaderSid: voucherHeader.VoucherHeaderSid , 
+        //     Status : 'A' 
+        //   },
+        //   orderBy: { Sno: 'asc' }
+        // });
+
+        // // 9. Create VoucherMatching records
+        // const partyDetail = allCompleteDetails.find(vd => vd.LedgerMasterSid === payload.PartyMasterSid);
+        // if(!partyDetail){
+        //   throw new BadRequestException('Party Voucher Detail not found');
+        // }
+        // const billMatchingCurrencyAmount = (payload.voucherMatching  || []).reduce((sum, matching) => {
+        //   return sum + Number(matching.Amount);
+        // },0);
+
+        // const billMatchingLocalAmount = (payload.voucherMatching  || []).reduce((sum, matching) => {
+        //   return sum + Number(matching.LocalAmount);
+        // },0);
+
+
+
+        // const matchingRecords = await this.voucherService.createVoucherMatching({
+        //   CompanyMasterSid : payload.CompanyMasterSid,
+        //   BranchMasterSid : payload.BranchMasterSid,
+        //   VoucherHeaderSid : voucherHeader.VoucherHeaderSid,
+        //   voucherTypeInName : voucherType.DocumentTypeName,
+        //   VoucherTypeMasterSid : voucherType.VoucherTypeMasterSid,
+        //   PostDate : voucherHeader.PostDate,
+        //   Narration : `${voucherHeader.VoucherNumber} ${voucherHeader.VoucherDate.toISOString().split('T')[0]} ${voucherHeader.CurrencyCode} ${voucherHeader.Amount}`,
+        //   createdBy : payload.CreatedBy,
+        //   partyVoucherDetail : partyDetail,
+        //   voucherMatching : payload.voucherMatching,
+        //   BillMatchingCurrencyAmount : billMatchingCurrencyAmount,
+        //   BillMatchingLocalAmount : billMatchingLocalAmount,
+        // },prisma);
 
         return {
-          voucherHeader
+          voucherHeader,
+          createdDetails,
+          finalMatchingDetails
         };
       });
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async postReceipt(
+    payload: {
+      voucherHeaderSid: number,
+      companyMasterSid: number,
+      branchMasterSid: number,
+      yearMasterSid: number,
+      localCurrencyMasterSid: number,
+      localCurrencyCode: string,
+      postedBy: string,
+      taxDetails: {
+        CountryMasterSid: number,
+        countryName: string,
+        TaxCategory: 'Inter' | 'Intra',
+        EffectiveFrom: Date,
+        TaxType: 'Input' | 'Output',
+      }
+    }
+  ) {
+    try {
+      return await this._db.$transaction(async (tx) => {
+        const voucher = await tx.voucherHeader.findUnique({
+          where: {
+            VoucherHeaderSid: payload.voucherHeaderSid,
+            CompanyMasterSid: payload.companyMasterSid,
+            BranchMasterSid: payload.branchMasterSid,
+            Status: 'A'
+          },
+          include: {
+            VoucherDetail: {
+              where: { Status: 'A' },
+              orderBy: { Sno: 'asc' },
+            },
+            SourceMatchingDetail: true,
+            voucherTypeMaster: true
+          }
+        })
+
+        if (!voucher) throw new BadRequestException('Voucher not found.');
+        if (voucher.PostStatus === 'P') throw new BadRequestException('Voucher is already posted.');
+        if (!voucher.VoucherDetail || voucher.VoucherDetail.length === 0) throw new BadRequestException('No detail lines are found.');
+        if (!voucher.voucherTypeMaster) throw new BadRequestException('Voucher type is not found.');
+
+
+        const { voucherTypeMaster, SourceMatchingDetail, VoucherDetail, ...VoucherHeader } = voucher;
+
+        // Validate year
+        const yearMaster = await tx.yearMaster.findUnique({
+          where: {
+            CompanyMasterSid: payload.companyMasterSid,
+            YearMasterSid: payload.yearMasterSid,
+            status: 'A'
+          },
+          select: {
+            StartDate: true,
+            EndDate: true
+          }
+        });
+        if (!yearMaster) throw new BadRequestException("Year master not found.");
+
+        const voucherDate = new Date(voucher.VoucherDate);
+        const startDate = new Date(yearMaster.StartDate);
+        const endDate = new Date(yearMaster.EndDate);
+        if (voucherDate < startDate || voucherDate > endDate) throw new Error('Voucher date is outside of current financial year.');
+
+        // Prepare VoucherTransaction payload array
+        const voucherTransactionsPayload = VoucherDetail.map((item, index) => ({
+          CreatedBy: item.CreatedBy,
+          Status: 'A',
+          CompanyMasterSid: item.CompanyMasterSid,
+          BranchMasterSid: item.BranchMasterSid,
+          VoucherHeaderSid: voucher.VoucherHeaderSid,
+          VoucherDetailSid: item.VoucherDetailSid,
+          VoucherNumber: voucher.VoucherNumber,
+          VoucherType: voucher.VoucherType,
+          VoucherDate: voucher.VoucherDate,
+          PostDate: voucher.PostDate,
+          GST_VAT: voucher.GST_VAT || "",
+          Sno: item.Sno,
+          ChargeDescription: item.ChargeDescription || "",
+          LedgerMasterSid: item.LedgerMasterSid ?? null,
+          COAMasterSid: item.COAMasterSid ?? null,
+          DepartmentMasterSid: item.DepartmentMasterSid ?? null,
+          HouseJobSid: item.HouseJobSid ?? null,
+          MasterJobSid: item.MasterJobSid ?? null,
+          CostRevenue: item.CostRevenue || "",
+          CurrencyCode: item.CurrencyCode || "",
+          ExchangeRate: item.ExchangeRate ?? 1,
+          Rate: item.Rate ?? 0,
+          NumberOfUnit: item.NumberOfUnit ?? 0,
+          Narration: item.Narration || "",
+          DrCr: String(item.DrCr).charAt(0) || "",
+          TaxableAmount: item.TaxableAmount ?? 0,
+          Amount: item.Amount ?? 0,
+          LocalAmount: item.LocalAmount ?? 0,
+          CostCenter: item.CostCenter ?? null,
+          ProfitCenter: item.ProfitCenter ?? null,
+          TransType: "",
+          VoucherTypeMasterSid: voucherTypeMaster.VoucherTypeMasterSid,
+          YearMasterSid: item.YearMasterSid ?? null,
+          IsAutoGenerated: 'N',
+        }));
+
+        // Bulk create VoucherTransaction records
+        const allTransactions = await tx.voucherTransaction.createManyAndReturn({
+          data: voucherTransactionsPayload,
+        });
+
+
+        const allCompleteDetails: any[] = [];
+        for (const voucherTransaction of allTransactions) {
+          const completeDetail = await tx.voucherDetail.update({
+            where: {
+              VoucherDetailSid: voucherTransaction.VoucherDetailSid
+            },
+            data: {
+              VoucherTransactionSid: voucherTransaction.VoucherTransactionSid
+            },
+            include : { 
+              subledgerMaster : {select : {SubledgerType : true}},
+            }
+          })
+          allCompleteDetails.push(completeDetail);
+        }
+
+        const partyDetail = allCompleteDetails.find(vd => vd.subledgerMaster?.SubledgerType === 'Customer');
+        if (!partyDetail) {
+          throw new BadRequestException('Party Voucher Detail not found');
+        }
+        const billMatchingCurrencyAmount = (SourceMatchingDetail || []).reduce((sum, matching) => {
+          return sum + Number(matching.MatchingAmount);
+        }, 0);
+
+        const billMatchingLocalAmount = (SourceMatchingDetail || []).reduce((sum, matching) => {
+          return sum + Number(matching.MatchingLocalAmount);
+        }, 0);
+
+        await tx.matchingDetail.deleteMany({
+          where: {
+            AND: [
+              { MatchingAmount: { equals: 0 } },
+              { MatchingLocalAmount: { equals: 0 } },
+            ]
+          }
+        })
+
+        const allValidMatchings = await Promise.all(
+          (SourceMatchingDetail || [])
+            .filter(matching =>
+              toNumber(matching.Amount) > 0 ||
+              toNumber(matching.LocalAmount) > 0
+            )
+            .map(async (matching) => {
+              // taking invoice information from each matching detail
+              const transaction = await tx.voucherTransaction.findUnique({
+                where: {
+                  VoucherTransactionSid: matching.VoucherTransactionSid
+                },
+                select: {
+                  COAMasterSid: true,
+                  LedgerMasterSid: true,
+                  VoucherTypeMasterSid: true,
+                  CurrencyCode: true,
+                  ExchangeRate: true,
+                  DrCr: true,
+                }
+              });
+              return {
+                VoucherHeaderSid: matching.VoucherHeaderSid,
+                VoucherDetailSid: matching.VoucherDetailSid,
+                VoucherTransactionSid: matching.VoucherTransactionSid,
+                VoucherType: transaction?.VoucherTypeMasterSid || 0,
+                COAMasterSid: transaction?.COAMasterSid || null,
+                LedgerMasterSid: transaction?.LedgerMasterSid || null,
+                CurrencyCode: matching?.CurrencyCode || null,
+                ExchangeRate: matching?.ExchangeRate || null,
+                DrCr: transaction?.DrCr || null,
+                Amount: matching.MatchingAmount,
+                LocalAmount: matching.MatchingLocalAmount,
+              }
+            })
+          );
+        let newVoucherMatchings: any;
+        if (billMatchingCurrencyAmount > 0 || billMatchingLocalAmount > 0) {
+          newVoucherMatchings = await this.voucherService.createVoucherMatching({
+            CompanyMasterSid: payload.companyMasterSid,
+            BranchMasterSid: payload.branchMasterSid,
+            VoucherHeaderSid: payload.voucherHeaderSid,
+            voucherTypeInName: voucher?.voucherTypeMaster.DocumentTypeName,
+            VoucherTypeMasterSid: voucher?.voucherTypeMaster.VoucherTypeMasterSid,
+            PostDate: voucher.PostDate,
+            Narration: `${voucher.VoucherNumber} ${voucher.VoucherDate.toISOString().split('T')[0]} ${voucher.CurrencyCode} ${voucher.Amount}`,
+            createdBy: payload.postedBy,
+            voucherMatching: allValidMatchings,
+            partyVoucherDetail: partyDetail,
+            BillMatchingCurrencyAmount: billMatchingCurrencyAmount,
+            BillMatchingLocalAmount: billMatchingLocalAmount,
+          }, tx);
+        }
+
+        const updatedVoucher = await tx.voucherHeader.update({
+          where: {
+            VoucherHeaderSid: voucher.VoucherHeaderSid
+          },
+          data: {
+            PostStatus : 'P',
+            PostDate: voucher.PostDate,
+            UpdatedBy: payload.postedBy
+          }
+        })
+
+        return {
+          ...updatedVoucher,
+          voucherDetail: allCompleteDetails,
+          voucherMatchings: newVoucherMatchings
+        }
+
+      })
     } catch (error) {
       throw error;
     }
@@ -1118,6 +1459,8 @@ export class ReceiptService {
   async searchReceipts(params: any): Promise<any> {
     try {
       const {
+        activeCompanyId,
+        activeBranchId,
         search = '',
         page = 1,
         pageSize = 10,
@@ -1138,6 +1481,8 @@ export class ReceiptService {
       }
 
       const where: Prisma.VoucherHeaderWhereInput = {
+        CompanyMasterSid: activeCompanyId,
+        BranchMasterSid: activeBranchId,
         voucherTypeMaster: {
           DocumentTypeName: 'Receipt'
         },
@@ -1192,5 +1537,45 @@ export class ReceiptService {
       throw new InternalServerErrorException('Failed to search receipts');
     }
   }
+
+  /**
+ * Generate voucherma voucher number
+ */
+  private async generateVoucherMatchingHeaderNo(
+    companySid: number,
+    branchSid: number,
+    prisma: any
+  ): Promise<string> {
+    const date = moment().format('YYYYMMDD');
+    const count = await this._db.voucherMatchingHeader.count({
+      where: {
+        CompanyMasterSid: companySid,
+        BranchMasterSid: branchSid,
+        VoucherMatchingNo: { contains: `${date}` },
+      },
+      orderBy: { VoucherMatchingNo: 'desc' },
+    });
+
+
+    return `VMH-${date}-${(count + 1).toString().padStart(3, '0')}`;
+  }
+
+  
+    /**
+     * Helper: Converts Prisma Decimal to number
+     */
+    private toNumber(value: any): number {
+      if (value === null || value === undefined) {
+        return 0;
+      }
+      if (typeof value === 'number') {
+        return value;
+      }
+      if (value instanceof Decimal) {
+        return value.toNumber();
+      }
+      return parseFloat(value.toString()) || 0;
+    }
+  
 
 }

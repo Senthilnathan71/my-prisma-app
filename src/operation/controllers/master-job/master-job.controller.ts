@@ -5,12 +5,15 @@ import { MasterJobService } from 'src/operation/services/master-job/master-job.s
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ExcelParserService } from 'src/common/services/excel-parser/excel-parser.service';
 import { Response } from 'express';
+import { ReportEmailService } from 'src/common/services/report-email.service';
+import { SendReportEmailDto, SendReportEmailResponseDto } from 'src/common/dto/report.dto';
 
 @Controller('master-job')
 export class MasterJobController {
     constructor(
         private masterJobService:MasterJobService,
         private excelParserService:ExcelParserService,
+        private reportEmailService:ReportEmailService,
         private logger:Logger
     ){}
 
@@ -538,4 +541,121 @@ export class MasterJobController {
             });
         }
     }
+
+    /**
+     * Get report data for specified report type
+     */
+    @ApiOperation({ summary: 'Get report data for master job' })
+    @ApiCreatedResponse({
+        description: 'Get report data for master job',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Get(':id/report-data')
+    async getReportData(
+        @Param('id', ParseIntPipe) id: number,
+        @Query('reportType') reportType: string,
+    ){
+        let resp = new ResponseData();
+        try {
+            this.logger.log(`Fetching report data for Master Job ID: ${id}, Report Type: ${reportType}`);
+            const result = await this.masterJobService.getReportData(id, reportType);
+            this.logger.debug(`Fetched report data: ${JSON.stringify(result)}`);
+            resp.message = 'Report data fetched successfully';
+            resp.data = result;
+        } catch (error) {
+            resp.status = false;
+            this.logger.warn(`Error fetching report data: ${JSON.stringify(error)}, ${error}`);
+        }
+        return resp;
+    }
+
+    @ApiOperation({ summary: 'Create Booking From Master Job' })
+    @ApiCreatedResponse({
+        description: 'Create Booking from Master Job',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.CREATED)
+    @Post('booking-create/transhipment')
+    async createBookingFromMasterJob(@Body() payload:any){
+        let resp = new ResponseData();
+        try {
+            this.logger.log(`Creating Booking From Master Job : ${JSON.stringify(payload)}`);
+            const result = await this.masterJobService.createBookingFromMasterJob(payload);
+            this.logger.debug(`Creating Booking From Master Job : ${JSON.stringify(result)}`);
+            resp.data = result;
+            resp.message = 'Booking Created From Master Job Successfully';
+        } catch (error) {
+            resp.status = false;
+            this.logger.warn(`Error in creating booking from Master Job : ${JSON.stringify(error),error}`);
+            if(error instanceof BadRequestException || error instanceof UnauthorizedException){
+                resp.message = error.message;
+            } else {
+                resp.message = 'Internal Server Error';
+            }
+        }
+        return resp;
+    }
+
+    /**
+     * Send report email with PDF attachment
+     */
+    @ApiOperation({ summary: 'Send report email' })
+    @ApiCreatedResponse({
+        description: 'Send report email with PDF attachment',
+        type: SendReportEmailResponseDto
+    })
+    @HttpCode(HttpStatus.OK)
+    @Post('send-email')
+    @UseInterceptors(FileInterceptor('file'))
+    async sendReportEmail(
+        @UploadedFile() file: Express.Multer.File,
+        @Body() body: SendReportEmailDto,
+    ){
+        let resp = new ResponseData();
+        try {
+            this.logger.log(`Sending report email for type: ${body.ReportType}`);
+
+            if (!file) {
+                throw new BadRequestException('PDF file is required');
+            }
+
+            const options = {
+                reportType: body.ReportType,
+                recipients: {
+                    to: body.EmailTo,
+                    cc: body.EmailCC,
+                    bcc: body.EmailBCC,
+                },
+                subject: body.Subject,
+                body: body.Mailbody,
+                attachments: [
+                    {
+                        filename: file.originalname,
+                        content: file.buffer,
+                        contentType: file.mimetype,
+                    },
+                ],
+            };
+
+            const result = await this.reportEmailService.sendReportEmail(options);
+
+            resp.data = {
+                success: result,
+                message: result ? 'Email sent successfully' : 'Failed to send email',
+            };
+            resp.message = result ? 'Email sent successfully' : 'Failed to send email';
+
+        } catch (error) {
+            resp.status = false;
+            this.logger.warn(`Error sending report email: ${JSON.stringify(error)}, ${error}`);
+            if(error instanceof BadRequestException || error instanceof UnauthorizedException){
+                resp.message = error.message;
+            } else {
+                resp.message = 'Internal Server Error';
+            }
+        }
+        return resp;
+    }
+
 }

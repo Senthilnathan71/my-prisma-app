@@ -579,7 +579,7 @@ export class BookingController {
     async getTariffDetails(@Body() bookingDetails: any) {
         const output = new ResponseData()
         try {
-            const tariffs = await this.bookingService.getTariffByBookingDetails(bookingDetails)
+            const tariffs = await this.bookingService.  getTariffByBookingDetails(bookingDetails)
             this.logger.debug(`getTariffDetails: ${JSON.stringify(tariffs)}`)
             output.data = tariffs;
             output.message = "All tariff details are successfully fetched for respective routes"

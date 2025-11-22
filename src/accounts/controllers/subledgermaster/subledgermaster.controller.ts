@@ -74,7 +74,7 @@ export class SubledgermasterController {
     async getAllMappedLedgerByCOA(@Body() payload:any) {
         let resp = new ResponseData();
         try {
-            let res = await this.SubledgermasterService.getAllMappedLedgerByCOAId(payload.COAMasterSid, payload.CompanyMasterSid);
+            let res = await this.SubledgermasterService.getAllMappedLedgerByCOAId(payload.COAMasterSid, payload.CompanyMasterSid,payload.DrCr);
             this.logger.log(`All Mapped Ledgers For this COA Fetched : ${JSON.stringify(res)}`);
             resp.data = res;
             resp.message = "All Mapped Ledgers For this COA are successfully fetched";
