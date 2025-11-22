@@ -257,5 +257,233 @@ export class RoleMenuService {
         }
     }
 
+
+
+// 🟢 CREATE RoleMenu Header + Multiple Details
+  async createRoleMenu(payload: any) {
+    try {
+      const existing = await this._db.roleMenuHeader.findFirst({
+        where: {
+          RoleMasterSid: payload.RoleMasterSid,
+          CompanyMasterSid: payload.CompanyMasterSid,
+          status: 'A',
+        },
+      });
+
+      if (existing) {
+        throw new BadRequestException(
+          'Role menu already exists for this role and company.'
+        );
+      }
+
+      const created = await this._db.roleMenuHeader.create({
+        data: {
+          RoleMasterSid: payload.RoleMasterSid,
+          CompanyMasterSid: payload.CompanyMasterSid,
+          createdBy: payload.createdBy,
+          Remarks: payload.Remarks,
+          RoleMenuDetail: {
+            create: payload.details.map((d) => ({
+              MenuMasterSid: d.MenuMasterSid,
+              DisplayName: d.DisplayName,
+              ModuleAndMenus: d.ModuleAndMenus,
+              InsertRole: d.InsertRole ?? 'N',
+              ViewRole: d.ViewRole ?? 'N',
+              UpdateRole: d.UpdateRole ?? 'N',
+              DeleteRole: d.DeleteRole ?? 'N',
+              createdBy: payload.createdBy,
+            })),
+          },
+        },
+        include: { RoleMenuDetail: true },
+      });
+
+      return created
+    } catch (error) {
+      console.error('Error in createRoleMenu:', error);
+      if (error instanceof BadRequestException) throw error;
+      throw error
+    }
+  }
+
+  // 🟡 FETCH RoleMenu by ID
+  async getRoleMenuById(RoleMenuHeaderSid: number) {
+    try {
+      const data = await this._db.roleMenuHeader.findUnique({
+        where: { RoleMenuHeaderSid },
+        include: { RoleMenuDetail: true },
+      });
+
+      if (!data)
+        throw new BadRequestException(
+          `RoleMenu with ID ${RoleMenuHeaderSid} not found`
+        );
+
+      return data
+    } catch (error) {
+      console.error('Error in getRoleMenuById:', error);
+      throw error
+    }
+  }
+
+  // 🔵 UPDATE RoleMenu Header + Multiple Details (check and update)
+  async updateRoleMenu(RoleMenuHeaderSid: number, payload: any) {
+    const tx = this._db.$transaction;
+    try {
+      const exist = await this._db.roleMenuHeader.findUnique({
+        where: { RoleMenuHeaderSid },
+        include: { RoleMenuDetail: true },
+      });
+
+      if (!exist) {
+        throw new BadRequestException(
+          `RoleMenu with ID ${RoleMenuHeaderSid} not exists`
+        );
+      }
+
+      const existingDetails = exist.RoleMenuDetail;
+
+      await tx(async (prisma) => {
+        // Update Header
+        await prisma.roleMenuHeader.update({
+          where: { RoleMenuHeaderSid },
+          data: {
+            RoleMasterSid: payload.RoleMasterSid,
+            CompanyMasterSid: payload.CompanyMasterSid,
+            updatedBy: payload.createdBy,
+            Remarks: payload.Remarks,
+          },
+        });
+
+        // Loop through each detail in payload
+        for (const d of payload.details) {
+          const existingDetail = existingDetails.find(
+            (item) => item.MenuMasterSid === d.MenuMasterSid
+          );
+
+          if (existingDetail) {
+            // 🔹 Update existing record
+            await prisma.roleMenuDetail.update({
+              where: { RoleMenuDetailSid: existingDetail.RoleMenuDetailSid },
+              data: {
+                DisplayName: d.DisplayName,
+                ModuleAndMenus: d.ModuleAndMenus,
+                InsertRole: d.InsertRole ?? 'N',
+                ViewRole: d.ViewRole ?? 'N',
+                UpdateRole: d.UpdateRole ?? 'N',
+                DeleteRole: d.DeleteRole ?? 'N',
+                updatedBy: payload.createdBy,
+              },
+            });
+          } else {
+            // 🔹 Create new record
+            await prisma.roleMenuDetail.create({
+              data: {
+                RoleMenuHeaderSid,
+                MenuMasterSid: d.MenuMasterSid,
+                DisplayName: d.DisplayName,
+                ModuleAndMenus: d.ModuleAndMenus,
+                InsertRole: d.InsertRole ?? 'N',
+                ViewRole: d.ViewRole ?? 'N',
+                UpdateRole: d.UpdateRole ?? 'N',
+                DeleteRole: d.DeleteRole ?? 'N',
+                createdBy: payload.createdBy,
+              },
+            });
+          }
+        }
+      });
+
+      const updated = await this._db.roleMenuHeader.findUnique({
+        where: { RoleMenuHeaderSid },
+        include: { RoleMenuDetail: true },
+      });
+
+      return updated
+    } catch (error) {
+      console.error('Error in updateRoleMenu:', error);
+      throw error
+    }
+  }
+
+
+  async searchRoleMenuList(params: filterDto) {
+  const { search = '', page = 1, pageSize = 15 } = params;
+  const skip = (page - 1) * pageSize;
+
+  // ✅ Build search condition dynamically
+  const where: Prisma.RoleMenuHeaderWhereInput = {
+    status: { in: ['A', 'S'] }, // show both active/suspended
+    OR: search
+      ? [
+          { roleMaster: { UserRoleName: { contains: search, mode: 'insensitive' } } },
+          {
+            RoleMenuDetail: {
+              some: {
+                menuMaster: {
+                  MenuName: { contains: search, mode: 'insensitive' },
+                },
+              },
+            },
+          },
+          ...(search.toLowerCase() === 'active' ? [{ status: 'A' }] : []),
+          ...(search.toLowerCase() === 'suspended' ? [{ status: 'S' }] : []),
+        ]
+      : undefined,
+  };
+
+  // ✅ Parallel queries with transaction
+  const [items, totalCount] = await this._db.$transaction([
+    this._db.roleMenuHeader.findMany({
+      where,
+      skip,
+      take: pageSize,
+      orderBy: { createdOn: 'desc' },
+      include: {
+        roleMaster: { select: { RoleMasterSid: true, UserRoleName: true } },
+        RoleMenuDetail: {
+          include: {
+            menuMaster: { select: { MenuMasterSid: true, MenuName: true, ModuleName: true } },
+          },
+        },
+      },
+    }),
+    this._db.roleMenuHeader.count({ where }),
+  ]);
+
+  // ✅ Post-process data for readability
+  const processedItems = items.map((header) => {
+    const menus = header.RoleMenuDetail.map((detail) => ({
+      MenuMasterSid: detail.MenuMasterSid,
+      MenuName: detail.menuMaster?.MenuName || '',
+      ModuleName: detail.menuMaster?.ModuleName || '',
+      InsertRole: detail.InsertRole,
+      ViewRole: detail.ViewRole,
+      UpdateRole: detail.UpdateRole,
+      DeleteRole: detail.DeleteRole,
+      DisplayName: detail.DisplayName,
+      ModuleAndMenus: detail.ModuleAndMenus,
+    }));
+
+    return {
+      RoleMenuHeaderSid: header.RoleMenuHeaderSid,
+      RoleMasterSid: header.RoleMasterSid,
+      RoleName: header.roleMaster?.UserRoleName || '',
+      Remarks: header.Remarks,
+      status: header.status,
+      createdOn: header.createdOn,
+      createdBy: header.createdBy,
+      menus,
+    };
+  });
+
+  return {
+    totalCount,
+    data: processedItems,
+  };
+}
+
+    
+
 }
 

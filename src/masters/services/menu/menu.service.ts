@@ -489,13 +489,32 @@ export class MenuService {
                 where: {
                     ModuleMasterSid: ModuleMasterSid,
                     status: 'A'
-                },
+                },include:{menuPermission:true}
             })
             return menus;
         } catch (error) {
             throw error;
         }
     }
+
+    async getMenusByModules(moduleIds: number[]) {
+  try {
+    const menus = await this._db.menuMaster.findMany({
+      where: {
+        ModuleMasterSid: {
+          in: moduleIds
+        },
+        status: 'A'
+      },
+      orderBy: {
+        ModuleMasterSid: 'asc'
+      }
+    });
+    return menus;
+  } catch (error) {
+    throw error;
+  }
+}
 
     async getSubMenuList(moduleId) {
         try {

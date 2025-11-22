@@ -62,8 +62,10 @@ export class ChargeService {
             if (payload.chargeTaxMaster) {
                 const chargeTaxPayload = payload.chargeTaxMaster.map(chargeTax => ({
                     HSNCode: chargeTax.HSNCode,
+                    HSSACMasterSid: chargeTax.HSSACMasterSid,
                     description: chargeTax.description,
                     TaxGroup: chargeTax.TaxGroup,
+                    TaxGroupSid: chargeTax.TaxGroupSid,
                     TaxRate: chargeTax.TaxRate,
                     CreatedBy: payload.createdBy,
                     UpdatedBy: payload.createdBy, // Ensure updatedBy is set
@@ -226,8 +228,10 @@ export class ChargeService {
                 // Create new tax records
                 const chargeTaxPayload = chargeTaxMaster.map(chargeTax => ({
                     HSNCode: chargeTax.HSNCode,
+                    HSSACMasterSid: chargeTax.HSSACMasterSid,
                     description: chargeTax.description,
                     TaxGroup: chargeTax.TaxGroup,
+                    TaxGroupSid: chargeTax.TaxGroupSid,
                     TaxRate: chargeTax.TaxRate,
                     CreatedBy: payload.updatedBy,
                     UpdatedBy: payload.updatedBy,

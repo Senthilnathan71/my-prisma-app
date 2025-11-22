@@ -60,10 +60,12 @@ model MenuMaster {
   moduleMaster        ModuleMaster               @relation(fields: [ModuleMasterSid], references: [ModuleMasterSid])
   menuPermission      MenuPermission[]
   quoteHeader         QuoteHeader[]
+  refDocument         RefDocument[]
   ReportMaster        ReportMaster[]
   roleMenuMaster      RoleMenuMaster[]
   terms               TermsAndConditionsMaster[]
   userRoleMaster      UserRoleMaster[]
+  RoleMenuDetail      RoleMenuDetail[]
 }
 
 model MenuPermission {
@@ -96,12 +98,14 @@ model RoleMaster {
   companyMaster    CompanyMaster?   @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
   roleMenuMaster   RoleMenuMaster[]
   userRoleMaster   UserRoleMaster[]
+  RoleMenuHeader   RoleMenuHeader[]
 }
 
 model RoleMenuMaster {
   RoleMenuMasterSid Int            @id @default(autoincrement()) @map("RoleMenuMasterSid")
   RoleMasterSid     Int
   MenuMasterSid     Int
+  DisplayName       String?
   CompanyMasterSid  Int?
   InsertRole        String?        @default("Y") @db.Char(1)
   ViewRole          String?        @default("Y") @db.Char(1)
@@ -139,4 +143,44 @@ enum UserTypeCode {
   user
   csPerson
   docPerson
+}
+
+
+
+model RoleMenuHeader{
+  RoleMenuHeaderSid Int          @id @default(autoincrement()) @map("RoleMenuHeaderSid")
+  RoleMasterSid     Int
+  CompanyMasterSid  Int?
+  createdOn         DateTime       @default(now()) @db.Timestamptz(6)
+  updatedOn         DateTime?      @updatedAt @db.Timestamptz(6)
+  createdBy         String         @db.VarChar(100)
+  updatedBy         String?        @db.VarChar(100)
+  status            String?        @default("A") @db.Char(1)
+  Remarks           String         @db.VarChar(100)
+  companyMaster     CompanyMaster? @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+  roleMaster        RoleMaster     @relation(fields: [RoleMasterSid], references: [RoleMasterSid])
+
+  RoleMenuDetail RoleMenuDetail[]
+}
+
+model RoleMenuDetail{
+  RoleMenuDetailSid Int          @id @default(autoincrement()) @map("RoleMenuDetailSid")
+  RoleMenuHeaderSid Int
+  MenuMasterSid     Int
+  DisplayName       String?
+  CompanyMasterSid  Int?
+  InsertRole        String?        @default("N") @db.Char(1)
+  ViewRole          String?        @default("N") @db.Char(1)
+  UpdateRole        String?        @default("N") @db.Char(1)
+  DeleteRole        String?        @default("N") @db.Char(1)
+  createdOn         DateTime       @default(now()) @db.Timestamptz(6)
+  updatedOn         DateTime?      @updatedAt @db.Timestamptz(6)
+  createdBy         String         @db.VarChar(100)
+  updatedBy         String?        @db.VarChar(100)
+  status            String?        @default("A") @db.Char(1)
+  ModuleAndMenus    Json
+  companyMaster     CompanyMaster? @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+  menuMaster        MenuMaster     @relation(fields: [MenuMasterSid], references: [MenuMasterSid])
+  RoleMenuHeader    RoleMenuHeader     @relation(fields: [RoleMenuHeaderSid], references: [RoleMenuHeaderSid])
+
 }

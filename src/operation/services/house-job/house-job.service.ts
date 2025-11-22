@@ -29,7 +29,37 @@ export class HouseJobService {
                     },
                     Products: {
                         where : {status : 'A'}
-                    }
+                    },
+                    houseJobBOE:{
+                        where:{
+                            Status:'A'
+                        }
+                    }, 
+                     houseJobVehicle:{
+                        where:{
+                            Status:'A'
+                        }
+                    }, 
+                     houseJobCustoms:{
+                        where:{
+                            Status:'A'
+                        }
+                    },                    
+                    masterJob:  {
+                        
+                        where:{Status : 'A',
+                       
+                        },
+                        select:{
+                            MasterJobSid:true,
+                            NoofOriginal:true,
+                            containers:true,
+                            others:true,
+                        },
+                       
+                    } 
+                    
+                    
                 }
             })
             if(!ourHouseJob){
@@ -56,6 +86,28 @@ export class HouseJobService {
             throw error;
         }
     }
+
+    async getHouseJobByMasterJobSid(payload:any) {
+        try {
+            const {MasterJobSid,CompanyMasterSid,BranchMasterSid} = payload;
+            const ourHouseJob = await this._db.houseJob.findMany({
+                where: {
+                    MasterJobSid: MasterJobSid,
+                    CompanyMasterSid: CompanyMasterSid,
+                    BranchMasterSid: BranchMasterSid,
+                    status: 'A'
+                },
+                select :{
+                    HouseJobSid : true,
+                    HBLNo : true
+                }
+            })
+            return ourHouseJob;
+        } catch (error) {
+            throw error;
+        }
+    }
+
     async updateHouseJobById(HouseJobSid: number, payload: any) {
         try {
             const updatedHouseJob = await this._db.$transaction(async (prisma) => {
@@ -153,22 +205,25 @@ export class HouseJobService {
                             HouseJobSid,
                             CompanyMasterSid: payload.CompanyMasterSid ?? null,
                             BranchMasterSid: payload.BranchMasterSid ?? null,
-                            NoOfPackage: Number(cargoPayload.NoOfPackage) || 0,
+                            NoOfPackage: Number(cargoPayload.NoOfPackage) ,
                             FreightAmount: String(cargoPayload.FreightAmount ?? '0'),
                             CargoType: cargoPayload.CargoType ?? '',
-                            WeightUnitSid: cargoPayload.WeightUnit || 0,
-                            GrossWeight: Number(cargoPayload.GrossWeight) || 0,
-                            NetWeight: Number(cargoPayload.NetWeight) || 0,
-                            Volume: Number(cargoPayload.Volume) || 0,
+                            ContainerType: cargoPayload.ContainerType ?? null,
+                            WeightUnitSid: cargoPayload.WeightUnit,
+                            GrossWeight: Number(cargoPayload.GrossWeight) ,
+                            NetWeight: Number(cargoPayload.NetWeight) ,
+                            Volume: Number(cargoPayload.Volume) ,
                             ChargeableWeight: Number(cargoPayload.ChargeableWeight) || 0,
-                            PackageType: cargoPayload.PackageType || 0,
-                            Qty: Number(cargoPayload.Qty) || 0,
+                            PackageType: cargoPayload.PackageType ,
+                            Qty: Number(cargoPayload.Qty) ,
                             ShipmentTerms: cargoPayload.ShipmentTerms || '',
-                            createdBy: payload.createdBy,          // required
+                            createdBy: payload.updatedBy,          // required
                             updatedBy: payload.updatedBy ?? null,
                             status: 'A',
                             FreightTerms: cargoPayload.FreightTerms || '',
                             MovementType: cargoPayload.MovementType || '',
+                            CommodityDescription: cargoPayload.CommodityDescription || '',
+                            MarksAndNumber  : cargoPayload.MarksAndNumber || '',
                             ModeOfTransport: cargoPayload.ModeOfTransport || '',
                             NoofContainers: Number(cargoPayload.NoofContainers) || 0,
                             StuffingAt: cargoPayload.StuffingAt || '',
@@ -181,22 +236,25 @@ export class HouseJobService {
                             HouseJobSid,
                             CompanyMasterSid: payload.CompanyMasterSid ?? null,
                             BranchMasterSid: payload.BranchMasterSid ?? null,
-                            NoOfPackage: Number(cargoPayload.NoOfPackage) || 0,
+                            NoOfPackage: Number(cargoPayload.NoOfPackage) ,
                             FreightAmount: String(cargoPayload.FreightAmount ?? '0'),
                             CargoType: cargoPayload.CargoType ?? '',
-                            WeightUnitSid: cargoPayload.WeightUnit || 0,
-                            GrossWeight: Number(cargoPayload.GrossWeight) || 0,
-                            NetWeight: Number(cargoPayload.NetWeight) || 0,
-                            Volume: Number(cargoPayload.Volume) || 0,
+                            ContainerType: cargoPayload.ContainerType ?? null,
+                            WeightUnitSid: cargoPayload.WeightUnit ,
+                            GrossWeight: Number(cargoPayload.GrossWeight) ,
+                            NetWeight: Number(cargoPayload.NetWeight) ,
+                            Volume: Number(cargoPayload.Volume) ,
                             ChargeableWeight: Number(cargoPayload.ChargeableWeight) || 0,
-                            PackageType: cargoPayload.PackageType || 0,
-                            Qty: Number(cargoPayload.Qty) || 0,
+                            PackageType: cargoPayload.PackageType ,
+                            Qty: Number(cargoPayload.Qty) ,
                             ShipmentTerms: cargoPayload.ShipmentTerms || '',
-                            createdBy: payload.createdBy,          // required
+                            createdBy: payload.updatedBy,          // required
                             updatedBy: payload.updatedBy ?? null,
                             status: 'A',
                             FreightTerms: cargoPayload.FreightTerms || '',
                             MovementType: cargoPayload.MovementType || '',
+                            CommodityDescription: cargoPayload.CommodityDescription || '',
+                            MarksAndNumber  : cargoPayload.MarksAndNumber || '',
                             ModeOfTransport: cargoPayload.ModeOfTransport || '',
                             NoofContainers: Number(cargoPayload.NoofContainers) || 0,
                             StuffingAt: cargoPayload.StuffingAt || '',
@@ -268,7 +326,7 @@ export class HouseJobService {
                                 RecdPack: product.RecdPack || '',
                                 CargoRecDate: product.CargoRecDate ? new Date(product.CargoRecDate) : null,
                                 CFS: product.CFS || '',
-                                createdBy: payload.createdBy,
+                                createdBy: payload.updatedBy,
                                 status: product.status ? String(product.status).charAt(0) : 'A',
                                 Height: product.Height || 0,
                                 Volumetric: Number(product.Volumetric) || 0,
@@ -386,6 +444,9 @@ export class HouseJobService {
                         SwitchBLConsignee: otherPayload.SwitchBLConsignee || '',
                         SwitchBLShipper: otherPayload.SwitchBLShipper || '',
                         SwitchLocation: otherPayload.SwitchLocation || '',
+                        Depo: otherPayload.Depo,
+                        DONo: otherPayload.DONo || '', 
+                        DODate: otherPayload.DoDate ? new Date(otherPayload.DODate) : null,
                         status: 'A',
                         updatedBy: payload.updatedBy || null,
                     }
@@ -412,7 +473,7 @@ export class HouseJobService {
                         DeliveryPlace: otherPayload.DeliveryPlace || '',
                         DeliveryDate: otherPayload.DeliveryDate || "",
                         DeliveryAddress: otherPayload.DeliveryAddress || '',
-                        CargoCurrency: otherPayload.CargoCurrency || '',
+                        CargoCurrency: otherPayload.CargoCurrency ,
                         CargoValue: Number(otherPayload.CargoValue) || 0,
                         DeliveryMode: otherPayload.DeliveryMode || '',
                         ExternalRemarks: otherPayload.ExternalRemarks || '',
@@ -434,6 +495,9 @@ export class HouseJobService {
                         SwitchBLConsignee: otherPayload.SwitchBLConsignee || '',
                         SwitchBLShipper: otherPayload.SwitchBLShipper || '',
                         SwitchLocation: otherPayload.SwitchLocation || '',
+                        Depo: otherPayload.Depo,
+                        DONo: otherPayload.DONo || '', 
+                        DODate: otherPayload.DoDate ? new Date(otherPayload.DODate) : null,
                         status: 'A',
                         createdBy: payload.updatedBy || null,
                     }
@@ -570,7 +634,15 @@ export class HouseJobService {
                     finalCharges.push(createdCharge || updatedCharge);
                 }
 
-            return updatedHouseJob;
+           return {
+                houseJob: updatedHouseJob,
+                houseJobCargo: finalHouseJobCargo,
+                houseJobProduct: finalHouseJobProduct,
+                houseConnections: finalHouseConnections,
+                houseJobOthers: finalHouseJobOthers,
+                bookingRates: finalCharges,
+                costRevenueCharges: finalCharges
+            };
         }
         catch (error) {
             throw error;

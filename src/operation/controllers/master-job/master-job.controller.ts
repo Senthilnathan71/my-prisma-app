@@ -44,6 +44,42 @@ export class MasterJobController {
         return resp;
     }
 
+    @ApiOperation({ summary: 'Get All Master Job by Department' })
+    @ApiCreatedResponse({
+        description: 'Get All Master Job by Department',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.CREATED)
+    @Post('filter-by-department')
+    async getAllMasterJobsByDepartment(@Body() payload:any){
+        let resp = new ResponseData();
+        try {
+            if(!payload.DepartmentMasterSid){
+                throw new BadRequestException('Department Master Sid is required');
+            }
+            if(!payload.CompanyMasterSid){
+                throw new BadRequestException('Company Master Sid is required');
+            }
+            if(!payload.BranchMasterSid){
+                throw new BadRequestException('Branch Master Sid is required');
+            }
+            this.logger.log(`Getting All Master Job by Department : ${JSON.stringify(payload)}`);
+            const result = await this.masterJobService.getMasterJobByDepartmentid(payload);
+            this.logger.debug(`Fetched All Master Job by Department : ${JSON.stringify(result)}`);
+            resp.message = 'All Master Job by Department fetched successfully';
+            resp.data = result;
+        } catch (error) {
+            resp.status = false;
+            this.logger.warn(`Error in getting All Master Job by Department : ${JSON.stringify(error),error}`);
+            if(error instanceof BadRequestException || error instanceof UnauthorizedException){
+                resp.message = error.message;
+            } else {
+                resp.message = 'Internal Server Error';
+            }
+        }
+        return resp;
+    }
+
     @ApiOperation({ summary: 'Get All Master Jobs' })
     @ApiCreatedResponse({
         description: 'Get All Master Jobs',

@@ -151,6 +151,10 @@ export class TaxSummaryDto {
   @IsNumber()
   taxPercentage: number;
 
+  @ApiProperty({ description : 'Tax Master Sid', example: 123 })
+  @IsNumber()
+  taxMasterSid: number;
+
   @ApiProperty({ description: 'Total taxable amount for this tax group', example: 10000.00 })
   @IsNumber()
   taxableAmount: number;

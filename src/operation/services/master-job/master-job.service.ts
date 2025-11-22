@@ -37,7 +37,46 @@ export class MasterJobService {
                 const masterJobMenuId = await this.menuMasterService.getMenuSidByName('Master Job');
 
                 const MasterJobNumber = `MASTER-${dateString}-${(count + 1).toString().padStart(3, '0')}`;
+                 let departmentType: string | null = null;
+                 let assignedMBLNo = payload.MBLNo || "";
+                 if (payload.DepartmentMasterSid) {
+                const department = await prisma.departmentMaster.findUnique({
+                    where: { DepartmentMasterSid: payload.DepartmentMasterSid },
+                    select: { departmentType: true }
+                });
+                departmentType = department?.departmentType ?? null;
+            }
 
+            // If department type is Air, allocate MAWB from stock
+            if (departmentType === 'Air') {
+                // Find the first available MAWB with StockStatus = 'Free'
+                const availableMawb = await prisma.mawbStock.findFirst({
+                    where: { 
+                        StockStatus: 'Free',
+                        status: 'A', // Matching exact field name from schema (lowercase)
+                        CompanyMasterSid: payload.CompanyMasterSid,
+                        BranchMasterSid: payload.BranchMasterSid
+                    },
+                    orderBy: { MawbStockSid: 'asc' } // Get the oldest free stock first
+                });
+
+                if (!availableMawb) {
+                    throw new Error('No free MAWB stock available for Air department');
+                }
+
+                // Assign the MasterBillNumber to MBLNo
+                assignedMBLNo = availableMawb.MasterBillNumber;
+
+                // Update the MAWB stock status to 'Blocked'
+                await prisma.mawbStock.update({
+                    where: { MawbStockSid: availableMawb.MawbStockSid },
+                    data: { 
+                        StockStatus: 'Blocked',
+                        updatedBy: payload.CreatedBy, // Matching exact field name (lowercase)
+                        updatedOn: new Date()
+                    }
+                });
+            }
                 const headerPayload = {
                     MasterJobNumber: MasterJobNumber,
                     MasterJobDate: payload.MasterJobDate ? new Date(payload.MasterJobDate) : new Date(),
@@ -51,7 +90,7 @@ export class MasterJobService {
                     DestinationAgent: payload.DestinationAgent,
                     DestinationAgentName: payload.DestinationAgentName,
                     DestinationAgentAddress: payload.DestinationAgentAddress?.substring(0, 20) || '',
-                    MBLNo: payload.MBLNo || "",
+                    MBLNo: assignedMBLNo,
                     MBLDate: payload.MasterJobDate ? new Date(payload.MasterJobDate) : new Date(),
                     BLReleaseType: payload.BLReleaseType,
                     NoofOriginal: Number(payload.NoofOriginal) || 3,
@@ -713,6 +752,7 @@ export class MasterJobService {
                         masterJobConnection: { where: { Status: 'A' } },
                         containers: { where: { Status: 'A' } },
                         others: { where: { Status: 'A' } },
+                        houseJob:{ where :{ status: 'A'}}
                     }
                 })
                 const allShipments = await prisma.houseJob.findMany({
@@ -756,6 +796,18 @@ export class MasterJobService {
                             select: {
                                 DocumentTypeName: true,
                                 VoucherTypeMasterSid: true
+                            }
+                        },
+                        revenueCustomerMaster : {
+                            select : {
+                                CustomerMasterSid : true,
+                                CustomerName : true
+                            }
+                        },
+                        costCustomerMaster : {
+                            select : {
+                                CustomerMasterSid : true,
+                                CustomerName : true
                             }
                         }
                     },
@@ -871,7 +923,6 @@ export class MasterJobService {
                         ATA: payload.ATA ? new Date(payload.ATA) : null,
                         ATD: payload.ATD ? new Date(payload.ATD) : null,
                         DestinationATA: payload.DestinationATA ? new Date(payload.DestinationATA) : null,
-                        CarrierMasterSid: payload.CarrierMasterSid,
                         CarrierName: payload.CarrierName,
                     }
                     finalVoyage = await prisma.masterJobVoyage.update({
@@ -892,7 +943,6 @@ export class MasterJobService {
                         ATA: payload.ATA ? new Date(payload.ATA) : null,
                         ATD: payload.ATD ? new Date(payload.ATD) : null,
                         DestinationATA: payload.DestinationATA ? new Date(payload.DestinationATA) : null,
-                        CarrierMasterSid: payload.CarrierMasterSid,
                         CarrierName: payload.CarrierName,
                         Status: "A"
                     }
@@ -1848,7 +1898,7 @@ export class MasterJobService {
 
             return logs;
         } catch (error) {
-            this.logger.warn(`getAuditLogsError: ${error}`);
+            this.logger.warn(`getAuditLogsError: ${error}`);    
             throw new Error(`Error fetching audit logs: ${error.message}`);
         }
     }
@@ -3158,4 +3208,25 @@ export class MasterJobService {
         return baseData;
     }
 
+    async getMasterJobByDepartmentid(payload:any){
+        try {
+            const {DepartmentMasterSid,CompanyMasterSid,BranchMasterSid} = payload;
+            const masterJob = await this._db.masterJob.findMany({
+                where: {
+                    MasterJobNumber : {not : null},
+                    DepartmentMasterSid: DepartmentMasterSid,
+                    CompanyMasterSid: CompanyMasterSid,
+                    BranchMasterSid: BranchMasterSid,
+                    Status: 'A'
+                },
+                select : {
+                    MasterJobSid : true,
+                    MasterJobNumber : true,
+                }
+            })
+            return masterJob;
+        } catch (error) {
+            throw error;
+        }
+    }
 }

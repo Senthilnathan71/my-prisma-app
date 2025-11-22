@@ -90,6 +90,38 @@ export class CoaService {
         }
     }
 
+    /**
+     * it is common service to get Chart of Accounts for the specified ledger category
+     * @param ledgerCategory it can be Ledger , Group or SubGroup
+     * @param CompanyMasterSid Company's Sid
+     * @returns returns all the Chart of Accounts with specified ledger category
+     * Used in below components :
+     * 1. Receipt detail part
+     * 
+     */
+    async getCOAByLedgerCategory(ledgerCategory: string, CompanyMasterSid: number) {
+        try {
+            const allCoaWithSpecificLedgerCategory = await this._db.cOAMaster.findMany({
+                where: {
+                    LedgerCategory: ledgerCategory,
+                    Status: 'A',
+                    CompanyMasterSid: CompanyMasterSid
+                },
+                select: {
+                    COAMasterSid: true,
+                    LedgerName: true,
+                    SubledgerName : true  // is subledgermapped?
+                },
+                orderBy: {
+                    LedgerName: 'asc'
+                }
+            });
+            return allCoaWithSpecificLedgerCategory;
+        } catch (error) {
+            throw error;
+        }
+    }
+
     async getCoaWithSubledger(CompanyMasterSid: number) {
         try {
             const coaWithSubledger = await this._db.cOAMaster.findMany({
@@ -488,6 +520,86 @@ export class CoaService {
         } catch (error) {
             this.logger.warn(`getAuditLogsError: ${error}`);
             throw new Error(`Error fetching audit logs: ${error.message}`);
+        }
+    }
+
+    async getCOAByCashOrBank(LedgerType: 'Cash' | 'Bank', CompanyMasterSid: number) {
+        try {
+            const whereClause : any = {
+                Status : 'A',
+                CompanyMasterSid : CompanyMasterSid
+            }
+            if (Array.isArray(LedgerType)) {
+                whereClause.LedgerType = {
+                    in: LedgerType
+                }
+            } else {
+                whereClause.LedgerType = LedgerType
+            }
+            const coa = await this._db.cOAMaster.findMany({
+                where: whereClause,
+                orderBy: {
+                    LedgerName: 'asc'
+                }
+            });
+            return coa;
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    /**
+     * Get all distinct Groups by Company for Trial Balance
+     */
+    async getGroupsByCompany(CompanyMasterSid: number) {
+        try {
+            const groups = await this._db.cOAMaster.findMany({
+                where: {
+                    LedgerCategory: 'Group',
+                    Status: 'A',
+                    CompanyMasterSid: CompanyMasterSid
+                },
+                distinct: ['GroupName'],
+                select: {
+                    GroupName: true
+                },
+                orderBy: {
+                    GroupName: 'asc'
+                }
+            });
+
+            return groups.map(group => ({ GroupName: group.GroupName }))
+                .filter(item => item.GroupName && item.GroupName.trim() !== '');
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    /**
+     * Get all distinct SubGroups by Company for Trial Balance
+     */
+    async getSubGroupsByCompany(CompanyMasterSid: number) {
+        try {
+            const subgroups = await this._db.cOAMaster.findMany({
+                where: {
+                    LedgerCategory: 'Sub Group',
+                    Status: 'A',
+                    CompanyMasterSid: CompanyMasterSid,
+                    SubGroupName: { not: null }
+                },
+                distinct: ['SubGroupName'],
+                select: {
+                    SubGroupName: true
+                },
+                orderBy: {
+                    SubGroupName: 'asc'
+                }
+            });
+
+            return subgroups.map(sg => ({ SubGroupName: sg.SubGroupName }))
+                .filter(item => item.SubGroupName && item.SubGroupName.trim() !== '');
+        } catch (error) {
+            throw error;
         }
     }
 }

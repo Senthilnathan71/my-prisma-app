@@ -12,6 +12,8 @@ import {
   HttpStatus,
   Logger,
   UseGuards,
+  BadRequestException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { ReceiptService } from '../../services/receipt/receipt.service';
 import {
@@ -23,6 +25,9 @@ import {
   UpdateReceiptDto,
   ReverseReceiptDto,
 } from '../../dto/receipt.dto';
+import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
+import { ResponseData } from 'src/common/response-data';
+import { PrismaClientValidationError } from '@prisma/client/runtime/library';
 
 /**
  * Receipt Voucher Controller
@@ -68,25 +73,24 @@ export class ReceiptController {
    */
   @Post()
   @HttpCode(HttpStatus.CREATED)
-  async createReceipt(@Body() createDto: CreateReceiptDto): Promise<{
-    status: boolean;
-    message: string;
-    data: ReceiptResponseDto;
-  }> {
-    this.logger.log(`Creating receipt for customer ${createDto.LedgerMasterSid}`);
-
+  async createReceipt(@Body() payload: any){
+    let resp = new ResponseData();
+    
     try {
-      const receipt = await this.receiptService.createReceipt(createDto);
-
-      return {
-        status: true,
-        message: 'Receipt created successfully',
-        data: receipt,
-      };
+      this.logger.log(`Creating receipt for customer ${payload.LedgerMasterSid}`);
+      const receipt = await this.receiptService.createNewReceipt(payload);
+      resp.data = receipt;
+      resp.message = 'Receipt created successfully';
     } catch (error) {
-      this.logger.error(`Failed to create receipt: ${error.message}`, error.stack);
-      throw error;
+      resp.status = false;
+      this.logger.warn(`Error creating receipt: ${JSON.stringify(error),error}`);
+      if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+        resp.message = (error as any).message || 'Bad request';
+      } else {
+        resp.message = 'Internal Server Error';
+      }
     }
+    return resp;
   }
 
   /**
@@ -130,6 +134,37 @@ export class ReceiptController {
     }
   }
 
+  
+  @ApiOperation({ summary: 'Search Receipts with filters' })
+  @ApiCreatedResponse({
+    description: 'Receipts search results',
+    type: ResponseData
+  })
+  @HttpCode(HttpStatus.OK)
+  @Post('search-list')
+  async searchReceipts(@Body() payload: any) {
+    const output = new ResponseData();
+    try {
+      const finalOutput = await this.receiptService.searchReceipts(payload);
+      this.logger.debug(`searchReceipts: returned ${finalOutput?.items?.length || 0} items`);
+      output.data = finalOutput;
+      output.message = "Receipts search completed";
+    } catch (error) {
+      this.logger.warn('searchReceipts error', (error as any)?.stack || (error as any)?.message || error);
+      output.status = false;
+      if(error instanceof PrismaClientValidationError){
+        output.message = error.message;
+      }
+      if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+        output.message = (error as any).message || 'Bad request';
+      } else {
+        output.message = 'Internal Server Error';
+      }
+    }
+    return output;
+  }
+
+
   /**
    * Get receipt voucher by ID
    *
@@ -138,26 +173,27 @@ export class ReceiptController {
    *
    * Example: GET /api/accounts/receipt/123
    */
-  @Get(':id')
-  async getReceiptById(@Param('id', ParseIntPipe) id: number): Promise<{
-    status: boolean;
-    message: string;
-    data: any;
-  }> {
-    this.logger.log(`Getting receipt ${id}`);
-
+  @HttpCode(HttpStatus.OK)
+  @Post('fetch')
+  async getReceiptById(@Body() payload: any) {
+    let response = new ResponseData();
+    
     try {
-      const receipt = await this.receiptService.getReceiptById(id);
-
-      return {
-        status: true,
-        message: 'Receipt retrieved successfully',
-        data: receipt,
-      };
+      this.logger.log(`Getting receipt ${JSON.stringify(payload)}`);
+      const receipt = await this.receiptService.getReceiptById(payload.VoucherHeaderSid,payload.CompanyMasterSid,payload.BranchMasterSid);
+      this.logger.log(`Receipt fetched : ${JSON.stringify(receipt)}`);
+      response.data = receipt;
+      response.message = "Receipt is successfully fetched";
     } catch (error) {
-      this.logger.error(`Failed to get receipt: ${error.message}`, error.stack);
-      throw error;
+      response.status = false;
+      this.logger.warn(`Receipt fetching error : ${JSON.stringify(error), error}`);
+      if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+        response.message = error.message;
+      } else {
+        response.message = "Internal Server Error";
+      }
     }
+    return response;
   }
 
   /**

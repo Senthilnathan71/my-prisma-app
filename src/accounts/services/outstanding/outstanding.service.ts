@@ -160,9 +160,20 @@ export class OutstandingService {
           CompanyMasterSid: companyMasterSid,
           LedgerMasterSid: ledgerMasterSid,
           Status: 'A',
-          /** Update : Voucher Reversal also follows the same logic
-          *  Scenerio explained : for 5000 rs invoice and the customer already receipt for 2500 . and Now if the invoice is reversed , the outstanding amount should be zero
-          */
+          VoucherHeader : { PostStatus : 'P'},
+          subledgerMaster : {
+            SubledgerType : 'Customer'
+          },
+          voucherTypeMaster : {
+            DocumentTypeName : {not : 'Receipt'}
+          },
+          /**
+           * UPDATE:
+           * Voucher Reversal also follows the same logic.
+           * Scenario: For 5000 invoice, customer paid 2500. 
+           * If invoice is reversed, outstanding should become zero.
+           * Meaning → Exclude vouchers that are reversed
+           */
           // VoucherHeader: {
           //   ReversalVoucher: null, // Exclude reversed vouchers
           // },
@@ -174,6 +185,9 @@ export class OutstandingService {
               Status: 'A',
             },
           },
+          voucherTypeMaster : {
+            select : {DocumentTypeName : true}
+          }
         },
         orderBy: {
           VoucherDate: 'asc',
@@ -223,22 +237,33 @@ export class OutstandingService {
         );
         const outstandingLocalAmount = this.roundToDecimal(originalLocalAmount - matchedLocalAmount, 2);
 
+        // Calculate exchange rate
+        const exchangeRate = originalCurrencyAmount !== 0
+          ? this.roundToDecimal(originalLocalAmount / originalCurrencyAmount, 4)
+          : 1.0;
+
         // Only include if there's outstanding balance
         if (Math.abs(outstandingCurrencyAmount) > 0 || Math.abs(outstandingLocalAmount) > 0) {
           transactions.push({
             voucherTransactionSid: vt.VoucherTransactionSid,
+            voucherHeaderSid: vt.VoucherHeaderSid,
+            voucherDetailSid: vt.VoucherDetailSid,
             voucherNumber: vt.VoucherNumber,
             voucherDate: vt.VoucherDate,
-            voucherType: vt.VoucherType,
-            originalCurrencyAmount: this.roundToDecimal(originalCurrencyAmount, 2),
-            originalLocalAmount: this.roundToDecimal(originalLocalAmount, 2),
-            matchedCurrencyAmount: this.roundToDecimal(matchedCurrencyAmount, 2),
-            matchedLocalAmount: this.roundToDecimal(matchedLocalAmount, 2),
+            voucherTypeMasterSid: vt.VoucherTypeMasterSid,
+            ledgerMasterSid: vt.LedgerMasterSid!,
+            coaMasterSid: vt.COAMasterSid!,
+            voucherType: vt.voucherTypeMaster?.DocumentTypeName,
+            originalCurrencyAmount: this.toNumber(originalCurrencyAmount),
+            originalLocalAmount: this.toNumber(originalLocalAmount),
+            matchedCurrencyAmount: this.toNumber(matchedCurrencyAmount),
+            matchedLocalAmount: this.toNumber(matchedLocalAmount),
             outstandingCurrencyAmount: outstandingCurrencyAmount,
             outstandingLocalAmount: outstandingLocalAmount,
             currencyCode: vt.CurrencyCode || 'USD',
+            exchangeRate: this.toNumber(vt.ExchangeRate || 1),
             drCr: vt.DrCr,
-            chargeDescription: vt.ChargeDescription,
+            chargeDescription: vt.ChargeDescription || "",
           });
 
           totalOutstandingCurrency += outstandingCurrencyAmount;

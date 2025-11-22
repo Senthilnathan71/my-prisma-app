@@ -35,6 +35,18 @@ import { MenuService } from 'src/masters/services/menu/menu.service';
 import { ServiceJobService } from './services/service-job/service-job.service';
 import { ServiceJobController } from './controllers/service-job/service-job.controller';
 import { CommonModule } from 'src/common/common.module';
+import { CreditNoteService } from './services/credit-note/credit-note.service';
+import { CreditNoteController } from './controllers/credit-note/credit-note.controller';
+import { DocVendorInvoiceService } from './services/document/doc-vendorinvoice.service';
+import { DocVendorInvoiceController } from './controllers/document/doc-vendorinvoice.controller';
+import { BoeController } from './controllers/boe/boe.controller';
+import { BoeService } from './services/boe/boe.service';
+import { VendorCreditNoteService } from './services/vendor-credit-note/vendor-credit-note.service';
+import { VendorCreditNoteController } from './controllers/vendor-credit-note/vendor-credit-note.controller';
+import { VehicleController } from './controllers/vehicle/vehicle.controller';
+import { CustomsController } from './controllers/customs/customs.controller';
+import { VehicleService } from './services/vehicle/vehicle.service';
+import { CustomsService } from './services/customs/customs.service';
 
 @Module({
         imports: [CommonModule],
@@ -59,7 +71,13 @@ import { CommonModule } from 'src/common/common.module';
                 ExcelParserService,
                 CreditRequestService,
                 MenuService,
-                ServiceJobService
+                ServiceJobService,
+                CreditNoteService,
+                DocVendorInvoiceService,
+                BoeService,
+                VendorCreditNoteService,
+                VehicleService,
+                CustomsService
         ],
         controllers: [
                 BookingController,
@@ -76,7 +94,13 @@ import { CommonModule } from 'src/common/common.module';
                 VoucherController,
                 VendorInvoiceController,
                 CreditRequestController,
-                ServiceJobController
+                ServiceJobController,
+                CreditNoteController,
+                DocVendorInvoiceController,
+                BoeController,
+                VendorCreditNoteController,
+                VehicleController,
+                CustomsController
         ]
 })
 export class OperationModule { }

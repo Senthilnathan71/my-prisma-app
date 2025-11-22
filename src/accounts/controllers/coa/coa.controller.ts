@@ -315,4 +315,120 @@ export class CoaController {
         }
         return resp;
     }
+
+     @ApiOperation({ summary : 'Get List of COA by its LedgerType' })
+    @ApiCreatedResponse({
+        description: 'Get List of COA by its LedgerType',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Post('ledger-category')
+    async getCoaByLedgerCategory(@Body() body: { LedgerCategory: string ; CompanyMasterSid: number }) {
+        let resp = new ResponseData();
+        try {
+            if(!body.LedgerCategory){
+                throw new BadRequestException('LedgerCategory is required');
+            }
+            if(!body.CompanyMasterSid){
+                throw new BadRequestException('CompanyMasterSid is required');
+            }
+            let res = await this.coaService.getCOAByLedgerCategory(body.LedgerCategory, body.CompanyMasterSid);
+            this.logger.log(`Coa by LedgerCategory : ${JSON.stringify(res)}`);
+            resp.data = res;
+            resp.message = "Coa by LedgerCategory is successfully fetched";
+        } catch (error) {
+            this.logger.warn(`Get Coa by LedgerCategory Error : ${JSON.stringify(error), error}`);
+            resp.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                resp.message = error.message;
+            } else {
+                resp.message = "Internal Server Error";
+            }
+        }
+        return resp;
+    }
+
+    @ApiOperation({ summary : 'Get List of COA by its LedgerType' })
+    @ApiCreatedResponse({
+        description: 'Get List of COA by its LedgerType',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Post('cashOrBank')
+    async getCoaByLedgerType(@Body() body: { LedgerType: 'Cash' | 'Bank'; CompanyMasterSid: number }) {
+        let resp = new ResponseData();
+        try {
+            if(!body.LedgerType){
+                throw new BadRequestException('LedgerType is required');
+            }
+            if(!body.CompanyMasterSid){
+                throw new BadRequestException('CompanyMasterSid is required');
+            }
+            let res = await this.coaService.getCOAByCashOrBank(body.LedgerType, body.CompanyMasterSid);
+            this.logger.log(`Coa by LedgerType : ${JSON.stringify(res)}`);
+            resp.data = res;
+            resp.message = "Coa by LedgerType is successfully fetched";
+        } catch (error) {
+            this.logger.warn(`Get Coa by LedgerType Error : ${JSON.stringify(error), error}`);
+            resp.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                resp.message = error.message;
+            } else {
+                resp.message = "Internal Server Error";
+            }
+        }
+        return resp;
+    }
+
+    @ApiOperation({ summary: 'Get All Groups by Company' })
+    @ApiCreatedResponse({
+        description: 'Get All Groups by Company',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Post('groups-by-company')
+    async getGroupsByCompany(@Body() body: CompanyIdDto) {
+        let resp = new ResponseData();
+        try {
+            let res = await this.coaService.getGroupsByCompany(body.CompanyMasterSid);
+            this.logger.log(`Groups by Company Fetched : ${JSON.stringify(res)}`);
+            resp.data = res;
+            resp.message = "Groups are successfully fetched";
+        } catch (error) {
+            this.logger.warn(`Get Groups Error : ${JSON.stringify(error), error}`);
+            resp.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                resp.message = error.message;
+            } else {
+                resp.message = "Internal Server Error";
+            }
+        }
+        return resp;
+    }
+
+    @ApiOperation({ summary: 'Get All SubGroups by Company' })
+    @ApiCreatedResponse({
+        description: 'Get All SubGroups by Company',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Post('subgroups-by-company')
+    async getSubGroupsByCompany(@Body() body: CompanyIdDto) {
+        let resp = new ResponseData();
+        try {
+            let res = await this.coaService.getSubGroupsByCompany(body.CompanyMasterSid);
+            this.logger.log(`SubGroups by Company Fetched : ${JSON.stringify(res)}`);
+            resp.data = res;
+            resp.message = "SubGroups are successfully fetched";
+        } catch (error) {
+            this.logger.warn(`Get SubGroups Error : ${JSON.stringify(error), error}`);
+            resp.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                resp.message = error.message;
+            } else {
+                resp.message = "Internal Server Error";
+            }
+        }
+        return resp;
+    }
 }

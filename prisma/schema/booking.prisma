@@ -66,6 +66,7 @@ model BookingHeader {
   OriginAgent                String?                      @db.VarChar(200)
   BookingStatus              String?                      @db.VarChar(100)
   CarrierSid                 Int?
+  JobType                    String?                      @db.VarChar(12)
   ActivityResourceAllocation ActivityResourceAllocation[]
   bookingCargo               BookingCargo[]
   bookingConnection          BookingConnection[]

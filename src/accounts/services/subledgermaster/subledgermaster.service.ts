@@ -5,7 +5,12 @@ import { statusWhereClause } from 'src/common/helper';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
-
+interface LedgerForTaxGroup {
+    TaxGroup: number | number[];
+    InterOrIntra: 'Inter' | 'Intra';
+    IO: 'Input' | 'Output';
+    IsIndianCompany: boolean;
+}
 @Injectable()
 export class SubledgermasterService {
     constructor(private _db: DatabaseService, private logger: Logger) { }
@@ -47,6 +52,25 @@ export class SubledgermasterService {
                 throw new BadRequestException(`SubledgerMaster with Id : ${SubledgerMasterSid} not exists`);
             }
             return ourSubledgerMaster;
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    async getAllMappedLedgerByCOAId(COAMasterSid : number, CompanyMasterSid : number){
+        try {
+            const subledgerWithCOA = await this._db.subledgerMaster.findMany({
+                where: {
+                    Status: "A",
+                    DrCOAMasterSid : COAMasterSid,
+                    CompanyMasterSid : CompanyMasterSid
+                },
+                select : {
+                    SubledgerMasterSid : true,
+                    SubledgerName : true,
+                }
+            })
+            return subledgerWithCOA;
         } catch (error) {
             throw error;
         }
@@ -192,11 +216,12 @@ export class SubledgermasterService {
     }
 
     // New methods for Party and Charge tabs
-    async getSubledgerMasterByType(subledgerType: string) {
+    async getSubledgerMasterByType(subledgerType: string,CompanyMasterSid: number) {
         try {
             const subledgers = await this._db.subledgerMaster.findMany({
                 where: {
                     SubledgerType: subledgerType,
+                     CompanyMasterSid: CompanyMasterSid,
                     Status: { in: ["A", "S"] } // Include both Active and Suspended
                 },
                 include: {
@@ -350,16 +375,23 @@ export class SubledgermasterService {
                     CompanyMasterSid : payload.CompanyMasterSid
                 },
                 select : {
+                    SubledgerMasterSid : true,
                     SubledgerMappingSid : true,
-                    DrCOAMasterSid : true
+                    DrCOAMasterSid : true,
+                    SubledgerName : true
                 }
             })
             const allMappedCustomerSubledgersIds = allCustomerDebtors.map(customerDebtor => customerDebtor.SubledgerMappingSid!);
 
             // Create a map of Customer to Ledger mapping
-            const ledgerToCustomerMapping = new Map<number, number>();
+            const ledgerToCustomerMapping = new Map<number, { DrCOAMasterSid: number, SubledgerMasterSid: number , SubledgerName : string }>();
             allCustomerDebtors.forEach(customerDebtor => {
-                ledgerToCustomerMapping.set(customerDebtor.SubledgerMappingSid!, customerDebtor.DrCOAMasterSid!);
+                ledgerToCustomerMapping.set(customerDebtor.SubledgerMappingSid!,
+                    {
+                        DrCOAMasterSid: customerDebtor.DrCOAMasterSid!,
+                        SubledgerMasterSid: customerDebtor.SubledgerMasterSid,
+                        SubledgerName: customerDebtor.SubledgerName
+                    });
             });
 
             // Get all customers with subleder mapped
@@ -406,7 +438,9 @@ export class SubledgermasterService {
                         CustomerName : deptor.CustomerName,
                         Address : branch.Address,
                         Email : branch.Email,
-                        COAMappedId : COAMappedId
+                        COAMappedId : COAMappedId?.DrCOAMasterSid,
+                        SubledgerMasterSid: COAMappedId?.SubledgerMasterSid,
+                        SubledgerName: 'Y',
                     }
                 })
             });
@@ -498,5 +532,50 @@ export class SubledgermasterService {
         throw error;
     }
 }
-    
+ async getLedgerForTaxGroup(
+  taxGroup: number | number[],
+  InputOrOutput: 'Input' | 'Output',
+  TaxCategory: 'Inter' | 'Intra',
+  CountryMasterSid: number,
+) {
+  try {
+    const whereClause: Prisma.TaxGroupWhereInput = {
+      Status: 'A',
+      taxMaster: {
+        some: {
+          Status: 'A',
+          TaxType: InputOrOutput,
+          TaxCategory,
+          CountryMasterSid,
+        },
+      },
+    };
+
+    // Dynamically add the filter for TaxGroupSid based on whether a single ID or an array is provided.
+    if (typeof taxGroup === 'number') {
+      whereClause.TaxGroupSid = taxGroup;
+    } else {
+      whereClause.TaxGroupSid = { in: taxGroup };
+    }
+
+    const taxGroupLedgers = await this._db.taxGroup.findMany({
+      where: whereClause,
+      include: {
+        taxMaster: {
+          where: {
+            Status: 'A',
+            TaxType: InputOrOutput,
+            TaxCategory,
+            CountryMasterSid
+          },
+        },
+      },
+    });
+
+    return taxGroupLedgers;
+  } catch (error) {
+    console.error('An error occurred while fetching ledger for tax group:', error);
+    throw error;
+  }
+}
 }

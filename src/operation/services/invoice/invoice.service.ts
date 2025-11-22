@@ -97,14 +97,19 @@ export class InvoiceService {
   async fetchInvoices() {
     try {
       const result = await this._db.voucherHeader.findMany({
-        where: { Status: 'A' },
+        where: { Status: 'A',
+        //    voucherTypeMaster: {
+        //   DocumentTypeName: 'Invoice'
+        // }
+         },
         include: {
           VoucherDetail: { where: { Status: 'A' } },
           VoucherOthers: { where: { Status: 'A' } },
           masterJob: true,
           houseJob: true,
           currencyMaster: true,
-          subledgerMaster: true
+          subledgerMaster: true,
+          voucherTypeMaster: true
         }
       });
       return result;
@@ -120,7 +125,11 @@ export class InvoiceService {
         where: { VoucherHeaderSid: VoucherHeaderSid, Status: 'A' } as any,
         include: {
           VoucherDetail: {
-            where: { Status: 'A' },
+            where: { Status: 'A' ,
+        //       voucherTypeMaster: {
+        //   DocumentTypeName: 'Invoice'
+        // }
+            },
             include: {
               chargeMaster: {
                 include: {
@@ -145,7 +154,8 @@ export class InvoiceService {
           currencyMaster: true,
           subledgerMaster: true,
           customerBranch: true,
-          departmentMaster: true
+          departmentMaster: true,
+          voucherTypeMaster: true
         }
       });
 
@@ -239,6 +249,7 @@ export class InvoiceService {
           MasterNumber: payload.MasterNumber,
           HouseJobSid: payload.HouseJobSid,
           MasterJobSid: payload.MasterJobSid,
+          PostStatus: payload.PostStatus,
           CurrencyMasterSid: payload.CurrencyMasterSid,
           CurrencyCode: payload.CurrencyCode,
           ExchangeRate: payload.ExchangeRate ? Number(payload.ExchangeRate) : null,
@@ -388,6 +399,7 @@ export class InvoiceService {
           MasterNumber: payload.MasterNumber || existingVoucher.MasterNumber,
           HouseJobSid: payload.HouseJobSid || existingVoucher.HouseJobSid,
           MasterJobSid: payload.MasterJobSid || existingVoucher.MasterJobSid,
+          PostStatus: payload.PostStatus || existingVoucher.PostStatus,
           CurrencyMasterSid: payload.CurrencyMasterSid || existingVoucher.CurrencyMasterSid,
           CurrencyCode: payload.CurrencyCode || existingVoucher.CurrencyCode,
           ExchangeRate: payload.ExchangeRate ? Number(payload.ExchangeRate) : existingVoucher.ExchangeRate,
@@ -405,62 +417,72 @@ export class InvoiceService {
         });
 
         // Update VoucherDetail rows with proper CurrencyMasterSid mapping
-        if (payload.VoucherDetail && Array.isArray(payload.VoucherDetail) && payload.VoucherDetail.length > 0) {
-          await prisma.voucherDetail.updateMany({
-            where: { VoucherHeaderSid: VoucherHeaderSid, Status: 'A' },
-            data: { Status: 'D', UpdatedBy: payload.UpdatedBy, UpdatedOn: new Date() }
-          });
+if (payload.VoucherDetail && Array.isArray(payload.VoucherDetail) && payload.VoucherDetail.length > 0) {
 
-          const voucherDetailsPayload = await Promise.all(
-            payload.VoucherDetail.map(async (detail: any, index: number) => {
-              const currencyMasterSid = detail.CurrencyMasterSid 
-                ? Number(detail.CurrencyMasterSid)
-                : await this.getCurrencyMasterIdByCode(detail.CurrencyCode, prisma);
-              
-              return {
-                VoucherHeaderSid: VoucherHeaderSid,
-                CreatedBy: payload.UpdatedBy,
-                Status: "A",
-                CompanyMasterSid: existingVoucher.CompanyMasterSid,
-                BranchMasterSid: existingVoucher.BranchMasterSid,
-                Sno: index + 1,
-                ChargeMasterSid: detail.ChargeMasterSid ? Number(detail.ChargeMasterSid) : null,
-                ChargeDescription: detail.ChargeDescription,
-                LedgerMasterSid: detail.LedgerMasterSid ? Number(detail.LedgerMasterSid) : null,
-                COAMasterSid: detail.COAMasterSid ? Number(detail.COAMasterSid) : null,
-                HSSACMasterSid: detail.HSSACMasterSid ? Number(detail.HSSACMasterSid) : null,
-                DepartmentMasterSid: detail.DepartmentMasterSid ? Number(detail.DepartmentMasterSid) : null,
-                HouseJobSid: detail.HouseJobSid ? Number(detail.HouseJobSid) : null,
-                MasterJobSid: detail.MasterJobSid ? Number(detail.MasterJobSid) : null,
-                CostRevenue: detail.CostRevenue,
-                ChargeUOMSid: detail.ChargeUOMSid ? Number(detail.ChargeUOMSid) : null,
-                CurrencyMasterSid: currencyMasterSid,
-                CurrencyCode: detail.CurrencyCode,
-                ExchangeRate: detail.ExchangeRate ? Number(detail.ExchangeRate) : null,
-                Rate: detail.Rate ? Number(detail.Rate) : null,
-                NumberOfUnit: detail.NumberOfUnit ? Number(detail.NumberOfUnit) : null,
-                Narration: detail.Narration,
-                DrCr: detail.DrCr,
-                TaxableAmount: detail.TaxableAmount ? Number(detail.TaxableAmount) : null,
-                TaxPercentage1: detail.TaxPercentage1 ? Number(detail.TaxPercentage1) : null,
-                TaxAmount1: detail.TaxAmount1 ? Number(detail.TaxAmount1) : null,
-                TaxPercentage2: detail.TaxPercentage2 ? Number(detail.TaxPercentage2) : null,
-                TaxAmount2: detail.TaxAmount2 ? Number(detail.TaxAmount2) : null,
-                Amount: detail.Amount ? Number(detail.Amount) : null,
-                LocalAmount: detail.LocalAmount ? Number(detail.LocalAmount) : null,
-                PartyAmount: detail.PartyAmount ? Number(detail.PartyAmount) : null,
-                InvoiceType: detail.InvoiceType,
-                CostCenter: detail.CostCenter ? Number(detail.CostCenter) : null,
-                ProfitCenter: detail.ProfitCenter ? Number(detail.ProfitCenter) : null,
-                Remarks: detail.Remarks
-              };
-            })
-          );
+  const voucherDetailsPayload = await Promise.all(
+    payload.VoucherDetail.map(async (detail: any, index: number) => {
+      const currencyMasterSid = detail.CurrencyMasterSid
+        ? Number(detail.CurrencyMasterSid)
+        : await this.getCurrencyMasterIdByCode(detail.CurrencyCode, prisma);
 
-          await prisma.voucherDetail.createMany({
-            data: voucherDetailsPayload
-          });
-        }
+      return {
+        VoucherDetailSid: detail.VoucherDetailSid ? Number(detail.VoucherDetailSid) : null,
+        VoucherHeaderSid: VoucherHeaderSid,
+        CreatedBy: payload.UpdatedBy,
+        UpdatedBy: payload.UpdatedBy,
+        Status: "A",
+        CompanyMasterSid: existingVoucher.CompanyMasterSid,
+        BranchMasterSid: existingVoucher.BranchMasterSid,
+        Sno: index + 1,
+        ChargeMasterSid: detail.ChargeMasterSid ? Number(detail.ChargeMasterSid) : null,
+        ChargeDescription: detail.ChargeDescription,
+        LedgerMasterSid: detail.LedgerMasterSid ? Number(detail.LedgerMasterSid) : null,
+        COAMasterSid: detail.COAMasterSid ? Number(detail.COAMasterSid) : null,
+        HSSACMasterSid: detail.HSSACMasterSid ? Number(detail.HSSACMasterSid) : null,
+        DepartmentMasterSid: detail.DepartmentMasterSid ? Number(detail.DepartmentMasterSid) : null,
+        HouseJobSid: detail.HouseJobSid ? Number(detail.HouseJobSid) : null,
+        MasterJobSid: detail.MasterJobSid ? Number(detail.MasterJobSid) : null,
+        CostRevenue: detail.CostRevenue,
+        ChargeUOMSid: detail.ChargeUOMSid ? Number(detail.ChargeUOMSid) : null,
+        CurrencyMasterSid: currencyMasterSid,
+        CurrencyCode: detail.CurrencyCode,
+        ExchangeRate: detail.ExchangeRate ? Number(detail.ExchangeRate) : null,
+        Rate: detail.Rate ? Number(detail.Rate) : null,
+        NumberOfUnit: detail.NumberOfUnit ? Number(detail.NumberOfUnit) : null,
+        Narration: detail.Narration,
+        DrCr: detail.DrCr,
+        TaxableAmount: detail.TaxableAmount ? Number(detail.TaxableAmount) : null,
+        TaxPercentage1: detail.TaxPercentage1 ? Number(detail.TaxPercentage1) : null,
+        TaxAmount1: detail.TaxAmount1 ? Number(detail.TaxAmount1) : null,
+        TaxPercentage2: detail.TaxPercentage2 ? Number(detail.TaxPercentage2) : null,
+        TaxAmount2: detail.TaxAmount2 ? Number(detail.TaxAmount2) : null,
+        Amount: detail.Amount ? Number(detail.Amount) : null,
+        LocalAmount: detail.LocalAmount ? Number(detail.LocalAmount) : null,
+        PartyAmount: detail.PartyAmount ? Number(detail.PartyAmount) : null,
+        InvoiceType: detail.InvoiceType,
+        CostCenter: detail.CostCenter ? Number(detail.CostCenter) : null,
+        ProfitCenter: detail.ProfitCenter ? Number(detail.ProfitCenter) : null,
+        Remarks: detail.Remarks
+      };
+    })
+  );
+
+  // 🔥 MAIN CHANGE HERE (update or create)
+  for (const detail of voucherDetailsPayload) {
+    if (detail.VoucherDetailSid) {
+      // UPDATE existing
+      await prisma.voucherDetail.update({
+        where: { VoucherDetailSid: detail.VoucherDetailSid },
+        data: detail
+      });
+    } else {
+      // CREATE new
+      await prisma.voucherDetail.create({
+        data: detail
+      });
+    }
+  }
+}
 
         // Update or create VoucherOthers
         if (payload.VoucherOthers) {
@@ -559,6 +581,9 @@ export class InvoiceService {
       CompanyMasterSid: activeCompanyId,
       BranchMasterSid: activeBranchId,
       Status: 'A',
+      voucherTypeMaster: {
+      DocumentTypeName: 'Invoice'
+    },
       ...(search && {
         OR: [
           { VoucherNumber: { contains: search, mode: 'insensitive' } },

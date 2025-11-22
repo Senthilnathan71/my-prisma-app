@@ -4,7 +4,9 @@ import { SubledgermasterService } from 'src/accounts/services/subledgermaster/su
 import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
-
+class CompanyIdDto {
+    CompanyMasterSid: number;
+}
 @Controller('subledgermaster')
 export class SubledgermasterController {
     constructor(private SubledgermasterService: SubledgermasterService, private logger: Logger) { }
@@ -52,6 +54,32 @@ export class SubledgermasterController {
             resp.message = "New SubledgerMaster is successfully created"
         } catch (error) {
             this.logger.warn(`SubledgerMaster Creation Error : ${JSON.stringify(error), error}`);
+            resp.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                resp.message = error.message;
+            } else {
+                resp.message = "Internal Server Error";
+            }
+        }
+        return resp;
+    }
+
+    @ApiOperation({summary : "Get All Mapped Ledgers by COA"})
+    @ApiCreatedResponse({
+        description : "Get All Mapped Ledgers by COA",
+        type : ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Post('coa/mapped')
+    async getAllMappedLedgerByCOA(@Body() payload:any) {
+        let resp = new ResponseData();
+        try {
+            let res = await this.SubledgermasterService.getAllMappedLedgerByCOAId(payload.COAMasterSid, payload.CompanyMasterSid);
+            this.logger.log(`All Mapped Ledgers For this COA Fetched : ${JSON.stringify(res)}`);
+            resp.data = res;
+            resp.message = "All Mapped Ledgers For this COA are successfully fetched";
+        } catch (error) {
+            this.logger.warn(`Get All Mapped Ledgers For this COA Error : ${JSON.stringify(error), error}`);
             resp.status = false;
             if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
                 resp.message = error.message;
@@ -291,10 +319,10 @@ export class SubledgermasterController {
 })
 @HttpCode(HttpStatus.OK)
 @Get('type/:subledgerType')
-async getSubledgerMasterByType(@Param('subledgerType') subledgerType: string) {
+async getSubledgerMasterByType(@Param('subledgerType') subledgerType: string,  @Query('CompanyMasterSid', ParseIntPipe) CompanyMasterSid: number) {
     let resp = new ResponseData();
     try {
-        let res = await this.SubledgermasterService.getSubledgerMasterByType(subledgerType);
+        let res = await this.SubledgermasterService.getSubledgerMasterByType(subledgerType,CompanyMasterSid);
         this.logger.log(`SubledgerMaster by Type Fetched : ${JSON.stringify(res)}`);
         resp.data = res;
         resp.message = "SubledgerMaster by type successfully fetched";
@@ -335,4 +363,43 @@ async bulkUpdateSubledgerMaster(@Body() payload: { updates: any[] }) {
     }
     return resp;
 }
+
+    @ApiOperation({ summary: 'Get Ledger for Tax Group' })
+    @ApiCreatedResponse({
+        description: 'Get Ledger for Tax Group',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Post('tax-group')
+    async getLedgerForTaxGroup(@Body() payload: any) {
+        let resp = new ResponseData();
+        try {
+            if(!payload.taxGroup){
+                throw new BadRequestException('taxGroup is required');
+            }
+            if(!payload.InputOrOutput || (payload.InputOrOutput !== 'Input' && payload.InputOrOutput !== 'Output')){
+                throw new BadRequestException('Input Or Output is required and must be either Input or Output');
+            }
+            if(!payload.TaxCategory || (payload.TaxCategory !== 'Intra' && payload.TaxCategory !== 'Inter')){
+                throw new BadRequestException('Tax Category is required and must be either Intra or Inter');
+            }
+            if(!payload.CountryMasterSid){
+                throw new BadRequestException('Country Master Sid is required');
+            }
+            let res = await this.SubledgermasterService.getLedgerForTaxGroup(payload.taxGroup, payload.InputOrOutput, payload.TaxCategory, payload.CountryMasterSid);
+            this.logger.log(`Ledger for Tax Group Fetched : ${JSON.stringify(res)}`);
+            resp.data = res;
+            resp.message = "Ledger for Tax Group Fetched";
+        } catch (error) {
+            this.logger.warn(`Get Ledger for Tax Group Error : ${JSON.stringify(error), error}`);
+            resp.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                resp.message = error.message;
+            } else {
+                resp.message = "Internal Server Error";
+            }
+        }
+        return resp;
+    }
+
 }

@@ -276,6 +276,35 @@ export class MenuController {
     }
 
 
+    @Post('fetchByModules')
+async getMenusByModuleIds(@Body() body: { moduleIds: number[] }) {
+  const output = new ResponseData();
+  try {
+    const { moduleIds } = body;
+    
+    if (!moduleIds || !Array.isArray(moduleIds) || moduleIds.length === 0) {
+      throw new BadRequestException('moduleIds array is required and cannot be empty');
+    }
+
+    this.logger.log(`Getting Menus with Module Ids: ${moduleIds.join(', ')}`);
+    const menus = await this.menuService.getMenusByModules(moduleIds);
+    this.logger.debug(`getMenusByModuleIds: ${JSON.stringify(menus)}`);
+    
+    output.data = menus;
+    output.message = `Menus for ${moduleIds.length} module(s) successfully fetched`;
+  } catch (error) {
+    this.logger.warn(`getMenusByModuleIds: ${JSON.stringify(error)}`);
+    output.status = false;
+    if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+      output.message = error.message;
+    } else {
+      output.message = "Internal Server Error";
+    }
+  }
+  return output;
+}
+
+
     @ApiOperation({ summary: 'Get Sub Menus' })
     @ApiCreatedResponse({
         description: 'Get sub menus',
