@@ -825,6 +825,15 @@ export class MasterJobService {
                                 CustomerMasterSid: true,
                                 CustomerName: true
                             }
+                        },
+                        chargeMaster : {
+                            select : {
+                                chargeCode : true,
+                                chargeName : true,
+                                chargeGroup : {
+                                    select : { GroupName : true}
+                                }
+                            }
                         }
                     },
                     orderBy: {
