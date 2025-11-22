@@ -9,12 +9,12 @@ import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 export class ProductService {
     constructor(private _db: DatabaseService, private logger: Logger) { }
 
-    async getAllProducts(CompanyMasterSid: number) {
+    async getAllProducts() {
         try {
             const allProducts = await this._db.productMaster.findMany({
                 where: {
                     status: "A",
-                    CompanyMasterSid: CompanyMasterSid
+                    
                 }
             })
             return allProducts;
@@ -122,7 +122,7 @@ export class ProductService {
         const intFields = [
             "CategoryMasterSId",
             "CustomerMasterSid",
-            "CompanyMasterSid",
+          
             "UNNo",
         ];
         const stringFields = [
@@ -183,7 +183,7 @@ export class ProductService {
         const where: Prisma.ProductMasterWhereInput = {
 
             status: statusWhereClause,
-            CompanyMasterSid: activeCompanyId,
+            
             ...(search
                 ? {
                     OR: [
