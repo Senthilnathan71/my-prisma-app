@@ -94,8 +94,8 @@ import { FfUserMasterController } from './controllers/ff-user-master/ff-user-mas
 import { FfUserMasterService } from './services/ff-user-master/ff-user-master.service';
 import { CustomerSalesteamService } from './services/customer-salesteam/customer-salesteam.service';
 import { CustomerSalesteamController } from './controllers/customer-salesteam/customer-salesteam.controller';
-import { RoleMenuService } from './services/role-menu/role-menu.service';
-import { RoleMenuController } from './controllers/role-menu/role-menu.controller';
+// import { RoleMenuService } from './services/role-menu/role-menu.service.ts.bak';
+// import { RoleMenuController } from './controllers/role-menu/role-menu.controller.ts.bak';
 import { MilestoneController } from './controllers/milestone/milestone.controller';
 import { MilestoneService } from './services/milestone/milestone.service';
 import { AuthorityController } from './controllers/authority/authority.controller';
@@ -142,6 +142,8 @@ import { TaxGroupService } from './services/tax-group/tax-group.service';
 import { TaxGroupController } from './controllers/tax-group/tax-group.controller';
 import { NetworkMasterService } from './services/network-master/network-master.service';
 import { NetworkMasterController } from './controllers/network-master/network-master.controller';
+import { RoleMenuController } from './controllers/role-menu/role-menu.controller';
+import { RoleMenuService } from './services/role-menu/role-menu.service';
 import { CompanyConfigController } from './controllers/company/company-config.controller';
 import { CompanyConfigService } from './services/company/company-config.service';
 
@@ -196,7 +198,6 @@ import { CompanyConfigService } from './services/company/company-config.service'
     VoyageDetailService,
     FfUserMasterService,
     CustomerSalesteamService,
-    RoleMenuService,
     MilestoneService,
     AuthorityService,
     AuthorityDetailService,
@@ -220,6 +221,7 @@ import { CompanyConfigService } from './services/company/company-config.service'
     MawbStockService,
     TaxGroupService,
     NetworkMasterService,
+    RoleMenuService,
     CompanyConfigService
   ],
   controllers: [
@@ -272,7 +274,6 @@ import { CompanyConfigService } from './services/company/company-config.service'
     VoyageDetailController,
     FfUserMasterController,
     CustomerSalesteamController,
-    RoleMenuController,
     MilestoneController,
     AuthorityController,
     AuthorityDetailController,
@@ -294,6 +295,7 @@ import { CompanyConfigService } from './services/company/company-config.service'
     MawbStockController,
     TaxGroupController,
     NetworkMasterController,
+    RoleMenuController,
     CompanyConfigController
   ],
   exports: [UserService,MenuService]
