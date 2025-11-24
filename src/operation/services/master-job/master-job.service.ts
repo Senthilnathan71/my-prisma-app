@@ -763,6 +763,8 @@ export class MasterJobService {
                             ConsigneeAddress:true,
                             Notify:true,
                             NotifyAddress:true,
+                            CustomerName:true,
+                            CustomerAddress:true,
                             FreightTerms:true,
                             Cargo: true,
                             Products: true,
