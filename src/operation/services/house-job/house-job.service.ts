@@ -307,6 +307,8 @@ export class HouseJobService {
                                 Width: product.Width || 0,
                                 UomMasterSid: product.UomMasterSid || null,
                                 ContainerNo : product.ContainerNo,
+                                DeliveryDate: product.DeliveryDate ? new Date(product.DeliveryDate) : null,
+                                DeliveredQty: product.DeliveredQty || 0,
                                 MarksAndNumber : product.MarksAndNumber
                             }
                         })
@@ -340,6 +342,8 @@ export class HouseJobService {
                                 Width: product.Width || 0,
                                 UomMasterSid: product.UomMasterSid || null,
                                 ContainerNo : product.ContainerNo,
+                                DeliveryDate: product.DeliveryDate ? new Date(product.DeliveryDate) : null,
+                                DeliveredQty: product.DeliveredQty || 0,
                                 MarksAndNumber : product.MarksAndNumber
                             }
                         })
