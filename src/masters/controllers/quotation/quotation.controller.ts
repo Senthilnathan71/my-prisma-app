@@ -297,7 +297,7 @@ export class QuotationController {
                 file, // this is the PDF file from FormData
             };
             console.log(reportPayload);
-            let res = await this.emailService.sendReportEmail(reportPayload);
+            let res = await this.emailService.sendEmailWithFileAttachment(reportPayload);
             this.logger.log(`Quotation Report Sent Successfully : ${JSON.stringify(res)}`);
             output.data = res;
             output.message = "Quotation Report Sent successfully";

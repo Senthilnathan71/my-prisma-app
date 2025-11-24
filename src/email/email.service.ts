@@ -142,7 +142,7 @@ export class EmailService {
 
 
 
-    async sendReportEmail(data: any): Promise<boolean> {
+    async sendEmailWithFileAttachment(data: any): Promise<boolean> {
         try {
             const mailOptions: any = {
                 from: '"Dofi-Infosys" <noreply@dofi.co>',
@@ -420,6 +420,210 @@ export class EmailService {
         `;
     }
 
+    /**
+     * Send report via email with attachment
+     */
+    async sendReportEmail(data: {
+        companyId: number;
+        from?: string;
+        to: string;
+        cc?: string;
+        subject: string;
+        reportName: string;
+        reportDisplayName: string;
+        message?: string;
+        reportBuffer: Buffer;
+        filename: string;
+        format: 'EXCEL' | 'PDF' | 'CSV';
+        reportDetails?: any;
+    }): Promise<boolean> {
+        try {
+            // Get company email configuration
+            const emailConfig = await this.getCompanyEmailConfig(data.companyId);
 
-   
+            // Determine which transporter to use
+            let transporterToUse: nodemailer.Transporter;
+            let fromAddress: string;
+            let replyTo: string | undefined;
+
+            if (emailConfig) {
+                transporterToUse = this.createTransporterFromConfig(emailConfig);
+                fromAddress = data.from || `"${emailConfig.fromName}" <${emailConfig.fromEmail}>`;
+                replyTo = emailConfig.replyToEmail;
+                this.logger.log(`Using company-specific email config for company ${data.companyId}`);
+            } else {
+                transporterToUse = this.transporter;
+                fromAddress = data.from || '"Dofi-Infosys" <noreply@dofi.co>';
+                this.logger.warn(`Using default email config for company ${data.companyId}`);
+            }
+
+            // Create HTML email body with report details
+            const htmlBody = this.createReportEmailTemplate(
+                data.reportDisplayName,
+                data.message || 'Please find the attached report for your reference.',
+                data.reportDetails
+            );
+
+            // Determine content type based on format
+            let contentType = 'application/octet-stream';
+            if (data.format === 'PDF') {
+                contentType = 'application/pdf';
+            } else if (data.format === 'EXCEL') {
+                contentType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+            } else if (data.format === 'CSV') {
+                contentType = 'text/csv';
+            }
+
+            const mailOptions: any = {
+                from: fromAddress,
+                to: data.to,
+                subject: data.subject,
+                html: htmlBody,
+                attachments: [
+                    {
+                        filename: data.filename,
+                        content: data.reportBuffer,
+                        contentType: contentType,
+                    }
+                ]
+            };
+
+            // Add reply-to if available
+            if (replyTo) {
+                mailOptions.replyTo = replyTo;
+            }
+
+            // Add CC if provided
+            if (data.cc && data.cc.trim() !== '') {
+                mailOptions.cc = data.cc;
+            }
+
+            const info = await transporterToUse.sendMail(mailOptions);
+            this.logger.log(`Report email sent successfully: ${info.messageId}`);
+            return true;
+        } catch (err) {
+            this.logger.warn(`sendReportEmail error: ${JSON.stringify(err)}`);
+            throw new HttpException(
+                { message: `Error sending report email: ${err.message}` },
+                HttpStatus.EXPECTATION_FAILED
+            );
+        }
+    }
+
+    /**
+     * Create report email template
+     */
+    private createReportEmailTemplate(reportName: string, message: string, reportDetails?: any): string {
+        const companyName = reportDetails?.companyName || 'Dofi-Infosys';
+        const generatedDate = new Date().toLocaleString();
+        const parameters = reportDetails?.parameters || {};
+
+        return `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            background-color: #007bff;
+            color: white;
+            padding: 20px;
+            text-align: center;
+            border-radius: 5px 5px 0 0;
+        }
+        .content {
+            background-color: #f9f9f9;
+            padding: 20px;
+            border: 1px solid #ddd;
+        }
+        .report-details {
+            background-color: white;
+            padding: 15px;
+            margin: 15px 0;
+            border-left: 4px solid #007bff;
+        }
+        .report-details h3 {
+            margin-top: 0;
+            color: #007bff;
+        }
+        .message {
+            background-color: white;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 5px;
+        }
+        .footer {
+            background-color: #333;
+            color: white;
+            text-align: center;
+            padding: 15px;
+            border-radius: 0 0 5px 5px;
+            font-size: 12px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        table td {
+            padding: 8px;
+            border-bottom: 1px solid #ddd;
+        }
+        table td:first-child {
+            font-weight: bold;
+            width: 40%;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h2>${companyName}</h2>
+        <p>Generated Report</p>
+    </div>
+
+    <div class="content">
+        <div class="report-details">
+            <h3>Report Information</h3>
+            <table>
+                <tr>
+                    <td>Report Name:</td>
+                    <td>${reportName}</td>
+                </tr>
+                <tr>
+                    <td>Generated On:</td>
+                    <td>${generatedDate}</td>
+                </tr>
+                ${Object.keys(parameters).length > 0 ? `
+                <tr>
+                    <td>Report Parameters:</td>
+                    <td>${Object.entries(parameters).map(([key, value]) => `${key}: ${value}`).join('<br>')}</td>
+                </tr>
+                ` : ''}
+            </table>
+        </div>
+
+        <div class="message">
+            ${message}
+        </div>
+
+        <p>Please find the attached report file for your reference.</p>
+
+        <p>If you have any questions or need assistance, please don't hesitate to contact us.</p>
+    </div>
+
+    <div class="footer">
+        <p>&copy; ${new Date().getFullYear()} ${companyName}. All rights reserved.</p>
+        <p>This is an automated email. Please do not reply to this message.</p>
+    </div>
+</body>
+</html>
+        `;
+    }
 }

@@ -39,6 +39,9 @@ import { CreditNoteService } from './services/credit-note/credit-note.service';
 import { CreditNoteController } from './controllers/credit-note/credit-note.controller';
 import { DocVendorInvoiceService } from './services/document/doc-vendorinvoice.service';
 import { DocVendorInvoiceController } from './controllers/document/doc-vendorinvoice.controller';
+import { OperationReportsController } from './controllers/operation-reports/operation-reports.controller';
+import { OperationReportsService } from './services/operation-reports/operation-reports.service';
+import { ReportExportService } from 'src/common/services/report-export.service';
 import { BoeController } from './controllers/boe/boe.controller';
 import { BoeService } from './services/boe/boe.service';
 import { VendorCreditNoteService } from './services/vendor-credit-note/vendor-credit-note.service';
@@ -76,6 +79,8 @@ import { ReverseVoucherController } from './controllers/reverse-voucher/reverse-
                 ServiceJobService,
                 CreditNoteService,
                 DocVendorInvoiceService,
+                OperationReportsService,
+                ReportExportService,
                 BoeService,
                 VendorCreditNoteService,
                 VehicleService,
@@ -100,6 +105,7 @@ import { ReverseVoucherController } from './controllers/reverse-voucher/reverse-
                 ServiceJobController,
                 CreditNoteController,
                 DocVendorInvoiceController,
+                OperationReportsController,
                 BoeController,
                 VendorCreditNoteController,
                 VehicleController,

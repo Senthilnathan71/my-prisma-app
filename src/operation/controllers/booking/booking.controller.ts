@@ -616,7 +616,7 @@ export class BookingController {
                 file, // this is the PDF file from FormData
             };
             console.log(reportPayload);
-            let res = await this.emailService.sendReportEmail(reportPayload);
+            let res = await this.emailService.sendEmailWithFileAttachment(reportPayload);
             this.logger.log(`Booking Print Sent Successfully : ${JSON.stringify(res)}`);
             output.data = res;
             output.message = "Booking Print Sent successfully";
