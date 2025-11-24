@@ -3258,232 +3258,409 @@ export class MasterJobService {
 
 
 
-    async createBookingFromMasterJob(payload: any) {
-        return await this._db.$transaction(async (tx) => {
+    // async createBookingFromMasterJob(payload: any) {
+    //     return await this._db.$transaction(async (tx) => {
 
-            const { houseJobSid, createdBy } = payload;
+    //         const { houseJobSid, createdBy } = payload;
 
-            // 1. Fetch Master House Job with relations
-            const houseJob = await tx.houseJob.findFirst({
-                where: { HouseJobSid: houseJobSid, deletedAt: null },
-                include: {
-                    Cargo: true,
-                    Products: true,
-                    Others: true,
-                }
-            });
+    //         // 1. Fetch Master House Job with relations
+    //         const houseJob = await tx.houseJob.findFirst({
+    //             where: { HouseJobSid: houseJobSid, deletedAt: null },
+    //             include: {
+    //                 Cargo: true,
+    //                 Products: true,
+    //                 Others: true,
+    //             }
+    //         });
 
-            if (!houseJob) {
-                throw new BadRequestException("House Job not found");
-            }
+    //         if (!houseJob) {
+    //             throw new BadRequestException("House Job not found");
+    //         }
 
-            if (houseJob.JobType !== 'Transhipment') {
-                throw new BadRequestException("Only Transhipment job can create booking");
-            }
+    //         if (houseJob.JobType !== 'Transhipment') {
+    //             throw new BadRequestException("Only Transhipment job can create booking");
+    //         }
 
-            // -------------------------------
-            // 2. Create Booking Header
-            // -------------------------------
-            const bookingHeader = await tx.bookingHeader.create({
-                data: {
-                    BookingNo: houseJob.BookingNo,
-                    BookingDateTime: new Date(),
-                    CompanyMasterSid: houseJob.CompanyMasterSid,
-                    BranchMasterSid: houseJob.BranchMasterSid,
-                    CustomerMasterSid: houseJob.CustomerMasterSid,
-                    CustomerName: houseJob.CustomerName,
-                    CustomerAddress: houseJob.CustomerAddress,
-                    SalesmanSid: houseJob.SalesmanSid,
-                    CargoExpectedon: houseJob.CargoExpectedon,
-                    FreightTerms: houseJob.FreightTerms,
-                    POO: houseJob.POO,
-                    POL: houseJob.POL,
-                    POD: houseJob.POD,
-                    FPD: houseJob.FPD,
-                    TsPortSid: houseJob.TsPortSid,
-                    POLTerminal: houseJob.POLTerminal,
-                    VoyageMasterSid: houseJob.VoyageMasterSid,
-                    VesselName: houseJob.VesselName,
-                    VoyageNo: houseJob.VoyageNo,
-                    ETD: houseJob.ETD,
-                    ETA: houseJob.ETA,
-                    IncoTerms: houseJob.IncoTerms,
-                    BLLocation: houseJob.BLLocation,
-                    ShipperName: houseJob.ShipperName,
-                    ShipperAddress: houseJob.ShipperAddress,
-                    ConsigneeName: houseJob.ConsigneeName,
-                    ConsigneeAddress: houseJob.ConsigneeAddress,
-                    ClearanceRequire: houseJob.ClearanceRequire,
-                    ShipmentType: houseJob.ShipmentType,
-                    DestinationAgent: houseJob.DestinationAgent,
-                    AgentName: houseJob.AgentName,
-                    AgentAddress: houseJob.AgentAddress,
-                    HouseNo: houseJob.HouseNo,
-                    QuotationHeaderSid: houseJob.QuotationHeaderSid,
-                    EnquiryHeaderSid: houseJob.EnquiryHeaderSid,
-                    MovementType: houseJob.MovementType,
-                    DoValid: houseJob.DoValid,
-                    IsServiceJob: houseJob.IsServiceJob,
-                    createdBy: createdBy,
-                    DepartmentMasterSid: houseJob.DepartmentMasterSid,
-                    CustomerBranchSid: houseJob.CustomerBranchSid,
-                    MenuMasterSid: houseJob.MenuMasterSid,
-                    CarrierName: houseJob.CarrierName,
-                    Coload: houseJob.Coload,
-                    GeneralNote: houseJob.GeneralNote,
-                    HBLNo: houseJob.HBLNo,
-                    InternalNote: houseJob.InternalNote,
-                    MBLDate: houseJob.MBLDate,
-                    MBLNo: houseJob.MBLNo,
-                    Nominated: houseJob.Nominated,
-                    NominatedBy: houseJob.NominatedBy,
-                    Notify: houseJob.Notify,
-                    NotifyAddress: houseJob.NotifyAddress,
-                    PODTerminal: houseJob.PODTerminal,
-                    ShipmentNo: houseJob.ShipmentNo,
-                    OriginAgent: houseJob.OriginAgent,
-                    BookingStatus: houseJob.BookingStatus,
-                    CarrierSid: houseJob.CarrierSid,
-                    JobType: houseJob.JobType,
-                    status: "A"
-                }
-            });
+    //         // -------------------------------
+    //         // 2. Create Booking Header
+    //         // -------------------------------
+    //         const bookingHeader = await tx.bookingHeader.create({
+    //             data: {
+    //                 BookingNo: houseJob.BookingNo,
+    //                 BookingDateTime: new Date(),
+    //                 CompanyMasterSid: houseJob.CompanyMasterSid,
+    //                 BranchMasterSid: houseJob.BranchMasterSid,
+    //                 CustomerMasterSid: houseJob.CustomerMasterSid,
+    //                 CustomerName: houseJob.CustomerName,
+    //                 CustomerAddress: houseJob.CustomerAddress,
+    //                 SalesmanSid: houseJob.SalesmanSid,
+    //                 CargoExpectedon: houseJob.CargoExpectedon,
+    //                 FreightTerms: houseJob.FreightTerms,
+    //                 POO: houseJob.POO,
+    //                 POL: houseJob.POL,
+    //                 POD: houseJob.POD,
+    //                 FPD: houseJob.FPD,
+    //                 TsPortSid: houseJob.TsPortSid,
+    //                 POLTerminal: houseJob.POLTerminal,
+    //                 VoyageMasterSid: houseJob.VoyageMasterSid,
+    //                 VesselName: houseJob.VesselName,
+    //                 VoyageNo: houseJob.VoyageNo,
+    //                 ETD: houseJob.ETD,
+    //                 ETA: houseJob.ETA,
+    //                 IncoTerms: houseJob.IncoTerms,
+    //                 BLLocation: houseJob.BLLocation,
+    //                 ShipperName: houseJob.ShipperName,
+    //                 ShipperAddress: houseJob.ShipperAddress,
+    //                 ConsigneeName: houseJob.ConsigneeName,
+    //                 ConsigneeAddress: houseJob.ConsigneeAddress,
+    //                 ClearanceRequire: houseJob.ClearanceRequire,
+    //                 ShipmentType: houseJob.ShipmentType,
+    //                 DestinationAgent: houseJob.DestinationAgent,
+    //                 AgentName: houseJob.AgentName,
+    //                 AgentAddress: houseJob.AgentAddress,
+    //                 HouseNo: houseJob.HouseNo,
+    //                 QuotationHeaderSid: houseJob.QuotationHeaderSid,
+    //                 EnquiryHeaderSid: houseJob.EnquiryHeaderSid,
+    //                 MovementType: houseJob.MovementType,
+    //                 DoValid: houseJob.DoValid,
+    //                 IsServiceJob: houseJob.IsServiceJob,
+    //                 createdBy: createdBy,
+    //                 DepartmentMasterSid: houseJob.DepartmentMasterSid,
+    //                 CustomerBranchSid: houseJob.CustomerBranchSid,
+    //                 MenuMasterSid: houseJob.MenuMasterSid,
+    //                 CarrierName: houseJob.CarrierName,
+    //                 Coload: houseJob.Coload,
+    //                 GeneralNote: houseJob.GeneralNote,
+    //                 HBLNo: houseJob.HBLNo,
+    //                 InternalNote: houseJob.InternalNote,
+    //                 MBLDate: houseJob.MBLDate,
+    //                 MBLNo: houseJob.MBLNo,
+    //                 Nominated: houseJob.Nominated,
+    //                 NominatedBy: houseJob.NominatedBy,
+    //                 Notify: houseJob.Notify,
+    //                 NotifyAddress: houseJob.NotifyAddress,
+    //                 PODTerminal: houseJob.PODTerminal,
+    //                 ShipmentNo: houseJob.ShipmentNo,
+    //                 OriginAgent: houseJob.OriginAgent,
+    //                 BookingStatus: houseJob.BookingStatus,
+    //                 CarrierSid: houseJob.CarrierSid,
+    //                 JobType: houseJob.JobType,
+    //                 status: "A"
+    //             }
+    //         });
 
-            const bookingHeaderSid = bookingHeader.BookingHeaderSid;
+    //         const bookingHeaderSid = bookingHeader.BookingHeaderSid;
 
-            // --------------------------------------------------
-            // 3. Insert Booking Cargo (copy from HouseJobCargo)
-            // --------------------------------------------------
-            if (houseJob.Cargo?.length) {
-                for (const c of houseJob.Cargo) {
-                    await tx.bookingCargo.create({
-                        data: {
-                            BookingHeaderSid: bookingHeaderSid,
-                            CompanyMasterSid: c.CompanyMasterSid,
-                            BranchMasterSid: c.BranchMasterSid,
-                            NoOfPackage: c.NoOfPackage,
-                            FreightAmount: c.FreightAmount,
-                            CargoType: c.CargoType,
-                            WeightUnitSid: c.WeightUnitSid,
-                            GrossWeight: c.GrossWeight,
-                            NetWeight: c.NetWeight,
-                            Volume: c.Volume,
-                            ChargeableWeight: c.ChargeableWeight,
-                            Qty: c.Qty,
-                            ShipmentTerms: c.ShipmentTerms,
-                            FreightTerms: c.FreightTerms,
-                            MovementType: c.MovementType,
-                            NoofContainers: c.NoofContainers,
-                            StuffingAt: c.StuffingAt,
-                            ModeOfTransport: c.ModeOfTransport,
-                            PackageType: c.PackageType,
-                            ContainerType: c.ContainerType,
-                            createdBy: createdBy,
-                        }
-                    });
-                }
-            }
+    //         // --------------------------------------------------
+    //         // 3. Insert Booking Cargo (copy from HouseJobCargo)
+    //         // --------------------------------------------------
+    //         if (houseJob.Cargo?.length) {
+    //             for (const c of houseJob.Cargo) {
+    //                 await tx.bookingCargo.create({
+    //                     data: {
+    //                         BookingHeaderSid: bookingHeaderSid,
+    //                         CompanyMasterSid: c.CompanyMasterSid,
+    //                         BranchMasterSid: c.BranchMasterSid,
+    //                         NoOfPackage: c.NoOfPackage,
+    //                         FreightAmount: c.FreightAmount,
+    //                         CargoType: c.CargoType,
+    //                         WeightUnitSid: c.WeightUnitSid,
+    //                         GrossWeight: c.GrossWeight,
+    //                         NetWeight: c.NetWeight,
+    //                         Volume: c.Volume,
+    //                         ChargeableWeight: c.ChargeableWeight,
+    //                         Qty: c.Qty,
+    //                         ShipmentTerms: c.ShipmentTerms,
+    //                         FreightTerms: c.FreightTerms,
+    //                         MovementType: c.MovementType,
+    //                         NoofContainers: c.NoofContainers,
+    //                         StuffingAt: c.StuffingAt,
+    //                         ModeOfTransport: c.ModeOfTransport,
+    //                         PackageType: c.PackageType,
+    //                         ContainerType: c.ContainerType,
+    //                         createdBy: createdBy,
+    //                     }
+    //                 });
+    //             }
+    //         }
 
-            // --------------------------------------------------
-            // 4. Insert Booking Products (copy from HouseJobProduct)
-            // --------------------------------------------------
-            if (houseJob.Products?.length) {
-                for (const p of houseJob.Products) {
-                    await tx.bookingProduct.create({
-                        data: {
-                            BookingHeaderSid: bookingHeaderSid,
-                            ProductName: p.ProductName,
-                            ProductDescription: p.ProductDescription,
-                            ShippingBillNo: p.ShippingBillNo,
-                            ShippingBillDate: p.ShippingBillDate,
-                            ExternaPkg: p.ExternaPkg,
-                            ExternlQty: p.ExternlQty,
-                            InternalPkg: p.InternalPkg,
-                            InternalQty: p.InternalQty,
-                            GrossWeight: p.GrossWeight,
-                            NetWeight: p.NetWeight,
-                            Volume: p.Volume,
-                            Height: p.Height,
-                            ImcoClass: p.ImcoClass,
-                            IsHaz: p.IsHaz,
-                            Length: p.Length,
-                            PkgGroup: p.PkgGroup,
-                            UnNo: p.UnNo,
-                            Width: p.Width,
-                            UomMasterSid: p.UomMasterSid,
-                            ActualGrWeight: p.ActualGrWeight,
-                            ActualQty: p.ActualQty,
-                            ActualVolume: p.ActualVolume,
-                            CFS: p.CFS,
-                            CargoRecDate: p.CargoRecDate,
-                            RecdPack: p.RecdPack,
-                            Volumetric: p.Volumetric,
-                            createdBy: createdBy,
-                        }
-                    });
-                }
-            }
+    //         // --------------------------------------------------
+    //         // 4. Insert Booking Products (copy from HouseJobProduct)
+    //         // --------------------------------------------------
+    //         if (houseJob.Products?.length) {
+    //             for (const p of houseJob.Products) {
+    //                 await tx.bookingProduct.create({
+    //                     data: {
+    //                         BookingHeaderSid: bookingHeaderSid,
+    //                         ProductName: p.ProductName,
+    //                         ProductDescription: p.ProductDescription,
+    //                         ShippingBillNo: p.ShippingBillNo,
+    //                         ShippingBillDate: p.ShippingBillDate,
+    //                         ExternaPkg: p.ExternaPkg,
+    //                         ExternlQty: p.ExternlQty,
+    //                         InternalPkg: p.InternalPkg,
+    //                         InternalQty: p.InternalQty,
+    //                         GrossWeight: p.GrossWeight,
+    //                         NetWeight: p.NetWeight,
+    //                         Volume: p.Volume,
+    //                         Height: p.Height,
+    //                         ImcoClass: p.ImcoClass,
+    //                         IsHaz: p.IsHaz,
+    //                         Length: p.Length,
+    //                         PkgGroup: p.PkgGroup,
+    //                         UnNo: p.UnNo,
+    //                         Width: p.Width,
+    //                         UomMasterSid: p.UomMasterSid,
+    //                         ActualGrWeight: p.ActualGrWeight,
+    //                         ActualQty: p.ActualQty,
+    //                         ActualVolume: p.ActualVolume,
+    //                         CFS: p.CFS,
+    //                         CargoRecDate: p.CargoRecDate,
+    //                         RecdPack: p.RecdPack,
+    //                         Volumetric: p.Volumetric,
+    //                         createdBy: createdBy,
+    //                     }
+    //                 });
+    //             }
+    //         }
 
-            // --------------------------------------------------
-            // 5. Insert Booking Others (copy from HouseJobOthers)
-            // --------------------------------------------------
-            if (houseJob.Others?.length) {
-                for (const o of houseJob.Others) {
-                    await tx.bookingOthers.create({
-                        data: {
-                            BookingHeaderSid: bookingHeaderSid,
-                            CustomerRefNo: o.CustomerRefNo,
-                            OperationUser: o.OperationUser,
-                            DocumentationUser: o.DocumentationUser,
-                            CustomerServiceuser: o.CustomerServiceuser,
-                            NotifyParty: o.NotifyParty,
-                            NotifyPartyAddress: o.NotifyPartyAddress,
-                            CHAName: o.CHAName,
-                            PickupMode: o.PickupMode,
-                            YardCFS: o.YardCFS,
-                            LocalTransport: o.LocalTransport,
-                            OverseasTransport: o.OverseasTransport,
-                            OverseasClearance: o.OverseasClearance,
-                            PickupPlace: o.PickupPlace,
-                            PickupDate: o.PickupDate,
-                            PickupAddress: o.PickupAddress,
-                            DeliveryPlace: o.DeliveryPlace,
-                            DeliveryDate: o.DeliveryDate,
-                            DeliveryAddress: o.DeliveryAddress,
-                            CargoCurrency: o.CargoCurrency,
-                            CargoValue: o.CargoValue,
-                            DeliveryMode: o.DeliveryMode,
-                            ExternalRemarks: o.ExternalRemarks,
-                            SwitchBL: o.SwitchBL,
-                            TransporterName: o.TransporterName,
-                            Forwarder: o.Forwarder,
-                            ForwarderAddress: o.ForwarderAddress,
-                            HBLNo: o.HBLNo,
-                            BacktoBack: o.BacktoBack,
-                            Depo: o.Depo,
-                            ROValidity: o.ROValidity,
-                            ReleaseType: o.ReleaseType,
-                            AgentAddress: o.AgentAddress,
-                            SwitchBLAgent: o.SwitchBLAgent,
-                            SwitchBLConsignee: o.SwitchBLConsignee,
-                            SwitchBLShipper: o.SwitchBLShipper,
-                            SwitchLocation: o.SwitchLocation,
-                            Coloader: o.Coloader,
-                            Notify2: o.Notify2,
-                            NotifyAddress2: o.NotifyAddress2,
-                            CarrierBookingDate: o.CarrierBookingDate,
-                            CarrierBookingRef: o.CarrierBookingRef,
-                            createdBy: createdBy,
-                        }
-                    });
-                }
-            }
+    //         // --------------------------------------------------
+    //         // 5. Insert Booking Others (copy from HouseJobOthers)
+    //         // --------------------------------------------------
+    //         if (houseJob.Others?.length) {
+    //             for (const o of houseJob.Others) {
+    //                 await tx.bookingOthers.create({
+    //                     data: {
+    //                         BookingHeaderSid: bookingHeaderSid,
+    //                         CustomerRefNo: o.CustomerRefNo,
+    //                         OperationUser: o.OperationUser,
+    //                         DocumentationUser: o.DocumentationUser,
+    //                         CustomerServiceuser: o.CustomerServiceuser,
+    //                         NotifyParty: o.NotifyParty,
+    //                         NotifyPartyAddress: o.NotifyPartyAddress,
+    //                         CHAName: o.CHAName,
+    //                         PickupMode: o.PickupMode,
+    //                         YardCFS: o.YardCFS,
+    //                         LocalTransport: o.LocalTransport,
+    //                         OverseasTransport: o.OverseasTransport,
+    //                         OverseasClearance: o.OverseasClearance,
+    //                         PickupPlace: o.PickupPlace,
+    //                         PickupDate: o.PickupDate,
+    //                         PickupAddress: o.PickupAddress,
+    //                         DeliveryPlace: o.DeliveryPlace,
+    //                         DeliveryDate: o.DeliveryDate,
+    //                         DeliveryAddress: o.DeliveryAddress,
+    //                         CargoCurrency: o.CargoCurrency,
+    //                         CargoValue: o.CargoValue,
+    //                         DeliveryMode: o.DeliveryMode,
+    //                         ExternalRemarks: o.ExternalRemarks,
+    //                         SwitchBL: o.SwitchBL,
+    //                         TransporterName: o.TransporterName,
+    //                         Forwarder: o.Forwarder,
+    //                         ForwarderAddress: o.ForwarderAddress,
+    //                         HBLNo: o.HBLNo,
+    //                         BacktoBack: o.BacktoBack,
+    //                         Depo: o.Depo,
+    //                         ROValidity: o.ROValidity,
+    //                         ReleaseType: o.ReleaseType,
+    //                         AgentAddress: o.AgentAddress,
+    //                         SwitchBLAgent: o.SwitchBLAgent,
+    //                         SwitchBLConsignee: o.SwitchBLConsignee,
+    //                         SwitchBLShipper: o.SwitchBLShipper,
+    //                         SwitchLocation: o.SwitchLocation,
+    //                         Coloader: o.Coloader,
+    //                         Notify2: o.Notify2,
+    //                         NotifyAddress2: o.NotifyAddress2,
+    //                         CarrierBookingDate: o.CarrierBookingDate,
+    //                         CarrierBookingRef: o.CarrierBookingRef,
+    //                         createdBy: createdBy,
+    //                     }
+    //                 });
+    //             }
+    //         }
 
-            return {
-                bookingHeaderSid,
-                message: "Booking created successfully from Master Job"
-            };
+    //         return {
+    //             bookingHeaderSid,
+    //             message: "Booking created successfully from Master Job"
+    //         };
+    //     });
+    // }
+
+
+async createBookingFromMasterJob(payload: any) {
+  // CASE 1: MULTIPLE HOUSES
+  if (payload.houses && Array.isArray(payload.houses)) {
+    const { houses, createdBy } = payload;
+    const results: any[] = [];
+
+    for (const house of houses) {
+      try {
+        const result = await this._db.$transaction(async (tx) => {
+          return await this.createSingleBooking(tx, house, createdBy);
         });
+        results.push({ success: true, ...result });
+      } catch (error) {
+        results.push({ 
+          success: false, 
+          houseJobSid: house.HouseJobSid,
+          error: error.message 
+        });
+      }
     }
+
+    // ✅ Return standardized response
+    return results;
+  }
+
+  // CASE 2: SINGLE HOUSEJOB SID
+  return await this._db.$transaction(async (tx) => {
+    const { houseJobSid, createdBy } = payload;
+
+    const houseJob = await tx.houseJob.findFirst({
+      where: { HouseJobSid: houseJobSid, deletedAt: null },
+      include: {
+        Cargo: true,
+        Products: true,
+        Others: true,
+      }
+    });
+
+    if (!houseJob) {
+      throw new BadRequestException("House Job not found");
+    }
+
+    if (houseJob.JobType !== 'Transhipment') {
+      throw new BadRequestException("Only Transhipment job can create booking");
+    }
+
+    const result = await this.createSingleBooking(tx, houseJob, createdBy);
+    return { success: true, ...result };
+  });
+}
+
+
+private async createSingleBooking(tx, houseJob, createdBy: string) {
+
+  // ----------------------------------------
+  // 1. Create Booking Header
+  // ----------------------------------------
+  const bookingHeader = await tx.bookingHeader.create({
+    data: {
+      BookingNo: houseJob.BookingNo,
+      BookingDateTime: new Date(),
+      CompanyMasterSid: houseJob.CompanyMasterSid,
+      BranchMasterSid: houseJob.BranchMasterSid,
+      CustomerMasterSid: houseJob.CustomerMasterSid,
+      CustomerName: houseJob.CustomerName,
+      CustomerAddress: houseJob.CustomerAddress,
+      SalesmanSid: houseJob.SalesmanSid,
+      CargoExpectedon: houseJob.CargoExpectedon,
+      FreightTerms: houseJob.FreightTerms,
+      POO: houseJob.POO,
+      POL: houseJob.POL,
+      POD: houseJob.POD,
+      FPD: houseJob.FPD,
+      TsPortSid: houseJob.TsPortSid,
+      POLTerminal: houseJob.POLTerminal,
+      VoyageMasterSid: houseJob.VoyageMasterSid,
+      VesselName: houseJob.VesselName,
+      VoyageNo: houseJob.VoyageNo,
+      ETD: houseJob.ETD,
+      ETA: houseJob.ETA,
+      IncoTerms: houseJob.IncoTerms,
+      BLLocation: houseJob.BLLocation,
+      ShipperName: houseJob.ShipperName,
+      ShipperAddress: houseJob.ShipperAddress,
+      ConsigneeName: houseJob.ConsigneeName,
+      ConsigneeAddress: houseJob.ConsigneeAddress,
+      ClearanceRequire: houseJob.ClearanceRequire,
+      ShipmentType: houseJob.ShipmentType,
+      DestinationAgent: houseJob.DestinationAgent,
+      AgentName: houseJob.AgentName,
+      AgentAddress: houseJob.AgentAddress,
+      HouseNo: houseJob.HouseNo,
+      QuotationHeaderSid: houseJob.QuotationHeaderSid,
+      EnquiryHeaderSid: houseJob.EnquiryHeaderSid,
+      MovementType: houseJob.MovementType,
+      DoValid: houseJob.DoValid,
+      IsServiceJob: houseJob.IsServiceJob,
+      DepartmentMasterSid: houseJob.DepartmentMasterSid,
+      CustomerBranchSid: houseJob.CustomerBranchSid,
+      MenuMasterSid: houseJob.MenuMasterSid,
+      CarrierName: houseJob.CarrierName,
+      Coload: houseJob.Coload,
+      GeneralNote: houseJob.GeneralNote,
+      HBLNo: houseJob.HBLNo,
+      InternalNote: houseJob.InternalNote,
+      MBLDate: houseJob.MBLDate,
+      MBLNo: houseJob.MBLNo,
+      Nominated: houseJob.Nominated,
+      NominatedBy: houseJob.NominatedBy,
+      Notify: houseJob.Notify,
+      NotifyAddress: houseJob.NotifyAddress,
+      PODTerminal: houseJob.PODTerminal,
+      ShipmentNo: houseJob.ShipmentNo,
+      OriginAgent: houseJob.OriginAgent,
+      BookingStatus: houseJob.BookingStatus,
+      CarrierSid: houseJob.CarrierSid,
+      JobType: houseJob.JobType,
+      createdBy,
+      status: "A"
+    }
+  });
+
+  const bookingHeaderSid = bookingHeader.BookingHeaderSid;
+
+  // ----------------------------------------
+  // 2. Insert Cargo
+  // ----------------------------------------
+  if (houseJob.Cargo?.length) {
+    for (const c of houseJob.Cargo) {
+      await tx.bookingCargo.create({
+        data: {
+          ...c,
+          BookingHeaderSid: bookingHeaderSid,
+          createdBy
+        }
+      });
+    }
+  }
+
+  // ----------------------------------------
+  // 3. Insert Products
+  // ----------------------------------------
+  if (houseJob.Products?.length) {
+    for (const p of houseJob.Products) {
+      await tx.bookingProduct.create({
+        data: {
+          ...p,
+          BookingHeaderSid: bookingHeaderSid,
+          createdBy
+        }
+      });
+    }
+  }
+
+  // ----------------------------------------
+  // 4. Insert Others
+  // ----------------------------------------
+  if (houseJob.Others?.length) {
+    for (const o of houseJob.Others) {
+      await tx.bookingOthers.create({
+        data: {
+          ...o,
+          BookingHeaderSid: bookingHeaderSid,
+          createdBy
+        }
+      });
+    }
+  }
+
+  return {
+    bookingHeaderSid,
+    message: "Booking created successfully from Master Job"
+  };
+}
+
 
 }
