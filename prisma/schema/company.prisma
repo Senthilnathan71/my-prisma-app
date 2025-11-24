@@ -158,6 +158,9 @@ model BranchMaster {
   shipmentPrefix             String?                      @db.VarChar(20)
   HBLNoLen                   Int?
   HBLPrefix                  String?                      @db.VarChar(20)
+  BookingPrefix              String?                      @db.VarChar(20)
+  BookingNoLen               Int?
+  LastBookingNo              Int?                         @default(0)
   lastConsoleNo              Int?                         @default(0)
   lastEnquiryNo              Int?                         @default(0)
   lastHBLNo                  Int?                         @default(0)
@@ -1548,19 +1551,20 @@ model BranchBank {
 }
 
 model UserCompanyMaster {
-  UserCompanyMasterSid Int           @id @default(autoincrement()) @map("UserCompanyMasterSid")
+  UserCompanyMasterSid Int              @id @default(autoincrement()) @map("UserCompanyMasterSid")
   UserMasterSid        Int
   CompanyMasterSid     Int
-  createdOn            DateTime      @default(now()) @db.Timestamptz(6)
-  updatedOn            DateTime?     @updatedAt @db.Timestamptz(6)
+  createdOn            DateTime         @default(now()) @db.Timestamptz(6)
+  updatedOn            DateTime?        @updatedAt @db.Timestamptz(6)
   deletedAt            DateTime?
-  createdBy            String        @db.VarChar(100)
-  updatedBy            String?       @db.VarChar(100)
-  status               String?       @default("A") @db.Char(1)
-  GiveAccess           String?       @default("N") @db.Char(1)
-  IsDefault            String?       @default("N") @db.Char(1)
-  companyMaster        CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
-  userMaster           UserMaster    @relation(fields: [UserMasterSid], references: [UserMasterSid])
+  createdBy            String           @db.VarChar(100)
+  updatedBy            String?          @db.VarChar(100)
+  status               String?          @default("A") @db.Char(1)
+  GiveAccess           String?          @default("N") @db.Char(1)
+  IsDefault            String?          @default("N") @db.Char(1)
+  companyMaster        CompanyMaster    @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+  userMaster           UserMaster       @relation(fields: [UserMasterSid], references: [UserMasterSid])
+  userRoleMaster       UserRoleMaster[]
 }
 
 model PreCustomerEvent {
