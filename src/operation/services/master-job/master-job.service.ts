@@ -752,25 +752,26 @@ export class MasterJobService {
                         masterJobConnection: { where: { Status: 'A' } },
                         containers: { where: { Status: 'A' } },
                         others: { where: { Status: 'A' } },
-                        houseJob:  {
-                        where:{status : 'A',
-                        },
-                        select:{
-                            HBLNo:true,
-                            ShipperName:true,
-                            ShipperAddress:true,
-                            ConsigneeName:true,
-                            ConsigneeAddress:true,
-                            Notify:true,
-                            NotifyAddress:true,
-                            CustomerName:true,
-                            CustomerAddress:true,
-                            FreightTerms:true,
-                            Cargo: true,
-                            Products: true,
-                            Others:true,  
-                        }, 
-                    } 
+                        houseJob: {
+                            where: {
+                                status: 'A',
+                            },
+                            select: {
+                                HBLNo: true,
+                                ShipperName: true,
+                                ShipperAddress: true,
+                                ConsigneeName: true,
+                                ConsigneeAddress: true,
+                                Notify: true,
+                                NotifyAddress: true,
+                                CustomerName: true,
+                                CustomerAddress: true,
+                                FreightTerms: true,
+                                Cargo: true,
+                                Products: true,
+                                Others: true,
+                            },
+                        }
                     }
                 })
                 const allShipments = await prisma.houseJob.findMany({
@@ -828,12 +829,12 @@ export class MasterJobService {
                                 CustomerName: true
                             }
                         },
-                        chargeMaster : {
-                            select : {
-                                chargeCode : true,
-                                chargeName : true,
-                                chargeGroup : {
-                                    select : { GroupName : true}
+                        chargeMaster: {
+                            select: {
+                                chargeCode: true,
+                                chargeName: true,
+                                chargeGroup: {
+                                    select: { GroupName: true }
                                 }
                             }
                         }
@@ -3148,7 +3149,7 @@ export class MasterJobService {
         const containerTypes = containerTypeIds.length > 0
             ? await this._db.containerTypeMaster.findMany({
                 where: { ContainerTypeMasterSid: { in: containerTypeIds } }
-              })
+            })
             : [];
         const containerTypeMap = new Map(containerTypes.map(ct => [ct.ContainerTypeMasterSid, ct]));
 
@@ -3181,8 +3182,8 @@ export class MasterJobService {
                 customerName: '', // MasterJob has no customer relation - this is stored elsewhere
                 shipperName: '', // MasterJob has no shipper relation - stored as string if needed
                 consigneeName: '', // MasterJob has no consignee relation - stored as string if needed
-                vesselName: primaryVoyage?.VesselName ||'',
-                voyageNumber: primaryVoyage?.VoyageNo ||'',
+                vesselName: primaryVoyage?.VesselName || '',
+                voyageNumber: primaryVoyage?.VoyageNo || '',
                 pol: masterJob.POL || '',
                 pod: masterJob.POD || '',
                 poo: masterJob.POO || '',
@@ -3235,7 +3236,7 @@ export class MasterJobService {
         return baseData;
     }
 
-    
+
     async getMasterJobByDepartmentid(payload: any) {
         try {
             const { DepartmentMasterSid, CompanyMasterSid, BranchMasterSid } = payload;
@@ -3259,222 +3260,242 @@ export class MasterJobService {
     }
 
 
-async createBookingFromMasterJob(payload: any) {
-  // CASE 1: MULTIPLE HOUSES
-  if (payload.houses && Array.isArray(payload.houses)) {
-    const { houses, createdBy } = payload;
-    const results: any[] = [];
+    async createBookingFromMasterJob(payload: any) {
+        // CASE 1: MULTIPLE HOUSES
+        if (payload.houses && Array.isArray(payload.houses)) {
+            const { houses, createdBy } = payload;
+            const results: any[] = [];
 
-    for (const house of houses) {
-      try {
-        const result = await this._db.$transaction(async (tx) => {
-          return await this.createSingleBooking(tx, house, createdBy);
+            for (const house of houses) {
+                try {
+
+                    // ✅ Check duplicate
+                    const existingBooking = await this._db.bookingHeader.findFirst({
+                        where: {
+                            TranshipmentHouseSid: house.HouseJobSid,
+                            deletedAt: null
+                        }
+                    });
+
+                    if (existingBooking) {
+                        results.push({
+                            success: false,
+                            houseJobSid: house.HouseJobSid,
+                            message: `Booking already exists`,
+                            bookingNo: existingBooking.BookingNo
+                        });
+                        continue; // ✅ Skip creation
+                    }
+
+
+                    const result = await this._db.$transaction(async (tx) => {
+                        return await this.createSingleBooking(tx, house, createdBy);
+                    });
+                    results.push({ success: true, ...result });
+                } catch (error) {
+                    results.push({
+                        success: false,
+                        houseJobSid: house.HouseJobSid,
+                        error: error.message
+                    });
+                }
+            }
+
+            // ✅ Return standardized response
+            return results;
+        }
+
+        // CASE 2: SINGLE HOUSEJOB SID
+        return await this._db.$transaction(async (tx) => {
+            const { houseJobSid, createdBy } = payload;
+
+            const houseJob = await tx.houseJob.findFirst({
+                where: { HouseJobSid: houseJobSid, deletedAt: null },
+                include: {
+                    Cargo: true,
+                    Products: true,
+                    Others: true,
+                }
+            });
+
+            if (!houseJob) {
+                throw new BadRequestException("House Job not found");
+            }
+
+            if (houseJob.JobType !== 'Transhipment') {
+                throw new BadRequestException("Only Transhipment job can create booking");
+            }
+
+            const result = await this.createSingleBooking(tx, houseJob, createdBy);
+            return { success: true, ...result };
         });
-        results.push({ success: true, ...result });
-      } catch (error) {
-        results.push({ 
-          success: false, 
-          houseJobSid: house.HouseJobSid,
-          error: error.message 
+    }
+
+
+    private async createSingleBooking(tx, houseJob, createdBy: string) {
+
+        // ----------------------------------------
+        // 1. Create Booking Header
+        // ----------------------------------------
+        const dateString = moment().format('YYYYMMDD');
+        const count = await this._db.bookingHeader.count({
+            where: { BookingNo: { contains: dateString } }
+        })
+        const BookingNo = `booking-${dateString}-${(count + 1).toString().padStart(3, '0')}`;
+        const bookingHeader = await tx.bookingHeader.create({
+            data: {
+                BookingNo: BookingNo,
+                BookingDateTime: moment().toDate(),
+                TranshipmentHouseSid: houseJob.HouseJobSid,
+                CompanyMasterSid: houseJob.CompanyMasterSid,
+                BranchMasterSid: houseJob.BranchMasterSid,
+                CustomerMasterSid: houseJob.CustomerMasterSid,
+                CustomerName: houseJob.CustomerName,
+                CustomerAddress: houseJob.CustomerAddress,
+                SalesmanSid: houseJob.SalesmanSid,
+                CargoExpectedon: houseJob.CargoExpectedon,
+                FreightTerms: houseJob.FreightTerms,
+                POO: houseJob.POO,
+                POL: houseJob.POL,
+                POD: houseJob.POD,
+                FPD: houseJob.FPD,
+                TsPortSid: houseJob.TsPortSid,
+                POLTerminal: houseJob.POLTerminal,
+                VoyageMasterSid: houseJob.VoyageMasterSid,
+                VesselName: houseJob.VesselName,
+                VoyageNo: houseJob.VoyageNo,
+                ETD: houseJob.ETD,
+                ETA: houseJob.ETA,
+                IncoTerms: houseJob.IncoTerms,
+                BLLocation: houseJob.BLLocation,
+                ShipperName: houseJob.ShipperName,
+                ShipperAddress: houseJob.ShipperAddress,
+                ConsigneeName: houseJob.ConsigneeName,
+                ConsigneeAddress: houseJob.ConsigneeAddress,
+                ClearanceRequire: houseJob.ClearanceRequire,
+                ShipmentType: houseJob.ShipmentType,
+                DestinationAgent: houseJob.DestinationAgent,
+                AgentName: houseJob.AgentName,
+                AgentAddress: houseJob.AgentAddress,
+                HouseNo: houseJob.HouseNo,
+                QuotationHeaderSid: houseJob.QuotationHeaderSid,
+                EnquiryHeaderSid: houseJob.EnquiryHeaderSid,
+                MovementType: houseJob.MovementType,
+                DoValid: houseJob.DoValid,
+                IsServiceJob: houseJob.IsServiceJob,
+                DepartmentMasterSid: houseJob.DepartmentMasterSid,
+                CustomerBranchSid: houseJob.CustomerBranchSid,
+                MenuMasterSid: houseJob.MenuMasterSid,
+                CarrierName: houseJob.CarrierName,
+                Coload: houseJob.Coload,
+                GeneralNote: houseJob.GeneralNote,
+                HBLNo: houseJob.HBLNo,
+                InternalNote: houseJob.InternalNote,
+                MBLDate: houseJob.MBLDate,
+                MBLNo: houseJob.MBLNo,
+                Nominated: houseJob.Nominated,
+                NominatedBy: houseJob.NominatedBy,
+                Notify: houseJob.Notify,
+                NotifyAddress: houseJob.NotifyAddress,
+                PODTerminal: houseJob.PODTerminal,
+                ShipmentNo: houseJob.ShipmentNo,
+                OriginAgent: houseJob.OriginAgent,
+                BookingStatus: houseJob.BookingStatus,
+                CarrierSid: houseJob.CarrierSid,
+                JobType: houseJob.JobType,
+                createdBy,
+                status: "A"
+            }
         });
-      }
-    }
 
-    // ✅ Return standardized response
-    return results;
-  }
+        const bookingHeaderSid = bookingHeader.BookingHeaderSid;
 
-  // CASE 2: SINGLE HOUSEJOB SID
-  return await this._db.$transaction(async (tx) => {
-    const { houseJobSid, createdBy } = payload;
+        // ----------------------------------------
+        // 2. Insert Cargo
+        // ----------------------------------------
+        if (houseJob.Cargo?.length) {
+            for (const c of houseJob.Cargo) {
+                const {
+                    HouseJobCargoSid,
+                    HouseJobSid,
+                    CommodityDescription,
+                    MarksAndNumber,
+                    ...cargoData
+                } = c;
 
-    const houseJob = await tx.houseJob.findFirst({
-      where: { HouseJobSid: houseJobSid, deletedAt: null },
-      include: {
-        Cargo: true,
-        Products: true,
-        Others: true,
-      }
-    });
-
-    if (!houseJob) {
-      throw new BadRequestException("House Job not found");
-    }
-
-    if (houseJob.JobType !== 'Transhipment') {
-      throw new BadRequestException("Only Transhipment job can create booking");
-    }
-
-    const result = await this.createSingleBooking(tx, houseJob, createdBy);
-    return { success: true, ...result };
-  });
-}
-
-
-private async createSingleBooking(tx, houseJob, createdBy: string) {
-
-  // ----------------------------------------
-  // 1. Create Booking Header
-  // ----------------------------------------
-    const dateString = moment().format('YYYYMMDD');
-    const count = await this._db.bookingHeader.count({
-        where: { BookingNo: { contains: dateString } }
-    })
-    const BookingNo = `booking-${dateString}-${(count + 1).toString().padStart(3, '0')}`;
-  const bookingHeader = await tx.bookingHeader.create({
-    data: {
-      BookingNo: BookingNo,
-      BookingDateTime: moment().toDate(),
-      TranshipmentHouseSid: houseJob.HouseJobSid,
-      CompanyMasterSid: houseJob.CompanyMasterSid,
-      BranchMasterSid: houseJob.BranchMasterSid,
-      CustomerMasterSid: houseJob.CustomerMasterSid,
-      CustomerName: houseJob.CustomerName,
-      CustomerAddress: houseJob.CustomerAddress,
-      SalesmanSid: houseJob.SalesmanSid,
-      CargoExpectedon: houseJob.CargoExpectedon,
-      FreightTerms: houseJob.FreightTerms,
-      POO: houseJob.POO,
-      POL: houseJob.POL,
-      POD: houseJob.POD,
-      FPD: houseJob.FPD,
-      TsPortSid: houseJob.TsPortSid,
-      POLTerminal: houseJob.POLTerminal,
-      VoyageMasterSid: houseJob.VoyageMasterSid,
-      VesselName: houseJob.VesselName,
-      VoyageNo: houseJob.VoyageNo,
-      ETD: houseJob.ETD,
-      ETA: houseJob.ETA,
-      IncoTerms: houseJob.IncoTerms,
-      BLLocation: houseJob.BLLocation,
-      ShipperName: houseJob.ShipperName,
-      ShipperAddress: houseJob.ShipperAddress,
-      ConsigneeName: houseJob.ConsigneeName,
-      ConsigneeAddress: houseJob.ConsigneeAddress,
-      ClearanceRequire: houseJob.ClearanceRequire,
-      ShipmentType: houseJob.ShipmentType,
-      DestinationAgent: houseJob.DestinationAgent,
-      AgentName: houseJob.AgentName,
-      AgentAddress: houseJob.AgentAddress,
-      HouseNo: houseJob.HouseNo,
-      QuotationHeaderSid: houseJob.QuotationHeaderSid,
-      EnquiryHeaderSid: houseJob.EnquiryHeaderSid,
-      MovementType: houseJob.MovementType,
-      DoValid: houseJob.DoValid,
-      IsServiceJob: houseJob.IsServiceJob,
-      DepartmentMasterSid: houseJob.DepartmentMasterSid,
-      CustomerBranchSid: houseJob.CustomerBranchSid,
-      MenuMasterSid: houseJob.MenuMasterSid,
-      CarrierName: houseJob.CarrierName,
-      Coload: houseJob.Coload,
-      GeneralNote: houseJob.GeneralNote,
-      HBLNo: houseJob.HBLNo,
-      InternalNote: houseJob.InternalNote,
-      MBLDate: houseJob.MBLDate,
-      MBLNo: houseJob.MBLNo,
-      Nominated: houseJob.Nominated,
-      NominatedBy: houseJob.NominatedBy,
-      Notify: houseJob.Notify,
-      NotifyAddress: houseJob.NotifyAddress,
-      PODTerminal: houseJob.PODTerminal,
-      ShipmentNo: houseJob.ShipmentNo,
-      OriginAgent: houseJob.OriginAgent,
-      BookingStatus: houseJob.BookingStatus,
-      CarrierSid: houseJob.CarrierSid,
-      JobType: houseJob.JobType,
-      createdBy,
-      status: "A"
-    }
-  });
-
-  const bookingHeaderSid = bookingHeader.BookingHeaderSid;
-
-  // ----------------------------------------
-  // 2. Insert Cargo
-  // ----------------------------------------
-  if (houseJob.Cargo?.length) {
-    for (const c of houseJob.Cargo) {
-      const {
-        HouseJobCargoSid,
-        HouseJobSid,
-        CommodityDescription,
-        MarksAndNumber,
-        ...cargoData
-      } = c;
-
-      await tx.bookingCargo.create({
-        data: {
-          ...cargoData,
-          BookingHeaderSid: bookingHeaderSid,
-          createdBy
+                await tx.bookingCargo.create({
+                    data: {
+                        ...cargoData,
+                        BookingHeaderSid: bookingHeaderSid,
+                        createdBy
+                    }
+                });
+            }
         }
-      });
-    }
-  }
 
-  // ----------------------------------------
-  // 3. Insert Products
-  // ----------------------------------------
-  if (houseJob.Products?.length) {
-    for (const p of houseJob.Products) {
-      const {
-        HouseJobProductSid,
-        HouseJobSid,
-        DeliveredQty,
-        DeliveryDate,
-        MarksAndNumber,
-        ContainerNo,
-        ...productData
-      } = p;
+        // ----------------------------------------
+        // 3. Insert Products
+        // ----------------------------------------
+        if (houseJob.Products?.length) {
+            for (const p of houseJob.Products) {
+                const {
+                    HouseJobProductSid,
+                    HouseJobSid,
+                    DeliveredQty,
+                    DeliveryDate,
+                    MarksAndNumber,
+                    ContainerNo,
+                    ...productData
+                } = p;
 
-      await tx.bookingProduct.create({
-        data: {
-          ...productData,
-          BookingHeaderSid: bookingHeaderSid,
-          createdBy
+                await tx.bookingProduct.create({
+                    data: {
+                        ...productData,
+                        BookingHeaderSid: bookingHeaderSid,
+                        createdBy
+                    }
+                });
+            }
         }
-      });
-    }
-  }
 
-  // ----------------------------------------
-  // 4. Insert Others
-  // ----------------------------------------
-  if (houseJob.Others?.length) {
-    for (const o of houseJob.Others) {
-      const {
-        HouseJobOthersSid,
-        HouseJobSid,
-        DONo,
-        DODate,
-        InternalNote,
-        ExternalNote,
-        ...othersData
-      } = o;
+        // ----------------------------------------
+        // 4. Insert Others
+        // ----------------------------------------
+        if (houseJob.Others?.length) {
+            for (const o of houseJob.Others) {
+                const {
+                    HouseJobOthersSid,
+                    HouseJobSid,
+                    DONo,
+                    DODate,
+                    InternalNote,
+                    ExternalNote,
+                    ...othersData
+                } = o;
 
-      await tx.bookingOthers.create({
-        data: {
-          ...othersData,
-          BookingHeaderSid: bookingHeaderSid,
-          createdBy
+                await tx.bookingOthers.create({
+                    data: {
+                        ...othersData,
+                        BookingHeaderSid: bookingHeaderSid,
+                        createdBy
+                    }
+                });
+            }
         }
-      });
+
+        const updateHouseJob = await this._db.houseJob.update({
+            where: {
+                HouseJobSid: houseJob.HouseJobSid
+            }, data: {
+                TranshipmentBookingSid: bookingHeader.BookingHeaderSid
+            }
+        })
+
+        return {
+            bookingHeader,
+            message: "Booking created successfully from Master Job"
+        };
     }
-  }
-
-//   const updateHouseJob = await this._db.houseJob.update({
-//     where:{
-//         HouseJobSid:houseJob.HouseJobSid
-//     },data:{
-//         TranshipmentBookingSid: bookingHeader.BookingHeaderSid
-//     }
-//   })
-
-  return {
-    bookingHeader,
-    message: "Booking created successfully from Master Job"
-  };
-}
 
 
 }
