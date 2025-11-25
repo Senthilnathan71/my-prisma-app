@@ -2747,6 +2747,7 @@ model HouseJob {
   HBLDate                    DateTime?
   JobType                    String?                      @db.VarChar(12)
   HBLType                    String?                      @db.VarChar(12)
+  TranshipmentBookingSid     Int?                         //Booking Creation from housejob If Transhipment and LCL Export
   ActivityResourceAllocation ActivityResourceAllocation[]
   bookingHeader              BookingHeader?               @relation(fields: [BookingHeaderSid], references: [BookingHeaderSid])
   bookingRates               BookingRates?                @relation(fields: [BookingRateSid], references: [BookingRatesSid])

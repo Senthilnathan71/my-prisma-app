@@ -430,11 +430,17 @@ export class FfUserMasterService {
 
 
     async searchFfUserNew(params: filterDto) {
-        const { search = '', page = 1, pageSize = 15 } = params;
+        const { search = '', page = 1, pageSize = 15,activeCompanyId } = params;
         const skip = (page - 1) * pageSize;
 
         const where: Prisma.UserMasterWhereInput = {
             status: statusWhereClause,
+            userCompanyMaster : {
+                some : {
+                    CompanyMasterSid : activeCompanyId,
+                    status : statusWhereClause
+                }
+            },
             ...(search
                 ? {
                     OR: [

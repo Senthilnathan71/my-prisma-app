@@ -107,7 +107,7 @@ export class YearController {
             resp.data = res;
             resp.message = `Year with id : ${userEmail} is successfully fetched`;
         } catch (error) {
-            this.logger.warn(`Get Year by Id Error : ${JSON.stringify(error)}`);
+            this.logger.warn(`Get Year by Id Error : ${JSON.stringify(error),error}`);
             resp.status = false;
             if (error instanceof BadRequestException || error instanceof UnauthorizedException || error instanceof NotFoundException) {
                 resp.message = error.message;

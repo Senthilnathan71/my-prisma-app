@@ -730,7 +730,7 @@ export class PaymentService {
             if (search) {
                 where.OR = [
                     { VoucherNumber: { contains: search, mode: 'insensitive' } },
-                    // { CashOrBank: { contains: normalizedCashBank, mode: 'insensitive' } },
+                    { CashOrBank: { contains: normalizedCashBank, mode: 'insensitive' } },
                     { PartyName: { contains: search, mode: 'insensitive' } },
                     { CurrencyCode: { contains: search, mode: 'insensitive' } },
                     { PostStatus: { contains: search, mode: 'insensitive' } },
@@ -772,6 +772,22 @@ export class PaymentService {
         } catch (error) {
             this.logger.error(`Error searching payments: ${error.message}`);
             throw new InternalServerErrorException('Failed to search payments');
+        }
+    }
+
+    async deletePayment(VoucherHeaderSid: number) {
+        try {
+            const payment = await this._db.voucherHeader.update({
+                where: {
+                    VoucherHeaderSid: VoucherHeaderSid
+                },
+                data : {
+                    Status : 'D'
+                }
+            })
+            return payment;
+        } catch (error) {
+            throw error;
         }
     }
 

@@ -149,8 +149,13 @@ export class MenuService {
             const menuList = await this._db.menuMaster.findMany({
                 where: {
                     status: 'A',
-                    roleMenuMaster: {
-                        some: { RoleMasterSid: { in: roleIds } },
+                    RoleMenuDetail: {
+                        some: {
+                            RoleMenuHeader: {
+                                RoleMasterSid : { in: roleIds }
+                            },
+                            status: 'A'
+                        },
                     },
                 },
             });

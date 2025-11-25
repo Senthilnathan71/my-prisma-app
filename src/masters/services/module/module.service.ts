@@ -467,10 +467,29 @@ export class ModuleService {
         }))
         .filter(menu => menu && menu.moduleMaster);
 
+      const distinctMenusMap = new Map<number, any>();
+
+      for (const menu of flatMenus) {
+        if (!distinctMenusMap.has(menu.MenuMasterSid)) {
+          distinctMenusMap.set(menu.MenuMasterSid, menu);
+        } else {
+          const existing = distinctMenusMap.get(menu.MenuMasterSid);
+          existing.permissions = {
+            add: existing.permissions.add || menu.permissions.add,
+            edit: existing.permissions.edit || menu.permissions.edit,
+            view: existing.permissions.view || menu.permissions.view,
+            delete: existing.permissions.delete || menu.permissions.delete,
+          };
+        }
+      }
+
+      const finalMenus = Array.from(distinctMenusMap.values());
+
+
       // 🔹 Step 3: Group menus by module
       const moduleMap = new Map<number, RouteInfo>();
 
-      for (const menu of flatMenus) {
+      for (const menu of finalMenus) {
         const module = menu.moduleMaster;
 
         if (!moduleMap.has(module.ModuleMasterSid)) {
@@ -491,7 +510,7 @@ export class ModuleService {
       // 🔹 Step 4: Build parent-child menu relationships (per module)
       const menusByModule = new Map<number, Map<number | null, any[]>>();
 
-      for (const menu of flatMenus) {
+      for (const menu of finalMenus) {
         const moduleId = menu.moduleMaster.ModuleMasterSid;
 
         if (!menusByModule.has(moduleId)) {

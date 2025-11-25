@@ -67,6 +67,7 @@ model BookingHeader {
   BookingStatus              String?                      @db.VarChar(100)
   CarrierSid                 Int?
   JobType                    String?                      @db.VarChar(12)
+  TranshipmentHouseSid       Int?                         //HouseJobSid If Transhipment and LCL Export
   ActivityResourceAllocation ActivityResourceAllocation[]
   bookingCargo               BookingCargo[]
   bookingConnection          BookingConnection[]

@@ -29,6 +29,7 @@ import { ResponseData } from 'src/common/response-data';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 import { PaymentService } from 'src/accounts/services/payment/payment.service';
 import { OutstandingInvoiceDto, SearchOutstandingDto } from 'src/accounts/dto/receipt.dto';
+import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
 
 /**
  * Payment Voucher Controller
@@ -197,5 +198,35 @@ export class PaymentController {
     }
     return resp;
   }
+
+  @ApiOperation({ summary : 'Delete payment voucher' })
+  @ApiCreatedResponse({
+    description: 'Deleted payment voucher',
+    type: ResponseData,
+  })
+  @Delete('delete/:VoucherHeaderSid')
+  @HttpCode(HttpStatus.OK)
+  async deletePayment(
+    @Param('VoucherHeaderSid',ParseIntPipe) VoucherHeaderSid: number,
+  ){
+    let resp = new ResponseData();
+    this.logger.log(`Deleting payment voucher ${VoucherHeaderSid}`);
+    try {
+      const payment = await this.paymentService.deletePayment(VoucherHeaderSid);
+      this.logger.log(`Payment voucher deleted successfully: ${payment.VoucherHeaderSid}`);
+      resp.data = payment;
+      resp.message = "Payment voucher deleted successfully";
+    } catch (error) {
+      this.logger.error(`Failed to delete payment voucher: ${error.message}`, error.stack);
+      resp.status = false;
+      if(error instanceof BadRequestException || error instanceof UnauthorizedException){
+        resp.message = error.message;
+      } else {
+        resp.message = " Internal Server Error";
+      }
+    }
+    return resp;
+  }
+
 
 }
