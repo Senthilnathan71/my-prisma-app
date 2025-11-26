@@ -685,7 +685,12 @@ export class CustomerService {
                     CompanyMasterSid: CompanyMasterSid
                 },
                 include: {
-                    CustomerBranch: true
+                    CustomerBranch: true,
+                    countryMaster : {
+                        select:{
+                            countryName : true
+                        }
+                    }
                 }
             });
             const formattedCustomerList = customerList.flatMap(customer => {
@@ -695,8 +700,11 @@ export class CustomerService {
                     CustomerName: customer.CustomerName,
                     BranchName: branch.BranchName,
                     Address: branch.Address,
-                    Email: branch.Email
-                }))
+                    Email: branch.Email,
+                    PanType: customer.PanType,
+                    CompanyType: customer.CompanyType,
+                    CountryName: customer.countryMaster?.countryName,
+                }));
                 return cusBranches;
             })
             return formattedCustomerList;
@@ -1499,34 +1507,34 @@ export class CustomerService {
     //     }
     // }
 
-    // async getAllSuppliers(CompanyMasterSid: number) {
-    //     try {
-    //         const suppliers = ['vendor', 'transporter', 'agent'];
-    //         const allSuppliers = await this._db.customerMaster.findMany({
-    //             where: {
-    //                 OR: suppliers.map(type => ({
-    //                     CustomerType: {
-    //                         path: [type],
-    //                         equals: 'isTrue',
-    //                     },
-    //                 })),
-    //                 status: 'A',
-    //                 CompanyMasterSid: CompanyMasterSid
-    //             },
-    //             include: {
-    //                 countryMaster: {
-    //                     select: {
-    //                         countryName: true
-    //                     }
-    //                 }
-    //             }
-    //         });
+    async getAllSuppliers(CompanyMasterSid: number) {
+        try {
+            const suppliers = ['vendor', 'transporter', 'agent'];
+            const allSuppliers = await this._db.customerMaster.findMany({
+                where: {
+                    OR: suppliers.map(type => ({
+                        CustomerType: {
+                            path: [type],
+                            equals: 'isTrue',
+                        },
+                    })),
+                    status: 'A',
+                    CompanyMasterSid: CompanyMasterSid
+                },
+                include: {
+                    countryMaster: {
+                        select: {
+                            countryName: true
+                        }
+                    }
+                }
+            });
 
-    //         return allSuppliers;
-    //     } catch (error) {
-    //         throw error;
-    //     }
-    // }
+            return allSuppliers;
+        } catch (error) {
+            throw error;
+        }
+    }
     async getAuditLogs(tableName: string, recordId?: string) {
         try {
             const whereClause: any = { tableName };

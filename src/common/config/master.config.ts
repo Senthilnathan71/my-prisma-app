@@ -13,7 +13,7 @@ export const MASTER_CONFIG = {
     },
     customer_master: {
         model: 'customerMaster',
-        select: { CustomerMasterSid: true, CustomerName: true, CustomerShortCode: true, PanName : true,CountryMasterSid:true },
+        select: { CustomerMasterSid: true, CustomerName: true, CustomerShortCode: true, PanType : true,CountryMasterSid:true },
         companyKey: 'CompanyMasterSid',
         primaryKey: 'CustomerMasterSid',
     },
