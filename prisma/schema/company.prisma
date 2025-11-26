@@ -2475,6 +2475,8 @@ model Followup {
   Status           String?       @default("A") @db.Char(1)
   DocumentSid      Int?
   AttachDocmentNo  String?       @db.VarChar(20)
+  InternalUser     String?       @db.VarChar(200)
+  ExternalUser     String?       @db.VarChar(200)
   DocumentDate     DateTime?     @db.Date
   FileName         String?       @db.VarChar(30)
   Documenttype     String?       @db.VarChar(20)
@@ -2851,6 +2853,7 @@ model HouseJobProduct {
   MarksAndNumber     String?    @db.VarChar(200)
   ContainerNo        String?    @db.VarChar(11)
   Volumetric         Decimal?   @db.Decimal(10, 3)
+  HSCode		         String?     @db.VarChar(10)
   HouseJob           HouseJob   @relation(fields: [HouseJobSid], references: [HouseJobSid])
   uomMaster          UOMMaster? @relation(fields: [UomMasterSid], references: [UOMMasterSid])
 }

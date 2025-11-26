@@ -185,7 +185,8 @@ export class HouseJobService {
                         NotifyAddress : payload.NotifyAddress || '',
                         PODTerminal : payload.PODTerminal || '',
                         ShipmentNo : payload.ShipmentNo || '',
-                        OriginAgent : payload.OriginAgent || ''
+                        OriginAgent : payload.OriginAgent || '',
+                        JobType: payload.JobType
                     }
                 })
             })
@@ -215,6 +216,7 @@ export class HouseJobService {
                             GrossWeight: Number(cargoPayload.GrossWeight) ,
                             NetWeight: Number(cargoPayload.NetWeight) ,
                             Volume: Number(cargoPayload.Volume) ,
+                            
                             ChargeableWeight: Number(cargoPayload.ChargeableWeight) || 0,
                             PackageType: cargoPayload.PackageType ,
                             Qty: Number(cargoPayload.Qty) ,
@@ -452,7 +454,7 @@ export class HouseJobService {
                         SwitchLocation: otherPayload.SwitchLocation || '',
                         Depo: otherPayload.Depo,
                         DONo: otherPayload.DONo || '', 
-                        DODate: otherPayload.DoDate ? new Date(otherPayload.DODate) : null,
+                        DODate: otherPayload.DODate ? new Date(otherPayload.DODate) : null,
                         status: 'A',
                         updatedBy: payload.updatedBy || null,
                     }
@@ -460,7 +462,7 @@ export class HouseJobService {
             } else {
                 finalHouseJobOthers = await this._db.houseJobOthers.create({
                     data: {
-                        HouseJobSid: Number(HouseJobSid),
+                       
                         CustomerRefNo: otherPayload.CustomerRefNo || '',
                         OperationUser : otherPayload.OperationUser || '',
                         DocumentationUser: otherPayload.DocumentationUser || '',
@@ -479,7 +481,7 @@ export class HouseJobService {
                         DeliveryPlace: otherPayload.DeliveryPlace || '',
                         DeliveryDate: otherPayload.DeliveryDate || "",
                         DeliveryAddress: otherPayload.DeliveryAddress || '',
-                        CargoCurrency: otherPayload.CargoCurrency ,
+                        CargoCurrency: otherPayload.CargoCurrency || '' ,
                         CargoValue: Number(otherPayload.CargoValue) || 0,
                         DeliveryMode: otherPayload.DeliveryMode || '',
                         ExternalRemarks: otherPayload.ExternalRemarks || '',
@@ -503,9 +505,15 @@ export class HouseJobService {
                         SwitchLocation: otherPayload.SwitchLocation || '',
                         Depo: otherPayload.Depo,
                         DONo: otherPayload.DONo || '', 
-                        DODate: otherPayload.DoDate ? new Date(otherPayload.DODate) : null,
+                        DODate: otherPayload.DODate ? new Date(otherPayload.DODate) : null,
                         status: 'A',
                         createdBy: payload.updatedBy || null,
+                         HouseJob: {
+            connect: {
+              HouseJobSid: HouseJobSid
+            }
+          }
+                        
                     }
                     
                 })
@@ -639,6 +647,67 @@ export class HouseJobService {
                     }
                     finalCharges.push(createdCharge || updatedCharge);
                 }
+                 const finalHouseJobBOE: any[] = [];
+      const houseJobBOEPayload = payload.houseJobBOE || [];
+
+      if (houseJobBOEPayload.length > 0) {
+        for (const boe of houseJobBOEPayload) {
+          let createdBOE;
+          let updatedBOE;
+          
+          if (boe.HouseJobBOESid) {
+            // Update existing BOE
+            updatedBOE = await this._db.houseJobBOE.update({
+              where: {
+                HouseJobBOESid: boe.HouseJobBOESid
+              },
+              data: {
+                Sno: boe.Sno,
+                DeclarationNo: boe.DeclarationNo || '',
+                BOENo: boe.BOENo || '',
+                BOEDate: boe.BOEDate ? new Date(boe.BOEDate) : null,
+                BOEValue: boe.BOEValue ? Number(boe.BOEValue) : null,
+                BOEInvoiceValue: boe.BOEInvoiceValue ? Number(boe.BOEInvoiceValue) : null,
+                TransactionType: boe.TransactionType || '',
+                Amount: boe.Amount ? Number(boe.Amount) : null,
+                ProcessDate: boe.ProcessDate ? new Date(boe.ProcessDate) : null,
+                ReceivedDate: boe.ReceivedDate ? new Date(boe.ReceivedDate) : null,
+                AckNumber: boe.AckNumber || '',
+                AckDate: boe.AckDate ? new Date(boe.AckDate) : null,
+                AckStatus: boe.AckStatus || '',
+                Remarks: boe.Remarks || '',
+                UpdatedBy: payload.UpdatedBy,
+                Status: 'A'
+              }
+            });
+          } else {
+            // Create new BOE
+            createdBOE = await this._db.houseJobBOE.create({
+              data: {
+                HouseJobSid: HouseJobSid,
+                CompanyMasterSid: payload.CompanyMasterSid,
+                Sno: boe.Sno,
+                DeclarationNo: boe.DeclarationNo || '',
+                BOENo: boe.BOENo || '',
+                BOEDate: boe.BOEDate ? new Date(boe.BOEDate) : null,
+                BOEValue: boe.BOEValue ? Number(boe.BOEValue) : null,
+                BOEInvoiceValue: boe.BOEInvoiceValue ? Number(boe.BOEInvoiceValue) : null,
+                TransactionType: boe.TransactionType || '',
+                Amount: boe.Amount ? Number(boe.Amount) : null,
+                ProcessDate: boe.ProcessDate ? new Date(boe.ProcessDate) : null,
+                ReceivedDate: boe.ReceivedDate ? new Date(boe.ReceivedDate) : null,
+                AckNumber: boe.AckNumber || '',
+                AckDate: boe.AckDate ? new Date(boe.AckDate) : null,
+                AckStatus: boe.AckStatus || '',
+                Remarks: boe.Remarks || '',
+                CreatedBy: payload.UpdatedBy,
+                Status: 'A'
+              }
+            });
+          }
+          finalHouseJobBOE.push(updatedBOE || createdBOE);
+        }
+      }
 
            return {
                 houseJob: updatedHouseJob,
@@ -646,6 +715,7 @@ export class HouseJobService {
                 houseJobProduct: finalHouseJobProduct,
                 houseConnections: finalHouseConnections,
                 houseJobOthers: finalHouseJobOthers,
+                houseJobBOE: finalHouseJobBOE,
                 bookingRates: finalCharges,
                 costRevenueCharges: finalCharges
             };
