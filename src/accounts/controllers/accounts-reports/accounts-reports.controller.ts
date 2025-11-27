@@ -78,10 +78,11 @@ export class AccountsReportsController {
     try {
       this.logger.log(`generateReport: ${reportName} with parameters: ${JSON.stringify(parameters)}`);
       const reportData = await this.accountsReportsService.generateReport(reportName, parameters);
+      this.logger.debug(`generated reportData: ${JSON.stringify(reportData)}`);
       resp.data = reportData;
       resp.message = `${reportName} generated successfully`;
     } catch (error) {
-      this.logger.warn(`generateReportError: ${JSON.stringify(error)}`);
+      this.logger.warn(`generateReportError: ${JSON.stringify(error),error}`);
       resp.status = false;
       resp.message = error instanceof BadRequestException || error instanceof UnauthorizedException
         ? error.message

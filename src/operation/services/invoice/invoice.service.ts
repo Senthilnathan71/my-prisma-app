@@ -408,6 +408,7 @@ export class InvoiceService {
           PostDate: payload.PostDate ? new Date(payload.PostDate) : existingVoucher.PostDate,
           PartyMasterSid: payload.PartyMasterSid ? Number(payload.PartyMasterSid) : existingVoucher.PartyMasterSid,
           PartyName: payload.PartyName != null ? (resolvedPartyNameForUpdate ?? String(payload.PartyName)) : existingVoucher.PartyName,
+          COAMasterSid : payload.COAMasterSid ? Number(payload.COAMasterSid) : existingVoucher.COAMasterSid,
           PartyAddress: payload.PartyAddress || existingVoucher.PartyAddress,
           CustomerBranchSid: payload.CustomerBranchSid || existingVoucher.CustomerBranchSid,
           PlaceOfSupply: payload.PlaceOfSupply || existingVoucher.PlaceOfSupply,
