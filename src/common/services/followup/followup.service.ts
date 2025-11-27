@@ -40,6 +40,7 @@ export class FollowupService {
                 }
             }); 
             if (followupCreate.sentEmail && followup.Status === "A" && mailContent) {
+                await this.sendSpecificFollowupEmail(followup.FollowupSid, mailContent)
                 await this.scheduleFollowupEmail(followup.FollowupSid, followupCreate.FollowupDate, mailContent);
             }
 

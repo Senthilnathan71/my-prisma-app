@@ -178,14 +178,16 @@ export class EmailService {
                 cc: data.cc,
                 subject: data.subject,
                 html: data.html,
-                attachments: [
+            };
+            if(data.file){
+                mailOptions['attachments']=[
                     {
                         filename: data.file.originalname,
                         content: data.file.buffer,
                         contentType: data.file.mimetype,
                     }
                 ]
-            };
+            }
             const info = await this.transporter.sendMail(mailOptions);
             this.logger.log(`sendFollowupEmail: ${JSON.stringify(info)}`);
             return true;
