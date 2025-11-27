@@ -190,6 +190,8 @@ export class MasterJobService {
                         Coload: otherFormValue?.Coload,
                         CoLoader: otherFormValue?.CoLoader,
                         ExportDoNo: otherFormValue?.ExportDoNo,
+                        CarrierRef: otherFormValue?.CarrierRef,
+                        AgentRef: otherFormValue?.AgentRef,
                         ExportDoDate: otherFormValue?.ExportDoDate ? new Date(otherFormValue?.ExportDoDate) : null,
                         SOBDate: otherFormValue?.SOBDate ? new Date(otherFormValue?.SOBDate) : null,
                     }
@@ -1054,6 +1056,8 @@ export class MasterJobService {
                         Coload: otherFormValue?.Coload,
                         CoLoader: otherFormValue?.CoLoader,
                         ExportDoNo: otherFormValue?.ExportDoNo,
+                        CarrierRef: otherFormValue?.CarrierRef,
+                        AgentRef: otherFormValue?.AgentRef,
                         ExportDoDate: otherFormValue?.ExportDoDate ? new Date(otherFormValue?.ExportDoDate) : null,
                         SOBDate: otherFormValue?.SOBDate ? new Date(otherFormValue?.SOBDate) : null,
                     }
@@ -1084,6 +1088,8 @@ export class MasterJobService {
                         Coload: otherFormValue?.Coload,
                         CoLoader: otherFormValue?.CoLoader,
                         ExportDoNo: otherFormValue?.ExportDoNo,
+                        CarrierRef: otherFormValue?.CarrierRef,
+                        AgentRef: otherFormValue?.AgentRef,
                         ExportDoDate: otherFormValue?.ExportDoDate ? new Date(otherFormValue?.ExportDoDate) : null,
                         SOBDate: otherFormValue?.SOBDate ? new Date(otherFormValue?.SOBDate) : null,
                     }
@@ -1325,6 +1331,19 @@ export class MasterJobService {
 
                 return {
                     ...updatedMasterJob,
+                    containerActivities: finalContainerActivities,
+                    allCostRevenueCharges: finalCharges,
+                    allActivities: finalContainerActivities,
+                    finalOthers: finalOthers,
+                    allContainers: finalMasterJobContainers,
+                    allConnections: finalConnections,
+                    MasterJobVoyageSid: finalVoyage,
+
+                    
+
+                   
+
+                    
                 }
             });
             // SHIPMENT PART
@@ -2545,6 +2564,8 @@ export class MasterJobService {
                             InternalNote: others.InternalNote,
                             CFS: others.CFS,
                             CFSAddress: others.CFSAddress,
+                            CarrierRef: others.CarrierRef,
+                            AgentRef: others.AgentRef,
                             StuffingStartDate: parseDate(others.StuffingStartDate),
                             StuffingEndDate: parseDate(others.StuffingEndDate),
                             CurrencyCode: others.CurrencyCode,

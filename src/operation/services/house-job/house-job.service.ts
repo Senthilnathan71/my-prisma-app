@@ -301,6 +301,7 @@ export class HouseJobService {
                                 status: product.status ? String(product.status).charAt(0) : 'A',
                                 Height: product.Height || 0,
                                 Volumetric: Number(product.Volumetric) || 0,
+                                HSCode: product.HSCode || '',
                                 ImcoClass: product.ImcoClass || '',
                                 IsHaz: product.IsHaz || 'N',
                                 Length: product.Length || 0,
@@ -336,6 +337,7 @@ export class HouseJobService {
                                 status: product.status ? String(product.status).charAt(0) : 'A',
                                 Height: product.Height || 0,
                                 Volumetric: Number(product.Volumetric) || 0,
+                                HSCode: product.HSCode || '',
                                 ImcoClass: product.ImcoClass || '',
                                 IsHaz: product.IsHaz || 'N',
                                 Length: product.Length || 0,
@@ -662,7 +664,7 @@ export class HouseJobService {
                 HouseJobBOESid: boe.HouseJobBOESid
               },
               data: {
-                Sno: boe.Sno,
+               Sno: boe.Sno || 1,
                 DeclarationNo: boe.DeclarationNo || '',
                 BOENo: boe.BOENo || '',
                 BOEDate: boe.BOEDate ? new Date(boe.BOEDate) : null,
@@ -686,7 +688,7 @@ export class HouseJobService {
               data: {
                 HouseJobSid: HouseJobSid,
                 CompanyMasterSid: payload.CompanyMasterSid,
-                Sno: boe.Sno,
+                Sno: boe.Sno || 1,
                 DeclarationNo: boe.DeclarationNo || '',
                 BOENo: boe.BOENo || '',
                 BOEDate: boe.BOEDate ? new Date(boe.BOEDate) : null,
@@ -700,7 +702,7 @@ export class HouseJobService {
                 AckDate: boe.AckDate ? new Date(boe.AckDate) : null,
                 AckStatus: boe.AckStatus || '',
                 Remarks: boe.Remarks || '',
-                CreatedBy: payload.UpdatedBy,
+                CreatedBy: payload.updatedBy,
                 Status: 'A'
               }
             });
@@ -708,6 +710,146 @@ export class HouseJobService {
           finalHouseJobBOE.push(updatedBOE || createdBOE);
         }
       }
+  
+
+let finalHouseJobVehicle: any[] = [];
+const houseJobVehiclePayload = payload.houseJobVehicle || [];
+
+if (houseJobVehiclePayload.length > 0) {
+    for (const vehicle of houseJobVehiclePayload) {
+        let createdVehicle;
+        let updatedVehicle;
+        
+        if (vehicle.HouseJobVehicleSid) {
+            // Update existing vehicle
+            updatedVehicle = await this._db.houseJobVehicle.update({
+                where: {
+                    HouseJobVehicleSid: vehicle.HouseJobVehicleSid
+                },
+                data: {
+                    VehicleIndicator: vehicle.VehicleIndicator,
+                    UsedNew: vehicle.UsedNew,
+                    ChassisNo: vehicle.ChassisNo,
+                    CaseNo: vehicle.CaseNo,
+                    Make: vehicle.Make,
+                    Model: vehicle.Model,
+                    EngineNo: vehicle.EngineNo,
+                    YearBuilt: vehicle.YearBuilt,
+                    Color: vehicle.Color,
+                    Rolling: vehicle.Rolling,
+                    GoodsDescription: vehicle.GoodsDescription,
+                    Weight: vehicle.Weight ? Number(vehicle.Weight) : null,
+                    Volume: vehicle.Volume ? Number(vehicle.Volume) : null,
+                    Remarks: vehicle.Remarks,
+                    UpdatedBy: payload.updatedBy,
+                    Status: 'A'
+                }
+            });
+        } else {
+            // Create new vehicle
+            createdVehicle = await this._db.houseJobVehicle.create({
+                data: {
+                    HouseJobSid: HouseJobSid,
+                    CompanyMasterSid: payload.CompanyMasterSid,
+                    VehicleIndicator: vehicle.VehicleIndicator,
+                    UsedNew: vehicle.UsedNew,
+                    ChassisNo: vehicle.ChassisNo,
+                    CaseNo: vehicle.CaseNo,
+                    Make: vehicle.Make,
+                    Model: vehicle.Model,
+                    EngineNo: vehicle.EngineNo,
+                    YearBuilt: vehicle.YearBuilt,
+                    Color: vehicle.Color,
+                    Rolling: vehicle.Rolling,
+                    GoodsDescription: vehicle.GoodsDescription,
+                    Weight: vehicle.Weight ? Number(vehicle.Weight) : null,
+                    Volume: vehicle.Volume ? Number(vehicle.Volume) : null,
+                    Remarks: vehicle.Remarks,
+                    CreatedBy: payload.updatedBy,
+                    Status: 'A'
+                }
+            });
+        }
+        finalHouseJobVehicle.push(updatedVehicle || createdVehicle);
+    }
+}
+let finalHouseJobCustoms: any[] = [];
+const houseJobCustomsPayload = payload.houseJobCustoms || [];
+
+if (houseJobCustomsPayload.length > 0) {
+    for (const customs of houseJobCustomsPayload) {
+        let createdCustoms;
+        let updatedCustoms;
+        
+        if (customs.HouseJobCustomsSid) {
+            // Update existing customs
+            updatedCustoms = await this._db.houseJobCustoms.update({
+                where: {
+                    HouseJobCustomsSid: customs.HouseJobCustomsSid
+                },
+                data: {
+                    LineCode: customs.LineCode,
+                    VoyageAgentCode: customs.VoyageAgentCode,
+                    RotationNumber: customs.RotationNumber,
+                    ManifestSequence: customs.ManifestSequence,
+                    CargoCode: customs.CargoCode,
+                    StorageRequest: customs.StorageRequest,
+                    PackageTypeCode: customs.PackageTypeCode,
+                    FreightTonne: customs.FreightTonne ? Number(customs.FreightTonne) : null,
+                    NoOfPallets: customs.NoOfPallets ? Number(customs.NoOfPallets) : null,
+                    SLACIndicator: customs.SLACIndicator,
+                    ImporterCode: customs.ImporterCode,
+                    SerialNumber: customs.SerialNumber ? Number(customs.SerialNumber) : 0,
+                    UsedOrNew: customs.UsedOrNew,
+                    UNHSCode: customs.UNHSCode,
+                    UNNumber: customs.UNNumber,
+                    FlashPoints: customs.FlashPoints ? Number(customs.FlashPoints) : null,
+                    TemperatureUnit: customs.TemperatureUnit,
+                    HazStorageRequest: customs.HazStorageRequest,
+                    RefrigerationRequired: customs.RefrigerationRequired,
+                    MinTemperature: customs.MinTemperature ? Number(customs.MinTemperature) : null,
+                    MaxTemperature: customs.MaxTemperature ? Number(customs.MaxTemperature) : null,
+                    RefTemperatureUnit: customs.RefTemperatureUnit,
+                    UpdatedBy: payload.updatedBy,
+                    Status: 'A'
+                }
+            });
+        } else {
+            // Create new customs
+            createdCustoms = await this._db.houseJobCustoms.create({
+                data: {
+                    HouseJobSid: HouseJobSid,
+                    CompanyMasterSid: payload.CompanyMasterSid,
+                    LineCode: customs.LineCode,
+                    VoyageAgentCode: customs.VoyageAgentCode,
+                    RotationNumber: customs.RotationNumber,
+                    ManifestSequence: customs.ManifestSequence,
+                    CargoCode: customs.CargoCode,
+                    StorageRequest: customs.StorageRequest,
+                    PackageTypeCode: customs.PackageTypeCode,
+                    FreightTonne: customs.FreightTonne ? Number(customs.FreightTonne) : null,
+                    NoOfPallets: customs.NoOfPallets ? Number(customs.NoOfPallets) : null,
+                    SLACIndicator: customs.SLACIndicator,
+                    ImporterCode: customs.ImporterCode,
+                    SerialNumber: customs.SerialNumber ? Number(customs.SerialNumber) : 0,
+                    UsedOrNew: customs.UsedOrNew,
+                    UNHSCode: customs.UNHSCode,
+                    UNNumber: customs.UNNumber,
+                    FlashPoints: customs.FlashPoints ? Number(customs.FlashPoints) : null,
+                    TemperatureUnit: customs.TemperatureUnit,
+                    HazStorageRequest: customs.HazStorageRequest,
+                    RefrigerationRequired: customs.RefrigerationRequired,
+                    MinTemperature: customs.MinTemperature ? Number(customs.MinTemperature) : null,
+                    MaxTemperature: customs.MaxTemperature ? Number(customs.MaxTemperature) : null,
+                    RefTemperatureUnit: customs.RefTemperatureUnit,
+                    CreatedBy: payload.updatedBy,
+                    Status: 'A'
+                }
+            });
+        }
+        finalHouseJobCustoms.push(updatedCustoms || createdCustoms);
+    }
+}
 
            return {
                 houseJob: updatedHouseJob,
@@ -715,7 +857,9 @@ export class HouseJobService {
                 houseJobProduct: finalHouseJobProduct,
                 houseConnections: finalHouseConnections,
                 houseJobOthers: finalHouseJobOthers,
-                houseJobBOE: finalHouseJobBOE,
+                houseJobBOE: finalHouseJobBOE,  
+                houseJobVehicle: finalHouseJobVehicle, 
+                houseJobCustoms: finalHouseJobCustoms,
                 bookingRates: finalCharges,
                 costRevenueCharges: finalCharges
             };
