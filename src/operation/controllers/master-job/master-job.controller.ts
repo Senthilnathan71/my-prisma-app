@@ -7,6 +7,7 @@ import { ExcelParserService } from 'src/common/services/excel-parser/excel-parse
 import { Response } from 'express';
 import { ReportEmailService } from 'src/common/services/report-email.service';
 import { SendReportEmailDto, SendReportEmailResponseDto } from 'src/common/dto/report.dto';
+import { EDIManifestService } from 'src/operation/services/edi-manifest/edi-manifest.service';
 
 @Controller('master-job')
 export class MasterJobController {
@@ -14,6 +15,7 @@ export class MasterJobController {
         private masterJobService:MasterJobService,
         private excelParserService:ExcelParserService,
         private reportEmailService:ReportEmailService,
+        private ediManifestService:EDIManifestService,
         private logger:Logger
     ){}
 
@@ -656,6 +658,30 @@ export class MasterJobController {
             }
         }
         return resp;
+    }
+
+    @ApiOperation({ summary: 'Generate EDI Manifest for Master Job' })
+    @HttpCode(HttpStatus.OK)
+    @Get('edi-manifest/:id')
+    async generateEDIManifest(
+        @Param('id', ParseIntPipe) id: number,
+        @Res() res: Response
+    ) {
+        try {
+            this.logger.log(`Generating EDI Manifest for Master Job ID: ${id}`);
+            const manifestText = await this.ediManifestService.generateMasterJobManifest(id);
+            this.logger.debug(`EDI Manifest generated successfully for Master Job ID: ${id}`);
+
+            res.setHeader('Content-Type', 'text/plain');
+            res.setHeader('Content-Disposition', `attachment; filename="EDI_Manifest_MasterJob_${id}_${Date.now()}.txt"`);
+            res.send(manifestText);
+        } catch (error) {
+            this.logger.warn(`Error generating EDI Manifest for Master Job ID ${id}: ${JSON.stringify(error)}, ${error}`);
+            res.status(HttpStatus.BAD_REQUEST).json({
+                status: false,
+                message: error.message || 'Failed to generate EDI manifest'
+            });
+        }
     }
 
 }

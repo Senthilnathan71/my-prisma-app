@@ -1,11 +1,17 @@
-import { BadRequestException, Body, Controller, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, Post, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, Post, UnauthorizedException, Res } from '@nestjs/common';
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
 import { ResponseData } from 'src/common/response-data';
 import { HouseJobService } from 'src/operation/services/house-job/house-job.service';
+import { EDIManifestService } from 'src/operation/services/edi-manifest/edi-manifest.service';
+import { Response } from 'express';
 
 @Controller('house-job')
 export class HouseJobController {
-    constructor(private houseJobService: HouseJobService, private logger: Logger) { }
+    constructor(
+        private houseJobService: HouseJobService,
+        private ediManifestService: EDIManifestService,
+        private logger: Logger
+    ) { }
 
     @ApiOperation({
         summary: 'Get House Job by HouseJobSid',
@@ -142,5 +148,29 @@ export class HouseJobController {
       output.message = error.message || 'Internal Server Error';
     }
     return output;
+  }
+
+  @ApiOperation({ summary: 'Generate EDI Manifest for House Job' })
+  @HttpCode(HttpStatus.OK)
+  @Get('edi-manifest/:id')
+  async generateEDIManifest(
+    @Param('id', ParseIntPipe) id: number,
+    @Res() res: Response
+  ) {
+    try {
+      this.logger.log(`Generating EDI Manifest for House Job ID: ${id}`);
+      const manifestText = await this.ediManifestService.generateHouseJobManifest(id);
+      this.logger.debug(`EDI Manifest generated successfully for House Job ID: ${id}`);
+
+      res.setHeader('Content-Type', 'text/plain');
+      res.setHeader('Content-Disposition', `attachment; filename="EDI_Manifest_HouseJob_${id}_${Date.now()}.txt"`);
+      res.send(manifestText);
+    } catch (error) {
+      this.logger.warn(`Error generating EDI Manifest for House Job ID ${id}: ${JSON.stringify(error)}, ${error}`);
+      res.status(HttpStatus.BAD_REQUEST).json({
+        status: false,
+        message: error.message || 'Failed to generate EDI manifest'
+      });
+    }
   }
 }

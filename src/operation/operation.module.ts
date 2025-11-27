@@ -52,6 +52,7 @@ import { VehicleService } from './services/vehicle/vehicle.service';
 import { CustomsService } from './services/customs/customs.service';
 import { ReverseVoucherService } from './services/reverse-voucher/reverse-voucher.service';
 import { ReverseVoucherController } from './controllers/reverse-voucher/reverse-voucher.controller';
+import { EDIManifestService } from './services/edi-manifest/edi-manifest.service';
 
 @Module({
         imports: [CommonModule],
@@ -85,7 +86,8 @@ import { ReverseVoucherController } from './controllers/reverse-voucher/reverse-
                 VendorCreditNoteService,
                 VehicleService,
                 CustomsService,
-                ReverseVoucherService
+                ReverseVoucherService,
+                EDIManifestService
         ],
         controllers: [
                 BookingController,
