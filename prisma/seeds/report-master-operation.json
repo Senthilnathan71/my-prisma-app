@@ -1,0 +1,68 @@
+[
+  {
+    "ReportMasterSid": 12,
+    "CreatedBy": "ffadmin@crm.com",
+    "Status": "A",
+    "ReportName": "bl-issue-list",
+    "ReportDisplayName": "BL Issue/Not Issue List",
+    "ReportMenuSid": 173,
+    "ReportType": "OPERATION",
+    "ReportFormat": "BOTH",
+    "ReportExcludedCompany": null
+  },
+  {
+    "ReportMasterSid": 13,
+    "CreatedBy": "ffadmin@crm.com",
+    "Status": "A",
+    "ReportName": "shipment-summary-report",
+    "ReportDisplayName": "Shipment Summary Report",
+    "ReportMenuSid": 173,
+    "ReportType": "OPERATION",
+    "ReportFormat": "BOTH",
+    "ReportExcludedCompany": null
+  },
+  {
+    "ReportMasterSid": 14,
+    "CreatedBy": "ffadmin@crm.com",
+    "Status": "A",
+    "ReportName": "containerwise-details-report",
+    "ReportDisplayName": "Containerwise Master Details with Cost/Revenue",
+    "ReportMenuSid": 173,
+    "ReportType": "OPERATION",
+    "ReportFormat": "BOTH",
+    "ReportExcludedCompany": null
+  },
+  {
+    "ReportMasterSid": 15,
+    "CreatedBy": "ffadmin@crm.com",
+    "Status": "A",
+    "ReportName": "container-kpi-report",
+    "ReportDisplayName": "Container Wise KPI Report",
+    "ReportMenuSid": 173,
+    "ReportType": "OPERATION",
+    "ReportFormat": "BOTH",
+    "ReportExcludedCompany": null
+  },
+  {
+    "ReportMasterSid": 16,
+    "CreatedBy": "ffadmin@crm.com",
+    "Status": "A",
+    "ReportName": "do-issue-list",
+    "ReportDisplayName": "DO Issue/Not Issued List",
+    "ReportMenuSid": 173,
+    "ReportType": "OPERATION",
+    "ReportFormat": "BOTH",
+    "ReportExcludedCompany": null
+  },
+  {
+    "ReportMasterSid": 17,
+    "CreatedBy": "ffadmin@crm.com",
+    "Status": "A",
+    "ReportName": "shipment-detailed-summary",
+    "ReportDisplayName": "Shipment Summary - All Details",
+    "ReportMenuSid": 173,
+    "ReportType": "OPERATION",
+    "ReportFormat": "BOTH",
+    "ReportExcludedCompany": null
+  }
+]

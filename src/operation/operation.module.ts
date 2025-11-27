@@ -34,10 +34,14 @@ import { CreditRequestController } from './controllers/credit-request/credit-req
 import { MenuService } from 'src/masters/services/menu/menu.service';
 import { ServiceJobService } from './services/service-job/service-job.service';
 import { ServiceJobController } from './controllers/service-job/service-job.controller';
+import { CommonModule } from 'src/common/common.module';
 import { CreditNoteService } from './services/credit-note/credit-note.service';
 import { CreditNoteController } from './controllers/credit-note/credit-note.controller';
 import { DocVendorInvoiceService } from './services/document/doc-vendorinvoice.service';
 import { DocVendorInvoiceController } from './controllers/document/doc-vendorinvoice.controller';
+import { OperationReportsController } from './controllers/operation-reports/operation-reports.controller';
+import { OperationReportsService } from './services/operation-reports/operation-reports.service';
+import { ReportExportService } from 'src/common/services/report-export.service';
 import { BoeController } from './controllers/boe/boe.controller';
 import { BoeService } from './services/boe/boe.service';
 import { VendorCreditNoteService } from './services/vendor-credit-note/vendor-credit-note.service';
@@ -46,8 +50,11 @@ import { VehicleController } from './controllers/vehicle/vehicle.controller';
 import { CustomsController } from './controllers/customs/customs.controller';
 import { VehicleService } from './services/vehicle/vehicle.service';
 import { CustomsService } from './services/customs/customs.service';
+import { ReverseVoucherService } from './services/reverse-voucher/reverse-voucher.service';
+import { ReverseVoucherController } from './controllers/reverse-voucher/reverse-voucher.controller';
 
 @Module({
+        imports: [CommonModule],
         providers: [
                 Logger,
                 EmailService,
@@ -72,10 +79,13 @@ import { CustomsService } from './services/customs/customs.service';
                 ServiceJobService,
                 CreditNoteService,
                 DocVendorInvoiceService,
+                OperationReportsService,
+                ReportExportService,
                 BoeService,
                 VendorCreditNoteService,
                 VehicleService,
-                CustomsService
+                CustomsService,
+                ReverseVoucherService
         ],
         controllers: [
                 BookingController,
@@ -95,10 +105,12 @@ import { CustomsService } from './services/customs/customs.service';
                 ServiceJobController,
                 CreditNoteController,
                 DocVendorInvoiceController,
+                OperationReportsController,
                 BoeController,
                 VendorCreditNoteController,
                 VehicleController,
-                CustomsController
+                CustomsController,
+                ReverseVoucherController
         ]
 })
 export class OperationModule { }

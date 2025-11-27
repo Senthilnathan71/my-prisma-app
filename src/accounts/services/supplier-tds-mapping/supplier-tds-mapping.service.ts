@@ -208,7 +208,7 @@ export class SupplierTdsMappingService {
                             },
                         },
                         {
-                            customerMaster: { PanName: { contains: search, mode: 'insensitive' } },
+                            customerMaster: { PanType: { contains: search, mode: 'insensitive' } },
                         },
                         {
                             customerMaster: { CompanyType: { contains: search, mode: 'insensitive' } },

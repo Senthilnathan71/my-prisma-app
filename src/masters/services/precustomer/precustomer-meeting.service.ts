@@ -524,4 +524,20 @@ export class PreCustomerMeetingService {
             throw error;
         }
     }
+
+    async deletePrecustomerMeeting(PreCustomerMeetingSid: number) {
+        try {
+            return await this._db.preCustomerMeeting.update({
+                where: {
+                    PreCustomerMeetingSid: PreCustomerMeetingSid
+                },
+                data : {
+                    status : 'D'
+                }
+            })
+        } catch (error) {
+            throw error;
+        }
+    }
+
 }

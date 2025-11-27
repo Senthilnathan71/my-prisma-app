@@ -123,7 +123,6 @@ export class CountryService {
     }
 
     try {
-      throw Error;
       const country = await this._db.countryMaster.update({
         where: {
           CountryMasterSid: CountryMasterSid,

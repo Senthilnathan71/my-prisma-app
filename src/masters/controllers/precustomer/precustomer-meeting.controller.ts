@@ -1,5 +1,5 @@
 import { CreatePreCustomerMeetingDto } from './../../DTO/create-precustomer-meeting.dto';
-import { BadRequestException, Body, Controller, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Post, Put, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Post, Put, UnauthorizedException } from '@nestjs/common';
 import { ApiCreatedResponse, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { Auth } from 'src/common/decorators/auth.decorator';
 import { UserData } from 'src/common/decorators/user.decorator';
@@ -313,6 +313,23 @@ export class PreCustomerMeetingController {
     }
 
 
-
+    @ApiOperation({summary : 'Delete precustomer meeting'})
+    @ApiCreatedResponse({description: 'Delete precustomer meeting', type: ResponseData})
+    @HttpCode(HttpStatus.OK)
+    @Delete('delete/:PreCustomerMeetingSid')
+    async deletePrecustomerMeeting(@Param('PreCustomerMeetingSid',ParseIntPipe) PreCustomerMeetingSid: number): Promise<any> {
+        const output = new ResponseData();
+        try {
+            const result = await this.preCustomerMeetingService.deletePrecustomerMeeting(PreCustomerMeetingSid);
+            this.logger.debug(`deletePrecustomerMeeting: ${JSON.stringify(result)}`)
+            output.data = result;
+            output.message = "Precustomer meeting is successfully deleted";
+        } catch (error) {
+            this.logger.debug(`deletePrecustomerMeeting: ${JSON.stringify(error)}`)
+            output.status = false;
+            output.message = typeof error == 'string' ? error : ''
+        }
+        return output;
+    }
 
 }

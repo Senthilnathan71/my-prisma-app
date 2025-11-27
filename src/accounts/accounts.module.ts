@@ -10,15 +10,18 @@ import { OutstandingService } from './services/outstanding/outstanding.service';
 import { ReceiptController } from './controllers/receipt/receipt.controller';
 import { ReceiptService } from './services/receipt/receipt.service';
 import { PaymentController } from './controllers/payment/payment.controller';
-import { PaymentService } from './services/payment/payment.service';
 import { VoucherPostingController } from './controllers/voucher-posting/voucher-posting.controller';
 import { VoucherPostingService } from './services/voucher-posting/voucher-posting.service';
 import { JournalVoucherController } from './controllers/journal-voucher/journal-voucher.controller';
 import { JournalVoucherService } from './services/journal-voucher/journal-voucher.service';
 import { TrialBalanceController } from './controllers/trial-balance/trial-balance.controller';
 import { TrialBalanceService } from './services/trial-balance/trial-balance.service';
+import { AccountsReportsController } from './controllers/accounts-reports/accounts-reports.controller';
+import { AccountsReportsService } from './services/accounts-reports/accounts-reports.service';
 import { GlobalConfigService } from 'src/common/config/master-config.service';
+import { ReportExportService } from 'src/common/services/report-export.service';
 import { VoucherService } from 'src/operation/services/voucher/voucher.service';
+import { PaymentService } from './services/payment/payment.service';
 
 @Module({
     controllers: [
@@ -30,6 +33,7 @@ import { VoucherService } from 'src/operation/services/voucher/voucher.service';
         VoucherPostingController,
         JournalVoucherController,
         TrialBalanceController,
+        AccountsReportsController,
         PaymentController
     ],
     providers: [
@@ -43,6 +47,8 @@ import { VoucherService } from 'src/operation/services/voucher/voucher.service';
         VoucherPostingService,
         JournalVoucherService,
         TrialBalanceService,
+        AccountsReportsService,
+        ReportExportService,
         Logger,
         VoucherService
     ]

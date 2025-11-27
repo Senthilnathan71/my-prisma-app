@@ -88,6 +88,7 @@ export class BookingService {
                         ShipperName: payload.ShipperName,
                         ShipperAddress: payload.ShipperAddress,
                         ConsigneeName: payload.ConsigneeName,
+                        JobType: payload.JobType,
                         ConsigneeAddress: payload.ConsigneeAddress,
                         DestinationAgent: payload.DestinationAgent,
                         Notify: payload.Notify,
@@ -522,6 +523,7 @@ export class BookingService {
                         ConsigneeAddress: payload.ConsigneeAddress,
                         DestinationAgent: payload.DestinationAgent,
                         Notify: payload.Notify,
+                        JobType: payload.JobType,
                         NotifyAddress: payload.NotifyAddress,
                         AgentName: payload.AgentName,
                         AgentAddress: payload.AgentAddress,
@@ -1117,6 +1119,7 @@ export class BookingService {
                     { FPD: { contains: search, mode: 'insensitive' } },
                     { VesselName: { contains: search, mode: 'insensitive' } },
                     { VoyageNo: { contains: search, mode: 'insensitive' } },
+                    { houseJob : { some : { masterJob : { MasterJobNumber : { contains : search , mode : 'insensitive'}}}}},
                     ...(salesmanIds.length ? [{ SalesmanSid: { in: salesmanIds } }] : []),
                     { BookingStatus : {contains : search , mode : 'insensitive'}},
                     ...(shipmentNosByMilestone.length ? [{ ShipmentNo: { in: shipmentNosByMilestone } }] : []),
@@ -1131,7 +1134,18 @@ export class BookingService {
                 where,
                 skip,
                 take: pageSize,
-                orderBy: { BookingHeaderSid: 'desc' }
+                orderBy: { BookingHeaderSid: 'desc' },
+                include : {
+                    houseJob : {
+                        include : {
+                            masterJob : {
+                                select : {
+                                    MasterJobNumber : true
+                                }
+                            }
+                        }
+                    }
+                }
             }),
             this._db.bookingHeader.count({ where }),
         ]);

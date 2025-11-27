@@ -20,6 +20,11 @@ model ReportMaster {
   ReportExcludedCompany Json?
   menuMaster            MenuMaster           @relation(fields: [ReportMenuSid], references: [MenuMasterSid])
   ReportMasterDetail    ReportMasterDetail[]
+
+  @@index([ReportMenuSid])
+  @@index([ReportName])
+  @@index([Status])
+  @@index([ReportType])
 }
 
 model ReportMasterDetail {
@@ -42,4 +47,7 @@ model ReportMasterDetail {
   /// Foreign key to ReportMaster
   ReportMasterSid       Int
   reportMaster          ReportMaster @relation(fields: [ReportMasterSid], references: [ReportMasterSid])
+
+  @@index([ReportMasterSid])
+  @@index([Status])
 }

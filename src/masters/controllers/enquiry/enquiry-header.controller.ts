@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, Post, Query, UnauthorizedException } from "@nestjs/common";
+import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, NotFoundException, Param, ParseIntPipe, Patch, Post, Query, UnauthorizedException } from "@nestjs/common";
 import { ApiCreatedResponse, ApiOperation } from "@nestjs/swagger";
 import { Auth } from "src/common/decorators/auth.decorator";
 import { UserData } from "src/common/decorators/user.decorator";
@@ -144,7 +144,23 @@ export class EnquiryHeaderController {
     @HttpCode(HttpStatus.OK)
     @Delete('header/:id')
     async softDelete(@Param('id', ParseIntPipe) id: number) {
-        return this.enquiryHeaderService.softDelete(id);
+        let resp = new ResponseData();
+        try {
+            this.logger.log(`Delete Enquiry header: ${id}`)
+            const result = await this.enquiryHeaderService.softDelete(id);
+            this.logger.log(`Delete Enquiry header: ${JSON.stringify(result)}`)
+            resp.data = result;
+            resp.message = "Enquiry deleted successfully";
+        } catch (error) {
+            this.logger.error(`Delete Enquiry header: ${JSON.stringify(error)}`)
+            resp.status = false;
+            if(error instanceof BadRequestException || error instanceof NotFoundException){
+                resp.message = error.message;
+            } else{
+                resp.message = "Internal Server Error";
+            }
+        }
+        return resp;
     }
 
 

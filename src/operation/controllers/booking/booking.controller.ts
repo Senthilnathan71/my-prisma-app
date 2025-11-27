@@ -579,7 +579,7 @@ export class BookingController {
     async getTariffDetails(@Body() bookingDetails: any) {
         const output = new ResponseData()
         try {
-            const tariffs = await this.bookingService.getTariffByBookingDetails(bookingDetails)
+            const tariffs = await this.bookingService.  getTariffByBookingDetails(bookingDetails)
             this.logger.debug(`getTariffDetails: ${JSON.stringify(tariffs)}`)
             output.data = tariffs;
             output.message = "All tariff details are successfully fetched for respective routes"
@@ -616,7 +616,7 @@ export class BookingController {
                 file, // this is the PDF file from FormData
             };
             console.log(reportPayload);
-            let res = await this.emailService.sendReportEmail(reportPayload);
+            let res = await this.emailService.sendEmailWithFileAttachment(reportPayload);
             this.logger.log(`Booking Print Sent Successfully : ${JSON.stringify(res)}`);
             output.data = res;
             output.message = "Booking Print Sent successfully";

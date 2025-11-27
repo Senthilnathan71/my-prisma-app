@@ -62,6 +62,7 @@ export class SubledgermasterService {
             const whereClause : Prisma.SubledgerMasterWhereInput = {
                 Status: "A",
                 CompanyMasterSid : CompanyMasterSid,
+                SubledgerType : "Customer"
             }
 
             if(DrCr === "D"){
@@ -366,7 +367,8 @@ export class SubledgermasterService {
                     stateMaster : branch.stateMaster,
                     COAMappedId : mapping?.crCOAMasterSid,
                     SubledgerMasterSid: mapping?.subledgerMasterSid, // ADD THIS
-                    SubledgerName: 'Y'
+                    SubledgerName: 'Y',
+                    StateMasterSid : branch.stateMaster?.StateMasterSid
                 }
             })
         });
@@ -425,6 +427,7 @@ export class SubledgermasterService {
                             countryCode : true
                         }
                     },
+                    
                     CustomerBranch : {
                         where : {status : 'A'},
                         select : {
@@ -460,6 +463,7 @@ export class SubledgermasterService {
                         COAMappedId : COAMappedId?.DrCOAMasterSid,
                         SubledgerMasterSid: COAMappedId?.SubledgerMasterSid,
                         SubledgerName: 'Y',
+                        StateMasterSid : branch.stateMaster?.StateMasterSid
                     }
                 })
             });

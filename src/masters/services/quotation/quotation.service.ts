@@ -60,6 +60,7 @@ export class QuotationService {
                     PreCustomerMasterSid: payload.PreCustomerMasterSid,
                     FreightPPCC: payload.FreightPPCC,
                     AgreedRate : payload.AgreedRate,
+                    RateLock : payload.RateLock,
                     // QuoteNumber: quoteNumber,
                     createdBy: payload.createdBy,
                     InternalApprovedBy : payload.InternalApprovedBy || null,
@@ -283,6 +284,7 @@ export class QuotationService {
                     CustomerName: true,
                     EnquirySid: true,
                     CustomerAddress: true,
+                    RateLock: true,
                     QuoteDate: true,
                     status: true
                 },
@@ -353,6 +355,7 @@ export class QuotationService {
                     EnquirySid: payload.EnquirySid ? Number(payload.EnquirySid) : null,
                     FreightPPCC: payload.FreightPPCC,
                     CustomerAddress: payload.CustomerAddress,
+                    RateLock: payload.RateLock,
                     CustomerBranchSid: payload.CustomerBranchSid,
                     ClearanceBy: payload.ClearanceBy,
                     TransportBy: payload.TransportBy,

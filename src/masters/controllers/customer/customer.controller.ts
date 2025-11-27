@@ -440,30 +440,30 @@ async searchCustomersByName(@Body() body: {
     //     return output
     // }
 
-    // @ApiOperation({ summary: 'Get All Suppliers' })
-    // @ApiCreatedResponse({
-    //     description: 'Get All Suppliers',
-    //     type: ResponseData
-    // })
-    // @HttpCode(HttpStatus.OK)
-    // @Post('suppliers')
-    // async getAllSuppliers(@Body() body: CompanyIdDto) {
-    //     let output = new ResponseData();
-    //     try {
-    //         let customerData = await this.customerService.getAllSuppliers(body.CompanyMasterSid);
-    //         this.logger.log(`getAllSuppliers: ${JSON.stringify(customerData)}`)
-    //         output.data = customerData;
-    //     } catch (error) {
-    //         this.logger.warn(`getAllSuppliers: ${JSON.stringify(error)}`)
-    //         output.status = false;
-    //         if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
-    //             output.message = error.message;
-    //         } else {
-    //             output.message = 'Internal Server Error';
-    //         }
-    //     }
-    //     return output
-    // }
+    @ApiOperation({ summary: 'Get All Suppliers' })
+    @ApiCreatedResponse({
+        description: 'Get All Suppliers',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Post('suppliers')
+    async getAllSuppliers(@Body() body: CompanyIdDto) {
+        let output = new ResponseData();
+        try {
+            let customerData = await this.customerService.getAllSuppliers(body.CompanyMasterSid);
+            this.logger.log(`getAllSuppliers: ${JSON.stringify(customerData)}`)
+            output.data = customerData;
+        } catch (error) {
+            this.logger.warn(`getAllSuppliers: ${JSON.stringify(error)}`)
+            output.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                output.message = error.message;
+            } else {
+                output.message = 'Internal Server Error';
+            }
+        }
+        return output
+    }
     @ApiOperation({ summary: 'Get Audit Logs for a Table/Record' })
     @ApiCreatedResponse({ description: 'Fetch audit logs', type: ResponseData })
     @HttpCode(HttpStatus.OK)

@@ -19,6 +19,7 @@ import { GlobalConfigService } from './config/master-config.service';
 import { MastersModule } from 'src/masters/masters.module';
 import { DocReferenceController } from './controllers/doc-reference/doc-reference.controller';
 import { DocReferenceService } from './services/doc-reference/doc-reference.service';
+import { ReportEmailService } from './services/report-email.service';
 
 @Module({
     imports:[
@@ -44,6 +45,10 @@ import { DocReferenceService } from './services/doc-reference/doc-reference.serv
         SchedulerService,
         AttachDocumentService,
         DocReferenceService,
+        ReportEmailService
+    ],
+    exports: [
+        ReportEmailService
     ]
 })
 export class CommonModule { }

@@ -1,30 +1,34 @@
-import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, Post, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, HttpCode, HttpStatus, Logger, NotFoundException, Param, ParseIntPipe, Patch, Post, UnauthorizedException, UsePipes, ValidationPipe } from '@nestjs/common';
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
 import { ResponseData } from 'src/common/response-data';
-import { SearchListDto } from 'src/masters/DTO/search-list.dto';
+import { RoleMenuPayload } from 'src/masters/DTO/role-menu.dto';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 import { RoleMenuService } from 'src/masters/services/role-menu/role-menu.service';
 
-
 @Controller('role-menu')
 export class RoleMenuController {
-    constructor(private RoleMenuService: RoleMenuService, private logger: Logger) { }
+    private readonly logger = new Logger(RoleMenuController.name);
 
-
+    constructor(
+        private roleMenuService: RoleMenuService
+    ) { }
+    
     @ApiOperation({ summary: 'Create new RoleMenu' })
     @ApiCreatedResponse({
         description: 'Create new RoleMenu',
         type: ResponseData
     })
     @HttpCode(HttpStatus.OK)
+    @UsePipes(new ValidationPipe({ whitelist: true }))
     @Post('create')
-    async createNewRoleMenu(@Body() newData: any) {
+    async createNewRoleMenu(@Body() newData: RoleMenuPayload) {
         let resp = new ResponseData();
+        this.logger.log(`createNewRoleMenu: ${JSON.stringify(newData)}`);
         try {
-            let res = await this.RoleMenuService.createRoleMenu(newData);
+            let res = await this.roleMenuService.createRoleMenu(newData);
             this.logger.log(`New RoleMenu Created : ${JSON.stringify(res)}`);
             resp.data = res;
-            resp.message = "New RoleMenu is successfully created"
+            resp.message = "New Role menu is successfully created."
         } catch (error) {
             this.logger.warn(`RoleMenu Creation Error : ${JSON.stringify(error), error}`);
             resp.status = false;
@@ -37,24 +41,25 @@ export class RoleMenuController {
         return resp;
     }
 
-
-
-    @ApiOperation({ summary: 'Get All RoleMenu' })
+    @ApiOperation({ summary: 'Search Role Menu' })
     @ApiCreatedResponse({
-        description: 'Get All RoleMenu',
+        description: 'Search Role Menu',
         type: ResponseData
     })
     @HttpCode(HttpStatus.OK)
-    @Get()
-    async getAllRoleMenu() {
+    @Post('search-list')
+    async searchRoleMenu(
+        @Body() searchData: filterDto
+    ){
         let resp = new ResponseData();
         try {
-            let res = await this.RoleMenuService.getAllRoleMenu();
-            this.logger.log(`All RoleMenu Fetched : ${JSON.stringify(res)}`);
+            this.logger.log(`Searching RoleMenus with params: ${JSON.stringify(searchData)}`);
+            let res = await this.roleMenuService.searchRoleMenu(searchData);
+            this.logger.debug(`RoleMenu Search Results :${JSON.stringify(res)}`);
             resp.data = res;
-            resp.message = "All RoleMenu are successfully fetched";
+            resp.message = "RoleMenu Search results are successfully fetched"
         } catch (error) {
-            this.logger.warn(`Get All RoleMenu Error : ${JSON.stringify(error), error}`);
+            this.logger.warn(`Search RoleMenu Error : ${JSON.stringify(error), error}`);
             resp.status = false;
             if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
                 resp.message = error.message;
@@ -65,23 +70,56 @@ export class RoleMenuController {
         return resp;
     }
 
-
-
-    @ApiOperation({ summary: 'Get RoleMenu by Id' })
+    @ApiOperation({ summary: 'Update Role Menu' })
     @ApiCreatedResponse({
-        description: 'Get RoleMenu by Id',
+        description: 'Update Role Menu',
         type: ResponseData
     })
     @HttpCode(HttpStatus.OK)
-    @Get('fetch/:RoleMenuMasterSid')
-    async getRoleMenuById(@Param('RoleMenuMasterSid', ParseIntPipe) RoleMenuMasterSid: number) {
+    @Patch('update')
+    async updateRoleMenu(
+        @Body() payload: RoleMenuPayload
+    ){
         let resp = new ResponseData();
         try {
-            this.logger.log(`Getting RoleMenu with id : ${RoleMenuMasterSid}`);
-            let res = await this.RoleMenuService.getRoleMenuById(RoleMenuMasterSid);
+            this.logger.log(`Updating RoleMenu with id : ${payload.RoleMenuHeaderSid}`);
+            let res = await this.roleMenuService.updateRoleMenu(payload);
+            this.logger.debug(`Updated RoleMenu : ${JSON.stringify(res)}`);
+            resp.data = res;
+            resp.message = `Rolemenu updated successfully.`;
+        } catch (error) {
+            this.logger.warn(`Update RoleMenu by Id Error : ${JSON.stringify(error), error}`);
+            resp.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                resp.message = error.message;
+            } else {
+                resp.message = "Internal Server Error";
+            }
+        }
+        return resp;
+    }
+
+    @ApiOperation({ summary: 'Get Role Menu' })
+    @ApiCreatedResponse({
+        description: 'Get Role Menu',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Get('fetch/:CompanyMasterSid/:RoleMenuHeaderSid')
+    async getRoleMenuByRoleMenuId(
+        @Param('CompanyMasterSid', ParseIntPipe) CompanyMasterSid: number, 
+        @Param('RoleMenuHeaderSid', ParseIntPipe) RoleMenuHeaderSid: number
+    ) {
+        let resp = new ResponseData();
+        try {
+            this.logger.log(`Getting RoleMenu with id : ${RoleMenuHeaderSid}`);
+            let res = await this.roleMenuService.getRoleMenuByRoleId({
+                RoleMenuHeaderSid: RoleMenuHeaderSid,
+                CompanyMasterSid: CompanyMasterSid
+            });
             this.logger.debug(`Fetched RoleMenu : ${JSON.stringify(res)}`);
             resp.data = res;
-            resp.message = `RoleMenu with id : ${RoleMenuMasterSid} is successfully fetched`;
+            resp.message = `RoleMenu fetched successfully.`;
         } catch (error) {
             this.logger.warn(`Get RoleMenu by Id Error : ${JSON.stringify(error), error}`);
             resp.status = false;
@@ -94,25 +132,22 @@ export class RoleMenuController {
         return resp;
     }
 
-
-
-    @ApiOperation({ summary: 'Update RoleMenu by Id' })
+    @ApiOperation({ summary: 'Get All Menu with Modules'})
     @ApiCreatedResponse({
-        description: 'Update RoleMenu by Id',
+        description: 'Get All Menu with Modules',
         type: ResponseData
     })
     @HttpCode(HttpStatus.OK)
-    @Patch('update/:RoleMenuMasterSid')
-    async updateRoleMenuById(@Param('RoleMenuMasterSid', ParseIntPipe) RoleMenuMasterSid: number, @Body() payload: any) {
+    @Get('menu-with-modules')
+    async getAllMenuWithModules(){
         let resp = new ResponseData();
         try {
-            this.logger.log(`Updating RoleMenu with id : ${RoleMenuMasterSid}`);
-            let res = await this.RoleMenuService.updateRoleMenu(RoleMenuMasterSid, payload);
-            this.logger.debug(`Updated RoleMenu : ${JSON.stringify(res)}`);
-            resp.data = res;
-            resp.message = `RoleMenu with id : ${RoleMenuMasterSid} is successfully updated`;
+            const menus = await this.roleMenuService.getAllMenuWithModules();
+            this.logger.debug(`getAllMenuWithModules: ${JSON.stringify(menus)}`);
+            resp.data = menus;
+            resp.message = "All Menu with Modules are successfully fetched";
         } catch (error) {
-            this.logger.warn(`RoleMenu Updation Error : ${JSON.stringify(error), error}`);
+            this.logger.warn(`getAllMenuWithModules: ${JSON.stringify(error)}`);
             resp.status = false;
             if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
                 resp.message = error.message;
@@ -123,28 +158,34 @@ export class RoleMenuController {
         return resp;
     }
 
-
-
-    @ApiOperation({ summary: 'Delete RoleMenu by Id' })
+    @ApiOperation({ summary: 'Get Menu Permission' })
     @ApiCreatedResponse({
-        description: 'Delete RoleMenu by Id',
+        description: 'Get Menu Permission',
         type: ResponseData
     })
     @HttpCode(HttpStatus.OK)
-    @Delete('delete/:RoleMenuMasterSid')
-    async deleteRoleMenuById(@Param('RoleMenuMasterSid', ParseIntPipe) RoleMenuMasterSid: number) {
+    @Post('menu-permissions')
+    async getMenuPermission(
+        @Body() payload : {
+            CompanyMasterSid:number,
+            RoleMasterSid:number,
+            MenuMasterSid:number,
+        }
+    ){
         let resp = new ResponseData();
         try {
-            this.logger.log(`Deleting RoleMenu with id : ${RoleMenuMasterSid}`);
-            let res = await this.RoleMenuService.deleteRoleMenu(RoleMenuMasterSid);
-            this.logger.debug(`Deleted RoleMenu : ${JSON.stringify(res)}`);
+            this.logger.log(`Getting Menu Permission : ${JSON.stringify(payload)}`);
+            let res = await this.roleMenuService.getMenuPermission(payload);
+            this.logger.debug(`Fetched Menu Permission : ${JSON.stringify(res)}`);
             resp.data = res;
-            resp.message = `
-            RoleMenu with id : ${RoleMenuMasterSid} is successfully deleted`;
+            resp.message = `Menu Permission fetched successfully.`;
         } catch (error) {
-            this.logger.warn(`RoleMenu Deletion Error : ${JSON.stringify(error), error}`);
+            this.logger.warn(`Get Menu Permission Error : ${JSON.stringify(error), error}`);
             resp.status = false;
-            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+            if (error instanceof BadRequestException || 
+                error instanceof UnauthorizedException ||
+                error instanceof NotFoundException
+            ) {
                 resp.message = error.message;
             } else {
                 resp.message = "Internal Server Error";
@@ -154,61 +195,7 @@ export class RoleMenuController {
     }
 
 
-
-    @ApiOperation({ summary: 'Search List of RoleMenu' })
-    @ApiCreatedResponse({
-        description: 'Search List of RoleMenu',
-        type: ResponseData
-    })
-    @HttpCode(HttpStatus.OK)
-    @Post('search-list')
-    async searchRoleMenu(@Body() searchData: filterDto) {
-        let resp = new ResponseData();
-        try {
-            let res = await this.RoleMenuService.searchRoleMenuList(searchData);
-            this.logger.log(`RoleMenu Search Results :${JSON.stringify(res)}`);
-            resp.data = res;
-            resp.message = "RoleMenu Search results are successfully fetched"
-        } catch (error) {
-            this.logger.warn(`RoleMenu Search Error : ${JSON.stringify(error), error}`);
-            resp.status = false;
-            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
-                resp.message = error.message;
-            } else {
-                resp.message = "Internal Server Error";
-            }
-        }
-        return resp;
-    }
-
-
-    @ApiOperation({ summary: 'Role Menu Special Search' })
-    @ApiCreatedResponse({
-        description: 'Role Menu Special Search',
-        type: ResponseData
-    })
-    @HttpCode(HttpStatus.OK)
-    @Post('special-search')
-    async roleMenuSpecialSearch(@Body() body: any) {
-        let resp = new ResponseData();
-        try {
-            this.logger.log(`Getting RoleMenu by special search : ${JSON.stringify(body)}`);
-            let res = await this.RoleMenuService.roleMenuSpecialSearch(body);
-            this.logger.debug(`Fetched RoleMenus : ${JSON.stringify(res)}`);
-            resp.data = res;
-            resp.message = `RoleMenus : ${JSON.stringify(body)} is successfully fetched`;
-        } catch (error) {
-            this.logger.warn(`Get RoleMenu by special search Error : ${JSON.stringify(error), error}`);
-            resp.status = false;
-            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
-                resp.message = error.message;
-            } else {
-                resp.message = "Internal Server Error";
-            }
-        }
-        return resp;
-    }
-
+    // Needs to be removed
     @Get('permissions/:menuId/:roleId')
     async getRoleMenuPermissions(
         @Param('menuId', ParseIntPipe) menuId: number,
@@ -216,7 +203,7 @@ export class RoleMenuController {
     ) {
         let resp = new ResponseData();
         try {
-            const permissions = await this.RoleMenuService.getRoleMenuPermissions(menuId, roleId);
+            const permissions = await this.roleMenuService.getRoleMenuPermissions(menuId, roleId);
             resp.data = permissions;
             resp.message = "Permissions fetched successfully";
         } catch (error) {
@@ -227,7 +214,4 @@ export class RoleMenuController {
         return resp;
     }
 
-
-
 }
-
