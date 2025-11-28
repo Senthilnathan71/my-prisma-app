@@ -3,6 +3,29 @@ import { DatabaseService } from 'src/database/database.service';
 import { Prisma } from '@prisma/client';
 import { AgeingReportQueryDto } from 'src/accounts/dto/accounts-reports.dto';
 import { toNumber } from 'src/common/helper';
+// -------------------------
+// Helper types (local)
+// -------------------------
+type BucketMap = Record<string, number>;
+
+interface SubledgerGroup {
+  SubledgerMasterSid: number;
+  SubledgerName?: string | null;
+  LedgerName?: string | null;
+  totalOutstandingCurrency: number;
+  totalOutstandingLocal: number;
+  voucherCount: number;
+  buckets: BucketMap;
+}
+
+interface CurrencyGroup {
+  CurrencyCode: string | null;
+  subledgers: Map<number, SubledgerGroup>;
+  totalOutstandingCurrency: number;
+  totalOutstandingLocal: number;
+  voucherCount: number;
+  bucketTotals: BucketMap;
+}
 
 @Injectable()
 export class AccountsReportsService {
@@ -117,48 +140,100 @@ export class AccountsReportsService {
   async getAgeingReport(params: AgeingReportQueryDto) {
     const {
       companyId: CompanyMasterSid,
+      Branch: SelectedBranches,
       Ledger: COAMasterSid,
       ToDate,
-      ageingType: AgeingType,
+      CurrencyWise = true,
+      ageingType: AgeingType = '30_60_90',
     } = params;
 
     const toDateObj = new Date(ToDate);
 
-    // -------------------------------------------------
-    // 1. Fetch Voucher
-    // -------------------------------------------------
-    const vouchers = await this._db.voucherTransaction.findMany({
+    // -------------------------------------------
+    // 1. Build where clause
+    // -------------------------------------------
+    const whereClause: any = {
+      CompanyMasterSid,
+      COAMasterSid,
+      Status: 'A',
+      VoucherDate: { lte: toDateObj },
+    };
+
+    const coa = await this._db.cOAMaster.findFirst({
       where: {
         CompanyMasterSid,
         COAMasterSid,
         Status: 'A',
-        VoucherDate: { lte: toDateObj }
       },
-      include: {
-        coaMaster: true,
-        subledgerMaster: true,
-        voucherMatchings: {
-          where: { Status: 'A' },
+      select: {
+        LedgerName: true,
+      },
+    });
+
+    if (!coa) {
+      throw new BadRequestException('No ledger found for this company');
+    }
+
+    const branchSet = new Set<string>();
+    if (SelectedBranches && SelectedBranches.length > 0) {
+      whereClause.BranchMasterSid = { in: SelectedBranches };
+      const allBranches = await this._db.branchMaster.findMany({
+        where: {
+          CompanyMasterSid,
+          status: 'A',
+          BranchMasterSid: { in: SelectedBranches },
         },
+        select: {
+          BranchMasterSid: true,
+          branchName: true,
+        },
+      });
+      allBranches.forEach(branch => branchSet.add(branch.branchName));
+    } else {
+      const allBranches = await this._db.branchMaster.findMany({
+        where: {
+          CompanyMasterSid,
+          status: 'A',
+        },
+        select: {
+          BranchMasterSid: true,
+          branchName: true,
+        },
+      });
+      allBranches.forEach(branch => branchSet.add(branch.branchName));
+    }
+
+    // -------------------------------------------
+    // 2. Fetch vouchers
+    // -------------------------------------------
+    const vouchers = await this._db.voucherTransaction.findMany({
+      where: whereClause,
+      include: {
+        subledgerMaster: true,
+        voucherMatchings: { where: { Status: 'A' } },
       },
       orderBy: [
-        { LedgerMasterSid: 'asc' },
         { CurrencyCode: 'asc' },
+        { LedgerMasterSid: 'asc' },
         { VoucherDate: 'asc' },
-        { VoucherTransactionSid: 'asc' }
+        { VoucherTransactionSid: 'asc' },
       ],
     });
 
-    // -------------------------------------------------
-    // 2. Transform Prisma results to original fields
-    // -------------------------------------------------
+    if (!vouchers || vouchers.length === 0) {
+      throw new BadRequestException('No vouchers found for the given criteria');
+    }
+
+    // -------------------------------------------
+    // 3. Transform rows
+    // -------------------------------------------
     const reportData = vouchers.map(v => {
       const matchLocal = v.voucherMatchings.reduce(
-        (acc, m) => acc + (m.DrCr === 'D' ? toNumber(m.LocalAmount) : -toNumber(m.LocalAmount)),
+        (acc, m) => acc + (m.DrCr === 'D' ? +m.LocalAmount : -m.LocalAmount),
         0,
       );
       const matchCurr = v.voucherMatchings.reduce(
-        (acc, m) => acc + (m.DrCr === 'D' ? toNumber(m.Amount) : -toNumber(m.Amount)),
+        (acc, m) => acc + (m.DrCr === 'D' ? +m.Amount : -m.Amount),
         0,
       );
 
@@ -166,176 +241,209 @@ export class AccountsReportsService {
         Math.floor((+new Date() - +new Date(v.VoucherDate)) / (1000 * 60 * 60 * 24)) + 1;
 
       return {
-        LedgerName: v.coaMaster?.LedgerName,
-        SubledgerName: v.subledgerMaster?.SubledgerName,
-        SubledgerMasterSid: v.LedgerMasterSid,
-        VoucherTransactionSid: v.VoucherTransactionSid,
+        LedgerName: coa.LedgerName,
+        SubledgerName: v.subledgerMaster?.SubledgerName ?? null,
+        SubledgerMasterSid: v.LedgerMasterSid ?? null,
         VoucherDate: v.VoucherDate,
-        CurrencyCode: v.CurrencyCode,
+        CurrencyCode: v.CurrencyCode ?? null,
         Ageing: ageing,
-        OriginalCurrAmount: v.Amount,
-        OriginalLocalAmount: v.LocalAmount,
-        MatchingCurrAmt: matchCurr,
-        MatchingLocalAmt: matchLocal,
+        OriginalCurrAmount: toNumber(v.Amount),
+        OriginalLocalAmount: toNumber(v.LocalAmount),
         OSCurrencyAmount: toNumber(v.Amount) - Math.abs(matchCurr),
         OSLocalAmount: toNumber(v.LocalAmount) - Math.abs(matchLocal),
       };
     });
 
-    // -------------------------------------------------
-    // 3. Ageing Bucket Logic
-    // -------------------------------------------------
+    // -------------------------------------------
+    // 4. Bucket Logic
+    // -------------------------------------------
     let bucketRanges: number[] = [];
 
     if (AgeingType === '30_60_90') bucketRanges = [30, 60, 90];
     else if (AgeingType === '15_30_45_60') bucketRanges = [15, 30, 45, 60];
     else if (AgeingType.includes('-')) {
-      bucketRanges = AgeingType.split('-').map(n => +n.trim());
+      bucketRanges = AgeingType.split('-').map(s => +s);
       bucketRanges.sort((a, b) => a - b);
-    } else throw new BadRequestException('Invalid ageingType');
+    } else {
+      throw new BadRequestException('Invalid ageingType');
+    }
 
-    const bucketLabels: any[] = [];
+    const bucketLabels: string[] = [];
     for (let i = 0; i < bucketRanges.length; i++) {
       if (i === 0) bucketLabels.push(`0-${bucketRanges[i]}`);
       else bucketLabels.push(`${bucketRanges[i - 1] + 1}-${bucketRanges[i]}`);
     }
     bucketLabels.push(`${bucketRanges[bucketRanges.length - 1] + 1}+`);
 
-    // -------------------------------------------------
-    // 4. Group by Subledger > CurrencyCode + Apply Buckets
-    // -------------------------------------------------
-    const subledgerMap = new Map();
+    // -------------------------------------------
+    // 5. Grouping Logic - Currency -> Subledger
+    // -------------------------------------------
+    const currencyMap = new Map<string, CurrencyGroup>();
 
-    for (const row of reportData) {
-      const subId = row.SubledgerMasterSid;
-      const currCode = row.CurrencyCode;
+    // helpers to create/get groups safely
+    const getOrCreateCurrencyGroup = (key: string, currencyCode: string | null) => {
+      let cg = currencyMap.get(key);
+      if (!cg) {
+        const bucketTotals: BucketMap = {};
+        bucketLabels.forEach(b => (bucketTotals[b] = 0));
 
-      // Initialize Subledger if not exists
-      if (!subledgerMap.has(subId)) {
-        subledgerMap.set(subId, {
-          SubledgerMasterSid: subId,
-          SubledgerName: row.SubledgerName,
-          LedgerName: row.LedgerName,
-          currencies: new Map(),
-          totalOutstanding: 0,
-          voucherCount: 0,
-        });
-      }
-
-      const sub = subledgerMap.get(subId);
-
-      // Initialize Currency under this Subledger if not exists
-      if (!sub.currencies.has(currCode)) {
-        const bucketData = {};
-        bucketLabels.forEach(b => (bucketData[b] = 0));
-
-        sub.currencies.set(currCode, {
-          CurrencyCode: currCode,
+        cg = {
+          CurrencyCode: currencyCode,
+          subledgers: new Map<number, SubledgerGroup>(),
           totalOutstandingCurrency: 0,
           totalOutstandingLocal: 0,
           voucherCount: 0,
-          buckets: bucketData,
-        });
+          bucketTotals,
+        };
+        currencyMap.set(key, cg);
       }
+      return cg;
+    };
 
-      const currGroup = sub.currencies.get(currCode);
+    const getOrCreateSubledger = (group: CurrencyGroup, sid: number, row: any) => {
+      let sl = group.subledgers.get(sid);
+      if (!sl) {
+        const buckets: BucketMap = {};
+        bucketLabels.forEach(b => (buckets[b] = 0));
+        sl = {
+          SubledgerMasterSid: sid,
+          SubledgerName: row.SubledgerName ?? null,
+          LedgerName: row.LedgerName ?? null,
+          totalOutstandingCurrency: 0,
+          totalOutstandingLocal: 0,
+          voucherCount: 0,
+          buckets,
+        };
+        group.subledgers.set(sid, sl);
+      }
+      return sl;
+    };
 
-      // Add voucher to this currency group
-      currGroup.totalOutstandingCurrency += row.OSCurrencyAmount;
-      currGroup.totalOutstandingLocal += row.OSLocalAmount;
-      currGroup.voucherCount++;
+    for (const row of reportData) {
+      // skip rows without a valid subledger id
+      const subIdRaw = row.SubledgerMasterSid;
+      if (subIdRaw == null) continue;
+      const subId = Number(subIdRaw);
+      if (Number.isNaN(subId)) continue;
 
-      // Update subledger totals
-      sub.totalOutstanding += row.OSLocalAmount;
-      sub.voucherCount++;
+      const currCode = row.CurrencyCode;
+      const currKey = currCode ?? 'NULL';
 
-      // Bucket Allocation (using Local Amount)
-      let placed = false;
-      for (let i = 0; i < bucketRanges.length; i++) {
-        if (row.Ageing <= bucketRanges[i]) {
-          currGroup.buckets[bucketLabels[i]] += row.OSLocalAmount;
-          placed = true;
-          break;
+      if (CurrencyWise) {
+        const currGroup = getOrCreateCurrencyGroup(currKey, currCode);
+
+        const subledger = getOrCreateSubledger(currGroup, subId, row);
+
+        // Update subledger totals (currency amounts)
+        subledger.totalOutstandingCurrency += row.OSCurrencyAmount ?? 0;
+        subledger.totalOutstandingLocal += row.OSLocalAmount ?? 0;
+        subledger.voucherCount += 1;
+
+        // Update currency group totals
+        currGroup.totalOutstandingCurrency += row.OSCurrencyAmount ?? 0;
+        currGroup.totalOutstandingLocal += row.OSLocalAmount ?? 0;
+        currGroup.voucherCount += 1;
+
+        // Bucket allocation (use OSCurrencyAmount here by your requirement)
+        let placed = false;
+        for (let i = 0; i < bucketRanges.length; i++) {
+          if (row.Ageing <= bucketRanges[i]) {
+            const label = bucketLabels[i];
+            subledger.buckets[label] += row.OSCurrencyAmount ?? 0;
+            currGroup.bucketTotals[label] += row.OSCurrencyAmount ?? 0;
+            placed = true;
+            break;
+          }
         }
-      }
-      if (!placed) {
-        const last = bucketLabels[bucketLabels.length - 1];
-        currGroup.buckets[last] += row.OSLocalAmount;
+        if (!placed) {
+          const last = bucketLabels[bucketLabels.length - 1];
+          subledger.buckets[last] += row.OSCurrencyAmount ?? 0;
+          currGroup.bucketTotals[last] += row.OSCurrencyAmount ?? 0;
+        }
+      } else {
+        // Combined mode: use a single group key
+        const combinedKey = 'ALL_CURRENCIES';
+        const combinedGroup = getOrCreateCurrencyGroup(combinedKey, null);
+
+        const subledger = getOrCreateSubledger(combinedGroup, subId, row);
+
+        // Update subledger totals (we still record OSCurrencyAmount & OSLocalAmount)
+        subledger.totalOutstandingCurrency += row.OSCurrencyAmount ?? 0;
+        subledger.totalOutstandingLocal += row.OSLocalAmount ?? 0;
+        subledger.voucherCount += 1;
+
+        combinedGroup.totalOutstandingCurrency += row.OSCurrencyAmount ?? 0;
+        combinedGroup.totalOutstandingLocal += row.OSLocalAmount ?? 0;
+        combinedGroup.voucherCount += 1;
+
+        // Bucket allocation (we still use OSCurrencyAmount for buckets per your previous logic)
+        let placed = false;
+        for (let i = 0; i < bucketRanges.length; i++) {
+          if (row.Ageing <= bucketRanges[i]) {
+            const label = bucketLabels[i];
+            subledger.buckets[label] += row.OSCurrencyAmount ?? 0;
+            combinedGroup.bucketTotals[label] += row.OSCurrencyAmount ?? 0;
+            placed = true;
+            break;
+          }
+        }
+        if (!placed) {
+          const last = bucketLabels[bucketLabels.length - 1];
+          subledger.buckets[last] += row.OSCurrencyAmount ?? 0;
+          combinedGroup.bucketTotals[last] += row.OSCurrencyAmount ?? 0;
+        }
       }
     }
 
-    // Convert Map to Array for response
-    const ageingResult = Array.from(subledgerMap.values()).map(sub => ({
-      SubledgerMasterSid: sub.SubledgerMasterSid,
-      SubledgerName: sub.SubledgerName,
-      LedgerName: sub.LedgerName,
-      totalOutstanding: sub.totalOutstanding,
-      voucherCount: sub.voucherCount,
-      currencies: Array.from(sub.currencies.values()),
+    // -------------------------------------------
+    // 6. Convert Map to Array - Currency -> Subledgers
+    // -------------------------------------------
+    const ageingResult = Array.from(currencyMap.values()).map(currGroup => ({
+      CurrencyCode: currGroup.CurrencyCode,
+      totalOutstandingCurrency: currGroup.totalOutstandingCurrency,
+      totalOutstandingLocal: currGroup.totalOutstandingLocal,
+      voucherCount: currGroup.voucherCount,
+      bucketTotals: currGroup.bucketTotals,
+      subledgers: Array.from(currGroup.subledgers.values()).filter(
+        sub => (sub.totalOutstandingLocal ?? 0) > 0 || (sub.totalOutstandingCurrency ?? 0) > 0,
+      ),
     }));
 
-    // -------------------------------------------------
-    // 5. Grand Totals (across all subledgers and currencies)
-    // -------------------------------------------------
-    const grandTotal = ageingResult.reduce((a, b) => a + b.totalOutstanding, 0);
-    const totalVouchers = ageingResult.reduce((a, b) => a + b.voucherCount, 0);
+    // -------------------------------------------
+    // 7. Grand Totals
+    // -------------------------------------------
+    const grandTotalLocal = ageingResult.reduce((a, b) => a + (b.totalOutstandingLocal ?? 0), 0);
+    const grandTotalCurrency = ageingResult.reduce((a, b) => a + (b.totalOutstandingCurrency ?? 0), 0);
+    const totalVouchers = ageingResult.reduce((a, b) => a + (b.voucherCount ?? 0), 0);
+    const totalSubledgers = ageingResult.reduce((a, b) => a + (b.subledgers?.length ?? 0), 0);
 
-    const bucketTotals: Record<string, number> = {};
+    // -------------------------------------------
+    // 8. Overall Bucket Totals (across all currencies)
+    // -------------------------------------------
+    const overallBucketTotals: Record<string, number> = {};
     bucketLabels.forEach(b => {
-      bucketTotals[b] = 0;
-      ageingResult.forEach(sub => {
-        sub.currencies.forEach((curr: any) => {
-          bucketTotals[b] += curr.buckets[b];
-        });
-      });
+      overallBucketTotals[b] = ageingResult.reduce((acc, curr) => acc + (curr.bucketTotals[b] ?? 0), 0);
     });
 
-    // -------------------------------------------------
-    // 6. Currency-wise Grand Totals
-    // -------------------------------------------------
-    const currencyTotalsMap = new Map<string, any>();
-
-    ageingResult.forEach(sub => {
-      sub.currencies.forEach((curr: any) => {
-        if (!currencyTotalsMap.has(curr.CurrencyCode)) {
-          const bucketData: Record<string, number> = {};
-          bucketLabels.forEach(b => (bucketData[b] = 0));
-
-          currencyTotalsMap.set(curr.CurrencyCode, {
-            CurrencyCode: curr.CurrencyCode,
-            totalOutstandingCurrency: 0,
-            totalOutstandingLocal: 0,
-            voucherCount: 0,
-            buckets: bucketData,
-          });
-        }
-
-        const currTotal = currencyTotalsMap.get(curr.CurrencyCode);
-        currTotal.totalOutstandingCurrency += curr.totalOutstandingCurrency;
-        currTotal.totalOutstandingLocal += curr.totalOutstandingLocal;
-        currTotal.voucherCount += curr.voucherCount;
-
-        bucketLabels.forEach(b => {
-          currTotal.buckets[b] += curr.buckets[b];
-        });
-      });
-    });
-
-    const currencyTotals = Array.from(currencyTotalsMap.values());
-
-    // -------------------------------------------------
-    // 7. Final Return
-    // -------------------------------------------------
+    // -------------------------------------------
+    // 9. Final Response
+    // -------------------------------------------
     return {
+      concludedUpto: ToDate,
+      LedgerName: coa.LedgerName || '',
+      params: params,
+      branchInvolved: Array.from(branchSet).join(', '),
       bucketLabels,
-      subledgerCount: ageingResult.length,
+      currencyCount: ageingResult.length,
+      subledgerCount: totalSubledgers,
       totalVouchers,
-      grandTotal,
-      bucketTotals,
-      currencyTotals,
-      ageingResult,
+      grandTotalLocal,
+      grandTotalCurrency,
+      overallBucketTotals,
+      ageingResult, // Currency -> Subledgers structure
     };
   }
+
 
   private async generateOutstandingReport(params: any) {
     // TODO: Implement outstanding report logic
