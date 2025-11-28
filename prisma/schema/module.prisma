@@ -35,39 +35,40 @@ model UserRoleMaster {
 }
 
 model MenuMaster {
-  MenuMasterSid       Int                        @id @default(autoincrement()) @map("MenuMasterSid")
-  MenuCode            String                     @db.Char(3)
-  MenuName            String                     @db.VarChar(50)
-  ModuleMasterSid     Int
-  ModuleName          String                     @db.VarChar(50)
-  createdOn           DateTime                   @default(now()) @db.Timestamptz(6)
-  updatedOn           DateTime?                  @updatedAt @db.Timestamptz(6)
-  deletedAt           DateTime?
-  createdBy           String                     @db.VarChar(100)
-  updatedBy           String?                    @db.VarChar(100)
-  status              String?                    @default("A") @db.Char(1)
-  Remarks             String?                    @db.VarChar(300)
-  icon                String?                    @db.VarChar(50)
-  path                String?                    @db.VarChar(50)
-  parentId            Int?
-  AttachDocumentGroup AttachDocumentGroup[]
-  authorityMaster     AuthorityMaster[]
-  bookingHeader       BookingHeader[]
-  costRevenueCharges  CostRevenueCharges[]
-  customerBrEmail     CustomerBrEmail[]
-  enquiryHeader       EnquiryHeader[]
-  houseJob            HouseJob[]
-  MasterJob           MasterJob[]
-  menuConfig          MenuConfig[]
-  moduleMaster        ModuleMaster               @relation(fields: [ModuleMasterSid], references: [ModuleMasterSid])
-  menuPermission      MenuPermission[]
-  quoteHeader         QuoteHeader[]
-  refDocument         RefDocument[]
-  ReportMaster        ReportMaster[]
-  roleMenuMaster      RoleMenuMaster[]
-  terms               TermsAndConditionsMaster[]
-  userRoleMaster      UserRoleMaster[]
-  RoleMenuDetail      RoleMenuDetail[]
+  MenuMasterSid           Int                        @id @default(autoincrement()) @map("MenuMasterSid")
+  MenuCode                String                     @db.Char(3)
+  MenuName                String                     @db.VarChar(50)
+  ModuleMasterSid         Int
+  ModuleName              String                     @db.VarChar(50)
+  createdOn               DateTime                   @default(now()) @db.Timestamptz(6)
+  updatedOn               DateTime?                  @updatedAt @db.Timestamptz(6)
+  deletedAt               DateTime?
+  createdBy               String                     @db.VarChar(100)
+  updatedBy               String?                    @db.VarChar(100)
+  status                  String?                    @default("A") @db.Char(1)
+  Remarks                 String?                    @db.VarChar(300)
+  icon                    String?                    @db.VarChar(50)
+  path                    String?                    @db.VarChar(50)
+  parentId                Int?
+  AttachDocumentGroup     AttachDocumentGroup[]
+  authorityMaster         AuthorityMaster[]
+  bookingHeader           BookingHeader[]
+  costRevenueCharges      CostRevenueCharges[]
+  customerBrEmail         CustomerBrEmail[]
+  enquiryHeader           EnquiryHeader[]
+  houseJob                HouseJob[]
+  MasterJob               MasterJob[]
+  MailConfigurationMaster MailConfigurationMaster[]
+  menuConfig              MenuConfig[]
+  moduleMaster            ModuleMaster               @relation(fields: [ModuleMasterSid], references: [ModuleMasterSid])
+  menuPermission          MenuPermission[]
+  quoteHeader             QuoteHeader[]
+  refDocument             RefDocument[]
+  ReportMaster            ReportMaster[]
+  roleMenuMaster          RoleMenuMaster[]
+  terms                   TermsAndConditionsMaster[]
+  userRoleMaster          UserRoleMaster[]
+  RoleMenuDetail          RoleMenuDetail[]
 }
 
 model MenuPermission {
