@@ -127,7 +127,6 @@ export class CompanyService {
                                 BankAddress: bank.BankAddress || null,
                                 IFSCCode: bank.IFSCCode,
                                 BankAccountNo: bank.BankAccountNo,
-                                BeneficiaryName: bank.BeneficiaryName,
                                 status: bank.status,
                                 Remarks: bank.Remarks || null,
                                 PrintOnInvoice : bank.PrintOnInvoice || 'N',
@@ -439,7 +438,6 @@ export class CompanyService {
                                 BankAddress: bank.BankAddress || null,
                                 IFSCCode: bank.IFSCCode,
                                 BankAccountNo: bank.BankAccountNo,
-                                BeneficiaryName: bank.BeneficiaryName,
                                 status: bank.status,
                                 Remarks: bank.Remarks || null,
                                 PrintOnInvoice : bank.PrintOnInvoice || 'N',
@@ -919,7 +917,6 @@ interface BankCreateInput {
     BankAddress?: string | null;
     IFSCCode: string;
     BankAccountNo: string;
-    BeneficiaryName: string;
     status: string;
     Remarks?: string | null;
     BranchMasterSid: number;
@@ -933,7 +930,6 @@ interface BankCreateInput {
     BankAddress?: string | null;
     IFSCCode: string;
     BankAccountNo: string;
-    BeneficiaryName: string;
     status: string;
     Remarks?: string | null;
     BranchMasterSid: number;
@@ -957,7 +953,6 @@ interface BankCreateInput {
     BankAddress?: string | null;
     IFSCCode: string;
     BankAccountNo: string;
-    BeneficiaryName: string;
     status: string;
     Remarks?: string | null;
     BranchMasterSid: number;
