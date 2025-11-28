@@ -510,6 +510,7 @@ export class SubledgermasterService {
                 chargeCode: true,
                 chargeName: true,  
                 UOM: true,
+
                 chargeTaxMaster: {
                     where: {
                         Status: "A"
@@ -520,6 +521,8 @@ export class SubledgermasterService {
                         TaxRate: true,
                         ChargeTaxMasterSid: true,
                         CompanyMasterSid: true,
+                        TaxGroupSid: true,
+                        HSSACMasterSid: true,
                         Status: true
                     }
                 },
