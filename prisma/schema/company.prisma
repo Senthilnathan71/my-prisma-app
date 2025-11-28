@@ -1047,6 +1047,7 @@ model QuoteHeader {
   ContactNumber              String?                      @db.VarChar(20)
   ContactPerson              String?                      @db.VarChar(20)
   RateLock                   String?                      @default("N") @db.Char(1)
+  IsContract                 String?                      @default("N") @db.Char(1)
   ActivityResourceAllocation ActivityResourceAllocation[]
   EnquiryHeader              EnquiryHeader?
   houseJob                   HouseJob[]
@@ -2488,6 +2489,8 @@ model Followup {
   Remarks          String?       @db.VarChar(500)
   Public           String?       @default("N") @db.Char(1)
   sentEmail        String?       @default("N") @db.Char(1)
+  IsCompleted      String?       @default("N") @db.Char(1)
+  Subject          String?       @db.VarChar(200)
   deletedAt        Int?
   BranchMaster     BranchMaster  @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
   CompanyMaster    CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
