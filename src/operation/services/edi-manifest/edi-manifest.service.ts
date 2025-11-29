@@ -19,6 +19,7 @@ export class EDIManifestService {
         voyages: { where: { Status: 'A' } },
         containers: { where: { Status: 'A' } },
         others: { where: { Status: 'A' } },
+        CompanyMaster: { include: { countryMaster: true } },
         houseJob: {
           where: { status: 'A' },
           include: {
@@ -26,6 +27,7 @@ export class EDIManifestService {
             Products: { where: { status: 'A' } },
             Others: { where: { status: 'A' } },
             houseJobCustoms: { where: { Status: 'A' } },
+            companyMaster: { include: { countryMaster: true } },
           },
         },
       },
@@ -35,7 +37,18 @@ export class EDIManifestService {
       throw new NotFoundException(`Master Job with ID ${masterJobSid} not found`);
     }
 
-    return this.generateManifestText(masterJob);
+    // Fetch port data for origin country
+    const originPortCode = masterJob.POO;
+    let originCountryCode = '';
+    if (originPortCode) {
+      const port = await this._db.portMaster.findFirst({
+        where: { PortCode: originPortCode, status: 'A' },
+        include: { countryMaster: true },
+      });
+      originCountryCode = port?.countryMaster?.countryCode || '';
+    }
+
+    return this.generateManifestText(masterJob, originCountryCode);
   }
 
   /**
@@ -49,11 +62,13 @@ export class EDIManifestService {
         Products: { where: { status: 'A' } },
         Others: { where: { status: 'A' } },
         houseJobCustoms: { where: { Status: 'A' } },
+        companyMaster: { include: { countryMaster: true } },
         masterJob: {
           where: { Status: 'A' },
           include: {
             voyages: { where: { Status: 'A' } },
             containers: { where: { Status: 'A' } },
+            CompanyMaster: { include: { countryMaster: true } },
           },
         },
       },
@@ -63,19 +78,30 @@ export class EDIManifestService {
       throw new NotFoundException(`House Job with ID ${houseJobSid} not found`);
     }
 
+    // Fetch port data for origin country
+    const originPortCode = houseJob.POO || houseJob.masterJob?.POO;
+    let originCountryCode = '';
+    if (originPortCode) {
+      const port = await this._db.portMaster.findFirst({
+        where: { PortCode: originPortCode, status: 'A' },
+        include: { countryMaster: true },
+      });
+      originCountryCode = port?.countryMaster?.countryCode || '';
+    }
+
     // Create a master job structure with single house job
     const masterJobData = {
       ...houseJob.masterJob,
       houseJob: [houseJob],
     };
 
-    return this.generateManifestText(masterJobData);
+    return this.generateManifestText(masterJobData, originCountryCode);
   }
 
   /**
    * Generate complete manifest text from master job data
    */
-  private generateManifestText(masterJob: any): string {
+  private generateManifestText(masterJob: any, originCountryCode: string = ''): string {
     const lines: string[] = [];
 
     // VOY Record - Voyage Details
@@ -84,7 +110,7 @@ export class EDIManifestService {
     // BOL, CTR, CON Records for each House Job
     for (const houseJob of masterJob.houseJob || []) {
       // BOL Record - Bill of Lading
-      lines.push(this.generateBOLRecord(masterJob, houseJob));
+      lines.push(this.generateBOLRecord(masterJob, houseJob, originCountryCode));
 
       // CTR Records - Container Details (if containerized)
       if (this.isContainerized(houseJob)) {
@@ -141,11 +167,31 @@ export class EDIManifestService {
    *         "TareWeight","CargoWeight","GrossWeight","Volume","TotalQty","FreightTonne","Pallets","SLACIndicator",
    *         "ContractCarriage","Remarks"
    */
-  private generateBOLRecord(masterJob: any, houseJob: any): string {
+  private generateBOLRecord(masterJob: any, houseJob: any, originCountryCode: string = ''): string {
     const cargo = houseJob.Cargo?.[0] || {};
     const others = houseJob.Others?.[0] || {};
     const customs = houseJob.houseJobCustoms?.[0] || {};
     const voyage = masterJob.voyages?.[0] || {};
+
+    // Fix 2.17: Use ShipmentTerms field instead of CargoType
+    const shipmentTerms = cargo.ShipmentTerms || houseJob.ShipmentTerms || masterJob.ShipmentTerms || cargo.CargoType || 'FCL/FCL';
+
+    // Fix 2.18: Get country of origin from origin port (passed as parameter)
+    const countryOfOrigin = originCountryCode || '';
+
+    // Fix 2.28: Get shipper country from company master
+    const shipperCountryCode = houseJob.companyMaster?.countryMaster?.CountryCode ||
+                               masterJob.CompanyMaster?.countryMaster?.CountryCode || '';
+
+    // Fix 2.33 & 2.34: Get notify name and address with validation logging
+    const notifyName = houseJob.Notify || others.NotifyParty || '';
+    const notifyAddress = houseJob.NotifyAddress || others.NotifyPartyAddress || '';
+    if (!notifyName) {
+      this.logger.warn(`House Job ${houseJob.HouseJobSid}: Notify Name is mandatory but missing`);
+    }
+    if (!notifyAddress) {
+      this.logger.warn(`House Job ${houseJob.HouseJobSid}: Notify Address is mandatory but missing`);
+    }
 
     const fields = [
       'BOL',
@@ -165,8 +211,8 @@ export class EDIManifestService {
       this.escapeField(customs.CargoCode || this.getCargoCode(cargo)),
       this.escapeField('N'),
       this.escapeField(customs.StorageRequest || ''),
-      this.escapeField(cargo.CargoType || 'FCL/FCL'),
-      this.escapeField(houseJob.CountryOfOrigin || 'QA'),
+      this.escapeField(shipmentTerms),                    // Fix 2.17: Shipment Terms
+      this.escapeField(countryOfOrigin),                  // Fix 2.18: Country of Origin
       this.escapeField(''),
       this.escapeField(''),
       this.escapeField(''),
@@ -176,13 +222,13 @@ export class EDIManifestService {
       this.escapeField(''),
       this.escapeField(houseJob.ShipperName || ''),
       this.escapeField(houseJob.ShipperAddress || ''),
-      this.escapeField(''),
+      this.escapeField(shipperCountryCode),               // Fix 2.28: Shipper Country Code
       this.escapeField(customs.ImporterCode || ''),
       this.escapeField(houseJob.ConsigneeName || ''),
       this.escapeField(houseJob.ConsigneeAddress || ''),
       this.escapeField(''),
-      this.escapeField(houseJob.Notify || others.NotifyParty || ''),
-      this.escapeField(houseJob.NotifyAddress || others.NotifyPartyAddress || ''),
+      this.escapeField(notifyName),                       // Fix 2.33: Notify Name
+      this.escapeField(notifyAddress),                    // Fix 2.34: Notify Address
       this.escapeField(''),
       this.escapeField(''),
       this.escapeField(''),
@@ -268,22 +314,39 @@ export class EDIManifestService {
     if (customs.length > 0) {
       // Use customs data
       for (const cust of customs) {
+        // Fix 3.5: HS Code is mandatory - log warning if missing
+        const hsCode = cust.UNHSCode || product.HSCode || '';
+        if (!hsCode) {
+          this.logger.warn(`House Job ${houseJob.HouseJobSid}: HS Code (Commodity Code) is mandatory but missing`);
+        }
+
+        // Fix 3.12 & 3.13: Dangerous Goods Indicator and IMO Class
+        // Check both customs UNNumber and product IsHaz/UnNo
+        const isDangerous = !!(cust.UNNumber || product.IsHaz === 'Y' || product.UnNo);
+        const dgIndicator = isDangerous ? 'Y' : 'N';
+
+        // Fix 3.13: IMO Class is mandatory when DG is Y - use product.ImcoClass
+        const imoClass = isDangerous ? (product.ImcoClass || '') : '';
+        if (isDangerous && !imoClass) {
+          this.logger.warn(`House Job ${houseJob.HouseJobSid}: IMO Class is mandatory when Dangerous Goods is Y`);
+        }
+
         const fields = [
           'CON',
           this.escapeField(cust.SerialNumber?.toString() || '1'),
           this.escapeField(cargo.MarksAndNumber || 'n/m'),
           this.escapeField(cargo.CommodityDescription || 'GENERAL CARGO'),
           this.escapeField(cust.UsedOrNew || 'N'),
-          this.escapeField(cust.UNHSCode || product.HSCode || ''),
+          this.escapeField(hsCode),                            // Fix 3.5: HS Code
           this.escapeField(cargo.NoOfPackage?.toString() || '1'),
           this.escapeField(this.getPackageTypeName(cargo.PackageType)),
           this.escapeField(cust.PackageTypeCode || 'CTN'),
           this.escapeField(cust.NoOfPallets?.toString() || '0'),
           this.escapeField(cargo.GrossWeight?.toString() || '0'),
           this.escapeField(cargo.Volume?.toString() || '0'),
-          this.escapeField(cust.UNNumber ? 'Y' : 'N'),
-          this.escapeField(''),
-          this.escapeField(cust.UNNumber || ''),
+          this.escapeField(dgIndicator),                       // Fix 3.12: DG Indicator
+          this.escapeField(imoClass),                          // Fix 3.13: IMO Class
+          this.escapeField(cust.UNNumber || product.UnNo || ''),
           this.escapeField(cust.FlashPoints?.toString() || '0'),
           this.escapeField(cust.TemperatureUnit || ''),
           this.escapeField(cust.HazStorageRequest || ''),
@@ -296,26 +359,36 @@ export class EDIManifestService {
       }
     } else {
       // Generate default CON record from cargo data
+      // Check product for dangerous goods info
+      const isDangerous = !!(product.IsHaz === 'Y' || product.UnNo);
+      const dgIndicator = isDangerous ? 'Y' : 'N';
+      const imoClass = isDangerous ? (product.ImcoClass || '') : '';
+      const hsCode = product.HSCode || '';
+
+      if (!hsCode) {
+        this.logger.warn(`House Job ${houseJob.HouseJobSid}: HS Code (Commodity Code) is mandatory but missing`);
+      }
+
       const fields = [
         'CON',
         this.escapeField('1'),
         this.escapeField(cargo.MarksAndNumber || 'n/m'),
         this.escapeField(cargo.CommodityDescription || 'GENERAL CARGO'),
         this.escapeField('N'),
-        this.escapeField(product.HSCode || '770000'),
+        this.escapeField(hsCode),                              // Fix 3.5: HS Code
         this.escapeField(cargo.NoOfPackage?.toString() || '1'),
         this.escapeField(this.getPackageTypeName(cargo.PackageType)),
         this.escapeField('CTN'),
         this.escapeField('1'),
         this.escapeField(cargo.GrossWeight?.toString() || '0'),
         this.escapeField(cargo.Volume?.toString() || '0'),
-        this.escapeField('N'),
-        this.escapeField(''),
-        this.escapeField(''),
+        this.escapeField(dgIndicator),                         // Fix 3.12: DG Indicator
+        this.escapeField(imoClass),                            // Fix 3.13: IMO Class
+        this.escapeField(product.UnNo || ''),
         this.escapeField('0'),
         this.escapeField(''),
         this.escapeField(''),
-        this.escapeField('Y'),
+        this.escapeField('N'),
         this.escapeField('0'),
         this.escapeField('0'),
         this.escapeField(''),

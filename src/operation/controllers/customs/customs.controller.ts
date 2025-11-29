@@ -56,6 +56,36 @@ export class CustomsController {
     return resp;
   }
 
+  @Get('house-job/:houseJobSid')
+  @ApiOperation({ summary: 'Get Customs by HouseJobSid' })
+  @ApiOkResponse({ description: 'Customs records for house job fetched', type: ResponseData })
+  async findByHouseJobSid(@Param('houseJobSid') houseJobSid: string) {
+    const resp = new ResponseData();
+    try {
+      resp.data = await this.customsService.findByHouseJobSid(Number(houseJobSid));
+      resp.message = 'Customs records fetched successfully';
+    } catch (err) {
+      resp.status = false;
+      resp.message = err.message;
+    }
+    return resp;
+  }
+
+  @Get('master-job/:masterJobSid')
+  @ApiOperation({ summary: 'Get Customs by MasterJobSid' })
+  @ApiOkResponse({ description: 'Customs records for master job fetched', type: ResponseData })
+  async findByMasterJobSid(@Param('masterJobSid') masterJobSid: string) {
+    const resp = new ResponseData();
+    try {
+      resp.data = await this.customsService.findByMasterJobSid(Number(masterJobSid));
+      resp.message = 'Customs records fetched successfully';
+    } catch (err) {
+      resp.status = false;
+      resp.message = err.message;
+    }
+    return resp;
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get Customs by ID' })
   @ApiOkResponse({ description: 'Customs record fetched', type: ResponseData })

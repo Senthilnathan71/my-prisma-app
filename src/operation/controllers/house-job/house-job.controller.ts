@@ -42,6 +42,33 @@ export class HouseJobController {
         return resp;
     }
 
+    @ApiOperation({ summary: 'Create New House Job' })
+@ApiCreatedResponse({
+  description: 'House Job Created Successfully',
+  type: ResponseData
+})
+@HttpCode(HttpStatus.CREATED)
+@Post('create')
+async createHouseJob(@Body() payload: any) {
+  const resp = new ResponseData();
+  try {
+    this.logger.log(`Creating new House Job with payload: ${JSON.stringify(payload)}`);
+    const houseJob = await this.houseJobService.createHouseJob(payload);
+    this.logger.debug(`House Job Created Successfully: ${JSON.stringify(houseJob)}`);
+    resp.data = houseJob;
+    resp.message = 'House Job Created Successfully';
+    return resp;
+  } catch (error) {
+    this.logger.error(`Error in creating House Job: ${JSON.stringify(error)}, ${error}`);
+    resp.status = false;
+    if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+      resp.message = error.message;
+    } else {
+      resp.message = 'Internal Server Error';
+    }
+  }
+  return resp;
+}
   @ApiOperation({
     summary: 'Get House Job by MasterJobSid',
   })
@@ -70,6 +97,7 @@ export class HouseJobController {
     }
     return resp;
   }
+
 
   @ApiOperation({ summary: 'Update House Job Data' })
   @ApiCreatedResponse({

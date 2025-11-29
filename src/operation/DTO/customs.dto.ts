@@ -8,7 +8,8 @@ import {
 
 export class CreateCustomsDto {
   @IsNotEmpty() CompanyMasterSid: number;
-  @IsNotEmpty() HouseJobSid: number;
+  @IsOptional() @IsNumber() HouseJobSid?: number;
+  @IsOptional() @IsNumber() MasterJobSid?: number;
 
   @IsString() LineCode: string;
   @IsString() VoyageAgentCode: string;

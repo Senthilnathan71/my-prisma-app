@@ -11,7 +11,8 @@ async create(dto: CreateCustomsDto) {
   return this.prisma.houseJobCustoms.create({
     data: {
       CompanyMasterSid: dto.CompanyMasterSid,
-      HouseJobSid: dto.HouseJobSid,
+      HouseJobSid: dto.HouseJobSid ?? null,
+      MasterJobSid: dto.MasterJobSid ?? null,
 
       LineCode: dto.LineCode ?? '',
       VoyageAgentCode: dto.VoyageAgentCode ?? '',
@@ -57,6 +58,20 @@ async create(dto: CreateCustomsDto) {
   async findAll() {
     return this.prisma.houseJobCustoms.findMany({
       where: { Status: 'A' },
+      orderBy: { HouseJobCustomsSid: 'asc' },
+    });
+  }
+
+  async findByHouseJobSid(houseJobSid: number) {
+    return this.prisma.houseJobCustoms.findMany({
+      where: { HouseJobSid: houseJobSid, Status: 'A' },
+      orderBy: { HouseJobCustomsSid: 'asc' },
+    });
+  }
+
+  async findByMasterJobSid(masterJobSid: number) {
+    return this.prisma.houseJobCustoms.findMany({
+      where: { MasterJobSid: masterJobSid, Status: 'A' },
       orderBy: { HouseJobCustomsSid: 'asc' },
     });
   }
