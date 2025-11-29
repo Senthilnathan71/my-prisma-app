@@ -29,7 +29,7 @@ export class FollowupController {
                 throw 'Something went wrong'
             }
             output.data = followup
-            output.message = 'followup Created Successfully'
+            output.message = 'Followup Created Successfully'
         } catch (error) {
             this.logger.warn(`createfollowupError: ${error}`)
             output.status = false;
