@@ -17,6 +17,8 @@ import { MenuService } from 'src/masters/services/menu/menu.service';
 import { ConfigModule } from '@nestjs/config';
 import { GlobalConfigService } from './config/master-config.service';
 import { MastersModule } from 'src/masters/masters.module';
+import { DocReferenceController } from './controllers/doc-reference/doc-reference.controller';
+import { DocReferenceService } from './services/doc-reference/doc-reference.service';
 import { ReportEmailService } from './services/report-email.service';
 
 @Module({
@@ -29,7 +31,8 @@ import { ReportEmailService } from './services/report-email.service';
         emailLogController,
         LookupsController,
         FollowupController,
-        AttachDocumentController
+        AttachDocumentController,
+        DocReferenceController,
     ],
     providers: [
         Logger,
@@ -41,6 +44,7 @@ import { ReportEmailService } from './services/report-email.service';
         FollowupService,
         SchedulerService,
         AttachDocumentService,
+        DocReferenceService,
         ReportEmailService
     ],
     exports: [
