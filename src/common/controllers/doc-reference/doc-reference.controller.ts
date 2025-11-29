@@ -12,11 +12,12 @@ import {
   Post,
   Query,
 } from '@nestjs/common';
-import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
+import { ApiBody, ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
 import { Auth } from 'src/common/decorators/auth.decorator';
 import { UserData } from 'src/common/decorators/user.decorator';
 import { ResponseData } from 'src/common/response-data';
 import { DocReferenceService } from 'src/common/services/doc-reference/doc-reference.service';
+import { CreateDocReferenceDto, UpdateDocReferenceDto } from './dto/create-doc-reference.dto';
 
 @Controller('doc-reference')
 @Auth()
@@ -31,31 +32,15 @@ export class DocReferenceController {
     description: 'Document Reference Creation/Update',
     type: ResponseData,
   })
+  @ApiBody({ type: CreateDocReferenceDto })
   @HttpCode(HttpStatus.CREATED)
   @Post('create')
-  async create(@Body() body: any, @UserData() user: any) {
+  async create(@Body() body: CreateDocReferenceDto, @UserData() user: any) {
     const output = new ResponseData();
     this.logger.log(`📝 createDocReference body: ${JSON.stringify(body)}`);
 
     try {
-      if (!body) {
-        output.status = false;
-        output.message = 'Request body is required';
-        return output;
-      }
-
-      if (!body.CompanyMasterSid || !body.BranchMasterSid) {
-        output.status = false;
-        output.message = 'CompanyMasterSid and BranchMasterSid are required';
-        return output;
-      }
-
-      if (!body.documentReferences || !Array.isArray(body.documentReferences) || body.documentReferences.length === 0) {
-        output.status = false;
-        output.message = 'At least one document reference is required';
-        return output;
-      }
-
+      // DTO validation handles these checks automatically via class-validator
       const result = await this.docReferenceService.create(body, user);
 
       if (result && result.data) {
@@ -142,11 +127,12 @@ export class DocReferenceController {
   }
 
   @ApiOperation({ summary: 'Update Document Reference' })
+  @ApiBody({ type: UpdateDocReferenceDto })
   @HttpCode(HttpStatus.OK)
   @Patch('update/:id')
   async update(
     @Param('id', ParseIntPipe) id: number,
-    @Body() body: any,
+    @Body() body: UpdateDocReferenceDto,
     @UserData() user: any,
   ) {
     const output = new ResponseData();

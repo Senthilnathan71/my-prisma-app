@@ -175,7 +175,8 @@ export class DocReferenceService {
         }
       }
 
-      const createPromises = documentReferences.map((doc: any, idx: number) => {
+      // Use transaction for batch creates to ensure atomicity
+      const createOperations = documentReferences.map((doc: any, idx: number) => {
         this.logger.log(
           `Creating RefDocument #${idx + 1} – RefDocumentNo=${doc.refDocumentNo}`,
         );
@@ -199,7 +200,8 @@ export class DocReferenceService {
         });
       });
 
-      const results = await Promise.all(createPromises);
+      // Execute all creates within a transaction for atomicity
+      const results = await this._db.$transaction(createOperations);
       this.logger.log(`✅ Created ${results.length} RefDocument record(s)`);
 
       return {
@@ -239,11 +241,15 @@ export class DocReferenceService {
         if (!isNaN(branchId)) where.BranchMasterSid = branchId;
       }
 
-      
+      // Exclude soft-deleted records (Status='D') and filter by status
       if (filter?.Status && filter.Status !== 'ALL') {
-        where.Status = filter.Status; 
+        where.Status = filter.Status;
+      } else if (filter?.Status === 'ALL') {
+        // Show all non-deleted records (Active and Inactive)
+        where.Status = { not: 'D' };
       } else {
-        where.Status = 'A'; 
+        // Default to showing only Active records
+        where.Status = 'A';
       }
 
       const searchTermValue =
