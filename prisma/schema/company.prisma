@@ -2589,6 +2589,7 @@ model MasterJob {
   ActivityResourceAllocation ActivityResourceAllocation[]
   ContainerActivity          ContainerActivity[]
   houseJob                   HouseJob[]
+  houseJobCustoms            HouseJobCustoms[]
   BranchMaster               BranchMaster                 @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
   CompanyMaster              CompanyMaster                @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
   MenuMaster                 MenuMaster?                  @relation(fields: [MenuMasterSid], references: [MenuMasterSid])
@@ -3534,7 +3535,8 @@ model HouseJobCustoms {
   UpdatedBy          String?  @db.VarChar(100)
   Status             String   @default("A") @db.Char(1)
   CompanyMasterSid   Int
-  HouseJobSid        Int
+  HouseJobSid        Int?
+  MasterJobSid       Int?
 
   LineCode         String   @db.VarChar(6)
   VoyageAgentCode  String   @db.VarChar(6)
@@ -3561,7 +3563,8 @@ model HouseJobCustoms {
   RefTemperatureUnit    String?  @db.Char(1)
 
   // RELATIONS
-  houseJob      HouseJob      @relation(fields: [HouseJobSid], references: [HouseJobSid])
+  houseJob      HouseJob?      @relation(fields: [HouseJobSid], references: [HouseJobSid])
+  masterJob     MasterJob?     @relation(fields: [MasterJobSid], references: [MasterJobSid])
   companyMaster CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
 }
 
