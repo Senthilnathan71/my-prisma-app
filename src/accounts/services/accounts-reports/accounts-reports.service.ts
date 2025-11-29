@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { DatabaseService } from 'src/database/database.service';
-import { Prisma } from '@prisma/client';
+import { ApprovalStatus, Prisma } from '@prisma/client';
 import { AgeingReportQueryDto } from 'src/accounts/dto/accounts-reports.dto';
 import { toNumber } from 'src/common/helper';
 // -------------------------
@@ -14,6 +14,11 @@ interface SubledgerGroup {
   LedgerName?: string | null;
   totalOutstandingCurrency: number;
   totalOutstandingLocal: number;
+  totalOnAccountCreditCurr: number;
+  totalOnAccountCreditLocal: number;
+  CreditDays : number;
+  CreditLimit : number;
+  // rows : any[];
   voucherCount: number;
   buckets: BucketMap;
 }
@@ -23,6 +28,8 @@ interface CurrencyGroup {
   subledgers: Map<number, SubledgerGroup>;
   totalOutstandingCurrency: number;
   totalOutstandingLocal: number;
+  totalOnAccountCreditCurr: number;
+  totalOnAccountCreditLocal: number;
   voucherCount: number;
   bucketTotals: BucketMap;
 }
@@ -241,16 +248,20 @@ export class AccountsReportsService {
         Math.floor((+new Date() - +new Date(v.VoucherDate)) / (1000 * 60 * 60 * 24)) + 1;
 
       return {
+        VoucherTransactionSid : v.VoucherTransactionSid,
         LedgerName: coa.LedgerName,
         SubledgerName: v.subledgerMaster?.SubledgerName ?? null,
         SubledgerMasterSid: v.LedgerMasterSid ?? null,
         VoucherDate: v.VoucherDate,
         CurrencyCode: v.CurrencyCode ?? null,
+        DrCr : v.DrCr,
         Ageing: ageing,
         OriginalCurrAmount: toNumber(v.Amount),
         OriginalLocalAmount: toNumber(v.LocalAmount),
         OSCurrencyAmount: toNumber(v.Amount) - Math.abs(matchCurr),
         OSLocalAmount: toNumber(v.LocalAmount) - Math.abs(matchLocal),
+        OnAccountCreditCurr : v.DrCr === 'C' ?  toNumber(v.Amount) - Math.abs(matchCurr) : 0,
+        OnAccountCreditLocal : v.DrCr === 'C' ?  toNumber(v.LocalAmount) - Math.abs(matchLocal) : 0,
       };
     });
 
@@ -292,6 +303,8 @@ export class AccountsReportsService {
           subledgers: new Map<number, SubledgerGroup>(),
           totalOutstandingCurrency: 0,
           totalOutstandingLocal: 0,
+          totalOnAccountCreditCurr: 0,
+          totalOnAccountCreditLocal: 0,
           voucherCount: 0,
           bucketTotals,
         };
@@ -311,7 +324,12 @@ export class AccountsReportsService {
           LedgerName: row.LedgerName ?? null,
           totalOutstandingCurrency: 0,
           totalOutstandingLocal: 0,
+          totalOnAccountCreditCurr: 0,
+          totalOnAccountCreditLocal: 0,
+          CreditDays : 0,
+          CreditLimit : 0,
           voucherCount: 0,
+          // rows : [],
           buckets,
         };
         group.subledgers.set(sid, sl);
@@ -335,13 +353,18 @@ export class AccountsReportsService {
         const subledger = getOrCreateSubledger(currGroup, subId, row);
 
         // Update subledger totals (currency amounts)
-        subledger.totalOutstandingCurrency += row.OSCurrencyAmount ?? 0;
-        subledger.totalOutstandingLocal += row.OSLocalAmount ?? 0;
+        subledger.totalOutstandingCurrency += row.DrCr==='C' ? -row.OSCurrencyAmount : row.OSCurrencyAmount;
+        subledger.totalOutstandingLocal += row.DrCr === 'C' ? -row.OSLocalAmount : row.OSLocalAmount;
+        subledger.totalOnAccountCreditCurr += row.DrCr === 'C' ? -row.OnAccountCreditCurr : 0;
+        subledger.totalOnAccountCreditLocal += row.DrCr === 'C' ? -row.OnAccountCreditLocal : 0;
+        // subledger.rows?.push(row);
         subledger.voucherCount += 1;
 
         // Update currency group totals
-        currGroup.totalOutstandingCurrency += row.OSCurrencyAmount ?? 0;
-        currGroup.totalOutstandingLocal += row.OSLocalAmount ?? 0;
+        currGroup.totalOutstandingCurrency += row.DrCr === 'C' ? -row.OSCurrencyAmount : row.OSCurrencyAmount;
+        currGroup.totalOutstandingLocal += row.DrCr === 'C' ? -row.OSLocalAmount : row.OSLocalAmount;
+        currGroup.totalOnAccountCreditCurr += row.DrCr === 'C' ? -row.OnAccountCreditCurr : 0;
+        currGroup.totalOnAccountCreditLocal += row.DrCr === 'C' ? -row.OnAccountCreditLocal : 0;
         currGroup.voucherCount += 1;
 
         // Bucket allocation (use OSCurrencyAmount here by your requirement)
@@ -349,16 +372,16 @@ export class AccountsReportsService {
         for (let i = 0; i < bucketRanges.length; i++) {
           if (row.Ageing <= bucketRanges[i]) {
             const label = bucketLabels[i];
-            subledger.buckets[label] += row.OSCurrencyAmount ?? 0;
-            currGroup.bucketTotals[label] += row.OSCurrencyAmount ?? 0;
+            subledger.buckets[label] += row.DrCr === 'D' ? row.OSCurrencyAmount : 0;
+            currGroup.bucketTotals[label] += row.DrCr === 'D' ? row.OSCurrencyAmount : 0;
             placed = true;
             break;
           }
         }
         if (!placed) {
           const last = bucketLabels[bucketLabels.length - 1];
-          subledger.buckets[last] += row.OSCurrencyAmount ?? 0;
-          currGroup.bucketTotals[last] += row.OSCurrencyAmount ?? 0;
+          subledger.buckets[last] += row.DrCr === 'D' ? row.OSCurrencyAmount : 0;
+          currGroup.bucketTotals[last] += row.DrCr === 'D' ? row.OSCurrencyAmount : 0;
         }
       } else {
         // Combined mode: use a single group key
@@ -368,12 +391,16 @@ export class AccountsReportsService {
         const subledger = getOrCreateSubledger(combinedGroup, subId, row);
 
         // Update subledger totals (we still record OSCurrencyAmount & OSLocalAmount)
-        subledger.totalOutstandingCurrency += row.OSCurrencyAmount ?? 0;
-        subledger.totalOutstandingLocal += row.OSLocalAmount ?? 0;
+        subledger.totalOutstandingCurrency += row.OSCurrencyAmount ? -row.OSCurrencyAmount : 0;
+        subledger.totalOutstandingLocal += row.OSLocalAmount ? -row.OSLocalAmount : 0;
+        subledger.totalOnAccountCreditCurr += row.DrCr === 'C' ? -row.OnAccountCreditCurr : 0;
+        subledger.totalOnAccountCreditLocal += row.DrCr === 'C' ? -row.OnAccountCreditLocal : 0;
         subledger.voucherCount += 1;
 
-        combinedGroup.totalOutstandingCurrency += row.OSCurrencyAmount ?? 0;
-        combinedGroup.totalOutstandingLocal += row.OSLocalAmount ?? 0;
+        combinedGroup.totalOutstandingCurrency += row.DrCr === 'C' ? -row.OSCurrencyAmount : row.OSCurrencyAmount;
+        combinedGroup.totalOutstandingLocal += row.DrCr === 'C' ? -row.OSLocalAmount : row.OSLocalAmount;
+        combinedGroup.totalOnAccountCreditCurr += row.DrCr === 'C' ? -row.OnAccountCreditCurr : 0;
+        combinedGroup.totalOnAccountCreditLocal += row.DrCr === 'C' ? -row.OnAccountCreditLocal : 0;
         combinedGroup.voucherCount += 1;
 
         // Bucket allocation (we still use OSCurrencyAmount for buckets per your previous logic)
@@ -381,16 +408,16 @@ export class AccountsReportsService {
         for (let i = 0; i < bucketRanges.length; i++) {
           if (row.Ageing <= bucketRanges[i]) {
             const label = bucketLabels[i];
-            subledger.buckets[label] += row.OSCurrencyAmount ?? 0;
-            combinedGroup.bucketTotals[label] += row.OSCurrencyAmount ?? 0;
+            subledger.buckets[label] += row.DrCr === 'D' ? row.OSCurrencyAmount : 0;
+            combinedGroup.bucketTotals[label] += row.DrCr === 'D' ? row.OSCurrencyAmount : 0;
             placed = true;
             break;
           }
         }
         if (!placed) {
           const last = bucketLabels[bucketLabels.length - 1];
-          subledger.buckets[last] += row.OSCurrencyAmount ?? 0;
-          combinedGroup.bucketTotals[last] += row.OSCurrencyAmount ?? 0;
+          subledger.buckets[last] += row.DrCr === 'D' ? row.OSCurrencyAmount : 0;
+          combinedGroup.bucketTotals[last] += row.DrCr === 'D' ? row.OSCurrencyAmount : 0;
         }
       }
     }
@@ -402,11 +429,11 @@ export class AccountsReportsService {
       CurrencyCode: currGroup.CurrencyCode,
       totalOutstandingCurrency: currGroup.totalOutstandingCurrency,
       totalOutstandingLocal: currGroup.totalOutstandingLocal,
+      totalOnAccountCreditCurr: currGroup.totalOnAccountCreditCurr,
+      totalOnAccountCreditLocal: currGroup.totalOnAccountCreditLocal,
       voucherCount: currGroup.voucherCount,
       bucketTotals: currGroup.bucketTotals,
-      subledgers: Array.from(currGroup.subledgers.values()).filter(
-        sub => (sub.totalOutstandingLocal ?? 0) > 0 || (sub.totalOutstandingCurrency ?? 0) > 0,
-      ),
+      subledgers: Array.from(currGroup.subledgers.values()).filter(sl => sl.totalOutstandingCurrency !== 0 || sl.totalOutstandingLocal !== 0),
     }));
 
     // -------------------------------------------
@@ -414,6 +441,8 @@ export class AccountsReportsService {
     // -------------------------------------------
     const grandTotalLocal = ageingResult.reduce((a, b) => a + (b.totalOutstandingLocal ?? 0), 0);
     const grandTotalCurrency = ageingResult.reduce((a, b) => a + (b.totalOutstandingCurrency ?? 0), 0);
+    const grandTotalOnAccountCreditCurr = ageingResult.reduce((a, b) => a + (b.totalOnAccountCreditCurr ?? 0), 0);
+    const grandTotalOnAccountCreditLocal = ageingResult.reduce((a, b) => a + (b.totalOnAccountCreditLocal ?? 0), 0);
     const totalVouchers = ageingResult.reduce((a, b) => a + (b.voucherCount ?? 0), 0);
     const totalSubledgers = ageingResult.reduce((a, b) => a + (b.subledgers?.length ?? 0), 0);
 
@@ -424,6 +453,22 @@ export class AccountsReportsService {
     bucketLabels.forEach(b => {
       overallBucketTotals[b] = ageingResult.reduce((acc, curr) => acc + (curr.bucketTotals[b] ?? 0), 0);
     });
+
+    // -------------------------------------------
+    // 8.5 Fetch Credit Days & Limit for each Subledger
+    // -------------------------------------------
+    for (const currencyGroup of ageingResult) {
+      for (const sl of currencyGroup.subledgers) {
+        try {
+          const credit = await this.getCreditRequest(sl.SubledgerMasterSid);
+          sl.CreditDays = credit.CreditDays;
+          sl.CreditLimit = credit.CreditLimit;
+        } catch (e) {
+          sl.CreditDays = 0;
+          sl.CreditLimit = 0;
+        }
+      }
+    }
 
     // -------------------------------------------
     // 9. Final Response
@@ -439,11 +484,72 @@ export class AccountsReportsService {
       totalVouchers,
       grandTotalLocal,
       grandTotalCurrency,
+      grandTotalOnAccountCreditCurr,
+      grandTotalOnAccountCreditLocal,
       overallBucketTotals,
       ageingResult, // Currency -> Subledgers structure
     };
   }
 
+  async getCreditRequest(SubledgerMasterSid: number) {
+    try {
+      const subledger = await this._db.subledgerMaster.findUnique({
+        where: {
+          SubledgerMasterSid: SubledgerMasterSid,
+          SubledgerType : "Customer",
+          Status: 'A'
+        },
+        select : { SubledgerMappingSid : true }
+      });
+
+      if(!subledger) {
+        throw new BadRequestException('No subledger found.');
+      }
+
+      if(!subledger.SubledgerMappingSid) {
+        throw new BadRequestException('No mapping found.');
+      }
+
+      const customer = await this._db.customerMaster.findUnique({
+        where: {
+          CustomerMasterSid: subledger.SubledgerMappingSid!
+        },
+        include : {
+          customerCreditRequest : {
+            where : {
+              ApprovalStatus : ApprovalStatus.Approved,
+              Status : 'A'
+            }
+          }
+        }
+      });
+
+      if(!customer){
+        throw new BadRequestException('No customer found.');
+      }
+
+      if(customer.CashCredit === "C" || customer.customerCreditRequest.length === 0){
+        return {
+          CreditDays : 0,
+          CreditLimit : 0
+        }
+      }
+
+      const allCreditReq = customer.customerCreditRequest || [];
+      const reqWithHighestLimit = allCreditReq.reduce((acc, req) => {
+        if (req.CreditLimit > acc.CreditLimit) return req;
+        return acc;
+      });
+
+      return {
+        CreditDays : reqWithHighestLimit.CreditDays,
+        CreditLimit : reqWithHighestLimit.CreditLimit
+      }
+
+    } catch (error) {
+      throw error;
+    }
+  }
 
   private async generateOutstandingReport(params: any) {
     // TODO: Implement outstanding report logic
