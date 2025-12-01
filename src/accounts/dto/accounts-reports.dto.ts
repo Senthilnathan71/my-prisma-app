@@ -401,3 +401,11 @@ export class EmailReportDto {
   @IsString()
   message?: string;
 }
+export interface ReportGenerateResponse {
+  success: boolean;
+  data: any[];
+  reportName: string;
+  reportDisplayName: string;
+  columns?: string[];
+  totalRecords?: number;
+}
