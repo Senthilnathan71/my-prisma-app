@@ -4,6 +4,7 @@ import {
   IsOptional,
   IsString,
   IsNumber,
+  MaxLength,
 } from 'class-validator';
 
 export class CreateCustomsDto {
@@ -11,36 +12,36 @@ export class CreateCustomsDto {
   @IsOptional() @IsNumber() HouseJobSid?: number;
   @IsOptional() @IsNumber() MasterJobSid?: number;
 
-  @IsString() LineCode: string;
-  @IsString() VoyageAgentCode: string;
-  @IsString() RotationNumber: string;
-  @IsString() ManifestSequence: string;
-  @IsString() CargoCode: string;
+  @IsString() @MaxLength(6) LineCode: string;
+  @IsString() @MaxLength(6) VoyageAgentCode: string;
+  @IsString() @MaxLength(6) RotationNumber: string;
+  @IsString() @MaxLength(5) ManifestSequence: string;
+  @IsString() @MaxLength(1) CargoCode: string;
 
-  @IsOptional() StorageRequest?: string;
-  @IsString() PackageTypeCode: string;
+  @IsOptional() @MaxLength(1) StorageRequest?: string;
+  @IsString() @MaxLength(3) PackageTypeCode: string;
 
   @IsOptional() @IsNumber() FreightTonne?: number;
   @IsOptional() @IsNumber() NoOfPallets?: number;
 
-  @IsOptional() SLACIndicator?: string;
-  @IsString() ImporterCode: string;
+  @IsOptional() @MaxLength(1) SLACIndicator?: string;
+  @IsString() @MaxLength(5) ImporterCode: string;
 
   @IsNumber() SerialNumber: number;
-  @IsOptional() UsedOrNew?: string;
+  @IsOptional() @MaxLength(1) UsedOrNew?: string;
 
-  @IsString() UNHSCode: string;
-  @IsOptional() UNNumber?: string;
+  @IsString() @MaxLength(10) UNHSCode: string;
+  @IsOptional() @MaxLength(5) UNNumber?: string;
 
   @IsOptional() FlashPoints?: number;
-  @IsOptional() TemperatureUnit?: string;
+  @IsOptional() @MaxLength(1) TemperatureUnit?: string;
 
-  @IsOptional() HazStorageRequest?: string;
-  @IsOptional() RefrigerationRequired?: string;
+  @IsOptional() @MaxLength(1) HazStorageRequest?: string;
+  @IsOptional() @MaxLength(1) RefrigerationRequired?: string;
 
   @IsOptional() MinTemperature?: number;
   @IsOptional() MaxTemperature?: number;
-  @IsOptional() RefTemperatureUnit?: string;
+  @IsOptional() @MaxLength(1) RefTemperatureUnit?: string;
 
   @IsNotEmpty() CreatedBy: string;
 }
