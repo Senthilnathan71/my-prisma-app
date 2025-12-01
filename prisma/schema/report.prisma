@@ -42,14 +42,13 @@ model ReportMasterDetail {
   ParameterFieldType    String       @db.VarChar(10)
   /// DropDown values
   DropDownValue         Json?
-  // Default value .
-  DefaultValue          String?      @db.VarChar(100)
-  /// Example: { "required": true, "minLength": 5, "maxLength": 100, "pattern": "^[A-Z]", "min": 0, "max": 100 }
-  ValidationRules       Json?
   /// Optional query to fetch dropdown data dynamically
   ParameterQuery        String?      @db.VarChar(500)
   /// Foreign key to ReportMaster
   ReportMasterSid       Int
+  DefaultValue          String?      @db.VarChar(100)
+  /// Example: { "required": true, "minLength": 5, "maxLength": 100, "pattern": "^[A-Z]", "min": 0, "max": 100 }
+  ValidationRules       Json?
   reportMaster          ReportMaster @relation(fields: [ReportMasterSid], references: [ReportMasterSid])
 
   @@index([ReportMasterSid])

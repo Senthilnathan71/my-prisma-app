@@ -67,7 +67,7 @@ model BookingHeader {
   BookingStatus              String?                      @db.VarChar(100)
   CarrierSid                 Int?
   JobType                    String?                      @db.VarChar(12)
-  TranshipmentHouseSid       Int?                         //HouseJobSid If Transhipment and LCL Export
+  TranshipmentHouseSid       Int?
   ActivityResourceAllocation ActivityResourceAllocation[]
   bookingCargo               BookingCargo[]
   bookingConnection          BookingConnection[]
@@ -299,26 +299,24 @@ model BookingRates {
 }
 
 model BookingCro {
-  BookingCroSid    Int       @id @default(autoincrement()) @map("BookingCroSid")
+  BookingCroSid    Int           @id @default(autoincrement()) @map("BookingCroSid")
   CompanyMasterSid Int
   BranchMasterSid  Int
-  CreatedOn        DateTime  @default(now()) @db.Timestamptz(6)
-  CreatedBy        String    @db.VarChar(100)
-  UpdatedOn        DateTime  @default(now()) @db.Timestamptz(6)
-  UpdatedBy        String?   @db.VarChar(100)
+  CreatedOn        DateTime      @default(now()) @db.Timestamptz(6)
+  CreatedBy        String        @db.VarChar(100)
+  UpdatedOn        DateTime      @default(now()) @db.Timestamptz(6)
+  UpdatedBy        String?       @db.VarChar(100)
   BookingHeaderSid Int
-  OnHireRef        String?   @db.VarChar(20)
+  OnHireRef        String?       @db.VarChar(20)
   ReleaseOrderDate DateTime?
   ValidityDate     DateTime?
-  Transporter      String?   @db.VarChar(50)
-  EmptyYard        String?   @db.VarChar(200)
-  NoteToYard       String?   @db.VarChar(200)
-  NoteToShipper    String?   @db.VarChar(200)
-
-  // Relations
-  BookingHeader BookingHeader @relation(fields: [BookingHeaderSid], references: [BookingHeaderSid])
-  CompanyMaster CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
-  BranchMaster  BranchMaster  @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
+  Transporter      String?       @db.VarChar(50)
+  EmptyYard        String?       @db.VarChar(200)
+  NoteToYard       String?       @db.VarChar(200)
+  NoteToShipper    String?       @db.VarChar(200)
+  BookingHeader    BookingHeader @relation(fields: [BookingHeaderSid], references: [BookingHeaderSid])
+  BranchMaster     BranchMaster  @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
+  CompanyMaster    CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
 
   @@index([CompanyMasterSid])
   @@index([BranchMasterSid])

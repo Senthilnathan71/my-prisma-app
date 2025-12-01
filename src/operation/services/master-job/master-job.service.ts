@@ -3166,7 +3166,7 @@ export class MasterJobService {
         const primaryVoyage = masterJob.voyages && masterJob.voyages.length > 0 ? masterJob.voyages[0] : null;
 
         // Fetch container type data for all containers
-        const containerTypeIds = [...new Set(masterJob.containers?.map(c => c.ContainerType).filter(Boolean) || [])];
+        const containerTypeIds = [...new Set(masterJob.containers?.map(c => c.ContainerType!).filter(Boolean) || [])];
         const containerTypes = containerTypeIds.length > 0
             ? await this._db.containerTypeMaster.findMany({
                 where: { ContainerTypeMasterSid: { in: containerTypeIds } }

@@ -15,7 +15,6 @@ model ModuleMaster {
 
 model UserRoleMaster {
   UserRoleMasterSid    Int                @id @default(autoincrement()) @map("UserRoleMasterSid")
-  UserCompanyMasterSid Int?
   UserMasterSid        Int
   RoleMasterSid        Int
   createdOn            DateTime           @default(now()) @db.Timestamptz(6)
@@ -28,10 +27,11 @@ model UserRoleMaster {
   GiveAccess           String?            @default("N") @db.Char(1)
   IsDefault            String?            @default("N") @db.Char(1)
   MenuMasterSid        Int?
+  UserCompanyMasterSid Int?
   menuMaster           MenuMaster?        @relation(fields: [MenuMasterSid], references: [MenuMasterSid])
   roleMaster           RoleMaster         @relation(fields: [RoleMasterSid], references: [RoleMasterSid])
-  userMaster           UserMaster         @relation(fields: [UserMasterSid], references: [UserMasterSid])
   userCompanyMaster    UserCompanyMaster? @relation(fields: [UserCompanyMasterSid], references: [UserCompanyMasterSid])
+  userMaster           UserMaster         @relation(fields: [UserMasterSid], references: [UserMasterSid])
 }
 
 model MenuMaster {
@@ -57,18 +57,18 @@ model MenuMaster {
   customerBrEmail         CustomerBrEmail[]
   enquiryHeader           EnquiryHeader[]
   houseJob                HouseJob[]
-  MasterJob               MasterJob[]
   MailConfigurationMaster MailConfigurationMaster[]
+  MasterJob               MasterJob[]
   menuConfig              MenuConfig[]
   moduleMaster            ModuleMaster               @relation(fields: [ModuleMasterSid], references: [ModuleMasterSid])
   menuPermission          MenuPermission[]
   quoteHeader             QuoteHeader[]
   refDocument             RefDocument[]
   ReportMaster            ReportMaster[]
+  RoleMenuDetail          RoleMenuDetail[]
   roleMenuMaster          RoleMenuMaster[]
   terms                   TermsAndConditionsMaster[]
   userRoleMaster          UserRoleMaster[]
-  RoleMenuDetail          RoleMenuDetail[]
 }
 
 model MenuPermission {
@@ -99,16 +99,15 @@ model RoleMaster {
   Remarks          String?          @db.VarChar(300)
   LicenseType      String?          @db.VarChar(50)
   companyMaster    CompanyMaster?   @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+  RoleMenuHeader   RoleMenuHeader[]
   roleMenuMaster   RoleMenuMaster[]
   userRoleMaster   UserRoleMaster[]
-  RoleMenuHeader   RoleMenuHeader[]
 }
 
 model RoleMenuMaster {
   RoleMenuMasterSid Int            @id @default(autoincrement()) @map("RoleMenuMasterSid")
   RoleMasterSid     Int
   MenuMasterSid     Int
-  DisplayName       String?
   CompanyMasterSid  Int?
   InsertRole        String?        @default("Y") @db.Char(1)
   ViewRole          String?        @default("Y") @db.Char(1)
@@ -123,6 +122,7 @@ model RoleMenuMaster {
   Module            String         @db.VarChar(50)
   Remarks           String         @db.VarChar(100)
   MenuPermissions   Json?
+  DisplayName       String?
   companyMaster     CompanyMaster? @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
   menuMaster        MenuMaster     @relation(fields: [MenuMasterSid], references: [MenuMasterSid])
   roleMaster        RoleMaster     @relation(fields: [RoleMasterSid], references: [RoleMasterSid])
@@ -139,29 +139,19 @@ model UserType {
   userMaster  UserMaster[]
 }
 
-enum UserTypeCode {
-  admin
-  manager
-  teamLead
-  user
-  csPerson
-  docPerson
-}
-
 model RoleMenuHeader {
-  RoleMenuHeaderSid Int            @id @default(autoincrement()) @map("RoleMenuHeaderSid")
+  RoleMenuHeaderSid Int              @id @default(autoincrement()) @map("RoleMenuHeaderSid")
   RoleMasterSid     Int
   CompanyMasterSid  Int?
-  createdOn         DateTime       @default(now()) @db.Timestamptz(6)
-  updatedOn         DateTime?      @updatedAt @db.Timestamptz(6)
-  createdBy         String         @db.VarChar(100)
-  updatedBy         String?        @db.VarChar(100)
-  status            String?        @default("A") @db.Char(1)
-  Remarks           String         @db.VarChar(100)
-  companyMaster     CompanyMaster? @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
-  roleMaster        RoleMaster     @relation(fields: [RoleMasterSid], references: [RoleMasterSid])
-
-  RoleMenuDetail RoleMenuDetail[]
+  createdOn         DateTime         @default(now()) @db.Timestamptz(6)
+  updatedOn         DateTime?        @updatedAt @db.Timestamptz(6)
+  createdBy         String           @db.VarChar(100)
+  updatedBy         String?          @db.VarChar(100)
+  status            String?          @default("A") @db.Char(1)
+  Remarks           String           @db.VarChar(100)
+  RoleMenuDetail    RoleMenuDetail[]
+  companyMaster     CompanyMaster?   @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+  roleMaster        RoleMaster       @relation(fields: [RoleMasterSid], references: [RoleMasterSid])
 }
 
 model RoleMenuDetail {
@@ -183,4 +173,13 @@ model RoleMenuDetail {
   companyMaster     CompanyMaster? @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
   menuMaster        MenuMaster     @relation(fields: [MenuMasterSid], references: [MenuMasterSid])
   RoleMenuHeader    RoleMenuHeader @relation(fields: [RoleMenuHeaderSid], references: [RoleMenuHeaderSid])
+}
+
+enum UserTypeCode {
+  admin
+  manager
+  teamLead
+  user
+  csPerson
+  docPerson
 }
