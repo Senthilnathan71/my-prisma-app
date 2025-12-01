@@ -1612,6 +1612,7 @@ model ContainerTypeMaster {
   bookingCargo           BookingCargo[]
   houseJobCargo          HouseJobCargo[]
   quoteRoute             QuoteRoute[]
+  MasterJobContainer     MasterJobContainer[]
 }
 
 model ZoneMaster {
@@ -2662,7 +2663,7 @@ model MasterJobContainer {
   UpdatedOn             DateTime?
   UpdatedBy             String?    @db.VarChar(100)
   Status                String?    @default("A") @db.Char(1)
-  ContainerType         Int
+  ContainerType         Int?
   ContainerNumber       String     @db.VarChar(11)
   LineSeal              String?    @db.VarChar(10)
   CustomsSeal           String?    @db.VarChar(10)
@@ -2678,6 +2679,8 @@ model MasterJobContainer {
   IsSoc                 String?    @db.Char(1)
   masterJob             MasterJob  @relation(fields: [MasterJobSid], references: [MasterJobSid])
   UOMMaster             UOMMaster? @relation(fields: [PkgType], references: [UOMMasterSid])
+  containerType        ContainerTypeMaster? @relation(fields: [ContainerType], references: [ContainerTypeMasterSid])
+
 }
 
 model HouseJob {

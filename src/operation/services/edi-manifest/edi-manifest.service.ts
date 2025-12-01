@@ -270,27 +270,15 @@ export class EDIManifestService {
 
     // If no master containers, check house job products for container numbers
     if (containers.length === 0) {
-      const products = houseJob.Products || [];
-      for (const product of products) {
-        if (product.ContainerNo) {
-          const fields = [
-            'CTR',
-            this.escapeField(product.ContainerNo),
-            this.escapeField('0'),
-            this.escapeField('0'),
-            this.escapeField('NA'),
-          ];
-          records.push(fields.map(f => `"${f}"`).join(','));
-        }
-      }
-    } else {
       for (const container of containers) {
-        const fields = [
+        const TareWeight = container.containerType.TareWeight
+      const last11 = container.ContainerNo.slice(-11);  // take last 11 characters
+        const fields = [ 
           'CTR',
           this.escapeField(container.ContainerNo || ''),
-          this.escapeField('0'),
-          this.escapeField(container.TareWeight?.toString() || '0'),
-          this.escapeField(container.SealNo || 'NA'),
+          this.escapeField(last11 || ''),
+          this.escapeField(TareWeight?.toString() || ''),
+          this.escapeField(container.LineSeal || ''),
         ];
         records.push(fields.map(f => `"${f}"`).join(','));
       }
@@ -411,7 +399,6 @@ export class EDIManifestService {
       'END',
       this.escapeField(totalBOLs.toString()),
       this.escapeField(totalOtherBOLs.toString()),
-      this.escapeField('Version no: 1,Product sr. no: DPAMAN/107'),
     ];
 
     return fields.map(f => `"${f}"`).join(',');
