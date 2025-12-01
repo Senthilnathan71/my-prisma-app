@@ -131,6 +131,26 @@ export class BookingService {
 
                 return {...createBookingHeader}
             })
+            const croPayload = payload.bookingCro ?? {};
+            const croData = {
+                CompanyMasterSid: bookingHeader.CompanyMasterSid,
+                BranchMasterSid: bookingHeader.BranchMasterSid!,
+                BookingHeaderSid: bookingHeader.BookingHeaderSid,
+                OnHireRef: croPayload.OnHireRef,
+                ReleaseOrderDate: croPayload.ReleaseOrderDate,
+                ValidityDate: croPayload.ValidityDate,
+                Transporter: croPayload.Transporter,
+                EmptyYard: croPayload.EmptyYard,
+                NoteToYard: croPayload.NoteToYard,
+                NoteToShipper: croPayload.NoteToShipper,
+                CreatedBy: payload.createdBy,
+                
+            }
+            let createdCro = await this._db.bookingCro.create({
+    data: croData
+}).catch(err => {
+    throw new InternalServerErrorException('Something went wrong while creating booking CRO', err)
+})
             /**
                 |--------------------------------------------------
                 |  Step 2 : Create Booking Cargos
@@ -440,6 +460,7 @@ export class BookingService {
                     bookingCargo: { where: { status: 'A' } },
                     bookingProduct: { where: { status: 'A' } },
                     bookingOthers: { where: { status: 'A' } },
+                     bookingCro: true,
                     bookingConnection: { where: { status: 'A' } }
                 }
             })
@@ -766,7 +787,47 @@ export class BookingService {
                         }
                     })
                 }
+                    
+                /**
+ * |--------------------------------------------------
+ * |   Step 4.5 : Update Booking CRO
+ * |--------------------------------------------------
+ */
+let finalBookingCro;
+const croPayload = payload.bookingCro ?? {};
 
+if (!croPayload?.BookingCroSid) {
+    finalBookingCro = await prisma.bookingCro.create({
+        data: {
+            CompanyMasterSid: payload.CompanyMasterSid,
+            BranchMasterSid: payload.BranchMasterSid,
+            BookingHeaderSid: updatedBooking.BookingHeaderSid,
+            CreatedBy: payload.updatedBy,
+            OnHireRef: croPayload.OnHireRef || null,
+            ReleaseOrderDate: croPayload.ReleaseOrderDate || null,
+            ValidityDate: croPayload.ValidityDate || null,
+            Transporter: croPayload.Transporter || null,
+            EmptyYard: croPayload.EmptyYard || null,
+            NoteToYard: croPayload.NoteToYard || null,
+            NoteToShipper: croPayload.NoteToShipper || null
+        }
+    })
+} else {
+    finalBookingCro = await prisma.bookingCro.update({
+        where: { BookingCroSid: croPayload.BookingCroSid },
+        data: {
+            OnHireRef: croPayload.OnHireRef || null,
+            ReleaseOrderDate: croPayload.ReleaseOrderDate || null,
+            ValidityDate: croPayload.ValidityDate || null,
+            Transporter: croPayload.Transporter || null,
+            EmptyYard: croPayload.EmptyYard || null,
+            NoteToYard: croPayload.NoteToYard || null,
+            NoteToShipper: croPayload.NoteToShipper || null,
+            UpdatedBy: payload.updatedBy,
+            UpdatedOn: new Date()
+        }
+    })
+}
 
                 /**
                     |--------------------------------------------------
@@ -1034,6 +1095,15 @@ export class BookingService {
                     where: { BookingHeaderSid: BookingHeaderSid },
                     data: { status: 'D' }
                 })
+                const deletedCro = await prisma.bookingCro.updateMany({
+                    where: { BookingHeaderSid: BookingHeaderSid },
+                    data: {
+                        UpdatedBy: 'system',
+                        UpdatedOn: new Date()
+                       
+                    }
+                })
+                
                 const deletedConnections = await prisma.bookingConnection.updateMany({
                     where: { BookingHeaderSid: BookingHeaderSid },
                     data: { status: 'D' }
