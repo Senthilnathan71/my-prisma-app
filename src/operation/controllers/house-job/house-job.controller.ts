@@ -201,4 +201,26 @@ async createHouseJob(@Body() payload: any) {
       });
     }
   }
+
+  @ApiOperation({ summary: 'Get House Job AR/AP Data'})
+  @ApiCreatedResponse({
+    description: 'House Job AR/AP Data fetched successfully',
+    type: ResponseData
+  })
+  @HttpCode(HttpStatus.OK)
+  @Get('arap-data/:HouseJobSid')
+  async getHouseJobARAPData(@Param('HouseJobSid', ParseIntPipe) HouseJobSid: number) {
+    let output = new ResponseData();
+    try {
+      const arapData = await this.houseJobService.getHouseJobARAPData(HouseJobSid);
+      this.logger.debug(`getHouseJobARAPData: ${JSON.stringify(arapData)}`);
+      output.data = arapData;
+      output.message = "House Job AR/AP Data fetched successfully";
+    } catch (error) {
+      this.logger.warn(`getHouseJobARAPData: ${JSON.stringify(error)}`);
+      output.status = false;
+      output.message = 'Failed to fetch AR/AP data';
+    }
+    return output;
+  }
 }

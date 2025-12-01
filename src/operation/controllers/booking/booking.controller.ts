@@ -632,5 +632,27 @@ export class BookingController {
         return output;
     }
 
+@ApiOperation({ summary: 'Get Booking AR/AP Data' })
+@ApiCreatedResponse({
+    description: 'Booking AR/AP data fetched successfully',
+    type: ResponseData
+})
+@HttpCode(HttpStatus.OK)
+@Get('arap-data/:BookingHeaderSid')  // Changed to GET with path parameter
+async getBookingARAPData(@Param('BookingHeaderSid', ParseIntPipe) BookingHeaderSid: number) {
+    const output = new ResponseData();
+    try {
+        const arapData = await this.bookingService.getBookingARAPData(BookingHeaderSid);
+        this.logger.debug(`getBookingARAPData: ${JSON.stringify(arapData)}`);
+        output.data = arapData;
+        output.message = "Booking AR/AP data fetched successfully";
+    } catch (error) {
+        this.logger.warn(`getBookingARAPData: ${JSON.stringify(error)}`);
+        output.status = false;
+        output.message = 'Failed to fetch AR/AP data';
+    }
+    return output;
+}
+
 
 }

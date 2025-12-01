@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { DatabaseService } from 'src/database/database.service';
 import { OperationCommonService } from '../operation-common/operation-common.service';
 import { MenuService } from 'src/masters/services/menu/menu.service';
@@ -8,7 +8,8 @@ export class HouseJobService {
     constructor(
         private _db: DatabaseService,
         private commonService: OperationCommonService,
-        private menuService : MenuService
+        private menuService : MenuService,
+        private logger: Logger,
     ) { }
     async createHouseJob(payload: any) {
   try {
@@ -824,7 +825,7 @@ export class HouseJobService {
                                 ETA: connection.ETA ? new Date(connection.ETA) : null,
                                 Remarks: connection.Remarks,
                                 status: String(connection.status).charAt(0) || 'A',
-                                createdBy: payload.createdBy,
+                                createdBy: payload.updatedBy,
                             }
                         })
                     }
@@ -1375,4 +1376,32 @@ if (houseJobCustomsPayload.length > 0) {
         }
     }
 
+
+async getHouseJobARAPData(HouseJobSid: number): Promise<any> {
+  try {
+    const arapData = await this._db.$queryRaw`
+      SELECT
+    hj."CompanyMasterSid",
+    hj."HouseJobSid",
+    hj."HBLNo",
+    vh."VoucherNumber",
+    vh."VoucherHeaderSid",
+    vh."VoucherDate",
+    vt."DocumentTypeCode",
+    vh."CurrencyCode",
+    vh."Amount"
+    FROM "HouseJob" hj
+     JOIN "CostRevenueCharges" cr ON hj."HouseJobSid" = cr."TransactionSid"
+     JOIN "VoucherHeader" vh ON cr."CostVoucherHeaderSid" = vh."VoucherHeaderSid" OR cr."RevenueVoucherHeaderSid" = vh."VoucherHeaderSid"
+     JOIN "VoucherTypeMaster" vt ON vt."VoucherTypeMasterSid" = vh."VoucherTypeMasterSid"
+     WHERE hj."HouseJobSid" = ${HouseJobSid}
+     ORDER BY vh."VoucherDate" DESC
+    `;
+
+    return arapData;
+  } catch (error) {
+    this.logger.error(`Error fetching AR/AP data: ${error.message}`);
+    throw error; // Consider re-throwing the error or returning an empty array
+  }
+}
 }
