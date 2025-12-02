@@ -146,6 +146,8 @@ import { RoleMenuController } from './controllers/role-menu/role-menu.controller
 import { RoleMenuService } from './services/role-menu/role-menu.service';
 import { CompanyConfigController } from './controllers/company/company-config.controller';
 import { CompanyConfigService } from './services/company/company-config.service';
+import { MailConfigurationController } from './controllers/mail-configuration/mail-configuration.controller';
+import { MailConfigurationService } from './services/mail-configuration/mail-configuration.service';
 
 @Module({
   providers: [
@@ -222,7 +224,8 @@ import { CompanyConfigService } from './services/company/company-config.service'
     TaxGroupService,
     NetworkMasterService,
     RoleMenuService,
-    CompanyConfigService
+    CompanyConfigService,
+    MailConfigurationService
   ],
   controllers: [
     LeadController,
@@ -296,7 +299,8 @@ import { CompanyConfigService } from './services/company/company-config.service'
     TaxGroupController,
     NetworkMasterController,
     RoleMenuController,
-    CompanyConfigController
+    CompanyConfigController,
+    MailConfigurationController
   ],
   exports: [UserService,MenuService]
 })
