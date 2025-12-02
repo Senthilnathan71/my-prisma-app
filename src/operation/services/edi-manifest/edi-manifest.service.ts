@@ -268,8 +268,8 @@ export class EDIManifestService {
     const records: string[] = [];
     const containers = masterJob.containers || [];
 
-    // If no master containers, check house job products for container numbers
-    if (containers.length === 0) {
+    // Generate CTR records when containers exist
+    if (containers.length > 0) {
       for (const container of containers) {
         const TareWeight = container.containerType.TareWeight
       const last11 = container.ContainerNo.slice(-11);  // take last 11 characters
