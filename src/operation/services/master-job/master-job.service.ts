@@ -3519,31 +3519,20 @@ export class MasterJobService {
     }
 async getMasterJobARAPData(MasterJobSid: number): Promise<any> {
   try {
-    const arapData = await this._db.$queryRaw`
-      SELECT
-        mj."CompanyMasterSid",
-        mj."MasterJobSid",
-        mj."MBLNo",
-        vh."VoucherNumber",
-        vh."VoucherHeaderSid",
-        vh."VoucherDate",
-        vt."DocumentTypeCode",
-        vh."CurrencyCode",
-        vh."Amount",
-        vh."LocalAmount",
-      FROM "MasterJob" mj
-      JOIN "CostRevenueCharges" cr ON mj."MasterJobSid" = cr."TransactionSid"
-      JOIN "VoucherHeader" vh ON cr."CostVoucherHeaderSid" = vh."VoucherHeaderSid" 
-        OR cr."RevenueVoucherHeaderSid" = vh."VoucherHeaderSid"
-      JOIN "VoucherTypeMaster" vt ON vt."VoucherTypeMasterSid" = vh."VoucherTypeMasterSid"
-      WHERE mj."MasterJobSid" = ${MasterJobSid}
-      ORDER BY vh."VoucherDate" DESC
-    `;
-
+    // Use Prisma view instead of raw query
+    const arapData = await this._db.vMasterARAP.findMany({
+      where: {
+        MasterJobSid: MasterJobSid
+      },
+      orderBy: {
+        VoucherDate: 'desc'
+      }
+    });
+ 
     return arapData;
   } catch (error) {
     this.logger.error(`Error fetching AR/AP data: ${error.message}`);
-    throw error; // Consider re-throwing the error or returning an empty array
+    throw error;
   }
 }
 

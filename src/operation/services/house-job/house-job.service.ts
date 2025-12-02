@@ -1379,29 +1379,20 @@ if (houseJobCustomsPayload.length > 0) {
 
 async getHouseJobARAPData(HouseJobSid: number): Promise<any> {
   try {
-    const arapData = await this._db.$queryRaw`
-      SELECT
-    hj."CompanyMasterSid",
-    hj."HouseJobSid",
-    hj."HBLNo",
-    vh."VoucherNumber",
-    vh."VoucherHeaderSid",
-    vh."VoucherDate",
-    vt."DocumentTypeCode",
-    vh."CurrencyCode",
-    vh."Amount"
-    FROM "HouseJob" hj
-     JOIN "CostRevenueCharges" cr ON hj."HouseJobSid" = cr."TransactionSid"
-     JOIN "VoucherHeader" vh ON cr."CostVoucherHeaderSid" = vh."VoucherHeaderSid" OR cr."RevenueVoucherHeaderSid" = vh."VoucherHeaderSid"
-     JOIN "VoucherTypeMaster" vt ON vt."VoucherTypeMasterSid" = vh."VoucherTypeMasterSid"
-     WHERE hj."HouseJobSid" = ${HouseJobSid}
-     ORDER BY vh."VoucherDate" DESC
-    `;
-
+    // Using Prisma view instead of raw query
+    const arapData = await this._db.vHouseARAP.findMany({
+      where: {
+        HouseJobSid: HouseJobSid
+      },
+      orderBy: {
+        VoucherDate: 'desc'
+      }
+    });
+ 
     return arapData;
   } catch (error) {
     this.logger.error(`Error fetching AR/AP data: ${error.message}`);
-    throw error; // Consider re-throwing the error or returning an empty array
+    throw error;
   }
 }
 }
