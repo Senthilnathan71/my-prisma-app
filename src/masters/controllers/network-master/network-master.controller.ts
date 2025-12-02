@@ -228,4 +228,30 @@ export class NetworkMasterController {
         }
         return resp;
     }
+
+    @ApiOperation({ summary: 'Bulk update Network Master' })
+    @ApiCreatedResponse({
+        description: 'Bulk Update Network Master',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Patch('bulk-update')
+    async bulkUpdateNetworkMaster(@Body() payload: { updates: any[] }){
+        let resp = new ResponseData();
+        try {
+            let res = await this.networkMasterService.blkUpdateNetworkMaster(payload.updates);
+            this. logger.log(`Network Bulk Updated: ${JSON.stringify(res)}`);
+            resp.data = res;
+            resp.message = "Network Master successfully updated in bulk";
+        } catch (error) {
+            this.logger.warn(`Network Master Bulk Update Error: ${JSON.stringify(error), error}`);
+            resp.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                resp.message = error.message;
+            } else {
+                resp.message = "Internal Server Error";
+            }
+        }
+        return resp;
+    }
 }

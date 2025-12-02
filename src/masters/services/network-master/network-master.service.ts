@@ -265,4 +265,65 @@ export class NetworkMasterService {
             throw new Error(`Error fetching audit logs: ${error.message}`);
         }
     }
+
+    // async blkUpdateNetworkMaster(updates: any[]) {
+    //     try{
+    //         const results = [];
+    //         for (const update of updates) {
+    //             const { NetworkMasterSid, ...updatedData} = update;
+    //             const exist = await this._db.networkMaster.findUnique({
+    //                 where: { NetworkMasterSid}
+    //             });
+    //             if (!exist) {
+    //                 throw new BadRequestException(`NetworkMaster with Id: ${NetworkMasterSid} not exists`);
+    //             }
+    //             const updated = await this._db.networkMaster.update({
+    //                 where: {
+    //                     NetworkMasterSid
+    //                 },
+    //                 data: updatedData
+    //             });
+    //         }
+    //         return results;
+    //     } catch (error) {
+    //         throw error;
+    //     }
+    // }
+
+    async blkUpdateNetworkMaster(updates: any[]) {
+  try {
+    const results: any[] = [];
+
+    for (const update of updates) {
+      const { NetworkMasterSid, ...updatedData } = update;
+
+      if (NetworkMasterSid) {
+        const exist = await this._db.networkMaster.findUnique({
+          where: { NetworkMasterSid }
+        });
+
+        if (exist) {
+          const updated = await this._db.networkMaster.update({
+            where: { NetworkMasterSid },
+            data: updatedData
+          });
+          results.push(updated);
+          continue;
+        }
+      }
+
+      const created = await this._db.networkMaster.create({
+        data: updatedData
+      });
+      results.push(created);
+    }
+
+    return results;
+
+  } catch (error) {
+    throw error;
+  }
+}
+
+
 }
