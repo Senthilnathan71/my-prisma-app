@@ -684,4 +684,31 @@ export class MasterJobController {
         }
     }
 
+    @ApiOperation({ summary: 'Get Master Job AR/AP Data'})
+    @ApiCreatedResponse({
+        description:'Master Job AR/AP data fetched successfully',
+        type:ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Get('arap-data/:MasterJobSid')
+    async getMasterJobARAPData(@Param('MasterJobSid',ParseIntPipe) MasterJobSid:number){
+        let resp = new ResponseData();
+        try {
+            this.logger.log(`Fetching Master Job AR/AP data: ${MasterJobSid}`);
+            const arapData = await this.masterJobService.getMasterJobARAPData(MasterJobSid);
+            this.logger.debug(`Master Job AR/AP data fetched: ${JSON.stringify(arapData)}`);
+            resp.message = 'Master Job AR/AP data fetched successfully';
+            resp.data = arapData;
+        } catch (error) {
+            resp.status = false;
+            this.logger.warn(`Error fetching Master Job AR/AP data: ${JSON.stringify(error),error}`);
+            if(error instanceof BadRequestException || error instanceof UnauthorizedException){
+                resp.message = error.message;
+            } else {
+                resp.message = 'Internal Server Error';
+            }
+        }
+        return resp;
+    }
+
 }
