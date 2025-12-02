@@ -17,7 +17,7 @@ export class EDIManifestService {
       where: { MasterJobSid: masterJobSid, Status: 'A' },
       include: {
         voyages: { where: { Status: 'A' } },
-        containers: { where: { Status: 'A' } },
+        containers: { where: { Status: 'A' }, include: { containerType: true } },
         others: { where: { Status: 'A' } },
         CompanyMaster: { include: { countryMaster: true } },
         houseJob: {
@@ -67,7 +67,7 @@ export class EDIManifestService {
           where: { Status: 'A' },
           include: {
             voyages: { where: { Status: 'A' } },
-            containers: { where: { Status: 'A' } },
+            containers: { where: { Status: 'A' }, include: { containerType: true } },
             CompanyMaster: { include: { countryMaster: true } },
           },
         },
@@ -113,7 +113,7 @@ export class EDIManifestService {
       lines.push(this.generateBOLRecord(masterJob, houseJob, originCountryCode));
 
       // CTR Records - Container Details (if containerized)
-      if (this.isContainerized(houseJob)) {
+      if (this.isContainerized(masterJob, houseJob)) {
         const ctrRecords = this.generateCTRRecords(masterJob, houseJob);
         lines.push(...ctrRecords);
       }
@@ -267,18 +267,39 @@ export class EDIManifestService {
   private generateCTRRecords(masterJob: any, houseJob: any): string[] {
     const records: string[] = [];
     const containers = masterJob.containers || [];
+    const processedContainers = new Set<string>();
 
-    // Generate CTR records when containers exist
-    if (containers.length > 0) {
-      for (const container of containers) {
-        const TareWeight = container.containerType.TareWeight
-      const last11 = container.ContainerNo.slice(-11);  // take last 11 characters
-        const fields = [ 
+    // Generate CTR records from master job containers (FCL and LCL)
+    for (const container of containers) {
+      const containerNo = container.ContainerNumber || '';
+      if (containerNo && !processedContainers.has(containerNo)) {
+        processedContainers.add(containerNo);
+        const TareWeight = container.containerType?.TareWeight;
+        const checkDigit = containerNo.slice(-1); // Last character is check digit
+        const fields = [
           'CTR',
-          this.escapeField(container.ContainerNo || ''),
-          this.escapeField(last11 || ''),
+          this.escapeField(containerNo),
+          this.escapeField(checkDigit),
           this.escapeField(TareWeight?.toString() || ''),
           this.escapeField(container.LineSeal || ''),
+        ];
+        records.push(fields.map(f => `"${f}"`).join(','));
+      }
+    }
+
+    // Also get containers from house job products (for LCL shipments)
+    const products = houseJob.Products || [];
+    for (const product of products) {
+      const containerNo = product.ContainerNo || '';
+      if (containerNo && !processedContainers.has(containerNo)) {
+        processedContainers.add(containerNo);
+        const checkDigit = containerNo.slice(-1); // Last character is check digit
+        const fields = [
+          'CTR',
+          this.escapeField(containerNo),
+          this.escapeField(checkDigit),
+          this.escapeField(product.TareWeight?.toString() || ''),
+          this.escapeField(product.SealNo || ''),
         ];
         records.push(fields.map(f => `"${f}"`).join(','));
       }
@@ -407,13 +428,19 @@ export class EDIManifestService {
   /**
    * Helper: Check if cargo is containerized
    */
-  private isContainerized(houseJob: any): boolean {
+  private isContainerized(masterJob: any, houseJob: any): boolean {
+    // Check if master job has containers
+    if (masterJob.containers && masterJob.containers.length > 0) {
+      return true;
+    }
+
     const cargo = houseJob.Cargo?.[0];
     if (!cargo) return false;
 
+    const cargoType = (cargo.CargoType || '').toUpperCase();
     return (
-      cargo.CargoType === 'FCL' ||
-      cargo.CargoType === 'LCL' ||
+      cargoType.includes('FCL') ||
+      cargoType.includes('LCL') ||
       (cargo.NoofContainers && cargo.NoofContainers > 0) ||
       houseJob.Products?.some((p) => p.ContainerNo)
     );
