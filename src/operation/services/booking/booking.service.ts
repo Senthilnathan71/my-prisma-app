@@ -1626,7 +1626,8 @@ if (!croPayload?.BookingCroSid) {
                                     HSNCode: true,
                                     description: true,
                                     TaxGroup: true,
-                                    TaxRate: true
+                                    TaxRate: true,
+                                    TaxGroupSid: true,
                                 }
                             }
                         }
