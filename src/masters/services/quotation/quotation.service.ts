@@ -1276,6 +1276,65 @@ export class QuotationService {
         }
     }
 
+    async findQuote(quoteId: any) {
+        try {
+            return await this._db.quoteHeader.findUnique({
+                where: {
+                    QuoteHeaderSid: quoteId
+                },
+                include: {
+                    quoteRoute : {
+                        where : { status : statusWhereClause},
+                        include : {
+                            // route - carrier - charge
+                            quoteCarrier : { where : 
+                                { status : statusWhereClause},
+                                include : {
+                                    quoteCharge : { where : 
+                                        { status : statusWhereClause}
+                                    }
+                                }
+                            },
+
+                            // route - cargo - product
+                            quoteCargo : { where : 
+                                { Status : statusWhereClause},
+                                include : {
+                                    quoteProduct : { where : 
+                                        { Status : statusWhereClause}
+                                    }
+                                }
+                            },
+                        }
+                    },
+                    EnquiryHeader:{
+                        include:{
+                            enquiryOther:{
+                                select:{
+                                    ShipperName: true,
+                                    ShipperAddress:true,
+                                    ConsigneeName: true,
+                                    ConsigneeAddress: true,
+                                }
+                            },
+                            enquiryCargo: {
+                                select: {
+                                    ProductName: true,
+                                    PackageQty: true,
+                                    length: true,
+                                    width: true,
+                                    height: true
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        } catch (error) {
+            throw error;
+        }
+    }
+
     // async checkIfUserIsAuthorizerForQuotation(payload:any){
     //     const authorizer = await this._db.authorityDetail.findFirst({
     //         where: {

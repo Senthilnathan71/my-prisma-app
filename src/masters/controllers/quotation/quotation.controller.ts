@@ -103,6 +103,33 @@ export class QuotationController {
         return output;
     }
 
+     @ApiOperation({ summary: 'Quote Header by id' })
+    @ApiCreatedResponse({
+        description: 'Quote Header,Route,cargo Fetch Data By Id',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Get('quote/:id')
+    async findQuote(@Param('id', ParseIntPipe) quoteId: number) {
+        const output = new ResponseData;
+        try {
+            const quote = await this.quotationService.findQuote(quoteId)
+            this.logger.debug(`getQuoterHeaderById: ${JSON.stringify(quote)}`)
+            output.data = quote
+            output.message = `Quotation with id : ${quoteId} is successfully fetched`;
+        } catch (error) {
+            this.logger.warn(`getQuoterHeaderById: ${JSON.stringify(error)}`)
+            output.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                output.message = error.message;
+            } else {
+                output.message = "Internal Server Error";
+            }
+        }
+        return output;
+    }
+
+
 
 
     @ApiOperation({ summary: 'Update Quote header' })
