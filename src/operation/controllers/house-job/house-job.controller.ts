@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, Post, UnauthorizedException, Res } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, Post, UnauthorizedException, Res, Delete } from '@nestjs/common';
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
 import { ResponseData } from 'src/common/response-data';
 import { HouseJobService } from 'src/operation/services/house-job/house-job.service';
@@ -222,5 +222,30 @@ async createHouseJob(@Body() payload: any) {
       output.message = 'Failed to fetch AR/AP data';
     }
     return output;
+  }
+  @ApiOperation({ summary: 'Delete House Job Product By ID' })
+  @ApiCreatedResponse({
+    description: 'House Job Product deleted successfully',
+    type: ResponseData
+  })
+  @Delete('product/:HouseJobProductSid')
+  async deleteHouseJobProduct(@Param('HouseJobProductSid', ParseIntPipe) HouseJobProductSid: number) {
+    let output = new ResponseData
+    try {
+      let houseJobProduct = await this.houseJobService.softDeleteHouseJobProduct(HouseJobProductSid);
+      this.logger.debug(`deleteHouseJobProduct: ${JSON.stringify(houseJobProduct)}`)
+      output.data = houseJobProduct;
+      output.message = "House Job Product deleted successfully";
+
+    } catch (error) {
+      this.logger.warn(`deleteHouseJobProduct: ${JSON.stringify(error), error}`)
+      output.status = false;
+      if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+        output.message = error.message;
+      } else {
+        output.message = error;
+      }
+    }
+    return output
   }
 }

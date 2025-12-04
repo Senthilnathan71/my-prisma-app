@@ -1395,4 +1395,17 @@ async getHouseJobARAPData(HouseJobSid: number): Promise<any> {
     throw error;
   }
 }
+async softDeleteHouseJobProduct(HouseJobProductSid: number) {
+  try {
+    const deletedHouseJobProduct = await this._db.houseJobProduct.update({
+      where: {
+        HouseJobProductSid: HouseJobProductSid
+      },
+      data: { status: 'D' }
+    })
+    return deletedHouseJobProduct;
+  } catch (error) {
+    throw error;
+  } 
+}
 }
