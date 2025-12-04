@@ -14,6 +14,10 @@ export class CoaService {
             const allCoa = await this._db.cOAMaster.findMany({
                 where: {
                     Status: 'A',
+                    LedgerName: {
+                    not: null,
+                    notIn: ['']
+                },
                     CompanyMasterSid: CompanyMasterSid
                 }
             })

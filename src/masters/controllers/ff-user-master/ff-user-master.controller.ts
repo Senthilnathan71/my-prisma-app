@@ -4,7 +4,9 @@ import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 import { FfUserMasterService } from 'src/masters/services/ff-user-master/ff-user-master.service';
-
+class CompanyIdDto {
+    CompanyMasterSid: number;
+}
 
 @Controller('ff-user')
 export class FfUserMasterController {
@@ -44,11 +46,11 @@ export class FfUserMasterController {
         type: ResponseData
     })
     @HttpCode(HttpStatus.OK)
-    @Get('docs')
-    async getAllDocs() {
+    @Post('docs')
+    async getAllDocs(@Body() body: CompanyIdDto) {
         let resp = new ResponseData();
         try {
-            let res = await this.ffUserMasterService.getAllDocs();
+            let res = await this.ffUserMasterService.getAllDocs(body.CompanyMasterSid);
             this.logger.log(`All Docs Fetched : ${JSON.stringify(res)}`);
             resp.data = res;
             resp.message = "All Docs are successfully fetched";
@@ -70,11 +72,11 @@ export class FfUserMasterController {
         type: ResponseData
     })
     @HttpCode(HttpStatus.OK)
-    @Get('cs')
-    async getAllCS() {
+    @Post('cs')
+    async getAllCS(@Body() body: CompanyIdDto) {
         let resp = new ResponseData();
         try {
-            let res = await this.ffUserMasterService.getAllCS();
+            let res = await this.ffUserMasterService.getAllCS(body.CompanyMasterSid);
             this.logger.log(`All CS Fetched : ${JSON.stringify(res)}`);
             resp.data = res;
             resp.message = "All CS are successfully fetched";
@@ -325,12 +327,12 @@ export class FfUserMasterController {
         type: ResponseData
     })
     @HttpCode(HttpStatus.OK)
-    @Get('salesperson')
-    async getAllSalesperson() {
+    @Post('salesperson')
+    async getAllSalesperson(@Body() body: CompanyIdDto) {
         let resp = new ResponseData();
         try {
             this.logger.log(`Getting All Salesperson`);
-            let res = await this.ffUserMasterService.getAllSalesperson();
+            let res = await this.ffUserMasterService.getAllSalesperson(body.CompanyMasterSid);
             this.logger.debug(`Fetched ffUser : ${JSON.stringify(res)}`);
             resp.data = res;
             resp.message = "All Salesperson are successfully fetched";

@@ -517,12 +517,19 @@ export class FfUserMasterService {
         }
     }
 
-    async getAllDocs(){
+    async getAllDocs(CompanyMasterSid: number){
         try {
             const allDocs = await this._db.userMaster.findMany({
                 where: {
                     userType : { code : "docPerson"},
-                    status: statusWhereClause,
+                    status: 'A',
+                    userCompanyMaster: {
+                        some: {
+                            CompanyMasterSid: CompanyMasterSid,
+                            GiveAccess: 'Y',
+                            status: 'A'
+                        }
+                    }
                 },
                 omit: {
                     userPassword: true
@@ -534,12 +541,19 @@ export class FfUserMasterService {
         }
     }
 
-    async getAllCS(){
+    async getAllCS(CompanyMasterSid: number){
         try {
             const allDocs = await this._db.userMaster.findMany({
                 where: {
                     userType : { code : "csPerson"},
-                    status: statusWhereClause,
+                    status: 'A',
+                    userCompanyMaster: {
+                        some: {
+                            CompanyMasterSid: CompanyMasterSid,
+                            GiveAccess: 'Y',
+                            status: 'A'
+                        }
+                    }
                 },
                 omit: {
                     userPassword: true
@@ -572,12 +586,19 @@ export class FfUserMasterService {
         }
     }
 
-    async getAllSalesperson(){
+     async getAllSalesperson(CompanyMasterSid: number){
         try {
             const allSalespersons = await this._db.userMaster.findMany({
                 where: {
                     status: 'A',
-                    isSalesperson : '1'
+                    isSalesperson : '1',
+                    userCompanyMaster: {
+                        some: {
+                            CompanyMasterSid: CompanyMasterSid,
+                            GiveAccess: 'Y',
+                            status: 'A'
+                        }
+                    }
                 },
                 omit: {
                     userPassword: true
