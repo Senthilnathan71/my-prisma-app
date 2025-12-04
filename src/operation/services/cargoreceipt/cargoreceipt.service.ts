@@ -166,16 +166,23 @@ export class CargoreceiptService {
 
 
    async search(params: filterDto) {
-    const { search = '', page = 1, pageSize = 15 } = params;
+    const { search = '', page = 1, pageSize = 15, activeCompanyId, activeBranchId } = params;
     const skip = (page - 1) * pageSize;
 
     const where: Prisma.BookingHeaderWhereInput = {
+    CompanyMasterSid: activeCompanyId,
+    BranchMasterSid: activeBranchId,
       status: 'A',
       HBLNo: null,
       departmentMaster: {
         ExportImport: 'Export',
         FCLLCL: 'LCL',
       },
+      bookingProduct: {
+    some: {
+      status: 'A'
+    }
+  },
       ...(search
         ? {
           OR: [
