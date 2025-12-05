@@ -31,6 +31,7 @@ export class RoleMenuService {
                         RoleMasterSid: payload.RoleMasterSid,
                         CompanyMasterSid: payload.CompanyMasterSid || null,
                         createdBy: payload.createdBy || "",
+                        updatedOn : new Date(),
                         Remarks: payload.Remarks || "",
                         status : 'A'
                     }
@@ -40,7 +41,7 @@ export class RoleMenuService {
                     RoleMenuHeaderSid: header.RoleMenuHeaderSid,
                     MenuMasterSid: detail.MenuMasterSid,
                     DisplayName: detail.DisplayName || "",
-                    CompanyMasterSid: detail.CompanyMasterSid || null,
+                    CompanyMasterSid: payload.CompanyMasterSid || null,
                     InsertRole: detail.InsertRole || "N",
                     ViewRole: detail.ViewRole || "N",
                     UpdateRole: detail.UpdateRole || "N",
@@ -158,6 +159,7 @@ export class RoleMenuService {
                         RoleMasterSid: payload.RoleMasterSid,
                         CompanyMasterSid: payload.CompanyMasterSid,
                         updatedBy : payload.updatedBy,
+                        updatedOn : new Date(),
                         Remarks : payload.Remarks,
                         status : payload.status,
                     }
