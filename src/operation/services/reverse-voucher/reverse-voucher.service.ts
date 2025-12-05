@@ -917,6 +917,8 @@ export class ReverseVoucherService {
           VoucherHeaderSid: voucher.VoucherHeaderSid
         },
         data: {
+          Amount: partyDetail.Amount,
+          LocalAmount: partyDetail.LocalAmount,
           PostStatus: 'P',
           PostDate: voucher.PostDate,
           UpdatedBy: payload.postedBy

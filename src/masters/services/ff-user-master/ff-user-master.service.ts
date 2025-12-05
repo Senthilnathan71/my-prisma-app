@@ -4,6 +4,7 @@ import { encodePassword, statusWhereClause } from 'src/common/helper';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
+import { CreateUserMasterDto, UpdateUserMasterDto, UserBranchMasterDto, UserCompanyMasterDto, UserRoleMasterDto } from 'src/masters/DTO/user.dto';
 
 @Injectable()
 export class FfUserMasterService {
@@ -25,7 +26,7 @@ export class FfUserMasterService {
         }
     }
 
-    async createNewFfUser(payload: any) {
+    async createNewFfUser(payload: CreateUserMasterDto) {
         try {
             const hashedPassword = await encodePassword(payload.userPassword);
             const userPayload = {
@@ -44,73 +45,95 @@ export class FfUserMasterService {
                 userTypeId: payload.userTypeId,
             };
 
+            const existing = await this._db.userMaster.findFirst({
+                where: {
+                    userEmail: payload.userEmail,
+                },
+            });
+
+            if (existing) {
+                throw new BadRequestException('User Email already exists');
+            }
+
             return await this._db.$transaction(async (prisma) => {
-                // Creating User
+                // Step 1: Create User Master
                 const ffUser = await prisma.userMaster.create({
                     data: { ...userPayload },
                     omit: {
-                        userPassword: true
-                    }
+                        userPassword: true,
+                    },
                 });
 
-                // Creating relation links between user and companyMaster through UserCompanyMaster
-                const userCompaniesData = payload.companies.map((company: any) => ({
-                    UserMasterSid: ffUser.UserMasterSid,
-                    CompanyMasterSid: company.CompanyMasterSid,
-                    createdBy: payload.createdBy,
-                    GiveAccess: company.GiveAccess,
-                    IsDefault: company.IsDefault
-                }));
-
-                const userCompanies = await prisma.userCompanyMaster.createManyAndReturn({
-                    data: userCompaniesData
+                // Step 2: Create User Companies in parallel
+                const companyPromises = payload.userCompanyMaster.map(async (company: UserCompanyMasterDto) => {
+                    return await prisma.userCompanyMaster.create({
+                        data: {
+                            UserMasterSid: ffUser.UserMasterSid,
+                            CompanyMasterSid: company.CompanyMasterSid,
+                            createdBy: payload.createdBy,
+                            GiveAccess: company.GiveAccess,
+                            IsDefault: company.IsDefault,
+                            status: 'A',
+                        },
+                    });
                 });
 
-                // Create relation links between user and branchMasters through UserBranchMaster
-                const userBranches: any[] = [];
-                for (const company of payload.companies) {
-                    for (const branch of company.userBranches) {
-                        const newUserBranch = await prisma.userBranchMaster.create({
-                            data: {
-                                UserMasterSid: ffUser.UserMasterSid,
-                                BranchMasterSid: branch.BranchMasterSid,
-                                CompanyMasterSid: branch.CompanyMasterSid,
-                                createdBy: payload.createdBy,
-                                status: 'A',
-                                GiveAccess: branch.GiveAccess,
-                                IsDefault: branch.IsDefault
-                            }
-                        });
-                        userBranches.push(newUserBranch);
-                    }
-                }
+                const createdCompanies = await Promise.all(companyPromises);
 
-                // Create relation link between user and RoleMaster through userRoleMaster
-                const userRoles: any[] = [];
-                if (payload.roles && Array.isArray(payload.roles)) {
-                    for (const userRole of payload.roles) {
-                        const newUserRole = await prisma.userRoleMaster.create({
-                            data: {
-                                UserMasterSid: ffUser.UserMasterSid,
-                                createdBy: payload.createdBy,
-                                RoleMasterSid: userRole
-                            }
-                        });
-                        userRoles.push(newUserRole);
-                    }
-                }
+                // Create mapping: CompanyMasterSid => UserCompanyMasterSid
+                const companySidMap = new Map(
+                    createdCompanies.map((uc) => [uc.CompanyMasterSid, uc.UserCompanyMasterSid])
+                );
+
+                // Step 3: Create User Roles (within companies) - Batch operation
+                const rolesToCreate = payload.userCompanyMaster.flatMap((company: UserCompanyMasterDto) => {
+                    const ucSid = companySidMap.get(company.CompanyMasterSid);
+                    if (!ucSid) return [];
+
+                    return (company.userRoleMaster || []).map((role: UserRoleMasterDto) => ({
+                        UserCompanyMasterSid: ucSid,
+                        UserMasterSid: ffUser.UserMasterSid,
+                        RoleMasterSid: role.RoleMasterSid,
+                        createdBy: payload.createdBy,
+                        status: 'A',
+                    }));
+                });
+
+                const createdRoles =
+                    rolesToCreate.length > 0
+                        ? await prisma.userRoleMaster.createManyAndReturn({ data: rolesToCreate })
+                        : [];
+
+                // Step 4: Create User Branches - Batch operation
+                const branchesToCreate = payload.userCompanyMaster.flatMap((company: UserCompanyMasterDto) =>
+                    (company.userBranchMaster || []).map((branch: UserBranchMasterDto) => ({
+                        UserMasterSid: ffUser.UserMasterSid,
+                        BranchMasterSid: branch.BranchMasterSid,
+                        CompanyMasterSid: branch.CompanyMasterSid,
+                        createdBy: payload.createdBy,
+                        status: 'A',
+                        GiveAccess: branch.GiveAccess,
+                        IsDefault: branch.IsDefault,
+                    }))
+                );
+
+                const createdBranches =
+                    branchesToCreate.length > 0
+                        ? await prisma.userBranchMaster.createManyAndReturn({ data: branchesToCreate })
+                        : [];
 
                 return {
                     message: 'User Created Successfully',
                     data: {
                         ffUser,
-                        userCompanies,
-                        userBranches,
-                        userRoles
+                        userCompanies: createdCompanies,
+                        userRoles: createdRoles,
+                        userBranches: createdBranches,
                     },
                 };
             });
-        } catch (error) {
+        } catch (error: any) {
+            console.error('User Creation Error:', error);
             throw new Error(`Transaction failed: ${error.message}`);
         }
     }
@@ -126,20 +149,8 @@ export class FfUserMasterService {
                 },
                 include: {
                     userCompanyMaster: {
-                        orderBy: {
-                            companyMaster: { companyName: 'asc' }
-                        },
-                        where: {
-                            status: 'A',
-                            companyMaster:{
-                                userBranchMaster:{
-                                    some: {
-                                        UserMasterSid: UserMasterSid,
-                                        status: 'A',
-                                    }
-                                }
-                            }
-                        },
+                        orderBy: { companyMaster: { companyName: 'asc' }},
+                        where: { status: 'A' },
                         include: {
                             companyMaster: {
                                 include: {
@@ -148,23 +159,12 @@ export class FfUserMasterService {
                                             UserMasterSid: UserMasterSid,
                                             status: 'A'
                                         },
-                                        orderBy: {
-                                            branchMaster: { branchName: 'asc' }
-                                        },
-                                        include: {
-                                            branchMaster: true
-                                        }
+                                        include: { branchMaster: true },
+                                        orderBy: { branchMaster: { branchName: 'asc' } }
                                     }
-                                }
-                            }
-                        }
-                    },
-                    userRoleMaster: {
-                        where: {
-                            status: 'A'
-                        },
-                        include:{
-                            roleMaster:true
+                                },
+                            },
+                            userRoleMaster: { where: { status: 'A' } },
                         }
                     }
                 }
@@ -179,175 +179,326 @@ export class FfUserMasterService {
     }
 
 
-    async updateFfUserById(UserMasterSid: number, payload: any) {
+    async updateFfUserById(UserMasterSid: number, payload: UpdateUserMasterDto) {
         try {
-            const { companies, roles, ...userPayload } = payload;
+            const { userCompanyMaster = [], ...userPayload } = payload;
+            const { updatedBy } = payload;
 
-            const prevCompanies = await this._db.userCompanyMaster.findMany({
-                where: { UserMasterSid, status: 'A' }
+            const existing = await this._db.userMaster.findFirst({
+                where: {
+                    userEmail: payload.userEmail,
+                    UserMasterSid : { not : UserMasterSid }
+                },
             });
 
-            const prevBranches = await this._db.userBranchMaster.findMany({
-                where: { UserMasterSid, status: 'A' }
-            });
-
-            const prevRoles = await this._db.userRoleMaster.findMany({
-                where: { UserMasterSid, status: "A" }
-            });
+            if (existing) {
+                throw new BadRequestException('User Email already exists');
+            }
 
             return await this._db.$transaction(async (prisma) => {
+                // Step 1: Update user and fetch current relations in parallel
+                const [updatedUser, prevCompanies, prevBranches, prevRolesRaw] = await Promise.all([
+                    prisma.userMaster.update({
+                        where: { UserMasterSid },
+                        data: { ...userPayload, updatedBy },
+                        omit : { userPassword : true }
+                    }),
+                    prisma.userCompanyMaster.findMany({
+                        where: { UserMasterSid, status: 'A' },
+                    }),
+                    prisma.userBranchMaster.findMany({
+                        where: { UserMasterSid, status: 'A' },
+                    }),
+                    prisma.userRoleMaster.findMany({
+                        where: { UserMasterSid, status: 'A' },
+                        include: { userCompanyMaster: true },
+                    }),
+                ]);
 
-                // Update User
-                const updatedUser = await prisma.userMaster.update({
-                    where: { UserMasterSid },
-                    data: {
-                        ...userPayload,
-                        updatedBy: payload.updatedBy
+                // Normalize previous roles with company info
+                const prevRoles = prevRolesRaw
+                    .filter((r) => r.userCompanyMaster?.CompanyMasterSid != null)
+                    .map((r) => ({
+                        UserRoleMasterSid: r.UserRoleMasterSid,
+                        CompanyMasterSid: r.userCompanyMaster!.CompanyMasterSid,
+                        RoleMasterSid: r.RoleMasterSid,
+                        GiveAccess: r.GiveAccess,
+                        IsDefault: r.IsDefault,
+                        status: r.status,
+                        Remarks: r.Remarks,
+                        MenuMasterSid: r.MenuMasterSid,
+                    }));
+
+                /*
+                 * =========================
+                 *  COMPANIES SYNC
+                 * =========================
+                 */
+                const newCompanyIds = new Set(userCompanyMaster.map((c) => c.CompanyMasterSid));
+                const prevCompanyIds = new Set(prevCompanies.map((c) => c.CompanyMasterSid));
+
+                const companiesToDelete = prevCompanies.filter((c) => !newCompanyIds.has(c.CompanyMasterSid));
+                const companiesToInsert = userCompanyMaster.filter((c) => !prevCompanyIds.has(c.CompanyMasterSid));
+                const companiesToUpdate = userCompanyMaster.filter((c) => prevCompanyIds.has(c.CompanyMasterSid));
+
+                const companyOps: Promise<any>[] = [];
+
+                // DELETE Companies + Cascade to Roles & Branches
+                if (companiesToDelete.length > 0) {
+                    const deleteUCompanySids = companiesToDelete.map((c) => c.UserCompanyMasterSid);
+                    const deleteCompanyIds = companiesToDelete.map((c) => c.CompanyMasterSid);
+
+                    companyOps.push(
+                        prisma.userCompanyMaster.updateMany({
+                            where: { UserCompanyMasterSid: { in: deleteUCompanySids } },
+                            data: { status: 'D', updatedBy },
+                        }),
+                        prisma.userRoleMaster.updateMany({
+                            where: { UserCompanyMasterSid: { in: deleteUCompanySids }, status: 'A' },
+                            data: { status: 'D', updatedBy },
+                        }),
+                        prisma.userBranchMaster.updateMany({
+                            where: {
+                                UserMasterSid,
+                                CompanyMasterSid: { in: deleteCompanyIds },
+                                status: 'A',
+                            },
+                            data: { status: 'D', updatedBy },
+                        })
+                    );
+                }
+
+                // INSERT Companies
+                if (companiesToInsert.length > 0) {
+                    companyOps.push(
+                        prisma.userCompanyMaster.createMany({
+                            data: companiesToInsert.map((c) => ({
+                                UserMasterSid,
+                                CompanyMasterSid: c.CompanyMasterSid,
+                                createdBy: updatedBy,
+                                GiveAccess: c.GiveAccess,
+                                IsDefault: c.IsDefault,
+                                status: 'A',
+                            })),
+                        })
+                    );
+                }
+
+                // UPDATE Companies (only if changed)
+                companiesToUpdate.forEach((c) => {
+                    const existing = prevCompanies.find((pc) => pc.CompanyMasterSid === c.CompanyMasterSid);
+                    if (existing && (existing.GiveAccess !== c.GiveAccess || existing.IsDefault !== c.IsDefault)) {
+                        companyOps.push(
+                            prisma.userCompanyMaster.update({
+                                where: { UserCompanyMasterSid: existing.UserCompanyMasterSid },
+                                data: { GiveAccess: c.GiveAccess, IsDefault: c.IsDefault, updatedBy },
+                            })
+                        );
                     }
                 });
 
-                // Step 1: Update Companies
-                const newCompanySet = new Set(companies.map((c: any) => c.CompanyMasterSid));
-                const prevCompanySet = new Set(prevCompanies.map(c => c.CompanyMasterSid));
+                await Promise.all(companyOps);
 
-                const companiesToDelete = prevCompanies.filter(c => !newCompanySet.has(c.CompanyMasterSid));
-                const companiesToInsert = companies.filter((c: any) => !prevCompanySet.has(c.CompanyMasterSid));
-                const companiesToUpdate = companies.filter((c: any) => prevCompanySet.has(c.CompanyMasterSid));
+                // Refresh company mapping
+                const currentCompanies = await prisma.userCompanyMaster.findMany({
+                    where: { UserMasterSid, status: 'A' },
+                });
+                const companySidMap = new Map(
+                    currentCompanies.map((uc) => [uc.CompanyMasterSid, uc.UserCompanyMasterSid])
+                );
 
-                const userCompanies: any = { deletedCompanies: [], createdCompanies: [], updatedCompanies: [] };
+                /*
+                 * =========================
+                 *  ROLES SYNC (Company + Role based)
+                 * =========================
+                 */
+                const newRoles = userCompanyMaster.flatMap((company) =>
+                    (company.userRoleMaster || []).map((r) => ({
+                        CompanyMasterSid: company.CompanyMasterSid,
+                        RoleMasterSid: r.RoleMasterSid,
+                        GiveAccess: r.GiveAccess,
+                        IsDefault: r.IsDefault,
+                        status: r.status,
+                        Remarks: r.Remarks,
+                        MenuMasterSid: r.MenuMasterSid,
+                    }))
+                );
 
-                // Soft delete removed companies
-                userCompanies.deletedCompanies = await prisma.userCompanyMaster.updateManyAndReturn({
-                    where: { UserCompanyMasterSid: { in: companiesToDelete.map(c => c.UserCompanyMasterSid) } },
-                    data: { status: 'D' }
+                const getRoleKey = (r: { CompanyMasterSid: number; RoleMasterSid: number }) =>
+                    `${r.CompanyMasterSid}-${r.RoleMasterSid}`;
+
+                const newRoleKeySet = new Set(newRoles.map(getRoleKey));
+                const prevRoleKeySet = new Set(prevRoles.map(getRoleKey));
+
+                const rolesToDelete = prevRoles.filter((r) => !newRoleKeySet.has(getRoleKey(r)));
+                const rolesToInsert = newRoles.filter((r) => !prevRoleKeySet.has(getRoleKey(r)));
+                const rolesToUpdate = newRoles.filter((r) => prevRoleKeySet.has(getRoleKey(r)));
+
+                const roleOps: Promise<any>[] = [];
+
+                // DELETE Roles
+                if (rolesToDelete.length > 0) {
+                    roleOps.push(
+                        prisma.userRoleMaster.updateMany({
+                            where: { UserRoleMasterSid: { in: rolesToDelete.map((r) => r.UserRoleMasterSid) } },
+                            data: { status: 'D', updatedBy },
+                        })
+                    );
+                }
+
+                // INSERT Roles
+                if (rolesToInsert.length > 0) {
+                    const roleCreateData = rolesToInsert
+                        .map((r) => {
+                            const ucSid = companySidMap.get(r.CompanyMasterSid);
+                            if (!ucSid) return null;
+                            return {
+                                UserMasterSid,
+                                RoleMasterSid: r.RoleMasterSid,
+                                UserCompanyMasterSid: ucSid,
+                                GiveAccess: r.GiveAccess,
+                                IsDefault: r.IsDefault,
+                                status: r.status ?? 'A',
+                                Remarks: r.Remarks,
+                                MenuMasterSid: r.MenuMasterSid,
+                                createdBy: updatedBy,
+                            };
+                        })
+                        .filter(Boolean);
+
+                    if (roleCreateData.length > 0) {
+                        roleOps.push(prisma.userRoleMaster.createMany({ data: roleCreateData as any }));
+                    }
+                }
+
+                // UPDATE Roles (only if changed)
+                rolesToUpdate.forEach((r) => {
+                    const existing = prevRoles.find(
+                        (pr) => pr.CompanyMasterSid === r.CompanyMasterSid && pr.RoleMasterSid === r.RoleMasterSid
+                    );
+                    if (!existing) return;
+
+                    const hasChange =
+                        existing.GiveAccess !== r.GiveAccess ||
+                        existing.IsDefault !== r.IsDefault ||
+                        existing.status !== r.status ||
+                        existing.Remarks !== r.Remarks ||
+                        existing.MenuMasterSid !== r.MenuMasterSid;
+
+                    if (hasChange) {
+                        roleOps.push(
+                            prisma.userRoleMaster.update({
+                                where: { UserRoleMasterSid: existing.UserRoleMasterSid },
+                                data: {
+                                    GiveAccess: r.GiveAccess,
+                                    IsDefault: r.IsDefault,
+                                    status: r.status,
+                                    Remarks: r.Remarks,
+                                    MenuMasterSid: r.MenuMasterSid,
+                                    updatedBy,
+                                },
+                            })
+                        );
+                    }
                 });
 
-                // Create new companies
-                if (companiesToInsert.length > 0) {
-                    userCompanies.createdCompanies = await prisma.userCompanyMaster.createManyAndReturn({
-                        data: companiesToInsert.map((c: any) => ({
-                            UserMasterSid,
-                            CompanyMasterSid: c.CompanyMasterSid,
-                            createdBy: payload.updatedBy,
-                            GiveAccess: c.GiveAccess,
-                            IsDefault: c.IsDefault,
-                            status: 'A'
-                        }))
-                    });
-                }
+                await Promise.all(roleOps);
 
-                // Update existing companies (GiveAccess, IsDefault)
-                if (companiesToUpdate.length > 0) {
-                    userCompanies.updatedCompanies = await Promise.all(companiesToUpdate.map(async (c: any) => {
-                        const existing = prevCompanies.find(pc => pc.CompanyMasterSid === c.CompanyMasterSid);
-                        if (existing && (existing.GiveAccess !== c.GiveAccess || existing.IsDefault !== c.IsDefault)) {
-                            return prisma.userCompanyMaster.update({
-                                where: { UserCompanyMasterSid: existing.UserCompanyMasterSid },
-                                data: {
-                                    GiveAccess: c.GiveAccess,
-                                    IsDefault: c.IsDefault,
-                                    updatedBy: payload.updatedBy
-                                }
-                            });
-                        }
-                        return existing;
-                    }));
-                }
-
-                // Step 2: Update Branches
-                const newBranches = companies.flatMap((c: any) =>
-                    c.userBranches.map((b: any) => ({
+                /*
+                 * =========================
+                 *  BRANCHES SYNC
+                 * =========================
+                 */
+                const newBranches = userCompanyMaster.flatMap((company) =>
+                    (company.userBranchMaster || []).map((b) => ({
                         CompanyMasterSid: b.CompanyMasterSid,
                         BranchMasterSid: b.BranchMasterSid,
                         GiveAccess: b.GiveAccess,
-                        IsDefault: b.IsDefault
+                        IsDefault: b.IsDefault,
                     }))
                 );
-                const newBranchSet = new Set(newBranches.map(b => `${b.CompanyMasterSid}-${b.BranchMasterSid}`));
-                const prevBranchSet = new Set(prevBranches.map(b => `${b.CompanyMasterSid}-${b.BranchMasterSid}`));
 
-                const branchesToDelete = prevBranches.filter(b => !newBranchSet.has(`${b.CompanyMasterSid}-${b.BranchMasterSid}`));
-                const branchesToInsert = newBranches.filter(b => !prevBranchSet.has(`${b.CompanyMasterSid}-${b.BranchMasterSid}`));
-                const branchesToUpdate = newBranches.filter(b => prevBranchSet.has(`${b.CompanyMasterSid}-${b.BranchMasterSid}`));
+                const getBranchKey = (b: { CompanyMasterSid: number; BranchMasterSid: number }) =>
+                    `${b.CompanyMasterSid}-${b.BranchMasterSid}`;
 
-                const userBranches: any = { deletedBranches: [], createdBranches: [], updatedBranches: [] };
+                const newBranchKeySet = new Set(newBranches.map(getBranchKey));
+                const prevBranchKeySet = new Set(prevBranches.map(getBranchKey));
 
-                // Soft delete removed branches
-                userBranches.deletedBranches = await prisma.userBranchMaster.updateManyAndReturn({
-                    where: { UserBranchMasterSid: { in: branchesToDelete.map(b => b.UserBranchMasterSid) } },
-                    data: { status: 'D' }
-                });
+                const branchesToDelete = prevBranches.filter((b) => !newBranchKeySet.has(getBranchKey(b)));
+                const branchesToInsert = newBranches.filter((b) => !prevBranchKeySet.has(getBranchKey(b)));
+                const branchesToUpdate = newBranches.filter((b) => prevBranchKeySet.has(getBranchKey(b)));
 
-                // Create new branches
+                const branchOps: Promise<any>[] = [];
+
+                // DELETE Branches
+                if (branchesToDelete.length > 0) {
+                    branchOps.push(
+                        prisma.userBranchMaster.updateMany({
+                            where: { UserBranchMasterSid: { in: branchesToDelete.map((b) => b.UserBranchMasterSid) } },
+                            data: { status: 'D', updatedBy },
+                        })
+                    );
+                }
+
+                // INSERT Branches
                 if (branchesToInsert.length > 0) {
-                    userBranches.createdBranches = await prisma.userBranchMaster.createManyAndReturn({
-                        data: branchesToInsert.map(b => ({
-                            UserMasterSid,
-                            CompanyMasterSid: b.CompanyMasterSid,
-                            BranchMasterSid: b.BranchMasterSid,
-                            createdBy: payload.updatedBy,
-                            GiveAccess: b.GiveAccess,
-                            IsDefault: b.IsDefault,
-                            status: 'A'
-                        }))
-                    });
+                    branchOps.push(
+                        prisma.userBranchMaster.createMany({
+                            data: branchesToInsert.map((b) => ({
+                                UserMasterSid,
+                                CompanyMasterSid: b.CompanyMasterSid,
+                                BranchMasterSid: b.BranchMasterSid,
+                                GiveAccess: b.GiveAccess,
+                                IsDefault: b.IsDefault,
+                                status: 'A',
+                                createdBy: updatedBy,
+                            })),
+                        })
+                    );
                 }
 
-                // Update existing branches (GiveAccess, IsDefault)
-                if (branchesToUpdate.length > 0) {
-                    userBranches.updatedBranches = await Promise.all(branchesToUpdate.map(async (b: any) => {
-                        const existing = prevBranches.find(pb => pb.CompanyMasterSid === b.CompanyMasterSid && pb.BranchMasterSid === b.BranchMasterSid);
-                        if (existing && (existing.GiveAccess !== b.GiveAccess || existing.IsDefault !== b.IsDefault)) {
-                            return prisma.userBranchMaster.update({
+                // UPDATE Branches (only if changed)
+                branchesToUpdate.forEach((b) => {
+                    const existing = prevBranches.find(
+                        (pb) => pb.CompanyMasterSid === b.CompanyMasterSid && pb.BranchMasterSid === b.BranchMasterSid
+                    );
+                    if (existing && (existing.GiveAccess !== b.GiveAccess || existing.IsDefault !== b.IsDefault)) {
+                        branchOps.push(
+                            prisma.userBranchMaster.update({
                                 where: { UserBranchMasterSid: existing.UserBranchMasterSid },
-                                data: {
-                                    GiveAccess: b.GiveAccess,
-                                    IsDefault: b.IsDefault,
-                                    updatedBy: payload.updatedBy
-                                }
-                            });
-                        }
-                        return existing;
-                    }));
-                }
-
-                // Step 3: Update Roles
-                const newRoleSet = new Set(roles || []);
-                const prevRoleSet = new Set(prevRoles.map(r => r.RoleMasterSid));
-
-                const rolesToDelete = prevRoles.filter(r => !newRoleSet.has(r.RoleMasterSid));
-                const rolesToInsert = [...newRoleSet].filter(roleId => !prevRoleSet.has(Number(roleId)));
-
-                const userRoles: any = { deletedRoles: [], createdRoles: [] };
-
-                // Soft delete removed roles
-                userRoles.deletedRoles = await prisma.userRoleMaster.updateManyAndReturn({
-                    where: { UserRoleMasterSid: { in: rolesToDelete.map(r => r.UserRoleMasterSid) } },
-                    data: { status: 'D' }
+                                data: { GiveAccess: b.GiveAccess, IsDefault: b.IsDefault, updatedBy },
+                            })
+                        );
+                    }
                 });
 
-                // Create new roles
-                if (rolesToInsert.length > 0) {
-                    userRoles.createdRoles = await prisma.userRoleMaster.createManyAndReturn({
-                        data: rolesToInsert.map((roleId: number) => ({
-                            UserMasterSid,
-                            RoleMasterSid: roleId,
-                            createdBy: payload.updatedBy
-                        }))
-                    });
-                }
+                await Promise.all(branchOps);
 
                 return {
                     message: 'User updated successfully',
                     data: {
-                        updatedUser,
-                        userCompanies,
-                        userBranches,
-                        userRoles
-                    }
+                        user: updatedUser,
+                        summary: {
+                            companies: {
+                                created: companiesToInsert.length,
+                                updated: companiesToUpdate.length,
+                                deleted: companiesToDelete.length,
+                            },
+                            roles: {
+                                created: rolesToInsert.length,
+                                updated: rolesToUpdate.length,
+                                deleted: rolesToDelete.length,
+                            },
+                            branches: {
+                                created: branchesToInsert.length,
+                                updated: branchesToUpdate.length,
+                                deleted: branchesToDelete.length,
+                            },
+                        },
+                    },
                 };
             });
-        } catch (error) {
+        } catch (error: any) {
             console.error('User Update Error:', error);
             throw new Error(`Transaction failed: ${error.message}`);
         }
@@ -430,15 +581,15 @@ export class FfUserMasterService {
 
 
     async searchFfUserNew(params: filterDto) {
-        const { search = '', page = 1, pageSize = 15,activeCompanyId } = params;
+        const { search = '', page = 1, pageSize = 15, activeCompanyId } = params;
         const skip = (page - 1) * pageSize;
 
         const where: Prisma.UserMasterWhereInput = {
             status: statusWhereClause,
-            userCompanyMaster : {
-                some : {
-                    CompanyMasterSid : activeCompanyId,
-                    status : statusWhereClause
+            userCompanyMaster: {
+                some: {
+                    CompanyMasterSid: activeCompanyId,
+                    status: statusWhereClause
                 }
             },
             ...(search
@@ -565,7 +716,63 @@ export class FfUserMasterService {
         }
     }
 
-    async getUserBasedOnUserType(userType : string){
+    async getRoleDetailsForCompany(CompanyMasterSid: number | number[]) {
+        try {
+
+            const roles = await this._db.roleMaster.findMany({
+                where: {
+                    CompanyMasterSid: Array.isArray(CompanyMasterSid)
+                        ? { in: CompanyMasterSid }
+                        : CompanyMasterSid,
+                    status: 'A'
+                },
+                include: {
+                    RoleMenuHeader: {
+                        where: { status: 'A' },
+                        include: {
+                            RoleMenuDetail: {
+                                where: { status: 'A' },
+                                select: {
+                                    menuMaster: {
+                                        select: {
+                                            ModuleName: true
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            const result = roles.filter(role => role.RoleMenuHeader.length > 0).map(role => {
+                const header = role.RoleMenuHeader[0]; // Only one header per role
+
+                const moduleSet = new Set<string>();
+
+                if (header) {
+                    header.RoleMenuDetail.forEach(detail => {
+                        const name = detail.menuMaster?.ModuleName;
+                        if (name) moduleSet.add(name);
+                    });
+                }
+
+                return {
+                    RoleMasterSid: role.RoleMasterSid,
+                    UserRoleName: role.UserRoleName,
+                    CompanyMasterSid: role.CompanyMasterSid,
+                    ModuleInvolved: [...moduleSet]
+                };
+            });
+
+            return result;
+
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    async getUserBasedOnUserType(userType: string) {
         try {
             if (!(userType in UserTypeCode)) {
                 throw new BadRequestException(`Invalid userType '${userType}'. Expected one of: ${Object.keys(UserTypeCode).join(', ')}`);
@@ -573,7 +780,7 @@ export class FfUserMasterService {
 
             const allDocs = await this._db.userMaster.findMany({
                 where: {
-                    userType : { code : UserTypeCode[userType]},
+                    userType: { code: UserTypeCode[userType] },
                     status: 'A',
                 },
                 omit: {

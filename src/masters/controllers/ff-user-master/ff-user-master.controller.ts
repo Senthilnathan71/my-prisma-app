@@ -1,8 +1,9 @@
-import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, Post, Query, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, Post, Query, UnauthorizedException, UsePipes, ValidationPipe } from '@nestjs/common';
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
 import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
+import { CreateUserMasterDto, UpdateUserMasterDto } from 'src/masters/DTO/user.dto';
 import { FfUserMasterService } from 'src/masters/services/ff-user-master/ff-user-master.service';
 class CompanyIdDto {
     CompanyMasterSid: number;
@@ -19,8 +20,13 @@ export class FfUserMasterController {
         type: ResponseData
     })
     @HttpCode(HttpStatus.OK)
+    @UsePipes(new ValidationPipe({
+        whitelist: true,
+        forbidNonWhitelisted: true,
+        transform: true,
+    }))
     @Post('create')
-    async createNewUser(@Body() newData: any) {
+    async createNewUser(@Body() newData: CreateUserMasterDto) {
         let resp = new ResponseData();
         try {
             let res = await this.ffUserMasterService.createNewFfUser(newData);
@@ -155,9 +161,14 @@ export class FfUserMasterController {
         description: 'Update User by Id',
         type: ResponseData
     })
+    @UsePipes(new ValidationPipe({
+        whitelist: true,
+        forbidNonWhitelisted: true,
+        transform: true,
+    }))
     @HttpCode(HttpStatus.OK)
     @Patch('update/:UserMasterSid')
-    async updateUserById(@Param('UserMasterSid', ParseIntPipe) UserMasterSid: number, @Body() payload: any) {
+    async updateUserById(@Param('UserMasterSid', ParseIntPipe) UserMasterSid: number, @Body() payload: UpdateUserMasterDto) {
         let resp = new ResponseData();
         try {
             this.logger.log(`Updating User with id : ${UserMasterSid}`);
@@ -226,6 +237,38 @@ export class FfUserMasterController {
             resp.message = "User Search results are successfully fetched"
         } catch (error) {
             this.logger.warn(`User Search Error : ${JSON.stringify(error), error}`);
+            resp.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                resp.message = error.message;
+            } else {
+                resp.message = "Internal Server Error";
+            }
+        }
+        return resp;
+    }
+
+    @ApiOperation({ summary: 'Get Role Details for a Company' })
+    @ApiCreatedResponse({
+        description: 'Get Role Details for a Company',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Post('role-details')
+    async getRoleDetailsForCompany(
+        @Body() payload: any
+    ) {
+        let resp = new ResponseData();
+        try {
+            this.logger.log(`Getting Role Details for company ${JSON.stringify(payload)}`);
+            if(!payload.CompanyMasterSid){
+                throw new BadRequestException('CompanyMasterSid is required');
+            }
+            let res = await this.ffUserMasterService.getRoleDetailsForCompany(payload.CompanyMasterSid);
+            this.logger.debug(`Fetched Role Details for company ${payload.CompanyMasterSid} : ${JSON.stringify(res)}`);
+            resp.data = res;
+            resp.message = `Role Details for company ${payload.CompanyMasterSid} are successfully fetched`;
+        } catch (error) {
+            this.logger.warn(`Get Role Details for company ${payload.CompanyMasterSid} Error : ${JSON.stringify(error), error}`);
             resp.status = false;
             if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
                 resp.message = error.message;
