@@ -3296,7 +3296,7 @@ model MatchingDetail {
   SourceVoucherHeaderSid   Int
   VoucherMatchingHeaderSid Int?
   MatchingCurrency         Int?
-  MatchingExRate           Decimal?               @db.Decimal(4, 3)
+  MatchingExRate           Decimal?               @db.Decimal(7, 3)
   MatchingTDSAmount        Decimal?               @db.Decimal(15, 3)
   currencyMaster           CurrencyMaster?        @relation(fields: [MatchingCurrency], references: [CurrencyMasterSid])
   SourceVoucherHeader      VoucherHeader          @relation("SourceVoucherHeader", fields: [SourceVoucherHeaderSid], references: [VoucherHeaderSid])
@@ -3424,7 +3424,7 @@ model CustomerKyc {
 
 model NetworkMaster {
   NetworkMasterSid Int           @id @default(autoincrement()) @map("NetworkMasterSid")
-  CompanyMasterSid Int
+  CompanyMasterSid Int?
   CreatedOn        DateTime      @default(now()) @db.Timestamptz(6)
   CreatedBy        String        @db.VarChar(100)
   UpdatedOn        DateTime      @default(now()) @db.Timestamptz(6)
@@ -3433,7 +3433,7 @@ model NetworkMaster {
   NetworkName      String        @db.VarChar(100)
   CountrySid       Int
   NetworkType      String        @default("Forwarders") @db.VarChar(10)
-  companyMaster    CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+  companyMaster    CompanyMaster? @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
   countryMaster    CountryMaster @relation(fields: [CountrySid], references: [CountryMasterSid])
 
   @@index([CompanyMasterSid], map: "network_company")
