@@ -6,11 +6,6 @@ import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 import { NetworkMasterService } from 'src/masters/services/network-master/network-master.service';
-
-class CompanyIdDto {
-    CompanyMasterSid: number;
-}
-
 @Controller('network-master')
 export class NetworkMasterController {
     constructor(private networkMasterService: NetworkMasterService, private logger: Logger) { }
@@ -52,11 +47,11 @@ export class NetworkMasterController {
         type: ResponseData
     })
     @HttpCode(HttpStatus.OK)
-    @Post()
-    async getAllNetworks(@Body() body: CompanyIdDto) {
+    @Get()
+    async getAllNetworks() {
         let output = new ResponseData;
         try {
-            let NetworkData = await this.networkMasterService.getAllNetworks(body.CompanyMasterSid);
+            let NetworkData = await this.networkMasterService.getAllNetworks();
             this.logger.log(`getAllNetworks: ${JSON.stringify(NetworkData)}`)
             output.data = NetworkData;
             output.message = "All Networks are successfully fetched";
@@ -75,14 +70,13 @@ export class NetworkMasterController {
     @ApiOperation({ summary: 'Get Network by type' })
     @ApiCreatedResponse({ description: 'Get Network by type', type: ResponseData })
     @HttpCode(HttpStatus.OK)
-    @Post('network-type') 
+    @Get('network-type') 
     async getNetworkByType(
-        @Query('type') type: string,
-        @Body() body: CompanyIdDto
+        @Query('type') type: string
     ) {
         const resp = new ResponseData();
         try {
-            const res = await this.networkMasterService.getNetworkByType(type, body.CompanyMasterSid);
+            const res = await this.networkMasterService.getNetworkByType(type);
             this.logger.log(`Network by type : ${JSON.stringify(res)}`);
             resp.data = res;
             resp.message = "Network by type is successfully fetched";

@@ -16,7 +16,6 @@ export class NetworkMasterService {
             where: {
                 OR: [
                     {
-                        CompanyMasterSid: payload.CompanyMasterSid,
                         NetworkName: {
                             equals: payload.NetworkName,
                             mode: 'insensitive',
@@ -45,12 +44,11 @@ export class NetworkMasterService {
         }
     }
 
-    async getAllNetworks(CompanyMasterSid: number) {
+    async getAllNetworks() {
         try {
             const networkList = await this._db.networkMaster.findMany({
                 where: {
                     Status: 'A',
-                    CompanyMasterSid: CompanyMasterSid
                 },
                 include: {
                     countryMaster: true
@@ -62,11 +60,10 @@ export class NetworkMasterService {
         }
     }
 
-    async getNetworkByType(type: string, CompanyMasterSid: number) {
+    async getNetworkByType(type: string) {
         try {
             const network = await this._db.networkMaster.findMany({
                 where: {
-                    CompanyMasterSid: CompanyMasterSid,
                     NetworkType: type,
                     Status: "A"
                 },
@@ -110,13 +107,11 @@ export class NetworkMasterService {
             where: {
                 AND: [
                     {
-                        CompanyMasterSid: payload.CompanyMasterSid,
                         NetworkMasterSid: {
                             not: NetworkMasterSid
                         }
                     },
                     {
-                        CompanyMasterSid: payload.CompanyMasterSid,
                         NetworkName: {
                             equals: payload.NetworkName,
                             mode: 'insensitive'
@@ -170,7 +165,6 @@ export class NetworkMasterService {
 
         const where: Prisma.NetworkMasterWhereInput = {
             Status: statusWhereClause,
-            CompanyMasterSid: activeCompanyId,
             ...(search
                 ? {
                     OR: [
@@ -204,13 +198,12 @@ export class NetworkMasterService {
     }
 
     async searchListUsingView(params: filterDto) {
-        const { search = '', page = 1, pageSize = 15, activeCompanyId } = params;
+        const { search = '', page = 1, pageSize = 15 } = params;
         const skip = (page - 1) * pageSize;
 
         // Assuming you have a view for network similar to department
         const where: any = {
             Status: statusWhereClause,
-            CompanyMasterSid: activeCompanyId,
             ...(search
                 ? {
                     OR: [

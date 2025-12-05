@@ -103,7 +103,7 @@ export class UomService {
         try {
             const uom = await this._db.uOMMaster.findMany({
                 where: {
-                    UOMType : type,
+                    UOMType : 'C',
                     status: "A"
                 }
             });
