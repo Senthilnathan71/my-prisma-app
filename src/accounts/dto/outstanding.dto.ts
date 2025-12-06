@@ -66,6 +66,9 @@ export class CustomerOutstandingTransactionDto {
 
   @ApiProperty({ description: 'Voucher Type Master Sid', example: 1 })
   voucherTypeMasterSid: number;
+  
+  @ApiProperty({ description: 'Voucher Type Code', example: 'INV' })
+  voucherTypeCode: string;
 
   @ApiProperty({ description: 'Voucher Type', example: 1 })
   voucherType: string;

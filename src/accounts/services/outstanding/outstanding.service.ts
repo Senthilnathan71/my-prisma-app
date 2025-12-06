@@ -186,7 +186,7 @@ export class OutstandingService {
             },
           },
           voucherTypeMaster : {
-            select : {DocumentTypeName : true}
+            select : {DocumentTypeName : true,DocumentTypeCode : true}
           }
         },
         orderBy: {
@@ -254,6 +254,7 @@ export class OutstandingService {
             ledgerMasterSid: vt.LedgerMasterSid!,
             coaMasterSid: vt.COAMasterSid!,
             voucherType: vt.voucherTypeMaster?.DocumentTypeName,
+            voucherTypeCode : vt.voucherTypeMaster?.DocumentTypeCode,
             originalCurrencyAmount: this.toNumber(originalCurrencyAmount),
             originalLocalAmount: this.toNumber(originalLocalAmount),
             matchedCurrencyAmount: this.toNumber(matchedCurrencyAmount),

@@ -40,7 +40,7 @@ export class PaymentService {
                     VoucherDate: typeof txn.voucherDate === 'string' ? txn.voucherDate : txn.voucherDate.toISOString(),
                     VoucherTypeMasterSid: txn.voucherTypeMasterSid,
                     COAMasterSid: txn.coaMasterSid!,
-                    VoucherType: txn.voucherType,
+                    VoucherType: txn.voucherTypeCode,
                     LedgerMasterSid: txn.ledgerMasterSid!,
                     CustomerName: customerOutstanding.customerName || '',
                     OriginalCurrencyAmount: txn.originalCurrencyAmount,
@@ -96,7 +96,7 @@ export class PaymentService {
                 VoucherHeader: true,
                 subledgerMaster: true,
                 voucherTypeMaster: {
-                    select: { DocumentTypeName: true }
+                    select: { DocumentTypeCode: true }
                 },
                 voucherMatchings: {
                     where: { Status: 'A' },
@@ -127,7 +127,7 @@ export class PaymentService {
                 VoucherNumber: txn.VoucherHeader.VoucherNumber,
                 VoucherDate: txn.VoucherDate.toISOString(),
                 VoucherTypeMasterSid: txn.VoucherTypeMasterSid,
-                VoucherType: txn.voucherTypeMaster?.DocumentTypeName,
+                VoucherType: txn.voucherTypeMaster?.DocumentTypeCode,
                 LedgerMasterSid: txn.LedgerMasterSid || null,
                 COAMasterSid: txn.COAMasterSid || null,
                 CustomerName: txn.subledgerMaster?.SubledgerName || '',
@@ -672,6 +672,8 @@ export class PaymentService {
                         VoucherHeaderSid: voucher.VoucherHeaderSid
                     },
                     data: {
+                        Amount : partyDetail.Amount,
+                        LocalAmount : partyDetail.LocalAmount,
                         PostStatus: 'P',
                         PostDate: voucher.PostDate,
                         UpdatedBy: payload.postedBy
