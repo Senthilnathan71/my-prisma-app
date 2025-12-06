@@ -20,6 +20,8 @@ import { MastersModule } from 'src/masters/masters.module';
 import { DocReferenceController } from './controllers/doc-reference/doc-reference.controller';
 import { DocReferenceService } from './services/doc-reference/doc-reference.service';
 import { ReportEmailService } from './services/report-email.service';
+import { GlobalDocumentSearchController } from './controllers/global-document-search/global-document-search.controller';
+import { GlobalDocumentSearchService } from './services/global-document-search/global-document-search.service';
 
 @Module({
     imports:[
@@ -33,6 +35,7 @@ import { ReportEmailService } from './services/report-email.service';
         FollowupController,
         AttachDocumentController,
         DocReferenceController,
+        GlobalDocumentSearchController,
     ],
     providers: [
         Logger,
@@ -45,7 +48,8 @@ import { ReportEmailService } from './services/report-email.service';
         SchedulerService,
         AttachDocumentService,
         DocReferenceService,
-        ReportEmailService
+        ReportEmailService,
+        GlobalDocumentSearchService,
     ],
     exports: [
         ReportEmailService
