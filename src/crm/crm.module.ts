@@ -9,6 +9,8 @@ import { QuotationController } from './controllers/quotation/quotation.controlle
 import { QuotationService } from './services/quotation/quotation.service';
 import { PrecustomerController } from './controllers/precustomer/precustomer.controller';
 import { PrecustomerService } from './services/precustomer/precustomer.service';
+import { ActivityAllocationService } from './services/activity-allocation/activity-allocation.service';
+import { ActivityAllocationController } from './controllers/activity-allocation/activity-allocation.controller';
 @Module({
     providers : [
         Logger,
@@ -16,14 +18,16 @@ import { PrecustomerService } from './services/precustomer/precustomer.service';
         EnquiryHeaderService,
         PreCustomerMeetingService,
         BookingService,
-        QuotationService
+        QuotationService,
+         ActivityAllocationService,
     ],
     controllers : [
         PrecustomerController,
         EnquiryHeaderController,
         PreCustomerMeetingController,
         BookingController,
-        QuotationController
-    ]
+        QuotationController,
+        ActivityAllocationController,
+    ],
 })
 export class CrmModule {}
