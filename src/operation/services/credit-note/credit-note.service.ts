@@ -93,7 +93,7 @@ export class CreditNoteService {
        }
      }
 
-    async allInvoices() {
+    async allInvoices(CompanyMasterSid: number) {
     try {
       const result = await this._db.voucherHeader.findMany({
         where: { 
@@ -101,7 +101,8 @@ export class CreditNoteService {
           PostStatus: 'P',
           voucherTypeMaster: {
             DocumentTypeName: 'Invoice'
-          }
+          },
+          CompanyMasterSid: CompanyMasterSid,
          },
       });
       return result;

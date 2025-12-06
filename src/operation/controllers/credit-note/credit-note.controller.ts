@@ -51,11 +51,11 @@ export class CreditNoteController {
     type: ResponseData
   })
   @HttpCode(HttpStatus.OK)
-  @Get('invoice')
-  async getAllInvoices() {
+  @Post('invoice')
+  async getAllInvoices(@Body() body: CompanyIdDto) {
     const output = new ResponseData();
     try {
-      const finalOutput = await this.creditNoteService.allInvoices();
+      const finalOutput = await this.creditNoteService.allInvoices(body.CompanyMasterSid);
       this.logger.debug(`getAllInvoices: returned ${Array.isArray(finalOutput) ? finalOutput.length : 0} items`);
       output.data = finalOutput;
       output.message = "All Invoices fetched successfully";
