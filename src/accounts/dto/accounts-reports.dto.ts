@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsString, IsOptional, IsInt, IsNotEmpty, IsDateString, IsEnum, IsNumber, IsBoolean } from 'class-validator';
+import { IsString, IsOptional, IsInt, IsNotEmpty, IsDateString, IsEnum, IsNumber, IsBoolean, IsArray, Validate, ValidateNested } from 'class-validator';
 
 export enum ExportFormatEnum {
   EXCEL = 'EXCEL',
@@ -73,25 +73,21 @@ export class AgeingReportQueryDto {
 
 // Outstanding Report DTOs
 export class OutstandingReportQueryDto {
-  @ApiProperty()
-  @IsNotEmpty()
-  @IsDateString()
-  fromDate: string;
 
   @ApiProperty()
   @IsNotEmpty()
   @IsDateString()
-  toDate: string;
+  ToDate: string;
+
+  @IsNotEmpty()
+  @IsInt()
+  Ledger : number;
 
   @ApiPropertyOptional()
-  @IsOptional()
-  @IsInt()
-  subledger?: number;
-
-  @ApiProperty({ enum: OutstandingTypeEnum })
   @IsNotEmpty()
-  @IsEnum(OutstandingTypeEnum)
-  outstandingType: string;
+  @IsInt()
+  Subledger?: number;
+
 
   @ApiProperty()
   @IsNotEmpty()
@@ -99,9 +95,9 @@ export class OutstandingReportQueryDto {
   companyId: number;
 
   @ApiPropertyOptional()
-  @IsOptional()
-  @IsInt()
-  branchId?: number;
+  @IsNotEmpty()
+  @IsArray()
+  Branch?: number[];
 }
 
 // Statement/Ledger Report DTOs

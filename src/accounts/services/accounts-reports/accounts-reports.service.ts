@@ -1,8 +1,9 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { DatabaseService } from 'src/database/database.service';
 import { ApprovalStatus, Prisma } from '@prisma/client';
-import { AgeingReportQueryDto } from 'src/accounts/dto/accounts-reports.dto';
-import { toNumber } from 'src/common/helper';
+import { AgeingReportQueryDto, OutstandingReportQueryDto } from 'src/accounts/dto/accounts-reports.dto';
+import { roundAmount, toNumber } from 'src/common/helper';
+import { CustomerOutstandingResponseDto, CustomerOutstandingTransactionDto } from 'src/accounts/dto/outstanding.dto';
 // -------------------------
 // Helper types (local)
 // -------------------------
@@ -551,10 +552,184 @@ export class AccountsReportsService {
     }
   }
 
-  private async generateOutstandingReport(params: any) {
-    // TODO: Implement outstanding report logic
-    this.logger.log('generateOutstandingReport called with params:', params);
-    throw new BadRequestException('Outstanding Report generator not yet implemented');
+  private async generateOutstandingReport(params: OutstandingReportQueryDto) {
+    // {"ToDate":"2025-12-06T00:00:00.000Z","Ledger":54,"Subledger":59,"Branch":[50],"companyId":7}
+    const {
+      ToDate,
+      Subledger : ledgerMasterSid,
+      Ledger : coaMasterSid,
+      Branch: Branch,
+      companyId : CompanyMasterSid,
+    } = params;
+    
+    try {
+      this.logger.log(
+        `Getting customer outstanding: CompanySid=${CompanyMasterSid}, LedgerMasterSid=${ledgerMasterSid}`,
+      );
+
+      const allBranches = await this._db.branchMaster.findMany({
+        where : {
+          BranchMasterSid : { in : Branch},
+        },
+        select : {
+          branchName : true,
+        }
+      })
+
+
+   
+      const branchSet = new Set(allBranches.map(b=>b.branchName));
+  
+      // Get customer/subledger information
+      const subledger = await this._db.subledgerMaster.findUnique({
+        where: { SubledgerMasterSid: ledgerMasterSid },
+      });
+
+      const ledger = await this._db.cOAMaster.findUnique({
+        where:{COAMasterSid:coaMasterSid}
+      })
+
+      // Fetch all active voucher transactions for this customer
+      // Exclude reversed vouchers
+      const voucherTransactions = await this._db.voucherTransaction.findMany({
+        where: {
+          CompanyMasterSid: CompanyMasterSid,
+          BranchMasterSid : { in : Branch},
+          VoucherDate : { lte : ToDate},
+          COAMasterSid : coaMasterSid,
+          LedgerMasterSid: ledgerMasterSid,
+          Status: 'A',
+        },
+        include: {
+          VoucherHeader: true,
+          masterJob : true,
+          houseJob:true,
+          departmentMaster:{
+            select:{departmentName:true}
+          },
+          voucherMatchings: {
+            where: {
+              Status: 'A',
+            },
+          },
+          voucherTypeMaster: {
+            select: { DocumentTypeName: true }
+          }
+        },
+        orderBy: {
+          VoucherDate: 'asc',
+        },
+      });
+
+      if (voucherTransactions.length === 0) {
+        this.logger.log(`No outstanding vouchers found for LedgerMasterSid ${ledgerMasterSid}`);
+        return {
+          companyMasterSid: CompanyMasterSid,
+          BranchMasterSid:Branch,
+          ledgerMasterSid: ledgerMasterSid,
+          subledgerName: subledger?.SubledgerName,
+          ledgerName : ledger?.LedgerName,
+          totalOutstandingCurrency: 0,
+          totalOutstandingLocal: 0,
+          voucherCount: 0,
+          transactions: [],
+        };
+      }
+
+      // Calculate outstanding for each transaction
+      const transactions: any[] = [];
+      let totalOutstandingCurrency = 0;
+      let totalOutstandingLocal = 0;
+
+      for (const vt of voucherTransactions) {
+        const originalCurrencyAmount = toNumber(vt.Amount);
+        const originalLocalAmount = toNumber(vt.LocalAmount);
+
+        // Sum matched amounts for this transaction
+        let matchedCurrencyAmount = 0;
+        let matchedLocalAmount = 0;
+
+        if (vt.voucherMatchings && vt.voucherMatchings.length > 0) {
+          matchedCurrencyAmount = vt.voucherMatchings.reduce(
+            (sum, m) => sum + toNumber(m.Amount),
+            0,
+          );
+          matchedLocalAmount = vt.voucherMatchings.reduce(
+            (sum, m) => sum + toNumber(m.LocalAmount),
+            0,
+          );
+        }
+
+        const outstandingCurrencyAmount = roundAmount(
+          originalCurrencyAmount - matchedCurrencyAmount,
+          2,
+        );
+        const outstandingLocalAmount = roundAmount(originalLocalAmount - matchedLocalAmount, 2);
+
+        // Calculate exchange rate
+        const exchangeRate = originalCurrencyAmount !== 0
+          ? roundAmount(originalLocalAmount / originalCurrencyAmount, 4)
+          : 1.0;
+
+        // Only include if there's outstanding balance
+        if (Math.abs(outstandingCurrencyAmount) > 0 || Math.abs(outstandingLocalAmount) > 0) {
+          transactions.push({
+            voucherTransactionSid: vt.VoucherTransactionSid,
+            voucherHeaderSid: vt.VoucherHeaderSid,
+            voucherDetailSid: vt.VoucherDetailSid,
+            voucherNumber: vt.VoucherNumber,
+            voucherDate: vt.VoucherDate,
+            voucherTypeMasterSid: vt.VoucherTypeMasterSid,
+            ledgerMasterSid: vt.LedgerMasterSid!,
+            coaMasterSid: vt.COAMasterSid!,
+            MasterJobNumber : vt.masterJob?.MasterJobNumber,
+            HouseJobNumber : vt.houseJob?.HBLNo,
+            voucherType: vt.voucherTypeMaster?.DocumentTypeName,
+            originalCurrencyAmount: toNumber(originalCurrencyAmount),
+            originalLocalAmount: toNumber(originalLocalAmount),
+            matchedCurrencyAmount: toNumber(matchedCurrencyAmount),
+            matchedLocalAmount: toNumber(matchedLocalAmount),
+            outstandingCurrencyAmount: outstandingCurrencyAmount,
+            outstandingLocalAmount: outstandingLocalAmount,
+            currencyCode: vt.CurrencyCode || 'USD',
+            exchangeRate: toNumber(vt.ExchangeRate || 1),
+            drCr: vt.DrCr,
+            chargeDescription: vt.ChargeDescription || "",
+            deptname:vt.departmentMaster?.departmentName,
+            salesmanSid: vt.houseJob?.SalesmanSid,
+          });
+
+          totalOutstandingCurrency += outstandingCurrencyAmount;
+          totalOutstandingLocal += outstandingLocalAmount;
+        }
+      }
+
+      const response = {
+        companyMasterSid: CompanyMasterSid,
+        branchMasterSid : Branch,
+        ledgerMasterSid: ledgerMasterSid!,
+        subledgerName: subledger?.SubledgerName,
+        ledgerName : ledger?.LedgerName,
+        totalOutstandingCurrency: roundAmount(totalOutstandingCurrency, 2),
+        totalOutstandingLocal: roundAmount(totalOutstandingLocal, 2),
+        voucherCount: transactions.length,
+        transactions: transactions,
+        branchesInvolved : Array.from(branchSet).join(','),
+        params : params,
+      };
+
+      this.logger.log(
+        `Customer outstanding calculated: ${transactions.length} transactions, Total=${response.totalOutstandingLocal}`,
+      );
+
+      return response;
+    } catch (error) {
+      this.logger.error(
+        `Error getting customer outstanding for ${ledgerMasterSid}: ${error.message}`,
+        error.stack,
+      );
+      throw error;
+    }
   }
 
   private async generateStatementLedgerReport(params: any) {
