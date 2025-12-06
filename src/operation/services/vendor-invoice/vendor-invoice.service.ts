@@ -63,7 +63,7 @@ export class VendorInvoiceService {
                         PostDate: payload.PostDate ? new Date(payload.PostDate) : new Date(),
                         VoucherType: voucherTypeMaster.VoucherTypeMasterSid,
                         Narration: payload.Narration || '',
-                        COAMasterSid: voucherTypeMaster.COALedger ?? 1,
+                        COAMasterSid: payload.COAMasterSid,
                         CompanyMasterSid: payload.CompanyMasterSid,
                         BranchMasterSid: payload.BranchMasterSid,
                         VoucherTypeMasterSid: voucherTypeMaster.VoucherTypeMasterSid,
@@ -652,11 +652,14 @@ async searchPendingCosts(searchCriteria: {
       throw new BadRequestException('Search value is required');
     }
     
-
     // Step 1: Determine search target and build where clause
     let jobRecord: any = null;
     let transactionSid: number | null = null;
     let menuName = '';
+    let masterJobSid: number | null = null;
+    let houseJobSid: number | null = null;
+    let masterJobNumber: string = '';
+    let houseJobNumber: string = '';
     
     // Normalize search value
     const normalizedSearch = searchValue.trim().toUpperCase();
@@ -675,6 +678,8 @@ async searchPendingCosts(searchCriteria: {
         
         if (jobRecord) {
           transactionSid = jobRecord.MasterJobSid;
+          masterJobSid = jobRecord.MasterJobSid;
+          masterJobNumber = jobRecord.MasterJobNumber;
           menuName = 'MasterJob';
         }
         break;
@@ -690,11 +695,28 @@ async searchPendingCosts(searchCriteria: {
             CompanyMasterSid: companyMasterSid,
             BranchMasterSid: branchMasterSid,
             status: 'A'
+          },
+          include: {
+            masterJob: {
+              select: {
+                MasterJobSid: true,
+                MasterJobNumber: true
+              }
+            }
           }
         });
         
         if (jobRecord) {
           transactionSid = jobRecord.HouseJobSid;
+          houseJobSid = jobRecord.HouseJobSid;
+          houseJobNumber = jobRecord.BookingNo;
+          
+          // Get master job info from house job
+          if (jobRecord.masterJob) {
+            masterJobSid = jobRecord.masterJob.MasterJobSid;
+            masterJobNumber = jobRecord.masterJob.MasterJobNumber;
+          }
+          
           menuName = 'HouseJob';
         }
         break;
@@ -706,13 +728,14 @@ async searchPendingCosts(searchCriteria: {
             MBLNo: { contains: normalizedSearch, mode: 'insensitive' },
             CompanyMasterSid: companyMasterSid,
             BranchMasterSid: branchMasterSid,
-            Status: 'A',
-            
+            Status: 'A'
           }
         });
         
         if (jobRecord) {
           transactionSid = jobRecord.MasterJobSid;
+          masterJobSid = jobRecord.MasterJobSid;
+          masterJobNumber = jobRecord.MasterJobNumber;
           menuName = 'MasterJob';
         }
         break;
@@ -725,11 +748,28 @@ async searchPendingCosts(searchCriteria: {
             CompanyMasterSid: companyMasterSid,
             BranchMasterSid: branchMasterSid,
             status: 'A'
+          },
+          include: {
+            masterJob: {
+              select: {
+                MasterJobSid: true,
+                MasterJobNumber: true
+              }
+            }
           }
         });
         
         if (jobRecord) {
           transactionSid = jobRecord.HouseJobSid;
+          houseJobSid = jobRecord.HouseJobSid;
+          houseJobNumber = jobRecord.BookingNo;
+          
+          // Get master job info from house job
+          if (jobRecord.masterJob) {
+            masterJobSid = jobRecord.masterJob.MasterJobSid;
+            masterJobNumber = jobRecord.masterJob.MasterJobNumber;
+          }
+          
           menuName = 'HouseJob';
         }
         break;
@@ -758,6 +798,8 @@ async searchPendingCosts(searchCriteria: {
         if (containerRecord?.masterJob && containerRecord.masterJob.Status === 'A') {
           jobRecord = containerRecord.masterJob;
           transactionSid = jobRecord.MasterJobSid;
+          masterJobSid = jobRecord.MasterJobSid;
+          masterJobNumber = jobRecord.MasterJobNumber;
           menuName = 'MasterJob';
         }
         break;
@@ -773,16 +815,16 @@ async searchPendingCosts(searchCriteria: {
       };
     }
 
-    // Step 2: Build cost/revenue query - FIXED WHERE CLAUSE
+    // Step 2: Build cost/revenue query
     const whereClause: any = {
       CompanyMasterSid: companyMasterSid,
       BranchMasterSid: branchMasterSid,
       status: 'A',
-      CostVoucherHeaderSid: null, // Only pending costs (not invoiced yet)
+      CostVoucherHeaderSid: null, 
     };
 
     // Add transaction-specific filters based on menu type
-     if (menuName === 'MasterJob') {
+    if (menuName === 'MasterJob') {
       whereClause.MasterJobNo = jobRecord.MasterJobNumber;
     } else if (menuName === 'HouseJob') {
       whereClause.ShipmentNo = jobRecord.BookingNo;
@@ -792,16 +834,6 @@ async searchPendingCosts(searchCriteria: {
     if (vendorSid) {
       whereClause.CostAgentMasterSid = vendorSid;
     }
-
-    console.log('DEBUG - Search Criteria:', {
-      searchType,
-      searchValue,
-      vendorSid,
-      companyMasterSid,
-      branchMasterSid
-    });
-
-    console.log('DEBUG - Where Clause:', whereClause);
 
     // Step 3: Fetch pending costs
     const pendingCosts = await this._db.costRevenueCharges.findMany({
@@ -818,9 +850,7 @@ async searchPendingCosts(searchCriteria: {
       }
     });
 
-    console.log('DEBUG - Found pending costs:', pendingCosts.length);
-
-    // Step 4: Transform results
+    // Step 4: Transform results with job information
     const transformedCosts = pendingCosts.map(cost => ({
       CostRevenueChargesSid: cost.CostRevenueChargesSid,
       ChargeMasterSid: cost.ChargeMasterSid,
@@ -836,14 +866,14 @@ async searchPendingCosts(searchCriteria: {
       ChargeUOMSid: cost.CostChargeUomSid,
       VendorName: cost.costCustomerMaster?.CustomerName || '',
       VendorSid: cost.CostAgentMasterSid,
-      vendorAddress:cost.CostAgentBranchSid,
+      vendorAddress: cost.CostAgentBranchSid,
       JobNo: menuName === 'MasterJob' ? jobRecord.MasterJobNumber : jobRecord.BookingNo,
       MBLNo: jobRecord.MBLNo || '',
       HBLNo: menuName === 'HouseJob' ? jobRecord.HBLNo : '',
-      MasterJobSid: menuName === 'MasterJob' ? transactionSid : jobRecord.MasterJobSid,
-      HouseJobSid: menuName === 'HouseJob' ? transactionSid : null,
+      MasterJobSid: masterJobSid, 
+      HouseJobSid: houseJobSid,  
       Remarks: cost.Remarks || '',
-      selected: false // UI selection flag
+      selected: false 
     }));
 
     return {
@@ -851,7 +881,11 @@ async searchPendingCosts(searchCriteria: {
       jobInfo: {
         menuName,
         transactionSid,
+        masterJobSid,      
+        houseJobSid,       
         jobNumber: menuName === 'MasterJob' ? jobRecord.MasterJobNumber : jobRecord.BookingNo,
+        masterJobNumber,   
+        houseJobNumber,    
         mblNo: jobRecord.MBLNo,
         hblNo: menuName === 'HouseJob' ? jobRecord.HBLNo : null
       },
