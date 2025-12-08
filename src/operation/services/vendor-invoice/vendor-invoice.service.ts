@@ -94,6 +94,7 @@ export class VendorInvoiceService {
 
                 // Create VoucherDetails
                 let totalTaxableAmount = 0;
+                const patchedCostRevenueIds: number[]=[];
                 if (payload.VoucherDetail && Array.isArray(payload.VoucherDetail)) {
                     let sno = 1;
                     for (const detail of payload.VoucherDetail) {
@@ -130,8 +131,29 @@ export class VendorInvoiceService {
                         });
 
                         totalTaxableAmount += Number(detail.TaxableAmount || detail.Amount || 0);
+                        if(detail.CostRevenueChargesSid){
+                            patchedCostRevenueIds.push(detail.CostRevenueChargesSid);
+                        }
                     }
                 }
+
+                 if (payload.isPatching === true && patchedCostRevenueIds.length > 0) {
+                console.log('Patching CostRevenueCharges with IDs:', patchedCostRevenueIds);
+                
+                await tx.costRevenueCharges.updateMany({
+                    where: {
+                        CostRevenueChargesSid: { in: patchedCostRevenueIds }
+                    },
+                    data: {
+                        CostVoucherHeaderSid: voucherHeader.VoucherHeaderSid,
+                        CostVoucherTypeMasterSid: voucherTypeMaster.VoucherTypeMasterSid,
+                        updatedOn: new Date(),
+                        updatedBy: payload.CreatedBy || 'System'
+                    }
+                });
+                
+                console.log(`Updated ${patchedCostRevenueIds.length} CostRevenueCharges records`);
+            }
 
                 // Create VoucherTDS if TDS data provided or fetch from vendor mapping
                 if (payload.VoucherTDS || totalTaxableAmount > 0) {
@@ -201,7 +223,8 @@ export class VendorInvoiceService {
                 return {
                     newVoucher: completeVendorInvoice,
                     VoucherHeaderSid: voucherHeader.VoucherHeaderSid,
-                    VoucherNumber: voucherNumber
+                    VoucherNumber: voucherNumber,
+                    patchedCostRevenueCount: patchedCostRevenueIds.length
                 };
             });
         } catch (error) {
@@ -644,9 +667,10 @@ async searchPendingCosts(searchCriteria: {
   vendorSid?: number;
   companyMasterSid: number;
   branchMasterSid: number;
+  vendorBranchSid?: number; // Add this parameter
 }): Promise<any> {
   try {
-    const { searchType, searchValue, vendorSid, companyMasterSid, branchMasterSid } = searchCriteria;
+    const { searchType, searchValue, vendorSid, companyMasterSid, branchMasterSid, vendorBranchSid } = searchCriteria;
     
     if (!searchValue?.trim()) {
       throw new BadRequestException('Search value is required');
@@ -664,151 +688,155 @@ async searchPendingCosts(searchCriteria: {
     // Normalize search value
     const normalizedSearch = searchValue.trim().toUpperCase();
 
-    switch (searchType.toLowerCase()) {
-      case 'master job':
-      case 'masterjob':
-        jobRecord = await this._db.masterJob.findFirst({
-          where: {
-            MasterJobNumber: { contains: normalizedSearch, mode: 'insensitive' },
-            CompanyMasterSid: companyMasterSid,
-            BranchMasterSid: branchMasterSid,
-            Status: 'A'
+    // Special handling for Vendor Name search
+    if (searchType.toLowerCase().includes('vendor') || searchType.toLowerCase() === 'vendor name') {
+      // For vendor name search, we'll return all costs for that vendor
+      // Don't look for job records, just proceed to cost query
+      menuName = 'Vendor';
+    } else {
+      // Original logic for other search types
+      switch (searchType.toLowerCase()) {
+        case 'master job':
+        case 'masterjob':
+          jobRecord = await this._db.masterJob.findFirst({
+            where: {
+              MasterJobNumber: { contains: normalizedSearch, mode: 'insensitive' },
+              CompanyMasterSid: companyMasterSid,
+              BranchMasterSid: branchMasterSid,
+              Status: 'A',
+            }
+          });
+          
+          if (jobRecord) {
+            transactionSid = jobRecord.MasterJobSid;
+            masterJobSid = jobRecord.MasterJobSid;
+            masterJobNumber = jobRecord.MasterJobNumber;
+            menuName = 'MasterJob';
           }
-        });
-        
-        if (jobRecord) {
-          transactionSid = jobRecord.MasterJobSid;
-          masterJobSid = jobRecord.MasterJobSid;
-          masterJobNumber = jobRecord.MasterJobNumber;
-          menuName = 'MasterJob';
-        }
-        break;
+          break;
 
-      case 'house job':
-      case 'housejob':
-        jobRecord = await this._db.houseJob.findFirst({
-          where: {
-            OR: [
-              { BookingNo: { contains: normalizedSearch, mode: 'insensitive' } },
-              { HBLNo: { contains: normalizedSearch, mode: 'insensitive' } }
-            ],
-            CompanyMasterSid: companyMasterSid,
-            BranchMasterSid: branchMasterSid,
-            status: 'A'
-          },
-          include: {
-            masterJob: {
-              select: {
-                MasterJobSid: true,
-                MasterJobNumber: true
+        case 'house job':
+        case 'housejob':
+          jobRecord = await this._db.houseJob.findFirst({
+            where: {
+              OR: [
+                { BookingNo: { contains: normalizedSearch, mode: 'insensitive' } },
+                { HBLNo: { contains: normalizedSearch, mode: 'insensitive' } }
+              ],
+              CompanyMasterSid: companyMasterSid,
+              BranchMasterSid: branchMasterSid,
+              status: 'A'
+            },
+            include: {
+              masterJob: {
+                select: {
+                  MasterJobSid: true,
+                  MasterJobNumber: true
+                }
               }
             }
-          }
-        });
-        
-        if (jobRecord) {
-          transactionSid = jobRecord.HouseJobSid;
-          houseJobSid = jobRecord.HouseJobSid;
-          houseJobNumber = jobRecord.BookingNo;
+          });
           
-          // Get master job info from house job
-          if (jobRecord.masterJob) {
-            masterJobSid = jobRecord.masterJob.MasterJobSid;
-            masterJobNumber = jobRecord.masterJob.MasterJobNumber;
+          if (jobRecord) {
+            transactionSid = jobRecord.HouseJobSid;
+            houseJobSid = jobRecord.HouseJobSid;
+            houseJobNumber = jobRecord.BookingNo;
+            
+            if (jobRecord.masterJob) {
+              masterJobSid = jobRecord.masterJob.MasterJobSid;
+              masterJobNumber = jobRecord.masterJob.MasterJobNumber;
+            }
+            
+            menuName = 'HouseJob';
           }
+          break;
+
+        case 'mbl no':
+        case 'mblno':
+          jobRecord = await this._db.masterJob.findFirst({
+            where: {
+              MBLNo: { contains: normalizedSearch, mode: 'insensitive' },
+              CompanyMasterSid: companyMasterSid,
+              BranchMasterSid: branchMasterSid,
+              Status: 'A'
+            }
+          });
           
-          menuName = 'HouseJob';
-        }
-        break;
-
-      case 'mbl no':
-      case 'mblno':
-        jobRecord = await this._db.masterJob.findFirst({
-          where: {
-            MBLNo: { contains: normalizedSearch, mode: 'insensitive' },
-            CompanyMasterSid: companyMasterSid,
-            BranchMasterSid: branchMasterSid,
-            Status: 'A'
+          if (jobRecord) {
+            transactionSid = jobRecord.MasterJobSid;
+            masterJobSid = jobRecord.MasterJobSid;
+            masterJobNumber = jobRecord.MasterJobNumber;
+            menuName = 'MasterJob';
           }
-        });
-        
-        if (jobRecord) {
-          transactionSid = jobRecord.MasterJobSid;
-          masterJobSid = jobRecord.MasterJobSid;
-          masterJobNumber = jobRecord.MasterJobNumber;
-          menuName = 'MasterJob';
-        }
-        break;
+          break;
 
-      case 'hbl no':
-      case 'hblno':
-        jobRecord = await this._db.houseJob.findFirst({
-          where: {
-            HBLNo: { contains: normalizedSearch, mode: 'insensitive' },
-            CompanyMasterSid: companyMasterSid,
-            BranchMasterSid: branchMasterSid,
-            status: 'A'
-          },
-          include: {
-            masterJob: {
-              select: {
-                MasterJobSid: true,
-                MasterJobNumber: true
+        case 'hbl no':
+        case 'hblno':
+          jobRecord = await this._db.houseJob.findFirst({
+            where: {
+              HBLNo: { contains: normalizedSearch, mode: 'insensitive' },
+              CompanyMasterSid: companyMasterSid,
+              BranchMasterSid: branchMasterSid,
+              status: 'A'
+            },
+            include: {
+              masterJob: {
+                select: {
+                  MasterJobSid: true,
+                  MasterJobNumber: true
+                }
               }
             }
-          }
-        });
-        
-        if (jobRecord) {
-          transactionSid = jobRecord.HouseJobSid;
-          houseJobSid = jobRecord.HouseJobSid;
-          houseJobNumber = jobRecord.BookingNo;
+          });
           
-          // Get master job info from house job
-          if (jobRecord.masterJob) {
-            masterJobSid = jobRecord.masterJob.MasterJobSid;
-            masterJobNumber = jobRecord.masterJob.MasterJobNumber;
+          if (jobRecord) {
+            transactionSid = jobRecord.HouseJobSid;
+            houseJobSid = jobRecord.HouseJobSid;
+            houseJobNumber = jobRecord.BookingNo;
+            
+            if (jobRecord.masterJob) {
+              masterJobSid = jobRecord.masterJob.MasterJobSid;
+              masterJobNumber = jobRecord.masterJob.MasterJobNumber;
+            }
+            
+            menuName = 'HouseJob';
           }
-          
-          menuName = 'HouseJob';
-        }
-        break;
+          break;
 
-      case 'container no':
-      case 'containerno':
-        const containerRecord = await this._db.masterJobContainer.findFirst({
-          where: {
-            ContainerNumber: { contains: normalizedSearch, mode: 'insensitive' }
-          },
-          include: {
-            masterJob: {
-              select: {
-                MasterJobSid: true,
-                MasterJobNumber: true,
-                MBLNo: true,
-                CompanyMasterSid: true,
-                BranchMasterSid: true,
-                MenuMasterSid: true,
-                Status: true
+        case 'container no':
+        case 'containerno':
+          const containerRecord = await this._db.masterJobContainer.findFirst({
+            where: {
+              ContainerNumber: { contains: normalizedSearch, mode: 'insensitive' }
+            },
+            include: {
+              masterJob: {
+                select: {
+                  MasterJobSid: true,
+                  MasterJobNumber: true,
+                  MBLNo: true,
+                  CompanyMasterSid: true,
+                  BranchMasterSid: true,
+                  MenuMasterSid: true,
+                  Status: true
+                }
               }
             }
+          });
+          
+          if (containerRecord?.masterJob && containerRecord.masterJob.Status === 'A') {
+            jobRecord = containerRecord.masterJob;
+            transactionSid = jobRecord.MasterJobSid;
+            masterJobSid = jobRecord.MasterJobSid;
+            masterJobNumber = jobRecord.MasterJobNumber;
+            menuName = 'MasterJob';
           }
-        });
-        
-        if (containerRecord?.masterJob && containerRecord.masterJob.Status === 'A') {
-          jobRecord = containerRecord.masterJob;
-          transactionSid = jobRecord.MasterJobSid;
-          masterJobSid = jobRecord.MasterJobSid;
-          masterJobNumber = jobRecord.MasterJobNumber;
-          menuName = 'MasterJob';
-        }
-        break;
-
-      default:
-        throw new BadRequestException(`Unsupported search type: ${searchType}`);
+          break;
+      }
     }
 
-    if (!jobRecord || !transactionSid) {
+    // For vendor name search, we don't need job record
+    if (menuName !== 'Vendor' && (!jobRecord || !transactionSid)) {
       return {
         items: [],
         message: 'No matching job found for the search criteria'
@@ -828,10 +856,15 @@ async searchPendingCosts(searchCriteria: {
       whereClause.MasterJobNo = jobRecord.MasterJobNumber;
     } else if (menuName === 'HouseJob') {
       whereClause.ShipmentNo = jobRecord.BookingNo;
+    } else if (menuName === 'Vendor') {
+      // For vendor name search, filter by vendor
+      if (vendorSid) {
+        whereClause.CostAgentMasterSid = vendorSid;
+      }
     }
 
     // Add vendor filter if provided
-    if (vendorSid) {
+    if (vendorSid && menuName !== 'Vendor') {
       whereClause.CostAgentMasterSid = vendorSid;
     }
 
@@ -839,19 +872,52 @@ async searchPendingCosts(searchCriteria: {
     const pendingCosts = await this._db.costRevenueCharges.findMany({
       where: whereClause,
       include: {
+        menuMaster : {
+            select : { MenuName : true}
+        },
         chargeMaster: true,
         costChargeUOMMaster: true,
         costCurrencyMaster: true,
         costCustomerMaster: true,
-        costCustomerBranch: true
+        costCustomerBranch: true,
+        costVoucherHeader: {
+          select: {
+            VoucherHeaderSid: true,
+            VoucherNumber: true
+          }
+        },
+        costVoucherTypeMaster: {
+          select: {
+            VoucherTypeMasterSid: true,
+            DocumentTypeName: true
+          }
+        }
       },
       orderBy: {
         SerialNumber: 'asc'
       }
     });
 
+
+
     // Step 4: Transform results with job information
-    const transformedCosts = pendingCosts.map(cost => ({
+const transformedCosts = await Promise.all(
+  pendingCosts.map(async (cost) => {
+    let houseJob: any = null;
+    const screenName = cost.menuMaster?.MenuName;
+    if (screenName === "House Job") {
+      houseJob = await this._db.houseJob.findUnique({
+        where: {
+          HouseJobSid: cost.TransactionSid!
+        },
+        select: {
+          HBLNo: true,
+          MasterJobSid: true
+        }
+      });
+    }
+    
+    return {
       CostRevenueChargesSid: cost.CostRevenueChargesSid,
       ChargeMasterSid: cost.ChargeMasterSid,
       ChargeDescription: cost.ChargeDescription || cost.chargeMaster?.chargeName || '',
@@ -866,15 +932,23 @@ async searchPendingCosts(searchCriteria: {
       ChargeUOMSid: cost.CostChargeUomSid,
       VendorName: cost.costCustomerMaster?.CustomerName || '',
       VendorSid: cost.CostAgentMasterSid,
-      vendorAddress: cost.CostAgentBranchSid,
-      JobNo: menuName === 'MasterJob' ? jobRecord.MasterJobNumber : jobRecord.BookingNo,
-      MBLNo: jobRecord.MBLNo || '',
-      HBLNo: menuName === 'HouseJob' ? jobRecord.HBLNo : '',
-      MasterJobSid: masterJobSid, 
-      HouseJobSid: houseJobSid,  
+      VendorAddress: cost.costCustomerBranch?.Address || '',
+      CostAgentBranchSid: cost.CostAgentBranchSid,
+      JobNo: screenName === 'Master Job' ? jobRecord?.MasterJobNumber :
+             screenName === 'House Job' ? houseJob?.HBLNo :
+             cost.MasterJobNo || cost.ShipmentNo || '',
+      MBLNo: jobRecord?.MBLNo || '',
+      HBLNo: screenName === 'House Job' ? jobRecord?.HBLNo : '',
+      MasterJobSid: (screenName === "Master Job" ? cost.TransactionSid : null) || 
+                    (houseJob ? (screenName === "House Job" ? houseJob?.MasterJobSid : null) : null),
+      HouseJobSid: screenName === "House Job" ? cost.TransactionSid : null,
       Remarks: cost.Remarks || '',
-      selected: false 
-    }));
+      selected: false,
+      isAlreadyPatched: !!cost.CostVoucherHeaderSid,
+      existingVoucherNumber: cost.costVoucherHeader?.VoucherNumber
+    };
+  })
+);
 
     return {
       items: transformedCosts,
@@ -883,11 +957,13 @@ async searchPendingCosts(searchCriteria: {
         transactionSid,
         masterJobSid,      
         houseJobSid,       
-        jobNumber: menuName === 'MasterJob' ? jobRecord.MasterJobNumber : jobRecord.BookingNo,
+        jobNumber: menuName === 'MasterJob' ? jobRecord?.MasterJobNumber : 
+                   menuName === 'HouseJob' ? jobRecord?.BookingNo : 
+                   'Vendor Search',
         masterJobNumber,   
         houseJobNumber,    
-        mblNo: jobRecord.MBLNo,
-        hblNo: menuName === 'HouseJob' ? jobRecord.HBLNo : null
+        mblNo: jobRecord?.MBLNo,
+        hblNo: menuName === 'HouseJob' ? jobRecord?.HBLNo : null
       },
       message: `Found ${transformedCosts.length} pending cost(s)`
     };
