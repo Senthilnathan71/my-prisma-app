@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { Prisma, PrismaClient } from '@prisma/client';
 import { equal } from 'node:assert';
 import { statusWhereClause } from 'src/common/helper';
 import { DatabaseService } from 'src/database/database.service';
@@ -10,6 +10,12 @@ interface LedgerForTaxGroup {
     InterOrIntra: 'Inter' | 'Intra';
     IO: 'Input' | 'Output';
     IsIndianCompany: boolean;
+}
+interface SubledgerFetchPayload {
+    SubledgerMappingSid: number, 
+    CompanyMasterSid: number,
+    SubledgerType : 'Customer' | 'Charge' | 'Tax',
+    DrCr : 'Dr' | 'Cr'
 }
 @Injectable()
 export class SubledgermasterService {
@@ -81,6 +87,57 @@ export class SubledgermasterService {
                 }
             })
             return subledgerWithCOA;
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    
+    async getSubledgerMasterByMappingId(payload : SubledgerFetchPayload,prisma ?: PrismaClient | Prisma.TransactionClient) {
+        try {
+            const  {
+                CompanyMasterSid,
+                SubledgerMappingSid,
+                SubledgerType,
+                DrCr
+            } = payload;
+            
+            const tx = prisma || this._db;
+            const whereClause : Prisma.SubledgerMasterWhereInput = {
+                Status: 'A',
+                CompanyMasterSid: CompanyMasterSid,
+                SubledgerType: SubledgerType,
+                SubledgerMappingSid: SubledgerMappingSid
+            };
+
+            const ledger = await tx.subledgerMaster.findFirst({
+                where : whereClause,
+                select : {
+                    SubledgerMasterSid : true,
+                    SubledgerName : true,
+                    DrCOAMasterSid : true,
+                    CrCOAMasterSid : true
+                }
+            })
+
+            if(!ledger){
+                throw new BadRequestException("No subledger found for the provided mapping details.");
+            }
+
+            if(DrCr === 'Dr' && !ledger.DrCOAMasterSid){
+                throw new BadRequestException(`No Debtor COA found for ${ledger.SubledgerName}.`);
+            }
+
+            if(DrCr === 'Cr' && !ledger.CrCOAMasterSid){
+                throw new BadRequestException(`No Creditor COA found for ${ledger.SubledgerName}.`);
+            }
+
+            return {
+                SubledgerMasterSid : ledger.SubledgerMasterSid,
+                SubledgerName : ledger.SubledgerName,
+                COAMasterSid : DrCr === 'Dr' ? ledger.DrCOAMasterSid : ledger.CrCOAMasterSid
+            };
+
         } catch (error) {
             throw error;
         }
@@ -602,4 +659,5 @@ export class SubledgermasterService {
     throw error;
   }
 }
+
 }

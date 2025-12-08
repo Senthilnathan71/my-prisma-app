@@ -64,6 +64,32 @@ export class SubledgermasterController {
         return resp;
     }
 
+    @ApiOperation({ summary : 'Get Subledger Id By Its Mapping Id and Type'})
+    @ApiCreatedResponse({
+        description : 'Get Subledger Id By Its Mapping Id and Type',
+        type : ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Post('find-subledger-id')
+    async getSubledgerIdByMappingId(@Body() payload:any) {
+        let resp = new ResponseData();
+        try {
+            let res = await this.SubledgermasterService.getSubledgerMasterByMappingId(payload);
+            this.logger.log(`Subledger Id By Its Mapping Id And Type Fetched : ${JSON.stringify(res)}`);
+            resp.data = res;
+            resp.message = "Subledger Id By Its Mapping Id And Type Fetched";
+        } catch (error) {
+            this.logger.warn(`getSubledgerIdByMappingId Error : ${JSON.stringify(error), error}`);
+            resp.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                resp.message = error.message;
+            } else {
+                resp.message = "Internal Server Error";
+            }
+        }
+        return resp;
+    }
+
     @ApiOperation({summary : "Get All Mapped Ledgers by COA"})
     @ApiCreatedResponse({
         description : "Get All Mapped Ledgers by COA",
