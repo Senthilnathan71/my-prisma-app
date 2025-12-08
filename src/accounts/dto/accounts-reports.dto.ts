@@ -105,22 +105,22 @@ export class StatementLedgerReportQueryDto {
   @ApiProperty()
   @IsNotEmpty()
   @IsDateString()
-  fromDate: string;
+  FromDate: string;
 
   @ApiProperty()
   @IsNotEmpty()
   @IsDateString()
-  toDate: string;
+  ToDate: string;
 
   @ApiProperty()
   @IsNotEmpty()
   @IsInt()
-  coaMaster: number;
+  Ledger: number;
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsInt()
-  subledger?: number;
+  Subledger?: number;
 
   @ApiProperty()
   @IsNotEmpty()
@@ -130,7 +130,7 @@ export class StatementLedgerReportQueryDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsInt()
-  branchId?: number;
+  Branch?: number[];
 }
 
 // Trial Balance DTOs (already exists, just import reference)
