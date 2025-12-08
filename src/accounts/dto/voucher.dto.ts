@@ -8,127 +8,246 @@ import {
     IsDateString,
     IsDecimal,
     ValidateNested,
+    Length,
+    IsInt,
+    IsArray,
 } from 'class-validator';
 
 
 
 export class VoucherHeaderDto {
-    // REQUIRED FIELDS
-    @IsDefined({ message: 'CompanyMasterSid is required' })
+
+    @IsNotEmpty({message : 'createdBy is required'})
+    @IsString()
+    @Length(1,100)
+    CreatedBy : string;
+
+    @IsOptional()
+    @Length(0,100)
+    UpdatedBy : string;
+
+    @IsOptional()
+    @Length(0,1)
+    Status : string;
+
+    @IsNotEmpty({ message: 'CompanyMasterSid is required' })
     @IsNumber()
     CompanyMasterSid: number;
 
-    @IsDefined({ message: 'BranchMasterSid is required' })
+    @IsNotEmpty({ message: 'BranchMasterSid is required' })
     @IsNumber()
     BranchMasterSid: number;
 
-    @IsDefined({ message: 'VoucherNumber is required' })
+    @IsOptional()
     @IsString()
-    @IsNotEmpty()
+    @Length(0, 20)
     VoucherNumber: string;
 
-    @IsDefined({ message: 'VoucherType is required' })
+    @IsOptional()
     @IsNumber()
     VoucherType: number;
 
-    @IsDefined({ message: 'VoucherDate is required' })
+    @IsNotEmpty({ message: 'VoucherDate is required' })
     @IsDateString()
     VoucherDate: Date;
 
-    @IsDefined({ message: 'PostDate is required' })
+    @IsOptional()
     @IsDateString()
     PostDate: Date;
 
-    @IsDefined({ message: 'Narration is required' })
+    @IsNotEmpty({ message: 'Narration is required' })
     @IsString()
-    @IsNotEmpty()
+    @Length(0, 300)
     Narration: string;
 
     @IsDefined({ message: 'PartyMasterSid is required' })
     @IsNumber()
     PartyMasterSid: number;
 
-    @IsDefined({ message: 'PartyName is required' })
+    @IsNotEmpty({ message: 'PartyName is required' })
     @IsString()
-    @IsNotEmpty()
+    @Length(0, 100)
     PartyName: string;
 
-    @IsDefined({ message: 'COAMasterSid is required' })
+    @IsOptional()
+    @IsString()
+    @Length(0, 100)
+    PartyAddress?: string;
+
+    @IsOptional()
+    @IsNumber()
+    CustomerBranchSid?: number;
+
+    @IsOptional() 
+    @IsString() 
+    @Length(0, 50)
+    PlaceOfSupply?: string;
+
+    @IsOptional() 
+    @IsString()
+    @Length(0, 50)
+    State?: string;
+
+    @IsNotEmpty({ message: 'COAMasterSid is required' })
     @IsNumber()
     COAMasterSid: number;
 
-    @IsDefined({ message: 'VoucherTypeMasterSid is required' })
+    @IsOptional() 
+    @IsNumber() 
+    BankCOA?: number;
+
+    @IsOptional() 
+    @IsString() 
+    @Length(0, 100)
+    BankPartyName?: string;
+
+    
+    @IsOptional() 
+    @IsString() 
+    @Length(0, 20)
+    GST_VAT?: string;
+
+    @IsOptional() 
+    @IsString()
+    @Length(0, 10)
+    InvoiceType?: string;
+    
+    @IsOptional() 
+    @IsNumber() 
+    ReversalVoucher?: number;
+
+    @IsOptional() 
+    @IsNumber() 
+    TaxNumber?: number;
+
+    @IsOptional() 
+    @IsString() 
+    GSTType?: string;
+
+    @IsOptional() 
+    @IsString() 
+    Remarks?: string;
+
+    @IsOptional() 
+    @IsNumber() 
+    DepartmentMasterSid?: number;
+
+    @IsOptional() 
+    @IsString() 
+    @Length(0, 20)
+    HouseNumber?: string;
+
+    @IsOptional() 
+    @IsString() 
+    @Length(0, 20)
+    MasterNumber?: string;
+
+    @IsOptional() 
+    @IsNumber() 
+    HouseJobSid?: number;
+
+    @IsOptional() 
+    @IsNumber() 
+    MasterJobSid?: number;
+
+    @IsOptional() 
+    @IsNumber() 
+    CurrencyMasterSid?: number;
+
+    @IsOptional() 
+    @IsString() 
+    @Length(0, 3)
+    CurrencyCode?: string;
+
+    @IsOptional() 
+    @IsDecimal()
+    ExchangeRate?: number;
+
+    @IsOptional() 
+    @IsDecimal()
+    Amount?: number;
+
+    @IsOptional() 
+    @IsDecimal()
+    LocalAmount?: number;
+
+    @IsOptional() 
+    @IsDecimal()
+    NetAmount?: number;
+
+    @IsOptional() 
+    @IsString() 
+    @Length(0, 30)
+    DocumentNumber?: string;
+
+    @IsOptional() 
+    @IsDateString() 
+    DocumentDate?: Date;
+
+    @IsOptional() 
+    @IsString()
+    @Length(0, 15)
+    SetoffStatus?: string;
+
+    @IsOptional() 
+    @IsString() 
+    @Length(0, 3)
+    TaxType?: string;
+
+    @IsOptional() 
+    @IsString() 
+    @Length(0, 10)
+    InstrumentMode?: string;
+
+    @IsOptional() 
+    @IsString() 
+    @Length(0, 25)
+    InstrumentNumber?: string;
+
+    @IsOptional() 
+    @IsDateString() 
+    InstrumentDate?: Date;
+
+    @IsOptional()
+    @IsDateString()
+    ClearanceDate?: Date;
+
+    @IsOptional()
+    @IsString()
+    @Length(0, 100)
+    CreditNoteReason?: string;
+
+    @IsNotEmpty({ message: 'VoucherTypeMasterSid is required' })
     @IsNumber()
     VoucherTypeMasterSid: number;
 
-    // OPTIONAL FIELDS
-    @IsOptional() @IsString() PartyAddress?: string;
-    @IsOptional() @IsNumber() CustomerBranchSid?: number;
-    @IsOptional() @IsString() PlaceOfSupply?: string;
-    @IsOptional() @IsString() State?: string;
+    @IsOptional()
+    @IsNumber()
+    VoucherHeaderSid ?: number;
 
-    @IsOptional() @IsNumber() BankCOA?: number;
-    @IsOptional() @IsString() BankPartyName?: string;
-    @IsOptional() @IsString() GST_VAT?: string;
-    @IsOptional() @IsString() InvoiceType?: string;
-    @IsOptional() @IsNumber() ReversalVoucher?: number;
-
-    @IsOptional() @IsNumber() TaxNumber?: number;
-    @IsOptional() @IsString() GSTType?: string;
-    @IsOptional() @IsString() Remarks?: string;
-
-    @IsOptional() @IsNumber() DepartmentMasterSid?: number;
-    @IsOptional() @IsString() HouseNumber?: string;
-    @IsOptional() @IsString() MasterNumber?: string;
-
-    @IsOptional() @IsNumber() HouseJobSid?: number;
-    @IsOptional() @IsNumber() MasterJobSid?: number;
-
-    @IsOptional() @IsNumber() CurrencyMasterSid?: number;
-    @IsOptional() @IsString() CurrencyCode?: string;
-
-    @IsOptional() @IsDecimal()
-    ExchangeRate?: number;
-
-    @IsOptional() @IsDecimal()
-    Amount?: number;
-
-    @IsOptional() @IsDecimal()
-    LocalAmount?: number;
-
-    @IsOptional() @IsDecimal()
-    NetAmount?: number;
-
-    @IsOptional() @IsString() DocumentNumber?: string;
-    @IsOptional() @IsDateString() DocumentDate?: Date;
-
-    @IsOptional() @IsString() SetoffStatus?: string;
-    @IsOptional() @IsString() TaxType?: string;
-
-    @IsOptional() @IsString() InstrumentMode?: string;
-    @IsOptional() @IsString() InstrumentNumber?: string;
-    @IsOptional() @IsDateString() InstrumentDate?: Date;
-
-    @IsOptional() @IsDateString() ClearanceDate?: Date;
-    @IsOptional() @IsString() CreditNoteReason?: string;
-
-    // ENUM-LIKE FIELDS
     @IsOptional()
     @IsString()
+    @Length(0, 1)
+    PostStatus?: string;
+
+    @IsOptional()
+    @IsString()
+    @Length(0, 1)
     CashOrBank?: string;
 
     @IsOptional()
     @IsString()
+    @Length(0, 1)
     MultiBranch?: string;
 
     @IsOptional()
-    @IsString()
-    PostStatus?: string;
+    @IsInt()
+    BookingHeaderSid : number;
 
 
+    @IsArray()
     @ValidateNested({ each: true })
     @Type(() => VoucherDetailDto)
-    @IsOptional()
     VoucherDetail?: VoucherDetailDto[];
 
     @ValidateNested({ each: true })
@@ -143,110 +262,176 @@ export class VoucherHeaderDto {
 }
 
 export class VoucherDetailDto {
-    @IsDefined() @IsNumber()
+
+    @IsOptional()
+    @IsNumber()
+    VoucherDetailSid ?: number;
+
+    @IsOptional()
+    @IsString()
+    @Length(0, 100)
+    CreatedBy ?: string;
+
+    @IsOptional()
+    @IsString()
+    @Length(0, 100)
+    UpdatedBy ?: string;
+
+    @IsOptional()
+    @IsString()
+    @Length(0, 1)
+    Status ?: string;
+
+    @IsOptional() 
+    @IsNumber()
     CompanyMasterSid: number;
 
-    @IsDefined() @IsNumber()
+    @IsOptional() 
+    @IsNumber()
     BranchMasterSid: number;
 
-    @IsDefined() @IsNumber()
+    @IsOptional() 
+    @IsNumber()
     VoucherHeaderSid: number;
 
-    @IsDefined()
+    @IsNotEmpty({ message: 'Sno is required' })
+    @IsNumber()
     Sno: number;
 
-    @IsOptional() @IsNumber()
+    @IsOptional() 
+    @IsNumber()
     ChargeMasterSid?: number;
 
-    @IsOptional() @IsString()
+    @IsOptional() 
+    @IsString()
+    @Length(0, 100)
     ChargeDescription?: string;
 
-    @IsOptional() @IsNumber()
+    @IsOptional() 
+    @IsNumber()
     LedgerMasterSid?: number;
 
-    @IsOptional() @IsNumber()
+    @IsOptional() 
+    @IsNumber()
     COAMasterSid?: number;
 
-    @IsOptional() @IsNumber()
+    @IsOptional() 
+    @IsNumber()
     HSSACMasterSid?: number;
 
-    @IsOptional() @IsNumber()
+    @IsOptional() 
+    @IsNumber()
     DepartmentMasterSid?: number;
 
-    @IsOptional() @IsNumber()
+    @IsOptional() 
+    @IsNumber()
     HouseJobSid?: number;
 
-    @IsOptional() @IsNumber()
+    @IsOptional() 
+    @IsNumber()
     MasterJobSid?: number;
 
-    @IsOptional() @IsString()
+    @IsOptional() 
+    @IsString()
     CostRevenue?: string;
 
-    @IsDefined() @IsNumber()
+    @IsNotEmpty({ message: 'CurrencyMasterSid is required' })
+    @IsNumber()
     CurrencyMasterSid: number;
 
-    @IsDefined() @IsString()
+    @IsNotEmpty({ message: 'CurrencyCode is required' })
+    @IsString()
+    @Length(1, 3)
     CurrencyCode: string;
 
-    @IsDefined()
+    @IsNotEmpty({ message: 'ExchangeRate is required' })
+    @IsDecimal()
     ExchangeRate: number;
 
-    @IsDefined()
+    @IsNotEmpty({ message: 'Rate is required' })
+    @IsDecimal()
     Rate: number;
 
     @IsOptional()
+    @IsDecimal()
     NumberOfUnit?: number;
 
-    @IsOptional() @IsString()
+    @IsOptional() 
+    @IsString()
+    @Length(0, 200)
     Narration?: string;
 
-    @IsOptional() @IsString()
+    @IsOptional() 
+    @IsString()
+    @Length(0, 50)
     DrCr?: string;
 
-    @IsDefined()
+    @IsNotEmpty({ message: 'TaxableAmount is required' })
+    @IsDecimal()
     TaxableAmount: number;
 
     @IsOptional()
+    @IsDecimal()
     TaxPercentage1?: number;
 
     @IsOptional()
+    @IsDecimal()
     TaxAmount1?: number;
 
     @IsOptional()
+    @IsDecimal()
     TaxPercentage2?: number;
 
     @IsOptional()
+    @IsDecimal()
     TaxAmount2?: number;
 
-    @IsDefined()
+    @IsNotEmpty({ message: 'Amount is required' })
+    @IsDecimal()
     Amount: number;
 
-    @IsDefined()
+    @IsNotEmpty({ message: 'LocalAmount is required' })
+    @IsDecimal()
     LocalAmount: number;
 
-    @IsOptional() @IsString()
+    @IsOptional() 
+    @IsString()
+    @Length(0, 10)
     InvoiceType?: string;
 
-    @IsOptional() @IsNumber()
+    @IsOptional() 
+    @IsNumber()
     CostCenter?: number;
 
-    @IsOptional() @IsNumber()
+    @IsOptional() 
+    @IsNumber()
     ProfitCenter?: number;
 
-    @IsOptional() @IsString()
+    @IsOptional() 
+    @IsString()
     Remarks?: string;
 
-    @IsOptional() @IsNumber()
+    @IsOptional() 
+    @IsNumber()
     ChargeUOMSid?: number;
 
-    @IsOptional() @IsNumber()
+    @IsOptional() 
+    @IsNumber()
     YearMasterSid?: number;
 
     @IsOptional()
+    @IsDecimal()
     PartyAmount?: number;
 
-    @IsOptional() @IsNumber()
+    @IsOptional() 
+    @IsNumber()
     VoucherTransactionSid?: number;
+
+    @IsOptional()
+    @IsString()
+    @Length(0, 1)
+    IsAutoGenerated?: string;
+
 }
 
 
@@ -335,11 +520,12 @@ export class VoucherMatchingDto {
     MatchingType: string;
 }
 
-export class VoucherRelatedPayload extends VoucherHeaderDto {
-    @IsNotEmpty({message : 'userEmail is required'}) @IsString()
-    userEmail : string;
+export class CreateVoucherPayload extends VoucherHeaderDto {
+    @IsNotEmpty({message : 'Voucher Type Name is required'}) 
+    @IsString()
+    VoucherTypeName : string;       // eg. Invoice, Vendor Invoice 
 
-    @IsNotEmpty({message : 'YearMasterSid is required'}) 
+    @IsOptional()
     @IsNumber()
     YearMasterSid : number;
 }

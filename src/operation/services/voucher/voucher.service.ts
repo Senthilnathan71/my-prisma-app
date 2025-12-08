@@ -6,6 +6,7 @@ import { PostVoucherResponseDto, TaxSummaryDto, VoucherDetailDto } from 'src/acc
 import { checkIfExJvApplicable, checkIfMatchingApplicable, getPartyDrCr, TaxVoucherType } from 'src/common/config/voucher-type.config';
 import { DatabaseService } from 'src/database/database.service';
 import * as moment from 'moment-timezone';
+import { CreateVoucherPayload } from 'src/accounts/dto/voucher.dto';
 
 interface InvoiceHeaderDTO {
     currencyMasterSid?: number;
@@ -726,6 +727,142 @@ export class VoucherService {
                 throw error;
             }
             throw new InternalServerErrorException('Failed to create voucher from booking rates');
+        }
+    }
+
+    async createVoucher(payload:CreateVoucherPayload){
+        try {
+            const result = await this._db.$transaction(async (prisma) => {
+                const voucherTypeMaster = await prisma.voucherTypeMaster.findFirst({
+                    where: {
+                        DocumentTypeName: payload.VoucherTypeName
+                    },
+                    select : {
+                        VoucherTypeMasterSid : true,
+                        DocumentTypeName : true,
+                        DocumentTypeCode : true,
+                    }
+                });
+
+                if(!voucherTypeMaster){
+                    throw new BadRequestException('Voucher Type not found');
+                }
+
+                const generatedVoucherNumber = await this.generateVoucherNumber(
+                    voucherTypeMaster.VoucherTypeMasterSid,
+                    payload.CompanyMasterSid,
+                    payload.BranchMasterSid
+                );
+
+                const createdVoucherHeader = await prisma.voucherHeader.create({
+                    data : {
+                        CreatedBy : payload.CreatedBy,
+                        Status : 'A',
+                        CompanyMasterSid : payload.CompanyMasterSid,
+                        BranchMasterSid : payload.BranchMasterSid,
+                        VoucherNumber : generatedVoucherNumber,
+                        VoucherType : voucherTypeMaster.VoucherTypeMasterSid,
+                        VoucherDate : payload.VoucherDate ? new Date(payload.VoucherDate) : new Date(),
+                        PostDate : payload.PostDate ? new Date(payload.PostDate) : new Date(),
+                        Narration : payload.Narration ?? "",
+                        PartyMasterSid : payload.PartyMasterSid,
+                        PartyName : payload.PartyName ?? "",
+                        PartyAddress : payload.PartyAddress ?? "",
+                        CustomerBranchSid : payload.CustomerBranchSid ?? null,
+                        PlaceOfSupply : payload.PlaceOfSupply ?? "",
+                        State : payload.State ?? "",
+                        COAMasterSid : payload.COAMasterSid,
+                        BankCOA : payload.BankCOA ?? null,
+                        BankPartyName : payload.BankPartyName ?? "",
+                        GST_VAT : payload.GST_VAT ?? "",
+                        InvoiceType : payload.InvoiceType ?? "",
+                        ReversalVoucher : payload.ReversalVoucher ?? null,
+                        TaxNumber : payload.TaxNumber ?? null,
+                        GSTType : payload.GSTType ?? "",
+                        Remarks : payload.Remarks ?? "",
+                        DepartmentMasterSid : payload.DepartmentMasterSid ?? null,
+                        HouseNumber : payload.HouseNumber ?? "",
+                        MasterNumber : payload.MasterNumber ?? "",
+                        HouseJobSid : payload.HouseJobSid ?? null,
+                        MasterJobSid : payload.MasterJobSid ?? null,
+                        CurrencyMasterSid : payload.CurrencyMasterSid ?? null,
+                        CurrencyCode : payload.CurrencyCode ?? "",
+                        ExchangeRate : payload.ExchangeRate ?? 1,
+                        Amount : payload.Amount ?? 0,
+                        LocalAmount : payload.LocalAmount ?? 0,
+                        NetAmount : payload.NetAmount ?? 0,
+                        DocumentNumber : payload.DocumentNumber ?? "",
+                        DocumentDate : payload.DocumentDate ? new Date(payload.DocumentDate) : null,
+                        SetoffStatus : payload.SetoffStatus ?? "",
+                        TaxType : payload.TaxType ?? "",
+                        InstrumentMode : payload.InstrumentMode ?? "",
+                        InstrumentNumber : payload.InstrumentNumber ?? "",
+                        InstrumentDate : payload.InstrumentDate ? new Date(payload.InstrumentDate) : null,
+                        ClearanceDate : payload.ClearanceDate ? new Date(payload.ClearanceDate) : null,
+                        CreditNoteReason : payload.CreditNoteReason ?? "",
+                        VoucherTypeMasterSid : voucherTypeMaster.VoucherTypeMasterSid,
+                        PostStatus : payload.PostStatus ?? "U",
+                        CashOrBank : payload.CashOrBank ?? "",
+                        MultiBranch : payload.MultiBranch ?? "",
+                        BookingHeaderSid : payload.BookingHeaderSid ?? null,
+                    }
+                });
+
+                const allVoucherDetails = (payload.VoucherDetail || []).map((detail,index) => {
+                    return {
+                        CreatedBy : payload.CreatedBy,
+                        Status : 'A',
+                        CompanyMasterSid : payload.CompanyMasterSid,
+                        BranchMasterSid : payload.BranchMasterSid,
+                        VoucherHeaderSid : createdVoucherHeader.VoucherHeaderSid,
+                        Sno : index + 1 ||  detail.Sno,
+                        ChargeMasterSid : detail.ChargeMasterSid ?? null,
+                        ChargeDescription : detail.ChargeDescription ?? "",
+                        LedgerMasterSid : detail.LedgerMasterSid ?? null,
+                        COAMasterSid : detail.COAMasterSid ?? null,
+                        HSSACMasterSid : detail.HSSACMasterSid ?? null,
+                        DepartmentMasterSid : detail.DepartmentMasterSid ?? null,
+                        HouseJobSid : detail.HouseJobSid ?? null,
+                        MasterJobSid : detail.MasterJobSid ?? null,
+                        CostRevenue : detail.CostRevenue ?? "",
+                        CurrencyMasterSid : detail.CurrencyMasterSid ?? payload.CurrencyMasterSid ?? null,
+                        CurrencyCode : detail.CurrencyCode ?? payload.CurrencyCode ?? "",
+                        ExchangeRate : detail.ExchangeRate ?? payload.ExchangeRate ?? 1,
+                        Rate : detail.Rate ?? 0,
+                        NumberOfUnit : detail.NumberOfUnit ?? 1,
+                        Narration : detail.Narration ?? "",
+                        DrCr : detail.DrCr ?? "",
+                        TaxableAmount : detail.TaxableAmount ?? 0,
+                        TaxPercentage1 : detail.TaxPercentage1 ?? 0,
+                        TaxAmount1 : detail.TaxAmount1 ?? 0,
+                        TaxPercentage2 : detail.TaxPercentage2 ?? 0,
+                        TaxAmount2 : detail.TaxAmount2 ?? 0,
+                        Amount : detail.Amount ?? 0,
+                        LocalAmount : detail.LocalAmount ?? 0,
+                        InvoiceType : detail.InvoiceType ?? "",
+                        CostCenter : detail.CostCenter ?? null,
+                        ProfitCenter : detail.ProfitCenter ?? null,
+                        Remarks : detail.Remarks ?? "",
+                        ChargeUOMSid : detail.ChargeUOMSid ?? null,
+                        YearMasterSid : payload.YearMasterSid ?? null,
+                        PartyAmount : detail.PartyAmount ?? 0,
+                        VoucherTransactionSid : detail.VoucherTransactionSid ?? null,
+                        IsAutoGenerated : detail.IsAutoGenerated ?? "N"
+                    }
+                });
+
+                const createdVoucherDetails = await prisma.voucherDetail.createMany({
+                    data : allVoucherDetails
+                });
+
+                return {
+                    ...createdVoucherHeader,
+                    voucherDetails : createdVoucherDetails
+                }
+            });
+            return result;
+        } catch (error) {
+            throw error;
         }
     }
 
