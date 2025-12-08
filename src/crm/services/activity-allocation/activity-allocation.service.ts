@@ -64,7 +64,7 @@ export class ActivityAllocationService {
     branchMasterSid?: number,
   ): Promise<{ data: SummaryRow[]; total: number }> {
     const startTime = Date.now();
-    
+
     if (!companyMasterSid) companyMasterSid = 7;
 
     const summary = await this.buildSummaryOptimized(
@@ -91,7 +91,7 @@ export class ActivityAllocationService {
 
     const duration = Date.now() - startTime;
     this.logger.log(`✅ Summary loaded in ${duration}ms for ${summary.length} users`);
-    
+
     if (duration > 3000) {
       this.logger.warn(`⚠️ Slow query detected: ${duration}ms`);
     }
@@ -364,7 +364,6 @@ export class ActivityAllocationService {
     };
   }
 
- 
   async getWorkloadDetails(
     userSid: number,
     stage: Stage,
@@ -482,8 +481,6 @@ export class ActivityAllocationService {
     };
   }
 
-  
-
   private async getEnquiryWorkload(
     userSid: number,
     user: { userName: string; userEmail: string },
@@ -556,6 +553,11 @@ export class ActivityAllocationService {
       where,
       orderBy: { QuoteHeaderSid: 'desc' },
       take: 100,
+      include: {
+        bookingHeader: {          
+          select: { BookingNo: true },
+        },
+      },
     });
 
     return quotes.map((q) => ({
@@ -565,7 +567,7 @@ export class ActivityAllocationService {
       stage: 'Quotation' as Stage,
       status: q.BookingHeaderSid ? 'Processed' : 'Pending',
       quotationNo: q.QuoteNumber || '',
-      bookingNo: '',
+      bookingNo: q.bookingHeader?.BookingNo || '',
       customerName: q.CustomerName || '',
       salesPersonName: user.userName,
       customerServiceName: '',
@@ -603,6 +605,11 @@ export class ActivityAllocationService {
       where,
       orderBy: { BookingHeaderSid: 'desc' },
       take: 100,
+      include: {
+        quotationHeader: {
+          select: { QuoteNumber: true },
+        },
+      },
     });
 
     return bookings.map((b) => ({
@@ -614,7 +621,7 @@ export class ActivityAllocationService {
         b.BookingStatus && ['Pending', 'Hold'].includes(b.BookingStatus)
           ? 'Pending'
           : 'Processed',
-      quotationNo: '',
+      quotationNo: b.quotationHeader?.QuoteNumber || '',
       bookingNo: b.BookingNo || '',
       customerName: b.CustomerName || '',
       salesPersonName: user.userName,
@@ -651,6 +658,11 @@ export class ActivityAllocationService {
       where,
       orderBy: { BookingHeaderSid: 'desc' },
       take: 100,
+      include: {
+        quotationHeader: {
+          select: { QuoteNumber: true },
+        },
+      },
     });
 
     return bookings.map((b) => ({
@@ -659,7 +671,7 @@ export class ActivityAllocationService {
       userName: user.userName,
       stage: 'LoadPlan' as Stage,
       status: 'Pending',
-      quotationNo: '',
+      quotationNo: b.quotationHeader?.QuoteNumber || '',
       bookingNo: b.BookingNo || '',
       customerName: b.CustomerName || '',
       salesPersonName: user.userName,
