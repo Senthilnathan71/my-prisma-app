@@ -1004,10 +1004,11 @@ export class AccountsReportsService {
 
   /**
    * Execute parameter query to get dynamic dropdown options
+   * Supports cascading dropdowns via DependsOnParameter field
    */
   async executeParameterQuery(
     parameterId: number,
-    context: { companyId?: number; branchId?: number }
+    context: { companyId?: number; branchId?: number; [key: string]: any }
   ): Promise<Array<{ value: any; label: string }>> {
     try {
       // Fetch the parameter details
@@ -1028,16 +1029,36 @@ export class AccountsReportsService {
         );
       }
 
+      // If this parameter depends on another, check if parent value is provided
+      if (parameter.DependsOnParameter) {
+        const parentValue = context[parameter.DependsOnParameter];
+        if (parentValue === undefined || parentValue === null || parentValue === '') {
+          // Parent not selected, return empty array
+          this.logger.log(`Parameter ${parameter.ParameterName} depends on ${parameter.DependsOnParameter} which is not provided`);
+          return [];
+        }
+      }
+
       // Validate and sanitize the query
       this.validateQuery(parameter.ParameterQuery);
 
       // Substitute context variables in the query
       let query = parameter.ParameterQuery;
+
+      // Standard substitutions
       if (context.companyId) {
         query = query.replace(/\{companyId\}/g, context.companyId.toString());
       }
       if (context.branchId) {
         query = query.replace(/\{branchId\}/g, context.branchId.toString());
+      }
+
+      // Dynamic parent parameter substitutions (e.g., {Ledger}, {Subledger})
+      for (const [key, value] of Object.entries(context)) {
+        if (key !== 'companyId' && key !== 'branchId' && value !== undefined && value !== null) {
+          const placeholder = new RegExp(`\\{${key}\\}`, 'g');
+          query = query.replace(placeholder, this.sanitizeValue(value));
+        }
       }
 
       // Execute the query
@@ -1049,6 +1070,23 @@ export class AccountsReportsService {
       this.logger.error(`executeParameterQueryError: ${error}`);
       throw error;
     }
+  }
+
+  /**
+   * Sanitize value for SQL query substitution to prevent SQL injection
+   */
+  private sanitizeValue(value: any): string {
+    if (typeof value === 'number') {
+      return value.toString();
+    }
+    if (typeof value === 'string') {
+      // Escape single quotes to prevent SQL injection
+      return value.replace(/'/g, "''");
+    }
+    if (Array.isArray(value)) {
+      return value.map(v => this.sanitizeValue(v)).join(',');
+    }
+    return String(value);
   }
 
   /**
