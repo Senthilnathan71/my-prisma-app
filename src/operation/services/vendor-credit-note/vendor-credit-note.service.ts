@@ -59,7 +59,7 @@ export class VendorCreditNoteService {
                             PostDate: payload.PostDate ? new Date(payload.PostDate) : new Date(),
                             VoucherType: voucherTypeMaster.VoucherTypeMasterSid,
                             Narration: payload.Narration || '',
-                            COAMasterSid: voucherTypeMaster.COALedger ?? 1,
+                            COAMasterSid: payload.COAMasterSid,
                             CompanyMasterSid: payload.CompanyMasterSid,
                             BranchMasterSid: payload.BranchMasterSid,
                             VoucherTypeMasterSid: voucherTypeMaster.VoucherTypeMasterSid,
@@ -594,7 +594,7 @@ if (payload.VoucherDetail && Array.isArray(payload.VoucherDetail)) {
             }
         }
 
-        async fetchVendorInvoices(): Promise<any[]> {
+        async fetchVendorInvoices(CompanyMasterSid: number): Promise<any[]> {
         try {
             const vendorInvoices = await this._db.voucherHeader.findMany({
                 where: {
@@ -602,8 +602,9 @@ if (payload.VoucherDetail && Array.isArray(payload.VoucherDetail)) {
                         DocumentTypeName: 'Vendor Invoice'
                     },
                     Status: 'A',
-                    PostStatus: 'P'
-                },
+                    PostStatus: 'P',
+                    CompanyMasterSid: CompanyMasterSid,
+                },               
             });
 
             return vendorInvoices;
