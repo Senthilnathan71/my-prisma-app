@@ -2,7 +2,10 @@ import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatu
 import { ApiOperation, ApiCreatedResponse } from '@nestjs/swagger';
 import { ResponseData } from 'src/common/response-data';
 import { VendorCreditNoteService } from 'src/operation/services/vendor-credit-note/vendor-credit-note.service';
-
+class CompanyIdDto {
+  CompanyMasterSid: number;
+  BranchMasterSid: number;
+}
 @Controller('vendor-credit-note')
 export class VendorCreditNoteController {
     private readonly logger = new Logger(VendorCreditNoteController.name);
@@ -178,11 +181,11 @@ export class VendorCreditNoteController {
     type: ResponseData
   })
   @HttpCode(HttpStatus.OK)
-  @Get('vendor-invoice')
-  async getAllVendorInvoices() {
+  @Post('vendor-invoice')
+  async getAllVendorInvoices(@Body() body: CompanyIdDto) {
     const output = new ResponseData();
     try {
-      const finalOutput = await this.vendorCreditNoteService.fetchVendorInvoices();
+      const finalOutput = await this.vendorCreditNoteService.fetchVendorInvoices(body.CompanyMasterSid);
       this.logger.debug(`getAllVendorInvoices: returned ${Array.isArray(finalOutput) ? finalOutput.length : 0} items`);
       output.data = finalOutput;
       output.message = "All Vendor Invoices fetched successfully";
