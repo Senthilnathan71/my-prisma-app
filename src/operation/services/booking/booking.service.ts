@@ -1623,6 +1623,7 @@ if (!croPayload?.BookingCroSid) {
                             chargeTaxMaster: {
                                 select: {
                                     ChargeTaxMasterSid: true,
+                                    HSSACMasterSid : true,
                                     HSNCode: true,
                                     description: true,
                                     TaxGroup: true,

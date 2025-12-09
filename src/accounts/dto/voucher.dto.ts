@@ -11,6 +11,7 @@ import {
     Length,
     IsInt,
     IsArray,
+    IsIn,
 } from 'class-validator';
 
 
@@ -47,7 +48,7 @@ export class VoucherHeaderDto {
     @IsNumber()
     VoucherType: number;
 
-    @IsNotEmpty({ message: 'VoucherDate is required' })
+    @IsOptional()
     @IsDateString()
     VoucherDate: Date;
 
@@ -160,19 +161,19 @@ export class VoucherHeaderDto {
     CurrencyCode?: string;
 
     @IsOptional() 
-    @IsDecimal()
+    @IsNumber()
     ExchangeRate?: number;
 
     @IsOptional() 
-    @IsDecimal()
+    @IsNumber()
     Amount?: number;
 
     @IsOptional() 
-    @IsDecimal()
+    @IsNumber()
     LocalAmount?: number;
 
     @IsOptional() 
-    @IsDecimal()
+    @IsNumber()
     NetAmount?: number;
 
     @IsOptional() 
@@ -217,7 +218,7 @@ export class VoucherHeaderDto {
     @Length(0, 100)
     CreditNoteReason?: string;
 
-    @IsNotEmpty({ message: 'VoucherTypeMasterSid is required' })
+    @IsOptional()
     @IsNumber()
     VoucherTypeMasterSid: number;
 
@@ -345,15 +346,15 @@ export class VoucherDetailDto {
     CurrencyCode: string;
 
     @IsNotEmpty({ message: 'ExchangeRate is required' })
-    @IsDecimal()
+    @IsNumber()
     ExchangeRate: number;
 
     @IsNotEmpty({ message: 'Rate is required' })
-    @IsDecimal()
+    @IsNumber()
     Rate: number;
 
     @IsOptional()
-    @IsDecimal()
+    @IsNumber()
     NumberOfUnit?: number;
 
     @IsOptional() 
@@ -367,31 +368,31 @@ export class VoucherDetailDto {
     DrCr?: string;
 
     @IsNotEmpty({ message: 'TaxableAmount is required' })
-    @IsDecimal()
+    @IsNumber()
     TaxableAmount: number;
 
     @IsOptional()
-    @IsDecimal()
+    @IsNumber()
     TaxPercentage1?: number;
 
     @IsOptional()
-    @IsDecimal()
+    @IsNumber()
     TaxAmount1?: number;
 
     @IsOptional()
-    @IsDecimal()
+    @IsNumber()
     TaxPercentage2?: number;
 
     @IsOptional()
-    @IsDecimal()
+    @IsNumber()
     TaxAmount2?: number;
 
     @IsNotEmpty({ message: 'Amount is required' })
-    @IsDecimal()
+    @IsNumber()
     Amount: number;
 
     @IsNotEmpty({ message: 'LocalAmount is required' })
-    @IsDecimal()
+    @IsNumber()
     LocalAmount: number;
 
     @IsOptional() 
@@ -420,7 +421,7 @@ export class VoucherDetailDto {
     YearMasterSid?: number;
 
     @IsOptional()
-    @IsDecimal()
+    @IsNumber()
     PartyAmount?: number;
 
     @IsOptional() 
@@ -528,4 +529,17 @@ export class CreateVoucherPayload extends VoucherHeaderDto {
     @IsOptional()
     @IsNumber()
     YearMasterSid : number;
+
+    @IsNotEmpty({ message: 'Need to provide rate ids involved in the voucher' })
+    @IsArray({ message: 'selectedRateIds must be an array' })
+    @IsNumber({}, { each: true, message: 'Each rate id must be a number' })
+    @Type(() => Number)
+    selectedRateIds: number[];
+
+    @IsNotEmpty({ message: 'screenName is required' })
+    @IsString()
+    @IsIn(['Booking', 'HouseJob', 'MasterJob'], { message: 'screenName must be Booking, House Job, or Master Job' })
+    screenName: string;
+
+
 }
