@@ -1,5 +1,6 @@
-import { BadRequestException, Body, Controller, Delete, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Post, UnauthorizedException } from "@nestjs/common";
+import { BadRequestException, Body, Controller, Delete, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Post, UnauthorizedException, UsePipes, ValidationPipe } from "@nestjs/common";
 import { ApiCreatedResponse, ApiOperation } from "@nestjs/swagger";
+import { CreateVoucherPayload } from "src/accounts/dto/voucher.dto";
 import { ResponseData } from "src/common/response-data";
 import { VoucherService } from "src/operation/services/voucher/voucher.service";
 
@@ -146,6 +147,37 @@ export class VoucherController {
         return output;
     }
 
+    @ApiOperation({ summary: 'Create Voucher' })
+    @ApiCreatedResponse({
+        description: 'Voucher has been created successfully',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.CREATED)
+    @UsePipes(new ValidationPipe({ 
+        whitelist: true,
+        transform: true,
+        forbidNonWhitelisted: true,
+    }))
+    @Post('create')
+    async createVoucher(@Body() body: CreateVoucherPayload) {
+        let response = new ResponseData();
+        try {
+            this.logger.log(`createVoucher request body: ${JSON.stringify(body)}`);
+            const result = await this.voucherService.createVoucher(body);
+            this.logger.debug(`createVoucher result: ${JSON.stringify(result)}`);
+            response.data = result;
+            response.message = "Voucher created successfully";
+        } catch (error) {
+            this.logger.warn(`createVoucher error: ${JSON.stringify(error), error}`);
+            response.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                response.message = error.message;
+            } else {
+                response.message = error;
+            }
+        }
+        return response;
+    }
 
     @ApiOperation({ summary: 'Post Voucher' })
     @ApiCreatedResponse({

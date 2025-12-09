@@ -161,6 +161,7 @@ export class OperationCommonService {
                             chargeTaxMaster : {
                                 select : {
                                     ChargeTaxMasterSid : true,
+                                    HSSACMasterSid : true,
                                     HSNCode : true,
                                     TaxGroupSid : true,
                                     description : true,
