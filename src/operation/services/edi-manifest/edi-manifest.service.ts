@@ -1,6 +1,25 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
 import { DatabaseService } from 'src/database/database.service';
 import * as moment from 'moment-timezone';
+
+/**
+ * Interface for tracking mandatory field validation errors
+ */
+export interface MandatoryFieldError {
+  recordType: 'VOY' | 'BOL' | 'CON' | 'CTR';
+  fieldRef: string;
+  fieldName: string;
+  houseJobSid?: number;
+  hblNo?: string;
+}
+
+/**
+ * Response structure for validation errors
+ */
+export interface EDIValidationResponse {
+  isValid: boolean;
+  errors: MandatoryFieldError[];
+}
 
 @Injectable()
 export class EDIManifestService {
@@ -46,6 +65,15 @@ export class EDIManifestService {
         include: { countryMaster: true },
       });
       originCountryCode = port?.countryMaster?.countryCode || '';
+    }
+
+    // Validate mandatory fields before generating
+    const validation = this.validateMandatoryFields(masterJob, originCountryCode);
+    if (!validation.isValid) {
+      throw new BadRequestException({
+        message: 'Mandatory fields are missing. Please fill all required fields before generating EDI Manifest.',
+        errors: validation.errors,
+      });
     }
 
     return this.generateManifestText(masterJob, originCountryCode);
@@ -94,6 +122,15 @@ export class EDIManifestService {
       ...houseJob.masterJob,
       houseJob: [houseJob],
     };
+
+    // Validate mandatory fields before generating
+    const validation = this.validateMandatoryFields(masterJobData, originCountryCode);
+    if (!validation.isValid) {
+      throw new BadRequestException({
+        message: 'Mandatory fields are missing. Please fill all required fields before generating EDI Manifest.',
+        errors: validation.errors,
+      });
+    }
 
     return this.generateManifestText(masterJobData, originCountryCode);
   }
@@ -423,6 +460,416 @@ export class EDIManifestService {
     ];
 
     return fields.map(f => `"${f}"`).join(',');
+  }
+
+  /**
+   * Validate all mandatory fields before generating EDI Manifest
+   * Returns validation result with list of missing mandatory fields
+   */
+  private validateMandatoryFields(masterJob: any, originCountryCode: string): EDIValidationResponse {
+    const errors: MandatoryFieldError[] = [];
+
+    // VOY Record Validation
+    const voyErrors = this.validateVOYRecord(masterJob);
+    errors.push(...voyErrors);
+
+    // BOL, CON, CTR Record Validation for each House Job
+    for (const houseJob of masterJob.houseJob || []) {
+      const bolErrors = this.validateBOLRecord(masterJob, houseJob, originCountryCode);
+      errors.push(...bolErrors);
+
+      const conErrors = this.validateCONRecord(houseJob);
+      errors.push(...conErrors);
+
+      // CTR validation only for containerized cargo
+      if (this.isContainerized(masterJob, houseJob)) {
+        const ctrErrors = this.validateCTRRecords(masterJob, houseJob);
+        errors.push(...ctrErrors);
+      }
+    }
+
+    return {
+      isValid: errors.length === 0,
+      errors,
+    };
+  }
+
+  /**
+   * Validate VOY Record mandatory fields
+   */
+  private validateVOYRecord(masterJob: any): MandatoryFieldError[] {
+    const errors: MandatoryFieldError[] = [];
+    const voyage = masterJob.voyages?.[0] || {};
+    const houseJob = masterJob.houseJob?.[0] || {};
+    const customs = houseJob.houseJobCustoms?.[0] || {};
+
+    // 1.1 LINE CODE (M)
+    if (!customs.LineCode) {
+      errors.push({ recordType: 'VOY', fieldRef: '1.1', fieldName: 'Line Code' });
+    }
+
+    // 1.2 VOYAGE AGENT CODE (M)
+    if (!customs.VoyageAgentCode) {
+      errors.push({ recordType: 'VOY', fieldRef: '1.2', fieldName: 'Voyage Agent Code' });
+    }
+
+    // 1.3 VESSEL NAME (M)
+    if (!(voyage.VesselName || masterJob.VesselName)) {
+      errors.push({ recordType: 'VOY', fieldRef: '1.3', fieldName: 'Vessel Name' });
+    }
+
+    // 1.4 AGENT'S VOYAGE NUMBER (M)
+    if (!(voyage.VoyageNo || masterJob.VoyageNo)) {
+      errors.push({ recordType: 'VOY', fieldRef: '1.4', fieldName: 'Voyage Number' });
+    }
+
+    // 1.5 PORT CODE OF DISCHARGE (M)
+    if (!masterJob.POD) {
+      errors.push({ recordType: 'VOY', fieldRef: '1.5', fieldName: 'Port of Discharge (POD)' });
+    }
+
+    // 1.6 EXPECTED TO ARRIVE DATE (M)
+    if (!(voyage.ETA || masterJob.ETA)) {
+      errors.push({ recordType: 'VOY', fieldRef: '1.6', fieldName: 'Expected Arrival Date (ETA)' });
+    }
+
+    // 1.10 AGENT'S MANIFEST SEQUENCE NUMBER (M)
+    if (!customs.ManifestSequence) {
+      errors.push({ recordType: 'VOY', fieldRef: '1.10', fieldName: 'Manifest Sequence Number' });
+    }
+
+    return errors;
+  }
+
+  /**
+   * Validate BOL Record mandatory fields
+   */
+  private validateBOLRecord(masterJob: any, houseJob: any, originCountryCode: string): MandatoryFieldError[] {
+    const errors: MandatoryFieldError[] = [];
+    const cargo = houseJob.Cargo?.[0] || {};
+    const others = houseJob.Others?.[0] || {};
+    const customs = houseJob.houseJobCustoms?.[0] || {};
+    const hblNo = houseJob.HBLNo || masterJob.MBLNo || '';
+    const houseJobSid = houseJob.HouseJobSid;
+
+    // 2.1 BILL OF LADING NO (M)
+    if (!(houseJob.HBLNo || masterJob.MBLNo)) {
+      errors.push({ recordType: 'BOL', fieldRef: '2.1', fieldName: 'Bill of Lading Number', houseJobSid, hblNo });
+    }
+
+    // 2.2 BOX/PARTNERING LINE CODE (M)
+    if (!customs.LineCode) {
+      errors.push({ recordType: 'BOL', fieldRef: '2.2', fieldName: 'Line Code', houseJobSid, hblNo });
+    }
+
+    // 2.3 BOX/PARTNERING AGENT CODE (M)
+    if (!customs.VoyageAgentCode) {
+      errors.push({ recordType: 'BOL', fieldRef: '2.3', fieldName: 'Voyage Agent Code', houseJobSid, hblNo });
+    }
+
+    // 2.4 PORT CODE OF ORIGIN (M)
+    if (!(houseJob.POO || masterJob.POO)) {
+      errors.push({ recordType: 'BOL', fieldRef: '2.4', fieldName: 'Port of Origin (POO)', houseJobSid, hblNo });
+    }
+
+    // 2.5 PORT CODE OF LOADING (M)
+    if (!(houseJob.POL || masterJob.POL)) {
+      errors.push({ recordType: 'BOL', fieldRef: '2.5', fieldName: 'Port of Loading (POL)', houseJobSid, hblNo });
+    }
+
+    // 2.6 PORT CODE OF DISCHARGE (M)
+    if (!(houseJob.POD || masterJob.POD)) {
+      errors.push({ recordType: 'BOL', fieldRef: '2.6', fieldName: 'Port of Discharge (POD)', houseJobSid, hblNo });
+    }
+
+    // 2.7 PORT CODE OF DESTINATION (M)
+    if (!(houseJob.FPD || masterJob.FPD)) {
+      errors.push({ recordType: 'BOL', fieldRef: '2.7', fieldName: 'Final Place of Delivery (FPD)', houseJobSid, hblNo });
+    }
+
+    // 2.14 CARGO CODE (M)
+    if (!(customs.CargoCode || cargo.CargoType)) {
+      errors.push({ recordType: 'BOL', fieldRef: '2.14', fieldName: 'Cargo Code', houseJobSid, hblNo });
+    }
+
+    // 2.18 COUNTRY OF ORIGIN (M)
+    if (!originCountryCode) {
+      errors.push({ recordType: 'BOL', fieldRef: '2.18', fieldName: 'Country of Origin', houseJobSid, hblNo });
+    }
+
+    // 2.26 SHIPPER NAME (M)
+    if (!houseJob.ShipperName) {
+      errors.push({ recordType: 'BOL', fieldRef: '2.26', fieldName: 'Shipper Name', houseJobSid, hblNo });
+    }
+
+    // 2.27 SHIPPER ADDRESS (M)
+    if (!houseJob.ShipperAddress) {
+      errors.push({ recordType: 'BOL', fieldRef: '2.27', fieldName: 'Shipper Address', houseJobSid, hblNo });
+    }
+
+    // 2.28 SHIPPER COUNTRY CODE (M)
+    const shipperCountryCode = houseJob.companyMaster?.countryMaster?.CountryCode ||
+                               masterJob.CompanyMaster?.countryMaster?.CountryCode;
+    if (!shipperCountryCode) {
+      errors.push({ recordType: 'BOL', fieldRef: '2.28', fieldName: 'Shipper Country Code', houseJobSid, hblNo });
+    }
+
+    // 2.29 CONSIGNEE CODE (M)
+    if (!customs.ImporterCode) {
+      errors.push({ recordType: 'BOL', fieldRef: '2.29', fieldName: 'Consignee Code (Importer Code)', houseJobSid, hblNo });
+    }
+
+    // 2.30 CONSIGNEE NAME (M)
+    if (!houseJob.ConsigneeName) {
+      errors.push({ recordType: 'BOL', fieldRef: '2.30', fieldName: 'Consignee Name', houseJobSid, hblNo });
+    }
+
+    // 2.31 CONSIGNEE ADDRESS (M)
+    if (!houseJob.ConsigneeAddress) {
+      errors.push({ recordType: 'BOL', fieldRef: '2.31', fieldName: 'Consignee Address', houseJobSid, hblNo });
+    }
+
+    // 2.33 NOTIFY1 NAME (M)
+    const notifyName = houseJob.Notify || others.NotifyParty;
+    if (!notifyName) {
+      errors.push({ recordType: 'BOL', fieldRef: '2.33', fieldName: 'Notify Party Name', houseJobSid, hblNo });
+    }
+
+    // 2.34 NOTIFY1 ADDRESS (M)
+    const notifyAddress = houseJob.NotifyAddress || others.NotifyPartyAddress;
+    if (!notifyAddress) {
+      errors.push({ recordType: 'BOL', fieldRef: '2.34', fieldName: 'Notify Party Address', houseJobSid, hblNo });
+    }
+
+    // 2.41 MARKS & NUMBERS (M)
+    if (!cargo.MarksAndNumber) {
+      errors.push({ recordType: 'BOL', fieldRef: '2.41', fieldName: 'Marks & Numbers', houseJobSid, hblNo });
+    }
+
+    // 2.42 COMMODITY CODE (M) - HS Code
+    const hsCode = customs.UNHSCode || houseJob.Products?.[0]?.HSCode;
+    if (!hsCode) {
+      errors.push({ recordType: 'BOL', fieldRef: '2.42', fieldName: 'Commodity Code (HS Code)', houseJobSid, hblNo });
+    }
+
+    // 2.43 COMMODITY DESCRIPTION (M)
+    if (!cargo.CommodityDescription) {
+      errors.push({ recordType: 'BOL', fieldRef: '2.43', fieldName: 'Commodity Description', houseJobSid, hblNo });
+    }
+
+    // 2.44 PACKAGES (M)
+    if (!cargo.NoOfPackage) {
+      errors.push({ recordType: 'BOL', fieldRef: '2.44', fieldName: 'Number of Packages', houseJobSid, hblNo });
+    }
+
+    // 2.45 PACKAGE TYPE (M)
+    if (!cargo.PackageType) {
+      errors.push({ recordType: 'BOL', fieldRef: '2.45', fieldName: 'Package Type', houseJobSid, hblNo });
+    }
+
+    // 2.46 PACKAGE TYPE CODE (M)
+    if (!customs.PackageTypeCode) {
+      errors.push({ recordType: 'BOL', fieldRef: '2.46', fieldName: 'Package Type Code', houseJobSid, hblNo });
+    }
+
+    // 2.52 CARGO WEIGHT IN KG (M)
+    if (!cargo.GrossWeight && cargo.GrossWeight !== 0) {
+      errors.push({ recordType: 'BOL', fieldRef: '2.52', fieldName: 'Cargo Weight (KG)', houseJobSid, hblNo });
+    }
+
+    // 2.53 GROSS WEIGHT IN KG (M)
+    if (!cargo.GrossWeight && cargo.GrossWeight !== 0) {
+      errors.push({ recordType: 'BOL', fieldRef: '2.53', fieldName: 'Gross Weight (KG)', houseJobSid, hblNo });
+    }
+
+    // Conditional: 2.17 CONTAINER SERVICE TYPE - Mandatory for containerized cargo (F/L/M)
+    const cargoCode = customs.CargoCode || this.getCargoCode(cargo);
+    if (['F', 'L', 'M'].includes(cargoCode)) {
+      const shipmentTerms = cargo.ShipmentTerms || houseJob.ShipmentTerms || masterJob.ShipmentTerms;
+      if (!shipmentTerms) {
+        errors.push({ recordType: 'BOL', fieldRef: '2.17', fieldName: 'Container Service Type (Shipment Terms)', houseJobSid, hblNo });
+      }
+    }
+
+    // Conditional: 2.49 NO OF CONTAINERS - Mandatory for FCL containers
+    if (cargoCode === 'F') {
+      if (!cargo.NoofContainers && cargo.NoofContainers !== 0) {
+        errors.push({ recordType: 'BOL', fieldRef: '2.49', fieldName: 'Number of Containers', houseJobSid, hblNo });
+      }
+    }
+
+    // Conditional: 2.54 CARGO VOLUME - Mandatory for LCL & General Cargo
+    if (['L', 'G'].includes(cargoCode)) {
+      if (!cargo.Volume && cargo.Volume !== 0) {
+        errors.push({ recordType: 'BOL', fieldRef: '2.54', fieldName: 'Cargo Volume (CBM)', houseJobSid, hblNo });
+      }
+    }
+
+    // Conditional: 2.56 FREIGHT TONNE - Mandatory for LCL & General Cargo
+    if (['L', 'G'].includes(cargoCode)) {
+      if (!customs.FreightTonne && customs.FreightTonne !== 0) {
+        errors.push({ recordType: 'BOL', fieldRef: '2.56', fieldName: 'Freight Tonne', houseJobSid, hblNo });
+      }
+    }
+
+    // Conditional: 2.57 NO OF PALLETS - Mandatory for LCL & General Cargo
+    if (['L', 'G'].includes(cargoCode)) {
+      if (!customs.NoOfPallets && customs.NoOfPallets !== 0) {
+        errors.push({ recordType: 'BOL', fieldRef: '2.57', fieldName: 'Number of Pallets', houseJobSid, hblNo });
+      }
+    }
+
+    return errors;
+  }
+
+  /**
+   * Validate CON Record mandatory fields
+   */
+  private validateCONRecord(houseJob: any): MandatoryFieldError[] {
+    const errors: MandatoryFieldError[] = [];
+    const customs = houseJob.houseJobCustoms?.[0] || {};
+    const cargo = houseJob.Cargo?.[0] || {};
+    const product = houseJob.Products?.[0] || {};
+    const hblNo = houseJob.HBLNo || '';
+    const houseJobSid = houseJob.HouseJobSid;
+
+    // 3.1 SERIAL NUMBER (M)
+    if (!customs.SerialNumber) {
+      errors.push({ recordType: 'CON', fieldRef: '3.1', fieldName: 'Serial Number', houseJobSid, hblNo });
+    }
+
+    // 3.2 MARKS & NUMBERS (M)
+    if (!cargo.MarksAndNumber) {
+      errors.push({ recordType: 'CON', fieldRef: '3.2', fieldName: 'Marks & Numbers', houseJobSid, hblNo });
+    }
+
+    // 3.3 CARGO DESCRIPTION (M)
+    if (!cargo.CommodityDescription) {
+      errors.push({ recordType: 'CON', fieldRef: '3.3', fieldName: 'Cargo Description', houseJobSid, hblNo });
+    }
+
+    // 3.5 COMMODITY CODE / HS CODE (M)
+    const hsCode = customs.UNHSCode || product.HSCode;
+    if (!hsCode) {
+      errors.push({ recordType: 'CON', fieldRef: '3.5', fieldName: 'Commodity Code (HS Code)', houseJobSid, hblNo });
+    }
+
+    // 3.6 CONSIGNMENT PACKAGES (M)
+    if (!cargo.NoOfPackage) {
+      errors.push({ recordType: 'CON', fieldRef: '3.6', fieldName: 'Consignment Packages', houseJobSid, hblNo });
+    }
+
+    // 3.7 PACKAGE TYPE (M)
+    if (!cargo.PackageType) {
+      errors.push({ recordType: 'CON', fieldRef: '3.7', fieldName: 'Package Type', houseJobSid, hblNo });
+    }
+
+    // 3.8 PACKAGE TYPE CODE (M)
+    if (!customs.PackageTypeCode) {
+      errors.push({ recordType: 'CON', fieldRef: '3.8', fieldName: 'Package Type Code', houseJobSid, hblNo });
+    }
+
+    // 3.9 NO OF PALLETS (M)
+    if (!customs.NoOfPallets && customs.NoOfPallets !== 0) {
+      errors.push({ recordType: 'CON', fieldRef: '3.9', fieldName: 'Number of Pallets', houseJobSid, hblNo });
+    }
+
+    // 3.10 CONSIGNMENT WEIGHT IN KG (M)
+    if (!cargo.GrossWeight && cargo.GrossWeight !== 0) {
+      errors.push({ recordType: 'CON', fieldRef: '3.10', fieldName: 'Consignment Weight (KG)', houseJobSid, hblNo });
+    }
+
+    // 3.11 CONSIGNMENT VOLUME IN CUBIC METRES (M)
+    if (!cargo.Volume && cargo.Volume !== 0) {
+      errors.push({ recordType: 'CON', fieldRef: '3.11', fieldName: 'Consignment Volume (CBM)', houseJobSid, hblNo });
+    }
+
+    // 3.12 DANGEROUS GOODS INDICATOR (M) - always required, default is 'N'
+    // This is handled by default in generation, so no validation needed
+
+    // 3.18 REFRIGERATION REQUIRED (M) - always required, default is 'N'
+    // This is handled by default in generation, so no validation needed
+
+    // Conditional: 3.13 IMO CLASS NUMBER - Mandatory if DG Indicator = 'Y'
+    const isDangerous = !!(customs.UNNumber || product.IsHaz === 'Y' || product.UnNo);
+    if (isDangerous) {
+      const imoClass = product.ImcoClass;
+      if (!imoClass) {
+        errors.push({ recordType: 'CON', fieldRef: '3.13', fieldName: 'IMO Class Number (required for Dangerous Goods)', houseJobSid, hblNo });
+      }
+
+      // 3.14 UN NUMBER OF DANGEROUS GOODS - Conditional
+      if (!(customs.UNNumber || product.UnNo)) {
+        errors.push({ recordType: 'CON', fieldRef: '3.14', fieldName: 'UN Number (required for Dangerous Goods)', houseJobSid, hblNo });
+      }
+
+      // 3.17 STORAGE REQUESTED FOR DANGEROUS GOODS - Conditional
+      if (!customs.HazStorageRequest) {
+        errors.push({ recordType: 'CON', fieldRef: '3.17', fieldName: 'Hazardous Storage Request (required for Dangerous Goods)', houseJobSid, hblNo });
+      }
+    }
+
+    // Conditional: 3.16 UNIT OF TEMPERATURE - Mandatory if Flash Point is given
+    if (customs.FlashPoints && !customs.TemperatureUnit) {
+      errors.push({ recordType: 'CON', fieldRef: '3.16', fieldName: 'Temperature Unit (required when Flash Point is given)', houseJobSid, hblNo });
+    }
+
+    // Conditional: 3.19-3.21 REFRIGERATION TEMPS - Mandatory if Refrigeration Required = 'Y'
+    if (customs.RefrigerationRequired === 'Y') {
+      if (!customs.MinTemperature && customs.MinTemperature !== 0) {
+        errors.push({ recordType: 'CON', fieldRef: '3.19', fieldName: 'Minimum Temperature (required for Refrigeration)', houseJobSid, hblNo });
+      }
+      if (!customs.MaxTemperature && customs.MaxTemperature !== 0) {
+        errors.push({ recordType: 'CON', fieldRef: '3.20', fieldName: 'Maximum Temperature (required for Refrigeration)', houseJobSid, hblNo });
+      }
+      if (!customs.RefTemperatureUnit) {
+        errors.push({ recordType: 'CON', fieldRef: '3.21', fieldName: 'Refrigeration Temperature Unit', houseJobSid, hblNo });
+      }
+    }
+
+    return errors;
+  }
+
+  /**
+   * Validate CTR Record mandatory fields (for containerized cargo)
+   */
+  private validateCTRRecords(masterJob: any, houseJob: any): MandatoryFieldError[] {
+    const errors: MandatoryFieldError[] = [];
+    const containers = masterJob.containers || [];
+    const products = houseJob.Products || [];
+    const hblNo = houseJob.HBLNo || '';
+    const houseJobSid = houseJob.HouseJobSid;
+
+    // Check master job containers
+    for (const container of containers) {
+      // 4.1 CONTAINER NUMBER (M)
+      if (!container.ContainerNumber) {
+        errors.push({ recordType: 'CTR', fieldRef: '4.1', fieldName: 'Container Number', houseJobSid, hblNo });
+      }
+
+      // 4.3 TARE WEIGHT IN MT (M)
+      const tareWeight = container.containerType?.TareWeight;
+      if (!tareWeight && tareWeight !== 0) {
+        errors.push({ recordType: 'CTR', fieldRef: '4.3', fieldName: `Tare Weight for Container ${container.ContainerNumber || 'Unknown'}`, houseJobSid, hblNo });
+      }
+
+      // 4.4 SEAL NO (M)
+      if (!container.LineSeal) {
+        errors.push({ recordType: 'CTR', fieldRef: '4.4', fieldName: `Seal Number for Container ${container.ContainerNumber || 'Unknown'}`, houseJobSid, hblNo });
+      }
+    }
+
+    // Check product containers (for LCL)
+    for (const product of products) {
+      if (product.ContainerNo) {
+        // 4.4 SEAL NO (M)
+        if (!product.SealNo) {
+          errors.push({ recordType: 'CTR', fieldRef: '4.4', fieldName: `Seal Number for Container ${product.ContainerNo}`, houseJobSid, hblNo });
+        }
+      }
+    }
+
+    return errors;
   }
 
   /**
