@@ -38,45 +38,63 @@ export class MasterJobService {
 
                 const MasterJobNumber = `MASTER-${dateString}-${(count + 1).toString().padStart(3, '0')}`;
                 let departmentType: string | null = null;
+                let departmentExportImport: string | null = null;
                 let assignedMBLNo = payload.MBLNo || "";
                 if (payload.DepartmentMasterSid) {
                     const department = await prisma.departmentMaster.findUnique({
                         where: { DepartmentMasterSid: payload.DepartmentMasterSid },
-                        select: { departmentType: true }
+                        select: { 
+                            departmentType: true,
+                            ExportImport: true,
+                         }
                     });
                     departmentType = department?.departmentType ?? null;
+                    departmentExportImport = department?.ExportImport ?? null;
                 }
-
-                // If department type is Air, allocate MAWB from stock
-                if (departmentType === 'Air') {
-                    // Find the first available MAWB with StockStatus = 'Free'
-                    const availableMawb = await prisma.mawbStock.findFirst({
-                        where: {
-                            StockStatus: 'Free',
-                            status: 'A', // Matching exact field name from schema (lowercase)
-                            CompanyMasterSid: payload.CompanyMasterSid,
-                            BranchMasterSid: payload.BranchMasterSid
-                        },
-                        orderBy: { MawbStockSid: 'asc' } // Get the oldest free stock first
-                    });
-
-                    if (!availableMawb) {
-                        throw new Error('No free MAWB stock available for Air department');
-                    }
-
+                const shouldAllocateMAWB = (
+                departmentType === 'Air' &&
+                departmentExportImport === 'Export'
+            );
+ 
+                if (shouldAllocateMAWB) {
+                // Find the first available MAWB with StockStatus = 'Free'
+                const availableMawb = await prisma.mawbStock.findFirst({
+                    where: {
+                        StockStatus: 'Free',
+                        status: 'A',
+                        CompanyMasterSid: payload.CompanyMasterSid,
+                        BranchMasterSid: payload.BranchMasterSid
+                    },
+                    orderBy: { MawbStockSid: 'asc' }
+                });
+ 
+                if (!availableMawb) {
+                    // If no free MAWB available, use the provided MBLNo or empty string
+                    assignedMBLNo = payload.MBLNo || "";
+                    // You might want to log this or handle it differently
+                    console.warn('No free MAWB available for Air Export department, using provided MBLNo');
+                } else {
                     // Assign the MasterBillNumber to MBLNo
                     assignedMBLNo = availableMawb.MasterBillNumber;
-
+ 
                     // Update the MAWB stock status to 'Blocked'
                     await prisma.mawbStock.update({
                         where: { MawbStockSid: availableMawb.MawbStockSid },
                         data: {
                             StockStatus: 'Blocked',
-                            updatedBy: payload.CreatedBy, // Matching exact field name (lowercase)
+                            updatedBy: payload.CreatedBy,
                             updatedOn: new Date()
                         }
                     });
                 }
+            } else if (departmentType === 'Air' && departmentExportImport === 'Import') {
+                // For Air Import, use provided MBLNo or leave empty
+                assignedMBLNo = payload.MBLNo || "";
+                // No need to allocate from stock for imports
+            } else {
+                // For non-Air departments or other cases
+                assignedMBLNo = payload.MBLNo || "";
+            }                
                 const headerPayload = {
                     MasterJobNumber: MasterJobNumber,
                     MasterJobDate: payload.MasterJobDate ? new Date(payload.MasterJobDate) : new Date(),
@@ -344,8 +362,21 @@ export class MasterJobService {
                 for (const booking of allBookings) {
                     const { bookingCargo, bookingProduct, bookingOthers, bookingConnection, bookingRates, ...bookingHeader } = booking;
 
+                    const department = await this._db.departmentMaster.findUnique({
+                        where: { DepartmentMasterSid: payload.DepartmentMasterSid },
+                        select: {
+                            departmentType: true,
+                            ExportImport: true
+                        }
+                    });
+                    const departmentExportImport = department?.ExportImport ?? null;
                     hblSerial += 1;
-                    const HBLNo = `HOUSE-${dateString}-${hblSerial.toString().padStart(3, '0')}`;
+                    let HBLNo;
+                    if (departmentExportImport === 'Export') {
+                        HBLNo = `HOUSE-${dateString}-${hblSerial.toString().padStart(3, '0')}`;
+                    } else {
+                        HBLNo = "";
+                    }
 
                     const houseJobMenuId = await this.menuMasterService.getMenuSidByName('House Job');
 
@@ -743,161 +774,243 @@ export class MasterJobService {
     }
 
     async getMasterJobById(MasterJobSid: any) {
-        try {
-            return this._db.$transaction(async (prisma) => {
-                const masterJobDetails = await prisma.masterJob.findUnique({
-                    where: {
-                        MasterJobSid: MasterJobSid
-                    },
-                    include: {
-                        voyages: { where: { Status: 'A' } },
-                        masterJobConnection: { where: { Status: 'A' } },
-                        containers: { where: { Status: 'A' } },
-                        others: { where: { Status: 'A' } },
-                        houseJob: {
-                            where: {
-                                status: 'A',
-                            },
-                            select: {
-                                HBLNo: true,
-                                ShipperName: true,
-                                ShipperAddress: true,
-                                ConsigneeName: true,
-                                ConsigneeAddress: true,
-                                Notify: true,
-                                NotifyAddress: true,
-                                CustomerName: true,
-                                CustomerAddress: true,
-                                FreightTerms: true,
-                                Cargo: true,
-                                Products: true,
-                                Others: true,
-                            },
-                        }
-                    }
-                })
-                const allShipments = await prisma.houseJob.findMany({
-                    where: {
-                        MasterJobSid: MasterJobSid,
-                        status: 'A'
-                    },
-                    orderBy: {
-                        HouseJobSid: 'asc'
-                    }
-                })
-                const allCostRevenueCharges = await prisma.costRevenueCharges.findMany({
-                    where: {
-                        TransactionSid: MasterJobSid,
-                        MenuMasterSid: masterJobDetails?.MenuMasterSid!,
-                        CompanyMasterSid: masterJobDetails?.CompanyMasterSid,
-                        BranchMasterSid: masterJobDetails?.BranchMasterSid,
-                        MasterJobNo: masterJobDetails?.MasterJobNumber,
-                        status: "A"
-                    },
-                    include: {
-                        revenueVoucherHeader: {
-                            select: {
-                                VoucherNumber: true,
-                                VoucherHeaderSid: true
-                            }
-                        },
-                        revenueVoucherTypeMaster: {
-                            select: {
-                                DocumentTypeName: true,
-                                VoucherTypeMasterSid: true
-                            }
-                        },
-                        costVoucherHeader: {
-                            select: {
-                                VoucherNumber: true,
-                                VoucherHeaderSid: true
-                            }
-                        },
-                        costVoucherTypeMaster: {
-                            select: {
-                                DocumentTypeName: true,
-                                VoucherTypeMasterSid: true
-                            }
-                        },
-                        revenueCustomerMaster: {
-                            select: {
-                                CustomerMasterSid: true,
-                                CustomerName: true
-                            }
-                        },
-                        costCustomerMaster: {
-                            select: {
-                                CustomerMasterSid: true,
-                                CustomerName: true
-                            }
-                        },
-                        chargeMaster: {
-                            select: {
-                                chargeCode: true,
-                                chargeName: true,
-                                chargeGroup: {
-                                    select: { GroupName: true }
-                                }
-                            }
-                        }
-                    },
-                    orderBy: {
-                        SerialNumber: 'asc'
-                    }
-                })
-                const allActivities = await prisma.containerActivity.findMany({
-                    where: {
-                        JobMasterSid: masterJobDetails?.MasterJobSid,
-                        Status: "A"
-                    }
-                })
-                const VoyageMasterSid = masterJobDetails?.voyages[0]?.VoyageMasterSid;
-                let CutOffDate;
-                if (VoyageMasterSid) {
-                    let voyage = await prisma.voyageMasterHeader.findUnique({
+    try {
+        return this._db.$transaction(async (prisma) => {
+            const masterJobDetails = await prisma.masterJob.findUnique({
+                where: {
+                    MasterJobSid: MasterJobSid
+                },
+                include: {
+                    voyages: { where: { Status: 'A' } },
+                    masterJobConnection: { where: { Status: 'A' } },
+                    containers: { where: { Status: 'A' } },
+                    others: { where: { Status: 'A' } },
+                    houseJob: {
                         where: {
-                            VoyageMasterHeaderSid: VoyageMasterSid,
+                            status: 'A',
                         },
-                        include: {
-                            voyageMasterDetail: {
-                                where: {
-                                    status: 'A'
-                                },
-                                select: {
-                                    POLSid: true,
-                                    PortCutoff: true,
-                                    portMasterPOL: {
-                                        select: {
-                                            PortCode: true
-                                        }
-                                    }
-                                },
+                        select: {
+                            HBLNo: true,
+                            ShipperName: true,
+                            ShipperAddress: true,
+                            ConsigneeName: true,
+                            ConsigneeAddress: true,
+                            Notify: true,
+                            NotifyAddress: true,
+                            CustomerName: true,
+                            CustomerAddress: true,
+                            FreightTerms: true,
+                            Cargo: true,
+                            Products: true,
+                            Others: true,
+                        },
+                    }
+                }
+            })
+            
+            const allShipments = await prisma.houseJob.findMany({
+                where: {
+                    MasterJobSid: MasterJobSid,
+                    status: 'A'
+                },
+                orderBy: {
+                    HouseJobSid: 'asc'
+                },
+                include: {
+                    Cargo: {
+                        where: { status: 'A' }
+                    }
+                }
+            })
+            
+            // Calculate totals from all house job cargo
+            let totalNoOfPkg = 0;
+            let totalGrossWeight = 0;
+            let totalNetWeight = 0;
+            let totalChargeableWeight = 0;
+            let totalVolume = 0;
+            
+            // For WeightIn, use the master job's value or find from first house job
+            let weightIn = masterJobDetails?.WeightIn || 'Kg(s)';
+            
+            allShipments.forEach(houseJob => {
+                houseJob.Cargo?.forEach(cargo => {
+                    totalNoOfPkg += Number(cargo.NoOfPackage) || 0;
+                    totalGrossWeight += Number(cargo.GrossWeight) || 0;
+                    totalNetWeight += Number(cargo.NetWeight) || 0;
+                    totalChargeableWeight += Number(cargo.ChargeableWeight) || 0;
+                    totalVolume += Number(cargo.Volume) || 0;
+                    
+                    // Get WeightIn from first cargo entry if not set
+                    if (!weightIn && cargo.WeightUnitSid) {
+                        weightIn = this.getWeightInFromUnitSid(cargo.WeightUnitSid);
+                    }
+                });
+            });
+            
+            // Format the totals
+            const aggregatedTotals = {
+                NoOfPkg: totalNoOfPkg,
+                GrossWeight: parseFloat(totalGrossWeight.toFixed(3)),
+                NetWeight: parseFloat(totalNetWeight.toFixed(3)),
+                ChargeableWeight: parseFloat(totalChargeableWeight.toFixed(3)),
+                Volume: parseFloat(totalVolume.toFixed(3)),
+                WeightIn: weightIn
+            };
+            
+            const allCostRevenueCharges = await prisma.costRevenueCharges.findMany({
+                where: {
+                    TransactionSid: MasterJobSid,
+                    MenuMasterSid: masterJobDetails?.MenuMasterSid!,
+                    CompanyMasterSid: masterJobDetails?.CompanyMasterSid,
+                    BranchMasterSid: masterJobDetails?.BranchMasterSid,
+                    MasterJobNo: masterJobDetails?.MasterJobNumber,
+                    status: "A"
+                },
+                include: {
+                    revenueVoucherHeader: {
+                        select: {
+                            VoucherNumber: true,
+                            VoucherHeaderSid: true
+                        }
+                    },
+                    revenueVoucherTypeMaster: {
+                        select: {
+                            DocumentTypeName: true,
+                            VoucherTypeMasterSid: true
+                        }
+                    },
+                    costVoucherHeader: {
+                        select: {
+                            VoucherNumber: true,
+                            VoucherHeaderSid: true
+                        }
+                    },
+                    costVoucherTypeMaster: {
+                        select: {
+                            DocumentTypeName: true,
+                            VoucherTypeMasterSid: true
+                        }
+                    },
+                    revenueCustomerMaster: {
+                        select: {
+                            CustomerMasterSid: true,
+                            CustomerName: true
+                        }
+                    },
+                    costCustomerMaster: {
+                        select: {
+                            CustomerMasterSid: true,
+                            CustomerName: true
+                        }
+                    },
+                    chargeMaster: {
+                        select: {
+                            chargeCode: true,
+                            chargeName: true,
+                            chargeGroup: {
+                                select: { GroupName: true }
                             }
                         }
-                    })
-
-                    CutOffDate = (voyage?.voyageMasterDetail || []).find(vd => vd.portMasterPOL?.PortCode === masterJobDetails?.POL)?.PortCutoff;
-
+                    }
+                },
+                orderBy: {
+                    SerialNumber: 'asc'
                 }
-                return {
-                    ...masterJobDetails,
-                    CutOffDate,
-                    allShipments,
-                    costRevenueCharges: allCostRevenueCharges,
-                    containerActivities: allActivities
+            })
+            
+            const allActivities = await prisma.containerActivity.findMany({
+                where: {
+                    JobMasterSid: masterJobDetails?.MasterJobSid,
+                    Status: "A"
                 }
-            });
+            })
+            
+            const VoyageMasterSid = masterJobDetails?.voyages[0]?.VoyageMasterSid;
+            let CutOffDate;
+            if (VoyageMasterSid) {
+                let voyage = await prisma.voyageMasterHeader.findUnique({
+                    where: {
+                        VoyageMasterHeaderSid: VoyageMasterSid,
+                    },
+                    include: {
+                        voyageMasterDetail: {
+                            where: {
+                                status: 'A'
+                            },
+                            select: {
+                                POLSid: true,
+                                PortCutoff: true,
+                                portMasterPOL: {
+                                    select: {
+                                        PortCode: true
+                                    }
+                                }
+                            },
+                        }
+                    }
+                })
 
-        } catch (error) {
-            throw error;
-        }
+                CutOffDate = (voyage?.voyageMasterDetail || []).find(vd => vd.portMasterPOL?.PortCode === masterJobDetails?.POL)?.PortCutoff;
+            }
+            
+            return {
+                ...masterJobDetails,
+                aggregatedTotals, // Add aggregated totals
+                CutOffDate,
+                allShipments,
+                costRevenueCharges: allCostRevenueCharges,
+                containerActivities: allActivities
+            }
+        });
+    } catch (error) {
+        throw error;
     }
+}
+
+// Helper method to get WeightIn from WeightUnitSid
+private getWeightInFromUnitSid(weightUnitSid: number): string {
+    const weightUnits = {
+        1: 'Kg(s)',
+        2: 'LB(s)',
+        3: 'Tonne(s)'
+    };
+    return weightUnits[weightUnitSid] || 'Kg(s)';
+}
 
     // Give me the function to update master job
     async updateMasterJob(payload: any) {
         try {
             const updatedMasterJob = await this._db.$transaction(async (prisma) => {
-
+const allHouseJobs = await prisma.houseJob.findMany({
+                where: {
+                    MasterJobSid: payload.MasterJobSid,
+                    status: 'A'
+                },
+                include: {
+                    Cargo: {
+                        where: { status: 'A' }
+                    }
+                }
+            });
+            
+            // Calculate totals from all house job cargo
+            let totalNoOfPkg = 0;
+            let totalGrossWeight = 0;
+            let totalNetWeight = 0;
+            let totalChargeableWeight = 0;
+            let totalVolume = 0;
+            
+            allHouseJobs.forEach(houseJob => {
+                houseJob.Cargo?.forEach(cargo => {
+                    totalNoOfPkg += Number(cargo.NoOfPackage) || 0;
+                    totalGrossWeight += Number(cargo.GrossWeight) || 0;
+                    totalNetWeight += Number(cargo.NetWeight) || 0;
+                    totalChargeableWeight += Number(cargo.ChargeableWeight) || 0;
+                    totalVolume += Number(cargo.Volume) || 0;
+                });
+            });
+            
                 const masterJobMenuId = await this.menuMasterService.getMenuSidByName('Master Job');
 
                 const headerPayload = {
@@ -919,12 +1032,12 @@ export class MasterJobService {
                     MovementType: payload.MovementType,
                     ShipmentTerms: payload.ShipmentTerms,
                     PkgType: Number(payload.PkgType),
-                    NoOfPkg: Number(payload.NoOfPkg),
-                    WeightIn: payload.WeightIn,
-                    GrossWeight: Number(payload.GrossWeight),
-                    NetWeight: Number(payload.NetWeight),
-                    ChargeableWeight: Number(payload.ChargeableWeight),
-                    Volume: Number(payload.Volume),
+                     NoOfPkg: totalNoOfPkg,
+                WeightIn: payload.WeightIn || 'Kg(s)',
+                GrossWeight: parseFloat(totalGrossWeight.toFixed(3)),
+                NetWeight: parseFloat(totalNetWeight.toFixed(3)),
+                ChargeableWeight: parseFloat(totalChargeableWeight.toFixed(3)),
+                Volume: parseFloat(totalVolume.toFixed(3)),
                     Haz: payload.Haz,
                     Status: payload.Status,
                     DGBookingDate: payload.DGBookingDate ? new Date(payload.DGBookingDate) : null,
@@ -1331,6 +1444,13 @@ export class MasterJobService {
 
                 return {
                     ...updatedMasterJob,
+                     calculatedTotals: {
+                    NoOfPkg: totalNoOfPkg,
+                    GrossWeight: totalGrossWeight,
+                    NetWeight: totalNetWeight,
+                    ChargeableWeight: totalChargeableWeight,
+                    Volume: totalVolume,
+                },
                     containerActivities: finalContainerActivities,
                     allCostRevenueCharges: finalCharges,
                     allActivities: finalContainerActivities,
@@ -1376,8 +1496,21 @@ export class MasterJobService {
                 for (const booking of allBookings) {
                     const { bookingCargo, bookingProduct, bookingOthers, bookingConnection, bookingRates, ...bookingHeader } = booking;
 
+                    const department = await this._db.departmentMaster.findUnique({
+                        where: { DepartmentMasterSid: payload.DepartmentMasterSid },
+                        select: {
+                            departmentType: true,
+                            ExportImport: true
+                        }
+                    });
+                    const departmentExportImport = department?.ExportImport ?? null;
                     hblSerial += 1;
-                    const HBLNo = `HOUSE-${dateString}-${hblSerial.toString().padStart(3, '0')}`;
+                    let HBLNo;
+                    if (departmentExportImport === 'Export') {
+                        HBLNo = `HOUSE-${dateString}-${hblSerial.toString().padStart(3, '0')}`;
+                    } else {
+                        HBLNo = "";
+                    }
 
                     const houseJobMenuId = await this.menuMasterService.getMenuSidByName('House Job');
 
@@ -2313,13 +2446,64 @@ export class MasterJobService {
                     POD: houseJob.POD,
                     FreightTerms: houseJob.FreightTerms,
                 });
+           if (houseJob.MasterJobSid) {
+                await this.updateMasterJobTotals(houseJob.MasterJobSid);
+            }
+              
             }
             return allCreatedHouseJobs
         } catch (error) {
             throw error;
         }
     }
-
+private async updateMasterJobTotals(masterJobSid: number): Promise<void> {
+    try {
+        // Get all house jobs for this master job
+        const allHouseJobs = await this._db.houseJob.findMany({
+            where: {
+                MasterJobSid: masterJobSid,
+                status: 'A'
+            },
+            include: {
+                Cargo: {
+                    where: { status: 'A' }
+                }
+            }
+        });
+        
+        // Calculate totals
+        let totalNoOfPkg = 0;
+        let totalGrossWeight = 0;
+        let totalNetWeight = 0;
+        let totalChargeableWeight = 0;
+        let totalVolume = 0;
+        
+        allHouseJobs.forEach(houseJob => {
+            houseJob.Cargo?.forEach(cargo => {
+                totalNoOfPkg += Number(cargo.NoOfPackage) || 0;
+                totalGrossWeight += Number(cargo.GrossWeight) || 0;
+                totalNetWeight += Number(cargo.NetWeight) || 0;
+                totalChargeableWeight += Number(cargo.ChargeableWeight) || 0;
+                totalVolume += Number(cargo.Volume) || 0;
+            });
+        });
+        
+        // Update master job
+        await this._db.masterJob.update({
+            where: { MasterJobSid: masterJobSid },
+            data: {
+                NoOfPkg: totalNoOfPkg,
+                GrossWeight: parseFloat(totalGrossWeight.toFixed(3)),
+                NetWeight: parseFloat(totalNetWeight.toFixed(3)),
+                ChargeableWeight: parseFloat(totalChargeableWeight.toFixed(3)),
+                Volume: parseFloat(totalVolume.toFixed(3)),
+            }
+        });
+    } catch (error) {
+        console.error('Error updating master job totals:', error);
+        throw error;
+    }
+}
     /**
      * Process bulk upload from Excel file
      */
