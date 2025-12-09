@@ -143,12 +143,12 @@ export class TrialBalanceReportQueryDto {
   @ApiProperty()
   @IsNotEmpty()
   @IsDateString()
-  fromDate: string;
+  FromDate: string;
 
   @ApiProperty()
   @IsNotEmpty()
   @IsDateString()
-  toDate: string;
+  ToDate: string;
 
   @ApiProperty({ enum: GroupByEnum })
   @IsNotEmpty()
@@ -160,10 +160,25 @@ export class TrialBalanceReportQueryDto {
   @IsInt()
   companyId: number;
 
+  @ApiProperty()
+  @IsNotEmpty()
+  @IsDateString()
+  GroupName: string;
+
+  
+  @ApiProperty()
+  @IsNotEmpty()
+  @IsDateString()
+  SubGroupName: string;
+
   @ApiPropertyOptional()
   @IsOptional()
   @IsInt()
-  branchId?: number;
+  Branch?: number[];
+
+  @IsOptional()
+  @IsBoolean()
+  SubTotal : boolean;
 }
 
 // Profit & Loss DTOs

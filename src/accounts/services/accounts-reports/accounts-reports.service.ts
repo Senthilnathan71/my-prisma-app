@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { DatabaseService } from 'src/database/database.service';
 import { ApprovalStatus, Prisma } from '@prisma/client';
-import { AgeingReportQueryDto, OutstandingReportQueryDto, StatementLedgerReportQueryDto } from 'src/accounts/dto/accounts-reports.dto';
+import { AgeingReportQueryDto, OutstandingReportQueryDto, StatementLedgerReportQueryDto, TrialBalanceReportQueryDto } from 'src/accounts/dto/accounts-reports.dto';
 import { roundAmount, toNumber } from 'src/common/helper';
 import { CustomerOutstandingResponseDto, CustomerOutstandingTransactionDto } from 'src/accounts/dto/outstanding.dto';
 // -------------------------
@@ -613,7 +613,7 @@ export class AccountsReportsService {
             },
           },
           voucherTypeMaster: {
-            select: { DocumentTypeName: true }
+            select: { DocumentTypeCode: true }
           }
         },
         orderBy: {
@@ -684,7 +684,7 @@ export class AccountsReportsService {
             coaMasterSid: vt.COAMasterSid!,
             MasterJobNumber : vt.masterJob?.MasterJobNumber,
             HouseJobNumber : vt.houseJob?.HBLNo,
-            voucherType: vt.voucherTypeMaster?.DocumentTypeName,
+            voucherType: vt.voucherTypeMaster?.DocumentTypeCode,
             originalCurrencyAmount: toNumber(originalCurrencyAmount),
             originalLocalAmount: toNumber(originalLocalAmount),
             matchedCurrencyAmount: toNumber(matchedCurrencyAmount),
@@ -793,7 +793,7 @@ export class AccountsReportsService {
             },
           },
           voucherTypeMaster: {
-            select: { DocumentTypeName: true }
+            select: { DocumentTypeCode: true }
           }
         },
         orderBy: {
@@ -865,7 +865,7 @@ export class AccountsReportsService {
             coaMasterSid: vt.COAMasterSid!,
             MasterJobNumber : vt.masterJob?.MasterJobNumber,
             HouseJobNumber : vt.houseJob?.HBLNo,
-            voucherType: vt.voucherTypeMaster?.DocumentTypeName,
+            voucherType: vt.voucherTypeMaster?.DocumentTypeCode,
             originalCurrencyAmount: toNumber(originalCurrencyAmount),
             originalLocalAmount: toNumber(originalLocalAmount),
             matchedCurrencyAmount: toNumber(matchedCurrencyAmount),
@@ -913,11 +913,172 @@ export class AccountsReportsService {
     }
   }
 
-  private async generateTrialBalance(params: any) {
-    // TODO: Use existing trial balance service
-    this.logger.log('generateTrialBalance called with params:', params);
-    throw new BadRequestException('Trial Balance generator not yet integrated');
+  private async generateTrialBalance(params: TrialBalanceReportQueryDto) {
+    const {
+      FromDate,
+      ToDate,
+      GroupName,
+      SubGroupName,
+      SubTotal = true,
+      Branch,
+      companyId: CompanyMasterSid,
+    } = params;
+
+    try {
+      this.logger.log(`Getting customer trial balance: CompanySid=${CompanyMasterSid}`);
+
+      // --- 1. Fetch branch names ---
+      const allBranches = await this._db.branchMaster.findMany({
+        where: {
+          BranchMasterSid: { in: Branch },
+        },
+        select: {
+          branchName: true,
+        },
+      });
+
+      const branchSet = new Set(allBranches.map(b => b.branchName));
+
+      // --- 2. Fetch ledger based on Group/SubGroup ---
+      const ledger = await this._db.cOAMaster.findFirst({
+        where: {
+          GroupName,
+          SubGroupName,
+        },
+      });
+
+      if (!ledger) {
+        this.logger.log(`No ledger found for Group=${GroupName} SubGroup=${SubGroupName}`);
+        return null;
+      }
+
+      const coaMasterSid = ledger.COAMasterSid;
+
+      // --- 3. Fetch voucher transactions ---
+      const voucherTransactions = await this._db.voucherTransaction.findMany({
+        where: {
+          CompanyMasterSid,
+          BranchMasterSid: { in: Branch },
+          AND: [
+            { VoucherDate: { lte: ToDate } }, // keep optional filtering on FromDate as needed
+          ],
+          COAMasterSid: coaMasterSid,
+          Status: 'A',
+        },
+        include: {
+          VoucherHeader: true,
+          coaMaster: {
+            select: {
+              GroupName: true,
+              SubGroupName: true,
+              LedgerType: true,
+              LedgerName: true,
+              COAMasterSid: true,
+            },
+          },
+          voucherMatchings: {
+            where: { Status: 'A' },
+          },
+        },
+        orderBy: { VoucherDate: 'asc' },
+      });
+
+      if (!voucherTransactions.length) {
+        this.logger.log(`No voucher transactions found for COAMasterSid ${coaMasterSid}`);
+        return {
+          companyMasterSid: CompanyMasterSid,
+          BranchMasterSid: Branch,
+          COAMasterSid: coaMasterSid,
+          subGroupName: ledger.SubGroupName,
+          groupName: ledger.GroupName,
+          ledgerName: ledger.LedgerName,
+          totalOutstandingCurrency: 0,
+          totalOutstandingLocal: 0,
+          voucherCount: 0,
+          transactions: [],
+        };
+      }
+
+      // --- 4. Build Group → SubGroup → Ledger map ---
+      const groupMap = new Map<string, Map<string, Map<number, any[]>>>();
+
+      for (const vt of voucherTransactions) {
+        const groupKey = vt.coaMaster?.GroupName!;
+        const subGroupKey = vt.coaMaster?.SubGroupName!;
+        const ledgerKey = vt.COAMasterSid!;
+
+        if (!groupMap.has(groupKey)) groupMap.set(groupKey, new Map());
+        const subGroupMap = groupMap.get(groupKey)!;
+
+        if (!subGroupMap.has(subGroupKey)) subGroupMap.set(subGroupKey, new Map());
+        const ledgerMap = subGroupMap.get(subGroupKey)!;
+
+        if (!ledgerMap.has(ledgerKey)) ledgerMap.set(ledgerKey, []);
+        ledgerMap.get(ledgerKey)!.push(vt);
+      }
+
+      // --- 5. Calculate totals for each ledger ---
+      const result: any[] = [];
+
+      for (const [groupName, subGroupMap] of groupMap.entries()) {
+        for (const [subGroupName, ledgerMap] of subGroupMap.entries()) {
+          for (const [ledgerId, transactions] of ledgerMap.entries()) {
+            const openingDrAmt = transactions
+              .filter(v => v.VoucherDate < FromDate && v.DrCr === "D")
+              .reduce((s, v) => s + v.LocalAmount, 0);
+
+            const openingCrAmt = transactions
+              .filter(v => v.VoucherDate < FromDate && v.DrCr === "C")
+              .reduce((s, v) => s + v.LocalAmount, 0);
+
+            const currentDrAmt = transactions
+              .filter(v => v.VoucherDate >= FromDate && v.VoucherDate <= ToDate && v.DrCr === "D")
+              .reduce((s, v) => s + v.LocalAmount, 0);
+
+            const currentCrAmt = transactions
+              .filter(v => v.VoucherDate >= FromDate && v.VoucherDate <= ToDate && v.DrCr === "C")
+              .reduce((s, v) => s + v.LocalAmount, 0);
+
+            const closingDrAmt = openingDrAmt + currentDrAmt;
+            const closingCrAmt = openingCrAmt + currentCrAmt;
+            const netClosingAmt = closingDrAmt - closingCrAmt;
+
+            result.push({
+              groupName,
+              subGroupName,
+              ledgerId,
+              ledgerName: transactions[0].coaMaster.LedgerName,
+
+              openingDrAmt,
+              openingCrAmt,
+              currentDrAmt,
+              currentCrAmt,
+
+              closingDrAmt,
+              closingCrAmt,
+              netClosingAmt,
+
+              transactions,
+            });
+          }
+        }
+      }
+
+      // --- 6. Return final structured result ---
+      return {
+        companyMasterSid: CompanyMasterSid,
+        branches: Branch,
+        groupData: result,
+      };
+    } catch (error) {
+      this.logger.error(
+        `Error getting customer trial balance for ${CompanyMasterSid}: ${error.message}`,
+        error.stack,
+      );
+      throw error;
+    }
   }
+
 
   private async generateProfitLoss(params: any) {
     // TODO: Implement P&L report logic

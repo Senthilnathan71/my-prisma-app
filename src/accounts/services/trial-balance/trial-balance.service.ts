@@ -28,10 +28,10 @@ export class TrialBalanceService {
     query: TrialBalanceQueryDto,
   ): Promise<TrialBalanceResponseDto> {
     // Ensure proper type conversion from query parameters
-    const CompanyMasterSid = Number(query.CompanyMasterSid);
-    const BranchMasterSid = query.BranchMasterSid?.map(id => Number(id));
-    const fromDate = query.fromDate;
-    const toDate = query.toDate;
+    const CompanyMasterSid = Number(query.companyId);
+    const BranchMasterSid = query.Branch?.map(id => Number(id));
+    const fromDate = query.FromDate;
+    const toDate = query.ToDate;
     const GroupName = query.GroupName;
     const SubGroupName = query.SubGroupName;
     const showSubtotals = query.showSubtotals ?? true;
@@ -47,6 +47,7 @@ export class TrialBalanceService {
       CompanyMasterSid,
       YearMasterSid,
     );
+    
 
     // Get all active ledgers matching filters
     const ledgers = await this.getLedgers(
@@ -192,27 +193,58 @@ export class TrialBalanceService {
   /**
    * Get active ledgers with filters
    */
+  // private async getLedgers(
+  //   CompanyMasterSid: number,
+  //   GroupName?: string,
+  //   SubGroupName?: string,
+  // ) {
+  //   return await this.databaseService.cOAMaster.findMany({
+  //     where: {
+  //       CompanyMasterSid,
+  //       Status: 'A',
+  //       LedgerCategory: 'Ledger', // Only get ledger-level accounts
+  //       ...(GroupName && { GroupName }),
+  //       ...(SubGroupName && { SubGroupName }),
+  //     },
+  //     orderBy: [
+  //       { Category: 'asc' },
+  //       { GroupName: 'asc' },
+  //       { SubGroupName: 'asc' },
+  //       { LedgerName: 'asc' },
+  //     ],
+  //   });
+  // }
+
   private async getLedgers(
-    CompanyMasterSid: number,
-    GroupName?: string,
-    SubGroupName?: string,
-  ) {
-    return await this.databaseService.cOAMaster.findMany({
-      where: {
-        CompanyMasterSid,
-        Status: 'A',
-        LedgerCategory: 'Ledger', // Only get ledger-level accounts
-        ...(GroupName && { GroupName }),
-        ...(SubGroupName && { SubGroupName }),
-      },
-      orderBy: [
-        { Category: 'asc' },
-        { GroupName: 'asc' },
-        { SubGroupName: 'asc' },
-        { LedgerName: 'asc' },
-      ],
-    });
+  CompanyMasterSid: number,
+  GroupName?: string | number,
+  SubGroupName?: string | number,
+) {
+  // Ensure string conversion
+  const where: any = {
+    CompanyMasterSid,
+    Status: 'A',
+    LedgerCategory: 'Ledger',
+  };
+
+  if (GroupName !== undefined && GroupName !== null) {
+    where.GroupName = String(GroupName);
   }
+  if (SubGroupName !== undefined && SubGroupName !== null) {
+    where.SubGroupName = String(SubGroupName);
+  }
+
+  return await this.databaseService.cOAMaster.findMany({
+    where,
+    orderBy: [
+      { Category: 'asc' },
+      { GroupName: 'asc' },
+      { SubGroupName: 'asc' },
+      { LedgerName: 'asc' },
+    ],
+  });
+}
+
 
   /**
    * Calculate balances for a single ledger

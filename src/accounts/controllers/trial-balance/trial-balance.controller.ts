@@ -4,6 +4,8 @@ import {
   Query,
   HttpCode,
   HttpStatus,
+  Body,
+  Post,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { TrialBalanceService } from '../../services/trial-balance/trial-balance.service';
@@ -17,7 +19,7 @@ import {
 export class TrialBalanceController {
   constructor(private readonly trialBalanceService: TrialBalanceService) {}
 
-  @Get('report')
+  @Post('report')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Generate Trial Balance Report',
@@ -40,7 +42,7 @@ export class TrialBalanceController {
     description: 'Financial year not found',
   })
   async generateReport(
-    @Query() query: TrialBalanceQueryDto,
+    @Body() query: TrialBalanceQueryDto,
   ): Promise<TrialBalanceResponseDto> {
     return this.trialBalanceService.generateTrialBalance(query);
   }

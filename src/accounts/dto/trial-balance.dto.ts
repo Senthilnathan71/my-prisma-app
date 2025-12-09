@@ -15,23 +15,23 @@ export class TrialBalanceQueryDto {
   @IsNotEmpty()
   @IsNumber()
   @Type(() => Number)
-  CompanyMasterSid: number;
+  companyId: number;
 
   @ApiProperty({ required: false, description: 'Branch Master Sid(s) - Optional, supports multi-select' })
   @IsOptional()
   @IsArray()
   @Type(() => Number)
-  BranchMasterSid?: number[];
+  Branch?: number[];
 
   @ApiProperty({ description: 'From Date - Mandatory' })
   @IsNotEmpty()
   @IsDateString()
-  fromDate: string;
+  FromDate: string;
 
   @ApiProperty({ description: 'To Date - Mandatory (must be >= fromDate)' })
   @IsNotEmpty()
   @IsDateString()
-  toDate: string;
+  ToDate: string;
 
   @ApiProperty({ required: false, description: 'Group Name - Optional filter' })
   @IsOptional()
