@@ -1717,6 +1717,7 @@ export class VoucherService {
                                 PostDate: now,
                                 GST_VAT: voucher.GST_VAT || '',
                                 Sno: detail.Sno,
+                                ChargeMasterSid : detail.ChargeMasterSid || null,
                                 ChargeDescription: detail.ChargeDescription || '',
                                 LedgerMasterSid: detail.LedgerMasterSid!,
                                 COAMasterSid: detail.COAMasterSid!,
