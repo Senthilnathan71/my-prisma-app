@@ -523,6 +523,7 @@ export class PaymentService {
                             Amount: Math.abs(formattedExRateMismatch),
                             LocalAmount: Math.abs(formattedExRateMismatch),
                             TaxableAmount: 0,
+                            YearMasterSid : payload.yearMasterSid,
                             CreatedBy: payload.postedBy,
                             Status: 'A',
                         }

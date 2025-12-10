@@ -123,6 +123,7 @@ export class VendorInvoiceService {
                                 DrCr: detail.DrCr || 'D', // Vendor invoice = Debit (payable)
                                 LedgerMasterSid: detail.LedgerMasterSid,
                                 COAMasterSid: detail.COAMasterSid,
+                                YearMasterSid : detail.YearMasterSid || payload.YearMasterSid,
                                 MasterJobSid: detail.MasterJobSid || payload.MasterJobSid,
                                 HouseJobSid: detail.HouseJobSid || payload.HouseJobSid,
                                 CreatedBy: payload.CreatedBy || 'System',
@@ -461,6 +462,7 @@ export class VendorInvoiceService {
                     DrCr: detail.DrCr || 'D',
                     LedgerMasterSid: detail.LedgerMasterSid,
                     COAMasterSid: detail.COAMasterSid,
+                    YearMasterSid : detail.YearMasterSid || payload.YearMasterSid,
                     MasterJobSid: detail.MasterJobSid || payload.MasterJobSid,
                     HouseJobSid: detail.HouseJobSid || payload.HouseJobSid,
                     CreatedBy: payload.UpdatedBy || 'System',

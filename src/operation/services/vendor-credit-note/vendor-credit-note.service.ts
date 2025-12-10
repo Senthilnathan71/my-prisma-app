@@ -121,6 +121,7 @@ export class VendorCreditNoteService {
                                     COAMasterSid: detail.COAMasterSid,
                                     MasterJobSid: detail.MasterJobSid || payload.MasterJobSid,
                                     HouseJobSid: detail.HouseJobSid || payload.HouseJobSid,
+                                    YearMasterSid : detail.YearMasterSid || payload.YearMasterSid,
                                     CreatedBy: payload.CreatedBy || 'System',
                                     Status: 'A'
                                 }
@@ -430,6 +431,7 @@ if (payload.VoucherDetail && Array.isArray(payload.VoucherDetail)) {
                     COAMasterSid: detail.COAMasterSid,
                     MasterJobSid: detail.MasterJobSid || payload.MasterJobSid,
                     HouseJobSid: detail.HouseJobSid || payload.HouseJobSid,
+                    YearMasterSid : detail.YearMasterSid || payload.YearMasterSid,
                     CreatedBy: payload.UpdatedBy || 'System',
                     Status: 'A'
                 }

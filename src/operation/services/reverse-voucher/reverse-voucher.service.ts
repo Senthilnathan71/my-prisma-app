@@ -121,6 +121,7 @@ export class ReverseVoucherService {
                                         HouseJobSid: detail.HouseJobSid || payload.HouseJobSid,
                                         CostCenter: detail.CostCenterMasterSid,
                                         ProfitCenter: detail.ProfitCenterMasterSid,
+                                        YearMasterSid : detail.YearMasterSid || payload.YearMasterSid,
                                         CreatedBy: payload.CreatedBy || 'System',
                                         Status: 'A'
                                     }
@@ -430,6 +431,7 @@ export class ReverseVoucherService {
                                 DrCr: detail.DrCr || 'D',
                                 LedgerMasterSid: detail.LedgerMasterSid,
                                 COAMasterSid: detail.COAMasterSid,
+                                YearMasterSid : detail.YearMasterSid || payload.YearMasterSid,
                                 MasterJobSid: detail.MasterJobSid || payload.MasterJobSid,
                                 HouseJobSid: detail.HouseJobSid || payload.HouseJobSid,
                                 CreatedBy: payload.UpdatedBy || 'System',

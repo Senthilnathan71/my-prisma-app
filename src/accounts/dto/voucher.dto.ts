@@ -314,7 +314,7 @@ export class VoucherDetailDto {
 
     @IsOptional() 
     @IsNumber()
-    COAMasterSid?: number;
+    COAMasterSid: number;
 
     @IsOptional() 
     @IsNumber()

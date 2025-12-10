@@ -201,6 +201,7 @@ export class JournalVoucherService {
                                 HouseJobSid: detail.HouseJobSid || payload.HouseJobSid,
                                 CostCenter: detail.CostCenterMasterSid,
                                 ProfitCenter: detail.ProfitCenterMasterSid,
+                                YearMasterSid : detail.YearMasterSid || payload.YearMasterSid,
                                 CreatedBy: payload.CreatedBy || 'System',
                                 Status: 'A'
                             }
