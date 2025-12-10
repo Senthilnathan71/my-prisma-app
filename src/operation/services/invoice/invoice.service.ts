@@ -4,6 +4,7 @@ import { DatabaseService } from 'src/database/database.service';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 import { Prisma } from '@prisma/client';
 import * as moment from 'moment-timezone';
+import { Debug } from '@prisma/client/runtime/library';
 
 @Injectable()
 export class InvoiceService {
@@ -281,6 +282,7 @@ export class InvoiceService {
           DocumentNumber: payload.DocumentNumber || '',
           DocumentDate: payload.DocumentDate ? new Date(payload.DocumentDate) : null,
           Narration: payload.Narration,
+         
         };
 
         this.logger.debug(`createInvoice - voucherHeaderPayload: ${JSON.stringify(voucherHeaderPayload)}`);
@@ -331,6 +333,7 @@ export class InvoiceService {
                 CostCenter: detail.CostCenter ? Number(detail.CostCenter) : null,
                 ProfitCenter: detail.ProfitCenter ? Number(detail.ProfitCenter) : null,
                 Remarks: detail.Remarks,
+                YearMasterSid: detail.YearMasterSid ? Number(detail.YearMasterSid) : null,
               };
             })
           );
@@ -409,6 +412,7 @@ export class InvoiceService {
           PartyMasterSid: payload.PartyMasterSid ? Number(payload.PartyMasterSid) : existingVoucher.PartyMasterSid,
           PartyName: payload.PartyName != null ? (resolvedPartyNameForUpdate ?? String(payload.PartyName)) : existingVoucher.PartyName,
           COAMasterSid : payload.COAMasterSid ? Number(payload.COAMasterSid) : existingVoucher.COAMasterSid,
+          
           PartyAddress: payload.PartyAddress || existingVoucher.PartyAddress,
           CustomerBranchSid: payload.CustomerBranchSid || existingVoucher.CustomerBranchSid,
           PlaceOfSupply: payload.PlaceOfSupply || existingVoucher.PlaceOfSupply,
@@ -431,7 +435,8 @@ export class InvoiceService {
           NetAmount: payload.NetAmount ? Number(payload.NetAmount) : existingVoucher.NetAmount,
           DocumentNumber: payload.DocumentNumber || existingVoucher.DocumentNumber,
           DocumentDate: payload.DocumentDate ? new Date(payload.DocumentDate) : existingVoucher.DocumentDate,
-          Narration: payload.Narration || existingVoucher.Narration
+          Narration: payload.Narration || existingVoucher.Narration,
+          
         };
 
         const updatedVoucherHeader = await prisma.voucherHeader.update({
@@ -439,73 +444,129 @@ export class InvoiceService {
           data: voucherHeaderPayload
         });
 
-        // Update VoucherDetail rows with proper CurrencyMasterSid mapping
-if (payload.VoucherDetail && Array.isArray(payload.VoucherDetail) && payload.VoucherDetail.length > 0) {
+       // -------------------------------
+// UPDATE VOUCHER DETAILS 
+// -------------------------------
 
-  const voucherDetailsPayload = await Promise.all(
-    payload.VoucherDetail.map(async (detail: any, index: number) => {
-      const currencyMasterSid = detail.CurrencyMasterSid
-        ? Number(detail.CurrencyMasterSid)
-        : await this.getCurrencyMasterIdByCode(detail.CurrencyCode, prisma);
+if (payload.VoucherDetail && Array.isArray(payload.VoucherDetail)) {
+console.log('DEBUG - Processing voucher details:', payload.VoucherDetail.length, 'items');
+Debug.log('DEBUG - Processing voucher details:', payload.VoucherDetail.length, 'items');
+  // 1️⃣ Collect incoming detail IDs
+  const incomingIds = payload.VoucherDetail
+    .filter(d => d.VoucherDetailSid)
+    .map(d => Number(d.VoucherDetailSid));
 
-      return {
-        VoucherDetailSid: detail.VoucherDetailSid ? Number(detail.VoucherDetailSid) : null,
-        VoucherHeaderSid: VoucherHeaderSid,
-        CreatedBy: payload.UpdatedBy,
-        UpdatedBy: payload.UpdatedBy,
-        Status: "A",
-        CompanyMasterSid: existingVoucher.CompanyMasterSid,
-        BranchMasterSid: existingVoucher.BranchMasterSid,
-        Sno: index + 1,
-        ChargeMasterSid: detail.ChargeMasterSid ? Number(detail.ChargeMasterSid) : null,
-        ChargeDescription: detail.ChargeDescription,
-        LedgerMasterSid: detail.LedgerMasterSid ? Number(detail.LedgerMasterSid) : null,
-        COAMasterSid: detail.COAMasterSid ? Number(detail.COAMasterSid) : null,
-        HSSACMasterSid: detail.HSSACMasterSid ? Number(detail.HSSACMasterSid) : null,
-        DepartmentMasterSid: detail.DepartmentMasterSid ? Number(detail.DepartmentMasterSid) : null,
-        HouseJobSid: detail.HouseJobSid ? Number(detail.HouseJobSid) : null,
-        MasterJobSid: detail.MasterJobSid ? Number(detail.MasterJobSid) : null,
-        CostRevenue: detail.CostRevenue,
-        ChargeUOMSid: detail.ChargeUOMSid ? Number(detail.ChargeUOMSid) : null,
-        CurrencyMasterSid: currencyMasterSid,
-        CurrencyCode: detail.CurrencyCode,
-        ExchangeRate: detail.ExchangeRate ? Number(detail.ExchangeRate) : null,
-        Rate: detail.Rate ? Number(detail.Rate) : null,
-        NumberOfUnit: detail.NumberOfUnit ? Number(detail.NumberOfUnit) : null,
-        Narration: detail.Narration,
-        DrCr: detail.DrCr,
-        TaxableAmount: detail.TaxableAmount ? Number(detail.TaxableAmount) : null,
-        TaxPercentage1: detail.TaxPercentage1 ? Number(detail.TaxPercentage1) : null,
-        TaxAmount1: detail.TaxAmount1 ? Number(detail.TaxAmount1) : null,
-        TaxPercentage2: detail.TaxPercentage2 ? Number(detail.TaxPercentage2) : null,
-        TaxAmount2: detail.TaxAmount2 ? Number(detail.TaxAmount2) : null,
-        Amount: detail.Amount ? Number(detail.Amount) : null,
-        LocalAmount: detail.LocalAmount ? Number(detail.LocalAmount) : null,
-        PartyAmount: detail.PartyAmount ? Number(detail.PartyAmount) : null,
-        InvoiceType: detail.InvoiceType,
-        CostCenter: detail.CostCenter ? Number(detail.CostCenter) : null,
-        ProfitCenter: detail.ProfitCenter ? Number(detail.ProfitCenter) : null,
-        Remarks: detail.Remarks
-      };
-    })
-  );
+  // 2️⃣ Soft-delete missing details
+  await prisma.voucherDetail.updateMany({
+    where: {
+      VoucherHeaderSid,
+      VoucherDetailSid: { notIn: incomingIds }
+    },
+    data: { Status: 'D' }
+  });
 
-  // 🔥 MAIN CHANGE HERE (update or create)
-  for (const detail of voucherDetailsPayload) {
+  // 3️⃣ Create / Update details
+  let sno = 1;
+
+  for (const detail of payload.VoucherDetail) {
+
+    // Resolve CurrencyMasterSid if needed
+    const currencyMasterSid = detail.CurrencyMasterSid
+      ? Number(detail.CurrencyMasterSid)
+      : await this.getCurrencyMasterIdByCode(detail.CurrencyCode, prisma);
+
     if (detail.VoucherDetailSid) {
-      // UPDATE existing
+      // -------------------------------
+      // UPDATE EXISTING RECORD
+      // -------------------------------
       await prisma.voucherDetail.update({
-        where: { VoucherDetailSid: detail.VoucherDetailSid },
-        data: detail
+        where: { VoucherDetailSid: Number(detail.VoucherDetailSid) },
+        data: {
+          Sno: sno++,
+          ChargeMasterSid: detail.ChargeMasterSid || null,
+          ChargeDescription: detail.ChargeDescription || '',
+          LedgerMasterSid: detail.LedgerMasterSid || null,
+          COAMasterSid: detail.COAMasterSid || null,
+          HSSACMasterSid: detail.HSSACMasterSid || null,
+          DepartmentMasterSid: detail.DepartmentMasterSid || null,
+          HouseJobSid: detail.HouseJobSid || payload.HouseJobSid,
+          MasterJobSid: detail.MasterJobSid || payload.MasterJobSid,
+          CostRevenue: detail.CostRevenue,
+          ChargeUOMSid: detail.ChargeUOMSid || null,
+          CurrencyMasterSid: detail.CurrencyMasterSid || payload.CurrencyMasterSid || null,
+          CurrencyCode: detail.CurrencyCode || payload.CurrencyCode,
+          ExchangeRate: detail.ExchangeRate || payload.ExchangeRate || 1,
+          Rate: detail.Rate || 0,
+          NumberOfUnit: detail.NumberOfUnit || 1,
+          Narration: detail.Narration,
+          DrCr: detail.DrCr || 'D',
+          TaxableAmount: detail.TaxableAmount || detail.Amount || 0,
+          TaxPercentage1: detail.TaxPercentage1 || 0,
+           TaxAmount1: detail.TaxAmount1 ? Number(detail.TaxAmount1) : null,
+          TaxPercentage2: detail.TaxPercentage2 || 0,
+          TaxAmount2: detail.TaxAmount2 || 0,
+          Amount: detail.Amount || 0,
+          LocalAmount: detail.LocalAmount || 0,
+          PartyAmount: detail.PartyAmount || 0,
+          InvoiceType: detail.InvoiceType,
+          CostCenter: detail.CostCenter || null,
+          ProfitCenter: detail.ProfitCenter || null,
+          Remarks: detail.Remarks,
+          UpdatedBy: payload.UpdatedBy,
+          Status: 'A'
+        }
       });
+  Debug.log('DEBUG - VoucherDetail created successfully');
     } else {
-      // CREATE new
+      // -------------------------------
+      // CREATE NEW RECORD
+      // -------------------------------
       await prisma.voucherDetail.create({
-        data: detail
+        data: {
+          VoucherHeaderSid,
+          Sno: sno++,
+          CompanyMasterSid: existingVoucher.CompanyMasterSid,
+          BranchMasterSid: existingVoucher.BranchMasterSid,
+
+          ChargeMasterSid: detail.ChargeMasterSid || null,
+          ChargeDescription: detail.ChargeDescription || '',
+          LedgerMasterSid: detail.LedgerMasterSid || null,
+          COAMasterSid: detail.COAMasterSid || null,
+          HSSACMasterSid: detail.HSSACMasterSid || null,
+          DepartmentMasterSid: detail.DepartmentMasterSid || null,
+          HouseJobSid: detail.HouseJobSid || payload.HouseJobSid,
+          MasterJobSid: detail.MasterJobSid || payload.MasterJobSid,
+          CostRevenue: detail.CostRevenue,
+          ChargeUOMSid: detail.ChargeUOMSid || null,
+          CurrencyMasterSid: detail.currencyMasterSid,
+          CurrencyCode: detail.CurrencyCode || payload.CurrencyCode,
+          ExchangeRate: detail.ExchangeRate || payload.ExchangeRate || 1,
+          Rate: detail.Rate || 0,
+          NumberOfUnit: detail.NumberOfUnit || 1,
+          Narration: detail.Narration,
+          DrCr: detail.DrCr || 'D',
+          TaxableAmount: detail.TaxableAmount || detail.Amount || 0,
+          TaxPercentage1: detail.TaxPercentage1 || 0,
+          TaxAmount1: detail.TaxAmount1 || 0,
+          TaxPercentage2: detail.TaxPercentage2 || 0,
+          TaxAmount2: detail.TaxAmount2 || 0,
+
+          Amount: detail.Amount || 0,
+          LocalAmount: detail.LocalAmount || 0,
+          PartyAmount: detail.PartyAmount || 0,
+          InvoiceType: detail.InvoiceType,
+          CostCenter: detail.CostCenter || null,
+          ProfitCenter: detail.ProfitCenter || null,
+          Remarks: detail.Remarks,
+
+          CreatedBy: payload.UpdatedBy,
+          Status: 'A'
+        }
       });
     }
   }
 }
+
 
         // Update or create VoucherOthers
         if (payload.VoucherOthers) {

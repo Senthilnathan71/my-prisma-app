@@ -528,6 +528,89 @@ export class SubledgermasterService {
             throw error;
         }
     }
+    async getAllMappedChargeCreditors(payload: any) {
+        try {
+            const allChargeCreditors = await this._db.subledgerMaster.findMany({
+                where: {
+                    Status: "A",
+                    SubledgerType: "Charge",
+                    CrCOAMasterSid: { not: null },
+                    SubledgerMappingSid: { not: null },
+                    CompanyMasterSid: payload.CompanyMasterSid,
+                },
+                select: {
+                    SubledgerMasterSid: true,
+                    SubledgerMappingSid: true,
+                    CrCOAMasterSid: true,
+                   
+                }
+            });
+            const allMappedChargeSubledgersIds = allChargeCreditors.map(chargeCreditor => chargeCreditor.SubledgerMappingSid!);
+            const ledgerToChargeMapping = new Map<number,{CrCOAMasterSid:number,subledgerMasterSid:number}>();
+            allChargeCreditors.forEach(chargeCreditor => {
+                ledgerToChargeMapping.set(chargeCreditor.SubledgerMappingSid!, {
+                    CrCOAMasterSid: chargeCreditor.CrCOAMasterSid!,
+                    subledgerMasterSid: chargeCreditor.SubledgerMasterSid
+                });
+            });
+
+            // Get all charges with subledger mapped
+            const allCreditors = await this._db.chargeMaster.findMany({
+                where: {
+                    Status: "A",
+                    ChargeMasterSid: { in: allMappedChargeSubledgersIds },
+                    CompanyMasterSid: payload.CompanyMasterSid
+                },
+                select: {
+                ChargeMasterSid: true,
+                chargeCode: true,
+                chargeName: true,  
+                UOM: true,
+
+                chargeTaxMaster: {
+                    where: {
+                        Status: "A"
+                    },
+                    select: {
+                        HSNCode: true,
+                        description: true,
+                        TaxRate: true,
+                        ChargeTaxMasterSid: true,
+                        CompanyMasterSid: true,
+                        TaxGroupSid: true,
+                        HSSACMasterSid: true,
+                        Status: true
+                    }
+                },
+                chargeTds: {
+                    where: {
+                        status: "A"
+                    },
+                    select: {
+                        ChargeTdsSid: true,
+                        TDSSet: true,
+                        EffectiveFrom: true,
+                    }
+                }
+            }
+        });
+        return allCreditors.map(charge => {
+            const mapping = ledgerToChargeMapping.get(charge.ChargeMasterSid);
+            return {
+                ChargeMasterSid: charge.ChargeMasterSid,
+                chargeCode: charge.chargeCode,
+                chargeName: charge.chargeName,
+                UOM: charge.UOM,
+                ChargeTaxMaster: charge.chargeTaxMaster,
+                ChargeTds: charge.chargeTds,
+                CrCOAMasterSid: mapping?.CrCOAMasterSid,
+                SubledgerMasterSid: mapping?.subledgerMasterSid,
+            };
+        });
+    } catch (error) {
+        throw error;
+    }
+}
     async getAllMappedChargeDebtors(payload: any) {
     try {
         const allChargeDebtors = await this._db.subledgerMaster.findMany({
@@ -614,6 +697,7 @@ export class SubledgermasterService {
         throw error;
     }
 }
+
  async getLedgerForTaxGroup(
   taxGroup: number | number[],
   InputOrOutput: 'Input' | 'Output',

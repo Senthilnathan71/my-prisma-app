@@ -2085,38 +2085,46 @@ const allHouseJobs = await prisma.houseJob.findMany({
 
     async detachBookingFromMasterJob(HouseJobSid: number) {
         try {
-            const detachedHouse = await this._db.houseJob.update({
-                where: {
-                    HouseJobSid: HouseJobSid
-                },
-                data: {
-                    MasterJobSid: null
-                }
-            })
-            const ourBooking = await this._db.bookingHeader.findFirst({
-                where: {
-                    BookingHeaderSid: detachedHouse.BookingHeaderSid!
-                }
-            })
-
-            let detachedBooking;
-            if (ourBooking) {
-                detachedBooking = await this._db.bookingHeader.update({
+            const result = await this._db.$transaction(async (tx) => {
+                const detachedHouse = await tx.houseJob.update({
                     where: {
-                        BookingHeaderSid: ourBooking.BookingHeaderSid
+                        HouseJobSid: HouseJobSid
                     },
                     data: {
-                        MasterNoSid: null,
-                        MBLNo: null,
-                        MBLDate: null,
-                        BookingStatus: 'Cargo Received',
+                        MasterJobSid: null
                     }
                 })
-            }
-            return {
-                detachedBooking,
-                detachedHouse
-            }
+
+                let detachedBooking;
+                if (detachedHouse.BookingHeaderSid) {
+                    const ourBooking = await tx.bookingHeader.findFirst({
+                        where: {
+                            BookingHeaderSid: detachedHouse.BookingHeaderSid
+                        }
+                    })
+                    if (ourBooking) {
+                        detachedBooking = await tx.bookingHeader.update({
+                            where: {
+                                BookingHeaderSid: ourBooking.BookingHeaderSid
+                            },
+                            data: {
+                                MasterNoSid: null,
+                                MBLNo: null,
+                                MBLDate: null,
+                                BookingStatus: 'Cargo Received',
+                            }
+                        })
+                    }
+                }
+                
+
+                
+                return {
+                    detachedBooking,
+                    detachedHouse
+                }
+            })
+            
         } catch (error) {
             throw error;
         }

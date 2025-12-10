@@ -1629,7 +1629,7 @@ export class VoucherService {
                                     ExchangeRate: new Decimal(1),
                                     Rate: new Decimal(taxSummary.taxAmount),
                                     NumberOfUnit: new Decimal(1),
-                                    Narration: `Tax: ${taxSummary.taxType}`,
+                                    Narration: voucher.Narration,
                                     DrCr: taxSummary.DrCr!,
                                     TaxableAmount: new Decimal(taxSummary.taxableAmount),
                                     Amount: new Decimal(taxSummary.taxAmount),
