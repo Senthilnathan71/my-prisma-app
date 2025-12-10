@@ -49,6 +49,8 @@ model ReportMasterDetail {
   DefaultValue          String?      @db.VarChar(100)
   /// Example: { "required": true, "minLength": 5, "maxLength": 100, "pattern": "^[A-Z]", "min": 0, "max": 100 }
   ValidationRules       Json?
+  /// Name of the parent parameter this dropdown depends on (for cascading dropdowns)
+  DependsOnParameter    String?      @db.VarChar(50)
   reportMaster          ReportMaster @relation(fields: [ReportMasterSid], references: [ReportMasterSid])
 
   @@index([ReportMasterSid])
