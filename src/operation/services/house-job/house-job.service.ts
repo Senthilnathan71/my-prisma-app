@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { DatabaseService } from 'src/database/database.service';
 import { OperationCommonService } from '../operation-common/operation-common.service';
 import { MenuService } from 'src/masters/services/menu/menu.service';
+import * as moment from 'moment-timezone';
 
 @Injectable()
 export class HouseJobService {
@@ -14,6 +15,26 @@ export class HouseJobService {
     async createHouseJob(payload: any) {
   try {
     const createdHouseJob = await this._db.$transaction(async (prisma) => {
+        const dateString = moment().format('YYYYMMDD');
+                        let hblBaseCount = await this._db.houseJob.count({
+                            where: { HBLNo: { contains: dateString } },
+                        });
+                        let hblSerial = hblBaseCount;
+    const department = await this._db.departmentMaster.findUnique({
+                        where: { DepartmentMasterSid: payload.DepartmentMasterSid },
+                        select: {
+                            departmentType: true,
+                            ExportImport: true
+                        }
+                    });
+                    const departmentExportImport = department?.ExportImport ?? null;
+                    hblSerial += 1;
+                    let HBLNo;
+                    if (departmentExportImport === 'Export') {
+                        HBLNo = `HOUSE-${dateString}-${hblSerial.toString().padStart(3, '0')}`;
+                    } else {
+                        HBLNo = "";
+                    }
       
       const menuId = await this.menuService.getMenuSidByName("House Job");
 
@@ -42,6 +63,7 @@ export class HouseJobService {
           VoyageMasterSid: payload.VoyageMasterSid || null,
           VesselName: payload.VesselName || '',
           VoyageNo: payload.VoyageNo || '',
+          HBLDate: payload.HBLDate ? new Date(payload.HBLDate) : null,
           ETD: payload.ETD ? new Date(payload.ETD) : null,
           ETA: payload.ETA ? new Date(payload.ETA) : null,
           IncoTerms: payload.IncoTerms || '',
@@ -74,7 +96,7 @@ export class HouseJobService {
           CarrierName: payload.CarrierName || '',
           Coload: payload.Coload || '',
           GeneralNote: payload.GeneralNote || '',
-          HBLNo: payload.HBLNo || '',
+          HBLNo: HBLNo,
           InternalNote: payload.InternalNote || '',
           MBLDate: payload.MBLDate || null,
           MBLNo: payload.MBLNo || '',
@@ -120,6 +142,7 @@ export class HouseJobService {
             MovementType: cargoPayload.MovementType || '',
             CommodityDescription: cargoPayload.CommodityDescription || '',
             MarksAndNumber: cargoPayload.MarksAndNumber || '',
+            LandedMarksandNumber: cargoPayload.LandedMarksandNumber || '',
             ModeOfTransport: cargoPayload.ModeOfTransport || '',
             NoofContainers: Number(cargoPayload.NoofContainers) || 0,
             StuffingAt: cargoPayload.StuffingAt || '',
@@ -163,6 +186,9 @@ export class HouseJobService {
               UomMasterSid: product.UomMasterSid || null,
               ContainerNo: product.ContainerNo,
               DeliveryDate: product.DeliveryDate ? new Date(product.DeliveryDate) : null,
+              ReceivedQty: product.ReceivedQty || 0,
+              DamageQty: product.DamageQty || 0,
+              DamageRemarks: product.DamageRemarks || '',
               DeliveredQty: product.DeliveredQty || 0,
               MarksAndNumber: product.MarksAndNumber
             }
@@ -572,6 +598,7 @@ export class HouseJobService {
                         VoyageMasterSid : payload.VoyageMasterSid || null,
                         VesselName : payload.VesselName || '',
                         VoyageNo : payload.VoyageNo || '',
+                        HBLDate : payload.HBLDate ? new Date(payload.HBLDate) : null,
                         ETD : payload.ETD ? new Date(payload.ETD) : null,
                         ETA : payload.ETA ? new Date(payload.ETA) : null,
                         IncoTerms : payload.IncoTerms || '',
@@ -657,6 +684,7 @@ export class HouseJobService {
                             MovementType: cargoPayload.MovementType || '',
                             CommodityDescription: cargoPayload.CommodityDescription || '',
                             MarksAndNumber  : cargoPayload.MarksAndNumber || '',
+                            LandedMarksandNumber: cargoPayload.LandedMarksandNumber || '',
                             ModeOfTransport: cargoPayload.ModeOfTransport || '',
                             NoofContainers: Number(cargoPayload.NoofContainers) || 0,
                             StuffingAt: cargoPayload.StuffingAt || '',
@@ -688,6 +716,7 @@ export class HouseJobService {
                             MovementType: cargoPayload.MovementType || '',
                             CommodityDescription: cargoPayload.CommodityDescription || '',
                             MarksAndNumber  : cargoPayload.MarksAndNumber || '',
+                            LandedMarksandNumber: cargoPayload.LandedMarksandNumber || '',
                             ModeOfTransport: cargoPayload.ModeOfTransport || '',
                             NoofContainers: Number(cargoPayload.NoofContainers) || 0,
                             StuffingAt: cargoPayload.StuffingAt || '',
@@ -739,6 +768,9 @@ export class HouseJobService {
                                 Width: product.Width || 0,
                                 UomMasterSid: product.UomMasterSid || null,
                                 ContainerNo : product.ContainerNo,
+                                ReceivedQty: product.ReceivedQty || 0,
+                                DamageQty: product.DamageQty || 0,
+                                DamageRemarks: product.DamageRemarks || '',
                                 DeliveryDate: product.DeliveryDate ? new Date(product.DeliveryDate) : null,
                                 DeliveredQty: product.DeliveredQty || 0,
                                 MarksAndNumber : product.MarksAndNumber
@@ -761,6 +793,9 @@ export class HouseJobService {
                                 ActualVolume: Number(product.Volume) || 0,
                                 RecdPack: product.RecdPack || '',
                                 CargoRecDate: product.CargoRecDate ? new Date(product.CargoRecDate) : null,
+                                ReceivedQty: product.ReceivedQty || 0,
+                                DamageQty: product.DamageQty || 0,
+                                DamageRemarks: product.DamageRemarks || '',
                                 CFS: product.CFS || '',
                                 createdBy: payload.updatedBy,
                                 status: product.status ? String(product.status).charAt(0) : 'A',
