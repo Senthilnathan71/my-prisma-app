@@ -2814,6 +2814,7 @@ model HouseJobCargo {
   updatedOn            DateTime?            @updatedAt @db.Timestamptz(6)
   CommodityDescription String?              @db.VarChar(200)
   MarksAndNumber       String?              @db.VarChar(200)
+  LandedMarksandNumber String?              @db.VarChar(500)
   BranchMaster         BranchMaster         @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
   CompanyMaster        CompanyMaster        @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
   containerType        ContainerTypeMaster? @relation(fields: [ContainerType], references: [ContainerTypeMasterSid])
@@ -2859,6 +2860,9 @@ model HouseJobProduct {
   Volumetric         Decimal?   @db.Decimal(10, 3)
   DeliveredQty       Decimal?   @db.Decimal(3, 0)
   DeliveryDate       DateTime?
+  ReceivedQty        Decimal?   @db.Decimal(5, 0)
+  DamageQty          Decimal?   @db.Decimal(5, 0)
+  DamageRemarks      String?    @db.VarChar(100)
   HSCode             String?    @db.VarChar(10)
   HouseJob           HouseJob   @relation(fields: [HouseJobSid], references: [HouseJobSid])
   uomMaster          UOMMaster? @relation(fields: [UomMasterSid], references: [UOMMasterSid])
@@ -3423,18 +3427,18 @@ model CustomerKyc {
 }
 
 model NetworkMaster {
-  NetworkMasterSid Int           @id @default(autoincrement()) @map("NetworkMasterSid")
+  NetworkMasterSid Int            @id @default(autoincrement()) @map("NetworkMasterSid")
   CompanyMasterSid Int?
-  CreatedOn        DateTime      @default(now()) @db.Timestamptz(6)
-  CreatedBy        String        @db.VarChar(100)
-  UpdatedOn        DateTime      @default(now()) @db.Timestamptz(6)
-  UpdatedBy        String?       @db.VarChar(100)
-  Status           String        @default("A") @db.Char(1)
-  NetworkName      String        @db.VarChar(100)
+  CreatedOn        DateTime       @default(now()) @db.Timestamptz(6)
+  CreatedBy        String         @db.VarChar(100)
+  UpdatedOn        DateTime       @default(now()) @db.Timestamptz(6)
+  UpdatedBy        String?        @db.VarChar(100)
+  Status           String         @default("A") @db.Char(1)
+  NetworkName      String         @db.VarChar(100)
   CountrySid       Int
-  NetworkType      String        @default("Forwarders") @db.VarChar(10)
+  NetworkType      String         @default("Forwarders") @db.VarChar(10)
   companyMaster    CompanyMaster? @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
-  countryMaster    CountryMaster @relation(fields: [CountrySid], references: [CountryMasterSid])
+  countryMaster    CountryMaster  @relation(fields: [CountrySid], references: [CountryMasterSid])
 
   @@index([CompanyMasterSid], map: "network_company")
   @@index([CountrySid], map: "network_country")
