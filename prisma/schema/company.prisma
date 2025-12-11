@@ -2677,6 +2677,7 @@ model MasterJobContainer {
   Volume                Decimal?             @db.Decimal(8, 3)
   IsSoc                 String?              @db.Char(1)
   MarksandNumber        String?              @db.VarChar(200)
+  houseJobProduct       HouseJobProduct[]
   containerType         ContainerTypeMaster? @relation(fields: [ContainerType], references: [ContainerTypeMasterSid])
   masterJob             MasterJob            @relation(fields: [MasterJobSid], references: [MasterJobSid])
   UOMMaster             UOMMaster?           @relation(fields: [PkgType], references: [UOMMasterSid])
@@ -2822,50 +2823,52 @@ model HouseJobCargo {
 }
 
 model HouseJobProduct {
-  HouseJobProductSid Int        @id @default(autoincrement())
-  HouseJobSid        Int
-  ProductName        String     @db.VarChar(100)
-  ProductDescription String?    @db.VarChar(500)
-  ShippingBillNo     String     @db.VarChar(100)
-  ShippingBillDate   DateTime?
-  ExternaPkg         String?    @db.VarChar(100)
-  ExternlQty         String?    @db.VarChar(100)
-  InternalPkg        String?    @db.VarChar(100)
-  InternalQty        String?    @db.VarChar(100)
-  GrossWeight        Decimal    @db.Decimal(10, 3)
-  NetWeight          Decimal?   @db.Decimal(10, 3)
-  Volume             Decimal?   @db.Decimal(10, 3)
-  ActualGrWeight     Decimal?   @db.Decimal(10, 3)
-  ActualQty          String?    @db.VarChar(100)
-  ActualVolume       Decimal?   @db.Decimal(10, 3)
-  CFS                String?    @db.VarChar(100)
-  CargoRecDate       DateTime?
-  Height             Int?
-  ImcoClass          String?    @db.VarChar(500)
-  IsHaz              String?    @db.Char(1)
-  Length             Int?
-  PkgGroup           String?    @db.VarChar(500)
-  RecdPack           String?    @db.VarChar(100)
-  UnNo               String?    @db.VarChar(500)
-  UomMasterSid       Int?
-  Width              Int?
-  createdBy          String     @db.VarChar(100)
-  createdOn          DateTime   @default(now()) @db.Timestamptz(6)
-  deletedAt          DateTime?
-  status             String?    @default("A") @db.Char(1)
-  updatedBy          String?    @db.VarChar(100)
-  updatedOn          DateTime?  @updatedAt @db.Timestamptz(6)
-  MarksAndNumber     String?    @db.VarChar(200)
-  ContainerNo        String?    @db.VarChar(11)
-  Volumetric         Decimal?   @db.Decimal(10, 3)
-  DeliveredQty       Decimal?   @db.Decimal(3, 0)
-  DeliveryDate       DateTime?
-  ReceivedQty        Decimal?   @db.Decimal(5, 0)
-  DamageQty          Decimal?   @db.Decimal(5, 0)
-  DamageRemarks      String?    @db.VarChar(100)
-  HSCode             String?    @db.VarChar(10)
-  HouseJob           HouseJob   @relation(fields: [HouseJobSid], references: [HouseJobSid])
-  uomMaster          UOMMaster? @relation(fields: [UomMasterSid], references: [UOMMasterSid])
+  HouseJobProductSid    Int                 @id @default(autoincrement())
+  HouseJobSid           Int
+  ProductName           String              @db.VarChar(100)
+  ProductDescription    String?             @db.VarChar(500)
+  ShippingBillNo        String              @db.VarChar(100)
+  ShippingBillDate      DateTime?
+  ExternaPkg            String?             @db.VarChar(100)
+  ExternlQty            String?             @db.VarChar(100)
+  InternalPkg           String?             @db.VarChar(100)
+  InternalQty           String?             @db.VarChar(100)
+  GrossWeight           Decimal             @db.Decimal(10, 3)
+  NetWeight             Decimal?            @db.Decimal(10, 3)
+  Volume                Decimal?            @db.Decimal(10, 3)
+  ActualGrWeight        Decimal?            @db.Decimal(10, 3)
+  ActualQty             String?             @db.VarChar(100)
+  ActualVolume          Decimal?            @db.Decimal(10, 3)
+  CFS                   String?             @db.VarChar(100)
+  CargoRecDate          DateTime?
+  Height                Int?
+  ImcoClass             String?             @db.VarChar(500)
+  IsHaz                 String?             @db.Char(1)
+  Length                Int?
+  PkgGroup              String?             @db.VarChar(500)
+  RecdPack              String?             @db.VarChar(100)
+  UnNo                  String?             @db.VarChar(500)
+  UomMasterSid          Int?
+  Width                 Int?
+  createdBy             String              @db.VarChar(100)
+  createdOn             DateTime            @default(now()) @db.Timestamptz(6)
+  deletedAt             DateTime?
+  status                String?             @default("A") @db.Char(1)
+  updatedBy             String?             @db.VarChar(100)
+  updatedOn             DateTime?           @updatedAt @db.Timestamptz(6)
+  MarksAndNumber        String?             @db.VarChar(200)
+  ContainerNo           String?             @db.VarChar(11)
+  MasterJobContainerSid Int?
+  Volumetric            Decimal?            @db.Decimal(10, 3)
+  DeliveredQty          Decimal?            @db.Decimal(3, 0)
+  DeliveryDate          DateTime?
+  ReceivedQty           Decimal?            @db.Decimal(5, 0)
+  DamageQty             Decimal?            @db.Decimal(5, 0)
+  DamageRemarks         String?             @db.VarChar(100)
+  HSCode                String?             @db.VarChar(10)
+  masterJobContainer    MasterJobContainer? @relation(fields: [MasterJobContainerSid], references: [MasterJobContainerSid])
+  HouseJob              HouseJob            @relation(fields: [HouseJobSid], references: [HouseJobSid])
+  uomMaster             UOMMaster?          @relation(fields: [UomMasterSid], references: [UOMMasterSid])
 }
 
 model HouseJobConnection {
@@ -3085,7 +3088,7 @@ model VoucherDetail {
   Rate                  Decimal             @db.Decimal(15, 3)
   NumberOfUnit          Decimal?            @db.Decimal(7, 3)
   Narration             String?             @db.VarChar(200)
-  DrCr                  String             @db.VarChar(50)
+  DrCr                  String              @db.VarChar(50)
   TaxableAmount         Decimal             @db.Decimal(15, 3)
   TaxPercentage1        Decimal?            @db.Decimal(5, 2)
   TaxAmount1            Decimal?            @db.Decimal(10, 3)
