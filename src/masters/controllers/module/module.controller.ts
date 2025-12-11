@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, Post, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, Post, Query, UnauthorizedException } from '@nestjs/common';
 import { ApiOperation, ApiCreatedResponse } from '@nestjs/swagger';
 import { Auth } from 'src/common/decorators/auth.decorator';
 import { UserData } from 'src/common/decorators/user.decorator';
@@ -81,7 +81,10 @@ export class ModuleController {
     })
     @HttpCode(HttpStatus.OK)
     @Get('navigation-list')
-    async getAllModulesAndMenus(@UserData() user: any) {
+    async getAllModulesAndMenus(
+        @UserData() user: any,
+       @Query('UserCompanyMasterSid', new ParseIntPipe({ optional: true })) UserCompanyMasterSid?: number
+    ) {
         let output = new ResponseData;
         console.log(user, 'userData')
         try {
@@ -89,7 +92,10 @@ export class ModuleController {
             if (user.userType.code === "admin") {
                 moduleData = await this.moduleService.getAllModulesWithMenusAsRoutes();
             } else {
-                moduleData = await this.moduleService.getModulesWithMenusByRoles(user)
+                if(!UserCompanyMasterSid){
+                    throw new BadRequestException('UserCompanyMasterSid is required for non-admin users');
+                }
+                moduleData = await this.moduleService.getModulesWithMenusByRoles(UserCompanyMasterSid)
             }
             this.logger.log(`getAllmodules: ${JSON.stringify(moduleData)}`)
             output.data = moduleData;

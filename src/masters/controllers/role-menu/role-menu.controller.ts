@@ -168,7 +168,7 @@ export class RoleMenuController {
     async getMenuPermission(
         @Body() payload : {
             CompanyMasterSid:number,
-            RoleMasterSid:number,
+            Roles:number[],
             MenuMasterSid:number,
         }
     ){
@@ -190,26 +190,6 @@ export class RoleMenuController {
             } else {
                 resp.message = "Internal Server Error";
             }
-        }
-        return resp;
-    }
-
-
-    // Needs to be removed
-    @Get('permissions/:menuId/:roleId')
-    async getRoleMenuPermissions(
-        @Param('menuId', ParseIntPipe) menuId: number,
-        @Param('roleId', ParseIntPipe) roleId: number
-    ) {
-        let resp = new ResponseData();
-        try {
-            const permissions = await this.roleMenuService.getRoleMenuPermissions(menuId, roleId);
-            resp.data = permissions;
-            resp.message = "Permissions fetched successfully";
-        } catch (error) {
-            this.logger.warn(`Error fetching permissions: ${error}`);
-            resp.status = false;
-            resp.message = "Error fetching permissions";
         }
         return resp;
     }
