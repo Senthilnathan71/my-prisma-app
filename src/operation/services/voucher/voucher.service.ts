@@ -2070,14 +2070,12 @@ export class VoucherService {
                 });
 
                 if (!hsSacMaster) {
-                    this.logger.warn(`HS/SAC Master not found for SID: ${hsSacMasterSid}`);
-                    continue;
+                    throw new BadRequestException(`HS/SAC Master not found for SID: ${hsSacMasterSid}`);
                 }
 
                 // Step 2: Validate if taxGroup exists
                 if (!hsSacMaster.taxGroup) {
-                    this.logger.warn(`Tax Group not found for HS/SAC: ${hsSacMaster.HSSACCode}`);
-                    continue;
+                    throw new BadRequestException(`Tax Group not found for HS/SAC: ${hsSacMaster.HSSACCode}`);
                 }
 
                 // Step 3: Fetch tax masters separately with proper filtering
@@ -2191,7 +2189,7 @@ export class VoucherService {
 
                         if (!subledgerMapping) {
                             throw new BadRequestException(
-                                `Subledger mapping not found for Tax: ${tax.taxCode} `
+                                `Subledger mapping not found for Tax: ${tax.taxCode} : ${tax.taxPercentage} `
                             )
                         }
 
@@ -2199,7 +2197,7 @@ export class VoucherService {
 
                         if(!finalLedger){
                             throw new BadRequestException(
-                                `Please configure the ${PartyDrCr === 'D' ? 'Creditor' : 'Debitor'} ledger for ${tax.taxCode} in subledger master.`
+                                `Please configure the ${PartyDrCr === 'D' ? 'Creditor' : 'Debitor'} ledger for : ${tax.taxCode} : ${tax.taxPercentage} in subledger master.`
                             )
                         }
 

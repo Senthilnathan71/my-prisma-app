@@ -311,15 +311,18 @@ export class RoleMenuService {
 
     async getMenuPermission(payload: {
         CompanyMasterSid: number,
-        RoleMasterSid: number,
+        Roles: number[],
         MenuMasterSid: number
     }) {
         try {
-            const { CompanyMasterSid, RoleMasterSid, MenuMasterSid } = payload;
+            const { CompanyMasterSid, Roles, MenuMasterSid } = payload;
 
-            const roleMenu = await this._db.roleMenuHeader.findFirst({
+            console.log('🔍 getMenuPermission:', { CompanyMasterSid, Roles, MenuMasterSid });
+
+            // Find role menus for ALL provided roles
+            const roleMenus = await this._db.roleMenuHeader.findMany({
                 where: {
-                    RoleMasterSid,
+                    RoleMasterSid: { in: Roles },
                     CompanyMasterSid,
                     status: 'A',
                     RoleMenuDetail: {
@@ -355,40 +358,81 @@ export class RoleMenuService {
                 }
             });
 
-            if (!roleMenu) {
-                throw new NotFoundException('Role menu not found');
+            console.log('📋 Found roleMenus:', roleMenus.length);
+
+            if (!roleMenus || roleMenus.length === 0) {
+                throw new NotFoundException('No role menu permissions found for provided roles');
             }
 
-            const detail = roleMenu.RoleMenuDetail[0];
-            const mainPerms = {
-                InsertRole: detail.InsertRole === "Y",
-                ViewRole: detail.ViewRole === "Y",
-                UpdateRole: detail.UpdateRole === "Y",
-                DeleteRole: detail.DeleteRole === "Y"
+            // MERGE permissions across all matching roles (OR logic)
+            const mergedPermissions: Record<string, boolean> = {
+                InsertRole: false,
+                ViewRole: false,
+                UpdateRole: false,
+                DeleteRole: false
             };
 
-            const extras = {};
-            (detail.menuMaster?.menuPermission ?? []).forEach(p => {
-                const code = p.permissionCode?.toLowerCase()!;
-                if (!['add', 'view', 'edit', 'delete'].includes(code)) {
-                    extras[code] = true;
+            // Collect all role names
+            const roleNames: string[] = [];
+            let menuName = '';
+            let menuMasterSid = MenuMasterSid;
+
+            roleMenus.forEach((roleMenu, index) => {
+                console.log(`🎭 Processing role ${index + 1}/${roleMenus.length}:`, roleMenu.RoleMasterSid);
+
+                // Collect role name
+                if (roleMenu.roleMaster?.UserRoleName) {
+                    roleNames.push(roleMenu.roleMaster.UserRoleName);
                 }
+
+                const detail = roleMenu.RoleMenuDetail[0];
+                if (!detail) return;
+
+                // Set menu name and ID from first available detail
+                if (!menuName && detail.menuMaster?.MenuName) {
+                    menuName = detail.menuMaster.MenuName;
+                }
+                if (detail.MenuMasterSid) {
+                    menuMasterSid = detail.MenuMasterSid;
+                }
+
+                // OR operation: if ANY role has permission = "Y", set to true
+                if (detail.InsertRole === "Y") mergedPermissions.InsertRole = true;
+                if (detail.ViewRole === "Y") mergedPermissions.ViewRole = true;
+                if (detail.UpdateRole === "Y") mergedPermissions.UpdateRole = true;
+                if (detail.DeleteRole === "Y") mergedPermissions.DeleteRole = true;
+
+                // Merge extra permissions (OR logic)
+                (detail.menuMaster?.menuPermission ?? []).forEach(p => {
+                    const code = p.permissionCode?.toLowerCase();
+                    if (code && !['add', 'view', 'edit', 'delete'].includes(code)) {
+                        mergedPermissions[code] = true;
+                    }
+                });
             });
 
+            console.log('✅ Merged permissions:', mergedPermissions);
+            console.log('👥 Role names:', roleNames);
+
+            // Concatenate role names
+            const concatenatedRoleNames = roleNames.length > 0
+                ? roleNames.join(', ')
+                : 'Multiple Roles';
+
             return {
-                    MenuPermissions: {
-                        ...mainPerms,
-                        ...extras
-                    },
-                    MenuMasterSid: detail.MenuMasterSid,
-                    MenuName: detail.menuMaster?.MenuName || '',
-                    UserRoleName: roleMenu.roleMaster?.UserRoleName
+                MenuPermissions: mergedPermissions,
+                MenuMasterSid: menuMasterSid,
+                MenuName: menuName || '',
+                RoleIds : Roles,
+                UserRoleName: concatenatedRoleNames
             };
 
         } catch (error) {
+            console.error('💥 getMenuPermission error:', error);
             throw error;
         }
     }
+
 
 
     /**
@@ -472,44 +516,5 @@ export class RoleMenuService {
             throw error;
         }
     }
-
-
-    private mapDetails(payload: RoleMenuPayload, headerId: number): RoleMenuDetailDto[] {
-        return payload.RoleMenuDetail.map(detail => ({
-            RoleMenuDetailSid: detail.RoleMenuDetailSid,
-            RoleMenuHeaderSid: headerId,
-            MenuMasterSid: detail.MenuMasterSid,
-            DisplayName: detail.DisplayName || '',
-            CompanyMasterSid: detail.CompanyMasterSid || null,
-            InsertRole: detail.InsertRole || 'N',
-            ViewRole: detail.ViewRole || 'N',
-            UpdateRole: detail.UpdateRole || 'N',
-            DeleteRole: detail.DeleteRole || 'N',
-            createdBy: payload.createdBy || '',
-            status: 'A',
-            ModuleAndMenus: {},
-        }));
-    }
-
-    // Needs to be removed
-    async getRoleMenuPermissions(menuId: number, roleId: number) {
-        try {
-            const roleMenu = await this._db.roleMenuMaster.findFirst({
-                where: {
-                    MenuMasterSid: menuId,
-                    RoleMasterSid: roleId,
-                    status: 'A'
-                },
-                select: {
-                    MenuPermissions: true
-                }
-            });
-
-            return roleMenu || { MenuPermissions: {} };
-        } catch (error) {
-            throw error;
-        }
-    }
-
     
 }

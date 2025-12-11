@@ -408,9 +408,20 @@ export class ModuleService {
   //     }
   //   }
 
-  async getModulesWithMenusByRoles(user): Promise<RouteInfo[]> {
+  async getModulesWithMenusByRoles(UserCompanyMasterSid: number): Promise<RouteInfo[]> {
     try {
-      const roleIds = user.userRoleMaster.map(role => role.RoleMasterSid);
+
+      const userRolesForCompany = await this._db.userRoleMaster.findMany({
+        where: {
+          UserCompanyMasterSid: UserCompanyMasterSid,
+          status: 'A'
+        },
+        select: {
+          RoleMasterSid: true
+        }
+      });
+
+      const roleIds = userRolesForCompany.map(role => role.RoleMasterSid);
 
       if (!roleIds.length) {
         throw new Error('No roles found for this user.');
@@ -430,7 +441,6 @@ export class ModuleService {
           ViewRole: true,
           UpdateRole: true,
           DeleteRole: true,
-          ModuleAndMenus: true,
           menuMaster: {
             select: {
               MenuMasterSid: true,
@@ -534,18 +544,22 @@ export class ModuleService {
       ): RouteInfo[] => {
         const children = parentMap.get(parentId) || [];
 
-        return children.map(menu => ({
-          path: menu.path || '',
-          id: menu.MenuMasterSid,
-          title: menu.MenuName,
-          icon: menu.icon || '',
-          class: '',
-          extralink: false,
-          label: '',
-          labelClass: '',
-          permissions: menu.permissions, // include CRUD permissions
-          submenu: buildMenuTree(menu.MenuMasterSid, parentMap),
-        }));
+        return children.map(menu => {
+          // const childMenus = buildMenuTree(menu.MenuMasterSid,parentMap);
+          // const isLeaf = childMenus.length === 0;
+          return {
+            path: menu.path || '',
+            id: menu.MenuMasterSid,
+            title: menu.MenuName,
+            icon: menu.icon || '',
+            class: '',
+            extralink: false,
+            label: '',
+            labelClass: '',
+            permissions: menu.permissions, // include CRUD permissions
+            submenu: buildMenuTree(menu.MenuMasterSid, parentMap),
+          }
+        });
       };
 
       // 🔹 Step 6: Build module routes with sorted menus
@@ -584,8 +598,26 @@ export class ModuleService {
         };
       });
 
-      // 🔹 Step 7: Sort modules alphabetically
-      return moduleRoutes.sort((a, b) => a.title.localeCompare(b.title));
+      const moduleOrder = ['settings', 'masters', 'crm', 'operations', 'accounts'];
+      const moduleOrderNormalized = moduleOrder.map(s => s.trim().toLowerCase());
+
+      return moduleRoutes.sort((a, b) => {
+        const orderA = moduleOrderNormalized.indexOf(a.title.trim().toLowerCase());
+        const orderB = moduleOrderNormalized.indexOf(b.title.trim().toLowerCase());
+
+        // If both are in the custom order, sort by position
+        if (orderA !== -1 && orderB !== -1) {
+          return orderA - orderB;
+        }
+
+        // If only one is in custom order, prioritize it
+        if (orderA !== -1) return -1;
+        if (orderB !== -1) return 1;
+
+        // If neither is in custom order, sort alphabetically
+        return a.title.localeCompare(b.title);
+      });
+
     } catch (error) {
       console.error('Error fetching menus by roles:', error.message, error.stack);
       return [];
@@ -712,7 +744,16 @@ export class ModuleService {
       ];
       const normalize = (s: string) => s.trim().toLowerCase();
       const crmOrderNormalized = crmMenuOrder.map(normalize)
-      const sortedModules = modules.map(module => {
+      const moduleOrder = ['settings', 'masters', 'crm', 'operations', 'accounts'];
+      const moduleOrderNormalized = moduleOrder.map(normalize);
+
+      const sortedModules = modules
+        .sort((a, b) => {
+        const orderA = moduleOrderNormalized.indexOf(normalize(a.ModuleName));
+        const orderB = moduleOrderNormalized.indexOf(normalize(b.ModuleName));
+        return (orderA === -1 ? 999 : orderA) - (orderB === -1 ? 999 : orderB);
+        })
+        .map(module => {
         const menus = module.menuMaster;
 
         // 1. Group menus by parentId
@@ -741,7 +782,10 @@ export class ModuleService {
         // 3. Build submenu recursively
         const buildMenuTree = (parentId: number | null): any[] => {
           const children = menuMap.get(parentId) || [];
-          return sortMenus(children).map(menu => ({
+          return sortMenus(children).map(menu => {
+            // const childMenus = buildMenuTree(menu.MenuMasterSid);
+            // const isLeaf = childMenus.length === 0;
+            return {
             path: menu.path || '',
             id: menu.MenuMasterSid,
             title: menu.MenuName,
@@ -751,7 +795,8 @@ export class ModuleService {
             label: '',
             labelClass: '',
             submenu: buildMenuTree(menu.MenuMasterSid)
-          }));
+          }
+          });
         };
 
         return {

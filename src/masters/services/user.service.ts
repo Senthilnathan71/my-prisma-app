@@ -30,11 +30,6 @@ export class UserService {
                             }
                         }
                     },
-                    userRoleMaster: {
-                        where : {
-                            status:'A'
-                        }
-                    },
                     userCompanyMaster: {
                         where : {
                             status:'A'
@@ -56,6 +51,11 @@ export class UserService {
                                             countryName:true
                                         }
                                     }
+                                }
+                            },
+                            userRoleMaster: {
+                                where: {
+                                    status: 'A'
                                 }
                             }
                         }
