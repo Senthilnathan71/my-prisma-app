@@ -70,12 +70,12 @@ export class ShipmentSummaryReportQueryDto {
   @ApiProperty()
   @IsNotEmpty()
   @IsDateString()
-  fromDate: string;
+  FromMBLDt: string;
 
   @ApiProperty()
   @IsNotEmpty()
   @IsDateString()
-  toDate: string;
+  ToMBLDt: string;
 
   @ApiProperty({ enum: ShipmentStatusEnum })
   @IsNotEmpty()
@@ -95,7 +95,12 @@ export class ShipmentSummaryReportQueryDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsInt()
-  branchId?: number;
+  Branch?: number[];
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsInt()
+  Dept?: number[];
 }
 
 // Containerwise Details Report DTOs
