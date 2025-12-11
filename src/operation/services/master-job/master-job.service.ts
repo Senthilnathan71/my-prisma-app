@@ -3651,20 +3651,36 @@ private async updateMasterJobTotals(masterJobSid: number): Promise<void> {
         // ----------------------------------------
         if (houseJob.Products?.length) {
             for (const p of houseJob.Products) {
-                const {
-                    HouseJobProductSid,
-                    HouseJobSid,
-                    DeliveredQty,
-                    DeliveryDate,
-                    MarksAndNumber,
-                    ContainerNo,
-                    ...productData
-                } = p;
-
+                // Map only the fields that exist in BookingProduct model
                 await tx.bookingProduct.create({
                     data: {
-                        ...productData,
                         BookingHeaderSid: bookingHeaderSid,
+                        ProductName: p.ProductName,
+                        ProductDescription: p.ProductDescription,
+                        ShippingBillNo: p.ShippingBillNo || null,
+                        ShippingBillDate: p.ShippingBillDate,
+                        ExternaPkg: p.ExternaPkg,
+                        ExternlQty: p.ExternlQty,
+                        InternalPkg: p.InternalPkg,
+                        InternalQty: p.InternalQty,
+                        GrossWeight: p.GrossWeight,
+                        NetWeight: p.NetWeight,
+                        Volume: p.Volume,
+                        Height: p.Height,
+                        ImcoClass: p.ImcoClass,
+                        IsHaz: p.IsHaz,
+                        Length: p.Length,
+                        PkgGroup: p.PkgGroup,
+                        UnNo: p.UnNo,
+                        Width: p.Width,
+                        UomMasterSid: p.UomMasterSid,
+                        ActualGrWeight: p.ActualGrWeight,
+                        ActualQty: p.ActualQty,
+                        ActualVolume: p.ActualVolume,
+                        CFS: p.CFS,
+                        CargoRecDate: p.CargoRecDate,
+                        RecdPack: p.RecdPack,
+                        Volumetric: p.Volumetric,
                         createdBy
                     }
                 });
