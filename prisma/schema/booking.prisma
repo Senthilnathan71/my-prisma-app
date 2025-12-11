@@ -127,7 +127,7 @@ model BookingProduct {
   BookingProductSid  Int            @id @default(autoincrement()) @map("BookingProductSid")
   ProductName        String         @db.VarChar(100)
   ProductDescription String?        @db.VarChar(500)
-  ShippingBillNo     String?         @db.VarChar(100)
+  ShippingBillNo     String?        @db.VarChar(100)
   ShippingBillDate   DateTime?
   ExternaPkg         String?        @db.VarChar(100)
   ExternlQty         String?        @db.VarChar(100)
