@@ -185,6 +185,7 @@ export class HouseJobService {
               Width: product.Width || 0,
               UomMasterSid: product.UomMasterSid || null,
               ContainerNo: product.ContainerNo,
+              MasterJobContainerSid: product.MasterJobContainerSid || null,
               DeliveryDate: product.DeliveryDate ? new Date(product.DeliveryDate) : null,
               ReceivedQty: product.ReceivedQty || 0,
               DamageQty: product.DamageQty || 0,
@@ -768,6 +769,7 @@ export class HouseJobService {
                                 Width: product.Width || 0,
                                 UomMasterSid: product.UomMasterSid || null,
                                 ContainerNo : product.ContainerNo,
+                                MasterJobContainerSid: product.MasterJobContainerSid || null,
                                 ReceivedQty: product.ReceivedQty || 0,
                                 DamageQty: product.DamageQty || 0,
                                 DamageRemarks: product.DamageRemarks || '',
@@ -810,6 +812,7 @@ export class HouseJobService {
                                 Width: product.Width || 0,
                                 UomMasterSid: product.UomMasterSid || null,
                                 ContainerNo : product.ContainerNo,
+                                MasterJobContainerSid: product.MasterJobContainerSid || null,
                                 DeliveryDate: product.DeliveryDate ? new Date(product.DeliveryDate) : null,
                                 DeliveredQty: product.DeliveredQty || 0,
                                 MarksAndNumber : product.MarksAndNumber

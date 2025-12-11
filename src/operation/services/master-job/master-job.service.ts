@@ -4,7 +4,7 @@ import * as moment from 'moment-timezone';
 import { Prisma } from '@prisma/client';
 import { create } from 'domain';
 import { stat } from 'fs';
-import { parseDateFromString } from 'src/common/helper';
+import { parseDateFromString, toNumber } from 'src/common/helper';
 import { LoadingPlanService } from '../loading-plan/loading-plan.service';
 import { MenuService } from 'src/masters/services/menu/menu.service';
 
@@ -783,7 +783,19 @@ export class MasterJobService {
                 include: {
                     voyages: { where: { Status: 'A' } },
                     masterJobConnection: { where: { Status: 'A' } },
-                    containers: { where: { Status: 'A' } },
+                    containers: { 
+                        where: { Status: 'A' },
+                        include : {
+                            houseJobProduct : {
+                                where : {status : 'A'},
+                                select : {
+                                    MasterJobContainerSid : true,
+                                    GrossWeight : true,
+                                    NetWeight : true,
+                                    Volume : true
+                                }
+                            }},
+                        },
                     others: { where: { Status: 'A' } },
                     houseJob: {
                         where: {
@@ -807,6 +819,10 @@ export class MasterJobService {
                     }
                 }
             })
+
+            if(!masterJobDetails){
+                throw new BadRequestException('Master Job not found.');
+            }
             
             const allShipments = await prisma.houseJob.findMany({
                 where: {
@@ -953,9 +969,35 @@ export class MasterJobService {
 
                 CutOffDate = (voyage?.voyageMasterDetail || []).find(vd => vd.portMasterPOL?.PortCode === masterJobDetails?.POL)?.PortCutoff;
             }
+            const {containers,...rest} = masterJobDetails;
+            const enrichedContainers = containers.map(container => {
+
+                if(!container.houseJobProduct) return container;
+
+                const totalGrossWeight = (container?.houseJobProduct || []).reduce((acc, product) => {
+                    return acc + toNumber(product.GrossWeight) || 0;
+                }, 0);
+                const totalNetWeight = (container?.houseJobProduct || []).reduce((acc, product) => {
+                    return acc + toNumber(product.NetWeight) || 0;
+                }, 0);
+                const totalVolume = (container?.houseJobProduct || []).reduce((acc, product) => {
+                    return acc + toNumber(product.Volume) || 0;
+                }, 0);
+
+
+
+                return {
+                    ...container,
+                    GrossWeight : totalGrossWeight,
+                    NetWeight : totalNetWeight,
+                    Volume : totalVolume,
+
+                }
+            });
             
             return {
                 ...masterJobDetails,
+                containers : enrichedContainers || [],
                 aggregatedTotals, // Add aggregated totals
                 CutOffDate,
                 allShipments,
@@ -2465,52 +2507,39 @@ const allHouseJobs = await prisma.houseJob.findMany({
         }
     }
 private async updateMasterJobTotals(masterJobSid: number): Promise<void> {
-    try {
-        // Get all house jobs for this master job
-        const allHouseJobs = await this._db.houseJob.findMany({
-            where: {
-                MasterJobSid: masterJobSid,
-                status: 'A'
-            },
-            include: {
-                Cargo: {
-                    where: { status: 'A' }
-                }
-            }
-        });
-        
-        // Calculate totals
-        let totalNoOfPkg = 0;
-        let totalGrossWeight = 0;
-        let totalNetWeight = 0;
-        let totalChargeableWeight = 0;
-        let totalVolume = 0;
-        
-        allHouseJobs.forEach(houseJob => {
-            houseJob.Cargo?.forEach(cargo => {
-                totalNoOfPkg += Number(cargo.NoOfPackage) || 0;
-                totalGrossWeight += Number(cargo.GrossWeight) || 0;
-                totalNetWeight += Number(cargo.NetWeight) || 0;
-                totalChargeableWeight += Number(cargo.ChargeableWeight) || 0;
-                totalVolume += Number(cargo.Volume) || 0;
-            });
-        });
-        
-        // Update master job
-        await this._db.masterJob.update({
-            where: { MasterJobSid: masterJobSid },
-            data: {
-                NoOfPkg: totalNoOfPkg,
-                GrossWeight: parseFloat(totalGrossWeight.toFixed(3)),
-                NetWeight: parseFloat(totalNetWeight.toFixed(3)),
-                ChargeableWeight: parseFloat(totalChargeableWeight.toFixed(3)),
-                Volume: parseFloat(totalVolume.toFixed(3)),
-            }
-        });
-    } catch (error) {
-        console.error('Error updating master job totals:', error);
-        throw error;
-    }
+  try {
+    // Get all containers for this master job
+    const allContainers = await this._db.masterJobContainer.findMany({
+      where: {
+        MasterJobSid: masterJobSid,
+        Status: 'A'
+      }
+    });
+    
+    // Calculate totals from containers
+    let totalGrossWeight = 0;
+    let totalNetWeight = 0;
+    let totalVolume = 0;
+    
+    allContainers.forEach(container => {
+      totalGrossWeight += Number(container.GrossWeight) || 0;
+      totalNetWeight += Number(container.NetWeight) || 0;
+      totalVolume += Number(container.Volume) || 0;
+    });
+    
+    // Update master job with container totals
+    await this._db.masterJob.update({
+      where: { MasterJobSid: masterJobSid },
+      data: {
+        GrossWeight: parseFloat(totalGrossWeight.toFixed(3)),
+        NetWeight: parseFloat(totalNetWeight.toFixed(3)),
+        Volume: parseFloat(totalVolume.toFixed(3)),
+      }
+    });
+  } catch (error) {
+    console.error('Error updating master job totals:', error);
+    throw error;
+  }
 }
     /**
      * Process bulk upload from Excel file
