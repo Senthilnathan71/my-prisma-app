@@ -414,7 +414,7 @@ export class QuotationService {
                                 BranchMasterSid: updatedQuoteHeader.BranchMasterSid,
                                 effDate: new Date(route.effDate),
                                 expdate: new Date(route.expDate),
-                                createdBy: payload.createdBy,
+                                createdBy: payload.updatedBy,
                                 TransitDays: Number(route.TransitDays) || Number(route.transit) || null,
                                 segmentType: route.segmentType,
                                 ServiceLevel: route.ServiceLevel,
