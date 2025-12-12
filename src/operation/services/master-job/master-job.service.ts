@@ -51,50 +51,57 @@ export class MasterJobService {
                     departmentType = department?.departmentType ?? null;
                     departmentExportImport = department?.ExportImport ?? null;
                 }
-                const shouldAllocateMAWB = (
-                departmentType === 'Air' &&
-                departmentExportImport === 'Export'
-            );
- 
-                if (shouldAllocateMAWB) {
-                // Find the first available MAWB with StockStatus = 'Free'
-                const availableMawb = await prisma.mawbStock.findFirst({
-                    where: {
-                        StockStatus: 'Free',
-                        status: 'A',
-                        CompanyMasterSid: payload.CompanyMasterSid,
-                        BranchMasterSid: payload.BranchMasterSid
-                    },
-                    orderBy: { MawbStockSid: 'asc' }
-                });
- 
-                if (!availableMawb) {
-                    // If no free MAWB available, use the provided MBLNo or empty string
-                    assignedMBLNo = payload.MBLNo || "";
-                    // You might want to log this or handle it differently
-                    console.warn('No free MAWB available for Air Export department, using provided MBLNo');
-                } else {
-                    // Assign the MasterBillNumber to MBLNo
-                    assignedMBLNo = availableMawb.MasterBillNumber;
- 
-                    // Update the MAWB stock status to 'Blocked'
-                    await prisma.mawbStock.update({
-                        where: { MawbStockSid: availableMawb.MawbStockSid },
-                        data: {
-                            StockStatus: 'Blocked',
-                            updatedBy: payload.CreatedBy,
-                            updatedOn: new Date()
-                        }
-                    });
-                }
-            } else if (departmentType === 'Air' && departmentExportImport === 'Import') {
-                // For Air Import, use provided MBLNo or leave empty
+               if (departmentType === 'Air') {
+        // Air department logic
+        const shouldAllocateMAWB = (
+            departmentType === 'Air' &&
+            departmentExportImport === 'Export'
+        );
+
+        if (shouldAllocateMAWB) {
+            // Find the first available MAWB with StockStatus = 'Free'
+            const availableMawb = await prisma.mawbStock.findFirst({
+                where: {
+                    StockStatus: 'Free',
+                    status: 'A',
+                    CompanyMasterSid: payload.CompanyMasterSid,
+                    BranchMasterSid: payload.BranchMasterSid
+                },
+                orderBy: { MawbStockSid: 'asc' }
+            });
+
+            if (!availableMawb) {
+                // If no free MAWB available, use the provided MBLNo or empty string
                 assignedMBLNo = payload.MBLNo || "";
-                // No need to allocate from stock for imports
+                console.warn('No free MAWB available for Air Export department, using provided MBLNo');
             } else {
-                // For non-Air departments or other cases
-                assignedMBLNo = payload.MBLNo || "";
-            }                
+                // Assign the MasterBillNumber to MBLNo
+                assignedMBLNo = availableMawb.MasterBillNumber;
+
+                // Update the MAWB stock status to 'Blocked'
+                await prisma.mawbStock.update({
+                    where: { MawbStockSid: availableMawb.MawbStockSid },
+                    data: {
+                        StockStatus: 'Blocked',
+                        updatedBy: payload.CreatedBy,
+                        updatedOn: new Date()
+                    }
+                });
+            }
+        } else if (departmentExportImport === 'Import') {
+            // For Air Import, use provided MBLNo or leave empty
+            assignedMBLNo = payload.MBLNo || "";
+        } else {
+            // For other Air cases
+            assignedMBLNo = payload.MBLNo || "";
+        }
+    } else if (departmentType === 'Sea' && departmentExportImport === 'Export') {
+        // For Sea department, auto-generate MBLNo using MasterJobNumber
+        assignedMBLNo = MasterJobNumber;
+    } else {
+        // For other department types or unspecified
+        assignedMBLNo = payload.MBLNo || "";
+    }
                 const headerPayload = {
                     MasterJobNumber: MasterJobNumber,
                     MasterJobDate: payload.MasterJobDate ? new Date(payload.MasterJobDate) : new Date(),
