@@ -424,6 +424,10 @@ export class VoucherMatchingPayload {
   @IsNumber()
   VoucherTypeMasterSid : number;
 
+  @IsOptional()
+  @IsString()
+  SubledgerName : string;
+
   @IsNotEmpty()
   @IsDate()
   PostDate : Date;
