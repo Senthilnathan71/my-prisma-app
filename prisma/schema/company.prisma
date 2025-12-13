@@ -1045,7 +1045,7 @@ model QuoteHeader {
   IncoTermSid                Int?
   BookingHeaderSid           Int?                         @unique
   ContactNumber              String?                      @db.VarChar(20)
-  ContactPerson              String?                      @db.VarChar(20)
+  ContactPerson              String?                      @db.VarChar(30)
   RateLock                   String?                      @default("N") @db.Char(1)
   IsContract                 String?                      @default("N") @db.Char(1)
   ActivityResourceAllocation ActivityResourceAllocation[]
@@ -2587,6 +2587,7 @@ model MasterJob {
   DGApprovedDate             DateTime?                    @db.Date
   CommodityDescription       String?                      @db.VarChar(3000)
   MarksandNumber             String?                      @db.VarChar(500)
+  JobStatus                  String                       @default("Job Generated") @db.VarChar(30)
   ActivityResourceAllocation ActivityResourceAllocation[]
   ContainerActivity          ContainerActivity[]
   houseJob                   HouseJob[]
@@ -2758,6 +2759,8 @@ model HouseJob {
   HBLType                    String?                      @db.VarChar(12)
   JobType                    String?                      @db.VarChar(12)
   TranshipmentBookingSid     Int?
+  HouseStatus                String                       @default("Job Generated") @db.VarChar(30)
+  HBLCount                   Decimal                      @default(0) @db.Decimal(2, 0)
   ActivityResourceAllocation ActivityResourceAllocation[]
   bookingHeader              BookingHeader?               @relation(fields: [BookingHeaderSid], references: [BookingHeaderSid])
   bookingRates               BookingRates?                @relation(fields: [BookingRateSid], references: [BookingRatesSid])
@@ -3241,6 +3244,7 @@ model VoucherMatchingHeader {
   Narration                String?           @db.VarChar(100)
   Remarks                  String?           @db.VarChar(100)
   VoucherHeaderSid         Int?
+  SubledgerName            String?           @db.VarChar(100)
   MatchingDetail           MatchingDetail[]
   voucherMatchings         VoucherMatching[]
   branch                   BranchMaster      @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
