@@ -151,12 +151,12 @@ export class ContainerKPIReportQueryDto {
   @ApiProperty()
   @IsNotEmpty()
   @IsDateString()
-  fromDate: string;
+  FromHBLDt: string;
 
   @ApiProperty()
   @IsNotEmpty()
   @IsDateString()
-  toDate: string;
+  ToHBLDt: string;
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -176,7 +176,12 @@ export class ContainerKPIReportQueryDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsInt()
-  branchId?: number;
+  branchId?: number[];
+
+  @ApiProperty()
+  @IsNotEmpty()
+  @IsDateString()
+  Dept: number[];
 }
 
 // DO Issue List Report DTOs

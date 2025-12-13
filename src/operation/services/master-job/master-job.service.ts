@@ -822,6 +822,7 @@ export class MasterJobService {
                             Cargo: true,
                             Products: true,
                             Others: true,
+                            JobType:true,
                         },
                     }
                 }

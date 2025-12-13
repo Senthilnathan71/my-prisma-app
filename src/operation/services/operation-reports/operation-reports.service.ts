@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { DatabaseService } from 'src/database/database.service';
 import { Prisma } from '@prisma/client';
-import { BLIssueListReportQueryDto, profitabilityReportQueryDto, ShipmentSummaryReportQueryDto } from 'src/operation/DTO/operation-reports.dto';
+import { BLIssueListReportQueryDto, ContainerKPIReportQueryDto, profitabilityReportQueryDto, ShipmentSummaryReportQueryDto } from 'src/operation/DTO/operation-reports.dto';
 import { toNumber } from 'src/common/helper';
 
 @Injectable()
@@ -90,7 +90,7 @@ export class OperationReportsService {
           return await this.generateShipmentSummaryReport(parameters);
         case 'containerwise-details-report':
           return await this.generateContainerwiseDetailsReport(parameters);
-        case 'container-kpi-report':
+        case 'contanier-wise-kpi':
           return await this.generateContainerKPIReport(parameters);
         case 'do-issue-list':
           return await this.generateDOIssueList(parameters);
@@ -107,99 +107,101 @@ export class OperationReportsService {
   }
 
   // Report generators - To be implemented
-private async generateBLIssueList(params: BLIssueListReportQueryDto) {
-  const {
-    companyId: CompanyMasterSid,
-    ToHBLDt,
-    FromHBLDt,
-    Branch: branchId,
-    Dept: dept,
-    BLIssue = false,
-  } = params;
+  // BL_Issue Report
+  private async generateBLIssueList(params: BLIssueListReportQueryDto) {
+    const {
+      companyId: CompanyMasterSid,
+      ToHBLDt,
+      FromHBLDt,
+      Branch: branchId,
+      Dept: dept,
+      BLIssue = false,
+    } = params;
 
-  try {
-    this.logger.log(`Getting BL_Issue report for CompanySid=${CompanyMasterSid}, From=${FromHBLDt}, To=${ToHBLDt}`);
+    try {
+      this.logger.log(`Getting BL_Issue report for CompanySid=${CompanyMasterSid}, From=${FromHBLDt}, To=${ToHBLDt}`);
 
-    const allBranches = await this._db.branchMaster.findMany({
-      where: { BranchMasterSid: { in: branchId } },
-      select: { branchName: true }
-    });
+      const allBranches = await this._db.branchMaster.findMany({
+        where: { BranchMasterSid: { in: branchId } },
+        select: { branchName: true }
+      });
 
-    const branchSet = new Set(allBranches.map(b => b.branchName));
+      const branchSet = new Set(allBranches.map(b => b.branchName));
 
-    const houseJobData = await this._db.houseJob.findMany({
-      where: {
-        CompanyMasterSid,
-        BranchMasterSid: { in: branchId },
-        AND: [
-          { HBLDate: { gte: new Date(FromHBLDt) } },
-          { HBLDate: { lte: new Date(ToHBLDt) } }
-        ],
-        status: 'A',
-        DepartmentMasterSid: { in: dept },
-      },
-      include: {
-        masterJob: {
-          where: { Status: 'A' },
-          select: {
-            MasterJobSid: true,
-            MBLNo: true,
+      const houseJobData = await this._db.houseJob.findMany({
+        where: {
+          CompanyMasterSid,
+          BranchMasterSid: { in: branchId },
+          AND: [
+            { HBLDate: { gte: new Date(FromHBLDt) } },
+            { HBLDate: { lte: new Date(ToHBLDt) } }
+          ],
+          status: 'A',
+          DepartmentMasterSid: { in: dept },
+        },
+        include: {
+          masterJob: {
+            where: { Status: 'A' },
+            select: {
+              MasterJobSid: true,
+              MBLNo: true,
+            }
+          },
+          departmentMaster: {
+            select: {
+              departmentName: true
+            }
           }
         },
-        departmentMaster:{
-          select:{
-            departmentName:true
-          }
-        }
-      },
-      orderBy: { HBLDate: 'asc' },
-    });
+        orderBy: { HBLDate: 'asc' },
+      });
 
-    if (houseJobData.length === 0) {
-      this.logger.log(`No shipment vouchers found for the given filters.`);
-      return { companyMasterSid: CompanyMasterSid, branchMasterSid: branchId, data: [] };
-    }
+      if (houseJobData.length === 0) {
+        this.logger.log(`No shipment vouchers found for the given filters.`);
+        return { companyMasterSid: CompanyMasterSid, branchMasterSid: branchId, data: [] };
+      }
 
-    const data = houseJobData.map(hj => {
-      
-      const masterJob = hj.masterJob;
-      const departmentName = hj.departmentMaster?.departmentName || null;
+      const data = houseJobData.map(hj => {
+
+        const masterJob = hj.masterJob;
+        const departmentName = hj.departmentMaster?.departmentName || null;
+
+        return {
+          HBLDate: hj.HBLDate,
+          HBLNo: hj.HBLNo,
+          MBLNo: masterJob ? masterJob.MBLNo : null,
+          BookingNo: hj.BookingNo,
+          Shipper: hj.ShipperName,
+          Consignee: hj.ConsigneeName,
+          POL: hj.POL,
+          POD: hj.POD,
+          departmentName
+        };
+      });
 
       return {
-        HBLDate: hj.HBLDate,
-        HBLNo: hj.HBLNo,
-        MBLNo: masterJob ? masterJob.MBLNo : null, 
-        BookingNo: hj.BookingNo,
-        Shipper: hj.ShipperName,
-        Consignee: hj.ConsigneeName,
-        POL: hj.POL,
-        POD: hj.POD,
-        departmentName
+        companyMasterSid: CompanyMasterSid,
+        branchMasterSid: branchId,
+        data,
+        branchesInvolved: Array.from(branchSet).join(','),
+        params,
+        BLIssue,
       };
-    });
 
-    return {
-      companyMasterSid: CompanyMasterSid,
-      branchMasterSid: branchId,
-      data,
-      branchesInvolved: Array.from(branchSet).join(','),
-      params,
-      BLIssue,
-    };
-
-  } catch (error) {
-    this.logger.error(`Error generating shipment summary: ${error.message}`, error.stack);
-    throw error;
+    } catch (error) {
+      this.logger.error(`Error generating shipment summary: ${error.message}`, error.stack);
+      throw error;
+    }
   }
-}
 
+  // Shipment_summary_Report
   private async generateShipmentSummaryReport(params: ShipmentSummaryReportQueryDto) {
     const {
       companyId: CompanyMasterSid,
       ToMBLDt,
       FromMBLDt,
       Branch: branchId,
-      Dept: dept 
+      Dept: dept
     } = params;
 
     try {
@@ -250,12 +252,12 @@ private async generateBLIssueList(params: BLIssueListReportQueryDto) {
         include: {
           houseJob: { include: { Cargo: true } },
           containers: {
-            where : { Status : 'A'},
-            include : {
-              containerType : {
-                select : {
-                  ContainerSize : true,
-                  NoOfTeu : true,
+            where: { Status: 'A' },
+            include: {
+              containerType: {
+                select: {
+                  ContainerSize: true,
+                  NoOfTeu: true,
                 }
               }
             }
@@ -265,7 +267,7 @@ private async generateBLIssueList(params: BLIssueListReportQueryDto) {
         orderBy: { MBLDate: 'asc' },
       });
 
-      
+
 
       if (masterJobData.length === 0) {
         this.logger.log(`No shipment vouchers found for the given filters.`);
@@ -298,7 +300,7 @@ private async generateBLIssueList(params: BLIssueListReportQueryDto) {
         ports.map(port => [port.PortCode, port.PortName])
       );
 
-      const containerSize = ["20'", "40'","45'"];
+      const containerSize = ["20'", "40'", "45'"];
 
       // Map the master job data
       const data = masterJobData.map(mj => {
@@ -338,7 +340,7 @@ private async generateBLIssueList(params: BLIssueListReportQueryDto) {
         const containerCountByType: Record<string, number> = {};
         let totalNoOfTEU = 0;
         let numberOfFourtyFt = 0;
-        let numberofFurtyFive=0;
+        let numberofFurtyFive = 0;
         let numberOfTwentyFt = 0;
         containerSize.forEach(col => containerCountByType[col] = 0);
 
@@ -354,8 +356,8 @@ private async generateBLIssueList(params: BLIssueListReportQueryDto) {
             numberOfFourtyFt++;
           }
 
-          if(c.containerType?.ContainerSize.trim()==='45'){
-           numberofFurtyFive++;
+          if (c.containerType?.ContainerSize.trim() === '45') {
+            numberofFurtyFive++;
           }
         });
 
@@ -364,7 +366,7 @@ private async generateBLIssueList(params: BLIssueListReportQueryDto) {
         const podName = mj.POD ? portMap.get(mj.POD) || '' : '';
         const fpdName = mj.FPD ? portMap.get(mj.FPD) || '' : '';
         const pooName = mj.FPD ? portMap.get(mj.POO) || '' : '';
-        
+
         return {
           masterNo: mj.MasterJobNumber,
           masterDate: mj.MBLDate,
@@ -391,8 +393,8 @@ private async generateBLIssueList(params: BLIssueListReportQueryDto) {
           containerNoList: mj?.containers?.map((c: any) => c.ContainerNumber).join(', ') || '',
           mastercontainerSid: mj?.containers?.map((c: any) => c.mastercontainerSid).join(', ') || '',
           masterContanierSid: mj?.containers?.[0]?.MasterJobContainerSid,
-          sendingAgent: agentMaster.find(d=>d.CustomerMasterSid === mj.OriginAgent)?.CustomerName || '',
-          receivingAgent: agentMaster.find(d=>d.CustomerMasterSid === mj.DestinationAgent)?.CustomerName || '',
+          sendingAgent: agentMaster.find(d => d.CustomerMasterSid === mj.OriginAgent)?.CustomerName || '',
+          receivingAgent: agentMaster.find(d => d.CustomerMasterSid === mj.DestinationAgent)?.CustomerName || '',
           type,
           containerInfo,
           totalNoOfTEU,
@@ -423,6 +425,8 @@ private async generateBLIssueList(params: BLIssueListReportQueryDto) {
       throw error;
     }
   }
+
+  // Profitability_Report
   private async generateProfitabilityReport(params: profitabilityReportQueryDto) {
     const {
       companyId: CompanyMasterSid,
@@ -512,7 +516,7 @@ private async generateBLIssueList(params: BLIssueListReportQueryDto) {
             toNumber(sum) - toNumber(cr.RevenueLocalAmount)
         }, 0);
 
-        const GP = totalRevenue - totalCost;
+
 
         const houseJobs = job.houseJob || [];
 
@@ -608,6 +612,12 @@ private async generateBLIssueList(params: BLIssueListReportQueryDto) {
         const totalRevenueWithHouse = totalRevenue + totalHouseRevenue;
 
 
+        // actual Gp 
+
+        const GP = totalRevenueWithHouse - totalCostWithHouse;
+
+        // using VoucherNo
+
         const masterVouchers = relatedCR.filter(cr => cr.CostVoucherHeaderSid); // only those with vouchers
         const actualCostMaster = masterVouchers.reduce((sum, cr) => {
           return cr.CostDrCr === 'D' ? Number(sum) + Number(cr.CostLocalAmount ?? 0) :
@@ -647,7 +657,8 @@ private async generateBLIssueList(params: BLIssueListReportQueryDto) {
         const actualCost = actualCostMaster + actualCostHouse;
         const actualRevenue = actualRevenueMaster + actualRevenueHouse;
         const actualGp = actualRevenue - actualCost;
-        const profit = actualGp;
+        const profit = (Number(GP) * 100) / Number(totalRevenue);
+        const space = Number(job?.ChargeableWeight) - Number(job?.Volume);
         return {
           jobNumber: job.MasterJobNumber,
           Mbl: job.MBLNo,
@@ -670,7 +681,8 @@ private async generateBLIssueList(params: BLIssueListReportQueryDto) {
           totalCostWithHouse,
           totalRevenueWithHouse,
           houseCount: houseJobs.length || 0,
-          houseJobs: houseJobsData
+          houseJobs: houseJobsData,
+          space
         };
 
       })
@@ -692,219 +704,405 @@ private async generateBLIssueList(params: BLIssueListReportQueryDto) {
 
 
 
-//    private async generateProfitabilityReport(params: profitabilityReportQueryDto) {
-//   const {
-//     companyId: CompanyMasterSid,
-//     ToMBLDt,
-//     FromMBLDt,
-//     Branch: branchId,
-//     Dept: dept,
-//   } = params;
+  //    private async generateProfitabilityReport(params: profitabilityReportQueryDto) {
+  //   const {
+  //     companyId: CompanyMasterSid,
+  //     ToMBLDt,
+  //     FromMBLDt,
+  //     Branch: branchId,
+  //     Dept: dept,
+  //   } = params;
 
-//   try {
-//     this.logger.log(
-//       `Getting Profitability report for CompanySid=${CompanyMasterSid}, From=${FromMBLDt}, To=${ToMBLDt}`
-//     );
+  //   try {
+  //     this.logger.log(
+  //       `Getting Profitability report for CompanySid=${CompanyMasterSid}, From=${FromMBLDt}, To=${ToMBLDt}`
+  //     );
 
-//     const allBranches = await this._db.branchMaster.findMany({
-//       where: { BranchMasterSid: { in: branchId } },
-//       select: { branchName: true }
-//     });
-//     const branchSet = new Set(allBranches.map(b => b.branchName));
+  //     const allBranches = await this._db.branchMaster.findMany({
+  //       where: { BranchMasterSid: { in: branchId } },
+  //       select: { branchName: true }
+  //     });
+  //     const branchSet = new Set(allBranches.map(b => b.branchName));
 
-//     // Load container type master (ID → Size Map)
-//     const containerTypesMaster = await this._db.containerTypeMaster.findMany({
-//       select: { ContainerTypeMasterSid: true, ContainerSize: true }
-//     });
-//     const containerTypeMap = new Map(
-//       containerTypesMaster.map(ct => [ct.ContainerTypeMasterSid, ct.ContainerSize])
-//     );
+  //     // Load container type master (ID → Size Map)
+  //     const containerTypesMaster = await this._db.containerTypeMaster.findMany({
+  //       select: { ContainerTypeMasterSid: true, ContainerSize: true }
+  //     });
+  //     const containerTypeMap = new Map(
+  //       containerTypesMaster.map(ct => [ct.ContainerTypeMasterSid, ct.ContainerSize])
+  //     );
 
-//     // Fetch master jobs with house jobs and containers
-//     const masterJobs = await this._db.masterJob.findMany({
-//       where: {
-//         CompanyMasterSid,
-//         BranchMasterSid: { in: branchId },
-//         AND: [
-//           { MBLDate: { gte: new Date(FromMBLDt) } },
-//           { MBLDate: { lte: new Date(ToMBLDt) } }
-//         ],
-//         Status: 'A',
-//         DepartmentMasterSid: { in: dept },
-//       },
-//       include: {
-//         houseJob: {
-//           where : { status : 'A'}
-//         },
-//         containers: true,
-//       },
-//       orderBy: { MBLDate: 'asc' },
-//     });
+  //     // Fetch master jobs with house jobs and containers
+  //     const masterJobs = await this._db.masterJob.findMany({
+  //       where: {
+  //         CompanyMasterSid,
+  //         BranchMasterSid: { in: branchId },
+  //         AND: [
+  //           { MBLDate: { gte: new Date(FromMBLDt) } },
+  //           { MBLDate: { lte: new Date(ToMBLDt) } }
+  //         ],
+  //         Status: 'A',
+  //         DepartmentMasterSid: { in: dept },
+  //       },
+  //       include: {
+  //         houseJob: {
+  //           where : { status : 'A'}
+  //         },
+  //         containers: true,
+  //       },
+  //       orderBy: { MBLDate: 'asc' },
+  //     });
 
-//     if (!masterJobs.length) {
-//       return { companyMasterSid: CompanyMasterSid, branchMasterSid: branchId, data: [] };
-//     }
-
-
-
-   
-//     const data = await Promise.all(masterJobs.map(async job => {
-
-     
-//       const relatedCR = await this._db.costRevenueCharges.findMany({
-//         where: {
-//           MenuMasterSid: job.MenuMasterSid!,
-//           TransactionSid: job.MasterJobSid,
-//           status: 'A'
-//         },
-//         select: {
-//           MenuMasterSid: true,
-//           CostLocalAmount: true,
-//           RevenueLocalAmount: true,
-//           ChargeDescription: true,
-//           ChargeMasterSid: true,
-//           CostAgentMasterSid: true,
-//           RevenueCustomerMasterSid: true,
-//           CostDrCr: true,
-//           RevenueDrCr: true
-//         }
-//       });
-
-//       const totalCost = relatedCR.reduce((sum, cr) => {
-//         return cr.CostDrCr === 'D' ? toNumber(sum) + toNumber(cr.CostLocalAmount) :
-//           toNumber(sum) - toNumber(cr.CostLocalAmount)
-//       }, 0);
-
-//       const totalRevenue = relatedCR.reduce((sum, cr) => {
-//         return cr.RevenueDrCr === 'C' ? toNumber(sum) + toNumber(cr.RevenueLocalAmount) :
-//           toNumber(sum) - toNumber(cr.RevenueLocalAmount)
-//       }, 0);
-
-//       const GP = totalRevenue - totalCost;
-
-//       const houseJobs = job.houseJob || [];
-
-//       const houseRateMap: Map<number, any[]> = new Map([]);
-
-//       const houseJobIds = new Set(houseJobs.map(hj => hj.HouseJobSid));
-//       const houseJobIdArr = houseJobs.map(hj => hj.HouseJobSid);
-//       const houseJobMenu = await this._db.menuMaster.findFirst({
-//         where: { MenuName: 'House Job' },
-//         select: { MenuMasterSid: true }
-//       })
-
-//       if (!houseJobMenu) {
-//         throw new BadRequestException("House Job is found in menuMaster.")
-//       }
-
-//       const allHouseCR = await this._db.costRevenueCharges.findMany({
-//         where: {
-//           MenuMasterSid: houseJobMenu.MenuMasterSid,
-//           TransactionSid: { in: houseJobIdArr },
-//           status: 'A'
-//         },
-//         select: {
-//           TransactionSid: true,
-//           MenuMasterSid: true,
-//           CostLocalAmount: true,
-//           RevenueLocalAmount: true,
-//           ChargeDescription: true,
-//           ChargeMasterSid: true,
-//           CostAgentMasterSid: true,
-//           RevenueCustomerMasterSid: true,
-//           CostDrCr: true,
-//           RevenueDrCr: true
-//         }
-//       })
-
-//       allHouseCR.forEach(hcr => {
-//         const key = hcr.TransactionSid!;
-//         if (houseRateMap.has(key)) {
-//           const prev = houseRateMap.get(key) || [];
-//           houseRateMap.set(key, [...prev, hcr]);
-//         } else {
-//           houseRateMap.set(key, [hcr]);
-//         }
-//       })
-
-
-     
-//       let number20 = 0, number40 = 0, number45 = 0;
-//       (job.containers || []).forEach(c => {
-//         const typeId = c.ContainerType ?? null;
-//         if (!typeId) return;
-//         const size = containerTypeMap.get(typeId)?.trim() ?? null;
-//         if (size === "20") number20++;
-//         if (size === "40") number40++;
-//         if (size === "45") number45++;
-//       });
+  //     if (!masterJobs.length) {
+  //       return { companyMasterSid: CompanyMasterSid, branchMasterSid: branchId, data: [] };
+  //     }
 
 
 
 
-//       return {
-//         jobNumber: job.MasterJobNumber,
-//         Mbl: job.MBLNo,
-//         POL: job.POL,
-//         POD: job.POD,
-//         chargeable: job?.ChargeableWeight ?? 0,
-//         Vol: job?.Volume ?? 0,
-//         noOfShipment: job.houseJob?.length ?? 0,
-//         GP,
-//         containerNo: job?.containers?.[0]?.ContainerNumber ?? null,
-//         twentyft: number20,
-//         fourty: number40,
-//         fourtyfive: number45,
-//         totalCost,
-//         totalRevenue,
-//         houseCount : houseJobs.length || 0,
-//         houseJobs: houseJobs.map(house => {
-//           const costRevenues = houseRateMap.get(house.HouseJobSid) || [];
-//           const totalCost = costRevenues.reduce((sum, cr) => {
-//             return cr.CostDrCr === 'D' ? toNumber(sum) + toNumber(cr.CostLocalAmount) :
-//               toNumber(sum) - toNumber(cr.CostLocalAmount)
-//           }, 0);
+  //     const data = await Promise.all(masterJobs.map(async job => {
 
-//           const totalRevenue = costRevenues.reduce((sum, cr) => {
-//             return cr.RevenueDrCr === 'C' ? toNumber(sum) + toNumber(cr.RevenueLocalAmount) :
-//               toNumber(sum) - toNumber(cr.RevenueLocalAmount)
-//           }, 0);
-//           return {
-//             HouseJobSid: house.HouseJobSid,
-//             HouseNo: house.HouseNo,
-//             HBLNo : house.HBLNo,
-//             totalCost,
-//             totalRevenue
-//           }
-//         })
-//       };
-//     })
-//     );
 
-//     return {
-//       companyMasterSid: CompanyMasterSid,
-//       branchMasterSid: branchId,
-//       data,
-//       branchesInvolved: Array.from(branchSet).join(','),
-//       params
-//     };
+  //       const relatedCR = await this._db.costRevenueCharges.findMany({
+  //         where: {
+  //           MenuMasterSid: job.MenuMasterSid!,
+  //           TransactionSid: job.MasterJobSid,
+  //           status: 'A'
+  //         },
+  //         select: {
+  //           MenuMasterSid: true,
+  //           CostLocalAmount: true,
+  //           RevenueLocalAmount: true,
+  //           ChargeDescription: true,
+  //           ChargeMasterSid: true,
+  //           CostAgentMasterSid: true,
+  //           RevenueCustomerMasterSid: true,
+  //           CostDrCr: true,
+  //           RevenueDrCr: true
+  //         }
+  //       });
 
-//   } catch (error) {
-//     this.logger.error(`Error generating profitability report: ${error.message}`, error.stack);
-//     throw error;
-//   }
-// }
+  //       const totalCost = relatedCR.reduce((sum, cr) => {
+  //         return cr.CostDrCr === 'D' ? toNumber(sum) + toNumber(cr.CostLocalAmount) :
+  //           toNumber(sum) - toNumber(cr.CostLocalAmount)
+  //       }, 0);
 
-  private async generateContainerwiseDetailsReport(params: any) {
+  //       const totalRevenue = relatedCR.reduce((sum, cr) => {
+  //         return cr.RevenueDrCr === 'C' ? toNumber(sum) + toNumber(cr.RevenueLocalAmount) :
+  //           toNumber(sum) - toNumber(cr.RevenueLocalAmount)
+  //       }, 0);
+
+  //       const GP = totalRevenue - totalCost;
+
+  //       const houseJobs = job.houseJob || [];
+
+  //       const houseRateMap: Map<number, any[]> = new Map([]);
+
+  //       const houseJobIds = new Set(houseJobs.map(hj => hj.HouseJobSid));
+  //       const houseJobIdArr = houseJobs.map(hj => hj.HouseJobSid);
+  //       const houseJobMenu = await this._db.menuMaster.findFirst({
+  //         where: { MenuName: 'House Job' },
+  //         select: { MenuMasterSid: true }
+  //       })
+
+  //       if (!houseJobMenu) {
+  //         throw new BadRequestException("House Job is found in menuMaster.")
+  //       }
+
+  //       const allHouseCR = await this._db.costRevenueCharges.findMany({
+  //         where: {
+  //           MenuMasterSid: houseJobMenu.MenuMasterSid,
+  //           TransactionSid: { in: houseJobIdArr },
+  //           status: 'A'
+  //         },
+  //         select: {
+  //           TransactionSid: true,
+  //           MenuMasterSid: true,
+  //           CostLocalAmount: true,
+  //           RevenueLocalAmount: true,
+  //           ChargeDescription: true,
+  //           ChargeMasterSid: true,
+  //           CostAgentMasterSid: true,
+  //           RevenueCustomerMasterSid: true,
+  //           CostDrCr: true,
+  //           RevenueDrCr: true
+  //         }
+  //       })
+
+  //       allHouseCR.forEach(hcr => {
+  //         const key = hcr.TransactionSid!;
+  //         if (houseRateMap.has(key)) {
+  //           const prev = houseRateMap.get(key) || [];
+  //           houseRateMap.set(key, [...prev, hcr]);
+  //         } else {
+  //           houseRateMap.set(key, [hcr]);
+  //         }
+  //       })
+
+
+
+  //       let number20 = 0, number40 = 0, number45 = 0;
+  //       (job.containers || []).forEach(c => {
+  //         const typeId = c.ContainerType ?? null;
+  //         if (!typeId) return;
+  //         const size = containerTypeMap.get(typeId)?.trim() ?? null;
+  //         if (size === "20") number20++;
+  //         if (size === "40") number40++;
+  //         if (size === "45") number45++;
+  //       });
+
+
+
+
+  //       return {
+  //         jobNumber: job.MasterJobNumber,
+  //         Mbl: job.MBLNo,
+  //         POL: job.POL,
+  //         POD: job.POD,
+  //         chargeable: job?.ChargeableWeight ?? 0,
+  //         Vol: job?.Volume ?? 0,
+  //         noOfShipment: job.houseJob?.length ?? 0,
+  //         GP,
+  //         containerNo: job?.containers?.[0]?.ContainerNumber ?? null,
+  //         twentyft: number20,
+  //         fourty: number40,
+  //         fourtyfive: number45,
+  //         totalCost,
+  //         totalRevenue,
+  //         houseCount : houseJobs.length || 0,
+  //         houseJobs: houseJobs.map(house => {
+  //           const costRevenues = houseRateMap.get(house.HouseJobSid) || [];
+  //           const totalCost = costRevenues.reduce((sum, cr) => {
+  //             return cr.CostDrCr === 'D' ? toNumber(sum) + toNumber(cr.CostLocalAmount) :
+  //               toNumber(sum) - toNumber(cr.CostLocalAmount)
+  //           }, 0);
+
+  //           const totalRevenue = costRevenues.reduce((sum, cr) => {
+  //             return cr.RevenueDrCr === 'C' ? toNumber(sum) + toNumber(cr.RevenueLocalAmount) :
+  //               toNumber(sum) - toNumber(cr.RevenueLocalAmount)
+  //           }, 0);
+  //           return {
+  //             HouseJobSid: house.HouseJobSid,
+  //             HouseNo: house.HouseNo,
+  //             HBLNo : house.HBLNo,
+  //             totalCost,
+  //             totalRevenue
+  //           }
+  //         })
+  //       };
+  //     })
+  //     );
+
+  //     return {
+  //       companyMasterSid: CompanyMasterSid,
+  //       branchMasterSid: branchId,
+  //       data,
+  //       branchesInvolved: Array.from(branchSet).join(','),
+  //       params
+  //     };
+
+  //   } catch (error) {
+  //     this.logger.error(`Error generating profitability report: ${error.message}`, error.stack);
+  //     throw error;
+  //   }
+  // }
+
+  private async generateContainerwiseDetailsReport(params: ContainerKPIReportQueryDto) {
     // TODO: Implement Containerwise Master Details with Cost/Revenue logic
     this.logger.log('generateContainerwiseDetailsReport called with params:', params);
     throw new BadRequestException('Containerwise Details Report generator not yet implemented');
   }
 
   private async generateContainerKPIReport(params: any) {
-    // TODO: Implement Container Wise KPI Report logic
-    this.logger.log('generateContainerKPIReport called with params:', params);
-    throw new BadRequestException('Container KPI Report generator not yet implemented');
+    const {
+      companyId: CompanyMasterSid,
+      ToHBLDt,
+      FromHBLDt,
+      Branch: branchId,
+      Dept: dept,
+    } = params;
+
+    try {
+      this.logger.log(`Getting Container_Wise_KPI report for CompanySid=${CompanyMasterSid}, From=${FromHBLDt}, To=${ToHBLDt}`);
+
+      const allBranches = await this._db.branchMaster.findMany({
+        where: { BranchMasterSid: { in: branchId } },
+        select: { branchName: true }
+      });
+
+
+      // charge matser
+      const chargeMaster = await this._db.chargeMaster.findMany({
+        select: { ChargeMasterSid: true, chargeGroup: true }
+      });
+
+      const chargeGroupMap = new Map<number, any>();
+
+      chargeMaster.forEach(cm => {
+        chargeGroupMap.set(cm.ChargeMasterSid, cm.chargeGroup);
+      });
+
+      // port master 
+
+      const portMaster = await this._db.portMaster.findMany({
+        select: { PortMasterSid: true, PortName: true }
+      });
+
+
+      // container Master 
+
+      const containerMaster = await this._db.containerTypeMaster.findMany({
+        select: { ContainerTypeMasterSid: true, ContainerSize: true, ContainerName: true }
+      })
+
+
+      const branchSet = new Set(allBranches.map(b => b.branchName));
+
+      const houseData = await this._db.houseJob.findMany({
+        where: {
+          CompanyMasterSid,
+          BranchMasterSid: { in: branchId },
+          AND: [
+            { HBLDate: { gte: new Date(FromHBLDt) } },
+            { HBLDate: { lte: new Date(ToHBLDt) } }
+          ],
+          status: 'A',
+          DepartmentMasterSid: { in: dept },
+        },
+        include: {
+          masterJob: {
+            where: {
+              Status: "A"
+            },
+            select: {
+              voyages: true
+            }
+          },
+          bookingHeader: true,
+          Products: {
+            where: {
+              status: "A"
+            },
+            select: {
+              ContainerNo: true,
+              MasterJobContainerSid: true,
+              Volume: true,
+              GrossWeight: true,
+              IsHaz: true,
+            }
+          },
+          Cargo: true,
+          departmentMaster: {
+            select: {
+              departmentName: true
+            }
+          }
+        },
+        orderBy: { HBLDate: 'asc' },
+      });
+
+
+      const houseJobMenu = await this._db.menuMaster.findFirst({
+        where: { MenuName: 'House Job' },
+        select: { MenuMasterSid: true }
+      });
+
+      if (!houseJobMenu) {
+        throw new BadRequestException('House Job menu not found');
+      }
+
+      const houseJobIds = houseData.map(h => h.HouseJobSid);
+
+      const houseCR = await this._db.costRevenueCharges.findMany({
+        where: {
+          MenuMasterSid: houseJobMenu.MenuMasterSid,
+          TransactionSid: { in: houseJobIds },
+          status: 'A'
+        }
+      });
+
+
+      const houseRateMap: Map<number, any[]> = new Map();
+
+      houseCR.forEach(cr => {
+        const key = cr.TransactionSid!;
+        if (!houseRateMap.has(key)) {
+          houseRateMap.set(key, []);
+        }
+        houseRateMap.get(key)!.push(cr);
+      });
+
+
+      if (houseData.length === 0) {
+        this.logger.log(`No shipment vouchers found for the given filters.`);
+        return { companyMasterSid: CompanyMasterSid, branchMasterSid: branchId, data: [] };
+      }
+
+      // Create map of ContainerTypeMasterSid -> ContainerSize
+      const containerTypeMap = new Map<number, string>();
+      containerMaster.forEach(ct => {
+        if (ct.ContainerTypeMasterSid != null) {
+          containerTypeMap.set(ct.ContainerTypeMasterSid, ct.ContainerName);
+        }
+      });
+
+
+      const data = houseData.map(data => {
+        const costRevenueCharges = houseRateMap.get(data.HouseJobSid) || [];
+
+        const freightRevenue = costRevenueCharges
+          .filter(cr =>
+            cr.RevenueLocalAmount &&
+            chargeGroupMap.get(cr.ChargeMasterSid)?.GroupName === 'Freight'
+          )
+          .reduce((sum, cr) => sum + Number(cr.RevenueLocalAmount), 0);
+
+        const product = data.Products?.[0];
+
+
+        let containerName = '';
+        if (product?.MasterJobContainerSid != null) {
+          containerName = containerTypeMap.get(product.MasterJobContainerSid) || '';
+        }
+
+        return {
+          bookingNo: data?.bookingHeader?.[0]?.bookingNo,
+          vesselName: data?.VesselName,
+          MBL: data?.MBLNo,
+          HBL: data?.HBLNo,
+          shipmentType: data?.Cargo?.[0]?.ShipmentTerms,
+          consigneeName: data?.ConsigneeName,
+          fnalDestination: data?.FPD,
+          portofDischarge: data?.POD,
+          ETA: data?.ETA,
+          ETD: data?.ETD,
+          freightTerms: data?.FreightTerms,
+          bookingDate: data?.BookingDateTime,
+          containerNo: product?.ContainerNo,
+          containerName,
+          containerSid: product?.MasterJobContainerSid,
+          vol: product?.Volume,
+          weight: product?.GrossWeight,
+          costRevenueCharges,
+          freightRevenue,
+          dgDelaration: product?.IsHaz,
+          ATDPOL: data?.masterJob?.voyages?.[0]?.ATD
+        };
+      });
+
+
+      return {
+        companyMasterSid: CompanyMasterSid,
+        branchMasterSid: branchId,
+        data,
+        branchesInvolved: Array.from(branchSet).join(','),
+        params,
+      };
+
+    } catch (error) {
+      this.logger.error(`Error generating shipment summary: ${error.message}`, error.stack);
+      throw error;
+    }
   }
 
   private async generateDOIssueList(params: any) {
