@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, InternalServerErrorException, Logger, NotFoundException } from '@nestjs/common';
 import { DatabaseService } from 'src/database/database.service';
 import { VoucherService } from '../voucher/voucher.service';
+import * as moment from 'moment-timezone';
 
 @Injectable()
 export class VendorInvoiceService {
@@ -39,12 +40,11 @@ export class VendorInvoiceService {
                 }
 
                 // Generate voucher number
-                const voucherNumber = await this.voucherService.generateVoucherNumberFromConfig(
-                    voucherTypeMaster,
-                    payload.CompanyMasterSid,
-                    payload.BranchMasterSid,
-                    tx
-                );
+              const dateString = moment().format('YYYYMMDD');
+              const count = await tx.voucherHeader.count({
+                where: { VoucherNumber: { contains: dateString } }
+              });
+              const VoucherNumber = `VEN-${dateString}-${(count + 1).toString().padStart(3, '0')}`;
 
                 // Get currency master ID
                 let currencyMasterSid = payload.CurrencyMasterSid;
@@ -58,7 +58,7 @@ export class VendorInvoiceService {
                 // Create VoucherHeader
                 const voucherHeader = await tx.voucherHeader.create({
                     data: {
-                        VoucherNumber: voucherNumber,
+                        VoucherNumber: VoucherNumber,
                         VoucherDate: payload.VoucherDate ? new Date(payload.VoucherDate) : new Date(),
                         PostDate: payload.PostDate ? new Date(payload.PostDate) : new Date(),
                         VoucherType: voucherTypeMaster.VoucherTypeMasterSid,
@@ -224,7 +224,7 @@ export class VendorInvoiceService {
                 return {
                     newVoucher: completeVendorInvoice,
                     VoucherHeaderSid: voucherHeader.VoucherHeaderSid,
-                    VoucherNumber: voucherNumber,
+                    VoucherNumber: VoucherNumber,
                     patchedCostRevenueCount: patchedCostRevenueIds.length
                 };
             });

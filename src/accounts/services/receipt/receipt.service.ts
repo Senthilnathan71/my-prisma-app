@@ -1266,6 +1266,9 @@ export class ReceiptService {
               where: { Status: 'A' },
               orderBy: { Sno: 'asc' },
             },
+            subledgerMaster : {
+              select : {SubledgerName : true}
+            },
             SourceMatchingDetail: true,
             voucherTypeMaster: true
           }
@@ -1421,6 +1424,7 @@ export class ReceiptService {
             CompanyMasterSid: payload.companyMasterSid,
             BranchMasterSid: payload.branchMasterSid,
             VoucherHeaderSid: payload.voucherHeaderSid,
+            SubledgerName : voucher?.subledgerMaster?.SubledgerName || '',
             voucherTypeInName: voucher?.voucherTypeMaster.DocumentTypeName,
             VoucherTypeMasterSid: voucher?.voucherTypeMaster.VoucherTypeMasterSid,
             PostDate: voucher.PostDate!,

@@ -447,7 +447,8 @@ export class PaymentService {
                             orderBy: { Sno: 'asc' },
                         },
                         SourceMatchingDetail: true,
-                        voucherTypeMaster: true
+                        voucherTypeMaster: true,
+                        subledgerMaster : { select : {SubledgerName : true}}
                     }
                 })
 
@@ -658,6 +659,7 @@ export class PaymentService {
                         VoucherHeaderSid: payload.voucherHeaderSid,
                         voucherTypeInName: voucher?.voucherTypeMaster.DocumentTypeName,
                         VoucherTypeMasterSid: voucher?.voucherTypeMaster.VoucherTypeMasterSid,
+                        SubledgerName : voucher?.subledgerMaster?.SubledgerName || '',
                         PostDate: voucher.PostDate!,
                         Narration: `${voucher.VoucherNumber} ${voucher.VoucherDate.toISOString().split('T')[0]} ${voucher.CurrencyCode} ${voucher.Amount}`,
                         createdBy: payload.postedBy,
