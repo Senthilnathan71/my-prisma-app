@@ -459,6 +459,7 @@ model DepartmentMaster {
   Division              String?                 @db.VarChar(20)
   Remarks               String?                 @db.VarChar(20)
   bookingHeader         BookingHeader[]
+  blClause              BLClauseMaster[]
   customerCreditRequest CustomerCreditRequest[]
   customerSupport       CustomerSupport[]
   companyMaster         CompanyMaster?          @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
@@ -1874,17 +1875,19 @@ model ImcoMaster {
 }
 
 model BLClauseMaster {
-  BLClauseMasterSid Int       @id @default(autoincrement()) @map("BLClauseMasterSid")
-  ClauseDescription String    @db.VarChar(500)
-  Keyword           String    @db.VarChar(20)
-  Sortorder         Decimal?  @db.Decimal(2, 0)
-  createdOn         DateTime  @default(now()) @db.Timestamptz(6)
-  updatedOn         DateTime? @updatedAt @db.Timestamptz(6)
-  deletedAt         DateTime?
-  createdBy         String    @db.VarChar(100)
-  updatedBy         String?   @db.VarChar(100)
-  status            String?   @default("A") @db.Char(1)
-  DefaultClause     String?   @default("N") @db.Char(1)
+  BLClauseMasterSid   Int              @id @default(autoincrement()) @map("BLClauseMasterSid")
+  ClauseDescription   String           @db.VarChar(500)
+  Keyword             String           @db.VarChar(20)
+  Sortorder           Decimal?         @db.Decimal(2, 0)
+  createdOn           DateTime         @default(now()) @db.Timestamptz(6)
+  updatedOn           DateTime?        @updatedAt @db.Timestamptz(6)
+  deletedAt           DateTime?
+  createdBy           String           @db.VarChar(100)
+  updatedBy           String?          @db.VarChar(100)
+  status              String?          @default("A") @db.Char(1)
+  DefaultClause       String?          @default("N") @db.Char(1)
+  DepartmentMasterSid Int
+  DepartmentMaster    DepartmentMaster @relation(fields: [DepartmentMasterSid], references: [DepartmentMasterSid])
 }
 
 model CategoryMaster {
@@ -2588,6 +2591,8 @@ model MasterJob {
   CommodityDescription       String?                      @db.VarChar(3000)
   MarksandNumber             String?                      @db.VarChar(500)
   JobStatus                  String                       @default("Job Generated") @db.VarChar(30)
+  SiCutoffDate               DateTime?                    @db.Date
+  PortCutoffDate             DateTime?                    @db.Date
   ActivityResourceAllocation ActivityResourceAllocation[]
   ContainerActivity          ContainerActivity[]
   houseJob                   HouseJob[]
@@ -2653,6 +2658,9 @@ model MasterJobOthers {
   ContainerReleaseDate  DateTime?
   ContainerValidityDate DateTime?
   AMSRefNo              String?   @db.VarChar(20)
+  ValueForInsurance     Decimal?  @db.Decimal(12, 3)
+  InsuranceAmount       Decimal?  @db.Decimal(12, 3)
+  ValuationCharge       Decimal?  @db.Decimal(12, 3)
   masterJob             MasterJob @relation(fields: [MasterJobSid], references: [MasterJobSid])
 }
 
@@ -2948,6 +2956,7 @@ model HouseJobOthers {
   DONo                String?   @db.VarChar(20)
   ExternalNote        String?   @db.VarChar(300)
   InternalNote        String?   @db.VarChar(300)
+  BlClause            String[]
   HouseJob            HouseJob  @relation(fields: [HouseJobSid], references: [HouseJobSid])
 }
 
