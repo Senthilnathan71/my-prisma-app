@@ -193,4 +193,24 @@ export class BlclauseService {
             throw new Error(`Error fetching audit logs: ${error.message}`);
         }
     }
+    async getDefaultBLClausesByDepartment(DepartmentMasterSid: number): Promise<any[]> {
+    try {
+    const clauses = await this._db.bLClauseMaster.findMany({
+      where: {
+        DepartmentMasterSid: DepartmentMasterSid,
+        DefaultClause: 'Y',
+        status: 'A',
+      },
+      select: {
+        ClauseDescription: true,
+      },
+      orderBy: {
+        Sortorder: 'asc'
+      }
+    });
+    return clauses;
+  } catch (error) {
+    throw error;
+  }
+}
 }

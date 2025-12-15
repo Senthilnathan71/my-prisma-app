@@ -136,8 +136,11 @@ export class MasterJobService {
                     ChargeableWeight: Number(payload.ChargeableWeight),
                     Volume: Number(payload.Volume),
                     Haz: payload.Haz,
+                    JobStatus: payload.JobStatus,
                     DGBookingDate: payload.DGBookingDate ? new Date(payload.DGBookingDate) : null,
                     DGApprovedDate: payload.DGApprovedDate ? new Date(payload.DGApprovedDate) : null,
+                    SiCutoffDate: payload.SiCutoffDate ? new Date(payload.SiCutoffDate) : null,
+                    PortCutoffDate: payload.PortCutoffDate ? new Date(payload.PortCutoffDate) : null,
                     CommodityDescription: payload.CommodityDescription?.substring(0, 20) || '',
                     MarksandNumber: payload.MarksandNumber?.substring(0, 20) || '',
 
@@ -330,10 +333,53 @@ export class MasterJobService {
                         data: activityPayload
                     })
                 }
+                // create House job Custos
+                let finalHouseJobCustoms: any[] = [];
+                const houseJobCustomsPayload = payload.houseJobCustoms || [];
+                if (houseJobCustomsPayload.length > 0) {
+                    for (const customs of houseJobCustomsPayload) {
+                        const createdCustoms = await prisma.houseJobCustoms.create({
+                            data: {
+                                MasterJobSid: createdMasterJob.MasterJobSid,
+                                CompanyMasterSid: payload.CompanyMasterSid,
+                                LineCode: customs.LineCode,
+                                VoyageAgentCode: customs.VoyageAgentCode,
+                                RotationNumber: customs.RotationNumber,
+                                ManifestSequence: customs.ManifestSequence,
+                                CargoCode: customs.CargoCode,
+                                StorageRequest: customs.StorageRequest,
+                                PackageTypeCode: customs.PackageTypeCode,
+                                FreightTonne: customs.FreightTonne ? Number(customs.FreightTonne) : null,
+                                NoOfPallets: customs.NoOfPallets ? Number(customs.NoOfPallets) : null,
+                                SLACIndicator: customs.SLACIndicator,
+                                ImporterCode: customs.ImporterCode,
+                                SerialNumber: customs.SerialNumber ? Number(customs.SerialNumber) : 0,
+                                UsedOrNew: customs.UsedOrNew,
+                                UNHSCode: customs.UNHSCode,
+                                UNNumber: customs.UNNumber,
+                                FlashPoints: customs.FlashPoints ? Number(customs.FlashPoints) : null,
+                                TemperatureUnit: customs.TemperatureUnit,
+                                HazStorageRequest: customs.HazStorageRequest,
+                                RefrigerationRequired: customs.RefrigerationRequired,
+                                MinTemperature: customs.MinTemperature ? Number(customs.MinTemperature) : null,
+                                MaxTemperature: customs.MaxTemperature ? Number(customs.MaxTemperature) : null,
+                                RefTemperatureUnit: customs.RefTemperatureUnit,
+                                CreatedBy: payload.CreatedBy,
+                                Status: "A"
+                            }
+                        });
+                        finalHouseJobCustoms.push(createdCustoms);
+                    }
+                }
 
                 return {
                     ...createdMasterJob,
-                    ...createdVoyage
+                    ...createdVoyage,
+                    ...finalHouseJobCustoms,
+                    ...createdCostRevenueCharges,
+                    ...allConnections,
+                    ...createdActivities,
+
                 }
             })
 
@@ -386,7 +432,6 @@ export class MasterJobService {
                     }
 
                     const houseJobMenuId = await this.menuMasterService.getMenuSidByName('House Job');
-
 
                     // Step 1: Create main house job
                     const houseJob = await this._db.houseJob.create({
@@ -550,6 +595,23 @@ export class MasterJobService {
 
                     if (bookingOthers?.[0]) {
                         const other = bookingOthers[0];
+                        const departmentId = bookingHeader.DepartmentMasterSid;
+                        let defaultClause :any[] = [];
+                    if (departmentId) {
+                        const blclause = await this._db.bLClauseMaster.findMany({
+                            where: {
+                                DepartmentMasterSid: departmentId,
+                                DefaultClause: 'Y',
+                                status: 'A'
+                            },
+                            select: {
+                                ClauseDescription: true,
+                            }
+                        });
+                        if (blclause && blclause.length > 0) {
+                            defaultClause = blclause.map(clause => clause.ClauseDescription);
+                        }
+                    }
                         await this._db.houseJobOthers.create({
                             data: {
                                 HouseJobSid: houseJob.HouseJobSid,
@@ -564,6 +626,7 @@ export class MasterJobService {
                                 CHAName: other.CHAName,
                                 PickupMode: other.PickupMode,
                                 YardCFS: other.YardCFS,
+                                BlClause: defaultClause,
                                 LocalTransport: other.LocalTransport,
                                 OverseasTransport: other.OverseasTransport,
                                 OverseasClearance: other.OverseasClearance,
@@ -804,6 +867,7 @@ export class MasterJobService {
                             }},
                         },
                     others: { where: { Status: 'A' } },
+                    houseJobCustoms: { where: { Status: 'A' } },
                     houseJob: {
                         where: {
                             status: 'A',
@@ -1010,7 +1074,8 @@ export class MasterJobService {
                 CutOffDate,
                 allShipments,
                 costRevenueCharges: allCostRevenueCharges,
-                containerActivities: allActivities
+                containerActivities: allActivities,
+                houseJobCustoms: masterJobDetails.houseJobCustoms || []
             }
         });
     } catch (error) {
@@ -1090,8 +1155,11 @@ const allHouseJobs = await prisma.houseJob.findMany({
                 Volume: parseFloat(totalVolume.toFixed(3)),
                     Haz: payload.Haz,
                     Status: payload.Status,
+                    JobStatus: payload.JobStatus,
                     DGBookingDate: payload.DGBookingDate ? new Date(payload.DGBookingDate) : null,
                     DGApprovedDate: payload.DGApprovedDate ? new Date(payload.DGApprovedDate) : null,
+                    SiCutoffDate: payload.SiCutoffDate ? new Date(payload.SiCutoffDate) : null,
+                    PortCutoffDate: payload.PortCutoffDate ? new Date(payload.PortCutoffDate) : null,
                     CommodityDescription: payload.CommodityDescription?.substring(0, 20) || '',
                     MarksandNumber: payload.MarksandNumber?.substring(0, 20) || '',
                 }
@@ -1491,6 +1559,98 @@ const allHouseJobs = await prisma.houseJob.findMany({
                     }
                     finalContainerActivities.push(activityResult);
                 }
+                   const finalHouseJobCustoms: any[] = [];
+            const houseJobCustomsPayload = payload.houseJobCustoms || [];
+            
+            if (houseJobCustomsPayload.length > 0) {
+                for (const customs of houseJobCustomsPayload) {
+                    let customResult;
+                    
+                    if (customs.HouseJobCustomsSid) {
+                        // Update existing customs record
+                        const updateData: any = {
+                            HouseJobCustomsSid: customs.HouseJobCustomsSid,
+                            MasterJobSid: payload.MasterJobSid,
+                            CompanyMasterSid: payload.CompanyMasterSid,
+                            LineCode: customs.LineCode,
+                            VoyageAgentCode: customs.VoyageAgentCode,
+                            RotationNumber: customs.RotationNumber,
+                            ManifestSequence: customs.ManifestSequence,
+                            CargoCode: customs.CargoCode,
+                            StorageRequest: customs.StorageRequest,
+                            PackageTypeCode: customs.PackageTypeCode,
+                            FreightTonne: customs.FreightTonne ? Number(customs.FreightTonne) : null,
+                            NoOfPallets: customs.NoOfPallets ? Number(customs.NoOfPallets) : null,
+                            SLACIndicator: customs.SLACIndicator,
+                            ImporterCode: customs.ImporterCode,
+                            SerialNumber: customs.SerialNumber ? Number(customs.SerialNumber) : 0,
+                            UsedOrNew: customs.UsedOrNew,
+                            UNHSCode: customs.UNHSCode,
+                            UNNumber: customs.UNNumber,
+                            FlashPoints: customs.FlashPoints ? Number(customs.FlashPoints) : null,
+                            TemperatureUnit: customs.TemperatureUnit,
+                            HazStorageRequest: customs.HazStorageRequest,
+                            RefrigerationRequired: customs.RefrigerationRequired,
+                            MinTemperature: customs.MinTemperature ? Number(customs.MinTemperature) : null,
+                            MaxTemperature: customs.MaxTemperature ? Number(customs.MaxTemperature) : null,
+                            RefTemperatureUnit: customs.RefTemperatureUnit,
+                            UpdatedBy: payload.updatedBy || payload.CreatedBy,
+                            UpdatedOn: new Date(),
+                        };
+                        
+                        // Remove null values for update
+                        Object.keys(updateData).forEach(key => {
+                            if (updateData[key] === null || updateData[key] === undefined) {
+                                delete updateData[key];
+                            }
+                        });
+                        
+                        customResult = await prisma.houseJobCustoms.update({
+                            where: {
+                                HouseJobCustomsSid: customs.HouseJobCustomsSid
+                            },
+                            data: updateData
+                        });
+                    } else {
+                        // Create new customs record
+                        const createData = {
+                            
+                            MasterJobSid: payload.MasterJobSid,
+                            CompanyMasterSid: payload.CompanyMasterSid,
+                            LineCode: customs.LineCode,
+                            VoyageAgentCode: customs.VoyageAgentCode,
+                            RotationNumber: customs.RotationNumber,
+                            ManifestSequence: customs.ManifestSequence,
+                            CargoCode: customs.CargoCode,
+                            StorageRequest: customs.StorageRequest,
+                            PackageTypeCode: customs.PackageTypeCode,
+                            FreightTonne: customs.FreightTonne ? Number(customs.FreightTonne) : null,
+                            NoOfPallets: customs.NoOfPallets ? Number(customs.NoOfPallets) : null,
+                            SLACIndicator: customs.SLACIndicator,
+                            ImporterCode: customs.ImporterCode,
+                            SerialNumber: customs.SerialNumber ? Number(customs.SerialNumber) : 0,
+                            UsedOrNew: customs.UsedOrNew,
+                            UNHSCode: customs.UNHSCode,
+                            UNNumber: customs.UNNumber,
+                            FlashPoints: customs.FlashPoints ? Number(customs.FlashPoints) : null,
+                            TemperatureUnit: customs.TemperatureUnit,
+                            HazStorageRequest: customs.HazStorageRequest,
+                            RefrigerationRequired: customs.RefrigerationRequired,
+                            MinTemperature: customs.MinTemperature ? Number(customs.MinTemperature) : null,
+                            MaxTemperature: customs.MaxTemperature ? Number(customs.MaxTemperature) : null,
+                            RefTemperatureUnit: customs.RefTemperatureUnit,
+                             CreatedBy: payload.updatedBy || payload.CreatedBy,
+                            Status: "A"
+                        };
+                        
+                        customResult = await prisma.houseJobCustoms.create({
+                            data: createData
+                        });
+                    }
+                    finalHouseJobCustoms.push(customResult);
+                }
+            }
+
 
                 return {
                     ...updatedMasterJob,
@@ -1508,7 +1668,7 @@ const allHouseJobs = await prisma.houseJob.findMany({
                     allContainers: finalMasterJobContainers,
                     allConnections: finalConnections,
                     MasterJobVoyageSid: finalVoyage,
-
+                     houseJobCustoms: finalHouseJobCustoms,
                     
 
                    
@@ -2695,8 +2855,11 @@ private async updateMasterJobTotals(masterJobSid: number): Promise<void> {
                     ChargeableWeight: parseNumeric(masterJobData.ChargeableWeight),
                     Volume: parseNumeric(masterJobData.Volume),
                     Haz: masterJobData.Haz,
+                    JobStatus: masterJobData.JobStatus,
                     DGBookingDate: parseDate(masterJobData.DGBookingDate),
                     DGApprovedDate: parseDate(masterJobData.DGApprovedDate),
+                    SiCutoffDate: parseDate(masterJobData.SiCutoffDate),
+                    PortCutoffDate: parseDate(masterJobData.PortCutoffDate),
                     CommodityDescription: masterJobData.CommodityDescription?.substring(0, 3000) || '',
                     MarksandNumber: masterJobData.MarksandNumber?.substring(0, 500) || '',
                     MenuMasterSid: masterJobData.MenuMasterSid,
@@ -3440,6 +3603,9 @@ private async updateMasterJobTotals(masterJobSid: number): Promise<void> {
                 finalDestination: masterJob.FPD || '',
                 etd: primaryVoyage?.ETD || primaryVoyage?.voyageMasterHeader?.ETD,
                 eta: primaryVoyage?.ETA || primaryVoyage?.voyageMasterHeader?.ETA,
+                siCutoffDate: masterJob.SiCutoffDate || null,
+                portCutoffDate: masterJob.PortCutoffDate || null,
+                jobStatus: masterJob.JobStatus || '',
                 commodity: masterJob.CommodityDescription || '',
                 serviceType: masterJob.MovementType || 'FCL',
                 totalPackages: masterJob.NoOfPkg || 0,

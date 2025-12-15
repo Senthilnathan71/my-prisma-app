@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { statusWhereClause } from 'src/common/helper';
 import { DatabaseService } from 'src/database/database.service';
@@ -53,55 +53,169 @@ async getAllCustomer(user,CompanyMasterSid:number) {
         }
     }
 
-    async createNewLead(payload) {
-        try {
-            if (payload.city && typeof payload.city === 'object') {
-                payload.CityMasterSid = payload.city.CityMasterSid;
-                delete payload.city;
-            }
+    // async createNewLead(payload) {
+    //     try {
+    //         if (payload.city && typeof payload.city === 'object') {
+    //             payload.CityMasterSid = payload.city.CityMasterSid;
+    //             delete payload.city;
+    //         }
 
-            if (!payload.CityMasterSid) {
-                throw new BadRequestException('CityMasterSid is required');
-            }
-            const createdLead = await this._db.preCustomerMaster.create({
-                data: {
-                    preCustomerName: payload.preCustomerName,
-                    leadReferredBy: payload.leadReferredBy,
-                    leadFrom: payload.leadFrom,
-                    preCustomerType: payload.preCustomerType,
-                    preCustomerAddress1: payload.preCustomerAddress1,
-                    preCustomerAddress2: payload.preCustomerAddress2,
-                    POBOX: payload.POBOX,
-                    contactPerson: payload.contactPerson,
-                    email: payload.email,
-                    phone: payload.phone,
-                    PreferredContactMode: payload.PreferredContactMode,
-                    LanguagePreferrence: payload.LanguagePreferrence,
-                    ServiceOfInterest: payload.ServiceOfInterest,
-                    PurchaseTimeline: payload.PurchaseTimeline,
-                    SpecificRequirements: payload.SpecificRequirements,
-                    Industry: payload.Industry,
-                    CompanySize: payload.CompanySize,
-                    AnnualRevenue: payload.AnnualRevenue,
-                    Notes: payload.Notes,
-                    status: payload.status,
-                    createdBy: payload.createdBy,
-                    isQualify: payload.isQualify,
-                    leadStatus: payload.leadStatus,
-                    // ✅ Fix: connect required relations
-                    companyMaster: { connect: { CompanyMasterSid: payload.CompanyMasterSid } },
-                    branchMaster: payload.BranchMasterSid ? { connect: { BranchMasterSid: payload.BranchMasterSid } } : undefined,
-                    countryMaster: payload.CountryMasterSid ? { connect: { CountryMasterSid: payload.CountryMasterSid } } : undefined,
-                    stateMaster: { connect: { StateMasterSid: payload.StateMasterSid } },
-                    cityMaster: { connect: { CityMasterSid: payload.CityMasterSid } },
+    //         if (!payload.CityMasterSid) {
+    //             throw new BadRequestException('CityMasterSid is required');
+    //         }
+    //         const createdLead = await this._db.preCustomerMaster.create({
+    //             data: {
+    //                 preCustomerName: payload.preCustomerName,
+    //                 leadReferredBy: payload.leadReferredBy,
+    //                 leadFrom: payload.leadFrom,
+    //                 preCustomerType: payload.preCustomerType,
+    //                 preCustomerAddress1: payload.preCustomerAddress1,
+    //                 preCustomerAddress2: payload.preCustomerAddress2,
+    //                 POBOX: payload.POBOX,
+    //                 contactPerson: payload.contactPerson,
+    //                 email: payload.email,
+    //                 phone: payload.phone,
+    //                 PreferredContactMode: payload.PreferredContactMode,
+    //                 LanguagePreferrence: payload.LanguagePreferrence,
+    //                 ServiceOfInterest: payload.ServiceOfInterest,
+    //                 PurchaseTimeline: payload.PurchaseTimeline,
+    //                 SpecificRequirements: payload.SpecificRequirements,
+    //                 Industry: payload.Industry,
+    //                 CompanySize: payload.CompanySize,
+    //                 AnnualRevenue: payload.AnnualRevenue,
+    //                 Notes: payload.Notes,
+    //                 status: payload.status,
+    //                 createdBy: payload.createdBy,
+    //                 isQualify: payload.isQualify,
+    //                 leadStatus: payload.leadStatus,
+    //                 // ✅ Fix: connect required relations
+    //                 companyMaster: { connect: { CompanyMasterSid: payload.CompanyMasterSid } },
+    //                 branchMaster: payload.BranchMasterSid ? { connect: { BranchMasterSid: payload.BranchMasterSid } } : undefined,
+    //                 countryMaster: payload.CountryMasterSid ? { connect: { CountryMasterSid: payload.CountryMasterSid } } : undefined,
+    //                 stateMaster: { connect: { StateMasterSid: payload.StateMasterSid } },
+    //                 cityMaster: { connect: { CityMasterSid: payload.CityMasterSid } },
 
+    //             }
+    //         })
+    //         return createdLead;
+    //     } catch (error) {
+    //         throw error;
+    //     }
+    // }
+    async createNewLead(payload: any) {
+    try {
+        // Step 1: Normalize payload (keep your existing logic)
+        if (payload.city && typeof payload.city === 'object') {
+            payload.CityMasterSid = payload.city.CityMasterSid;
+            delete payload.city;
+        }
+
+        // Step 2: Validate required fields
+        if (!payload.CityMasterSid) {
+            throw new BadRequestException('CityMasterSid is required');
+        }
+
+        if (!payload.CompanyMasterSid) {
+            throw new BadRequestException('CompanyMasterSid is required');
+        }
+
+        // Step 3: Check for duplicate lead
+        // Define duplicate criteria based on your business logic
+        const duplicateConditions: any = {
+            OR: []
+        };
+
+        if (payload.preCustomerName?.trim()) {
+            duplicateConditions.OR.push({
+                preCustomerName: { 
+                    equals: payload.preCustomerName.trim(), 
+                    mode: 'insensitive' 
                 }
-            })
-            return createdLead;
-        } catch (error) {
+            });
+        }
+
+        // Also check within the same company context
+        duplicateConditions.CompanyMasterSid = payload.CompanyMasterSid;
+
+        // Only run duplicate check if we have at least one criteria
+        if (duplicateConditions.OR.length > 0) {
+            const existingLead = await this._db.preCustomerMaster.findFirst({
+                where: duplicateConditions
+            });
+
+            if (existingLead) {
+                // Provide specific error messages based on what matched
+                if (existingLead.preCustomerName?.toLowerCase() === payload.preCustomerName?.trim().toLowerCase()) {
+                    throw new BadRequestException('Lead already exists.');
+                }
+                // Generic fallback
+                throw new BadRequestException('Duplicate lead detected');
+            }
+        }
+
+        // Step 4: Create the lead with proper error handling
+        const createdLead = await this._db.preCustomerMaster.create({
+            data: {
+                preCustomerName: payload.preCustomerName,
+                leadReferredBy: payload.leadReferredBy,
+                leadFrom: payload.leadFrom,
+                preCustomerType: payload.preCustomerType,
+                preCustomerAddress1: payload.preCustomerAddress1,
+                preCustomerAddress2: payload.preCustomerAddress2,
+                POBOX: payload.POBOX,
+                contactPerson: payload.contactPerson,
+                email: payload.email,
+                phone: payload.phone,
+                PreferredContactMode: payload.PreferredContactMode,
+                LanguagePreferrence: payload.LanguagePreferrence,
+                ServiceOfInterest: payload.ServiceOfInterest,
+                PurchaseTimeline: payload.PurchaseTimeline,
+                SpecificRequirements: payload.SpecificRequirements,
+                Industry: payload.Industry,
+                CompanySize: payload.CompanySize,
+                AnnualRevenue: payload.AnnualRevenue,
+                Notes: payload.Notes,
+                status: payload.status,
+                createdBy: payload.createdBy,
+                isQualify: payload.isQualify,
+                leadStatus: payload.leadStatus,
+                
+                // ✅ Connect required relations
+                companyMaster: { connect: { CompanyMasterSid: payload.CompanyMasterSid } },
+                branchMaster: payload.BranchMasterSid ? { 
+                    connect: { BranchMasterSid: payload.BranchMasterSid } 
+                } : undefined,
+                countryMaster: payload.CountryMasterSid ? { 
+                    connect: { CountryMasterSid: payload.CountryMasterSid } 
+                } : undefined,
+                stateMaster: { connect: { StateMasterSid: payload.StateMasterSid } },
+                cityMaster: { connect: { CityMasterSid: payload.CityMasterSid } },
+            }
+        });
+
+        this.logger.log(`Lead created: ${JSON.stringify(createdLead)}`);
+        return createdLead;
+
+    } catch (error) {
+        this.logger.error(`Error creating lead: ${error.message}`, error.stack);
+        
+        // If it's already a BadRequestException (like from duplicate check), rethrow it
+        if (error instanceof BadRequestException) {
             throw error;
         }
+        
+        // Handle Prisma unique constraint errors if you have unique constraints in DB
+        if (error.code === 'P2002') {
+            const field = error.meta?.target?.[0];
+            throw new BadRequestException(
+                `A lead with this ${field} already exists`
+            );
+        }
+        
+        // For other errors, wrap them or rethrow
+        throw new InternalServerErrorException('Failed to create lead');
     }
+}
 
     async fetchLeadById(PreCustomerMasterSid: number) {
         try {
