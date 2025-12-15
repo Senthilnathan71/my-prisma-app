@@ -3,7 +3,7 @@ import { PrismaClient } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
 import { VoucherMatchingPayload } from 'src/accounts/dto/receipt.dto';
 import { PostVoucherResponseDto, TaxSummaryDto, VoucherDetailDto } from 'src/accounts/dto/voucher-posting.dto';
-import { checkIfExJvApplicable, checkIfMatchingApplicable, getPartyDrCr, TaxVoucherType } from 'src/common/config/voucher-type.config';
+import { checkIfExJvApplicable, checkIfMatchingApplicable, getPartyDrCr, getTaxLedger, TaxLedgerType, TaxVoucherType } from 'src/common/config/voucher-type.config';
 import { DatabaseService } from 'src/database/database.service';
 import * as moment from 'moment-timezone';
 import { CreateVoucherPayload } from 'src/accounts/dto/voucher.dto';
@@ -1605,7 +1605,7 @@ export class VoucherService {
                     if (hasAnyTax) {
                         const taxSummaries = await this.summarizeTaxes(
                             chargeLineItems,
-                            getPartyDrCr(voucherType)!,
+                            voucherType as TaxVoucherType,
                             taxDetails,
                             voucher.CompanyMasterSid,
                             tx
@@ -2053,7 +2053,7 @@ export class VoucherService {
      */
     async summarizeTaxes(
         details: VoucherDetailDto[],
-        PartyDrCr : 'D' | 'C',
+        voucherType : TaxVoucherType,
         taxDetails: {
             CountryMasterSid: number,
             countryName: string,
@@ -2219,11 +2219,13 @@ export class VoucherService {
                             )
                         }
 
-                        let finalLedger = PartyDrCr === 'D' ? subledgerMapping.CrCOAMasterSid : subledgerMapping.DrCOAMasterSid;
+                        const isCreditCOA = getTaxLedger(voucherType) === 'Creditor';
+                        let finalLedger = 
+                           isCreditCOA ? subledgerMapping.CrCOAMasterSid : subledgerMapping.DrCOAMasterSid;
 
                         if(!finalLedger){
                             throw new BadRequestException(
-                                `Please configure the ${PartyDrCr === 'D' ? 'Creditor' : 'Debitor'} ledger for : ${tax.taxCode} : ${tax.taxPercentage} in subledger master.`
+                                `Please configure the ${isCreditCOA ? 'Creditor' : 'Debitor'} ledger for : ${tax.taxCode} : ${tax.taxPercentage} in subledger master.`
                             )
                         }
 

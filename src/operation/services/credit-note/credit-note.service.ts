@@ -104,6 +104,10 @@ export class CreditNoteService {
           },
           CompanyMasterSid: CompanyMasterSid,
          },
+         include : {
+          masterJob : { select : { MasterJobNumber : true}},
+          houseJob : { select : { HouseNo : true}}
+         }
       });
       return result;
     } catch (error) {
@@ -561,9 +565,10 @@ export class CreditNoteService {
   for (const detail of voucherDetailsPayload) {
     if (detail.VoucherDetailSid) {
       // UPDATE existing
+      const {VoucherDetailSid,...rest} = detail;
       await prisma.voucherDetail.update({
         where: { VoucherDetailSid: detail.VoucherDetailSid },
-        data: detail
+        data: rest
       });
     } else {
       // CREATE new
