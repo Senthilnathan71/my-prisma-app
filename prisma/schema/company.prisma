@@ -1592,12 +1592,12 @@ model PreCustomerEvent {
 model ContainerTypeMaster {
   ContainerTypeMasterSid Int                  @id @default(autoincrement()) @map("ContainerTypeMasterSid")
   ContainerCode          String               @db.VarChar(4)
-  ContainerSize          String               @db.VarChar(100)
+  ContainerSize          String               @db.VarChar(10)
   ContainerIsoCode       String?              @db.VarChar(10)
   ContainerName          String               @db.VarChar(30)
-  MaxVolume              Decimal?             @db.Decimal(7, 3)
-  TareWeight             Decimal?             @db.Decimal(6, 3)
-  GrossWeight            Decimal?             @db.Decimal(8, 3)
+  MaxVolume              Decimal?             @db.Decimal(12, 3)
+  TareWeight             Decimal?             @db.Decimal(12, 3)
+  GrossWeight            Decimal?             @db.Decimal(12, 3)
   createdOn              DateTime             @default(now()) @db.Timestamptz(6)
   updatedOn              DateTime?            @updatedAt @db.Timestamptz(6)
   deletedAt              DateTime?
@@ -1606,10 +1606,10 @@ model ContainerTypeMaster {
   status                 String?              @default("A") @db.Char(1)
   Remarks                String?              @db.VarChar(300)
   ContainerCategory      String?              @db.VarChar(100)
-  Height                 Int?
-  Length                 Int?
+  Height                 Decimal?             @db.Decimal(7, 3)
+  Length                 Decimal?             @db.Decimal(7, 3)
   NoOfTeu                Decimal              @db.Decimal(1, 0)
-  Width                  Int?
+  Width                  Decimal?             @db.Decimal(7, 3)
   bookingCargo           BookingCargo[]
   houseJobCargo          HouseJobCargo[]
   MasterJobContainer     MasterJobContainer[]
