@@ -7,8 +7,8 @@ export const PARTY_VTYPE_DRCR_MAP = {
   "Receipt": { DrCr: "C" },          // Party Credited (Customer pays)
   "Payment Voucher": { DrCr: "D" },  // Party Debited (We pay Vendor)
   "Debit Note": { DrCr: "D" },       // Party Debited (They owe us more)
-  "Credit Note": { DrCr: "C" },      // Party Credited (We owe them)
-  "Vendor Credit Note" : { DrCr: "D" }, // Party Debited (They owe us more)
+  "Credit Note": { DrCr: "D" },      // Party Credited (We owe them)
+  "Vendor Credit Note" : { DrCr: "C" }, // Party Debited (They owe us more)
   "Journal Voucher" : { DrCr : "D"} 
 } as const;
 
@@ -27,19 +27,26 @@ export const getPartyDrCr = (voucherType: VoucherType | string): DrCrType | unde
 // - Input Tax (on Vendor Invoice) → Debit (asset)
 // - For Receipts/Payments, depends on nature of underlying transaction
 export const TAX_VTYPE_DRCR_MAP = {
-  "Invoice": { DrCr: "C" , Tax_Type : "Input" },
-  "Vendor Invoice": { DrCr: "D", Tax_Type : "Output" },
-  "Receipt": { DrCr: "C" },
-  "Payment Voucher": { DrCr: "D" },
-  "Debit Note": { DrCr: "C", Tax_Type : "Output" },
-  "Credit Note": { DrCr: "D", Tax_Type : "Input" },
+  "Invoice": { DrCr: "C" , Tax_Type : "Input" ,Ledger : 'Creditor'},
+  "Vendor Invoice": { DrCr: "D", Tax_Type : "Output" , Ledger : "Debtor" },
+  "Receipt": { DrCr: "C" , Tax_Type : null , Ledger : null },
+  "Payment Voucher": { DrCr: "D" , Tax_Type : null , Ledger : null },
+  "Debit Note": { DrCr: "D", Tax_Type : "Output" ,Ledger : null},
+  "Credit Note": { DrCr: "C", Tax_Type : "Input" , Ledger : 'Debtor' },
+  "Vendor Credit Note": { DrCr: "D", Tax_Type : "Input" , Ledger : 'Creditor' },
 } as const;
 
 export type TaxVoucherType = keyof typeof TAX_VTYPE_DRCR_MAP;
 export type TaxDrCrType = typeof TAX_VTYPE_DRCR_MAP[TaxVoucherType]["DrCr"];
+export type TaxLedgerType =
+  typeof TAX_VTYPE_DRCR_MAP[TaxVoucherType]["Ledger"];
 
 export const getTaxDrCr = (voucherType: TaxVoucherType): TaxDrCrType | undefined => {
   return TAX_VTYPE_DRCR_MAP[voucherType]?.DrCr;
+};
+
+export const getTaxLedger = (voucherType: TaxVoucherType): TaxLedgerType | undefined => {
+  return TAX_VTYPE_DRCR_MAP[voucherType]?.Ledger;
 };
 
 
