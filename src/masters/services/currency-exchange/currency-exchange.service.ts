@@ -2,6 +2,7 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { statusWhereClause } from 'src/common/helper';
 import { DatabaseService } from 'src/database/database.service';
+import { FetchExchangeRate } from 'src/masters/DTO/currency-exchange.dto';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 
@@ -149,19 +150,25 @@ export class CurrencyExchangeService {
         };
     }
 
-    async getExchangeRate(payload: any) {
+    async getExchangeRate(payload: FetchExchangeRate) {
 
         try {
-            const fromCurrency = payload.fromCurrencyCode;
-            const toCurrency = payload.toCurrencyCode;
+            const whereClause : Prisma.CurrencyExchangeWhereInput = {
+                CompanyMasterSid : payload.CompanyMasterSid,
+                BranchMasterSid : payload.BranchMasterSid,
+                FromCurrency: payload.fromCurrencyCode,
+                ToCurrency: payload.toCurrencyCode,
+                status: 'A'
+            }
+
+            if(payload.EffectiveFrom){
+                whereClause.EffectiveFrom = { lte : payload.EffectiveFrom};
+            } else {
+                whereClause.EffectiveFrom = { lte : new Date()};
+            }
 
             const exchangeRate = await this._db.currencyExchange.findFirst({
-                where: {
-                    FromCurrency: fromCurrency,
-                    ToCurrency: toCurrency,
-                    EffectiveFrom : { lte : new Date()},
-                    status: 'A'
-                }
+                where: whereClause
             })
 
             if(!exchangeRate){

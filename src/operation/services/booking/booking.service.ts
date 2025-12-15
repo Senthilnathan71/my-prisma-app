@@ -29,6 +29,7 @@ interface TariffBookingPayload {
   POLSid: number;                      // required – Port of Loading
   PODSid: number;                      // required – Port of Discharge
   CompanyMasterSid: number;            // required – company
+  BranchMasterSid: number;             // required – branch
 
   // ------- Optional filters --------
   PORSid?: number;                     // Port of Origin
@@ -2314,20 +2315,26 @@ async getTariffByBookingDetails(payload:TariffBookingPayload) {
         const costExchangeRate = toCurrency
           ? (costFromCurrency.currencyCode === toCurrency.currencyCode
               ? 1
-              : await this.currencyExchangeService.getExchangeRate({
-                  fromCurrencyCode: costFromCurrency.currencyCode,
-                  toCurrencyCode:   toCurrency.currencyCode,
-                  segment : 'cost'
+                : await this.currencyExchangeService.getExchangeRate({
+                    CompanyMasterSid: payload.CompanyMasterSid ||  detail.CompanyMasterSid!,
+                    BranchMasterSid: payload.BranchMasterSid ,
+                    fromCurrencyCode: costFromCurrency.currencyCode,
+                    toCurrencyCode: toCurrency.currencyCode,
+                    EffectiveFrom : new Date(payload.EffectiveDate),
+                    segment: 'cost'
                 }))
           : null;
 
         const revenueExchangeRate = toCurrency
           ? (revenueFromCurrency.currencyCode === toCurrency.currencyCode
               ? 1
-              : await this.currencyExchangeService.getExchangeRate({
-                  fromCurrencyCode: revenueFromCurrency.currencyCode,
-                  toCurrencyCode:   toCurrency.currencyCode,
-                  segment : 'revenue'
+                : await this.currencyExchangeService.getExchangeRate({
+                    CompanyMasterSid: payload.CompanyMasterSid || detail.CompanyMasterSid!,
+                    BranchMasterSid: payload.BranchMasterSid,
+                    fromCurrencyCode: costFromCurrency.currencyCode,
+                    toCurrencyCode: toCurrency.currencyCode,
+                    EffectiveFrom: new Date(payload.EffectiveDate),
+                    segment: 'revenue'
                 }))
           : null;
 

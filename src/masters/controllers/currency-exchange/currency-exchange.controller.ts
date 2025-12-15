@@ -1,6 +1,7 @@
-import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, Post, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, Post, UnauthorizedException, UsePipes, ValidationPipe } from '@nestjs/common';
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
 import { ResponseData } from 'src/common/response-data';
+import { FetchExchangeRate } from 'src/masters/DTO/currency-exchange.dto';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 import { CurrencyExchangeService } from 'src/masters/services/currency-exchange/currency-exchange.service';
@@ -187,12 +188,18 @@ export class CurrencyExchangeController {
         type: ResponseData
     })
     @HttpCode(HttpStatus.OK)
+    @UsePipes(new ValidationPipe({ 
+        whitelist: true,
+        transform: true,
+        forbidNonWhitelisted: true,
+    }))
     @Post('exchange-rate')
-    async getExchangeRate(@Body() payload: any) {
+    async getExchangeRate(@Body() payload: FetchExchangeRate) {
         let resp = new ResponseData();
         try {
+            this.logger.log(`Get Exchange Rate : ${JSON.stringify(payload)}`);
             let res = await this.currencyExService.getExchangeRate(payload);
-            this.logger.log(`Get Exchange Rate Results : ${JSON.stringify(res)}`);
+            this.logger.debug(`Get Exchange Rate Results : ${JSON.stringify(res)}`);
             resp.data = res;
             resp.message = "Exchange Rate is fetched successfully";
         } catch (error) {
