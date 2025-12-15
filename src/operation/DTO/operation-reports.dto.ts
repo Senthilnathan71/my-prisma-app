@@ -189,12 +189,12 @@ export class DOIssueListReportQueryDto {
   @ApiProperty()
   @IsNotEmpty()
   @IsDateString()
-  fromDate: string;
+  FromHBLDt: string;
 
   @ApiProperty()
   @IsNotEmpty()
   @IsDateString()
-  toDate: string;
+  ToHBLDt: string;
 
   @ApiProperty({ enum: DOStatusEnum })
   @IsNotEmpty()
@@ -214,7 +214,12 @@ export class DOIssueListReportQueryDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsInt()
-  branchId?: number;
+  Branch?: number[];
+
+  @ApiProperty()
+  @IsNotEmpty()
+  @IsDateString()
+  Dept: number[];
 }
 
 // Shipment Detailed Summary Report DTOs
@@ -222,12 +227,12 @@ export class ShipmentDetailedSummaryReportQueryDto {
   @ApiProperty()
   @IsNotEmpty()
   @IsDateString()
-  fromDate: string;
+  FromHBLDt: string;
 
   @ApiProperty()
   @IsNotEmpty()
   @IsDateString()
-  toDate: string;
+  ToHBLDt: string;
 
   @ApiProperty({ enum: YesNoEnum })
   @IsNotEmpty()
@@ -247,7 +252,29 @@ export class ShipmentDetailedSummaryReportQueryDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsInt()
-  branchId?: number;
+  branchId?: number[];
+
+  @ApiProperty()
+  @IsNotEmpty()
+  @IsDateString()
+  dept: number[];
+
+  @ApiProperty({ enum: BLStatusEnum })
+  @IsNotEmpty()
+  @IsEnum(BLStatusEnum)
+  Transhipment: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsInt()
+  Customer?: number[];
+
+  
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsInt()
+  SalePerson?: number[];
+
 }
 
 
