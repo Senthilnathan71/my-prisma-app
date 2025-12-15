@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, InternalServerErrorException, Logger, 
 import { DatabaseService } from 'src/database/database.service';
 import { VoucherService } from '../voucher/voucher.service';
 import * as moment from 'moment-timezone';
+import { statusWhereClause } from 'src/common/helper';
 
 @Injectable()
 export class VendorInvoiceService {
@@ -247,7 +248,7 @@ export class VendorInvoiceService {
                     voucherTypeMaster: {
                         DocumentTypeName: 'Vendor Invoice'
                     },
-                    Status: 'A'
+                     Status: { in: ['A', 'S'] } 
                 },
                 include: {
                     VoucherDetail: true,
@@ -377,7 +378,7 @@ export class VendorInvoiceService {
                         MasterNumber: payload.MBLNo,
                         HouseNumber: payload.HBLNo,
                         Remarks: payload.Remarks,
-                        Status: payload.status,
+                        Status: payload.Status,
                         UpdatedBy: payload.UpdatedBy || 'System',
                         UpdatedOn: new Date()
                     }
@@ -602,7 +603,7 @@ export class VendorInvoiceService {
                 voucherTypeMaster: {
                     DocumentTypeName: 'Vendor Invoice'
                 },
-                Status: 'A'
+                Status: statusWhereClause
             };
 
             // Add search filter
