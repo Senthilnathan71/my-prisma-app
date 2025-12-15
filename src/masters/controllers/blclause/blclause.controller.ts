@@ -214,12 +214,31 @@ export class BlclauseController {
         return resp;
     }
 
-
-
-
-
-
-
-
+    @ApiOperation({ summary: 'get BlClause by department' })
+    @ApiCreatedResponse({
+        description: 'get BlClause by department',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Get('bl-clause/:DepartmentMasterSid')
+    async getDefaultBLClausesByDepartment(@Param('DepartmentMasterSid', ParseIntPipe) DepartmentMasterSid: number) {
+        let resp = new ResponseData();
+        try {
+            this.logger.log(`get BlClause by department : ${DepartmentMasterSid}`);
+            let res = await this.blClauseService.getDefaultBLClausesByDepartment(DepartmentMasterSid);
+            this.logger.debug(`get BlClause by department: ${JSON.stringify(res)}`);
+            resp.data = res;
+            resp.message = `BlClause with department : ${DepartmentMasterSid} is successfully deleted`;
+        } catch (error) {
+            this.logger.warn(`get BlClause by department error : ${JSON.stringify(error), error}`);
+            resp.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                resp.message = error.message;
+            } else {
+                resp.message = "Internal Server Error";
+            }
+        }
+        return resp;
+    }
 
 }

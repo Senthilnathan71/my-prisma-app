@@ -387,7 +387,6 @@ export class MasterJobService {
 
                     const houseJobMenuId = await this.menuMasterService.getMenuSidByName('House Job');
 
-
                     // Step 1: Create main house job
                     const houseJob = await this._db.houseJob.create({
                         data: {
@@ -550,6 +549,23 @@ export class MasterJobService {
 
                     if (bookingOthers?.[0]) {
                         const other = bookingOthers[0];
+                        const departmentId = bookingHeader.DepartmentMasterSid;
+                        let defaultClause :any[] = [];
+                    if (departmentId) {
+                        const blclause = await this._db.bLClauseMaster.findMany({
+                            where: {
+                                DepartmentMasterSid: departmentId,
+                                DefaultClause: 'Y',
+                                status: 'A'
+                            },
+                            select: {
+                                ClauseDescription: true,
+                            }
+                        });
+                        if (blclause && blclause.length > 0) {
+                            defaultClause = blclause.map(clause => clause.ClauseDescription);
+                        }
+                    }
                         await this._db.houseJobOthers.create({
                             data: {
                                 HouseJobSid: houseJob.HouseJobSid,
@@ -564,6 +580,7 @@ export class MasterJobService {
                                 CHAName: other.CHAName,
                                 PickupMode: other.PickupMode,
                                 YardCFS: other.YardCFS,
+                                BlClause: defaultClause,
                                 LocalTransport: other.LocalTransport,
                                 OverseasTransport: other.OverseasTransport,
                                 OverseasClearance: other.OverseasClearance,
