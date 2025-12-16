@@ -141,8 +141,8 @@ export class MasterJobService {
                     DGApprovedDate: payload.DGApprovedDate ? new Date(payload.DGApprovedDate) : null,
                     SiCutoffDate: payload.SiCutoffDate ? new Date(payload.SiCutoffDate) : null,
                     PortCutoffDate: payload.PortCutoffDate ? new Date(payload.PortCutoffDate) : null,
-                    CommodityDescription: payload.CommodityDescription?.substring(0, 20) || '',
-                    MarksandNumber: payload.MarksandNumber?.substring(0, 20) || '',
+                    CommodityDescription: payload.CommodityDescription|| '',
+                    MarksandNumber: payload.MarksandNumber|| '',
 
                 }
 
@@ -472,6 +472,8 @@ export class MasterJobService {
                             DestinationAgent: bookingHeader.DestinationAgent,
                             AgentName: bookingHeader.AgentName || '',
                             AgentAddress: bookingHeader.AgentAddress || '',
+                            Notify: bookingHeader.Notify || '',
+                            NotifyAddress: bookingHeader.NotifyAddress || '',
                             HouseNo: bookingHeader.HouseNo || '',
                             QuotationHeaderSid: bookingHeader.QuotationHeaderSid || null,
                             EnquiryHeaderSid: bookingHeader.EnquiryHeaderSid || null,
@@ -883,6 +885,7 @@ export class MasterJobService {
                             CustomerName: true,
                             CustomerAddress: true,
                             FreightTerms: true,
+                            bookingRates: true,
                             Cargo: true,
                             Products: true,
                             Others: true,
@@ -1160,8 +1163,8 @@ const allHouseJobs = await prisma.houseJob.findMany({
                     DGApprovedDate: payload.DGApprovedDate ? new Date(payload.DGApprovedDate) : null,
                     SiCutoffDate: payload.SiCutoffDate ? new Date(payload.SiCutoffDate) : null,
                     PortCutoffDate: payload.PortCutoffDate ? new Date(payload.PortCutoffDate) : null,
-                    CommodityDescription: payload.CommodityDescription?.substring(0, 20) || '',
-                    MarksandNumber: payload.MarksandNumber?.substring(0, 20) || '',
+                    CommodityDescription: payload.CommodityDescription || '',
+                    MarksandNumber: payload.MarksandNumber || '',
                 }
                 const updatedMasterJob = await prisma.masterJob.update({
                     where: {
@@ -2860,8 +2863,8 @@ private async updateMasterJobTotals(masterJobSid: number): Promise<void> {
                     DGApprovedDate: parseDate(masterJobData.DGApprovedDate),
                     SiCutoffDate: parseDate(masterJobData.SiCutoffDate),
                     PortCutoffDate: parseDate(masterJobData.PortCutoffDate),
-                    CommodityDescription: masterJobData.CommodityDescription?.substring(0, 3000) || '',
-                    MarksandNumber: masterJobData.MarksandNumber?.substring(0, 500) || '',
+                    CommodityDescription: masterJobData.CommodityDescription|| '',
+                    MarksandNumber: masterJobData.MarksandNumber|| '',
                     MenuMasterSid: masterJobData.MenuMasterSid,
                     TsPortSid: masterJobData.TsPortSid,
                 };
@@ -3605,7 +3608,7 @@ private async updateMasterJobTotals(masterJobSid: number): Promise<void> {
                 eta: primaryVoyage?.ETA || primaryVoyage?.voyageMasterHeader?.ETA,
                 siCutoffDate: masterJob.SiCutoffDate || null,
                 portCutoffDate: masterJob.PortCutoffDate || null,
-                jobStatus: masterJob.JobStatus || '',
+                jobStatus: masterJob.JobStatus ,
                 commodity: masterJob.CommodityDescription || '',
                 serviceType: masterJob.MovementType || 'FCL',
                 totalPackages: masterJob.NoOfPkg || 0,
