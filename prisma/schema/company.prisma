@@ -467,7 +467,6 @@ model DepartmentMaster {
   enquiryHeader         EnquiryHeader[]
   houseJob              HouseJob[]
   meetingFollowUp       MeetingFollowup[]
-  milestoneMaster       MilestoneMaster[]
   paymentRequest        PaymentRequest[]
   quoteHeader           QuoteHeader[]
   quoteRoute            QuoteRoute[]
@@ -1959,7 +1958,7 @@ model MilestoneMaster {
   MilestoneMasterSid  Int                 @id @default(autoincrement()) @map("MilestoneMasterSid")
   CompanyMasterSid    Int?
   BranchMasterSid     Int?
-  DepartmentMasterSid Int
+  DepartmentMasterSid String[]
   MilestoneName       String              @db.VarChar(30)
   MilestoneCode       String              @db.VarChar(30)
   AutomailRequire     String?             @default("N") @db.Char(1)
@@ -1976,7 +1975,6 @@ model MilestoneMaster {
   CustomerMilestone   CustomerMilestone[]
   branchMaster        BranchMaster?       @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
   companyMaster       CompanyMaster?      @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
-  departmentMaster    DepartmentMaster    @relation(fields: [DepartmentMasterSid], references: [DepartmentMasterSid])
 }
 
 model AuthorityMaster {
@@ -2646,8 +2644,8 @@ model MasterJobOthers {
   StuffingStartDate     DateTime?
   StuffingEndDate       DateTime?
   CurrencyCode          String?   @db.VarChar(3)
-  SellExchangeRate      Int?
-  AgentExchangeRate     Int?
+  SellExchangeRate      Decimal?  @db.Decimal(8, 4)
+  AgentExchangeRate     Decimal?  @db.Decimal(8, 4)
   Coload                String?   @db.Char(1)
   CoLoader              String?   @db.VarChar(100)
   ExportDoNo            String?   @db.VarChar(20)
@@ -2658,9 +2656,6 @@ model MasterJobOthers {
   ContainerReleaseDate  DateTime?
   ContainerValidityDate DateTime?
   AMSRefNo              String?   @db.VarChar(20)
-  ValueForInsurance     Decimal?  @db.Decimal(12, 3)
-  InsuranceAmount       Decimal?  @db.Decimal(12, 3)
-  ValuationCharge       Decimal?  @db.Decimal(12, 3)
   masterJob             MasterJob @relation(fields: [MasterJobSid], references: [MasterJobSid])
 }
 
@@ -2957,6 +2952,10 @@ model HouseJobOthers {
   ExternalNote        String?   @db.VarChar(300)
   InternalNote        String?   @db.VarChar(300)
   BlClause            String[]
+  ValueForInsurance   Decimal?  @db.Decimal(12, 3)
+  InsuranceAmount     Decimal?  @db.Decimal(12, 3)
+  ValuationCharge     Decimal?  @db.Decimal(12, 3)
+  HandlingInformation String?   @db.VarChar(300)
   HouseJob            HouseJob  @relation(fields: [HouseJobSid], references: [HouseJobSid])
 }
 
