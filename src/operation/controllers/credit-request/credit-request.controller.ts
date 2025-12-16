@@ -86,6 +86,33 @@ export class CreditRequestController {
         return output;
     }
 
+    @ApiOperation({ summary: 'Get Due Date for a customer' })
+    @ApiCreatedResponse({
+        description: 'Due Date retrieved successfully',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Post('due-date')
+    async getDueDate(@Body() body: any) {
+        const output = new ResponseData();
+        try {
+            this.logger.log(`getDueDate: ${JSON.stringify(body)}`)
+            const dueDate = await this.creditRequestService.getDueDate(body);
+            this.logger.debug(`getDueDate: ${JSON.stringify(dueDate)}`)
+            output.data = dueDate;
+            output.message = "Due Date retrieved successfully";
+        } catch (error) {
+            this.logger.warn(`getDueDate: ${JSON.stringify(error),error}`)
+            output.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                output.message = error.message;
+            } else {
+                output.message = (error as any) || 'Internal Server Error';
+            }
+        }
+        return output;
+    }
+
     @ApiOperation({
     summary: 'Update or create credit request with KYC documents in transaction',
   })

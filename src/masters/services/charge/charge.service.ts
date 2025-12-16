@@ -388,6 +388,27 @@ export class ChargeService {
 
     }
 
+    async getChargeTaxByChargeId(chargeId: number) {
+        try {
+            const chargeTaxes = await this._db.chargeTaxMaster.findMany({
+                where: { chargeTaxMasterSid: chargeId },
+                include : { 
+                    hssacMaster : true
+                }
+            }); 
+            if (!chargeTaxes) throw new Error('Charge Tax not found For Charge Id');
+
+            const hssacSet : Set<any> = new Set();
+
+            chargeTaxes.forEach(ct => {
+                hssacSet.add(ct.hssacMaster);
+            });
+            return Array.from(hssacSet);
+        } catch (error) {
+            throw error;
+        }
+    }
+
     async getAuditLogs(tableName: string, recordId?: string) {
         try {
             const whereClause: any = { tableName };

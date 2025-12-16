@@ -175,7 +175,31 @@ export class ChargeController {
         return this.chargeService.softDelete(id);
     }
 
-
+    @ApiOperation({ summary: 'Get Charge Tax By Charge Id' })
+    @ApiCreatedResponse({
+        description: 'Charge Tax By Charge Id',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Get('charge-tax/:ChargeMasterSid')
+    async getChargeTaxByChargeId(@Param('ChargeMasterSid', ParseIntPipe) ChargeMasterSid: number) {
+        let response = new ResponseData;
+        try {
+            let chargeTaxes = await this.chargeService.getChargeTaxByChargeId(ChargeMasterSid);
+            this.logger.log(`getChargeTaxByChargeId: ${JSON.stringify(chargeTaxes)}`)
+            response.data = chargeTaxes;
+            response.message = "Charge Taxes are successfully fetched";
+        } catch (error) {
+            this.logger.warn(`getChargeTaxByChargeId: ${JSON.stringify(error)}`)
+            response.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                response.message = error.message;
+            } else {
+                response.message = 'Internal Server Error';
+            }
+        }
+        return response
+    }
 
     @ApiOperation({ summary: 'Search List of Charges' })
     @ApiCreatedResponse({

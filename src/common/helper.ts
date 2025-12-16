@@ -100,6 +100,23 @@ export function toUTCISO(localDateTime: string) {
     }
 
 /**
+ * 
+ * @param date From Date you want to add
+ * @param days Number of days to add
+ * @returns added date
+ * 
+ * @example
+ * 
+ * console.log(addDaysCalendar(new Date('2025-02-28'), 3));  // 2025-03-03T00:00:00.000Z
+ * console.log(addDaysCalendar(new Date('2024-02-28'), 3));  // 2024-03-02T00:00:00.000Z
+ */
+export function addDaysCalendar(date:Date, days:number) : Date {
+  const result = new Date(date);
+  result.setDate(result.getDate() + days);
+  return result;
+}
+
+/**
   * Helper: Converts Prisma Decimal to number
 */
 export function toNumber(value: any): number {

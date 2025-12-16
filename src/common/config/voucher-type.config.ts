@@ -32,8 +32,8 @@ export const TAX_VTYPE_DRCR_MAP = {
   "Receipt": { DrCr: "C" , Tax_Type : null , Ledger : null },
   "Payment Voucher": { DrCr: "D" , Tax_Type : null , Ledger : null },
   "Debit Note": { DrCr: "D", Tax_Type : "Output" ,Ledger : null},
-  "Credit Note": { DrCr: "C", Tax_Type : "Input" , Ledger : 'Debtor' },
-  "Vendor Credit Note": { DrCr: "D", Tax_Type : "Input" , Ledger : 'Creditor' },
+  "Credit Note": { DrCr: "D", Tax_Type : "Input" , Ledger : 'Creditor' },
+  "Vendor Credit Note": { DrCr: "C", Tax_Type : "Output" , Ledger : 'Debtor' },
 } as const;
 
 export type TaxVoucherType = keyof typeof TAX_VTYPE_DRCR_MAP;

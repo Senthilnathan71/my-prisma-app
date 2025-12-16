@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, InternalServerErrorException, Logger, NotFoundException } from '@nestjs/common';
-import { ApprovalStatus, Prisma } from '@prisma/client';
+import { ApprovalStatus, Prisma, PrismaClient } from '@prisma/client';
 import { GlobalConfigService } from 'src/common/config/master-config.service';
-import { statusWhereClause } from 'src/common/helper';
+import { addDaysCalendar, statusWhereClause } from 'src/common/helper';
 import { DatabaseService } from 'src/database/database.service';
 import { CreditLimitDto, CreditSummaryDto, OutstandingDto, ValidateCreditDto } from 'src/masters/DTO/credit-limit.dto';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
@@ -247,7 +247,7 @@ export class CreditRequestService {
                 }
             },
           customerCreditRequest : {
-            where : {Status : 'A'},
+            where : {Status : statusWhereClause},
             include : {
                 company: {
                     select: {
@@ -452,6 +452,7 @@ export class CreditRequestService {
                 ApprovalStatus: item.ApprovalStatus,
                 UpdatedBy: item.UpdatedBy || item.CreatedBy,
                 UpdatedOn: new Date(),
+                Status : String(item.Status).charAt(0),
               },
             });
           } else {
@@ -539,6 +540,104 @@ export class CreditRequestService {
     }
   }
 
+  async getDueDate(payload: {
+    CompanyMasterSid: number;
+    CustomerMasterSid: number;
+    CustomerBranchSid: number | null;
+    DepartmentMasterSid: number | null;
+    VoucherDate: Date;
+  }): Promise<any> {
+    const result = await this._db.$transaction(async (prisma) => {
+      const customerMaster = await prisma.customerMaster.findUnique({
+        where: { CustomerMasterSid: payload.CustomerMasterSid },
+        select: { CashCredit: true },
+      });
+
+      if (!customerMaster) {
+        throw new BadRequestException('Customer not found');
+      }
+
+      if (customerMaster.CashCredit === 'Cash') {
+        // Business rule: cash = 1 day
+        return {
+          creditDays : 1,
+          dueDate : addDaysCalendar(payload.VoucherDate, 2),
+        }
+      }
+
+      const baseWhere: Prisma.CustomerCreditRequestWhereInput = {
+        CompanyMasterSid: payload.CompanyMasterSid,
+        CustomerMasterSid: payload.CustomerMasterSid,
+        ApprovalStatus: ApprovalStatus.Approved,
+        EffectiveFrom: { lte: new Date(payload.VoucherDate) },
+        EffectiveTo: { gte: new Date(payload.VoucherDate) },
+        Status: 'A',
+      };
+
+      // 1. Department specific
+      const departmentSpecific = await this.getCreditRequest(
+        {
+          ...baseWhere,
+          CustomerBranchSid: payload.CustomerBranchSid ?? undefined,
+          DepartmentMasterSid: payload.DepartmentMasterSid ?? undefined,
+        },
+        prisma,
+      );
+
+      if (departmentSpecific?.CreditDays != null) {
+        return {
+          creditDays : departmentSpecific?.CreditDays,
+          dueDate : addDaysCalendar(payload.VoucherDate,  departmentSpecific?.CreditDays + 1),
+        }
+      }
+
+      // 2. Branch specific (no department)
+      const branchSpecific = await this.getCreditRequest(
+        {
+          ...baseWhere,
+          CustomerBranchSid: payload.CustomerBranchSid ?? undefined,
+          DepartmentMasterSid: null,
+        },
+        prisma,
+      );
+
+      if (branchSpecific?.CreditDays != null) {
+        return {
+          creditDays : branchSpecific?.CreditDays,
+          dueDate : addDaysCalendar(payload.VoucherDate,  branchSpecific?.CreditDays + 1),
+        }
+      }
+
+      // 3. Party specific (no branch, no department)
+      const partySpecific = await this.getCreditRequest(
+        {
+          ...baseWhere,
+          CustomerBranchSid: null,
+          DepartmentMasterSid: null,
+        },
+        prisma,
+      );
+
+      if (partySpecific?.CreditDays != null) {
+        return {
+          creditDays : partySpecific?.CreditDays,
+          dueDate : addDaysCalendar(payload.VoucherDate, partySpecific?.CreditDays + 1),
+        }
+      }
+
+      throw new BadRequestException('No credit request found');
+    });
+
+    return result;
+  }
+
+  async getCreditRequest(
+    where: Prisma.CustomerCreditRequestWhereInput,
+    tx?: PrismaClient | Prisma.TransactionClient,
+  ) {
+    const prisma = tx ?? this._db;
+    return prisma.customerCreditRequest.findFirst({ where });
+  }
 
 
   /**
