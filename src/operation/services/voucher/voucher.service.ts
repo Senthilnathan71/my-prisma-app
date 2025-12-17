@@ -2068,11 +2068,11 @@ export class VoucherService {
             this.logger.log('Summarizing taxes by HS/SAC code');
 
             const db = tx || this._db;
-
+            const filterDetails = details.filter(d => d.TaxPercentage1 || d.TaxPercentage2);
             // Group details by HS/SAC code and tax type
             const taxGroups = new Map<string, TaxSummaryDto>();
 
-            for (const detail of details) {
+            for (const detail of filterDetails) {
                 // Skip if no tax
                 if (!detail.TaxPercentage1 && !detail.TaxPercentage2) {
                     continue;
