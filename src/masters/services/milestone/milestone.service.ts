@@ -18,7 +18,6 @@ export class MilestoneService {
                     BranchMasterSid: BranchMasterSid
                 },
                 include: {
-                    departmentMaster: true,
                     branchMaster: true,
                     companyMaster: true
                 }
@@ -36,7 +35,6 @@ export class MilestoneService {
                     ...payload,
                 },
                 include: {
-                    departmentMaster: true,
                     branchMaster: true,
                     companyMaster: true
                 }
@@ -54,7 +52,6 @@ export class MilestoneService {
                     MilestoneMasterSid: MilestoneMasterSid
                 },
                 include: {
-                    departmentMaster: true,
                     branchMaster: true,
                     companyMaster: true
                 }
@@ -84,7 +81,6 @@ export class MilestoneService {
                 },
                 data: payload,
                 include: {
-                    departmentMaster: true,
                     branchMaster: true,
                     companyMaster: true
                 }
@@ -116,7 +112,6 @@ export class MilestoneService {
                     status: "D"
                 },
                 include: {
-                    departmentMaster: true,
                     branchMaster: true,
                     companyMaster: true
                 }
