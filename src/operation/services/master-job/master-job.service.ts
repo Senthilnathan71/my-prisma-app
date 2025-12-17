@@ -3680,257 +3680,323 @@ private async updateMasterJobTotals(masterJobSid: number): Promise<void> {
 
 
     async createBookingFromMasterJob(payload: any) {
-        // CASE 1: MULTIPLE HOUSES
-        if (payload.houses && Array.isArray(payload.houses)) {
-            const { houses, createdBy } = payload;
-            const results: any[] = [];
+    // CASE 1: MULTIPLE HOUSES
+    if (payload.houses && Array.isArray(payload.houses)) {
+        const { houses, createdBy } = payload;
+        const results: any[] = [];
 
-            for (const house of houses) {
-                try {
-
-                    // ✅ Check duplicate
-                    const existingBooking = await this._db.bookingHeader.findFirst({
-                        where: {
-                            TranshipmentHouseSid: house.HouseJobSid,
-                            deletedAt: null
-                        }
-                    });
-
-                    if (existingBooking) {
-                        results.push({
-                            success: false,
-                            houseJobSid: house.HouseJobSid,
-                            message: `Booking already exists`,
-                            bookingNo: existingBooking.BookingNo
-                        });
-                        continue; // ✅ Skip creation
+        for (const house of houses) {
+            try {
+                // ✅ Check duplicate
+                const existingBooking = await this._db.bookingHeader.findFirst({
+                    where: {
+                        TranshipmentHouseSid: house.HouseJobSid,
+                        deletedAt: null
                     }
+                });
 
-
-                    const result = await this._db.$transaction(async (tx) => {
-                        return await this.createSingleBooking(tx, house, createdBy);
-                    });
-                    results.push({ success: true, ...result });
-                } catch (error) {
+                if (existingBooking) {
                     results.push({
                         success: false,
                         houseJobSid: house.HouseJobSid,
-                        error: error.message
+                        message: `Booking already exists`,
+                        bookingNo: existingBooking.BookingNo
                     });
+                    continue; // ✅ Skip creation
                 }
-            }
 
-            // ✅ Return standardized response
-            return results;
+                const result = await this._db.$transaction(async (tx) => {
+                    return await this.createSingleBooking(tx, house, createdBy);
+                });
+                results.push({ success: true, ...result });
+            } catch (error) {
+                console.error('Error creating booking for house:', error);
+                results.push({
+                    success: false,
+                    houseJobSid: house.HouseJobSid,
+                    error: error.message
+                });
+            }
         }
 
-        // CASE 2: SINGLE HOUSEJOB SID
-        return await this._db.$transaction(async (tx) => {
-            const { houseJobSid, createdBy } = payload;
+        // ✅ Return standardized response
+        return results;
+    }
 
-            const houseJob = await tx.houseJob.findFirst({
-                where: { HouseJobSid: houseJobSid, deletedAt: null },
-                include: {
-                    Cargo: true,
-                    Products: true,
-                    Others: true,
+    // CASE 2: SINGLE HOUSEJOB SID
+    return await this._db.$transaction(async (tx) => {
+        const { houseJobSid, createdBy } = payload;
+
+        const houseJob = await tx.houseJob.findFirst({
+            where: { HouseJobSid: houseJobSid, deletedAt: null },
+            include: {
+                Cargo: true,
+                Products: true,
+                Others: true,
+            }
+        });
+
+        if (!houseJob) {
+            throw new BadRequestException("House Job not found");
+        }
+
+        if (houseJob.JobType !== 'Transhipment') {
+            throw new BadRequestException("Only Transhipment job can create booking");
+        }
+
+        const result = await this.createSingleBooking(tx, houseJob, createdBy);
+        return { success: true, ...result };
+    });
+}
+
+private async createSingleBooking(tx, houseJob, createdBy: string) {
+    // IMPORTANT: For Transhipment bookings, map:
+    // houseJob.POD (Import House POD) → booking.POL
+    // houseJob.FPD (Import House FDC) → booking.POD
+    
+    const dateString = moment().format('YYYYMMDD');
+    const count = await this._db.bookingHeader.count({
+        where: { BookingNo: { contains: dateString } }
+    });
+    
+    const BookingNo = `booking-${dateString}-${(count + 1).toString().padStart(3, '0')}`;
+    
+    const bookingHeader = await tx.bookingHeader.create({
+        data: {
+            BookingNo: BookingNo,
+            BookingDateTime: moment().toDate(),
+            TranshipmentHouseSid: houseJob.HouseJobSid,
+            CompanyMasterSid: houseJob.CompanyMasterSid,
+            BranchMasterSid: houseJob.BranchMasterSid,
+            CustomerMasterSid: houseJob.CustomerMasterSid,
+            CustomerName: houseJob.CustomerName,
+            CustomerAddress: houseJob.CustomerAddress,
+            SalesmanSid: houseJob.SalesmanSid,
+            CargoExpectedon: houseJob.CargoExpectedon,
+            FreightTerms: houseJob.FreightTerms,
+            
+            // ✅ CRITICAL FIX: Transhipment POL/POD mapping
+            POO: houseJob.POO,
+            POL: houseJob.POD,  // Import House POD becomes Booking POL
+            POD: houseJob.FPD,  // Import House FPD becomes Booking POD
+            FPD: houseJob.FPD,
+            
+            TsPortSid: houseJob.TsPortSid,
+            POLTerminal: houseJob.POLTerminal,
+            VoyageMasterSid: houseJob.VoyageMasterSid,
+            VesselName: houseJob.VesselName,
+            VoyageNo: houseJob.VoyageNo,
+            ETD: houseJob.ETD,
+            ETA: houseJob.ETA,
+            IncoTerms: houseJob.IncoTerms,
+            BLLocation: houseJob.BLLocation,
+            ShipperName: houseJob.ShipperName,
+            ShipperAddress: houseJob.ShipperAddress,
+            ConsigneeName: houseJob.ConsigneeName,
+            ConsigneeAddress: houseJob.ConsigneeAddress,
+            ClearanceRequire: houseJob.ClearanceRequire,
+            ShipmentType: houseJob.ShipmentType,
+            DestinationAgent: houseJob.DestinationAgent,
+            AgentName: houseJob.AgentName,
+            AgentAddress: houseJob.AgentAddress,
+            HouseNo: houseJob.HouseNo,
+            MasterNoSid: houseJob.MasterNoSid,
+            
+            QuotationHeaderSid: houseJob.QuotationHeaderSid,
+            EnquiryHeaderSid: houseJob.EnquiryHeaderSid,
+            MovementType: houseJob.MovementType,
+            DoValid: houseJob.DoValid,
+            IsServiceJob: houseJob.IsServiceJob,
+            DepartmentMasterSid: houseJob.DepartmentMasterSid,
+            CustomerBranchSid: houseJob.CustomerBranchSid,
+            MenuMasterSid: houseJob.MenuMasterSid,
+            CarrierName: houseJob.CarrierName,
+            Coload: houseJob.Coload,
+            GeneralNote: houseJob.GeneralNote,
+            HBLNo: houseJob.HBLNo,
+            InternalNote: houseJob.InternalNote,
+            MBLDate: houseJob.MBLDate,
+            MBLNo: houseJob.MBLNo,
+            Nominated: houseJob.Nominated,
+            NominatedBy: houseJob.NominatedBy,
+            Notify: houseJob.Notify,
+            NotifyAddress: houseJob.NotifyAddress,
+            PODTerminal: houseJob.PODTerminal,
+            ShipmentNo: houseJob.ShipmentNo,
+            OriginAgent: houseJob.OriginAgent,
+            BookingStatus: houseJob.BookingStatus,
+            CarrierSid: houseJob.CarrierSid,
+            JobType: houseJob.JobType,
+            createdBy,
+            status: "A"
+        }
+    });
+
+    const bookingHeaderSid = bookingHeader.BookingHeaderSid;
+
+    // ----------------------------------------
+    // 2. Insert Cargo
+    // ----------------------------------------
+    if (houseJob.Cargo?.length) {
+        for (const c of houseJob.Cargo) {
+            const {
+                HouseJobCargoSid,
+                HouseJobSid,
+                CommodityDescription,
+                MarksAndNumber,
+                LandedMarksandNumber,
+                ...cargoData
+            } = c;
+
+            await tx.bookingCargo.create({
+                data: {
+                    ...cargoData,
+                    BookingHeaderSid: bookingHeaderSid,
+                    createdBy
                 }
             });
-
-            if (!houseJob) {
-                throw new BadRequestException("House Job not found");
-            }
-
-            if (houseJob.JobType !== 'Transhipment') {
-                throw new BadRequestException("Only Transhipment job can create booking");
-            }
-
-            const result = await this.createSingleBooking(tx, houseJob, createdBy);
-            return { success: true, ...result };
-        });
+        }
     }
 
+    // ----------------------------------------
+    // 3. Insert Products
+    // ----------------------------------------
+    if (houseJob.Products?.length) {
+        for (const p of houseJob.Products) {
+            await tx.bookingProduct.create({
+                data: {
+                    BookingHeaderSid: bookingHeaderSid,
+                    ProductName: p.ProductName,
+                    ProductDescription: p.ProductDescription,
+                    ShippingBillNo: p.ShippingBillNo || null,
+                    ShippingBillDate: p.ShippingBillDate,
+                    ExternaPkg: p.ExternaPkg,
+                    ExternlQty: p.ExternlQty,
+                    InternalPkg: p.InternalPkg,
+                    InternalQty: p.InternalQty,
+                    GrossWeight: p.GrossWeight,
+                    NetWeight: p.NetWeight,
+                    Volume: p.Volume,
+                    Height: p.Height,
+                    ImcoClass: p.ImcoClass,
+                    IsHaz: p.IsHaz,
+                    Length: p.Length,
+                    PkgGroup: p.PkgGroup,
+                    UnNo: p.UnNo,
+                    Width: p.Width,
+                    UomMasterSid: p.UomMasterSid,
+                    ActualGrWeight: p.ActualGrWeight,
+                    ActualQty: p.ActualQty,
+                    ActualVolume: p.ActualVolume,
+                    CFS: p.CFS,
+                    CargoRecDate: p.CargoRecDate,
+                    RecdPack: p.RecdPack,
+                    Volumetric: p.Volumetric,
+                    createdBy
+                }
+            });
+        }
+    }
 
-    private async createSingleBooking(tx, houseJob, createdBy: string) {
+    // ----------------------------------------
+    // 4. Insert Others
+    // ----------------------------------------
+    if (houseJob.Others?.length) {
+        for (const o of houseJob.Others) {
+            const {
+                HouseJobOthersSid,
+                HouseJobSid,
+                DONo,
+                DODate,
+                InternalNote,
+                ExternalNote,
+                BlClause,
+                ...othersData
+            } = o;
 
-        // ----------------------------------------
-        // 1. Create Booking Header
-        // ----------------------------------------
-        const dateString = moment().format('YYYYMMDD');
-        const count = await this._db.bookingHeader.count({
-            where: { BookingNo: { contains: dateString } }
-        })
-        const BookingNo = `booking-${dateString}-${(count + 1).toString().padStart(3, '0')}`;
-        const bookingHeader = await tx.bookingHeader.create({
+            await tx.bookingOthers.create({
+                data: {
+                    CustomerRefNo: othersData.CustomerRefNo,
+                    OperationUser: othersData.OperationUser,
+                    DocumentationUser: othersData.DocumentationUser,
+                    HBLNo: othersData.HBLNo || '',
+                    Forwarder: othersData.Forwarder || '',
+                    ForwarderAddress: othersData.ForwarderAddress || '',
+                    CustomerServiceuser: othersData.CustomerServiceuser,
+                    NotifyParty: othersData.NotifyParty,
+                    NotifyPartyAddress: othersData.NotifyPartyAddress,
+                    CHAName: othersData.CHAName,
+                    PickupMode: othersData.PickupMode,
+                    YardCFS: othersData.YardCFS,
+                    LocalTransport: othersData.LocalTransport,
+                    OverseasTransport: othersData.OverseasTransport,
+                    OverseasClearance: othersData.OverseasClearance,
+                    PickupPlace: othersData.PickupPlace,
+                    PickupDate: othersData.PickupDate,
+                    PickupAddress: othersData.PickupAddress,
+                    DeliveryPlace: othersData.DeliveryPlace,
+                    DeliveryDate: othersData.DeliveryDate,
+                    DeliveryAddress: othersData.DeliveryAddress,
+                    CargoCurrency: othersData.CargoCurrency,
+                    CargoValue: othersData.CargoValue,
+                    CarrierBookingRef: othersData.CarrierBookingRef || '',
+                    CarrierBookingDate: othersData.CarrierBookingDate ? new Date(othersData.CarrierBookingDate) : null,
+                    BookingHeaderSid: bookingHeaderSid,
+                    SwitchBL: othersData.SwitchBL || '',
+                    SwitchBLAgent: othersData.SwitchBLAgent || '',
+                    AgentAddress: othersData.AgentAddress || '',
+                    SwitchBLShipper: othersData.SwitchBLShipper || '',
+                    SwitchBLConsignee: othersData.SwitchBLConsignee || '',
+                    SwitchLocation: othersData.SwitchLocation || '',
+                    createdBy
+                }
+            });
+        }
+    }
+
+      //---------------------
+    //5. connection
+    //-----------------------
+    const houseConnections = houseJob.Connection || houseJob.houseJobConnection || [];
+if (houseConnections && houseConnections.length > 0) {
+    for (const connection of houseConnections) {
+        await tx.bookingConnections.create({
             data: {
-                BookingNo: BookingNo,
-                BookingDateTime: moment().toDate(),
-                TranshipmentHouseSid: houseJob.HouseJobSid,
-                CompanyMasterSid: houseJob.CompanyMasterSid,
-                BranchMasterSid: houseJob.BranchMasterSid,
-                CustomerMasterSid: houseJob.CustomerMasterSid,
-                CustomerName: houseJob.CustomerName,
-                CustomerAddress: houseJob.CustomerAddress,
-                SalesmanSid: houseJob.SalesmanSid,
-                CargoExpectedon: houseJob.CargoExpectedon,
-                FreightTerms: houseJob.FreightTerms,
-                POO: houseJob.POO,
-                POL: houseJob.POL,
-                POD: houseJob.POD,
-                FPD: houseJob.FPD,
-                TsPortSid: houseJob.TsPortSid,
-                POLTerminal: houseJob.POLTerminal,
-                VoyageMasterSid: houseJob.VoyageMasterSid,
-                VesselName: houseJob.VesselName,
-                VoyageNo: houseJob.VoyageNo,
-                ETD: houseJob.ETD,
-                ETA: houseJob.ETA,
-                IncoTerms: houseJob.IncoTerms,
-                BLLocation: houseJob.BLLocation,
-                ShipperName: houseJob.ShipperName,
-                ShipperAddress: houseJob.ShipperAddress,
-                ConsigneeName: houseJob.ConsigneeName,
-                ConsigneeAddress: houseJob.ConsigneeAddress,
-                ClearanceRequire: houseJob.ClearanceRequire,
-                ShipmentType: houseJob.ShipmentType,
-                DestinationAgent: houseJob.DestinationAgent,
-                AgentName: houseJob.AgentName,
-                AgentAddress: houseJob.AgentAddress,
-                HouseNo: houseJob.HouseNo,
-                QuotationHeaderSid: houseJob.QuotationHeaderSid,
-                EnquiryHeaderSid: houseJob.EnquiryHeaderSid,
-                MovementType: houseJob.MovementType,
-                DoValid: houseJob.DoValid,
-                IsServiceJob: houseJob.IsServiceJob,
-                DepartmentMasterSid: houseJob.DepartmentMasterSid,
-                CustomerBranchSid: houseJob.CustomerBranchSid,
-                MenuMasterSid: houseJob.MenuMasterSid,
-                CarrierName: houseJob.CarrierName,
-                Coload: houseJob.Coload,
-                GeneralNote: houseJob.GeneralNote,
-                HBLNo: houseJob.HBLNo,
-                InternalNote: houseJob.InternalNote,
-                MBLDate: houseJob.MBLDate,
-                MBLNo: houseJob.MBLNo,
-                Nominated: houseJob.Nominated,
-                NominatedBy: houseJob.NominatedBy,
-                Notify: houseJob.Notify,
-                NotifyAddress: houseJob.NotifyAddress,
-                PODTerminal: houseJob.PODTerminal,
-                ShipmentNo: houseJob.ShipmentNo,
-                OriginAgent: houseJob.OriginAgent,
-                BookingStatus: houseJob.BookingStatus,
-                CarrierSid: houseJob.CarrierSid,
-                JobType: houseJob.JobType,
-                createdBy,
-                status: "A"
+                BookingHeaderSid: bookingHeader.BookingHeaderSid,
+                Mode: connection.Mode || null,
+                VesselName: connection.VesselName || null,
+                VoyageNo: connection.VoyageNo || null,
+                POL: connection.POL || null,
+                POD: connection.POD || null,
+                ETD: connection.ETD ? new Date(connection.ETD) : null,
+                ETA: connection.ETA ? new Date(connection.ETA) : null,
+                Remarks: connection.Remarks || null,
+                status: 'A', // Default status
+                createdBy: createdBy,
+                createdOn: new Date(),
+                updatedBy: null,
+                updatedOn: null
             }
         });
-
-        const bookingHeaderSid = bookingHeader.BookingHeaderSid;
-
-        // ----------------------------------------
-        // 2. Insert Cargo
-        // ----------------------------------------
-        if (houseJob.Cargo?.length) {
-            for (const c of houseJob.Cargo) {
-                const {
-                    HouseJobCargoSid,
-                    HouseJobSid,
-                    CommodityDescription,
-                    MarksAndNumber,
-                    ...cargoData
-                } = c;
-
-                await tx.bookingCargo.create({
-                    data: {
-                        ...cargoData,
-                        BookingHeaderSid: bookingHeaderSid,
-                        createdBy
-                    }
-                });
-            }
-        }
-
-        // ----------------------------------------
-        // 3. Insert Products
-        // ----------------------------------------
-        if (houseJob.Products?.length) {
-            for (const p of houseJob.Products) {
-                // Map only the fields that exist in BookingProduct model
-                await tx.bookingProduct.create({
-                    data: {
-                        BookingHeaderSid: bookingHeaderSid,
-                        ProductName: p.ProductName,
-                        ProductDescription: p.ProductDescription,
-                        ShippingBillNo: p.ShippingBillNo || null,
-                        ShippingBillDate: p.ShippingBillDate,
-                        ExternaPkg: p.ExternaPkg,
-                        ExternlQty: p.ExternlQty,
-                        InternalPkg: p.InternalPkg,
-                        InternalQty: p.InternalQty,
-                        GrossWeight: p.GrossWeight,
-                        NetWeight: p.NetWeight,
-                        Volume: p.Volume,
-                        Height: p.Height,
-                        ImcoClass: p.ImcoClass,
-                        IsHaz: p.IsHaz,
-                        Length: p.Length,
-                        PkgGroup: p.PkgGroup,
-                        UnNo: p.UnNo,
-                        Width: p.Width,
-                        UomMasterSid: p.UomMasterSid,
-                        ActualGrWeight: p.ActualGrWeight,
-                        ActualQty: p.ActualQty,
-                        ActualVolume: p.ActualVolume,
-                        CFS: p.CFS,
-                        CargoRecDate: p.CargoRecDate,
-                        RecdPack: p.RecdPack,
-                        Volumetric: p.Volumetric,
-                        createdBy
-                    }
-                });
-            }
-        }
-
-        // ----------------------------------------
-        // 4. Insert Others
-        // ----------------------------------------
-        if (houseJob.Others?.length) {
-            for (const o of houseJob.Others) {
-                const {
-                    HouseJobOthersSid,
-                    HouseJobSid,
-                    DONo,
-                    DODate,
-                    InternalNote,
-                    ExternalNote,
-                    ...othersData
-                } = o;
-
-                await tx.bookingOthers.create({
-                    data: {
-                        ...othersData,
-                        BookingHeaderSid: bookingHeaderSid,
-                        createdBy
-                    }
-                });
-            }
-        }
-
-        const updateHouseJob = await this._db.houseJob.update({
-            where: {
-                HouseJobSid: houseJob.HouseJobSid
-            }, data: {
-                TranshipmentBookingSid: bookingHeader.BookingHeaderSid
-            }
-        })
-
-        return {
-            bookingHeader,
-            message: "Booking created successfully from Master Job"
-        };
     }
+}
+    
+
+    // Update house job with booking reference
+    await tx.houseJob.update({
+        where: {
+            HouseJobSid: houseJob.HouseJobSid
+        },
+        data: {
+            TranshipmentBookingSid: bookingHeader.BookingHeaderSid
+        }
+    });
+
+    return {
+        bookingHeader,
+        message: "Booking created successfully from Master Job"
+    };
+}
 async getMasterJobARAPData(MasterJobSid: number): Promise<any> {
   try {
     // Use Prisma view instead of raw query

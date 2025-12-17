@@ -10,7 +10,7 @@ export class ContainerActivityMasterService {
 
   async getAllContainerActivities() {
     return this._db.containerActivityMaster.findMany({
-      where: { deletedAt: null },
+      where: { Status:'A',deletedAt: null },
       include: { nextActivities: true }, // ✅ include mapping
     });
   }
@@ -42,7 +42,7 @@ export class ContainerActivityMasterService {
 
   async fetchContainerActivityById(ContainerActivityMasterSid: number) {
     const activity = await this._db.containerActivityMaster.findUnique({
-      where: { ContainerActivityMasterSid },
+      where: { Status: 'A', ContainerActivityMasterSid },
       include: { nextActivities: true },
     });
 
