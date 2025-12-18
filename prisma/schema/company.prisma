@@ -2847,15 +2847,15 @@ model HouseJobProduct {
   ActualVolume          Decimal?            @db.Decimal(10, 3)
   CFS                   String?             @db.VarChar(100)
   CargoRecDate          DateTime?
-  Height                Int?
+  Height                Decimal?            @db.Decimal(8, 2)
   ImcoClass             String?             @db.VarChar(500)
   IsHaz                 String?             @db.Char(1)
-  Length                Int?
+  Length                Decimal?            @db.Decimal(8, 2)
   PkgGroup              String?             @db.VarChar(500)
   RecdPack              String?             @db.VarChar(100)
   UnNo                  String?             @db.VarChar(500)
   UomMasterSid          Int?
-  Width                 Int?
+  Width                 Decimal?            @db.Decimal(8, 2)
   createdBy             String              @db.VarChar(100)
   createdOn             DateTime            @default(now()) @db.Timestamptz(6)
   deletedAt             DateTime?
