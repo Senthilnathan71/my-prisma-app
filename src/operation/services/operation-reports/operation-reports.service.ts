@@ -913,7 +913,7 @@ export class OperationReportsService {
     throw new BadRequestException('Containerwise Details Report generator not yet implemented');
   }
 
- private async generateContainerKPIReport(params: any) {
+  private async generateContainerKPIReport(params: any) {
     const {
       companyId: CompanyMasterSid,
       ToHBLDt,
@@ -1172,13 +1172,13 @@ export class OperationReportsService {
   }
 
   private async generateDOIssueList(params: DOIssueListReportQueryDto) {
-     const {
+    const {
       companyId: CompanyMasterSid,
       ToHBLDt,
       FromHBLDt,
       Branch: branchId,
       Dept: dept,
-     
+
     } = params;
 
     try {
@@ -1248,7 +1248,7 @@ export class OperationReportsService {
         data,
         branchesInvolved: Array.from(branchSet).join(','),
         params,
-       
+
       };
 
     } catch (error) {
@@ -1275,7 +1275,7 @@ export class OperationReportsService {
       // Query for branches involved
       const allBranches = await this._db.branchMaster.findMany({
         where: { BranchMasterSid: { in: branchId } },
-        select: { branchName: true }
+        select: { branchName: true ,BranchMasterSid:true}
       });
 
       const branchSet = new Set(allBranches.map(b => b.branchName));
@@ -1297,7 +1297,7 @@ export class OperationReportsService {
       );
 
       const customerMaster = await this._db.customerMaster.findMany({
-        select: { CustomerMasterSid: true, CustomerName: true }
+        select: { CustomerMasterSid: true, CustomerName: true ,CustomerType:true}
       })
 
       const agentMaster = await this._db.customerMaster.findMany({
@@ -1347,6 +1347,9 @@ export class OperationReportsService {
               NetWeight: true,
               voyages: true,
               others: true,
+              MasterJobNumber: true,
+              JobStatus: true,
+              CreatedBy: true,
               containers: {
                 where: { Status: 'A' },
                 include: {
@@ -1488,7 +1491,7 @@ export class OperationReportsService {
               numberOfFourtyFt++;
               break;
 
-            case '45 HC':
+            case '40 HC':
               numberofFurtyFiveFt++;
               break;
 
@@ -1500,7 +1503,7 @@ export class OperationReportsService {
               numberOfFourtyRefer++;
               break;
 
-            case '45 HC REFER':
+            case '40 HC REFER':
               numberOfFourtyFiveRefer++;
               break;
 
@@ -1512,13 +1515,11 @@ export class OperationReportsService {
               numberofFourtyOpen++;
               break;
 
-            case '45 HC OPEN TOP':
+            case '40 HC OPEN TOP':
               numberofFourtyFiveOpen++;
               break;
           }
         });
-
-
 
         const polName = mj.POL ? portMap.get(mj.POL) || '' : '';
         const podName = mj.POD ? portMap.get(mj.POD) || '' : '';
@@ -1534,6 +1535,15 @@ export class OperationReportsService {
 
 
         const houseDepartment = departments.find(d => d.DepartmentMasterSid === mj.DepartmentMasterSid)?.departmentName || '';
+        const masterJob = Array.isArray(mj.masterJob) ? mj.masterJob[0] : mj.masterJob;
+
+        const importJobNo = houseDepartment?.toLowerCase().includes('import')
+          ? masterJob?.MasterJobNumber || ''
+          : '';
+
+        const exportJobNo = houseDepartment?.toLowerCase().includes('export')
+          ? masterJob?.MasterJobNumber || ''
+          : '';
 
         return {
           MBL: mj.MBLNo,
@@ -1542,7 +1552,16 @@ export class OperationReportsService {
           masterDate: mj.MBLDate,
           houseDepartment,
           HBL: mj.HBLNo,
+          HBLDate: mj.HBLDate,
+          importJobNo,
+          exportJobNo,
           mblNo: mj.MBLNo || '',
+          branchName: allBranches.find(b => b.BranchMasterSid === mj.BranchMasterSid)?.branchName || '',
+          customerType: (() => {
+            const typeObj = customerMaster.find(c => c.CustomerMasterSid === mj.CustomerMasterSid)?.CustomerType || {};
+            return Object.keys(typeObj).filter(key => typeObj[key] === "isTrue");
+          })(),
+          masterJobNo: mj.masterJob?.MasterJobNumber,
           vesselName: mj.VesselName,
           voyageNo: mj.VoyageNo || '',
           ETD: mj.ETD || '',
@@ -1568,6 +1587,18 @@ export class OperationReportsService {
           coLoader: mj.masterJob?.others?.[0]?.CoLoader,
           internalNote: mj.InternalNote,
           carrier: mj.CarrierName || '',
+          originCarrier: customerMaster.find(c => c.CustomerMasterSid === mj.CarrierSid)?.CustomerName || '',
+          pcs: mj.Cargo?.[0]?.NoOfPackage,
+          houseStatus: mj.HouseStatus,
+          serviceLevelName: mj.MovementType,
+          blType: mj.Others?.[0]?.ReleaseType,
+          paymentTerms: mj.FreightTerms,
+          shipperNo: mj.Others?.[0]?.CustomerRefNo,
+          masterStatus: mj.masterJob?.[0]?.JobStatus,
+          jobClosed: mj.HouseStatus,
+          housecreatedBy: mj.createdBy,
+          mastercreatedBy: mj.masterJob?.[0]?.CreatedBy,
+          addtionalRemarks: mj.Others?.[0]?.ExternalNote,
           volume: mj.masterJob?.Volume || 0,
           grossWeight: mj.masterJob?.GrossWeight || 0,
           chargeable: mj.masterJob?.ChargeableWeight || 0,
