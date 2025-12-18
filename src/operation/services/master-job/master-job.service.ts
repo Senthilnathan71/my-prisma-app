@@ -437,7 +437,7 @@ export class MasterJobService {
                     const houseJob = await this._db.houseJob.create({
                         data: {
                             MasterJobSid: newMasterJob.MasterJobSid,
-
+                            HBLDate : new Date(),
                             BookingHeaderSid: bookingHeader.BookingHeaderSid || null,
                             ColoadedBy: bookingHeader.NominatedBy,
                             BookingNo: bookingHeader.BookingNo || '',
@@ -556,6 +556,7 @@ export class MasterJobService {
                                 GrossWeight: Number(product.GrossWeight) || 0,
                                 NetWeight: Number(product.NetWeight) || 0,
                                 Volume: Number(product.Volume) || 0,
+                                Volumetric: Number(product.Volumetric) || 0,
                                 CargoRecDate: product.CargoRecDate ? new Date(product.CargoRecDate) : null,
                                 CFS: product.CFS || '',
                                 Height: product.Height || 0,
@@ -882,6 +883,7 @@ export class MasterJobService {
                             ConsigneeAddress: true,
                             Notify: true,
                             NotifyAddress: true,
+                            HouseStatus: true,
                             CustomerName: true,
                             CustomerAddress: true,
                             FreightTerms: true,
@@ -890,14 +892,61 @@ export class MasterJobService {
                             Products: true,
                             Others: true,
                             JobType:true,
+                            HouseJobSid: true,
+                            MenuMasterSid: true,
+                            CompanyMasterSid: true,
+                            BranchMasterSid: true,
                         },
                     }
                 }
             })
 
+            const menuId = await this.menuMasterService.getMenuSidByName("House Job");
+
             if(!masterJobDetails){
                 throw new BadRequestException('Master Job not found.');
-            }
+            }const houseJobWithCharges = await Promise.all(
+                masterJobDetails.houseJob.map(async (houseJob) => {
+                    const costRevenuePayload = {
+                        TransactionSid: houseJob.HouseJobSid,
+                        MenuMasterSid: menuId || houseJob.MenuMasterSid!,
+                        CompanyMasterSid: houseJob.CompanyMasterSid,
+                        BranchMasterSid: houseJob.BranchMasterSid!,
+                    };
+
+                    const costRevenueCharges = await prisma.costRevenueCharges.findMany({
+                        where: {
+                            TransactionSid: costRevenuePayload.TransactionSid,
+                            MenuMasterSid: costRevenuePayload.MenuMasterSid,
+                            CompanyMasterSid: costRevenuePayload.CompanyMasterSid,
+                            BranchMasterSid: costRevenuePayload.BranchMasterSid,
+                            status: "A"
+                        },
+                        include: {
+                            revenueVoucherHeader: {
+                                select: {
+                                    VoucherNumber: true,
+                                    VoucherHeaderSid: true
+                                }
+                            },
+                            revenueVoucherTypeMaster: {
+                                select: {
+                                    DocumentTypeName: true,
+                                    VoucherTypeMasterSid: true
+                                }
+                            },
+                        },
+                        orderBy: {
+                            SerialNumber: 'asc'
+                        }
+                    });
+
+                    return {
+                        ...houseJob,
+                        costRevenueCharges
+                    };
+                })
+            );
             
             const allShipments = await prisma.houseJob.findMany({
                 where: {
@@ -913,6 +962,7 @@ export class MasterJobService {
                     }
                 }
             })
+           
             
             // Calculate totals from all house job cargo
             let totalNoOfPkg = 0;
@@ -1076,6 +1126,7 @@ export class MasterJobService {
                 aggregatedTotals, // Add aggregated totals
                 CutOffDate,
                 allShipments,
+                houseJob: houseJobWithCharges,
                 costRevenueCharges: allCostRevenueCharges,
                 containerActivities: allActivities,
                 houseJobCustoms: masterJobDetails.houseJobCustoms || []
@@ -2200,6 +2251,7 @@ const allHouseJobs = await prisma.houseJob.findMany({
                         { POL: { contains: search, mode: 'insensitive' } },
                         { POD: { contains: search, mode: 'insensitive' } },
                         { FDC: { contains: search, mode: 'insensitive' } },
+                        
                         ...(isNumeric ? [
                             { NoOfHouses: { equals: Number(search) } },
                             { NoOfContainers: { equals: Number(search) } },
@@ -2296,7 +2348,7 @@ const allHouseJobs = await prisma.houseJob.findMany({
         }
     }
 
-    async detachBookingFromMasterJob(HouseJobSid: number) {
+        async detachBookingFromMasterJob(HouseJobSid: number) {
         try {
             const result = await this._db.$transaction(async (tx) => {
                 const detachedHouse = await tx.houseJob.update({
@@ -2305,43 +2357,47 @@ const allHouseJobs = await prisma.houseJob.findMany({
                     },
                     data: {
                         MasterJobSid: null
+                    },
+                    include : {
+                        bookingHeader : {
+                            include : {
+                                departmentMaster : true
+                            }
+                        }
                     }
                 })
-
+ 
                 let detachedBooking;
-                if (detachedHouse.BookingHeaderSid) {
-                    const ourBooking = await tx.bookingHeader.findFirst({
+                let ourBooking = detachedHouse?.bookingHeader;
+                if (ourBooking) {
+                    const dept = ourBooking?.departmentMaster;
+                    const isLCLExport = dept.FCLLCL === 'LCL' && dept.departmentType === "Sea" && dept.ExportImport === "Export";
+                    detachedBooking = await tx.bookingHeader.update({
                         where: {
-                            BookingHeaderSid: detachedHouse.BookingHeaderSid
+                            BookingHeaderSid: ourBooking.BookingHeaderSid
+                        },
+                        data: {
+                            MasterNoSid: null,
+                            MBLNo: null,
+                            MBLDate: null,
+                            BookingStatus: isLCLExport ? 'Cargo Received' : 'Booked',
                         }
                     })
-                    if (ourBooking) {
-                        detachedBooking = await tx.bookingHeader.update({
-                            where: {
-                                BookingHeaderSid: ourBooking.BookingHeaderSid
-                            },
-                            data: {
-                                MasterNoSid: null,
-                                MBLNo: null,
-                                MBLDate: null,
-                                BookingStatus: 'Cargo Received',
-                            }
-                        })
-                    }
                 }
-                
-
-                
+               
+ 
+               
                 return {
                     detachedBooking,
                     detachedHouse
                 }
             })
-            
+           
         } catch (error) {
             throw error;
         }
     }
+ 
 
 
     async createHouseJobWithBooking(allBookingIds: number[]) {
