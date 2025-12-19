@@ -352,3 +352,65 @@ export class unbilledcostReportQueryDto {
   @IsInt()
   Dept?: number[];
 }
+
+export class houseJobLossReportQueryDto {
+  @ApiProperty()
+  @IsNotEmpty()
+  @IsDateString()
+  FromHBLDt: string;
+
+  @ApiProperty()
+  @IsNotEmpty()
+  @IsDateString()
+  ToHBLDt: string;
+
+
+  @ApiProperty()
+  @IsNotEmpty()
+  @IsInt()
+  companyId: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsInt()
+  Branch?: number[];
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsInt()
+  Dept?: number[];
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsInt()
+  Customer?: number[];
+}
+
+export class ProfitSummaryReportQueryDto {
+  @ApiProperty()
+  @IsNotEmpty()
+  @IsDateString()
+  FromMBLDt: string;
+
+  @ApiProperty()
+  @IsNotEmpty()
+  @IsDateString()
+  ToMBLDt: string;
+
+
+  @ApiProperty()
+  @IsNotEmpty()
+  @IsInt()
+  companyId: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsInt()
+  Branch?: number[];
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsInt()
+  Dept?: number[];
+
+}
