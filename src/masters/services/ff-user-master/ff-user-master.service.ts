@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Prisma, UserTypeCode } from '@prisma/client';
 import { encodePassword, statusWhereClause } from 'src/common/helper';
 import { DatabaseService } from 'src/database/database.service';
@@ -45,17 +45,32 @@ export class FfUserMasterService {
                 userTypeId: payload.userTypeId,
             };
 
-            const existing = await this._db.userMaster.findFirst({
+            return await this._db.$transaction(async (prisma) => {
+
+                 const existing = await this._db.userMaster.findFirst({
                 where: {
-                    userEmail: payload.userEmail,
+                    OR: [
+                        payload.userName ? { userName: payload.userName } : undefined,
+                        payload.userEmail ? { userEmail: payload.userEmail } : undefined,
+                    ].filter(Boolean) as any,
                 },
             });
 
             if (existing) {
-                throw new BadRequestException('User Email already exists');
-            }
+                if (
+                    payload.userName &&
+                    existing.userName?.toLowerCase() === payload.userName.trim().toLowerCase()
+                ) {
+                    throw new BadRequestException('User Name already exists.');
+                }
 
-            return await this._db.$transaction(async (prisma) => {
+                if (
+                    payload.userEmail &&
+                    existing.userEmail?.toLowerCase() === payload.userEmail.trim().toLowerCase()
+                ) {
+                    throw new BadRequestException('User Email already exists');
+                }
+            }
                 // Step 1: Create User Master
                 const ffUser = await prisma.userMaster.create({
                     data: { ...userPayload },
@@ -134,7 +149,9 @@ export class FfUserMasterService {
             });
         } catch (error: any) {
             console.error('User Creation Error:', error);
-            throw new Error(`Transaction failed: ${error.message}`);
+            if (error instanceof NotFoundException || error instanceof BadRequestException) {
+                throw error;
+            }
         }
     }
 
@@ -149,7 +166,7 @@ export class FfUserMasterService {
                 },
                 include: {
                     userCompanyMaster: {
-                        orderBy: { companyMaster: { companyName: 'asc' }},
+                        orderBy: { companyMaster: { companyName: 'asc' } },
                         where: { status: 'A' },
                         include: {
                             companyMaster: {
@@ -186,14 +203,30 @@ export class FfUserMasterService {
 
             const existing = await this._db.userMaster.findFirst({
                 where: {
-                    userEmail: payload.userEmail,
-                    UserMasterSid : { not : UserMasterSid }
+                    UserMasterSid: { not: UserMasterSid },
+                    OR: [
+                        payload.userName ? { userName: payload.userName } : undefined,
+                        payload.userEmail ? { userEmail: payload.userEmail } : undefined,
+                    ].filter(Boolean) as any,
                 },
             });
 
             if (existing) {
-                throw new BadRequestException('User Email already exists');
+                if (
+                    payload.userName &&
+                    existing.userName?.toLowerCase() === payload.userName.trim().toLowerCase()
+                ) {
+                    throw new BadRequestException('User Name already exists.');
+                }
+
+                if (
+                    payload.userEmail &&
+                    existing.userEmail?.toLowerCase() === payload.userEmail.trim().toLowerCase()
+                ) {
+                    throw new BadRequestException('User Email already exists');
+                }
             }
+
 
             return await this._db.$transaction(async (prisma) => {
                 // Step 1: Update user and fetch current relations in parallel
@@ -201,7 +234,7 @@ export class FfUserMasterService {
                     prisma.userMaster.update({
                         where: { UserMasterSid },
                         data: { ...userPayload, updatedBy },
-                        omit : { userPassword : true }
+                        omit: { userPassword: true }
                     }),
                     prisma.userCompanyMaster.findMany({
                         where: { UserMasterSid, status: 'A' },
@@ -500,7 +533,9 @@ export class FfUserMasterService {
             });
         } catch (error: any) {
             console.error('User Update Error:', error);
-            throw new Error(`Transaction failed: ${error.message}`);
+            if (error instanceof NotFoundException || error instanceof BadRequestException) {
+                throw error;
+            }
         }
     }
 
@@ -668,11 +703,11 @@ export class FfUserMasterService {
         }
     }
 
-    async getAllDocs(CompanyMasterSid: number){
+    async getAllDocs(CompanyMasterSid: number) {
         try {
             const allDocs = await this._db.userMaster.findMany({
                 where: {
-                    userType : { code : "docPerson"},
+                    userType: { code: "docPerson" },
                     status: 'A',
                     userCompanyMaster: {
                         some: {
@@ -692,11 +727,11 @@ export class FfUserMasterService {
         }
     }
 
-    async getAllCS(CompanyMasterSid: number){
+    async getAllCS(CompanyMasterSid: number) {
         try {
             const allDocs = await this._db.userMaster.findMany({
                 where: {
-                    userType : { code : "csPerson"},
+                    userType: { code: "csPerson" },
                     status: 'A',
                     userCompanyMaster: {
                         some: {
@@ -793,12 +828,12 @@ export class FfUserMasterService {
         }
     }
 
-     async getAllSalesperson(CompanyMasterSid: number){
+    async getAllSalesperson(CompanyMasterSid: number) {
         try {
             const allSalespersons = await this._db.userMaster.findMany({
                 where: {
                     status: 'A',
-                    isSalesperson : '1',
+                    isSalesperson: '1',
                     userCompanyMaster: {
                         some: {
                             CompanyMasterSid: CompanyMasterSid,

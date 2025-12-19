@@ -152,24 +152,10 @@ export class MilestoneService {
                 where,
                 skip,
                 take: pageSize,
-                orderBy: { MilestoneMasterSid: 'desc' },
+                orderBy: { SortBy: 'asc' },
             }),
             this._db.milestoneMaster.count({ where }),
         ]);
-
-        items = await Promise.all(
-            items.map(async (item) => {
-                const departmentMaster = item.DepartmentMasterSid !== null ?
-                    await this.globalConfigService.getMasterData('department_master', item.DepartmentMasterSid) :
-                    { DepartmentMasterSid: null, departmentName: '' };
-
-                return {
-                    ...item,
-                    departmentMaster
-                }
-
-            })
-        )
 
         return {
             items,
