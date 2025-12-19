@@ -206,7 +206,7 @@ export class BookingService {
                     Volume: Number(product.Volume) || 0,
                     IsHaz: product.IsHaz || 'N',
                     ImcoClass: product.ImcoClass || '',
-                    UnNo: product.UnNo || '',
+                    UnNo: String(product.UnNo) || '',
                     PkgGroup: product.PkgGroup || '',
                     Length: product.Length,
                     Width: product.Width,

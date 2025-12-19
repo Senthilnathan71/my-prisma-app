@@ -34,7 +34,7 @@ export class MasterJobService {
                     where: { MasterJobNumber: { contains: dateString } }
                 })
 
-                const masterJobMenuId = await this.menuMasterService.getMenuSidByName('Master Job');
+                const masterJobMenuId = await this.menuMasterService.getMenuSidByName(payload.screenName || "Master Job");
 
                 const MasterJobNumber = `MASTER-${dateString}-${(count + 1).toString().padStart(3, '0')}`;
                 let departmentType: string | null = null;
@@ -431,7 +431,7 @@ export class MasterJobService {
                         HBLNo = "";
                     }
 
-                    const houseJobMenuId = await this.menuMasterService.getMenuSidByName('House Job');
+                    const houseJobMenuId = await this.menuMasterService.getMenuSidByName(payload.screenName === 'Master Job' ? 'House Job' : 'House Air Waybill');
 
                     // Step 1: Create main house job
                     const houseJob = await this._db.houseJob.create({
@@ -863,6 +863,7 @@ export class MasterJobService {
                                 where : {status : 'A'},
                                 select : {
                                     MasterJobContainerSid : true,
+                                    ExternlQty : true,
                                     GrossWeight : true,
                                     NetWeight : true,
                                     Volume : true
@@ -1098,7 +1099,9 @@ export class MasterJobService {
             const enrichedContainers = containers.map(container => {
 
                 if(!container.houseJobProduct) return container;
-
+                const totalNoOfPkg = (container?.houseJobProduct || []).reduce((acc, product) => {
+                    return acc + toNumber(product.ExternlQty) || 0;
+                }, 0);
                 const totalGrossWeight = (container?.houseJobProduct || []).reduce((acc, product) => {
                     return acc + toNumber(product.GrossWeight) || 0;
                 }, 0);
@@ -1113,6 +1116,7 @@ export class MasterJobService {
 
                 return {
                     ...container,
+                    NoOfPkg : totalNoOfPkg,
                     GrossWeight : totalGrossWeight,
                     NetWeight : totalNetWeight,
                     Volume : totalVolume,
