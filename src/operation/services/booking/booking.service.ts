@@ -1960,7 +1960,7 @@ if (!croPayload?.BookingCroSid) {
         try {
             const [products, packageTypes, imcos, uoms] = await this._db.$transaction([
                 this._db.productMaster.findMany({
-                    where: { status: 'A', CompanyMasterSid: payload.CompanyMasterSid },
+                    where: { status: 'A' },
                     select: {
                         ProductMasterSId: true,
                         ProductName: true,
@@ -2315,27 +2315,27 @@ async getTariffByBookingDetails(payload:TariffBookingPayload) {
         const costExchangeRate = toCurrency
           ? (costFromCurrency.currencyCode === toCurrency.currencyCode
               ? 1
-                : await this.currencyExchangeService.getExchangeRate({
+                : (await this.currencyExchangeService.getExchangeRate({
                     CompanyMasterSid: payload.CompanyMasterSid ||  detail.CompanyMasterSid!,
                     BranchMasterSid: payload.BranchMasterSid ,
                     fromCurrencyCode: costFromCurrency.currencyCode,
                     toCurrencyCode: toCurrency.currencyCode,
                     EffectiveFrom : new Date(payload.EffectiveDate),
                     segment: 'cost'
-                }))
+                }) || 1))
           : null;
 
         const revenueExchangeRate = toCurrency
           ? (revenueFromCurrency.currencyCode === toCurrency.currencyCode
               ? 1
-                : await this.currencyExchangeService.getExchangeRate({
+                : (await this.currencyExchangeService.getExchangeRate({
                     CompanyMasterSid: payload.CompanyMasterSid || detail.CompanyMasterSid!,
                     BranchMasterSid: payload.BranchMasterSid,
                     fromCurrencyCode: costFromCurrency.currencyCode,
                     toCurrencyCode: toCurrency.currencyCode,
                     EffectiveFrom: new Date(payload.EffectiveDate),
                     segment: 'revenue'
-                }))
+                }) || 1))
           : null;
 
         return {
