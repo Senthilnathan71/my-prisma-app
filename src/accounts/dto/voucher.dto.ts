@@ -538,7 +538,7 @@ export class CreateVoucherPayload extends VoucherHeaderDto {
 
     @IsNotEmpty({ message: 'screenName is required' })
     @IsString()
-    @IsIn(['Booking', 'HouseJob', 'MasterJob'], { message: 'screenName must be Booking, House Job, or Master Job' })
+    @IsIn(['Booking', 'House Job', 'Master Job','Master Air Waybill','House Air Waybill','Service Job'], { message: 'screenName must be Booking, House Job, or Master Job' })
     screenName: string;
 
 
