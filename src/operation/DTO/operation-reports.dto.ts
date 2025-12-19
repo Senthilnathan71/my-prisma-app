@@ -257,7 +257,7 @@ export class ShipmentDetailedSummaryReportQueryDto {
   @ApiProperty()
   @IsNotEmpty()
   @IsDateString()
-  dept: number[];
+  Dept: number[];
 
   @ApiProperty({ enum: BLStatusEnum })
   @IsNotEmpty()
@@ -273,7 +273,7 @@ export class ShipmentDetailedSummaryReportQueryDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsInt()
-  SalePerson?: number[];
+  Salesperson?: number[];
 
 }
 
@@ -288,6 +288,44 @@ export class profitabilityReportQueryDto {
   @IsNotEmpty()
   @IsDateString()
   ToMBLDt: string;
+
+  @ApiProperty({ enum: ShipmentStatusEnum })
+  @IsNotEmpty()
+  @IsEnum(ShipmentStatusEnum)
+  shipmentStatus: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsInt()
+  port?: number;
+
+  @ApiProperty()
+  @IsNotEmpty()
+  @IsInt()
+  companyId: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsInt()
+  Branch?: number[];
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsInt()
+  Dept?: number[];
+}
+
+
+export class unbilledcostReportQueryDto {
+  @ApiProperty()
+  @IsNotEmpty()
+  @IsDateString()
+  FromHBLDt: string;
+
+  @ApiProperty()
+  @IsNotEmpty()
+  @IsDateString()
+  ToHBLDt: string;
 
   @ApiProperty({ enum: ShipmentStatusEnum })
   @IsNotEmpty()

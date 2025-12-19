@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { DatabaseService } from 'src/database/database.service';
 import { Prisma } from '@prisma/client';
-import { BLIssueListReportQueryDto, ContainerKPIReportQueryDto, DOIssueListReportQueryDto, profitabilityReportQueryDto, ShipmentDetailedSummaryReportQueryDto, ShipmentSummaryReportQueryDto } from 'src/operation/DTO/operation-reports.dto';
+import { BLIssueListReportQueryDto, ContainerKPIReportQueryDto, DOIssueListReportQueryDto, profitabilityReportQueryDto, ShipmentDetailedSummaryReportQueryDto, ShipmentSummaryReportQueryDto, unbilledcostReportQueryDto } from 'src/operation/DTO/operation-reports.dto';
 import { toNumber } from 'src/common/helper';
 
 @Injectable()
@@ -98,6 +98,10 @@ export class OperationReportsService {
           return await this.generateShipmentDetailedSummary(parameters);
         case 'profitability-report':
           return await this.generateProfitabilityReport(parameters);
+           case 'unbilled-cost-report':
+          return await this.generateUnbilledCostReport(parameters);
+             case 'unbilled-revenue-report':
+          return await this.generateUnbilledRevenueReport(parameters);
         default:
           throw new BadRequestException(`Report ${reportName} not implemented`);
       }
@@ -175,7 +179,8 @@ export class OperationReportsService {
           Consignee: hj.ConsigneeName,
           POL: hj.POL,
           POD: hj.POD,
-          departmentName
+          departmentName,
+          jobStatus:hj.HouseStatus,
         };
       });
 
@@ -702,8 +707,6 @@ export class OperationReportsService {
     }
   }
 
-
-
   //    private async generateProfitabilityReport(params: profitabilityReportQueryDto) {
   //   const {
   //     companyId: CompanyMasterSid,
@@ -1210,6 +1213,7 @@ export class OperationReportsService {
               MBLNo: true,
             }
           },
+          Others:true,
           departmentMaster: {
             select: {
               departmentName: true
@@ -1224,8 +1228,7 @@ export class OperationReportsService {
         return { companyMasterSid: CompanyMasterSid, branchMasterSid: branchId, data: [] };
       }
 
-      const data = houseJobData.map(hj => {
-
+      const data = houseJobData.filter(hj => !hj.Others?.[0]?.DONo).map(hj => {
         const masterJob = hj.masterJob;
         const departmentName = hj.departmentMaster?.departmentName || null;
 
@@ -1238,7 +1241,8 @@ export class OperationReportsService {
           Consignee: hj.ConsigneeName,
           POL: hj.POL,
           POD: hj.POD,
-          departmentName
+          departmentName,
+          jobStatus:hj.HouseStatus,
         };
       });
 
@@ -1263,15 +1267,16 @@ export class OperationReportsService {
       ToHBLDt,
       FromHBLDt,
       branchId,
-      dept,
+      Dept : dept,
       Transhipment = false,
       Customer,
-      SalePerson
+      Salesperson : SalePerson
     } = params;
 
     try {
       this.logger.log(`Getting shipment summary details report for CompanySid=${CompanyMasterSid}, From=${FromHBLDt}, To=${ToHBLDt}`);
 
+      
       // Query for branches involved
       const allBranches = await this._db.branchMaster.findMany({
         where: { BranchMasterSid: { in: branchId } },
@@ -1320,19 +1325,43 @@ export class OperationReportsService {
         select: { UserMasterSid: true, userName: true }
       })
 
-      const houseJobData = await this._db.houseJob.findMany({
-        where: {
-          CompanyMasterSid,
-          BranchMasterSid: { in: branchId },
-          AND: [
-            { MBLDate: { gte: new Date(FromHBLDt) } },
-            { MBLDate: { lte: new Date(ToHBLDt) } }
-          ],
-          status: 'A',
-          DepartmentMasterSid: { in: dept },
-        },
-        include: {
 
+      const whereClause: any = {
+        CompanyMasterSid,
+        BranchMasterSid: { in: branchId },
+        AND: [
+          { HBLDate: { gte: new Date(FromHBLDt) } },
+          { HBLDate: { lte: new Date(ToHBLDt) } }
+        ],
+        status: 'A',
+        DepartmentMasterSid: { in: dept },
+      };
+
+
+      if (SalePerson && SalePerson.length > 0) {
+        whereClause.SalesmanSid = { in: SalePerson };
+      }
+
+
+      if (Customer && Customer.length > 0) {
+        whereClause.CustomerMasterSid = { in: Customer };
+      }
+
+
+      const houseJobData = await this._db.houseJob.findMany({
+        // where: {
+        //   CompanyMasterSid,
+        //   BranchMasterSid: { in: branchId },
+        //   AND: [
+        //     { HBLDate: { gte: new Date(FromHBLDt) } },
+        //     { HBLDate: { lte: new Date(ToHBLDt) } }
+        //   ],
+        //   status: 'A',
+        //   DepartmentMasterSid: { in: dept },
+
+        // },
+        where: whereClause,
+        include: {
           Cargo: true,
           Others: true,
           Products: true,
@@ -1365,7 +1394,7 @@ export class OperationReportsService {
 
           }
         },
-        orderBy: { MBLDate: 'asc' },
+        orderBy: { HBLDate: 'asc' },
       });
 
 
@@ -1659,6 +1688,357 @@ export class OperationReportsService {
 
     } catch (error) {
       this.logger.error(`Error generating shipment summary: ${error.message}`, error.stack);
+      throw error;
+    }
+  }
+
+
+  private async generateUnbilledCostReport(params: unbilledcostReportQueryDto) {
+    const {
+      companyId: CompanyMasterSid,
+      ToHBLDt,
+      FromHBLDt,
+      Branch: branchId,
+      Dept: dept,
+    } = params;
+
+    try {
+      this.logger.log(
+        `Getting UNBILLED House Job Cost/Revenue report for CompanySid=${CompanyMasterSid}, From=${FromHBLDt}, To=${ToHBLDt}`
+      );
+
+
+      const allBranches = await this._db.branchMaster.findMany({
+        where: { BranchMasterSid: { in: branchId } },
+        select: { branchName: true, BranchMasterSid: true },
+      });
+      const branchSet = new Set(allBranches.map(b => b.branchName));
+
+
+      const departments = await this._db.departmentMaster.findMany({
+        where: { DepartmentMasterSid: { in: dept } },
+        select: { DepartmentMasterSid: true, departmentName: true },
+      });
+
+
+      const chargeMaster = await this._db.chargeMaster.findMany({
+        select: { ChargeMasterSid: true, chargeName: true },
+      });
+
+      const customerMaster = await this._db.customerMaster.findMany({
+        select: { CustomerMasterSid: true, CustomerName: true }
+      })
+
+
+      const houseJobs = await this._db.houseJob.findMany({
+        where: {
+          CompanyMasterSid,
+          BranchMasterSid: { in: branchId },
+          AND: [
+            { HBLDate: { gte: new Date(FromHBLDt) } },
+            { HBLDate: { lte: new Date(ToHBLDt) } },
+          ],
+          status: 'A',
+          DepartmentMasterSid: { in: dept },
+        },
+        select: {
+          HouseJobSid: true,
+          HouseNo: true,
+          HBLNo: true,
+          DepartmentMasterSid: true,
+          HouseStatus: true,
+          BookingNo: true,
+          FreightTerms: true,
+          BranchMasterSid: true,
+          Others:true
+        },
+        orderBy: { HBLDate: 'asc' },
+      });
+
+      if (!houseJobs.length) {
+        return {
+          companyMasterSid: CompanyMasterSid,
+          branchMasterSid: branchId,
+          data: [],
+        };
+      }
+
+      const houseJobIds = houseJobs.map(h => h.HouseJobSid);
+
+
+      const houseJobMenu = await this._db.menuMaster.findFirst({
+        where: { MenuName: 'House Job' },
+        select: { MenuMasterSid: true },
+      });
+
+      if (!houseJobMenu) {
+        throw new BadRequestException('House Job menu not found');
+      }
+
+
+      const allHouseCR = await this._db.costRevenueCharges.findMany({
+        where: {
+          MenuMasterSid: houseJobMenu.MenuMasterSid,
+          TransactionSid: { in: houseJobIds },
+          status: 'A',
+          OR: [
+            { CostVoucherHeaderSid: null },
+            { RevenueVoucherHeaderSid: null },
+          ],
+        },
+        select: {
+          TransactionSid: true,
+          CostLocalAmount: true,
+          RevenueLocalAmount: true,
+          ChargeDescription: true,
+          ChargeMasterSid: true,
+          CostAgentMasterSid: true,
+          RevenueCustomerMasterSid: true,
+          CostDrCr: true,
+          RevenueDrCr: true,
+          CostVoucherHeaderSid: true,
+          RevenueVoucherHeaderSid: true,
+          RevenueAmount: true,
+          CostAmount: true,
+        },
+      });
+
+
+      const houseRateMap = new Map<number, any[]>();
+      allHouseCR.forEach(cr => {
+        if (!houseRateMap.has(cr.TransactionSid!)) {
+          houseRateMap.set(cr.TransactionSid!, []);
+        }
+        houseRateMap.get(cr.TransactionSid!)!.push(cr);
+      });
+
+
+      const data = houseJobs.map(house => {
+          const houseDepartment =
+            departments.find(d => d.DepartmentMasterSid === house.DepartmentMasterSid)
+              ?.departmentName || '';
+          const costRevenues = (houseRateMap.get(house.HouseJobSid) || []).filter(
+            cr => cr.CostVoucherHeaderSid === null || cr.RevenueVoucherHeaderSid === null
+          );
+
+          return {
+            HouseJobSid: house.HouseJobSid,
+            HouseNo: house.HouseNo,
+            HBLNo: house.HBLNo,
+            houseDept: houseDepartment,
+            houseStatus: house.HouseStatus,
+            bookingNo: house.BookingNo,
+            PPCC: house.FreightTerms,
+            branchName: allBranches.find(b => house.BranchMasterSid === b.BranchMasterSid)?.branchName || '',
+            costRevenueDetails: costRevenues.map(cr => ({
+              ChargeMasterSid: cr.ChargeMasterSid,
+              chargeName: chargeMaster.find(c => c.ChargeMasterSid === cr.ChargeMasterSid)?.chargeName || '',
+              ChargeDescription: cr.ChargeDescription,
+              CostLocalAmount: cr.CostVoucherHeaderSid === null ? cr.CostLocalAmount : 0,
+              RevenueLocalAmount: cr.RevenueVoucherHeaderSid === null ? cr.RevenueLocalAmount : 0,
+              CostDrCr: cr.CostDrCr,
+              RevenueDrCr: cr.RevenueDrCr,
+              CostAgentMasterSid: cr.CostAgentMasterSid,
+              RevenueCustomerMasterSid: cr.RevenueCustomerMasterSid,
+              partyName: customerMaster.find(
+                c => c.CustomerMasterSid === cr.CostAgentMasterSid || c.CustomerMasterSid === cr.RevenueCustomerMasterSid
+              )?.CustomerName || '',
+              CostVoucherHeaderSid: cr.CostVoucherHeaderSid,
+              RevenueVoucherHeaderSid: cr.RevenueVoucherHeaderSid,
+            })),
+            
+          };
+        });
+
+
+      return {
+        companyMasterSid: CompanyMasterSid,
+        branchMasterSid: branchId,
+        branchesInvolved: Array.from(branchSet).join(','),
+        params,
+        data,
+      };
+
+    } catch (error) {
+      this.logger.error(
+        `Error generating UNBILLED house job report: ${error.message}`,
+        error.stack
+      );
+      throw error;
+    }
+  }
+
+  private async generateUnbilledRevenueReport(params: unbilledcostReportQueryDto) {
+    const {
+      companyId: CompanyMasterSid,
+      ToHBLDt,
+      FromHBLDt,
+      Branch: branchId,
+      Dept: dept,
+    } = params;
+
+    try {
+      this.logger.log(
+        `Getting UNBILLED House Job Cost/Revenue report for CompanySid=${CompanyMasterSid}, From=${FromHBLDt}, To=${ToHBLDt}`
+      );
+
+
+      const allBranches = await this._db.branchMaster.findMany({
+        where: { BranchMasterSid: { in: branchId } },
+        select: { branchName: true, BranchMasterSid: true },
+      });
+      const branchSet = new Set(allBranches.map(b => b.branchName));
+
+
+      const departments = await this._db.departmentMaster.findMany({
+        where: { DepartmentMasterSid: { in: dept } },
+        select: { DepartmentMasterSid: true, departmentName: true },
+      });
+
+
+      const chargeMaster = await this._db.chargeMaster.findMany({
+        select: { ChargeMasterSid: true, chargeName: true },
+      });
+
+      const customerMaster = await this._db.customerMaster.findMany({
+        select: { CustomerMasterSid: true, CustomerName: true }
+      })
+
+
+      const houseJobs = await this._db.houseJob.findMany({
+        where: {
+          CompanyMasterSid,
+          BranchMasterSid: { in: branchId },
+          AND: [
+            { HBLDate: { gte: new Date(FromHBLDt) } },
+            { HBLDate: { lte: new Date(ToHBLDt) } },
+          ],
+          status: 'A',
+          DepartmentMasterSid: { in: dept },
+        },
+        select: {
+          HouseJobSid: true,
+          HouseNo: true,
+          HBLNo: true,
+          DepartmentMasterSid: true,
+          HouseStatus: true,
+          BookingNo: true,
+          FreightTerms: true,
+          BranchMasterSid: true,
+          Others:true
+        },
+        orderBy: { HBLDate: 'asc' },
+      });
+
+      if (!houseJobs.length) {
+        return {
+          companyMasterSid: CompanyMasterSid,
+          branchMasterSid: branchId,
+          data: [],
+        };
+      }
+
+      const houseJobIds = houseJobs.map(h => h.HouseJobSid);
+
+
+      const houseJobMenu = await this._db.menuMaster.findFirst({
+        where: { MenuName: 'House Job' },
+        select: { MenuMasterSid: true },
+      });
+
+      if (!houseJobMenu) {
+        throw new BadRequestException('House Job menu not found');
+      }
+
+
+      const allHouseCR = await this._db.costRevenueCharges.findMany({
+        where: {
+          MenuMasterSid: houseJobMenu.MenuMasterSid,
+          TransactionSid: { in: houseJobIds },
+          status: 'A',
+          OR: [
+            { CostVoucherHeaderSid: null },
+            { RevenueVoucherHeaderSid: null },
+          ],
+        },
+        select: {
+          TransactionSid: true,
+          CostLocalAmount: true,
+          RevenueLocalAmount: true,
+          ChargeDescription: true,
+          ChargeMasterSid: true,
+          CostAgentMasterSid: true,
+          RevenueCustomerMasterSid: true,
+          CostDrCr: true,
+          RevenueDrCr: true,
+          CostVoucherHeaderSid: true,
+          RevenueVoucherHeaderSid: true,
+          RevenueAmount: true,
+          CostAmount: true,
+        },
+      });
+
+
+      const houseRateMap = new Map<number, any[]>();
+      allHouseCR.forEach(cr => {
+        if (!houseRateMap.has(cr.TransactionSid!)) {
+          houseRateMap.set(cr.TransactionSid!, []);
+        }
+        houseRateMap.get(cr.TransactionSid!)!.push(cr);
+      });
+
+
+      const data = houseJobs.map(house => {
+        const houseDepartment =
+          departments.find(d => d.DepartmentMasterSid === house.DepartmentMasterSid)
+            ?.departmentName || '';
+
+        const costRevenues = (houseRateMap.get(house.HouseJobSid) || []).filter(cr =>
+          cr.CostVoucherHeaderSid === null || cr.RevenueVoucherHeaderSid === null
+        );
+
+
+        return {
+          HouseJobSid: house.HouseJobSid,
+          HouseNo: house.HouseNo,
+          HBLNo: house.HBLNo,
+          houseDept: houseDepartment,
+          houseStatus: house.HouseStatus,
+          bookingNo: house.BookingNo,
+          PPCC: house.FreightTerms,
+          branchName: allBranches.find(b => house.BranchMasterSid === b.BranchMasterSid)?.branchName || '',
+          costRevenueDetails: costRevenues.map(cr => ({
+            ChargeMasterSid: cr.ChargeMasterSid,
+            chargeName:
+              chargeMaster.find(c => c.ChargeMasterSid === cr.ChargeMasterSid)
+                ?.chargeName || '',
+            ChargeDescription: cr.ChargeDescription,
+            RevenueLocalAmount: cr.RevenueVoucherHeaderSid === null ? cr.RevenueLocalAmount : 0,
+            RevenueDrCr: cr.RevenueDrCr,
+            RevenueAmount: cr.RevenueAmount,
+            partyName: customerMaster.find(c => c.CustomerMasterSid === cr.RevenueCustomerMasterSid)?.CustomerName || '',
+            RevenueCustomerMasterSid: cr.RevenueCustomerMasterSid,
+            RevenueVoucherHeaderSid: cr.RevenueVoucherHeaderSid,
+            CostAmount: cr.CostAmount,
+          })),
+
+
+        };
+      });
+
+      return {
+        companyMasterSid: CompanyMasterSid,
+        branchMasterSid: branchId,
+        branchesInvolved: Array.from(branchSet).join(','),
+        params,
+        data,
+      };
+
+    } catch (error) {
+      this.logger.error(
+        `Error generating UNBILLED house job report: ${error.message}`,
+        error.stack
+      );
       throw error;
     }
   }
