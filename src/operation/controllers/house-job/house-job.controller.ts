@@ -125,6 +125,42 @@ async createHouseJob(@Body() payload: any) {
     return resp;
   }
 
+  @ApiOperation({ summary: 'Update House Job HBL Count' })
+  @ApiCreatedResponse({
+    description: 'Update House Job HBL Count Successfully',
+    type: ResponseData
+  })
+  @HttpCode(HttpStatus.OK)
+  @Patch('hbl-count')
+  async updateHBLCount(@Body() payload: any) {
+    const resp = new ResponseData();
+    try {
+      if(!payload.HouseJobSid){
+        throw new BadRequestException('HouseJobSid is required');
+      }
+      if(!payload.CompanyMasterSid){
+        throw new BadRequestException('CompanyMasterSid is required');
+      }
+      if(!payload.BranchMasterSid){
+        throw new BadRequestException('BranchMasterSid is required');
+      }
+      this.logger.log(`Updating House Job HBL Count for HouseJobSid : ${JSON.stringify(payload)}`);
+      const updatedHouseJob = await this.houseJobService.updateHBLCount(payload);
+      this.logger.debug(`House Job HBL Count Updated Successfully by HouseJobSid : ${JSON.stringify(updatedHouseJob)}`);
+      resp.message = 'House Job HBL Count Updated Successfully';
+      this.logger.debug(`House Job HBL Count Updated Successfully by HouseJobSid : ${JSON.stringify(updatedHouseJob)}`);
+      resp.data = updatedHouseJob;
+    } catch (error) {
+      this.logger.error(`Error in updating House Job HBL Count by HouseJobSid : ${JSON.stringify(error), error}`);
+      if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+        resp.message = error.message;
+      } else {
+        resp.message = 'Internal Server Error';
+      }
+    }
+    return resp;
+  }
+
 
     @ApiOperation({ summary: 'Fetch Booking Data' })
   @ApiCreatedResponse({

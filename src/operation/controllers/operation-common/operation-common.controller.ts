@@ -90,7 +90,7 @@ export class OperationCommonController {
         @Body() payload:{ 
             MenuMasterSid:number,
             TransactionSid:number,
-            modelName:string
+            menuName:string
         } ) {
         let output = new ResponseData()
         try {

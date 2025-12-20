@@ -3,6 +3,7 @@ import { DatabaseService } from 'src/database/database.service';
 import { OperationCommonService } from '../operation-common/operation-common.service';
 import { MenuService } from 'src/masters/services/menu/menu.service';
 import * as moment from 'moment-timezone';
+import { toNumber } from 'src/common/helper';
 
 @Injectable()
 export class HouseJobService {
@@ -36,7 +37,7 @@ export class HouseJobService {
                         HBLNo = "";
                     }
       
-      const menuId = await this.menuService.getMenuSidByName("House Job");
+      const menuId = await this.menuService.getMenuSidByName(payload.screenName === 'House Job' ? 'House Job' : 'House Air Waybill');
 
       // Create main House Job record
       const houseJob = await prisma.houseJob.create({
@@ -1433,6 +1434,30 @@ if (houseJobCustomsPayload.length > 0) {
         }
     }
 
+    async updateHBLCount(payload : {
+        CompanyMasterSid : number,
+        BranchMasterSid : number,
+        HouseJobSid : number,
+    }){
+        try {
+            const ourHouse = await this._db.houseJob.update({
+                where : {
+                    CompanyMasterSid : payload.CompanyMasterSid,
+                    BranchMasterSid : payload.BranchMasterSid,
+                    HouseJobSid : payload.HouseJobSid,
+                    status : 'A'
+                },
+                data : {
+                    HBLCount : {
+                        increment : 1
+                    }
+                }
+            })
+            return ourHouse;
+        } catch (error) {
+            throw error;
+        }
+    }
 
 async getHouseJobARAPData(HouseJobSid: number): Promise<any> {
   try {
