@@ -21,12 +21,12 @@ export class HouseJobController {
         type: ResponseData
     })
     @HttpCode(HttpStatus.OK)
-    @Post('fetch')
-    async getHouseJobById(@Body() payload: { HouseJobSid: number, screenName: string }) {
+    @Get('fetch/:HouseJobSid')
+    async getHouseJobById(@Param('HouseJobSid', ParseIntPipe) HouseJobSid: number) {
         let resp = new ResponseData();
         try {
-            this.logger.log(`Fetching House Job by HouseJobSid : ${JSON.stringify(payload)}`);
-            const result = await this.houseJobService.getHouseJobById(payload);
+            this.logger.log(`Fetching House Job by HouseJobSid : ${HouseJobSid}`);
+            const result = await this.houseJobService.getHouseJobById(HouseJobSid);
             this.logger.debug(`Fetched House Job by HouseJobSid : ${JSON.stringify(result)}`);
             resp.message = 'House Job fetched successfully';
             resp.data = result;

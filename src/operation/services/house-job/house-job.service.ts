@@ -475,14 +475,18 @@ export class HouseJobService {
 
 
 
-    async getHouseJobById(payload: { HouseJobSid: number, screenName: string }) {
+    async getHouseJobById(HouseJobSid:number) {
         try {
-            const { HouseJobSid, screenName } = payload;
             const ourHouseJob = await this._db.houseJob.findUnique({
                 where: {
                     HouseJobSid: HouseJobSid
                 },
                 include: {
+                    departmentMaster : {
+                        select : {
+                            departmentType : true
+                        }
+                    },
                     Cargo: {
                         where : {status : 'A'}
                     },
@@ -533,7 +537,10 @@ export class HouseJobService {
                 throw new BadRequestException('Error fetching house job record.');
             }
 
-            const menuId = await this.menuService.getMenuSidByName(screenName === 'Master Air Waybill' ? "House Air Waybill" : "House Job");
+            const menuId = await this.menuService.getMenuSidByName(
+                ourHouseJob.departmentMaster?.departmentType === 'AIR' ? 
+                    "House Air Waybill" : "House Job"
+            );
 
             const costRevenuePayload = {
                 TransactionSid : ourHouseJob.HouseJobSid,
