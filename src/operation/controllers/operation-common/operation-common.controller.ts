@@ -88,7 +88,6 @@ export class OperationCommonController {
     @Post('cost-revenue/fetchWithDetails')
     async getAllCostRevenueChargeWithDetails(
         @Body() payload:{ 
-            MenuMasterSid:number,
             TransactionSid:number,
             menuName:string
         } ) {

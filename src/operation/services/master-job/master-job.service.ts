@@ -28,13 +28,30 @@ export class MasterJobService {
     async createNewMasterJob(payload: any) {
         try {
 
+            if(!payload.DepartmentMasterSid){
+                throw new Error("DepartmentMasterSid is required");
+            }
+
+            const department = await this._db.departmentMaster.findUnique({
+                where: { DepartmentMasterSid: payload.DepartmentMasterSid },
+                select: {
+                    departmentType: true,
+                    ExportImport: true
+                }
+            });
+
+            if(!department){
+                throw new BadRequestException("Department not found");
+            }
+
+            const menuId = await this.menuMasterService.getMenuSidByName(department.departmentType?.toUpperCase() === 'AIR' ? "Master Air Waybill" : "Master Job");
+
             const newMasterJob = await this._db.$transaction(async (prisma) => {
                 const dateString = moment().format('YYYYMMDD');
                 const count = await prisma.masterJob.count({
                     where: { MasterJobNumber: { contains: dateString } }
                 })
 
-                const masterJobMenuId = await this.menuMasterService.getMenuSidByName(payload.screenName || "Master Job");
 
                 const MasterJobNumber = `MASTER-${dateString}-${(count + 1).toString().padStart(3, '0')}`;
                 let departmentType: string | null = null;
@@ -107,7 +124,7 @@ export class MasterJobService {
                     MasterJobDate: payload.MasterJobDate ? new Date(payload.MasterJobDate) : new Date(),
                     CreatedBy: payload.CreatedBy,
                     Status: "A",
-                    MenuMasterSid: masterJobMenuId || payload.MenuMasterSid,
+                    MenuMasterSid: menuId || payload.MenuMasterSid,
                     CompanyMasterSid: payload.CompanyMasterSid,
                     BranchMasterSid: payload.BranchMasterSid,
                     DepartmentMasterSid: payload.DepartmentMasterSid,
@@ -262,7 +279,7 @@ export class MasterJobService {
                 if (allCostRevenueCharges.length > 0) {
                     const costRevenueChargesPayload = allCostRevenueCharges.map(item => ({
                         TransactionSid: createdMasterJob.MasterJobSid,
-                        MenuMasterSid: masterJobMenuId || payload.MenuMasterSid,
+                        MenuMasterSid: menuId || payload.MenuMasterSid,
                         ShipmentNo: createdMasterJob.MasterJobNumber,
                         MasterJobNo: createdMasterJob.MasterJobNumber,
                         CompanyMasterSid: payload.CompanyMasterSid,
@@ -431,7 +448,7 @@ export class MasterJobService {
                         HBLNo = "";
                     }
 
-                    const houseJobMenuId = await this.menuMasterService.getMenuSidByName(payload.screenName === 'Master Job' ? 'House Job' : 'House Air Waybill');
+                    const houseJobMenuId = await this.menuMasterService.getMenuSidByName(department?.departmentType.toUpperCase() === 'AIR' ? 'House Air Waybill' : 'House Job');
 
                     // Step 1: Create main house job
                     const houseJob = await this._db.houseJob.create({
