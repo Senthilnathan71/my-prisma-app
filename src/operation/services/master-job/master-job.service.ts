@@ -846,9 +846,10 @@ export class MasterJobService {
         }
     }
 
-    async getMasterJobById(MasterJobSid: any) {
+    async getMasterJobById(payload:{MasterJobSid:number,screenName:string}){
     try {
         return this._db.$transaction(async (prisma) => {
+            const { MasterJobSid , screenName} = payload;
             const masterJobDetails = await prisma.masterJob.findUnique({
                 where: {
                     MasterJobSid: MasterJobSid
@@ -902,7 +903,7 @@ export class MasterJobService {
                 }
             })
 
-            const menuId = await this.menuMasterService.getMenuSidByName("House Job");
+            const menuId = await this.menuMasterService.getMenuSidByName(screenName === 'Master Air Waybill' ? "House Air Waybill" : "House Job");
 
             if(!masterJobDetails){
                 throw new BadRequestException('Master Job not found.');
