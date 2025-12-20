@@ -115,12 +115,20 @@ export class MasterJobController {
         type: ResponseData
     })
     @HttpCode(HttpStatus.OK)
-    @Get('fetch/:MasterJobSid')
-    async getMasterJobById(@Param('MasterJobSid',ParseIntPipe) MasterJobSid:number){
+    @Post('fetch')
+    async getMasterJobById(
+        @Body() payload:{MasterJobSid:number,screenName:string}
+    ){
         let resp = new ResponseData();
         try {
-            this.logger.log(`Fetching Master Job by MasterJobSid : ${MasterJobSid}`);
-            const result = await this.masterJobService.getMasterJobById(MasterJobSid);
+            if(!payload.MasterJobSid){
+                throw new BadRequestException('Master Job Sid is required');
+            }
+            if(!payload.screenName){
+                throw new BadRequestException('screenName is required');
+            }
+            this.logger.log(`Fetching Master Job by MasterJobSid : ${JSON.stringify(payload)}`);
+            const result = await this.masterJobService.getMasterJobById(payload);
             this.logger.debug(`Fetched Master Job by MasterJobSid : ${JSON.stringify(result)}`);
             resp.message = 'Master Job fetched successfully';
             resp.data = result;

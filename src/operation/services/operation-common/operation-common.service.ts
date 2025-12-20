@@ -110,30 +110,29 @@ export class OperationCommonService {
     }
 
     // Used in Cost - Revenue for Voucher Generation
-    async   getCostRevenueChargesWithDetails(payload:{MenuMasterSid:number,TransactionSid:number,menuName:string}){
+    async   getCostRevenueChargesWithDetails(payload:{TransactionSid:number,menuName:string}){
         try {
-            let { MenuMasterSid , TransactionSid ,menuName } = payload;
+            let { TransactionSid ,menuName } = payload;
             if(!TransactionSid){
                 throw new BadRequestException("Transaction SID is required");
             }
-            if(MenuMasterSid === -1){
-                // Possiblilty for HouseJob
-                if(!menuName){
-                    throw new BadRequestException("Menu Name is required");
+            if(!menuName){
+                throw new BadRequestException("Menu Name is required");
+            }
+            const menu = await this._db.menuMaster.findFirst({
+                where : {
+                    MenuName : menuName
+                },
+                select : {
+                    MenuMasterSid : true
                 }
-                const menu = await this._db.menuMaster.findFirst({
-                    where : {
-                        MenuName : menuName
-                    }
-                })
-                if(!menu || !menu.MenuMasterSid){
-                    throw new BadRequestException("Menu Master SID is required");
-                }
-                MenuMasterSid = menu.MenuMasterSid;
+            })
+            if(!menu || !menu.MenuMasterSid){
+                throw new BadRequestException("Menu Master SID is required");
             }
             const allCostRevenueCharges = await this._db.costRevenueCharges.findMany({
                 where : {
-                    MenuMasterSid,
+                    MenuMasterSid : menu.MenuMasterSid,
                     TransactionSid,
                     status : 'A'
                 },
