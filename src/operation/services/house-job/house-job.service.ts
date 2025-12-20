@@ -538,7 +538,7 @@ export class HouseJobService {
             }
 
             const menuId = await this.menuService.getMenuSidByName(
-                ourHouseJob.departmentMaster?.departmentType === 'AIR' ? 
+                ourHouseJob.departmentMaster?.departmentType?.toUpperCase() === 'AIR' ? 
                     "House Air Waybill" : "House Job"
             );
 
