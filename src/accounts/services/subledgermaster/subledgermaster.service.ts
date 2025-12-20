@@ -14,7 +14,8 @@ interface LedgerForTaxGroup {
 interface SubledgerFetchPayload {
     SubledgerMappingSid: number, 
     CompanyMasterSid: number,
-    SubledgerType : 'Customer' | 'Charge' | 'Tax',
+    DepartmentMasterSid : number | null;
+    LedgerType : 'Customer' | 'Charge' | 'Tax',
     DrCr : 'Dr' | 'Cr'
 }
 @Injectable()
@@ -98,7 +99,7 @@ export class SubledgermasterService {
             const  {
                 CompanyMasterSid,
                 SubledgerMappingSid,
-                SubledgerType,
+                LedgerType,
                 DrCr
             } = payload;
             
@@ -106,9 +107,13 @@ export class SubledgermasterService {
             const whereClause : Prisma.SubledgerMasterWhereInput = {
                 Status: 'A',
                 CompanyMasterSid: CompanyMasterSid,
-                SubledgerType: SubledgerType,
+                SubledgerType: LedgerType,
                 SubledgerMappingSid: SubledgerMappingSid
             };
+
+            if(payload.DepartmentMasterSid){
+                whereClause.DepartmentMasterSid = payload.DepartmentMasterSid
+            }
 
             const ledger = await tx.subledgerMaster.findFirst({
                 where : whereClause,
