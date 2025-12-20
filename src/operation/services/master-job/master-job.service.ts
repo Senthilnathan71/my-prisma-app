@@ -1156,7 +1156,7 @@ private getWeightInFromUnitSid(weightUnitSid: number): string {
     async updateMasterJob(payload: any) {
         try {
             const updatedMasterJob = await this._db.$transaction(async (prisma) => {
-const allHouseJobs = await prisma.houseJob.findMany({
+                const allHouseJobs = await prisma.houseJob.findMany({
                 where: {
                     MasterJobSid: payload.MasterJobSid,
                     status: 'A'
@@ -1185,7 +1185,7 @@ const allHouseJobs = await prisma.houseJob.findMany({
                 });
             });
             
-                const masterJobMenuId = await this.menuMasterService.getMenuSidByName('Master Job');
+                const masterJobMenuId = await this.menuMasterService.getMenuSidByName(payload.screenName || "Master Job");
 
                 const headerPayload = {
                     FreightPPCC: payload.FreightPPCC,
@@ -1781,7 +1781,7 @@ const allHouseJobs = await prisma.houseJob.findMany({
                         HBLNo = "";
                     }
 
-                    const houseJobMenuId = await this.menuMasterService.getMenuSidByName('House Job');
+                    const houseJobMenuId = await this.menuMasterService.getMenuSidByName(payload.screenName === 'Master Job' ? 'House Job' : 'House Air Waybill');
 
 
                     // Step 1: Create main house job
