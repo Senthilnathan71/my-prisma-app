@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { DatabaseService } from 'src/database/database.service';
 import { ApprovalStatus, Prisma } from '@prisma/client';
-import { AgeingReportQueryDto, OutstandingReportQueryDto, StatementLedgerReportQueryDto, TrialBalanceReportQueryDto } from 'src/accounts/dto/accounts-reports.dto';
+import { AgeingReportQueryDto, OutstandingReportQueryDto, ProfitLossReportQueryDto, StatementLedgerReportQueryDto, TrialBalanceReportQueryDto } from 'src/accounts/dto/accounts-reports.dto';
 import { roundAmount, toNumber } from 'src/common/helper';
 import { CustomerOutstandingResponseDto, CustomerOutstandingTransactionDto } from 'src/accounts/dto/outstanding.dto';
 // -------------------------
@@ -595,6 +595,13 @@ export class AccountsReportsService {
         where:{COAMasterSid:coaMasterSid}
       })
 
+      const userMaster = await this._db.userMaster.findMany({
+        select:{
+          UserMasterSid:true,
+          userName:true
+        }
+      })
+
       // Fetch all active voucher transactions for this customer
       // Exclude reversed vouchers
       const voucherTransactions = await this._db.voucherTransaction.findMany({
@@ -632,6 +639,7 @@ export class AccountsReportsService {
         return {
           companyMasterSid: CompanyMasterSid,
           BranchMasterSid:branchId,
+          branchNames: resolvedBranchNames.join(', '),
           ledgerMasterSid: ledgerMasterSid,
           subledgerName: subledger?.SubledgerName,
           ledgerName : ledger?.LedgerName,
@@ -702,7 +710,7 @@ export class AccountsReportsService {
             drCr: vt.DrCr,
             chargeDescription: vt.ChargeDescription || "",
             deptname:vt.departmentMaster?.departmentName,
-            salesmanSid: vt.houseJob?.SalesmanSid,
+            salesmanSid: userMaster.find(u=>u.UserMasterSid === vt.houseJob?.SalesmanSid)?.userName || '',
             naration:vt.Narration,
           });
 
@@ -714,6 +722,7 @@ export class AccountsReportsService {
       const response = {
         companyMasterSid: CompanyMasterSid,
         branchMasterSid : branchId,
+        branchNames: resolvedBranchNames.join(', '),
         ledgerMasterSid: ledgerMasterSid!,
         subledgerName: subledger?.SubledgerName,
         ledgerName : ledger?.LedgerName,
@@ -721,7 +730,6 @@ export class AccountsReportsService {
         totalOutstandingLocal: roundAmount(totalOutstandingLocal, 2),
         voucherCount: transactions.length,
         transactions: transactions,
-        branchNames: resolvedBranchNames.join(', '),
         params : params,
       };
 
@@ -780,6 +788,13 @@ export class AccountsReportsService {
 
       const ledger = await this._db.cOAMaster.findUnique({
         where:{COAMasterSid:coaMasterSid}
+      })
+
+      const userMaster =  await this._db.userMaster.findMany({
+        select:{
+          UserMasterSid:true,
+          userName:true
+        }
       })
 
       const voucherTransactions = await this._db.voucherTransaction.findMany({
@@ -890,8 +905,12 @@ export class AccountsReportsService {
             exchangeRate: toNumber(vt.ExchangeRate || 1),
             drCr: vt.DrCr,
             chargeDescription: vt.ChargeDescription || "",
-            deptname:vt.departmentMaster?.departmentName,
-            salesmanSid: vt.houseJob?.SalesmanSid,
+            deptname:
+              vt.departmentMaster?.departmentName &&
+                !vt.departmentMaster.departmentName.toLowerCase().includes('air')
+                ? vt.departmentMaster.departmentName
+                : null,
+            salesmanSid: userMaster.find(u=>u.UserMasterSid ===vt.houseJob?.SalesmanSid)?.userName || '',
           });
 
           totalOutstandingCurrency += outstandingCurrencyAmount;
@@ -1093,11 +1112,122 @@ export class AccountsReportsService {
     }
   }
 
+  private async generateProfitLoss(params: ProfitLossReportQueryDto) {
+    const {
+      ToDate,
+      FromDate,
+      branchId: Branch,
+      companyId: CompanyMasterSid,
+      COAMasterSid,
+    } = params;
 
-  private async generateProfitLoss(params: any) {
-    // TODO: Implement P&L report logic
-    this.logger.log('generateProfitLoss called with params:', params);
-    throw new BadRequestException('Profit & Loss Report generator not yet implemented');
+    try {
+      this.logger.log(
+        `Getting customer profit and loss: CompanySid=${CompanyMasterSid}`,
+      );
+
+        const branches = Branch && Branch.length > 0
+        ? await this._db.branchMaster.findMany({
+          where: { BranchMasterSid: { in: Branch } },
+          select: {
+            BranchMasterSid: true,
+            branchName: true,
+          },
+        })
+        : await this._db.branchMaster.findMany({
+          where: { CompanyMasterSid },
+          select: {
+            BranchMasterSid: true,
+            branchName: true,
+          },
+        });
+
+      const resolvedBranchIds = branches.map(b => b.BranchMasterSid);
+      const resolvedBranchNames = branches.map(b => b.branchName);
+  
+      const voucherTransactions = await this._db.voucherTransaction.findMany({
+        where: {
+          CompanyMasterSid,
+          BranchMasterSid: { in: resolvedBranchIds },
+          VoucherDate: {
+            gte: FromDate,
+            lte: ToDate,
+          },
+          Status: 'A',
+
+          ...(COAMasterSid && { coaMasterSid: COAMasterSid }),
+
+          coaMaster: {
+            Category: {
+              in: ['Income', 'Expense'],
+            },
+          },
+        },
+        include: {
+          coaMaster: {
+            select: {
+              Category: true,
+              GroupName: true,
+              SubGroupName: true,
+              LedgerName: true,
+            },
+          },
+          yearMaster: {
+            select: {
+              YearCode: true,
+            },
+          },
+        },
+      });
+
+      const profitLossMap = new Map<string, any>();
+
+      for (const vt of voucherTransactions) {
+        if (!vt.coaMaster || !vt.yearMaster) continue;
+
+        const { Category, GroupName, SubGroupName, LedgerName } = vt.coaMaster;
+        const yearCode = vt.yearMaster.YearCode;
+
+       
+        const amount = vt.LocalAmount.toNumber();
+
+        const signedAmount =
+          vt.DrCr === 'C' ? amount : vt.DrCr === 'D' ? amount * -1 : 0;
+
+       
+        const key = `${Category}|${GroupName}|${SubGroupName}|${LedgerName}`;
+
+        if (!profitLossMap.has(key)) {
+          profitLossMap.set(key, {
+            Category,
+            GroupName,
+            SubGroupName,
+            LedgerName,
+            amounts: {} as Record<number, number>,
+          });
+        }
+        const row = profitLossMap.get(key);
+        row.amounts[yearCode] = (row.amounts[yearCode] || 0) + signedAmount;
+      }
+
+      const profitLoss = Array.from(profitLossMap.values());
+
+      return {
+        CompanyMasterSid,
+        branchNames: resolvedBranchNames.join(', '),
+        fromDate: FromDate,
+        toDate: ToDate,
+        params,
+        profitLoss,
+      };
+
+    } catch (error) {
+      this.logger.error(
+        `Error getting customer profit and loss for ${CompanyMasterSid}: ${error.message}`,
+        error.stack,
+      );
+      throw error;
+    }
   }
 
   private async generateBalanceSheet(params: any) {

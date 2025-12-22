@@ -191,12 +191,12 @@ export class ProfitLossReportQueryDto {
   @ApiProperty()
   @IsNotEmpty()
   @IsDateString()
-  fromDate: string;
+  FromDate: string;
 
   @ApiProperty()
   @IsNotEmpty()
   @IsDateString()
-  toDate: string;
+  ToDate: string;
 
   @ApiProperty({ enum: ReportFormatTypeEnum })
   @IsNotEmpty()
@@ -211,7 +211,12 @@ export class ProfitLossReportQueryDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsInt()
-  branchId?: number;
+  branchId?: number[];
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsInt()
+  COAMasterSid?: number[];
 }
 
 // Balance Sheet DTOs

@@ -722,7 +722,7 @@ export class OperationReportsService {
         const actualCost = actualCostMaster + actualCostHouse;
         const actualRevenue = actualRevenueMaster + actualRevenueHouse;
         const actualGp = actualRevenue - actualCost;
-        const profit = (Number(GP) * 100) / Number(totalRevenue);
+        const profit = (Number(GP) * 100) / Number(totalRevenueWithHouse);
         const space = Number(job?.ChargeableWeight) - Number(job?.Volume);
         return {
           jobNumber: job.MasterJobNumber,
