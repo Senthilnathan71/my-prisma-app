@@ -558,7 +558,7 @@ export class AccountsReportsService {
       ToDate,
       Subledger : ledgerMasterSid,
       Ledger : coaMasterSid,
-      Branch: Branch,
+      Branch: branchId,
       companyId : CompanyMasterSid,
     } = params;
     
@@ -567,18 +567,24 @@ export class AccountsReportsService {
         `Getting customer outstanding: CompanySid=${CompanyMasterSid}, LedgerMasterSid=${ledgerMasterSid}`,
       );
 
-      const allBranches = await this._db.branchMaster.findMany({
-        where : {
-          BranchMasterSid : { in : Branch},
-        },
-        select : {
-          branchName : true,
-        }
-      })
+      const branches = branchId && branchId.length > 0
+        ? await this._db.branchMaster.findMany({
+          where: { BranchMasterSid: { in: branchId } },
+          select: {
+            BranchMasterSid: true,
+            branchName: true,
+          },
+        })
+        : await this._db.branchMaster.findMany({
+          where: { CompanyMasterSid },
+          select: {
+            BranchMasterSid: true,
+            branchName: true,
+          },
+        });
 
-
-   
-      const branchSet = new Set(allBranches.map(b=>b.branchName));
+      const resolvedBranchIds = branches.map(b => b.BranchMasterSid);
+      const resolvedBranchNames = branches.map(b => b.branchName);
   
       // Get customer/subledger information
       const subledger = await this._db.subledgerMaster.findUnique({
@@ -594,7 +600,7 @@ export class AccountsReportsService {
       const voucherTransactions = await this._db.voucherTransaction.findMany({
         where: {
           CompanyMasterSid: CompanyMasterSid,
-          BranchMasterSid : { in : Branch},
+          BranchMasterSid: { in: resolvedBranchIds },
           VoucherDate : { lte : ToDate},
           COAMasterSid : coaMasterSid,
           LedgerMasterSid: ledgerMasterSid,
@@ -625,7 +631,7 @@ export class AccountsReportsService {
         this.logger.log(`No outstanding vouchers found for LedgerMasterSid ${ledgerMasterSid}`);
         return {
           companyMasterSid: CompanyMasterSid,
-          BranchMasterSid:Branch,
+          BranchMasterSid:branchId,
           ledgerMasterSid: ledgerMasterSid,
           subledgerName: subledger?.SubledgerName,
           ledgerName : ledger?.LedgerName,
@@ -707,7 +713,7 @@ export class AccountsReportsService {
 
       const response = {
         companyMasterSid: CompanyMasterSid,
-        branchMasterSid : Branch,
+        branchMasterSid : branchId,
         ledgerMasterSid: ledgerMasterSid!,
         subledgerName: subledger?.SubledgerName,
         ledgerName : ledger?.LedgerName,
@@ -715,7 +721,7 @@ export class AccountsReportsService {
         totalOutstandingLocal: roundAmount(totalOutstandingLocal, 2),
         voucherCount: transactions.length,
         transactions: transactions,
-        branchesInvolved : Array.from(branchSet).join(','),
+        branchNames: resolvedBranchNames.join(', '),
         params : params,
       };
 
@@ -739,7 +745,7 @@ export class AccountsReportsService {
       ToDate,
       Subledger : ledgerMasterSid,
       Ledger : coaMasterSid,
-      Branch: Branch,
+      Branch: branchId,
       companyId : CompanyMasterSid,
     } = params;
     
@@ -748,16 +754,24 @@ export class AccountsReportsService {
         `Getting customer outstanding: CompanySid=${CompanyMasterSid}, LedgerMasterSid=${ledgerMasterSid}`,
       );
 
-      const allBranches = await this._db.branchMaster.findMany({
-        where : {
-          BranchMasterSid : { in : Branch},
-        },
-        select : {
-          branchName : true,
-        }
-      })
-   
-      const branchSet = new Set(allBranches.map(b=>b.branchName));
+      const branches = branchId && branchId.length > 0
+        ? await this._db.branchMaster.findMany({
+          where: { BranchMasterSid: { in: branchId } },
+          select: {
+            BranchMasterSid: true,
+            branchName: true,
+          },
+        })
+        : await this._db.branchMaster.findMany({
+          where: { CompanyMasterSid },
+          select: {
+            BranchMasterSid: true,
+            branchName: true,
+          },
+        });
+
+      const resolvedBranchIds = branches.map(b => b.BranchMasterSid);
+      const resolvedBranchNames = branches.map(b => b.branchName);
   
       // Get customer/subledger information
       const subledger = await this._db.subledgerMaster.findUnique({
@@ -771,7 +785,7 @@ export class AccountsReportsService {
       const voucherTransactions = await this._db.voucherTransaction.findMany({
         where: {
           CompanyMasterSid: CompanyMasterSid,
-          BranchMasterSid : { in : Branch},
+          BranchMasterSid: { in: resolvedBranchIds },
           AND : [
             { VoucherDate : {gte : FromDate}},
             { VoucherDate : { lte : ToDate}}
@@ -805,7 +819,7 @@ export class AccountsReportsService {
         this.logger.log(`No outstanding vouchers found for LedgerMasterSid ${ledgerMasterSid}`);
         return {
           companyMasterSid: CompanyMasterSid,
-          BranchMasterSid:Branch,
+          branchMasterSid : branchId,
           ledgerMasterSid: ledgerMasterSid,
           COAMasterSid : coaMasterSid,
           subledgerName: subledger?.SubledgerName,
@@ -887,7 +901,7 @@ export class AccountsReportsService {
 
       const response = {
         companyMasterSid: CompanyMasterSid,
-        branchMasterSid : Branch,
+        branchMasterSid : branchId,
         ledgerMasterSid: ledgerMasterSid!,
         subledgerName: subledger?.SubledgerName,
         ledgerName : ledger?.LedgerName,
@@ -895,7 +909,7 @@ export class AccountsReportsService {
         totalOutstandingLocal: roundAmount(totalOutstandingLocal, 2),
         voucherCount: transactions.length,
         transactions: transactions,
-        branchesInvolved : Array.from(branchSet).join(','),
+        branchNames: resolvedBranchNames.join(', '),
         params : params,
       };
 

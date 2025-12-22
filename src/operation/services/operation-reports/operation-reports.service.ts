@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { DatabaseService } from 'src/database/database.service';
-import { Prisma } from '@prisma/client';
+import { Prisma, PrismaClient } from '@prisma/client';
 import { BLIssueListReportQueryDto, ContainerKPIReportQueryDto, DOIssueListReportQueryDto, houseJobLossReportQueryDto, profitabilityReportQueryDto, ProfitSummaryReportQueryDto, ShipmentDetailedSummaryReportQueryDto, ShipmentSummaryReportQueryDto, unbilledcostReportQueryDto } from 'src/operation/DTO/operation-reports.dto';
 import { toNumber } from 'src/common/helper';
 
@@ -122,30 +122,51 @@ export class OperationReportsService {
       ToHBLDt,
       FromHBLDt,
       Branch: branchId,
-      Dept: dept,
+      Dept: deptId,
       BLIssue = false,
     } = params;
 
     try {
       this.logger.log(`Getting BL_Issue report for CompanySid=${CompanyMasterSid}, From=${FromHBLDt}, To=${ToHBLDt}`);
 
-      const allBranches = await this._db.branchMaster.findMany({
-        where: { BranchMasterSid: { in: branchId } },
-        select: { branchName: true }
-      });
+       const branches = branchId && branchId.length > 0
+        ? await this._db.branchMaster.findMany({
+          where: { BranchMasterSid: { in: branchId } },
+          select: { BranchMasterSid: true, branchName: true },
+        })
+        : await this._db.branchMaster.findMany({
+          where: { CompanyMasterSid },
+          select: { BranchMasterSid: true, branchName: true },
+        });
 
-      const branchSet = new Set(allBranches.map(b => b.branchName));
+      const resolvedBranchIds = branches.map(b => b.BranchMasterSid);
+      const resolvedBranchNames = branches.map(b => b.branchName);
+      const branchSet = new Set(resolvedBranchNames);
+
+ 
+      const departments = deptId && deptId.length > 0
+        ? await this._db.departmentMaster.findMany({
+          where: { DepartmentMasterSid: { in: deptId } },
+          select: { DepartmentMasterSid: true, departmentName: true },
+        })
+        : await this._db.departmentMaster.findMany({
+          where: { CompanyMasterSid },
+          select: { DepartmentMasterSid: true, departmentName: true },
+        });
+
+      const resolvedDeptIds = departments.map(d => d.DepartmentMasterSid);
+      const resolvedDeptNames = departments.map(d => d.departmentName);
 
       const houseJobData = await this._db.houseJob.findMany({
         where: {
           CompanyMasterSid,
-          BranchMasterSid: { in: branchId },
           AND: [
             { HBLDate: { gte: new Date(FromHBLDt) } },
             { HBLDate: { lte: new Date(ToHBLDt) } }
           ],
           status: 'A',
-          DepartmentMasterSid: { in: dept },
+          BranchMasterSid: { in: resolvedBranchIds },
+          DepartmentMasterSid: { in: resolvedDeptIds },
         },
         include: {
           masterJob: {
@@ -192,7 +213,8 @@ export class OperationReportsService {
         companyMasterSid: CompanyMasterSid,
         branchMasterSid: branchId,
         data,
-        branchesInvolved: Array.from(branchSet).join(','),
+        branchNames: resolvedBranchNames.join(', '),
+        departmentNames: resolvedDeptNames.join(', '),
         params,
         BLIssue,
       };
@@ -210,26 +232,39 @@ export class OperationReportsService {
       ToMBLDt,
       FromMBLDt,
       Branch: branchId,
-      Dept: dept
+      Dept: deptId
     } = params;
 
     try {
       this.logger.log(`Getting shipment summary report for CompanySid=${CompanyMasterSid}, From=${FromMBLDt}, To=${ToMBLDt}`);
 
-      // Query for branches involved
-      const allBranches = await this._db.branchMaster.findMany({
-        where: { BranchMasterSid: { in: branchId } },
-        select: { branchName: true }
-      });
+      const branches = branchId && branchId.length > 0
+        ? await this._db.branchMaster.findMany({
+          where: { BranchMasterSid: { in: branchId } },
+          select: { BranchMasterSid: true, branchName: true },
+        })
+        : await this._db.branchMaster.findMany({
+          where: { CompanyMasterSid },
+          select: { BranchMasterSid: true, branchName: true },
+        });
 
-      const branchSet = new Set(allBranches.map(b => b.branchName));
+      const resolvedBranchIds = branches.map(b => b.BranchMasterSid);
+      const resolvedBranchNames = branches.map(b => b.branchName);
+      const branchSet = new Set(resolvedBranchNames);
 
-      // Check if departments exist, if dept is an array
-      const departments = await this._db.departmentMaster.findMany({
-        where: {
-          DepartmentMasterSid: { in: dept },  // Using 'in' to handle multiple departments
-        }
-      });
+ 
+      const departments = deptId && deptId.length > 0
+        ? await this._db.departmentMaster.findMany({
+          where: { DepartmentMasterSid: { in: deptId } },
+          select: { DepartmentMasterSid: true, departmentName: true },
+        })
+        : await this._db.departmentMaster.findMany({
+          where: { CompanyMasterSid },
+          select: { DepartmentMasterSid: true, departmentName: true },
+        });
+
+      const resolvedDeptIds = departments.map(d => d.DepartmentMasterSid);
+      const resolvedDeptNames = departments.map(d => d.departmentName);
 
       const containerTypesMaster = await this._db.containerTypeMaster.findMany({
         select: { ContainerTypeMasterSid: true, ContainerSize: true }
@@ -250,13 +285,14 @@ export class OperationReportsService {
       const masterJobData = await this._db.masterJob.findMany({
         where: {
           CompanyMasterSid,
-          BranchMasterSid: { in: branchId },
+         
           AND: [
             { MBLDate: { gte: new Date(FromMBLDt) } },
             { MBLDate: { lte: new Date(ToMBLDt) } }
           ],
           Status: 'A',
-          DepartmentMasterSid: { in: dept },
+            BranchMasterSid: { in: resolvedBranchIds },
+          DepartmentMasterSid: { in: resolvedDeptIds },
         },
         include: {
           houseJob: { include: { Cargo: true } },
@@ -419,13 +455,12 @@ export class OperationReportsService {
         };
       });
 
-
-
       return {
         companyMasterSid: CompanyMasterSid,
         branchMasterSid: branchId,
         data,
-        branchesInvolved: Array.from(branchSet).join(','),
+        branchNames: resolvedBranchNames.join(', '),
+        departmentNames: resolvedDeptNames.join(', '),
         params,
       };
 
@@ -442,7 +477,7 @@ export class OperationReportsService {
       ToMBLDt,
       FromMBLDt,
       Branch: branchId,
-      Dept: dept,
+      Dept: deptId,
     } = params;
 
     try {
@@ -450,12 +485,33 @@ export class OperationReportsService {
         `Getting Profitability report for CompanySid=${CompanyMasterSid}, From=${FromMBLDt}, To=${ToMBLDt}`
       );
 
-      // Fetch branches
-      const allBranches = await this._db.branchMaster.findMany({
-        where: { BranchMasterSid: { in: branchId } },
-        select: { branchName: true }
-      });
-      const branchSet = new Set(allBranches.map(b => b.branchName));
+      const branches = branchId && branchId.length > 0
+        ? await this._db.branchMaster.findMany({
+          where: { BranchMasterSid: { in: branchId } },
+          select: { BranchMasterSid: true, branchName: true },
+        })
+        : await this._db.branchMaster.findMany({
+          where: { CompanyMasterSid },
+          select: { BranchMasterSid: true, branchName: true },
+        });
+
+      const resolvedBranchIds = branches.map(b => b.BranchMasterSid);
+      const resolvedBranchNames = branches.map(b => b.branchName);
+      const branchSet = new Set(resolvedBranchNames);
+
+
+      const departments = deptId && deptId.length > 0
+        ? await this._db.departmentMaster.findMany({
+          where: { DepartmentMasterSid: { in: deptId } },
+          select: { DepartmentMasterSid: true, departmentName: true },
+        })
+        : await this._db.departmentMaster.findMany({
+          where: { CompanyMasterSid },
+          select: { DepartmentMasterSid: true, departmentName: true },
+        });
+
+      const resolvedDeptIds = departments.map(d => d.DepartmentMasterSid);
+      const resolvedDeptNames = departments.map(d => d.departmentName);
 
       // Load container type master (ID → Size Map)
       const containerTypesMaster = await this._db.containerTypeMaster.findMany({
@@ -469,13 +525,13 @@ export class OperationReportsService {
       const masterJobs = await this._db.masterJob.findMany({
         where: {
           CompanyMasterSid,
-          BranchMasterSid: { in: branchId },
           AND: [
             { MBLDate: { gte: new Date(FromMBLDt) } },
             { MBLDate: { lte: new Date(ToMBLDt) } }
           ],
           Status: 'A',
-          DepartmentMasterSid: { in: dept },
+          BranchMasterSid: { in: resolvedBranchIds },
+          DepartmentMasterSid: { in: resolvedDeptIds },
         },
         include: {
           houseJob: {
@@ -701,7 +757,8 @@ export class OperationReportsService {
         companyMasterSid: CompanyMasterSid,
         branchMasterSid: branchId,
         data,
-        branchesInvolved: Array.from(branchSet).join(','),
+        branchNames: resolvedBranchNames.join(', '),
+        departmentNames: resolvedDeptNames.join(', '),
         params
       };
 
@@ -926,16 +983,39 @@ export class OperationReportsService {
       ToHBLDt,
       FromHBLDt,
       Branch: branchId,
-      Dept: dept,
+      Dept: deptId,
     } = params;
 
     try {
       this.logger.log(`Getting Container_Wise_KPI report for CompanySid=${CompanyMasterSid}, From=${FromHBLDt}, To=${ToHBLDt}`);
 
-      const allBranches = await this._db.branchMaster.findMany({
-        where: { BranchMasterSid: { in: branchId } },
-        select: { branchName: true }
-      });
+      const branches = branchId && branchId.length > 0
+        ? await this._db.branchMaster.findMany({
+          where: { BranchMasterSid: { in: branchId } },
+          select: { BranchMasterSid: true, branchName: true },
+        })
+        : await this._db.branchMaster.findMany({
+          where: { CompanyMasterSid },
+          select: { BranchMasterSid: true, branchName: true },
+        });
+
+      const resolvedBranchIds = branches.map(b => b.BranchMasterSid);
+      const resolvedBranchNames = branches.map(b => b.branchName);
+      const branchSet = new Set(resolvedBranchNames);
+
+
+      const departments = deptId && deptId.length > 0
+        ? await this._db.departmentMaster.findMany({
+          where: { DepartmentMasterSid: { in: deptId } },
+          select: { DepartmentMasterSid: true, departmentName: true },
+        })
+        : await this._db.departmentMaster.findMany({
+          where: { CompanyMasterSid },
+          select: { DepartmentMasterSid: true, departmentName: true },
+        });
+
+      const resolvedDeptIds = departments.map(d => d.DepartmentMasterSid);
+      const resolvedDeptNames = departments.map(d => d.departmentName);
 
       // charge master
       const chargeMaster = await this._db.chargeMaster.findMany({
@@ -1000,18 +1080,19 @@ export class OperationReportsService {
         }
       });
 
-      const branchSet = new Set(allBranches.map(b => b.branchName));
+
 
       const houseData = await this._db.houseJob.findMany({
         where: {
           CompanyMasterSid,
-          BranchMasterSid: { in: branchId },
+
           AND: [
             { HBLDate: { gte: new Date(FromHBLDt) } },
             { HBLDate: { lte: new Date(ToHBLDt) } }
           ],
           status: 'A',
-          DepartmentMasterSid: { in: dept },
+          BranchMasterSid: { in: resolvedBranchIds },
+          DepartmentMasterSid: { in: resolvedDeptIds },
         },
         include: {
           masterJob: {
@@ -1151,9 +1232,9 @@ export class OperationReportsService {
           freightTerms: data?.FreightTerms,
           bookingDate: data?.BookingDateTime,
           containerNo: product?.ContainerNo,
-          containerName, // This will now have the container name
-          containerSize, // Added container size if needed
-          containerSid: product?.MasterJobContainerSid, // This should match ContainerTypeMasterSid
+          containerName, 
+          containerSize, 
+          containerSid: product?.MasterJobContainerSid, 
           vol: product?.Volume,
           weight: product?.GrossWeight,
           costRevenueCharges,
@@ -1168,7 +1249,8 @@ export class OperationReportsService {
         companyMasterSid: CompanyMasterSid,
         branchMasterSid: branchId,
         data,
-        branchesInvolved: Array.from(branchSet).join(','),
+        branchNames: resolvedBranchNames.join(', '),
+        departmentNames: resolvedDeptNames.join(', '),
         params,
       };
 
@@ -1184,83 +1266,113 @@ export class OperationReportsService {
       ToHBLDt,
       FromHBLDt,
       Branch: branchId,
-      Dept: dept,
-
+      Dept: deptId,
     } = params;
 
     try {
-      this.logger.log(`Getting BL_Issue report for CompanySid=${CompanyMasterSid}, From=${FromHBLDt}, To=${ToHBLDt}`);
+      this.logger.log(
+        `Getting BL_Issue report for CompanySid=${CompanyMasterSid}, From=${FromHBLDt}, To=${ToHBLDt}`
+      );
 
-      const allBranches = await this._db.branchMaster.findMany({
-        where: { BranchMasterSid: { in: branchId } },
-        select: { branchName: true }
-      });
 
-      const branchSet = new Set(allBranches.map(b => b.branchName));
+      const branches = branchId && branchId.length > 0
+        ? await this._db.branchMaster.findMany({
+          where: { BranchMasterSid: { in: branchId } },
+          select: {
+            BranchMasterSid: true,
+            branchName: true,
+          },
+        })
+        : await this._db.branchMaster.findMany({
+          where: { CompanyMasterSid },
+          select: {
+            BranchMasterSid: true,
+            branchName: true,
+          },
+        });
 
+      const resolvedBranchIds = branches.map(b => b.BranchMasterSid);
+      const resolvedBranchNames = branches.map(b => b.branchName);
+
+      const departments = deptId && deptId.length > 0
+        ? await this._db.departmentMaster.findMany({
+          where: { DepartmentMasterSid: { in: deptId } },
+          select: {
+            DepartmentMasterSid: true,
+            departmentName: true,
+          },
+        })
+        : await this._db.departmentMaster.findMany({
+          where: { CompanyMasterSid },
+          select: {
+            DepartmentMasterSid: true,
+            departmentName: true,
+          },
+        });
+
+      const resolvedDeptIds = departments.map(d => d.DepartmentMasterSid);
+      const resolvedDeptNames = departments.map(d => d.departmentName);
       const houseJobData = await this._db.houseJob.findMany({
         where: {
           CompanyMasterSid,
-          BranchMasterSid: { in: branchId },
+          BranchMasterSid: { in: resolvedBranchIds },
+          DepartmentMasterSid: { in: resolvedDeptIds },
           AND: [
             { HBLDate: { gte: new Date(FromHBLDt) } },
-            { HBLDate: { lte: new Date(ToHBLDt) } }
+            { HBLDate: { lte: new Date(ToHBLDt) } },
           ],
           status: 'A',
-          DepartmentMasterSid: { in: dept },
         },
         include: {
           masterJob: {
             where: { Status: 'A' },
-            select: {
-              MasterJobSid: true,
-              MBLNo: true,
-            }
+            select: { MBLNo: true },
           },
-          Others:true,
+          Others: true,
           departmentMaster: {
-            select: {
-              departmentName: true
-            }
-          }
+            select: { departmentName: true },
+          },
         },
         orderBy: { HBLDate: 'asc' },
       });
 
       if (houseJobData.length === 0) {
-        this.logger.log(`No shipment vouchers found for the given filters.`);
-        return { companyMasterSid: CompanyMasterSid, branchMasterSid: branchId, data: [] };
+        return {
+          companyMasterSid: CompanyMasterSid,
+          branchNames: resolvedBranchNames.join(', '),
+          departmentNames: resolvedDeptNames.join(', '),
+          data: [],
+          params,
+        };
       }
 
-      const data = houseJobData.filter(hj => !hj.Others?.[0]?.DONo).map(hj => {
-        const masterJob = hj.masterJob;
-        const departmentName = hj.departmentMaster?.departmentName || null;
 
-        return {
+      const data = houseJobData
+        .filter(hj => !hj.Others?.[0]?.DONo)
+        .map(hj => ({
           HBLDate: hj.HBLDate,
           HBLNo: hj.HBLNo,
-          MBLNo: masterJob ? masterJob.MBLNo : null,
+          MBLNo: hj.masterJob?.MBLNo || null,
           BookingNo: hj.BookingNo,
           Shipper: hj.ShipperName,
           Consignee: hj.ConsigneeName,
           POL: hj.POL,
           POD: hj.POD,
-          departmentName,
-          jobStatus:hj.HouseStatus,
-        };
-      });
-
+          departmentName: hj.departmentMaster?.departmentName || null,
+          jobStatus: hj.HouseStatus,
+        }));
       return {
         companyMasterSid: CompanyMasterSid,
-        branchMasterSid: branchId,
+        branchNames: resolvedBranchNames.join(', '),
+        departmentNames: resolvedDeptNames.join(', '),
         data,
-        branchesInvolved: Array.from(branchSet).join(','),
         params,
-
       };
-
     } catch (error) {
-      this.logger.error(`Error generating shipment summary: ${error.message}`, error.stack);
+      this.logger.error(
+        `Error generating DO Issue List: ${error.message}`,
+        error.stack
+      );
       throw error;
     }
   }
@@ -1271,30 +1383,53 @@ export class OperationReportsService {
       ToHBLDt,
       FromHBLDt,
       branchId,
-      Dept : dept,
+      Dept: deptId,
       Transhipment = false,
       Customer,
-      Salesperson : SalePerson
+      Salesperson: SalePerson
     } = params;
 
     try {
       this.logger.log(`Getting shipment summary details report for CompanySid=${CompanyMasterSid}, From=${FromHBLDt}, To=${ToHBLDt}`);
 
-      
-      // Query for branches involved
-      const allBranches = await this._db.branchMaster.findMany({
-        where: { BranchMasterSid: { in: branchId } },
-        select: { branchName: true ,BranchMasterSid:true}
-      });
 
-      const branchSet = new Set(allBranches.map(b => b.branchName));
+      const branches = branchId && branchId.length > 0
+        ? await this._db.branchMaster.findMany({
+          where: { BranchMasterSid: { in: branchId } },
+          select: {
+            BranchMasterSid: true,
+            branchName: true,
+          },
+        })
+        : await this._db.branchMaster.findMany({
+          where: { CompanyMasterSid },
+          select: {
+            BranchMasterSid: true,
+            branchName: true,
+          },
+        });
 
-      // Check if departments exist, if dept is an array
-      const departments = await this._db.departmentMaster.findMany({
-        where: {
-          DepartmentMasterSid: { in: dept },  // Using 'in' to handle multiple departments
-        }
-      });
+      const resolvedBranchIds = branches.map(b => b.BranchMasterSid);
+      const resolvedBranchNames = branches.map(b => b.branchName);
+
+      const departments = deptId && deptId.length > 0
+        ? await this._db.departmentMaster.findMany({
+          where: { DepartmentMasterSid: { in: deptId } },
+          select: {
+            DepartmentMasterSid: true,
+            departmentName: true,
+          },
+        })
+        : await this._db.departmentMaster.findMany({
+          where: { CompanyMasterSid },
+          select: {
+            DepartmentMasterSid: true,
+            departmentName: true,
+          },
+        });
+
+      const resolvedDeptIds = departments.map(d => d.DepartmentMasterSid);
+      const resolvedDeptNames = departments.map(d => d.departmentName);
 
       const containerTypesMaster = await this._db.containerTypeMaster.findMany({
         select: { ContainerTypeMasterSid: true, ContainerSize: true }
@@ -1306,7 +1441,7 @@ export class OperationReportsService {
       );
 
       const customerMaster = await this._db.customerMaster.findMany({
-        select: { CustomerMasterSid: true, CustomerName: true ,CustomerType:true}
+        select: { CustomerMasterSid: true, CustomerName: true, CustomerType: true }
       })
 
       const agentMaster = await this._db.customerMaster.findMany({
@@ -1332,13 +1467,13 @@ export class OperationReportsService {
 
       const whereClause: any = {
         CompanyMasterSid,
-        BranchMasterSid: { in: branchId },
         AND: [
           { HBLDate: { gte: new Date(FromHBLDt) } },
           { HBLDate: { lte: new Date(ToHBLDt) } }
         ],
         status: 'A',
-        DepartmentMasterSid: { in: dept },
+        BranchMasterSid: { in: resolvedBranchIds },
+        DepartmentMasterSid: { in: resolvedDeptIds },
       };
 
 
@@ -1589,7 +1724,7 @@ export class OperationReportsService {
           importJobNo,
           exportJobNo,
           mblNo: mj.MBLNo || '',
-          branchName: allBranches.find(b => b.BranchMasterSid === mj.BranchMasterSid)?.branchName || '',
+          branchName: branches.find(b => b.BranchMasterSid === mj.BranchMasterSid)?.branchName || '',
           customerType: (() => {
             const typeObj = customerMaster.find(c => c.CustomerMasterSid === mj.CustomerMasterSid)?.CustomerType || {};
             return Object.keys(typeObj).filter(key => typeObj[key] === "isTrue");
@@ -1683,7 +1818,8 @@ export class OperationReportsService {
         companyMasterSid: CompanyMasterSid,
         branchMasterSid: branchId,
         data,
-        branchesInvolved: Array.from(branchSet).join(','),
+        branchNames: resolvedBranchNames.join(', '),
+        departmentNames: resolvedDeptNames.join(', '),
         params,
         Transhipment,
         Customer,
@@ -1702,7 +1838,7 @@ export class OperationReportsService {
       ToHBLDt,
       FromHBLDt,
       Branch: branchId,
-      Dept: dept,
+      Dept: deptId,
     } = params;
 
     try {
@@ -1710,39 +1846,54 @@ export class OperationReportsService {
         `Getting UNBILLED House Job Cost/Revenue report for CompanySid=${CompanyMasterSid}, From=${FromHBLDt}, To=${ToHBLDt}`
       );
 
+      const branches = branchId && branchId.length > 0
+        ? await this._db.branchMaster.findMany({
+          where: { BranchMasterSid: { in: branchId } },
+          select: { BranchMasterSid: true, branchName: true },
+        })
+        : await this._db.branchMaster.findMany({
+          where: { CompanyMasterSid },
+          select: { BranchMasterSid: true, branchName: true },
+        });
 
-      const allBranches = await this._db.branchMaster.findMany({
-        where: { BranchMasterSid: { in: branchId } },
-        select: { branchName: true, BranchMasterSid: true },
-      });
-      const branchSet = new Set(allBranches.map(b => b.branchName));
+      const resolvedBranchIds = branches.map(b => b.BranchMasterSid);
+      const resolvedBranchNames = branches.map(b => b.branchName);
+      const branchSet = new Set(resolvedBranchNames);
 
+ 
+      const departments = deptId && deptId.length > 0
+        ? await this._db.departmentMaster.findMany({
+          where: { DepartmentMasterSid: { in: deptId } },
+          select: { DepartmentMasterSid: true, departmentName: true },
+        })
+        : await this._db.departmentMaster.findMany({
+          where: { CompanyMasterSid },
+          select: { DepartmentMasterSid: true, departmentName: true },
+        });
 
-      const departments = await this._db.departmentMaster.findMany({
-        where: { DepartmentMasterSid: { in: dept } },
-        select: { DepartmentMasterSid: true, departmentName: true },
-      });
+      const resolvedDeptIds = departments.map(d => d.DepartmentMasterSid);
+      const resolvedDeptNames = departments.map(d => d.departmentName);
 
-
+    //  Connection Table
       const chargeMaster = await this._db.chargeMaster.findMany({
         select: { ChargeMasterSid: true, chargeName: true },
       });
 
       const customerMaster = await this._db.customerMaster.findMany({
-        select: { CustomerMasterSid: true, CustomerName: true }
-      })
+        select: { CustomerMasterSid: true, CustomerName: true },
+      });
 
-
+     
       const houseJobs = await this._db.houseJob.findMany({
         where: {
           CompanyMasterSid,
-          BranchMasterSid: { in: branchId },
+          BranchMasterSid: { in: resolvedBranchIds },
+          DepartmentMasterSid: { in: resolvedDeptIds },
           AND: [
             { HBLDate: { gte: new Date(FromHBLDt) } },
             { HBLDate: { lte: new Date(ToHBLDt) } },
           ],
           status: 'A',
-          DepartmentMasterSid: { in: dept },
         },
         select: {
           HouseJobSid: true,
@@ -1753,7 +1904,7 @@ export class OperationReportsService {
           BookingNo: true,
           FreightTerms: true,
           BranchMasterSid: true,
-          Others:true
+          Others: true,
         },
         orderBy: { HBLDate: 'asc' },
       });
@@ -1761,7 +1912,8 @@ export class OperationReportsService {
       if (!houseJobs.length) {
         return {
           companyMasterSid: CompanyMasterSid,
-          branchMasterSid: branchId,
+          branchNames: resolvedBranchNames.join(', '),
+          departmentNames: resolvedDeptNames.join(', '),
           data: [],
         };
       }
@@ -1778,7 +1930,6 @@ export class OperationReportsService {
         throw new BadRequestException('House Job menu not found');
       }
 
-
       const allHouseCR = await this._db.costRevenueCharges.findMany({
         where: {
           MenuMasterSid: houseJobMenu.MenuMasterSid,
@@ -1789,23 +1940,7 @@ export class OperationReportsService {
             { RevenueVoucherHeaderSid: null },
           ],
         },
-        select: {
-          TransactionSid: true,
-          CostLocalAmount: true,
-          RevenueLocalAmount: true,
-          ChargeDescription: true,
-          ChargeMasterSid: true,
-          CostAgentMasterSid: true,
-          RevenueCustomerMasterSid: true,
-          CostDrCr: true,
-          RevenueDrCr: true,
-          CostVoucherHeaderSid: true,
-          RevenueVoucherHeaderSid: true,
-          RevenueAmount: true,
-          CostAmount: true,
-        },
       });
-
 
       const houseRateMap = new Map<number, any[]>();
       allHouseCR.forEach(cr => {
@@ -1817,51 +1952,48 @@ export class OperationReportsService {
 
 
       const data = houseJobs.map(house => {
-          const houseDepartment =
-            departments.find(d => d.DepartmentMasterSid === house.DepartmentMasterSid)
-              ?.departmentName || '';
-          const costRevenues = (houseRateMap.get(house.HouseJobSid) || []).filter(
-            cr => cr.CostVoucherHeaderSid === null 
-          );
+        const houseDepartment =
+          departments.find(d => d.DepartmentMasterSid === house.DepartmentMasterSid)
+            ?.departmentName || '';
 
-          return {
-            HouseJobSid: house.HouseJobSid,
-            HouseNo: house.HouseNo,
-            HBLNo: house.HBLNo,
-            houseDept: houseDepartment,
-            houseStatus: house.HouseStatus,
-            bookingNo: house.BookingNo,
-            PPCC: house.FreightTerms,
-            branchName: allBranches.find(b => house.BranchMasterSid === b.BranchMasterSid)?.branchName || '',
-            costRevenueDetails: costRevenues.map(cr => ({
-              ChargeMasterSid: cr.ChargeMasterSid,
-              chargeName: chargeMaster.find(c => c.ChargeMasterSid === cr.ChargeMasterSid)?.chargeName || '',
-              ChargeDescription: cr.ChargeDescription,
-              CostLocalAmount: cr.CostVoucherHeaderSid === null ? cr.CostLocalAmount : 0,
-              RevenueLocalAmount: cr.RevenueVoucherHeaderSid === null ? cr.RevenueLocalAmount : 0,
-              CostDrCr: cr.CostDrCr,
-              RevenueDrCr: cr.RevenueDrCr,
-              CostAgentMasterSid: cr.CostAgentMasterSid,
-              RevenueCustomerMasterSid: cr.RevenueCustomerMasterSid,
-              partyName: customerMaster.find(
-                c => c.CustomerMasterSid === cr.CostAgentMasterSid 
-              )?.CustomerName || '',
-              CostVoucherHeaderSid: cr.CostVoucherHeaderSid,
-              RevenueVoucherHeaderSid: cr.RevenueVoucherHeaderSid,
-            })),
-            
-          };
-        });
+        const costRevenues = (houseRateMap.get(house.HouseJobSid) || []).filter(
+          cr => cr.CostVoucherHeaderSid === null
+        );
 
+        return {
+          HouseJobSid: house.HouseJobSid,
+          HouseNo: house.HouseNo,
+          HBLNo: house.HBLNo,
+          houseDept: houseDepartment,
+          houseStatus: house.HouseStatus,
+          bookingNo: house.BookingNo,
+          PPCC: house.FreightTerms,
+          branchName:
+            branches.find(b => b.BranchMasterSid === house.BranchMasterSid)?.branchName || '',
+          costRevenueDetails: costRevenues.map(cr => ({
+            ChargeMasterSid: cr.ChargeMasterSid,
+            chargeName:
+              chargeMaster.find(c => c.ChargeMasterSid === cr.ChargeMasterSid)?.chargeName || '',
+            ChargeDescription: cr.ChargeDescription,
+            CostLocalAmount: cr.CostLocalAmount,
+            RevenueLocalAmount: cr.RevenueLocalAmount,
+            CostDrCr: cr.CostDrCr,
+            RevenueDrCr: cr.RevenueDrCr,
+            partyName:
+              customerMaster.find(c => c.CustomerMasterSid === cr.CostAgentMasterSid)
+                ?.CustomerName || '',
+          })),
+        };
+      });
 
+   
       return {
         companyMasterSid: CompanyMasterSid,
-        branchMasterSid: branchId,
-        branchesInvolved: Array.from(branchSet).join(','),
+        branchNames: resolvedBranchNames.join(', '),
+        departmentNames: resolvedDeptNames.join(', '),
         params,
         data,
       };
-
     } catch (error) {
       this.logger.error(
         `Error generating UNBILLED house job report: ${error.message}`,
@@ -1877,7 +2009,7 @@ export class OperationReportsService {
       ToHBLDt,
       FromHBLDt,
       Branch: branchId,
-      Dept: dept,
+      Dept: deptId,
     } = params;
 
     try {
@@ -1885,18 +2017,33 @@ export class OperationReportsService {
         `Getting UNBILLED House Job Cost/Revenue report for CompanySid=${CompanyMasterSid}, From=${FromHBLDt}, To=${ToHBLDt}`
       );
 
+      const branches = branchId && branchId.length > 0
+        ? await this._db.branchMaster.findMany({
+          where: { BranchMasterSid: { in: branchId } },
+          select: { BranchMasterSid: true, branchName: true },
+        })
+        : await this._db.branchMaster.findMany({
+          where: { CompanyMasterSid },
+          select: { BranchMasterSid: true, branchName: true },
+        });
 
-      const allBranches = await this._db.branchMaster.findMany({
-        where: { BranchMasterSid: { in: branchId } },
-        select: { branchName: true, BranchMasterSid: true },
-      });
-      const branchSet = new Set(allBranches.map(b => b.branchName));
+      const resolvedBranchIds = branches.map(b => b.BranchMasterSid);
+      const resolvedBranchNames = branches.map(b => b.branchName);
+      const branchSet = new Set(resolvedBranchNames);
 
 
-      const departments = await this._db.departmentMaster.findMany({
-        where: { DepartmentMasterSid: { in: dept } },
-        select: { DepartmentMasterSid: true, departmentName: true },
-      });
+      const departments = deptId && deptId.length > 0
+        ? await this._db.departmentMaster.findMany({
+          where: { DepartmentMasterSid: { in: deptId } },
+          select: { DepartmentMasterSid: true, departmentName: true },
+        })
+        : await this._db.departmentMaster.findMany({
+          where: { CompanyMasterSid },
+          select: { DepartmentMasterSid: true, departmentName: true },
+        });
+
+      const resolvedDeptIds = departments.map(d => d.DepartmentMasterSid);
+      const resolvedDeptNames = departments.map(d => d.departmentName);
 
 
       const chargeMaster = await this._db.chargeMaster.findMany({
@@ -1911,13 +2058,14 @@ export class OperationReportsService {
       const houseJobs = await this._db.houseJob.findMany({
         where: {
           CompanyMasterSid,
-          BranchMasterSid: { in: branchId },
+
           AND: [
             { HBLDate: { gte: new Date(FromHBLDt) } },
             { HBLDate: { lte: new Date(ToHBLDt) } },
           ],
           status: 'A',
-          DepartmentMasterSid: { in: dept },
+          BranchMasterSid: { in: resolvedBranchIds },
+          DepartmentMasterSid: { in: resolvedDeptIds },
         },
         select: {
           HouseJobSid: true,
@@ -1928,7 +2076,7 @@ export class OperationReportsService {
           BookingNo: true,
           FreightTerms: true,
           BranchMasterSid: true,
-          Others:true
+          Others: true
         },
         orderBy: { HBLDate: 'asc' },
       });
@@ -2009,7 +2157,7 @@ export class OperationReportsService {
           houseStatus: house.HouseStatus,
           bookingNo: house.BookingNo,
           PPCC: house.FreightTerms,
-          branchName: allBranches.find(b => house.BranchMasterSid === b.BranchMasterSid)?.branchName || '',
+          branchName: branches.find(b => house.BranchMasterSid === b.BranchMasterSid)?.branchName || '',
           costRevenueDetails: costRevenues.map(cr => ({
             ChargeMasterSid: cr.ChargeMasterSid,
             chargeName:
@@ -2032,7 +2180,8 @@ export class OperationReportsService {
       return {
         companyMasterSid: CompanyMasterSid,
         branchMasterSid: branchId,
-        branchesInvolved: Array.from(branchSet).join(','),
+        branchNames: resolvedBranchNames.join(', '),
+        departmentNames: resolvedDeptNames.join(', '),
         params,
         data,
       };
@@ -2052,8 +2201,8 @@ export class OperationReportsService {
       ToHBLDt,
       FromHBLDt,
       Branch: branchId,
-      Dept: dept,
-      Customer
+      Dept: deptId,
+      Customer,
     } = params;
 
     try {
@@ -2062,17 +2211,43 @@ export class OperationReportsService {
       );
 
 
-      const allBranches = await this._db.branchMaster.findMany({
-        where: { BranchMasterSid: { in: branchId } },
-        select: { branchName: true, BranchMasterSid: true },
-      });
-      const branchSet = new Set(allBranches.map(b => b.branchName));
+        const branches = branchId && branchId.length > 0
+        ? await this._db.branchMaster.findMany({
+          where: { BranchMasterSid: { in: branchId } },
+          select: {
+            BranchMasterSid: true,
+            branchName: true,
+          },
+        })
+        : await this._db.branchMaster.findMany({
+          where: { CompanyMasterSid },
+          select: {
+            BranchMasterSid: true,
+            branchName: true,
+          },
+        });
 
+      const resolvedBranchIds = branches.map(b => b.BranchMasterSid);
+      const resolvedBranchNames = branches.map(b => b.branchName);
 
-      const departments = await this._db.departmentMaster.findMany({
-        where: { DepartmentMasterSid: { in: dept } },
-        select: { DepartmentMasterSid: true, departmentName: true },
-      });
+      const departments = deptId && deptId.length > 0
+        ? await this._db.departmentMaster.findMany({
+          where: { DepartmentMasterSid: { in: deptId } },
+          select: {
+            DepartmentMasterSid: true,
+            departmentName: true,
+          },
+        })
+        : await this._db.departmentMaster.findMany({
+          where: { CompanyMasterSid },
+          select: {
+            DepartmentMasterSid: true,
+            departmentName: true,
+          },
+        });
+
+      const resolvedDeptIds = departments.map(d => d.DepartmentMasterSid);
+      const resolvedDeptNames = departments.map(d => d.departmentName);
 
 
       const chargeMaster = await this._db.chargeMaster.findMany({
@@ -2087,13 +2262,13 @@ export class OperationReportsService {
       const houseJobs = await this._db.houseJob.findMany({
         where: {
           CompanyMasterSid,
-          BranchMasterSid: { in: branchId },
           AND: [
             { HBLDate: { gte: new Date(FromHBLDt) } },
             { HBLDate: { lte: new Date(ToHBLDt) } },
           ],
           status: 'A',
-          DepartmentMasterSid: { in: dept },
+          BranchMasterSid: { in: resolvedBranchIds },
+          DepartmentMasterSid: { in: resolvedDeptIds },
           ...(Customer && Customer.length > 0 ? { CustomerMasterSid: { in: Customer } } : {}),
         },
         select: {
@@ -2109,6 +2284,7 @@ export class OperationReportsService {
           VesselName:true,
           VoyageNo:true,
           OriginAgent:true,
+          AgentName:true,
           DestinationAgent:true,
           masterJob:true,
         },
@@ -2167,6 +2343,32 @@ export class OperationReportsService {
         const houseDepartment =
           departments.find(d => d.DepartmentMasterSid === house.DepartmentMasterSid)
             ?.departmentName || '';
+
+        
+        const houseCR = allHouseCR.filter(cr => cr.TransactionSid === house.HouseJobSid);
+
+        
+        const { totalRevenue, totalCost } = houseCR.reduce(
+          (acc, cr) => {
+            acc.totalRevenue += cr.RevenueLocalAmount ? Number(cr.RevenueLocalAmount) : 0;
+            acc.totalCost += cr.CostLocalAmount ? Number(cr.CostLocalAmount) : 0;
+            return acc;
+          },
+          { totalRevenue: 0, totalCost: 0 }
+        );
+
+        const totalProfit = totalRevenue - totalCost;
+        const baseAmount = Math.max(totalRevenue, totalCost);
+        const totalGP = baseAmount !== 0 ? (totalProfit / baseAmount) * 100 : 0;
+
+       
+        const costRevenueDetails = {
+          RevenueLocalAmount: totalRevenue,
+          CostLocalAmount: totalCost,
+          Profit: totalProfit,
+          GP: totalGP,
+        };
+
         return {
           HouseJobSid: house.HouseJobSid,
           HouseNo: house.HouseNo,
@@ -2177,32 +2379,20 @@ export class OperationReportsService {
           MBLNo: house.MBLNo,
           vesselName: house.VesselName,
           voyNo: house.VoyageNo,
-          originAgent: house.OriginAgent,
+          originAgent: house.AgentName,
           jobDate: house.HBLDate,
           destinationAgent: customerMaster.find(d => d.CustomerMasterSid === house.DestinationAgent)?.CustomerName || '',
           customerName: customerMaster.find(c => c.CustomerMasterSid === house.CustomerMasterSid)?.CustomerName || '',
           jobNo: house.masterJob?.MasterJobNumber,
-          costRevenueDetails: allHouseCR.map(cr => {
-            const revenue =
-              cr.RevenueLocalAmount ? Number(cr.RevenueLocalAmount) : 0;
-            const cost =
-              cr.CostLocalAmount ? Number(cr.CostLocalAmount) : 0;
-            const profit = revenue - cost;
-            const baseAmount = Math.max(revenue, cost);
-            return {
-              RevenueLocalAmount: revenue,
-              CostLocalAmount: cost,
-              Profit: profit,
-              GP: baseAmount !== 0 ? (profit / baseAmount) * 100 : 0
-            };
-          })
+          costRevenueDetails: costRevenueDetails
         };
       });
 
       return {
         companyMasterSid: CompanyMasterSid,
         branchMasterSid: branchId,
-        branchesInvolved: Array.from(branchSet).join(','),
+        branchNames: resolvedBranchNames.join(', '),
+        departmentNames: resolvedDeptNames.join(', '),
         params,
         data,
       };
@@ -2216,250 +2406,585 @@ export class OperationReportsService {
     }
   }
 
-private async generateProfitSummaryReport(params: ProfitSummaryReportQueryDto) {
-  const {
-    companyId: CompanyMasterSid,
-    ToMBLDt,
-    FromMBLDt,
-    Branch: branchId,
-    Dept: dept,
-  } = params;
+  // private async generateProfitSummaryReport(params: ProfitSummaryReportQueryDto) {
+  //   const {
+  //     companyId: CompanyMasterSid,
+  //     ToMBLDt,
+  //     FromMBLDt,
+  //     Branch: branchId,
+  //     Dept: dept,
+  //   } = params;
 
-  try {
-    this.logger.log(
-      `Getting Profit Summary Report for CompanySid=${CompanyMasterSid}, From=${FromMBLDt}, To=${ToMBLDt}`
-    );
+  //   try {
+  //     this.logger.log(
+  //       `Getting Profit Summary Report for CompanySid=${CompanyMasterSid}, From=${FromMBLDt}, To=${ToMBLDt}`
+  //     );
 
-    /* ===================== MASTERS ===================== */
+  //     /* ===================== MASTERS ===================== */
+  //     const allBranches = await this.getBranchNames(CompanyMasterSid,branchId);
+  //     const allBranchIds = allBranches.map(b => b.BranchMasterSid);
 
-    const [allBranches, departments, customerMaster, userMaster] =
-      await Promise.all([
-        this._db.branchMaster.findMany({
-          where: { BranchMasterSid: { in: branchId } },
-          select: { branchName: true, BranchMasterSid: true },
-        }),
+  //     const [departments, masterJobMenu, houseJobMenu] = await Promise.all([
+  //       this._db.departmentMaster.findMany({
+  //         where: { DepartmentMasterSid: { in: dept } },
+  //         select: { DepartmentMasterSid: true, departmentName: true },
+  //       }),
+  //       this._db.menuMaster.findFirst({
+  //         where: { MenuName: 'Master Job' },
+  //         select: { MenuMasterSid: true },
+  //       }),
+  //       this._db.menuMaster.findFirst({
+  //         where: { MenuName: 'House Job' },
+  //         select: { MenuMasterSid: true },
+  //       }),
+  //     ]);
+
+  //     if (!masterJobMenu || !houseJobMenu) {
+  //       throw new BadRequestException('Menu not found');
+  //     }
+
+
+  //     /* ===================== MASTER JOBS ===================== */
+
+  //     const masterJob = await this._db.masterJob.findMany({
+  //       where: {
+  //         CompanyMasterSid,
+  //         BranchMasterSid: { in: allBranchIds },
+  //         AND: [
+  //           { MBLDate: { gte: new Date(FromMBLDt) } },
+  //           { MBLDate: { lte: new Date(ToMBLDt) } },
+  //         ],
+  //         Status: 'A',
+  //         DepartmentMasterSid: { in: dept },
+  //       },
+  //       select: {
+  //         MasterJobSid: true,
+  //         MasterJobNumber: true,
+  //         DepartmentMasterSid: true,
+  //         MBLDate: true,
+  //         MBLNo: true,
+  //         OriginAgent: true,
+  //         DestinationAgent: true,
+  //         POL: true,
+  //         POD: true,
+  //         POO: true,
+  //         FPD: true,
+  //         voyages: { select: { ETA: true, ETD: true, ATA: true, ATD: true } },
+  //         houseJob: {
+  //           select: {
+  //             HouseJobSid: true,
+  //             HouseNo: true,
+  //             HBLNo: true,
+  //             HouseStatus: true,
+  //             JobType: true,
+  //             CustomerMasterSid: true,
+  //             SalesmanSid: true,
+  //             FreightTerms: true,
+  //             Cargo: { select: { ModeOfTransport: true } },
+  //           },
+  //         },
+  //       },
+  //       orderBy: { MBLDate: 'asc' },
+  //     });
+
+  //     if (!masterJob.length) {
+  //       return {
+  //         companyMasterSid: CompanyMasterSid,
+  //         branchMasterSid: branchId,
+  //         data: [],
+  //       };
+  //     }
+
+  //     const masterJobIds = masterJob.map(m => m.MasterJobSid);
+  //     const houseJobIds = masterJob.flatMap(m => m.houseJob.map(h => h.HouseJobSid));
+  //     /* ===================== COST / REVENUE ===================== */
+
+  //     const fetchCostRevenue = async (menuId: number, ids: number[]) => {
+  //       const costRevenues = await this._db.costRevenueCharges.findMany({
+  //         where: {
+  //           TransactionSid : { in : ids},
+  //           MenuMasterSid: menuId,
+  //           status: 'A',
+  //         },
+  //         select: { 
+  //           RevenueVoucherHeaderSid: true, RevenueLocalAmount: true,
+  //           CostVoucherHeaderSid : true,
+  //           CostLocalAmount : true
+  //         },
+  //       });
+
+  //       const revenue = costRevenues.map(cr => ({
+  //         RevenueVoucherHeaderSid: cr.RevenueVoucherHeaderSid, 
+  //         RevenueLocalAmount: cr.RevenueLocalAmount,
+  //       }))
+
+  //       const cost = costRevenues.map(cr => ({
+  //         CostVoucherHeaderSid: cr.CostVoucherHeaderSid,
+  //         CostLocalAmount: cr.CostLocalAmount,
+  //       }))
+
+  //       return { revenue, cost };
+  //     };
+
+  //     const masterCR = await fetchCostRevenue(masterJobMenu.MenuMasterSid, masterJobIds);
+  //     const houseCR = await fetchCostRevenue(houseJobMenu.MenuMasterSid, houseJobIds);
+
+  //     /* ===================== MAPS ===================== */
+
+  //     const splitMap = (list: any[], key: string) => {
+  //       const linked = new Map<number, any[]>();
+  //       const unlinked: any[] = [];
+
+  //       list.forEach(item => {
+  //         const id = item[key];
+  //         if (id == null) unlinked.push(item);
+  //         else {
+  //           if (!linked.has(id)) linked.set(id, []);
+  //           const existing = linked.get(id)!;
+  //           if (!existing.some(x => JSON.stringify(x) === JSON.stringify(item))) {
+  //             existing.push(item); // avoid duplicates
+  //           }
+  //         }
+  //       });
+
+  //       return { linked, unlinked };
+  //     };
+
+  //     const masterRevenueMap = splitMap(masterCR.revenue, 'RevenueVoucherHeaderSid');
+  //     const masterCostMap = splitMap(masterCR.cost, 'CostVoucherHeaderSid');
+  //     const houseRevenueMap = splitMap(houseCR.revenue, 'RevenueVoucherHeaderSid');
+  //     const houseCostMap = splitMap(houseCR.cost, 'CostVoucherHeaderSid');
+
+  //     const mapRows = (list: any[], field: string) => {
+  //       return list.map(r => ({
+  //         [field]: Number(r[`${field}LocalAmount`] ?? 0),
+  //       }));
+  //     };
+
+  //     /* ===================== FINAL DATA ===================== */
+
+  //     const data = await Promise.all(
+  //       masterJob.map(async mj => ({
+  //         JobNo: mj.MasterJobNumber,
+  //         MBLNo: mj.MBLNo,
+  //         MBLDate: mj.MBLDate,
+  //         OriginAgent: mj.OriginAgent,
+  //         DestinationAgent: mj.DestinationAgent,
+  //         POL: mj.POL,
+  //         POD: mj.POD,
+  //         FPD: mj.FPD,
+  //         POO: mj.POO,
+  //         ETA: mj.voyages?.[0]?.ETA,
+  //         ETD: mj.voyages?.[0]?.ETD,
+  //         ATA: mj.voyages?.[0]?.ATA,
+  //         ATD: mj.voyages?.[0]?.ATD,
+  //         deptName:
+  //           departments.find(d => d.DepartmentMasterSid === mj.DepartmentMasterSid)
+  //             ?.departmentName || '',
+
+  //         masterCostRevenue: {
+  //           revenue: {
+  //             linked: mapRows(masterRevenueMap.linked.get(mj.MasterJobSid) || [], 'Revenue'),
+  //             unlinked: mapRows(masterRevenueMap.unlinked, 'Revenue'),
+  //           },
+  //           cost: {
+  //             linked: mapRows(masterCostMap.linked.get(mj.MasterJobSid) || [], 'Cost'),
+  //             unlinked: mapRows(masterCostMap.unlinked, 'Cost'),
+  //           },
+  //         },
+
+  //         houseJobs: await Promise.all(
+  //           mj.houseJob.map(async hj => ({
+  //             HouseJobSid: hj.HouseJobSid,
+  //             HouseNo: hj.HouseNo,
+  //             HBLNo: hj.HBLNo,
+  //             HouseStatus: hj.HouseStatus,
+  //             JobType: hj.JobType,
+  //             customerName: await this.getCustomerName(CompanyMasterSid, hj.CustomerMasterSid),
+  //             salesperson: await this.getSalespersonName(CompanyMasterSid, hj.SalesmanSid),
+  //             FreightTerms: hj.FreightTerms,
+  //             ModeOfTransport: hj.Cargo?.[0]?.ModeOfTransport,
+  //             costRevenue: {
+  //               revenue: {
+  //                 linked: mapRows(houseRevenueMap.linked.get(hj.HouseJobSid) || [], 'Revenue'),
+  //                 unlinked: mapRows(houseRevenueMap.unlinked, 'Revenue'),
+  //               },
+  //               cost: {
+  //                 linked: mapRows(houseCostMap.linked.get(hj.HouseJobSid) || [], 'Cost'),
+  //                 unlinked: mapRows(houseCostMap.unlinked, 'Cost'),
+  //               },
+  //             },
+  //           }))
+  //         ),
+  //       }))
+  //     );
+
+  //     return {
+  //       companyMasterSid: CompanyMasterSid,
+  //       branchMasterSid: branchId,
+  //       branchesInvolved: allBranches.map(b => b.branchName).join(','),
+  //       params,
+  //       data,
+  //     };
+  //   } catch (error) {
+  //     this.logger.error(
+  //       `Error generating Profit Summary report: ${error.message}`,
+  //       error.stack
+  //     );
+  //     throw error;
+  //   }
+  // }
+
+  private async generateProfitSummaryReport(
+    params: ProfitSummaryReportQueryDto
+  ) {
+    try {
+      const {
+        companyId: CompanyMasterSid,
+        ToMBLDt,
+        FromMBLDt,
+        Branch: branchId,
+        Dept: dept,
+      } = params;
+
+      this.logger.log(
+        `Getting Profit Summary Report for CompanySid=${CompanyMasterSid}, From=${FromMBLDt}, To=${ToMBLDt}`
+      );
+
+      /* ===================== MASTERS ===================== */
+
+      const allBranches = await this.getBranchNames(CompanyMasterSid, branchId);
+
+      const allBranchIds = allBranches.map(b => b.BranchMasterSid);
+
+      const [departments, masterJobMenu, houseJobMenu, customer, user] = await Promise.all([
         this._db.departmentMaster.findMany({
           where: { DepartmentMasterSid: { in: dept } },
           select: { DepartmentMasterSid: true, departmentName: true },
         }),
+        this._db.menuMaster.findFirst({
+          where: { MenuName: 'Master Job' },
+          select: { MenuMasterSid: true },
+        }),
+        this._db.menuMaster.findFirst({
+          where: { MenuName: 'House Job' },
+          select: { MenuMasterSid: true },
+        }),
         this._db.customerMaster.findMany({
-          select: { CustomerMasterSid: true, CustomerName: true },
+          select: { CustomerMasterSid: true, CustomerName: true }
         }),
         this._db.userMaster.findMany({
-          select: { UserMasterSid: true, userName: true },
-        }),
+          select: { UserMasterSid: true, userName: true }
+        })
       ]);
 
-    const branchSet = new Set(allBranches.map(b => b.branchName));
+      if (!masterJobMenu || !houseJobMenu) {
+        throw new BadRequestException('Menu not found');
+      }
 
-    /* ===================== MASTER JOBS ===================== */
+      /* ===================== MASTER JOBS ===================== */
 
-    const masterJob = await this._db.masterJob.findMany({
-      where: {
-        CompanyMasterSid,
-        BranchMasterSid: { in: branchId },
-        AND: [
-          { MBLDate: { gte: new Date(FromMBLDt) } },
-          { MBLDate: { lte: new Date(ToMBLDt) } },
-        ],
-        Status: 'A',
-        DepartmentMasterSid: { in: dept },
-      },
-      select: {
-        MasterJobSid: true,
-        MasterJobNumber: true,
-        DepartmentMasterSid: true,
-        MBLDate: true,
-        MBLNo: true,
-        OriginAgent: true,
-        DestinationAgent: true,
-        POL: true,
-        POD: true,
-        POO: true,
-        FPD: true,
-        voyages: { select: { ETA: true, ETD: true, ATA: true, ATD: true } },
-        houseJob: {
-          select: {
-            HouseJobSid: true,
-            HouseNo: true,
-            HBLNo: true,
-            HouseStatus: true,
-            JobType: true,
-            CustomerMasterSid: true,
-            SalesmanSid: true,
-            FreightTerms: true,
-            Cargo: { select: { ModeOfTransport: true } },
+      const masterJob = await this._db.masterJob.findMany({
+        where: {
+          CompanyMasterSid,
+          BranchMasterSid: { in: allBranchIds },
+          AND: [
+            { MBLDate: { gte: new Date(FromMBLDt) } },
+            { MBLDate: { lte: new Date(ToMBLDt) } },
+          ],
+          Status: 'A',
+          DepartmentMasterSid: { in: dept },
+        },
+        select: {
+          MasterJobSid: true,
+          MasterJobNumber: true,
+          DepartmentMasterSid: true,
+          MBLDate: true,
+          MBLNo: true,
+          OriginAgent: true,
+          DestinationAgent: true,
+          POL: true,
+          POD: true,
+          POO: true,
+          FPD: true,
+          voyages: { select: { ETA: true, ETD: true, ATA: true, ATD: true } },
+          houseJob: {
+            select: {
+              HouseJobSid: true,
+              HouseNo: true,
+              HBLNo: true,
+              HouseStatus: true,
+              JobType: true,
+              CustomerMasterSid: true,
+              SalesmanSid: true,
+              FreightTerms: true,
+              Cargo: { select: { ModeOfTransport: true } },
+            },
           },
         },
-      },
-      orderBy: { MBLDate: 'asc' },
-    });
+        orderBy: { MBLDate: 'asc' },
+      });
 
-    if (!masterJob.length) {
+      if (!masterJob.length) {
+        return {
+          companyMasterSid: CompanyMasterSid,
+          branchMasterSid: branchId,
+          data: [],
+        };
+      }
+
+      const getDepartmentName = (deptId: number) =>
+        departments.find(d => d.DepartmentMasterSid === deptId)?.departmentName ||
+        '';
+
+      const getCostRevenues = async (
+        MenuMasterSid: number,
+        TransactionSid: number
+      ) => {
+        return this._db.costRevenueCharges.findMany({
+          where: {
+            TransactionSid,
+            MenuMasterSid,
+            status: 'A',
+          },
+          select: {
+            CostRevenueChargesSid: true,
+            RevenueVoucherHeaderSid: true,
+            RevenueDrCr: true,
+            RevenueLocalAmount: true,
+            CostVoucherHeaderSid: true,
+            CostDrCr: true,
+            CostLocalAmount: true,
+          },
+        });
+      };
+
+      /* ===================== FINAL DATA ===================== */
+
+      const data = await Promise.all(
+        masterJob.map(async mj => {
+          const masterCR = await getCostRevenues(
+            masterJobMenu.MenuMasterSid,
+            mj.MasterJobSid
+          );
+
+          const linkedRev = masterCR.filter(cr => cr.RevenueVoucherHeaderSid);
+          const linkedCost = masterCR.filter(cr => cr.CostVoucherHeaderSid);
+
+          const calc = (arr: any[], type: 'R' | 'C') =>
+            arr.reduce((sum, cr) => {
+              if (type === 'R') {
+                return cr.RevenueDrCr === 'C'
+                  ? sum + Number(cr.RevenueLocalAmount || 0)
+                  : sum - Number(cr.RevenueLocalAmount || 0);
+              }
+              return cr.CostDrCr === 'D'
+                ? sum + Number(cr.CostLocalAmount || 0)
+                : sum - Number(cr.CostLocalAmount || 0);
+            }, 0);
+
+          const pSale = calc(masterCR, 'R');
+          const pCost = calc(masterCR, 'C');
+          const aSale = calc(linkedRev, 'R');
+          const aCost = calc(linkedCost, 'C');
+
+          const houseWithCR = await Promise.all(
+            mj.houseJob.map(async hj => {
+              const houseCR = await getCostRevenues(
+                houseJobMenu.MenuMasterSid,
+                hj.HouseJobSid
+              );
+
+              const linkedRevH = houseCR.filter(cr => cr.RevenueVoucherHeaderSid);
+              const linkedCostH = houseCR.filter(cr => cr.CostVoucherHeaderSid);
+
+              const hpSale = calc(houseCR, 'R');
+              const hpCost = calc(houseCR, 'C');
+              const haSale = calc(linkedRevH, 'R');
+              const haCost = calc(linkedCostH, 'C');
+
+              return {
+                HouseJobSid: hj.HouseJobSid,
+                HBLNo: hj.HBLNo,
+                costRevenues: {
+                  totalNoOfCostRevenues: houseCR.length,
+                  linkedRevenueRecords: linkedRevH.map(
+                    cr => cr.CostRevenueChargesSid
+                  ),
+                  linkedCostRecords: linkedCostH.map(
+                    cr => cr.CostRevenueChargesSid
+                  ),
+                  houseCrSummary: {
+                    pSale: hpSale,
+                    pCost: hpCost,
+                    pGp: hpSale - hpCost,
+                    aSale: haSale,
+                    aCost: haCost,
+                    aGp: haSale - haCost,
+                  },
+                },
+              };
+            })
+          );
+
+          return {
+            JobNo: mj.MasterJobNumber,
+            MBLNo: mj.MBLNo,
+            MBLDate: mj.MBLDate,
+            OriginAgent: customer.find(o => o.CustomerMasterSid === mj.OriginAgent)?.CustomerName || '',
+            DestinationAgent: customer.find(d => d.CustomerMasterSid === mj.DestinationAgent)?.CustomerName || '',
+            customerName: customer.find(c => c.CustomerMasterSid === mj.houseJob?.[0]?.CustomerMasterSid)?.CustomerName || '',
+            jobType: mj.houseJob?.[0]?.JobType,
+            houseNo: mj.houseJob?.[0]?.HouseNo,
+            HBLNo: mj.houseJob?.[0]?.HBLNo,
+            houseStatus: mj.houseJob?.[0]?.HouseStatus,
+            ModeOfTransport: mj.houseJob?.[0]?.Cargo?.[0]?.ModeOfTransport,
+            PPCC: mj.houseJob?.[0]?.FreightTerms,
+            salesPerson: user.find(u => u.UserMasterSid === mj.houseJob?.[0]?.SalesmanSid)?.userName || '',
+            POO: mj.POO,
+            POL: mj.POL,
+            POD: mj.POD,
+            FPD: mj.FPD,
+            ETA: mj.voyages[0]?.ETA,
+            ETD: mj.voyages[0]?.ETD,
+            ATA: mj.voyages[0]?.ATA,
+            ATD: mj.voyages[0]?.ATD,
+            deptName: getDepartmentName(mj.DepartmentMasterSid),
+            costRevenues: {
+              totalNoOfCostRevenues: masterCR.length,
+              linkedRevenueRecords: linkedRev.map(
+                cr => cr.CostRevenueChargesSid
+              ),
+              linkedCostRecords: linkedCost.map(
+                cr => cr.CostRevenueChargesSid
+              ),
+              masterCrSummary: {
+                pSale,
+                pCost,
+                pGp: pSale - pCost,
+                aSale,
+                aCost,
+                aGp: aSale - aCost,
+              },
+            },
+            houseWithCR,
+          };
+        })
+      );
+
       return {
         companyMasterSid: CompanyMasterSid,
         branchMasterSid: branchId,
-        data: [],
+        BranchInvolved: allBranches.map(b => b.branchName).join(', '),
+        DeptNames: departments.map(d => d.departmentName).join(', '),
+        data,
+        params
       };
+    } catch (error) {
+      this.logger.error(
+        `Error generating Profit Summary Report: ${error.message}`,
+        error.stack
+      );
+      throw error;
     }
+  }
 
-    const masterJobIds = masterJob.map(m => m.MasterJobSid);
-    const houseJobIds = masterJob.flatMap(m => m.houseJob.map(h => h.HouseJobSid));
 
-    /* ===================== MENUS ===================== */
+  // async getBranchNames(companyMasterSid:number,branchIds?:number[])
+  // :Promise<{
+  //   BranchMasterSid : number,
+  //   branchName : string
+  // }[]>
+  // {
+  //   try {
+  //     const whereClause = {
+  //       CompanyMasterSid : companyMasterSid,
+  //       status : 'A'
+  //     } 
+  //     if(branchIds){
+  //       whereClause['BranchMasterSid'] = {in : branchIds} 
+  //     }
+  //     const branches = await this._db.branchMaster.findMany({
+  //       where : whereClause,
+  //       select : {
+  //         BranchMasterSid : true,
+  //         branchName : true
+  //       }
+  //     })
 
-    const [masterJobMenu, houseJobMenu] = await Promise.all([
-      this._db.menuMaster.findFirst({
-        where: { MenuName: 'Master Job' },
-        select: { MenuMasterSid: true },
-      }),
-      this._db.menuMaster.findFirst({
-        where: { MenuName: 'House Job' },
-        select: { MenuMasterSid: true },
-      }),
-    ]);
+  //     return branches;
 
-    if (!masterJobMenu || !houseJobMenu) {
-      throw new BadRequestException('Menu not found');
+  //   } catch (error) {
+  //     throw error;
+  //   }
+  // }
+
+  async getBranchNames(
+  companyMasterSid: number,
+  branchIds?: number[]
+): Promise<{ BranchMasterSid: number; branchName: string }[]> {
+  try {
+    const whereClause: any = {
+      CompanyMasterSid: companyMasterSid,
+      status: 'A',
+    };
+    if (branchIds && branchIds.length > 0) {
+      whereClause['BranchMasterSid'] = { in: branchIds };
     }
-
-    /* ===================== COST / REVENUE ===================== */
-
-    const fetchCostRevenue = async (menuId: number, ids: number[]) => {
-      const revenue = await this._db.costRevenueCharges.findMany({
-        where: {
-          MenuMasterSid: menuId,
-          status: 'A',
-          OR: [
-            { RevenueVoucherHeaderSid: { in: ids } },
-            { RevenueVoucherHeaderSid: null },
-          ],
-        },
-        select: { RevenueVoucherHeaderSid: true, RevenueLocalAmount: true },
-      });
-
-      const cost = await this._db.costRevenueCharges.findMany({
-        where: {
-          MenuMasterSid: menuId,
-          status: 'A',
-          OR: [
-            { CostVoucherHeaderSid: { in: ids } },
-            { CostVoucherHeaderSid: null },
-          ],
-        },
-        select: { CostVoucherHeaderSid: true, CostLocalAmount: true },
-      });
-
-      return { revenue, cost };
-    };
-
-    const masterCR = await fetchCostRevenue(masterJobMenu.MenuMasterSid, masterJobIds);
-    const houseCR = await fetchCostRevenue(houseJobMenu.MenuMasterSid, houseJobIds);
-
-    /* ===================== MAPS ===================== */
-
-    const splitMap = (list: any[], key: string) => {
-      const linked = new Map<number, any[]>();
-      const unlinked: any[] = [];
-
-      list.forEach(item => {
-        const id = item[key];
-        if (id == null) unlinked.push(item);
-        else {
-          if (!linked.has(id)) linked.set(id, []);
-          const existing = linked.get(id)!;
-          if (!existing.some(x => JSON.stringify(x) === JSON.stringify(item))) {
-            existing.push(item); // avoid duplicates
-          }
-        }
-      });
-
-      return { linked, unlinked };
-    };
-
-    const masterRevenueMap = splitMap(masterCR.revenue, 'RevenueVoucherHeaderSid');
-    const masterCostMap = splitMap(masterCR.cost, 'CostVoucherHeaderSid');
-    const houseRevenueMap = splitMap(houseCR.revenue, 'RevenueVoucherHeaderSid');
-    const houseCostMap = splitMap(houseCR.cost, 'CostVoucherHeaderSid');
-
-    const mapRows = (list: any[], field: string) => {
-      return list.map(r => ({
-        [field]: Number(r[`${field}LocalAmount`] ?? 0),
-      }));
-    };
-
-    /* ===================== FINAL DATA ===================== */
-
-    const data = masterJob.map(mj => ({
-      JobNo: mj.MasterJobNumber,
-      MBLNo: mj.MBLNo,
-      MBLDate: mj.MBLDate,
-      OriginAgent: mj.OriginAgent,
-      DestinationAgent: mj.DestinationAgent,
-      POL: mj.POL,
-      POD: mj.POD,
-      FPD: mj.FPD,
-      POO: mj.POO,
-      ETA: mj.voyages?.[0]?.ETA,
-      ETD: mj.voyages?.[0]?.ETD,
-      ATA: mj.voyages?.[0]?.ATA,
-      ATD: mj.voyages?.[0]?.ATD,
-      deptName:
-        departments.find(d => d.DepartmentMasterSid === mj.DepartmentMasterSid)
-          ?.departmentName || '',
-
-      masterCostRevenue: {
-        revenue: {
-          linked: mapRows(masterRevenueMap.linked.get(mj.MasterJobSid) || [], 'Revenue'),
-          unlinked: mapRows(masterRevenueMap.unlinked, 'Revenue'),
-        },
-        cost: {
-          linked: mapRows(masterCostMap.linked.get(mj.MasterJobSid) || [], 'Cost'),
-          unlinked: mapRows(masterCostMap.unlinked, 'Cost'),
-        },
+    const branches = await this._db.branchMaster.findMany({
+      where: whereClause,
+      select: {
+        BranchMasterSid: true,
+        branchName: true,
       },
-
-      houseJobs: mj.houseJob.map(hj => ({
-        HouseJobSid: hj.HouseJobSid,
-        HouseNo: hj.HouseNo,
-        HBLNo: hj.HBLNo,
-        HouseStatus: hj.HouseStatus,
-        JobType: hj.JobType,
-        customerName:
-          customerMaster.find(c => c.CustomerMasterSid === hj.CustomerMasterSid)
-            ?.CustomerName || '',
-        salesperson:
-          userMaster.find(u => u.UserMasterSid === hj.SalesmanSid)?.userName || '',
-        FreightTerms: hj.FreightTerms,
-        ModeOfTransport: hj.Cargo?.[0]?.ModeOfTransport,
-        costRevenue: {
-          revenue: {
-            linked: mapRows(houseRevenueMap.linked.get(hj.HouseJobSid) || [], 'Revenue'),
-            unlinked: mapRows(houseRevenueMap.unlinked, 'Revenue'),
-          },
-          cost: {
-            linked: mapRows(houseCostMap.linked.get(hj.HouseJobSid) || [], 'Cost'),
-            unlinked: mapRows(houseCostMap.unlinked, 'Cost'),
-          },
-        },
-      })),
-    }));
-
-    return {
-      companyMasterSid: CompanyMasterSid,
-      branchMasterSid: branchId,
-      branchesInvolved: Array.from(branchSet).join(','),
-      params,
-      data,
-    };
+    });
+    return branches;
   } catch (error) {
-    this.logger.error(
-      `Error generating Profit Summary report: ${error.message}`,
-      error.stack
-    );
     throw error;
   }
 }
+
+
+  
+  async getCustomerName(companyMasterSid:number,customerMasterSid:number):Promise<string>{
+    try {
+      const customer =await this._db.customerMaster.findUnique({
+        where : {
+          CompanyMasterSid : companyMasterSid,
+          CustomerMasterSid : customerMasterSid
+        },
+        select : {
+          CustomerName : true
+        }
+      });
+      return customer?.CustomerName || "";
+
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async getSalespersonName(companyMasterSid : number,userId : number | null): Promise<string> {
+    if(!userId) return '';
+    try {
+      const user = await this._db.userMaster.findUnique({
+        where : {
+          UserMasterSid : userId,
+          userCompanyMaster : {
+            some : {
+              CompanyMasterSid : companyMasterSid
+            }
+          }
+        },
+        select : {
+          userName : true
+        }
+      })
+      return user?.userName || "";
+    } catch (error) {
+      throw error;
+    }
+  }
 
 
   async exportReport(reportName: string, exportParams: any) {
