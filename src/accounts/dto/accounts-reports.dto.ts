@@ -133,6 +133,40 @@ export class StatementLedgerReportQueryDto {
   Branch?: number[];
 }
 
+// ledger Report
+
+export class LedgerReportQueryDto {
+  @ApiProperty()
+  @IsNotEmpty()
+  @IsDateString()
+  FromDate: string;
+
+  @ApiProperty()
+  @IsNotEmpty()
+  @IsDateString()
+  ToDate: string;
+
+  @ApiProperty()
+  @IsOptional()
+  @IsInt()
+  Ledger: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsInt()
+  Subledger?: number;
+
+  @ApiProperty()
+  @IsNotEmpty()
+  @IsInt()
+  companyId: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsInt()
+  Branch?: number[];
+}
+
 // Trial Balance DTOs (already exists, just import reference)
 export class TrialBalanceReportQueryDto {
   @ApiProperty()
@@ -346,17 +380,17 @@ export class TopNCustomerReportQueryDto {
   @ApiProperty()
   @IsNotEmpty()
   @IsDateString()
-  fromDate: string;
+  FromDate: string;
 
   @ApiProperty()
   @IsNotEmpty()
   @IsDateString()
-  toDate: string;
+  ToDate: string;
 
   @ApiProperty()
   @IsNotEmpty()
   @IsNumber()
-  topN: number;
+  TopN: number;
 
   @ApiProperty()
   @IsNotEmpty()
@@ -371,7 +405,20 @@ export class TopNCustomerReportQueryDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsInt()
-  branchId?: number;
+  branchId?: number[];
+
+  @ApiProperty()
+  @IsNotEmpty()
+  @IsInt()
+  Dept: number[];
+
+  @IsOptional()
+  @IsBoolean()
+  Volume : boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  GP : boolean;
 }
 
 // Export DTOs

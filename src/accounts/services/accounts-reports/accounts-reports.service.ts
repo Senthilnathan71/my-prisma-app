@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { DatabaseService } from 'src/database/database.service';
 import { ApprovalStatus, Prisma } from '@prisma/client';
-import { AgeingReportQueryDto, OutstandingReportQueryDto, ProfitLossReportQueryDto, StatementLedgerReportQueryDto, TrialBalanceReportQueryDto } from 'src/accounts/dto/accounts-reports.dto';
+import { AgeingReportQueryDto, LedgerReportQueryDto, OutstandingReportQueryDto, ProfitLossReportQueryDto, StatementLedgerReportQueryDto, TopNCustomerReportQueryDto, TrialBalanceReportQueryDto } from 'src/accounts/dto/accounts-reports.dto';
 import { roundAmount, toNumber } from 'src/common/helper';
 import { CustomerOutstandingResponseDto, CustomerOutstandingTransactionDto } from 'src/accounts/dto/outstanding.dto';
 // -------------------------
@@ -137,6 +137,8 @@ export class AccountsReportsService {
           return await this.generateMatchingListReport(parameters);
         case 'top-n-customer':
           return await this.generateTopNCustomerReport(parameters);
+        case 'ledger-report':
+          return await this.generateLedgerReport(parameters);
         default:
           throw new BadRequestException(`Report ${reportName} not implemented`);
       }
@@ -1230,6 +1232,210 @@ export class AccountsReportsService {
     }
   }
 
+
+    private async generateLedgerReport(params: LedgerReportQueryDto) {
+     const {
+      FromDate,
+      ToDate,
+      Subledger : ledgerMasterSid,
+      Ledger : coaMasterSid,
+      Branch: branchId,
+      companyId : CompanyMasterSid,
+    } = params;
+    
+    try {
+      this.logger.log(
+        `Getting ledger report: CompanySid=${CompanyMasterSid}, LedgerMasterSid=${ledgerMasterSid}`,
+      );
+
+      const branches = branchId && branchId.length > 0
+        ? await this._db.branchMaster.findMany({
+          where: { BranchMasterSid: { in: branchId } },
+          select: {
+            BranchMasterSid: true,
+            branchName: true,
+          },
+        })
+        : await this._db.branchMaster.findMany({
+          where: { CompanyMasterSid },
+          select: {
+            BranchMasterSid: true,
+            branchName: true,
+          },
+        });
+
+      const resolvedBranchIds = branches.map(b => b.BranchMasterSid);
+      const resolvedBranchNames = branches.map(b => b.branchName);
+  
+const subledger = ledgerMasterSid
+  ? await this._db.subledgerMaster.findUnique({
+      where: { SubledgerMasterSid: ledgerMasterSid },
+    })
+  : null;
+
+const ledger = coaMasterSid
+  ? await this._db.cOAMaster.findUnique({
+      where: { COAMasterSid: coaMasterSid },
+    })
+  : null;
+
+
+      const userMaster =  await this._db.userMaster.findMany({
+        select:{
+          UserMasterSid:true,
+          userName:true
+        }
+      })
+
+      const voucherTransactions = await this._db.voucherTransaction.findMany({
+        where: {
+          CompanyMasterSid: CompanyMasterSid,
+          BranchMasterSid: { in: resolvedBranchIds },
+          AND : [
+            { VoucherDate : {gte : FromDate}},
+            { VoucherDate : { lte : ToDate}}
+          ],
+    ...(coaMasterSid && { COAMasterSid: coaMasterSid }),
+    ...(ledgerMasterSid && { LedgerMasterSid: ledgerMasterSid }),
+          Status: 'A',
+        },
+        include: {
+          VoucherHeader: true,
+          masterJob : true,
+          houseJob:true,
+          departmentMaster:{
+            select:{departmentName:true}
+          },
+          voucherMatchings: {
+            where: {
+              Status: 'A',
+            },
+          },
+          voucherTypeMaster: {
+            select: { DocumentTypeCode: true }
+          }
+        },
+        orderBy: {
+          VoucherDate: 'asc',
+        },
+      });
+
+      if (voucherTransactions.length === 0) {
+        this.logger.log(`No Ledger Report found for LedgerMasterSid ${ledgerMasterSid}`);
+        return {
+          companyMasterSid: CompanyMasterSid,
+          branchMasterSid : branchId,
+          ledgerMasterSid: ledgerMasterSid || null,
+          COAMasterSid : coaMasterSid || null,
+          subledgerName: subledger?.SubledgerName,
+          ledgerName : ledger?.LedgerName,
+          totalOutstandingCurrency: 0,
+          totalOutstandingLocal: 0,
+          voucherCount: 0,
+          transactions: [],
+        };
+      }
+
+      // Calculate outstanding for each transaction
+      const transactions: any[] = [];
+      let totalOutstandingCurrency = 0;
+      let totalOutstandingLocal = 0;
+
+      for (const vt of voucherTransactions) {
+        const originalCurrencyAmount = toNumber(vt.Amount);
+        const originalLocalAmount = toNumber(vt.LocalAmount);
+
+        // Sum matched amounts for this transaction
+        let matchedCurrencyAmount = 0;
+        let matchedLocalAmount = 0;
+
+        if (vt.voucherMatchings && vt.voucherMatchings.length > 0) {
+          matchedCurrencyAmount = vt.voucherMatchings.reduce(
+            (sum, m) => sum + toNumber(m.Amount),
+            0,
+          );
+          matchedLocalAmount = vt.voucherMatchings.reduce(
+            (sum, m) => sum + toNumber(m.LocalAmount),
+            0,
+          );
+        }
+
+        const outstandingCurrencyAmount = roundAmount(
+          originalCurrencyAmount - matchedCurrencyAmount,
+          2,
+        );
+        const outstandingLocalAmount = roundAmount(originalLocalAmount - matchedLocalAmount, 2);
+
+        // Calculate exchange rate
+        const exchangeRate = originalCurrencyAmount !== 0
+          ? roundAmount(originalLocalAmount / originalCurrencyAmount, 4)
+          : 1.0;
+
+        // Only include if there's outstanding balance
+        if (Math.abs(outstandingCurrencyAmount) > 0 || Math.abs(outstandingLocalAmount) > 0) {
+          transactions.push({
+            voucherTransactionSid: vt.VoucherTransactionSid,
+            voucherHeaderSid: vt.VoucherHeaderSid,
+            voucherDetailSid: vt.VoucherDetailSid,
+            voucherNumber: vt.VoucherNumber,
+            voucherDate: vt.VoucherDate,
+            voucherTypeMasterSid: vt.VoucherTypeMasterSid,
+            ledgerMasterSid: vt.LedgerMasterSid!,
+            coaMasterSid: vt.COAMasterSid!,
+            MasterJobNumber : vt.masterJob?.MasterJobNumber,
+            HouseJobNumber : vt.houseJob?.HBLNo,
+            voucherType: vt.voucherTypeMaster?.DocumentTypeCode,
+            originalCurrencyAmount: toNumber(originalCurrencyAmount),
+            originalLocalAmount: toNumber(originalLocalAmount),
+            matchedCurrencyAmount: toNumber(matchedCurrencyAmount),
+            matchedLocalAmount: toNumber(matchedLocalAmount),
+            outstandingCurrencyAmount: outstandingCurrencyAmount,
+            outstandingLocalAmount: outstandingLocalAmount,
+            currencyCode: vt.CurrencyCode || 'USD',
+            exchangeRate: toNumber(vt.ExchangeRate || 1),
+            drCr: vt.DrCr,
+            chargeDescription: vt.ChargeDescription || "",
+            deptname:
+              vt.departmentMaster?.departmentName &&
+                !vt.departmentMaster.departmentName.toLowerCase().includes('air')
+                ? vt.departmentMaster.departmentName
+                : null,
+            salesmanSid: userMaster.find(u=>u.UserMasterSid ===vt.houseJob?.SalesmanSid)?.userName || '',
+          });
+
+          totalOutstandingCurrency += outstandingCurrencyAmount;
+          totalOutstandingLocal += outstandingLocalAmount;
+        }
+      }
+
+      const response = {
+        companyMasterSid: CompanyMasterSid,
+        branchMasterSid : branchId,
+        ledgerMasterSid: ledgerMasterSid!,
+        subledgerName: subledger?.SubledgerName,
+        ledgerName : ledger?.LedgerName,
+        totalOutstandingCurrency: roundAmount(totalOutstandingCurrency, 2),
+        totalOutstandingLocal: roundAmount(totalOutstandingLocal, 2),
+        voucherCount: transactions.length,
+        transactions: transactions,
+        branchNames: resolvedBranchNames.join(', '),
+        params : params,
+      };
+
+      this.logger.log(
+        `Customer outstanding calculated: ${transactions.length} transactions, Total=${response.totalOutstandingLocal}`,
+      );
+
+      return response;
+    } catch (error) {
+      this.logger.error(
+        `Error getting customer outstanding for ${ledgerMasterSid}: ${error.message}`,
+        error.stack,
+      );
+      throw error;
+    }
+  }
+
   private async generateBalanceSheet(params: any) {
     // TODO: Implement balance sheet logic
     this.logger.log('generateBalanceSheet called with params:', params);
@@ -1260,10 +1466,291 @@ export class AccountsReportsService {
     throw new BadRequestException('Matching List Report generator not yet implemented');
   }
 
-  private async generateTopNCustomerReport(params: any) {
-    // TODO: Implement top N customer logic
-    this.logger.log('generateTopNCustomerReport called with params:', params);
-    throw new BadRequestException('TOP N Customer Report generator not yet implemented');
+  private async generateTopNCustomerReport(params: TopNCustomerReportQueryDto) {
+    const {
+      FromDate,
+      ToDate,
+      companyId: CompanyMasterSid,
+      branchId: Branch,
+      Dept: deptId,
+      TopN: topN,
+      Volume,
+      GP
+    } = params
+
+    try {
+
+      this.logger.log(
+        `Getting top N Customer: CompanySid=${CompanyMasterSid}`,
+      );
+
+      const branches = Branch && Branch.length > 0
+        ? await this._db.branchMaster.findMany({
+          where: { BranchMasterSid: { in: Branch } },
+          select: {
+            BranchMasterSid: true,
+            branchName: true,
+          },
+        })
+        : await this._db.branchMaster.findMany({
+          where: { CompanyMasterSid },
+          select: {
+            BranchMasterSid: true,
+            branchName: true,
+          },
+        });
+
+      const resolvedBranchIds = branches.map(b => b.BranchMasterSid);
+      const resolvedBranchNames = branches.map(b => b.branchName);
+
+      const excludedDepartments = ['Air Export', 'Air Import'];
+      const departments = deptId && deptId.length > 0
+        ? await this._db.departmentMaster.findMany({
+          where: {
+            DepartmentMasterSid: { in: deptId },
+            departmentName: { notIn: excludedDepartments }
+          },
+          select: { DepartmentMasterSid: true, departmentName: true },
+        })
+        : await this._db.departmentMaster.findMany({
+          where: {
+            CompanyMasterSid,
+            departmentName: { notIn: excludedDepartments }
+          },
+          select: { DepartmentMasterSid: true, departmentName: true },
+        });
+
+      const resolvedDeptIds = departments.map(d => d.DepartmentMasterSid);
+      const resolvedDeptNames = departments.map(d => d.departmentName);
+
+      const customerMaster = await this._db.customerMaster.findMany({
+        select: { CustomerMasterSid: true, CustomerName: true }
+      })
+
+      const masterJobs = await this._db.masterJob.findMany({
+        where: {
+          CompanyMasterSid,
+          AND: [
+            { MBLDate: { gte: new Date(FromDate) } },
+            { MBLDate: { lte: new Date(ToDate) } }
+          ],
+          Status: 'A',
+          BranchMasterSid: { in: resolvedBranchIds },
+          DepartmentMasterSid: { in: resolvedDeptIds },
+        },
+        include: {
+          houseJob: {
+            where: { status: 'A' },
+          },
+        },
+        orderBy: { MBLDate: 'asc' },
+      });
+
+      if (!masterJobs.length) {
+        return { companyMasterSid: CompanyMasterSid, branchMasterSid: Branch, data: [] };
+      }
+
+      let data = await Promise.all(
+        masterJobs.map(async job => {
+          const relatedCR = await this._db.costRevenueCharges.findMany({
+            where: {
+              MenuMasterSid: job.MenuMasterSid!,
+              TransactionSid: job.MasterJobSid,
+              status: 'A'
+            },
+            select: {
+              CostLocalAmount: true,
+              RevenueLocalAmount: true,
+              RevenueCustomerMasterSid: true,
+              CostDrCr: true,
+              RevenueDrCr: true
+            }
+          });
+
+          const customerWiseMap = new Map<
+            number,
+            { cost: number; revenue: number }
+          >();
+
+          const addToCustomerMap = (
+            customerSid: number,
+            cost: number,
+            revenue: number
+          ) => {
+            if (!customerWiseMap.has(customerSid)) {
+              customerWiseMap.set(customerSid, { cost: 0, revenue: 0 });
+            }
+            const existing = customerWiseMap.get(customerSid)!;
+            existing.cost += cost;
+            existing.revenue += revenue;
+          };
+
+          let totalCost = 0;
+          let totalRevenue = 0;
+
+          relatedCR.forEach(cr => {
+            const customerSid = cr.RevenueCustomerMasterSid;
+            if (!customerSid) return;
+
+            const cost =
+              cr.CostDrCr === 'D'
+                ? Number(cr.CostLocalAmount ?? 0)
+                : -Number(cr.CostLocalAmount ?? 0);
+
+            const revenue =
+              cr.RevenueDrCr === 'C'
+                ? Number(cr.RevenueLocalAmount ?? 0)
+                : -Number(cr.RevenueLocalAmount ?? 0);
+
+            totalCost += cost;
+            totalRevenue += revenue;
+
+            addToCustomerMap(customerSid, cost, revenue);
+          });
+
+          const houseJobs = job.houseJob || [];
+          const houseJobIds = houseJobs.map(h => h.HouseJobSid);
+
+          const houseJobMenu = await this._db.menuMaster.findFirst({
+            where: { MenuName: 'House Job' },
+            select: { MenuMasterSid: true }
+          });
+
+          if (!houseJobMenu) {
+            throw new BadRequestException('House Job not found in MenuMaster');
+          }
+
+          const allHouseCR = await this._db.costRevenueCharges.findMany({
+            where: {
+              MenuMasterSid: houseJobMenu.MenuMasterSid,
+              TransactionSid: { in: houseJobIds },
+              status: 'A'
+            },
+            select: {
+              TransactionSid: true,
+              CostLocalAmount: true,
+              RevenueLocalAmount: true,
+              RevenueCustomerMasterSid: true,
+              CostDrCr: true,
+              RevenueDrCr: true
+            }
+          });
+
+          const houseRateMap = new Map<number, any[]>();
+
+          allHouseCR.forEach(cr => {
+            const key = cr.TransactionSid!;
+            if (!houseRateMap.has(key)) {
+              houseRateMap.set(key, []);
+            }
+            houseRateMap.get(key)!.push(cr);
+          });
+
+          let totalHouseCost = 0;
+          let totalHouseRevenue = 0;
+
+          const houseJobsData = houseJobs.map(house => {
+            const costRevenues = houseRateMap.get(house.HouseJobSid) || [];
+
+            let houseCost = 0;
+            let houseRevenue = 0;
+
+            costRevenues.forEach(cr => {
+              const customerSid = cr.RevenueCustomerMasterSid;
+              if (!customerSid) return;
+
+              const cost =
+                cr.CostDrCr === 'D'
+                  ? Number(cr.CostLocalAmount ?? 0)
+                  : -Number(cr.CostLocalAmount ?? 0);
+
+              const revenue =
+                cr.RevenueDrCr === 'C'
+                  ? Number(cr.RevenueLocalAmount ?? 0)
+                  : -Number(cr.RevenueLocalAmount ?? 0);
+
+              houseCost += cost;
+              houseRevenue += revenue;
+              addToCustomerMap(customerSid, cost, revenue);
+            });
+
+            totalHouseCost += houseCost;
+            totalHouseRevenue += houseRevenue;
+
+            return {
+              HouseJobSid: house.HouseJobSid,
+              HouseNo: house.HouseNo,
+              HBLNo: house.HBLNo,
+              totalCost: houseCost,
+              totalRevenue: houseRevenue
+            };
+          });
+
+          const totalCostWithHouse = totalCost + totalHouseCost;
+          const totalRevenueWithHouse = totalRevenue + totalHouseRevenue;
+          const GP = totalRevenueWithHouse - totalCostWithHouse;
+          const customerSummary = Array.from(customerWiseMap.entries()).map(
+            ([customerSid, val]) => ({
+              customerSid,
+              customerName:
+                customerMaster.find(c => c.CustomerMasterSid === customerSid)
+                  ?.CustomerName || '',
+              totalCost: val.cost,
+              totalRevenue: val.revenue,
+              GP: val.revenue - val.cost
+            })
+          );
+
+          return {
+            MasterJobSid:job?.MasterJobSid,
+            MBLNo: job?.MBLNo,
+            HBLNo: job?.houseJob?.[0]?.HBLNo,
+            chargeable: job?.ChargeableWeight ?? 0,
+            netwt: job?.NetWeight,
+            Weight: job?.GrossWeight,
+            Vol: job?.Volume ?? 0,
+            noOfShipment: houseJobs.length,
+            GP,
+            totalCost,
+            totalRevenue,
+            totalCostWithHouse,
+            totalRevenueWithHouse,
+            customerSummary,
+            houseJobs: houseJobsData
+          };
+        })
+      );
+      const limit =Number(topN) || data.length;
+
+      if (GP) {
+        data.sort((a, b) => Number(b.GP) - Number(a.GP));
+      } else if (Volume) {
+        data.sort((a, b) => Number(b.Vol) - Number(a.Vol));
+      }
+      console.log('Before slice:', data.length);
+
+data = data.slice(0, limit);
+
+console.log('After slice:', data.length);
+
+
+      
+      return {
+        companyMasterSid: CompanyMasterSid,
+        branchMasterSid: Branch,
+        data,
+        branchNames: resolvedBranchNames.join(', '),
+        departmentNames: resolvedDeptNames.join(', '),
+        params,
+        topN
+      };
+    } catch (error) {
+      this.logger.error(
+        `Error getting Top N Customer for ${CompanyMasterSid}: ${error.message}`,
+        error.stack,
+      );
+      throw error;
+    }
   }
 
   async exportReport(reportName: string, exportParams: any) {
