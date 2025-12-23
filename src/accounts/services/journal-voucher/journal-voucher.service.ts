@@ -540,13 +540,17 @@ if (payload.VoucherDetail && Array.isArray(payload.VoucherDetail)) {
                 sortDirection = 'desc',
                 postStatus,
                 fromDate,
-                toDate
+                toDate,
+                activeCompanyId, 
+        activeBranchId
             } = params;
 
             const skip = (page - 1) * pageSize;
             const take = Number(pageSize);
 
             const where: any = {
+                CompanyMasterSid: activeCompanyId,
+                BranchMasterSid: activeBranchId,
                 voucherTypeMaster: {
                     DocumentTypeName: 'Journal Voucher'
                 },
