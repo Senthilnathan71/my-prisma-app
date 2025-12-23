@@ -192,16 +192,41 @@ export class JournalVoucherController {
     type: ResponseData
   })
   @HttpCode(HttpStatus.OK)
-  @Post('post/:VoucherHeaderSid')
-  async postJournalVoucher(@Param('VoucherHeaderSid', ParseIntPipe) VoucherHeaderSid: number) {
+  @Post('post-voucher')
+  async postJournalVoucher(@Body() body: any) {
     const output = new ResponseData();
+    this.logger.log(`postVoucher request body: ${JSON.stringify(body)}`);
     try {
-      const finalOutput = await this.journalVoucherService.postJournalVoucher(VoucherHeaderSid);
-      this.logger.debug(`postJournalVoucher: ${VoucherHeaderSid}`);
+      if (!body.VoucherHeaderSid) {
+        throw new BadRequestException('Voucher Header SID is required');
+      }
+      if (!body.CompanyMasterSid) {
+        throw new BadRequestException('Company Master SID is required');
+      }
+      if (!body.BranchMasterSid) {
+        throw new BadRequestException('Branch Master SID is required');
+      }
+      if (!body.YearMasterSid) {
+        throw new BadRequestException('Financial year Sid is required');
+      }
+      if (!body.PostedBy) {
+        throw new BadRequestException('Posted By is required');
+      }
+      const finalOutput = await this.journalVoucherService.postJournalVoucher({
+        voucherHeaderSid: Number(body.VoucherHeaderSid),
+        companyMasterSid: Number(body.CompanyMasterSid),
+        branchMasterSid: Number(body.BranchMasterSid),
+        yearMasterSid: Number(body.YearMasterSid),
+        localCurrencyMasterSid: Number(body.LocalCurrencyMasterSid),
+        localCurrencyCode: body.LocalCurrencyCode,
+        postedBy: body.PostedBy,
+        taxDetails: body.TaxDetails
+      });
+      this.logger.debug(`postVoucher result: ${JSON.stringify(finalOutput)}`);
       output.data = finalOutput;
       output.message = "Journal Voucher posted successfully";
     } catch (error) {
-      this.logger.warn(`postJournalVoucher error for ID ${VoucherHeaderSid}`, (error as any)?.stack || (error as any)?.message || error);
+      this.logger.warn(`postVoucher error: ${JSON.stringify(error), error}`);
       output.status = false;
       if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
         output.message = (error as any).message || 'Bad request';
