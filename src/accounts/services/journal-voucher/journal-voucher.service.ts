@@ -543,11 +543,8 @@ if (payload.VoucherDetail && Array.isArray(payload.VoucherDetail)) {
                 pageSize = 10,
                 sortColumn = 'VoucherDate',
                 sortDirection = 'desc',
-                postStatus,
-                fromDate,
-                toDate,
                 activeCompanyId, 
-        activeBranchId
+                activeBranchId
             } = params;
 
             const skip = (page - 1) * pageSize;
@@ -567,22 +564,7 @@ if (payload.VoucherDetail && Array.isArray(payload.VoucherDetail)) {
                 where.OR = [
                     { VoucherNumber: { contains: search, mode: 'insensitive' } },
                     { Narration: { contains: search, mode: 'insensitive' } },
-                    { Remarks: { contains: search, mode: 'insensitive' } },
-                    { PartyName: { contains: search, mode: 'insensitive' } },
-                    { DocumentNumber: { contains: search, mode: 'insensitive' } }
                 ];
-            }
-
-            // Add post status filter
-            if (postStatus) {
-                where.PostStatus = postStatus;
-            }
-
-            // Add date range filter
-            if (fromDate || toDate) {
-                where.VoucherDate = {};
-                if (fromDate) where.VoucherDate.gte = new Date(fromDate);
-                if (toDate) where.VoucherDate.lte = new Date(toDate);
             }
 
             const [items, totalCount] = await Promise.all([
@@ -599,29 +581,16 @@ if (payload.VoucherDetail && Array.isArray(payload.VoucherDetail)) {
                         currencyMaster: true,
                         voucherTypeMaster: true
                     },
-                    orderBy: {
-                        [sortColumn]: sortDirection
-                    },
+
+                    orderBy: { VoucherHeaderSid: 'desc' },
                     skip,
                     take
                 }),
                 this._db.voucherHeader.count({ where })
             ]);
 
-            // Calculate totals for each voucher
-            const enrichedItems = items.map(item => ({
-                ...item,
-                DebitTotal: item.VoucherDetail?.filter(d => d.DrCr === 'D')?.reduce((sum, d) => sum + Number(d.LocalAmount || 0), 0) || 0,
-                CreditTotal: item.VoucherDetail?.filter(d => d.DrCr === 'C')?.reduce((sum, d) => sum + Number(d.LocalAmount || 0), 0) || 0,
-                TotalAmount: item.VoucherDetail?.reduce((sum, d) => sum + Number(d.LocalAmount || 0), 0) || 0,
-                IsBalanced: Math.abs(
-                    (item.VoucherDetail?.filter(d => d.DrCr === 'D')?.reduce((sum, d) => sum + Number(d.LocalAmount || 0), 0) || 0) -
-                    (item.VoucherDetail?.filter(d => d.DrCr === 'C')?.reduce((sum, d) => sum + Number(d.LocalAmount || 0), 0) || 0)
-                ) <= 0.01
-            }));
-
             return {
-                items: enrichedItems,
+                items,
                 totalCount,
                 page: Number(page),
                 pageSize: Number(pageSize)
@@ -920,4 +889,34 @@ if (payload.VoucherDetail && Array.isArray(payload.VoucherDetail)) {
             );
         }
     }
+
+    async fetchjournalVouchers(): Promise<any[]> {
+                    try {
+                        const journalVoucher = await this._db.voucherHeader.findMany({
+                            where: {
+                                voucherTypeMaster: {
+                                    DocumentTypeName: 'Journal Voucher'
+                                },
+                                Status: 'A'
+                            },
+                            include: {
+                                VoucherDetail: true,
+                                // VoucherTDS: true,
+                                VoucherOthers: true,
+                                subledgerMaster: true,
+                                currencyMaster: true,
+                                masterJob: true,
+                                houseJob: true
+                            },
+                            orderBy: {
+                                VoucherDate: 'desc'
+                            }
+                        });
+            
+                        return journalVoucher;
+                    } catch (error) {
+                        this.logger.error(`Error fetching journal vouchers: ${error.message}`);
+                        throw new InternalServerErrorException('Failed to fetch journal vouchers');
+                    }
+                }
 }

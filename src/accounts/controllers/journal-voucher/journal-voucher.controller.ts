@@ -236,4 +236,30 @@ export class JournalVoucherController {
     }
     return output;
   }
+
+  @ApiOperation({ summary: 'Get All journal Vouchers' })
+            @ApiCreatedResponse({
+              description: 'All journal Vouchers fetched successfully',
+              type: ResponseData
+            })
+            @HttpCode(HttpStatus.OK)
+            @Get()
+            async getAlljournalVouchers() {
+              const output = new ResponseData();
+              try {
+                const finalOutput = await this.journalVoucherService.fetchjournalVouchers();
+                this.logger.debug(`getAlljournalVouchers: returned ${Array.isArray(finalOutput) ? finalOutput.length : 0} items`);
+                output.data = finalOutput;
+                output.message = "All journal Vouchers fetched successfully";
+              } catch (error) {
+                this.logger.warn('getAlljournalVouchers error', (error as any)?.stack || (error as any)?.message || error);
+                output.status = false;
+                if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                  output.message = (error as any).message || 'Bad request';
+                } else {
+                  output.message = 'Internal Server Error';
+                }
+              }
+              return output;
+            }
 }
