@@ -1,9 +1,9 @@
 import { BadRequestException, Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
-import { PrismaClient } from '@prisma/client';
+import { Prisma, PrismaClient } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
 import { VoucherMatchingPayload } from 'src/accounts/dto/receipt.dto';
 import { PostVoucherResponseDto, TaxSummaryDto, VoucherDetailDto } from 'src/accounts/dto/voucher-posting.dto';
-import { checkIfExJvApplicable, checkIfMatchingApplicable, getPartyDrCr, getTaxLedger, TaxLedgerType, TaxVoucherType } from 'src/common/config/voucher-type.config';
+import { checkIfExJvApplicable, checkIfMatchingApplicable, getPartyDrCr, getTaxInputOutput, getTaxLedger, TaxLedgerType, TaxVoucherType } from 'src/common/config/voucher-type.config';
 import { DatabaseService } from 'src/database/database.service';
 import * as moment from 'moment-timezone';
 import { CreateVoucherPayload } from 'src/accounts/dto/voucher.dto';
@@ -2062,7 +2062,7 @@ export class VoucherService {
             TaxType: 'Input' | 'Output',
         },
         companyMasterSid: number,
-        tx?: any
+        tx?: PrismaClient | Prisma.TransactionClient
     ): Promise<TaxSummaryDto[]> {
         try {
             this.logger.log('Summarizing taxes by HS/SAC code');
@@ -2106,17 +2106,40 @@ export class VoucherService {
                 }
 
                 // Step 3: Fetch tax masters separately with proper filtering
-                const taxMasters = await db.taxMaster.findMany({
-                    where: {
-                        TaxGroupSid: hsSacMaster.taxGroup.TaxGroupSid,
-                        Status: 'A',
-                        TaxType: taxDetails.TaxType,
-                        CountryMasterSid: taxDetails.CountryMasterSid,
-                        TaxCategory: taxDetails.TaxCategory,
-                        EffectiveFrom: {
-                            lte: taxDetails.EffectiveFrom
-                        }
+                const voucherThatDoesntHaveInpOut = ['Receipt', 'Journal Voucher', 'Payment Voucher'];
+                const isExemption = voucherThatDoesntHaveInpOut.includes(voucherType);
+                const whereClause : Prisma.TaxMasterWhereInput = {
+                    TaxGroupSid: hsSacMaster.taxGroup.TaxGroupSid,
+                    Status: 'A',
+                    CountryMasterSid: taxDetails.CountryMasterSid,
+                    TaxCategory: taxDetails.TaxCategory,
+                    EffectiveFrom: {
+                        lte: taxDetails.EffectiveFrom
                     }
+                };
+                if (!isExemption) {
+                    whereClause.TaxType = getTaxInputOutput(voucherType)!;
+                } else {
+                    const ledger = await db.cOAMaster.findUnique({
+                        where: {
+                            CompanyMasterSid: companyMasterSid,
+                            COAMasterSid: detail.COAMasterSid!,
+                            Status: 'A'
+                        },
+                        select: {
+                            LedgerType: true
+                        }
+                    })
+
+                    if (!ledger) {
+                        throw new BadRequestException(
+                            `Ledger not found for Charge: ${detail.ChargeDescription}.`
+                        )
+                    }
+                    whereClause.TaxType = ledger.LedgerType === 'Cost' ? "Output" : "Input";
+                }
+                const taxMasters = await db.taxMaster.findMany({
+                    where: whereClause
                 });
 
                 // Step 4: Validate if taxMasters exist
@@ -2195,15 +2218,36 @@ export class VoucherService {
 
                 for (const tax of taxesToApply) {
                     // Key combines HS/SAC code, tax code, and tax percentage to group same taxes together
-                    const key = `${hsSacMasterSid}_${tax.taxCode}_${tax.taxPercentage}`;
+                    let inputOutput : 'Input' | 'Output';
+                    if(!isExemption){
+                        inputOutput = getTaxInputOutput(voucherType)!;
+                    } else {
+                        const ledger = await db.cOAMaster.findUnique({
+                            where: {
+                                CompanyMasterSid: companyMasterSid,
+                                COAMasterSid: detail.COAMasterSid!,
+                                Status: 'A'
+                            },
+                            select: {
+                                LedgerType: true
+                            }
+                        })
+                        if (!ledger) {
+                            throw new BadRequestException(
+                                `Ledger not found for Charge: ${detail.ChargeDescription}.`
+                            )
+                        }
+                        inputOutput = ledger.LedgerType === 'Cost' ? "Output" : "Input";
+                    }
+                    const key = `${hsSacMasterSid}_${tax.taxCode}_${tax.taxPercentage}_${inputOutput}`;
 
                     if (!taxGroups.has(key)) {
-                        // Fetch Subledger information using TaxMasterSid
                         const subledgerMapping = await db.subledgerMaster.findFirst({
                             where: {
-                                SubledgerMappingSid : tax.taxMasterSid,
-                                CompanyMasterSid :companyMasterSid,
-                                SubledgerType : "Tax",
+                                SubledgerMappingSid: tax.taxMasterSid,
+                                CompanyMasterSid: companyMasterSid,
+                                TaxType: inputOutput! || taxDetails.TaxType,
+                                SubledgerType: "Tax",
                                 Status: 'A'
                             },
                             select: {
@@ -2219,11 +2263,11 @@ export class VoucherService {
                             )
                         }
 
-                        const isCreditCOA = getTaxLedger(voucherType) === 'Creditor';
-                        let finalLedger = 
-                           isCreditCOA ? subledgerMapping.CrCOAMasterSid : subledgerMapping.DrCOAMasterSid;
+                        const isCreditCOA = isExemption ? inputOutput === 'Input' : getTaxLedger(voucherType) === 'Creditor';
+                        let finalLedger =
+                            isCreditCOA ? subledgerMapping.CrCOAMasterSid : subledgerMapping.DrCOAMasterSid;
 
-                        if(!finalLedger){
+                        if (!finalLedger) {
                             throw new BadRequestException(
                                 `Please configure the ${isCreditCOA ? 'Creditor' : 'Debitor'} ledger for : ${tax.taxCode} : ${tax.taxPercentage} in subledger master.`
                             )
@@ -2236,7 +2280,7 @@ export class VoucherService {
                             taxPercentage: tax.taxPercentage,
                             taxableAmount: 0,
                             taxAmount: 0,
-                            coaMasterSid:finalLedger,
+                            coaMasterSid: finalLedger,
                             ledgerMasterSid: subledgerMapping.SubledgerMasterSid,
                             taxMasterSid: tax.taxMasterSid,
                             DrCr: detail.DrCr!

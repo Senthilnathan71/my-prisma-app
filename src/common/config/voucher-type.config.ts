@@ -34,15 +34,21 @@ export const TAX_VTYPE_DRCR_MAP = {
   "Debit Note": { DrCr: "D", Tax_Type : "Output" ,Ledger : null},
   "Credit Note": { DrCr: "D", Tax_Type : "Input" , Ledger : 'Creditor' },
   "Vendor Credit Note": { DrCr: "C", Tax_Type : "Output" , Ledger : 'Debtor' },
+  "Journal Voucher": { DrCr: null, Tax_Type : null , Ledger : null }, // Handled by Ledger Type of that particular detail's ledger
 } as const;
 
 export type TaxVoucherType = keyof typeof TAX_VTYPE_DRCR_MAP;
 export type TaxDrCrType = typeof TAX_VTYPE_DRCR_MAP[TaxVoucherType]["DrCr"];
+export type TaxInputOutputType = typeof TAX_VTYPE_DRCR_MAP[TaxVoucherType]["Tax_Type"];
 export type TaxLedgerType =
   typeof TAX_VTYPE_DRCR_MAP[TaxVoucherType]["Ledger"];
 
 export const getTaxDrCr = (voucherType: TaxVoucherType): TaxDrCrType | undefined => {
   return TAX_VTYPE_DRCR_MAP[voucherType]?.DrCr;
+};
+
+export const getTaxInputOutput = (voucherType: TaxVoucherType): TaxInputOutputType | undefined => {
+  return TAX_VTYPE_DRCR_MAP[voucherType]?.Tax_Type;
 };
 
 export const getTaxLedger = (voucherType: TaxVoucherType): TaxLedgerType | undefined => {
