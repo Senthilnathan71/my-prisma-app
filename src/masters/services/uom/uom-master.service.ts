@@ -113,6 +113,24 @@ export class UomService {
         }
     }
 
+    async getUomByCode(uomCode: string) {
+        try {
+            const uom = await this._db.uOMMaster.findFirst({
+                where: {
+                    UOMCode: uomCode
+                }
+            });
+
+            if (!uom) {
+                throw new NotFoundException(`UOM with code ${uomCode} not found`);
+            }
+
+            return uom;
+        } catch (error) {
+            throw error;
+        }
+    }
+
 
     async getAllUom() {
         try {
