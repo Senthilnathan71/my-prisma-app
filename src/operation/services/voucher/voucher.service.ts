@@ -2239,7 +2239,7 @@ export class VoucherService {
                         }
                         inputOutput = ledger.LedgerType === 'Cost' ? "Output" : "Input";
                     }
-                    const key = `${hsSacMasterSid}_${tax.taxCode}_${tax.taxPercentage}_${inputOutput}`;
+                    const key = `${hsSacMasterSid}_${detail.DrCr}_${tax.taxCode}_${tax.taxPercentage}_${inputOutput}`;
 
                     if (!taxGroups.has(key)) {
                         const subledgerMapping = await db.subledgerMaster.findFirst({
