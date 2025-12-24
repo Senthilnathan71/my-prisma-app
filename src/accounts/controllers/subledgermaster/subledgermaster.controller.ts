@@ -453,4 +453,29 @@ async bulkUpdateSubledgerMaster(@Body() payload: { updates: any[] }) {
         return resp;
     }
 
+    @ApiOperation({ summary : 'Get Subledger'})
+    @ApiCreatedResponse({
+        description : 'Get Subledger',
+        type : ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Post('find-subledger')
+    async getSubledgerMasterById(@Body() payload:any) {
+        let resp = new ResponseData();
+        try {
+            let res = await this.SubledgermasterService.getSubledgerMasterById(payload);
+            this.logger.log(`Subledger Fetched : ${JSON.stringify(res)}`);
+            resp.data = res;
+            resp.message = "Subledger Fetched";
+        } catch (error) {
+            this.logger.warn(`getSubledger Error : ${JSON.stringify(error), error}`);
+            resp.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                resp.message = error.message;
+            } else {
+                resp.message = "Internal Server Error";
+            }
+        }
+        return resp;
+    }
 }

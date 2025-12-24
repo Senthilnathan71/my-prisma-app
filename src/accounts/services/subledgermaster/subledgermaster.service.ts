@@ -18,6 +18,12 @@ interface SubledgerFetchPayload {
     LedgerType : 'Customer' | 'Charge' | 'Tax',
     DrCr : 'Dr' | 'Cr'
 }
+interface SubledgerPayload {
+    SubledgerMappingSid: number, 
+    CompanyMasterSid: number,
+    COAMasterSid: number,
+    LedgerType : 'Customer' | 'Charge' | 'Tax',
+}
 @Injectable()
 export class SubledgermasterService {
     constructor(private _db: DatabaseService, private logger: Logger) { }
@@ -748,5 +754,47 @@ export class SubledgermasterService {
     throw error;
   }
 }
+
+async getSubledgerMasterById(
+    payload: SubledgerPayload,
+    prisma?: PrismaClient | Prisma.TransactionClient
+) {
+    try {
+        const {
+            CompanyMasterSid,
+            COAMasterSid
+        } = payload;
+
+        const tx = prisma || this._db;
+
+        const whereClause: Prisma.SubledgerMasterWhereInput = {
+            Status: 'A',
+            CompanyMasterSid: CompanyMasterSid,
+            OR: [
+                { AccrualCOAMasterSid: COAMasterSid },
+                { CrCOAMasterSid: COAMasterSid },
+                { DrCOAMasterSid: COAMasterSid }
+            ]
+        };
+
+        const ledger = await tx.subledgerMaster.findFirst({
+            where: whereClause,
+            select: {
+                SubledgerMasterSid: true,
+                SubledgerName: true,
+                AccrualCOAMasterSid: true,
+                DrCOAMasterSid: true,
+                CrCOAMasterSid: true,
+                SubledgerType: true,
+            }
+        });
+
+        return ledger;
+
+    } catch (error) {
+        throw error;
+    }
+}
+
 
 }
