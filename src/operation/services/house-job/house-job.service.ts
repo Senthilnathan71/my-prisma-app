@@ -504,7 +504,15 @@ export class HouseJobService {
                         where : {status : 'A'}
                     },
                     Products: {
-                        where : {status : 'A'}
+                        where: { status: 'A' },
+                        include: {
+                            masterJobContainer: {
+                                select: {
+                                    MasterJobContainerSid: true,
+                                    ContainerType: true
+                                }
+                            }
+                        }
                     },
                     houseJobBOE:{
                         where:{

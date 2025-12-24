@@ -1,9 +1,10 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { DatabaseService } from 'src/database/database.service';
 import { ApprovalStatus, Prisma } from '@prisma/client';
-import { AgeingReportQueryDto, LedgerReportQueryDto, OutstandingReportQueryDto, ProfitLossReportQueryDto, StatementLedgerReportQueryDto, TopNCustomerReportQueryDto, TrialBalanceReportQueryDto } from 'src/accounts/dto/accounts-reports.dto';
+import { AgeingReportQueryDto, BalanceSheetReportQueryDto, LedgerReportQueryDto, OutstandingReportQueryDto, ProfitLossReportQueryDto, StatementLedgerReportQueryDto, TopNCustomerReportQueryDto, TrialBalanceReportQueryDto, VATReportQueryDto } from 'src/accounts/dto/accounts-reports.dto';
 import { roundAmount, toNumber } from 'src/common/helper';
 import { CustomerOutstandingResponseDto, CustomerOutstandingTransactionDto } from 'src/accounts/dto/outstanding.dto';
+import { transcode } from 'buffer';
 // -------------------------
 // Helper types (local)
 // -------------------------
@@ -1180,6 +1181,7 @@ export class AccountsReportsService {
             },
           },
         },
+        orderBy: { VoucherDate: 'asc' },
       });
 
       const profitLossMap = new Map<string, any>();
@@ -1436,16 +1438,243 @@ const ledger = coaMasterSid
     }
   }
 
-  private async generateBalanceSheet(params: any) {
-    // TODO: Implement balance sheet logic
-    this.logger.log('generateBalanceSheet called with params:', params);
-    throw new BadRequestException('Balance Sheet generator not yet implemented');
+  private async generateBalanceSheet(params: BalanceSheetReportQueryDto) {
+    const {
+      companyId: CompanyMasterSid,
+      FromDate,
+      ToDate,
+      branchId: Branch
+    } = params;
+
+    try {
+      this.logger.log(
+        `Getting Balance Sheet : CompanySid=${CompanyMasterSid}`,
+      );
+
+      const branches = Branch && Branch.length > 0
+        ? await this._db.branchMaster.findMany({
+          where: { BranchMasterSid: { in: Branch } },
+          select: {
+            BranchMasterSid: true,
+            branchName: true,
+          },
+        })
+        : await this._db.branchMaster.findMany({
+          where: { CompanyMasterSid },
+          select: {
+            BranchMasterSid: true,
+            branchName: true,
+          },
+        });
+
+      const resolvedBranchIds = branches.map(b => b.BranchMasterSid);
+      const resolvedBranchNames = branches.map(b => b.branchName);
+
+      const voucherData = await this._db.voucherTransaction.findMany({
+        where: {
+          CompanyMasterSid,
+          BranchMasterSid: { in: resolvedBranchIds },
+          VoucherDate: {
+            gte: FromDate,
+            lte: ToDate,
+          },
+          Status: 'A',
+        },
+        include: {
+          coaMaster: {
+            select: {
+              Category: true,
+              GroupName: true,
+              SubGroupName: true,
+              LedgerName: true,
+            },
+          },
+        },
+      });
+
+      let totalIncome = 0;
+      let totalExpense = 0;
+
+      const groupedMap = new Map<string, any>();
+      const data: any[] = [];
+
+      voucherData.forEach(v => {
+        const amount = v.LocalAmount.toNumber();
+
+        const signedAmount =
+          v.DrCr === 'C' ? amount :
+            v.DrCr === 'D' ? amount * -1 :
+              0;
+
+        const category = v.coaMaster?.Category;
+        if (!category) return;
+
+
+        if (category === 'Income') {
+          totalIncome += signedAmount;
+          return;
+        }
+
+        if (category === 'Expense') {
+          totalExpense += signedAmount;
+          return;
+        }
+
+        if (category === 'Asset' || category === 'Liability') {
+          const key = [
+            category,
+            v.coaMaster?.GroupName,
+            v.coaMaster?.SubGroupName,
+            v.coaMaster?.LedgerName
+          ].join('|');
+
+          if (!groupedMap.has(key)) {
+            groupedMap.set(key, {
+              category,
+              groupName: v.coaMaster?.GroupName,
+              subgroupName: v.coaMaster?.SubGroupName,
+              ledgerName: v.coaMaster?.LedgerName,
+              LocalAmt: amount
+            });
+          } else {
+            groupedMap.get(key).LocalAmt += amount;
+          }
+        }
+      });
+
+      data.push(...groupedMap.values());
+
+      return {
+        incomeTotal: Math.abs(totalIncome),
+        expenseTotal: Math.abs(totalExpense),
+        data,
+        CompanyMasterSid,
+        BranchMasterSid: Branch,
+        params,
+        branchNames: resolvedBranchNames.join(', '),
+      };
+
+    } catch (error) {
+      this.logger.error(
+        `Error generating Balance sheet report: ${error.message}`,
+        error.stack
+      );
+      throw error;
+    }
   }
 
-  private async generateVATReceivableReport(params: any) {
-    // TODO: Implement VAT receivable logic
-    this.logger.log('generateVATReceivableReport called with params:', params);
-    throw new BadRequestException('VAT Receivable Report generator not yet implemented');
+  private async generateVATReceivableReport(params: VATReportQueryDto) {
+    const {
+      FromDate,
+      ToDate,
+      companyId: CompanyMasterSid,
+      coamasterSid
+    } = params
+
+    try {
+      this.logger.log(
+        `Getting VAT Report: CompanySid=${CompanyMasterSid}`,
+      );
+
+      // oragnizaton master
+
+      const oragnizatonMaster = await this._db.customerMaster.findMany({
+        select: {
+          CustomerMasterSid: true,
+          PanType: true,
+        }
+      })
+
+      /* STEP 1: Customer subledger per voucher */
+      const customerSubledger = await this._db.voucherTransaction.findMany({
+        where: {
+          CompanyMasterSid,
+          subledgerMaster: {
+            SubledgerType: 'Customer',
+          },
+        },
+        select: {
+          VoucherHeaderSid: true,
+          subledgerMaster: {
+            select: {
+              SubledgerName: true,
+            },
+          },
+        },
+      });
+
+      const subledgerMap = new Map<number, string>();
+      customerSubledger.forEach(v => {
+        if (v.subledgerMaster?.SubledgerName) {
+          subledgerMap.set(v.VoucherHeaderSid, v.subledgerMaster.SubledgerName);
+        }
+      });
+
+      /* STEP 2: VAT transactions */
+      const voucherData = await this._db.voucherTransaction.findMany({
+        where: {
+          CompanyMasterSid,
+          VoucherDate: {
+            gte: FromDate,
+            lte: ToDate,
+          },
+          Status: 'A',
+          COAMasterSid: coamasterSid,
+        },
+        include: {
+          coaMaster: {
+            select: {
+              COAMasterSid: true,
+              GroupName: true,
+              LedgerType: true,
+            },
+          },
+        },
+        orderBy: { VoucherDate: 'asc' },
+      });
+
+      const inputTax: any[] = [];
+      const outputTax: any[] = [];
+
+      voucherData.forEach(v => {
+
+        const ledgerType = v.coaMaster?.LedgerType;
+
+        const row = {
+          subledgerName: subledgerMap.get(v.VoucherHeaderSid) || '',
+          voucherNo: v.VoucherNumber,
+          voucherMasterSid: v.VoucherTypeMasterSid,
+          voucherDate: v.VoucherDate,
+          coaMasterSid: v.COAMasterSid,
+          taxableAmt: v.TaxableAmount,
+          taxAmt: v.LocalAmount,
+          chargeDescription: v.ChargeDescription,
+          ledgerType,
+          groupname: v.coaMaster?.GroupName,
+        };
+
+        if (ledgerType === 'Input Tax') {
+          inputTax.push(row);
+        }
+
+        if (ledgerType === 'Output Tax') {
+          outputTax.push(row);
+        }
+      });
+
+
+      return {
+        data: {
+          CompanyMasterSid,
+          params,
+          inputTax,
+          outputTax,
+        },
+      };
+
+    } catch (error) {
+      throw error;
+    }
   }
 
   private async generateVATPayableReport(params: any) {

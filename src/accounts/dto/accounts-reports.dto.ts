@@ -258,7 +258,12 @@ export class BalanceSheetReportQueryDto {
   @ApiProperty()
   @IsNotEmpty()
   @IsDateString()
-  asOfDate: string;
+  FromDate: string;
+
+  @ApiProperty()
+  @IsNotEmpty()
+  @IsDateString()
+  ToDate: string;
 
   @ApiProperty()
   @IsNotEmpty()
@@ -278,7 +283,7 @@ export class BalanceSheetReportQueryDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsInt()
-  branchId?: number;
+  branchId?: number[];
 }
 
 // VAT Receivable/Payable DTOs
@@ -286,12 +291,12 @@ export class VATReportQueryDto {
   @ApiProperty()
   @IsNotEmpty()
   @IsDateString()
-  fromDate: string;
+  FromDate: string;
 
   @ApiProperty()
   @IsNotEmpty()
   @IsDateString()
-  toDate: string;
+  ToDate: string;
 
   @ApiProperty({ enum: TaxPeriodEnum })
   @IsNotEmpty()
@@ -307,6 +312,12 @@ export class VATReportQueryDto {
   @IsOptional()
   @IsInt()
   branchId?: number;
+
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsInt()
+  coamasterSid?: number;
 }
 
 // Profit Summary Report DTOs
