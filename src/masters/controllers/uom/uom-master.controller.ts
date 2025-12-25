@@ -66,6 +66,33 @@ async getChargeUOM(
         }
         return resp;
     }
+
+    @ApiOperation({ summary: 'Get Uom by Code' })
+    @ApiCreatedResponse({
+        description: 'Get Uom by Code',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Get('uom-by-code/:uomCode')
+    async getUomByCode(@Param('uomCode') uomCode: string): Promise<ResponseData> {
+        const resp = new ResponseData();
+        this.logger.log(`Getting UOM by code : ${JSON.stringify(uomCode)}`)
+        try {
+            const uom = await this.UomService.getUomByCode(uomCode);
+            this.logger.debug(`UOM by code : ${JSON.stringify(uom)}`)
+            resp.data = uom;
+            resp.status = true;
+        } catch (error) {
+            this.logger.warn(`UOM by code Error : ${JSON.stringify(error)}`, error);
+            resp.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                resp.message = error.message;
+            } else {
+                resp.message = "Internal Server Error";
+            }
+        }
+        return resp;
+    }
    
 
 
