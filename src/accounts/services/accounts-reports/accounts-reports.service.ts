@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { DatabaseService } from 'src/database/database.service';
 import { ApprovalStatus, Prisma } from '@prisma/client';
-import { AgeingReportQueryDto, BalanceSheetReportQueryDto, LedgerReportQueryDto, OutstandingReportQueryDto, ProfitLossReportQueryDto, StatementLedgerReportQueryDto, TopNCustomerReportQueryDto, TrialBalanceReportQueryDto, VATReportQueryDto } from 'src/accounts/dto/accounts-reports.dto';
+import { AgeingReportQueryDto, BalanceSheetReportQueryDto, LedgerReportQueryDto, OutstandingReportQueryDto, ProfitLossReportQueryDto, StatementLedgerReportQueryDto, TopNCustomerReportQueryDto, TrialBalanceReportQueryDto, UnpostedVoucherListReportQueryDto, VATReportQueryDto } from 'src/accounts/dto/accounts-reports.dto';
 import { roundAmount, toNumber } from 'src/common/helper';
 import { CustomerOutstandingResponseDto, CustomerOutstandingTransactionDto } from 'src/accounts/dto/outstanding.dto';
 import { transcode } from 'buffer';
@@ -140,6 +140,8 @@ export class AccountsReportsService {
           return await this.generateTopNCustomerReport(parameters);
         case 'ledger-report':
           return await this.generateLedgerReport(parameters);
+        case 'unposted-voucher-list':
+          return await this.generateUnpostedVoucherList(parameters);
         default:
           throw new BadRequestException(`Report ${reportName} not implemented`);
       }
@@ -1147,7 +1149,6 @@ export class AccountsReportsService {
 
       const resolvedBranchIds = branches.map(b => b.BranchMasterSid);
       const resolvedBranchNames = branches.map(b => b.branchName);
-  
       const voucherTransactions = await this._db.voucherTransaction.findMany({
         where: {
           CompanyMasterSid,
@@ -1234,8 +1235,7 @@ export class AccountsReportsService {
     }
   }
 
-
-    private async generateLedgerReport(params: LedgerReportQueryDto) {
+  private async generateLedgerReport(params: LedgerReportQueryDto) {
      const {
       FromDate,
       ToDate,
@@ -1489,6 +1489,7 @@ const ledger = coaMasterSid
               LedgerName: true,
             },
           },
+          yearMaster: true
         },
       });
 
@@ -1499,6 +1500,8 @@ const ledger = coaMasterSid
       const data: any[] = [];
 
       voucherData.forEach(v => {
+        if (!v.coaMaster || !v.yearMaster) return;
+
         const amount = v.LocalAmount.toNumber();
 
         const signedAmount =
@@ -1506,10 +1509,8 @@ const ledger = coaMasterSid
             v.DrCr === 'D' ? amount * -1 :
               0;
 
-        const category = v.coaMaster?.Category;
-        if (!category) return;
-
-
+        const category = v.coaMaster.Category;
+      
         if (category === 'Income') {
           totalIncome += signedAmount;
           return;
@@ -1523,24 +1524,26 @@ const ledger = coaMasterSid
         if (category === 'Asset' || category === 'Liability') {
           const key = [
             category,
-            v.coaMaster?.GroupName,
-            v.coaMaster?.SubGroupName,
-            v.coaMaster?.LedgerName
+            v.coaMaster.GroupName,
+            v.coaMaster.SubGroupName,
+            v.coaMaster.LedgerName
           ].join('|');
 
           if (!groupedMap.has(key)) {
             groupedMap.set(key, {
               category,
-              groupName: v.coaMaster?.GroupName,
-              subgroupName: v.coaMaster?.SubGroupName,
-              ledgerName: v.coaMaster?.LedgerName,
-              LocalAmt: amount
+              groupName: v.coaMaster.GroupName,
+              subgroupName: v.coaMaster.SubGroupName,
+              ledgerName: v.coaMaster.LedgerName,
+              LocalAmt: signedAmount,
             });
           } else {
-            groupedMap.get(key).LocalAmt += amount;
+            groupedMap.get(key).LocalAmt += signedAmount;
           }
         }
       });
+
+
 
       data.push(...groupedMap.values());
 
@@ -1581,6 +1584,7 @@ const ledger = coaMasterSid
       const oragnizatonMaster = await this._db.customerMaster.findMany({
         select: {
           CustomerMasterSid: true,
+          CustomerName: true,
           PanType: true,
         }
       })
@@ -1610,6 +1614,15 @@ const ledger = coaMasterSid
         }
       });
 
+
+      const panTypeMap = new Map<string, string>();
+
+      oragnizatonMaster.forEach(c => {
+        if (c.CustomerName) {
+          panTypeMap.set(c.CustomerName.trim(), c.PanType || '');
+        }
+      });
+
       /* STEP 2: VAT transactions */
       const voucherData = await this._db.voucherTransaction.findMany({
         where: {
@@ -1622,6 +1635,16 @@ const ledger = coaMasterSid
           COAMasterSid: coamasterSid,
         },
         include: {
+          VoucherHeader: {
+            select: {
+              VoucherNumber: true,
+              VoucherDate: true,
+              VoucherType: true,
+              VoucherTypeMasterSid: true,
+              DocumentDate: true,
+              DocumentNumber: true
+            }
+          },
           coaMaster: {
             select: {
               COAMasterSid: true,
@@ -1636,14 +1659,43 @@ const ledger = coaMasterSid
       const inputTax: any[] = [];
       const outputTax: any[] = [];
 
+
       voucherData.forEach(v => {
+
 
         const ledgerType = v.coaMaster?.LedgerType;
 
+        const voucherType1 =
+          v.VoucherTypeMasterSid === 1
+            ? 'Sales' : ''
+
+
+        const voucherType2 = v.VoucherTypeMasterSid === 2
+          ? 'Purchase'
+          : 'Journal'
+          ;
+
+
+        const isVendorInvoice =
+          v.VoucherHeader?.VoucherTypeMasterSid === 2;
+
+        const documentNo = isVendorInvoice
+          ? v.VoucherHeader?.DocumentNumber ?? ''
+          : '';
+
+        const documentDate = isVendorInvoice
+          ? v.VoucherHeader?.DocumentDate ?? null
+          : null;
+
+
+        const subledgerName = subledgerMap.get(v.VoucherHeaderSid) || '';
+
+        const panType = panTypeMap.get(subledgerName.trim()) || '';
+
         const row = {
-          subledgerName: subledgerMap.get(v.VoucherHeaderSid) || '',
+          subledgerName,
           voucherNo: v.VoucherNumber,
-          voucherMasterSid: v.VoucherTypeMasterSid,
+          voucherMasterSid: v.VoucherTransactionSid,
           voucherDate: v.VoucherDate,
           coaMasterSid: v.COAMasterSid,
           taxableAmt: v.TaxableAmount,
@@ -1651,6 +1703,11 @@ const ledger = coaMasterSid
           chargeDescription: v.ChargeDescription,
           ledgerType,
           groupname: v.coaMaster?.GroupName,
+          voucherType1,
+          voucherType2,
+          panType,
+          documentNo,
+          documentDate
         };
 
         if (ledgerType === 'Input Tax') {
@@ -1664,9 +1721,9 @@ const ledger = coaMasterSid
 
 
       return {
+        params,
+        CompanyMasterSid,
         data: {
-          CompanyMasterSid,
-          params,
           inputTax,
           outputTax,
         },
@@ -1676,6 +1733,82 @@ const ledger = coaMasterSid
       throw error;
     }
   }
+
+private async generateUnpostedVoucherList( params: UnpostedVoucherListReportQueryDto) {
+  const {
+    FromDate,
+    ToDate,
+    companyId: CompanyMasterSid,
+    branchId: Branch
+  } = params;
+
+  try {
+    this.logger.log(
+      `Getting Unposted Voucher List : companySid=${CompanyMasterSid}`
+    );
+
+   
+    const branches = Branch && Branch.length > 0
+      ? await this._db.branchMaster.findMany({
+          where: { BranchMasterSid: { in: Branch } },
+          select: {
+            BranchMasterSid: true,
+            branchName: true,
+          },
+        })
+      : await this._db.branchMaster.findMany({
+          where: { CompanyMasterSid },
+          select: {
+            BranchMasterSid: true,
+            branchName: true,
+          },
+        });
+
+    const resolvedBranchIds = branches.map(b => b.BranchMasterSid);
+    const resolvedBranchNames = branches.map(b => b.branchName);
+
+    
+    const voucherData = await this._db.voucherHeader.findMany({
+      where: {
+        CompanyMasterSid,
+        BranchMasterSid: { in: resolvedBranchIds },
+        VoucherDate: {
+            gte: FromDate,
+            lte: ToDate,
+          },
+        Status: 'A'
+      },
+      orderBy: [
+        { VoucherDate: 'asc' },
+        { VoucherType: 'asc' }
+      ]
+    });
+
+    
+    const data = voucherData.map(v => ({
+      voucherNo: v.VoucherNumber,
+      voucherDate: v.VoucherDate,
+      voucherType: v.VoucherType,
+      createdBy:v.CreatedBy,
+      createdDate:v.CreatedOn,
+      postStatus:v.PostStatus,
+      branch:v.BranchMasterSid,
+      party:v.PartyMasterSid,
+    }));
+
+    return {
+      data,
+      params,
+      CompanyMasterSid,
+      branchNames: resolvedBranchNames.join(', ')
+    };
+
+  } catch (error) {
+    this.logger.error(error);
+    throw error;
+  }
+}
+
 
   private async generateVATPayableReport(params: any) {
     // TODO: Implement VAT payable logic
@@ -1931,7 +2064,7 @@ const ledger = coaMasterSid
           );
 
           return {
-            MasterJobSid:job?.MasterJobSid,
+            MasterJobSid: job?.MasterJobSid,
             MBLNo: job?.MBLNo,
             HBLNo: job?.houseJob?.[0]?.HBLNo,
             chargeable: job?.ChargeableWeight ?? 0,
@@ -1949,25 +2082,80 @@ const ledger = coaMasterSid
           };
         })
       );
-      const limit =Number(topN) || data.length;
+
+      /* ================= CUSTOMER FINAL MERGE ================= */
+      const customerFinalMap = new Map<
+        number,
+        {
+          customerSid: number;
+          customerName: string;
+          totalCost: number;
+          totalRevenue: number;
+          GP: number;
+          chargeable: number;
+          netwt: number;
+          Weight: number;
+          Vol: number;
+          noOfShipment: number;
+        }
+      >();
+
+
+      data.forEach(job => {
+        job.customerSummary.forEach(cust => {
+          if (!customerFinalMap.has(cust.customerSid)) {
+            customerFinalMap.set(cust.customerSid, {
+              customerSid: cust.customerSid,
+              customerName: cust.customerName,
+              totalCost: 0,
+              totalRevenue: 0,
+              GP: 0,
+              chargeable: 0,
+              netwt: 0,
+              Weight: 0,
+              Vol: 0,
+              noOfShipment: 0
+            });
+          }
+
+          const existing = customerFinalMap.get(cust.customerSid)!;
+
+          existing.totalCost += cust.totalCost;
+          existing.totalRevenue += cust.totalRevenue;
+          existing.GP += cust.GP;
+
+          /* 🔥 CUSTOMER-WISE SUM FROM MASTER JOB */
+          existing.chargeable += Number(job.chargeable ?? 0);
+          existing.netwt += Number(job.netwt ?? 0);
+          existing.Weight += Number(job.Weight ?? 0);
+          existing.Vol += Number(job.Vol ?? 0);
+          existing.noOfShipment += Number(job.noOfShipment ?? 0);
+
+        });
+      });
+
+
+
+      /* FINAL CUSTOMER DATA */
+      const finalCustomerData = Array.from(customerFinalMap.values());
+
+      /* ================= APPLY TOP N ON CUSTOMER DATA ================= */
+      let customerData = finalCustomerData;
 
       if (GP) {
-        data.sort((a, b) => Number(b.GP) - Number(a.GP));
+        customerData = customerData.sort((a, b) => b.GP - a.GP);
       } else if (Volume) {
-        data.sort((a, b) => Number(b.Vol) - Number(a.Vol));
+        customerData = customerData.sort((a, b) => b.Vol - a.Vol);
       }
-      console.log('Before slice:', data.length);
 
-data = data.slice(0, limit);
+      const limit = Number(topN) || customerData.length;
+      customerData = customerData.slice(0, limit);
 
-console.log('After slice:', data.length);
-
-
-      
+      console.log('After slice:', data.length);
       return {
         companyMasterSid: CompanyMasterSid,
         branchMasterSid: Branch,
-        data,
+        data: customerData,
         branchNames: resolvedBranchNames.join(', '),
         departmentNames: resolvedDeptNames.join(', '),
         params,

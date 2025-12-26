@@ -475,6 +475,41 @@ export class EmailReportDto {
   @IsString()
   message?: string;
 }
+
+// Unposted Voucher List
+
+export class UnpostedVoucherListReportQueryDto {
+  @ApiProperty()
+  @IsNotEmpty()
+  @IsDateString()
+  FromDate: string;
+
+  @ApiProperty()
+  @IsNotEmpty()
+  @IsDateString()
+  ToDate: string;
+
+  @ApiProperty({ enum: TaxPeriodEnum })
+  @IsNotEmpty()
+  @IsEnum(TaxPeriodEnum)
+  taxPeriod: string;
+
+  @ApiProperty()
+  @IsNotEmpty()
+  @IsInt()
+  companyId: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsInt()
+  branchId?: number[];
+
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsInt()
+  coamasterSid?: number;
+}
 export interface ReportGenerateResponse {
   success: boolean;
   data: any[];
