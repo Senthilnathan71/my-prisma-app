@@ -143,13 +143,13 @@ model BookingProduct {
   updatedBy          String?        @db.VarChar(100)
   status             String?        @default("A") @db.Char(1)
   BookingHeaderSid   Int?
-  Height             Decimal?            @db.Decimal(8, 2)
+  Height             Decimal?       @db.Decimal(8, 2)
   ImcoClass          String?        @db.VarChar(500)
   IsHaz              String?        @db.Char(1)
-  Length             Decimal?            @db.Decimal(8, 2)
+  Length             Decimal?       @db.Decimal(8, 2)
   PkgGroup           String?        @db.VarChar(500)
   UnNo               String?        @db.VarChar(500)
-  Width              Decimal?            @db.Decimal(8, 2)
+  Width              Decimal?       @db.Decimal(8, 2)
   UomMasterSid       Int?
   ActualGrWeight     Decimal?       @db.Decimal(10, 3)
   ActualQty          String?        @db.VarChar(100)

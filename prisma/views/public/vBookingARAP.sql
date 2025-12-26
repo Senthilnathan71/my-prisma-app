@@ -1,14 +1,15 @@
 SELECT
-  vh."VoucherNumber",
+  bh."CompanyMasterSid",
+  bh."BookingHeaderSid",
   vh."VoucherHeaderSid",
-  vh."VoucherDate",
+  vh."VoucherNumber",
+  date_trunc('D' :: text, vh."VoucherDate") AS "VoucherDate",
+  bh."HBLNo",
   vt."DocumentTypeCode",
   vh."CurrencyCode",
   vh."Amount",
   vh."LocalAmount",
-  bh."BookingHeaderSid",
-  bh."CompanyMasterSid",
-  bh."HBLNo"
+  vh."PostStatus"
 FROM
   (
     (

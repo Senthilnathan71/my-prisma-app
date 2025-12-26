@@ -1,34 +1,37 @@
 SELECT
   hj."CompanyMasterSid",
   hj."HouseJobSid",
-  hj."HBLNo",
-  vh."VoucherNumber",
   vh."VoucherHeaderSid",
-  vh."VoucherDate",
+  vh."VoucherNumber",
+  date_trunc('D' :: text, vh."VoucherDate") AS "VoucherDate",
+  hj."HBLNo",
   vt."DocumentTypeCode",
   vh."CurrencyCode",
-  vh."Amount"
+  sum(vd."Amount") AS "Amount",
+  sum(vd."LocalAmount") AS "LocalAmount",
+  vh."PostStatus"
 FROM
   (
     (
       (
         "HouseJob" hj
-        JOIN "CostRevenueCharges" cr ON ((hj."HouseJobSid" = cr."TransactionSid"))
+        JOIN "VoucherDetail" vd ON ((vd."HouseJobSid" = hj."HouseJobSid"))
       )
-      JOIN "VoucherHeader" vh ON (
-        (
-          (
-            cr."CostVoucherHeaderSid" = vh."VoucherHeaderSid"
-          )
-          OR (
-            cr."RevenueVoucherHeaderSid" = vh."VoucherHeaderSid"
-          )
-        )
-      )
+      JOIN "VoucherHeader" vh ON ((vh."VoucherHeaderSid" = vd."VoucherHeaderSid"))
     )
     JOIN "VoucherTypeMaster" vt ON (
       (
         vt."VoucherTypeMasterSid" = vh."VoucherTypeMasterSid"
       )
     )
-  );
+  )
+GROUP BY
+  hj."CompanyMasterSid",
+  hj."HouseJobSid",
+  vh."VoucherHeaderSid",
+  vh."VoucherNumber",
+  vh."VoucherDate",
+  hj."HBLNo",
+  vt."DocumentTypeCode",
+  vh."CurrencyCode",
+  vh."PostStatus";

@@ -40,39 +40,43 @@ view vMasterJobIndexPage {
 }
 
 view vBookingARAP {
+  CompanyMasterSid Int?
+  BookingHeaderSid Int       @unique
+  VoucherHeaderSid Int?       
   VoucherNumber    String?   @db.VarChar(20)
-  VoucherHeaderSid Int       @unique
-  VoucherDate      DateTime?
+  VoucherDate      DateTime? @db.Timestamp(6)
+  HBLNo            String?   @db.VarChar(200)
   DocumentTypeCode String?   @db.VarChar(5)
   CurrencyCode     String?   @db.Char(3)
   Amount           Decimal?  @db.Decimal(15, 3)
   LocalAmount      Decimal?  @db.Decimal(15, 3)
-  BookingHeaderSid Int?
-  CompanyMasterSid Int?
-  HBLNo            String?   @db.VarChar(200)
+  PostStatus       String?   @db.Char(1)
 }
 
 view vHouseARAP {
   CompanyMasterSid Int?
   HouseJobSid      Int       @unique
-  HBLNo            String?   @db.VarChar(200)
-  VoucherNumber    String?   @db.VarChar(20)
   VoucherHeaderSid Int?
-  VoucherDate      DateTime?
+  VoucherNumber    String?   @db.VarChar(20)
+  VoucherDate      DateTime? @db.Timestamp(6)
+  HBLNo            String?   @db.VarChar(200)
   DocumentTypeCode String?   @db.VarChar(5)
   CurrencyCode     String?   @db.Char(3)
-  Amount           Decimal?  @db.Decimal(15, 3)
+  Amount           Decimal?  @db.Decimal
+  LocalAmount      Decimal?  @db.Decimal
+  PostStatus       String?   @db.Char(1)
 }
 
 view vMasterARAP {
   CompanyMasterSid Int?
   MasterJobSid     Int       @unique
-  MBLNo            String?   @db.VarChar(20)
-  VoucherNumber    String?   @db.VarChar(20)
   VoucherHeaderSid Int?
-  VoucherDate      DateTime?
+  VoucherNumber    String?   @db.VarChar(20)
+  VoucherDate      DateTime? @db.Timestamp(6)
+  MBLNo            String?   @db.VarChar(20)
   DocumentTypeCode String?   @db.VarChar(5)
   CurrencyCode     String?   @db.Char(3)
-  Amount           Decimal?  @db.Decimal(15, 3)
-  LocalAmount      Decimal?  @db.Decimal(15, 3)
+  Amount           Decimal?  @db.Decimal
+  LocalAmount      Decimal?  @db.Decimal
+  PostStatus       String?   @db.Char(1)
 }

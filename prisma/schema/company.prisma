@@ -458,8 +458,8 @@ model DepartmentMaster {
   LoginSid              Int?
   Division              String?                 @db.VarChar(20)
   Remarks               String?                 @db.VarChar(20)
-  bookingHeader         BookingHeader[]
   blClause              BLClauseMaster[]
+  bookingHeader         BookingHeader[]
   customerCreditRequest CustomerCreditRequest[]
   customerSupport       CustomerSupport[]
   companyMaster         CompanyMaster?          @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
@@ -1958,7 +1958,6 @@ model MilestoneMaster {
   MilestoneMasterSid  Int                 @id @default(autoincrement()) @map("MilestoneMasterSid")
   CompanyMasterSid    Int?
   BranchMasterSid     Int?
-  DepartmentMasterSid String[]
   MilestoneName       String              @db.VarChar(30)
   MilestoneCode       String              @db.VarChar(30)
   AutomailRequire     String?             @default("N") @db.Char(1)
@@ -1972,6 +1971,7 @@ model MilestoneMaster {
   updatedBy           String?             @db.VarChar(100)
   status              String?             @default("A") @db.Char(1)
   Remarks             String?             @db.VarChar(500)
+  DepartmentMasterSid String[]
   CustomerMilestone   CustomerMilestone[]
   branchMaster        BranchMaster?       @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
   companyMaster       CompanyMaster?      @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
@@ -2589,8 +2589,8 @@ model MasterJob {
   CommodityDescription       String?                      @db.VarChar(3000)
   MarksandNumber             String?                      @db.VarChar(500)
   JobStatus                  String                       @default("Job Generated") @db.VarChar(30)
-  SiCutoffDate               DateTime?                    @db.Date
   PortCutoffDate             DateTime?                    @db.Date
+  SiCutoffDate               DateTime?                    @db.Date
   ActivityResourceAllocation ActivityResourceAllocation[]
   ContainerActivity          ContainerActivity[]
   houseJob                   HouseJob[]
@@ -2762,8 +2762,8 @@ model HouseJob {
   HBLType                    String?                      @db.VarChar(12)
   JobType                    String?                      @db.VarChar(12)
   TranshipmentBookingSid     Int?
-  HouseStatus                String                       @default("Job Generated") @db.VarChar(30)
   HBLCount                   Decimal                      @default(0) @db.Decimal(2, 0)
+  HouseStatus                String                       @default("Job Generated") @db.VarChar(30)
   ActivityResourceAllocation ActivityResourceAllocation[]
   bookingHeader              BookingHeader?               @relation(fields: [BookingHeaderSid], references: [BookingHeaderSid])
   bookingRates               BookingRates?                @relation(fields: [BookingRateSid], references: [BookingRatesSid])
@@ -2952,10 +2952,10 @@ model HouseJobOthers {
   ExternalNote            String?   @db.VarChar(300)
   InternalNote            String?   @db.VarChar(300)
   BlClause                String[]
-  ValueForInsurance       Decimal?  @db.Decimal(12, 3)
+  HandlingInformation     String?   @db.VarChar(300)
   InsuranceAmount         Decimal?  @db.Decimal(12, 3)
   ValuationCharge         Decimal?  @db.Decimal(12, 3)
-  HandlingInformation     String?   @db.VarChar(300)
+  ValueForInsurance       Decimal?  @db.Decimal(12, 3)
   DeclaredValueOfCarriage String?   @db.VarChar(3)
   DeclaredValueOfCustoms  String?   @db.VarChar(3)
   HouseJob                HouseJob  @relation(fields: [HouseJobSid], references: [HouseJobSid])
