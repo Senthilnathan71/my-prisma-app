@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { DatabaseService } from 'src/database/database.service';
 import { Prisma, PrismaClient } from '@prisma/client';
-import { BLIssueListReportQueryDto, ContainerKPIReportQueryDto, DOIssueListReportQueryDto, houseJobLossReportQueryDto, profitabilityReportQueryDto, ProfitSummaryReportQueryDto, ShipmentDetailedSummaryReportQueryDto, ShipmentSummaryReportQueryDto, unbilledcostReportQueryDto } from 'src/operation/DTO/operation-reports.dto';
+import { BLIssueListReportQueryDto, ContainerKPIReportQueryDto, DOIssueListReportQueryDto, houseJobLossReportQueryDto, lostCustomerReportQueryDto, profitabilityReportQueryDto, ProfitSummaryReportQueryDto, ShipmentDetailedSummaryReportQueryDto, ShipmentSummaryReportQueryDto, unbilledcostReportQueryDto } from 'src/operation/DTO/operation-reports.dto';
 import { toNumber } from 'src/common/helper';
 
 @Injectable()
@@ -106,6 +106,8 @@ export class OperationReportsService {
           return await this.generateHouseJobLossReport(parameters);
           case 'profit-summary':
           return await this.generateProfitSummaryReport(parameters);
+        case 'lost-customer-report':
+          return await this.generateLostCustomerReport(parameters);
         default:
           throw new BadRequestException(`Report ${reportName} not implemented`);
       }
@@ -970,6 +972,245 @@ export class OperationReportsService {
   //     throw error;
   //   }
   // }
+
+  async generateLostCustomerReport(params: lostCustomerReportQueryDto) {
+    try {
+      const {
+        companyId,
+        customer,
+        Branch,
+        department,
+        BookingFromDate: FromDate,
+        BookingToDate: ToDate,
+        salesman
+      } = params;
+
+
+      /* -------------------- CUSTOMER IDS -------------------- */
+      let allCustomerIds: number[] = [];
+
+      if (Array.isArray(customer) && customer.length > 0) {
+        const validCustomers = await this._db.customerMaster.findMany({
+          where : {
+            CustomerMasterSid : {in : customer},
+            createdOn : { lt : FromDate}
+          }
+        })
+        if(!validCustomers){
+          throw new BadRequestException("No customer found")
+        }
+        allCustomerIds = validCustomers.map(cus => cus.CustomerMasterSid);
+      } else if (typeof customer === 'number') {
+        const validCustomer = await this._db.customerMaster.findUnique({
+          where : {
+            CustomerMasterSid : customer,
+            createdOn : {lt : FromDate} 
+          }
+        })
+        if(!validCustomer){
+          throw new BadRequestException("No customer found")
+        }
+        allCustomerIds.push(customer);
+      } else {
+        const customers = await this._db.customerMaster.findMany({
+          where: {
+            CompanyMasterSid: companyId,
+            createdOn : {lt : FromDate},
+            status: 'A'
+          },
+          select: {
+            CustomerMasterSid: true
+          }
+        });
+
+        customers.forEach(c => allCustomerIds.push(c.CustomerMasterSid));
+      }
+
+
+      /* -------------------- BRANCH IDS -------------------- */
+      const allBranchIds: number[] = [];
+
+      if (Array.isArray(Branch) && Branch.length > 0) {
+        allBranchIds.push(...Branch);
+      } else if (typeof Branch === 'number') {
+        allBranchIds.push(Branch);
+      } else {
+        const branches = await this._db.branchMaster.findMany({
+          where: {
+            CompanyMasterSid: companyId,
+            status: 'A'
+          },
+          select: {
+            BranchMasterSid: true
+          }
+        });
+
+        branches.forEach(b => allBranchIds.push(b.BranchMasterSid));
+      }
+
+
+      /* -------------------- DEPARTMENT IDS -------------------- */
+      const allDepartmentIds: number[] = [];
+
+      if (Array.isArray(department) && department.length > 0) {
+        allDepartmentIds.push(...department);
+      } else if (typeof department === 'number') {
+        allDepartmentIds.push(department);
+      } else {
+        const departments = await this._db.departmentMaster.findMany({
+          where: {
+            CompanyMasterSid: companyId,
+            Status: 'A'
+          },
+          select: {
+            DepartmentMasterSid: true
+          }
+        });
+
+        departments.forEach(d => allDepartmentIds.push(d.DepartmentMasterSid));
+      }
+
+
+
+      /* -------------------- GUARD EMPTY ARRAYS -------------------- */
+      if (
+        !allCustomerIds.length ||
+        !allBranchIds.length ||
+        !allDepartmentIds.length
+      ) {
+        return {
+          status: true,
+          data: [],
+          companyId,
+          Branch
+        };
+      }
+
+      /* -------------------- BASE WHERE CLAUSE -------------------- */
+      const baseWhereClause: Prisma.BookingHeaderWhereInput = {
+        CompanyMasterSid: companyId,
+        BranchMasterSid: { in: allBranchIds },
+        CustomerMasterSid: { in: allCustomerIds },
+        DepartmentMasterSid: { in: allDepartmentIds },
+        BookingDateTime: {
+          gte: FromDate,
+          lte: ToDate
+        },
+        status: 'A'
+      };
+
+      if (salesman) {
+        baseWhereClause.SalesmanSid = salesman;
+      }
+
+      /* -------------------- CUSTOMERS WHO BOOKED -------------------- */
+      const customerBookingCount = await this._db.bookingHeader.groupBy({
+        by: ['CustomerMasterSid'],
+        where: baseWhereClause,
+        _count: { _all: true }
+      });
+
+      /* -------------------- LOST CUSTOMERS -------------------- */
+      const customerHavingBookings = customerBookingCount
+      .map(lc => lc.CustomerMasterSid).filter(Boolean);
+      
+      // console.log("ALL CUSTOMER IDS",allCustomerIds);
+      // console.log("Customer vs Booking count",customerBookingCount);
+      // console.log("CUSTOMER HAVING BOOKING",customerHavingBookings);
+      const finalLostCustomers = allCustomerIds.filter(cus => !customerHavingBookings.includes(cus));
+      // console.log("LOST CUSTOMER IDS",finalLostCustomers);
+
+      /* -------------------- LAST BOOKING + RATES -------------------- */
+      const getLastBookingOfCustomer = async (CustomerMasterSid: number) => {
+
+        const lastBooking = await this._db.bookingHeader.findFirst({
+          where: {
+            CompanyMasterSid: companyId,
+            BranchMasterSid: { in: allBranchIds },
+            DepartmentMasterSid: { in: allDepartmentIds },
+            CustomerMasterSid,
+            status: 'A'
+          },
+          orderBy: {
+            BookingDateTime: 'desc'
+          },
+          select: {
+            BookingHeaderSid: true,
+            BookingNo: true,
+            BookingDateTime: true,
+            CustomerName: true,
+            CustomerAddress: true,
+            createdOn: true,
+            customerBranch: {
+              select: {
+                ContactNo: true
+              }
+            },
+            SalesmanSid: true
+          }
+        });
+
+        if (!lastBooking) return null;
+
+        /* -------- BOOKING RATES -------- */
+        const bookingRates = await this._db.bookingRates.aggregate({
+          where: {
+            BookingHeaderSid: lastBooking.BookingHeaderSid
+          },
+          _sum: {
+            RevenueLocalAmount: true,
+            CostLocalAmount: true
+          }
+        });
+
+        const revenue = bookingRates._sum.RevenueLocalAmount ?? 0;
+        const cost = bookingRates._sum.CostLocalAmount ?? 0;
+        let days = 0;
+
+        if (lastBooking.BookingDateTime && ToDate) {
+          days = Math.floor(
+            (new Date(ToDate).getTime() -
+              lastBooking.BookingDateTime.getTime()) /
+            (1000 * 60 * 60 * 24)
+          );
+        }
+
+
+        return {
+          BookingHeaderSid : lastBooking.BookingHeaderSid,
+          BookingNo: lastBooking.BookingNo,
+          BookingDateTime: lastBooking.BookingDateTime,
+          createdOn: lastBooking.createdOn,
+          CustomerMasterSid,
+          CustomerName: lastBooking.CustomerName,
+          CustomerAddress: lastBooking.CustomerAddress,
+          ContactNo: lastBooking.customerBranch?.ContactNo || '',
+          SalesmanName: await this.getSalespersonName(companyId,lastBooking.SalesmanSid) || "",
+          RevenueLocalAmount: revenue,
+          CostLocalAmount: cost,
+          GP: Number(revenue) - Number(cost),
+          days
+        };
+      };
+
+      /* -------------------- FINAL RESULT -------------------- */
+      const data = (
+        await Promise.all(finalLostCustomers.map(getLastBookingOfCustomer))
+      ).filter(Boolean);
+
+      return {
+        status: true,
+        data,
+        companyId,
+        Branch,
+        params
+      };
+
+    } catch (error) {
+      console.error('Lost Customer Report Error:', error);
+      throw error;
+    }
+  }
 
   private async generateContainerwiseDetailsReport(params: ContainerKPIReportQueryDto) {
     // TODO: Implement Containerwise Master Details with Cost/Revenue logic

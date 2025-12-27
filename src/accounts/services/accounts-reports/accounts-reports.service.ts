@@ -122,8 +122,8 @@ export class AccountsReportsService {
           return await this.generateOutstandingReport(parameters);
         case 'statement-ledger-report':
           return await this.generateStatementLedgerReport(parameters);
-        case 'trial-balance':
-          return await this.generateTrialBalance(parameters);
+        // case 'trial-balance':
+        //   return await this.generateTrialBalance(parameters);
         case 'profit-loss':
           return await this.generateProfitLoss(parameters);
         case 'balance-sheet':
@@ -916,6 +916,7 @@ export class AccountsReportsService {
                 ? vt.departmentMaster.departmentName
                 : null,
             salesmanSid: userMaster.find(u=>u.UserMasterSid ===vt.houseJob?.SalesmanSid)?.userName || '',
+             naration:vt.Narration
           });
 
           totalOutstandingCurrency += outstandingCurrencyAmount;
@@ -951,171 +952,168 @@ export class AccountsReportsService {
     }
   }
 
-  private async generateTrialBalance(params: TrialBalanceReportQueryDto) {
-    const {
-      FromDate,
-      ToDate,
-      GroupName,
-      SubGroupName,
-      SubTotal = true,
-      Branch,
-      companyId: CompanyMasterSid,
-    } = params;
+  // private async generateTrialBalance(params: TrialBalanceReportQueryDto) {
+  //   const {
+  //     FromDate,
+  //     ToDate,
+  //     GroupName,
+  //     SubGroupName,
+  //     SubTotal = true,
+  //     Branch,
+  //     companyId: CompanyMasterSid,
+  //   } = params;
 
-    try {
-      this.logger.log(`Getting customer trial balance: CompanySid=${CompanyMasterSid}`);
+  //   try {
+  //     this.logger.log(`Getting customer trial balance: CompanySid=${CompanyMasterSid}`);
 
-      // --- 1. Fetch branch names ---
-      const allBranches = await this._db.branchMaster.findMany({
-        where: {
-          BranchMasterSid: { in: Branch },
-        },
-        select: {
-          branchName: true,
-        },
-      });
+  //     // --- 1. Fetch branch names ---
+  //     const allBranches = await this._db.branchMaster.findMany({
+  //       where: {
+  //         BranchMasterSid: { in: Branch },
+  //       },
+  //       select: {
+  //         branchName: true,
+  //       },
+  //     });
 
-      const branchSet = new Set(allBranches.map(b => b.branchName));
+  //     const branchSet = new Set(allBranches.map(b => b.branchName));
 
-      // --- 2. Fetch ledger based on Group/SubGroup ---
-      const ledger = await this._db.cOAMaster.findFirst({
-        where: {
-          GroupName,
-          SubGroupName,
-        },
-      });
+  //     // --- 2. Fetch ledger based on Group/SubGroup ---
+  //     const ledger = await this._db.cOAMaster.findFirst({
+  //       where: {
+  //         GroupName,
+  //         SubGroupName,
+  //       },
+  //     });
 
-      if (!ledger) {
-        this.logger.log(`No ledger found for Group=${GroupName} SubGroup=${SubGroupName}`);
-        return null;
-      }
+  //     if (!ledger) {
+  //       this.logger.log(`No ledger found for Group=${GroupName} SubGroup=${SubGroupName}`);
+  //       return null;
+  //     }
 
-      const coaMasterSid = ledger.COAMasterSid;
+  //     const coaMasterSid = ledger.COAMasterSid;
 
-      // --- 3. Fetch voucher transactions ---
-      const voucherTransactions = await this._db.voucherTransaction.findMany({
-        where: {
-          CompanyMasterSid,
-          BranchMasterSid: { in: Branch },
-          AND: [
-            { VoucherDate: { lte: ToDate } }, // keep optional filtering on FromDate as needed
-          ],
-          COAMasterSid: coaMasterSid,
-          Status: 'A',
-        },
-        include: {
-          VoucherHeader: true,
-          coaMaster: {
-            select: {
-              GroupName: true,
-              SubGroupName: true,
-              LedgerType: true,
-              LedgerName: true,
-              COAMasterSid: true,
-            },
-          },
-          voucherMatchings: {
-            where: { Status: 'A' },
-          },
-        },
-        orderBy: { VoucherDate: 'asc' },
-      });
+  //     // --- 3. Fetch voucher transactions ---
+  //     const voucherTransactions = await this._db.voucherTransaction.findMany({
+  //       where: {
+  //         CompanyMasterSid,
+  //         BranchMasterSid: { in: Branch },
+  //         AND: [
+  //           { VoucherDate: { lte: ToDate } }, 
+  //         ],
+  //         COAMasterSid: coaMasterSid,
+  //         Status: 'A',
+  //       },
+  //       include: {
+  //         coaMaster: {
+  //           select: {
+  //             GroupName: true,
+  //             SubGroupName: true,
+  //             LedgerType: true,
+  //             LedgerName: true,
+  //             COAMasterSid: true,
+  //           },
+  //         },
+       
+  //       },
+  //       orderBy: { VoucherDate: 'asc' },
+  //     });
 
-      if (!voucherTransactions.length) {
-        this.logger.log(`No voucher transactions found for COAMasterSid ${coaMasterSid}`);
-        return {
-          companyMasterSid: CompanyMasterSid,
-          BranchMasterSid: Branch,
-          COAMasterSid: coaMasterSid,
-          subGroupName: ledger.SubGroupName,
-          groupName: ledger.GroupName,
-          ledgerName: ledger.LedgerName,
-          totalOutstandingCurrency: 0,
-          totalOutstandingLocal: 0,
-          voucherCount: 0,
-          transactions: [],
-        };
-      }
+  //     if (!voucherTransactions.length) {
+  //       this.logger.log(`No voucher transactions found for COAMasterSid ${coaMasterSid}`);
+  //       return {
+  //         companyMasterSid: CompanyMasterSid,
+  //         BranchMasterSid: Branch,
+  //         COAMasterSid: coaMasterSid,
+  //         subGroupName: ledger.SubGroupName,
+  //         groupName: ledger.GroupName,
+  //         ledgerName: ledger.LedgerName,
+  //         totalOutstandingCurrency: 0,
+  //         totalOutstandingLocal: 0,
+  //         voucherCount: 0,
+  //         transactions: [],
+  //       };
+  //     }
 
-      // --- 4. Build Group → SubGroup → Ledger map ---
-      const groupMap = new Map<string, Map<string, Map<number, any[]>>>();
+  //     // --- 4. Build Group → SubGroup → Ledger map ---
+  //     const groupMap = new Map<string, Map<string, Map<number, any[]>>>();
 
-      for (const vt of voucherTransactions) {
-        const groupKey = vt.coaMaster?.GroupName!;
-        const subGroupKey = vt.coaMaster?.SubGroupName!;
-        const ledgerKey = vt.COAMasterSid!;
+  //     for (const vt of voucherTransactions) {
+  //       const groupKey = vt.coaMaster?.GroupName!;
+  //       const subGroupKey = vt.coaMaster?.SubGroupName!;
+  //       const ledgerKey = vt.COAMasterSid!;
 
-        if (!groupMap.has(groupKey)) groupMap.set(groupKey, new Map());
-        const subGroupMap = groupMap.get(groupKey)!;
+  //       if (!groupMap.has(groupKey)) groupMap.set(groupKey, new Map());
+  //       const subGroupMap = groupMap.get(groupKey)!;
 
-        if (!subGroupMap.has(subGroupKey)) subGroupMap.set(subGroupKey, new Map());
-        const ledgerMap = subGroupMap.get(subGroupKey)!;
+  //       if (!subGroupMap.has(subGroupKey)) subGroupMap.set(subGroupKey, new Map());
+  //       const ledgerMap = subGroupMap.get(subGroupKey)!;
 
-        if (!ledgerMap.has(ledgerKey)) ledgerMap.set(ledgerKey, []);
-        ledgerMap.get(ledgerKey)!.push(vt);
-      }
+  //       if (!ledgerMap.has(ledgerKey)) ledgerMap.set(ledgerKey, []);
+  //       ledgerMap.get(ledgerKey)!.push(vt);
+  //     }
 
-      // --- 5. Calculate totals for each ledger ---
-      const result: any[] = [];
+  //     // --- 5. Calculate totals for each ledger ---
+  //     const result: any[] = [];
 
-      for (const [groupName, subGroupMap] of groupMap.entries()) {
-        for (const [subGroupName, ledgerMap] of subGroupMap.entries()) {
-          for (const [ledgerId, transactions] of ledgerMap.entries()) {
-            const openingDrAmt = transactions
-              .filter(v => v.VoucherDate < FromDate && v.DrCr === "D")
-              .reduce((s, v) => s + v.LocalAmount, 0);
+  //     for (const [groupName, subGroupMap] of groupMap.entries()) {
+  //       for (const [subGroupName, ledgerMap] of subGroupMap.entries()) {
+  //         for (const [ledgerId, transactions] of ledgerMap.entries()) {
+  //           const openingDrAmt = transactions
+  //             .filter(v => v.VoucherDate < FromDate && v.DrCr === "D")
+  //             .reduce((s, v) => s + v.LocalAmount, 0);
 
-            const openingCrAmt = transactions
-              .filter(v => v.VoucherDate < FromDate && v.DrCr === "C")
-              .reduce((s, v) => s + v.LocalAmount, 0);
+  //           const openingCrAmt = transactions
+  //             .filter(v => v.VoucherDate < FromDate && v.DrCr === "C")
+  //             .reduce((s, v) => s + v.LocalAmount, 0);
 
-            const currentDrAmt = transactions
-              .filter(v => v.VoucherDate >= FromDate && v.VoucherDate <= ToDate && v.DrCr === "D")
-              .reduce((s, v) => s + v.LocalAmount, 0);
+  //           const currentDrAmt = transactions
+  //             .filter(v => v.VoucherDate >= FromDate && v.VoucherDate <= ToDate && v.DrCr === "D")
+  //             .reduce((s, v) => s + v.LocalAmount, 0);
 
-            const currentCrAmt = transactions
-              .filter(v => v.VoucherDate >= FromDate && v.VoucherDate <= ToDate && v.DrCr === "C")
-              .reduce((s, v) => s + v.LocalAmount, 0);
+  //           const currentCrAmt = transactions
+  //             .filter(v => v.VoucherDate >= FromDate && v.VoucherDate <= ToDate && v.DrCr === "C")
+  //             .reduce((s, v) => s + v.LocalAmount, 0);
 
-            const closingDrAmt = openingDrAmt + currentDrAmt;
-            const closingCrAmt = openingCrAmt + currentCrAmt;
-            const netClosingAmt = closingDrAmt - closingCrAmt;
+  //           const closingDrAmt = openingDrAmt + currentDrAmt;
+  //           const closingCrAmt = openingCrAmt + currentCrAmt;
+  //           const netClosingAmt = closingDrAmt - closingCrAmt;
 
-            result.push({
-              groupName,
-              subGroupName,
-              ledgerId,
-              ledgerName: transactions[0].coaMaster.LedgerName,
+  //           result.push({
+  //             groupName,
+  //             subGroupName,
+  //             ledgerId,
+  //             ledgerName: transactions[0].coaMaster.LedgerName,
 
-              openingDrAmt,
-              openingCrAmt,
-              currentDrAmt,
-              currentCrAmt,
+  //             openingDrAmt,
+  //             openingCrAmt,
+  //             currentDrAmt,
+  //             currentCrAmt,
 
-              closingDrAmt,
-              closingCrAmt,
-              netClosingAmt,
+  //             closingDrAmt,
+  //             closingCrAmt,
+  //             netClosingAmt,
 
-              transactions,
-            });
-          }
-        }
-      }
+  //             allTransactions : transactions,
+  //           });
+  //         }
+  //       }
+  //     }
 
-      // --- 6. Return final structured result ---
-      return {
-        companyMasterSid: CompanyMasterSid,
-        branches: Branch,
-        groupData: result,
-      };
-    } catch (error) {
-      this.logger.error(
-        `Error getting customer trial balance for ${CompanyMasterSid}: ${error.message}`,
-        error.stack,
-      );
-      throw error;
-    }
-  }
+  //     // --- 6. Return final structured result ---
+  //     return {
+  //       companyMasterSid: CompanyMasterSid,
+  //       branches: Branch,
+  //       groupData: result,
+  //     };
+  //   } catch (error) {
+  //     this.logger.error(
+  //       `Error getting customer trial balance for ${CompanyMasterSid}: ${error.message}`,
+  //       error.stack,
+  //     );
+  //     throw error;
+  //   }
+  // }
 
   private async generateProfitLoss(params: ProfitLossReportQueryDto) {
     const {
@@ -1403,6 +1401,7 @@ const ledger = coaMasterSid
                 ? vt.departmentMaster.departmentName
                 : null,
             salesmanSid: userMaster.find(u=>u.UserMasterSid ===vt.houseJob?.SalesmanSid)?.userName || '',
+            naration:vt.Narration
           });
 
           totalOutstandingCurrency += outstandingCurrencyAmount;
@@ -1568,8 +1567,8 @@ const ledger = coaMasterSid
 
   private async generateVATReceivableReport(params: VATReportQueryDto) {
     const {
-      FromDate,
-      ToDate,
+      VoucherFromDate : FromDate,
+      VoucherToDate : ToDate,
       companyId: CompanyMasterSid,
       coamasterSid
     } = params
@@ -1627,10 +1626,10 @@ const ledger = coaMasterSid
       const voucherData = await this._db.voucherTransaction.findMany({
         where: {
           CompanyMasterSid,
-          VoucherDate: {
-            gte: FromDate,
-            lte: ToDate,
-          },
+         AND : [
+            { VoucherDate : {gte : FromDate}},
+            { VoucherDate : { lte : ToDate}}
+          ],
           Status: 'A',
           COAMasterSid: coamasterSid,
         },
@@ -1674,7 +1673,6 @@ const ledger = coaMasterSid
           ? 'Purchase'
           : 'Journal'
           ;
-
 
         const isVendorInvoice =
           v.VoucherHeader?.VoucherTypeMasterSid === 2;
@@ -1734,29 +1732,30 @@ const ledger = coaMasterSid
     }
   }
 
-private async generateUnpostedVoucherList( params: UnpostedVoucherListReportQueryDto) {
-  const {
-    FromDate,
-    ToDate,
-    companyId: CompanyMasterSid,
-    branchId: Branch
-  } = params;
+  private async generateUnpostedVoucherList(params: UnpostedVoucherListReportQueryDto) {
+    const {
+      VoucherFromDate: FromDate,
+      VoucherToDate: ToDate,
+      companyId: CompanyMasterSid,
+      branchId: Branch
+    } = params;
 
-  try {
-    this.logger.log(
-      `Getting Unposted Voucher List : companySid=${CompanyMasterSid}`
-    );
+    try {
+      this.logger.log(
+        `Getting Unposted Voucher List : companySid=${CompanyMasterSid}`
+      );
 
-   
-    const branches = Branch && Branch.length > 0
-      ? await this._db.branchMaster.findMany({
+
+
+      const branches = Branch && Branch.length > 0
+        ? await this._db.branchMaster.findMany({
           where: { BranchMasterSid: { in: Branch } },
           select: {
             BranchMasterSid: true,
             branchName: true,
           },
         })
-      : await this._db.branchMaster.findMany({
+        : await this._db.branchMaster.findMany({
           where: { CompanyMasterSid },
           select: {
             BranchMasterSid: true,
@@ -1764,51 +1763,60 @@ private async generateUnpostedVoucherList( params: UnpostedVoucherListReportQuer
           },
         });
 
-    const resolvedBranchIds = branches.map(b => b.BranchMasterSid);
-    const resolvedBranchNames = branches.map(b => b.branchName);
+      const resolvedBranchIds = branches.map(b => b.BranchMasterSid);
+      const resolvedBranchNames = branches.map(b => b.branchName);
 
-    
-    const voucherData = await this._db.voucherHeader.findMany({
-      where: {
-        CompanyMasterSid,
-        BranchMasterSid: { in: resolvedBranchIds },
-        VoucherDate: {
+
+      const voucherData = await this._db.voucherHeader.findMany({
+        where: {
+          CompanyMasterSid,
+          BranchMasterSid: { in: resolvedBranchIds },
+          VoucherDate: {
             gte: FromDate,
             lte: ToDate,
           },
-        Status: 'A'
-      },
-      orderBy: [
-        { VoucherDate: 'asc' },
-        { VoucherType: 'asc' }
-      ]
-    });
+          Status: 'A'
+        },
+        include: {
+          voucherTypeMaster: {
+            select: {
+              DocumentTypeName: true
+            }
+          }
+        },
+        orderBy: [
+          { VoucherDate: 'asc' },
+          { voucherTypeMaster : {DocumentTypeName : 'asc'}}
+        ]
+      });
 
-    
-    const data = voucherData.map(v => ({
-      voucherNo: v.VoucherNumber,
-      voucherDate: v.VoucherDate,
-      voucherType: v.VoucherType,
-      createdBy:v.CreatedBy,
-      createdDate:v.CreatedOn,
-      postStatus:v.PostStatus,
-      branch:v.BranchMasterSid,
-      party:v.PartyMasterSid,
-    }));
 
-    return {
-      data,
-      params,
-      CompanyMasterSid,
-      branchNames: resolvedBranchNames.join(', ')
-    };
+      const data = voucherData
+        .filter(v => v.PostStatus === 'U')
+        
+        .map(v => ({
+          voucherNo: v.VoucherNumber,
+          voucherDate: v.VoucherDate,
+          voucherType: v.voucherTypeMaster?.DocumentTypeName,
+          createdBy: v.CreatedBy,
+          createdOn: v.CreatedOn,
+          postStatus: v.PostStatus,
+          branch: branches.find(b => b.BranchMasterSid === v.BranchMasterSid)?.branchName || '',
+          party: v.PartyName,
+        }));
 
-  } catch (error) {
-    this.logger.error(error);
-    throw error;
+      return {
+        tableData: data,
+        params,
+        CompanyMasterSid,
+        branchNames: resolvedBranchNames.join(', ')
+      };
+
+    } catch (error) {
+      this.logger.error(error);
+      throw error;
+    }
   }
-}
-
 
   private async generateVATPayableReport(params: any) {
     // TODO: Implement VAT payable logic
