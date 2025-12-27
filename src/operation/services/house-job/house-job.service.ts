@@ -44,7 +44,7 @@ export class HouseJobService {
           if (departmentExportImport === 'Export') {
               HBLNo = `HOUSE-${dateString}-${hblSerial.toString().padStart(3, '0')}`;
           } else {
-              HBLNo = "";
+              HBLNo = payload.HBLNo;
           }
 
 
