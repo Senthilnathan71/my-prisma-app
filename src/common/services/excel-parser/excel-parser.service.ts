@@ -1,5 +1,6 @@
 import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import * as XLSX from 'xlsx';
+import * as ExcelJS from 'exceljs';
 import {
   MasterJobBulkUploadDto,
   HouseJobBulkUploadDto,
@@ -33,8 +34,21 @@ export class ExcelParserService {
 
       const errors: BulkUploadValidationError[] = [];
 
+      // Helper to find sheet with fallback names (for backward compatibility)
+      const findSheet = (primaryName: string, ...fallbackNames: string[]): string | null => {
+        if (workbook.SheetNames.includes(primaryName)) return primaryName;
+        for (const name of fallbackNames) {
+          if (workbook.SheetNames.includes(name)) return name;
+        }
+        return null;
+      };
+
+      // Find required sheets with backward compatibility
+      const masterJobSheetName = findSheet('Master Job');
+      const houseJobsSheetName = findSheet('House Job', 'House Jobs'); // New template uses "House Job"
+
       // Validate required sheets exist
-      if (!workbook.SheetNames.includes('Master Job')) {
+      if (!masterJobSheetName) {
         errors.push({
           field: 'Sheet',
           message: 'Required sheet "Master Job" not found',
@@ -42,11 +56,11 @@ export class ExcelParserService {
         });
       }
 
-      if (!workbook.SheetNames.includes('House Jobs')) {
+      if (!houseJobsSheetName) {
         errors.push({
           field: 'Sheet',
-          message: 'Required sheet "House Jobs" not found',
-          sheet: 'House Jobs',
+          message: 'Required sheet "House Job" or "House Jobs" not found',
+          sheet: 'House Job',
         });
       }
 
@@ -54,15 +68,15 @@ export class ExcelParserService {
         return { masterJob: null, containers: [], voyages: [], connections: [], others: null, houseJobs: [], errors };
       }
 
-      // Parse Master Job sheet
-      const masterJobSheet = workbook.Sheets['Master Job'];
+      // Parse Master Job sheet (TypeScript null assertion safe due to validation above)
+      const masterJobSheet = workbook.Sheets[masterJobSheetName!];
       const masterJobData = XLSX.utils.sheet_to_json(masterJobSheet, {
         defval: null,
         raw: false,
       });
 
-      // Parse House Jobs sheet
-      const houseJobsSheet = workbook.Sheets['House Jobs'];
+      // Parse House Jobs sheet (TypeScript null assertion safe due to validation above)
+      const houseJobsSheet = workbook.Sheets[houseJobsSheetName!];
       const houseJobsData = XLSX.utils.sheet_to_json(houseJobsSheet, {
         defval: null,
         raw: false,
@@ -79,8 +93,8 @@ export class ExcelParserService {
       if (houseJobsData.length === 0) {
         errors.push({
           field: 'Data',
-          message: 'House Jobs sheet contains no data (at least one house job required)',
-          sheet: 'House Jobs',
+          message: 'House Job sheet contains no data (at least one house job required)',
+          sheet: houseJobsSheetName!,
         });
       }
 
@@ -91,7 +105,7 @@ export class ExcelParserService {
       // Parse master job (first row only)
       const masterJob = this.parseMasterJobRow(masterJobData[0], errors);
 
-      // Parse Containers sheet (optional)
+      // Parse Containers sheet (optional) - supports both "Container" and "Containers"
       const containers = this.parseContainersSheet(workbook, errors);
 
       // Parse Master Voyages sheet (optional)
@@ -213,15 +227,18 @@ export class ExcelParserService {
   }
 
   /**
-   * Parse Containers sheet
+   * Parse Containers sheet (supports both "Container" and "Containers" sheet names)
    */
   private parseContainersSheet(workbook: XLSX.WorkBook, errors: BulkUploadValidationError[]): any[] {
-    if (!workbook.SheetNames.includes('Containers')) {
+    // Support both new ("Container") and old ("Containers") sheet names
+    const sheetName = workbook.SheetNames.includes('Container') ? 'Container' :
+                      workbook.SheetNames.includes('Containers') ? 'Containers' : null;
+    if (!sheetName) {
       return [];
     }
 
     try {
-      const containersSheet = workbook.Sheets['Containers'];
+      const containersSheet = workbook.Sheets[sheetName];
       const containersData = XLSX.utils.sheet_to_json(containersSheet, { defval: null, raw: false });
 
       return containersData.map((row: any, index) => ({
@@ -316,15 +333,18 @@ export class ExcelParserService {
   }
 
   /**
-   * Parse Master Others sheet
+   * Parse Master Others sheet (handles typo "Maser Others" for backward compatibility)
    */
   private parseMasterOthersSheet(workbook: XLSX.WorkBook, errors: BulkUploadValidationError[]): any {
-    if (!workbook.SheetNames.includes('Master Others')) {
+    // Support both correct ("Master Others") and typo ("Maser Others") sheet names
+    const sheetName = workbook.SheetNames.includes('Master Others') ? 'Master Others' :
+                      workbook.SheetNames.includes('Maser Others') ? 'Maser Others' : null;
+    if (!sheetName) {
       return null;
     }
 
     try {
-      const othersSheet = workbook.Sheets['Master Others'];
+      const othersSheet = workbook.Sheets[sheetName];
       const othersData = XLSX.utils.sheet_to_json(othersSheet, { defval: null, raw: false });
 
       if (othersData.length === 0) {
@@ -365,7 +385,11 @@ export class ExcelParserService {
    * Parse House Cargo sheet for specific shipment
    */
   private parseHouseCargoForShipment(workbook: XLSX.WorkBook, shipmentNo: string, errors: BulkUploadValidationError[]): any[] {
-    if (!workbook.SheetNames.includes('House Cargo') || !shipmentNo) {
+    if (!shipmentNo) {
+      return [];
+    }
+    // Sheet name is the same in both old and new templates
+    if (!workbook.SheetNames.includes('House Cargo')) {
       return [];
     }
 
@@ -400,15 +424,21 @@ export class ExcelParserService {
   }
 
   /**
-   * Parse House Products sheet for specific shipment
+   * Parse House Products sheet for specific shipment (supports both "House Product" and "House Products")
    */
   private parseHouseProductsForShipment(workbook: XLSX.WorkBook, shipmentNo: string, errors: BulkUploadValidationError[]): any[] {
-    if (!workbook.SheetNames.includes('House Products') || !shipmentNo) {
+    if (!shipmentNo) {
+      return [];
+    }
+    // Support both new ("House Product") and old ("House Products") sheet names
+    const sheetName = workbook.SheetNames.includes('House Product') ? 'House Product' :
+                      workbook.SheetNames.includes('House Products') ? 'House Products' : null;
+    if (!sheetName) {
       return [];
     }
 
     try {
-      const productsSheet = workbook.Sheets['House Products'];
+      const productsSheet = workbook.Sheets[sheetName];
       const productsData = XLSX.utils.sheet_to_json(productsSheet, { defval: null, raw: false });
 
       return productsData
@@ -521,409 +551,369 @@ export class ExcelParserService {
   }
 
   /**
-   * Generate Excel template for download
+   * Generate Excel template for download with dropdown support
    */
-  generateTemplate(): Buffer {
-    const workbook = XLSX.utils.book_new();
+  async generateTemplate(): Promise<Buffer> {
+    const workbook = new ExcelJS.Workbook();
+    const DROPDOWN_ROWS = 100; // Apply dropdown validation to rows 2-100
 
-    // Create Master Job sheet
+    // ===== CREATE MAIN DATA SHEETS FIRST =====
+
+    // 1. Master Job Sheet
+    const masterJobSheet = workbook.addWorksheet('Master Job');
     const masterJobHeaders = [
-      'Master Job Date',
-      'Department',
-      'Freight PP/CC',
-      'POO (Port Code)',
-      'POL (Port Code)',
-      'POD (Port Code)',
-      'FPD (Port Code)',
-      'POL Terminal',
-      'POD Terminal',
-      'Movement Type',
-      'Shipment Terms',
-      'MBL Number',
-      'MBL Date',
-      'BL Release Type',
-      'Number of Packages',
-      'Gross Weight',
-      'Net Weight',
-      'Volume (CBM)',
-      'Chargeable Weight',
-      'Commodity Description',
-      'Marks and Number',
-      'Hazardous (Y/N)',
-      'Destination Agent Name',
-      'Destination Agent Address',
-      'Vessel Name',
-      'Voyage Number',
-      'Carrier Name',
-      'Container Number',
-      'Container Type',
-      'Line Seal',
-      'Customs Seal',
+      'MBL Number', 'MBL Date', 'Master Job Date', 'Department', 'Freight PP/CC',
+      'Destination Agent', 'Agent Address', 'POO (Port Code)', 'POL (Port Code)',
+      'POD (Port Code)', 'FPD (Port Code)', 'POL Terminal', 'POD Terminal',
+      'Movement Type', 'Shipment Terms', 'BL Release Type', 'Number of Packages',
+      'Gross Weight', 'Net Weight', 'Volume (CBM)', 'Chargeable Weight',
+      'Commodity Description', 'Marks and Number', 'Haz'
     ];
+    masterJobSheet.addRow(masterJobHeaders);
+    // Sample row
+    masterJobSheet.addRow([
+      'MBL123456', '2025-01-20', '2025-01-15', 'FCL Export', 'Prepaid',
+      'ABC Logistics', '123 Main St', 'INCCU', 'INCCU', 'AEJEA', 'AEJEA',
+      'DP World', 'Sical', 'FCL', 'FCL/FCL', 'Original', 10, 5000, 4800,
+      25.5, 5000, 'Electronic Goods', 'Sample Marks', 'N'
+    ]);
+    this.styleHeaderRow(masterJobSheet);
+    this.setColumnWidths(masterJobSheet, masterJobHeaders.length, 15);
+    // Apply dropdowns to Master Job
+    this.applyDropdownValidation(masterJobSheet, 'D', 2, DROPDOWN_ROWS, "'Master Data'!$A$2:$A$5"); // Department
+    this.applyDropdownValidation(masterJobSheet, 'E', 2, DROPDOWN_ROWS, "'Master Data'!$B$2:$B$3"); // Freight PP/CC
+    this.applyDropdownValidation(masterJobSheet, 'O', 2, DROPDOWN_ROWS, "'Master Data'!$G$2:$G$8"); // Shipment Terms
+    this.applyDropdownValidation(masterJobSheet, 'P', 2, DROPDOWN_ROWS, "'Master Data'!$C$2:$C$5"); // BL Release Type
+    this.applyDropdownValidation(masterJobSheet, 'X', 2, DROPDOWN_ROWS, "'Master Data'!$E$2:$E$3"); // Haz
 
-    const masterJobSample = [
-      '2025-01-15',
-      'LCL EXPORT',
-      'Prepaid',
-      'INCCU',
-      'INCCU',
-      'AEJEA',
-      'AEJEA',
-      'Terminal 1',
-      'Terminal 2',
-      'FCL',
-      'CY/CY',
-      'MBL123456',
-      '2025-01-20',
-      'Seaway Bill',
-      '10',
-      '5000',
-      '4800',
-      '25.5',
-      '5000',
-      'Electronic Goods',
-      'Sample Marks',
-      'N',
-      'ABC Logistics',
-      '123 Main St, New York',
-      'MSC EMMA',
-      'V123',
-      'MSC',
-      'TCLU1234567',
-      '40HC',
-      'MSC001',
-      'CUST001',
-    ];
-
-    const masterJobWs = XLSX.utils.aoa_to_sheet([masterJobHeaders, masterJobSample]);
-    XLSX.utils.book_append_sheet(workbook, masterJobWs, 'Master Job');
-
-    // Create House Jobs sheet
-    const houseJobHeaders = [
-      'Shipment Number',
-      'Customer Name',
-      'Customer Address',
-      'Inco Terms',
-      'Shipper Name',
-      'Shipper Address',
-      'Consignee Name',
-      'Consignee Address',
-      'POL (Port Code)',
-      'POD (Port Code)',
-      'FPD (Port Code)',
-      'POO (Port Code)',
-      'ETD',
-      'ETA',
-      'Movement Type',
-      'Notify Party',
-      'Notify Address',
-      'Nominated By',
-      'Agent Name',
-      'Agent Address',
-      'Shipment Type',
-      'Cargo Type',
-      'Cargo Gross Weight',
-      'Cargo Net Weight',
-      'Cargo Volume',
-      'Cargo No of Packages',
-      'Product Name',
-      'Shipping Bill Number',
-      'Customer Reference Number',
-      'CHA Name',
-      'Yard/CFS',
-      'Pickup Place',
-      'Delivery Place',
-      'Cargo Currency',
-      'Cargo Value',
-    ];
-
-    const houseJobSample = [
-      'SHIP-001',
-      'ABC Company',
-      '456 Customer St',
-      'FOB',
-      'Shipper Inc',
-      '789 Shipper Ave',
-      'Consignee Ltd',
-      '321 Consignee Rd',
-      'INCCU',
-      'AEJEA',
-      'AEJEA',
-      'INCCU',
-      '2025-01-25',
-      '2025-02-15',
-      'FCL',
-      'Notify Party Name',
-      'Notify Address',
-      'Customer',
-      'Agent Company',
-      'Agent Address',
-      'Export',
-      'General',
-      '2500',
-      '2400',
-      '12.5',
-      '5',
-      'Electronics',
-      'SB123456',
-      'CREF-001',
-      'CHA Company',
-      'Chennai Port',
-      'Factory Gate',
-      'Warehouse A',
-      'USD',
-      '50000',
-    ];
-
-    const houseJobWs = XLSX.utils.aoa_to_sheet([houseJobHeaders, houseJobSample]);
-    XLSX.utils.book_append_sheet(workbook, houseJobWs, 'House Jobs');
-
-    // Create Containers sheet
-    const containersHeaders = [
-      'Container Number',
-      'Container Type',
-      'Line Seal',
-      'Customs Seal',
-      'HS Code',
-      'Commodity Description',
-      'Package Type',
-      'No of Packages',
-      'Gross Weight',
-      'Net Weight',
-      'Chargeable Weight',
-      'Volume (CBM)',
-      'Is SOC (Y/N)',
-    ];
-
-    const containersSample = [
-      'TCLU1234567',
-      '40',
-      'MSC001',
-      'CUST001',
-      '8471.30',
-      'Electronic Equipment',
-      '10',
-      '100',
-      '5000',
-      '4800',
-      '5000',
-      '25.5',
-      'N',
-    ];
-
-    const containersWs = XLSX.utils.aoa_to_sheet([containersHeaders, containersSample]);
-    XLSX.utils.book_append_sheet(workbook, containersWs, 'Containers');
-
-    // Create Master Voyages sheet
+    // 2. Master Voyages Sheet
+    const masterVoyagesSheet = workbook.addWorksheet('Master Voyages');
     const masterVoyagesHeaders = [
-      'Vessel Name',
-      'Voyage Number',
-      'ETD',
-      'ETA',
-      'ATA',
-      'ATD',
-      'Destination ATA',
-      'Carrier Name',
+      'MBL Number', 'Vessel', 'Voyage', 'ETD', 'ETA', 'ATA', 'ATD', 'Carrier'
     ];
+    masterVoyagesSheet.addRow(masterVoyagesHeaders);
+    masterVoyagesSheet.addRow(['MBL123456', 'MSC EMMA', 'V123', '2025-01-25', '2025-02-15', '2025-02-16', '2025-01-26', 'MSC']);
+    this.styleHeaderRow(masterVoyagesSheet);
+    this.setColumnWidths(masterVoyagesSheet, masterVoyagesHeaders.length, 15);
 
-    const masterVoyagesSample = [
-      'MSC EMMA',
-      'V123',
-      '2025-01-25',
-      '2025-02-15',
-      '2025-02-16',
-      '2025-01-26',
-      '2025-02-20',
-      'MSC',
-    ];
-
-    const masterVoyagesWs = XLSX.utils.aoa_to_sheet([masterVoyagesHeaders, masterVoyagesSample]);
-    XLSX.utils.book_append_sheet(workbook, masterVoyagesWs, 'Master Voyages');
-
-    // Create Master Connections sheet
-    const masterConnectionsHeaders = [
-      'Mode',
-      'POL (Port Code)',
-      'POD (Port Code)',
-      'Vessel Name',
-      'Voyage Number',
-      'ETD',
-      'ETA',
-      'ATD',
-      'ATA',
-      'Remarks',
-    ];
-
-    const masterConnectionsSample = [
-      'Sea',
-      'INCCU',
-      'AEJEA',
-      'MSC EMMA',
-      'V123',
-      '2025-01-25',
-      '2025-02-15',
-      '2025-01-26',
-      '2025-02-16',
-      'Direct connection',
-    ];
-
-    const masterConnectionsWs = XLSX.utils.aoa_to_sheet([masterConnectionsHeaders, masterConnectionsSample]);
-    XLSX.utils.book_append_sheet(workbook, masterConnectionsWs, 'Master Connections');
-
-    // Create Master Others sheet
+    // 3. Master Others Sheet
+    const masterOthersSheet = workbook.addWorksheet('Master Others');
     const masterOthersHeaders = [
-      'Yard',
-      'Yard Address',
-      'Transporter',
-      'Handling Information',
-      'Internal Note',
-      'CFS',
-      'CFS Address',
-      'Stuffing Start Date',
-      'Stuffing End Date',
-      'Currency Code',
-      'Sell Exchange Rate',
-      'Agent Exchange Rate',
-      'Coload (Y/N)',
-      'Co Loader',
-      'Export DO Number',
-      'Export DO Date',
-      'SOB Date',
+      'MBL Number', 'Yard', 'Yard Address', 'Transporter', 'Handling Information',
+      'Internal Note', 'Carrier Ref', 'Agent Ref', 'Origin Agent', 'CFS', 'CFS Address',
+      'Stuffing Start Date', 'Stuffing End Date', 'Currency Code', 'Sell Exchange Rate',
+      'Agent Exchange Rate', 'Coload (Y/N)', 'Co Loader', 'Export DO Number',
+      'Export DO Date', 'SOB Date', 'CHA Name'
     ];
+    masterOthersSheet.addRow(masterOthersHeaders);
+    masterOthersSheet.addRow([
+      'MBL123456', 'Chennai Yard', '123 Yard St', 'ABC Transport', 'Handle with care',
+      'Priority shipment', 'CR001', 'AR001', 'Origin Agent Co', 'Chennai CFS', '456 CFS Ave',
+      '2025-01-20', '2025-01-22', 'USD', 83.50, 83.00, 'N', '', 'DO123456',
+      '2025-01-18', '2025-01-15', 'CHA Company'
+    ]);
+    this.styleHeaderRow(masterOthersSheet);
+    this.setColumnWidths(masterOthersSheet, masterOthersHeaders.length, 15);
+    // Apply dropdown for Coload
+    this.applyDropdownValidation(masterOthersSheet, 'Q', 2, DROPDOWN_ROWS, "'Master Data'!$F$2:$F$3"); // Coload
 
-    const masterOthersSample = [
-      'Chennai Yard',
-      '123 Yard St, Chennai',
-      'ABC Transport',
-      'Handle with care',
-      'Priority shipment',
-      'Chennai CFS',
-      '456 CFS Ave, Chennai',
-      '2025-01-20',
-      '2025-01-22',
-      'USD',
-      '83.50',
-      '83.00',
-      'N',
-      '',
-      'DO123456',
-      '2025-01-18',
-      '2025-01-15',
+    // 4. Container Sheet
+    const containerSheet = workbook.addWorksheet('Container');
+    const containerHeaders = [
+      'MBL Number', 'Container Type', 'Container Number', 'Line Seal', 'Custom Seal',
+      'HS Code', 'Commodity Description', 'Package Type', 'No of Packages',
+      'Gross Weight', 'Net Weight', 'Chargeable Weight', 'Is SOC (Y/N)'
     ];
+    containerSheet.addRow(containerHeaders);
+    containerSheet.addRow([
+      'MBL123456', '40ft Container', 'TCLU1234567', 'MSC001', 'CUST001',
+      '8471.30', 'Electronic Equipment', 'Pallet', 100, 5000, 4800, 5000, 'N'
+    ]);
+    this.styleHeaderRow(containerSheet);
+    this.setColumnWidths(containerSheet, containerHeaders.length, 15);
+    // Apply dropdowns
+    this.applyDropdownValidation(containerSheet, 'B', 2, DROPDOWN_ROWS, "'Container Data'!$A$2:$A$9"); // Container Type
+    this.applyDropdownValidation(containerSheet, 'H', 2, DROPDOWN_ROWS, "'Container Data'!$B$2:$B$4"); // Package Type
 
-    const masterOthersWs = XLSX.utils.aoa_to_sheet([masterOthersHeaders, masterOthersSample]);
-    XLSX.utils.book_append_sheet(workbook, masterOthersWs, 'Master Others');
+    // 5. House Job Sheet
+    const houseJobSheet = workbook.addWorksheet('House Job');
+    const houseJobHeaders = [
+      'MBL Number', 'HBL No', 'HBL Date', 'Shipment Number', 'Customer Name',
+      'Customer Address', 'Shipper Name', 'Shipper Address', 'Consignee Name',
+      'Consignee Address', 'POO (Port Code)', 'POL (Port Code)', 'POD (Port Code)',
+      'FPD (Port Code)', 'ETD', 'ETA', 'DeliveryAgent', 'Origin Agent', 'Inco Terms',
+      'Freight PP/CC', 'Notify Party', 'Notify Address', 'Carrier', 'Salesperson',
+      'Shipment(Job) type', 'Customer Ref No.', 'CFS', 'Release Type', 'Forwarder',
+      'Forwarder Address', 'Cargo Currency', 'Cargo Value', 'Values for Insurance',
+      'Insurance Amount', 'Handling Information', 'Carrier Booking Ref',
+      'Carrier Booking Date', 'Internal Note', 'External Note'
+    ];
+    houseJobSheet.addRow(houseJobHeaders);
+    houseJobSheet.addRow([
+      'MBL123456', 'HBL001', '2025-01-15', 'SHIP-001', 'ABC Company', '456 Customer St',
+      'Shipper Inc', '789 Shipper Ave', 'Consignee Ltd', '321 Consignee Rd',
+      'INCCU', 'INCCU', 'AEJEA', 'AEJEA', '2025-01-25', '2025-02-15',
+      'Delivery Agent Co', 'Origin Agent Co', 'FOB', 'Prepaid', 'Notify Party Name',
+      'Notify Address', 'MSC', 'John Doe', 'Export', 'CREF-001', 'Chennai CFS',
+      'Original', 'Forwarder Co', 'Forwarder Address', 'USD', 50000, 50000, 500,
+      'Handle with care', 'BKG001', '2025-01-10', 'Internal note', 'External note'
+    ]);
+    this.styleHeaderRow(houseJobSheet);
+    this.setColumnWidths(houseJobSheet, houseJobHeaders.length, 15);
+    // Apply dropdowns
+    this.applyDropdownValidation(houseJobSheet, 'S', 2, DROPDOWN_ROWS, "'House Data'!$H$2:$H$12"); // Inco Terms
+    this.applyDropdownValidation(houseJobSheet, 'T', 2, DROPDOWN_ROWS, "'House Data'!$D$2:$D$3"); // Freight PP/CC
+    this.applyDropdownValidation(houseJobSheet, 'AB', 2, DROPDOWN_ROWS, "'House Data'!$B$2:$B$5"); // Release Type
 
-    // Create House Cargo sheet
+    // 6. House Cargo Sheet
+    const houseCargoSheet = workbook.addWorksheet('House Cargo');
     const houseCargoHeaders = [
-      'Shipment Number',
-      'Cargo Type',
-      'Gross Weight',
-      'Net Weight',
-      'Volume (CBM)',
-      'Chargeable Weight',
-      'No of Packages',
-      'Package Type',
-      'Container Number',
-      'Container Type',
-      'Commodity Description',
-      'Marks and Number',
-      'Freight Amount',
+      'Shipment Number', 'Cargo Type', 'Container Type', 'Container No', 'Gr Weight',
+      'Net Weight', 'Volume(CBM)', 'Chargeable Weight', 'No of Pkg', 'Movement Type',
+      'Mode of Transport', 'Stuffing At', 'Shipment Terms', 'Goods Description',
+      'Marks and Number'
     ];
+    houseCargoSheet.addRow(houseCargoHeaders);
+    houseCargoSheet.addRow([
+      'SHIP-001', 'General', '40ft Container', 'TCLU1234567', 2500, 2400, 12.5,
+      2500, 50, 'CY-CFS', 'Vessel', 'Dock', 'FCL/FCL', 'Electronic Goods', 'Sample Marks'
+    ]);
+    this.styleHeaderRow(houseCargoSheet);
+    this.setColumnWidths(houseCargoSheet, houseCargoHeaders.length, 15);
+    // Apply dropdowns
+    this.applyDropdownValidation(houseCargoSheet, 'B', 2, DROPDOWN_ROWS, "'House Data'!$J$2:$J$6"); // Cargo Type
+    this.applyDropdownValidation(houseCargoSheet, 'C', 2, DROPDOWN_ROWS, "'Container Data'!$A$2:$A$9"); // Container Type
+    this.applyDropdownValidation(houseCargoSheet, 'J', 2, DROPDOWN_ROWS, "'House Data'!$E$2:$E$9"); // Movement Type
+    this.applyDropdownValidation(houseCargoSheet, 'K', 2, DROPDOWN_ROWS, "'House Data'!$A$2:$A$5"); // Mode of Transport
+    this.applyDropdownValidation(houseCargoSheet, 'L', 2, DROPDOWN_ROWS, "'House Data'!$F$2:$F$3"); // Stuffing At
+    this.applyDropdownValidation(houseCargoSheet, 'M', 2, DROPDOWN_ROWS, "'House Data'!$C$2:$C$8"); // Shipment Terms
 
-    const houseCargoSample = [
-      'SHIP-001',
-      'General',
-      '2500',
-      '2400',
-      '12.5',
-      '2500',
-      '50',
-      '10',
-      'TCLU1234567',
-      '40',
-      'Electronic Goods',
-      'Sample Marks',
-      '5000',
+    // 7. House Product Sheet
+    const houseProductSheet = workbook.addWorksheet('House Product');
+    const houseProductHeaders = [
+      'Shipment Number', 'Commodity', 'Shipping Bill No', 'Date', 'External Pkg',
+      'No. of Pkg', 'Uom', 'Length', 'Width', 'Height', 'Gross Weight', 'Net Wt',
+      'Volume', 'Cargo Received Date', 'Container No'
     ];
+    houseProductSheet.addRow(houseProductHeaders);
+    houseProductSheet.addRow([
+      'SHIP-001', 'Electronic Goods', 'SB123456', '2025-01-15', 'Carton',
+      20, 'KG', 100, 50, 50, 1000, 950, 5.0, '2025-01-10', 'TCLU1234567'
+    ]);
+    this.styleHeaderRow(houseProductSheet);
+    this.setColumnWidths(houseProductSheet, houseProductHeaders.length, 15);
+    // Apply dropdown
+    this.applyDropdownValidation(houseProductSheet, 'E', 2, DROPDOWN_ROWS, "'House Data'!$K$2:$K$5"); // External Pkg
 
-    const houseCargoWs = XLSX.utils.aoa_to_sheet([houseCargoHeaders, houseCargoSample]);
-    XLSX.utils.book_append_sheet(workbook, houseCargoWs, 'House Cargo');
+    // ===== CREATE REFERENCE SHEETS AT THE END =====
 
-    // Create House Products sheet
-    const houseProductsHeaders = [
-      'Shipment Number',
-      'Product Name',
-      'Product Description',
-      'Shipping Bill Number',
-      'Shipping Bill Date',
-      'Gross Weight',
-      'Net Weight',
-      'Volume (CBM)',
-      'Package Type',
-      'No of Packages',
-      'Chargeable Weight',
-      'Hazardous (Y/N)',
-      'UN Number',
-      'IMCO Class',
-      'HS Code',
-    ];
+    // Master Data Reference Sheet
+    const masterDataSheet = workbook.addWorksheet('Master Data');
+    this.createMasterDataSheet(masterDataSheet);
 
-    const houseProductsSample = [
-      'SHIP-001',
-      'Laptops',
-      'Dell Laptops',
-      'SB123456',
-      '2025-01-15',
-      '1000',
-      '950',
-      '5.0',
-      '10',
-      '20',
-      '1000',
-      'N',
-      '',
-      '',
-      '8471.30',
-    ];
+    // Container Data Reference Sheet
+    const containerDataSheet = workbook.addWorksheet('Container Data');
+    this.createContainerDataSheet(containerDataSheet);
 
-    const houseProductsWs = XLSX.utils.aoa_to_sheet([houseProductsHeaders, houseProductsSample]);
-    XLSX.utils.book_append_sheet(workbook, houseProductsWs, 'House Products');
-
-    // Create House Connections sheet
-    const houseConnectionsHeaders = [
-      'Shipment Number',
-      'Mode',
-      'POL (Port Code)',
-      'POD (Port Code)',
-      'Vessel Name',
-      'Voyage Number',
-      'ETD',
-      'ETA',
-      'ATD',
-      'ATA',
-      'Remarks',
-    ];
-
-    const houseConnectionsSample = [
-      'SHIP-001',
-      'Sea',
-      'INCCU',
-      'AEJEA',
-      'MSC EMMA',
-      'V123',
-      '2025-01-25',
-      '2025-02-15',
-      '2025-01-26',
-      '2025-02-16',
-      'Direct route',
-    ];
-
-    const houseConnectionsWs = XLSX.utils.aoa_to_sheet([houseConnectionsHeaders, houseConnectionsSample]);
-    XLSX.utils.book_append_sheet(workbook, houseConnectionsWs, 'House Connections');
+    // House Data Reference Sheet
+    const houseDataSheet = workbook.addWorksheet('House Data');
+    this.createHouseDataSheet(houseDataSheet);
 
     // Generate buffer
-    const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
-    return buffer;
+    const buffer = await workbook.xlsx.writeBuffer();
+    return Buffer.from(buffer);
+  }
+
+  /**
+   * Create Master Data reference sheet with dropdown values
+   */
+  private createMasterDataSheet(sheet: ExcelJS.Worksheet): void {
+    const headers = ['Department', 'Freight PP/CC', 'BL Release Type', 'Weight in', 'Haz', 'Coload', 'Shipment Terms'];
+    sheet.addRow(headers);
+
+    const data = {
+      department: ['FCL Import', 'LCL Import', 'FCL Export', 'LCL Export'],
+      freightPPCC: ['Prepaid', 'Collect'],
+      blReleaseType: ['Original', 'Express', 'Surrender', 'Sea WayBill'],
+      weightIn: ['Kg(s)', 'LB(s)', 'Tonne(s)'],
+      haz: ['Y', 'N'],
+      coload: ['Yes', 'No'],
+      shipmentTerms: ['FCL/FCL', 'FCL/LCL', 'LCL/FCL', 'LCL/LCL', 'LTL', 'FTL', 'FLT HH']
+    };
+
+    const maxRows = Math.max(
+      data.department.length,
+      data.freightPPCC.length,
+      data.blReleaseType.length,
+      data.weightIn.length,
+      data.haz.length,
+      data.coload.length,
+      data.shipmentTerms.length
+    );
+
+    for (let i = 0; i < maxRows; i++) {
+      sheet.addRow([
+        data.department[i] || '',
+        data.freightPPCC[i] || '',
+        data.blReleaseType[i] || '',
+        data.weightIn[i] || '',
+        data.haz[i] || '',
+        data.coload[i] || '',
+        data.shipmentTerms[i] || ''
+      ]);
+    }
+
+    this.styleReferenceSheet(sheet);
+  }
+
+  /**
+   * Create Container Data reference sheet with dropdown values
+   */
+  private createContainerDataSheet(sheet: ExcelJS.Worksheet): void {
+    const headers = ['Container Type', 'Pkg Type'];
+    sheet.addRow(headers);
+
+    const data = {
+      containerType: ['20ft Standard', '40ft Container', '40 RF', '40 Flat Rack', '20ft Container', '45ft High Cube', '20ft Reefer', '40Ft Open Top'],
+      pkgType: ['Pallet', 'Per KG', 'Box']
+    };
+
+    const maxRows = Math.max(data.containerType.length, data.pkgType.length);
+
+    for (let i = 0; i < maxRows; i++) {
+      sheet.addRow([
+        data.containerType[i] || '',
+        data.pkgType[i] || ''
+      ]);
+    }
+
+    this.styleReferenceSheet(sheet);
+  }
+
+  /**
+   * Create House Data reference sheet with dropdown values
+   */
+  private createHouseDataSheet(sheet: ExcelJS.Worksheet): void {
+    const headers = [
+      'Mode of Transport', 'BL Release Type', 'Shipment Terms', 'Freight PP/CC',
+      'Movement Type', 'Stuffing At', 'Coload', 'Inco', 'Nominated By', 'Cargo Type', 'External Pkg'
+    ];
+    sheet.addRow(headers);
+
+    const data = {
+      modeOfTransport: ['Vessel', 'Rail', 'Road', 'Flight'],
+      blReleaseType: ['Original', 'Express', 'Surrender', 'Sea WayBill'],
+      shipmentTerms: ['FCL/FCL', 'FCL/LCL', 'LCL/FCL', 'LCL/LCL', 'LTL', 'FTL', 'FLT HH'],
+      freightPPCC: ['Prepaid', 'Collect'],
+      movementType: ['CY-CFS', 'CFS-FO', 'CFS-CY', 'CFS-CFS', 'FO-FI', 'Door-Door', 'CY-Door', 'CY-FO'],
+      stuffingAt: ['Dock', 'Factory'],
+      coload: ['Yes', 'No'],
+      inco: ['FAS', 'FOB', 'CIF', 'EXW', 'FCA', 'CPT', 'CIP', 'DAP', 'DDP', 'CFR', 'DPU'],
+      nominatedBy: ['Self', 'Nomination'],
+      cargoType: ['General', 'Reefer', 'Haz', 'Tanker', 'OOG'],
+      externalPkg: ['Box', 'PC', 'Pallet', 'Carton']
+    };
+
+    const maxRows = Math.max(
+      data.modeOfTransport.length,
+      data.blReleaseType.length,
+      data.shipmentTerms.length,
+      data.freightPPCC.length,
+      data.movementType.length,
+      data.stuffingAt.length,
+      data.coload.length,
+      data.inco.length,
+      data.nominatedBy.length,
+      data.cargoType.length,
+      data.externalPkg.length
+    );
+
+    for (let i = 0; i < maxRows; i++) {
+      sheet.addRow([
+        data.modeOfTransport[i] || '',
+        data.blReleaseType[i] || '',
+        data.shipmentTerms[i] || '',
+        data.freightPPCC[i] || '',
+        data.movementType[i] || '',
+        data.stuffingAt[i] || '',
+        data.coload[i] || '',
+        data.inco[i] || '',
+        data.nominatedBy[i] || '',
+        data.cargoType[i] || '',
+        data.externalPkg[i] || ''
+      ]);
+    }
+
+    this.styleReferenceSheet(sheet);
+  }
+
+  /**
+   * Apply dropdown data validation to a column range
+   */
+  private applyDropdownValidation(
+    worksheet: ExcelJS.Worksheet,
+    columnLetter: string,
+    startRow: number,
+    endRow: number,
+    formula: string
+  ): void {
+    for (let row = startRow; row <= endRow; row++) {
+      worksheet.getCell(`${columnLetter}${row}`).dataValidation = {
+        type: 'list',
+        allowBlank: true,
+        formulae: [formula],
+        showErrorMessage: true,
+        errorStyle: 'error',
+        errorTitle: 'Invalid Selection',
+        error: 'Please select a value from the dropdown list'
+      };
+    }
+  }
+
+  /**
+   * Style the header row of a worksheet
+   */
+  private styleHeaderRow(worksheet: ExcelJS.Worksheet): void {
+    const headerRow = worksheet.getRow(1);
+    headerRow.font = { bold: true };
+    headerRow.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FFD3D3D3' }
+    };
+    headerRow.eachCell((cell) => {
+      cell.border = {
+        top: { style: 'thin' },
+        left: { style: 'thin' },
+        bottom: { style: 'thin' },
+        right: { style: 'thin' }
+      };
+    });
+  }
+
+  /**
+   * Style reference sheet with header formatting
+   */
+  private styleReferenceSheet(worksheet: ExcelJS.Worksheet): void {
+    const headerRow = worksheet.getRow(1);
+    headerRow.font = { bold: true };
+    headerRow.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FFE0E0E0' }
+    };
+    // Auto-fit column widths
+    worksheet.columns.forEach((column) => {
+      column.width = 18;
+    });
+  }
+
+  /**
+   * Set column widths for a worksheet
+   */
+  private setColumnWidths(worksheet: ExcelJS.Worksheet, columnCount: number, defaultWidth: number): void {
+    for (let i = 1; i <= columnCount; i++) {
+      worksheet.getColumn(i).width = defaultWidth;
+    }
   }
 }

@@ -537,7 +537,7 @@ export class MasterJobController {
         try {
             this.logger.log(`Generating Excel template for bulk upload`);
 
-            const buffer = this.excelParserService.generateTemplate();
+            const buffer = await this.excelParserService.generateTemplate();
 
             res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
             res.setHeader('Content-Disposition', 'attachment; filename=Master_Job_Upload_Template.xlsx');
