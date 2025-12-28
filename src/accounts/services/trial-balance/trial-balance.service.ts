@@ -321,7 +321,7 @@ export class TrialBalanceService {
           }),
         VoucherDate: {
           ...(fromDate && { gte: fromDate }),
-          ...(toDate && { lt: toDate }),
+          ...(toDate && { lte: toDate }),
         },
       },
       select: {
