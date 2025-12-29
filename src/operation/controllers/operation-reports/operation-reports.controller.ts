@@ -81,7 +81,7 @@ export class OperationReportsController {
       resp.data = reportData;
       resp.message = `${reportName} generated successfully`;
     } catch (error) {
-      this.logger.warn(`generateReportError: ${JSON.stringify(error)}`);
+      this.logger.warn(`generateReportError: ${JSON.stringify(error),error}`);
       resp.status = false;
       resp.message = error instanceof BadRequestException || error instanceof UnauthorizedException
         ? error.message

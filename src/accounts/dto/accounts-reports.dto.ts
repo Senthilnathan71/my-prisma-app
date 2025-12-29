@@ -291,12 +291,12 @@ export class VATReportQueryDto {
   @ApiProperty()
   @IsNotEmpty()
   @IsDateString()
-  FromDate: string;
+  VoucherFromDate: string;
 
   @ApiProperty()
   @IsNotEmpty()
   @IsDateString()
-  ToDate: string;
+  VoucherToDate: string;
 
   @ApiProperty({ enum: TaxPeriodEnum })
   @IsNotEmpty()
@@ -482,12 +482,12 @@ export class UnpostedVoucherListReportQueryDto {
   @ApiProperty()
   @IsNotEmpty()
   @IsDateString()
-  FromDate: string;
+  VoucherFromDate: string;
 
   @ApiProperty()
   @IsNotEmpty()
   @IsDateString()
-  ToDate: string;
+  VoucherToDate: string;
 
   @ApiProperty({ enum: TaxPeriodEnum })
   @IsNotEmpty()

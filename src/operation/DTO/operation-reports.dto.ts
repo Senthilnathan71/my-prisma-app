@@ -316,6 +316,53 @@ export class profitabilityReportQueryDto {
 }
 
 
+export class lostCustomerReportQueryDto {
+  @ApiProperty()
+  @IsNotEmpty()
+  @IsDateString()
+  BookingFromDate: Date;
+
+  @ApiProperty()
+  @IsNotEmpty()
+  @IsDateString()
+  BookingToDate: Date;
+
+  @ApiProperty({ enum: ShipmentStatusEnum })
+  @IsNotEmpty()
+  @IsEnum(ShipmentStatusEnum)
+  shipmentStatus: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsInt()
+  department?: number;
+
+  @ApiProperty()
+  @IsNotEmpty()
+  @IsInt()
+  companyId: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsInt()
+  Branch?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsInt()
+  Dept?: number[];
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsInt()
+  customer?: number[];
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsInt()
+  salesman?: number;
+}
+
 export class unbilledcostReportQueryDto {
   @ApiProperty()
   @IsNotEmpty()

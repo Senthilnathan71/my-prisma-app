@@ -727,25 +727,25 @@ if (payload.VoucherDetail && Array.isArray(payload.VoucherDetail)) {
                 }
 
                 
-                let sumOfCurrencyDebits = 0;
-                let sumOfCurrencyCredits = 0;
+                let sumOfDebits = 0;
+                let sumOfCredits = 0;
                 chargeLineItems.forEach(detail => {
-                    if (detail.DrCr === 'D') sumOfCurrencyDebits += toNumber(detail.Amount);
-                    else sumOfCurrencyCredits += toNumber(detail.Amount);
+                    if (detail.DrCr === 'D') sumOfDebits += (toNumber(detail.LocalAmount) + toNumber(detail.TaxAmount1));
+                    else sumOfCredits += (toNumber(detail.LocalAmount) + toNumber(detail.TaxAmount1))
                 });
-                if (sumOfCurrencyCredits - sumOfCurrencyDebits !== 0) {
+                if (sumOfCredits - sumOfDebits !== 0) {
                     throw new BadRequestException('Sum of currency debits and credits should be zero.');
                 }
                 
-                let sumOfLocalDebits = 0;
-                let sumOfLocalCredits = 0;
-                chargeLineItems.forEach(detail => {
-                    if (detail.DrCr === 'D') sumOfLocalDebits += toNumber(detail.LocalAmount);
-                    else sumOfLocalCredits += toNumber(detail.LocalAmount);
-                });
+                // let sumOfLocalDebits = 0;
+                // let sumOfLocalCredits = 0;
+                // chargeLineItems.forEach(detail => {
+                //     if (detail.DrCr === 'D') sumOfLocalDebits += toNumber(detail.LocalAmount);
+                //     else sumOfLocalCredits += toNumber(detail.LocalAmount);
+                // });
 
                 let allDetails = [...chargeLineItems, ...createdTaxRows];
-                const exchangeRateMismatch = sumOfLocalCredits - sumOfLocalDebits;
+                const exchangeRateMismatch = sumOfCredits - sumOfDebits;
                 if (exchangeRateMismatch) {
                     const exchangeRateDetail = await tx.voucherDetail.create({
                         data: {
@@ -875,17 +875,25 @@ if (payload.VoucherDetail && Array.isArray(payload.VoucherDetail)) {
     private validateDebitCreditBalance(details: any[]): void {
         const debitTotal = details
             .filter(d => d.DrCr === 'D')
-            .reduce((sum, d) => sum + Number(d.LocalAmount || 0), 0);
+            .reduce((sum, d) => {
+            const localAmount = Number(d.LocalAmount || 0);
+            const taxAmount1 = Number(d.TaxAmount1 || 0);
+            return sum + localAmount + taxAmount1;
+        }, 0);
 
         const creditTotal = details
             .filter(d => d.DrCr === 'C')
-            .reduce((sum, d) => sum + Number(d.LocalAmount || 0), 0);
+            .reduce((sum, d) => {
+            const localAmount = Number(d.LocalAmount || 0);
+            const taxAmount1 = Number(d.TaxAmount1 || 0);
+            return sum + localAmount + taxAmount1;
+        }, 0);
 
         const difference = Math.abs(debitTotal - creditTotal);
 
-        if (difference > 0.01) {
+        if (difference > 0.00) {
             throw new BadRequestException(
-                `Debit and Credit totals must be equal. Debit: ${debitTotal.toFixed(2)}, Credit: ${creditTotal.toFixed(2)}, Difference: ${difference.toFixed(2)}`
+                `Debit and Credit totals must be equal. Debit: ${debitTotal}, Credit: ${creditTotal}, Difference: ${difference}`
             );
         }
     }
