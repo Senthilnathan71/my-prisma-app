@@ -1785,8 +1785,8 @@ const ledger = coaMasterSid
           }
         },
         orderBy: [
-          { VoucherDate: 'asc' },
-          { voucherTypeMaster : {DocumentTypeName : 'asc'}}
+          { voucherTypeMaster : {DocumentTypeName : 'asc'}},
+          { VoucherDate: 'asc' }
         ]
       });
 

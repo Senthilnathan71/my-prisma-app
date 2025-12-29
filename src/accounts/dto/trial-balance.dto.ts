@@ -54,6 +54,12 @@ export class TrialBalanceQueryDto {
   @IsNumber()
   @Type(() => Number)
   YearMasterSid?: number;
+
+  @ApiProperty()
+  @IsOptional()
+  @IsBoolean()
+  @Type(() => Boolean)
+  SubTotal?: boolean;
 }
 
 export class TrialBalanceItemDto {
@@ -165,12 +171,14 @@ export class TrialBalanceResponseDto {
   @ApiProperty({ description: 'Report parameters used' })
   parameters: {
     CompanyMasterSid: number;
+    BranchInvolved : string;
     BranchMasterSid?: number[];
     fromDate: string;
     toDate: string;
     GroupName?: string;
     SubGroupName?: string;
     showSubtotals: boolean;
+    SubTotal?: boolean;
   };
 
   @ApiProperty({ type: [TrialBalanceItemDto], description: 'Trial balance ledger items' })

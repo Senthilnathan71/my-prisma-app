@@ -36,7 +36,7 @@ export class TrialBalanceService {
     const SubGroupName = query.SubGroupName;
     const showSubtotals = query.showSubtotals ?? true;
     const YearMasterSid = query.YearMasterSid ? Number(query.YearMasterSid) : undefined;
-
+    const SubTotal =  query.SubTotal
     // Validate dates
     this.validateDates(fromDate, toDate);
 
@@ -48,13 +48,32 @@ export class TrialBalanceService {
       YearMasterSid,
     );
     
-
+    
     // Get all active ledgers matching filters
     const ledgers = await this.getLedgers(
       CompanyMasterSid,
       GroupName,
       SubGroupName,
     );
+    
+    let BranchInvolved = '';
+    if(!query.Branch || query.Branch.length === 0){
+      BranchInvolved = "All"
+    } else {
+      const branches = await this.databaseService.branchMaster.findMany({
+        where : {
+          CompanyMasterSid : query.companyId,
+          status : 'A'
+        },
+        select : {
+          BranchMasterSid : true,
+          branchName : true
+        }
+      })
+      const selectedBranches = branches.filter(b => query.Branch?.includes(b.BranchMasterSid));
+      BranchInvolved = query.Branch.length === branches.length ? 
+                    'All' : selectedBranches.map( b => b.branchName).join(', ')
+    }
 
     if (ledgers.length === 0) {
       return {
@@ -62,12 +81,14 @@ export class TrialBalanceService {
         message: 'No ledgers found matching the criteria',
         parameters: {
           CompanyMasterSid,
+          BranchInvolved,
           BranchMasterSid,
           fromDate,
           toDate,
           GroupName,
           SubGroupName,
           showSubtotals,
+          SubTotal
         },
         items: [],
         subtotals: [],
@@ -114,12 +135,14 @@ export class TrialBalanceService {
       success: true,
       parameters: {
         CompanyMasterSid,
+        BranchInvolved,
         BranchMasterSid,
         fromDate,
         toDate,
         GroupName,
         SubGroupName,
         showSubtotals,
+        SubTotal
       },
       items: sortedItems,
       subtotals,
