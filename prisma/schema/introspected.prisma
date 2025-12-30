@@ -42,7 +42,7 @@ view vMasterJobIndexPage {
 view vBookingARAP {
   CompanyMasterSid Int?
   BookingHeaderSid Int       @unique
-  VoucherHeaderSid Int?       
+  VoucherHeaderSid Int?
   VoucherNumber    String?   @db.VarChar(20)
   VoucherDate      DateTime? @db.Timestamp(6)
   HBLNo            String?   @db.VarChar(200)
