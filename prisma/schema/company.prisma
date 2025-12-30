@@ -2286,7 +2286,7 @@ model ProfitCenterMaster {
 model TaxGroup {
   TaxGroupSid     Int               @id @default(autoincrement()) @map("TaxGroupSid")
   TaxGroup        String            @db.VarChar(10)
-  TaxRate         Decimal           @db.Decimal(4, 2)
+  TaxRate         Decimal           @db.Decimal(6, 3)
   CreatedOn       DateTime          @default(now()) @db.Timestamp(6)
   CreatedBy       String            @db.VarChar(100)
   UpdatedOn       DateTime?         @default(now()) @db.Timestamp(6)
@@ -2306,7 +2306,7 @@ model TaxMaster {
   TaxName          String         @db.VarChar(20)
   TaxType          String         @db.VarChar(6)
   EffectiveFrom    DateTime       @db.Date
-  TaxRate          Decimal        @db.Decimal(4, 2)
+  TaxRate          Decimal        @db.Decimal(6, 3)
   TaxExempt        String         @default("N") @db.Char(1)
   CreatedOn        DateTime       @default(now()) @db.Timestamp(6)
   CreatedBy        String         @db.VarChar(100)
@@ -2958,6 +2958,8 @@ model HouseJobOthers {
   ValueForInsurance       Decimal?  @db.Decimal(12, 3)
   DeclaredValueOfCarriage String?   @db.VarChar(3)
   DeclaredValueOfCustoms  String?   @db.VarChar(3)
+  SIConfirmationDate      DateTime? @db.Date
+  DGConfirmationDate      DateTime? @db.Date
   HouseJob                HouseJob  @relation(fields: [HouseJobSid], references: [HouseJobSid])
 }
 

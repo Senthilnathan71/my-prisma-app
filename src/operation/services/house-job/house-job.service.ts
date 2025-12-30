@@ -541,6 +541,12 @@ export class HouseJobService {
                             WeightIn:true,
                             containers:true,
                             others:true,
+                            voyages : {
+                                where : {
+                                    Status : 'A'
+                                },
+                                take : 1
+                            }
                         },
                        
                     } 
