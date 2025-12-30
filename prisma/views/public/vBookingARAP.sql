@@ -1,5 +1,5 @@
 SELECT
-  bh."CompanyMasterSid",
+  DISTINCT bh."CompanyMasterSid",
   bh."BookingHeaderSid",
   vh."VoucherHeaderSid",
   vh."VoucherNumber",

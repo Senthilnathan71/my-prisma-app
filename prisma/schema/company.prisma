@@ -2958,8 +2958,8 @@ model HouseJobOthers {
   ValueForInsurance       Decimal?  @db.Decimal(12, 3)
   DeclaredValueOfCarriage String?   @db.VarChar(3)
   DeclaredValueOfCustoms  String?   @db.VarChar(3)
-  SIConfirmationDate      DateTime? @db.Date
   DGConfirmationDate      DateTime? @db.Date
+  SIConfirmationDate      DateTime? @db.Date
   HouseJob                HouseJob  @relation(fields: [HouseJobSid], references: [HouseJobSid])
 }
 
