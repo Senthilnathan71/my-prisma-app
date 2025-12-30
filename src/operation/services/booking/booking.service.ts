@@ -2037,6 +2037,7 @@ if (!croPayload?.BookingCroSid) {
                 select: {
                     MilestoneMasterSid: true,
                     MilestoneName: true,
+                    MilestoneCode : true,
                     AutoCapture: true,
                     DepartmentMasterSid: true,
                     Remarks: true

@@ -55,6 +55,8 @@ import { ReverseVoucherController } from './controllers/reverse-voucher/reverse-
 import { EDIManifestService } from './services/edi-manifest/edi-manifest.service';
 import { VoucherMatchingService } from './services/voucher-matching/voucher-matching.service';
 import { VoucherMatchingController } from './controllers/voucher-matching/voucher-matching.controller';
+import { ShipmentMilestoneController } from './controllers/shipment-milestone/shipment-milestone.controller';
+import { ShipmentMilestoneService } from './services/shipment-milestone/shipment-milestone.service';
 
 @Module({
         imports: [CommonModule],
@@ -90,7 +92,8 @@ import { VoucherMatchingController } from './controllers/voucher-matching/vouche
                 CustomsService,
                 ReverseVoucherService,
                 EDIManifestService,
-                VoucherMatchingService
+                VoucherMatchingService,
+                ShipmentMilestoneService
         ],
         controllers: [
                 BookingController,
@@ -116,7 +119,8 @@ import { VoucherMatchingController } from './controllers/voucher-matching/vouche
                 VehicleController,
                 CustomsController,
                 ReverseVoucherController,
-                VoucherMatchingController
+                VoucherMatchingController,
+                ShipmentMilestoneController
         ]
 })
 export class OperationModule { }
