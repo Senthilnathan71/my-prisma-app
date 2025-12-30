@@ -37,12 +37,12 @@ export class BLIssueListReportQueryDto {
   @ApiProperty()
   @IsNotEmpty()
   @IsDateString()
-  FromHBLDt: string;
+  FromHblDt: string;
 
   @ApiProperty()
   @IsNotEmpty()
   @IsDateString()
-  ToHBLDt: string;
+  ToHblDt: string;
 
   @ApiProperty({ enum: BLStatusEnum })
   @IsNotEmpty()
@@ -80,12 +80,12 @@ export class ShipmentSummaryReportQueryDto {
   @ApiProperty()
   @IsNotEmpty()
   @IsDateString()
-  FromMBLDt: string;
+  FromJobDt: string;
 
   @ApiProperty()
   @IsNotEmpty()
   @IsDateString()
-  ToMBLDt: string;
+  ToJobDt: string;
 
   @ApiProperty({ enum: ShipmentStatusEnum })
   @IsNotEmpty()
@@ -151,12 +151,12 @@ export class ContainerKPIReportQueryDto {
   @ApiProperty()
   @IsNotEmpty()
   @IsDateString()
-  FromHBLDt: string;
+  FromHblDt: string;
 
   @ApiProperty()
   @IsNotEmpty()
   @IsDateString()
-  ToHBLDt: string;
+  ToHblDt: string;
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -189,12 +189,12 @@ export class DOIssueListReportQueryDto {
   @ApiProperty()
   @IsNotEmpty()
   @IsDateString()
-  FromHBLDt: string;
+  FromHblDt: string;
 
   @ApiProperty()
   @IsNotEmpty()
   @IsDateString()
-  ToHBLDt: string;
+  ToHblDt: string;
 
   @ApiProperty({ enum: DOStatusEnum })
   @IsNotEmpty()
@@ -227,12 +227,12 @@ export class ShipmentDetailedSummaryReportQueryDto {
   @ApiProperty()
   @IsNotEmpty()
   @IsDateString()
-  FromHBLDt: string;
+  FromHblDt: string;
 
   @ApiProperty()
   @IsNotEmpty()
   @IsDateString()
-  ToHBLDt: string;
+  ToHblDt: string;
 
   @ApiProperty({ enum: YesNoEnum })
   @IsNotEmpty()
@@ -282,12 +282,12 @@ export class profitabilityReportQueryDto {
   @ApiProperty()
   @IsNotEmpty()
   @IsDateString()
-  FromMBLDt: string;
+  FromJobDt: string;
 
   @ApiProperty()
   @IsNotEmpty()
   @IsDateString()
-  ToMBLDt: string;
+  ToJobDt: string;
 
   @ApiProperty({ enum: ShipmentStatusEnum })
   @IsNotEmpty()
@@ -367,12 +367,12 @@ export class unbilledcostReportQueryDto {
   @ApiProperty()
   @IsNotEmpty()
   @IsDateString()
-  FromHBLDt: string;
+  FromHblDt: string;
 
   @ApiProperty()
   @IsNotEmpty()
   @IsDateString()
-  ToHBLDt: string;
+  ToHblDt: string;
 
   @ApiProperty({ enum: ShipmentStatusEnum })
   @IsNotEmpty()
@@ -404,12 +404,12 @@ export class houseJobLossReportQueryDto {
   @ApiProperty()
   @IsNotEmpty()
   @IsDateString()
-  FromHBLDt: string;
+  FromHblDt: string;
 
   @ApiProperty()
   @IsNotEmpty()
   @IsDateString()
-  ToHBLDt: string;
+  ToHblDt: string;
 
 
   @ApiProperty()
@@ -437,12 +437,12 @@ export class ProfitSummaryReportQueryDto {
   @ApiProperty()
   @IsNotEmpty()
   @IsDateString()
-  FromMBLDt: string;
+  FromJobDt: string;
 
   @ApiProperty()
   @IsNotEmpty()
   @IsDateString()
-  ToMBLDt: string;
+  ToJobDt: string;
 
 
   @ApiProperty()
