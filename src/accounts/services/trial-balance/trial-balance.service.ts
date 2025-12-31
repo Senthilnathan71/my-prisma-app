@@ -27,6 +27,7 @@ export class TrialBalanceService {
   async generateTrialBalance(
     query: TrialBalanceQueryDto,
   ): Promise<TrialBalanceResponseDto> {
+    
     // Ensure proper type conversion from query parameters
     const CompanyMasterSid = Number(query.companyId);
     const BranchMasterSid = query.Branch?.map(id => Number(id));
@@ -55,24 +56,58 @@ export class TrialBalanceService {
       GroupName,
       SubGroupName,
     );
+
+
+    // --- Resolve Group Name ---
+let GroupNameResolved = 'All';
+if (query.GroupName) {
+  const groupIds = Array.isArray(query.GroupName)
+    ? query.GroupName.map(Number)
+    : [Number(query.GroupName)];
+
+  const groups = await this.databaseService.cOAMaster.findMany({
+    where: { COAMasterSid: { in: groupIds } },
+    select: { GroupName: true },
+  });
+
+  GroupNameResolved = groups.map(g => g.GroupName).join(', ') || 'All';
+}
+
+// --- Resolve SubGroup Name ---
+let SubGroupNameResolved = 'All';
+if (query.SubGroupName) {
+  const subGroupIds = Array.isArray(query.SubGroupName)
+    ? query.SubGroupName.map(Number)
+    : [Number(query.SubGroupName)];
+
+  const subGroups = await this.databaseService.cOAMaster.findMany({
+    where: { COAMasterSid: { in: subGroupIds } },
+    select: { SubGroupName: true },
+  });
+
+  SubGroupNameResolved = subGroups.map(s => s.SubGroupName).join(', ') || 'All';
+}
+
     
-    let BranchInvolved = '';
-    if(!query.Branch || query.Branch.length === 0){
-      BranchInvolved = "All"
-    } else {
-      const branches = await this.databaseService.branchMaster.findMany({
-        where : {
-          CompanyMasterSid : query.companyId,
-          status : 'A'
+    let BranchInvolved = 'All';
+    if (query.Branch && query.Branch.length > 0) {
+
+      const selectedBranches = await this.databaseService.branchMaster.findMany({
+        where: {
+          CompanyMasterSid: Number(query.companyId),
+          status: 'A',
+          BranchMasterSid: {
+            in: query.Branch.map(Number),
+          },
         },
-        select : {
-          BranchMasterSid : true,
-          branchName : true
-        }
-      })
-      const selectedBranches = branches.filter(b => query.Branch?.includes(b.BranchMasterSid));
-      BranchInvolved = query.Branch.length === branches.length ? 
-                    'All' : selectedBranches.map( b => b.branchName).join(', ')
+        select: {
+          branchName: true,
+        },
+      });
+
+      BranchInvolved = selectedBranches
+        .map(b => b.branchName)
+        .join(', ');
     }
 
     if (ledgers.length === 0) {
@@ -151,6 +186,7 @@ export class TrialBalanceService {
       generatedAt: new Date(),
     };
   }
+  
 
   /**
    * Validate date range
@@ -238,6 +274,7 @@ export class TrialBalanceService {
   //   });
   // }
 
+  
   private async getLedgers(
   CompanyMasterSid: number,
   GroupName?: string | number,

@@ -1901,8 +1901,8 @@ const ledger = coaMasterSid
         where: {
           CompanyMasterSid,
           AND: [
-            { MBLDate: { gte: new Date(FromDate) } },
-            { MBLDate: { lte: new Date(ToDate) } }
+            { MBLDate: { gte: FromDate } },
+            { MBLDate: { lte: ToDate} }
           ],
           Status: 'A',
           BranchMasterSid: { in: resolvedBranchIds },

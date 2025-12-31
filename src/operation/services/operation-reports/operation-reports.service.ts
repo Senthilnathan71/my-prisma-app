@@ -121,15 +121,15 @@ export class OperationReportsService {
   private async generateBLIssueList(params: BLIssueListReportQueryDto) {
     const {
       companyId: CompanyMasterSid,
-      ToHBLDt,
-      FromHBLDt,
+      ToHblDt,
+      FromHblDt,
       Branch: branchId,
       Dept: deptId,
       BLIssue = false,
     } = params;
 
     try {
-      this.logger.log(`Getting BL_Issue report for CompanySid=${CompanyMasterSid}, From=${FromHBLDt}, To=${ToHBLDt}`);
+      this.logger.log(`Getting BL_Issue report for CompanySid=${CompanyMasterSid}, From=${FromHblDt}, To=${ToHblDt}`);
 
        const branches = branchId && branchId.length > 0
         ? await this._db.branchMaster.findMany({
@@ -163,8 +163,8 @@ export class OperationReportsService {
         where: {
           CompanyMasterSid,
           AND: [
-            { HBLDate: { gte: new Date(FromHBLDt) } },
-            { HBLDate: { lte: new Date(ToHBLDt) } }
+            { HBLDate: { gte: FromHblDt } },
+            { HBLDate: { lte: ToHblDt } }
           ],
           status: 'A',
           BranchMasterSid: { in: resolvedBranchIds },
@@ -231,14 +231,14 @@ export class OperationReportsService {
   private async generateShipmentSummaryReport(params: ShipmentSummaryReportQueryDto) {
     const {
       companyId: CompanyMasterSid,
-      ToMBLDt,
-      FromMBLDt,
+      ToJobDt,
+      FromJobDt,
       Branch: branchId,
       Dept: deptId
     } = params;
 
     try {
-      this.logger.log(`Getting shipment summary report for CompanySid=${CompanyMasterSid}, From=${FromMBLDt}, To=${ToMBLDt}`);
+      this.logger.log(`Getting shipment summary report for CompanySid=${CompanyMasterSid}, From=${FromJobDt}, To=${ToJobDt}`);
 
       const branches = branchId && branchId.length > 0
         ? await this._db.branchMaster.findMany({
@@ -287,13 +287,12 @@ export class OperationReportsService {
       const masterJobData = await this._db.masterJob.findMany({
         where: {
           CompanyMasterSid,
-         
           AND: [
-            { MBLDate: { gte: new Date(FromMBLDt) } },
-            { MBLDate: { lte: new Date(ToMBLDt) } }
+            { MBLDate: { gte: FromJobDt } },
+            { MBLDate: { lte: ToJobDt } }
           ],
           Status: 'A',
-            BranchMasterSid: { in: resolvedBranchIds },
+          BranchMasterSid: { in: resolvedBranchIds },
           DepartmentMasterSid: { in: resolvedDeptIds },
         },
         include: {
@@ -476,15 +475,15 @@ export class OperationReportsService {
   private async generateProfitabilityReport(params: profitabilityReportQueryDto) {
     const {
       companyId: CompanyMasterSid,
-      ToMBLDt,
-      FromMBLDt,
+      ToJobDt,
+      FromJobDt,
       Branch: branchId,
       Dept: deptId,
     } = params;
 
     try {
       this.logger.log(
-        `Getting Profitability report for CompanySid=${CompanyMasterSid}, From=${FromMBLDt}, To=${ToMBLDt}`
+        `Getting Profitability report for CompanySid=${CompanyMasterSid}, From=${FromJobDt}, To=${ToJobDt}`
       );
 
       const branches = branchId && branchId.length > 0
@@ -528,8 +527,8 @@ export class OperationReportsService {
         where: {
           CompanyMasterSid,
           AND: [
-            { MBLDate: { gte: new Date(FromMBLDt) } },
-            { MBLDate: { lte: new Date(ToMBLDt) } }
+            { MBLDate: { gte: FromJobDt } },
+            { MBLDate: { lte: ToJobDt } }
           ],
           Status: 'A',
           BranchMasterSid: { in: resolvedBranchIds },
@@ -773,15 +772,15 @@ export class OperationReportsService {
   //    private async generateProfitabilityReport(params: profitabilityReportQueryDto) {
   //   const {
   //     companyId: CompanyMasterSid,
-  //     ToMBLDt,
-  //     FromMBLDt,
+  //     ToJobDt,
+  //     FormJobDt,
   //     Branch: branchId,
   //     Dept: dept,
   //   } = params;
 
   //   try {
   //     this.logger.log(
-  //       `Getting Profitability report for CompanySid=${CompanyMasterSid}, From=${FromMBLDt}, To=${ToMBLDt}`
+  //       `Getting Profitability report for CompanySid=${CompanyMasterSid}, From=${FormJobDt}, To=${ToJobDt}`
   //     );
 
   //     const allBranches = await this._db.branchMaster.findMany({
@@ -804,8 +803,8 @@ export class OperationReportsService {
   //         CompanyMasterSid,
   //         BranchMasterSid: { in: branchId },
   //         AND: [
-  //           { MBLDate: { gte: new Date(FromMBLDt) } },
-  //           { MBLDate: { lte: new Date(ToMBLDt) } }
+  //           { MBLDate: { gte: new Date(FormJobDt) } },
+  //           { MBLDate: { lte: new Date(ToJobDt) } }
   //         ],
   //         Status: 'A',
   //         DepartmentMasterSid: { in: dept },
@@ -1221,14 +1220,14 @@ export class OperationReportsService {
   private async generateContainerKPIReport(params: any) {
     const {
       companyId: CompanyMasterSid,
-      ToHBLDt,
-      FromHBLDt,
+      ToHblDt,
+      FromHblDt,
       Branch: branchId,
       Dept: deptId,
     } = params;
 
     try {
-      this.logger.log(`Getting Container_Wise_KPI report for CompanySid=${CompanyMasterSid}, From=${FromHBLDt}, To=${ToHBLDt}`);
+      this.logger.log(`Getting Container_Wise_KPI report for CompanySid=${CompanyMasterSid}, From=${FromHblDt}, To=${ToHblDt}`);
 
       const branches = branchId && branchId.length > 0
         ? await this._db.branchMaster.findMany({
@@ -1328,8 +1327,8 @@ export class OperationReportsService {
           CompanyMasterSid,
 
           AND: [
-            { HBLDate: { gte: new Date(FromHBLDt) } },
-            { HBLDate: { lte: new Date(ToHBLDt) } }
+            { HBLDate: { gte: FromHblDt } },
+            { HBLDate: { lte: ToHblDt } }
           ],
           status: 'A',
           BranchMasterSid: { in: resolvedBranchIds },
@@ -1504,15 +1503,15 @@ export class OperationReportsService {
   private async generateDOIssueList(params: DOIssueListReportQueryDto) {
     const {
       companyId: CompanyMasterSid,
-      ToHBLDt,
-      FromHBLDt,
+      ToHblDt,
+      FromHblDt,
       Branch: branchId,
       Dept: deptId,
     } = params;
 
     try {
       this.logger.log(
-        `Getting BL_Issue report for CompanySid=${CompanyMasterSid}, From=${FromHBLDt}, To=${ToHBLDt}`
+        `Getting BL_Issue report for CompanySid=${CompanyMasterSid}, From=${FromHblDt}, To=${ToHblDt}`
       );
 
 
@@ -1559,8 +1558,8 @@ export class OperationReportsService {
           BranchMasterSid: { in: resolvedBranchIds },
           DepartmentMasterSid: { in: resolvedDeptIds },
           AND: [
-            { HBLDate: { gte: new Date(FromHBLDt) } },
-            { HBLDate: { lte: new Date(ToHBLDt) } },
+            { HBLDate: { gte: FromHblDt } },
+            { HBLDate: { lte: ToHblDt } },
           ],
           status: 'A',
         },
@@ -1621,8 +1620,8 @@ export class OperationReportsService {
   private async generateShipmentDetailedSummary(params: ShipmentDetailedSummaryReportQueryDto) {
     const {
       companyId: CompanyMasterSid,
-      ToHBLDt,
-      FromHBLDt,
+      ToHblDt,
+      FromHblDt,
       branchId,
       Dept: deptId,
       Transhipment = false,
@@ -1631,7 +1630,7 @@ export class OperationReportsService {
     } = params;
 
     try {
-      this.logger.log(`Getting shipment summary details report for CompanySid=${CompanyMasterSid}, From=${FromHBLDt}, To=${ToHBLDt}`);
+      this.logger.log(`Getting shipment summary details report for CompanySid=${CompanyMasterSid}, From=${FromHblDt}, To=${ToHblDt}`);
 
 
       const branches = branchId && branchId.length > 0
@@ -1709,8 +1708,8 @@ export class OperationReportsService {
       const whereClause: any = {
         CompanyMasterSid,
         AND: [
-          { HBLDate: { gte: new Date(FromHBLDt) } },
-          { HBLDate: { lte: new Date(ToHBLDt) } }
+          { HBLDate: { gte: FromHblDt } },
+          { HBLDate: { lte: ToHblDt } }
         ],
         status: 'A',
         BranchMasterSid: { in: resolvedBranchIds },
@@ -1733,8 +1732,8 @@ export class OperationReportsService {
         //   CompanyMasterSid,
         //   BranchMasterSid: { in: branchId },
         //   AND: [
-        //     { HBLDate: { gte: new Date(FromHBLDt) } },
-        //     { HBLDate: { lte: new Date(ToHBLDt) } }
+        //     { HBLDate: { gte: new Date(FromHblDt) } },
+        //     { HBLDate: { lte: new Date(ToHblDt) } }
         //   ],
         //   status: 'A',
         //   DepartmentMasterSid: { in: dept },
@@ -2076,15 +2075,15 @@ export class OperationReportsService {
   private async generateUnbilledCostReport(params: unbilledcostReportQueryDto) {
     const {
       companyId: CompanyMasterSid,
-      ToHBLDt,
-      FromHBLDt,
+      ToHblDt,
+      FromHblDt,
       Branch: branchId,
       Dept: deptId,
     } = params;
 
     try {
       this.logger.log(
-        `Getting UNBILLED House Job Cost/Revenue report for CompanySid=${CompanyMasterSid}, From=${FromHBLDt}, To=${ToHBLDt}`
+        `Getting UNBILLED House Job Cost/Revenue report for CompanySid=${CompanyMasterSid}, From=${FromHblDt}, To=${ToHblDt}`
       );
 
       const branches = branchId && branchId.length > 0
@@ -2131,8 +2130,8 @@ export class OperationReportsService {
           BranchMasterSid: { in: resolvedBranchIds },
           DepartmentMasterSid: { in: resolvedDeptIds },
           AND: [
-            { HBLDate: { gte: new Date(FromHBLDt) } },
-            { HBLDate: { lte: new Date(ToHBLDt) } },
+            { HBLDate: { gte: new Date(FromHblDt) } },
+            { HBLDate: { lte: new Date(ToHblDt) } },
           ],
           status: 'A',
         },
@@ -2219,6 +2218,7 @@ export class OperationReportsService {
             CostLocalAmount: cr.CostLocalAmount,
             RevenueLocalAmount: cr.RevenueLocalAmount,
             CostDrCr: cr.CostDrCr,
+            CostAmount:cr.CostAmount,
             RevenueDrCr: cr.RevenueDrCr,
             partyName:
               customerMaster.find(c => c.CustomerMasterSid === cr.CostAgentMasterSid)
@@ -2247,15 +2247,15 @@ export class OperationReportsService {
   private async generateUnbilledRevenueReport(params: unbilledcostReportQueryDto) {
     const {
       companyId: CompanyMasterSid,
-      ToHBLDt,
-      FromHBLDt,
+      ToHblDt,
+      FromHblDt,
       Branch: branchId,
       Dept: deptId,
     } = params;
 
     try {
       this.logger.log(
-        `Getting UNBILLED House Job Cost/Revenue report for CompanySid=${CompanyMasterSid}, From=${FromHBLDt}, To=${ToHBLDt}`
+        `Getting UNBILLED House Job Cost/Revenue report for CompanySid=${CompanyMasterSid}, From=${FromHblDt}, To=${ToHblDt}`
       );
 
       const branches = branchId && branchId.length > 0
@@ -2301,8 +2301,8 @@ export class OperationReportsService {
           CompanyMasterSid,
 
           AND: [
-            { HBLDate: { gte: new Date(FromHBLDt) } },
-            { HBLDate: { lte: new Date(ToHBLDt) } },
+            { HBLDate: { gte: new Date(FromHblDt) } },
+            { HBLDate: { lte: new Date(ToHblDt) } },
           ],
           status: 'A',
           BranchMasterSid: { in: resolvedBranchIds },
@@ -2439,8 +2439,8 @@ export class OperationReportsService {
   private async generateHouseJobLossReport(params: houseJobLossReportQueryDto) {
     const {
       companyId: CompanyMasterSid,
-      ToHBLDt,
-      FromHBLDt,
+      ToHblDt,
+      FromHblDt,
       Branch: branchId,
       Dept: deptId,
       Customer,
@@ -2448,7 +2448,7 @@ export class OperationReportsService {
 
     try {
       this.logger.log(
-        `Getting House Job Loss Report for CompanySid=${CompanyMasterSid}, From=${FromHBLDt}, To=${ToHBLDt}`
+        `Getting House Job Loss Report for CompanySid=${CompanyMasterSid}, From=${FromHblDt}, To=${ToHblDt}`
       );
 
 
@@ -2504,8 +2504,8 @@ export class OperationReportsService {
         where: {
           CompanyMasterSid,
           AND: [
-            { HBLDate: { gte: new Date(FromHBLDt) } },
-            { HBLDate: { lte: new Date(ToHBLDt) } },
+            { HBLDate: { gte: FromHblDt } },
+            { HBLDate: { lte: ToHblDt } },
           ],
           status: 'A',
           BranchMasterSid: { in: resolvedBranchIds },
@@ -2650,15 +2650,15 @@ export class OperationReportsService {
   // private async generateProfitSummaryReport(params: ProfitSummaryReportQueryDto) {
   //   const {
   //     companyId: CompanyMasterSid,
-  //     ToMBLDt,
-  //     FromMBLDt,
+  //     ToJobDt,
+  //     FormJobDt,
   //     Branch: branchId,
   //     Dept: dept,
   //   } = params;
 
   //   try {
   //     this.logger.log(
-  //       `Getting Profit Summary Report for CompanySid=${CompanyMasterSid}, From=${FromMBLDt}, To=${ToMBLDt}`
+  //       `Getting Profit Summary Report for CompanySid=${CompanyMasterSid}, From=${FormJobDt}, To=${ToJobDt}`
   //     );
 
   //     /* ===================== MASTERS ===================== */
@@ -2692,8 +2692,8 @@ export class OperationReportsService {
   //         CompanyMasterSid,
   //         BranchMasterSid: { in: allBranchIds },
   //         AND: [
-  //           { MBLDate: { gte: new Date(FromMBLDt) } },
-  //           { MBLDate: { lte: new Date(ToMBLDt) } },
+  //           { MBLDate: { gte: new Date(FormJobDt) } },
+  //           { MBLDate: { lte: new Date(ToJobDt) } },
   //         ],
   //         Status: 'A',
   //         DepartmentMasterSid: { in: dept },
@@ -2882,14 +2882,14 @@ export class OperationReportsService {
     try {
       const {
         companyId: CompanyMasterSid,
-        ToMBLDt,
-        FromMBLDt,
+        ToJobDt,
+        FromJobDt,
         Branch: branchId,
         Dept: dept,
       } = params;
 
       this.logger.log(
-        `Getting Profit Summary Report for CompanySid=${CompanyMasterSid}, From=${FromMBLDt}, To=${ToMBLDt}`
+        `Getting Profit Summary Report for CompanySid=${CompanyMasterSid}, From=${FromJobDt}, To=${ToJobDt}`
       );
 
       /* ===================== MASTERS ===================== */
@@ -2930,8 +2930,8 @@ export class OperationReportsService {
           CompanyMasterSid,
           BranchMasterSid: { in: allBranchIds },
           AND: [
-            { MBLDate: { gte: new Date(FromMBLDt) } },
-            { MBLDate: { lte: new Date(ToMBLDt) } },
+            { MBLDate: { gte: FromJobDt } },
+            { MBLDate: { lte: ToJobDt } },
           ],
           Status: 'A',
           DepartmentMasterSid: { in: dept },
