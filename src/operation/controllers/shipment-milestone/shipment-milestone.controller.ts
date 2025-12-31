@@ -380,7 +380,7 @@ export class ShipmentMilestoneController {
                 `SAfe Inserted Shipment Milestone : ${JSON.stringify(res)}`,
             );
             response.data = res;
-            response.message = `Shipment Milestone with \n<b>Milestone Code : ${payload.MilestoneCode}</b> is successfully inserted for \n<b>Shipment No : ${payload.ShipmentNo}</b>`;
+            response.message = `Shipment Milestone with \nMilestone Code : ${payload.MilestoneCode} is successfully inserted for \nShipment No : ${payload.ShipmentNo}`;
         } catch (error) {
             this.logger.warn(
                 `Shipment Milestone Safe Insert Error : ${JSON.stringify(error),error}`,
