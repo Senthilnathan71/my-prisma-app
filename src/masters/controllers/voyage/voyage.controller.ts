@@ -5,7 +5,10 @@ import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 import { VoyageService } from 'src/masters/services/voyage/voyage.service';
-
+class CompanyIdDto {
+    CompanyMasterSid: number;
+    BranchMasterSid: number;
+}
 @Controller('voyage')
 export class VoyageController {
     constructor(private voyageService: VoyageService, private logger: Logger) { }

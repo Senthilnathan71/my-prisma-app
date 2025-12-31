@@ -473,11 +473,13 @@ export class VoyageService {
     }
 
     async searchList(params: filterDto) {
-        const { search = '', page = 1, pageSize = 15 } = params;
+        const { search = '', page = 1, pageSize = 15 , activeCompanyId, activeBranchId } = params;
         const skip = (page - 1) * pageSize;
 
         const where: Prisma.VoyageMasterHeaderWhereInput = {
             status: statusWhereClause,
+            CompanyMasterSid: activeCompanyId,
+            BranchMasterSid: activeBranchId,
             // voyageMasterDetail: {
             //     some: {
             //         status: 'A',

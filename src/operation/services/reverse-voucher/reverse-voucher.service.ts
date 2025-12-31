@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, InternalServerErrorException, Logger, NotFoundException } from '@nestjs/common';
 import { DatabaseService } from 'src/database/database.service';
 import { VoucherService } from '../voucher/voucher.service';
+import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class ReverseVoucherService {
@@ -528,6 +529,7 @@ export class ReverseVoucherService {
                                 search = '',
                                 page = 1,
                                 pageSize = 10,
+                                activeCompanyId, activeBranchId,
                                 sortColumn = 'VoucherDate',
                                 sortDirection = 'desc'
                             } = params;
@@ -535,13 +537,19 @@ export class ReverseVoucherService {
                             const skip = (page - 1) * pageSize;
                             const take = Number(pageSize);
                 
-                            const where: any = {
-                                voucherTypeMaster: {
-                                    DocumentTypeName: 'Reverse Voucher'
-                                },
-                                Status: 'A'
-                            };
-                
+                            // const where: any = {
+                            //     voucherTypeMaster: {
+                            //         DocumentTypeName: 'Reverse Voucher'
+                            //     },
+                            //     Status: 'A'
+                            // };
+                const where: Prisma.VoucherHeaderWhereInput = {
+                      CompanyMasterSid: activeCompanyId,
+                      BranchMasterSid: activeBranchId,
+                      Status: 'A',
+                      voucherTypeMaster: {
+                      DocumentTypeName: 'Reverse Voucher'
+                    },}
                             // Add search filter
                             if (search) {
                                 where.OR = [

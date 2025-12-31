@@ -3,6 +3,7 @@ import { DatabaseService } from 'src/database/database.service';
 import { VoucherService } from '../voucher/voucher.service';
 import * as moment from 'moment-timezone';
 import { statusWhereClause } from 'src/common/helper';
+import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class VendorInvoiceService {
@@ -592,6 +593,7 @@ export class VendorInvoiceService {
                 search = '',
                 page = 1,
                 pageSize = 10,
+                activeCompanyId, activeBranchId,
                 sortColumn = 'VoucherDate',
                 sortDirection = 'desc'
             } = params;
@@ -599,12 +601,20 @@ export class VendorInvoiceService {
             const skip = (page - 1) * pageSize;
             const take = Number(pageSize);
 
-            const where: any = {
-                voucherTypeMaster: {
-                    DocumentTypeName: 'Vendor Invoice'
+            // const where: any = {
+            //     voucherTypeMaster: {
+            //         DocumentTypeName: 'Vendor Invoice'
+            //     },
+            //     Status: statusWhereClause
+            // };
+             const where: Prisma.VoucherHeaderWhereInput = {
+                  CompanyMasterSid: activeCompanyId,
+                  BranchMasterSid: activeBranchId,
+                  Status: 'A',
+                  voucherTypeMaster: {
+                  DocumentTypeName: 'Vendor Invoice'
                 },
-                Status: statusWhereClause
-            };
+              }
 
             // Add search filter
             if (search) {

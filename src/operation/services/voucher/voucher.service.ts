@@ -1588,7 +1588,7 @@ export class VoucherService {
                 const voucherDate = new Date(voucher.VoucherDate);
                 const startDate = new Date(yearMaster.StartDate);
                 const endDate = new Date(yearMaster.EndDate);
-                if (voucherDate < startDate || voucherDate > endDate) throw new Error('Voucher date is outside of current financial year.');
+                if (voucherDate <= startDate || voucherDate >= endDate) throw new Error('Voucher date is outside of current financial year.');
 
                 const now = new Date();
                 const chargeLineItems = voucher.VoucherDetail;

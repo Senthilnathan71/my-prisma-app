@@ -527,6 +527,7 @@ if (payload.VoucherDetail && Array.isArray(payload.VoucherDetail)) {
                     search = '',
                     page = 1,
                     pageSize = 10,
+                    activeCompanyId, activeBranchId,
                     sortColumn = 'VoucherDate',
                     sortDirection = 'desc'
                 } = params;
@@ -534,13 +535,20 @@ if (payload.VoucherDetail && Array.isArray(payload.VoucherDetail)) {
                 const skip = (page - 1) * pageSize;
                 const take = Number(pageSize);
     
-                const where: any = {
-                    voucherTypeMaster: {
-                        DocumentTypeName: 'Vendor Credit Note'
-                    },
-                    Status: 'A'
-                };
-    
+                // const where: any = {
+                //     voucherTypeMaster: {
+                //         DocumentTypeName: 'Vendor Credit Note'
+                //     },
+                //     Status: 'A'
+                // };
+    const where: Prisma.VoucherHeaderWhereInput = {
+      CompanyMasterSid: activeCompanyId,
+      BranchMasterSid: activeBranchId,
+      Status: 'A',
+      voucherTypeMaster: {
+      DocumentTypeName:  'Vendor Credit Note'
+    },
+}
                 // Add search filter
                 if (search) {
                     where.OR = [
@@ -551,6 +559,7 @@ if (payload.VoucherDetail && Array.isArray(payload.VoucherDetail)) {
                         { HouseNumber: { contains: search, mode: 'insensitive' } }
                     ];
                 }
+                
     
                 const [items, totalCount] = await Promise.all([
                     this._db.voucherHeader.findMany({
