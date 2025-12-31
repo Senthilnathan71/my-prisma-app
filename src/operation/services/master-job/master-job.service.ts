@@ -462,6 +462,7 @@ export class MasterJobService {
                             CompanyMasterSid: bookingHeader.CompanyMasterSid,
                             BranchMasterSid: bookingHeader.BranchMasterSid!,
                             CustomerMasterSid: bookingHeader.CustomerMasterSid,
+                            JobType: bookingHeader.JobType,
                             CustomerName: bookingHeader.CustomerName || '',
                             CustomerAddress: bookingHeader.CustomerAddress || '',
                             SalesmanSid: bookingHeader.SalesmanSid || null,
