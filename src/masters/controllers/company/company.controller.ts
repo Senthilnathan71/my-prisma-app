@@ -26,8 +26,10 @@ export class CompanyController {
     @Post('Create')
     async createNewCompany(@UserData() userInfo, @Body() newData: any, @UploadedFiles() logo: Express.Multer.File[] | undefined) {
         let resp = new ResponseData();
+          const payload = JSON.parse(newData.data); // 🔥 required
+
         try {
-            let res = await this.companyService.createCompany(newData, userInfo, logo);
+            let res = await this.companyService.createCompany(payload, userInfo, logo);
             this.logger.log(`New Company Added : ${JSON.stringify(res)}`);
             resp.data = res;
             resp.message = "New Company is successfully created";
@@ -162,11 +164,12 @@ export class CompanyController {
     @HttpCode(HttpStatus.OK)
     @ImageUploadInterceptor('images', 'UPLOAD_IMAGE_PATH')
     @Patch('update/:CompanyMasterSid')
-    async updateCompanyById(@Param('CompanyMasterSid', ParseIntPipe) CompanyMasterSid: number, @Body() updateData: any, @UserData() user: any) {
+    async updateCompanyById(@Param('CompanyMasterSid', ParseIntPipe) CompanyMasterSid: number, @Body() updateData: any, @UserData() user: any, @UploadedFiles() logo: Express.Multer.File[] | undefined) {
         let resp = new ResponseData();
+          const payload = JSON.parse(updateData.data); // 🔥 required
         try {
             this.logger.log(`Updating Company with id:${CompanyMasterSid}`);
-            let res = await this.companyService.updateCompany(CompanyMasterSid, updateData, user);
+            let res = await this.companyService.updateCompany(CompanyMasterSid, payload, user, logo);
             this.logger.debug(`Updated Company :${JSON.stringify(res)}`);
             resp.data = res;
             resp.message = `Company with id : ${CompanyMasterSid} is successfully updated`;
@@ -322,18 +325,28 @@ export class CompanyController {
     }
 
 
-    @Get('logo')
+    @Get('logo/:logoId')
     async getCompanyLogo(
-        @Param('logoId') logoId,
+        @Param('logoId') logoId: string,
         @Res() res,
     ): Promise<any> {
-        const companyLogoPath = this.configService.get('COMPANY_LOGO')
-        if (checkIfFileExists(`${companyLogoPath}/` + logoId)) {
-            res.sendFile(logoId, { root: companyLogoPath });
-        } else {
-            logoId = logoId.replace('.jpg', '.png', '.pdf', '.PDF', '.doc')
-            res.sendFile(logoId, { root: companyLogoPath })
+        const companyLogoPath = this.configService.get('UPLOAD_IMAGE_PATH');
+        const filePath = `${companyLogoPath}/${logoId}`;
+
+        // Try original filename
+        if (checkIfFileExists(filePath)) {
+            return res.sendFile(logoId, { root: companyLogoPath });
         }
+
+        // Try .png if .jpg not found
+        const pngLogoId = logoId.replace('.jpg', '.png');
+        const pngFilePath = `${companyLogoPath}/${pngLogoId}`;
+        if (checkIfFileExists(pngFilePath)) {
+            return res.sendFile(pngLogoId, { root: companyLogoPath });
+        }
+
+        // Return 404 if file not found
+        return res.status(404).json({ message: 'Logo not found' });
     }
 
     @ApiOperation({ summary: 'Get Audit Logs for a Table/Record' })

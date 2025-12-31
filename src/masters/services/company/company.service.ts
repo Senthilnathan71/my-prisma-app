@@ -42,6 +42,21 @@ export class CompanyService {
                 }
             }
 
+            // Extract logo filenames from uploaded files
+            let companyLogoPath: string | null = null;
+            let reportLogoPath: string | null = null;
+
+            if (files && Array.isArray(files) && files.length > 0) {
+                // First file is Company Logo
+                if (files[0]) {
+                    companyLogoPath = files[0].filename;
+                }
+                // Second file is Report Logo
+                if (files[1]) {
+                    reportLogoPath = files[1].filename;
+                }
+            }
+
             // 1. Prepare company payload
             const companyPayload = {
                 companyName: newData.companyName,
@@ -56,10 +71,10 @@ export class CompanyService {
                 isHo: newData.isHo,
                 status: newData.status,
                 remarks: newData.remarks,
-
                 config: newData.config || {},
-                createdBy: user.userEmail
-
+                createdBy: user.userEmail,
+                companyLogo: companyLogoPath,
+                reportLogo: reportLogoPath
             };
 
             const result = await this._db.$transaction(async (prisma) => {
@@ -337,6 +352,21 @@ export class CompanyService {
                 }
             }
 
+            // Extract logo filenames from uploaded files
+            let companyLogoPath: string | null = null;
+            let reportLogoPath: string | null = null;
+
+            if (files && Array.isArray(files) && files.length > 0) {
+                // First file is Company Logo
+                if (files[0]) {
+                    companyLogoPath = files[0].filename;
+                }
+                // Second file is Report Logo
+                if (files[1]) {
+                    reportLogoPath = files[1].filename;
+                }
+            }
+
             // 1. Prepare company payload without destructuring
             const companyPayload = {
                 companyName: updateData.companyName,
@@ -351,7 +381,9 @@ export class CompanyService {
                 isHo: updateData.isHo,
                 status: updateData.status,
                 remarks: updateData.remarks,
-
+                // Only update logos if new files were uploaded
+                ...(companyLogoPath && { companyLogo: companyLogoPath }),
+                ...(reportLogoPath && { reportLogo: reportLogoPath }),
                 config: updateData.config,
                 updatedBy: user.userEmail
             };

@@ -4,7 +4,7 @@ import { ResponseData } from 'src/common/response-data';
 import { Auth } from 'src/common/decorators/auth.decorator';
 import { BookingService } from 'src/crm/services/booking/booking.service';
 import { UserData } from 'src/common/decorators/user.decorator';
-import { CreateBookingDto } from 'src/crm/DTO/CreateBookingDto';
+import { CreateBookingDto } from 'src/crm/dto/CreateBookingDto';
 
 @Auth()
 @Controller('booking')
