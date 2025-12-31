@@ -4,7 +4,7 @@ import { ResponseData } from 'src/common/response-data';
 import { Auth } from 'src/common/decorators/auth.decorator';
 import { BookingService } from 'src/crm/services/booking/booking.service';
 import { UserData } from 'src/common/decorators/user.decorator';
-import { CreateBookingDto } from 'src/crm/dto/CreateBookingDto';
+
 
 @Auth()
 @Controller('booking')
@@ -12,14 +12,13 @@ export class BookingController {
   constructor(private readonly bookingService: BookingService, private logger: Logger) { }
 
   @ApiOperation({ summary: 'Create Booking' })
-  @ApiBody({ type: CreateBookingDto })
   @ApiCreatedResponse({
     description: 'Booking Created Successfully',
     type: ResponseData
   })
   @HttpCode(HttpStatus.CREATED)
   @Post()
-  async create(@UserData() user: any, @Body() createBookingDto: CreateBookingDto) {
+  async create(@UserData() user: any, @Body() createBookingDto: any) {
     let output = new ResponseData();
     try {
       const booking = await this.bookingService.create(createBookingDto, user)
