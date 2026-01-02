@@ -749,4 +749,158 @@ export class MasterJobController {
         return resp;
     }
 
+
+    @ApiOperation({ summary: 'Download Container Excel template' })
+@ApiCreatedResponse({
+    description: 'Download Excel template for container bulk upload',
+})
+@HttpCode(HttpStatus.OK)
+@Get('container/template')
+async downloadContainerTemplate(@Res() res: Response) {
+    try {
+        this.logger.log(`Generating Excel template for container upload`);
+        const buffer = await this.excelParserService.generateContainerTemplate();
+        
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', 'attachment; filename=Container_Upload_Template.xlsx');
+        res.send(buffer);
+    } catch (error) {
+        this.logger.warn(`Error generating container template: ${JSON.stringify(error)}, ${error}`);
+        res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
+            status: false,
+            message: 'Error generating template'
+        });
+    }
+}
+@ApiOperation({ summary: 'Parse Excel file for container bulk upload' })
+@ApiCreatedResponse({
+    description: 'Parse Excel file and return container data',
+    type: ResponseData
+})
+@ApiConsumes('multipart/form-data')
+@HttpCode(HttpStatus.OK)
+@Post('container/bulk-upload/parse')
+@UseInterceptors(FileInterceptor('file'))
+async parseContainerExcelFile(@UploadedFile() file: Express.Multer.File) {
+    let resp = new ResponseData();
+    try {
+        this.logger.log(`Parsing Excel file for container bulk upload`);
+
+        if (!file) {
+            throw new BadRequestException('No file uploaded');
+        }
+
+        // Validate file type
+        const allowedMimeTypes = [
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'application/vnd.ms-excel'
+        ];
+
+        if (!allowedMimeTypes.includes(file.mimetype)) {
+            throw new BadRequestException('Invalid file type. Only Excel files (.xlsx, .xls) are allowed');
+        }
+
+        // Validate file size (5MB max)
+        if (file.size > 5 * 1024 * 1024) {
+            throw new BadRequestException('File size exceeds 5MB limit');
+        }
+
+        // Parse Excel file for containers
+        const { containers, errors } = await this.excelParserService.parseContainerExcelFile(file.buffer);
+
+        if (errors && errors.length > 0) {
+            resp.status = false;
+            resp.message = 'Excel file has validation errors';
+            resp.data = { errors };
+            return resp;
+        }
+
+        this.logger.debug(`Parsed Excel successfully: ${containers.length} containers`);
+
+        resp.message = 'Excel file parsed successfully';
+        resp.data = {
+            containers,
+            totalContainers: containers.length
+        };
+
+    } catch (error) {
+        resp.status = false;
+        this.logger.warn(`Error parsing Excel file: ${JSON.stringify(error)}, ${error}`);
+        if (error instanceof BadRequestException) {
+            resp.message = error.message;
+        } else {
+            resp.message = 'Internal Server Error';
+        }
+    }
+    return resp;
+}
+
+
+@ApiOperation({ summary: 'Process container bulk upload' })
+@ApiCreatedResponse({
+    description: 'Process and validate container data from Excel',
+    type: ResponseData
+})
+@HttpCode(HttpStatus.OK)
+@Post('container/bulk-upload/validate')
+async validateContainerBulkUpload(
+    @Body() payload: {
+        containers: any[];
+        masterJobSid?: number;
+        companyMasterSid: number;
+        branchMasterSid: number;
+        createdBy: string;
+    }
+) {
+    let resp = new ResponseData();
+    try {
+        this.logger.log(`Validating container bulk upload data`);
+        
+        const { containers, masterJobSid, companyMasterSid, branchMasterSid, createdBy } = payload;
+
+        if (!containers || containers.length === 0) {
+            throw new BadRequestException('No container data provided');
+        }
+
+        // Validate container data
+        const validationErrors = await this.masterJobService.validateContainerData(
+            containers,
+            companyMasterSid,
+            branchMasterSid
+        );
+
+        if (validationErrors && validationErrors.length > 0) {
+            resp.status = false;
+            resp.message = 'Container validation failed';
+            resp.data = { errors: validationErrors };
+            return resp;
+        }
+
+        // Format containers with proper data types
+        const formattedContainers = containers.map(container => ({
+            ...container,
+            ContainerType: container.ContainerType ? Number(container.ContainerType) : null,
+            PkgType: container.PkgType ? Number(container.PkgType) : null,
+            NoOfPkg: container.NoOfPkg ? Number(container.NoOfPkg) : 0,
+            GrossWeight: container.GrossWeight ? Number(container.GrossWeight) : 0,
+            NetWeight: container.NetWeight ? Number(container.NetWeight) : 0,
+            ChargeableWeight: container.ChargeableWeight ? Number(container.ChargeableWeight) : 0,
+            Volume: container.Volume ? Number(container.Volume) : 0,
+            IsSoc: container.IsSoc === 'Y' || container.IsSoc === true || container.IsSoc === 'Yes'
+        }));
+
+        resp.message = 'Container data validated successfully';
+        resp.data = { containers: formattedContainers };
+
+    } catch (error) {
+        resp.status = false;
+        this.logger.warn(`Error validating container data: ${JSON.stringify(error)}, ${error}`);
+        if (error instanceof BadRequestException) {
+            resp.message = error.message;
+        } else {
+            resp.message = 'Internal Server Error';
+        }
+    }
+    return resp;
+}
 }

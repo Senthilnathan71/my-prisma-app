@@ -1,4 +1,4 @@
-import { Injectable, Logger, BadRequestException } from '@nestjs/common';
+import { Injectable, Logger, BadRequestException, Inject } from '@nestjs/common';
 import * as XLSX from 'xlsx';
 import * as ExcelJS from 'exceljs';
 import {
@@ -12,10 +12,15 @@ import {
   HouseJobConnectionBulkDto,
   BulkUploadValidationError,
 } from 'src/operation/DTO/master-job-bulk-upload.dto';
+import { DatabaseService } from 'src/database/database.service';
 
 @Injectable()
 export class ExcelParserService {
   private readonly logger = new Logger(ExcelParserService.name);
+  constructor(
+     @Inject(DatabaseService) // Inject DatabaseService
+        private readonly db: DatabaseService,
+  ) {}
 
   /**
    * Parse Excel buffer and extract Master Job and House Jobs data
@@ -848,27 +853,27 @@ export class ExcelParserService {
   }
 
   /**
-   * Apply dropdown data validation to a column range
-   */
-  private applyDropdownValidation(
+ * Apply dropdown data validation to a column range
+ */
+private applyDropdownValidation(
     worksheet: ExcelJS.Worksheet,
     columnLetter: string,
     startRow: number,
     endRow: number,
     formula: string
-  ): void {
+): void {
     for (let row = startRow; row <= endRow; row++) {
-      worksheet.getCell(`${columnLetter}${row}`).dataValidation = {
-        type: 'list',
-        allowBlank: true,
-        formulae: [formula],
-        showErrorMessage: true,
-        errorStyle: 'error',
-        errorTitle: 'Invalid Selection',
-        error: 'Please select a value from the dropdown list'
-      };
+        worksheet.getCell(`${columnLetter}${row}`).dataValidation = {
+            type: 'list',
+            allowBlank: true,
+            formulae: [formula],
+            showErrorMessage: true,
+            errorStyle: 'error',
+            errorTitle: 'Invalid Selection',
+            error: 'Please select a value from the dropdown list'
+        };
     }
-  }
+}
 
   /**
    * Style the header row of a worksheet
@@ -916,4 +921,301 @@ export class ExcelParserService {
       worksheet.getColumn(i).width = defaultWidth;
     }
   }
+
+    async generateContainerTemplate(): Promise<Buffer> {
+    const workbook = new ExcelJS.Workbook();
+    
+    // Container Sheet
+    const containerSheet = workbook.addWorksheet('Containers');
+    
+    // Headers - CHANGED: Show Name instead of ID
+    const headers = [
+        'Container Type', // CHANGED: Removed "(ID)"
+        'Container Number',
+        'Line Seal',
+        'Customs Seal',
+        'HS Code',
+        'Commodity Description',
+        'Package Type', // CHANGED: Removed "(ID)"
+        // 'No of Packages',
+        // 'Gross Weight',
+        // 'Net Weight',
+        'Chargeable Weight',
+        // 'Volume (CBM)',
+        'Is SOC (Y/N)'
+    ];
+    
+    containerSheet.addRow(headers);
+    
+    // Sample data row - CHANGED: Show names instead of IDs
+    containerSheet.addRow([
+        '20ft Reefer', // Container Type Name
+        'ABCD1234567',
+        'LINE001',
+        'CUST001',
+        '251299',
+        'Electronic Equipment',
+        'Pallet', // Package Type Name
+        // 100,
+        // 5000,
+        // 4800,
+        0.000,
+        // 25.5,
+        'N'
+    ]);
+    
+    // ===== FETCH API DATA FOR DROPDOWNS =====
+    
+    // Get Container Types from database/API
+    const containerTypes = await this.db.containerTypeMaster.findMany({
+        where: { status: 'A' },
+        select: { ContainerTypeMasterSid: true, ContainerName: true }
+    });
+    
+    // Get HSSAC Codes from database/API
+    const hssacList = await this.db.hSSACMaster.findMany({
+        where: { status: 'A' },
+        select: { HSSACCode: true }
+    });
+    
+    // Get Package Types from database/API
+    const packageTypes = await this.db.uOMMaster.findMany({
+        where: { UOMType: 'P', status: 'A' },
+        select: { UOMMasterSid: true, UOMName: true }
+    });
+    
+    // ===== CREATE REFERENCE SHEETS WITH BOTH ID AND NAME =====
+    
+    // Container Types Reference Sheet
+    const containerRefSheet = workbook.addWorksheet('Container Types');
+    containerRefSheet.addRow(['ID', 'Container Type Name']);
+    containerTypes.forEach(type => {
+        containerRefSheet.addRow([type.ContainerTypeMasterSid, type.ContainerName]);
+    });
+    
+    // HS Code Reference Sheet
+    const hsCodeRefSheet = workbook.addWorksheet('HS Codes');
+    hsCodeRefSheet.addRow(['HS Code']);
+    hssacList.forEach(hs => {
+        hsCodeRefSheet.addRow([hs.HSSACCode]);
+    });
+    
+    // Package Types Reference Sheet
+    const packageRefSheet = workbook.addWorksheet('Package Types');
+    packageRefSheet.addRow(['ID', 'Package Type Name']);
+    packageTypes.forEach(pkg => {
+        packageRefSheet.addRow([pkg.UOMMasterSid, pkg.UOMName]);
+    });
+    
+    // ===== CREATE MAPPING SHEETS FOR DROPDOWNS =====
+    
+    // Container Type mapping for dropdown (Column B contains names)
+    const containerTypeFormula = "'Container Types'!$B$2:$B$" + (containerTypes.length + 1);
+    
+    // Package Type mapping for dropdown (Column B contains names)
+    const packageTypeFormula = "'Package Types'!$B$2:$B$" + (packageTypes.length + 1);
+    
+    // HS Code dropdown
+    // const hsCodeFormula = "'HS Codes'!$A$2:$A$" + (hssacList.length + 1);
+    
+    // ===== APPLY DROPDOWN VALIDATIONS =====
+    
+    // Container Type dropdown (Column A) - show names
+    this.applyDropdownValidation(containerSheet, 'A', 2, 100, containerTypeFormula);
+    
+    // HS Code dropdown (Column E)
+    // this.applyDropdownValidation(containerSheet, 'E', 2, 100, hsCodeFormula);
+    
+    // Package Type dropdown (Column G) - show names
+    this.applyDropdownValidation(containerSheet, 'G', 2, 100, packageTypeFormula);
+    
+    // SOC dropdown (Column M)
+    this.applyDropdownValidation(containerSheet, 'M', 2, 100, '"Y,N"');
+    
+    // ... rest of styling code remains the same ...
+    
+    // ===== STYLE THE SHEETS =====
+    
+    // Style main container sheet
+    const headerRow = containerSheet.getRow(1);
+    headerRow.font = { bold: true };
+    headerRow.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFE0E0E0' }
+    };
+    
+    // Style reference sheets
+    [containerRefSheet, hsCodeRefSheet, packageRefSheet].forEach(sheet => {
+        const refHeaderRow = sheet.getRow(1);
+        refHeaderRow.font = { bold: true };
+        refHeaderRow.fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'FFE8F5E8' }
+        };
+        sheet.columns.forEach(column => {
+            column.width = 20;
+        });
+    });
+    
+    // Set column widths for container sheet
+    const columnWidths = [20, 20, 15, 15, 15, 30, 20, 15, 15, 15, 15, 15, 10];
+    columnWidths.forEach((width, index) => {
+        containerSheet.getColumn(index + 1).width = width;
+    });
+    
+    // ===== ADD INSTRUCTIONS =====
+    
+    const instructionsSheet = workbook.addWorksheet('Instructions');
+    instructionsSheet.addRow(['Container Upload Template - Instructions']);
+    instructionsSheet.addRow([]);
+    instructionsSheet.addRow(['IMPORTANT:']);
+    instructionsSheet.addRow(['1. All dropdowns are populated from API data']);
+    instructionsSheet.addRow(['2. Use the reference sheets for valid values']);
+    instructionsSheet.addRow(['3. Only fill data in the "Containers" sheet']);
+    instructionsSheet.addRow(['4. Reference sheets are for lookup only']);
+    instructionsSheet.addRow([]);
+    instructionsSheet.addRow(['DROPDOWN GUIDELINES:']);
+    instructionsSheet.addRow(['• Container Type: Select from Container Types sheet']);
+    instructionsSheet.addRow(['• HS Code: Select from HS Codes sheet']);
+    instructionsSheet.addRow(['• Package Type: Select from Package Types sheet']);
+    instructionsSheet.addRow(['• Is SOC: Enter Y or N']);
+    instructionsSheet.addRow([]);
+    instructionsSheet.addRow(['DATA VALIDATION:']);
+    instructionsSheet.addRow(['• Container Number: 11 characters (4 letters + 7 digits)']);
+    instructionsSheet.addRow(['• Gross weight ≥ Net weight']);
+    instructionsSheet.addRow(['• All weights should be in numbers only']);
+    
+    // Auto-fit instructions column
+    instructionsSheet.columns.forEach(column => {
+        column.width = 60;
+    });
+    
+    // ===== HIDE REFERENCE SHEETS =====
+    containerRefSheet.state = 'hidden';
+    hsCodeRefSheet.state = 'hidden';
+    packageRefSheet.state = 'hidden';
+    
+    // Generate buffer
+    const buffer = await workbook.xlsx.writeBuffer();
+    return Buffer.from(buffer);
+}
+/**
+ * Parse Excel file specifically for containers
+ */
+
+async parseContainerExcelFile(buffer: Buffer): Promise<{
+    containers: any[];
+    errors: any[];
+}> {
+    try {
+        const workbook = XLSX.read(buffer, { type: 'buffer', cellDates: true });
+        const errors: any[] = [];
+
+        // Find container sheet (case-insensitive)
+        const sheetNames = workbook.SheetNames;
+        const containerSheetName = sheetNames.find(name => 
+            name.toLowerCase().includes('container')
+        );
+
+        if (!containerSheetName) {
+            errors.push({
+                field: 'Sheet',
+                message: 'Container sheet not found in Excel file',
+                sheet: 'Containers'
+            });
+            return { containers: [], errors };
+        }
+
+        const containerSheet = workbook.Sheets[containerSheetName];
+        const containerData = XLSX.utils.sheet_to_json(containerSheet, {
+            defval: null,
+            raw: false,
+            header: 1 // Get raw data
+        });
+
+        // Remove header row (first row)
+        containerData.shift();
+
+        // Fetch container types to map names to IDs
+        const containerTypes = await this.db.containerTypeMaster.findMany({
+            where: { status: 'A' },
+            select: { ContainerTypeMasterSid: true, ContainerName: true }
+        });
+
+        // Fetch package types to map names to IDs
+        const packageTypes = await this.db.uOMMaster.findMany({
+            where: { UOMType: 'P', status: 'A' },
+            select: { UOMMasterSid: true, UOMName: true }
+        });
+
+        // Parse container data, skipping empty rows
+        const containers = containerData
+            .filter((row: any, index) => {
+                // Skip empty rows or rows with no container number
+                const containerNumber = row[1]; // Container Number is at index 1
+                return containerNumber && containerNumber.toString().trim() !== '';
+            })
+            .map((row: any, index) => {
+                try {
+                    const containerTypeName = this.getStringValue(row[0]); // Container Type Name
+                    const packageTypeName = this.getStringValue(row[6]); // Package Type Name
+                    
+                    // Convert container type name to ID
+                    let containerTypeId: number | null = null;
+                    if (containerTypeName) {
+                        const containerType = containerTypes.find(
+                            ct => ct.ContainerName === containerTypeName
+                        );
+                        containerTypeId = containerType ? containerType.ContainerTypeMasterSid : null;
+                    }
+
+                    // Convert package type name to ID
+                    let packageTypeId: number | null = null;
+                    if (packageTypeName) {
+                        const packageType = packageTypes.find(
+                            pt => pt.UOMName === packageTypeName
+                        );
+                        packageTypeId = packageType ? packageType.UOMMasterSid : null;
+                    }
+
+                    return {
+                        ContainerType: containerTypeId, // Container Type ID
+                        ContainerNumber: this.getStringValue(row[1]), // Container Number
+                        LineSeal: this.getStringValue(row[2]), // Line Seal
+                        CustomsSeal: this.getStringValue(row[3]), // Customs Seal
+                        HsCode: this.getStringValue(row[4]), // HS Code
+                        CommodityDescription: this.getStringValue(row[5]), // Commodity Description
+                        PkgType: packageTypeId, // Package Type ID
+                        NoOfPkg: this.getNumberValue(row[7]), // No of Packages
+                        GrossWeight: this.getDecimalValue(row[8]), // Gross Weight
+                        NetWeight: this.getDecimalValue(row[9]), // Net Weight
+                        ChargeableWeight: this.getDecimalValue(row[10]), // Chargeable Weight
+                        Volume: this.getDecimalValue(row[11]), // Volume
+                        IsSoc: this.getBooleanValue(row[12]) // Is SOC
+                    };
+                } catch (error) {
+                    errors.push({
+                        field: 'Row',
+                        message: `Error parsing row ${index + 2}: ${error.message}`,
+                        row: index + 2,
+                        containerNumber: row[1] || 'N/A'
+                    });
+                    return null;
+                }
+            })
+            .filter(container => container !== null);
+
+        return { containers, errors };
+
+    } catch (error) {
+        this.logger.error(`Error parsing container Excel file: ${error.message}`, error.stack);
+        throw new BadRequestException('Invalid Excel file format for containers');
+    }
+}
+
+
+
+
 }
