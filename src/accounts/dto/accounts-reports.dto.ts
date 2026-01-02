@@ -432,6 +432,43 @@ export class TopNCustomerReportQueryDto {
   GP : boolean;
 }
 
+
+export class Vat210ReportQueryDto {
+  @ApiProperty()
+  @IsNotEmpty()
+  @IsDateString()
+  FromDate: string;
+
+  @ApiProperty()
+  @IsNotEmpty()
+  @IsDateString()
+  ToDate: string;
+
+
+  @ApiProperty()
+  @IsNotEmpty()
+  @IsInt()
+  companyId: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsInt()
+  branchId?: number[];
+
+  @ApiProperty()
+  @IsNotEmpty()
+  @IsInt()
+  Dept: number[];
+
+  @IsOptional()
+  @IsBoolean()
+  Volume : boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  GP : boolean;
+}
+
 // Export DTOs
 export class ExportReportDto {
   @ApiProperty()

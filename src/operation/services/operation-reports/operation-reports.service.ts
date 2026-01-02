@@ -1684,12 +1684,16 @@ export class OperationReportsService {
         select: { CustomerMasterSid: true, CustomerName: true, CustomerType: true }
       })
 
-      const agentMaster = await this._db.customerMaster.findMany({
-        select: {
-          CustomerMasterSid: true,
-          CustomerName: true
-        }
-      });
+      const customerMap = new Map<number, string>(
+        customerMaster.map(c => [c.CustomerMasterSid, c.CustomerName])
+      );
+
+      const selectedCustomerNames =
+        Customer?.length
+          ? Customer
+            .map(id => customerMap.get(id))
+            .filter((name): name is string => !!name)
+          : [];
 
       const countryMaster = await this._db.countryMaster.findMany({
         select: {
@@ -1703,6 +1707,21 @@ export class OperationReportsService {
       const userMaster = await this._db.userMaster.findMany({
         select: { UserMasterSid: true, userName: true }
       })
+
+      const salespersonMap = new Map<number, string>(
+        userMaster.map(u => [u.UserMasterSid, u.userName])
+      );
+
+      const selectedSalespersonNames =
+        SalePerson?.length
+          ? SalePerson
+            .map(id => salespersonMap.get(id))
+            .filter((name): name is string => !!name)
+          : [];
+
+
+      const isTranshipment: boolean = Transhipment === true;
+
 
 
       const whereClause: any = {
@@ -1724,6 +1743,10 @@ export class OperationReportsService {
 
       if (Customer && Customer.length > 0) {
         whereClause.CustomerMasterSid = { in: Customer };
+      }
+
+      if (isTranshipment) {
+        whereClause.JobType = 'Transhipment';
       }
 
 
@@ -2026,7 +2049,7 @@ export class OperationReportsService {
           containerNoList: mj?.masterJob?.containers?.map((c: any) => c.ContainerNumber).join(', ') || '',
           mastercontainerSid: mj?.masterJob?.containers?.map((c: any) => c.mastercontainerSid).join(', ') || '',
           masterContanierSid: mj?.masterJob?.containers?.[0]?.MasterJobContainerSid,
-          receivingAgent: agentMaster.find(d => d.CustomerMasterSid === mj.DestinationAgent)?.CustomerName || '',
+          receivingAgent: customerMaster.find(d => d.CustomerMasterSid === mj.DestinationAgent)?.CustomerName || '',
           containerInfo,
           totalNoOfTEU,
           numberOfTwentyFt,
@@ -2062,8 +2085,8 @@ export class OperationReportsService {
         departmentNames: resolvedDeptNames.join(', '),
         params,
         Transhipment,
-        Customer,
-        SalePerson
+        Customer: selectedCustomerNames.join(", "),
+        SalePerson: selectedSalespersonNames.join(', '),
       };
 
     } catch (error) {
@@ -2499,6 +2522,17 @@ export class OperationReportsService {
         select: { CustomerMasterSid: true, CustomerName: true }
       })
 
+         const customerMap = new Map<number, string>(
+        customerMaster.map(c => [c.CustomerMasterSid, c.CustomerName])
+      );
+
+      const selectedCustomerNames =
+        Customer?.length
+          ? Customer
+            .map(id => customerMap.get(id))
+            .filter((name): name is string => !!name)
+          : [];
+
 
       const houseJobs = await this._db.houseJob.findMany({
         where: {
@@ -2635,6 +2669,7 @@ export class OperationReportsService {
         branchNames: resolvedBranchNames.join(', '),
         departmentNames: resolvedDeptNames.join(', '),
         params,
+        Customer:selectedCustomerNames.join(', '),
         data,
       };
 

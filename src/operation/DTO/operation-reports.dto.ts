@@ -262,7 +262,7 @@ export class ShipmentDetailedSummaryReportQueryDto {
   @ApiProperty({ enum: BLStatusEnum })
   @IsNotEmpty()
   @IsEnum(BLStatusEnum)
-  Transhipment: string;
+  Transhipment: Boolean;
 
   @ApiPropertyOptional()
   @IsOptional()

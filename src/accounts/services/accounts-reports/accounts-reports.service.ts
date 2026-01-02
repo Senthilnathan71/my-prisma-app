@@ -5,6 +5,7 @@ import { AgeingReportQueryDto, BalanceSheetReportQueryDto, LedgerReportQueryDto,
 import { roundAmount, toNumber } from 'src/common/helper';
 import { CustomerOutstandingResponseDto, CustomerOutstandingTransactionDto } from 'src/accounts/dto/outstanding.dto';
 import { transcode } from 'buffer';
+import { Decimal } from '@prisma/client/runtime/library';
 // -------------------------
 // Helper types (local)
 // -------------------------
@@ -142,6 +143,8 @@ export class AccountsReportsService {
           return await this.generateLedgerReport(parameters);
         case 'unposted-voucher-list':
           return await this.generateUnpostedVoucherList(parameters);
+        case 'vat-report':
+          return await this.vat201(parameters);
         default:
           throw new BadRequestException(`Report ${reportName} not implemented`);
       }
@@ -2174,6 +2177,244 @@ const ledger = coaMasterSid
         `Error getting Top N Customer for ${CompanyMasterSid}: ${error.message}`,
         error.stack,
       );
+      throw error;
+    }
+  }
+
+  private async vat201(param: {
+    CompanyId: number;
+    BranchId: number;
+    fromDate: Date;
+    toDate: Date;
+  }) {
+    try {
+      const { CompanyId, BranchId, fromDate, toDate } = param;
+
+      const baseHeaderWhere = {
+        CompanyMasterSid: CompanyId,
+        BranchMasterSid: BranchId,
+        VoucherDate: {
+          gte: fromDate,
+          lte: toDate,
+        },
+        voucherTypeMaster: {
+          DocumentTypeName: {
+            in: ['Invoice', 'Vendor Invoice', 'Credit Note', 'Vendor Credit Note'],
+          },
+        },
+        Status: 'A',
+      };
+
+      // ────────────────────────────────────────────────────────────────
+      // Summary counts
+      // ────────────────────────────────────────────────────────────────
+      const totalVouchers = await this._db.voucherHeader.count({
+        where: baseHeaderWhere,
+      });
+
+      const vouchersWithTaxLedger = await this._db.voucherHeader.count({
+        where: {
+          ...baseHeaderWhere,
+          VoucherDetail: {
+            some: {
+              subledgerMaster: {
+                SubledgerType: 'Tax'
+              }
+            },
+          },
+        },
+      });
+
+      const vouchersWithoutTaxLedger = totalVouchers - vouchersWithTaxLedger;
+
+      // ────────────────────────────────────────────────────────────────
+      // Ledger summary type (clean output)
+      // ────────────────────────────────────────────────────────────────
+      type LedgerSummary = {
+        COAMasterSid: number;
+        LedgerName: string;
+        TaxableAmount: number;
+        TaxAmount: number;
+        details: any[]
+      };
+
+      // ────────────────────────────────────────────────────────────────
+      // Aggregation helper – handles null safety & grouping
+      // ────────────────────────────────────────────────────────────────
+      const aggregateByLedger = (
+        details: Array<{
+          subledgerMaster: { SubledgerMasterSid: number | null; SubledgerName: string | null } | null;
+          TaxableAmount?: any | null;
+          TaxPercentage1: Decimal | null,
+          TaxAmount1?: any | null;
+          TaxPercentage2: Decimal | null,
+          TaxAmount2?: any | null;
+          Amount: Decimal | null,
+          LocalAmount: Decimal | null,
+          VoucherHeader?: {
+            customerBranch?: {
+              customerMaster?: {
+                countryMaster?: { countryCode: string | null } | null;
+              } | null;
+            } | null;
+          } | null;
+        }>,
+      ): { local: LedgerSummary[]; overseas: LedgerSummary[] } => {
+        const localMap = new Map<number, LedgerSummary>();
+        const overseasMap = new Map<number, LedgerSummary>();
+
+        for (const detail of details) {
+          const sid = detail.subledgerMaster?.SubledgerMasterSid;
+          if (sid == null) continue; // Skip invalid/missing tax ledgers
+
+          const ledgerName = detail.subledgerMaster?.SubledgerName ?? 'Unknown Tax Ledger';
+
+          const countryCode =
+            detail.VoucherHeader?.customerBranch?.customerMaster?.countryMaster?.countryCode ?? 'UNKNOWN';
+
+          const isLocal = ['AE'].includes(countryCode); // ← Adjust this condition if needed
+
+          const targetMap = isLocal ? localMap : overseasMap;
+
+          const taxableAmount = toNumber(detail.TaxableAmount);
+          const taxAmount = toNumber(detail.LocalAmount);
+
+          if (targetMap.has(sid)) {
+            const entry = targetMap.get(sid)!;
+            entry.TaxableAmount += taxableAmount;
+            entry.TaxAmount += taxAmount;
+            entry.details = [...entry.details, detail];
+          } else {
+            targetMap.set(sid, {
+              COAMasterSid: sid,
+              LedgerName: ledgerName,
+              TaxableAmount: taxableAmount,
+              TaxAmount: taxAmount,
+              details: [detail]
+            });
+          }
+        }
+
+        return {
+          local: Array.from(localMap.values()),
+          overseas: Array.from(overseasMap.values()),
+        };
+      };
+
+      // ────────────────────────────────────────────────────────────────
+      // INPUT TAX – Purchases / Input VAT
+      // ────────────────────────────────────────────────────────────────
+      const inputTaxDetails = await this._db.voucherDetail.findMany({
+        where: {
+          Status: 'A',
+          subledgerMaster: {
+            SubledgerType: 'Tax',
+            TaxType: 'Input',
+          },
+          VoucherHeader: baseHeaderWhere,
+        },
+        select: {
+          TaxableAmount: true,
+          Amount: true,
+          LocalAmount: true,
+          TaxPercentage1: true,
+          TaxAmount1: true,
+          TaxPercentage2: true,
+          TaxAmount2: true,
+          subledgerMaster: {
+            select: {
+              SubledgerMasterSid: true,
+              SubledgerName: true,
+            },
+          },
+          VoucherHeader: {
+            select: {
+              VoucherNumber: true,
+              customerBranch: {
+                select: {
+                  customerMaster: {
+                    select: {
+                      countryMaster: {
+                        select: {
+                          countryCode: true,
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      });
+
+      const inputTax = aggregateByLedger(inputTaxDetails);
+
+      // ────────────────────────────────────────────────────────────────
+      // OUTPUT TAX – Sales / Output VAT (also classified local/overseas)
+      // ────────────────────────────────────────────────────────────────
+      const outputTaxDetails = await this._db.voucherDetail.findMany({
+        where: {
+          Status: 'A',
+          subledgerMaster: {
+            SubledgerType: 'Tax',
+            TaxType: 'Output',
+          },
+          VoucherHeader: baseHeaderWhere,
+        },
+        select: {
+          TaxableAmount: true,
+          TaxPercentage1: true,
+          TaxAmount1: true,
+          TaxPercentage2: true,
+          TaxAmount2: true,
+          Amount: true,
+          LocalAmount: true,
+          subledgerMaster: {
+            select: {
+              SubledgerMasterSid: true,
+              SubledgerName: true,
+            },
+          },
+          VoucherHeader: {
+            select: {
+              customerBranch: {
+                select: {
+                  customerMaster: {
+                    select: {
+                      countryMaster: {
+                        select: {
+                          countryCode: true,
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      });
+
+      const outputTax = aggregateByLedger(outputTaxDetails);
+
+      // ────────────────────────────────────────────────────────────────
+      // Final result structure
+      // ────────────────────────────────────────────────────────────────
+      return {
+        summary: {
+          totalVouchers,
+          vouchersWithTaxLedger,
+          vouchersWithoutTaxLedger,
+        },
+        param,
+        inputTax,     // { local: LedgerSummary[], overseas: LedgerSummary[] }
+        outputTax,    // { local: LedgerSummary[], overseas: LedgerSummary[] }
+        // You can add computed fields here, e.g.:
+        // netVatPayable: outputTotal - inputTotal,
+      };
+    } catch (error) {
+      console.error('VAT 201 report generation failed:', error);
       throw error;
     }
   }
