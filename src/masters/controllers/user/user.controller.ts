@@ -1,7 +1,11 @@
-import { Controller, Get, HttpCode, HttpStatus, Logger } from '@nestjs/common';
+import { Controller, Get, Header, HttpCode, HttpStatus, Logger, NotFoundException, Param, Res, StreamableFile } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
+import { createReadStream, existsSync } from 'fs';
+import { join } from 'path';
 import { Auth } from 'src/common/decorators/auth.decorator';
 import { UserData } from 'src/common/decorators/user.decorator';
+import { checkIfFileExists } from 'src/common/helper';
 import { ResponseData } from 'src/common/response-data';
 import { UserService } from 'src/masters/services/user.service';
 import { resourceLimits } from 'worker_threads';
@@ -11,7 +15,8 @@ import { resourceLimits } from 'worker_threads';
 export class UserController {
 
     constructor(private userService: UserService,
-        private logger: Logger
+        private logger: Logger,
+        private configService : ConfigService
     ) { }
 
     @ApiOperation({ summary: 'Get user Token from data' })
@@ -38,6 +43,43 @@ export class UserController {
         return output;
     }
 
+    @Get('logo/:logoId')
+    @Header('Cache-Control', 'public, max-age=86400') // Cache for 1 day
+    @Header('Content-Disposition', 'inline')
+    async getCompanyLogo(
+        @Param('logoId') logoId: string,
+        @Res({ passthrough: true }) res: any,
+    ): Promise<StreamableFile> {
+        const uploadPath = this.configService.get<string>('UPLOAD_IMAGE_PATH');
+        if (!uploadPath) {
+            throw new Error('UPLOAD_IMAGE_PATH not configured');
+        }
+        const extensions = ['', '.jpg', '.jpeg', '.png', '.gif', '.svg', '.webp'];
+        let filePath: string | null = null;
+
+        for (const ext of extensions) {
+            const tryPath = join(uploadPath, logoId + ext);
+            if (existsSync(tryPath)) {
+                filePath = tryPath;
+                break;
+            }
+        }
+        if (!filePath) {
+            throw new NotFoundException('Logo not found');
+        }
+        const ext = filePath.split('.').pop()?.toLowerCase();
+        const mimeTypes: Record<string, string> = {
+            jpg: 'image/jpeg',
+            jpeg: 'image/jpeg',
+            png: 'image/png',
+            gif: 'image/gif',
+            svg: 'image/svg+xml',
+            webp: 'image/webp',
+        };
+        res.setHeader('Content-Type', mimeTypes[ext || 'png'] || 'application/octet-stream');
+        const fileStream = createReadStream(filePath);
+        return new StreamableFile(fileStream);
+    }
 
 
     @ApiOperation({ summary: 'Get salesperson' })
