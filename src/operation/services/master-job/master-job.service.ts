@@ -7,6 +7,7 @@ import { stat } from 'fs';
 import { parseDateFromString, toNumber } from 'src/common/helper';
 import { LoadingPlanService } from '../loading-plan/loading-plan.service';
 import { MenuService } from 'src/masters/services/menu/menu.service';
+import { OperationCommonService } from '../operation-common/operation-common.service';
 
 interface searchMasterJob {
     search: string,
@@ -23,6 +24,7 @@ export class MasterJobService {
         private _db: DatabaseService,
         private logger: Logger,
         private menuMasterService: MenuService,
+        private commonService: OperationCommonService,
     ) { }
 
     async createNewMasterJob(payload: any) {
@@ -4094,5 +4096,52 @@ async getMasterJobARAPData(MasterJobSid: number): Promise<any> {
     throw error;
   }
 }
+
+    async getAllHouseJobById(MasterJobSid: number) {
+        try {
+            return this._db.$transaction(async (prisma) => {
+
+                const masterJobDetails = await prisma.masterJob.findUnique({
+                    where: {
+                        MasterJobSid: MasterJobSid,
+                    },
+                    include: {
+                        houseJob:{
+                            select:{
+                                Products:true,
+                                Others:true,
+                                ShipperName:true,
+                                ShipperAddress:true,
+                                ConsigneeName:true,
+                                ConsigneeAddress:true,
+                                HBLNo:true,
+                                DestinationAgent:true,
+                                Notify:true,
+                                NotifyAddress:true,
+                                POO:true,
+                                POL:true,
+                                POD:true,
+                                FPD:true,
+                                VesselName:true,
+                                VoyageNo:true,
+                                Cargo:true,
+                                masterJob:{
+                                    select:{
+                                        others:true,
+                                        containers:true
+                                    }
+                                }
+                            }
+                        }
+                    },
+                });
+
+                return masterJobDetails;
+            });
+        } catch (error) {
+            throw error;
+        }
+    }
+
 
 }

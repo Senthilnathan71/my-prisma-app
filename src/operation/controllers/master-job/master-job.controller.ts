@@ -719,4 +719,34 @@ export class MasterJobController {
         return resp;
     }
 
+
+      @ApiOperation({
+        summary: 'Get House Job by HouseJobSid',
+    })
+    @ApiCreatedResponse({
+        description: 'Get House Job by HouseJobSid',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Post('fetch/:MasterJobSid')
+    async getHouseJobById(@Param('MasterJobSid', ParseIntPipe) MasterJobSid: number) {
+        let resp = new ResponseData();
+        try {
+            this.logger.log(`Fetching House Job by HouseJobSid : ${MasterJobSid}`);
+            const result = await this.masterJobService.getAllHouseJobById(MasterJobSid);
+            this.logger.debug(`Fetched House Job by HouseJobSid : ${JSON.stringify(result)}`);
+            resp.message = 'House Job fetched successfully';
+            resp.data = result;
+        } catch (error) {
+            resp.status = false;
+            this.logger.warn(`Error in fetching House Job by HouseJobSid : ${JSON.stringify(error), error}`);
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                resp.message = error.message;
+            } else {
+                resp.message = 'Internal Server Error';
+            }
+        }
+        return resp;
+    }
+
 }
