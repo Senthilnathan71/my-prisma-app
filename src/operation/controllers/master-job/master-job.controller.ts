@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, Post, Query, UnauthorizedException, UploadedFile, UseInterceptors, Res } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, Post, Query, UnauthorizedException, UploadedFile, UseInterceptors, Res, StreamableFile } from '@nestjs/common';
 import { ApiCreatedResponse, ApiOperation, ApiConsumes } from '@nestjs/swagger';
 import { ResponseData } from 'src/common/response-data';
 import { MasterJobService } from 'src/operation/services/master-job/master-job.service';
@@ -902,5 +902,95 @@ async validateContainerBulkUpload(
         }
     }
     return resp;
+}
+
+@Get('download-product-template')
+  async downloadProductTemplate(
+    @Query('masterJobSid') masterJobSid: number
+  ) {
+    try {
+      const buffer = await this.excelParserService.generateProductTemplate(
+        Number(masterJobSid)
+      );
+
+      return new StreamableFile(buffer, {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        disposition: `attachment; filename="Product_Template_${masterJobSid}_${new Date()
+          .toISOString()
+          .slice(0, 10)}.xlsx"`,
+      });
+    } catch (error) {
+      throw new BadRequestException('Failed to generate product template');
+    }
+  }
+
+@Post('parse-product-excel')
+@UseInterceptors(FileInterceptor('file'))
+async parseProductExcel(
+    @UploadedFile() file: Express.Multer.File
+) {
+    try {
+        const result = await this.excelParserService.parseProductExcelFile(file.buffer);
+        
+        return {
+            status: true,
+            message: 'Excel parsed successfully',
+            data: result
+        };
+    } catch (error) {
+        return {
+            status: false,
+            message: error.message,
+            data: null
+        };
+    }
+}
+@Post('validate-product-data')
+async validateProductData(@Body() payload: any) {
+    try {
+        const errors = await this.masterJobService.validateProductData(
+            payload.products,
+            payload.companyMasterSid,
+            payload.branchMasterSid,
+            payload.masterJobSid
+        );
+        
+        return {
+            status: errors.length === 0,
+            message: errors.length === 0 ? 'Validation passed' : 'Validation failed',
+            data: { errors }
+        };
+    } catch (error) {
+        return {
+            status: false,
+            message: error.message,
+            data: null
+        };
+    }
+}
+
+@Post('process-product-upload')
+async processProductUpload(@Body() payload: any) {
+    try {
+        const result = await this.masterJobService.processProductUpload(
+            payload.products,
+            payload.companyMasterSid,
+            payload.branchMasterSid,
+            payload.masterJobSid,
+            payload.createdBy
+        );
+        
+        return {
+            status: true,
+            message: result.message,
+            data: result
+        };
+    } catch (error) {
+        return {
+            status: false,
+            message: error.message,
+            data: null
+        };
+    }
 }
 }
