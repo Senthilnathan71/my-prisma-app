@@ -14,6 +14,7 @@ import {
   UseGuards,
   BadRequestException,
   UnauthorizedException,
+  Patch,
 } from '@nestjs/common';
 import { ReceiptService } from '../../services/receipt/receipt.service';
 import {
@@ -84,6 +85,31 @@ export class ReceiptController {
     } catch (error) {
       resp.status = false;
       this.logger.warn(`Error creating receipt: ${JSON.stringify(error),error}`);
+      if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+        resp.message = (error as any).message || 'Bad request';
+      } else {
+        resp.message = 'Internal Server Error';
+      }
+    }
+    return resp;
+  }
+
+  @Patch('update/:VoucherHeaderSid')
+  @HttpCode(HttpStatus.OK)
+  async updateNewReceipt(
+    @Param('VoucherHeaderSid',ParseIntPipe) VoucherHeaderSid: number, 
+    @Body() payload: any
+  ){
+    let resp = new ResponseData();
+    
+    try {
+      this.logger.log(`Updating receipt ${payload}`);
+      const receipt = await this.receiptService.updateReceipt(VoucherHeaderSid,payload);
+      resp.data = receipt;
+      resp.message = "Receipt updated successfully";
+    } catch (error) {
+      this.logger.warn(`Error updating receipt: ${JSON.stringify(error),error}`);
+      resp.status = false;
       if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
         resp.message = (error as any).message || 'Bad request';
       } else {

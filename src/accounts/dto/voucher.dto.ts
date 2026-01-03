@@ -543,3 +543,16 @@ export class CreateVoucherPayload extends VoucherHeaderDto {
 
 
 }
+export class CheckAutoPostingDto {
+    @IsNotEmpty({message : 'MenuName is required'})
+    @IsString()
+    MenuName : string;
+
+    @IsNotEmpty({message : 'Company Master SID is required'})
+    @IsInt()
+    CompanyMasterSid : number;
+
+    @IsNotEmpty({message : 'Branch Master SID is required'})
+    @IsInt()
+    BranchMasterSid : number;  
+}

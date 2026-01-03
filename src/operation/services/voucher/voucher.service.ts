@@ -6,7 +6,7 @@ import { PostVoucherResponseDto, TaxSummaryDto, VoucherDetailDto } from 'src/acc
 import { checkIfExJvApplicable, checkIfMatchingApplicable, getPartyDrCr, getTaxInputOutput, getTaxLedger, TaxLedgerType, TaxVoucherType } from 'src/common/config/voucher-type.config';
 import { DatabaseService } from 'src/database/database.service';
 import * as moment from 'moment-timezone';
-import { CreateVoucherPayload } from 'src/accounts/dto/voucher.dto';
+import { CheckAutoPostingDto, CreateVoucherPayload } from 'src/accounts/dto/voucher.dto';
 
 interface InvoiceHeaderDTO {
     currencyMasterSid?: number;
@@ -1588,7 +1588,7 @@ export class VoucherService {
                 const voucherDate = new Date(voucher.VoucherDate);
                 const startDate = new Date(yearMaster.StartDate);
                 const endDate = new Date(yearMaster.EndDate);
-                if (voucherDate <= startDate || voucherDate >= endDate) throw new Error('Voucher date is outside of current financial year.');
+                if (voucherDate <= startDate || voucherDate >= endDate) throw new BadRequestException('Voucher date is outside of current financial year.');
 
                 const now = new Date();
                 const chargeLineItems = voucher.VoucherDetail;
@@ -2469,6 +2469,7 @@ export class VoucherService {
                     DrCr : partyDetail.DrCr! || getPartyDrCr(payload.voucherTypeInName)!,
                     Amount : payload.BillMatchingCurrencyAmount,
                     LocalAmount : payload.BillMatchingLocalAmount,
+                    PartyAmount : partyDetail.PartyAmount,
                     MatchingType : 'Source'
                 }
             })
@@ -2498,6 +2499,7 @@ export class VoucherService {
                         DrCr: String(matching.DrCr).charAt(0),
                         Amount: matching.Amount,
                         LocalAmount: matching.LocalAmount,
+                        PartyAmount : matching.PartyAmount,
                         MatchingType: 'Object'
                     }
                 })
@@ -2533,6 +2535,32 @@ export class VoucherService {
 
 
         return `VMH-${date}-${(count + 1).toString().padStart(3, '0')}`;
+    }
+
+    async checkAutoPosting(payload: CheckAutoPostingDto): Promise<boolean> {
+        try {
+            const { MenuName, CompanyMasterSid, BranchMasterSid } = payload;
+
+            const voucherType = await this._db.voucherTypeMaster.findFirst({
+                where: {
+                    CompanyMasterSid: CompanyMasterSid,
+                    BranchMasterSid: BranchMasterSid,
+                    menuMaster : {
+                        MenuName : MenuName
+                    },
+                    status: 'A'
+                },
+                select: {
+                    IsAutoPosting: true
+                }
+            });
+            if (!voucherType) {
+                throw new BadRequestException(`Voucher type not found`);
+            }
+            return voucherType.IsAutoPosting === 'Y';
+        } catch (error) {
+            throw error;
+        }
     }
 
 }

@@ -1,6 +1,6 @@
 import { BadRequestException, Body, Controller, Delete, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Post, UnauthorizedException, UsePipes, ValidationPipe } from "@nestjs/common";
 import { ApiCreatedResponse, ApiOperation } from "@nestjs/swagger";
-import { CreateVoucherPayload } from "src/accounts/dto/voucher.dto";
+import { CheckAutoPostingDto, CreateVoucherPayload } from "src/accounts/dto/voucher.dto";
 import { ResponseData } from "src/common/response-data";
 import { VoucherService } from "src/operation/services/voucher/voucher.service";
 
@@ -252,6 +252,38 @@ export class VoucherController {
             output.message = "Voucher Detail has been deleted successfully";
         } catch (error) {
             this.logger.warn(`deleteVoucherDetail error: ${JSON.stringify(error), error}`);
+            output.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                output.message = error.message;
+            } else {
+                output.message = error;
+            }
+        }
+        return output;
+    }
+
+    @ApiOperation({ summary : 'Check Posting mechanism for a voucher type'})
+    @ApiCreatedResponse({
+        description: 'Posting mechanism for a voucher type',
+        type: ResponseData
+    })
+    @UsePipes(new ValidationPipe({ 
+        whitelist: true,
+        transform: true,
+        forbidNonWhitelisted: true,
+    }))
+    @HttpCode(HttpStatus.OK)
+    @Post('check-auto-posting')
+    async checkAutoPosting(@Body() payload: CheckAutoPostingDto) {
+        let output = new ResponseData();
+        this.logger.log(`checkAutoPosting request body: ${JSON.stringify(payload)}`);
+        try {
+            const result = await this.voucherService.checkAutoPosting(payload);
+            this.logger.debug(`checkAutoPosting result: ${JSON.stringify(result)}`);
+            output.data = result;
+            output.message = `Posting mechanism for this voucher type : ${result ? 'Auto Posting' : 'Manual Posting'}`;
+        } catch (error) {
+            this.logger.warn(`checkAutoPosting error: ${JSON.stringify(error), error}`);
             output.status = false;
             if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
                 output.message = error.message;
