@@ -13,6 +13,8 @@ model CompanyMaster {
   phoneNumber                String?                      @db.VarChar(20)
   email                      String?                      @db.VarChar(100)
   isHo                       String                       @db.Char(1)
+  CIN                        String?                      @db.VarChar(25)
+  TAN                        String?                      @db.VarChar(25)
   remarks                    String?                      @db.VarChar(500)
   companyLogo                String?
   reportLogo                 String?
@@ -820,6 +822,7 @@ model EnquiryCargo {
   NetWeight        Decimal?         @db.Decimal(10, 3)
   Volume           Decimal?         @db.Decimal(10, 3)
   ChargeableWeight Decimal?         @db.Decimal(10, 3)
+  Volumetric       Decimal?         @db.Decimal(10, 3)
   ContainerType    String?          @db.VarChar(50)
   Qty              Decimal          @db.Decimal(5, 0)
   ShipmentTerms    String?          @db.VarChar(10)
@@ -855,6 +858,8 @@ model CustomerMaster {
   PanName                    String?                 @db.VarChar(100)
   CINNo                      String?                 @db.VarChar(20)
   CashCredit                 String?                 @db.VarChar(6)
+  CIN                        String?                 @db.VarChar(25)
+  TAN                        String?                 @db.VarChar(25)
   GroupName                  String?                 @db.VarChar(20)
   Network                    String?                 @db.VarChar(20)
   Website                    String?                 @db.VarChar(50)
@@ -1196,6 +1201,7 @@ model QuoteProduct {
   Width            Decimal?      @db.Decimal(10, 3)
   Height           Decimal?      @db.Decimal(10, 3)
   ChargeableWeight Decimal?      @db.Decimal(10, 3)
+  Volumetric       Decimal?      @db.Decimal(10, 3)
   IsHaz            String?       @db.Char(1)
   ImcoClass        Int?
   PkgGroup         Int?
@@ -3018,7 +3024,7 @@ model VoucherHeader {
   CustomerBranchSid         Int?
   PlaceOfSupply             String?                 @db.VarChar(50)
   State                     String?                 @db.VarChar(50)
-  COAMasterSid              Int
+  COAMasterSid              Int?
   BankCOA                   Int?
   BankPartyName             String?                 @db.VarChar(100)
   GST_VAT                   String?                 @db.VarChar(20)
@@ -3062,7 +3068,7 @@ model VoucherHeader {
   VoucherDetail             VoucherDetail[]
   BookingHeader             BookingHeader?          @relation(fields: [BookingHeaderSid], references: [BookingHeaderSid])
   BranchMaster              BranchMaster            @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
-  coaMaster                 COAMaster               @relation(fields: [COAMasterSid], references: [COAMasterSid])
+  coaMaster                 COAMaster?               @relation(fields: [COAMasterSid], references: [COAMasterSid])
   CompanyMaster             CompanyMaster           @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
   currencyMaster            CurrencyMaster?         @relation(fields: [CurrencyMasterSid], references: [CurrencyMasterSid])
   customerBranch            CustomerBranch?         @relation(fields: [CustomerBranchSid], references: [CustomerBranchSid])

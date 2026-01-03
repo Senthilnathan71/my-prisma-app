@@ -1705,7 +1705,7 @@ export class VoucherService {
                             ChargeDescription: voucher.PartyName || "Party",
                             DepartmentMasterSid : voucher.DepartmentMasterSid,
                             LedgerMasterSid: voucher.PartyMasterSid,
-                            COAMasterSid: voucher.COAMasterSid,
+                            COAMasterSid: voucher.COAMasterSid!,
                             HouseJobSid : voucher.HouseJobSid,
                             MasterJobSid : voucher.MasterJobSid,
                             CostRevenue : voucher.voucherTypeMaster.DocumentTypeName === "Invoice" ||  voucher.voucherTypeMaster.DocumentTypeName === "Credit Note" ? "Revenue" : "Cost",
