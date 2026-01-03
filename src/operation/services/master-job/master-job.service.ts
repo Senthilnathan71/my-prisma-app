@@ -8,6 +8,7 @@ import { parseDateFromString, toNumber } from 'src/common/helper';
 import { LoadingPlanService } from '../loading-plan/loading-plan.service';
 import { MenuService } from 'src/masters/services/menu/menu.service';
 import { OperationCommonService } from '../operation-common/operation-common.service';
+import { catchError, of } from 'rxjs';
 
 interface searchMasterJob {
     search: string,
@@ -2878,12 +2879,15 @@ private async updateMasterJobTotals(masterJobSid: number): Promise<void> {
 
             const result = await this._db.$transaction(async (prisma) => {
                 // Helper function to parse date strings to Date objects
-                const parseDate = (value: any): Date | undefined => {
-                    if (!value) return undefined;
-                    if (value instanceof Date) return value;
-                    const date = new Date(value);
-                    return isNaN(date.getTime()) ? undefined : date;
-                };
+                const parseDate = (dateValue: any): Date | null => {
+    if (!dateValue) return null;
+    if (dateValue instanceof Date) return dateValue;
+    if (typeof dateValue === 'string') {
+        const date = new Date(dateValue);
+        return isNaN(date.getTime()) ? null : date;
+    }
+    return null;
+};
 
                 // Generate Master Job Number
                 const dateString = moment().format('YYYYMMDD');
@@ -4299,5 +4303,385 @@ async validateContainerData(
 
     return errors;
 }
+async validateProductData(
+    products: any[],
+    companyMasterSid: number,
+    branchMasterSid: number,
+    masterJobSid: number
+): Promise<any[]> {
+    const errors: any[] = [];
+    
+    if (!products || products.length === 0) {
+        errors.push({
+            field: 'Products',
+            message: 'No product data provided',
+            row: 1
+        });
+        return errors;
+    }
 
+    // Get house jobs for the master job to validate HBL numbers
+    const houseJobs = await this._db.houseJob.findMany({
+        where: { 
+            MasterJobSid: masterJobSid,
+            CompanyMasterSid: companyMasterSid,
+            BranchMasterSid: branchMasterSid,
+            status: 'A'
+        },
+        select: {
+            HouseJobSid: true,
+            HBLNo: true
+        }
+    });
+   
+    // Get product names for validation
+    const productList = await this._db.productMaster.findMany({
+        where: { status: 'A' }
+    });
+
+    // Get package types for validation
+    const packageTypes = await this._db.uOMMaster.findMany({
+        where: { UOMType: 'P', status: 'A' }
+    });
+
+    // Get IMCO classes for validation
+    const imcoClasses = await this._db.imcoMaster.findMany({
+        where: { status: 'A' }
+    });
+
+    // Get master job containers for validation
+    const masterJobContainers = await this._db.masterJobContainer.findMany({
+        where: { 
+            MasterJobSid: masterJobSid,
+            Status: 'A'
+        },
+        select: {
+            MasterJobContainerSid: true,
+            ContainerNumber: true
+        }
+    });
+
+    // Validate each product
+    for (let i = 0; i < products.length; i++) {
+        const product = products[i];
+        const rowNumber = i + 2; // Excel rows start from 2 (header is row 1)
+
+        // Skip empty rows
+        if (!product.HBLNo || product.HBLNo.trim() === '') {
+            continue;
+        }
+
+        // Validate HBL Number exists for this master job
+        const validHBL = houseJobs.find(hj => hj.HBLNo === product.HBLNo);
+        if (!validHBL) {
+            errors.push({
+                field: 'HBL Number',
+                message: `HBL Number "${product.HBLNo}" not found for this master job`,
+                row: rowNumber,
+                hblNo: product.HBLNo || 'N/A'
+            });
+        }
+
+        // Validate Product Name if provided
+        if (product.ProductName) {
+            const productExists = productList.some(
+                p => p.ProductName === product.ProductName
+            );
+            if (!productExists) {
+                errors.push({
+                    field: 'Product Name',
+                    message: `Product Name "${product.ProductName}" not found in system`,
+                    row: rowNumber,
+                    hblNo: product.HBLNo || 'N/A'
+                });
+            }
+        }
+
+        // Validate Package Type if provided
+        if (product.ExternalPkg) {
+            const packageTypeExists = packageTypes.some(
+                pt => pt.UOMName === product.ExternalPkg
+            );
+            if (!packageTypeExists) {
+                errors.push({
+                    field: 'Package Type',
+                    message: `Package Type "${product.ExternalPkg}" not found`,
+                    row: rowNumber,
+                    hblNo: product.HBLNo || 'N/A'
+                });
+            }
+        }
+
+        // Validate Container if provided
+        if (product.MasterJobContainerSid) {
+            const containerExists = masterJobContainers.some(
+                c => c.MasterJobContainerSid === Number(product.MasterJobContainerSid)
+            );
+            if (!containerExists) {
+                errors.push({
+                    field: 'Container',
+                    message: `Container ID "${product.MasterJobContainerSid}" not found for this master job`,
+                    row: rowNumber,
+                    hblNo: product.HBLNo || 'N/A'
+                });
+            }
+        }
+
+        // Validate IMCO Class if provided and IsHaz is Yes
+        if (product.IsHaz && product.IsHaz.toString().toUpperCase() === 'Y' && product.ImcoClass) {
+            const imcoClassExists = imcoClasses.some(
+                imco => imco.ImcoName === product.ImcoClass
+            );
+            if (!imcoClassExists) {
+                errors.push({
+                    field: 'IMCO Class',
+                    message: `IMCO Class "${product.ImcoClass}" not found`,
+                    row: rowNumber,
+                    hblNo: product.HBLNo || 'N/A'
+                });
+            }
+        }
+
+        // Validate numeric fields
+        const numericFields = ['ExternalQty', 'Length', 'Width', 'Height', 'Volumetric', 
+                              'Volume', 'GrossWeight', 'NetWeight', 'ReceivedQty', 
+                              'DamageQty', 'DeliveredQty'];
+        numericFields.forEach(field => {
+            if (product[field] && isNaN(Number(product[field]))) {
+                errors.push({
+                    field: field,
+                    message: `${field} must be a number`,
+                    row: rowNumber,
+                    hblNo: product.HBLNo || 'N/A'
+                });
+            }
+        });
+
+        // Validate Gross Weight >= Net Weight
+        const grossWeight = Number(product.GrossWeight) || 0;
+        const netWeight = Number(product.NetWeight) || 0;
+        
+        if (grossWeight < netWeight) {
+            errors.push({
+                field: 'Gross Weight',
+                message: 'Gross weight cannot be less than net weight',
+                row: rowNumber,
+                hblNo: product.HBLNo || 'N/A'
+            });
+        }
+
+        // Validate dates
+        const dateFields = ['ShippingBillDate', 'CargoRecDate', 'DeliveryDate'];
+        dateFields.forEach(field => {
+            if (product[field]) {
+                const date = new Date(product[field]);
+                if (isNaN(date.getTime())) {
+                    errors.push({
+                        field: field,
+                        message: `${field} must be a valid date`,
+                        row: rowNumber,
+                        hblNo: product.HBLNo || 'N/A'
+                    });
+                }
+            }
+        });
+
+        // Validate boolean field
+        if (product.IsHaz && !['Y', 'N', 'Yes', 'No', 'YES', 'NO'].includes(product.IsHaz.toString().toUpperCase())) {
+            errors.push({
+                field: 'Is Haz',
+                message: 'Is Haz must be Y or N',
+                row: rowNumber,
+                hblNo: product.HBLNo || 'N/A'
+            });
+        }
+
+        // Validate length constraints
+        const textFields = [
+            { field: 'HSCode', maxLength: 20 },
+            { field: 'ShippingBillNo', maxLength: 50 },
+            { field: 'DamageRemarks', maxLength: 500 },
+            { field: 'UnNo', maxLength: 20 },
+            { field: 'PkgGroup', maxLength: 50 }
+        ];
+
+        textFields.forEach(({ field, maxLength }) => {
+            if (product[field] && product[field].length > maxLength) {
+                errors.push({
+                    field: field,
+                    message: `${field} cannot exceed ${maxLength} characters`,
+                    row: rowNumber,
+                    hblNo: product.HBLNo || 'N/A'
+                });
+            }
+        });
+    }
+
+    return errors;
+}
+/**
+ * Process uploaded product data
+ */
+async processProductUpload(
+    products: any[],
+    companyMasterSid: number,
+    branchMasterSid: number,
+    masterJobSid: number,
+    createdBy: string
+): Promise<any> {
+    try {
+        // Get house jobs mapping
+        const houseJobs = await this._db.houseJob.findMany({
+            where: { 
+                MasterJobSid: masterJobSid,
+                CompanyMasterSid: companyMasterSid,
+                BranchMasterSid: branchMasterSid,
+                
+            },
+            select: {
+                HouseJobSid: true,
+                HBLNo: true
+            }
+        });
+
+        // Get product mapping - Use productMaster table, not HouseJobProduct
+        const productList = await this._db.productMaster.findMany({
+            where: { status: 'A' },
+            select: {
+                ProductMasterSId: true, // This is the correct field
+                ProductName: true
+            }
+        });
+
+        // Get package type mapping
+        const packageTypes = await this._db.uOMMaster.findMany({
+            where: { UOMType: 'P', status: 'A' },
+            select: {
+                UOMMasterSid: true,
+                UOMName: true
+            }
+        });
+
+        // Get IMCO class mapping
+        const imcoClasses = await this._db.imcoMaster.findMany({
+            where: { status: 'A' },
+            select: {
+                ImcoMasterSid: true,
+                ImcoName: true
+            }
+        });
+
+        // Get UOM mapping
+        const uomList = await this._db.uOMMaster.findMany({
+            where: { status: 'A' },
+            select: {
+                UOMMasterSid: true,
+                UOMName: true
+            }
+        });
+
+        const results = await this._db.$transaction(async (prisma) => {
+            const createdProducts: any[] = [];
+            
+            for (const product of products) {
+                // Skip empty rows
+                 console.log('Processing product with HBLNo:', product.HBLNo);
+                if (!product.HBLNo || product.HBLNo.trim() === '') {
+                    continue;
+                }
+                   
+                // Find HouseJobSid from HBLNo
+                const houseJob = houseJobs.find(hj => hj.HBLNo === product.HBLNo);
+                console.log('House job found:', houseJob);
+                if (!houseJob) {
+                      console.log('Available HBL numbers:', houseJobs.map(hj => hj.HBLNo));
+        console.error(`House job not found for HBLNo: ${product.HBLNo}`);
+                    continue; // Skip if HBL not found
+                }
+                 console.log('Found HouseJobSid:', houseJob.HouseJobSid, 'for HBLNo:', product.HBLNo);
+                // Find ProductName - just store the name string, not ID
+                const productName = product.ProductName || '';
+
+                // Find Package Type - store as string in ExternaPkg field
+                let externalPkg = null;
+                if (product.ExternalPkg) {
+                    const packageType = packageTypes.find(pt => pt.UOMName === product.ExternalPkg);
+                    externalPkg = packageType ? product.ExternalPkg : null;
+                }
+
+                // Find UOM ID for UomMasterSid field
+               let uomMasterSid: number | null = null; // Add type annotation
+if (product.UomMasterSid) {
+    const uom = uomList.find(u => u.UOMName === product.UomMasterSid);
+    uomMasterSid = uom ? uom.UOMMasterSid : null;
+}
+
+                // Find IMCO Class ID if provided
+                let imcoClass = '';
+                if (product.ImcoClass) {
+                    const imcoClassObj = imcoClasses.find(imco => imco.ImcoName === product.ImcoClass);
+                    imcoClass = imcoClassObj ? product.ImcoClass : '';
+                }
+
+                // Prepare product data according to Prisma model
+                const productData = {
+                    HouseJobSid: houseJob.HouseJobSid,
+                    ProductName: productName,
+                    ShippingBillNo: product.ShippingBillNo || '',
+                    // ShippingBillDate: product.ShippingBillDate ? new Date(product.ShippingBillDate) : null,
+                    ExternaPkg: externalPkg,
+                    ExternlQty: product.ExternalQty ? String(product.ExternalQty) : null,
+                    GrossWeight: new Prisma.Decimal(Number(product.GrossWeight) || 0),
+                    NetWeight: product.NetWeight ? new Prisma.Decimal(Number(product.NetWeight)) : null,
+                    Volume: product.Volume ? new Prisma.Decimal(Number(product.Volume)) : null,
+                    Volumetric: product.Volumetric ? new Prisma.Decimal(Number(product.Volumetric)) : null,
+                    IsHaz: product.IsHaz && product.IsHaz.toString().toUpperCase() === 'Y' ? 'Y' : 'N',
+                    ImcoClass: imcoClass,
+                    UnNo: product.UnNo || '',
+                    PkgGroup: product.PkgGroup || '',
+                    Length: product.Length ? new Prisma.Decimal(Number(product.Length)) : null,
+                    Width: product.Width ? new Prisma.Decimal(Number(product.Width)) : null,
+                    Height: product.Height ? new Prisma.Decimal(Number(product.Height)) : null,
+                    HSCode: product.HSCode || '',
+                    UomMasterSid: uomMasterSid,
+                    // CargoRecDate: product.CargoRecDate ? new Date(product.CargoRecDate) : null,
+                    ReceivedQty: product.ReceivedQty ? new Prisma.Decimal(Number(product.ReceivedQty)) : null,
+                    DamageQty: product.DamageQty ? new Prisma.Decimal(Number(product.DamageQty)) : null,
+                    DamageRemarks: product.DamageRemarks || '',
+                    MasterJobContainerSid: product.MasterJobContainerSid ? Number(product.MasterJobContainerSid) : null,
+                    ContainerNo: product.ContainerNo || '',
+                    // DeliveryDate: product.DeliveryDate ? new Date(product.DeliveryDate) : null,
+                    DeliveredQty: product.DeliveredQty ? new Prisma.Decimal(Number(product.DeliveredQty)) : null,
+                    createdBy: createdBy,
+                    status: 'A' as const
+                };
+
+                // Create product record
+                console.log('Product data to save:', JSON.stringify(productData, null, 2));
+                const createdProduct = await prisma.houseJobProduct.create({
+                    data: productData
+                });
+console.log('Created product:', createdProduct);
+                createdProducts.push(createdProduct);
+            }
+            console.log('Created products:', createdProducts);
+            catchError(error => {
+                console.error('Error creating product:', error);
+                return of(error);
+                throw error;
+            })
+
+            return createdProducts;
+        });
+
+        return {
+            success: true,
+            message: `Successfully created ${results.length} products`,
+            data: results
+        };
+    } catch (error) {
+        this.logger.error(`Error processing product upload: ${error.message}`, error.stack);
+        throw error;
+    }
+}
 }

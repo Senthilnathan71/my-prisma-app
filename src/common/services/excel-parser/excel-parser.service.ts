@@ -922,300 +922,753 @@ private applyDropdownValidation(
     }
   }
 
-    async generateContainerTemplate(): Promise<Buffer> {
-    const workbook = new ExcelJS.Workbook();
-    
-    // Container Sheet
-    const containerSheet = workbook.addWorksheet('Containers');
-    
-    // Headers - CHANGED: Show Name instead of ID
-    const headers = [
-        'Container Type', // CHANGED: Removed "(ID)"
-        'Container Number',
-        'Line Seal',
-        'Customs Seal',
-        'HS Code',
-        'Commodity Description',
-        'Package Type', // CHANGED: Removed "(ID)"
-        // 'No of Packages',
-        // 'Gross Weight',
-        // 'Net Weight',
-        'Chargeable Weight',
-        // 'Volume (CBM)',
-        'Is SOC (Y/N)'
-    ];
-    
-    containerSheet.addRow(headers);
-    
-    // Sample data row - CHANGED: Show names instead of IDs
-    containerSheet.addRow([
-        '20ft Reefer', // Container Type Name
-        'ABCD1234567',
-        'LINE001',
-        'CUST001',
-        '251299',
-        'Electronic Equipment',
-        'Pallet', // Package Type Name
-        // 100,
-        // 5000,
-        // 4800,
-        0.000,
-        // 25.5,
-        'N'
-    ]);
-    
-    // ===== FETCH API DATA FOR DROPDOWNS =====
-    
-    // Get Container Types from database/API
-    const containerTypes = await this.db.containerTypeMaster.findMany({
-        where: { status: 'A' },
-        select: { ContainerTypeMasterSid: true, ContainerName: true }
-    });
-    
-    // Get HSSAC Codes from database/API
-    const hssacList = await this.db.hSSACMaster.findMany({
-        where: { status: 'A' },
-        select: { HSSACCode: true }
-    });
-    
-    // Get Package Types from database/API
-    const packageTypes = await this.db.uOMMaster.findMany({
-        where: { UOMType: 'P', status: 'A' },
-        select: { UOMMasterSid: true, UOMName: true }
-    });
-    
-    // ===== CREATE REFERENCE SHEETS WITH BOTH ID AND NAME =====
-    
-    // Container Types Reference Sheet
-    const containerRefSheet = workbook.addWorksheet('Container Types');
-    containerRefSheet.addRow(['ID', 'Container Type Name']);
-    containerTypes.forEach(type => {
-        containerRefSheet.addRow([type.ContainerTypeMasterSid, type.ContainerName]);
-    });
-    
-    // HS Code Reference Sheet
-    const hsCodeRefSheet = workbook.addWorksheet('HS Codes');
-    hsCodeRefSheet.addRow(['HS Code']);
-    hssacList.forEach(hs => {
-        hsCodeRefSheet.addRow([hs.HSSACCode]);
-    });
-    
-    // Package Types Reference Sheet
-    const packageRefSheet = workbook.addWorksheet('Package Types');
-    packageRefSheet.addRow(['ID', 'Package Type Name']);
-    packageTypes.forEach(pkg => {
-        packageRefSheet.addRow([pkg.UOMMasterSid, pkg.UOMName]);
-    });
-    
-    // ===== CREATE MAPPING SHEETS FOR DROPDOWNS =====
-    
-    // Container Type mapping for dropdown (Column B contains names)
-    const containerTypeFormula = "'Container Types'!$B$2:$B$" + (containerTypes.length + 1);
-    
-    // Package Type mapping for dropdown (Column B contains names)
-    const packageTypeFormula = "'Package Types'!$B$2:$B$" + (packageTypes.length + 1);
-    
-    // HS Code dropdown
-    // const hsCodeFormula = "'HS Codes'!$A$2:$A$" + (hssacList.length + 1);
-    
-    // ===== APPLY DROPDOWN VALIDATIONS =====
-    
-    // Container Type dropdown (Column A) - show names
-    this.applyDropdownValidation(containerSheet, 'A', 2, 100, containerTypeFormula);
-    
-    // HS Code dropdown (Column E)
-    // this.applyDropdownValidation(containerSheet, 'E', 2, 100, hsCodeFormula);
-    
-    // Package Type dropdown (Column G) - show names
-    this.applyDropdownValidation(containerSheet, 'G', 2, 100, packageTypeFormula);
-    
-    // SOC dropdown (Column M)
-    this.applyDropdownValidation(containerSheet, 'M', 2, 100, '"Y,N"');
-    
-    // ... rest of styling code remains the same ...
-    
-    // ===== STYLE THE SHEETS =====
-    
-    // Style main container sheet
-    const headerRow = containerSheet.getRow(1);
-    headerRow.font = { bold: true };
-    headerRow.fill = {
-        type: 'pattern',
-        pattern: 'solid',
-        fgColor: { argb: 'FFE0E0E0' }
-    };
-    
-    // Style reference sheets
-    [containerRefSheet, hsCodeRefSheet, packageRefSheet].forEach(sheet => {
-        const refHeaderRow = sheet.getRow(1);
-        refHeaderRow.font = { bold: true };
-        refHeaderRow.fill = {
-            type: 'pattern',
-            pattern: 'solid',
-            fgColor: { argb: 'FFE8F5E8' }
-        };
-        sheet.columns.forEach(column => {
-            column.width = 20;
-        });
-    });
-    
-    // Set column widths for container sheet
-    const columnWidths = [20, 20, 15, 15, 15, 30, 20, 15, 15, 15, 15, 15, 10];
-    columnWidths.forEach((width, index) => {
-        containerSheet.getColumn(index + 1).width = width;
-    });
-    
-    // ===== ADD INSTRUCTIONS =====
-    
-    const instructionsSheet = workbook.addWorksheet('Instructions');
-    instructionsSheet.addRow(['Container Upload Template - Instructions']);
-    instructionsSheet.addRow([]);
-    instructionsSheet.addRow(['IMPORTANT:']);
-    instructionsSheet.addRow(['1. All dropdowns are populated from API data']);
-    instructionsSheet.addRow(['2. Use the reference sheets for valid values']);
-    instructionsSheet.addRow(['3. Only fill data in the "Containers" sheet']);
-    instructionsSheet.addRow(['4. Reference sheets are for lookup only']);
-    instructionsSheet.addRow([]);
-    instructionsSheet.addRow(['DROPDOWN GUIDELINES:']);
-    instructionsSheet.addRow(['• Container Type: Select from Container Types sheet']);
-    instructionsSheet.addRow(['• HS Code: Select from HS Codes sheet']);
-    instructionsSheet.addRow(['• Package Type: Select from Package Types sheet']);
-    instructionsSheet.addRow(['• Is SOC: Enter Y or N']);
-    instructionsSheet.addRow([]);
-    instructionsSheet.addRow(['DATA VALIDATION:']);
-    instructionsSheet.addRow(['• Container Number: 11 characters (4 letters + 7 digits)']);
-    instructionsSheet.addRow(['• Gross weight ≥ Net weight']);
-    instructionsSheet.addRow(['• All weights should be in numbers only']);
-    
-    // Auto-fit instructions column
-    instructionsSheet.columns.forEach(column => {
-        column.width = 60;
-    });
-    
-    // ===== HIDE REFERENCE SHEETS =====
-    containerRefSheet.state = 'hidden';
-    hsCodeRefSheet.state = 'hidden';
-    packageRefSheet.state = 'hidden';
-    
-    // Generate buffer
-    const buffer = await workbook.xlsx.writeBuffer();
-    return Buffer.from(buffer);
-}
-/**
- * Parse Excel file specifically for containers
- */
+  async generateContainerTemplate(): Promise<Buffer> {
+  const workbook = new ExcelJS.Workbook();
 
-async parseContainerExcelFile(buffer: Buffer): Promise<{
+  // ===============================
+  // Container Sheet
+  // ===============================
+  const containerSheet = workbook.addWorksheet('Containers');
+
+  const headers = [
+    'Container Type',
+    'Container Number',
+    'Line Seal',
+    'Customs Seal',
+    'HS Code',
+    'Commodity Description',
+    'Package Type',
+    'Chargeable Weight',
+    'Is SOC (Y/N)'
+  ];
+
+  // Add header
+  containerSheet.addRow(headers);
+
+  // ===============================
+  // STYLE HEADER (DEFAULT)
+  // ===============================
+  const headerRow = containerSheet.getRow(1);
+  headerRow.font = { bold: true };
+  headerRow.fill = {
+    type: 'pattern',
+    pattern: 'solid',
+    fgColor: { argb: 'FFE0E0E0' } // Grey
+  };
+
+  // ===============================
+  // MARK MANDATORY COLUMNS (RED)
+  // ===============================
+  const mandatoryColumns = ['A', 'B']; // Container Type, Container Number
+
+  mandatoryColumns.forEach(col => {
+    const cell = containerSheet.getCell(`${col}1`);
+    cell.font = {
+      bold: true,
+      color: { argb: 'FFFF0000' } // Red text
+    };
+    cell.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FFFFE5E5' } // Light red bg
+    };
+  });
+
+  // ===============================
+  // SAMPLE / EXAMPLE ROW (ROW 2)
+  // ===============================
+  containerSheet.addRow([
+    '20ft Reefer',
+    'ABCD1234567',
+    'LINE001',
+    'CUST001',
+    '251299',
+    'Electronic Equipment',
+    'Pallet',
+    0.0,
+    'N'
+  ]);
+
+  const exampleRow = containerSheet.getRow(2);
+  exampleRow.eachCell(cell => {
+    cell.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FFEAF2FB' } // Light blue
+    };
+    cell.font = {
+      italic: true,
+      color: { argb: 'FF555555' }
+    };
+  });
+  exampleRow.commit();
+
+  // ===============================
+  // FETCH DROPDOWN DATA
+  // ===============================
+  const containerTypes = await this.db.containerTypeMaster.findMany({
+    where: { status: 'A' },
+    select: { ContainerTypeMasterSid: true, ContainerName: true }
+  });
+
+  const packageTypes = await this.db.uOMMaster.findMany({
+    where: { UOMType: 'P', status: 'A' },
+    select: { UOMMasterSid: true, UOMName: true }
+  });
+
+  // ===============================
+  // REFERENCE SHEETS
+  // ===============================
+  const containerRefSheet = workbook.addWorksheet('Container Types');
+  containerRefSheet.addRow(['ID', 'Container Type Name']);
+  containerTypes.forEach(t =>
+    containerRefSheet.addRow([t.ContainerTypeMasterSid, t.ContainerName])
+  );
+
+  const packageRefSheet = workbook.addWorksheet('Package Types');
+  packageRefSheet.addRow(['ID', 'Package Type Name']);
+  packageTypes.forEach(p =>
+    packageRefSheet.addRow([p.UOMMasterSid, p.UOMName])
+  );
+
+  // ===============================
+  // APPLY DROPDOWNS
+  // ===============================
+  const containerTypeFormula =
+    `'Container Types'!$B$2:$B$${containerTypes.length + 1}`;
+  const packageTypeFormula =
+    `'Package Types'!$B$2:$B$${packageTypes.length + 1}`;
+
+  this.applyDropdownValidation(containerSheet, 'A', 2, 1000, containerTypeFormula);
+  this.applyDropdownValidation(containerSheet, 'G', 2, 1000, packageTypeFormula);
+  this.applyDropdownValidation(containerSheet, 'I', 2, 1000, '"Y,N"');
+// ===============================
+// APPLY DROPDOWNS
+// ===============================
+this.applyDropdownValidation(containerSheet, 'A', 2, 1000, containerTypeFormula);
+this.applyDropdownValidation(containerSheet, 'G', 2, 1000, packageTypeFormula);
+this.applyDropdownValidation(containerSheet, 'I', 2, 1000, '"Y,N"');
+
+// ==================================================
+// CONTAINER NUMBER VALIDATION (Column B | Row 3+)
+// ==================================================
+for (let row = 3; row <= 1000; row++) {
+  containerSheet.getCell(`B${row}`).dataValidation = {
+    type: 'custom',
+    allowBlank: true,
+    formulae: [
+      'AND(' +
+        'LEN(B' + row + ')=11,' +
+        'ISNUMBER(--RIGHT(B' + row + ',7)),' +
+        'CODE(LEFT(B' + row + ',1))>=65,' +
+        'CODE(LEFT(B' + row + ',1))<=90,' +
+        'CODE(MID(B' + row + ',2,1))>=65,' +
+        'CODE(MID(B' + row + ',2,1))<=90,' +
+        'CODE(MID(B' + row + ',3,1))>=65,' +
+        'CODE(MID(B' + row + ',3,1))<=90,' +
+        'CODE(MID(B' + row + ',4,1))>=65,' +
+        'CODE(MID(B' + row + ',4,1))<=90' +
+      ')'
+    ],
+    showErrorMessage: true,
+    errorTitle: 'Invalid Container Number',
+    error: 'Container No must be 11 characters (4 letters + 7 digits). Example: ABCD1234567'
+  };
+}
+
+  // ===============================
+  // COLUMN WIDTHS
+  // ===============================
+  const columnWidths = [20, 22, 15, 15, 15, 30, 20, 18, 15];
+  columnWidths.forEach((w, i) => {
+    containerSheet.getColumn(i + 1).width = w;
+  });
+
+  // ===============================
+  // INSTRUCTIONS SHEET
+  // ===============================
+  const instructionsSheet = workbook.addWorksheet('Instructions');
+
+instructionsSheet.addRow(['Container Upload Template - Instructions']);
+instructionsSheet.addRow([]);
+
+instructionsSheet.addRow(['MANDATORY FIELDS']);
+instructionsSheet.addRow(['• Columns highlighted in RED are mandatory']);
+instructionsSheet.addRow(['• Container Type and Container Number are required']);
+instructionsSheet.addRow([]);
+
+instructionsSheet.addRow(['CONTAINER NUMBER FORMAT']);
+instructionsSheet.addRow(['• Must be exactly 11 characters']);
+instructionsSheet.addRow(['• First 4 characters must be letters (A–Z)']);
+instructionsSheet.addRow(['• Last 7 characters must be numbers (0–9)']);
+instructionsSheet.addRow(['• Example: ABCD1234567']);
+instructionsSheet.addRow([]);
+
+instructionsSheet.addRow(['DATA ENTRY RULES']);
+instructionsSheet.addRow(['• Row 2 is an example – DO NOT EDIT']);
+instructionsSheet.addRow(['• Start entering data from row 3']);
+instructionsSheet.addRow(['• Use dropdowns where available']);
+instructionsSheet.addRow(['• Excel will show an error for invalid Container Numbers']);
+instructionsSheet.addRow([]);
+
+instructionsSheet.addRow(['NOTE']);
+instructionsSheet.addRow(['• Reference sheets are hidden and used only for dropdowns']);
+instructionsSheet.addRow(['• Excel file is NOT protected']);
+
+instructionsSheet.columns.forEach(col => (col.width = 80));
+
+
+  // ===============================
+  // HIDE REFERENCE SHEETS
+  // ===============================
+  containerRefSheet.state = 'hidden';
+  packageRefSheet.state = 'hidden';
+
+  // ===============================
+  // RETURN FILE
+  // ===============================
+  const buffer = await workbook.xlsx.writeBuffer();
+  return Buffer.from(buffer);
+}
+
+  /**
+   * Parse Excel file specifically for containers
+   */
+
+  async parseContainerExcelFile(buffer: Buffer): Promise<{
     containers: any[];
     errors: any[];
-}> {
+  }> {
     try {
-        const workbook = XLSX.read(buffer, { type: 'buffer', cellDates: true });
-        const errors: any[] = [];
+      const workbook = XLSX.read(buffer, { type: 'buffer', cellDates: true });
+      const errors: any[] = [];
 
-        // Find container sheet (case-insensitive)
-        const sheetNames = workbook.SheetNames;
-        const containerSheetName = sheetNames.find(name => 
-            name.toLowerCase().includes('container')
-        );
+      // Find container sheet (case-insensitive)
+      const sheetNames = workbook.SheetNames;
+      const containerSheetName = sheetNames.find(name =>
+        name.toLowerCase().includes('container')
+      );
 
-        if (!containerSheetName) {
+      if (!containerSheetName) {
+        errors.push({
+          field: 'Sheet',
+          message: 'Container sheet not found in Excel file',
+          sheet: 'Containers'
+        });
+        return { containers: [], errors };
+      }
+
+      const containerSheet = workbook.Sheets[containerSheetName];
+      const containerData = XLSX.utils.sheet_to_json(containerSheet, {
+        defval: null,
+        raw: false,
+        header: 1 // Get raw data
+      });
+
+      // Remove header row (first row)
+      containerData.shift();
+
+      // Fetch container types to map names to IDs
+      const containerTypes = await this.db.containerTypeMaster.findMany({
+        where: { status: 'A' },
+        select: { ContainerTypeMasterSid: true, ContainerName: true }
+      });
+
+      // Fetch package types to map names to IDs
+      const packageTypes = await this.db.uOMMaster.findMany({
+        where: { UOMType: 'P', status: 'A' },
+        select: { UOMMasterSid: true, UOMName: true }
+      });
+
+      // Parse container data, skipping empty rows
+      const containers = containerData
+        .filter((row: any, index) => {
+          // Skip empty rows or rows with no container number
+          const containerNumber = row[1]; // Container Number is at index 1
+          return containerNumber && containerNumber.toString().trim() !== '';
+        })
+        .map((row: any, index) => {
+          try {
+            const containerTypeName = this.getStringValue(row[0]); // Container Type Name
+            const packageTypeName = this.getStringValue(row[6]); // Package Type Name
+
+            // Convert container type name to ID
+            let containerTypeId: number | null = null;
+            if (containerTypeName) {
+              const containerType = containerTypes.find(
+                ct => ct.ContainerName === containerTypeName
+              );
+              containerTypeId = containerType ? containerType.ContainerTypeMasterSid : null;
+            }
+
+            // Convert package type name to ID
+            let packageTypeId: number | null = null;
+            if (packageTypeName) {
+              const packageType = packageTypes.find(
+                pt => pt.UOMName === packageTypeName
+              );
+              packageTypeId = packageType ? packageType.UOMMasterSid : null;
+            }
+
+            return {
+              ContainerType: containerTypeId, // Container Type ID
+              ContainerNumber: this.getStringValue(row[1]), // Container Number
+              LineSeal: this.getStringValue(row[2]), // Line Seal
+              CustomsSeal: this.getStringValue(row[3]), // Customs Seal
+              HsCode: this.getStringValue(row[4]), // HS Code
+              CommodityDescription: this.getStringValue(row[5]), // Commodity Description
+              PkgType: packageTypeId, // Package Type ID
+              // NoOfPkg: this.getNumberValue(row[7]), 
+              // GrossWeight: this.getDecimalValue(row[8]), 
+              // NetWeight: this.getDecimalValue(row[9]), 
+              ChargeableWeight: this.getDecimalValue(row[7]), // Chargeable Weight
+              // Volume: this.getDecimalValue(row[11]),
+              IsSoc: this.getBooleanValue(row[8]) // Is SOC
+            };
+          } catch (error) {
             errors.push({
-                field: 'Sheet',
-                message: 'Container sheet not found in Excel file',
-                sheet: 'Containers'
+              field: 'Row',
+              message: `Error parsing row ${index + 2}: ${error.message}`,
+              row: index + 2,
+              containerNumber: row[1] || 'N/A'
             });
-            return { containers: [], errors };
-        }
+            return null;
+          }
+        })
+        .filter(container => container !== null);
 
-        const containerSheet = workbook.Sheets[containerSheetName];
-        const containerData = XLSX.utils.sheet_to_json(containerSheet, {
-            defval: null,
-            raw: false,
-            header: 1 // Get raw data
-        });
-
-        // Remove header row (first row)
-        containerData.shift();
-
-        // Fetch container types to map names to IDs
-        const containerTypes = await this.db.containerTypeMaster.findMany({
-            where: { status: 'A' },
-            select: { ContainerTypeMasterSid: true, ContainerName: true }
-        });
-
-        // Fetch package types to map names to IDs
-        const packageTypes = await this.db.uOMMaster.findMany({
-            where: { UOMType: 'P', status: 'A' },
-            select: { UOMMasterSid: true, UOMName: true }
-        });
-
-        // Parse container data, skipping empty rows
-        const containers = containerData
-            .filter((row: any, index) => {
-                // Skip empty rows or rows with no container number
-                const containerNumber = row[1]; // Container Number is at index 1
-                return containerNumber && containerNumber.toString().trim() !== '';
-            })
-            .map((row: any, index) => {
-                try {
-                    const containerTypeName = this.getStringValue(row[0]); // Container Type Name
-                    const packageTypeName = this.getStringValue(row[6]); // Package Type Name
-                    
-                    // Convert container type name to ID
-                    let containerTypeId: number | null = null;
-                    if (containerTypeName) {
-                        const containerType = containerTypes.find(
-                            ct => ct.ContainerName === containerTypeName
-                        );
-                        containerTypeId = containerType ? containerType.ContainerTypeMasterSid : null;
-                    }
-
-                    // Convert package type name to ID
-                    let packageTypeId: number | null = null;
-                    if (packageTypeName) {
-                        const packageType = packageTypes.find(
-                            pt => pt.UOMName === packageTypeName
-                        );
-                        packageTypeId = packageType ? packageType.UOMMasterSid : null;
-                    }
-
-                    return {
-                        ContainerType: containerTypeId, // Container Type ID
-                        ContainerNumber: this.getStringValue(row[1]), // Container Number
-                        LineSeal: this.getStringValue(row[2]), // Line Seal
-                        CustomsSeal: this.getStringValue(row[3]), // Customs Seal
-                        HsCode: this.getStringValue(row[4]), // HS Code
-                        CommodityDescription: this.getStringValue(row[5]), // Commodity Description
-                        PkgType: packageTypeId, // Package Type ID
-                        NoOfPkg: this.getNumberValue(row[7]), // No of Packages
-                        GrossWeight: this.getDecimalValue(row[8]), // Gross Weight
-                        NetWeight: this.getDecimalValue(row[9]), // Net Weight
-                        ChargeableWeight: this.getDecimalValue(row[10]), // Chargeable Weight
-                        Volume: this.getDecimalValue(row[11]), // Volume
-                        IsSoc: this.getBooleanValue(row[12]) // Is SOC
-                    };
-                } catch (error) {
-                    errors.push({
-                        field: 'Row',
-                        message: `Error parsing row ${index + 2}: ${error.message}`,
-                        row: index + 2,
-                        containerNumber: row[1] || 'N/A'
-                    });
-                    return null;
-                }
-            })
-            .filter(container => container !== null);
-
-        return { containers, errors };
+      return { containers, errors };
 
     } catch (error) {
-        this.logger.error(`Error parsing container Excel file: ${error.message}`, error.stack);
-        throw new BadRequestException('Invalid Excel file format for containers');
+      this.logger.error(`Error parsing container Excel file: ${error.message}`, error.stack);
+      throw new BadRequestException('Invalid Excel file format for containers');
     }
+  }
+
+  /**
+   * Generate Product Excel template for Master Job
+   */
+async generateProductTemplate(masterJobSid: number): Promise<Buffer> {
+  const workbook = new ExcelJS.Workbook();
+
+  // ===============================
+  // PRODUCT SHEET
+  // ===============================
+  const productSheet = workbook.addWorksheet('Products');
+
+  const headers = [
+    'HBL Number',
+    'Product Name',
+    'HS Code',
+    'Shipping Bill No',
+    'Shipping Bill Date',
+    'Package Type',
+    'No of Pkg',
+    'UOM',
+    'Length',
+    'Width',
+    'Height',
+    'Volumetric',
+    'Volume (CBM)',
+    'Gross Weight',
+    'Net Weight',
+    'Cargo Received Date',
+    'Received Qty',
+    'Damage Qty',
+    'Damage Remarks',
+    'Container ID',
+    'Delivery Date',
+    'Delivered Qty',
+    'Is Haz (Y/N)',
+    'IMCO Class',
+    'UN Number',
+    'Package Group'
+  ];
+
+  productSheet.addRow(headers);
+
+  // ===============================
+  // HEADER STYLE (SAME AS CONTAINER)
+  // ===============================
+  const headerRow = productSheet.getRow(1);
+  headerRow.font = { bold: true };
+  headerRow.fill = {
+    type: 'pattern',
+    pattern: 'solid',
+    fgColor: { argb: 'FFE0E0E0' } // Grey
+  };
+
+  // ===============================
+  // MARK MANDATORY COLUMNS (RED)
+  // A = HBL, G = No of Pkg, N = Gross Wt, O = Net Wt
+  // ===============================
+  const mandatoryColumns = ['A', 'G', 'N', 'O'];
+
+  mandatoryColumns.forEach(col => {
+    const cell = productSheet.getCell(`${col}1`);
+    cell.font = {
+      bold: true,
+      color: { argb: 'FFFF0000' }
+    };
+    cell.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FFFFE5E5' }
+    };
+  });
+
+  // ===============================
+  // FETCH DROPDOWN DATA
+  // ===============================
+  const hblNumbers = await this.db.houseJob.findMany({
+    where: { MasterJobSid: masterJobSid, status: 'A' },
+    select: { HBLNo: true }
+  });
+
+  const products = await this.db.productMaster.findMany({
+    where: { status: 'A' },
+    select: { ProductName: true }
+  });
+
+  const packageTypes = await this.db.uOMMaster.findMany({
+    where: { UOMType: 'P', status: 'A' },
+    select: { UOMName: true }
+  });
+
+  const imcoClasses = await this.db.imcoMaster.findMany({
+    where: { status: 'A' },
+    select: { ImcoName: true }
+  });
+
+  const containers = await this.db.masterJobContainer.findMany({
+    where: { MasterJobSid: masterJobSid, Status: 'A' },
+    select: { ContainerNumber: true }
+  });
+
+  // ===============================
+  // SAMPLE / EXAMPLE ROW (ROW 2)
+  // ===============================
+  productSheet.addRow([
+    hblNumbers[0]?.HBLNo || 'HBL-001',
+    products[0]?.ProductName || 'Electronics',
+    '85171200',
+    'SB-2024-001',
+    '2024-01-15',
+    packageTypes[0]?.UOMName || 'Carton',
+    10,
+    'CM',
+    50,
+    40,
+    30,
+    0.6,
+    0.06,
+    500,
+    480,
+    '2024-01-20',
+    10,
+    0,
+    'None',
+    containers[0]?.ContainerNumber || '',
+    '2024-02-01',
+    10,
+    'N',
+    imcoClasses[0]?.ImcoName || 'Class 9',
+    'UN3077',
+    'Group II'
+  ]);
+
+  const exampleRow = productSheet.getRow(2);
+  exampleRow.eachCell(cell => {
+    cell.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FFEAF2FB' } // Light blue
+    };
+    cell.font = {
+      italic: true,
+      color: { argb: 'FF555555' }
+    };
+  });
+  exampleRow.commit();
+
+  // ===============================
+  // REFERENCE SHEETS
+  // ===============================
+  const hblRef = workbook.addWorksheet('HBL Numbers');
+  hblRef.addRow(['HBL Number']);
+  hblNumbers.forEach(h => hblRef.addRow([h.HBLNo]));
+
+  const productRef = workbook.addWorksheet('Product Names');
+  productRef.addRow(['Product Name']);
+  products.forEach(p => productRef.addRow([p.ProductName]));
+
+  const pkgRef = workbook.addWorksheet('Package Types');
+  pkgRef.addRow(['Package Type']);
+  packageTypes.forEach(p => pkgRef.addRow([p.UOMName]));
+
+  const imcoRef = workbook.addWorksheet('IMCO Classes');
+  imcoRef.addRow(['IMCO Class']);
+  imcoClasses.forEach(i => imcoRef.addRow([i.ImcoName]));
+
+  const containerRef = workbook.addWorksheet('Containers');
+  containerRef.addRow(['Container Number']);
+  containers.forEach(c => containerRef.addRow([c.ContainerNumber]));
+
+  // ===============================
+  // APPLY DROPDOWNS
+  // ===============================
+  this.applyDropdownValidation(productSheet, 'A', 2, 1000, `'HBL Numbers'!$A$2:$A$${hblNumbers.length + 1}`);
+  this.applyDropdownValidation(productSheet, 'B', 2, 1000, `'Product Names'!$A$2:$A$${products.length + 1}`);
+  this.applyDropdownValidation(productSheet, 'F', 2, 1000, `'Package Types'!$A$2:$A$${packageTypes.length + 1}`);
+  this.applyDropdownValidation(productSheet, 'X', 2, 1000, `'IMCO Classes'!$A$2:$A$${imcoClasses.length + 1}`);
+  this.applyDropdownValidation(productSheet, 'T', 2, 1000, `'Containers'!$A$2:$A$${containers.length + 1}`);
+  this.applyDropdownValidation(productSheet, 'W', 2, 1000, '"Y,N"');
+
+  // ===============================
+  // COLUMN WIDTHS
+  // ===============================
+  const widths = [20,25,15,20,15,15,12,10,10,10,10,12,12,12,12,15,12,12,20,15,15,12,10,15,15,15];
+  widths.forEach((w, i) => productSheet.getColumn(i + 1).width = w);
+// ===============================
+// INSTRUCTIONS SHEET
+// ===============================
+const instructionsSheet = workbook.addWorksheet('Instructions');
+
+instructionsSheet.addRow(['Product Upload Template - Instructions']);
+instructionsSheet.addRow([]);
+
+instructionsSheet.addRow(['MANDATORY FIELDS']);
+instructionsSheet.addRow(['• Columns highlighted in RED are mandatory']);
+instructionsSheet.addRow(['• HBL Number is mandatory']);
+instructionsSheet.addRow(['• No of Pkg is mandatory']);
+instructionsSheet.addRow(['• Gross Weight is mandatory']);
+instructionsSheet.addRow(['• Net Weight is mandatory']);
+instructionsSheet.addRow([]);
+
+instructionsSheet.addRow(['DATA ENTRY RULES']);
+instructionsSheet.addRow(['• Row 2 is an example – DO NOT EDIT']);
+instructionsSheet.addRow(['• Start entering data from row 3']);
+instructionsSheet.addRow(['• Use dropdowns wherever available']);
+instructionsSheet.addRow(['• Numeric fields must contain numbers only']);
+instructionsSheet.addRow([]);
+
+instructionsSheet.addRow(['WEIGHT RULES']);
+instructionsSheet.addRow(['• Gross Weight must be greater than or equal to Net Weight']);
+instructionsSheet.addRow(['• All weights must be positive values']);
+instructionsSheet.addRow([]);
+
+instructionsSheet.addRow(['DATE FORMAT']);
+instructionsSheet.addRow(['• Use date format: YYYY-MM-DD']);
+instructionsSheet.addRow(['• Invalid date formats may cause upload failure']);
+instructionsSheet.addRow([]);
+
+instructionsSheet.addRow(['HAZARDOUS CARGO']);
+instructionsSheet.addRow(['• If Is Haz = Y, IMCO Class and UN Number should be filled']);
+instructionsSheet.addRow(['• If Is Haz = N, IMCO Class and UN Number can be empty']);
+instructionsSheet.addRow([]);
+
+instructionsSheet.addRow(['NOTE']);
+instructionsSheet.addRow(['• Reference sheets are hidden and used only for dropdowns']);
+instructionsSheet.addRow(['• Only fill data in the "Products" sheet']);
+instructionsSheet.addRow(['• Excel file is NOT protected']);
+
+instructionsSheet.columns.forEach(col => (col.width = 80));
+
+  // ===============================
+  // HIDE REFERENCE SHEETS
+  // ===============================
+  [hblRef, productRef, pkgRef, imcoRef, containerRef].forEach(s => s.state = 'hidden');
+
+  const buffer = await workbook.xlsx.writeBuffer();
+  return Buffer.from(buffer);
 }
 
 
+  /**
+   * Parse Excel file for products
+   */
+async parseProductExcelFile(buffer: Buffer): Promise<{
+  products: any[];
+  errors: any[];
+}> {
+  try {
+    const workbook = XLSX.read(buffer, { type: 'buffer', cellDates: true });
+    const errors: any[] = [];
+
+    // Find product sheet (case-insensitive)
+    const sheetNames = workbook.SheetNames;
+    const productSheetName = sheetNames.find(name =>
+      name.toLowerCase().includes('product')
+    );
+
+    if (!productSheetName) {
+      errors.push({
+        field: 'Sheet',
+        message: 'Product sheet not found in Excel file',
+        sheet: 'Products'
+      });
+      return { products: [], errors };
+    }
+
+    const productSheet = workbook.Sheets[productSheetName];
+    const productData = XLSX.utils.sheet_to_json(productSheet, {
+      defval: null,
+      raw: false,
+      header: 1
+    });
+
+    // Remove header row (first row)
+    productData.shift();
+
+    // Get containers mapping from database
+    const containers = await this.db.masterJobContainer.findMany({
+      where: {Status: 'A' },
+      select: {
+        MasterJobContainerSid: true,
+        ContainerNumber: true
+      }
+    });
+
+    // Create a map for quick lookup
+    const containerMap = new Map();
+    containers.forEach(container => {
+      containerMap.set(container.ContainerNumber, container.MasterJobContainerSid);
+    });
+
+    // Parse product data, skipping empty rows AND the example row
+    const products = productData
+      .filter((row: any, index) => {
+        // Skip empty rows or rows with no HBL number
+        const hblNo = row[0];
+        const hasHblNo = hblNo && hblNo.toString().trim() !== '';
+        
+        // Skip the example row (usually first data row after header)
+        // Check if this is likely an example row by checking multiple fields
+        const isExampleRow = this.isExampleRow(row);
+        
+        return hasHblNo && !isExampleRow;
+      })
+      .map((row: any, index) => {
+        try {
+          const containerNumber = this.getStringValue(row[19]);
+          const masterJobContainerSid = containerMap.get(containerNumber) || null;
+
+          if (containerNumber && !masterJobContainerSid) {
+            errors.push({
+              field: 'Container ID',
+              message: `Invalid container number: ${containerNumber}`,
+              row: index + 2,
+              hblNo: row[0] || 'N/A'
+            });
+          }
+
+          return {
+            HBLNo: this.getStringValue(row[0]),
+            ProductName: this.getStringValue(row[1]),
+            HSCode: this.getStringValue(row[2]),
+            ShippingBillNo: this.getStringValue(row[3]),
+            ShippingBillDate: this.getDateValue(row[4]),
+            ExternalPkg: this.getStringValue(row[5]),
+            ExternalQty: this.getNumberValue(row[6]),
+            UomMasterSid: this.getStringValue(row[7]),
+            Length: this.getNumberValue(row[8]),
+            Width: this.getNumberValue(row[9]),
+            Height: this.getNumberValue(row[10]),
+            Volumetric: this.getNumberValue(row[11]),
+            Volume: this.getNumberValue(row[12]),
+            GrossWeight: this.getNumberValue(row[13]),
+            NetWeight: this.getNumberValue(row[14]),
+            CargoRecDate: this.getDateValue(row[15]),
+            ReceivedQty: this.getNumberValue(row[16]),
+            DamageQty: this.getNumberValue(row[17]),
+            DamageRemarks: this.getStringValue(row[18]),
+            ContainerNo: containerNumber,
+            MasterJobContainerSid: masterJobContainerSid, // Map from Container Number
+            DeliveryDate: this.getDateValue(row[20]),
+            DeliveredQty: this.getNumberValue(row[21]),
+            IsHaz: this.getStringValue(row[22]),
+            ImcoClass: this.getStringValue(row[23]),
+            UnNo: this.getStringValue(row[24]),
+            PkgGroup: this.getStringValue(row[25])
+          };
+        } catch (error) {
+          errors.push({
+            field: 'Row',
+            message: `Error parsing row ${index + 2}: ${error.message}`,
+            row: index + 2,
+            hblNo: row[0] || 'N/A'
+          });
+          return null;
+        }
+      })
+      .filter(product => product !== null);
+
+    return { products, errors };
+
+  } catch (error) {
+    this.logger.error(`Error parsing product Excel file: ${error.message}`, error.stack);
+    throw new BadRequestException('Invalid Excel file format for products');
+  }
+}
+
+/**
+ * Helper method to identify example rows
+ */
+private isExampleRow(row: any[]): boolean {
+  // Check if the row contains example data
+  // Common example indicators:
+  
+  // 1. Check for example HBL number patterns
+  const hblNo = this.getStringValue(row[0]);
+  const exampleHblPatterns = ['HBL-001', 'HBL-', 'SAMPLE', 'EXAMPLE', 'DEMO'];
+  if (hblNo && exampleHblPatterns.some(pattern => hblNo.toUpperCase().includes(pattern))) {
+    return true;
+  }
+  
+  // 2. Check for example product name patterns
+  const productName = this.getStringValue(row[1]);
+  const exampleProductPatterns = ['ELECTRONICS', 'SAMPLE', 'EXAMPLE', 'DEMO'];
+  if (productName && exampleProductPatterns.some(pattern => productName.toUpperCase().includes(pattern))) {
+    return true;
+  }
+  
+  // 3. Check for common HS Code examples
+  const hsCode = this.getStringValue(row[2]);
+  const exampleHsCodes = ['85171200', '00000000'];
+  if (hsCode && exampleHsCodes.includes(hsCode)) {
+    return true;
+  }
+  
+  // 4. Check for placeholder text
+  const hasPlaceholderText = row.some(cell => {
+    if (typeof cell === 'string') {
+      return cell.includes('SB-2024-001') || cell.includes('Example') || cell.includes('Sample');
+    }
+    return false;
+  });
+  
+  return hasPlaceholderText;
+}
+
+  /**
+   * Helper method to get date value
+   */
+  private getDateValue(value: any): Date | null {
+    if (!value) return null;
+    if (value instanceof Date) return value;
+    if (typeof value === 'string') {
+      const date = new Date(value);
+      return isNaN(date.getTime()) ? null : date;
+    }
+    if (typeof value === 'number') {
+      // Excel date serial number
+      const date = XLSX.SSF.parse_date_code(value);
+      if (date) {
+        return new Date(date.y, date.m - 1, date.d);
+      }
+    }
+    return null;
+  }
 
 
 }
