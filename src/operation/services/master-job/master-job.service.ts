@@ -4142,6 +4142,162 @@ async getMasterJobARAPData(MasterJobSid: number): Promise<any> {
             throw error;
         }
     }
+/**
+ * Validate container data from Excel upload
+ */
+async validateContainerData(
+    containers: any[],
+    companyMasterSid: number,
+    branchMasterSid: number
+): Promise<any[]> {
+    const errors: any[] = [];
+    
+    if (!containers || containers.length === 0) {
+        errors.push({
+            field: 'Containers',
+            message: 'No container data provided',
+            row: 1
+        });
+        return errors;
+    }
 
+    // Get container types for validation
+    const containerTypes = await this._db.containerTypeMaster.findMany({
+        where: { status: 'A' }
+    });
+
+    // Get package types for validation
+    const packageTypes = await this._db.uOMMaster.findMany({
+        where: { UOMType: 'P', status: 'A' }
+    });
+
+    // Validate each container
+    for (let i = 0; i < containers.length; i++) {
+        const container = containers[i];
+        const rowNumber = i + 2; // Excel rows start from 2 (header is row 1)
+
+        // Skip read-only/predefined rows (empty container number)
+        if (!container.ContainerNumber || container.ContainerNumber.trim() === '') {
+            continue;
+        }
+
+        // Validate required fields
+        if (!container.ContainerNumber) {
+            errors.push({
+                field: 'Container Number',
+                message: 'Container Number is required',
+                row: rowNumber,
+                containerNumber: container.ContainerNumber || 'N/A'
+            });
+        }
+
+        if (!container.ContainerType) {
+            errors.push({
+                field: 'Container Type',
+                message: 'Container Type is required',
+                row: rowNumber,
+                containerNumber: container.ContainerNumber || 'N/A'
+            });
+        } else {
+            // Validate container type exists
+            const containerTypeExists = containerTypes.some(
+                ct => ct.ContainerTypeMasterSid === Number(container.ContainerType)
+            );
+            if (!containerTypeExists) {
+                errors.push({
+                    field: 'Container Type',
+                    message: `Invalid Container Type ID: ${container.ContainerType}`,
+                    row: rowNumber,
+                    containerNumber: container.ContainerNumber || 'N/A'
+                });
+            }
+        }
+
+        // Validate package type if provided
+        if (container.PkgType) {
+            const packageTypeExists = packageTypes.some(
+                pt => pt.UOMMasterSid === Number(container.PkgType)
+            );
+            if (!packageTypeExists) {
+                errors.push({
+                    field: 'Package Type',
+                    message: `Invalid Package Type ID: ${container.PkgType}`,
+                    row: rowNumber,
+                    containerNumber: container.ContainerNumber || 'N/A'
+                });
+            }
+        }
+
+        // Validate container number format
+        if (container.ContainerNumber) {
+            // Check if container number is valid format (4 letters + 6 digits + 1 check digit)
+            const containerRegex = /^[A-Z]{4}\d{6}\d$/;
+            if (!containerRegex.test(container.ContainerNumber.toUpperCase())) {
+                errors.push({
+                    field: 'Container Number',
+                    message: 'Invalid container number format. Must be 11 characters (4 letters + 7 digits)',
+                    row: rowNumber,
+                    containerNumber: container.ContainerNumber
+                });
+            }
+        }
+
+        // Validate weights (Gross should be >= Net)
+        const grossWeight = Number(container.GrossWeight) || 0;
+        const netWeight = Number(container.NetWeight) || 0;
+        
+        if (grossWeight < netWeight) {
+            errors.push({
+                field: 'Gross Weight',
+                message: 'Gross weight cannot be less than net weight',
+                row: rowNumber,
+                containerNumber: container.ContainerNumber || 'N/A'
+            });
+        }
+
+        // Validate numeric fields
+        const numericFields = ['NoOfPkg', 'GrossWeight', 'NetWeight', 'ChargeableWeight', 'Volume'];
+        numericFields.forEach(field => {
+            if (container[field] && isNaN(Number(container[field]))) {
+                errors.push({
+                    field: field,
+                    message: `${field} must be a number`,
+                    row: rowNumber,
+                    containerNumber: container.ContainerNumber || 'N/A'
+                });
+            }
+        });
+
+        // Validate length constraints
+        if (container.LineSeal && container.LineSeal.length > 10) {
+            errors.push({
+                field: 'Line Seal',
+                message: 'Line Seal cannot exceed 10 characters',
+                row: rowNumber,
+                containerNumber: container.ContainerNumber || 'N/A'
+            });
+        }
+
+        if (container.CustomsSeal && container.CustomsSeal.length > 10) {
+            errors.push({
+                field: 'Customs Seal',
+                message: 'Customs Seal cannot exceed 10 characters',
+                row: rowNumber,
+                containerNumber: container.ContainerNumber || 'N/A'
+            });
+        }
+
+        if (container.CommodityDescription && container.CommodityDescription.length > 500) {
+            errors.push({
+                field: 'Commodity Description',
+                message: 'Commodity Description cannot exceed 500 characters',
+                row: rowNumber,
+                containerNumber: container.ContainerNumber || 'N/A'
+            });
+        }
+    }
+
+    return errors;
+}
 
 }
