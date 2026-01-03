@@ -572,7 +572,7 @@ model ChargeTaxMaster {
   HSNCode            String        @db.VarChar(10)
   description        String        @db.VarChar(100)
   TaxGroup           String?       @db.VarChar(10)
-  TaxRate            Decimal       @db.Decimal(4, 2)
+  TaxRate            Decimal       @db.Decimal(6, 3)
   createdOn          DateTime      @default(now()) @db.Timestamptz(6)
   updatedOn          DateTime      @updatedAt @db.Timestamptz(6)
   deletedAt          DateTime?
@@ -2058,12 +2058,14 @@ model VoucherTypeMaster {
   ReportTitle               String?              @db.VarChar(100)
   Type                      String?              @db.VarChar(100)
   IsAutoPosting             String?              @default("N") @db.Char(1)
+  MenuMasterSid             Int?
   BookingRatesCost          BookingRates[]       @relation("COST")
   BookingRatesRevenue       BookingRates[]       @relation("REVENUE")
   CostRevenueChargesCost    CostRevenueCharges[] @relation("COST")
   CostRevenueChargesRevenue CostRevenueCharges[] @relation("REVENUE")
   VoucherHeader             VoucherHeader[]
   VoucherTransaction        VoucherTransaction[]
+  menuMaster                MenuMaster?          @relation(fields: [MenuMasterSid], references: [MenuMasterSid])
   branchMaster              BranchMaster         @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
   companyMaster             CompanyMaster        @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
 }
