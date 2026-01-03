@@ -429,7 +429,7 @@ export class TopNCustomerReportQueryDto {
 
   @IsOptional()
   @IsBoolean()
-  GP : boolean;
+  Gp : boolean;
 }
 
 
