@@ -69,6 +69,7 @@ model MenuMaster {
   roleMenuMaster          RoleMenuMaster[]
   terms                   TermsAndConditionsMaster[]
   userRoleMaster          UserRoleMaster[]
+  voucherTypeMaster       VoucherTypeMaster[]
 }
 
 model MenuPermission {
