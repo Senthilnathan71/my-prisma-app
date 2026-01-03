@@ -2051,6 +2051,7 @@ model VoucherTypeMaster {
   ReportFooter              String?              @db.VarChar(100)
   ReportTitle               String?              @db.VarChar(100)
   Type                      String?              @db.VarChar(100)
+  IsAutoPosting             String?              @default("N") @db.Char(1)
   BookingRatesCost          BookingRates[]       @relation("COST")
   BookingRatesRevenue       BookingRates[]       @relation("REVENUE")
   CostRevenueChargesCost    CostRevenueCharges[] @relation("COST")
@@ -3286,6 +3287,7 @@ model VoucherMatching {
   DrCr                     String                @db.Char(1)
   Amount                   Decimal               @db.Decimal(15, 3)
   LocalAmount              Decimal               @db.Decimal(15, 3)
+  PartyAmount              Decimal?              @db.Decimal(15, 3)
   MatchingType             String                @db.VarChar(10)
   MatchingTransactionSid   Int?
   LedgerMasterSid          Int?
@@ -3316,6 +3318,7 @@ model MatchingDetail {
   LocalAmount              Decimal                @db.Decimal(15, 3)
   MatchingAmount           Decimal?               @db.Decimal(15, 3)
   MatchingLocalAmount      Decimal                @db.Decimal(15, 3)
+  PartyAmount              Decimal?               @db.Decimal(15, 3)
   SourceVoucherHeaderSid   Int
   VoucherMatchingHeaderSid Int?
   MatchingCurrency         Int?
