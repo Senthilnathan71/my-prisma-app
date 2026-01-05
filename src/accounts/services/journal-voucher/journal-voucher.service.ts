@@ -891,7 +891,7 @@ if (payload.VoucherDetail && Array.isArray(payload.VoucherDetail)) {
 
         const difference = Math.abs(debitTotal - creditTotal);
 
-        if (difference > 0.00) {
+        if (difference > 0.01) {
             throw new BadRequestException(
                 `Debit and Credit totals must be equal. Debit: ${debitTotal}, Credit: ${creditTotal}, Difference: ${difference}`
             );

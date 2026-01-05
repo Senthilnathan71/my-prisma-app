@@ -94,6 +94,16 @@ export class CustomerMasterDto {
 
     @IsString()
     @IsOptional()
+    @MaxLength(25)
+    CIN?: string;
+
+    @IsString()
+    @IsOptional()
+    @MaxLength(25)
+    TAN?: string;
+
+    @IsString()
+    @IsOptional()
     @Length(1, 1)
     IsMSME?: string;
 

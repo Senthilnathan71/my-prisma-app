@@ -71,6 +71,8 @@ export class CompanyService {
                 isHo: newData.isHo,
                 status: newData.status,
                 remarks: newData.remarks,
+                CIN: newData.CIN,
+                TAN: newData.TAN,
                 config: newData.config || {},
                 createdBy: user.userEmail,
                 companyLogo: companyLogoPath,
@@ -381,6 +383,8 @@ export class CompanyService {
                 isHo: updateData.isHo,
                 status: updateData.status,
                 remarks: updateData.remarks,
+                CIN: updateData.CIN,
+                TAN: updateData.TAN,
                 // Only update logos if new files were uploaded
                 ...(companyLogoPath && { companyLogo: companyLogoPath }),
                 ...(reportLogoPath && { reportLogo: reportLogoPath }),
