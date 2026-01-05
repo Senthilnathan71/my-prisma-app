@@ -461,3 +461,73 @@ export class ProfitSummaryReportQueryDto {
   Dept?: number[];
 
 }
+
+
+export class DestinationReportQueryDto {
+  @ApiProperty()
+  @IsNotEmpty()
+  @IsDateString()
+  POL: number;
+
+  @ApiProperty()
+  @IsNotEmpty()
+  @IsDateString()
+  POD: number;
+
+  @ApiProperty()
+  @IsNotEmpty()
+  @IsInt()
+  companyId: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsInt()
+  Branch?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsInt()
+  Customer?: number[];
+
+
+  @ApiProperty()
+  @IsNotEmpty()
+  @IsDateString()
+  FromHblDt: string;
+
+  @ApiProperty()
+  @IsNotEmpty()
+  @IsDateString()
+  ToHblDt: string;
+
+  @ApiProperty({ enum: YesNoEnum })
+  @IsNotEmpty()
+  @IsEnum(YesNoEnum)
+  includeFinancials: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsInt()
+  port?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsInt()
+  branchId?: number[];
+
+  @ApiProperty()
+  @IsNotEmpty()
+  @IsDateString()
+  Dept: number[];
+
+  @ApiProperty({ enum: BLStatusEnum })
+  @IsNotEmpty()
+  @IsEnum(BLStatusEnum)
+  Transhipment: Boolean;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsInt()
+  Salesperson?: number[];
+
+}

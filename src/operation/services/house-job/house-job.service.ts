@@ -540,6 +540,7 @@ export class HouseJobService {
                             MasterJobSid:true,
                             NoofOriginal:true,
                             MasterJobNumber:true,
+                            MBLNo:true,
                             WeightIn:true,
                             containers:true,
                             others:true,
