@@ -108,40 +108,40 @@ export class JournalVoucherService {
                 }
 
                 // Get COAMasterSid - use the one from voucher type or find a default
-                let coaMasterSid = payload.COAMasterSid;
-                if (!coaMasterSid) {
-                    // Use the COA from voucher type master or find a default COA
-                    coaMasterSid = voucherTypeMaster.COALedger;
+                // let coaMasterSid = payload.COAMasterSid;
+                // if (!coaMasterSid) {
+                //     // Use the COA from voucher type master or find a default COA
+                //     coaMasterSid = voucherTypeMaster.COALedger;
                     
-                    if (!coaMasterSid) {
-                        // Find a default COA for journal entries
-                        const defaultCOA = await tx.cOAMaster.findFirst({
-                            where: {
-                                CompanyMasterSid: payload.CompanyMasterSid,
-                                LedgerCategory: 'Ledger',
-                                Status: 'Active'
-                            }
-                        });
+                //     if (!coaMasterSid) {
+                //         // Find a default COA for journal entries
+                //         const defaultCOA = await tx.cOAMaster.findFirst({
+                //             where: {
+                //                 CompanyMasterSid: payload.CompanyMasterSid,
+                //                 LedgerCategory: 'Ledger',
+                //                 Status: 'Active'
+                //             }
+                //         });
                         
-                        if (defaultCOA) {
-                            coaMasterSid = defaultCOA.COAMasterSid;
-                        } else {
-                            throw new BadRequestException(
-                                'No default COA found for journal voucher. Please configure Chart of Accounts.'
-                            );
-                        }
-                    }
-                }
+                //         if (defaultCOA) {
+                //             coaMasterSid = defaultCOA.COAMasterSid;
+                //         } else {
+                //             throw new BadRequestException(
+                //                 'No default COA found for journal voucher. Please configure Chart of Accounts.'
+                //             );
+                //         }
+                //     }
+                // }
 
                 // Create VoucherHeader
                 const voucherHeader = await tx.voucherHeader.create({
                     data: {
                         VoucherNumber: voucherNumber,
                         VoucherDate: payload.VoucherDate ? new Date(payload.VoucherDate) : new Date(),
-                        PostDate: payload.PostDate ? new Date(payload.PostDate) : new Date(),
+                        PostDate: payload.PostDate,
                         VoucherType: voucherTypeMaster.VoucherTypeMasterSid,
                         Narration: payload.Narration || '',
-                        COAMasterSid: coaMasterSid,
+                        COAMasterSid: payload.COAMasterSid || null,
                         CompanyMasterSid: payload.CompanyMasterSid,
                         BranchMasterSid: payload.BranchMasterSid,
                         VoucherTypeMasterSid: voucherTypeMaster.VoucherTypeMasterSid,
@@ -666,7 +666,7 @@ if (payload.VoucherDetail && Array.isArray(payload.VoucherDetail)) {
                 const voucherDate = new Date(voucher.VoucherDate);
                 const startDate = new Date(yearMaster.StartDate);
                 const endDate = new Date(yearMaster.EndDate);
-                if (voucherDate < startDate || voucherDate > endDate) throw new Error('Voucher date is outside of current financial year.');
+                if (voucherDate < startDate || voucherDate > endDate) throw new BadRequestException('Voucher date is outside of current financial year.');
 
                 const now = new Date();
                 const chargeLineItems = voucher.VoucherDetail;

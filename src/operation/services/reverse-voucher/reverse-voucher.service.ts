@@ -58,7 +58,7 @@ export class ReverseVoucherService {
                                 PostDate: payload.PostDate ? new Date(payload.PostDate) : new Date(),
                                 VoucherType: voucherTypeMaster.VoucherTypeMasterSid,
                                 Narration: payload.Narration || '',
-                                COAMasterSid: voucherTypeMaster.COALedger ?? 1,
+                                COAMasterSid: payload.COAMasterSid,
                                 CompanyMasterSid: payload.CompanyMasterSid,
                                 BranchMasterSid: payload.BranchMasterSid,
                                 VoucherTypeMasterSid: voucherTypeMaster.VoucherTypeMasterSid,
