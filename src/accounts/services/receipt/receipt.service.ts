@@ -842,7 +842,13 @@ export class ReceiptService {
             Status : 'A'
           }
         },
-        SourceMatchingDetail : true
+        SourceMatchingDetail : true,
+        voucherMatchingHeader : {
+          select : {
+            VoucherMatchingHeaderSid : true,
+            VoucherMatchingNo : true
+          }
+        }
       },
     });
 
@@ -850,7 +856,7 @@ export class ReceiptService {
       throw new NotFoundException(`Receipt ${voucherHeaderSid} not found`);
     }
 
-    const {SourceMatchingDetail,VoucherDetail ,...VoucherHeader} = receipt;
+    const {SourceMatchingDetail,VoucherDetail,voucherMatchingHeader ,...VoucherHeader} = receipt;
     const formattedMatchingDetail = await Promise.all(SourceMatchingDetail.map(async (detail) => {
       const transactionDetail = await this._db.voucherTransaction.findUnique({
         where: { VoucherTransactionSid: detail.VoucherTransactionSid },
@@ -858,7 +864,7 @@ export class ReceiptService {
           VoucherNumber: true,
           VoucherDate: true,
           VoucherTypeMasterSid: true,
-          voucherTypeMaster: { select: { DocumentTypeName: true } },
+          voucherTypeMaster: { select: { DocumentTypeCode: true } },
           LedgerMasterSid: true,
           COAMasterSid: true,
           Amount: true,
@@ -892,7 +898,7 @@ export class ReceiptService {
         COAMasterSid: transactionDetail?.COAMasterSid,
         VoucherNumber: transactionDetail?.VoucherNumber,
         VoucherTypeMasterSid: transactionDetail?.VoucherTypeMasterSid,
-        VoucherType: transactionDetail?.voucherTypeMaster?.DocumentTypeName,
+        VoucherType: transactionDetail?.voucherTypeMaster?.DocumentTypeCode,
         VoucherDate: transactionDetail?.VoucherDate,
         DrCr: detail.DrCr,
         CurrencyCode : detail.CurrencyCode,
@@ -913,7 +919,8 @@ export class ReceiptService {
     return {
       ...VoucherHeader,
       VoucherDetail : VoucherDetail,
-      voucherMatchings : formattedMatchingDetail
+      VoucherMatchingHeader : voucherMatchingHeader,
+      voucherMatchings : formattedMatchingDetail,
     };
   }
 
@@ -1020,7 +1027,7 @@ export class ReceiptService {
             MultiBranch : payload.MultiBranch,
             VoucherDate: new Date(payload.VoucherDate), // ensure Date type
             VoucherType: voucherType.VoucherTypeMasterSid,
-            PostDate: new Date(payload.VoucherDate), // usually same as VoucherDate
+            PostDate: null, // usually same as VoucherDate
             Narration: payload.Narration || "",
             PartyMasterSid: payload.PartyMasterSid,
             PartyName: payload.PartyName || "",
@@ -1522,15 +1529,15 @@ export class ReceiptService {
             voucherTypeMaster: true
           }
         })
-
+        
         if (!voucher) throw new BadRequestException('Voucher not found.');
         if (voucher.PostStatus === 'P') throw new BadRequestException('Voucher is already posted.');
         if (!voucher.VoucherDetail || voucher.VoucherDetail.length === 0) throw new BadRequestException('No detail lines are found.');
         if (!voucher.voucherTypeMaster) throw new BadRequestException('Voucher type is not found.');
-
-
+        
+        
         const { voucherTypeMaster, SourceMatchingDetail, VoucherDetail, ...VoucherHeader } = voucher;
-
+        
         // Validate year
         const yearMaster = await tx.yearMaster.findUnique({
           where: {
@@ -1549,7 +1556,8 @@ export class ReceiptService {
         const startDate = new Date(yearMaster.StartDate);
         const endDate = new Date(yearMaster.EndDate);
         if (voucherDate < startDate || voucherDate > endDate) throw new Error('Voucher date is outside of current financial year.');
-
+        
+        const now = new Date();
         // Prepare VoucherTransaction payload array
         const voucherTransactionsPayload = VoucherDetail.map((item, index) => ({
           CreatedBy: item.CreatedBy,
@@ -1561,7 +1569,7 @@ export class ReceiptService {
           VoucherNumber: voucher.VoucherNumber,
           VoucherType: voucher.VoucherType,
           VoucherDate: voucher.VoucherDate,
-          PostDate: voucher.PostDate!,
+          PostDate: now,
           GST_VAT: voucher.GST_VAT || "",
           Sno: item.Sno,
           ChargeDescription: item.ChargeDescription || "",
@@ -1614,19 +1622,19 @@ export class ReceiptService {
         if (!partyDetail) {
           throw new BadRequestException('Party Voucher Detail not found');
         }
-        const billMatchingCurrencyAmount = (SourceMatchingDetail || []).reduce((sum, matching) => {
-          if(matching.DrCr === 'C'){
-            return sum + Number(matching.MatchingAmount);
+        const billMatchingCurrencyAmount = toNumber((SourceMatchingDetail || []).reduce((sum, matching) => {
+          if(matching.DrCr === 'D'){
+            return sum + Number(matching.PartyAmount);
           }
-          return sum - Number(matching.MatchingAmount);
-        }, 0);
+          return sum - Number(matching.PartyAmount);
+        }, 0).toFixed(2));
 
-        const billMatchingLocalAmount = (SourceMatchingDetail || []).reduce((sum, matching) => {
-          if(matching.DrCr === 'C'){
+        const billMatchingLocalAmount = toNumber((SourceMatchingDetail || []).reduce((sum, matching) => {
+          if(matching.DrCr === 'D'){
             return sum + Number(matching.MatchingLocalAmount);
           }
           return sum - Number(matching.MatchingLocalAmount);
-        }, 0);
+        }, 0).toFixed(2));
 
         await tx.matchingDetail.deleteMany({
           where: {
@@ -1637,13 +1645,10 @@ export class ReceiptService {
           }
         })
 
+        const filteredDetails = SourceMatchingDetail.filter(matching => toNumber(matching.MatchingAmount) > 0 || toNumber(matching.MatchingLocalAmount) > 0);
+
         const allValidMatchings = await Promise.all(
-          (SourceMatchingDetail || [])
-            .filter(matching =>
-              toNumber(matching.Amount) > 0 ||
-              toNumber(matching.LocalAmount) > 0
-            )
-            .map(async (matching) => {
+          filteredDetails.map(async (matching) => {
               // taking invoice information from each matching detail
               const transaction = await tx.voucherTransaction.findUnique({
                 where: {
@@ -1659,6 +1664,7 @@ export class ReceiptService {
                 }
               });
               return {
+                MatchingDetailSid : matching.MatchingDetailSid,
                 VoucherHeaderSid: matching.VoucherHeaderSid,
                 VoucherDetailSid: matching.VoucherDetailSid,
                 VoucherTransactionSid: matching.VoucherTransactionSid,
@@ -1683,7 +1689,7 @@ export class ReceiptService {
             SubledgerName : voucher?.subledgerMaster?.SubledgerName || '',
             voucherTypeInName: voucher?.voucherTypeMaster.DocumentTypeName,
             VoucherTypeMasterSid: voucher?.voucherTypeMaster.VoucherTypeMasterSid,
-            PostDate: voucher.PostDate!,
+            PostDate: now ,
             Narration: `${voucher.VoucherNumber} ${voucher.VoucherDate.toISOString().split('T')[0]} ${voucher.CurrencyCode} ${voucher.Amount}`,
             createdBy: payload.postedBy,
             voucherMatching: allValidMatchings,
@@ -1701,7 +1707,7 @@ export class ReceiptService {
             Amount: partyDetail.Amount,
             LocalAmount: partyDetail.LocalAmount,
             PostStatus : 'P',
-            PostDate: voucher.PostDate,
+            PostDate: now,
             UpdatedBy: payload.postedBy
           }
         })
