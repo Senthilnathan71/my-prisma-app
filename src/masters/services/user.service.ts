@@ -43,12 +43,28 @@ export class UserService {
                                             status:'A'
                                         },
                                         include : {
-                                            branchMaster : true
+                                            branchMaster : {
+                                                include : {
+                                                    stateMaster : {
+                                                        select : {
+                                                            stateName : true,
+                                                            stateCode : true
+                                                        }
+                                                    },
+                                                    cityMaster : {
+                                                        select : {
+                                                            cityName : true,
+                                                            cityCode : true
+                                                        }
+                                                    }
+                                                }
+                                            }
                                         }
                                     },
                                     countryMaster:{
                                         select:{
-                                            countryName:true
+                                            countryName:true,
+                                            countryCode:true
                                         }
                                     }
                                 }

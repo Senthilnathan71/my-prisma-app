@@ -975,7 +975,11 @@ export class ReceiptService {
         // 1. Get VoucherType for 'Receipt'
         const voucherType = await prisma.voucherTypeMaster.findFirst({
           where: {
-            DocumentTypeName: 'Receipt'
+            CompanyMasterSid: payload.CompanyMasterSid,
+            BranchMasterSid: payload.BranchMasterSid,
+            menuMaster: {
+              MenuName: 'Receipt'
+            }
           },
         });
         if (!voucherType) {
@@ -1283,7 +1287,13 @@ export class ReceiptService {
 
         // 2. Validate Voucher Type
         const voucherType = await prisma.voucherTypeMaster.findFirst({
-          where: { DocumentTypeName: 'Receipt' },
+          where: { 
+            CompanyMasterSid : payload.CompanyMasterSid,
+            BranchMasterSid : payload.BranchMasterSid,
+            menuMaster : {
+              MenuName : 'Receipt'
+            }
+          },
         });
 
         if (!voucherType) {
@@ -1501,7 +1511,7 @@ export class ReceiptService {
       postedBy: string,
       taxDetails: {
         CountryMasterSid: number,
-        countryName: string,
+        countryCode: string,
         TaxCategory: 'Inter' | 'Intra',
         EffectiveFrom: Date,
         TaxType: 'Input' | 'Output',
