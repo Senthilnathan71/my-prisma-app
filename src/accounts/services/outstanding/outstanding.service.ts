@@ -190,7 +190,7 @@ export class OutstandingService {
           }
         },
         orderBy: {
-          VoucherDate: 'asc',
+          VoucherHeaderSid: 'desc',
         },
       });
 

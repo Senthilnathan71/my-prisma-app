@@ -201,7 +201,13 @@ export class CurrencyExchangeController {
             let res = await this.currencyExService.getExchangeRate(payload);
             this.logger.debug(`Get Exchange Rate Results : ${JSON.stringify(res)}`);
             resp.data = res;
-            resp.message = "Exchange Rate is fetched successfully";
+            if(res){
+                resp.message = "Exchange Rate is fetched successfully";
+            } else {
+                resp.message = `Exchange rate not found for converting ${payload.fromCurrencyCode} to ${payload.toCurrencyCode}.\n
+                Please configure the required exchange rate in the Exchange Rate Master.`;
+
+            }
         } catch (error) {
             this.logger.warn(`et Exchange Rate Error : ${error}`)
             resp.status = false;

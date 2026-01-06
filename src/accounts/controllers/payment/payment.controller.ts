@@ -14,6 +14,7 @@ import {
   ValidationPipe,
   UnauthorizedException,
   BadRequestException,
+  Patch,
 } from '@nestjs/common';
 import {
   CreatePaymentDto,
@@ -77,6 +78,31 @@ export class PaymentController {
         resp.message = error.message;
       } else {
         resp.message = " Internal Server Error";
+      }
+    }
+    return resp;
+  }
+
+  @Patch('update/:VoucherHeaderSid')
+  @HttpCode(HttpStatus.OK)
+  async updateNewPayment(
+    @Param('VoucherHeaderSid', ParseIntPipe) VoucherHeaderSid: number,
+    @Body() payload: any
+  ) {
+    let resp = new ResponseData();
+
+    try {
+      this.logger.log(`Updating Payment ${payload}`);
+      const receipt = await this.paymentService.updatePayment(VoucherHeaderSid, payload);
+      resp.data = receipt;
+      resp.message = "Payment updated successfully";
+    } catch (error) {
+      this.logger.warn(`Error updating Payment: ${JSON.stringify(error), error}`);
+      resp.status = false;
+      if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+        resp.message = (error as any).message || 'Bad request';
+      } else {
+        resp.message = 'Internal Server Error';
       }
     }
     return resp;
