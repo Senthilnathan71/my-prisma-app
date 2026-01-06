@@ -101,6 +101,7 @@ export class EnquiryHeaderService {
                         Volume: parseFloat(cargo.cbm),                      // LCL
                         ContainerType: cargo.ContainerType,             // FCL , AIR
                         ChargeableWeight: cargo.ChargeableWeight,      // AIR
+                        Volumetric: parseFloat(cargo.volumetric),
                         length: Number(cargo.length),
                         width: Number(cargo.width),
                         height: Number(cargo.height),
@@ -345,6 +346,7 @@ export class EnquiryHeaderService {
                                     ShipmentTerms: cargoItem.ShipmentTerms,
                                     Volume: parseFloat(cargoItem.cbm),
                                     ChargeableWeight: cargoItem.ChargeableWeight,
+                                    Volumetric: parseFloat(cargoItem.volumetric),
                                     ContainerType: cargoItem.ContainerType,
                                     length: Number(cargoItem.length),
                                     width: Number(cargoItem.width),
@@ -366,6 +368,7 @@ export class EnquiryHeaderService {
                                     Volume: parseFloat(cargoItem.cbm),
                                     ContainerType: cargoItem.ContainerType,
                                     ChargeableWeight: cargoItem.ChargeableWeight,
+                                    Volumetric: parseFloat(cargoItem.volumetric),
                                     length: Number(cargoItem.length),
                                     width: Number(cargoItem.width),
                                     height: Number(cargoItem.height),
