@@ -453,7 +453,7 @@ export class Vat210ReportQueryDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsInt()
-  branchId?: number[];
+  branchId?: number;
 
   @ApiProperty()
   @IsNotEmpty()

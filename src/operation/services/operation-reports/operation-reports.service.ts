@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { DatabaseService } from 'src/database/database.service';
 import { Prisma, PrismaClient } from '@prisma/client';
-import { BLIssueListReportQueryDto, ContainerKPIReportQueryDto, DestinationReportQueryDto, DOIssueListReportQueryDto, houseJobLossReportQueryDto, lostCustomerReportQueryDto, profitabilityReportQueryDto, ProfitSummaryReportQueryDto, ShipmentDetailedSummaryReportQueryDto, ShipmentSummaryReportQueryDto, unbilledcostReportQueryDto } from 'src/operation/DTO/operation-reports.dto';
+import { BLIssueListReportQueryDto, ContainerKPIReportQueryDto, DestinationReportQueryDto, DOIssueListReportQueryDto, exportJobVolumeTEUReportQueryDto, houseJobLossReportQueryDto, lostCustomerReportQueryDto, profitabilityReportQueryDto, ProfitSummaryReportQueryDto, ShipmentDetailedSummaryReportQueryDto, ShipmentSummaryReportQueryDto, unbilledcostReportQueryDto } from 'src/operation/DTO/operation-reports.dto';
 import { toNumber } from 'src/common/helper';
 
 @Injectable()
@@ -110,6 +110,8 @@ export class OperationReportsService {
           return await this.generateLostCustomerReport(parameters);
         case 'destination-report':
           return await this.generateDestinationReport(parameters);
+        case 'export-job-volume-teu-report':
+          return await this.generateExportJobVolumeTEUReport(parameters);
         default:
           throw new BadRequestException(`Report ${reportName} not implemented`);
       }
@@ -3685,6 +3687,186 @@ export class OperationReportsService {
         error.stack,
       );
       throw error;
+    }
+  }
+
+  private async generateExportJobVolumeTEUReport(params: exportJobVolumeTEUReportQueryDto) {
+    const {
+      FromDate,
+      ToDate,
+      companyId: CompanyMasterSid,
+      Branch: branchId,
+      Dept: deptId
+    } = params
+
+    try {
+
+      const branches = branchId && branchId.length > 0
+        ? await this._db.branchMaster.findMany({
+          where: { BranchMasterSid: { in: branchId } },
+          select: { BranchMasterSid: true, branchName: true },
+        })
+        : await this._db.branchMaster.findMany({
+          where: { CompanyMasterSid },
+          select: { BranchMasterSid: true, branchName: true },
+        });
+
+      const resolvedBranchIds = branches.map(b => b.BranchMasterSid);
+      const resolvedBranchNames = branches.map(b => b.branchName);
+      const branchSet = new Set(resolvedBranchNames);
+
+
+      const departments = deptId && deptId.length > 0
+        ? await this._db.departmentMaster.findMany({
+          where: {
+            DepartmentMasterSid: { in: deptId },
+            NOT: {
+              departmentName: {
+                contains: 'AIR',
+                mode: 'insensitive',
+              },
+            },
+          },
+          select: { DepartmentMasterSid: true, departmentName: true },
+        })
+        : await this._db.departmentMaster.findMany({
+          where: {
+            CompanyMasterSid,
+            NOT: {
+              departmentName: {
+                contains: 'AIR',
+                mode: 'insensitive',
+              },
+            },
+          },
+          select: { DepartmentMasterSid: true, departmentName: true },
+        });
+
+
+      const resolvedDeptIds = departments.map(d => d.DepartmentMasterSid);
+      const resolvedDeptNames = departments.map(d => d.departmentName);
+
+      const customer = await this._db.customerMaster.findMany({
+        select: { CustomerMasterSid: true, CustomerName: true }
+      })
+
+      // Container Type Master
+      const containerTypesMaster = await this._db.containerTypeMaster.findMany({
+        select: { ContainerTypeMasterSid: true, ContainerSize: true }
+      });
+
+      const containerTypeMap = new Map(
+        containerTypesMaster.map(ct => [ct.ContainerTypeMasterSid, ct.ContainerSize])
+      );
+
+      const masterJobs = await this._db.masterJob.findMany({
+        where: {
+          CompanyMasterSid,
+          BranchMasterSid: { in: resolvedBranchIds },
+          AND: [
+            { MBLDate: { gte: FromDate } },
+            { MBLDate: { lte: ToDate } },
+          ],
+          Status: 'A',
+          DepartmentMasterSid: { in: resolvedDeptIds },
+        },
+        include: {
+          containers: {
+            where: { Status: 'A' },
+            include: {
+              containerType: {
+                select: {
+                  ContainerSize: true,
+                  NoOfTeu: true,
+                }
+              }
+            }
+          },
+          voyages: true
+        },
+        orderBy: { MBLDate: 'asc' },
+      })
+
+      const containerSize = ["20'", "40'", "45'"];
+
+      const masterContainerMap = new Map<string, number>();
+
+containerTypesMaster.forEach(m => {
+  const size = m.ContainerSize.replace("'", '').trim(); // normalize
+  masterContainerMap.set(size, 1); // presence map
+});
+
+
+      // Map the master job data
+      const data = masterJobs.map(mj => {
+        const masterContainerSid = mj.containers?.[0]?.MasterJobContainerSid;
+
+        const containerInfo = (mj.containers || [])
+          .filter(c => c.MasterJobContainerSid === masterContainerSid)
+          .map(c => {
+            const containerTypeId = c.ContainerType;
+            return {
+              containerNumber: c.ContainerNumber,
+              containerType: containerTypeId != null
+                ? containerTypeMap.get(containerTypeId) || `Unknown(${containerTypeId})`
+                : 'Unknown',
+            };
+          });
+
+        const containerCountByType: Record<string, number> = {};
+        let totalNoOfTEU = 0;
+        let numberOfFourtyFt = 0;
+        let numberofFurtyFive = 0;
+        let numberOfTwentyFt = 0;
+        containerSize.forEach(col => containerCountByType[col] = 0);
+
+        (mj.containers || []).forEach(c => {
+
+          totalNoOfTEU += toNumber(c.containerType?.NoOfTeu);
+
+          if (c.containerType?.ContainerSize.trim() === '20') {
+            numberOfTwentyFt++;
+          }
+
+          if (c.containerType?.ContainerSize.trim() === '40') {
+            numberOfFourtyFt++;
+          }
+
+          if (c.containerType?.ContainerSize.trim() === '45') {
+            numberofFurtyFive++;
+          }
+        });
+
+        return {
+          TEUCount: totalNoOfTEU,
+          fourtyft: numberOfFourtyFt,
+          fortyfiveft: numberofFurtyFive,
+          twentyft: numberOfTwentyFt,
+          dept: departments.find(d => d.DepartmentMasterSid === mj.DepartmentMasterSid)?.departmentName || '',
+          jobNo: mj.MasterJobNumber,
+          movementType: mj.MovementType,
+          MBLDate: mj.MBLDate,
+          ETD: mj.voyages?.[0]?.ETD,
+          deliveyAgent: customer.find(c => c.CustomerMasterSid === mj.DestinationAgent)?.CustomerName || '',
+          carrier: mj.voyages?.[0]?.CarrierName,
+          portOfloading: mj.POL,
+          portOfdischarge: mj.POD,
+          portOfDestination: mj.FPD,
+          weight: mj.GrossWeight,
+          chargebaleWt: mj.ChargeableWeight
+        };
+      });
+
+      return {
+        params,
+        branchNames: resolvedBranchNames.join(', '),
+        departmentNames: resolvedDeptNames.join(', '),
+        data,
+      }
+
+
+    } catch (error) {
+      throw error
     }
   }
 

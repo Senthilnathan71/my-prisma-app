@@ -1783,7 +1783,8 @@ const ledger = coaMasterSid
         include: {
           voucherTypeMaster: {
             select: {
-              DocumentTypeName: true
+              DocumentTypeName: true,
+              DocumentTypeCode:true
             }
           }
         },
@@ -1798,9 +1799,12 @@ const ledger = coaMasterSid
         .filter(v => v.PostStatus === 'U')
         
         .map(v => ({
+          VoucherHeaderSid : v.VoucherHeaderSid,
           voucherNo: v.VoucherNumber,
           voucherDate: v.VoucherDate,
+          voucherTypeId : v.VoucherTypeMasterSid,
           voucherType: v.voucherTypeMaster?.DocumentTypeName,
+          voucherCode : v.voucherTypeMaster?.DocumentTypeCode,
           createdBy: v.CreatedBy,
           createdOn: v.CreatedOn,
           postStatus: v.PostStatus,
@@ -2183,14 +2187,33 @@ const ledger = coaMasterSid
 
   private async vat201(param: any) {
 
-  const  {
-    CompanyId: CompanyId,
-    BranchId: BranchId,
-    fromDate: fromDate,
-    toDate: toDate,
-  } = param
+    const {
+      CompanyId: CompanyId,
+      BranchId: BranchId,
+      fromDate: fromDate,
+      toDate: toDate,
+    } = param
     try {
-      
+
+      /* -------------------- BRANCH NAME (SELECTED / ALL) -------------------- */
+      let branchName = 'All';
+
+      if (BranchId) {
+        const branch = await this._db.branchMaster.findFirst({
+          where: {
+            BranchMasterSid: BranchId,
+            CompanyMasterSid: CompanyId,
+            status: 'A'
+          },
+          select: {
+            branchName: true
+          }
+        });
+
+        branchName = branch?.branchName || 'All';
+      }
+
+
       const baseHeaderWhere = {
         CompanyMasterSid: CompanyId,
         BranchMasterSid: BranchId,
@@ -2206,9 +2229,9 @@ const ledger = coaMasterSid
         Status: 'A',
       };
 
-    
+
       // Summary counts
-      
+
       const totalVouchers = await this._db.voucherHeader.count({
         where: baseHeaderWhere,
       });
@@ -2228,9 +2251,8 @@ const ledger = coaMasterSid
 
       const vouchersWithoutTaxLedger = totalVouchers - vouchersWithTaxLedger;
 
-      
       // Ledger summary type (clean output)
-      
+
       type LedgerSummary = {
         COAMasterSid: number;
         LedgerName: string;
@@ -2239,9 +2261,8 @@ const ledger = coaMasterSid
         details: any[]
       };
 
-     
       // Aggregation helper – handles null safety & grouping
-     
+
       const aggregateByLedger = (
         details: Array<{
           subledgerMaster: { SubledgerMasterSid: number | null; SubledgerName: string | null } | null;
@@ -2266,14 +2287,14 @@ const ledger = coaMasterSid
 
         for (const detail of details) {
           const sid = detail.subledgerMaster?.SubledgerMasterSid;
-          if (sid == null) continue; 
+          if (sid == null) continue;
 
           const ledgerName = detail.subledgerMaster?.SubledgerName ?? 'Unknown Tax Ledger';
 
           const countryCode =
             detail.VoucherHeader?.customerBranch?.customerMaster?.countryMaster?.countryCode ?? 'UNKNOWN';
 
-          const isLocal = ['AE','SA','QA','OM','KW'].includes(countryCode); 
+          const isLocal = ['AE', 'SA', 'QA', 'OM', 'KW'].includes(countryCode);
 
           const targetMap = isLocal ? localMap : overseasMap;
 
@@ -2302,9 +2323,9 @@ const ledger = coaMasterSid
         };
       };
 
-     
+
       // INPUT TAX – Purchases / Input VAT
-      
+
       const inputTaxDetails = await this._db.voucherDetail.findMany({
         where: {
           Status: 'A',
@@ -2351,9 +2372,9 @@ const ledger = coaMasterSid
 
       const inputTax = aggregateByLedger(inputTaxDetails);
 
-      
+
       // OUTPUT TAX – Sales / Output VAT (also classified local/overseas)
-  
+
       const outputTaxDetails = await this._db.voucherDetail.findMany({
         where: {
           Status: 'A',
@@ -2459,13 +2480,14 @@ const ledger = coaMasterSid
           unpostedVoucher
         },
         param,
-        inputTax,     
-        outputTax,  
-        payment:{
+        BranchName: branchName,
+        inputTax,
+        outputTax,
+        payment: {
           totalPayment,
           totalPaymentVoucher,
           totalWithoutPayment
-        }, 
+        },
       };
     } catch (error) {
       console.error('VAT 201 report generation failed:', error);
