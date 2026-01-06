@@ -3845,6 +3845,18 @@ private async createSingleBooking(tx, houseJob, createdBy: string) {
     });
     
     const BookingNo = `booking-${dateString}-${(count + 1).toString().padStart(3, '0')}`;
+    let destinationAgentAddress = '';
+    if (houseJob.DestinationAgent) {
+    const agent = await tx.customerMaster.findUnique({
+        where: {
+            CustomerMasterSid: houseJob.DestinationAgent
+        },
+        select: {
+            CustomerAddress1: true
+        }
+    });
+    destinationAgentAddress = agent?.CustomerAddress1 || '';
+}
     
     const bookingHeader = await tx.bookingHeader.create({
         data: {
@@ -3869,10 +3881,10 @@ private async createSingleBooking(tx, houseJob, createdBy: string) {
             TsPortSid: houseJob.TsPortSid,
             POLTerminal: houseJob.POLTerminal,
             VoyageMasterSid: houseJob.VoyageMasterSid,
-            VesselName: houseJob.VesselName,
-            VoyageNo: houseJob.VoyageNo,
-            ETD: houseJob.ETD,
-            ETA: houseJob.ETA,
+            // VesselName: houseJob.VesselName,
+            // VoyageNo: houseJob.VoyageNo,
+            // ETD: houseJob.ETD,
+            // ETA: houseJob.ETA,
             IncoTerms: houseJob.IncoTerms,
             BLLocation: houseJob.BLLocation,
             ShipperName: houseJob.ShipperName,
@@ -3883,7 +3895,7 @@ private async createSingleBooking(tx, houseJob, createdBy: string) {
             ShipmentType: houseJob.ShipmentType,
             DestinationAgent: houseJob.DestinationAgent,
             AgentName: houseJob.AgentName,
-            AgentAddress: houseJob.AgentAddress,
+            AgentAddress: destinationAgentAddress,
             HouseNo: houseJob.HouseNo,
             MasterNoSid: houseJob.MasterNoSid,
             
@@ -4012,6 +4024,7 @@ private async createSingleBooking(tx, houseJob, createdBy: string) {
                     NotifyPartyAddress: othersData.NotifyPartyAddress,
                     CHAName: othersData.CHAName,
                     PickupMode: othersData.PickupMode,
+                    ReleaseType: othersData.ReleaseType,
                     YardCFS: othersData.YardCFS,
                     LocalTransport: othersData.LocalTransport,
                     OverseasTransport: othersData.OverseasTransport,
