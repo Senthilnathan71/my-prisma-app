@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException, Post } from '@nestjs/common';
 import { DatabaseService } from 'src/database/database.service';
 import { ApprovalStatus, Prisma } from '@prisma/client';
 import { AgeingReportQueryDto, BalanceSheetReportQueryDto, LedgerReportQueryDto, OutstandingReportQueryDto, ProfitLossReportQueryDto, StatementLedgerReportQueryDto, TopNCustomerReportQueryDto, TrialBalanceReportQueryDto, UnpostedVoucherListReportQueryDto, VATReportQueryDto } from 'src/accounts/dto/accounts-reports.dto';
@@ -2190,8 +2190,8 @@ const ledger = coaMasterSid
     const {
       CompanyId: CompanyId,
       BranchId: BranchId,
-      fromDate: fromDate,
-      toDate: toDate,
+      FromDate: fromDate,
+      ToDate: toDate,
     } = param
     try {
 
@@ -2226,9 +2226,11 @@ const ledger = coaMasterSid
             in: ['Invoice', 'Vendor Invoice', 'Credit Note', 'Vendor Credit Note'],
           },
         },
+        PostStatus: {
+          in: ['P', 'U'],
+        },
         Status: 'A',
       };
-
 
       // Summary counts
 
@@ -2451,6 +2453,12 @@ const ledger = coaMasterSid
             gte: fromDate,
             lte: toDate,
           },
+          PostStatus:{
+            in:['P','U']
+          },
+          voucherTypeMaster: {
+            DocumentTypeName: 'Payment Voucher',
+          }
         },
       })
 
@@ -2466,6 +2474,13 @@ const ledger = coaMasterSid
           },
           voucherTypeMaster: {
             DocumentTypeName: 'Payment Voucher',
+          },
+           VoucherDetail: {
+            some: {
+              subledgerMaster: {
+                SubledgerType: 'Tax'
+              }
+            },
           },
         }
       })
