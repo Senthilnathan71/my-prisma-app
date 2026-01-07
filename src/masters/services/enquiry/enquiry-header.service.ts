@@ -95,12 +95,12 @@ export class EnquiryHeaderService {
                         PackageQty: Number(cargo.PackageQty),
                         Qty: Number(cargo.Qty) || 0,                     // LCL , FCL
                         WeightUnitSid: cargo.WeightUnitSid,            // LCL , FCL
-                        GrossWeight: parseFloat(cargo.GrossWeight) || 0,    // LCL , FCL
+                        GrossWeight: parseFloat(cargo.GrossWeight) || null,    // LCL , FCL
                         NetWeight: parseFloat(cargo.NetWeight),            // LCL , FCL
                         ShipmentTerms: cargo.ShipmentTerms,            // LCL , FCL
                         Volume: parseFloat(cargo.cbm),                      // LCL
                         ContainerType: cargo.ContainerType,             // FCL , AIR
-                        ChargeableWeight: cargo.ChargeableWeight,      // AIR
+                        ChargeableWeight: parseFloat(cargo.ChargeableWeight),      // AIR
                         Volumetric: parseFloat(cargo.volumetric),
                         length: Number(cargo.length),
                         width: Number(cargo.width),
