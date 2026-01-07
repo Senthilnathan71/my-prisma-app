@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, Logger, NotFoundException } from '@nes
 import { Prisma } from '@prisma/client';
 import { statusWhereClause } from 'src/common/helper';
 import { DatabaseService } from 'src/database/database.service';
+import { CompanyIdDto } from 'src/masters/controllers/department/department.controller';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 
@@ -71,12 +72,13 @@ export class DepartmentService {
             throw error
         }
     }
-async getDepartmentByType(type: string,CompanyMasterSid: number,) {
+async getDepartmentByType(payload : CompanyIdDto) {
     try {
+        const  {CompanyMasterSid,type} = payload;
         const department = await this._db.departmentMaster.findMany({
             where: {
                  CompanyMasterSid: CompanyMasterSid,
-                departmentType: type,
+                departmentType: { in: type },
                 Status: "A"
             }
         });

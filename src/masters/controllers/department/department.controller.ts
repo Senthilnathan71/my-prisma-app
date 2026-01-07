@@ -6,8 +6,9 @@ import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 import { DepartmentService } from 'src/masters/services/department/department.service';
-class CompanyIdDto {
+export interface CompanyIdDto {
     CompanyMasterSid: number;
+    type : string[]
 }
 
 @Controller('department')
@@ -78,12 +79,11 @@ export class DepartmentController {
 @HttpCode(HttpStatus.OK)
 @Post('department-type') 
 async getDepartmentByType(
-    @Query('type') type: string,
-    @Body() body: CompanyIdDto
+    @Body() payload: CompanyIdDto
 ) {
     const resp = new ResponseData();
     try {
-        const res = await this.departmentService.getDepartmentByType(type, body.CompanyMasterSid);
+        const res = await this.departmentService.getDepartmentByType(payload);
         this.logger.log(`Department by type : ${JSON.stringify(res)}`);
         resp.data = res;
         resp.message = "Department by type is successfully fetched";
