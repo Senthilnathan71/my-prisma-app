@@ -248,7 +248,7 @@ export class InvoiceService {
         const voucherHeaderPayload: any = {
           VoucherNumber: VoucherNumber,
           VoucherDate: payload.VoucherDate ? new Date(payload.VoucherDate) : new Date(),
-          PostDate: payload.PostDate ? new Date(payload.PostDate) : new Date(),
+          PostDate: null,
           CreatedBy: payload.CreatedBy,
           Status: "A",
           CompanyMasterSid: payload.CompanyMasterSid,
