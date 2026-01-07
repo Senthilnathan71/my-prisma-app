@@ -53,6 +53,13 @@ export class CustomerBranchService {
                 where: {
                     CustomerMasterSid: CustomerMasterId,
                     status : 'A'
+                },
+                include : {
+                    stateMaster : {
+                        select : {
+                            stateName : true
+                        }
+                    }
                 }
             })
             if (!ourCustomerBranch) {
