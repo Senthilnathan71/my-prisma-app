@@ -21,6 +21,29 @@ export class ExcelParserService {
      @Inject(DatabaseService) // Inject DatabaseService
         private readonly db: DatabaseService,
   ) {}
+  private isExampleRowGeneric(row: any): boolean {
+  if (!row) return true;
+
+  const values = Object.values(row)
+    .map(v => (v ? String(v).toUpperCase() : ''));
+
+  const examplePatterns = [
+    'SAMPLE',
+    'EXAMPLE',
+    'DEMO',
+    'MBL123',
+    'SHIP-001',
+    'HBL-001',
+    'TCLU1234567',
+    'ELECTRONIC',
+    'ABC COMPANY'
+  ];
+
+  return values.some(val =>
+    examplePatterns.some(p => val.includes(p))
+  );
+}
+
 
   /**
    * Parse Excel buffer and extract Master Job and House Jobs data
@@ -160,11 +183,11 @@ export class ExcelParserService {
         MBLNo: this.getStringValue(row['MBL Number']),
         MBLDate: this.parseDateValue(row['MBL Date']),
         BLReleaseType: this.getStringValue(row['BL Release Type']),
-        NoOfPkg: this.getNumberValue(row['Number of Packages']),
-        GrossWeight: this.getDecimalValue(row['Gross Weight']),
-        NetWeight: this.getDecimalValue(row['Net Weight']),
-        Volume: this.getDecimalValue(row['Volume (CBM)']),
-        ChargeableWeight: this.getDecimalValue(row['Chargeable Weight']),
+        // NoOfPkg: this.getNumberValue(row['Number of Packages']),
+        // GrossWeight: this.getDecimalValue(row['Gross Weight']),
+        // NetWeight: this.getDecimalValue(row['Net Weight']),
+        // Volume: this.getDecimalValue(row['Volume (CBM)']),
+        // ChargeableWeight: this.getDecimalValue(row['Chargeable Weight']),
         CommodityDescription: this.getStringValue(row['Commodity Description']),
         MarksandNumber: this.getStringValue(row['Marks and Number']),
         Haz: this.getBooleanValue(row['Hazardous (Y/N)']),
@@ -204,12 +227,12 @@ export class ExcelParserService {
         ShipperAddress: this.getStringValue(row['Shipper Address']),
         ConsigneeName: this.getStringValue(row['Consignee Name']),
         ConsigneeAddress: this.getStringValue(row['Consignee Address']),
-        POL: this.getStringValue(row['POL (Port Code)']),
-        POD: this.getStringValue(row['POD (Port Code)']),
-        FPD: this.getStringValue(row['FPD (Port Code)']),
-        POO: this.getStringValue(row['POO (Port Code)']),
-        ETD: this.parseDateValue(row['ETD']),
-        ETA: this.parseDateValue(row['ETA']),
+        // POL: this.getStringValue(row['POL (Port Code)']),
+        // POD: this.getStringValue(row['POD (Port Code)']),
+        // FPD: this.getStringValue(row['FPD (Port Code)']),
+        // POO: this.getStringValue(row['POO (Port Code)']),
+        // ETD: this.parseDateValue(row['ETD']),
+        // ETA: this.parseDateValue(row['ETA']),
         MovementType: this.getStringValue(row['Movement Type']),
         Notify: this.getStringValue(row['Notify Party']),
         NotifyAddress: this.getStringValue(row['Notify Address']),
@@ -242,66 +265,93 @@ export class ExcelParserService {
       return [];
     }
 
-    try {
-      const containersSheet = workbook.Sheets[sheetName];
-      const containersData = XLSX.utils.sheet_to_json(containersSheet, { defval: null, raw: false });
+  try {
+    const containersSheet = workbook.Sheets[sheetName];
 
-      return containersData.map((row: any, index) => ({
-        ContainerNumber: this.getStringValue(row['Container Number']),
-        ContainerType: this.getNumberValue(row['Container Type']),
-        LineSeal: this.getStringValue(row['Line Seal']),
-        CustomsSeal: this.getStringValue(row['Customs Seal']),
-        HsCode: this.getStringValue(row['HS Code']),
-        CommodityDescription: this.getStringValue(row['Commodity Description']),
-        PkgType: this.getNumberValue(row['Package Type']),
-        NoOfPkg: this.getNumberValue(row['No of Packages']),
-        GrossWeight: this.getDecimalValue(row['Gross Weight']),
-        NetWeight: this.getDecimalValue(row['Net Weight']),
-        ChargeableWeight: this.getDecimalValue(row['Chargeable Weight']),
-        Volume: this.getDecimalValue(row['Volume (CBM)']),
-        IsSoc: this.getBooleanValue(row['Is SOC (Y/N)']),
-      }));
-    } catch (error) {
-      errors.push({
-        field: 'Sheet',
-        message: `Error parsing Containers sheet: ${error.message}`,
-        sheet: 'Containers',
-      });
-      return [];
-    }
+    const containersData = XLSX.utils.sheet_to_json(containersSheet, {
+      defval: null,
+      raw: false
+    });
+
+    // ✅ ADD THIS FILTER HERE (THIS IS THE EXACT LINE)
+    const validContainers = containersData.filter(
+      (row: any) => !this.isExampleRowGeneric(row)
+    );
+
+    // ✅ MAP ONLY VALID ROWS
+    return validContainers.map((row: any) => ({
+      ContainerNumber: this.getStringValue(row['Container Number']),
+      ContainerType: this.getNumberValue(row['Container Type']),
+      LineSeal: this.getStringValue(row['Line Seal']),
+      CustomsSeal: this.getStringValue(row['Customs Seal']),
+      HsCode: this.getStringValue(row['HS Code']),
+      CommodityDescription: this.getStringValue(row['Commodity Description']),
+      PkgType: this.getNumberValue(row['Package Type']),
+      // NoOfPkg: this.getNumberValue(row['No of Packages']),
+      // GrossWeight: this.getDecimalValue(row['Gross Weight']),
+      // NetWeight: this.getDecimalValue(row['Net Weight']),
+      ChargeableWeight: this.getDecimalValue(row['Chargeable Weight']),
+      // Volume: this.getDecimalValue(row['Volume (CBM)']),
+      IsSoc: this.getBooleanValue(row['Is SOC (Y/N)']),
+    }));
+
+  } catch (error) {
+    errors.push({
+      field: 'Sheet',
+      message: `Error parsing Containers sheet: ${error.message}`,
+      sheet: sheetName,
+    });
+    return [];
   }
+}
+
 
   /**
    * Parse Master Voyages sheet
    */
-  private parseMasterVoyagesSheet(workbook: XLSX.WorkBook, errors: BulkUploadValidationError[]): any[] {
-    if (!workbook.SheetNames.includes('Master Voyages')) {
-      return [];
-    }
+ private parseMasterVoyagesSheet(
+  workbook: XLSX.WorkBook,
+  errors: BulkUploadValidationError[]
+): any[] {
 
-    try {
-      const voyagesSheet = workbook.Sheets['Master Voyages'];
-      const voyagesData = XLSX.utils.sheet_to_json(voyagesSheet, { defval: null, raw: false });
-
-      return voyagesData.map((row: any, index) => ({
-        VesselName: this.getStringValue(row['Vessel Name']),
-        VoyageNo: this.getStringValue(row['Voyage Number']),
-        ETD: this.parseDateValue(row['ETD']),
-        ETA: this.parseDateValue(row['ETA']),
-        ATA: this.parseDateValue(row['ATA']),
-        ATD: this.parseDateValue(row['ATD']),
-        DestinationATA: this.parseDateValue(row['Destination ATA']),
-        CarrierName: this.getStringValue(row['Carrier Name']),
-      }));
-    } catch (error) {
-      errors.push({
-        field: 'Sheet',
-        message: `Error parsing Master Voyages sheet: ${error.message}`,
-        sheet: 'Master Voyages',
-      });
-      return [];
-    }
+  if (!workbook.SheetNames.includes('Master Voyages')) {
+    return [];
   }
+
+  try {
+    const voyagesSheet = workbook.Sheets['Master Voyages'];
+
+    const voyagesData = XLSX.utils.sheet_to_json(voyagesSheet, {
+      defval: null,
+      raw: false
+    });
+
+    // ✅ FILTER EXAMPLE ROW HERE
+    const validVoyages = voyagesData.filter(
+      (row: any) => !this.isExampleRowGeneric(row)
+    );
+
+    return validVoyages.map((row: any) => ({
+      VesselName: this.getStringValue(row['Vessel Name']),
+      VoyageNo: this.getStringValue(row['Voyage Number']),
+      ETD: this.parseDateValue(row['ETD']),
+      ETA: this.parseDateValue(row['ETA']),
+      ATA: this.parseDateValue(row['ATA']),
+      ATD: this.parseDateValue(row['ATD']),
+      DestinationATA: this.parseDateValue(row['Destination ATA']),
+      CarrierName: this.getStringValue(row['Carrier Name']),
+    }));
+
+  } catch (error) {
+    errors.push({
+      field: 'Sheet',
+      message: `Error parsing Master Voyages sheet: ${error.message}`,
+      sheet: 'Master Voyages',
+    });
+    return [];
+  }
+}
+
 
   /**
    * Parse Master Connections sheet
@@ -313,20 +363,29 @@ export class ExcelParserService {
 
     try {
       const connectionsSheet = workbook.Sheets['Master Connections'];
-      const connectionsData = XLSX.utils.sheet_to_json(connectionsSheet, { defval: null, raw: false });
+      const connectionsData = XLSX.utils.sheet_to_json(connectionsSheet, {
+  defval: null,
+  raw: false
+});
 
-      return connectionsData.map((row: any, index) => ({
-        Mode: this.getStringValue(row['Mode']),
-        POL: this.getStringValue(row['POL (Port Code)']),
-        POD: this.getStringValue(row['POD (Port Code)']),
-        VesselName: this.getStringValue(row['Vessel Name']),
-        VoyageNo: this.getStringValue(row['Voyage Number']),
-        ETD: this.parseDateValue(row['ETD']),
-        ETA: this.parseDateValue(row['ETA']),
-        ATD: this.parseDateValue(row['ATD']),
-        ATA: this.parseDateValue(row['ATA']),
-        Remarks: this.getStringValue(row['Remarks']),
-      }));
+// ✅ FILTER EXAMPLE ROW HERE
+const validConnections = connectionsData.filter(
+  (row: any) => !this.isExampleRowGeneric(row)
+);
+
+return validConnections.map((row: any) => ({
+  Mode: this.getStringValue(row['Mode']),
+  POL: this.getStringValue(row['POL (Port Code)']),
+  POD: this.getStringValue(row['POD (Port Code)']),
+  VesselName: this.getStringValue(row['Vessel Name']),
+  VoyageNo: this.getStringValue(row['Voyage Number']),
+  ETD: this.parseDateValue(row['ETD']),
+  ETA: this.parseDateValue(row['ETA']),
+  ATD: this.parseDateValue(row['ATD']),
+  ATA: this.parseDateValue(row['ATA']),
+  Remarks: this.getStringValue(row['Remarks']),
+}));
+
     } catch (error) {
       errors.push({
         field: 'Sheet',
@@ -350,32 +409,40 @@ export class ExcelParserService {
 
     try {
       const othersSheet = workbook.Sheets[sheetName];
-      const othersData = XLSX.utils.sheet_to_json(othersSheet, { defval: null, raw: false });
+     const othersData = XLSX.utils.sheet_to_json(othersSheet, {
+  defval: null,
+  raw: false
+});
 
-      if (othersData.length === 0) {
-        return null;
-      }
+// ✅ REMOVE EXAMPLE ROW
+const validRow = othersData.find(
+  (row: any) => !this.isExampleRowGeneric(row)
+);
 
-      const row: any = othersData[0];
-      return {
-        Yard: this.getStringValue(row['Yard']),
-        YardAddress: this.getStringValue(row['Yard Address']),
-        Transporter: this.getStringValue(row['Transporter']),
-        HandlingInformation: this.getStringValue(row['Handling Information']),
-        InternalNote: this.getStringValue(row['Internal Note']),
-        CFS: this.getStringValue(row['CFS']),
-        CFSAddress: this.getStringValue(row['CFS Address']),
-        StuffingStartDate: this.parseDateValue(row['Stuffing Start Date']),
-        StuffingEndDate: this.parseDateValue(row['Stuffing End Date']),
-        CurrencyCode: this.getStringValue(row['Currency Code']),
-        SellExchangeRate: this.getDecimalValue(row['Sell Exchange Rate']),
-        AgentExchangeRate: this.getDecimalValue(row['Agent Exchange Rate']),
-        Coload: this.getBooleanValue(row['Coload (Y/N)']),
-        CoLoader: this.getStringValue(row['Co Loader']),
-        ExportDoNo: this.getStringValue(row['Export DO Number']),
-        ExportDoDate: this.parseDateValue(row['Export DO Date']),
-        SOBDate: this.parseDateValue(row['SOB Date']),
-      };
+if (!validRow) {
+  return null;
+}
+
+return {
+  // Yard: this.getStringValue(validRow['Yard']),
+  // YardAddress: this.getStringValue(validRow['Yard Address']),
+  Transporter: this.getStringValue(validRow['Transporter']),
+  HandlingInformation: this.getStringValue(validRow['Handling Information']),
+  InternalNote: this.getStringValue(validRow['Internal Note']),
+  // CFS: this.getStringValue(validRow['CFS']),
+  // CFSAddress: this.getStringValue(validRow['CFS Address']),
+  StuffingStartDate: this.parseDateValue(validRow['Stuffing Start Date']),
+  StuffingEndDate: this.parseDateValue(validRow['Stuffing End Date']),
+  CurrencyCode: this.getStringValue(validRow['Currency Code']),
+  SellExchangeRate: this.getDecimalValue(validRow['Sell Exchange Rate']),
+  AgentExchangeRate: this.getDecimalValue(validRow['Agent Exchange Rate']),
+  Coload: this.getBooleanValue(validRow['Coload (Y/N)']),
+  CoLoader: this.getStringValue(validRow['Co Loader']),
+  ExportDoNo: this.getStringValue(validRow['Export DO Number']),
+  ExportDoDate: this.parseDateValue(validRow['Export DO Date']),
+  SOBDate: this.parseDateValue(validRow['SOB Date']),
+};
+
     } catch (error) {
       errors.push({
         field: 'Sheet',
@@ -570,8 +637,8 @@ export class ExcelParserService {
       'MBL Number', 'MBL Date', 'Master Job Date', 'Department', 'Freight PP/CC',
       'Destination Agent', 'Agent Address', 'POO (Port Code)', 'POL (Port Code)',
       'POD (Port Code)', 'FPD (Port Code)', 'POL Terminal', 'POD Terminal',
-      'Movement Type', 'Shipment Terms', 'BL Release Type', 'Number of Packages',
-      'Gross Weight', 'Net Weight', 'Volume (CBM)', 'Chargeable Weight',
+      'Movement Type', 'Shipment Terms', 'BL Release Type', 
+      // 'Number of Packages','Gross Weight', 'Net Weight', 'Volume (CBM)', 'Chargeable Weight',
       'Commodity Description', 'Marks and Number', 'Haz'
     ];
     masterJobSheet.addRow(masterJobHeaders);
@@ -579,8 +646,10 @@ export class ExcelParserService {
     masterJobSheet.addRow([
       'MBL123456', '2025-01-20', '2025-01-15', 'FCL Export', 'Prepaid',
       'ABC Logistics', '123 Main St', 'INCCU', 'INCCU', 'AEJEA', 'AEJEA',
-      'DP World', 'Sical', 'FCL', 'FCL/FCL', 'Original', 10, 5000, 4800,
-      25.5, 5000, 'Electronic Goods', 'Sample Marks', 'N'
+      'DP World', 'Sical', 'FCL', 'FCL/FCL', 'Original',
+      //  10, 5000, 4800,
+      // 25.5, 5000, 
+      'Electronic Goods', 'Sample Marks', 'N'
     ]);
     this.styleHeaderRow(masterJobSheet);
     this.setColumnWidths(masterJobSheet, masterJobHeaders.length, 15);
@@ -604,16 +673,22 @@ export class ExcelParserService {
     // 3. Master Others Sheet
     const masterOthersSheet = workbook.addWorksheet('Master Others');
     const masterOthersHeaders = [
-      'MBL Number', 'Yard', 'Yard Address', 'Transporter', 'Handling Information',
-      'Internal Note', 'Carrier Ref', 'Agent Ref', 'Origin Agent', 'CFS', 'CFS Address',
+      'MBL Number', 
+      // 'Yard', 'Yard Address', 
+      'Transporter', 'Handling Information',
+      'Internal Note', 'Carrier Ref', 'Agent Ref', 'Origin Agent', 
+      // 'CFS', 'CFS Address',
       'Stuffing Start Date', 'Stuffing End Date', 'Currency Code', 'Sell Exchange Rate',
       'Agent Exchange Rate', 'Coload (Y/N)', 'Co Loader', 'Export DO Number',
       'Export DO Date', 'SOB Date', 'CHA Name'
     ];
     masterOthersSheet.addRow(masterOthersHeaders);
     masterOthersSheet.addRow([
-      'MBL123456', 'Chennai Yard', '123 Yard St', 'ABC Transport', 'Handle with care',
-      'Priority shipment', 'CR001', 'AR001', 'Origin Agent Co', 'Chennai CFS', '456 CFS Ave',
+      'MBL123456', 
+      // 'Chennai Yard', '123 Yard St',
+       'ABC Transport', 'Handle with care',
+      'Priority shipment', 'CR001', 'AR001', 'Origin Agent Co',
+      //  'Chennai CFS', '456 CFS Ave',
       '2025-01-20', '2025-01-22', 'USD', 83.50, 83.00, 'N', '', 'DO123456',
       '2025-01-18', '2025-01-15', 'CHA Company'
     ]);
@@ -626,13 +701,18 @@ export class ExcelParserService {
     const containerSheet = workbook.addWorksheet('Container');
     const containerHeaders = [
       'MBL Number', 'Container Type', 'Container Number', 'Line Seal', 'Custom Seal',
-      'HS Code', 'Commodity Description', 'Package Type', 'No of Packages',
-      'Gross Weight', 'Net Weight', 'Chargeable Weight', 'Is SOC (Y/N)'
+      'HS Code', 'Commodity Description', 'Package Type', 
+      // 'No of Packages',
+      // 'Gross Weight', 'Net Weight', 
+      'Chargeable Weight', 'Is SOC (Y/N)'
     ];
     containerSheet.addRow(containerHeaders);
     containerSheet.addRow([
       'MBL123456', '40ft Container', 'TCLU1234567', 'MSC001', 'CUST001',
-      '8471.30', 'Electronic Equipment', 'Pallet', 100, 5000, 4800, 5000, 'N'
+      '8471.30', 'Electronic Equipment', 'Pallet',
+      //  100, 5000, 4800,
+        5000, 
+       'N'
     ]);
     this.styleHeaderRow(containerSheet);
     this.setColumnWidths(containerSheet, containerHeaders.length, 15);
@@ -645,8 +725,10 @@ export class ExcelParserService {
     const houseJobHeaders = [
       'MBL Number', 'HBL No', 'HBL Date', 'Shipment Number', 'Customer Name',
       'Customer Address', 'Shipper Name', 'Shipper Address', 'Consignee Name',
-      'Consignee Address', 'POO (Port Code)', 'POL (Port Code)', 'POD (Port Code)',
-      'FPD (Port Code)', 'ETD', 'ETA', 'DeliveryAgent', 'Origin Agent', 'Inco Terms',
+      'Consignee Address',
+      //  'POO (Port Code)', 'POL (Port Code)', 'POD (Port Code)',
+      // 'FPD (Port Code)', 'ETD', 'ETA', 
+      'DeliveryAgent', 'Origin Agent', 'Inco Terms',
       'Freight PP/CC', 'Notify Party', 'Notify Address', 'Carrier', 'Salesperson',
       'Shipment(Job) type', 'Customer Ref No.', 'CFS', 'Release Type', 'Forwarder',
       'Forwarder Address', 'Cargo Currency', 'Cargo Value', 'Values for Insurance',
@@ -657,7 +739,7 @@ export class ExcelParserService {
     houseJobSheet.addRow([
       'MBL123456', 'HBL001', '2025-01-15', 'SHIP-001', 'ABC Company', '456 Customer St',
       'Shipper Inc', '789 Shipper Ave', 'Consignee Ltd', '321 Consignee Rd',
-      'INCCU', 'INCCU', 'AEJEA', 'AEJEA', '2025-01-25', '2025-02-15',
+      // 'INCCU', 'INCCU', 'AEJEA', 'AEJEA', '2025-01-25', '2025-02-15',
       'Delivery Agent Co', 'Origin Agent Co', 'FOB', 'Prepaid', 'Notify Party Name',
       'Notify Address', 'MSC', 'John Doe', 'Export', 'CREF-001', 'Chennai CFS',
       'Original', 'Forwarder Co', 'Forwarder Address', 'USD', 50000, 50000, 500,

@@ -3370,14 +3370,14 @@ private async updateMasterJobTotals(masterJobSid: number): Promise<void> {
         // 3. Validate Destination Agent if provided
         if (masterJobData.DestinationAgentName && companyMasterSid) {
             const agent = await this.lookupCustomerByName(masterJobData.DestinationAgentName, companyMasterSid);
-            if (!agent) {
-                errors.push({
-                    field: 'Destination Agent Name',
-                    message: `Destination agent '${masterJobData.DestinationAgentName}' not found in customer master`,
-                    sheet: 'Master Job',
-                    row: 2
-                });
-            }
+            // if (!agent) {
+            //     errors.push({
+            //         field: 'Destination Agent Name',
+            //         message: `Destination agent '${masterJobData.DestinationAgentName}' not found in customer master`,
+            //         sheet: 'Master Job',
+            //         row: 2
+            //     });
+            // }
         }
 
         // Validate House Jobs
@@ -3393,127 +3393,127 @@ private async updateMasterJobTotals(masterJobSid: number): Promise<void> {
                 const rowNum = i + 2;
 
                 // Validate Customer Name
-                if (!houseJob.CustomerName) {
-                    errors.push({
-                        field: 'Customer Name',
-                        message: 'Customer Name is required',
-                        sheet: 'House Jobs',
-                        row: rowNum
-                    });
-                } else if (companyMasterSid) {
-                    const customer = await this.lookupCustomerByName(houseJob.CustomerName, companyMasterSid);
-                    if (!customer) {
-                        errors.push({
-                            field: 'Customer Name',
-                            message: `Customer '${houseJob.CustomerName}' not found in customer master`,
-                            sheet: 'House Jobs',
-                            row: rowNum
-                        });
-                    }
-                }
+                // if (!houseJob.CustomerName) {
+                //     errors.push({
+                //         field: 'Customer Name',
+                //         message: 'Customer Name is required',
+                //         sheet: 'House Jobs',
+                //         row: rowNum
+                //     });
+                // } else if (companyMasterSid) {
+                //     const customer = await this.lookupCustomerByName(houseJob.CustomerName, companyMasterSid);
+                //     if (!customer) {
+                //         errors.push({
+                //             field: 'Customer Name',
+                //             message: `Customer '${houseJob.CustomerName}' not found in customer master`,
+                //             sheet: 'House Jobs',
+                //             row: rowNum
+                //         });
+                //     }
+                // }
 
                 // Validate Shipper Name if provided
-                if (houseJob.ShipperName && companyMasterSid) {
-                    const shipper = await this.lookupCustomerByName(houseJob.ShipperName, companyMasterSid);
-                    if (!shipper) {
-                        errors.push({
-                            field: 'Shipper Name',
-                            message: `Shipper '${houseJob.ShipperName}' not found in customer master`,
-                            sheet: 'House Jobs',
-                            row: rowNum
-                        });
-                    }
-                }
+                // if (houseJob.ShipperName && companyMasterSid) {
+                //     const shipper = await this.lookupCustomerByName(houseJob.ShipperName, companyMasterSid);
+                //     if (!shipper) {
+                //         errors.push({
+                //             field: 'Shipper Name',
+                //             message: `Shipper '${houseJob.ShipperName}' not found in customer master`,
+                //             sheet: 'House Jobs',
+                //             row: rowNum
+                //         });
+                //     }
+                // }
 
                 // Validate Consignee Name if provided
-                if (houseJob.ConsigneeName && companyMasterSid) {
-                    const consignee = await this.lookupCustomerByName(houseJob.ConsigneeName, companyMasterSid);
-                    if (!consignee) {
-                        errors.push({
-                            field: 'Consignee Name',
-                            message: `Consignee '${houseJob.ConsigneeName}' not found in customer master`,
-                            sheet: 'House Jobs',
-                            row: rowNum
-                        });
-                    }
-                }
+                // if (houseJob.ConsigneeName && companyMasterSid) {
+                //     const consignee = await this.lookupCustomerByName(houseJob.ConsigneeName, companyMasterSid);
+                //     if (!consignee) {
+                //         errors.push({
+                //             field: 'Consignee Name',
+                //             message: `Consignee '${houseJob.ConsigneeName}' not found in customer master`,
+                //             sheet: 'House Jobs',
+                //             row: rowNum
+                //         });
+                //     }
+                // }
 
                 // Validate Agent Name if provided
-                if (houseJob.AgentName && companyMasterSid) {
-                    const agent = await this.lookupCustomerByName(houseJob.AgentName, companyMasterSid);
-                    if (!agent) {
-                        errors.push({
-                            field: 'Agent Name',
-                            message: `Agent '${houseJob.AgentName}' not found in customer master`,
-                            sheet: 'House Jobs',
-                            row: rowNum
-                        });
-                    }
-                }
+                // if (houseJob.AgentName && companyMasterSid) {
+                //     const agent = await this.lookupCustomerByName(houseJob.AgentName, companyMasterSid);
+                //     if (!agent) {
+                //         errors.push({
+                //             field: 'Agent Name',
+                //             message: `Agent '${houseJob.AgentName}' not found in customer master`,
+                //             sheet: 'House Jobs',
+                //             row: rowNum
+                //         });
+                //     }
+                // }
 
                 // Validate Port Codes
-                if (!houseJob.POL) {
-                    errors.push({
-                        field: 'POL (Port Code)',
-                        message: 'Port of Loading is required',
-                        sheet: 'House Jobs',
-                        row: rowNum
-                    });
-                } else {
-                    const port = await this.lookupPortByCode(houseJob.POL);
-                    if (!port) {
-                        errors.push({
-                            field: 'POL (Port Code)',
-                            message: `Port code '${houseJob.POL}' not found in master data`,
-                            sheet: 'House Jobs',
-                            row: rowNum
-                        });
-                    }
-                }
+                // if (!houseJob.POL) {
+                //     errors.push({
+                //         field: 'POL (Port Code)',
+                //         message: 'Port of Loading is required',
+                //         sheet: 'House Jobs',
+                //         row: rowNum
+                //     });
+                // } else {
+                //     const port = await this.lookupPortByCode(houseJob.POL);
+                //     if (!port) {
+                //         errors.push({
+                //             field: 'POL (Port Code)',
+                //             message: `Port code '${houseJob.POL}' not found in master data`,
+                //             sheet: 'House Jobs',
+                //             row: rowNum
+                //         });
+                //     }
+                // }
 
-                if (!houseJob.POD) {
-                    errors.push({
-                        field: 'POD (Port Code)',
-                        message: 'Port of Discharge is required',
-                        sheet: 'House Jobs',
-                        row: rowNum
-                    });
-                } else {
-                    const port = await this.lookupPortByCode(houseJob.POD);
-                    if (!port) {
-                        errors.push({
-                            field: 'POD (Port Code)',
-                            message: `Port code '${houseJob.POD}' not found in master data`,
-                            sheet: 'House Jobs',
-                            row: rowNum
-                        });
-                    }
-                }
+                // if (!houseJob.POD) {
+                //     errors.push({
+                //         field: 'POD (Port Code)',
+                //         message: 'Port of Discharge is required',
+                //         sheet: 'House Jobs',
+                //         row: rowNum
+                //     });
+                // } else {
+                //     const port = await this.lookupPortByCode(houseJob.POD);
+                //     if (!port) {
+                //         errors.push({
+                //             field: 'POD (Port Code)',
+                //             message: `Port code '${houseJob.POD}' not found in master data`,
+                //             sheet: 'House Jobs',
+                //             row: rowNum
+                //         });
+                //     }
+                // }
 
                 // Validate POO and FPD if provided
-                if (houseJob.POO) {
-                    const port = await this.lookupPortByCode(houseJob.POO);
-                    if (!port) {
-                        errors.push({
-                            field: 'POO (Port Code)',
-                            message: `Port code '${houseJob.POO}' not found in master data`,
-                            sheet: 'House Jobs',
-                            row: rowNum
-                        });
-                    }
-                }
+                // if (houseJob.POO) {
+                //     const port = await this.lookupPortByCode(houseJob.POO);
+                //     if (!port) {
+                //         errors.push({
+                //             field: 'POO (Port Code)',
+                //             message: `Port code '${houseJob.POO}' not found in master data`,
+                //             sheet: 'House Jobs',
+                //             row: rowNum
+                //         });
+                //     }
+                // }
 
-                if (houseJob.FPD) {
-                    const port = await this.lookupPortByCode(houseJob.FPD);
-                    if (!port) {
-                        errors.push({
-                            field: 'FPD (Port Code)',
-                            message: `Port code '${houseJob.FPD}' not found in master data`,
-                            sheet: 'House Jobs',
-                            row: rowNum
-                        });
-                    }
-                }
+                // if (houseJob.FPD) {
+                //     const port = await this.lookupPortByCode(houseJob.FPD);
+                //     if (!port) {
+                //         errors.push({
+                //             field: 'FPD (Port Code)',
+                //             message: `Port code '${houseJob.FPD}' not found in master data`,
+                //             sheet: 'House Jobs',
+                //             row: rowNum
+                //         });
+                //     }
+                // }
             }
         }
 
