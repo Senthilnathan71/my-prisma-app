@@ -51,7 +51,7 @@ export class InvoiceController {
       const finalOutput = await this.invoiceService.createInvoice(payload);
       this.logger.debug(`createInvoice result: ${JSON.stringify(finalOutput)}`);
       output.data = finalOutput;
-      output.message = "VoucherHeader created successfully";
+      output.message = "Invoice created successfully";
     } catch (error) {
       // Log full error object (message + stack) for debugging
       this.logger.warn('createInvoice error', (error as any)?.stack || (error as any)?.message || error);

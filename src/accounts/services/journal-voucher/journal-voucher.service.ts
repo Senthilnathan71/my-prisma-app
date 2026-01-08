@@ -615,7 +615,7 @@ if (payload.VoucherDetail && Array.isArray(payload.VoucherDetail)) {
             postedBy: string,
             taxDetails: {
                 CountryMasterSid: number,
-                countryName: string,
+                countryCode: string,
                 TaxCategory: 'Inter' | 'Intra',
                 EffectiveFrom: Date,
                 TaxType: 'Input' | 'Output',
