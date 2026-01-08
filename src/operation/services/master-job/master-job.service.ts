@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { DatabaseService } from 'src/database/database.service';
 import * as moment from 'moment-timezone';
-import { Prisma } from '@prisma/client';
+import { Prisma, PrismaClient } from '@prisma/client';
 import { create } from 'domain';
 import { stat } from 'fs';
 import { parseDateFromString, toNumber } from 'src/common/helper';
@@ -1785,6 +1785,7 @@ private getWeightInFromUnitSid(weightUnitSid: number): string {
                 const allCreatedHouseJobs: any[] = [];
                 for (const booking of allBookings) {
                     const { bookingCargo, bookingProduct, bookingOthers, bookingConnection, bookingRates, ...bookingHeader } = booking;
+                    
 
                     const department = await this._db.departmentMaster.findUnique({
                         where: { DepartmentMasterSid: payload.DepartmentMasterSid },
@@ -3818,6 +3819,7 @@ private async updateMasterJobTotals(masterJobSid: number): Promise<void> {
                 Cargo: true,
                 Products: true,
                 Others: true,
+                Connections: true,
             }
         });
 
@@ -3834,11 +3836,11 @@ private async updateMasterJobTotals(masterJobSid: number): Promise<void> {
     });
 }
 
-private async createSingleBooking(tx, houseJob, createdBy: string) {
+private async createSingleBooking(tx : PrismaClient | Prisma.TransactionClient, houseJob, createdBy: string) {
     // IMPORTANT: For Transhipment bookings, map:
     // houseJob.POD (Import House POD) → booking.POL
     // houseJob.FPD (Import House FDC) → booking.POD
-    
+    tx = tx || this._db;
     const dateString = moment().format('YYYYMMDD');
     const count = await this._db.bookingHeader.count({
         where: { BookingNo: { contains: dateString } }
@@ -3934,6 +3936,7 @@ private async createSingleBooking(tx, houseJob, createdBy: string) {
     // ----------------------------------------
     // 2. Insert Cargo
     // ----------------------------------------
+    const bookingCargo: any[] = [];
     if (houseJob.Cargo?.length) {
         for (const c of houseJob.Cargo) {
             const {
@@ -3945,22 +3948,24 @@ private async createSingleBooking(tx, houseJob, createdBy: string) {
                 ...cargoData
             } = c;
 
-            await tx.bookingCargo.create({
+            const createdCargo = await tx.bookingCargo.create({
                 data: {
                     ...cargoData,
                     BookingHeaderSid: bookingHeaderSid,
                     createdBy
                 }
             });
+            bookingCargo.push(createdCargo);
         }
     }
 
     // ----------------------------------------
     // 3. Insert Products
     // ----------------------------------------
+    const bookingProducts: any[] = [];
     if (houseJob.Products?.length) {
         for (const p of houseJob.Products) {
-            await tx.bookingProduct.create({
+            const createdProduct = await tx.bookingProduct.create({
                 data: {
                     BookingHeaderSid: bookingHeaderSid,
                     ProductName: p.ProductName,
@@ -3992,12 +3997,14 @@ private async createSingleBooking(tx, houseJob, createdBy: string) {
                     createdBy
                 }
             });
+            bookingProducts.push(createdProduct);
         }
     }
 
     // ----------------------------------------
     // 4. Insert Others
     // ----------------------------------------
+    const bookingOthers: any[] = [];
     if (houseJob.Others?.length) {
         for (const o of houseJob.Others) {
             const {
@@ -4011,7 +4018,7 @@ private async createSingleBooking(tx, houseJob, createdBy: string) {
                 ...othersData
             } = o;
 
-            await tx.bookingOthers.create({
+            const createdOthers = await tx.bookingOthers.create({
                 data: {
                     CustomerRefNo: othersData.CustomerRefNo,
                     OperationUser: othersData.OperationUser,
@@ -4051,16 +4058,18 @@ private async createSingleBooking(tx, houseJob, createdBy: string) {
                     createdBy
                 }
             });
+            bookingOthers.push(createdOthers);
         }
     }
 
       //---------------------
     //5. connection
     //-----------------------
-    const houseConnections = houseJob.Connection || houseJob.houseJobConnection || [];
+    const bookingConnections: any[] = [];
+    const houseConnections = houseJob.Connections || [];
 if (houseConnections && houseConnections.length > 0) {
     for (const connection of houseConnections) {
-        await tx.bookingConnections.create({
+        const createdConnection = await tx.bookingConnection.create({
             data: {
                 BookingHeaderSid: bookingHeader.BookingHeaderSid,
                 Mode: connection.Mode || null,
@@ -4078,6 +4087,7 @@ if (houseConnections && houseConnections.length > 0) {
                 updatedOn: null
             }
         });
+        bookingConnections.push(createdConnection);
     }
 }
     
@@ -4094,6 +4104,10 @@ if (houseConnections && houseConnections.length > 0) {
 
     return {
         bookingHeader,
+        bookingCargo,
+        bookingProducts,
+        bookingOthers,
+        bookingConnections,
         message: "Booking created successfully from Master Job"
     };
 }
