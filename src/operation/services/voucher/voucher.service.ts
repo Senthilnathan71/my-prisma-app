@@ -767,7 +767,7 @@ export class VoucherService {
                         VoucherNumber : VoucherNumber,
                         VoucherType : voucherTypeMaster.VoucherTypeMasterSid,
                         VoucherDate : payload.VoucherDate ? new Date(payload.VoucherDate) : new Date(),
-                        PostDate : payload.PostDate ? new Date(payload.PostDate) : new Date(),
+                        PostDate : null,
                         Narration : payload.Narration ?? "",
                         PartyMasterSid : payload.PartyMasterSid,
                         PartyName : payload.PartyName ?? "",
@@ -1537,7 +1537,7 @@ export class VoucherService {
             postedBy: string,
             taxDetails: {
                 CountryMasterSid: number,
-                countryName: string,
+                countryCode: string,
                 TaxCategory: 'Inter' | 'Intra',
                 EffectiveFrom: Date,
                 TaxType: 'Input' | 'Output',
@@ -1630,8 +1630,8 @@ export class VoucherService {
                                     HouseJobSid : voucher.HouseJobSid,
                                     MasterJobSid : voucher.MasterJobSid,
                                     CostRevenue : voucher.voucherTypeMaster.DocumentTypeName === "Invoice" ||  voucher.voucherTypeMaster.DocumentTypeName === "Credit Note" ? "Revenue" : "Cost",
-                                    CurrencyMasterSid: voucher.CurrencyMasterSid!,
-                                    CurrencyCode: voucher.CurrencyCode!,
+                                    CurrencyMasterSid: payload.localCurrencyMasterSid,
+                                    CurrencyCode: payload.localCurrencyCode,
                                     ExchangeRate: new Decimal(1),
                                     Rate: new Decimal(taxSummary.taxAmount),
                                     NumberOfUnit: new Decimal(1),
@@ -2056,7 +2056,7 @@ export class VoucherService {
         voucherType : TaxVoucherType,
         taxDetails: {
             CountryMasterSid: number,
-            countryName: string,
+            countryCode: string,
             TaxCategory: 'Inter' | 'Intra',
             EffectiveFrom: Date,
             TaxType: 'Input' | 'Output',
@@ -2068,15 +2068,10 @@ export class VoucherService {
             this.logger.log('Summarizing taxes by HS/SAC code');
 
             const db = tx || this._db;
-            const filterDetails = details.filter(d => d.TaxPercentage1 || d.TaxPercentage2);
             // Group details by HS/SAC code and tax type
             const taxGroups = new Map<string, TaxSummaryDto>();
 
-            for (const detail of filterDetails) {
-                // Skip if no tax
-                if (!detail.TaxPercentage1 && !detail.TaxPercentage2) {
-                    continue;
-                }
+            for (const detail of details) {
 
                 const hsSacMasterSid = detail.HSSACMasterSid;
                 if (!hsSacMasterSid) {
@@ -2147,7 +2142,7 @@ export class VoucherService {
                     throw new BadRequestException(
                         `No active tax masters found for HS/SAC: ${hsSacMaster.HSSACCode}, ` +
                         `TaxGroup: ${hsSacMaster.taxGroup.TaxGroup}, ` +
-                        `Country: ${taxDetails.countryName}, Category: ${taxDetails.TaxCategory}`
+                        `Country: ${taxDetails.countryCode}, Category: ${taxDetails.TaxCategory}`
                     );
                 }
 
@@ -2161,7 +2156,7 @@ export class VoucherService {
                     taxAmount: number;
                 }> = [];
 
-                if (taxDetails.countryName.toLowerCase() === "india") {
+                if (taxDetails.countryCode === "in") {
                     if (taxDetails.TaxCategory === "Inter") {
                         // Intra-state: CGST + SGST
                         const cgstTax = taxMasters.find(t => t.TaxCode === 'CGST');
@@ -2197,7 +2192,7 @@ export class VoucherService {
                             });
                         }
                     }
-                } else if (taxDetails.countryName.toLowerCase() === "united arab emirates") {
+                } else if (['ae','us'].includes(taxDetails.countryCode)) {
                     if (taxDetails.TaxCategory === "Inter") {
                         // UAE: VAT
                         const vatTax = taxMasters.find(t => t.TaxCode === 'VAT');

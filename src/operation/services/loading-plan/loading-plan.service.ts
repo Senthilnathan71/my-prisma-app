@@ -29,7 +29,7 @@ export class LoadingPlanService {
                 DepartmentMasterSid: payload.DepartmentMasterSid,
                 POL: payload.POL,
                 POD: payload.POD,
-                MBLNo: null,
+                // MBLNo: null,
                 MasterNoSid: null,
                 status: 'A'
             }
@@ -88,6 +88,7 @@ export class LoadingPlanService {
                         departmentName : booking.departmentMaster?.departmentName,
                         HBLNo : booking.HBLNo,
                         CustomerMasterSid : booking.CustomerMasterSid,
+                        JobType : booking.JobType,
                         CustomerName: booking.CustomerName,
                         CustomerAddress: booking.CustomerAddress,
                         SalesmanName: salesman?.userName,
