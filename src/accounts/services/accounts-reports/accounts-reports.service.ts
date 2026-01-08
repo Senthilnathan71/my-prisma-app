@@ -2187,9 +2187,9 @@ const ledger = coaMasterSid
 
   private async vat201(param: any) {
 
-    const {
-      CompanyId: CompanyId,
-      BranchId: BranchId,
+    let {
+      companyId: CompanyId,
+      Branch: BranchId,
       FromDate: fromDate,
       ToDate: toDate,
     } = param
@@ -2198,10 +2198,10 @@ const ledger = coaMasterSid
       /* -------------------- BRANCH NAME (SELECTED / ALL) -------------------- */
       let branchName = 'All';
 
-      if (BranchId) {
-        const branch = await this._db.branchMaster.findFirst({
+      if (Array.isArray(BranchId) && BranchId.length > 0) {
+        const branches = await this._db.branchMaster.findMany({
           where: {
-            BranchMasterSid: BranchId,
+            BranchMasterSid: {in : BranchId},
             CompanyMasterSid: CompanyId,
             status: 'A'
           },
@@ -2210,13 +2210,25 @@ const ledger = coaMasterSid
           }
         });
 
-        branchName = branch?.branchName || 'All';
+        branchName =branches && branches.length > 1 ? branches.map(b=>b.branchName).join(', ') : branches[0].branchName;
+      } else {
+        const branches = await this._db.branchMaster.findMany({
+          where: {
+            CompanyMasterSid: CompanyId,
+            status: 'A'
+          },
+          select: {
+            BranchMasterSid : true,
+            branchName: true
+          }
+        });  
+        BranchId = branches.map(b => b.BranchMasterSid);
       }
 
 
       const baseHeaderWhere = {
         CompanyMasterSid: CompanyId,
-        BranchMasterSid: BranchId,
+         ...(BranchId ? { BranchMasterSid: {in : BranchId} } : {}),
         VoucherDate: {
           gte: fromDate,
           lte: toDate,
@@ -2269,10 +2281,10 @@ const ledger = coaMasterSid
         details: Array<{
           subledgerMaster: { SubledgerMasterSid: number | null; SubledgerName: string | null } | null;
           TaxableAmount?: any | null;
-          TaxPercentage1: Decimal | null,
-          TaxAmount1?: any | null;
-          TaxPercentage2: Decimal | null,
-          TaxAmount2?: any | null;
+          // TaxPercentage1: Decimal | null,
+          // TaxAmount1?: any | null;
+          // TaxPercentage2: Decimal | null,
+          // TaxAmount2?: any | null;
           Amount: Decimal | null,
           LocalAmount: Decimal | null,
           VoucherHeader?: {
@@ -2341,10 +2353,10 @@ const ledger = coaMasterSid
           TaxableAmount: true,
           Amount: true,
           LocalAmount: true,
-          TaxPercentage1: true,
-          TaxAmount1: true,
-          TaxPercentage2: true,
-          TaxAmount2: true,
+          // TaxPercentage1: true,
+          // TaxAmount1: true,
+          // TaxPercentage2: true,
+          // TaxAmount2: true,
           subledgerMaster: {
             select: {
               SubledgerMasterSid: true,
@@ -2388,10 +2400,10 @@ const ledger = coaMasterSid
         },
         select: {
           TaxableAmount: true,
-          TaxPercentage1: true,
-          TaxAmount1: true,
-          TaxPercentage2: true,
-          TaxAmount2: true,
+          // TaxPercentage1: true,
+          // TaxAmount1: true,
+          // TaxPercentage2: true,
+          // TaxAmount2: true,
           Amount: true,
           LocalAmount: true,
           subledgerMaster: {
@@ -2427,7 +2439,7 @@ const ledger = coaMasterSid
       const unpostedVoucher = await this._db.voucherHeader.count({
         where: {
           CompanyMasterSid: CompanyId,
-          BranchMasterSid: BranchId,
+          BranchMasterSid: { in : BranchId},
           Status: 'A',
           VoucherDate: {
             gte: fromDate,
@@ -2448,7 +2460,7 @@ const ledger = coaMasterSid
         where: {
           Status: 'A',
           CompanyMasterSid: CompanyId,
-          BranchMasterSid: BranchId,
+           ...(BranchId ? { BranchMasterSid:{ in : BranchId} } : {}),
           VoucherDate: {
             gte: fromDate,
             lte: toDate,
@@ -2467,7 +2479,7 @@ const ledger = coaMasterSid
         where: {
           Status: 'A',
           CompanyMasterSid: CompanyId,
-          BranchMasterSid: BranchId,
+           ...(BranchId ? { BranchMasterSid: { in : BranchId} } : {}),
           VoucherDate: {
             gte: fromDate,
             lte: toDate,
