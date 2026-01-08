@@ -987,10 +987,10 @@ model TariffDetail {
   BuyPerUnitPrice    Decimal        @db.Decimal(10, 5)
   CargoType          String         @db.VarChar(10)
   CompanyMasterSid   Int?
-  EffectiveDate      DateTime?
+  EffectiveDate      DateTime?      @db.Date
   IsSlabApplicable   String         @default("N") @db.Char(1)
   TariffHeaderSid    Int
-  ExpiredOn          DateTime?
+  ExpiredOn          DateTime?      @db.Date
   MinSale            String         @db.VarChar(20)
   BookingRates       BookingRates[]
   QuoteCharge        QuoteCharge[]
@@ -3017,7 +3017,7 @@ model VoucherHeader {
   BranchMasterSid           Int
   VoucherNumber             String                  @db.VarChar(20)
   VoucherType               Int
-  VoucherDate               DateTime
+  VoucherDate               DateTime                @db.Date
   PostDate                  DateTime?
   Narration                 String                  @db.VarChar(300)
   PartyMasterSid            Int
@@ -3070,7 +3070,7 @@ model VoucherHeader {
   VoucherDetail             VoucherDetail[]
   BookingHeader             BookingHeader?          @relation(fields: [BookingHeaderSid], references: [BookingHeaderSid])
   BranchMaster              BranchMaster            @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
-  coaMaster                 COAMaster?               @relation(fields: [COAMasterSid], references: [COAMasterSid])
+  coaMaster                 COAMaster?              @relation(fields: [COAMasterSid], references: [COAMasterSid])
   CompanyMaster             CompanyMaster           @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
   currencyMaster            CurrencyMaster?         @relation(fields: [CurrencyMasterSid], references: [CurrencyMasterSid])
   customerBranch            CustomerBranch?         @relation(fields: [CustomerBranchSid], references: [CustomerBranchSid])
@@ -3108,15 +3108,15 @@ model VoucherDetail {
   CostRevenue           String?             @db.VarChar(10)
   CurrencyMasterSid     Int
   CurrencyCode          String              @db.VarChar(3)
-  ExchangeRate          Decimal             @db.Decimal(6, 3)
+  ExchangeRate          Decimal             @db.Decimal(8, 5)
   Rate                  Decimal             @db.Decimal(15, 3)
   NumberOfUnit          Decimal?            @db.Decimal(7, 3)
   Narration             String?             @db.VarChar(200)
   DrCr                  String              @db.VarChar(50)
   TaxableAmount         Decimal             @db.Decimal(15, 3)
-  TaxPercentage1        Decimal?            @db.Decimal(5, 2)
+  TaxPercentage1        Decimal?            @db.Decimal(5, 3)
   TaxAmount1            Decimal?            @db.Decimal(10, 3)
-  TaxPercentage2        Decimal?            @db.Decimal(5, 2)
+  TaxPercentage2        Decimal?            @db.Decimal(5, 3)
   TaxAmount2            Decimal?            @db.Decimal(10, 3)
   Amount                Decimal             @db.Decimal(15, 3)
   LocalAmount           Decimal             @db.Decimal(15, 3)
@@ -3423,8 +3423,8 @@ model CustomerCreditRequest {
   CreditLimit              Int
   PublishedDays            Int
   PublishedLimit           Int
-  EffectiveFrom            DateTime         @db.Date
-  EffectiveTo              DateTime         @db.Date
+  EffectiveFrom            DateTime          @db.Date
+  EffectiveTo              DateTime          @db.Date
   ApprovalStatus           ApprovalStatus
   company                  CompanyMaster     @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
   customerBranch           CustomerBranch?   @relation(fields: [CustomerBranchSid], references: [CustomerBranchSid])
