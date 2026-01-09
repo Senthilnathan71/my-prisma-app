@@ -15,10 +15,10 @@ export const SEED_FILES: { name: string; table: string }[] = [
     //     name: 'MenuMaster',
     //     table: 'MenuMaster'
     // },
-    {
-        name: 'Statemaster',
-        table: 'StateMaster'
-    },
+    // {
+    //     name: 'Statemaster',
+    //     table: 'StateMaster'
+    // },
     {
         name: 'CityMasterNew',
         table: 'CityMaster'
