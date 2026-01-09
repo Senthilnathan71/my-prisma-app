@@ -407,8 +407,8 @@ export class MasterJobService {
 
             const allShipments = payload.shipmentList || [];
             const recordToCreateShipment = allShipments.filter(shipment => !shipment.HBLNo);
-            const recordToUpdateShipment = allShipments.filter(shipment => shipment.HBLNo);
-
+            const recordToUpdateShipment = allShipments.filter(shipment => shipment.HBLNo && shipment.JobType !== 'Transhipment');
+            const recordToCreateTranshipment = allShipments.filter(shipment => shipment.HBLNo && shipment.JobType === 'Transhipment');
 
             if (recordToCreateShipment.length > 0) {
                 let bookingNeedHouseCreateIds = recordToCreateShipment.map(shipment => shipment.BookingHeaderSid);
@@ -842,7 +842,155 @@ export class MasterJobService {
                         ));
                 }
             }
+            if (recordToCreateTranshipment.length > 0) {
+                console.log('recordToCreateTranshipment', recordToCreateTranshipment);
+    for (const transhipmentRecord of recordToCreateTranshipment) {
+        const booking = await this._db.bookingHeader.findUnique({
+            where: { BookingHeaderSid: transhipmentRecord.BookingHeaderSid },
+            include: {
+                bookingCargo: { where: { status: 'A' } },
+                bookingProduct: { where: { status: 'A' } },
+                bookingOthers: { where: { status: 'A' } },
+                bookingConnection: { where: { status: 'A' } },
+                bookingRates: { where: { Status: 'A' } }
+            }
+        });
 
+        if (!booking) continue;
+
+        const { bookingCargo, bookingProduct, bookingOthers, bookingConnection, bookingRates, ...bookingHeader } = booking;
+
+        // Generate NEW MBLNo for Master Job
+        const mblDateString = moment().format('YYYYMMDD');
+        const mblCount = await this._db.masterJob.count({
+            where: { MBLNo: { contains: mblDateString } }
+        });
+        const newMBLNo = `MBL-${mblDateString}-${(mblCount + 1).toString().padStart(3, '0')}`;
+
+        // Generate NEW HBLNo for House Job
+        const hblDateString = moment().format('YYYYMMDD');
+        const hblCount = await this._db.houseJob.count({
+            where: { HBLNo: { contains: hblDateString } }
+        });
+        const newHBLNo = `HBL-${hblDateString}-${(hblCount + 1).toString().padStart(3, '0')}`;
+
+        // Get department info for menu
+        const department = await this._db.departmentMaster.findUnique({
+            where: { DepartmentMasterSid: payload.DepartmentMasterSid },
+            select: { departmentType: true }
+        });
+
+        const houseJobMenuId = await this.menuMasterService.getMenuSidByName(
+            department?.departmentType?.toUpperCase() === 'AIR' ? 'House Air Waybill' : 'House Job'
+        );
+
+        // Get POL and POD port codes from booking
+        const polPortCode = bookingHeader.POL || '';
+        const podPortCode = bookingHeader.POD || '';
+
+        // Create House Job for Transhipment
+        const houseJob = await this._db.houseJob.create({
+            data: {
+                MasterJobSid: newMasterJob.MasterJobSid,
+                HBLDate: new Date(),
+                BookingHeaderSid: bookingHeader.BookingHeaderSid || null,
+                ColoadedBy: bookingHeader.NominatedBy,
+                BookingNo: bookingHeader.BookingNo || '',
+                BookingDateTime: bookingHeader.BookingDateTime,
+                CompanyMasterSid: bookingHeader.CompanyMasterSid,
+                BranchMasterSid: bookingHeader.BranchMasterSid!,
+                CustomerMasterSid: bookingHeader.CustomerMasterSid,
+                JobType: 'Import', // Change to Import for transhipment
+                CustomerName: bookingHeader.CustomerName || '',
+                CustomerAddress: bookingHeader.CustomerAddress || '',
+                SalesmanSid: bookingHeader.SalesmanSid || null,
+                CargoExpectedon: bookingHeader.CargoExpectedon || null,
+                FreightTerms: bookingHeader.FreightTerms || '',
+                POO: bookingHeader.POO || '',
+                POL: bookingHeader.POL || '', // Copy from booking
+                POD: bookingHeader.POD || '', // Copy from booking
+                FPD: bookingHeader.FPD || '',
+                TsPortSid: bookingHeader.TsPortSid || null,
+                POLTerminal: bookingHeader.POLTerminal || '',
+                VoyageMasterSid: bookingHeader.VoyageMasterSid || null,
+                VesselName: bookingHeader.VesselName || '',
+                VoyageNo: bookingHeader.VoyageNo || '',
+                ETD: bookingHeader.ETD ? new Date(bookingHeader.ETD) : null,
+                ETA: bookingHeader.ETA ? new Date(bookingHeader.ETA) : null,
+                IncoTerms: bookingHeader.IncoTerms || '',
+                BLLocation: bookingHeader.BLLocation || null,
+                ShipperName: bookingHeader.ShipperName || '',
+                ShipperAddress: bookingHeader.ShipperAddress || '',
+                ConsigneeName: bookingHeader.ConsigneeName || '',
+                ConsigneeAddress: bookingHeader.ConsigneeAddress || '',
+                ClearanceRequire: bookingHeader.ClearanceRequire || '',
+                ShipmentType: bookingHeader.ShipmentType || '',
+                DestinationAgent: bookingHeader.DestinationAgent,
+                AgentName: bookingHeader.AgentName || '',
+                AgentAddress: bookingHeader.AgentAddress || '',
+                Notify: bookingHeader.Notify || '',
+                NotifyAddress: bookingHeader.NotifyAddress || '',
+                HouseNo: bookingHeader.HouseNo || '',
+                QuotationHeaderSid: bookingHeader.QuotationHeaderSid || null,
+                EnquiryHeaderSid: bookingHeader.EnquiryHeaderSid || null,
+                MovementType: bookingHeader.MovementType || '',
+                DoValid: bookingHeader.DoValid ? new Date(bookingHeader.DoValid) : null,
+                IsServiceJob: bookingHeader.IsServiceJob || '',
+                createdBy: payload.CreatedBy || '',
+                status: bookingHeader.status || '',
+                BookingStatus: bookingHeader.BookingStatus || '',
+                DepartmentMasterSid: bookingHeader.DepartmentMasterSid,
+                CustomerBranchSid: bookingHeader.CustomerBranchSid || null,
+                AuthorizerRemarks: bookingHeader.AuthorizerRemarks || '',
+                authorizerStatus: bookingHeader.authorizerStatus,
+                MenuMasterSid: houseJobMenuId || payload.MenuMasterSid,
+                CarrierSid: bookingHeader.CarrierSid || null,
+                CarrierName: bookingHeader.CarrierName || '',
+                Coload: bookingHeader.Coload || '',
+                GeneralNote: bookingHeader.GeneralNote || '',
+                HBLNo: newHBLNo, // NEW HBLNo
+                InternalNote: bookingHeader.InternalNote || '',
+                MBLDate: new Date(), // Use current date
+                MBLNo: newMBLNo, // NEW MBLNo from master job
+                NominatedBy: bookingHeader.NominatedBy || '',
+                Nominated: bookingHeader.Nominated || '',
+                PODTerminal: bookingHeader.PODTerminal || '',
+                ShipmentNo: bookingHeader.ShipmentNo || '',
+                OriginAgent: bookingHeader.OriginAgent || ''
+            }
+        }).catch(err => {
+            console.error('Transhipment HouseJob create error:', err);
+            return null;
+        });
+
+        if (!houseJob) continue;
+
+        // Create related records (cargo, products, connections, others, rates) similar to regular house job creation
+        // ... (copy the existing house job creation logic for related records)
+
+        // Update BookingHeader with notes
+        await this._db.bookingHeader.update({
+            where: { BookingHeaderSid: bookingHeader.BookingHeaderSid },
+            data: {
+                MasterNoSid: newMasterJob.MasterJobSid,
+                // Store generated numbers in notes with POL/POD format
+                GeneralNote: bookingHeader.GeneralNote +" "+`${newMBLNo} - ${polPortCode} / ${podPortCode}`,
+                InternalNote: bookingHeader.InternalNote +" "+`${newHBLNo} - ${polPortCode} / ${podPortCode}`,
+                // Do NOT update MBLNo, HBLNo, or MBLDate for transhipment
+                BookingStatus: 'Stuffed',   
+                
+                // Update voyage information from master job
+                VoyageMasterSid: newMasterJob.VoyageMasterSid,
+                VesselName: newMasterJob.VesselName,
+                VoyageNo: newMasterJob.VoyageNo,
+                ETA: newMasterJob.ETA,
+                ETD: newMasterJob.ETD,
+            }
+        }).catch(err => {
+            console.error('Transhipment bookingHeader update error:', err);
+        });
+    }
+}
             return {
                 newMasterJob,
             };
@@ -4065,22 +4213,53 @@ private async createSingleBooking(tx : PrismaClient | Prisma.TransactionClient, 
       //---------------------
     //5. connection
     //-----------------------
-    const bookingConnections: any[] = [];
-    const houseConnections = houseJob.Connections || [];
-if (houseConnections && houseConnections.length > 0) {
+   const bookingConnections: any[] = [];
+    
+// Get all connections from house job
+const houseConnections = await tx.houseJobConnection.findMany({
+    where: {
+        HouseJobSid: houseJob.HouseJobSid,
+        status: 'A'
+    }
+});
+
+// If no connections exist in house job, create one from the house job's main values
+if (houseConnections.length === 0 && (houseJob.POL || houseJob.POD || houseJob.VesselName || houseJob.VoyageNo)) {
+    // Create a connection from the house job's main voyage information
+    const createdConnection = await tx.bookingConnection.create({
+        data: {
+            BookingHeaderSid: bookingHeader.BookingHeaderSid,
+            Mode: 'Sea', // Default mode - adjust as needed
+            VesselName: houseJob.VesselName || '',
+            VoyageNo: houseJob.VoyageNo || '',
+            POL: houseJob.POL || '',
+            POD: houseJob.POD || '',
+            ETD: houseJob.ETD ? new Date(houseJob.ETD) : null,
+            ETA: houseJob.ETA ? new Date(houseJob.ETA) : null,
+            Remarks: 'Created from Master Job House',
+            status: 'A',
+            createdBy: createdBy,
+            createdOn: new Date(),
+            updatedBy: null,
+            updatedOn: null
+        }
+    });
+    bookingConnections.push(createdConnection);
+} else {
+    // Copy all existing connections from house job
     for (const connection of houseConnections) {
         const createdConnection = await tx.bookingConnection.create({
             data: {
                 BookingHeaderSid: bookingHeader.BookingHeaderSid,
-                Mode: connection.Mode || null,
-                VesselName: connection.VesselName || null,
-                VoyageNo: connection.VoyageNo || null,
-                POL: connection.POL || null,
-                POD: connection.POD || null,
+                Mode: connection.Mode || '',
+                VesselName: connection.VesselName || '',
+                VoyageNo: connection.VoyageNo || '',
+                POL: connection.POL || '',
+                POD: connection.POD || '',
                 ETD: connection.ETD ? new Date(connection.ETD) : null,
                 ETA: connection.ETA ? new Date(connection.ETA) : null,
-                Remarks: connection.Remarks || null,
-                status: 'A', // Default status
+                Remarks: connection.Remarks || '',
+                status: 'A',
                 createdBy: createdBy,
                 createdOn: new Date(),
                 updatedBy: null,
