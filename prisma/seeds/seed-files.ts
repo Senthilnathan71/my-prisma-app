@@ -3,12 +3,12 @@ export const SEED_FILES: { name: string; table: string }[] = [
     //     name: 'CountryMaster',
     //     table: 'CountryMaster'
     // },
+    // {
+    //     name: 'CurrencyMaster',
+    //     table: 'CurrencyMaster'
+    // },
     {
-        name: 'CurrencyMaster',
-        table: 'CurrencyMaster'
-    },
-    {
-        name: 'Module Master',
+        name: 'ModuleMaster',
         table: 'ModuleMaster'
     },
      {
