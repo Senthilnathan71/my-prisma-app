@@ -43,13 +43,13 @@ export const SEED_FILES: { name: string; table: string }[] = [
     //     name: 'userType',
     //     table: 'UserType'
     // },
-    {
-        name: 'UserMaster',
-        table: 'UserMaster'
-    },
+    // {
+    //     name: 'UserMaster',
+    //     table: 'UserMaster'
+    // },
     {
         name: 'UserCompanyMaster',
-        table: 'UserCompanymaster'
+        table: 'UserCompanyMaster'
     },
     {
         name: 'UserBranchMaster',
