@@ -47,18 +47,18 @@ export const SEED_FILES: { name: string; table: string }[] = [
     //     name: 'UserMaster',
     //     table: 'UserMaster'
     // },
-    {
-        name: 'UserCompanyMaster',
-        table: 'UserCompanyMaster'
-    },
-    {
-        name: 'UserBranchMaster',
-        table: 'UserBranchMaster'
-    },
-    {
-        name: 'UserRoleMaster',
-        table: 'UserRoleMaster'
-    },
+    // {
+    //     name: 'UserCompanyMaster',
+    //     table: 'UserCompanyMaster'
+    // },
+    // {
+    //     name: 'UserBranchMaster',
+    //     table: 'UserBranchMaster'
+    // },
+    // {
+    //     name: 'UserRoleMaster',
+    //     table: 'UserRoleMaster'
+    // },
     
     
     
