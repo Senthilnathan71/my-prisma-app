@@ -27,22 +27,22 @@ export const SEED_FILES: { name: string; table: string }[] = [
     //     name: 'CompanyMaster',
     //     table: 'CompanyMaster'
     // },
-     {
-        name: 'BranchMaster',
-        table: 'BranchMaster'
-    },
-    {
-        name: 'RoleMaster',
-        table: 'RoleMaster'
-    },
-    {
-        name: 'RoleMenuHeader',
-        table: 'RoleMenuHeader'
-    },
-    {
-        name: 'userType',
-        table: 'UserType'
-    },
+    //  {
+    //     name: 'BranchMaster',
+    //     table: 'BranchMaster'
+    // },
+    // {
+    //     name: 'RoleMaster',
+    //     table: 'RoleMaster'
+    // },
+    // {
+    //     name: 'RoleMenuHeader',
+    //     table: 'RoleMenuHeader'
+    // },
+    // {
+    //     name: 'userType',
+    //     table: 'UserType'
+    // },
     {
         name: 'UserMaster',
         table: 'UserMaster'
