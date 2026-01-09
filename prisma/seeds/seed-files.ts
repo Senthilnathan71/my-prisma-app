@@ -52,7 +52,7 @@ export const SEED_FILES: { name: string; table: string }[] = [
         table: 'UserRoleMaster'
     },
     {
-        name: 'CityMaster New',
+        name: 'CityMasterNew',
         table: 'CityMaster'
     },
     
