@@ -737,12 +737,17 @@ export class VoucherService {
             const result = await this._db.$transaction(async (prisma) => {
                 const voucherTypeMaster = await prisma.voucherTypeMaster.findFirst({
                     where: {
-                        DocumentTypeName: payload.VoucherTypeName
+                        CompanyMasterSid : payload.CompanyMasterSid,
+                        BranchMasterSid : payload.BranchMasterSid,
+                        menuMaster : {
+                            MenuName : payload.VoucherTypeMenuName
+                        }
                     },
                     select : {
                         VoucherTypeMasterSid : true,
                         DocumentTypeName : true,
                         DocumentTypeCode : true,
+                        IsAutoPosting : true
                     }
                 });
 
@@ -861,7 +866,7 @@ export class VoucherService {
 
                 if(payload.selectedRateIds.length > 0){
                     if(payload.screenName === 'Booking'){
-                        if(payload.VoucherTypeName === 'Invoice'){
+                        if(payload.VoucherTypeMenuName === 'Invoice'){
                             await prisma.bookingRates.updateMany({
                                 where: {
                                     BookingRatesSid: { in: payload.selectedRateIds }
@@ -883,7 +888,7 @@ export class VoucherService {
                             })
                         }
                     } else {
-                        if(payload.VoucherTypeName === 'Invoice'){
+                        if(payload.VoucherTypeMenuName === 'Invoice'){
                             await prisma.costRevenueCharges.updateMany({
                                 where: {
                                     CostRevenueChargesSid: { in: payload.selectedRateIds }
@@ -905,6 +910,19 @@ export class VoucherService {
                             })
                         }
                     }
+                }
+
+                if(voucherTypeMaster.IsAutoPosting === 'Y') {
+                    await this.postVoucherByVoucherSid({
+                        voucherHeaderSid : createdVoucherHeader.VoucherHeaderSid,
+                        companyMasterSid : payload.CompanyMasterSid,
+                        branchMasterSid : payload.BranchMasterSid,
+                        yearMasterSid : payload.YearMasterSid,
+                        localCurrencyMasterSid : payload.LocalCurrencyMasterSid,
+                        localCurrencyCode : payload.LocalCurrencyCode,
+                        postedBy : payload.CreatedBy,
+                        taxDetails : payload.taxDetails
+                    },prisma);
                 }
 
                 return {
@@ -1542,504 +1560,512 @@ export class VoucherService {
                 EffectiveFrom: Date,
                 TaxType: 'Input' | 'Output',
             }
-        }
+        },
+        tx?: Prisma.TransactionClient
     ): Promise<PostVoucherResponseDto> {
         try {
-            const result = await this._db.$transaction(async (tx) => {
-
-                const { voucherHeaderSid, companyMasterSid, branchMasterSid, postedBy, taxDetails } = payload;
-
-                const voucher = await tx.voucherHeader.findUnique({
-                    where: {
-                        VoucherHeaderSid: voucherHeaderSid,
-                        CompanyMasterSid: companyMasterSid,
-                        BranchMasterSid: branchMasterSid,
-                        Status: 'A'
-                    },
-                    include: {
-                        VoucherDetail: {
-                            where: { Status: 'A' },
-                            orderBy: { Sno: 'asc' },
-                        },
-                        voucherTypeMaster: true,
-                        subledgerMaster : true
-                    }
-                });
-
-                if (!voucher) throw new BadRequestException('Voucher not found.');
-                if (voucher.PostStatus === 'P') throw new BadRequestException('Voucher is already posted.');
-                if (!voucher.VoucherDetail || voucher.VoucherDetail.length === 0) throw new BadRequestException('No detail lines are found.');
-                if (!voucher.voucherTypeMaster) throw new BadRequestException('Voucher type is not found.');
-
-                const voucherType  = voucher.voucherTypeMaster?.DocumentTypeName;
-
-
-                // Validate year
-                const yearMaster = await tx.yearMaster.findUnique({
-                    where: {
-                        CompanyMasterSid: voucher.CompanyMasterSid,
-                        YearMasterSid: payload.yearMasterSid,
-                        status: 'A'
-                    },
-                    select: { StartDate: true, EndDate: true }
-                });
-                if (!yearMaster) throw new BadRequestException("Year master not found.");
-
-                const voucherDate = new Date(voucher.VoucherDate);
-                const startDate = new Date(yearMaster.StartDate);
-                const endDate = new Date(yearMaster.EndDate);
-                if (voucherDate <= startDate || voucherDate >= endDate) throw new BadRequestException('Voucher date is outside of current financial year.');
-
-                const now = new Date();
-                const chargeLineItems = voucher.VoucherDetail;
-                const transactionSids: number[] = [];
-                const autoGeneratedDetailSids = new Set<number>();
-                const allMatchingIds = new Set<number>();
-                const fullUpdatedDetail: any[] = [];
-
-                if (!checkIfExJvApplicable(voucherType)) {
-                    // --- TAX SUMMARIZATION & AUTO DETAIL CREATION ---
-                    const hasAnyTax = chargeLineItems.some(detail => detail.TaxPercentage1 || detail.TaxPercentage2);
-                    let createdTaxRows: VoucherDetailDto[] = [];
-
-                    if (hasAnyTax) {
-                        const taxSummaries = await this.summarizeTaxes(
-                            chargeLineItems,
-                            voucherType as TaxVoucherType,
-                            taxDetails,
-                            voucher.CompanyMasterSid,
-                            tx
-                        );
-
-                        let currentSno = chargeLineItems.length + 1;
-                        for (const taxSummary of taxSummaries) {
-                            const headerExchangeRate = this.toNumber(voucher.ExchangeRate || 1);
-                            let finalTaxPartyAmount = this.toNumber(taxSummary.taxAmount) / this.toNumber(headerExchangeRate);
-                            
-                            const taxDetail = await tx.voucherDetail.create({
-                                data: {
-                                    CompanyMasterSid: voucher.CompanyMasterSid,
-                                    BranchMasterSid: voucher.BranchMasterSid,
-                                    VoucherHeaderSid: voucherHeaderSid,
-                                    Sno: new Decimal(currentSno++),
-                                    ChargeDescription: `${taxSummary.taxType} @ ${taxSummary.taxPercentage}% - ${taxSummary.hsSacCode}`,
-                                    COAMasterSid: taxSummary.coaMasterSid,
-                                    LedgerMasterSid: taxSummary.ledgerMasterSid,
-                                    HSSACMasterSid: taxSummary.hsSacMasterSid,
-                                    DepartmentMasterSid : voucher.DepartmentMasterSid,
-                                    HouseJobSid : voucher.HouseJobSid,
-                                    MasterJobSid : voucher.MasterJobSid,
-                                    CostRevenue : voucher.voucherTypeMaster.DocumentTypeName === "Invoice" ||  voucher.voucherTypeMaster.DocumentTypeName === "Credit Note" ? "Revenue" : "Cost",
-                                    CurrencyMasterSid: payload.localCurrencyMasterSid,
-                                    CurrencyCode: payload.localCurrencyCode,
-                                    ExchangeRate: new Decimal(1),
-                                    Rate: new Decimal(taxSummary.taxAmount),
-                                    NumberOfUnit: new Decimal(1),
-                                    Narration: voucher.Narration,
-                                    DrCr: taxSummary.DrCr!,
-                                    TaxableAmount: new Decimal(taxSummary.taxableAmount),
-                                    Amount: new Decimal(taxSummary.taxAmount),
-                                    LocalAmount: new Decimal(taxSummary.taxAmount),
-                                    PartyAmount: finalTaxPartyAmount,
-                                    YearMasterSid : payload.yearMasterSid,
-                                    IsAutoGenerated : 'Y',
-                                    Status: 'A',
-                                    CreatedBy: postedBy,
-                                    CreatedOn: now,
-                                }
-                            });
-                            createdTaxRows.push(taxDetail as any);
-                            autoGeneratedDetailSids.add(taxDetail.VoucherDetailSid);
-                        }
-                    }
-
-                    // --- PARTY ROW CREATION ---
-                    const allDetails = [...chargeLineItems, ...createdTaxRows];
-
-                    let totalDebit = 0;
-                    let totalCredit = 0;
-                    let totalLocalCredit = 0;
-                    let totalLocalDebit = 0;
-                    let totalPartyAmt = 0;
-                    const detailCrDr = getPartyDrCr(voucherType) === 'C' ? 'D' : 'C';
-                    const totalTaxableAmount = allDetails.reduce((sum, line) => {
-                        if(line.IsAutoGenerated === 'Y') return sum;
-                        return detailCrDr === line.DrCr ? 
-                        sum + this.toNumber(line.TaxableAmount) : 
-                        sum - this.toNumber(line.TaxableAmount)
-                    }, 0);
-
-                    const totalPartyAmount = allDetails.reduce((sum, line) => {
-                        return detailCrDr === line.DrCr ?
-                            sum + this.toNumber(line.PartyAmount) :
-                            sum - this.toNumber(line.PartyAmount)
-                    }, 0);
-
-                    for (const line of allDetails) {
-                        const amount = this.toNumber(line.Amount);
-                        const localAmount = this.toNumber(line.LocalAmount);
-                        const partyAmount = this.toNumber(line.PartyAmount);
-                        totalPartyAmt += partyAmount;
-                        if (this.normalizeDrCr(line.DrCr!) === 'D'){
-                            totalDebit += amount;
-                            totalLocalDebit += localAmount;
-                        } 
-                        else if (this.normalizeDrCr(line.DrCr!) === 'C'){
-                            totalCredit += amount;
-                            totalLocalCredit += localAmount;
-                        }
-                        else throw new Error("DrCr not found for a line item");
-                    }
-
-                    const totalAmount = Math.abs(totalCredit - totalDebit);
-                    const totalLocalAmount = Math.abs(totalLocalCredit - totalLocalDebit);
-
-                    const partyDrCr = getPartyDrCr(voucher.voucherTypeMaster.DocumentTypeName);
-                    
-                    const partyDetail = await tx.voucherDetail.create({
-                        data: {
-                            CompanyMasterSid: voucher.CompanyMasterSid,
-                            BranchMasterSid: voucher.BranchMasterSid,
-                            VoucherHeaderSid: voucherHeaderSid,
-                            Sno: new Decimal(allDetails.length + 1),
-                            ChargeDescription: voucher.PartyName || "Party",
-                            DepartmentMasterSid : voucher.DepartmentMasterSid,
-                            LedgerMasterSid: voucher.PartyMasterSid,
-                            COAMasterSid: voucher.COAMasterSid!,
-                            HouseJobSid : voucher.HouseJobSid,
-                            MasterJobSid : voucher.MasterJobSid,
-                            CostRevenue : voucher.voucherTypeMaster.DocumentTypeName === "Invoice" ||  voucher.voucherTypeMaster.DocumentTypeName === "Credit Note" ? "Revenue" : "Cost",
-                            CurrencyMasterSid: voucher.CurrencyMasterSid!,
-                            CurrencyCode: voucher.CurrencyCode!,
-                            ExchangeRate: voucher.ExchangeRate || new Decimal(1),
-                            Rate: new Decimal(totalAmount),
-                            NumberOfUnit: new Decimal(1),
-                            Narration: voucher.Narration || 'Party Entry',
-                            DrCr: partyDrCr!,
-                            TaxableAmount: new Decimal(totalTaxableAmount),
-                            Amount: new Decimal(totalAmount),
-                            LocalAmount: new Decimal(totalLocalAmount),
-                            PartyAmount: new Decimal((totalPartyAmount).toFixed(2)),
-                            IsAutoGenerated : 'Y',
-                            Status: 'A',
-                            YearMasterSid : payload.yearMasterSid,
-                            CreatedBy: postedBy,
-                            CreatedOn: now,
-                        }
-                    });
-                    autoGeneratedDetailSids.add(partyDetail.VoucherDetailSid);
-
-                    // --- CREATE TRANSACTIONS FOR ALL DETAILS (including party) ---
-                    const allDetailsWithParty = [...allDetails, partyDetail];
-                    for (const detail of allDetailsWithParty) {
-                        const documentType = voucher.voucherTypeMaster.DocumentTypeName;
-                        const costRevenue = documentType === "Invoice" || documentType === "CreditNote" ? "Revenue" : "Cost";
-                        const transaction = await tx.voucherTransaction.create({
-                            data: {
-                                CompanyMasterSid: voucher.CompanyMasterSid,
-                                BranchMasterSid: voucher.BranchMasterSid,
-                                VoucherHeaderSid: voucherHeaderSid,
-                                VoucherDetailSid: detail.VoucherDetailSid,
-                                VoucherNumber: voucher.VoucherNumber,
-                                VoucherType: voucher.VoucherType,
-                                VoucherDate: voucher.VoucherDate,
-                                PostDate: now,
-                                GST_VAT: voucher.GST_VAT || '',
-                                Sno: detail.Sno,
-                                ChargeMasterSid : detail.ChargeMasterSid || null,
-                                ChargeDescription: detail.ChargeDescription || '',
-                                LedgerMasterSid: detail.LedgerMasterSid!,
-                                COAMasterSid: detail.COAMasterSid!,
-                                DepartmentMasterSid: detail.DepartmentMasterSid || voucher.DepartmentMasterSid || null,
-                                HouseJobSid: detail.HouseJobSid || voucher.HouseJobSid || null,
-                                MasterJobSid: detail.MasterJobSid || voucher.MasterJobSid || null,
-                                CostRevenue: detail.CostRevenue || costRevenue,
-                                CurrencyCode: detail.CurrencyCode,
-                                ExchangeRate: detail.ExchangeRate || new Decimal(1),
-                                Rate: detail.Rate || new Decimal(0),
-                                NumberOfUnit: detail.NumberOfUnit || new Decimal(1),
-                                Narration: detail.Narration,
-                                DrCr: String(detail.DrCr).charAt(0) || '',
-                                TaxableAmount: detail.TaxableAmount,
-                                Amount: detail.Amount || new Decimal(0),
-                                LocalAmount: detail.LocalAmount || new Decimal(0),
-                                CostCenter: detail.CostCenter,
-                                ProfitCenter: detail.ProfitCenter,
-                                TransType: detail.DrCr === 'D' ? 'DR' : 'CR',
-                                VoucherTypeMasterSid: voucher.VoucherTypeMasterSid,
-                                YearMasterSid: detail.YearMasterSid,
-                                IsAutoGenerated: autoGeneratedDetailSids.has(detail.VoucherDetailSid) ? 'Y' : 'N',
-                                Status: 'A',
-                                CreatedBy: postedBy,
-                                CreatedOn: now,
-                            }
-                        });
-
-                        transactionSids.push(transaction.VoucherTransactionSid);
-
-                        // Link VoucherDetail to VoucherTransaction and fetch subledger type
-                        const completeDetail = await tx.voucherDetail.update({
-                            where: { VoucherDetailSid: detail.VoucherDetailSid },
-                            data: { VoucherTransactionSid: transaction.VoucherTransactionSid },
-                            include: { subledgerMaster: { select: { SubledgerType: true } } }
-                        });
-                        fullUpdatedDetail.push(completeDetail);
-                    }
-
-                    // --- MATCHING LOGIC (only when applicable) ---
-                    if (checkIfMatchingApplicable(voucherType)) {
-                        // party line from recorded transactions (Customer subledger)
-                        const partyDtlInRecTrans = fullUpdatedDetail.find(d => d.subledgerMaster?.SubledgerType === 'Customer');
-
-                        if (!partyDtlInRecTrans) {
-                            throw new BadRequestException('Party Voucher Detail not found in recorded transactions');
-                        }
-
-                        const billMatchingCurrencyAmount = chargeLineItems.reduce((sum, detail) => sum + Number(detail.Amount), 0);
-                        const billMatchingLocalAmount = chargeLineItems.reduce((sum, detail) => sum + Number(detail.LocalAmount), 0);
-
-                        // Reversal voucher is mandatory.
-                        if (!voucher.ReversalVoucher) {
-                            throw new BadRequestException('Reversal Voucher is not supported');
-                        }
-
-                        const partyDetailInInv = await tx.voucherHeader.findFirst({
-                            where: { VoucherHeaderSid: voucher.ReversalVoucher! },
-                            include: {
-                                VoucherDetail: {
-                                    where: { Status: 'A' },
-                                    include: { subledgerMaster: { select: { SubledgerType: true } } }
-                                }
-                            }
-                        });
-
-                        const partyDtlInInvTrans = (partyDetailInInv?.VoucherDetail || [])
-                            .find(vd => vd.subledgerMaster?.SubledgerType === 'Customer');
-
-                        if (!partyDtlInInvTrans) {
-                            throw new BadRequestException('Party Voucher Detail not found in reversal/invoice voucher');
-                        }
-
-                        // Adjust amounts for matching
-                        partyDtlInInvTrans.Amount = new Decimal(billMatchingCurrencyAmount);
-                        partyDtlInInvTrans.LocalAmount = new Decimal(billMatchingLocalAmount);
-
-                        const matchingRecords = await this.createVoucherMatching({
-                            CompanyMasterSid: payload.companyMasterSid,
-                            BranchMasterSid: payload.branchMasterSid,
-                            VoucherHeaderSid: voucherHeaderSid,
-                            voucherTypeInName: voucher?.voucherTypeMaster.DocumentTypeName,
-                            VoucherTypeMasterSid: voucher?.voucherTypeMaster.VoucherTypeMasterSid,
-                            SubledgerName : voucher?.subledgerMaster?.SubledgerName || '',
-                            PostDate: voucher.PostDate!,
-                            Narration: `${voucher.VoucherNumber} ${voucher.VoucherDate.toISOString().split('T')[0]} ${voucher.CurrencyCode} ${voucher.Amount}`,
-                            createdBy: payload.postedBy,
-                            partyVoucherDetail: partyDtlInRecTrans,
-                            voucherMatching: [partyDtlInInvTrans],
-                            BillMatchingCurrencyAmount: billMatchingCurrencyAmount,
-                            BillMatchingLocalAmount: billMatchingLocalAmount,
-                        }, tx);
-
-                        (matchingRecords.voucherMatchingDetails || []).forEach(mr => allMatchingIds.add(mr.VoucherMatchingSid));
-                    }
-
-                } else {
-                    // --- For voucher types that CAN have exchange rate JV (Receipt/Payment) ---
-                    let sumOfCurrencyDebits = 0;
-                    let sumOfCurrencyCredits = 0;
-                    chargeLineItems.forEach(detail => {
-                        if (detail.DrCr === 'D') sumOfCurrencyDebits += this.toNumber(detail.Amount);
-                        else sumOfCurrencyCredits += this.toNumber(detail.Amount);
-                    });
-                    if (sumOfCurrencyCredits - sumOfCurrencyDebits !== 0) {
-                        throw new BadRequestException('Sum of currency debits and credits should be zero.');
-                    }
-
-                    let sumOfLocalDebits = 0;
-                    let sumOfLocalCredits = 0;
-                    chargeLineItems.forEach(detail => {
-                        if (detail.DrCr === 'D') sumOfLocalDebits += this.toNumber(detail.LocalAmount);
-                        else sumOfLocalCredits += this.toNumber(detail.LocalAmount);
-                    });
-
-                    let allDetails = [...chargeLineItems];
-                    const exchangeRateMismatch = sumOfLocalCredits - sumOfLocalDebits;
-                    if (exchangeRateMismatch) {
-                        const exchangeRateDetail = await tx.voucherDetail.create({
-                            data: {
-                                CompanyMasterSid: payload.companyMasterSid,
-                                BranchMasterSid: payload.branchMasterSid,
-                                VoucherHeaderSid: voucherHeaderSid,
-                                Sno: chargeLineItems.length + 1,
-                                ChargeDescription: 'Exchange Rate',
-                                COAMasterSid: await this.getExchangeRateMismatchLedger(payload.companyMasterSid),
-                                DepartmentMasterSid: voucher.DepartmentMasterSid,
-                                HouseJobSid: voucher.HouseJobSid,
-                                MasterJobSid: voucher.MasterJobSid,
-                                CurrencyMasterSid: payload.localCurrencyMasterSid,
-                                CurrencyCode: payload.localCurrencyCode,
-                                ExchangeRate: 1,
-                                Rate: exchangeRateMismatch,
-                                NumberOfUnit: 1,
-                                Narration: 'Exchange Rate',
-                                DrCr: exchangeRateMismatch > 0 ? 'C' : 'D',
-                                Amount: Math.abs(exchangeRateMismatch),
-                                LocalAmount: Math.abs(exchangeRateMismatch),
-                                TaxableAmount: 0,
-                                YearMasterSid : payload.yearMasterSid,
-                                CreatedBy: payload.postedBy,
-                                Status: 'A',
-                            }
-                        });
-                        allDetails = [...allDetails, exchangeRateDetail];
-                    }
-
-                    for (const detail of allDetails) {
-                        const transaction = await tx.voucherTransaction.create({
-                            data: {
-                                CompanyMasterSid: voucher.CompanyMasterSid,
-                                BranchMasterSid: voucher.BranchMasterSid,
-                                VoucherHeaderSid: voucherHeaderSid,
-                                VoucherDetailSid: detail.VoucherDetailSid,
-                                VoucherNumber: voucher.VoucherNumber,
-                                VoucherType: voucher.VoucherType,
-                                VoucherDate: voucher.VoucherDate,
-                                PostDate: now,
-                                GST_VAT: voucher.GST_VAT || '',
-                                Sno: detail.Sno,
-                                ChargeDescription: detail.ChargeDescription || '',
-                                LedgerMasterSid: detail.LedgerMasterSid!,
-                                COAMasterSid: detail.COAMasterSid!,
-                                DepartmentMasterSid: detail.DepartmentMasterSid || voucher.DepartmentMasterSid || null,
-                                HouseJobSid: detail.HouseJobSid || voucher.HouseJobSid || null,
-                                MasterJobSid: detail.MasterJobSid || voucher.MasterJobSid || null,
-                                CostRevenue: detail.CostRevenue || '',
-                                CurrencyCode: detail.CurrencyCode,
-                                ExchangeRate: detail.ExchangeRate || new Decimal(1),
-                                Rate: detail.Rate || new Decimal(0),
-                                NumberOfUnit: detail.NumberOfUnit || new Decimal(1),
-                                Narration: detail.Narration,
-                                DrCr: String(detail.DrCr).charAt(0) || '',
-                                TaxableAmount: detail.TaxableAmount,
-                                Amount: detail.Amount || new Decimal(0),
-                                LocalAmount: detail.LocalAmount || new Decimal(0),
-                                CostCenter: detail.CostCenter,
-                                ProfitCenter: detail.ProfitCenter,
-                                TransType: detail.DrCr === 'D' ? 'DR' : 'CR',
-                                VoucherTypeMasterSid: voucher.VoucherTypeMasterSid,
-                                YearMasterSid: payload.yearMasterSid || null,
-                                IsAutoGenerated: autoGeneratedDetailSids.has(detail.VoucherDetailSid) ? 'Y' : 'N',
-                                Status: 'A',
-                                CreatedBy: postedBy,
-                                CreatedOn: now,
-                            }
-                        });
-
-                        transactionSids.push(transaction.VoucherTransactionSid);
-
-                        const completeDetail = await tx.voucherDetail.update({
-                            where: { VoucherDetailSid: detail.VoucherDetailSid },
-                            data: { VoucherTransactionSid: transaction.VoucherTransactionSid },
-                            include : {
-                                subledgerMaster : {select : {SubledgerType : true}}
-                            }
-                        });
-
-                        fullUpdatedDetail.push(completeDetail);
-                    }
-                    if (checkIfMatchingApplicable(voucherType)) {
-
-                        // party line from recorded transactions (Customer subledger)
-                        const partyDtlInRecTrans = fullUpdatedDetail.find(d => d.subledgerMaster?.SubledgerType === 'Customer');
-
-                        if (!partyDtlInRecTrans) {
-                            throw new BadRequestException('Party Voucher Detail not found in recorded transactions');
-                        }
-
-                        const billMatchingCurrencyAmount = chargeLineItems.reduce((sum, detail) => sum + Number(detail.Amount), 0);
-                        const billMatchingLocalAmount = chargeLineItems.reduce((sum, detail) => sum + Number(detail.LocalAmount), 0);
-
-                        // Reversal voucher is mandatory.
-                        if (!voucher.ReversalVoucher) {
-                            throw new BadRequestException('Reversal Voucher is not supported');
-                        }
-
-                        const partyDetailInInv = await tx.voucherHeader.findFirst({
-                            where: { VoucherHeaderSid: voucher.ReversalVoucher! },
-                            include: {
-                                VoucherDetail: {
-                                    where: { Status: 'A' },
-                                    include: { subledgerMaster: { select: { SubledgerType: true } } }
-                                }
-                            }
-                        });
-
-                        const partyDtlInInvTrans = (partyDetailInInv?.VoucherDetail || [])
-                            .find(vd => vd.subledgerMaster?.SubledgerType === 'Customer');
-
-                        if (!partyDtlInInvTrans) {
-                            throw new BadRequestException('Party Voucher Detail not found in reversal/invoice voucher');
-                        }
-
-                        // Adjust amounts for matching
-                        partyDtlInInvTrans.Amount = new Decimal(billMatchingCurrencyAmount);
-                        partyDtlInInvTrans.LocalAmount = new Decimal(billMatchingLocalAmount);
-
-                        const matchings = await this.createVoucherMatching({
-                            CompanyMasterSid: payload.companyMasterSid,
-                            BranchMasterSid: payload.branchMasterSid,
-                            VoucherHeaderSid: voucherHeaderSid,
-                            voucherTypeInName: voucher?.voucherTypeMaster.DocumentTypeName,
-                            SubledgerName : voucher?.subledgerMaster?.SubledgerName || '',
-                            VoucherTypeMasterSid: voucher?.voucherTypeMaster.VoucherTypeMasterSid,
-                            PostDate: voucher.PostDate!,
-                            Narration: `${voucher.VoucherNumber} ${voucher.VoucherDate.toISOString().split('T')[0]} ${voucher.CurrencyCode} ${voucher.Amount}`,
-                            createdBy: payload.postedBy,
-                            partyVoucherDetail: partyDtlInRecTrans,
-                            voucherMatching: [partyDtlInInvTrans],
-                            BillMatchingCurrencyAmount: billMatchingCurrencyAmount,
-                            BillMatchingLocalAmount: billMatchingLocalAmount,
-                        }, tx);
-
-                        (matchings.voucherMatchingDetails || []).forEach(mr => allMatchingIds.add(mr.VoucherMatchingSid));
-                    }
-                }
-
-                const partyDetail = fullUpdatedDetail.find(
-                    d => d.subledgerMaster?.SubledgerType === 'Customer' ||
-                        d.LedgerMasterSid === voucher.PartyMasterSid
-                );
-                // --- Mark header as posted ---
-                await tx.voucherHeader.update({
-                    where: { VoucherHeaderSid: voucherHeaderSid },
-                    data: {
-                        Amount: partyDetail.Amount,
-                        LocalAmount: partyDetail.LocalAmount, 
-                        PostStatus: 'P',
-                        PostDate: now,
-                        UpdatedOn: now,
-                        UpdatedBy: postedBy
-                    }
-                });
-
-                this.logger.log(`Successfully posted voucher ${voucherHeaderSid}: ${transactionSids.length} transactions created`);
-
-                return {
-                    success: true,
-                    voucherHeaderSid: voucherHeaderSid,
-                    transactionCount: transactionSids.length,
-                    transactionSids: transactionSids,
-                    matchingSids: Array.from(allMatchingIds),
-                    postedAt: now,
-                    errors: [],
-                    message: 'Voucher posted successfully'
-                };
-            });
-
+            const result = await (tx
+                ? this.postVoucherInternal(payload, tx)
+                : this._db.$transaction((newTx) =>
+                    this.postVoucherInternal(payload, newTx)
+                )
+            );
             return result;
         } catch (error) {
             throw error;
         }
+    }
+
+    private async postVoucherInternal(
+        payload: any,
+        tx: Prisma.TransactionClient
+    ) {
+
+        const { voucherHeaderSid, companyMasterSid, branchMasterSid, postedBy, taxDetails } = payload;
+
+        const voucher = await tx.voucherHeader.findUnique({
+            where: {
+                VoucherHeaderSid: voucherHeaderSid,
+                CompanyMasterSid: companyMasterSid,
+                BranchMasterSid: branchMasterSid,
+                Status: 'A'
+            },
+            include: {
+                VoucherDetail: {
+                    where: { Status: 'A' },
+                    orderBy: { Sno: 'asc' },
+                },
+                voucherTypeMaster: true,
+                subledgerMaster: true
+            }
+        });
+
+        if (!voucher) throw new BadRequestException('Voucher not found.');
+        if (voucher.PostStatus === 'P') throw new BadRequestException('Voucher is already posted.');
+        if (!voucher.VoucherDetail || voucher.VoucherDetail.length === 0) throw new BadRequestException('No detail lines are found.');
+        if (!voucher.voucherTypeMaster) throw new BadRequestException('Voucher type is not found.');
+
+        const voucherType = voucher.voucherTypeMaster?.DocumentTypeName;
+
+
+        // Validate year
+        const yearMaster = await tx.yearMaster.findUnique({
+            where: {
+                CompanyMasterSid: voucher.CompanyMasterSid,
+                YearMasterSid: payload.yearMasterSid,
+                status: 'A'
+            },
+            select: { StartDate: true, EndDate: true }
+        });
+        if (!yearMaster) throw new BadRequestException("Year master not found.");
+
+        const voucherDate = new Date(voucher.VoucherDate);
+        const startDate = new Date(yearMaster.StartDate);
+        const endDate = new Date(yearMaster.EndDate);
+        if (voucherDate <= startDate || voucherDate >= endDate) throw new BadRequestException('Voucher date is outside of current financial year.');
+
+        const now = new Date();
+        const chargeLineItems = voucher.VoucherDetail;
+        const transactionSids: number[] = [];
+        const autoGeneratedDetailSids = new Set<number>();
+        const allMatchingIds = new Set<number>();
+        const fullUpdatedDetail: any[] = [];
+
+        if (!checkIfExJvApplicable(voucherType)) {
+            // --- TAX SUMMARIZATION & AUTO DETAIL CREATION ---
+            let createdTaxRows: VoucherDetailDto[] = [];
+
+            const taxSummaries = await this.summarizeTaxes(
+                chargeLineItems,
+                voucherType as TaxVoucherType,
+                taxDetails,
+                voucher.CompanyMasterSid,
+                tx
+            );
+
+            let currentSno = chargeLineItems.length + 1;
+            for (const taxSummary of taxSummaries) {
+                const headerExchangeRate = this.toNumber(voucher.ExchangeRate || 1);
+                let finalTaxPartyAmount = this.toNumber(taxSummary.taxAmount) / this.toNumber(headerExchangeRate);
+
+                const taxDetail = await tx.voucherDetail.create({
+                    data: {
+                        CompanyMasterSid: voucher.CompanyMasterSid,
+                        BranchMasterSid: voucher.BranchMasterSid,
+                        VoucherHeaderSid: voucherHeaderSid,
+                        Sno: new Decimal(currentSno++),
+                        ChargeDescription: `${taxSummary.taxName} - ${taxSummary.hsSacCode}`,
+                        COAMasterSid: taxSummary.coaMasterSid,
+                        LedgerMasterSid: taxSummary.ledgerMasterSid,
+                        HSSACMasterSid: taxSummary.hsSacMasterSid,
+                        DepartmentMasterSid: voucher.DepartmentMasterSid,
+                        HouseJobSid: voucher.HouseJobSid,
+                        MasterJobSid: voucher.MasterJobSid,
+                        CostRevenue: voucher.voucherTypeMaster.DocumentTypeName === "Invoice" || voucher.voucherTypeMaster.DocumentTypeName === "Credit Note" ? "Revenue" : "Cost",
+                        CurrencyMasterSid: payload.localCurrencyMasterSid,
+                        CurrencyCode: payload.localCurrencyCode,
+                        ExchangeRate: new Decimal(1),
+                        Rate: new Decimal(taxSummary.taxAmount),
+                        NumberOfUnit: new Decimal(1),
+                        Narration: voucher.Narration,
+                        DrCr: taxSummary.DrCr!,
+                        TaxableAmount: new Decimal(taxSummary.taxableAmount),
+                        Amount: new Decimal(taxSummary.taxAmount),
+                        LocalAmount: new Decimal(taxSummary.taxAmount),
+                        PartyAmount: finalTaxPartyAmount,
+                        YearMasterSid: payload.yearMasterSid,
+                        IsAutoGenerated: 'Y',
+                        Status: 'A',
+                        CreatedBy: postedBy,
+                        CreatedOn: now,
+                    }
+                });
+                createdTaxRows.push(taxDetail as any);
+                autoGeneratedDetailSids.add(taxDetail.VoucherDetailSid);
+            }
+
+
+            // --- PARTY ROW CREATION ---
+            const allDetails = [...chargeLineItems, ...createdTaxRows];
+
+            let totalDebit = 0;
+            let totalCredit = 0;
+            let totalLocalCredit = 0;
+            let totalLocalDebit = 0;
+            let totalPartyAmt = 0;
+            const detailCrDr = getPartyDrCr(voucherType) === 'C' ? 'D' : 'C';
+            const totalTaxableAmount = allDetails.reduce((sum, line) => {
+                if (line.IsAutoGenerated === 'Y') return sum;
+                return detailCrDr === line.DrCr ?
+                    sum + this.toNumber(line.TaxableAmount) :
+                    sum - this.toNumber(line.TaxableAmount)
+            }, 0);
+
+            const totalPartyAmount = allDetails.reduce((sum, line) => {
+                return detailCrDr === line.DrCr ?
+                    sum + this.toNumber(line.PartyAmount) :
+                    sum - this.toNumber(line.PartyAmount)
+            }, 0);
+
+            for (const line of allDetails) {
+                const amount = this.toNumber(line.Amount);
+                const localAmount = this.toNumber(line.LocalAmount);
+                const partyAmount = this.toNumber(line.PartyAmount);
+                totalPartyAmt += partyAmount;
+                if (this.normalizeDrCr(line.DrCr!) === 'D') {
+                    totalDebit += amount;
+                    totalLocalDebit += localAmount;
+                }
+                else if (this.normalizeDrCr(line.DrCr!) === 'C') {
+                    totalCredit += amount;
+                    totalLocalCredit += localAmount;
+                }
+                else throw new Error("DrCr not found for a line item");
+            }
+
+            const totalAmount = Math.abs(totalCredit - totalDebit);
+            const totalLocalAmount = Math.abs(totalLocalCredit - totalLocalDebit);
+
+            const partyDrCr = getPartyDrCr(voucher.voucherTypeMaster.DocumentTypeName);
+
+            const partyDetail = await tx.voucherDetail.create({
+                data: {
+                    CompanyMasterSid: voucher.CompanyMasterSid,
+                    BranchMasterSid: voucher.BranchMasterSid,
+                    VoucherHeaderSid: voucherHeaderSid,
+                    Sno: new Decimal(allDetails.length + 1),
+                    ChargeDescription: voucher.PartyName || "Party",
+                    DepartmentMasterSid: voucher.DepartmentMasterSid,
+                    LedgerMasterSid: voucher.PartyMasterSid,
+                    COAMasterSid: voucher.COAMasterSid!,
+                    HouseJobSid: voucher.HouseJobSid,
+                    MasterJobSid: voucher.MasterJobSid,
+                    CostRevenue: voucher.voucherTypeMaster.DocumentTypeName === "Invoice" || voucher.voucherTypeMaster.DocumentTypeName === "Credit Note" ? "Revenue" : "Cost",
+                    CurrencyMasterSid: voucher.CurrencyMasterSid!,
+                    CurrencyCode: voucher.CurrencyCode!,
+                    ExchangeRate: voucher.ExchangeRate || new Decimal(1),
+                    Rate: new Decimal(totalPartyAmount),
+                    NumberOfUnit: new Decimal(1),
+                    Narration: voucher.Narration || 'Party Entry',
+                    DrCr: partyDrCr!,
+                    TaxableAmount: new Decimal(totalTaxableAmount),
+                    Amount: new Decimal(totalPartyAmount),
+                    LocalAmount: new Decimal(totalLocalAmount),
+                    PartyAmount: new Decimal((totalPartyAmount).toFixed(2)),
+                    IsAutoGenerated: 'Y',
+                    Status: 'A',
+                    YearMasterSid: payload.yearMasterSid,
+                    CreatedBy: postedBy,
+                    CreatedOn: now,
+                }
+            });
+            autoGeneratedDetailSids.add(partyDetail.VoucherDetailSid);
+
+            // --- CREATE TRANSACTIONS FOR ALL DETAILS (including party) ---
+            const allDetailsWithParty = [...allDetails, partyDetail];
+            for (const detail of allDetailsWithParty) {
+                const documentType = voucher.voucherTypeMaster.DocumentTypeName;
+                const costRevenue = documentType === "Invoice" || documentType === "CreditNote" ? "Revenue" : "Cost";
+                const transaction = await tx.voucherTransaction.create({
+                    data: {
+                        CompanyMasterSid: voucher.CompanyMasterSid,
+                        BranchMasterSid: voucher.BranchMasterSid,
+                        VoucherHeaderSid: voucherHeaderSid,
+                        VoucherDetailSid: detail.VoucherDetailSid,
+                        VoucherNumber: voucher.VoucherNumber,
+                        VoucherType: voucher.VoucherType,
+                        VoucherDate: voucher.VoucherDate,
+                        PostDate: now,
+                        GST_VAT: voucher.GST_VAT || '',
+                        Sno: detail.Sno,
+                        ChargeMasterSid: detail.ChargeMasterSid || null,
+                        ChargeDescription: detail.ChargeDescription || '',
+                        LedgerMasterSid: detail.LedgerMasterSid!,
+                        COAMasterSid: detail.COAMasterSid!,
+                        DepartmentMasterSid: detail.DepartmentMasterSid || voucher.DepartmentMasterSid || null,
+                        HouseJobSid: detail.HouseJobSid || voucher.HouseJobSid || null,
+                        MasterJobSid: detail.MasterJobSid || voucher.MasterJobSid || null,
+                        CostRevenue: detail.CostRevenue || costRevenue,
+                        CurrencyCode: detail.CurrencyCode,
+                        ExchangeRate: detail.ExchangeRate || new Decimal(1),
+                        Rate: detail.Rate || new Decimal(0),
+                        NumberOfUnit: detail.NumberOfUnit || new Decimal(1),
+                        Narration: detail.Narration,
+                        DrCr: String(detail.DrCr).charAt(0) || '',
+                        TaxableAmount: detail.TaxableAmount,
+                        Amount: detail.Amount || new Decimal(0),
+                        LocalAmount: detail.LocalAmount || new Decimal(0),
+                        CostCenter: detail.CostCenter,
+                        ProfitCenter: detail.ProfitCenter,
+                        TransType: detail.DrCr === 'D' ? 'DR' : 'CR',
+                        VoucherTypeMasterSid: voucher.VoucherTypeMasterSid,
+                        YearMasterSid: detail.YearMasterSid,
+                        IsAutoGenerated: autoGeneratedDetailSids.has(detail.VoucherDetailSid) ? 'Y' : 'N',
+                        Status: 'A',
+                        CreatedBy: postedBy,
+                        CreatedOn: now,
+                    }
+                });
+
+                transactionSids.push(transaction.VoucherTransactionSid);
+
+                // Link VoucherDetail to VoucherTransaction and fetch subledger type
+                const completeDetail = await tx.voucherDetail.update({
+                    where: { VoucherDetailSid: detail.VoucherDetailSid },
+                    data: { VoucherTransactionSid: transaction.VoucherTransactionSid },
+                    include: { subledgerMaster: { select: { SubledgerType: true } } }
+                });
+                fullUpdatedDetail.push(completeDetail);
+            }
+
+            // --- MATCHING LOGIC (only when applicable) ---
+            if (checkIfMatchingApplicable(voucherType)) {
+                // party line from recorded transactions (Customer subledger)
+                const partyDtlInRecTrans = fullUpdatedDetail.find(d => d.subledgerMaster?.SubledgerType === 'Customer');
+
+                if (!partyDtlInRecTrans) {
+                    throw new BadRequestException('Party Voucher Detail not found in recorded transactions');
+                }
+
+                const billMatchingCurrencyAmount = chargeLineItems.reduce((sum, detail) => sum + Number(detail.Amount), 0);
+                const billMatchingLocalAmount = chargeLineItems.reduce((sum, detail) => sum + Number(detail.LocalAmount), 0);
+
+                // Reversal voucher is mandatory.
+                if (!voucher.ReversalVoucher) {
+                    throw new BadRequestException('Reversal Voucher is not supported');
+                }
+
+                const partyDetailInInv = await tx.voucherHeader.findFirst({
+                    where: { VoucherHeaderSid: voucher.ReversalVoucher! },
+                    include: {
+                        VoucherDetail: {
+                            where: { Status: 'A' },
+                            include: { subledgerMaster: { select: { SubledgerType: true } } }
+                        }
+                    }
+                });
+
+                const partyDtlInInvTrans = (partyDetailInInv?.VoucherDetail || [])
+                    .find(vd => vd.subledgerMaster?.SubledgerType === 'Customer');
+
+                if (!partyDtlInInvTrans) {
+                    throw new BadRequestException('Party Voucher Detail not found in reversal/invoice voucher');
+                }
+
+                // Adjust amounts for matching
+                partyDtlInInvTrans.Amount = new Decimal(billMatchingCurrencyAmount);
+                partyDtlInInvTrans.LocalAmount = new Decimal(billMatchingLocalAmount);
+
+                const matchingRecords = await this.createVoucherMatching({
+                    CompanyMasterSid: payload.companyMasterSid,
+                    BranchMasterSid: payload.branchMasterSid,
+                    VoucherHeaderSid: voucherHeaderSid,
+                    voucherTypeInName: voucher?.voucherTypeMaster.DocumentTypeName,
+                    VoucherTypeMasterSid: voucher?.voucherTypeMaster.VoucherTypeMasterSid,
+                    SubledgerName: voucher?.subledgerMaster?.SubledgerName || '',
+                    PostDate: voucher.PostDate!,
+                    Narration: `${voucher.VoucherNumber} ${voucher.VoucherDate.toISOString().split('T')[0]} ${voucher.CurrencyCode} ${voucher.Amount}`,
+                    createdBy: payload.postedBy,
+                    partyVoucherDetail: partyDtlInRecTrans,
+                    voucherMatching: [partyDtlInInvTrans],
+                    BillMatchingCurrencyAmount: billMatchingCurrencyAmount,
+                    BillMatchingLocalAmount: billMatchingLocalAmount,
+                }, tx);
+
+                (matchingRecords.voucherMatchingDetails || []).forEach(mr => allMatchingIds.add(mr.VoucherMatchingSid));
+            }
+
+        } else {
+            // --- For voucher types that CAN have exchange rate JV (Receipt/Payment) ---
+            let sumOfCurrencyDebits = 0;
+            let sumOfCurrencyCredits = 0;
+            chargeLineItems.forEach(detail => {
+                if (detail.DrCr === 'D') sumOfCurrencyDebits += this.toNumber(detail.Amount);
+                else sumOfCurrencyCredits += this.toNumber(detail.Amount);
+            });
+            if (sumOfCurrencyCredits - sumOfCurrencyDebits !== 0) {
+                throw new BadRequestException('Sum of currency debits and credits should be zero.');
+            }
+
+            let sumOfLocalDebits = 0;
+            let sumOfLocalCredits = 0;
+            chargeLineItems.forEach(detail => {
+                if (detail.DrCr === 'D') sumOfLocalDebits += this.toNumber(detail.LocalAmount);
+                else sumOfLocalCredits += this.toNumber(detail.LocalAmount);
+            });
+
+            let allDetails = [...chargeLineItems];
+            const exchangeRateMismatch = sumOfLocalCredits - sumOfLocalDebits;
+            if (exchangeRateMismatch) {
+                const exchangeRateDetail = await tx.voucherDetail.create({
+                    data: {
+                        CompanyMasterSid: payload.companyMasterSid,
+                        BranchMasterSid: payload.branchMasterSid,
+                        VoucherHeaderSid: voucherHeaderSid,
+                        Sno: chargeLineItems.length + 1,
+                        ChargeDescription: 'Exchange Rate',
+                        COAMasterSid: await this.getExchangeRateMismatchLedger(payload.companyMasterSid),
+                        DepartmentMasterSid: voucher.DepartmentMasterSid,
+                        HouseJobSid: voucher.HouseJobSid,
+                        MasterJobSid: voucher.MasterJobSid,
+                        CurrencyMasterSid: payload.localCurrencyMasterSid,
+                        CurrencyCode: payload.localCurrencyCode,
+                        ExchangeRate: 1,
+                        Rate: exchangeRateMismatch,
+                        NumberOfUnit: 1,
+                        Narration: 'Exchange Rate',
+                        DrCr: exchangeRateMismatch > 0 ? 'C' : 'D',
+                        Amount: Math.abs(exchangeRateMismatch),
+                        LocalAmount: Math.abs(exchangeRateMismatch),
+                        TaxableAmount: 0,
+                        YearMasterSid: payload.yearMasterSid,
+                        CreatedBy: payload.postedBy,
+                        Status: 'A',
+                    }
+                });
+                allDetails = [...allDetails, exchangeRateDetail];
+            }
+
+            for (const detail of allDetails) {
+                const transaction = await tx.voucherTransaction.create({
+                    data: {
+                        CompanyMasterSid: voucher.CompanyMasterSid,
+                        BranchMasterSid: voucher.BranchMasterSid,
+                        VoucherHeaderSid: voucherHeaderSid,
+                        VoucherDetailSid: detail.VoucherDetailSid,
+                        VoucherNumber: voucher.VoucherNumber,
+                        VoucherType: voucher.VoucherType,
+                        VoucherDate: voucher.VoucherDate,
+                        PostDate: now,
+                        GST_VAT: voucher.GST_VAT || '',
+                        Sno: detail.Sno,
+                        ChargeDescription: detail.ChargeDescription || '',
+                        LedgerMasterSid: detail.LedgerMasterSid!,
+                        COAMasterSid: detail.COAMasterSid!,
+                        DepartmentMasterSid: detail.DepartmentMasterSid || voucher.DepartmentMasterSid || null,
+                        HouseJobSid: detail.HouseJobSid || voucher.HouseJobSid || null,
+                        MasterJobSid: detail.MasterJobSid || voucher.MasterJobSid || null,
+                        CostRevenue: detail.CostRevenue || '',
+                        CurrencyCode: detail.CurrencyCode,
+                        ExchangeRate: detail.ExchangeRate || new Decimal(1),
+                        Rate: detail.Rate || new Decimal(0),
+                        NumberOfUnit: detail.NumberOfUnit || new Decimal(1),
+                        Narration: detail.Narration,
+                        DrCr: String(detail.DrCr).charAt(0) || '',
+                        TaxableAmount: detail.TaxableAmount,
+                        Amount: detail.Amount || new Decimal(0),
+                        LocalAmount: detail.LocalAmount || new Decimal(0),
+                        CostCenter: detail.CostCenter,
+                        ProfitCenter: detail.ProfitCenter,
+                        TransType: detail.DrCr === 'D' ? 'DR' : 'CR',
+                        VoucherTypeMasterSid: voucher.VoucherTypeMasterSid,
+                        YearMasterSid: payload.yearMasterSid || null,
+                        IsAutoGenerated: autoGeneratedDetailSids.has(detail.VoucherDetailSid) ? 'Y' : 'N',
+                        Status: 'A',
+                        CreatedBy: postedBy,
+                        CreatedOn: now,
+                    }
+                });
+
+                transactionSids.push(transaction.VoucherTransactionSid);
+
+                const completeDetail = await tx.voucherDetail.update({
+                    where: { VoucherDetailSid: detail.VoucherDetailSid },
+                    data: { VoucherTransactionSid: transaction.VoucherTransactionSid },
+                    include: {
+                        subledgerMaster: { select: { SubledgerType: true } }
+                    }
+                });
+
+                fullUpdatedDetail.push(completeDetail);
+            }
+            if (checkIfMatchingApplicable(voucherType)) {
+
+                // party line from recorded transactions (Customer subledger)
+                const partyDtlInRecTrans = fullUpdatedDetail.find(d => d.subledgerMaster?.SubledgerType === 'Customer');
+
+                if (!partyDtlInRecTrans) {
+                    throw new BadRequestException('Party Voucher Detail not found in recorded transactions');
+                }
+
+                const billMatchingCurrencyAmount = chargeLineItems.reduce((sum, detail) => sum + Number(detail.Amount), 0);
+                const billMatchingLocalAmount = chargeLineItems.reduce((sum, detail) => sum + Number(detail.LocalAmount), 0);
+
+                // Reversal voucher is mandatory.
+                if (!voucher.ReversalVoucher) {
+                    throw new BadRequestException('Reversal Voucher is not supported');
+                }
+
+                const partyDetailInInv = await tx.voucherHeader.findFirst({
+                    where: { VoucherHeaderSid: voucher.ReversalVoucher! },
+                    include: {
+                        VoucherDetail: {
+                            where: { Status: 'A' },
+                            include: { subledgerMaster: { select: { SubledgerType: true } } }
+                        }
+                    }
+                });
+
+                const partyDtlInInvTrans = (partyDetailInInv?.VoucherDetail || [])
+                    .find(vd => vd.subledgerMaster?.SubledgerType === 'Customer');
+
+                if (!partyDtlInInvTrans) {
+                    throw new BadRequestException('Party Voucher Detail not found in reversal/invoice voucher');
+                }
+
+                // Adjust amounts for matching
+                partyDtlInInvTrans.Amount = new Decimal(billMatchingCurrencyAmount);
+                partyDtlInInvTrans.LocalAmount = new Decimal(billMatchingLocalAmount);
+
+                const matchings = await this.createVoucherMatching({
+                    CompanyMasterSid: payload.companyMasterSid,
+                    BranchMasterSid: payload.branchMasterSid,
+                    VoucherHeaderSid: voucherHeaderSid,
+                    voucherTypeInName: voucher?.voucherTypeMaster.DocumentTypeName,
+                    SubledgerName: voucher?.subledgerMaster?.SubledgerName || '',
+                    VoucherTypeMasterSid: voucher?.voucherTypeMaster.VoucherTypeMasterSid,
+                    PostDate: voucher.PostDate!,
+                    Narration: `${voucher.VoucherNumber} ${voucher.VoucherDate.toISOString().split('T')[0]} ${voucher.CurrencyCode} ${voucher.Amount}`,
+                    createdBy: payload.postedBy,
+                    partyVoucherDetail: partyDtlInRecTrans,
+                    voucherMatching: [partyDtlInInvTrans],
+                    BillMatchingCurrencyAmount: billMatchingCurrencyAmount,
+                    BillMatchingLocalAmount: billMatchingLocalAmount,
+                }, tx);
+
+                (matchings.voucherMatchingDetails || []).forEach(mr => allMatchingIds.add(mr.VoucherMatchingSid));
+            }
+        }
+
+        const partyDetail = fullUpdatedDetail.find(
+            d => d.subledgerMaster?.SubledgerType === 'Customer' ||
+                d.LedgerMasterSid === voucher.PartyMasterSid
+        );
+        // --- Mark header as posted ---
+        await tx.voucherHeader.update({
+            where: { VoucherHeaderSid: voucherHeaderSid },
+            data: {
+                Amount: partyDetail.Amount,
+                LocalAmount: partyDetail.LocalAmount,
+                PostStatus: 'P',
+                PostDate: now,
+                UpdatedOn: now,
+                UpdatedBy: postedBy
+            }
+        });
+
+        this.logger.log(`Successfully posted voucher ${voucherHeaderSid}: ${transactionSids.length} transactions created`);
+
+        return {
+            success: true,
+            voucherHeaderSid: voucherHeaderSid,
+            transactionCount: transactionSids.length,
+            transactionSids: transactionSids,
+            matchingSids: Array.from(allMatchingIds),
+            postedAt: now,
+            errors: [],
+            message: 'Voucher posted successfully'
+        };
     }
 
     /**
@@ -2150,6 +2176,7 @@ export class VoucherService {
 
                 // Determine applicable taxes based on country and category using TaxCode
                 let taxesToApply: Array<{
+                    taxName : string;
                     taxCode: string;
                     taxMasterSid: number;
                     taxPercentage: number;
@@ -2164,6 +2191,7 @@ export class VoucherService {
 
                         if (cgstTax && detail.TaxPercentage1 && detail.TaxAmount1) {
                             taxesToApply.push({
+                                taxName : cgstTax.TaxName,
                                 taxCode: 'CGST',
                                 taxMasterSid: cgstTax.TaxMasterSid,
                                 taxPercentage: this.toNumber(detail.TaxPercentage1),
@@ -2173,6 +2201,7 @@ export class VoucherService {
 
                         if (sgstTax && detail.TaxPercentage2 && detail.TaxAmount2) {
                             taxesToApply.push({
+                                taxName : sgstTax.TaxName,
                                 taxCode: 'SGST',
                                 taxMasterSid: sgstTax.TaxMasterSid,
                                 taxPercentage: this.toNumber(detail.TaxPercentage2),
@@ -2185,6 +2214,7 @@ export class VoucherService {
 
                         if (igstTax && detail.TaxPercentage1 && detail.TaxAmount1) {
                             taxesToApply.push({
+                                taxName : igstTax.TaxName,
                                 taxCode: 'IGST',
                                 taxMasterSid: igstTax.TaxMasterSid,
                                 taxPercentage: this.toNumber(detail.TaxPercentage1),
@@ -2199,6 +2229,7 @@ export class VoucherService {
 
                         if (vatTax && detail.TaxPercentage1 && detail.TaxAmount1) {
                             taxesToApply.push({
+                                taxName : vatTax.TaxName,
                                 taxCode: 'VAT',
                                 taxMasterSid: vatTax.TaxMasterSid,
                                 taxPercentage: this.toNumber(detail.TaxPercentage1),
@@ -2253,8 +2284,9 @@ export class VoucherService {
                         });
 
                         if (!subledgerMapping) {
+                            console.log(whereClause);
                             throw new BadRequestException(
-                                `Subledger mapping not found for Tax: ${tax.taxCode} : ${tax.taxPercentage} `
+                                `Subledger mapping not found for Tax: ${tax.taxName}`
                             )
                         }
 
@@ -2264,13 +2296,14 @@ export class VoucherService {
 
                         if (!finalLedger) {
                             throw new BadRequestException(
-                                `Please configure the ${isCreditCOA ? 'Creditor' : 'Debitor'} ledger for : ${tax.taxCode} : ${tax.taxPercentage} in subledger master.`
+                                `Please configure the ${isCreditCOA ? 'Creditor' : 'Debitor'} ledger for : ${tax.taxName} in subledger master.`
                             )
                         }
 
                         taxGroups.set(key, {
                             hsSacMasterSid: hsSacMasterSid,
                             hsSacCode: hsSacCode,
+                            taxName : tax.taxName,
                             taxType: tax.taxCode,
                             taxPercentage: tax.taxPercentage,
                             taxableAmount: 0,
@@ -2418,7 +2451,7 @@ export class VoucherService {
     }
 }
 
-    async createVoucherMatching(payload: VoucherMatchingPayload,prisma: any){
+    async createVoucherMatching(payload: VoucherMatchingPayload,prisma: Prisma.TransactionClient){
         try {
             const newNumber = await this.generateVoucherMatchingHeaderNo(
                 payload.CompanyMasterSid,
@@ -2442,31 +2475,34 @@ export class VoucherService {
             })
 
             const allMatchingDetails : any[] = [];
-            const partyDetail = payload.partyVoucherDetail;
-            const partyMatchingDetail = await prisma.voucherMatching.create({
-                data : {
+            const partyDetails = payload.partyVoucherDetail;
+            const partyPayload = partyDetails.map(detail => {
+                return {
                     CreatedBy : payload.createdBy,
                     Status : 'A',
                     CompanyMasterSid : payload.CompanyMasterSid,
                     BranchMasterSid : payload.BranchMasterSid,
                     VoucherMatchingHeaderSid : createdVoucherHeader.VoucherMatchingHeaderSid,
                     VoucherHeaderSid : payload.VoucherHeaderSid,
-                    VoucherDetailSid : partyDetail.VoucherDetailSid,
-                    VoucherTransactionSid : partyDetail.VoucherTransactionSid!,
-                    MatchingTransactionSid : partyDetail.VoucherTransactionSid, // receiptId,
+                    VoucherDetailSid : detail.VoucherDetailSid,
+                    VoucherTransactionSid : detail.VoucherTransactionSid!,
+                    MatchingTransactionSid : detail.VoucherTransactionSid, // receiptId,
                     VoucherMatchingDate : payload.PostDate,
                     VoucherType : payload.VoucherTypeMasterSid,
-                    Sno : partyDetail.Sno,
-                    COAMasterSid : partyDetail.COAMasterSid,
-                    LedgerMasterSid : partyDetail.LedgerMasterSid!,
-                    CurrencyCode : partyDetail.CurrencyCode,
-                    ExchangeRate : partyDetail.ExchangeRate,
-                    DrCr : partyDetail.DrCr! || getPartyDrCr(payload.voucherTypeInName)!,
+                    Sno : detail.Sno,
+                    COAMasterSid : detail.COAMasterSid,
+                    LedgerMasterSid : detail.LedgerMasterSid!,
+                    CurrencyCode : detail.CurrencyCode,
+                    ExchangeRate : detail.ExchangeRate,
+                    DrCr : detail.DrCr! || getPartyDrCr(payload.voucherTypeInName)!,
                     Amount : payload.BillMatchingCurrencyAmount,
                     LocalAmount : payload.BillMatchingLocalAmount,
-                    PartyAmount : partyDetail.PartyAmount,
+                    PartyAmount : detail.PartyAmount,
                     MatchingType : 'Source'
                 }
+            });
+            const partyMatchingDetail = await prisma.voucherMatching.createManyAndReturn({
+                data : partyPayload
             })
             allMatchingDetails.push(partyMatchingDetail);
 
@@ -2483,7 +2519,7 @@ export class VoucherService {
                         VoucherHeaderSid: matching.VoucherHeaderSid,
                         VoucherDetailSid: matching.VoucherDetailSid,
                         VoucherTransactionSid: matching.VoucherTransactionSid,
-                        MatchingTransactionSid: partyMatchingDetail.VoucherTransactionSid,
+                        MatchingTransactionSid: partyMatchingDetail[0].VoucherTransactionSid,
                         VoucherMatchingDate: payload.PostDate,
                         VoucherType: parseInt(matching.VoucherType) || parseInt(matching.VoucherTypeMasterSid) || 0,
                         Sno: index++,
@@ -2516,7 +2552,7 @@ export class VoucherService {
     private async generateVoucherMatchingHeaderNo(
         companySid: number,
         branchSid: number,
-        prisma : PrismaClient
+        prisma : Prisma.TransactionClient
     ): Promise<string> {
         const date = moment().format('YYYYMMDD');
         const count = await this._db.voucherMatchingHeader.count({

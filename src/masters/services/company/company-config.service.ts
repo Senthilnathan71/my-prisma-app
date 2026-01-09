@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { DatabaseService } from 'src/database/database.service';
-import { CompanyConfiguration } from '@prisma/client';
+import { CompanyConfiguration, Prisma } from '@prisma/client';
 
 @Injectable()
 export class CompanyConfigService {
@@ -297,9 +297,10 @@ export class CompanyConfigService {
         }
     }
 
-    async getConfigurationValue(CompanyMasterSid: number, ConfigurationName: string) {
+    async getConfigurationValue(CompanyMasterSid: number, ConfigurationName: string,tx?: Prisma.TransactionClient) {
         try {
-            const config = await this._db.companyConfiguration.findFirst({
+            const prisma = tx || this._db;
+            const config = await prisma.companyConfiguration.findFirst({
                 where: {
                     CompanyMasterSid: CompanyMasterSid,
                     ConfigurationName: ConfigurationName,

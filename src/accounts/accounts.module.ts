@@ -22,6 +22,7 @@ import { GlobalConfigService } from 'src/common/config/master-config.service';
 import { ReportExportService } from 'src/common/services/report-export.service';
 import { VoucherService } from 'src/operation/services/voucher/voucher.service';
 import { PaymentService } from './services/payment/payment.service';
+import { CompanyConfigService } from 'src/masters/services/company/company-config.service';
 
 @Module({
     controllers: [
@@ -50,7 +51,8 @@ import { PaymentService } from './services/payment/payment.service';
         AccountsReportsService,
         ReportExportService,
         Logger,
-        VoucherService
+        VoucherService,
+        CompanyConfigService
     ]
 })
 export class AccountsModule { }
