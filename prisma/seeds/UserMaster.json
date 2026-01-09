@@ -1,0 +1,27 @@
+[
+  {
+    "userCode": "Demo                                                                                                ",
+    "userName": "Demo",
+    "userEmail": "demo@dofi.co",
+    "userPassword": "$2b$10$J3XQjvAsDiwF3xK3whwXaezZAYXJvYZ.vyK0HMAqwmxwvIUTHm9aG",
+    "isSalesperson": "1",
+    "contactNumber": "",
+    "designation": "Associate",
+    "createdBy": "demo@dofi.co",
+    "createdOn": "2025-11-20 17:56:42.291+00",
+    "updatedOn": "2025-12-29 12:51:04.504+00",
+    "deletedAt": "",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 250,
+    "LoginSid": null,
+    "UserMasterSid": 1,
+    "CostRevenue": "",
+    "DefaultDept": "",
+    "DeptHead": "",
+    "Principal": "",
+    "isLoginUser": "",
+    "userTypeId": "1",
+    "department": "{\"FCL Import\",\"LCL Export\",\"Local Transport\",\"LCL Import\",\"FCL Export\",\"LTL Export\",\"LTL Import\",\"Air Console\",\"Sea Clearance\"}"
+  }
+]

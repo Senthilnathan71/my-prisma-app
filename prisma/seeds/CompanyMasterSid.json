@@ -1,0 +1,32 @@
+[
+  {
+    "companyName": "AWS Demo Logistics LLC",
+    "companyCode": "Dem",
+    "createdBy": "demo@dofi.co",
+    "createdOn": "2025-12-29 11:39:09.544+00",
+    "updatedOn": "2025-12-31 05:13:13.422+00",
+    "deletedAt": "",
+    "updatedBy": "demo@dofi.co",
+    "addressLine1": "317 Shk Zayed Road Dubai UAE",
+    "addressLine2": "",
+    "postal_code": "567",
+    "webSite": "",
+    "phoneNumber": "",
+    "email": "info@demo.co",
+    "isHo": "Y",
+    "remarks": "",
+    "companyLogo": "",
+    "reportLogo": "",
+    "status": "A",
+    "CityMasterSid": null,
+    "CompanyMasterSid": 1,
+    "CountryMasterSid": 250,
+    "CurrencyMasterSid": 11,
+    "LoginSid": null,
+    "StateMasterSid": 3017,
+    "Pan": "",
+    "config": "{}",
+    "CIN": "",
+    "TAN": ""
+  }
+]

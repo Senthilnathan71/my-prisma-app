@@ -1,0 +1,17 @@
+[
+  {
+    "UserBranchMasterSid": 1,
+    "UserMasterSid": 1,
+    "CompanyMasterSid": 1,
+    "BranchMasterSid": 1,
+    "createdOn": "2025-11-20 17:56:42.307+00",
+    "updatedOn": "2025-11-20 17:56:42.307+00",
+    "deletedAt": "",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "LoginSid": null,
+    "status": "A",
+    "GiveAccess": "Y",
+    "IsDefault": "Y"
+  }
+]

@@ -1,36 +1,64 @@
 export const SEED_FILES: { name: string; table: string }[] = [
+    {
+        name: 'CountryMaster',
+        table: 'CountryMaster'
+    },
+    {
+        name: 'CurrencyMaster',
+        table: 'CurrencyMaster'
+    },
+    {
+        name: 'UserBranchMaster',
+        table: 'UserBranchMaster'
+    },
+    {
+        name: 'UserCompanyMaster',
+        table: 'UserCompanymaster'
+    },
+    {
+        name: 'UserMaster',
+        table: 'UserMaster'
+    },
+    {
+        name: 'UserRoleMaster',
+        table: 'UserRoleMaster'
+    },
+    {
+        name: 'CityMaster New',
+        table: 'CityMaster'
+    },
+    {
+        name: 'StateMaster',
+        table: 'StateMaster'
+    },
+    {
+        name: 'MenuMaster',
+        table: 'MenuMaster'
+    },
+    {
+        name: 'Module Master',
+        table: 'ModuleMaster'
+    },
+    {
+        name: 'RoleMaster',
+        table: 'RoleMaster '
+    },
+    {
+        name: 'RoleMenuHeader',
+        table: 'RoleMenuHeader'
+    },
+    {
+        name: 'BranchMaster',
+        table: 'BranchMaster'
+    },
+    {
+        name: 'CompanyMasterSid',
+        table: 'CompanyMaster'
+    },
     // {
-    //     name: 'unitMaster',
-    //     table: 'UnitMaster'
-    // },
-    // {
-    //     name: 'countries',
-    //     table: 'CountryMaster'
-    // },
-    // {
-    //     name: 'city',
-    //     table: 'CityMaster'
-    // },
-    // {
-    //     name: 'port',
-    //     table: 'PortMaster'
-    // },
-    // {
-    //     name: 'state',
-    //     table: 'StateMaster'
-    // },
-    // {
-    //     name: 'fieldConfiguration',
-    //     table: 'FieldConfiguration'
-    // },
-    // {
-    //     name:'uom',
-    //     table: 'UOMMaster'
-    // },
-    // {
-    //     name: 'containerType',
-    //     table: 'ContainerTypeMaster'
-    // },
+    //         name: 'reportMaster',
+    //         table: 'ReportMaster'
+    //     },
 
 
     //seed completed
@@ -49,20 +77,20 @@ export const SEED_FILES: { name: string; table: string }[] = [
     // },
 
     // Reports module seed files
-    {
-        name: 'menu-master-reports',
-        table: 'MenuMaster'
-    },
-    {
-        name: 'report-master-accounts',
-        table: 'ReportMaster'
-    },
-    {
-        name: 'report-master-operation',
-        table: 'ReportMaster'
-    },
-    {
-        name: 'report-master-detail',
-        table: 'ReportMasterDetail'
-    },
+    // {
+    //     name: 'menu-master-reports',
+    //     table: 'MenuMaster'
+    // },
+    // {
+    //     name: 'report-master-accounts',
+    //     table: 'ReportMaster'
+    // },
+    // {
+    //     name: 'report-master-operation',
+    //     table: 'ReportMaster'
+    // },
+    // {
+    //     name: 'report-master-detail',
+    //     table: 'ReportMasterDetail'
+    // },
 ]

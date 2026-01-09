@@ -1,0 +1,18 @@
+[
+  {
+    "UserRoleMasterSid": 1,
+    "UserMasterSid": 1,
+    "RoleMasterSid": 1,
+    "createdOn": "2025-12-29 12:51:04.52+00",
+    "updatedOn": "2025-12-29 12:51:04.52+00",
+    "deletedAt": "",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "Remarks": "",
+    "GiveAccess": "Y",
+    "IsDefault": "N",
+    "MenuMasterSid": null,
+    "UserCompanyMasterSid": 1
+  }
+]

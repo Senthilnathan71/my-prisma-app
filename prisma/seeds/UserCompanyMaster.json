@@ -1,0 +1,15 @@
+[
+  {
+    "UserCompanyMasterSid": 1,
+    "UserMasterSid": 1,
+    "CompanyMasterSid": 1,
+    "createdOn": "2025-11-20 17:56:42.302+00",
+    "updatedOn": "2025-11-20 17:56:42.302+00",
+    "deletedAt": "NULL",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "GiveAccess": "Y",
+    "IsDefault": "Y"
+  }
+]

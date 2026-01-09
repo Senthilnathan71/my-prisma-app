@@ -1,0 +1,2562 @@
+[
+  {
+    "countryCode": "BD",
+    "countryName": "BANGLADESH",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 1
+  },
+  {
+    "countryCode": "CH",
+    "countryName": "CHINA",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 2
+  },
+  {
+    "countryCode": "CC",
+    "countryName": "COCOS (KEELING) ISLANDS",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 3
+  },
+  {
+    "countryCode": "CG",
+    "countryName": "CONGO",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 4
+  },
+  {
+    "countryCode": "CD",
+    "countryName": "CONGO THE DEMOCRATIC REPUBLIC OF THE",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 5
+  },
+  {
+    "countryCode": "CI",
+    "countryName": "COTE D'IVOIRE (IVORY COAST)",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 6
+  },
+  {
+    "countryCode": "HR",
+    "countryName": "CROATIA (HRVATSKA)",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 7
+  },
+  {
+    "countryCode": "XA",
+    "countryName": "EXTERNAL TERRITORIES OF AUSTRALIA",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 8
+  },
+  {
+    "countryCode": "FJ",
+    "countryName": "FIJI ISLANDS",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 9
+  },
+  {
+    "countryCode": "GF",
+    "countryName": "FRENCH GUIANA",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 10
+  },
+  {
+    "countryCode": "TF",
+    "countryName": "FRENCH SOUTHERN TERRITORIES",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 11
+  },
+  {
+    "countryCode": "GM",
+    "countryName": "GAMBIA THE",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 12
+  },
+  {
+    "countryCode": "GP",
+    "countryName": "GUADELOUPE",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 13
+  },
+  {
+    "countryCode": "XU",
+    "countryName": "GUERNSEY AND ALDERNEY",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 14
+  },
+  {
+    "countryCode": "HM",
+    "countryName": "HEARD AND MCDONALD ISLANDS",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 15
+  },
+  {
+    "countryCode": "HK",
+    "countryName": "HONG KONG S.A.R.",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 16
+  },
+  {
+    "countryCode": "KP",
+    "countryName": "KOREA NORTH",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 17
+  },
+  {
+    "countryCode": "KR",
+    "countryName": "KOREA SOUTH",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 18
+  },
+  {
+    "countryCode": "MO",
+    "countryName": "MACAU S.A.R.",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 19
+  },
+  {
+    "countryCode": "XM",
+    "countryName": "MAN (ISLE OF)",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 20
+  },
+  {
+    "countryCode": "MQ",
+    "countryName": "MARTINIQUE",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 21
+  },
+  {
+    "countryCode": "NF",
+    "countryName": "NORFOLK ISLAND",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 22
+  },
+  {
+    "countryCode": "PS",
+    "countryName": "PALESTINIAN TERRITORY OCCUPIED",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 23
+  },
+  {
+    "countryCode": "PN",
+    "countryName": "PITCAIRN ISLAND",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 24
+  },
+  {
+    "countryCode": "XG",
+    "countryName": "SMALLER TERRITORIES OF THE UK",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 25
+  },
+  {
+    "countryCode": "GS",
+    "countryName": "SOUTH GEORGIA",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 26
+  },
+  {
+    "countryCode": "MK",
+    "countryName": "MACEDONIA",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 27
+  },
+  {
+    "countryCode": "ML",
+    "countryName": "MALI",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 28
+  },
+  {
+    "countryCode": "SJ",
+    "countryName": "SVALBARD AND JAN MAYEN ISLANDS",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 29
+  },
+  {
+    "countryCode": "BS",
+    "countryName": "BAHAMAS THE",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 30
+  },
+  {
+    "countryCode": "BV",
+    "countryName": "BOUVET ISLAND",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 31
+  },
+  {
+    "countryCode": "VA",
+    "countryName": "VATICAN CITY STATE (HOLY SEE)",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 32
+  },
+  {
+    "countryCode": "VG",
+    "countryName": "VIRGIN ISLANDS (BRITISH)",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 33
+  },
+  {
+    "countryCode": "VI",
+    "countryName": "VIRGIN ISLANDS (US)",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 34
+  },
+  {
+    "countryCode": "WF",
+    "countryName": "WALLIS AND FUTUNA ISLANDS",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 35
+  },
+  {
+    "countryCode": "YU",
+    "countryName": "YUGOSLAVIA",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 36
+  },
+  {
+    "countryCode": "AX",
+    "countryName": "ALAND ISLANDS",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 37
+  },
+  {
+    "countryCode": "BQ",
+    "countryName": "BONAIRE, SINT EUSTATIUS AND SABA",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 38
+  },
+  {
+    "countryCode": "MF",
+    "countryName": "SAINT MARTIN (FRENCH PART)",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 39
+  },
+  {
+    "countryCode": "SX",
+    "countryName": "SINT MAARTEN (DUTCH PART)",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 40
+  },
+  {
+    "countryCode": "TL",
+    "countryName": "TIMOR-LESTE",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 41
+  },
+  {
+    "countryCode": "XZ",
+    "countryName": "INTERNATIONAL WATERS",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 42
+  },
+  {
+    "countryCode": "AL",
+    "countryName": "ALBANIA",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 43
+  },
+  {
+    "countryCode": "DZ",
+    "countryName": "ALGERIA",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 44
+  },
+  {
+    "countryCode": "AS",
+    "countryName": "AMERICAN SAMOA",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 45
+  },
+  {
+    "countryCode": "AD",
+    "countryName": "ANDORRA",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 46
+  },
+  {
+    "countryCode": "AO",
+    "countryName": "ANGOLA",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 47
+  },
+  {
+    "countryCode": "AQ",
+    "countryName": "ANTARCTICA",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 48
+  },
+  {
+    "countryCode": "AG",
+    "countryName": "ANTIGUA AND BARBUDA",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 49
+  },
+  {
+    "countryCode": "AR",
+    "countryName": "ARGENTINA",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 50
+  },
+  {
+    "countryCode": "AM",
+    "countryName": "ARMENIA",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 51
+  },
+  {
+    "countryCode": "AW",
+    "countryName": "ARUBA",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 52
+  },
+  {
+    "countryCode": "AU",
+    "countryName": "AUSTRALIA",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 53
+  },
+  {
+    "countryCode": "AT",
+    "countryName": "AUSTRIA",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 54
+  },
+  {
+    "countryCode": "AZ",
+    "countryName": "AZERBAIJAN",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 55
+  },
+  {
+    "countryCode": "BB",
+    "countryName": "BARBADOS",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 56
+  },
+  {
+    "countryCode": "BY",
+    "countryName": "BELARUS",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 57
+  },
+  {
+    "countryCode": "BE",
+    "countryName": "BELGIUM",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 58
+  },
+  {
+    "countryCode": "BZ",
+    "countryName": "BELIZE",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 59
+  },
+  {
+    "countryCode": "BJ",
+    "countryName": "BENIN",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 60
+  },
+  {
+    "countryCode": "BM",
+    "countryName": "BERMUDA",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 61
+  },
+  {
+    "countryCode": "BT",
+    "countryName": "BHUTAN",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 62
+  },
+  {
+    "countryCode": "BO",
+    "countryName": "BOLIVIA",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 63
+  },
+  {
+    "countryCode": "BA",
+    "countryName": "BOSNIA AND HERZEGOVINA",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 64
+  },
+  {
+    "countryCode": "BW",
+    "countryName": "BOTSWANA",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 65
+  },
+  {
+    "countryCode": "BR",
+    "countryName": "BRAZIL",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 66
+  },
+  {
+    "countryCode": "BN",
+    "countryName": "BRUNEI",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 67
+  },
+  {
+    "countryCode": "BG",
+    "countryName": "BULGARIA",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 68
+  },
+  {
+    "countryCode": "AI",
+    "countryName": "ANGUILLA",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 69
+  },
+  {
+    "countryCode": "BF",
+    "countryName": "BURKINA FASO",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 70
+  },
+  {
+    "countryCode": "BI",
+    "countryName": "BURUNDI",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 71
+  },
+  {
+    "countryCode": "BH",
+    "countryName": "BAHRAIN",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 72
+  },
+  {
+    "countryCode": "KH",
+    "countryName": "CAMBODIA",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 73
+  },
+  {
+    "countryCode": "CM",
+    "countryName": "CAMEROON",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 74
+  },
+  {
+    "countryCode": "CA",
+    "countryName": "CANADA",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 75
+  },
+  {
+    "countryCode": "CV",
+    "countryName": "CAPE VERDE",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 76
+  },
+  {
+    "countryCode": "KY",
+    "countryName": "CAYMAN ISLANDS",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 77
+  },
+  {
+    "countryCode": "CF",
+    "countryName": "CENTRAL AFRICAN REPUBLIC",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 78
+  },
+  {
+    "countryCode": "TD",
+    "countryName": "CHAD",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 79
+  },
+  {
+    "countryCode": "CL",
+    "countryName": "CHILE",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 80
+  },
+  {
+    "countryCode": "CX",
+    "countryName": "CHRISTMAS ISLAND",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 81
+  },
+  {
+    "countryCode": "CO",
+    "countryName": "COLOMBIA",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 82
+  },
+  {
+    "countryCode": "KM",
+    "countryName": "COMOROS",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 83
+  },
+  {
+    "countryCode": "CK",
+    "countryName": "COOK ISLANDS",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 84
+  },
+  {
+    "countryCode": "CR",
+    "countryName": "COSTA RICA",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 85
+  },
+  {
+    "countryCode": "CU",
+    "countryName": "CUBA",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 86
+  },
+  {
+    "countryCode": "CW",
+    "countryName": "CURACAO",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 87
+  },
+  {
+    "countryCode": "CY",
+    "countryName": "CYPRUS",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 88
+  },
+  {
+    "countryCode": "CZ",
+    "countryName": "CZECH REPUBLIC",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 89
+  },
+  {
+    "countryCode": "DK",
+    "countryName": "DENMARK",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 90
+  },
+  {
+    "countryCode": "DM",
+    "countryName": "DOMINICA",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 91
+  },
+  {
+    "countryCode": "DO",
+    "countryName": "DOMINICAN REPUBLIC",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 92
+  },
+  {
+    "countryCode": "TP",
+    "countryName": "EAST TIMOR",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 93
+  },
+  {
+    "countryCode": "EC",
+    "countryName": "ECUADOR",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 94
+  },
+  {
+    "countryCode": "EG",
+    "countryName": "EGYPT",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 95
+  },
+  {
+    "countryCode": "GG",
+    "countryName": "GUERNSEY",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 96
+  },
+  {
+    "countryCode": "SV",
+    "countryName": "EL SALVADOR",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 97
+  },
+  {
+    "countryCode": "GQ",
+    "countryName": "EQUATORIAL GUINEA",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 98
+  },
+  {
+    "countryCode": "ER",
+    "countryName": "ERITREA",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 99
+  },
+  {
+    "countryCode": "EE",
+    "countryName": "ESTONIA",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 100
+  },
+  {
+    "countryCode": "ET",
+    "countryName": "ETHIOPIA",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 101
+  },
+  {
+    "countryCode": "FK",
+    "countryName": "FALKLAND ISLANDS",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 102
+  },
+  {
+    "countryCode": "FO",
+    "countryName": "FAROE ISLANDS",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 103
+  },
+  {
+    "countryCode": "FI",
+    "countryName": "FINLAND",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 104
+  },
+  {
+    "countryCode": "FR",
+    "countryName": "FRANCE",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 105
+  },
+  {
+    "countryCode": "PF",
+    "countryName": "FRENCH POLYNESIA",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 106
+  },
+  {
+    "countryCode": "GA",
+    "countryName": "GABON",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 107
+  },
+  {
+    "countryCode": "GE",
+    "countryName": "GEORGIA",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 108
+  },
+  {
+    "countryCode": "DE",
+    "countryName": "GERMANY",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 109
+  },
+  {
+    "countryCode": "GH",
+    "countryName": "GHANA",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 110
+  },
+  {
+    "countryCode": "GI",
+    "countryName": "GIBRALTAR",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 111
+  },
+  {
+    "countryCode": "GR",
+    "countryName": "GREECE",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 112
+  },
+  {
+    "countryCode": "GL",
+    "countryName": "GREENLAND",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 113
+  },
+  {
+    "countryCode": "GD",
+    "countryName": "GRENADA",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 114
+  },
+  {
+    "countryCode": "GU",
+    "countryName": "GUAM",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 115
+  },
+  {
+    "countryCode": "GT",
+    "countryName": "GUATEMALA",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 116
+  },
+  {
+    "countryCode": "GN",
+    "countryName": "GUINEA",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 117
+  },
+  {
+    "countryCode": "GW",
+    "countryName": "GUINEA-BISSAU",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 118
+  },
+  {
+    "countryCode": "GY",
+    "countryName": "GUYANA",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 119
+  },
+  {
+    "countryCode": "HT",
+    "countryName": "HAITI",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 120
+  },
+  {
+    "countryCode": "HN",
+    "countryName": "HONDURAS",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 121
+  },
+  {
+    "countryCode": "HU",
+    "countryName": "HUNGARY",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 122
+  },
+  {
+    "countryCode": "IS",
+    "countryName": "ICELAND",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 123
+  },
+  {
+    "countryCode": "ID",
+    "countryName": "INDONESIA",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 124
+  },
+  {
+    "countryCode": "IR",
+    "countryName": "IRAN",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 125
+  },
+  {
+    "countryCode": "IE",
+    "countryName": "IRELAND",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 126
+  },
+  {
+    "countryCode": "IM",
+    "countryName": "ISLE OF MAN",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 127
+  },
+  {
+    "countryCode": "IL",
+    "countryName": "ISRAEL",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 128
+  },
+  {
+    "countryCode": "IT",
+    "countryName": "ITALY",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 129
+  },
+  {
+    "countryCode": "JM",
+    "countryName": "JAMAICA",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 130
+  },
+  {
+    "countryCode": "JP",
+    "countryName": "JAPAN",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 131
+  },
+  {
+    "countryCode": "JE",
+    "countryName": "JERSEY",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 132
+  },
+  {
+    "countryCode": "JO",
+    "countryName": "JORDAN",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 133
+  },
+  {
+    "countryCode": "KZ",
+    "countryName": "KAZAKHSTAN",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 134
+  },
+  {
+    "countryCode": "KE",
+    "countryName": "KENYA",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 135
+  },
+  {
+    "countryCode": "KI",
+    "countryName": "KIRIBATI",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 136
+  },
+  {
+    "countryCode": "KG",
+    "countryName": "KYRGYZSTAN",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 137
+  },
+  {
+    "countryCode": "LA",
+    "countryName": "LAOS",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 138
+  },
+  {
+    "countryCode": "LV",
+    "countryName": "LATVIA",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 139
+  },
+  {
+    "countryCode": "LS",
+    "countryName": "LESOTHO",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 140
+  },
+  {
+    "countryCode": "LR",
+    "countryName": "LIBERIA",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 141
+  },
+  {
+    "countryCode": "LY",
+    "countryName": "LIBYA",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 142
+  },
+  {
+    "countryCode": "LI",
+    "countryName": "LIECHTENSTEIN",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 143
+  },
+  {
+    "countryCode": "LT",
+    "countryName": "LITHUANIA",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 144
+  },
+  {
+    "countryCode": "LU",
+    "countryName": "LUXEMBOURG",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 145
+  },
+  {
+    "countryCode": "IQ",
+    "countryName": "IRAQ",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 146
+  },
+  {
+    "countryCode": "MG",
+    "countryName": "MADAGASCAR",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 147
+  },
+  {
+    "countryCode": "MW",
+    "countryName": "MALAWI",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 148
+  },
+  {
+    "countryCode": "MV",
+    "countryName": "MALDIVES",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 149
+  },
+  {
+    "countryCode": "MT",
+    "countryName": "MALTA",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 150
+  },
+  {
+    "countryCode": "MH",
+    "countryName": "MARSHALL ISLANDS",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 151
+  },
+  {
+    "countryCode": "MR",
+    "countryName": "MAURITANIA",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 152
+  },
+  {
+    "countryCode": "MU",
+    "countryName": "MAURITIUS",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 153
+  },
+  {
+    "countryCode": "YT",
+    "countryName": "MAYOTTE",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 154
+  },
+  {
+    "countryCode": "MX",
+    "countryName": "MEXICO",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 155
+  },
+  {
+    "countryCode": "FM",
+    "countryName": "MICRONESIA",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 156
+  },
+  {
+    "countryCode": "MD",
+    "countryName": "MOLDOVA",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 157
+  },
+  {
+    "countryCode": "MC",
+    "countryName": "MONACO",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 158
+  },
+  {
+    "countryCode": "MN",
+    "countryName": "MONGOLIA",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 159
+  },
+  {
+    "countryCode": "ME",
+    "countryName": "MONTENEGRO",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 160
+  },
+  {
+    "countryCode": "MS",
+    "countryName": "MONTSERRAT",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 161
+  },
+  {
+    "countryCode": "MA",
+    "countryName": "MOROCCO",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 162
+  },
+  {
+    "countryCode": "MZ",
+    "countryName": "MOZAMBIQUE",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 163
+  },
+  {
+    "countryCode": "MM",
+    "countryName": "MYANMAR",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 164
+  },
+  {
+    "countryCode": "NA",
+    "countryName": "NAMIBIA",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 165
+  },
+  {
+    "countryCode": "NR",
+    "countryName": "NAURU",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 166
+  },
+  {
+    "countryCode": "NP",
+    "countryName": "NEPAL",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 167
+  },
+  {
+    "countryCode": "AN",
+    "countryName": "NETHERLANDS ANTILLES",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 168
+  },
+  {
+    "countryCode": "NC",
+    "countryName": "NEW CALEDONIA",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 169
+  },
+  {
+    "countryCode": "NZ",
+    "countryName": "NEW ZEALAND",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 170
+  },
+  {
+    "countryCode": "NI",
+    "countryName": "NICARAGUA",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 171
+  },
+  {
+    "countryCode": "NE",
+    "countryName": "NIGER",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 172
+  },
+  {
+    "countryCode": "NG",
+    "countryName": "NIGERIA",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 173
+  },
+  {
+    "countryCode": "NU",
+    "countryName": "NIUE",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 174
+  },
+  {
+    "countryCode": "MP",
+    "countryName": "NORTHERN MARIANA ISLANDS",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 175
+  },
+  {
+    "countryCode": "NO",
+    "countryName": "NORWAY",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 176
+  },
+  {
+    "countryCode": "PK",
+    "countryName": "PAKISTAN",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 177
+  },
+  {
+    "countryCode": "PW",
+    "countryName": "PALAU",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 178
+  },
+  {
+    "countryCode": "PA",
+    "countryName": "PANAMA",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 179
+  },
+  {
+    "countryCode": "PG",
+    "countryName": "PAPUA NEW GUINEA",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 180
+  },
+  {
+    "countryCode": "PY",
+    "countryName": "PARAGUAY",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 181
+  },
+  {
+    "countryCode": "PE",
+    "countryName": "PERU",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 182
+  },
+  {
+    "countryCode": "PH",
+    "countryName": "PHILIPPINES",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 183
+  },
+  {
+    "countryCode": "PL",
+    "countryName": "POLAND",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 184
+  },
+  {
+    "countryCode": "PT",
+    "countryName": "PORTUGAL",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 185
+  },
+  {
+    "countryCode": "PR",
+    "countryName": "PUERTO RICO",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 186
+  },
+  {
+    "countryCode": "RE",
+    "countryName": "REUNION",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 187
+  },
+  {
+    "countryCode": "RO",
+    "countryName": "ROMANIA",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 188
+  },
+  {
+    "countryCode": "RU",
+    "countryName": "RUSSIA",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 189
+  },
+  {
+    "countryCode": "RW",
+    "countryName": "RWANDA",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 190
+  },
+  {
+    "countryCode": "BL",
+    "countryName": "SAINT BARTHELEMY",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 191
+  },
+  {
+    "countryCode": "SH",
+    "countryName": "SAINT HELENA",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 192
+  },
+  {
+    "countryCode": "KN",
+    "countryName": "SAINT KITTS AND NEVIS",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 193
+  },
+  {
+    "countryCode": "LC",
+    "countryName": "SAINT LUCIA",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 194
+  },
+  {
+    "countryCode": "PM",
+    "countryName": "SAINT PIERRE AND MIQUELON",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 195
+  },
+  {
+    "countryCode": "VC",
+    "countryName": "SAINT VINCENT AND THE GRENADINES",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 196
+  },
+  {
+    "countryCode": "WS",
+    "countryName": "SAMOA",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 197
+  },
+  {
+    "countryCode": "SM",
+    "countryName": "SAN MARINO",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 198
+  },
+  {
+    "countryCode": "ST",
+    "countryName": "SAO TOME AND PRINCIPE",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 199
+  },
+  {
+    "countryCode": "SN",
+    "countryName": "SENEGAL",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 200
+  },
+  {
+    "countryCode": "RS",
+    "countryName": "SERBIA",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 201
+  },
+  {
+    "countryCode": "SC",
+    "countryName": "SEYCHELLES",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 202
+  },
+  {
+    "countryCode": "SL",
+    "countryName": "SIERRA LEONE",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 203
+  },
+  {
+    "countryCode": "SK",
+    "countryName": "SLOVAKIA",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 204
+  },
+  {
+    "countryCode": "SI",
+    "countryName": "SLOVENIA",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 205
+  },
+  {
+    "countryCode": "SB",
+    "countryName": "SOLOMON ISLANDS",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 206
+  },
+  {
+    "countryCode": "SS",
+    "countryName": "SOUTH SUDAN",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 207
+  },
+  {
+    "countryCode": "ES",
+    "countryName": "SPAIN",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 208
+  },
+  {
+    "countryCode": "LK",
+    "countryName": "SRI LANKA",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 209
+  },
+  {
+    "countryCode": "SD",
+    "countryName": "SUDAN",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 210
+  },
+  {
+    "countryCode": "ZA",
+    "countryName": "SOUTH AFRICA",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 211
+  },
+  {
+    "countryCode": "SO",
+    "countryName": "SOMALIA",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 212
+  },
+  {
+    "countryCode": "SR",
+    "countryName": "SURINAME",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 213
+  },
+  {
+    "countryCode": "SZ",
+    "countryName": "SWAZILAND",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 214
+  },
+  {
+    "countryCode": "SE",
+    "countryName": "SWEDEN",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 215
+  },
+  {
+    "countryCode": "SY",
+    "countryName": "SYRIA",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 216
+  },
+  {
+    "countryCode": "TW",
+    "countryName": "TAIWAN",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 217
+  },
+  {
+    "countryCode": "TJ",
+    "countryName": "TAJIKISTAN",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 218
+  },
+  {
+    "countryCode": "TZ",
+    "countryName": "TANZANIA",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 219
+  },
+  {
+    "countryCode": "TH",
+    "countryName": "THAILAND",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 220
+  },
+  {
+    "countryCode": "TG",
+    "countryName": "TOGO",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 221
+  },
+  {
+    "countryCode": "TK",
+    "countryName": "TOKELAU",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 222
+  },
+  {
+    "countryCode": "TO",
+    "countryName": "TONGA",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 223
+  },
+  {
+    "countryCode": "TT",
+    "countryName": "TRINIDAD AND TOBAGO",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 224
+  },
+  {
+    "countryCode": "TN",
+    "countryName": "TUNISIA",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 225
+  },
+  {
+    "countryCode": "TM",
+    "countryName": "TURKMENISTAN",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 226
+  },
+  {
+    "countryCode": "TC",
+    "countryName": "TURKS AND CAICOS ISLANDS",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 227
+  },
+  {
+    "countryCode": "TV",
+    "countryName": "TUVALU",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 228
+  },
+  {
+    "countryCode": "UG",
+    "countryName": "UGANDA",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 229
+  },
+  {
+    "countryCode": "UA",
+    "countryName": "UKRAINE",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 230
+  },
+  {
+    "countryCode": "GB",
+    "countryName": "UNITED KINGDOM",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 231
+  },
+  {
+    "countryCode": "UY",
+    "countryName": "URUGUAY",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 232
+  },
+  {
+    "countryCode": "UZ",
+    "countryName": "UZBEKISTAN",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 233
+  },
+  {
+    "countryCode": "VU",
+    "countryName": "VANUATU",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 234
+  },
+  {
+    "countryCode": "VE",
+    "countryName": "VENEZUELA",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 235
+  },
+  {
+    "countryCode": "VN",
+    "countryName": "VIETNAM",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 236
+  },
+  {
+    "countryCode": "EH",
+    "countryName": "WESTERN SAHARA",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 237
+  },
+  {
+    "countryCode": "YE",
+    "countryName": "YEMEN",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 238
+  },
+  {
+    "countryCode": "ZM",
+    "countryName": "ZAMBIA",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 239
+  },
+  {
+    "countryCode": "ZW",
+    "countryName": "ZIMBABWE",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 240
+  },
+  {
+    "countryCode": "SA",
+    "countryName": "SAUDI ARABIA",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 241
+  },
+  {
+    "countryCode": "NL",
+    "countryName": "NETHERLANDS THE",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 242
+  },
+  {
+    "countryCode": "DJ",
+    "countryName": "DJIBOUTI",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 243
+  },
+  {
+    "countryCode": "TR",
+    "countryName": "TURKEY",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 244
+  },
+  {
+    "countryCode": "MY",
+    "countryName": "MALAYSIA",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 245
+  },
+  {
+    "countryCode": "KW",
+    "countryName": "KUWAIT",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 246
+  },
+  {
+    "countryCode": "LB",
+    "countryName": "LEBANON",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 247
+  },
+  {
+    "countryCode": "OM",
+    "countryName": "OMAN",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 248
+  },
+  {
+    "countryCode": "QA",
+    "countryName": "QATAR",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 249
+  },
+  {
+    "countryCode": "AE",
+    "countryName": "UNITED ARAB EMIRATES",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 250
+  },
+  {
+    "countryCode": "US",
+    "countryName": "UNITED STATES",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 251
+  },
+  {
+    "countryCode": "SG",
+    "countryName": "SINGAPORE",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 252
+  },
+  {
+    "countryCode": "BU",
+    "countryName": "BURMA",
+    "createdOn": "2025-07-13 10:12:49.221+00",
+    "updatedOn": "2025-07-13 10:12:49.221+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 253
+  },
+  {
+    "countryCode": "AF",
+    "countryName": "AFGHANISTAN",
+    "createdOn": "2025-08-05 04:43:58.134846+00",
+    "updatedOn": "2025-08-05 04:43:58.134846+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 254
+  },
+  {
+    "countryCode": "IN",
+    "countryName": "INDIA",
+    "createdOn": "2025-08-05 04:43:58.134846+00",
+    "updatedOn": "2025-08-05 04:43:58.134846+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 255
+  },
+  {
+    "countryCode": "QA",
+    "countryName": "UNITED STATES MINOR OUTLYING ISLANDS",
+    "createdOn": "2025-08-05 04:43:58.134846+00",
+    "updatedOn": "2025-08-05 04:43:58.134846+00",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CountryMasterSid": 256
+  }
+]

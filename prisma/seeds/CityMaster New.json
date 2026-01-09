@@ -1,0 +1,16 @@
+[
+  {
+    "cityCode": "DXB",
+    "cityName": "Dubai",
+    "createdOn": "2025-08-05 04:53:25.94941+00",
+    "updatedOn": "2025-10-06 06:29:59.324+00",
+    "deletedAt": "",
+    "createdBy": "demo@dofi.co",
+    "updatedBy": "demo@dofi.co",
+    "status": "A",
+    "CityMasterSid": 1,
+    "CountryMasterSid": 250,
+    "LoginSid": null,
+    "StateMasterSid": 3817
+  }
+]

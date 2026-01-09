@@ -1,0 +1,15 @@
+{
+  "CreatedOn": "2025-12-29T11:39:09.553Z",
+  "CreatedBy": "vimal@dofi.co",
+  "UpdatedOn": "2025-12-29T11:39:09.553Z",
+  "UpdatedBy": "vimal@dofi.co",
+  "Status": "A",
+  "ReportName": "Quotation Report",
+  "ReportDisplayName": "Vimal",
+  "ReportMenuSid": 81,
+  "ReportType": "Invoice",
+  "ReportFormat": "PDF",
+  "ReportExcludedCompany": {
+    "company": [3, 5, 7]
+  }
+}
