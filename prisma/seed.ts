@@ -6,6 +6,18 @@ import { SEED_FILES } from "./seeds/seed-files"
 const filePath = path.join(__dirname, 'seeds/')
 const prisma = new PrismaClient()
 
+// Transform data types for specific tables
+function transformData(tableName: string, data: any[]): any[] {
+    if (tableName === 'CurrencyMaster') {
+        return data.map(item => ({
+            ...item,
+            amountDecimal: parseInt(item.amountDecimal, 10),
+            exchangeDecimal: parseInt(item.exchangeDecimal, 10)
+        }))
+    }
+    return data
+}
+
 async function main() {
     console.log('Seeding Database....')
     for (const seed of SEED_FILES) {
@@ -13,6 +25,7 @@ async function main() {
             const fileName = filePath + seed.name + '.json'
             const data: any = fs.readFileSync(fileName, 'utf-8')
             let parsed_data = JSON.parse(data)
+            parsed_data = transformData(seed.table, parsed_data)
             await prisma[seed.table].createMany({
                 data: parsed_data
             })

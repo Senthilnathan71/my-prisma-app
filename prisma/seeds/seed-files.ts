@@ -1,43 +1,19 @@
 export const SEED_FILES: { name: string; table: string }[] = [
-    {
-        name: 'CountryMaster',
-        table: 'CountryMaster'
-    },
+    // {
+    //     name: 'CountryMaster',
+    //     table: 'CountryMaster'
+    // },
     {
         name: 'CurrencyMaster',
         table: 'CurrencyMaster'
     },
     {
-        name: 'UserBranchMaster',
-        table: 'UserBranchMaster'
-    },
-    {
-        name: 'UserCompanyMaster',
-        table: 'UserCompanymaster'
-    },
-    {
-        name: 'UserMaster',
-        table: 'UserMaster'
-    },
-    {
-        name: 'UserRoleMaster',
-        table: 'UserRoleMaster'
-    },
-    {
-        name: 'CityMaster New',
-        table: 'CityMaster'
-    },
-    {
-        name: 'StateMaster',
-        table: 'StateMaster'
-    },
-    {
-        name: 'MenuMaster',
-        table: 'MenuMaster'
-    },
-    {
         name: 'Module Master',
         table: 'ModuleMaster'
+    },
+     {
+        name: 'MenuMaster',
+        table: 'MenuMaster'
     },
     {
         name: 'RoleMaster',
@@ -48,13 +24,39 @@ export const SEED_FILES: { name: string; table: string }[] = [
         table: 'RoleMenuHeader'
     },
     {
-        name: 'BranchMaster',
-        table: 'BranchMaster'
+        name: 'StateMaster',
+        table: 'StateMaster'
     },
     {
         name: 'CompanyMasterSid',
         table: 'CompanyMaster'
     },
+    {
+        name: 'BranchMaster',
+        table: 'BranchMaster'
+    },
+    {
+        name: 'UserMaster',
+        table: 'UserMaster'
+    },
+    {
+        name: 'UserBranchMaster',
+        table: 'UserBranchMaster'
+    },
+    {
+        name: 'UserCompanyMaster',
+        table: 'UserCompanymaster'
+    },
+    {
+        name: 'UserRoleMaster',
+        table: 'UserRoleMaster'
+    },
+    {
+        name: 'CityMaster New',
+        table: 'CityMaster'
+    },
+    
+    
     // {
     //         name: 'reportMaster',
     //         table: 'ReportMaster'
