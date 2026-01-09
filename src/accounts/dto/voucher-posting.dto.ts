@@ -143,6 +143,10 @@ export class TaxSummaryDto {
   @IsString()
   hsSacCode: string;
 
+  @ApiProperty({ description: 'Tax name', example: 'CGST IP 6%' })
+  @IsString()
+  taxName: string;
+
   @ApiProperty({ description: 'Tax type (CGST, SGST, IGST, VAT)', example: 'CGST' })
   @IsString()
   taxType: string;

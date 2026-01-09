@@ -12,6 +12,7 @@ import {
     IsInt,
     IsArray,
     IsIn,
+    IsDate,
 } from 'class-validator';
 
 
@@ -521,14 +522,51 @@ export class VoucherMatchingDto {
     MatchingType: string;
 }
 
+export class TaxDetailForPostingDTO {
+  @IsNotEmpty({ message: 'Country Master Sid is required' })
+  @IsInt()
+  CountryMasterSid: number;
+
+  @IsNotEmpty({ message: 'Country Code is required' })
+  @IsString()
+  @Length(2, 2)
+  countryCode: string;
+
+  @IsNotEmpty({ message: 'Tax Category is required' })
+  @IsIn(['Intra', 'Inter'])
+  TaxCategory: 'Intra' | 'Inter';
+
+  @IsNotEmpty({ message: 'Effective From is required' })
+  @IsDateString()
+  EffectiveFrom: Date;
+
+  @IsNotEmpty({ message: 'Tax Type is required' })
+  @IsIn(['Input', 'Output'])
+  TaxType: 'Input' | 'Output';
+}
+
 export class CreateVoucherPayload extends VoucherHeaderDto {
-    @IsNotEmpty({message : 'Voucher Type Name is required'}) 
+    @IsNotEmpty({ message: 'Voucher Type Menu Name is required' })
     @IsString()
-    VoucherTypeName : string;       // eg. Invoice, Vendor Invoice 
+    VoucherTypeMenuName: string;       // eg. Invoice, Vendor Invoice 
 
     @IsOptional()
     @IsNumber()
-    YearMasterSid : number;
+    YearMasterSid: number;
+
+    @IsOptional()
+    @IsNumber()
+    LocalCurrencyMasterSid: number;
+
+    @IsOptional()
+    @IsString()
+    @Length(3, 3)
+    LocalCurrencyCode: string;
+
+    @IsOptional()
+    @ValidateNested()
+    @Type(() => TaxDetailForPostingDTO)
+    taxDetails : TaxDetailForPostingDTO;
 
     @IsNotEmpty({ message: 'Need to provide rate ids involved in the voucher' })
     @IsArray({ message: 'selectedRateIds must be an array' })
@@ -538,11 +576,22 @@ export class CreateVoucherPayload extends VoucherHeaderDto {
 
     @IsNotEmpty({ message: 'screenName is required' })
     @IsString()
-    @IsIn(['Booking', 'House Job', 'Master Job','Master Air Waybill','House Air Waybill','Service Job'], { message: 'screenName must be Booking, House Job, or Master Job' })
+    @IsIn(['Booking', 'House Job', 'Master Job', 'Master Air Waybill', 'House Air Waybill', 'Service Job'], { message: 'screenName must be Booking, House Job, or Master Job' })
     screenName: string;
 
 
 }
+
+export class CreateVoucherDTO extends VoucherHeaderDto {
+    @IsNotEmpty({message : 'Voucher Type Name is required'})
+    @IsString()
+    VoucherTypeName : string;       // eg. Invoice, Vendor Invoice
+
+    @IsOptional()
+    @IsNumber()
+    YearMasterSid : number;
+}
+
 export class CheckAutoPostingDto {
     @IsNotEmpty({message : 'MenuName is required'})
     @IsString()

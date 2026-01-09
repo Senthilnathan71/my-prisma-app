@@ -445,7 +445,7 @@ export class VoucherMatchingPayload {
   
   @IsNotEmpty()
   @Type(()=>VoucherDetailDto)
-  partyVoucherDetail: VoucherDetailDto;
+  partyVoucherDetail: VoucherDetailDto[];
 
   @IsNotEmpty()
   @IsNumber()
