@@ -7,10 +7,10 @@ export const SEED_FILES: { name: string; table: string }[] = [
     //     name: 'CurrencyMaster',
     //     table: 'CurrencyMaster'
     // },
-    {
-        name: 'ModuleMaster',
-        table: 'ModuleMaster'
-    },
+    // {
+    //     name: 'ModuleMaster',
+    //     table: 'ModuleMaster'
+    // },
      {
         name: 'MenuMaster',
         table: 'MenuMaster'
@@ -34,6 +34,10 @@ export const SEED_FILES: { name: string; table: string }[] = [
     {
         name: 'BranchMaster',
         table: 'BranchMaster'
+    },
+    {
+        name: 'userType',
+        table: 'UserType'
     },
     {
         name: 'UserMaster',

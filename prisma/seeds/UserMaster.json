@@ -21,7 +21,7 @@
     "DeptHead": "",
     "Principal": "",
     "isLoginUser": "",
-    "userTypeId": "1",
+    "userTypeId": 1,
     "department": "{\"FCL Import\",\"LCL Export\",\"Local Transport\",\"LCL Import\",\"FCL Export\",\"LTL Export\",\"LTL Import\",\"Air Console\",\"Sea Clearance\"}"
   }
 ]

@@ -8,15 +8,21 @@ const prisma = new PrismaClient()
 
 // Transform data types for specific tables
 function transformData(tableName: string, data: any[]): any[] {
-    if (tableName === 'CurrencyMaster') {
+    if (tableName === 'MenuMaster') {
         return data.map(item => ({
             ...item,
-            amountDecimal: parseInt(item.amountDecimal, 10),
-            exchangeDecimal: parseInt(item.exchangeDecimal, 10)
+            parentId:
+                item.parentId === '' ||
+                item.parentId === null ||
+                item.parentId === undefined
+                    ? null
+                    : Number(item.parentId),
         }))
     }
+
     return data
 }
+
 
 async function main() {
     console.log('Seeding Database....')
