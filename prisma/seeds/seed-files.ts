@@ -11,13 +11,13 @@ export const SEED_FILES: { name: string; table: string }[] = [
     //     name: 'ModuleMaster',
     //     table: 'ModuleMaster'
     // },
-     {
-        name: 'MenuMaster',
-        table: 'MenuMaster'
-    },
+    //  {
+    //     name: 'MenuMaster',
+    //     table: 'MenuMaster'
+    // },
     {
         name: 'RoleMaster',
-        table: 'RoleMaster '
+        table: 'RoleMaster'
     },
     {
         name: 'RoleMenuHeader',
