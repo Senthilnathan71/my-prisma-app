@@ -16,24 +16,28 @@ export const SEED_FILES: { name: string; table: string }[] = [
     //     table: 'MenuMaster'
     // },
     {
+        name: 'StateMaster',
+        table: 'StateMaster'
+    },
+    {
+        name: 'CityMasterNew',
+        table: 'CityMaster'
+    },
+    {
+        name: 'CompanyMasterSid',
+        table: 'CompanyMaster'
+    },
+     {
+        name: 'BranchMaster',
+        table: 'BranchMaster'
+    },
+    {
         name: 'RoleMaster',
         table: 'RoleMaster'
     },
     {
         name: 'RoleMenuHeader',
         table: 'RoleMenuHeader'
-    },
-    {
-        name: 'StateMaster',
-        table: 'StateMaster'
-    },
-    {
-        name: 'CompanyMasterSid',
-        table: 'CompanyMaster'
-    },
-    {
-        name: 'BranchMaster',
-        table: 'BranchMaster'
     },
     {
         name: 'userType',
@@ -44,21 +48,18 @@ export const SEED_FILES: { name: string; table: string }[] = [
         table: 'UserMaster'
     },
     {
-        name: 'UserBranchMaster',
-        table: 'UserBranchMaster'
-    },
-    {
         name: 'UserCompanyMaster',
         table: 'UserCompanymaster'
+    },
+    {
+        name: 'UserBranchMaster',
+        table: 'UserBranchMaster'
     },
     {
         name: 'UserRoleMaster',
         table: 'UserRoleMaster'
     },
-    {
-        name: 'CityMasterNew',
-        table: 'CityMaster'
-    },
+    
     
     
     // {
