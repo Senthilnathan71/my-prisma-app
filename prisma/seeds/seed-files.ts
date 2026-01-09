@@ -19,14 +19,14 @@ export const SEED_FILES: { name: string; table: string }[] = [
     //     name: 'Statemaster',
     //     table: 'StateMaster'
     // },
-    {
-        name: 'CityMasterNew',
-        table: 'CityMaster'
-    },
-    {
-        name: 'CompanyMaster',
-        table: 'CompanyMaster'
-    },
+    // {
+    //     name: 'CityMasterNew',
+    //     table: 'CityMaster'
+    // },
+    // {
+    //     name: 'CompanyMaster',
+    //     table: 'CompanyMaster'
+    // },
      {
         name: 'BranchMaster',
         table: 'BranchMaster'
