@@ -16,7 +16,7 @@ export const SEED_FILES: { name: string; table: string }[] = [
     //     table: 'MenuMaster'
     // },
     {
-        name: 'StateMaster',
+        name: 'Statemaster',
         table: 'StateMaster'
     },
     {
@@ -24,7 +24,7 @@ export const SEED_FILES: { name: string; table: string }[] = [
         table: 'CityMaster'
     },
     {
-        name: 'CompanyMasterSid',
+        name: 'CompanyMaster',
         table: 'CompanyMaster'
     },
      {
