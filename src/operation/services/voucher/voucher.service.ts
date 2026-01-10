@@ -2495,9 +2495,9 @@ export class VoucherService {
                     CurrencyCode : detail.CurrencyCode,
                     ExchangeRate : detail.ExchangeRate,
                     DrCr : detail.DrCr! || getPartyDrCr(payload.voucherTypeInName)!,
-                    Amount : payload.BillMatchingCurrencyAmount,
-                    LocalAmount : payload.BillMatchingLocalAmount,
-                    PartyAmount : detail.PartyAmount,
+                    Amount : this.toNumber(detail.PartyAmount),
+                    LocalAmount : this.toNumber(detail.LocalAmount),
+                    PartyAmount : this.toNumber(detail.PartyAmount),
                     MatchingType : 'Source'
                 }
             });
@@ -2554,8 +2554,9 @@ export class VoucherService {
         branchSid: number,
         prisma : Prisma.TransactionClient
     ): Promise<string> {
+        const tx = prisma || this._db;
         const date = moment().format('YYYYMMDD');
-        const count = await this._db.voucherMatchingHeader.count({
+        const count = await tx.voucherMatchingHeader.count({
             where: {
                 CompanyMasterSid: companySid,
                 BranchMasterSid: branchSid,

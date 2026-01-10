@@ -125,7 +125,7 @@ export class ReceiptController {
     let resp = new ResponseData();
     
     try {
-      this.logger.log(`Posting receipt ${payload}`);
+      this.logger.log(`Posting receipt ${JSON.stringify(payload)}`);
       const receipt = await this.receiptService.postReceipt({
         voucherHeaderSid: Number(payload.VoucherHeaderSid),
         companyMasterSid: Number(payload.CompanyMasterSid),
