@@ -70,7 +70,7 @@ export class OperationCommonService {
                     },
                     revenueVoucherTypeMaster: {
                         select: {
-                            DocumentTypeName: true,
+                            DocumentTypeCode: true,
                             VoucherTypeMasterSid: true
                         }
                     },
@@ -82,7 +82,7 @@ export class OperationCommonService {
                     },
                     costVoucherTypeMaster: {
                         select: {
-                            DocumentTypeName: true,
+                            DocumentTypeCode: true,
                             VoucherTypeMasterSid: true
                         }
                     },
@@ -334,7 +334,7 @@ export class OperationCommonService {
                     },
                     revenueVoucherTypeMaster: {
                         select: {
-                            DocumentTypeName: true,
+                            DocumentTypeCode: true,
                             VoucherTypeMasterSid: true
                         }
                     },
@@ -346,7 +346,7 @@ export class OperationCommonService {
                     },
                     costVoucherTypeMaster: {
                         select: {
-                            DocumentTypeName: true,
+                            DocumentTypeCode: true,
                             VoucherTypeMasterSid: true
                         }
                     }
