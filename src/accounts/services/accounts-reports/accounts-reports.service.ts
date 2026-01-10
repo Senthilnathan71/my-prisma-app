@@ -890,7 +890,7 @@ export class AccountsReportsService {
           : 1.0;
 
         // Only include if there's outstanding balance
-        if (Math.abs(outstandingCurrencyAmount) > 0 || Math.abs(outstandingLocalAmount) > 0) {
+        // if (Math.abs(outstandingCurrencyAmount) > 0 || Math.abs(outstandingLocalAmount) > 0) {
           transactions.push({
             voucherTransactionSid: vt.VoucherTransactionSid,
             voucherHeaderSid: vt.VoucherHeaderSid,
@@ -925,7 +925,7 @@ export class AccountsReportsService {
           totalOutstandingCurrency += outstandingCurrencyAmount;
           totalOutstandingLocal += outstandingLocalAmount;
         }
-      }
+      // }
 
       const response = {
         companyMasterSid: CompanyMasterSid,
@@ -1375,7 +1375,7 @@ const ledger = coaMasterSid
           : 1.0;
 
         // Only include if there's outstanding balance
-        if (Math.abs(outstandingCurrencyAmount) > 0 || Math.abs(outstandingLocalAmount) > 0) {
+       
           transactions.push({
             voucherTransactionSid: vt.VoucherTransactionSid,
             voucherHeaderSid: vt.VoucherHeaderSid,
@@ -1409,7 +1409,7 @@ const ledger = coaMasterSid
 
           totalOutstandingCurrency += outstandingCurrencyAmount;
           totalOutstandingLocal += outstandingLocalAmount;
-        }
+        
       }
 
       const response = {
