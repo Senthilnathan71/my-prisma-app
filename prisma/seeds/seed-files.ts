@@ -62,10 +62,10 @@ export const SEED_FILES: { name: string; table: string }[] = [
     
     
     
-    // {
-    //         name: 'reportMaster',
-    //         table: 'ReportMaster'
-    //     },
+    {
+            name: 'PortMaster',
+            table: 'PortMaster'
+        },
 
 
     //seed completed
