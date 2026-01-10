@@ -112,6 +112,8 @@ export class OperationReportsService {
           return await this.generateDestinationReport(parameters);
         case 'export-job-volume-teu-report':
           return await this.generateExportJobVolumeTEUReport(parameters);
+            case 'comprehensive-management':
+          return await this.generateComprehensiveManagementReport(parameters);
         default:
           throw new BadRequestException(`Report ${reportName} not implemented`);
       }
@@ -3925,6 +3927,284 @@ containerTypesMaster.forEach(m => {
   }
 }
 
+// Comprehensive Maganement Report
+  async generateComprehensiveManagementReport(params: any) {
+    const {
+      FromDate,
+      ToDate,
+      companyId: CompanyMasterSid,
+      Branch: BranchId,
+      Dept
+    } = params
+
+    try {
+
+      // Booking data
+      const bookingData = await this._db.bookingHeader.findMany({
+        where: {
+          CompanyMasterSid,
+          BranchMasterSid: { in: BranchId },
+          AND: [
+            { BookingDateTime: { gte: FromDate } },
+            { BookingDateTime: { lte: ToDate } }
+          ],
+          status: 'A',
+          DepartmentMasterSid: { in: Dept },
+        },
+        select: {
+          bookingRates: {
+            select: {
+              RevenueLocalAmount: true,
+              CostLocalAmount: true
+            }
+          },
+          DepartmentMasterSid: true,
+          BookingHeaderSid: true,
+          bookingCargo: {
+            select: {
+              NetWeight: true,
+              GrossWeight: true,
+              Volume: true
+            }
+          }
+        }
+      })
+
+      const allBookingDetails = bookingData.map((b => {
+        return {
+          bookingSid: b.BookingHeaderSid,
+          dept: b.DepartmentMasterSid,
+          grossWt: b.bookingCargo?.[0]?.GrossWeight,
+          netWt: b.bookingCargo?.[0]?.NetWeight,
+          vol: b.bookingCargo?.[0]?.Volume,
+          revenueLocalAmt: b.bookingRates?.[0]?.RevenueLocalAmount,
+          costLocalAmt: b.bookingRates?.[0]?.CostLocalAmount
+        }
+      }))
+
+      const bookingDeptSummary = allBookingDetails.reduce((acc, b) => {
+        const dept = b.dept;
+
+        if (!acc[dept]) {
+          acc[dept] = {
+            dept,
+            totalBookings: 0,
+            totalGrossWt: 0,
+            totalNetWt: 0,
+            totalVolume: 0,
+            totalRevenue: 0,
+            totalCost: 0,
+            totalProfit: 0
+          };
+        }
+
+        const row = acc[dept];
+
+        row.totalBookings += 1;
+        row.totalGrossWt += Number(b.grossWt || 0);
+        row.totalNetWt += Number(b.netWt || 0);
+        row.totalVolume += Number(b.vol || 0);
+        row.totalRevenue += Number(b.revenueLocalAmt || 0);
+        row.totalCost += Number(b.costLocalAmt || 0);
+        row.totalProfit = row.totalRevenue - row.totalCost;
+
+        return acc;
+      }, {} as Record<number, any>);
+
+
+      // ------------------------------------
+      // Master Job data
+      const masterJob = await this._db.masterJob.findMany({
+        where: {
+          CompanyMasterSid,
+          BranchMasterSid: { in: BranchId },
+          AND: [
+            { MasterJobDate: { gte: FromDate } },
+            { MasterJobDate: { lte: ToDate } }
+          ],
+          Status: 'A',
+          DepartmentMasterSid: { in: Dept },
+        },
+        select: {
+          DepartmentMasterSid: true,
+          GrossWeight: true,
+          NetWeight: true,
+          Volume: true,
+          containers: true,
+          MenuMasterSid: true,
+          MasterJobSid: true
+        }
+      })
+
+      const masterWithCR = await Promise.all(
+        masterJob.map(async (m) => {
+          const relatedCR = await this._db.costRevenueCharges.findMany({
+            where: {
+              MenuMasterSid: m.MenuMasterSid!,
+              TransactionSid: m.MasterJobSid,
+              status: 'A'
+            },
+            select: {
+              CostLocalAmount: true,
+              RevenueLocalAmount: true
+            }
+          });
+
+          const totalRevenue = relatedCR.reduce(
+            (s, r) => s + Number(r.RevenueLocalAmount || 0), 0
+          );
+
+          const totalCost = relatedCR.reduce(
+            (s, r) => s + Number(r.CostLocalAmount || 0), 0
+          );
+
+          return {
+            ...m,
+            totalRevenue,
+            totalCost
+          };
+        })
+      );
+
+      const reportMap = masterWithCR.reduce((acc, m) => {
+        const dept = m.DepartmentMasterSid;
+
+        if (!acc[dept]) {
+          acc[dept] = {
+            Department: dept,          // you can replace with name later
+            NoOfMasterJobs: 0,
+            Revenue: 0,
+            Cost: 0,
+            Profit: 0,
+            GrossWeight: 0,
+            NetWeight: 0,
+            CBM: 0,
+            TEUs: 0
+          };
+        }
+
+        const row = acc[dept];
+
+        row.NoOfMasterJobs += 1;
+        row.Revenue += Number(m.totalRevenue || 0);
+        row.Cost += Number(m.totalCost || 0);
+        row.GrossWeight += Number(m.GrossWeight || 0);
+        row.NetWeight += Number(m.NetWeight || 0);
+        row.CBM += Number(m.Volume || 0);
+        row.TEUs += Number(m.containers || 0);
+
+        row.Profit = row.Revenue - row.Cost;
+
+        return acc;
+      }, {} as Record<number, any>);
+
+      // ------------------------------------------
+
+      const houseData = await this._db.houseJob.findMany({
+        where: {
+          CompanyMasterSid,
+          BranchMasterSid: { in: BranchId },
+          AND: [
+            { HBLDate: { gte: FromDate } },
+            { HBLDate: { lte: ToDate } }
+          ],
+          status: 'A',
+          DepartmentMasterSid: { in: Dept },
+        },
+        select: {
+          DepartmentMasterSid: true,
+          Cargo: {
+            select: {
+              GrossWeight: true,
+              NetWeight: true,
+              Volume: true,
+            }
+          },
+          MenuMasterSid: true,
+          HouseJobSid: true
+        }
+      })
+
+
+      const housewithrate = await Promise.all(
+        houseData.map(async (m) => {
+          const relatedCR = await this._db.costRevenueCharges.findMany({
+            where: {
+              MenuMasterSid: m.MenuMasterSid!,
+              TransactionSid: m.HouseJobSid,
+              status: 'A'
+            },
+            select: {
+              CostLocalAmount: true,
+              RevenueLocalAmount: true
+            }
+          });
+
+          const totalRevenue = relatedCR.reduce(
+            (s, r) => s + Number(r.RevenueLocalAmount || 0), 0
+          );
+
+          const totalCost = relatedCR.reduce(
+            (s, r) => s + Number(r.CostLocalAmount || 0), 0
+          );
+
+          return {
+            ...m,
+            totalRevenue,
+            totalCost
+          };
+        })
+      );
+
+      const houseWithAllCal = housewithrate.reduce((acc, m) => {
+        const dept = m.DepartmentMasterSid;
+
+        if (!acc[dept]) {
+          acc[dept] = {
+            Department: dept,
+            NoOfHouseJobs: 0,
+            Revenue: 0,
+            Cost: 0,
+            Profit: 0,
+            GrossWeight: 0,
+            NetWeight: 0,
+            CBM: 0,
+            TEUs: 0
+          };
+        }
+
+        const row = acc[dept];
+
+        row.NoOfHouseJobs += 1;
+        row.Revenue += Number(m.totalRevenue || 0);
+        row.Cost += Number(m.totalCost || 0);
+        row.GrossWeight += Number(m.Cargo?.[0]?.GrossWeight || 0);
+        row.NetWeight += Number(m.Cargo?.[0]?.NetWeight || 0);
+        row.CBM += Number(m.Cargo?.[0]?.Volume || 0);
+
+        // optional
+        // row.TEUs += Number(m.containers || 0);
+
+        row.Profit = row.Revenue - row.Cost;
+
+        return acc;
+      }, {} as Record<number, any>);
+
+      // salesman Performance
+
+      
+
+      return {
+        bookingDeptSummary,
+        reportMap,
+        houseWithAllCal,
+        params
+      }
+
+    } catch (error) {
+      throw error
+    }
+  }
 
   
   async getCustomerName(companyMasterSid:number,customerMasterSid:number):Promise<string>{
