@@ -8,7 +8,7 @@
     "Port Code": "TRANC",
     "Port Name": "Alsancak",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -19,7 +19,7 @@
     "Port Code": "TRPAM",
     "Port Name": "Ambarli",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -30,7 +30,7 @@
     "Port Code": "AEARZ",
     "Port Name": "Arzanah Island",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -118,7 +118,7 @@
     "Port Code": "TRKFK",
     "Port Name": "KEFKEN",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -690,7 +690,7 @@
     "Port Code": "TRCEM",
     "Port Name": "CEMBERLITAS",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -701,7 +701,7 @@
     "Port Code": "TREEK",
     "Port Name": "EMEK",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -734,7 +734,7 @@
     "Port Code": "TRKUS",
     "Port Name": "KUSADASI",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -800,7 +800,7 @@
     "Port Code": "AEDXB",
     "Port Name": "DUBAI",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -811,7 +811,7 @@
     "Port Code": "TRKKL",
     "Port Name": "KONAKLI",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -822,7 +822,7 @@
     "Port Code": "TRHAE",
     "Port Name": "HARBIYE",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -833,7 +833,7 @@
     "Port Code": "TRYYL",
     "Port Name": "YAYALAR",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -844,7 +844,7 @@
     "Port Code": "TRKIZ",
     "Port Name": "KIZILTOPRAK",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -855,7 +855,7 @@
     "Port Code": "TRJYN",
     "Port Name": "YENIKOY",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -888,7 +888,7 @@
     "Port Code": "TRZNT",
     "Port Name": "UZUNTARLA",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -899,7 +899,7 @@
     "Port Code": "TRUZD",
     "Port Name": "SEKERPINAR",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -910,7 +910,7 @@
     "Port Code": "TRDMK",
     "Port Name": "DEMIRKAPI",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -932,7 +932,7 @@
     "Port Code": "TRDAV",
     "Port Name": "DAVUTPASA",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -943,7 +943,7 @@
     "Port Code": "AEFJR",
     "Port Name": "AL FUJAYRAH",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -965,7 +965,7 @@
     "Port Code": "AEKLB",
     "Port Name": "KALBA",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -987,7 +987,7 @@
     "Port Code": "TRYEK",
     "Port Name": "YENIKOY",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -998,7 +998,7 @@
     "Port Code": "TRMUD",
     "Port Name": "MUDANYA",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -1020,7 +1020,7 @@
     "Port Code": "TRKGK",
     "Port Name": "KARAGEDIK",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -1130,7 +1130,7 @@
     "Port Code": "TRTGT",
     "Port Name": "TOROS GUBRE TERMINAL, GUBRE",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -1141,7 +1141,7 @@
     "Port Code": "TRSRS",
     "Port Name": "SARISEKI",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -1163,7 +1163,7 @@
     "Port Code": "TRMAD",
     "Port Name": "MARDAS",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -1174,7 +1174,7 @@
     "Port Code": "TRKKY",
     "Port Name": "KARAKOY/ISTAMBUL",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -1185,7 +1185,7 @@
     "Port Code": "TRFRZ",
     "Port Name": "FIRUZKOY",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -1196,7 +1196,7 @@
     "Port Code": "TRBTS",
     "Port Name": "BESIKTAS",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -1207,7 +1207,7 @@
     "Port Code": "TRBBI",
     "Port Name": "BEYLERBEYI",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -1218,7 +1218,7 @@
     "Port Code": "TR9AK",
     "Port Name": "PASAKOY",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -1229,7 +1229,7 @@
     "Port Code": "TRYPO",
     "Port Name": "YILPORT",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -1240,7 +1240,7 @@
     "Port Code": "TRKPE",
     "Port Name": "KARTEPE",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -1251,7 +1251,7 @@
     "Port Code": "TRHIS",
     "Port Name": "HISARONU",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -4969,7 +4969,7 @@
     "Port Code": "TRADY",
     "Port Name": "YUMURTALIK",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -4980,7 +4980,7 @@
     "Port Code": "TRTUT",
     "Port Name": "TUTUNCIFTLIK",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -4991,7 +4991,7 @@
     "Port Code": "TRAKY",
     "Port Name": "AKCAY",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -5002,7 +5002,7 @@
     "Port Code": "TRCUB",
     "Port Name": "CUBUKLU",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -5013,7 +5013,7 @@
     "Port Code": "TRDIK",
     "Port Name": "DIKILI",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -5024,7 +5024,7 @@
     "Port Code": "TRAMA",
     "Port Name": "AMASRA",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -5035,7 +5035,7 @@
     "Port Code": "TRYIK",
     "Port Name": "YESILOVACIK",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -5046,7 +5046,7 @@
     "Port Code": "TRKRB",
     "Port Name": "KARABIGA",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -5057,7 +5057,7 @@
     "Port Code": "TRBZC",
     "Port Name": "BOZCAADA",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -5068,7 +5068,7 @@
     "Port Code": "TRAKC",
     "Port Name": "AKCANSA",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -5079,7 +5079,7 @@
     "Port Code": "TRCKZ",
     "Port Name": "CANAKKALE",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -5090,7 +5090,7 @@
     "Port Code": "TREDI",
     "Port Name": "EDIRNE",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -5101,7 +5101,7 @@
     "Port Code": "TRENE",
     "Port Name": "ENEZ",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -5112,7 +5112,7 @@
     "Port Code": "TRTIR",
     "Port Name": "TIREBOLU",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -5123,7 +5123,7 @@
     "Port Code": "TRANA",
     "Port Name": "ANAMUR",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -5134,7 +5134,7 @@
     "Port Code": "TRSLE",
     "Port Name": "SILE",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -5145,7 +5145,7 @@
     "Port Code": "TRCES",
     "Port Name": "CESME",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -5156,7 +5156,7 @@
     "Port Code": "TRFOC",
     "Port Name": "FOCA",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -5167,7 +5167,7 @@
     "Port Code": "TRRZY",
     "Port Name": "ROTA-IZMIT BAY",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -5178,7 +5178,7 @@
     "Port Code": "TRHAS",
     "Port Name": "HASKOY",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -5189,7 +5189,7 @@
     "Port Code": "TRPZR",
     "Port Name": "PAZAR",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -5200,7 +5200,7 @@
     "Port Code": "TRGZE",
     "Port Name": "GERZE",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -5211,7 +5211,7 @@
     "Port Code": "TRSRL",
     "Port Name": "SARAYLAR",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -5222,7 +5222,7 @@
     "Port Code": "TRMIM",
     "Port Name": "MIMARSINAN",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -5233,7 +5233,7 @@
     "Port Code": "TRVAK",
     "Port Name": "VAKFIKEBIR",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -5277,7 +5277,7 @@
     "Port Code": "TRGIR",
     "Port Name": "GIRESUN",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -5310,7 +5310,7 @@
     "Port Code": "TRDYL",
     "Port Name": "DORTYOL",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -5321,7 +5321,7 @@
     "Port Code": "TRTUZ",
     "Port Name": "TUZLA",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -5332,7 +5332,7 @@
     "Port Code": "TRURL",
     "Port Name": "URLA",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -5343,7 +5343,7 @@
     "Port Code": "TRINE",
     "Port Name": "INEBOLU",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -5398,7 +5398,7 @@
     "Port Code": "TRELI",
     "Port Name": "EREGLI",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -5486,7 +5486,7 @@
     "Port Code": "TRDAT",
     "Port Name": "DATCA",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -5497,7 +5497,7 @@
     "Port Code": "TRFET",
     "Port Name": "FETHIYE",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -5508,7 +5508,7 @@
     "Port Code": "TRMRM",
     "Port Name": "MARMARIS",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -5519,7 +5519,7 @@
     "Port Code": "TRFAS",
     "Port Name": "FATSA",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -5530,7 +5530,7 @@
     "Port Code": "TRUNY",
     "Port Name": "UNYE",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -5541,7 +5541,7 @@
     "Port Code": "TRRIZ",
     "Port Name": "RIZE",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -5552,7 +5552,7 @@
     "Port Code": "TRKSP",
     "Port Name": "PORT OF KARASU",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -5563,7 +5563,7 @@
     "Port Code": "TRAYA",
     "Port Name": "AYANCIK",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -5585,7 +5585,7 @@
     "Port Code": "TRAKB",
     "Port Name": "AKCAABAT",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -5596,7 +5596,7 @@
     "Port Code": "TRSUR",
     "Port Name": "SURMENE",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -5750,7 +5750,7 @@
     "Port Code": "TRERE",
     "Port Name": "EREGLI",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -5761,7 +5761,7 @@
     "Port Code": "TRZON",
     "Port Name": "ZONGULDAK",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -5772,7 +5772,7 @@
     "Port Code": "TRFIN",
     "Port Name": "FINIKE",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -5783,7 +5783,7 @@
     "Port Code": "TRKAS",
     "Port Name": "KAS",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -5805,7 +5805,7 @@
     "Port Code": "TRORD",
     "Port Name": "ORDU",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -6080,7 +6080,7 @@
     "Port Code": "TRAKD",
     "Port Name": "AKDENIZ",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -6091,7 +6091,7 @@
     "Port Code": "TRBOT",
     "Port Name": "BOTAS",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -6102,7 +6102,7 @@
     "Port Code": "TRTAS",
     "Port Name": "TASUCU",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -6168,7 +6168,7 @@
     "Port Code": "TRERK",
     "Port Name": "ERDEK",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -6179,7 +6179,7 @@
     "Port Code": "TRAYV",
     "Port Name": "AYVALIK",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -6190,7 +6190,7 @@
     "Port Code": "TRBHN",
     "Port Name": "BURHANIYE",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -6201,7 +6201,7 @@
     "Port Code": "TRMRA",
     "Port Name": "MARMARA",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -6212,7 +6212,7 @@
     "Port Code": "TRBOL",
     "Port Name": "BOLU",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -6223,7 +6223,7 @@
     "Port Code": "TRKBY",
     "Port Name": "KARACABEY",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -6245,7 +6245,7 @@
     "Port Code": "TRKOC",
     "Port Name": "KUSUKKUYU",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -6322,7 +6322,7 @@
     "Port Code": "TRODU",
     "Port Name": "ODUNLUK",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -6333,7 +6333,7 @@
     "Port Code": "TRGCA",
     "Port Name": "IMROZ",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -6344,7 +6344,7 @@
     "Port Code": "TRBBP",
     "Port Name": "BABA POINT",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -6399,7 +6399,7 @@
     "Port Code": "TRIDM",
     "Port Name": "ISDEMIR",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -6410,7 +6410,7 @@
     "Port Code": "TRZEY",
     "Port Name": "ZEYTINBURNU",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -6421,7 +6421,7 @@
     "Port Code": "TRUSK",
     "Port Name": "USKUDAR",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -6432,7 +6432,7 @@
     "Port Code": "TRSUT",
     "Port Name": "SUTLUCE",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -6443,7 +6443,7 @@
     "Port Code": "TRSER",
     "Port Name": "SERVIBURUN",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -6454,7 +6454,7 @@
     "Port Code": "TRPEN",
     "Port Name": "PENDIK",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -6465,7 +6465,7 @@
     "Port Code": "TRMAL",
     "Port Name": "MALTEPE",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -6476,7 +6476,7 @@
     "Port Code": "TRKAR",
     "Port Name": "KARTAL",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -6487,7 +6487,7 @@
     "Port Code": "TRHAR",
     "Port Name": "HARAMIDERE",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -6498,7 +6498,7 @@
     "Port Code": "TRGTA",
     "Port Name": "GALATA",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -6509,7 +6509,7 @@
     "Port Code": "TRBEY",
     "Port Name": "BEYKOZ",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -6520,7 +6520,7 @@
     "Port Code": "TRTUR",
     "Port Name": "TURAN",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -6531,7 +6531,7 @@
     "Port Code": "TRNEM",
     "Port Name": "NEMRUT BAY",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -6542,7 +6542,7 @@
     "Port Code": "TRLMA",
     "Port Name": "LIMAS",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -6553,7 +6553,7 @@
     "Port Code": "TRCAM",
     "Port Name": "CAMALTI",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -6575,7 +6575,7 @@
     "Port Code": "TRCID",
     "Port Name": "CIDE",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -6586,7 +6586,7 @@
     "Port Code": "TRIGN",
     "Port Name": "IGNEADA",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -6597,7 +6597,7 @@
     "Port Code": "TRYAR",
     "Port Name": "YARIMCA",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -6608,7 +6608,7 @@
     "Port Code": "TRPLP",
     "Port Name": "POLIPORT",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -6619,7 +6619,7 @@
     "Port Code": "TRHER",
     "Port Name": "HEREKE",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -6630,7 +6630,7 @@
     "Port Code": "TRDAR",
     "Port Name": "DARICA",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -6641,7 +6641,7 @@
     "Port Code": "TRAUT",
     "Port Name": "YENIKOY-AUTOPORT",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -6696,7 +6696,7 @@
     "Port Code": "TRGUL",
     "Port Name": "GULLUK",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -6707,7 +6707,7 @@
     "Port Code": "TRGKV",
     "Port Name": "AKCAPINAR",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -6718,7 +6718,7 @@
     "Port Code": "TRGCK",
     "Port Name": "GOCEK",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -6729,7 +6729,7 @@
     "Port Code": "TRBZB",
     "Port Name": "BOZBURUN",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -6751,7 +6751,7 @@
     "Port Code": "TRBOG",
     "Port Name": "BOGAZAGZI",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -6773,7 +6773,7 @@
     "Port Code": "TRAYD",
     "Port Name": "ALTINKUM",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -6960,7 +6960,7 @@
     "Port Code": "TRADA",
     "Port Name": "ADANA",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -7015,7 +7015,7 @@
     "Port Code": "TRBXN",
     "Port Name": "BODRUM",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -7026,7 +7026,7 @@
     "Port Code": "TRSSX",
     "Port Name": "SAMSUN",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -7037,7 +7037,7 @@
     "Port Code": "TRSIC",
     "Port Name": "SINOP",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -7048,7 +7048,7 @@
     "Port Code": "TRTZX",
     "Port Name": "TRABZON",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -7191,7 +7191,7 @@
     "Port Code": "TRBZI",
     "Port Name": "BALIKESIR",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -7301,7 +7301,7 @@
     "Port Code": "JEATR",
     "Port Name": "JEBEL ALI TERMINAL",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -7345,7 +7345,7 @@
     "Port Code": "TRADZ",
     "Port Name": "Adapazari",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -7444,7 +7444,7 @@
     "Port Code": "AEIND",
     "Port Name": "Indooroodilly",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -7477,7 +7477,7 @@
     "Port Code": "AEJYH",
     "Port Name": "Jumayrah",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -7532,7 +7532,7 @@
     "Port Code": "AEKHA",
     "Port Name": "Khalidia",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -7950,7 +7950,7 @@
     "Port Code": "TRAMB",
     "Port Name": "Ambarli",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -7961,7 +7961,7 @@
     "Port Code": "TREYP",
     "Port Name": "EVYAP PORT /KOCAELI",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -7972,7 +7972,7 @@
     "Port Code": "TRKMX",
     "Port Name": "KUMPORT",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -8027,7 +8027,7 @@
     "Port Code": "TRALI",
     "Port Name": "ALIAGA",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -8060,7 +8060,7 @@
     "Port Code": "AEAJM",
     "Port Name": "AJMAN",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -8434,7 +8434,7 @@
     "Port Code": "TRGMS",
     "Port Name": "GUMUSOVA",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -8456,7 +8456,7 @@
     "Port Code": "TRKFZ",
     "Port Name": "KORFEZ",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -8500,7 +8500,7 @@
     "Port Code": "TRRCS",
     "Port Name": "ERCIS",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -8632,7 +8632,7 @@
     "Port Code": "TRHOP",
     "Port Name": "HOPA",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -8665,7 +8665,7 @@
     "Port Code": "TRYAL",
     "Port Name": "YALOVA",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -8676,7 +8676,7 @@
     "Port Code": "TRDOG",
     "Port Name": "DOGUBAYAZIT",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -8687,7 +8687,7 @@
     "Port Code": "TRHSG",
     "Port Name": "HASANOGLAN",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -8753,7 +8753,7 @@
     "Port Code": "TRKCS",
     "Port Name": "KOCABAS",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -8764,7 +8764,7 @@
     "Port Code": "TRKPR",
     "Port Name": "KOPRU",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -8775,7 +8775,7 @@
     "Port Code": "TRATA",
     "Port Name": "ATAKOY",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -8786,7 +8786,7 @@
     "Port Code": "TRCAK",
     "Port Name": "CAKMAK",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -8808,7 +8808,7 @@
     "Port Code": "AEJED",
     "Port Name": "JEBEL DHANNA",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -8819,7 +8819,7 @@
     "Port Code": "AEKHL",
     "Port Name": "MINA KHALIFA/ABU DHABI",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -8830,7 +8830,7 @@
     "Port Code": "AEABU",
     "Port Name": "ABU AL BUKHOOSH",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -8841,7 +8841,7 @@
     "Port Code": "AEAJP",
     "Port Name": "AL JEER PORT",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -8852,7 +8852,7 @@
     "Port Code": "AEAMF",
     "Port Name": "MUSSAFAH",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -8863,7 +8863,7 @@
     "Port Code": "AEAMU",
     "Port Name": "ABU MUSA",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -8874,7 +8874,7 @@
     "Port Code": "AEARP",
     "Port Name": "AHMED BIN RASHID PORT",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -8885,7 +8885,7 @@
     "Port Code": "AEDAS",
     "Port Name": "DAS ISLAND",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -8896,7 +8896,7 @@
     "Port Code": "AEDBP",
     "Port Name": "DIBBA",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -8907,7 +8907,7 @@
     "Port Code": "AEDUJ",
     "Port Name": "THE PALM JUMEIRAH",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -8918,7 +8918,7 @@
     "Port Code": "AEEND",
     "Port Name": "ESNNAD",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -8929,7 +8929,7 @@
     "Port Code": "AEFAT",
     "Port Name": "FATEH TERMINAL",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -8940,7 +8940,7 @@
     "Port Code": "AEFRP",
     "Port Name": "FREE PORT",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -8951,7 +8951,7 @@
     "Port Code": "AEHTL",
     "Port Name": "HULAYLAH TERMINAL",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -8962,7 +8962,7 @@
     "Port Code": "AEHZP",
     "Port Name": "HAMRIYA FREE ZONE PORT",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -8973,7 +8973,7 @@
     "Port Code": "AEJAZ",
     "Port Name": "AL JAZEERA PORT",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -8984,7 +8984,7 @@
     "Port Code": "AEKLF",
     "Port Name": "KHOR AL FAKKAN",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -8995,7 +8995,7 @@
     "Port Code": "AEMBS",
     "Port Name": "MUBARRAS ISLAND",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -9006,7 +9006,7 @@
     "Port Code": "AEMKH",
     "Port Name": "MINA KHALID",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -9017,7 +9017,7 @@
     "Port Code": "AEMRP",
     "Port Name": "MINA RASHID PORT",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -9028,7 +9028,7 @@
     "Port Code": "AEMSA",
     "Port Name": "MINA SAQR",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -9039,7 +9039,7 @@
     "Port Code": "AEMUB",
     "Port Name": "MUBAREK TERMINAL",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -9050,7 +9050,7 @@
     "Port Code": "AEMZD",
     "Port Name": "MINA ZAYED/ABU DHABI",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -9061,7 +9061,7 @@
     "Port Code": "AEPRA",
     "Port Name": "PORT RASHID",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -9072,7 +9072,7 @@
     "Port Code": "AEQIW",
     "Port Name": "UMM AL QAIWAIN",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -9083,7 +9083,7 @@
     "Port Code": "AEQWE",
     "Port Name": "JEBEL ALI FREE ZONE",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -9094,7 +9094,7 @@
     "Port Code": "AERAK",
     "Port Name": "RAS AL KHOR",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -9105,7 +9105,7 @@
     "Port Code": "AERFA",
     "Port Name": "MIRFA",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -9116,7 +9116,7 @@
     "Port Code": "AERKP",
     "Port Name": "RAK KHOR PORT",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -9127,7 +9127,7 @@
     "Port Code": "AERMC",
     "Port Name": "RAK MARITIME CITY",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -9138,7 +9138,7 @@
     "Port Code": "AERUW",
     "Port Name": "AR RUWAYS",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -9149,7 +9149,7 @@
     "Port Code": "AERWP",
     "Port Name": "RUWAIS PORT",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -9160,7 +9160,7 @@
     "Port Code": "AESID",
     "Port Name": "SADIYAT ISLAND",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -9171,7 +9171,7 @@
     "Port Code": "AESRT",
     "Port Name": "STEVEN ROCK TERMINAL",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -9182,7 +9182,7 @@
     "Port Code": "AEULR",
     "Port Name": "UMM AL NAR",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -9193,7 +9193,7 @@
     "Port Code": "AEVHT",
     "Port Name": "VOPAK HORIZION TERMINAL",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -9204,7 +9204,7 @@
     "Port Code": "AEYAS",
     "Port Name": "YAS ISLAND",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -9215,7 +9215,7 @@
     "Port Code": "AEZUR",
     "Port Name": "ZIRKU ISLAND",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -9776,7 +9776,7 @@
     "Port Code": "TRKBS",
     "Port Name": "KABATAS",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -9820,7 +9820,7 @@
     "Port Code": "TRKRT",
     "Port Name": "KARATAS",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -9831,7 +9831,7 @@
     "Port Code": "TROKY",
     "Port Name": "ORTAKOY",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -9842,7 +9842,7 @@
     "Port Code": "TRLMG",
     "Port Name": "ELMADAG",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -9853,7 +9853,7 @@
     "Port Code": "TRUZA",
     "Port Name": "AYDINLIK KOY",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -9864,7 +9864,7 @@
     "Port Code": "TRKNL",
     "Port Name": "KAYNASLI",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -9875,7 +9875,7 @@
     "Port Code": "TRCIR",
     "Port Name": "CIHANGIR",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -9886,7 +9886,7 @@
     "Port Code": "TRARM",
     "Port Name": "ARMUTLU",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -9897,7 +9897,7 @@
     "Port Code": "TREBN",
     "Port Name": "ELBISTAN",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -9908,7 +9908,7 @@
     "Port Code": "TRUZC",
     "Port Name": "PINARBASI",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -9919,7 +9919,7 @@
     "Port Code": "TRKTS",
     "Port Name": "KABATAS",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -9930,7 +9930,7 @@
     "Port Code": "TRGUZ",
     "Port Name": "GUZELBAHCE",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -9941,7 +9941,7 @@
     "Port Code": "TRGZR",
     "Port Name": "GAZILER",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -9952,7 +9952,7 @@
     "Port Code": "TRATV",
     "Port Name": "ALTINOVA",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -9996,7 +9996,7 @@
     "Port Code": "TRKUB",
     "Port Name": "KUYUBASI",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -12350,7 +12350,7 @@
     "Port Code": "TRGEL",
     "Port Name": "GELIBOLU",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -12361,7 +12361,7 @@
     "Port Code": "TRMFZ",
     "Port Name": "MERSIN-FREE ZONE",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -16915,7 +16915,7 @@
     "Port Code": "TRYYT",
     "Port Name": "YESILYURT",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -17575,7 +17575,7 @@
     "Port Code": "TRGOR",
     "Port Name": "GORELE",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -17597,7 +17597,7 @@
     "Port Code": "TRISK",
     "Port Name": "ISKENDERUN",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -17608,7 +17608,7 @@
     "Port Code": "TRUZE",
     "Port Name": "ANTALYA FREE ZONE",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -17619,7 +17619,7 @@
     "Port Code": "TRIDS",
     "Port Name": "ICDAS JETTY",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -17652,7 +17652,7 @@
     "Port Code": "TRDRC",
     "Port Name": "DERINCE",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -17663,7 +17663,7 @@
     "Port Code": "TRGEB",
     "Port Name": "GEBZE",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -17674,7 +17674,7 @@
     "Port Code": "TRIZT",
     "Port Name": "IZMIT",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -17729,7 +17729,7 @@
     "Port Code": "TRTEK",
     "Port Name": "TEKIRDAG",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -17773,7 +17773,7 @@
     "Port Code": "TRBDM",
     "Port Name": "BANDIRMA",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -19511,7 +19511,7 @@
     "Port Code": "AEAUH",
     "Port Name": "ABU DHABI",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -19665,7 +19665,7 @@
     "Port Code": "AESHJ",
     "Port Name": "SHARJAH",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -19775,7 +19775,7 @@
     "Port Code": "TRIST",
     "Port Name": "ISTANBUL",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -19786,7 +19786,7 @@
     "Port Code": "TRIZM",
     "Port Name": "IZMIR",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -19797,7 +19797,7 @@
     "Port Code": "TRM47",
     "Port Name": "NUSAYBIN",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -20028,7 +20028,7 @@
     "Port Code": "AEHAM",
     "Port Name": "Al Hamriyah",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -20105,7 +20105,7 @@
     "Port Code": "TRMER",
     "Port Name": "MERSIN",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -20149,7 +20149,7 @@
     "Port Code": "TRAMR",
     "Port Name": "AMBARLI",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -20171,7 +20171,7 @@
     "Port Code": "TRHAY",
     "Port Name": "HAYDARPASA",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -20182,7 +20182,7 @@
     "Port Code": "TRGEM",
     "Port Name": "GEMLIK",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -20204,7 +20204,7 @@
     "Port Code": "TRDIL",
     "Port Name": "BELDEPORT",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -20237,7 +20237,7 @@
     "Port Code": "TRAYT",
     "Port Name": "ANTALYA",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -20380,7 +20380,7 @@
     "Port Code": "TRALA",
     "Port Name": "ALANYA",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -20391,7 +20391,7 @@
     "Port Code": "TRBUY",
     "Port Name": "BUYUKCUKUR",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -20424,7 +20424,7 @@
     "Port Code": "AERKT",
     "Port Name": "RAS AL KHAIMAH",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -20545,7 +20545,7 @@
     "Port Code": "TRMPT",
     "Port Name": "MARPORT",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -20666,7 +20666,7 @@
     "Port Code": "AEJEA",
     "Port Name": "JEBEL ALI",
     "PortType": "Sea",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -24098,7 +24098,7 @@
     "Port Code": "AUH",
     "Port Name": "ABU DHABI",
     "PortType": "Air",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -24736,7 +24736,7 @@
     "Port Code": "QIW",
     "Port Name": "UMM AL QAIWAIN",
     "PortType": "Air",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -24769,7 +24769,7 @@
     "Port Code": "RKT",
     "Port Name": "RAS AL KHAIMAH",
     "PortType": "Air",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -24802,7 +24802,7 @@
     "Port Code": "SHJ",
     "Port Name": "SHARJAH",
     "PortType": "Air",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
@@ -25055,7 +25055,7 @@
     "Port Code": "DXB",
     "Port Name": "DUBAI",
     "PortType": "Air",
-    "CountryMasterSid": 250
+    "CountryMasterSid": 244
   },
   {
     "createdOn": "2025-12-29T11:39:09.553Z",
