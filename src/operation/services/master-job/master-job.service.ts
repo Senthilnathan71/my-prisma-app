@@ -1102,7 +1102,7 @@ export class MasterJobService {
                             },
                             revenueVoucherTypeMaster: {
                                 select: {
-                                    DocumentTypeName: true,
+                                    DocumentTypeCode: true,
                                     VoucherTypeMasterSid: true
                                 }
                             },
@@ -1188,7 +1188,7 @@ export class MasterJobService {
                     },
                     revenueVoucherTypeMaster: {
                         select: {
-                            DocumentTypeName: true,
+                            DocumentTypeCode: true,
                             VoucherTypeMasterSid: true
                         }
                     },
@@ -1200,7 +1200,7 @@ export class MasterJobService {
                     },
                     costVoucherTypeMaster: {
                         select: {
-                            DocumentTypeName: true,
+                            DocumentTypeCode: true,
                             VoucherTypeMasterSid: true
                         }
                     },
