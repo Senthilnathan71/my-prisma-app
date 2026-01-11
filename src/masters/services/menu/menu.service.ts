@@ -234,62 +234,86 @@ export class MenuService {
 
                 let allPermissions: any[] = [];
                 if (permissions?.length) {
-                    // Soft Delete existing records that aren't in payload
+                    // 1. Get ALL existing permissions (including soft-deleted)
                     const existingPerms = await tx.menuPermission.findMany({
-                        where: {
-                            MenuMasterSid: menuMasterSid,
-                            status: 'A'
-                        }
+                        where: { MenuMasterSid: menuMasterSid }
                     });
 
-                    const newPerms = permissions;
-                    const permsToSoftDelete = existingPerms.filter(ep =>
-                        !newPerms.some(np =>
-                            np.permissionName.trim().toLowerCase() ===
-                            ep.permissionName.toLowerCase()
-                        )
+                    // 2. Create name->record map (case-insensitive)
+                    const permMap = new Map<string, typeof existingPerms[0]>();
+                    existingPerms.forEach(p => {
+                        permMap.set(p.permissionName.toLowerCase(), p);
+                    });
+
+                    // 3. Categorize permissions
+                    const toUpdate: { existing: typeof existingPerms[0], newData: any }[] = [];
+                    const toReactivate: { existing: typeof existingPerms[0], newData: any }[] = [];
+                    const toCreate: any[] = [];
+
+                    for (const p of permissions) {
+                        const key = p.permissionName.trim().toLowerCase();
+                        const existing = permMap.get(key);
+
+                        if (existing) {
+                            if (existing.status === 'D') {
+                                toReactivate.push({ existing, newData: p });
+                            } else {
+                                toUpdate.push({ existing, newData: p });
+                            }
+                        } else {
+                            toCreate.push(p);
+                        }
+                    }
+
+                    // 4. Identify permissions to soft-delete (active but not in payload)
+                    const incomingNames = new Set(
+                        permissions.map(p => p.permissionName.trim().toLowerCase())
+                    );
+                    const toSoftDelete = existingPerms.filter(p =>
+                        p.status === 'A' && !incomingNames.has(p.permissionName.toLowerCase())
                     );
 
-                    // Soft delete the permissions
-                    if (permsToSoftDelete.length > 0) {
+                    // 5. Execute batch soft-delete
+                    if (toSoftDelete.length > 0) {
                         await tx.menuPermission.updateMany({
                             where: {
-                                MenuPermissionSid: {
-                                    in: permsToSoftDelete.map(p => p.MenuPermissionSid)
-                                }
+                                MenuPermissionSid: { in: toSoftDelete.map(p => p.MenuPermissionSid) }
                             },
-                            data: {
-                                status: 'D',
-                            }
+                            data: { status: 'D', updatedBy: payload.updatedBy }
                         });
                     }
-                    // 2. Process permissions
-                    for (const p of permissions) {
-                        const existingPermission = await tx.menuPermission.findFirst({
-                            where: {
-                                MenuMasterSid: menuMasterSid,
-                                permissionName: {
-                                    equals: p.permissionName.trim(),
-                                    mode: 'insensitive'
-                                },
-                                status: 'A'
+
+                    // 6. Reactivate soft-deleted permissions (REUSE existing MenuPermissionSid)
+                    for (const { existing, newData } of toReactivate) {
+                        const reactivated = await tx.menuPermission.update({
+                            where: { MenuPermissionSid: existing.MenuPermissionSid },
+                            data: {
+                                status: 'A',
+                                permissionName: newData.permissionName,
+                                permissionCode: this.getPermissionCode(newData.permissionName),
+                                updatedBy: payload.updatedBy
                             }
                         });
+                        allPermissions.push(reactivated);
+                    }
 
-                        let permission;
-                        if (existingPermission) {
-                            permission = await tx.menuPermission.update({
-                                where: {
-                                    MenuPermissionSid: existingPermission.MenuPermissionSid
-                                },
-                                data: {
-                                    permissionName: p.permissionName,
-                                    permissionCode: this.getPermissionCode(p.permissionName),
-                                    updatedBy: payload.updatedBy,
-                                }
-                            });
-                        } else {
-                            permission = await tx.menuPermission.create({
+                    // 7. Update existing active permissions
+                    for (const { existing, newData } of toUpdate) {
+                        const updated = await tx.menuPermission.update({
+                            where: { MenuPermissionSid: existing.MenuPermissionSid },
+                            data: {
+                                permissionName: newData.permissionName,
+                                permissionCode: this.getPermissionCode(newData.permissionName),
+                                updatedBy: payload.updatedBy
+                            }
+                        });
+                        allPermissions.push(updated);
+                    }
+
+                    // 8. Create new permissions
+                    if (toCreate.length > 0) {
+                        for (const p of toCreate) {
+                            const created = await tx.menuPermission.create({
                                 data: {
                                     MenuMasterSid: menuMasterSid,
                                     permissionName: p.permissionName,
@@ -297,8 +321,8 @@ export class MenuService {
                                     createdBy: payload.createdBy
                                 }
                             });
+                            allPermissions.push(created);
                         }
-                        allPermissions.push(permission);
                     }
                 }
 
