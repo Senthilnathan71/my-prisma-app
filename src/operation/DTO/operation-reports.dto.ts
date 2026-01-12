@@ -559,3 +559,35 @@ export class exportJobVolumeTEUReportQueryDto {
   @IsInt()
   Dept?: number[];
 }
+
+export class tradelaneProfitabilityReportQueryDto {
+  @ApiProperty()
+  @IsNotEmpty()
+  @IsDateString()
+  FromDate: string;
+
+  @ApiProperty()
+  @IsNotEmpty()
+  @IsDateString()
+  ToDate: string;
+
+  @ApiProperty()
+  @IsNotEmpty()
+  @IsInt()
+  companyId: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsInt()
+  Branch?: number[];
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsInt()
+  POL?: String;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsInt()
+  POD?: String;
+}
