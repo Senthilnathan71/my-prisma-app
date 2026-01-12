@@ -670,7 +670,7 @@ Debug.log('DEBUG - Processing voucher details:', payload.VoucherDetail.length, '
       BranchMasterSid: activeBranchId,
       Status: 'A',
       voucherTypeMaster: {
-      DocumentTypeName: 'Invoice'
+      DocumentTypeCode: 'INV'
     },
       ...(search && {
         OR: [
