@@ -5,6 +5,7 @@ import { VoucherService } from 'src/operation/services/voucher/voucher.service';
 import { OutstandingInvoiceDto, SearchOutstandingDto } from 'src/accounts/dto/receipt.dto';
 import { Prisma } from '@prisma/client';
 import { roundAmount, toNumber } from 'src/common/helper';
+import { CompanyConfigService } from 'src/masters/services/company/company-config.service';
 
 @Injectable()
 export class PaymentService {
@@ -13,7 +14,8 @@ export class PaymentService {
     constructor(
         private readonly _db: DatabaseService,
         private readonly outstandingService: OutstandingService, // REUSE existing service
-        private readonly voucherService: VoucherService
+        private readonly voucherService: VoucherService,
+        private readonly companyConfigService : CompanyConfigService
     ) { }
 
     /**
@@ -366,7 +368,7 @@ export class PaymentService {
                     DepartmentMasterSid: item.DepartmentMasterSid ?? null,
                     HouseJobSid: item.HouseJobSid ?? null,
                     MasterJobSid: item.MasterJobSid ?? null,
-                    CostRevenue: item.CostRevenue || "",
+                    CostRevenue: item.DrCr === 'C' ? 'Revenue' : 'Cost',
                     CurrencyMasterSid: item.CurrencyMasterSid ?? payload.CurrencyMasterSid ?? null,
                     CurrencyCode: item.CurrencyCode || payload.CurrencyCode || "",
                     ExchangeRate: item.ExchangeRate ?? payload.ExchangeRate ?? 1,
@@ -390,7 +392,7 @@ export class PaymentService {
                     PartyAmount: item.PartyAmount ?? 0,
                 }));
 
-                // 6. Create VoucherDetail for payment
+                // 6. Create VoucherDetail for Payment
                 const createdDetails = await prisma.voucherDetail.createManyAndReturn({
                     data: allDetailPayload,
                 });
@@ -565,7 +567,7 @@ export class PaymentService {
                         DepartmentMasterSid: item.DepartmentMasterSid ?? null,
                         HouseJobSid: item.HouseJobSid ?? null,
                         MasterJobSid: item.MasterJobSid ?? null,
-                        CostRevenue: item.CostRevenue || "",
+                        CostRevenue: item.DrCr === 'D' ? 'Cost' : 'Revenue',
                         CurrencyMasterSid: item.CurrencyMasterSid ?? payload.CurrencyMasterSid ?? null,
                         CurrencyCode: item.CurrencyCode || payload.CurrencyCode || "",
                         ExchangeRate: item.ExchangeRate ?? payload.ExchangeRate ?? 1,
@@ -627,7 +629,7 @@ export class PaymentService {
                 let matchingIndex = 1;
                 const matchingOperations = voucherMatching.map(async (matching: any) => {
                     const commonMatchingData = {
-                        Sno: matchingIndex++,
+                        Sno : matchingIndex++,
                         VoucherHeaderSid: matching.VoucherHeaderSid,
                         VoucherDetailSid: matching.VoucherDetailSid ?? null,
                         VoucherTransactionSid: matching.VoucherTransactionSid ?? null,
@@ -690,7 +692,7 @@ export class PaymentService {
             postedBy: string,
             taxDetails: {
                 CountryMasterSid: number,
-                countryCode : string,
+                countryCode: string,
                 TaxCategory: 'Inter' | 'Intra',
                 EffectiveFrom: Date,
                 TaxType: 'Input' | 'Output',
@@ -711,9 +713,11 @@ export class PaymentService {
                             where: { Status: 'A' },
                             orderBy: { Sno: 'asc' },
                         },
+                        subledgerMaster: {
+                            select: { SubledgerName: true }
+                        },
                         SourceMatchingDetail: true,
-                        voucherTypeMaster: true,
-                        subledgerMaster : { select : {SubledgerName : true}}
+                        voucherTypeMaster: true
                     }
                 })
 
@@ -745,8 +749,135 @@ export class PaymentService {
                 if (voucherDate < startDate || voucherDate > endDate) throw new Error('Voucher date is outside of current financial year.');
 
                 const now = new Date();
+
+                // Check for Exchange JV
+                // Taking party amount from detail
+                const allPartyDetails = VoucherDetail.filter(d => d.LedgerMasterSid === voucher.PartyMasterSid);
+                const detailPartyAmount = toNumber((allPartyDetails || []).reduce((sum, detail) => {
+                    if (detail.DrCr === 'D') {
+                        return sum + Number(detail.PartyAmount);
+                    }
+                    return sum - Number(detail.PartyAmount);
+                },
+                    0).toFixed(2));
+                // Taking total party amount from matching
+                const billMatchingPartyAmount = toNumber((SourceMatchingDetail || []).reduce((sum, matching) => {
+                    if (matching.DrCr === 'C') {
+                        return sum + Number(matching.PartyAmount);
+                    }
+                    return sum - Number(matching.PartyAmount);
+                }, 0).toFixed(2));
+
+                const detailLocalAmount = toNumber(allPartyDetails.reduce((sum, detail) => {
+                    return detail.DrCr === 'D' ? sum + toNumber(detail.LocalAmount) : sum - toNumber(detail.LocalAmount);
+                }, 0).toFixed(2));
+
+                const billMatchingLocalAmount = toNumber((SourceMatchingDetail || []).reduce((sum, matching) => {
+                    if (matching.DrCr === 'C') {
+                        return sum + Number(matching.MatchingLocalAmount);
+                    }
+                    return sum - Number(matching.MatchingLocalAmount);
+                }, 0).toFixed(2));
+
+
+                const allDetails = [...VoucherDetail];
+
+                console.log("Exchange JV check", {
+                    detailPartyAmount,
+                    billMatchingPartyAmount,
+                    detailLocalAmount,
+                    billMatchingLocalAmount
+                })
+                if (detailPartyAmount && billMatchingPartyAmount && detailPartyAmount === billMatchingPartyAmount) {
+                    if (billMatchingLocalAmount !== detailLocalAmount) {
+                        // Exchange gain or loss exists
+                        const difference = Math.abs(billMatchingLocalAmount - detailLocalAmount);
+                        const isGain = billMatchingLocalAmount < detailLocalAmount;
+                        const coaMasterSid = toNumber(await this.companyConfigService.getConfigurationValue(payload.companyMasterSid, 'ExchangeJVCOA'));
+
+                        if (!coaMasterSid) {
+                            throw new BadRequestException('Exchange gain/loss JV COA not configured in Company Config');
+                        }
+
+                        const exchangeGainOrLossDetail = await tx.voucherDetail.create({
+                            data: {
+                                CreatedBy: payload.postedBy,
+                                Status: 'A',
+                                CompanyMasterSid: payload.companyMasterSid,
+                                BranchMasterSid: payload.branchMasterSid,
+                                VoucherHeaderSid: voucher.VoucherHeaderSid,
+                                Sno: VoucherDetail.length + 1,
+                                ChargeMasterSid: null,
+                                ChargeDescription: '',
+                                LedgerMasterSid: null,
+                                COAMasterSid: coaMasterSid,
+                                HSSACMasterSid: null,
+                                DepartmentMasterSid: voucher.DepartmentMasterSid,
+                                HouseJobSid: voucher.HouseJobSid,
+                                MasterJobSid: voucher.MasterJobSid,
+                                CostRevenue: isGain ? 'Cost' : 'Revenue',
+                                CurrencyMasterSid: payload.localCurrencyMasterSid,
+                                CurrencyCode: payload.localCurrencyCode,
+                                NumberOfUnit: 1,
+                                ExchangeRate: 1,
+                                Rate: difference,
+                                Amount: difference,
+                                LocalAmount: difference,
+                                TaxableAmount: 0,
+                                DrCr: isGain ? 'D' : 'C',
+                                Narration: `Exchange ${isGain ? 'Loss' : 'Gain'} adjustment for receipt ${voucher.VoucherNumber}`,
+                                TaxPercentage1: 0,
+                                TaxAmount1: 0,
+                                TaxPercentage2: 0,
+                                TaxAmount2: 0,
+                                PartyAmount: 0,
+                                YearMasterSid: payload.yearMasterSid,
+                                IsAutoGenerated: 'Y',
+                            }
+                        });
+                        allDetails.push(exchangeGainOrLossDetail);
+
+                        const exchangeGainLossForParty = await tx.voucherDetail.create({
+                            data: {
+                                CreatedBy: payload.postedBy,
+                                Status: 'A',
+                                CompanyMasterSid: payload.companyMasterSid,
+                                BranchMasterSid: payload.branchMasterSid,
+                                VoucherHeaderSid: voucher.VoucherHeaderSid,
+                                Sno: VoucherDetail.length + 2,
+                                ChargeMasterSid: null,
+                                ChargeDescription: "",
+                                LedgerMasterSid: voucher.PartyMasterSid,
+                                COAMasterSid: voucher.COAMasterSid!,
+                                DepartmentMasterSid: voucher.DepartmentMasterSid ?? null,
+                                HouseJobSid: voucher.HouseJobSid ?? null,
+                                MasterJobSid: voucher.MasterJobSid ?? null,
+                                CostRevenue: isGain ? 'Cost' : 'Revenue',
+                                CurrencyMasterSid: voucher.CurrencyMasterSid!,
+                                CurrencyCode: voucher.CurrencyCode!,
+                                NumberOfUnit: 1,
+                                ExchangeRate: voucher.ExchangeRate!,
+                                Rate: 0,
+                                Amount: 0,
+                                LocalAmount: difference,
+                                TaxableAmount: 0,
+                                DrCr: isGain ? 'C' : 'D',
+                                Narration: `Exchange ${isGain ? 'Loss' : 'Gain'} adjustment for party ${voucher.PartyName}`,
+                                TaxPercentage1: 0,
+                                TaxAmount1: 0,
+                                TaxPercentage2: 0,
+                                TaxAmount2: 0,
+                                PartyAmount: 0,
+                                YearMasterSid: payload.yearMasterSid,
+                                IsAutoGenerated: 'Y',
+                            }
+                        });
+                        allDetails.push(exchangeGainLossForParty);
+                    }
+                }
+
                 // Prepare VoucherTransaction payload array
-                const voucherTransactionsPayload = VoucherDetail.map((item, index) => ({
+                const voucherTransactionsPayload = allDetails.map((item, index) => ({
                     CreatedBy: item.CreatedBy,
                     Status: 'A',
                     CompanyMasterSid: item.CompanyMasterSid,
@@ -805,85 +936,13 @@ export class PaymentService {
                     allCompleteDetails.push(completeDetail);
                 }
 
-                // let sumOfCurrencyDebits = 0;
-                // let sumOfCurrencyCredits = 0;
-                // VoucherDetail.forEach(detail => {
-                //     if (detail.DrCr === 'D') sumOfCurrencyDebits += toNumber(detail.Amount);
-                //     else sumOfCurrencyCredits += toNumber(detail.Amount);
-                // });
-                // if (sumOfCurrencyCredits - sumOfCurrencyDebits !== 0) {
-                //     throw new BadRequestException('Sum of currency debits and credits should be zero.');
-                // }
-
-                // let sumOfLocalDebits = 0;
-                // let sumOfLocalCredits = 0;
-                // VoucherDetail.forEach(detail => {
-                //     if (detail.DrCr === 'D') sumOfLocalDebits += toNumber(detail.LocalAmount);
-                //     else sumOfLocalCredits += toNumber(detail.LocalAmount);
-                // });
-
-                // let allDetails = [...VoucherDetail];
-                // const currencyArr = VoucherDetail.map(detail => detail.CurrencyMasterSid).filter(Boolean);
-                // const currencySet = new Set(currencyArr);
-                // const exchangeRateMismatch = sumOfLocalDebits - sumOfLocalCredits;
-                // const formattedExRateMismatch = roundAmount(Math.abs(exchangeRateMismatch), 2);
-
-                // if (currencySet.size > 1 && formattedExRateMismatch > 0.01) {
-                //     const exchangeRateDetail = await tx.voucherDetail.create({
-                //         data: {
-                //             CompanyMasterSid: payload.companyMasterSid,
-                //             BranchMasterSid: payload.branchMasterSid,
-                //             VoucherHeaderSid: payload.voucherHeaderSid,
-                //             Sno: VoucherDetail.length + 1,
-                //             ChargeDescription: 'Exchange Rate',
-                //             COAMasterSid: await toNumber(this.getConfigurationValue(payload.companyMasterSid, 'ExchangeJVCOA')),
-                //             DepartmentMasterSid: voucher.DepartmentMasterSid,
-                //             HouseJobSid: voucher.HouseJobSid,
-                //             MasterJobSid: voucher.MasterJobSid,
-                //             CurrencyMasterSid: payload.localCurrencyMasterSid,
-                //             CurrencyCode: payload.localCurrencyCode,
-                //             ExchangeRate: 1,
-                //             Rate: exchangeRateMismatch,
-                //             NumberOfUnit: 1,
-                //             Narration: 'Exchange Rate',
-                //             DrCr: exchangeRateMismatch > 0 ? 'C' : 'D',
-                //             Amount: Math.abs(formattedExRateMismatch),
-                //             LocalAmount: Math.abs(formattedExRateMismatch),
-                //             TaxableAmount: 0,
-                //             YearMasterSid : payload.yearMasterSid,
-                //             CreatedBy: payload.postedBy,
-                //             Status: 'A',
-                //         }
-                //     });
-                //     allDetails = [...allDetails, exchangeRateDetail];
-                // }
-
-
-
-
-
-
-                const partyDetail = allCompleteDetails.find(vd => vd.subledgerMaster?.SubledgerType === 'Customer');
+                const partyDetail = allCompleteDetails.filter(vd => vd.subledgerMaster?.SubledgerType === 'Customer');
                 if (!partyDetail) {
                     throw new BadRequestException('Party Voucher Detail not found');
                 }
-                const billMatchingCurrencyAmount = toNumber((SourceMatchingDetail || []).reduce((sum, matching) => {
-                    if(matching.DrCr === 'C'){
-                        return sum + Number(matching.PartyAmount);
-                    }
-                    return sum - Number(matching.PartyAmount);
-                }, 0).toFixed(2));
-
-                const billMatchingLocalAmount = toNumber((SourceMatchingDetail || []).reduce((sum, matching) => {
-                    if(matching.DrCr === 'C'){
-                        return sum + Number(matching.MatchingLocalAmount);
-                    }
-                    return sum - Number(matching.MatchingLocalAmount);
-                }, 0).toFixed(2));
 
                 await tx.matchingDetail.deleteMany({
                     where: {
-                        SourceVoucherHeaderSid : payload.voucherHeaderSid,
                         AND: [
                             { MatchingAmount: { equals: 0 } },
                             { MatchingLocalAmount: { equals: 0 } },
@@ -895,65 +954,75 @@ export class PaymentService {
 
                 const allValidMatchings = await Promise.all(
                     filteredDetails.map(async (matching) => {
-                            // taking invoice information from each matching detail
-                            const transaction = await tx.voucherTransaction.findUnique({
-                                where: {
-                                    VoucherTransactionSid: matching.VoucherTransactionSid
-                                },
-                                select: {
-                                    COAMasterSid: true,
-                                    LedgerMasterSid: true,
-                                    VoucherTypeMasterSid: true,
-                                    CurrencyCode: true,
-                                    ExchangeRate: true,
-                                    DrCr: true,
-                                }
-                            });
-                            return {
-                                MatchingDetailSid : matching.MatchingDetailSid,
-                                VoucherHeaderSid: matching.VoucherHeaderSid,
-                                VoucherDetailSid: matching.VoucherDetailSid,
-                                VoucherTransactionSid: matching.VoucherTransactionSid,
-                                VoucherType: transaction?.VoucherTypeMasterSid || 0,
-                                COAMasterSid: transaction?.COAMasterSid || null,
-                                LedgerMasterSid: transaction?.LedgerMasterSid || null,
-                                CurrencyCode: matching?.CurrencyCode || null,
-                                ExchangeRate: matching?.ExchangeRate || null,
-                                DrCr: transaction?.DrCr || null,
-                                Amount: matching.MatchingAmount,
-                                LocalAmount: matching.MatchingLocalAmount,
-                                PartyAmount : matching.PartyAmount,
+                        // taking invoice information from each matching detail
+                        const transaction = await tx.voucherTransaction.findUnique({
+                            where: {
+                                VoucherTransactionSid: matching.VoucherTransactionSid
+                            },
+                            select: {
+                                COAMasterSid: true,
+                                LedgerMasterSid: true,
+                                VoucherTypeMasterSid: true,
+                                CurrencyCode: true,
+                                ExchangeRate: true,
+                                DrCr: true,
                             }
-                        })
+                        });
+                        return {
+                            MatchingDetailSid: matching.MatchingDetailSid,
+                            VoucherHeaderSid: matching.VoucherHeaderSid,
+                            VoucherDetailSid: matching.VoucherDetailSid,
+                            VoucherTransactionSid: matching.VoucherTransactionSid,
+                            VoucherType: transaction?.VoucherTypeMasterSid || 0,
+                            COAMasterSid: transaction?.COAMasterSid || null,
+                            LedgerMasterSid: transaction?.LedgerMasterSid || null,
+                            CurrencyCode: matching?.CurrencyCode || null,
+                            ExchangeRate: matching?.ExchangeRate || null,
+                            DrCr: transaction?.DrCr || null,
+                            Amount: matching.MatchingAmount,
+                            LocalAmount: matching.MatchingLocalAmount,
+                            PartyAmount: matching.PartyAmount,
+                        }
+                    })
                 );
                 let newVoucherMatchings: any;
-                if (billMatchingCurrencyAmount > 0 || billMatchingLocalAmount > 0) {
+                if (billMatchingPartyAmount > 0 || billMatchingLocalAmount > 0) {
                     newVoucherMatchings = await this.voucherService.createVoucherMatching({
                         CompanyMasterSid: payload.companyMasterSid,
                         BranchMasterSid: payload.branchMasterSid,
                         VoucherHeaderSid: payload.voucherHeaderSid,
+                        SubledgerName: voucher?.subledgerMaster?.SubledgerName || '',
                         voucherTypeInName: voucher?.voucherTypeMaster.DocumentTypeName,
                         VoucherTypeMasterSid: voucher?.voucherTypeMaster.VoucherTypeMasterSid,
-                        SubledgerName : voucher?.subledgerMaster?.SubledgerName || '',
-                        PostDate: now,
+                        PostDate: now ,
                         Narration: `${voucher.VoucherNumber} ${voucher.VoucherDate.toISOString().split('T')[0]} ${voucher.CurrencyCode} ${voucher.Amount}`,
                         createdBy: payload.postedBy,
                         voucherMatching: allValidMatchings,
                         partyVoucherDetail: partyDetail,
-                        BillMatchingCurrencyAmount: billMatchingCurrencyAmount,
+                        BillMatchingCurrencyAmount: billMatchingPartyAmount,
                         BillMatchingLocalAmount: billMatchingLocalAmount,
+
                     }, tx);
                 }
+
+                const finalPartyCurrency = allCompleteDetails.reduce((sum, detail) => {
+                    return detail.DrCr === 'C' ? sum + toNumber(detail.PartyAmount) : sum - toNumber(detail.PartyAmount);
+                }, 0);
+
+                const finalLocalAmount = allCompleteDetails.reduce((sum, detail) => {
+                    return detail.DrCr === 'C' ? sum + toNumber(detail.LocalAmount) : sum - toNumber(detail.LocalAmount);
+                }, 0);
+
 
                 const updatedVoucher = await tx.voucherHeader.update({
                     where: {
                         VoucherHeaderSid: voucher.VoucherHeaderSid
                     },
                     data: {
-                        Amount : partyDetail.Amount,
-                        LocalAmount : partyDetail.LocalAmount,
+                        Amount: finalPartyCurrency,
+                        LocalAmount: finalLocalAmount,
                         PostStatus: 'P',
-                        PostDate: voucher.PostDate,
+                        PostDate: now,
                         UpdatedBy: payload.postedBy
                     }
                 })
@@ -1001,7 +1070,7 @@ export class PaymentService {
                 CompanyMasterSid: activeCompanyId,
                 BranchMasterSid: activeBranchId,
                 voucherTypeMaster: {
-                    DocumentTypeName: 'Payment Voucher'
+                    DocumentTypeCode : 'PMT'
                 },
                 Status: 'A'
             };

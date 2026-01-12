@@ -612,7 +612,7 @@ export class VendorInvoiceService {
                   BranchMasterSid: activeBranchId,
                   Status: 'A',
                   voucherTypeMaster: {
-                  DocumentTypeName: 'Vendor Invoice'
+                  DocumentTypeCode: 'VIN'
                 },
               }
 

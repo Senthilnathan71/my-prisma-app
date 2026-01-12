@@ -2475,7 +2475,7 @@ export class VoucherService {
             })
 
             const allMatchingDetails : any[] = [];
-            const partyDetails = payload.partyVoucherDetail;
+            const partyDetails = payload.partyVoucherDetail || [];
             const partyPayload = partyDetails.map(detail => {
                 return {
                     CreatedBy : payload.createdBy,
