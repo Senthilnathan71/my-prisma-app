@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "postgres": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-postgres",
+        "postgresql://postgres:Nevergiveup%402025@192.168.2.10:5432/crm_prisma?schema=public"
+      ]
+    }
+  }
+}
