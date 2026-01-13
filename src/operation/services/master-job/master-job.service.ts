@@ -57,71 +57,52 @@ export class MasterJobService {
 
 
                 const MasterJobNumber = `MASTER-${dateString}-${(count + 1).toString().padStart(3, '0')}`;
-                let departmentType: string | null = null;
-                let departmentExportImport: string | null = null;
+                let departmentType = department.departmentType;
+                let departmentExportImport = department?.ExportImport ?? null;
                 let assignedMBLNo = payload.MBLNo || "";
-                if (payload.DepartmentMasterSid) {
-                    const department = await prisma.departmentMaster.findUnique({
-                        where: { DepartmentMasterSid: payload.DepartmentMasterSid },
-                        select: { 
-                            departmentType: true,
-                            ExportImport: true,
-                         }
-                    });
-                    departmentType = department?.departmentType ?? null;
-                    departmentExportImport = department?.ExportImport ?? null;
-                }
-               if (departmentType === 'Air') {
-        // Air department logic
-        const shouldAllocateMAWB = (
-            departmentType === 'Air' &&
-            departmentExportImport === 'Export'
-        );
-
-        if (shouldAllocateMAWB) {
-            // Find the first available MAWB with StockStatus = 'Free'
-            const availableMawb = await prisma.mawbStock.findFirst({
-                where: {
-                    StockStatus: 'Free',
-                    status: 'A',
-                    CompanyMasterSid: payload.CompanyMasterSid,
-                    BranchMasterSid: payload.BranchMasterSid
-                },
-                orderBy: { MawbStockSid: 'asc' }
-            });
-
-            if (!availableMawb) {
-                // If no free MAWB available, use the provided MBLNo or empty string
-                assignedMBLNo = payload.MBLNo || "";
-                console.warn('No free MAWB available for Air Export department, using provided MBLNo');
-            } else {
-                // Assign the MasterBillNumber to MBLNo
-                assignedMBLNo = availableMawb.MasterBillNumber;
-
-                // Update the MAWB stock status to 'Blocked'
-                await prisma.mawbStock.update({
-                    where: { MawbStockSid: availableMawb.MawbStockSid },
-                    data: {
-                        StockStatus: 'Blocked',
-                        updatedBy: payload.CreatedBy,
-                        updatedOn: new Date()
+                if (departmentType === 'Air') {
+                    if (departmentExportImport === 'Export') {
+ 
+                        // Find the first available MAWB with StockStatus = 'Free'
+                        const availableMawb = await prisma.mawbStock.findFirst({
+                            where: {
+                                StockStatus: 'Free',
+                                status: 'A',
+                                CompanyMasterSid: payload.CompanyMasterSid,
+                                BranchMasterSid: payload.BranchMasterSid
+                            },
+                            orderBy: { MawbStockSid: 'asc' }
+                        });
+ 
+                        if (!availableMawb) {
+                            // If no free MAWB available, use the provided MBLNo or empty string
+                            assignedMBLNo = payload.MBLNo || "";
+                            throw Error('No free MAWB available for Air Export department, using provided MBLNo');
+                        } else {
+                            // Assign the MasterBillNumber to MBLNo
+                            assignedMBLNo = availableMawb.MasterBillNumber;
+ 
+                            // Update the MAWB stock status to 'Blocked'
+                            await prisma.mawbStock.update({
+                                where: { MawbStockSid: availableMawb.MawbStockSid },
+                                data: {
+                                    StockStatus: 'Blocked',
+                                    updatedBy: payload.CreatedBy,
+                                    updatedOn: new Date()
+                                }
+                            });
+                        }
+                    } else {
+                        assignedMBLNo = payload.MBLNo || "";
                     }
-                });
-            }
-        } else if (departmentExportImport === 'Import') {
-            
-            assignedMBLNo = payload.MBLNo || "";
-        } else {
-            // For other Air cases
-            assignedMBLNo = payload.MBLNo || "";
-        }
-    } else if (departmentType === 'Sea' && departmentExportImport === 'Export') {
-        // For Sea department, auto-generate MBLNo using MasterJobNumber
-        assignedMBLNo = MasterJobNumber;
-    } else {
-        // For other department types or unspecified
-        assignedMBLNo = payload.MBLNo || "";
-    }
+                } else if(departmentType === 'Sea'){
+                    if(departmentExportImport === 'Export'){
+                        assignedMBLNo = MasterJobNumber;
+                    } else {
+                        assignedMBLNo = payload.MBLNo || "";
+                    }
+                }
+                console.log(departmentType,departmentExportImport,assignedMBLNo,payload.MBLNo);
                 const headerPayload = {
                     MasterJobNumber: MasterJobNumber,
                     MasterJobDate: payload.MasterJobDate ? new Date(payload.MasterJobDate) : new Date(),
@@ -391,17 +372,7 @@ export class MasterJobService {
                         finalHouseJobCustoms.push(createdCustoms);
                     }
                 }
-
-                return {
-                    ...createdMasterJob,
-                    ...createdVoyage,
-                    ...finalHouseJobCustoms,
-                    ...createdCostRevenueCharges,
-                    ...allConnections,
-                    ...createdActivities,
-
-                }
-            })
+            
 
             // SHIPMENT PART
 
@@ -413,7 +384,7 @@ export class MasterJobService {
 
             if (recordToCreateShipment.length > 0) {
                 let bookingNeedHouseCreateIds = recordToCreateShipment.map(shipment => shipment.BookingHeaderSid);
-                const allBookings = await this._db.bookingHeader.findMany({
+                const allBookings = await prisma.bookingHeader.findMany({
                     where: { BookingHeaderSid: { in: bookingNeedHouseCreateIds } },
                     include: {
                         bookingCargo: { where: { status: 'A' } },
@@ -427,7 +398,7 @@ export class MasterJobService {
 
 
                 const dateString = moment().format('YYYYMMDD');
-                let hblBaseCount = await this._db.houseJob.count({
+                let hblBaseCount = await prisma.houseJob.count({
                     where: { HBLNo: { contains: dateString } },
                 });
                 let hblSerial = hblBaseCount;
@@ -436,7 +407,7 @@ export class MasterJobService {
                 for (const booking of allBookings) {
                     const { bookingCargo, bookingProduct, bookingOthers, bookingConnection, bookingRates, ...bookingHeader } = booking;
 
-                    const department = await this._db.departmentMaster.findUnique({
+                    const department = await prisma.departmentMaster.findUnique({
                         where: { DepartmentMasterSid: payload.DepartmentMasterSid },
                         select: {
                             departmentType: true,
@@ -455,9 +426,9 @@ export class MasterJobService {
                     const houseJobMenuId = await this.menuMasterService.getMenuSidByName(department?.departmentType.toUpperCase() === 'AIR' ? 'House Air Waybill' : 'House Job');
 
                     // Step 1: Create main house job
-                    const houseJob = await this._db.houseJob.create({
+                    const houseJob = await prisma.houseJob.create({
                         data: {
-                            MasterJobSid: newMasterJob.MasterJobSid,
+                            MasterJobSid: createdMasterJob.MasterJobSid,
                             HBLDate : new Date(),
                             BookingHeaderSid: bookingHeader.BookingHeaderSid || null,
                             ColoadedBy: bookingHeader.NominatedBy,
@@ -531,7 +502,7 @@ export class MasterJobService {
                     if (!houseJob) continue;
 
                     if (bookingCargo?.length) {
-                        await this._db.houseJobCargo.createMany({
+                        await prisma.houseJobCargo.createMany({
                             data: bookingCargo.map((cargo) => ({
                                 HouseJobSid: houseJob.HouseJobSid,
                                 CompanyMasterSid: houseJob.CompanyMasterSid,
@@ -566,7 +537,7 @@ export class MasterJobService {
                     }
 
                     if (bookingProduct?.length) {
-                        await this._db.houseJobProduct.createMany({
+                        await prisma.houseJobProduct.createMany({
                             data: bookingProduct.map((product) => ({
                                 HouseJobSid: houseJob.HouseJobSid,
                                 ProductName: product.ProductName || '',
@@ -598,7 +569,7 @@ export class MasterJobService {
                     }
 
                     if (bookingConnection?.length) {
-                        await this._db.houseJobConnection.createMany({
+                        await prisma.houseJobConnection.createMany({
                             data: bookingConnection.map((connection) => ({
                                 HouseJobSid: houseJob.HouseJobSid,
                                 Mode: connection.Mode,
@@ -623,7 +594,7 @@ export class MasterJobService {
                         const departmentId = bookingHeader.DepartmentMasterSid;
                         let defaultClause :any[] = [];
                     if (departmentId) {
-                        const blclause = await this._db.bLClauseMaster.findMany({
+                        const blclause = await prisma.bLClauseMaster.findMany({
                             where: {
                                 DepartmentMasterSid: departmentId,
                                 DefaultClause: 'Y',
@@ -637,7 +608,7 @@ export class MasterJobService {
                             defaultClause = blclause.map(clause => clause.ClauseDescription);
                         }
                     }
-                        await this._db.houseJobOthers.create({
+                        await prisma.houseJobOthers.create({
                             data: {
                                 HouseJobSid: houseJob.HouseJobSid,
                                 CustomerRefNo: other.CustomerRefNo,
@@ -696,12 +667,12 @@ export class MasterJobService {
                     const allCostVouchers = allRates.filter(rate => rate.CostVoucherHeaderSid !== null).map(rate => rate.CostVoucherHeaderSid);
                     let houseChargeIndex = 1;
                     if (allRates.length > 0) {
-                        await this._db.costRevenueCharges.createMany({
+                        await prisma.costRevenueCharges.createMany({
                             data: allRates.map(rate => ({
                                 TransactionSid: houseJob.HouseJobSid,
                                 MenuMasterSid: houseJobMenuId || payload.MenuMasterSid,
                                 ShipmentNo: houseJob.ShipmentNo,
-                                MasterJobNo: newMasterJob.MasterJobNumber,
+                                MasterJobNo: createdMasterJob.MasterJobNumber,
                                 CompanyMasterSid: houseJob.CompanyMasterSid,
                                 BranchMasterSid: houseJob.BranchMasterSid!,
                                 createdBy: payload.CreatedBy || '',
@@ -753,14 +724,14 @@ export class MasterJobService {
                     /** Updating Vouchers with MasterJobSid && HouseJobSid */
                     if (allRevenueVouchers.length > 0) {
                         for (const revenueVoucher of allRevenueVouchers) {
-                            await this._db.voucherHeader.update({
+                            await prisma.voucherHeader.update({
                                 where: {
                                     VoucherHeaderSid: revenueVoucher!
                                 },
                                 data: {
-                                    MasterJobSid: newMasterJob.MasterJobSid,
+                                    MasterJobSid: createdMasterJob.MasterJobSid,
                                     HouseJobSid: houseJob.HouseJobSid,
-                                    MasterNumber: newMasterJob.MBLNo,
+                                    MasterNumber: createdMasterJob.MBLNo,
                                     HouseNumber: houseJob.HBLNo,
                                 }
                             }).catch(err => {
@@ -770,14 +741,14 @@ export class MasterJobService {
                     }
                     if (allCostVouchers.length > 0) {
                         for (const costVoucher of allCostVouchers) {
-                            await this._db.voucherHeader.update({
+                            await prisma.voucherHeader.update({
                                 where: {
                                     VoucherHeaderSid: costVoucher!
                                 },
                                 data: {
-                                    MasterJobSid: newMasterJob.MasterJobSid,
+                                    MasterJobSid: createdMasterJob.MasterJobSid,
                                     HouseJobSid: houseJob.HouseJobSid,
-                                    MasterNumber: newMasterJob.MBLNo,
+                                    MasterNumber: createdMasterJob.MBLNo,
                                     HouseNumber: houseJob.HBLNo,
                                 }
                             }).catch(err => {
@@ -787,22 +758,22 @@ export class MasterJobService {
                     }
 
 
-                    await this._db.bookingHeader.update({
+                    await prisma.bookingHeader.update({
                         where: { BookingHeaderSid: bookingHeader.BookingHeaderSid },
                         data: {
                             HouseNo: houseJob.HBLNo,
-                            MasterNoSid: newMasterJob.MasterJobSid,
-                            MBLNo: newMasterJob.MBLNo,
-                            MBLDate: newMasterJob.MBLDate,
+                            MasterNoSid: createdMasterJob.MasterJobSid,
+                            MBLNo: createdMasterJob.MBLNo,
+                            MBLDate: createdMasterJob.MBLDate,
                             HBLNo: houseJob?.HBLNo,
                             BookingStatus: 'Stuffed',
 
                             // If Sailing schedule changed during Loading Plan
-                            VoyageMasterSid: newMasterJob.VoyageMasterSid,
-                            VesselName: newMasterJob.VesselName,
-                            VoyageNo: newMasterJob.VoyageNo,
-                            ETA: newMasterJob.ETA,
-                            ETD: newMasterJob.ETD,
+                            VoyageMasterSid: createdVoyage.VoyageMasterSid,
+                            VesselName: createdVoyage.VesselName,
+                            VoyageNo: createdVoyage.VoyageNo,
+                            ETA: createdVoyage.ETA,
+                            ETD: createdVoyage.ETD,
                         },
                     }).catch(err => {
                         console.error('bookingHeader update error:', err);
@@ -815,27 +786,27 @@ export class MasterJobService {
             if (recordToUpdateShipment.length > 0) {
                 let houseJobNeedUpdateIds = recordToUpdateShipment.map(shipment => shipment.HBLNo);
                 for (const hblNo of houseJobNeedUpdateIds) {
-                    const ourHouse = await this._db.houseJob.findFirst({
+                    const ourHouse = await prisma.houseJob.findFirst({
                         where: {
                             HBLNo: hblNo
                         }
                     })
                     if (!ourHouse) continue;
-                    const updatedHouseJob = await this._db.houseJob.update({
+                    const updatedHouseJob = await prisma.houseJob.update({
                         where: { HouseJobSid: ourHouse.HouseJobSid },
                         data: {
-                            MasterJobSid: newMasterJob.MasterJobSid,
+                            MasterJobSid: createdMasterJob.MasterJobSid,
                         }
                     }).catch(err => {
                         console.error('houseJob update error:', err);
                     });
 
-                    const updatedBooking = await this._db.bookingHeader.update({
+                    const updatedBooking = await prisma.bookingHeader.update({
                         where: { BookingHeaderSid: ourHouse.BookingHeaderSid! },
                         data: {
-                            MasterNoSid: newMasterJob.MasterJobSid,
-                            MBLNo: newMasterJob.MBLNo,
-                            MBLDate: newMasterJob.MBLDate,
+                            MasterNoSid: createdMasterJob.MasterJobSid,
+                            MBLNo: createdMasterJob.MBLNo,
+                            MBLDate: createdMasterJob.MBLDate,
                             BookingStatus: 'Stuffed',
                         }
                     }).catch(error =>
@@ -992,10 +963,23 @@ export class MasterJobService {
 //         });
 //     }
 // }
+ return {
+                    ...createdMasterJob,
+                    ...createdVoyage,
+                    ...finalHouseJobCustoms,
+                    ...createdCostRevenueCharges,
+                    ...allConnections,
+                    ...createdActivities,
+
+                }
+        },
+        {
+    timeout: 6000000, 
+  }
+    )
             return {
                 newMasterJob,
             };
-
         } catch (error) {
             throw error;
         }
