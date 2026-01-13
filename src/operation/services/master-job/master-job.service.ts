@@ -108,18 +108,20 @@ export class MasterJobService {
                     }
                 });
             }
-        } 
-    } 
-    // ✅ AUTO-GENERATE MBLNo FOR BOTH SEA & AIR (IMPORT + EXPORT)
-if (
-    (departmentType === 'Air' || departmentType === 'Sea') &&
-    (departmentExportImport === 'Export' || departmentExportImport === 'Import')
-) {
-    assignedMBLNo = MasterJobNumber;
-} else {
-    assignedMBLNo = payload.MBLNo || "";
-}
-
+        } else if (departmentExportImport === 'Import') {
+            
+            assignedMBLNo = payload.MBLNo || "";
+        } else {
+            // For other Air cases
+            assignedMBLNo = payload.MBLNo || "";
+        }
+    } else if (departmentType === 'Sea' && departmentExportImport === 'Export') {
+        // For Sea department, auto-generate MBLNo using MasterJobNumber
+        assignedMBLNo = MasterJobNumber;
+    } else {
+        // For other department types or unspecified
+        assignedMBLNo = payload.MBLNo || "";
+    }
                 const headerPayload = {
                     MasterJobNumber: MasterJobNumber,
                     MasterJobDate: payload.MasterJobDate ? new Date(payload.MasterJobDate) : new Date(),
@@ -443,14 +445,12 @@ if (
                     });
                     const departmentExportImport = department?.ExportImport ?? null;
                     hblSerial += 1;
-                    // ✅ AUTO-GENERATE HBLNo FOR BOTH IMPORT & EXPORT
-let HBLNo;
-if (departmentExportImport === 'Export' || departmentExportImport === 'Import') {
-    HBLNo = `HOUSE-${dateString}-${hblSerial.toString().padStart(3, '0')}`;
-} else {
-    HBLNo = "";
-}
-
+                    let HBLNo;
+                    if (departmentExportImport === 'Export') {
+                        HBLNo = `HOUSE-${dateString}-${hblSerial.toString().padStart(3, '0')}`;
+                    } else {
+                        HBLNo = "";
+                    }
 
                     const houseJobMenuId = await this.menuMasterService.getMenuSidByName(department?.departmentType.toUpperCase() === 'AIR' ? 'House Air Waybill' : 'House Job');
 
