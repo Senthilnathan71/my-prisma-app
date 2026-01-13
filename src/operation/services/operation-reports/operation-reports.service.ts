@@ -4192,7 +4192,7 @@ export class OperationReportsService {
         row.GrossWeight += Number(m.GrossWeight || 0);
         row.NetWeight += Number(m.NetWeight || 0);
         row.CBM += Number(m.Volume || 0);
-        row.TEUs += Number(m.totalNoOfTEU || 0);
+        row.TEU += Number(m.totalNoOfTEU || 0);
 
         row.Profit = row.Revenue - row.Cost;
 
@@ -4494,7 +4494,7 @@ export class OperationReportsService {
 
       reportData.forEach(row => {
         const subId = row.LedgerMasterSid;
-        if (subId === null) return; // skip rows without a valid subledger
+        if (subId === null) return; 
 
         if (!customerRowsMap.has(subId)) {
           customerRowsMap.set(subId, {
