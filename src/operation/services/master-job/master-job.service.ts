@@ -974,7 +974,7 @@ export class MasterJobService {
                 }
         },
         {
-    timeout: 6000000, 
+    timeout: 120000, 
   }
     )
             return {
