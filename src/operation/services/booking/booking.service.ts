@@ -1624,6 +1624,9 @@ if (!croPayload?.BookingCroSid) {
                             chargeName: true,
                             HSNSAC: true,
                             chargeTaxMaster: {
+                                where : {
+                                    Status : 'A'
+                                },
                                 select: {
                                     ChargeTaxMasterSid: true,
                                     HSSACMasterSid : true,
