@@ -310,13 +310,16 @@ export class QuotationService {
                 include: {
                     quoteRoute : {
                         where : { status : statusWhereClause},
+                        orderBy: { createdOn: 'desc' },
                         include : {
                             // route - carrier - charge
                             quoteCarrier : { where : 
                                 { status : statusWhereClause},
+                                 orderBy: { createdOn: 'desc' },
                                 include : {
                                     quoteCharge : { where : 
-                                        { status : statusWhereClause}
+                                        { status : statusWhereClause},
+                                         orderBy: { createdOn: 'desc' },
                                     }
                                 }
                             },
@@ -324,9 +327,11 @@ export class QuotationService {
                             // route - cargo - product
                             quoteCargo : { where : 
                                 { Status : statusWhereClause},
+                                 orderBy: { CreatedOn: 'desc' },
                                 include : {
                                     quoteProduct : { where : 
-                                        { Status : statusWhereClause}
+                                        { Status : statusWhereClause},
+                                         orderBy: { CreatedOn: 'desc' },
                                     }
                                 }
                             },
