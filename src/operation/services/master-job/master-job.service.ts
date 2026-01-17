@@ -71,7 +71,8 @@ export class MasterJobService {
  
                         if (!availableMawb) {
                             // If no free MAWB available, use the provided MBLNo or empty string
-                            assignedMBLNo = MasterJobNumber || "";
+                            // assignedMBLNo = MasterJobNumber || "";
+                            assignedMBLNo = payload.MBLNo || "";
                         } else {
                             // Assign the MasterBillNumber to MBLNo
                             assignedMBLNo = availableMawb.MasterBillNumber;
