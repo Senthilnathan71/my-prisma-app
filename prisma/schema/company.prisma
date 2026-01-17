@@ -2577,7 +2577,7 @@ model MasterJob {
   DestinationAgent           Int?
   DestinationAgentName       String?                      @db.VarChar(100)
   DestinationAgentAddress    String?                      @db.VarChar(300)
-  MBLNo                      String?                      @db.VarChar(20)
+  MBLNo                      String?                      @db.VarChar(50)
   MBLDate                    DateTime?                    @db.Date
   BLReleaseType              String?                      @db.VarChar(15)
   NoofOriginal               Int?

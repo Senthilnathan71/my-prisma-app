@@ -51,46 +51,10 @@ export class MasterJobService {
 
             const menuId = await this.menuMasterService.getMenuSidByName(department.departmentType?.toUpperCase() === 'AIR' ? "Master Air Waybill" : "Master Job");
 
-            // Get MenuMasterSid for Master Job (look up by code or use provided value)
-            let numberSeriesMenuId = payload.NumberSeriesMenuMasterSid;
-            if (!numberSeriesMenuId) {
-                const masterJobMenu = await this._db.menuMaster.findFirst({
-                    where: {
-                        OR: [
-                            { MenuCode: 'MA1' },
-                            { MenuCode: 'MJ' },
-                            { MenuName: { contains: 'master job', mode: 'insensitive' } }
-                        ],
-                        status: 'A'
-                    }
-                });
-                numberSeriesMenuId = masterJobMenu?.MenuMasterSid;
-            }
-
-            // Generate Master Job number using NumberSeriesService
-            let MasterJobNumber: string | null = null;
-            if (numberSeriesMenuId) {
-                MasterJobNumber = await this.numberSeriesService.generateNextNumber(
-                    payload.CompanyMasterSid,
-                    payload.BranchMasterSid,
-                    numberSeriesMenuId,
-                    payload.DepartmentMasterSid
-                );
-            }
-
-            // Fallback to legacy format if NumberSeriesService didn't generate
-            if (!MasterJobNumber) {
-                const dateString = moment().format('YYYYMMDD');
-                const count = await this._db.masterJob.count({
-                    where: { MasterJobNumber: { contains: dateString } }
-                });
-                MasterJobNumber = `MASTER-${dateString}-${(count + 1).toString().padStart(3, '0')}`;
-            }
-
+            let assignedMBLNo = payload.MBLNo || "";
             const newMasterJob = await this._db.$transaction(async (prisma) => {
                 let departmentType = department.departmentType;
                 let departmentExportImport = department?.ExportImport ?? null;
-                let assignedMBLNo = payload.MBLNo || "";
                 if (departmentType === 'Air') {
                     if (departmentExportImport === 'Export') {
  
@@ -126,16 +90,28 @@ export class MasterJobService {
                     } else {
                         assignedMBLNo = payload.MBLNo || "";
                     }
-                } else if(departmentType === 'Sea'){
+                } else {
                     if(departmentExportImport === 'Export'){
-                        assignedMBLNo = MasterJobNumber;
+                        assignedMBLNo  = await this.numberSeriesService.generateNextNumber(
+                            payload.CompanyMasterSid,
+                            payload.BranchMasterSid,
+                            menuId,
+                            payload.DepartmentMasterSid
+                        );
+                        if (!assignedMBLNo) {
+                            const dateString = moment().format('YYYYMMDD');
+                            const count = await this._db.masterJob.count({
+                                where: { MasterJobNumber: { contains: dateString } }
+                            });
+                            assignedMBLNo = `MASTER-${dateString}-${(count + 1).toString().padStart(3, '0')}`;
+                        }
                     } else {
                         assignedMBLNo = payload.MBLNo || "";
                     }
                 }
-                console.log(departmentType,departmentExportImport,assignedMBLNo,payload.MBLNo);
+
                 const headerPayload = {
-                    MasterJobNumber: MasterJobNumber,
+                    MasterJobNumber: assignedMBLNo,
                     MasterJobDate: payload.MasterJobDate ? new Date(payload.MasterJobDate) : new Date(),
                     CreatedBy: payload.CreatedBy,
                     Status: "A",
@@ -428,11 +404,7 @@ export class MasterJobService {
 
 
 
-                const dateString = moment().format('YYYYMMDD');
-                let hblBaseCount = await prisma.houseJob.count({
-                    where: { HBLNo: { contains: dateString } },
-                });
-                let hblSerial = hblBaseCount;
+
 
                 const allCreatedHouseJobs: any[] = [];
                 for (const booking of allBookings) {
@@ -446,16 +418,21 @@ export class MasterJobService {
                         }
                     });
                     const departmentExportImport = department?.ExportImport ?? null;
-                    hblSerial += 1;
+                    
+                    const houseJobMenuId = await this.menuMasterService.getMenuSidByName(department?.departmentType.toUpperCase() === 'AIR' ? 'House Air Waybill' : 'House Job');
+                    
+
                     let HBLNo;
                     if (departmentExportImport === 'Export') {
-                        HBLNo = `HOUSE-${dateString}-${hblSerial.toString().padStart(3, '0')}`;
+                        HBLNo = await this.numberSeriesService.generateNextNumber(
+                            payload.CompanyMasterSid,
+                            payload.BranchMasterSid,
+                            houseJobMenuId,
+                            bookingHeader.DepartmentMasterSid
+                        )
                     } else {
                         HBLNo = "";
                     }
-
-                    const houseJobMenuId = await this.menuMasterService.getMenuSidByName(department?.departmentType.toUpperCase() === 'AIR' ? 'House Air Waybill' : 'House Job');
-
                     // Step 1: Create main house job
                     const houseJob = await prisma.houseJob.create({
                         data: {
@@ -792,7 +769,7 @@ export class MasterJobService {
                     await prisma.bookingHeader.update({
                         where: { BookingHeaderSid: bookingHeader.BookingHeaderSid },
                         data: {
-                            HouseNo: houseJob.HBLNo,
+                            HouseNo: String(houseJob.HBLNo).substring(0,20),
                             MasterNoSid: createdMasterJob.MasterJobSid,
                             MBLNo: createdMasterJob.MBLNo,
                             MBLDate: createdMasterJob.MBLDate,

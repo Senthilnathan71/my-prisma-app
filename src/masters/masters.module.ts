@@ -148,9 +148,11 @@ import { CompanyConfigController } from './controllers/company/company-config.co
 import { CompanyConfigService } from './services/company/company-config.service';
 import { MailConfigurationController } from './controllers/mail-configuration/mail-configuration.controller';
 import { MailConfigurationService } from './services/mail-configuration/mail-configuration.service';
+import { NumberSeriesService } from 'src/settings/services/number-series/number-series.service';
 
 @Module({
   providers: [
+    NumberSeriesService,
     LeadService,
     UserService,
     Logger,

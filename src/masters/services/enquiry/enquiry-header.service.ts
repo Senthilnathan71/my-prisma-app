@@ -5,26 +5,52 @@ import * as moment from 'moment-timezone';
 import { parseDateFromString, statusWhereClause } from 'src/common/helper';
 import { DatabaseService } from 'src/database/database.service';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
+import { NumberSeriesService } from 'src/settings/services/number-series/number-series.service';
 
 @Injectable()
 export class EnquiryHeaderService {
     constructor(
-        private _db: DatabaseService, private logger: Logger
+        private _db: DatabaseService, 
+        private logger: Logger,
+        private numberSeriesService: NumberSeriesService
     ) { }
 
     async createEnquiry(payload) {
         try {
             return await this._db.$transaction(async (prisma) => {
-                const dateString = moment().format('YYYYMMDD')
-                const count = await this._db.enquiryHeader.count({
+            const DepartmentMasterSid = Number(payload.DepartmentMasterSid);
+
+            // Get MenuMasterSid for Enquiry (look up by code or use provided value)
+            let MenuMasterSid = Number(payload.MenuMasterSid);
+            if (!MenuMasterSid) {
+                const enquiryMenu = await this._db.menuMaster.findFirst({
                     where: {
-                        EnquiryNumber: {
-                            contains: dateString
-                        }
+                        OR: [
+                            { MenuCode: 'RAT' },
+                            { MenuName: { contains: 'enquiry', mode: 'insensitive' } }
+                        ],
+                        status: 'A'
                     }
-                })
-               
-                const enquiryNumber = `enquiry-${dateString}-${(count + 1).toString().padStart(3, '0')}`
+                });
+
+                if(!enquiryMenu){
+                    throw new BadRequestException('No enquiry menu found');
+                }
+
+                MenuMasterSid = enquiryMenu?.MenuMasterSid;
+            }
+
+            // Generate enquiry number using NumberSeriesService
+            let enquiryNumber: string | null = null;
+            if (MenuMasterSid) {
+                enquiryNumber = await this.numberSeriesService.generateNextNumber(
+                    payload.CompanyMasterSid,
+                    payload.BranchMasterSid,
+                    MenuMasterSid,
+                    DepartmentMasterSid
+                );
+            }
+
                 // Step 1: Create Enquiry Header
                 const enquiryHeaderPayload: any = {
                     LeadOrCustomer: payload.LeadOrCustomer,
@@ -53,7 +79,7 @@ export class EnquiryHeaderService {
                     MenuMasterSid: Number(payload.MenuMasterSid),
                     ContactPerson:payload.ContactPerson,
                     ContactNumber:payload.ContactNumber,
-                    // EnquiryNumber: "",
+                    EnquiryNumber: enquiryNumber,
                     EnquiryDate: new Date(),
                     authorizerStatus: payload.authorizerStatus || "Pending"
                 };
