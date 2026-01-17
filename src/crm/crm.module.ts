@@ -11,7 +11,10 @@ import { PrecustomerController } from './controllers/precustomer/precustomer.con
 import { PrecustomerService } from './services/precustomer/precustomer.service';
 import { ActivityAllocationService } from './services/activity-allocation/activity-allocation.service';
 import { ActivityAllocationController } from './controllers/activity-allocation/activity-allocation.controller';
+import { SettingsModule } from 'src/settings/settings.module';
+
 @Module({
+    imports: [SettingsModule],
     providers : [
         Logger,
         PrecustomerService,

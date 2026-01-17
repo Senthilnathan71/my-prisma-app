@@ -326,4 +326,30 @@ async getMenusByModuleIds(@Body() body: { moduleIds: number[] }) {
         return output;
     }
 
+    @ApiOperation({ summary: 'Get Document Menus for Number Series' })
+    @ApiCreatedResponse({
+        description: 'Get document menus (Active and Suspended) for Number Series configuration',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Get('document-menus')
+    async getDocumentMenusForNumberSeries() {
+        const output = new ResponseData;
+        try {
+            const menus = await this.menuService.getDocumentMenusForNumberSeries();
+            this.logger.log(`getDocumentMenusForNumberSeries: ${JSON.stringify(menus)}`);
+            output.data = menus;
+            output.message = 'Document menus fetched successfully';
+        } catch (error) {
+            this.logger.warn(`getDocumentMenusForNumberSeries: ${JSON.stringify(error)}`);
+            output.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                output.message = error.message;
+            } else {
+                output.message = 'Internal Server Error';
+            }
+        }
+        return output;
+    }
+
 }

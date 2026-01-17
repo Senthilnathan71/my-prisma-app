@@ -1,27 +1,55 @@
 import { Injectable, InternalServerErrorException, Logger, NotFoundException } from '@nestjs/common';
 import { DatabaseService } from 'src/database/database.service';
 import * as moment from 'moment-timezone';
+import { NumberSeriesService } from 'src/settings/services/number-series/number-series.service';
 
 @Injectable()
 export class BookingService {
-  constructor(private db: DatabaseService, private logger: Logger) { }
+  constructor(
+    private db: DatabaseService,
+    private logger: Logger,
+    private numberSeriesService: NumberSeriesService,
+  ) { }
+
   async create(payload, user) {
     try {
-      return await this.db.$transaction(async (prisma) => {
-        const dateString = moment().format('YYYYMMDD')
-        const count = await this.db.bookingHeader.count({
+      const CompanyMasterSid = Number(user.userBranchMaster[0]?.CompanyMasterSid);
+      const BranchMasterSid = Number(user.userBranchMaster[0]?.BranchMasterSid);
+      const DepartmentMasterSid = Number(payload.DepartmentMasterSid);
+
+      // Get MenuMasterSid for Booking (look up by code or use provided value)
+      let MenuMasterSid = payload.MenuMasterSid;
+      if (!MenuMasterSid) {
+        const bookingMenu = await this.db.menuMaster.findFirst({
           where: {
-            BookingNo: {
-              contains: dateString
-            }
+            OR: [
+              { MenuCode: 'BKN' },
+              { MenuCode: 'BK' },
+              { MenuName: { contains: 'booking', mode: 'insensitive' } }
+            ],
+            status: 'A'
           }
-        })
-        const bookingNo = `booking-${dateString}-${(count + 1).toString().padStart(3, '0')}`
-        // Step 1: Create Enquiry Header
+        });
+        MenuMasterSid = bookingMenu?.MenuMasterSid;
+      }
+
+      // Generate booking number using NumberSeriesService
+      let bookingNo: string | null = null;
+      if (MenuMasterSid) {
+        bookingNo = await this.numberSeriesService.generateNextNumber(
+          CompanyMasterSid,
+          BranchMasterSid,
+          MenuMasterSid,
+          DepartmentMasterSid
+        );
+      }
+
+      return await this.db.$transaction(async (prisma) => {
+        // Step 1: Create Booking Header
         const bookingHeaderPayload: any = {
-          DepartmentMasterSid: Number(payload.DepartmentMasterSid),
+          DepartmentMasterSid: DepartmentMasterSid,
           CustomerMasterSid: Number(user.UserMasterSid),
-          CompanyMasterSid: Number(user.userBranchMaster[0]?.CompanyMasterSid),
+          CompanyMasterSid: CompanyMasterSid,
           ShipmentType: payload.ShipmentType,
           createdBy: user['userEmail'],
           BookingNo: bookingNo,

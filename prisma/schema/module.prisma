@@ -70,6 +70,8 @@ model MenuMaster {
   terms                   TermsAndConditionsMaster[]
   userRoleMaster          UserRoleMaster[]
   voucherTypeMaster       VoucherTypeMaster[]
+  numberSeriesConfig      NumberSeriesConfig[]
+  numberSeriesCounter     NumberSeriesCounter[]
 }
 
 model MenuPermission {

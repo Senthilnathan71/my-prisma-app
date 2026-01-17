@@ -9,6 +9,7 @@ import { LoadingPlanService } from '../loading-plan/loading-plan.service';
 import { MenuService } from 'src/masters/services/menu/menu.service';
 import { OperationCommonService } from '../operation-common/operation-common.service';
 import { catchError, of } from 'rxjs';
+import { NumberSeriesService } from 'src/settings/services/number-series/number-series.service';
 
 interface searchMasterJob {
     search: string,
@@ -26,6 +27,7 @@ export class MasterJobService {
         private logger: Logger,
         private menuMasterService: MenuService,
         private commonService: OperationCommonService,
+        private numberSeriesService: NumberSeriesService,
     ) { }
 
     async createNewMasterJob(payload: any) {
@@ -49,14 +51,43 @@ export class MasterJobService {
 
             const menuId = await this.menuMasterService.getMenuSidByName(department.departmentType?.toUpperCase() === 'AIR' ? "Master Air Waybill" : "Master Job");
 
-            const newMasterJob = await this._db.$transaction(async (prisma) => {
+            // Get MenuMasterSid for Master Job (look up by code or use provided value)
+            let numberSeriesMenuId = payload.NumberSeriesMenuMasterSid;
+            if (!numberSeriesMenuId) {
+                const masterJobMenu = await this._db.menuMaster.findFirst({
+                    where: {
+                        OR: [
+                            { MenuCode: 'MA1' },
+                            { MenuCode: 'MJ' },
+                            { MenuName: { contains: 'master job', mode: 'insensitive' } }
+                        ],
+                        status: 'A'
+                    }
+                });
+                numberSeriesMenuId = masterJobMenu?.MenuMasterSid;
+            }
+
+            // Generate Master Job number using NumberSeriesService
+            let MasterJobNumber: string | null = null;
+            if (numberSeriesMenuId) {
+                MasterJobNumber = await this.numberSeriesService.generateNextNumber(
+                    payload.CompanyMasterSid,
+                    payload.BranchMasterSid,
+                    numberSeriesMenuId,
+                    payload.DepartmentMasterSid
+                );
+            }
+
+            // Fallback to legacy format if NumberSeriesService didn't generate
+            if (!MasterJobNumber) {
                 const dateString = moment().format('YYYYMMDD');
-                const count = await prisma.masterJob.count({
+                const count = await this._db.masterJob.count({
                     where: { MasterJobNumber: { contains: dateString } }
-                })
+                });
+                MasterJobNumber = `MASTER-${dateString}-${(count + 1).toString().padStart(3, '0')}`;
+            }
 
-
-                const MasterJobNumber = `MASTER-${dateString}-${(count + 1).toString().padStart(3, '0')}`;
+            const newMasterJob = await this._db.$transaction(async (prisma) => {
                 let departmentType = department.departmentType;
                 let departmentExportImport = department?.ExportImport ?? null;
                 let assignedMBLNo = payload.MBLNo || "";

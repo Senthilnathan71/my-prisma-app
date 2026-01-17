@@ -577,5 +577,42 @@ export class MenuService {
         }
     }
 
+    /**
+     * Get document menus for Number Series configuration
+     * Returns menus with status 'A' (Active) or 'S' (Suspended)
+     * Filters for document-type menus like Enquiry, Quotation, Booking, etc.
+     */
+    async getDocumentMenusForNumberSeries() {
+        try {
+            const documentMenuCodes = ['BKN', 'RAT', 'MA1', 'MJB', 'HJB', 'QUA', 'HBL', 'MA2'];
+            const documentMenuNames = ['enquiry', 'quotation', 'master job', 'house job', 'master air', 'house air', 'rate request'];
+
+            const menus = await this._db.menuMaster.findMany({
+                where: {
+                    status: { in: ['A', 'S'] },
+                    OR: [
+                        { MenuCode: { in: documentMenuCodes, mode: 'insensitive' } },
+                        ...documentMenuNames.map(name => ({
+                            MenuName: { contains: name, mode: 'insensitive' as const }
+                        }))
+                    ]
+                },
+                select: {
+                    MenuMasterSid: true,
+                    MenuName: true,
+                    MenuCode: true,
+                    status: true
+                },
+                orderBy: {
+                    MenuName: 'asc'
+                }
+            });
+
+            return menus;
+        } catch (error) {
+            throw error;
+        }
+    }
+
 
 }

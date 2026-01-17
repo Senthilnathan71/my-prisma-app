@@ -13,6 +13,7 @@ import { CommonModule } from './common/common.module';
 import { AccountsModule } from './accounts/accounts.module';
 import { OperationModule } from './operation/operation.module';
 import { ScheduleModule } from '@nestjs/schedule';
+import { SettingsModule } from './settings/settings.module';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { ScheduleModule } from '@nestjs/schedule';
     CommonModule,
     AccountsModule,
     OperationModule,
+    SettingsModule,
     ScheduleModule.forRoot(),
   ],
   controllers: [AppController],

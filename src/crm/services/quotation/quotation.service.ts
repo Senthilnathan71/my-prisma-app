@@ -2,22 +2,52 @@ import { Injectable, NotFoundException } from "@nestjs/common";
 import { ApprovalStatus, Prisma } from "@prisma/client";
 import { DatabaseService } from "src/database/database.service";
 import * as moment from 'moment-timezone';
+import { NumberSeriesService } from "src/settings/services/number-series/number-series.service";
 
 @Injectable()
 export class QuotationService {
     constructor(
-        private _db: DatabaseService
+        private _db: DatabaseService,
+        private numberSeriesService: NumberSeriesService,
     ) { }
 
     async createQuotation(payload, user) {
         try {
-            return await this._db.$transaction(async (prisma) => {
-                const dateString = moment().format('YYYYMMDD');
-                const count = await this._db.quoteHeader.count({
-                    where: { QuoteNumber: { contains: dateString } }
-                });
-                const quoteNumber = `quotation-${dateString}-${(count + 1).toString().padStart(3, '0')}`;
+            const CompanyMasterSid = user['userBranchMaster'][0].CompanyMasterSid;
+            const BranchMasterSid = user['userBranchMaster'][0].BranchMasterSid;
+            // Get DepartmentMasterSid from the first route (if available)
+            const DepartmentMasterSid = payload.routes?.[0]?.DepartmentMasterSid
+                ? Number(payload.routes[0].DepartmentMasterSid)
+                : null;
 
+            // Get MenuMasterSid for Quotation (look up by code or use provided value)
+            let MenuMasterSid = payload.MenuMasterSid;
+            if (!MenuMasterSid) {
+                const quotationMenu = await this._db.menuMaster.findFirst({
+                    where: {
+                        OR: [
+                            { MenuCode: 'QUA' },
+                            { MenuCode: 'QT' },
+                            { MenuName: { contains: 'Quotation', mode: 'insensitive' } }
+                        ],
+                        status: 'A'
+                    }
+                });
+                MenuMasterSid = quotationMenu?.MenuMasterSid;
+            }
+
+            // Generate quote number using NumberSeriesService
+            let quoteNumber: string | null = null;
+            if (MenuMasterSid) {
+                quoteNumber = await this.numberSeriesService.generateNextNumber(
+                    CompanyMasterSid,
+                    BranchMasterSid,
+                    MenuMasterSid,
+                    DepartmentMasterSid ?? undefined
+                );
+            }
+
+            return await this._db.$transaction(async (prisma) => {
                 // Step 1: Create Quote Header
                 const quoteDate = payload.quoteDate ? new Date(payload.quoteDate) : new Date();
                 const quoteHeaderPayload: any = {
@@ -26,9 +56,9 @@ export class QuotationService {
                     QuoteDate: quoteDate,
                     CustomerAddress: payload.CustomerAddress,
                     status: payload.status || "A",
-                    CompanyMasterSid: user['userBranchMaster'][0].CompanyMasterSid,
-                    BranchMasterSid: user['userBranchMaster'][0].BranchMasterSid,
-                    // QuoteNumber: quoteNumber,
+                    CompanyMasterSid: CompanyMasterSid,
+                    BranchMasterSid: BranchMasterSid,
+                    QuoteNumber: quoteNumber,
                     createdBy: user['userEmail'],
                 };
 

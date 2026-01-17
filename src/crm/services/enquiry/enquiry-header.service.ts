@@ -2,38 +2,61 @@ import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import * as moment from 'moment-timezone';
 import { DatabaseService } from 'src/database/database.service';
+import { NumberSeriesService } from 'src/settings/services/number-series/number-series.service';
 
 @Injectable()
 export class EnquiryHeaderService {
     constructor(
         private _db: DatabaseService,
+        private numberSeriesService: NumberSeriesService,
     ) { }
 
     async createEnquiry(payload, user) {
         try {
-            return await this._db.$transaction(async (prisma) => {
-                const dateString = moment().format('YYYYMMDD')
-                const count = await this._db.enquiryHeader.count({
+            const CompanyMasterSid = user['userBranchMaster'][0].CompanyMasterSid;
+            const BranchMasterSid = user['userBranchMaster'][0].BranchMasterSid;
+            const DepartmentMasterSid = Number(payload.DepartmentMasterSid);
+
+            // Get MenuMasterSid for Enquiry (look up by code or use provided value)
+            let MenuMasterSid = payload.MenuMasterSid;
+            if (!MenuMasterSid) {
+                const enquiryMenu = await this._db.menuMaster.findFirst({
                     where: {
-                        EnquiryNumber: {
-                            contains: dateString
-                        }
+                        OR: [
+                            { MenuCode: 'RAT' },
+                            { MenuName: { contains: 'enquiry', mode: 'insensitive' } }
+                        ],
+                        status: 'A'
                     }
-                })
-                // const enquiryNumber = `enquiry-${dateString}-${(count + 1).toString().padStart(3, '0')}`
+                });
+                MenuMasterSid = enquiryMenu?.MenuMasterSid;
+            }
+
+            // Generate enquiry number using NumberSeriesService
+            let enquiryNumber: string | null = null;
+            if (MenuMasterSid) {
+                enquiryNumber = await this.numberSeriesService.generateNextNumber(
+                    CompanyMasterSid,
+                    BranchMasterSid,
+                    MenuMasterSid,
+                    DepartmentMasterSid
+                );
+            }
+
+            return await this._db.$transaction(async (prisma) => {
                 // Step 1: Create Enquiry Header
                 const enquiryHeaderPayload: any = {
                     CustomerName: payload.CustomerName,
-                    DepartmentMasterSid: Number(payload.DepartmentMasterSid),
+                    DepartmentMasterSid: DepartmentMasterSid,
                     CustomerMasterSid: Number(payload.CustomerMasterSid),
                     ShipmentExpectedDate: payload.shipmentDate,
                     ShipmentType: payload.Segment,
                     status: payload.status || "A",
-                    CompanyMasterSid: user['userBranchMaster'][0].CompanyMasterSid,
-                    BranchMasterSid: user['userBranchMaster'][0].BranchMasterSid,
+                    CompanyMasterSid: CompanyMasterSid,
+                    BranchMasterSid: BranchMasterSid,
                     UserMasterSid: user['userBranchMaster'][0].UserMasterSid,
                     createdBy: user['userEmail'],
-                    // EnquiryNumber: enquiryNumber,
+                    EnquiryNumber: enquiryNumber,
                     EnquiryDate: new Date()
                 };
 

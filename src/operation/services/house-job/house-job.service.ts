@@ -4,6 +4,7 @@ import { OperationCommonService } from '../operation-common/operation-common.ser
 import { MenuService } from 'src/masters/services/menu/menu.service';
 import * as moment from 'moment-timezone';
 import { toNumber } from 'src/common/helper';
+import { NumberSeriesService } from 'src/settings/services/number-series/number-series.service';
 
 @Injectable()
 export class HouseJobService {
@@ -12,6 +13,7 @@ export class HouseJobService {
         private commonService: OperationCommonService,
         private menuService : MenuService,
         private logger: Logger,
+        private numberSeriesService: NumberSeriesService,
     ) { }
     async createHouseJob(payload: any) {
   try {
@@ -31,21 +33,50 @@ export class HouseJobService {
 
       const menuId = await this.menuService.getMenuSidByName(department.departmentType?.toUpperCase() === 'AIR' ? "House Air Waybill" : "House Job");
 
-      const createdHouseJob = await this._db.$transaction(async (prisma) => {
-          const dateString = moment().format('YYYYMMDD');
-          let hblBaseCount = await this._db.houseJob.count({
-              where: { HBLNo: { contains: dateString } },
+      // Get MenuMasterSid for House Job (look up by code or use provided value)
+      let numberSeriesMenuId = payload.NumberSeriesMenuMasterSid;
+      if (!numberSeriesMenuId) {
+          const houseJobMenu = await this._db.menuMaster.findFirst({
+              where: {
+                  OR: [
+                      { MenuCode: 'HJB' },
+                      { MenuCode: 'HJ' },
+                      { MenuName: { contains: 'house job', mode: 'insensitive' } }
+                  ],
+                  status: 'A'
+              }
           });
-          let hblSerial = hblBaseCount;
+          numberSeriesMenuId = houseJobMenu?.MenuMasterSid;
+      }
 
-          const departmentExportImport = department?.ExportImport ?? null;
-          hblSerial += 1;
-          let HBLNo;
-          if (departmentExportImport === 'Export') {
-              HBLNo = `HOUSE-${dateString}-${hblSerial.toString().padStart(3, '0')}`;
-          } else {
-              HBLNo = payload.HBLNo;
+      const departmentExportImport = department?.ExportImport ?? null;
+
+      // Generate HBL number using NumberSeriesService (for Export only)
+      let HBLNo: string | null = null;
+      if (departmentExportImport === 'Export') {
+          if (numberSeriesMenuId) {
+              HBLNo = await this.numberSeriesService.generateNextNumber(
+                  payload.CompanyMasterSid,
+                  payload.BranchMasterSid,
+                  numberSeriesMenuId,
+                  payload.DepartmentMasterSid
+              );
           }
+
+          // Fallback to legacy format if NumberSeriesService didn't generate
+          if (!HBLNo) {
+              const dateString = moment().format('YYYYMMDD');
+              const hblBaseCount = await this._db.houseJob.count({
+                  where: { HBLNo: { contains: dateString } },
+              });
+              HBLNo = `HOUSE-${dateString}-${(hblBaseCount + 1).toString().padStart(3, '0')}`;
+          }
+      } else {
+          // For Import, use the provided HBLNo
+          HBLNo = payload.HBLNo;
+      }
+
+      const createdHouseJob = await this._db.$transaction(async (prisma) => {
 
 
           // Create main House Job record

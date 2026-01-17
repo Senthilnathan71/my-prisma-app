@@ -7,6 +7,7 @@ import { GlobalConfigService } from 'src/common/config/master-config.service';
 import { OperationCommonService, RateDTO } from '../operation-common/operation-common.service';
 import { CurrencyExchangeService } from 'src/masters/services/currency-exchange/currency-exchange.service';
 import { statusWhereClause } from 'src/common/helper';
+import { NumberSeriesService } from 'src/settings/services/number-series/number-series.service';
 
 interface CostRevenueDTO {
     MenuMasterSid?: number,
@@ -49,23 +50,88 @@ export class BookingService {
         private globalConfigService: GlobalConfigService,
         private logger: Logger,
         private commonService: OperationCommonService,
-        private currencyExchangeService: CurrencyExchangeService
+        private currencyExchangeService: CurrencyExchangeService,
+        private numberSeriesService: NumberSeriesService,
     ) { }
 
     async createBooking(payload: any) {
         let newBooking;
         try {
-            const bookingHeader = await this._db.$transaction(async (prisma) => {
-                /**
-                    |--------------------------------------------------
-                    |   Step 1 : Create and Format necessary items
-                    |--------------------------------------------------
-                */
+            // Get MenuMasterSid for Booking (look up by code or use provided value)
+            this.logger.log(`[NumberSeries] Starting - payload.MenuMasterSid: ${payload.MenuMasterSid}, payload.NumberSeriesMenuMasterSid: ${payload.NumberSeriesMenuMasterSid}`);
+            this.logger.log(`[NumberSeries] CompanyMasterSid: ${payload.CompanyMasterSid}, BranchMasterSid: ${payload.BranchMasterSid}, DepartmentMasterSid: ${payload.DepartmentMasterSid}`);
+
+            // let numberSeriesMenuId = payload.NumberSeriesMenuMasterSid || payload.MenuMasterSid;
+            // if (!numberSeriesMenuId) {
+            let numberSeriesMenuId;
+                const bookingMenu = await this._db.menuMaster.findFirst({
+                    where: {
+                        OR: [
+                            { MenuCode: 'BKN' }
+                            // { MenuName: { contains: 'booking', mode: 'insensitive' } }
+                        ],
+                        status: { in: ['A', 'S'] }
+                    }
+                });
+                numberSeriesMenuId = bookingMenu?.MenuMasterSid;
+                this.logger.log(`[NumberSeries] Menu lookup result: ${JSON.stringify(bookingMenu)}`);
+            // }
+            this.logger.log(`[NumberSeries] Final numberSeriesMenuId: ${numberSeriesMenuId}`);
+
+            // Generate booking number using NumberSeriesService
+            let BookingNo: string | null = null;
+            if (numberSeriesMenuId && payload.CompanyMasterSid && payload.BranchMasterSid) {
+                this.logger.log(`[NumberSeries] Calling generateNextNumber with MenuMasterSid: ${numberSeriesMenuId}`);
+                try {
+                    BookingNo = await this.numberSeriesService.generateNextNumber(
+                        payload.CompanyMasterSid,
+                        payload.BranchMasterSid,
+                        numberSeriesMenuId,
+                        payload.DepartmentMasterSid ?? undefined
+                    );
+                    this.logger.log(`[NumberSeries] Generated BookingNo: ${BookingNo}, Length: ${BookingNo?.length}`);
+                } catch (err) {
+                    this.logger.error(`[NumberSeries] Error generating number: ${err.message}`);
+                }
+            } else {
+                this.logger.warn(`[NumberSeries] Skipping generation - Missing: menuId=${numberSeriesMenuId}, company=${payload.CompanyMasterSid}, branch=${payload.BranchMasterSid}`);
+            }
+
+            // Fallback to legacy format if NumberSeriesService didn't generate
+            if (!BookingNo) {
+                this.logger.log(`[NumberSeries] Using legacy fallback format`);
                 const dateString = moment().format('YYYYMMDD');
-                const count = await prisma.bookingHeader.count({
+                const count = await this._db.bookingHeader.count({
                     where: { BookingNo: { contains: dateString } }
-                })
-                const BookingNo = `booking-${dateString}-${(count + 1).toString().padStart(3, '0')}`;
+                });
+                BookingNo = `booking-${dateString}-${(count + 1).toString().padStart(3, '0')}`;
+            }
+
+            // Truncate if too long (BookingNo column is VarChar(50))
+            if (BookingNo && BookingNo.length > 50) {
+                this.logger.warn(`BookingNo truncated from ${BookingNo.length} chars: ${BookingNo}`);
+                BookingNo = BookingNo.substring(0, 50);
+            } // Log the data object being inserted to find the too-long column
+       const bookingData = {
+           CompanyMasterSid: payload.CompanyMasterSid,
+           BranchMasterSid: payload.BranchMasterSid,
+           MenuMasterSid: payload.MenuMasterSid,
+           BookingNo: BookingNo,
+           JobType: payload.JobType,
+           VoyageNo: payload.VoyageNo,
+           MovementType: payload.MovementType,
+           ShipmentType: payload.ShipmentType,
+           IncoTerms: payload.IncoTerms,
+           CustomerName: payload.CustomerName,
+           ShipperName: payload.ShipperName,
+           ConsigneeName: payload.ConsigneeName,
+       };
+       this.logger.log(`[BookingData] Insert payload: ${JSON.stringify(bookingData)}`);
+       this.logger.log(`[BookingData] Field lengths - JobType: ${payload.JobType?.length}, VoyageNo:
+${payload.VoyageNo?.length}, MovementType: ${payload.MovementType?.length}, ShipmentType:
+${payload.ShipmentType?.length}, IncoTerms: ${payload.IncoTerms?.length}`);
+
+            const bookingHeader = await this._db.$transaction(async (prisma) => {
                 /**
                     |--------------------------------------------------
                     |   Step 2 : Create Booking Header

@@ -120,6 +120,8 @@ model CompanyMaster {
   voucherTypeMaster          VoucherTypeMaster[]
   voyageMasterHeader         VoyageMasterHeader[]
   yearMaster                 YearMaster[]
+  numberSeriesConfig         NumberSeriesConfig[]
+  numberSeriesCounter        NumberSeriesCounter[]
 }
 
 model BranchMaster {
@@ -226,6 +228,8 @@ model BranchMaster {
   VoucherTransaction         VoucherTransaction[]
   voucherTypeMaster          VoucherTypeMaster[]
   voyageMasterHeader         VoyageMasterHeader[]
+  numberSeriesConfig         NumberSeriesConfig[]
+  numberSeriesCounter        NumberSeriesCounter[]
 }
 
 model UserMaster {
@@ -477,6 +481,7 @@ model DepartmentMaster {
   VoucherDetail         VoucherDetail[]
   VoucherHeader         VoucherHeader[]
   VoucherTransaction    VoucherTransaction[]
+  numberSeriesCounter   NumberSeriesCounter[]
 }
 
 model PortMaster {
@@ -2086,9 +2091,10 @@ model YearMaster {
   updatedBy          String?              @db.VarChar(100)
   status             String?              @default("A") @db.Char(1)
   Remarks            String?              @db.VarChar(500)
-  VoucherDetail      VoucherDetail[]
-  VoucherTransaction VoucherTransaction[]
-  companyMaster      CompanyMaster        @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+  VoucherDetail       VoucherDetail[]
+  VoucherTransaction  VoucherTransaction[]
+  companyMaster       CompanyMaster        @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+  numberSeriesCounter NumberSeriesCounter[]
 }
 
 model TandCTransaction {

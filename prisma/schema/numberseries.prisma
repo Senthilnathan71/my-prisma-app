@@ -1,0 +1,76 @@
+// Number Series Configuration for flexible document sequence numbering
+// Supports Company/Branch/Department flags, Month/Year flags, separators, and reset options
+
+model NumberSeriesConfig {
+  NumberSeriesConfigSid  Int      @id @default(autoincrement())
+  CompanyMasterSid       Int
+  BranchMasterSid        Int
+  MenuMasterSid          Int      // Links to MenuMaster (Enquiry, Quotation, Booking, MasterJob, HouseJob)
+
+  // Format Components - each can be enabled/disabled
+  CompanyFlagRequired    String   @default("N") @db.Char(1)  // Y/N - Include company prefix
+  CompanyPrefix          String?  @db.VarChar(10)            // e.g., "BE"
+  BranchFlagRequired     String   @default("N") @db.Char(1)  // Y/N - Include branch prefix
+  BranchPrefix           String?  @db.VarChar(10)            // e.g., "DU"
+  DepartmentCodeRequired String   @default("N") @db.Char(1)  // Y/N - Include dept code from DepartmentMaster
+  MonthFlagRequired      String   @default("N") @db.Char(1)  // Y/N - Include month (MM format)
+  YearFlagRequired       String   @default("N") @db.Char(1)  // Y/N - Include YearCode from YearMaster
+
+  // Format Settings
+  Separator              String   @default("/") @db.VarChar(5)   // Separator between components: "/", "-", ""
+  NumberLength           Int      @default(5)                     // Padding length for sequence (e.g., 5 = 00001)
+  ResetOption            String   @default("None") @db.VarChar(10) // None, Monthly, Yearly (financial year)
+  DepartmentWiseCounter  String   @default("N") @db.Char(1)       // Y = separate counter per dept, N = shared
+
+  // Audit Fields
+  CreatedOn              DateTime @default(now()) @db.Timestamptz(6)
+  CreatedBy              String   @db.VarChar(100)
+  UpdatedOn              DateTime? @updatedAt @db.Timestamptz(6)
+  UpdatedBy              String?  @db.VarChar(100)
+  Status                 String   @default("A") @db.Char(1)       // A = Active, D = Deleted
+
+  // Relations
+  companyMaster          CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+  branchMaster           BranchMaster  @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
+  menuMaster             MenuMaster    @relation(fields: [MenuMasterSid], references: [MenuMasterSid])
+  numberSeriesCounters   NumberSeriesCounter[]
+
+  // Unique constraint: one config per company/branch/menu combination
+  @@unique([CompanyMasterSid, BranchMasterSid, MenuMasterSid])
+  @@index([CompanyMasterSid])
+  @@index([BranchMasterSid])
+  @@index([MenuMasterSid])
+}
+
+model NumberSeriesCounter {
+  NumberSeriesCounterSid Int      @id @default(autoincrement())
+  NumberSeriesConfigSid  Int
+  CompanyMasterSid       Int
+  BranchMasterSid        Int
+  MenuMasterSid          Int
+
+  // Counter Key Components - determines which counter to use
+  DepartmentMasterSid    Int?     // NULL if not department-wise, specific dept ID otherwise
+  YearMasterSid          Int?     // For yearly reset (financial year based), NULL if no reset
+  Month                  Int?     // For monthly reset only (1-12), NULL if not monthly reset
+
+  // Current Counter Value
+  LastNumber             Int      @default(0)
+
+  // Audit Fields
+  CreatedOn              DateTime @default(now()) @db.Timestamptz(6)
+  UpdatedOn              DateTime? @updatedAt @db.Timestamptz(6)
+
+  // Relations
+  numberSeriesConfig     NumberSeriesConfig @relation(fields: [NumberSeriesConfigSid], references: [NumberSeriesConfigSid])
+  companyMaster          CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+  branchMaster           BranchMaster  @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
+  menuMaster             MenuMaster    @relation(fields: [MenuMasterSid], references: [MenuMasterSid])
+  departmentMaster       DepartmentMaster? @relation(fields: [DepartmentMasterSid], references: [DepartmentMasterSid])
+  yearMaster             YearMaster? @relation(fields: [YearMasterSid], references: [YearMasterSid])
+
+  // Unique constraint: one counter per config/dept/year/month combination
+  @@unique([NumberSeriesConfigSid, DepartmentMasterSid, YearMasterSid, Month])
+  @@index([CompanyMasterSid, BranchMasterSid, MenuMasterSid])
+  @@index([NumberSeriesConfigSid])
+}

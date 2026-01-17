@@ -57,9 +57,10 @@ import { VoucherMatchingService } from './services/voucher-matching/voucher-matc
 import { VoucherMatchingController } from './controllers/voucher-matching/voucher-matching.controller';
 import { ShipmentMilestoneController } from './controllers/shipment-milestone/shipment-milestone.controller';
 import { ShipmentMilestoneService } from './services/shipment-milestone/shipment-milestone.service';
+import { SettingsModule } from 'src/settings/settings.module';
 
 @Module({
-        imports: [CommonModule],
+        imports: [CommonModule, SettingsModule],
         providers: [
                 Logger,
                 EmailService,
