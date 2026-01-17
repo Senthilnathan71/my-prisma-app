@@ -2,7 +2,7 @@ import { BadRequestException, Injectable, InternalServerErrorException, Logger, 
 import { DatabaseService } from 'src/database/database.service';
 import { VoucherService } from '../voucher/voucher.service';
 import * as moment from 'moment-timezone';
-import { statusWhereClause } from 'src/common/helper';
+import { statusWhereClause, toNumber } from 'src/common/helper';
 import { Prisma } from '@prisma/client';
 
 @Injectable()
@@ -89,7 +89,7 @@ export class VendorInvoiceService {
                         MasterNumber: payload.MBLNo,
                         HouseNumber: payload.HBLNo,
                         Remarks: payload.Remarks,
-                        Status: payload.status || 'A',
+                        Status: payload.Status || 'A',
                         CreatedBy: payload.CreatedBy || 'System'
                     }
                 });
@@ -110,15 +110,16 @@ export class VendorInvoiceService {
                                 ChargeDescription: detail.ChargeDescription || '',
                                 HSSACMasterSid: detail.HSSACMasterSid,
                                 ChargeUOMSid: detail.ChargeUOMSid,
-                                NumberOfUnit: detail.NumberOfUnit || 1,
-                                Rate: detail.Rate || 0,
-                                Amount: detail.Amount || 0,
-                                TaxableAmount: detail.TaxableAmount || detail.Amount || 0,
-                                TaxPercentage1: detail.TaxPercentage1 || 0, // CGST or VAT
-                                TaxAmount1: detail.TaxAmount1 || 0,
-                                TaxPercentage2: detail.TaxPercentage2 || 0, // SGST
-                                TaxAmount2: detail.TaxAmount2 || 0,
-                                LocalAmount: detail.LocalAmount || 0,
+                                NumberOfUnit: toNumber(detail.NumberOfUnit),
+                                Rate: toNumber(detail.Rate),
+                                Amount: toNumber(detail.Amount),
+                                TaxableAmount: toNumber(detail.TaxableAmount),
+                                TaxPercentage1: toNumber(detail.TaxPercentage1), // CGST or VAT
+                                TaxAmount1: toNumber(detail.TaxAmount1),
+                                TaxPercentage2: toNumber(detail.TaxPercentage2), // SGST
+                                TaxAmount2: toNumber(detail.TaxAmount2),
+                                LocalAmount: toNumber(detail.LocalAmount),
+                                PartyAmount : toNumber(detail.PartyAmount),
                                 CurrencyCode: detail.CurrencyCode || payload.CurrencyCode,
                                 CurrencyMasterSid: detail.CurrencyMasterSid || currencyMasterSid,
                                 ExchangeRate: detail.ExchangeRate || payload.ExchangeRate || 1,
@@ -275,7 +276,7 @@ export class VendorInvoiceService {
     /**
      * Fetch vendor invoice by ID
      */
-    async fetchVendorInvoiceById(VoucherHeaderSid: number, tx?: any): Promise<any> {
+    async fetchVendorInvoiceById(VoucherHeaderSid: number, tx?: Prisma.TransactionClient): Promise<any> {
         try {
             const db = tx || this._db;
 
@@ -284,6 +285,7 @@ export class VendorInvoiceService {
                 include: {
                     VoucherDetail: {
                         where: { Status: 'A' },
+                        orderBy : { Sno : 'asc' },
                         include: {
                             chargeMaster: {
                                 include: {
@@ -413,18 +415,19 @@ export class VendorInvoiceService {
                     ChargeDescription: detail.ChargeDescription || '',
                     HSSACMasterSid: detail.HSSACMasterSid,
                     ChargeUOMSid: detail.ChargeUOMSid,
-                    NumberOfUnit: detail.NumberOfUnit || 1,
-                    Rate: detail.Rate || 0,
-                    Amount: detail.Amount || 0,
-                    TaxableAmount: detail.TaxableAmount || detail.Amount || 0,
-                    TaxPercentage1: detail.TaxPercentage1 || 0,
-                    TaxAmount1: detail.TaxAmount1 || 0,
-                    TaxPercentage2: detail.TaxPercentage2 || 0,
-                    TaxAmount2: detail.TaxAmount2 || 0,
-                    LocalAmount: detail.LocalAmount || 0,
+                    NumberOfUnit: toNumber(detail.NumberOfUnit),
+                    Rate: toNumber(detail.Rate),
+                    Amount: toNumber(detail.Amount),
+                    TaxableAmount: toNumber(detail.TaxableAmount),
+                    TaxPercentage1: toNumber(detail.TaxPercentage1),
+                    TaxAmount1: toNumber(detail.TaxAmount1),
+                    TaxPercentage2: toNumber(detail.TaxPercentage2),
+                    TaxAmount2: toNumber(detail.TaxAmount2),
+                    LocalAmount: toNumber(detail.LocalAmount),
+                    PartyAmount : toNumber(detail.PartyAmount),
                     CurrencyCode: detail.CurrencyCode || payload.CurrencyCode,
                     CurrencyMasterSid: detail.CurrencyMasterSid || currencyMasterSid,
-                    ExchangeRate: detail.ExchangeRate || payload.ExchangeRate || 1,
+                    ExchangeRate: toNumber(detail.ExchangeRate),
                     DrCr: detail.DrCr || 'D',
                     LedgerMasterSid: detail.LedgerMasterSid,
                     COAMasterSid: detail.COAMasterSid,
@@ -449,18 +452,18 @@ export class VendorInvoiceService {
                     ChargeDescription: detail.ChargeDescription || '',
                     HSSACMasterSid: detail.HSSACMasterSid,
                     ChargeUOMSid: detail.ChargeUOMSid,
-                    NumberOfUnit: detail.NumberOfUnit || 1,
-                    Rate: detail.Rate || 0,
-                    Amount: detail.Amount || 0,
-                    TaxableAmount: detail.TaxableAmount || detail.Amount || 0,
-                    TaxPercentage1: detail.TaxPercentage1 || 0,
-                    TaxAmount1: detail.TaxAmount1 || 0,
-                    TaxPercentage2: detail.TaxPercentage2 || 0,
-                    TaxAmount2: detail.TaxAmount2 || 0,
-                    LocalAmount: detail.LocalAmount || 0,
+                    NumberOfUnit: toNumber(detail.NumberOfUnit),
+                    Rate: toNumber(detail.Rate),
+                    Amount: toNumber(detail.Amount),
+                    TaxableAmount: toNumber(detail.TaxableAmount),
+                    TaxPercentage1: toNumber(detail.TaxPercentage1),
+                    TaxAmount1: toNumber(detail.TaxAmount1),
+                    TaxPercentage2: toNumber(detail.TaxPercentage2),
+                    TaxAmount2: toNumber(detail.TaxAmount2),
+                    LocalAmount: toNumber(detail.LocalAmount),
                     CurrencyCode: detail.CurrencyCode || payload.CurrencyCode,
                     CurrencyMasterSid: detail.CurrencyMasterSid || currencyMasterSid,
-                    ExchangeRate: detail.ExchangeRate || payload.ExchangeRate || 1,
+                    ExchangeRate: toNumber(detail.ExchangeRate) || 0,
                     DrCr: detail.DrCr || 'D',
                     LedgerMasterSid: detail.LedgerMasterSid,
                     COAMasterSid: detail.COAMasterSid,

@@ -71,8 +71,7 @@ export class MasterJobService {
  
                         if (!availableMawb) {
                             // If no free MAWB available, use the provided MBLNo or empty string
-                            assignedMBLNo = payload.MBLNo || "";
-                            throw Error('No free MAWB available for Air Export department, using provided MBLNo');
+                            assignedMBLNo = MasterJobNumber || "";
                         } else {
                             // Assign the MasterBillNumber to MBLNo
                             assignedMBLNo = availableMawb.MasterBillNumber;
@@ -982,7 +981,7 @@ export class MasterJobService {
                 }
         },
         {
-    timeout: 6000000, 
+    timeout: 120000, 
   }
     )
             return {
