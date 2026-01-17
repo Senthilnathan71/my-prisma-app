@@ -155,7 +155,7 @@ export class InvoiceService {
           },
           VoucherOthers: { where: { Status: 'A' } },
           masterJob: { where: { Status: 'A' } },
-          houseJob: { 
+          houseJob: {
             where: { status: 'A' },
             include : {
               Cargo : {
@@ -178,6 +178,27 @@ export class InvoiceService {
               }
             }
            },
+          BookingHeader: {
+            where: { status: 'A' },
+            select: {
+              BookingHeaderSid: true,
+              BookingNo: true,
+              VesselName: true,
+              VoyageNo: true,
+              POL: true,
+              POD: true,
+              FPD: true,
+              ETD: true,
+              ETA: true,
+              FreightTerms: true,
+              ShipperName: true,
+              ShipperAddress: true,
+              ConsigneeName: true,
+              ConsigneeAddress: true,
+              CustomerName: true,
+              CustomerAddress: true
+            }
+          },
           currencyMaster: true,
           subledgerMaster: true,
           customerBranch: true,
