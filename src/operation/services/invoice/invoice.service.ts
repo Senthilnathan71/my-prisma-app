@@ -154,7 +154,14 @@ export class InvoiceService {
             }
           },
           VoucherOthers: { where: { Status: 'A' } },
-          masterJob: { where: { Status: 'A' } },
+          masterJob: { 
+            where: { Status: 'A' },
+            include : {
+              voyages : {
+                where : { Status : 'A'}
+              }
+            }
+          },
           houseJob: {
             where: { status: 'A' },
             include : {
@@ -196,7 +203,18 @@ export class InvoiceService {
               ConsigneeName: true,
               ConsigneeAddress: true,
               CustomerName: true,
-              CustomerAddress: true
+              CustomerAddress: true,
+              SalesmanSid : true,
+              bookingCargo : {
+                where : {
+                  status : 'A'
+                },
+                select : {
+                  NoOfPackage : true,
+                  GrossWeight : true,
+                  Volume : true
+                }
+              }
             }
           },
           currencyMaster: true,

@@ -51,6 +51,21 @@ export class MasterJobService {
 
             const menuId = await this.menuMasterService.getMenuSidByName(department.departmentType?.toUpperCase() === 'AIR' ? "Master Air Waybill" : "Master Job");
 
+            let generatedMasterJobNumber = await this.numberSeriesService.generateNextNumber(
+                payload.CompanyMasterSid,
+                payload.BranchMasterSid,
+                menuId,
+                payload.DepartmentMasterSid
+            );
+
+            if (!generatedMasterJobNumber) {
+                const dateString = moment().format('YYYYMMDD');
+                const count = await this._db.masterJob.count({
+                    where: { MasterJobNumber: { contains: dateString } }
+                });
+                generatedMasterJobNumber = `MASTER-${dateString}-${(count + 1).toString().padStart(3, '0')}`;
+            }
+
             let assignedMBLNo = payload.MBLNo || "";
             const newMasterJob = await this._db.$transaction(async (prisma) => {
                 let departmentType = department.departmentType;
@@ -71,8 +86,7 @@ export class MasterJobService {
  
                         if (!availableMawb) {
                             // If no free MAWB available, use the provided MBLNo or empty string
-                            // assignedMBLNo = MasterJobNumber || "";
-                            assignedMBLNo = payload.MBLNo || "";
+                            assignedMBLNo = generatedMasterJobNumber || "";
                         } else {
                             // Assign the MasterBillNumber to MBLNo
                             assignedMBLNo = availableMawb.MasterBillNumber;
@@ -92,26 +106,14 @@ export class MasterJobService {
                     }
                 } else {
                     if(departmentExportImport === 'Export'){
-                        assignedMBLNo  = await this.numberSeriesService.generateNextNumber(
-                            payload.CompanyMasterSid,
-                            payload.BranchMasterSid,
-                            menuId,
-                            payload.DepartmentMasterSid
-                        );
-                        if (!assignedMBLNo) {
-                            const dateString = moment().format('YYYYMMDD');
-                            const count = await this._db.masterJob.count({
-                                where: { MasterJobNumber: { contains: dateString } }
-                            });
-                            assignedMBLNo = `MASTER-${dateString}-${(count + 1).toString().padStart(3, '0')}`;
-                        }
+                        assignedMBLNo  = generatedMasterJobNumber || "";
                     } else {
                         assignedMBLNo = payload.MBLNo || "";
                     }
                 }
 
                 const headerPayload = {
-                    MasterJobNumber: assignedMBLNo,
+                    MasterJobNumber: generatedMasterJobNumber,
                     MasterJobDate: payload.MasterJobDate ? new Date(payload.MasterJobDate) : new Date(),
                     CreatedBy: payload.CreatedBy,
                     Status: "A",
