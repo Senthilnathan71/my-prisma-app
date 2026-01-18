@@ -41,12 +41,13 @@ export class VendorInvoiceService {
                     );
                 }
 
-                // Generate voucher number
-              const dateString = moment().format('YYYYMMDD');
-              const count = await tx.voucherHeader.count({
-                where: { VoucherNumber: { contains: dateString } }
-              });
-              const VoucherNumber = `VEN-${dateString}-${(count + 1).toString().padStart(3, '0')}`;
+                // Generate voucher number using config-based approach
+                const VoucherNumber = await this.voucherService.generateVoucherNumberFromConfig(
+                    voucherTypeMaster,
+                    payload.CompanyMasterSid,
+                    payload.BranchMasterSid,
+                    tx
+                );
 
                 // Get currency master ID
                 let currencyMasterSid = payload.CurrencyMasterSid;

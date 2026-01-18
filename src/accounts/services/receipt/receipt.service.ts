@@ -184,13 +184,25 @@ export class ReceiptService {
 
     try {
       return await this._db.$transaction(async (prisma) => {
-        // 1. Generate voucher number
-        const voucherNumber = await this.generateReceiptNumber(
+        // 1. Get VoucherTypeMaster for Receipt
+        const voucherTypeMaster = await prisma.voucherTypeMaster.findFirst({
+          where: {
+            DocumentTypeName: 'Receipt',
+            CompanyMasterSid: createDto.CompanyMasterSid,
+            BranchMasterSid: createDto.BranchMasterSid,
+            status: 'A'
+          }
+        });
+        if (!voucherTypeMaster) {
+          throw new BadRequestException('Receipt voucher type not configured for this company/branch. Please configure VoucherTypeMaster.');
+        }
+
+        // Generate voucher number using config-based approach
+        const voucherNumber = await this.voucherService.generateVoucherNumberFromConfig(
+          voucherTypeMaster,
           createDto.CompanyMasterSid,
           createDto.BranchMasterSid,
-          this.RECEIPT_VOUCHER_TYPE,
-          new Date(createDto.VoucherDate),
-          prisma,
+          prisma
         );
 
         // 2. Get current year
@@ -577,8 +589,29 @@ export class ReceiptService {
   ): Promise<InterBranchJVDto> {
     this.logger.log(`Creating inter-branch JV: ${payingBranchSid} -> ${receivingBranchSid} for ${amount}`);
 
-    // Generate JV number
-    const jvNumber = await this.generateJVNumber(companySid, payingBranchSid, date, prisma);
+    // Fetch VoucherTypeMaster for Journal Voucher
+    const jvVoucherTypeMaster = await prisma.voucherTypeMaster.findFirst({
+      where: {
+        DocumentTypeName: 'Journal Voucher',
+        CompanyMasterSid: companySid,
+        BranchMasterSid: payingBranchSid,
+        status: 'A'
+      }
+    });
+
+    if (!jvVoucherTypeMaster) {
+      throw new BadRequestException(
+        'Journal Voucher type not configured. Please configure "Journal Voucher" in VoucherTypeMaster for this company/branch.'
+      );
+    }
+
+    // Generate JV number using config-based approach
+    const jvNumber = await this.voucherService.generateVoucherNumberFromConfig(
+      jvVoucherTypeMaster,
+      companySid,
+      payingBranchSid,
+      prisma
+    );
 
     // Get inter-branch COA accounts
     const payingBranchCOA = await this.getInterBranchCOA(companySid, 'Payable', prisma);
@@ -591,7 +624,8 @@ export class ReceiptService {
         BranchMasterSid: payingBranchSid,
         VoucherNumber: jvNumber,
         VoucherDate: date,
-        VoucherType: this.JOURNAL_VOUCHER_TYPE,
+        VoucherType: jvVoucherTypeMaster.VoucherTypeMasterSid,
+        VoucherTypeMasterSid: jvVoucherTypeMaster.VoucherTypeMasterSid,
         Narration: narration,
         SetoffStatus: 'Posted',
         Status: 'A',
@@ -614,6 +648,7 @@ export class ReceiptService {
       date,
       jvNumber,
       createdBy,
+      jvVoucherTypeMaster.VoucherTypeMasterSid,
       prisma,
     );
 
@@ -631,6 +666,7 @@ export class ReceiptService {
       date,
       jvNumber,
       createdBy,
+      jvVoucherTypeMaster.VoucherTypeMasterSid,
       prisma,
     );
 
@@ -660,6 +696,7 @@ export class ReceiptService {
     date: Date,
     voucherNumber: string,
     createdBy: string,
+    voucherTypeMasterSid: number,
     prisma: any,
   ) {
     const detail = await prisma.voucherDetail.create({
@@ -688,7 +725,8 @@ export class ReceiptService {
         VoucherDetailSid: detail.VoucherDetailSid,
         CompanyMasterSid: companySid,
         BranchMasterSid: branchSid,
-        VoucherType: this.JOURNAL_VOUCHER_TYPE,
+        VoucherType: voucherTypeMasterSid,
+        VoucherTypeMasterSid: voucherTypeMasterSid,
         VoucherDate: date,
         VoucherNumber: voucherNumber,
         Sno: sno,
@@ -706,55 +744,6 @@ export class ReceiptService {
     });
   }
 
-  /**
-   * Generate receipt voucher number
-   */
-  private async generateReceiptNumber(
-    companySid: number,
-    branchSid: number,
-    voucherTypeSid: number,
-    date: Date,
-    prisma: any,
-  ): Promise<string> {
-    const yearSuffix = date.getFullYear().toString().slice(-2);
-    const monthPrefix = (date.getMonth() + 1).toString().padStart(2, '0');
-
-    const lastReceipt = await prisma.voucherHeader.findFirst({
-      where: {
-        CompanyMasterSid: companySid,
-        BranchMasterSid: branchSid,
-        VoucherType: voucherTypeSid,
-        VoucherNumber: { startsWith: `RV${yearSuffix}${monthPrefix}` },
-      },
-      orderBy: { VoucherNumber: 'desc' },
-    });
-
-    const nextNumber = lastReceipt ? parseInt(lastReceipt.VoucherNumber.slice(-4)) + 1 : 1;
-
-    return `RV${yearSuffix}${monthPrefix}${nextNumber.toString().padStart(4, '0')}`;
-  }
-
-  /**
-   * Generate JV number
-   */
-  private async generateJVNumber(companySid: number, branchSid: number, date: Date, prisma: any): Promise<string> {
-    const yearSuffix = date.getFullYear().toString().slice(-2);
-    const monthPrefix = (date.getMonth() + 1).toString().padStart(2, '0');
-
-    const lastJV = await prisma.voucherHeader.findFirst({
-      where: {
-        CompanyMasterSid: companySid,
-        BranchMasterSid: branchSid,
-        VoucherType: this.JOURNAL_VOUCHER_TYPE,
-        VoucherNumber: { startsWith: `JV${yearSuffix}${monthPrefix}` },
-      },
-      orderBy: { VoucherNumber: 'desc' },
-    });
-
-    const nextNumber = lastJV ? parseInt(lastJV.VoucherNumber.slice(-4)) + 1 : 1;
-
-    return `JV${yearSuffix}${monthPrefix}${nextNumber.toString().padStart(4, '0')}`;
-  }
 
   /**
    * Get cash/bank account based on payment mode
@@ -992,13 +981,12 @@ export class ReceiptService {
           throw new BadRequestException('Receipt Voucher Type not found');
         }
 
-        // 2. Generate voucher number
-        const voucherNumber = await this.generateReceiptNumber(
+        // 2. Generate voucher number using config-based approach
+        const voucherNumber = await this.voucherService.generateVoucherNumberFromConfig(
+          voucherType,
           payload.CompanyMasterSid,
           payload.BranchMasterSid,
-          voucherType.VoucherTypeMasterSid,
-          new Date(payload.VoucherDate),
-          prisma,
+          prisma
         );
 
 

@@ -6,12 +6,14 @@ import { Prisma } from '@prisma/client';
 import * as moment from 'moment-timezone';
 import { Debug } from '@prisma/client/runtime/library';
 import { toNumber } from 'src/common/helper';
+import { VoucherService } from 'src/operation/services/voucher/voucher.service';
 
 @Injectable()
 export class InvoiceService {
   constructor(
     private _db: DatabaseService,
     private logger: Logger,
+    private voucherService: VoucherService,
   ) { }
 
   // Helper method to get CurrencyMasterSid by CurrencyCode
@@ -221,12 +223,26 @@ export class InvoiceService {
   async createInvoice(payload: any) {
     try {
       return await this._db.$transaction(async (prisma) => {
-        // Generate Voucher Number
-        const dateString = moment().format('YYYYMMDD');
-        const count = await prisma.voucherHeader.count({
-          where: { VoucherNumber: { contains: dateString } }
+        // Fetch VoucherTypeMaster for Invoice
+        const voucherTypeMaster = await prisma.voucherTypeMaster.findFirst({
+          where: {
+            DocumentTypeName: 'Invoice',
+            CompanyMasterSid: payload.CompanyMasterSid,
+            BranchMasterSid: payload.BranchMasterSid,
+            status: 'A'
+          }
         });
-        const VoucherNumber = `INV-${dateString}-${(count + 1).toString().padStart(3, '0')}`;
+        if (!voucherTypeMaster) {
+          throw new BadRequestException('Invoice voucher type not configured for this company/branch. Please configure VoucherTypeMaster.');
+        }
+
+        // Generate Voucher Number using config-based approach
+        const VoucherNumber = await this.voucherService.generateVoucherNumberFromConfig(
+          voucherTypeMaster,
+          payload.CompanyMasterSid,
+          payload.BranchMasterSid,
+          prisma
+        );
 
         // Normalize & validate PartyMasterSid
         const providedPartySid = (payload && payload.PartyMasterSid != null && payload.PartyMasterSid !== '')

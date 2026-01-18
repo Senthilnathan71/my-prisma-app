@@ -134,14 +134,14 @@ export class VoucherHeaderDto {
     @IsNumber() 
     DepartmentMasterSid?: number;
 
-    @IsOptional() 
-    @IsString() 
-    @Length(0, 20)
+    @IsOptional()
+    @IsString()
+    @Length(0, 50)
     HouseNumber?: string;
 
-    @IsOptional() 
-    @IsString() 
-    @Length(0, 20)
+    @IsOptional()
+    @IsString()
+    @Length(0, 50)
     MasterNumber?: string;
 
     @IsOptional() 

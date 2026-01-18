@@ -261,15 +261,14 @@ export class PaymentService {
                     },
                 });
                 if (!voucherType) {
-                    throw new BadRequestException('Payment Voucher Type not found');
+                    throw new BadRequestException('Payment Voucher Type not found. Please configure VoucherTypeMaster for this company/branch.');
                 }
 
-                // 2. Generate voucher number
-                const voucherNumber = await this.generatePaymentNumber(
+                // 2. Generate voucher number using config-based approach
+                const voucherNumber = await this.voucherService.generateVoucherNumberFromConfig(
+                    voucherType,
                     payload.CompanyMasterSid,
                     payload.BranchMasterSid,
-                    voucherType.VoucherTypeMasterSid,
-                    new Date(payload.VoucherDate),
                     prisma,
                 );
 
@@ -1138,34 +1137,6 @@ export class PaymentService {
         } catch (error) {
             throw error;
         }
-    }
-
-    /**
- * Generate payment voucher number
- */
-    private async generatePaymentNumber(
-        companySid: number,
-        branchSid: number,
-        voucherTypeSid: number,
-        date: Date,
-        prisma: any,
-    ): Promise<string> {
-        const yearSuffix = date.getFullYear().toString().slice(-2);
-        const monthPrefix = (date.getMonth() + 1).toString().padStart(2, '0');
-
-        const lastpayment = await prisma.voucherHeader.findFirst({
-            where: {
-                CompanyMasterSid: companySid,
-                BranchMasterSid: branchSid,
-                VoucherTypeMasterSid: voucherTypeSid,
-                VoucherNumber: { startsWith: `PV${yearSuffix}${monthPrefix}` },
-            },
-            orderBy: { VoucherNumber: 'desc' },
-        });
-
-        const nextNumber = lastpayment ? parseInt(lastpayment.VoucherNumber.slice(-4)) + 1 : 1;
-
-        return `PV${yearSuffix}${monthPrefix}${nextNumber.toString().padStart(4, '0')}`;
     }
 
     async getConfigurationValue(companyMasterSid: number, configurationName: string) {

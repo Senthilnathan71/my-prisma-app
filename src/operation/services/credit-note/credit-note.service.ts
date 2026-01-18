@@ -1,14 +1,15 @@
 import { BadRequestException, Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
-import * as moment from 'moment';
 import { DatabaseService } from 'src/database/database.service';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
+import { VoucherService } from '../voucher/voucher.service';
 
 @Injectable()
 export class CreditNoteService {
     constructor(
         private _db: DatabaseService,
         private logger: Logger,
+        private voucherService: VoucherService,
     ) {}
 
     // Helper method to get CurrencyMasterSid by CurrencyCode
@@ -229,13 +230,30 @@ export class CreditNoteService {
      async createCreditNote(payload: any) {
        try {
          return await this._db.$transaction(async (prisma) => {
-           // Generate Voucher Number
-           const dateString = moment().format('YYYYMMDD');
-           const count = await prisma.voucherHeader.count({
-             where: { VoucherNumber: { contains: dateString } }
-           });
-           const VoucherNumber = `CN-${dateString}-${(count + 1).toString().padStart(3, '0')}`;
-   
+           // Fetch VoucherTypeMaster for Credit Note
+           const voucherTypeMaster = await prisma.voucherTypeMaster.findFirst({
+                    where: {
+                        DocumentTypeName: 'Credit Note',
+                        CompanyMasterSid: payload.CompanyMasterSid,
+                        BranchMasterSid: payload.BranchMasterSid,
+                        status: 'A'
+                    }
+                });
+
+                if (!voucherTypeMaster) {
+                    throw new BadRequestException(
+                        'Credit Note voucher type not configured. Please configure "Credit Note" in VoucherTypeMaster for this company/branch.'
+                    );
+                }
+
+           // Generate Voucher Number using config-based approach
+           const VoucherNumber = await this.voucherService.generateVoucherNumberFromConfig(
+             voucherTypeMaster,
+             payload.CompanyMasterSid,
+             payload.BranchMasterSid,
+             prisma
+           );
+
            // Normalize & validate PartyMasterSid
            const providedPartySid = (payload && payload.PartyMasterSid != null && payload.PartyMasterSid !== '')
              ? Number(payload.PartyMasterSid)
@@ -252,22 +270,6 @@ export class CreditNoteService {
                throw new BadRequestException(`Invalid PartyMasterSid: Subledger ${providedPartySid} does not exist`);
              }
            }
-   
-           // Normalize VoucherTypeMasterSid
-           const voucherTypeMaster = await prisma.voucherTypeMaster.findFirst({
-                    where: {
-                        DocumentTypeName: 'Credit Note',
-                        CompanyMasterSid: payload.CompanyMasterSid,
-                        BranchMasterSid: payload.BranchMasterSid,
-                        status: 'A'
-                    }
-                });
-
-                if (!voucherTypeMaster) {
-                    throw new BadRequestException(
-                        'Vendor Invoice voucher type not configured. Please configure "Vendor Invoice" in VoucherTypeMaster.'
-                    );
-                }
    
            // Resolve PartyName (ensure string) - this handles numeric branch id passed in PartyName
            const resolvedPartyName = await this.resolvePartyName(payload, prisma);

@@ -138,6 +138,11 @@ export class VoucherService {
 
     /**
      * Generate voucher number based on VoucherTypeMaster configuration
+     * Supports sequence resets via ResetValue field:
+     * - "Year" = Calendar year reset (January to December)
+     * - "Month" = Monthly reset
+     * - "Financial Year" = Reset based on YearMaster table (e.g., April to March for India)
+     * Uses row-level locking (FOR UPDATE) to prevent duplicate sequences
      */
     async generateVoucherNumberFromConfig(
         voucherTypeMaster: any,
@@ -186,22 +191,75 @@ export class VoucherService {
                 parts.push((date.getMonth() + 1).toString().padStart(2, '0'));
             }
 
-            // Get last voucher number for this type
-            const lastVoucher = await tx.voucherHeader.findFirst({
-                where: {
-                    CompanyMasterSid: companyMasterSid,
-                    BranchMasterSid: branchMasterSid,
-                    VoucherTypeMasterSid: voucherTypeMaster.VoucherTypeMasterSid
-                },
-                orderBy: {
-                    VoucherHeaderSid: 'desc'
-                },
-                select: {
-                    VoucherNumber: true
-                }
-            });
+            // Build prefix for reset logic (all parts except serial number)
+            const prefix = parts.join(separator);
 
-            // Extract and increment serial number
+            // Build WHERE clause conditions
+            const resetValue = voucherTypeMaster.ResetValue?.toLowerCase()?.replace(/\s+/g, ''); // normalize: "financial year" -> "financialyear"
+            let whereConditions: string[] = [
+                `"CompanyMasterSid" = ${companyMasterSid}`,
+                `"BranchMasterSid" = ${branchMasterSid}`,
+                `"VoucherTypeMasterSid" = ${voucherTypeMaster.VoucherTypeMasterSid}`
+            ];
+
+            // Apply reset logic based on ResetValue
+            if (resetValue === 'month' || resetValue === 'monthly') {
+                // Monthly reset - filter by prefix which includes year and month
+                const escapedPrefix = prefix.replace(/'/g, "''");
+                whereConditions.push(`"VoucherNumber" LIKE '${escapedPrefix}${separator}%'`);
+            } else if (resetValue === 'year' || resetValue === 'yearly') {
+                // Calendar year reset (January to December) - filter by prefix which includes year
+                const escapedPrefix = prefix.replace(/'/g, "''");
+                whereConditions.push(`"VoucherNumber" LIKE '${escapedPrefix}${separator}%'`);
+            } else if (resetValue === 'financialyear' || resetValue === 'financial year') {
+                // Financial Year reset - based on YearMaster table StartDate and EndDate
+                // Get the current active financial year for this company
+                const currentFinancialYear = await tx.yearMaster.findFirst({
+                    where: {
+                        CompanyMasterSid: companyMasterSid,
+                        CurrentYear: true,
+                        status: 'A'
+                    },
+                    select: {
+                        YearMasterSid: true,
+                        YearCode: true,
+                        StartDate: true,
+                        EndDate: true
+                    }
+                });
+
+                if (!currentFinancialYear) {
+                    throw new BadRequestException(
+                        'No current financial year found. Please configure YearMaster with CurrentYear = true for this company.'
+                    );
+                }
+
+                // Filter vouchers created within the current financial year period
+                // Cast both sides to date for consistent comparison (ignoring time component)
+                const fyStartDate = new Date(currentFinancialYear.StartDate).toISOString().split('T')[0];
+                const fyEndDate = new Date(currentFinancialYear.EndDate).toISOString().split('T')[0];
+
+                whereConditions.push(`"CreatedOn"::date >= '${fyStartDate}'::date`);
+                whereConditions.push(`"CreatedOn"::date <= '${fyEndDate}'::date`);
+            }
+            // If ResetValue is empty or "Never", no additional filtering - continuous sequence
+
+            const whereClause = whereConditions.join(' AND ');
+
+            // Use raw SQL with FOR UPDATE to lock the row during transaction
+            // This prevents race conditions where multiple requests get the same sequence
+            const result: any[] = await tx.$queryRawUnsafe(`
+                SELECT "VoucherNumber"
+                FROM "VoucherHeader"
+                WHERE ${whereClause}
+                ORDER BY "VoucherNumber" DESC
+                LIMIT 1
+                FOR UPDATE
+            `);
+
+            const lastVoucher = result[0];
+
+            // Calculate next sequence number
             let nextNumber = Number(voucherTypeMaster.DocumentStartingNo || 1);
             if (lastVoucher?.VoucherNumber) {
                 const match = lastVoucher.VoucherNumber.match(/(\d+)$/);
@@ -218,9 +276,9 @@ export class VoucherService {
             // Join all parts with separator
             const voucherNumber = parts.join(separator);
 
-            // Ensure it doesn't exceed 20 characters (database limit)
-            if (voucherNumber.length > 20) {
-                throw new BadRequestException(`Generated voucher number exceeds 20 characters: ${voucherNumber}. Please adjust VoucherTypeMaster configuration.`);
+            // Ensure it doesn't exceed 50 characters (database limit)
+            if (voucherNumber.length > 50) {
+                throw new BadRequestException(`Generated voucher number exceeds 50 characters: ${voucherNumber}. Please adjust VoucherTypeMaster configuration.`);
             }
 
             return voucherNumber;
@@ -742,26 +800,20 @@ export class VoucherService {
                         menuMaster : {
                             MenuName : payload.VoucherTypeMenuName
                         }
-                    },
-                    select : {
-                        VoucherTypeMasterSid : true,
-                        DocumentTypeName : true,
-                        DocumentTypeCode : true,
-                        IsAutoPosting : true
                     }
                 });
 
                 if(!voucherTypeMaster){
-                    throw new BadRequestException('Voucher Type not found');
+                    throw new BadRequestException(`Voucher Type "${payload.VoucherTypeMenuName}" not configured for this company/branch. Please configure it in VoucherTypeMaster.`);
                 }
 
-                const dateString = moment().format('YYYYMMDD');
-                const count = await prisma.voucherHeader.count({
-                    where: { 
-                        VoucherNumber: { contains: dateString }
-                    },
-                });
-                const VoucherNumber = `${voucherTypeMaster.DocumentTypeName === "Invoice" ? "INV" : "VEN"}-${dateString}-${(count + 1).toString().padStart(3, '0')}`;
+                // Generate voucher number using config-based approach
+                const VoucherNumber = await this.generateVoucherNumberFromConfig(
+                    voucherTypeMaster,
+                    payload.CompanyMasterSid,
+                    payload.BranchMasterSid,
+                    prisma
+                );
 
                 const createdVoucherHeader = await prisma.voucherHeader.create({
                     data : {

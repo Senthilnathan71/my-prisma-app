@@ -1,6 +1,5 @@
 import { BadRequestException, Injectable, InternalServerErrorException, Logger, NotFoundException } from '@nestjs/common';
 import { DatabaseService } from 'src/database/database.service';
-import * as moment from 'moment';
 import { Prisma } from '@prisma/client';
 import { VoucherService } from '../voucher/voucher.service';
 
@@ -16,17 +15,12 @@ export class VendorCreditNoteService {
     async createVendorCreditNote(payload: any): Promise<any> {
             try {
                 return await this._db.$transaction(async (tx) => {
-                    const dateString = moment().format('YYYYMMDD');
-                               const count = await tx.voucherHeader.count({
-                                 where: { VoucherNumber: { contains: dateString } }
-                               });
-                               const VoucherNumber = `VCN-${dateString}-${(count + 1).toString().padStart(3, '0')}`;
                     // Validate vendor exists
                     if (!payload.PartyMasterSid) {
                         throw new BadRequestException('Vendor (PartyMasterSid) is required');
                     }
-    
-                    // Get VoucherTypeMaster for "Vendor CreditNote"
+
+                    // Get VoucherTypeMaster for "Vendor Credit Note"
                     const voucherTypeMaster = await tx.voucherTypeMaster.findFirst({
                         where: {
                             DocumentTypeName: 'Vendor Credit Note',
@@ -35,12 +29,20 @@ export class VendorCreditNoteService {
                             status: 'A'
                         }
                     });
-    
+
                     if (!voucherTypeMaster) {
                         throw new BadRequestException(
-                            'Vendor CreditNote voucher type not configured. Please configure "Vendor CreditNote" in VoucherTypeMaster.'
+                            'Vendor Credit Note voucher type not configured. Please configure "Vendor Credit Note" in VoucherTypeMaster for this company/branch.'
                         );
                     }
+
+                    // Generate Voucher Number using config-based approach
+                    const VoucherNumber = await this.voucherService.generateVoucherNumberFromConfig(
+                        voucherTypeMaster,
+                        payload.CompanyMasterSid,
+                        payload.BranchMasterSid,
+                        tx
+                    );
     
                     // Get currency master ID
                     let currencyMasterSid = payload.CurrencyMasterSid;
