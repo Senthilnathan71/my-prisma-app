@@ -3021,7 +3021,7 @@ model VoucherHeader {
   Status                    String                  @default("A") @db.Char(1)
   CompanyMasterSid          Int
   BranchMasterSid           Int
-  VoucherNumber             String                  @db.VarChar(20)
+  VoucherNumber             String                  @db.VarChar(50)
   VoucherType               Int
   VoucherDate               DateTime                @db.Date
   PostDate                  DateTime?
@@ -3042,8 +3042,8 @@ model VoucherHeader {
   GSTType                   String?                 @db.VarChar(10)
   Remarks                   String?                 @db.VarChar(100)
   DepartmentMasterSid       Int?
-  HouseNumber               String?                 @db.VarChar(20)
-  MasterNumber              String?                 @db.VarChar(20)
+  HouseNumber               String?                 @db.VarChar(50)
+  MasterNumber              String?                 @db.VarChar(50)
   HouseJobSid               Int?
   MasterJobSid              Int?
   CurrencyMasterSid         Int?
@@ -3209,7 +3209,7 @@ model VoucherTransaction {
   BranchMasterSid       Int
   VoucherHeaderSid      Int
   VoucherDetailSid      Int
-  VoucherNumber         String              @db.VarChar(20)
+  VoucherNumber         String              @db.VarChar(50)
   VoucherType           Int
   VoucherDate           DateTime
   PostDate              DateTime

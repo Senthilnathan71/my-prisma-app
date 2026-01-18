@@ -1,0 +1,7 @@
+-- AlterTable
+ALTER TABLE "VoucherHeader" ALTER COLUMN "VoucherNumber" SET DATA TYPE VARCHAR(50),
+ALTER COLUMN "HouseNumber" SET DATA TYPE VARCHAR(50),
+ALTER COLUMN "MasterNumber" SET DATA TYPE VARCHAR(50);
+
+-- AlterTable
+ALTER TABLE "VoucherTransaction" ALTER COLUMN "VoucherNumber" SET DATA TYPE VARCHAR(50);
