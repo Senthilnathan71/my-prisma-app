@@ -151,13 +151,23 @@ export class VoucherService {
         tx: any
     ): Promise<string> {
         try {
+            // CRITICAL: Lock the VoucherTypeMaster row FIRST to prevent race conditions
+            // This ensures only one transaction at a time can generate a voucher number
+            // for this specific voucher type, even when no vouchers exist yet
+            await tx.$queryRawUnsafe(`
+                SELECT "VoucherTypeMasterSid"
+                FROM "VoucherTypeMaster"
+                WHERE "VoucherTypeMasterSid" = ${voucherTypeMaster.VoucherTypeMasterSid}
+                FOR UPDATE
+            `);
+
             const parts: string[] = [];
-            const separator = voucherTypeMaster.DocumentSeparator || '-';
+            const separator = (voucherTypeMaster.DocumentSeparator || '-').trim();
             const date = new Date();
 
             // Add document type code/value if DocumentFlag is 'Y'
             if (voucherTypeMaster.DocumentFlag === 'Y') {
-                const docValue = voucherTypeMaster.DocumentValue || voucherTypeMaster.DocumentTypeCode || 'DOC';
+                const docValue = (voucherTypeMaster.DocumentValue || voucherTypeMaster.DocumentTypeCode || 'DOC').trim();
                 parts.push(docValue.substring(0, 5));
             }
 
@@ -167,7 +177,7 @@ export class VoucherService {
                     where: { CompanyMasterSid: companyMasterSid },
                     select: { companyCode: true }
                 });
-                const companyValue = voucherTypeMaster.CompanyValue || company?.companyCode || 'CO';
+                const companyValue = (voucherTypeMaster.CompanyValue || company?.companyCode || 'CO').trim();
                 parts.push(companyValue.substring(0, 3));
             }
 
@@ -177,7 +187,7 @@ export class VoucherService {
                     where: { BranchMasterSid: branchMasterSid },
                     select: { branchCode: true }
                 });
-                const branchValue = voucherTypeMaster.BranchValue || branch?.branchCode || 'BR';
+                const branchValue = (voucherTypeMaster.BranchValue || branch?.branchCode || 'BR').trim();
                 parts.push(branchValue.substring(0, 3));
             }
 
@@ -202,22 +212,18 @@ export class VoucherService {
                 `"VoucherTypeMasterSid" = ${voucherTypeMaster.VoucherTypeMasterSid}`
             ];
 
-            // Apply reset logic based on ResetValue
-            if (resetValue === 'month' || resetValue === 'monthly') {
-                // Monthly reset - filter by prefix which includes year and month
-                const escapedPrefix = prefix.replace(/'/g, "''");
-                whereConditions.push(`"VoucherNumber" LIKE '${escapedPrefix}${separator}%'`);
-            } else if (resetValue === 'year' || resetValue === 'yearly') {
-                // Calendar year reset (January to December) - filter by prefix which includes year
-                const escapedPrefix = prefix.replace(/'/g, "''");
-                whereConditions.push(`"VoucherNumber" LIKE '${escapedPrefix}${separator}%'`);
-            } else if (resetValue === 'financialyear' || resetValue === 'financial year') {
-                // Financial Year reset - based on YearMaster table StartDate and EndDate
-                // Get the current active financial year for this company
+            // ALWAYS filter by voucher number prefix to ensure we only count vouchers with the SAME format
+            // This prevents old format vouchers (e.g., "VEN-20260116-003") from affecting new format sequence
+            const escapedPrefix = prefix.replace(/'/g, "''");
+            whereConditions.push(`"VoucherNumber" LIKE '${escapedPrefix}${separator}%'`);
+
+            // Apply additional reset logic based on ResetValue
+            if (resetValue === 'financialyear' || resetValue === 'financial year') {
+                // Financial Year reset - also filter by date range from YearMaster table
                 const currentFinancialYear = await tx.yearMaster.findFirst({
                     where: {
                         CompanyMasterSid: companyMasterSid,
-                        CurrentYear: true,
+                        CurrentYear: 'Y',
                         status: 'A'
                     },
                     select: {
@@ -230,34 +236,40 @@ export class VoucherService {
 
                 if (!currentFinancialYear) {
                     throw new BadRequestException(
-                        'No current financial year found. Please configure YearMaster with CurrentYear = true for this company.'
+                        'No current financial year found. Please configure YearMaster with CurrentYear = Y for this company.'
                     );
                 }
 
                 // Filter vouchers created within the current financial year period
-                // Cast both sides to date for consistent comparison (ignoring time component)
                 const fyStartDate = new Date(currentFinancialYear.StartDate).toISOString().split('T')[0];
                 const fyEndDate = new Date(currentFinancialYear.EndDate).toISOString().split('T')[0];
 
                 whereConditions.push(`"CreatedOn"::date >= '${fyStartDate}'::date`);
                 whereConditions.push(`"CreatedOn"::date <= '${fyEndDate}'::date`);
             }
-            // If ResetValue is empty or "Never", no additional filtering - continuous sequence
+            // For "Month" and "Year" resets, the prefix already includes year/month components
+            // For "Never" or empty, we still filter by prefix to ensure format consistency
 
             const whereClause = whereConditions.join(' AND ');
 
-            // Use raw SQL with FOR UPDATE to lock the row during transaction
-            // This prevents race conditions where multiple requests get the same sequence
-            const result: any[] = await tx.$queryRawUnsafe(`
+            // DEBUG: Log the query being executed
+            const query = `
                 SELECT "VoucherNumber"
                 FROM "VoucherHeader"
                 WHERE ${whereClause}
                 ORDER BY "VoucherNumber" DESC
                 LIMIT 1
                 FOR UPDATE
-            `);
+            `;
+            this.logger.log(`[VOUCHER-GEN] Query: ${query}`);
+            this.logger.log(`[VOUCHER-GEN] Prefix: ${prefix}, ResetValue: ${resetValue}`);
+
+            // Use raw SQL with FOR UPDATE to lock the row during transaction
+            // This prevents race conditions where multiple requests get the same sequence
+            const result: any[] = await tx.$queryRawUnsafe(query);
 
             const lastVoucher = result[0];
+            this.logger.log(`[VOUCHER-GEN] Last voucher found: ${JSON.stringify(lastVoucher)}`);
 
             // Calculate next sequence number
             let nextNumber = Number(voucherTypeMaster.DocumentStartingNo || 1);
@@ -267,6 +279,7 @@ export class VoucherService {
                     nextNumber = parseInt(match[1]) + 1;
                 }
             }
+            this.logger.log(`[VOUCHER-GEN] Next number: ${nextNumber}, DocumentStartingNo: ${voucherTypeMaster.DocumentStartingNo}`);
 
             // Format serial number with specified length
             const slNoLength = Number(voucherTypeMaster.DocumentSLNoLength || 5);
