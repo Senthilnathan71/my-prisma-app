@@ -921,41 +921,67 @@ async searchPendingCosts(searchCriteria: {
 const transformedCosts = await Promise.all(
   pendingCosts.map(async (cost) => {
     let houseJob: any = null;
+    let masterJob : any = null;
     const screenName = cost.menuMaster?.MenuName;
     if (screenName === "House Job") {
       houseJob = await this._db.houseJob.findUnique({
         where: {
           HouseJobSid: cost.TransactionSid!
         },
+          select: {
+              MBLNo: true,
+              HBLNo: true,
+              MasterJobSid: true,
+              DepartmentMasterSid: true,
+          }
+      });
+    } else if (screenName === "Master Job") {
+      masterJob = await this._db.masterJob.findUnique({
+        where: {
+          MasterJobSid: cost.TransactionSid!
+        },
         select: {
-          HBLNo: true,
-          MasterJobSid: true
+          MasterJobNumber: true,
+          MBLNo : true,
+          DepartmentMasterSid : true,
         }
       });
     }
+
     
     return {
       CostRevenueChargesSid: cost.CostRevenueChargesSid,
       ChargeMasterSid: cost.ChargeMasterSid,
       ChargeDescription: cost.ChargeDescription || cost.chargeMaster?.chargeName || '',
       ChargeCode: cost.chargeMaster?.chargeCode || '',
-      NumberOfUnit: cost.CostNumberOfUnit || 1,
-      Rate: cost.CostRate || 0,
-      CostAmount: cost.CostAmount || 0,
-      CostExchangeRate: cost.CostExchangeRate || 1,
-      CurrencyCode: cost.costCurrencyMaster?.currencyCode || '',
-      CurrencyMasterSid: cost.CostCurrencyMasterSid,
-      UOMCode: cost.costChargeUOMMaster?.UOMCode || '',
       ChargeUOMSid: cost.CostChargeUomSid,
+      UOMCode: cost.costChargeUOMMaster?.UOMCode || '',
+      NumberOfUnit: cost.CostNumberOfUnit || 1,
+      DrCr : cost.CostDrCr || 'D',
+      CurrencyMasterSid: cost.CostCurrencyMasterSid,
+      CurrencyCode: cost.costCurrencyMaster?.currencyCode || '',
+      Rate: cost.CostRate || 0,
+      CostExchangeRate: cost.CostExchangeRate || 1,
+      CostAmount: cost.CostAmount || 0,
+      CostLocalAmount : cost.CostLocalAmount || 0,
       VendorName: cost.costCustomerMaster?.CustomerName || '',
       VendorSid: cost.CostAgentMasterSid,
       VendorAddress: cost.costCustomerBranch?.Address || '',
       CostAgentBranchSid: cost.CostAgentBranchSid,
-      JobNo: screenName === 'Master Job' ? jobRecord?.MasterJobNumber :
+      JobNo: screenName === 'Master Job' ? masterJob?.MasterJobNumber :
              screenName === 'House Job' ? houseJob?.HBLNo :
              cost.MasterJobNo || cost.ShipmentNo || '',
-      MBLNo: jobRecord?.MBLNo || '',
-      HBLNo: screenName === 'House Job' ? jobRecord?.HBLNo : '',
+      MBLNo : 
+        screenName === "House Job" ? houseJob?.MBLNo : 
+        (screenName === "Master Job" ? masterJob?.MBLNo : null),
+      HBLNo : 
+        screenName === "House Job" ? houseJob?.HBLNo : 
+        (screenName === "Master Job" ? masterJob?.HBLNo : null),
+      DepartmentMasterSid : 
+        screenName === "Master Job" ? 
+            masterJob?.DepartmentMasterSid :
+                screenName === "House Job" ? 
+                    houseJob?.DepartmentMasterSid : null,
       MasterJobSid: (screenName === "Master Job" ? cost.TransactionSid : null) || 
                     (houseJob ? (screenName === "House Job" ? houseJob?.MasterJobSid : null) : null),
       HouseJobSid: screenName === "House Job" ? cost.TransactionSid : null,
