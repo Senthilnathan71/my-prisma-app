@@ -1249,7 +1249,8 @@ if (!croPayload?.BookingCroSid) {
             BranchMasterSid: activeBranchId,
             status: statusWhereClause,
             ...(search && {
-                OR: [
+                OR: [ 
+                   
                     { BookingNo: { contains: search, mode: 'insensitive' } },
                     { departmentMaster: { departmentName: { contains: search, mode: 'insensitive' } } },
                     { CustomerName: { contains: search, mode: 'insensitive' } },
@@ -1273,7 +1274,7 @@ if (!croPayload?.BookingCroSid) {
                 where,
                 skip,
                 take: pageSize,
-                orderBy: { BookingHeaderSid: 'desc' },
+                orderBy: { BookingDateTime: 'desc' },
                 include : {
                     houseJob : {
                         include : {

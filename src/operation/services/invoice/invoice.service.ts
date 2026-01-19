@@ -749,9 +749,37 @@ Debug.log('DEBUG - Processing voucher details:', payload.VoucherDetail.length, '
             where: { Status: 'A' },
             take: 1
           },
-          masterJob: true,
-          houseJob: true,
-          currencyMaster: true
+          BookingHeader:{
+            where:{status:'A'},
+            select:{
+              BookingNo:true,
+            }
+          },
+          masterJob: {
+            where:{Status:'A'},
+            select:{
+              MasterJobNumber:true,
+              MasterJobDate:true,
+            }
+          },
+          houseJob: {
+            where:{status:'A'},
+            select:{
+              HBLNo:true,
+              ShipperName:true,
+              ConsigneeName:true,
+              ConsigneeAddress:true,
+              CustomerName:true,
+              CustomerAddress:true,
+            }
+          },
+          currencyMaster: {
+            where:{status:'A'},
+            select:{
+              currencyCode:true,
+              currencyName:true,
+            }
+          }
         }
       }),
       this._db.voucherHeader.count({ where }),
