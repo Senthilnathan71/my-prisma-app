@@ -1,7 +1,7 @@
 model BookingHeader {
   BookingHeaderSid           Int                          @id @default(autoincrement()) @map("BookingHeaderSid")
   BookingNo                  String                       @db.VarChar(50)
-  BookingDateTime            DateTime?
+  BookingDateTime            DateTime?                    @db.Date
   CompanyMasterSid           Int
   BranchMasterSid            Int?
   CustomerMasterSid          Int
@@ -55,7 +55,7 @@ model BookingHeader {
   GeneralNote                String?                      @db.VarChar(200)
   HBLNo                      String?                      @db.VarChar(200)
   InternalNote               String?                      @db.VarChar(200)
-  MBLDate                    DateTime?
+  MBLDate                    DateTime?                    @db.Date
   MBLNo                      String?                      @db.VarChar(200)
   Nominated                  String?                      @db.VarChar(200)
   NominatedBy                String?                      @db.VarChar(200)
@@ -85,6 +85,7 @@ model BookingHeader {
   houseJob                   HouseJob[]
   paymentRequest             PaymentRequest[]
   quotationHeader            QuoteHeader?
+  quotationRoute             QuoteRoute?
   VoucherHeader              VoucherHeader[]
   VoucherOthers              VoucherOthers[]
 }
@@ -230,7 +231,7 @@ model BookingOthers {
   Coloader            String?        @db.VarChar(100)
   Notify2             String?        @db.VarChar(100)
   NotifyAddress2      String?        @db.VarChar(200)
-  CarrierBookingDate  DateTime?
+  CarrierBookingDate  DateTime?      @db.Date
   CarrierBookingRef   String?        @db.VarChar(20)
   bookingHeader       BookingHeader? @relation(fields: [BookingHeaderSid], references: [BookingHeaderSid])
 }
@@ -260,7 +261,7 @@ model BookingRates {
   CostDrCr                    String               @db.Char(1)
   CostExchangeRate            Decimal?             @db.Decimal(8, 4)
   CostLocalAmount             Decimal              @db.Decimal(15, 3)
-  CostNumberOfUnit            Decimal?             @db.Decimal(7, 3)
+  CostNumberOfUnit            Decimal?             @db.Decimal(15, 3)
   CostPrepaidCollect          String?              @default("Prepaid") @db.VarChar(10)
   CostRate                    Decimal?             @db.Decimal(15, 3)
   RevenueAmount               Decimal              @db.Decimal(15, 3)
@@ -271,7 +272,7 @@ model BookingRates {
   RevenuePrepaidCollect       String?
   RevenueRate                 Decimal?             @db.Decimal(15, 3)
   RevenueExchangeRate         Decimal?             @db.Decimal(8, 4)
-  RevenueNumberOfUnit         Decimal?             @db.Decimal(7, 3)
+  RevenueNumberOfUnit         Decimal?             @db.Decimal(15, 3)
   PrepaidCollect              String?
   QuoteChargeSid              Int?
   TariffDetailSid             Int?
@@ -279,7 +280,7 @@ model BookingRates {
   CostVoucherTypeMasterSid    Int?
   RevenueVoucherHeaderSid     Int?
   RevenueVoucherTypeMasterSid Int?
-  NoOfUnit                    Decimal?             @db.Decimal(7, 3)
+  NoOfUnit                    Decimal?             @db.Decimal(15, 3)
   customerMasterAG            CustomerMaster?      @relation("Agent", fields: [AgentMasterSid], references: [CustomerMasterSid])
   BookingHeader               BookingHeader        @relation(fields: [BookingHeaderSid], references: [BookingHeaderSid])
   BranchMaster                BranchMaster         @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
@@ -308,8 +309,8 @@ model BookingCro {
   UpdatedBy        String?       @db.VarChar(100)
   BookingHeaderSid Int
   OnHireRef        String?       @db.VarChar(20)
-  ReleaseOrderDate DateTime?
-  ValidityDate     DateTime?
+  ReleaseOrderDate DateTime?     @db.Date
+  ValidityDate     DateTime?     @db.Date
   Transporter      String?       @db.VarChar(50)
   EmptyYard        String?       @db.VarChar(200)
   NoteToYard       String?       @db.VarChar(200)
@@ -354,8 +355,8 @@ model VoyageMasterHeader {
   ViaNumber              String?              @db.VarChar(10)
   RotationNumber         String?              @db.VarChar(10)
   Remarks                String?              @db.VarChar(200)
-  SCMETA                 DateTime?
-  SCMETD                 DateTime?
+  SCMETA                 DateTime?            @db.Date
+  SCMETD                 DateTime?            @db.Date
   SCMTCargoDescription   String?              @db.VarChar(200)
   ShipIRN                String?              @db.VarChar(10)
   CrewIRN                String?              @db.VarChar(10)
@@ -369,14 +370,14 @@ model VoyageMasterHeader {
   Carrier                Int?
   CoLoad                 String?              @default("N") @db.Char(1)
   VoyageType             String?              @db.VarChar(10)
-  ATA                    DateTime?
-  ATD                    DateTime?
+  ATA                    DateTime?            @db.Date
+  ATD                    DateTime?            @db.Date
   Coloader               Int?
-  ETA                    DateTime?
-  ETD                    DateTime?
+  ETA                    DateTime?            @db.Date
+  ETD                    DateTime?            @db.Date
   PODSid                 Int?
   POLSid                 Int?
-  PortCutoff             DateTime?
+  PortCutoff             DateTime?            @db.Date
   TransitDays            Decimal?             @db.Decimal(3, 0)
   BranchMasterSid        Int?
   CompanyMasterSid       Int?
@@ -397,10 +398,10 @@ model VoyageMasterDetail {
   VoyageMasterDetailSid Int                @id @default(autoincrement()) @map("VoyageMasterDetailSid")
   POLSid                Int
   PODSid                Int?
-  ETA                   DateTime
-  ETD                   DateTime
-  ATA                   DateTime?
-  ATD                   DateTime?
+  ETA                   DateTime           @db.Date
+  ETD                   DateTime           @db.Date
+  ATA                   DateTime?          @db.Date
+  ATD                   DateTime?          @db.Date
   Coloader              String?            @db.VarChar(100)
   PortCutoff            DateTime
   TransitDays           Int
