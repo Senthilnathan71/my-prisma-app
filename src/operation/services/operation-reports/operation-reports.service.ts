@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { DatabaseService } from 'src/database/database.service';
-import { Prisma, PrismaClient } from '@prisma/client';
+import { ApprovalStatus, Prisma, PrismaClient } from '@prisma/client';
 import { BLIssueListReportQueryDto, ContainerKPIReportQueryDto, DestinationReportQueryDto, DOIssueListReportQueryDto, exportJobVolumeTEUReportQueryDto, houseJobLossReportQueryDto, lostCustomerReportQueryDto, profitabilityReportQueryDto, ProfitSummaryReportQueryDto, ShipmentDetailedSummaryReportQueryDto, ShipmentSummaryReportQueryDto, tradelaneProfitabilityReportQueryDto, unbilledcostReportQueryDto } from 'src/operation/DTO/operation-reports.dto';
 import { toNumber } from 'src/common/helper';
 
@@ -116,6 +116,8 @@ export class OperationReportsService {
           return await this.generateComprehensiveManagementReport(parameters);
         case 'tradelane-profitability':
           return await this.generateTradelaneProfitability(parameters);
+        case 'network-report':
+          return await this.generateNetworkReport(parameters);
         default:
           throw new BadRequestException(`Report ${reportName} not implemented`);
       }
@@ -460,7 +462,8 @@ export class OperationReportsService {
           totalShipment: (mj.houseJob?.filter(job => job.JobType === 'Import' || job.JobType === 'Export').length || 0) +
             (mj.houseJob?.filter(job => job.JobType === 'Transhipment').length || 0),
           localShipmentVol,
-          transhipmentVol
+          transhipmentVol,
+          houseStatus:mj.houseJob?.[0]?.HouseStatus
         };
       });
 
@@ -1058,7 +1061,6 @@ export class OperationReportsService {
 
       /* -------------------- DEPARTMENT IDS -------------------- */
       const allDepartmentIds: number[] = [];
-
       if (Array.isArray(department) && department.length > 0) {
         allDepartmentIds.push(...department);
       } else if (typeof department === 'number') {
@@ -1070,7 +1072,8 @@ export class OperationReportsService {
             Status: 'A'
           },
           select: {
-            DepartmentMasterSid: true
+            DepartmentMasterSid: true,
+            departmentName:true,
           }
         });
 
@@ -1099,10 +1102,10 @@ export class OperationReportsService {
         BranchMasterSid: { in: allBranchIds },
         CustomerMasterSid: { in: allCustomerIds },
         DepartmentMasterSid: { in: allDepartmentIds },
-        BookingDateTime: {
-          gte: FromDate,
-          lte: ToDate
-        },
+       AND:[
+        {BookingDateTime:{gte:FromDate}},
+        {BookingDateTime:{lte:ToDate}}
+       ],
         status: 'A'
       };
 
@@ -1298,22 +1301,20 @@ export class OperationReportsService {
         }
       });
 
-      // Create container type mapping
-      const containerMaster = await this._db.containerTypeMaster.findMany({
-        select: {
-          ContainerTypeMasterSid: true,
-          ContainerSize: true,
-          ContainerName: true
-        },
+      const containerTypesMaster = await this._db.containerTypeMaster.findMany({
+        select: { ContainerTypeMasterSid: true, ContainerSize: true, ContainerName: true }
       });
 
-      // Create map for ContainerTypeMasterSid -> ContainerName
-      const containerTypeMap = new Map<number, string>();
-      containerMaster.forEach(container => {
-        if (container.ContainerTypeMasterSid != null && container.ContainerName != null) {
-          containerTypeMap.set(container.ContainerTypeMasterSid, container.ContainerName);
-        }
+      // Map ID → Name for fast lookup
+      const containerTypeMap = new Map<number, { name: string; size: string }>();
+
+      containerTypesMaster.forEach(c => {
+        containerTypeMap.set(c.ContainerTypeMasterSid, {
+          name: c.ContainerSize || '',
+          size: c.ContainerName || ''
+        });
       });
+
 
       // country Master
       const countryMaster = await this._db.countryMaster.findMany({
@@ -1348,7 +1349,8 @@ export class OperationReportsService {
               Status: "A"
             },
             select: {
-              voyages: true
+              voyages: true,
+              containers: true
             }
           },
           bookingHeader: true,
@@ -1365,6 +1367,7 @@ export class OperationReportsService {
             }
           },
           Cargo: true,
+          Others: true,
           departmentMaster: {
             select: {
               departmentName: true
@@ -1420,18 +1423,24 @@ export class OperationReportsService {
 
         const product = data.Products?.[0];
 
-        // Get container name - THIS IS THE KEY FIX
-        let containerName = '';
-        let containerSize = '';
-        if (product?.MasterJobContainerSid != null) {
-          const containerType = containerMaster.find(
-            ct => ct.ContainerTypeMasterSid === product.MasterJobContainerSid
-          );
-          if (containerType) {
-            containerName = containerType.ContainerName || '';
-            containerSize = containerType.ContainerSize || '';
-          }
-        }
+        const masterContainerSid = data.masterJob?.containers?.[0]?.MasterJobContainerSid;
+
+        const containerInfo = (data.masterJob?.containers || [])
+          .filter(c => c.MasterJobContainerSid === masterContainerSid)
+          .map(c => {
+            const containerTypeId = c.ContainerType;
+            const typeInfo = containerTypeId != null
+              ? containerTypeMap.get(containerTypeId)
+              : null;
+
+            return {
+              containerNumber: c.ContainerNumber,
+              containerName: typeInfo?.name || `Unknown(${containerTypeId})`,
+              containerSize: typeInfo?.size || '',
+            };
+          });
+
+
 
         // Alternative: Use the map you created earlier
         // let containerName = '';
@@ -1465,7 +1474,7 @@ export class OperationReportsService {
         }
 
         return {
-          bookingNo: data?.bookingHeader?.[0]?.bookingNo,
+          bookingNo: data?.BookingNo,
           vesselName: data?.VesselName,
           MBL: data?.MBLNo,
           HBL: data?.HBLNo,
@@ -1480,8 +1489,7 @@ export class OperationReportsService {
           freightTerms: data?.FreightTerms,
           bookingDate: data?.BookingDateTime,
           containerNo: product?.ContainerNo,
-          containerName,
-          containerSize,
+          containerInfo,
           containerSid: product?.MasterJobContainerSid,
           vol: product?.Volume,
           weight: product?.GrossWeight,
@@ -1489,7 +1497,8 @@ export class OperationReportsService {
           freightRevenue,
           dgDelaration: product?.IsHaz,
           ATDPOL: data?.masterJob?.voyages?.[0]?.ATD,
-          ATA: data?.masterJob?.voyages?.[0]?.ATA
+          ATA: data?.masterJob?.voyages?.[0]?.ATA,
+          dgAprrovelDate: data?.Others?.[0]?.DGConfirmationDate,
         };
       });
 
@@ -2036,7 +2045,7 @@ export class OperationReportsService {
           masterStatus: mj.masterJob?.JobStatus,
           jobClosed: mj.HouseStatus,
           housecreatedBy: mj.createdBy,
-          mastercreatedBy: mj.masterJob?.[0]?.CreatedBy,
+          mastercreatedBy: mj.masterJob?.CreatedBy,
           addtionalRemarks: mj.Others?.[0]?.ExternalNote,
           volume: mj.masterJob?.Volume || 0,
           grossWeight: mj.masterJob?.GrossWeight || 0,
@@ -2046,7 +2055,7 @@ export class OperationReportsService {
           noOfContainers: houseJobData.reduce((sum, job) => sum + (job.Cargo?.reduce((cSum, cargo) => cSum + (cargo.NoofContainers || 0), 0) || 0), 0) || 0,
           shipper: mj.ShipperName || '',
           consignee: mj.ConsigneeName,
-          originAgent: mj.OriginAgent,
+          originAgent: mj.AgentName,
           deliveryAgent: customerMaster.find(d => d.CustomerMasterSid === mj.DestinationAgent)?.CustomerName || '',
           notify: mj.Notify,
           agent: mj.AgentName,
@@ -2654,7 +2663,7 @@ export class OperationReportsService {
 
         return {
           HouseJobSid: house.HouseJobSid,
-          HouseNo: house.HouseNo,
+          HouseNo: house.masterJob?.MasterJobNumber,
           HBLNo: house.HBLNo,
           houseDept: houseDepartment,
           houseStatus: house.HouseStatus,
@@ -3375,6 +3384,7 @@ export class OperationReportsService {
               MasterJobNumber: true,
               JobStatus: true,
               CreatedBy: true,
+              OriginAgent:true,
               containers: {
                 where: { Status: 'A' },
                 include: {
@@ -3622,7 +3632,7 @@ export class OperationReportsService {
           masterStatus: mj.masterJob?.JobStatus,
           jobClosed: mj.HouseStatus,
           housecreatedBy: mj.createdBy,
-          mastercreatedBy: mj.masterJob?.[0]?.CreatedBy,
+          mastercreatedBy: mj.masterJob?.CreatedBy,
           addtionalRemarks: mj.Others?.[0]?.ExternalNote,
           volume: mj.masterJob?.Volume || 0,
           grossWeight: mj.masterJob?.GrossWeight || 0,
@@ -3632,7 +3642,7 @@ export class OperationReportsService {
           noOfContainers: houseJobData.reduce((sum, job) => sum + (job.Cargo?.reduce((cSum, cargo) => cSum + (cargo.NoofContainers || 0), 0) || 0), 0) || 0,
           shipper: mj.ShipperName || '',
           consignee: mj.ConsigneeName,
-          originAgent: mj.OriginAgent,
+          originAgent: mj.AgentName,
           deliveryAgent: customerMaster.find(d => d.CustomerMasterSid === mj.DestinationAgent)?.CustomerName || '',
           notify: mj.Notify,
           agent: mj.AgentName,
@@ -3873,6 +3883,117 @@ export class OperationReportsService {
       throw error
     }
   }
+
+  private async generateNetworkReport(params: any) {
+    const {
+      FromDate,
+      ToDate,
+      network,
+      NetworkFrom,
+      CompanyId: CompanyMasterSid,
+      Branch: BranchMasterSid,
+      Department
+    } = params;
+
+    try {
+
+      // 1. Resolve departments (selected or all)
+      let departmentIds: number[] = [];
+
+      if (Department) {
+        departmentIds = Array.isArray(Department) ? Department : [Department];
+      } else {
+        const allDepartments = await this._db.departmentMaster.findMany({
+          where: { CompanyMasterSid, Status: 'A' },
+          select: { DepartmentMasterSid: true }
+        });
+        departmentIds = allDepartments.map(d => d.DepartmentMasterSid);
+      }
+
+      // 2. Load masters
+      const organizationMaster = await this._db.customerMaster.findMany({
+        select: {
+          CustomerMasterSid: true,
+          CustomerName: true,
+          Network: true
+        }
+      });
+
+      const departments = await this._db.departmentMaster.findMany({
+        select: {
+          DepartmentMasterSid: true,
+          departmentName: true
+        }
+      });
+
+      // 3. Build booking filter
+      const whereClause: any = {
+        CompanyMasterSid,
+        BranchMasterSid,
+        DepartmentMasterSid: { in: departmentIds },
+        status: 'A',
+        AND: [
+          { BookingDateTime: { gte: FromDate } },
+          { BookingDateTime: { lte: ToDate } }
+        ],      };
+
+      // 4. Fetch booking data
+      const networkData = await this._db.bookingHeader.findMany({
+        where: whereClause,
+        include: {
+          bookingRates: true,
+          bookingCargo: true,
+          houseJob: true
+        },
+        orderBy:{
+          BookingDateTime:"asc"
+        }
+      });
+
+      // 5. Apply network filters + map result
+      const data = networkData
+        .filter(b => {
+          const customer = organizationMaster.find(c => c.CustomerMasterSid === b.CustomerMasterSid);
+          if (!customer) return false;
+
+          if (network && customer.Network !== network) return false;
+          if (NetworkFrom && customer.Network !== NetworkFrom) return false;
+
+          return true;
+        })
+        .map(b => {
+          const customer = organizationMaster.find(c => c.CustomerMasterSid === b.CustomerMasterSid);
+          const department = departments.find(d => d.DepartmentMasterSid === b.DepartmentMasterSid);
+          const destinationAgent  = organizationMaster.find(c=>c.CustomerMasterSid === b.DestinationAgent);
+          return {
+            customerName: customer?.CustomerName || '',
+            departmentName: department?.departmentName || '',
+            BookingNo: b.BookingNo,
+            HouseNo: b.HouseNo,
+            HblNo: b.HBLNo,
+            MBLNo: b.MBLNo,
+            originAgent: b.AgentName,
+            destinationAgent: destinationAgent?.CustomerName || '',
+            nominationBy: b.NominatedBy,
+            grossWt: b.bookingCargo?.[0]?.GrossWeight || 0,
+            netWt: b.bookingCargo?.[0]?.NetWeight || 0, 
+          };
+        });
+
+      return {
+        CompanyMasterSid,
+        BranchMasterSid,
+        FromDate,
+        ToDate,
+        count: data.length,
+        data
+      };
+
+    } catch (error) {
+      throw error;
+    }
+  }
+
 
 
   // async getBranchNames(companyMasterSid:number,branchIds?:number[])
@@ -4583,7 +4704,7 @@ export class OperationReportsService {
       });
 
       // ----Vendor Os ---------
-      const vendorOsVouchers = await this._db.voucherHeader.findMany({
+      const vendorOsVouchers = await this._db.voucherTransaction.findMany({
         where: {
           CompanyMasterSid,
           BranchMasterSid: { in: resolvedBranchIds },
@@ -4591,7 +4712,7 @@ export class OperationReportsService {
           VoucherDate: { gte: FromDate, lte: ToDate },
           Status: 'A',
           voucherTypeMaster: {
-            DocumentTypeCode: 'VCRN'
+            DocumentTypeCode: 'VINV'
           }
         },
         include: {
@@ -4620,6 +4741,7 @@ export class OperationReportsService {
         };
       });
 
+      
 
       const vendorRowsMap = new Map<number, any>();
 
@@ -4656,6 +4778,84 @@ export class OperationReportsService {
       });
 
       const vendorRows = Array.from(vendorRowsMap.values());
+
+      const subledgerIds = Array.from(vendorRowsMap.keys());
+
+      const subledgers = await this._db.subledgerMaster.findMany({
+        where: {
+          SubledgerMasterSid: { in: subledgerIds },
+          SubledgerType: 'Customer',
+          Status: 'A'
+        },
+        select: {
+          SubledgerMasterSid: true,
+          SubledgerMappingSid: true
+        }
+      });
+
+
+      const subledgerToCustomerMap = new Map<number, number>();
+
+      for (const s of subledgers) {
+        if (s.SubledgerMappingSid) {
+          subledgerToCustomerMap.set(s.SubledgerMasterSid, s.SubledgerMappingSid);
+        }
+      }
+
+
+      const customerIds = Array.from(subledgerToCustomerMap.values());
+
+      const customers = await this._db.customerMaster.findMany({
+        where: {
+          CustomerMasterSid: { in: customerIds }
+        },
+        include: {
+          customerCreditRequest: {
+            where: {
+              ApprovalStatus: ApprovalStatus.Approved,
+              Status: 'A'
+            }
+          }
+        }
+      });
+
+
+      const customerCreditMap = new Map<number, { CreditDays: number; CreditLimit: number }>();
+
+      for (const customer of customers) {
+        let CreditDays = 0;
+        let CreditLimit = 0;
+
+        if (
+          customer.CashCredit !== 'C' &&
+          customer.customerCreditRequest.length > 0
+        ) {
+          const reqWithHighestLimit = customer.customerCreditRequest.reduce((acc, req) =>
+            req.CreditLimit > acc.CreditLimit ? req : acc
+          );
+
+          CreditDays = reqWithHighestLimit.CreditDays;
+          CreditLimit = reqWithHighestLimit.CreditLimit;
+        }
+
+        customerCreditMap.set(customer.CustomerMasterSid, { CreditDays, CreditLimit });
+      }
+
+
+      const subledgerCreditMap = new Map<number, { CreditDays: number; CreditLimit: number }>();
+
+      for (const [subledgerId, customerId] of subledgerToCustomerMap.entries()) {
+        const credit = customerCreditMap.get(customerId) ?? { CreditDays: 0, CreditLimit: 0 };
+        subledgerCreditMap.set(subledgerId, credit);
+      }
+
+
+      vendorRowsMap.forEach((vendor, subledgerId) => {
+        const credit = subledgerCreditMap.get(subledgerId);
+
+        vendor.CreditDays = credit?.CreditDays ?? 0;
+        vendor.CreditLimit = credit?.CreditLimit ?? 0;
+      });
 
 
       return {
