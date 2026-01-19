@@ -72,6 +72,9 @@ export class MasterJobService {
                 let departmentExportImport = department?.ExportImport ?? null;
                 if (departmentType === 'Air') {
                     if (departmentExportImport === 'Export') {
+                         if (payload.MBLNo && String(payload.MBLNo).trim() !== '') {
+            assignedMBLNo = String(payload.MBLNo).trim();
+        } else {
  
                         // Find the first available MAWB with StockStatus = 'Free'
                         const availableMawb = await prisma.mawbStock.findFirst({
@@ -101,6 +104,7 @@ export class MasterJobService {
                                 }
                             });
                         }
+                    }
                     } else {
                         assignedMBLNo = payload.MBLNo || "";
                     }

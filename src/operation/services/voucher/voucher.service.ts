@@ -164,14 +164,7 @@ export class VoucherService {
             const parts: string[] = [];
             const separator = (voucherTypeMaster.DocumentSeparator || '-').trim();
             const date = new Date();
-
-            // Add document type code/value if DocumentFlag is 'Y'
-            if (voucherTypeMaster.DocumentFlag === 'Y') {
-                const docValue = (voucherTypeMaster.DocumentValue || voucherTypeMaster.DocumentTypeCode || 'DOC').trim();
-                parts.push(docValue.substring(0, 5));
-            }
-
-            // Add company code if CompanyFlag is 'Y'
+              // Add company code if CompanyFlag is 'Y'
             if (voucherTypeMaster.CompanyFlag === 'Y') {
                 const company = await tx.companyMaster.findUnique({
                     where: { CompanyMasterSid: companyMasterSid },
@@ -180,8 +173,7 @@ export class VoucherService {
                 const companyValue = (voucherTypeMaster.CompanyValue || company?.companyCode || 'CO').trim();
                 parts.push(companyValue.substring(0, 3));
             }
-
-            // Add branch code if BranchFlag is 'Y'
+             // Add branch code if BranchFlag is 'Y'
             if (voucherTypeMaster.BranchFlag === 'Y') {
                 const branch = await tx.branchMaster.findUnique({
                     where: { BranchMasterSid: branchMasterSid },
@@ -190,16 +182,27 @@ export class VoucherService {
                 const branchValue = (voucherTypeMaster.BranchValue || branch?.branchCode || 'BR').trim();
                 parts.push(branchValue.substring(0, 3));
             }
+            // Add document type code/value if DocumentFlag is 'Y'
+            if (voucherTypeMaster.DocumentFlag === 'Y') {
+                const docValue = (voucherTypeMaster.DocumentValue || voucherTypeMaster.DocumentTypeCode || 'DOC').trim();
+                parts.push(docValue.substring(0, 5));
+            }
 
             // Add year if YearFlag is 'Y'
             if (voucherTypeMaster.YearFlag === 'Y') {
                 parts.push(date.getFullYear().toString());
             }
 
+           
+
             // Add month if MonthFlag is 'Y'
             if (voucherTypeMaster.MonthFlag === 'Y') {
                 parts.push((date.getMonth() + 1).toString().padStart(2, '0'));
             }
+
+          
+
+            
 
             // Build prefix for reset logic (all parts except serial number)
             const prefix = parts.join(separator);
