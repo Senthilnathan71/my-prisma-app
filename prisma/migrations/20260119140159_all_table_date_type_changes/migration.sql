@@ -1,0 +1,148 @@
+/*
+  Warnings:
+
+  - A unique constraint covering the columns `[BookingHeaderSid]` on the table `QuoteRoute` will be added. If there are existing duplicate values, this will fail.
+
+*/
+-- AlterTable
+ALTER TABLE "BookingCro" ALTER COLUMN "ReleaseOrderDate" SET DATA TYPE DATE,
+ALTER COLUMN "ValidityDate" SET DATA TYPE DATE;
+
+-- AlterTable
+ALTER TABLE "BookingHeader" ALTER COLUMN "BookingDateTime" SET DATA TYPE DATE,
+ALTER COLUMN "MBLDate" SET DATA TYPE DATE;
+
+-- AlterTable
+ALTER TABLE "BookingOthers" ALTER COLUMN "CarrierBookingDate" SET DATA TYPE DATE;
+
+-- AlterTable
+ALTER TABLE "BookingRates" ALTER COLUMN "CostNumberOfUnit" SET DATA TYPE DECIMAL(15,3),
+ALTER COLUMN "RevenueNumberOfUnit" SET DATA TYPE DECIMAL(15,3),
+ALTER COLUMN "NoOfUnit" SET DATA TYPE DECIMAL(15,3);
+
+-- AlterTable
+ALTER TABLE "CostRevenueCharges" ALTER COLUMN "CostNumberOfUnit" SET DATA TYPE DECIMAL(15,3),
+ALTER COLUMN "RevenueNumberOfUnit" SET DATA TYPE DECIMAL(15,3);
+
+-- AlterTable
+ALTER TABLE "CurrencyExchange" ALTER COLUMN "EffectiveFrom" SET DATA TYPE DATE;
+
+-- AlterTable
+ALTER TABLE "CustomerSalesTeam" ALTER COLUMN "EffectiveFrom" SET DATA TYPE DATE;
+
+-- AlterTable
+ALTER TABLE "CustomerSupport" ALTER COLUMN "EffectiveFrom" SET DATA TYPE DATE;
+
+-- AlterTable
+ALTER TABLE "EnquiryHeader" ALTER COLUMN "EnquiryDate" SET DATA TYPE DATE,
+ALTER COLUMN "ShipmentExpectedDate" SET DATA TYPE DATE;
+
+-- AlterTable
+ALTER TABLE "HSSACMaster" ALTER COLUMN "EffectiveFrom" SET DATA TYPE DATE;
+
+-- AlterTable
+ALTER TABLE "HawbStock" ALTER COLUMN "ReceivedDate" SET DATA TYPE DATE;
+
+-- AlterTable
+ALTER TABLE "HouseJob" ALTER COLUMN "ETD" SET DATA TYPE DATE,
+ALTER COLUMN "ETA" SET DATA TYPE DATE,
+ALTER COLUMN "DoValid" SET DATA TYPE DATE,
+ALTER COLUMN "MBLDate" SET DATA TYPE DATE,
+ALTER COLUMN "HBLDate" SET DATA TYPE DATE;
+
+-- AlterTable
+ALTER TABLE "HouseJobBOE" ALTER COLUMN "BOEDate" SET DATA TYPE DATE,
+ALTER COLUMN "ProcessDate" SET DATA TYPE DATE,
+ALTER COLUMN "ReceivedDate" SET DATA TYPE DATE,
+ALTER COLUMN "AckDate" SET DATA TYPE DATE;
+
+-- AlterTable
+ALTER TABLE "HouseJobConnection" ALTER COLUMN "ETD" SET DATA TYPE DATE,
+ALTER COLUMN "ETA" SET DATA TYPE DATE;
+
+-- AlterTable
+ALTER TABLE "HouseJobOthers" ALTER COLUMN "PickupDate" SET DATA TYPE DATE,
+ALTER COLUMN "CarrierBookingDate" SET DATA TYPE DATE,
+ALTER COLUMN "DODate" SET DATA TYPE DATE;
+
+-- AlterTable
+ALTER TABLE "HouseJobProduct" ALTER COLUMN "ShippingBillDate" SET DATA TYPE DATE,
+ALTER COLUMN "CargoRecDate" SET DATA TYPE DATE,
+ALTER COLUMN "DeliveryDate" SET DATA TYPE DATE;
+
+-- AlterTable
+ALTER TABLE "MasterJobConnection" ALTER COLUMN "ETD" SET DATA TYPE DATE,
+ALTER COLUMN "ETA" SET DATA TYPE DATE,
+ALTER COLUMN "ATD" SET DATA TYPE DATE,
+ALTER COLUMN "ATA" SET DATA TYPE DATE;
+
+-- AlterTable
+ALTER TABLE "MasterJobOthers" ALTER COLUMN "ContainerReleaseDate" SET DATA TYPE DATE,
+ALTER COLUMN "ContainerValidityDate" SET DATA TYPE DATE;
+
+-- AlterTable
+ALTER TABLE "MawbStock" ALTER COLUMN "ReceivedDate" SET DATA TYPE DATE;
+
+-- AlterTable
+ALTER TABLE "MeetingFollowup" ALTER COLUMN "FollowupDate" SET DATA TYPE DATE;
+
+-- AlterTable
+ALTER TABLE "QuoteHeader" ALTER COLUMN "QuoteDate" SET DATA TYPE DATE,
+ALTER COLUMN "QuoteValidFrom" SET DATA TYPE DATE,
+ALTER COLUMN "QuoteValidTo" SET DATA TYPE DATE;
+
+-- AlterTable
+ALTER TABLE "QuoteRoute" ADD COLUMN     "BookingHeaderSid" INTEGER,
+ALTER COLUMN "effDate" SET DATA TYPE DATE,
+ALTER COLUMN "expdate" SET DATA TYPE DATE;
+
+-- AlterTable
+ALTER TABLE "TDSExemption" ALTER COLUMN "EffectiveFrom" SET DATA TYPE DATE,
+ALTER COLUMN "EffectiveTo" SET DATA TYPE DATE;
+
+-- AlterTable
+ALTER TABLE "TDSSetRate" ALTER COLUMN "EffectiveFrom" SET DATA TYPE DATE;
+
+-- AlterTable
+ALTER TABLE "TariffHeader" ALTER COLUMN "EffectiveDate" SET DATA TYPE DATE;
+
+-- AlterTable
+ALTER TABLE "VoucherHeader" ALTER COLUMN "PostDate" SET DATA TYPE DATE,
+ALTER COLUMN "DocumentDate" SET DATA TYPE DATE,
+ALTER COLUMN "InstrumentDate" SET DATA TYPE DATE,
+ALTER COLUMN "ClearanceDate" SET DATA TYPE DATE;
+
+-- AlterTable
+ALTER TABLE "VoucherMatching" ALTER COLUMN "VoucherMatchingDate" SET DATA TYPE DATE;
+
+-- AlterTable
+ALTER TABLE "VoucherMatchingHeader" ALTER COLUMN "VoucherMatchingDate" SET DATA TYPE DATE;
+
+-- AlterTable
+ALTER TABLE "VoucherTransaction" ALTER COLUMN "VoucherDate" SET DATA TYPE DATE,
+ALTER COLUMN "PostDate" SET DATA TYPE DATE;
+
+-- AlterTable
+ALTER TABLE "VoyageMasterDetail" ALTER COLUMN "ETA" SET DATA TYPE DATE,
+ALTER COLUMN "ETD" SET DATA TYPE DATE,
+ALTER COLUMN "ATA" SET DATA TYPE DATE,
+ALTER COLUMN "ATD" SET DATA TYPE DATE;
+
+-- AlterTable
+ALTER TABLE "VoyageMasterHeader" ALTER COLUMN "SCMETA" SET DATA TYPE DATE,
+ALTER COLUMN "SCMETD" SET DATA TYPE DATE,
+ALTER COLUMN "ATA" SET DATA TYPE DATE,
+ALTER COLUMN "ATD" SET DATA TYPE DATE,
+ALTER COLUMN "ETA" SET DATA TYPE DATE,
+ALTER COLUMN "ETD" SET DATA TYPE DATE,
+ALTER COLUMN "PortCutoff" SET DATA TYPE DATE;
+
+-- AlterTable
+ALTER TABLE "YearMaster" ALTER COLUMN "StartDate" SET DATA TYPE DATE,
+ALTER COLUMN "EndDate" SET DATA TYPE DATE;
+
+-- CreateIndex
+CREATE UNIQUE INDEX "QuoteRoute_BookingHeaderSid_key" ON "QuoteRoute"("BookingHeaderSid");
+
+-- AddForeignKey
+ALTER TABLE "QuoteRoute" ADD CONSTRAINT "QuoteRoute_BookingHeaderSid_fkey" FOREIGN KEY ("BookingHeaderSid") REFERENCES "BookingHeader"("BookingHeaderSid") ON DELETE SET NULL ON UPDATE CASCADE;
