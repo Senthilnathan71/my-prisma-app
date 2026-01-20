@@ -43,17 +43,23 @@ export class CompanyService {
             }
 
             // Extract logo filenames from uploaded files
+            // Use flags to properly identify which file is which
+            // Files are sent in order: company logo first (if exists), then report logo (if exists)
             let companyLogoPath: string | null = null;
             let reportLogoPath: string | null = null;
 
             if (files && Array.isArray(files) && files.length > 0) {
-                // First file is Company Logo
-                if (files[0]) {
-                    companyLogoPath = files[0].filename;
+                let fileIndex = 0;
+
+                // Check if company logo file was uploaded
+                if (newData.hasNewCompanyLogo && files[fileIndex]) {
+                    companyLogoPath = files[fileIndex].filename;
+                    fileIndex++;
                 }
-                // Second file is Report Logo
-                if (files[1]) {
-                    reportLogoPath = files[1].filename;
+
+                // Check if report logo file was uploaded
+                if (newData.hasNewReportLogo && files[fileIndex]) {
+                    reportLogoPath = files[fileIndex].filename;
                 }
             }
 
@@ -359,15 +365,20 @@ export class CompanyService {
             let companyLogoUpdate: string | null | undefined = undefined;
             let reportLogoUpdate: string | null | undefined = undefined;
 
-            // If new files uploaded, use them
+            // Use flags to properly identify which file is which
+            // Files are sent in order: company logo first (if exists), then report logo (if exists)
             if (files && Array.isArray(files) && files.length > 0) {
-                // First file is Company Logo
-                if (files[0]) {
-                    companyLogoUpdate = files[0].filename;
+                let fileIndex = 0;
+
+                // Check if company logo file was uploaded
+                if (updateData.hasNewCompanyLogo && files[fileIndex]) {
+                    companyLogoUpdate = files[fileIndex].filename;
+                    fileIndex++;
                 }
-                // Second file is Report Logo
-                if (files[1]) {
-                    reportLogoUpdate = files[1].filename;
+
+                // Check if report logo file was uploaded
+                if (updateData.hasNewReportLogo && files[fileIndex]) {
+                    reportLogoUpdate = files[fileIndex].filename;
                 }
             }
 
