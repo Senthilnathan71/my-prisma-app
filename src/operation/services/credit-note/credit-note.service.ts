@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client';
 import { DatabaseService } from 'src/database/database.service';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 import { VoucherService } from '../voucher/voucher.service';
+import { connect } from 'node:http2';
 
 @Injectable()
 export class CreditNoteService {
@@ -208,7 +209,8 @@ export class CreditNoteService {
              },
              VoucherOthers: { where: { Status: 'A' } },
              masterJob: { where: { Status: 'A' } },
-             houseJob: { where: { status: 'A' } },
+             houseJob: { where: { status: 'A' },include:{Cargo:true}},
+             BookingHeader:{ where:{status:'A'},include:{bookingCargo:true}},
              currencyMaster: true,
              subledgerMaster: true,
              customerBranch: true,
@@ -351,6 +353,34 @@ export class CreditNoteService {
               }
             }
           }),
+          ...(payload.MasterJobSid && {
+      masterJob: {
+        connect: {
+          MasterJobSid: payload.MasterJobSid
+        }
+      }
+    }),
+    ...(payload.HouseJobSid && {
+      houseJob: {
+        connect: {
+          HouseJobSid: payload.HouseJobSid
+        }
+      }
+    }),
+    ...(payload.DepartmentMasterSid && {
+      departmentMaster: {
+        connect: {
+          DepartmentMasterSid: payload.DepartmentMasterSid
+        }
+      }
+    }),
+    ...(payload.BookingHeaderSid &&{
+      BookingHeader:{
+        connect:{
+          BookingHeaderSid: payload.BookingHeaderSid
+        }
+      }
+    }),
           // Only connect if CompanyMasterSid is provided
           ...(payload.CompanyMasterSid && {
             CompanyMaster: {

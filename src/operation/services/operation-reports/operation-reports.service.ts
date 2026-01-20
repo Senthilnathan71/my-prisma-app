@@ -118,6 +118,8 @@ export class OperationReportsService {
           return await this.generateTradelaneProfitability(parameters);
         case 'network-report':
           return await this.generateNetworkReport(parameters);
+        case 'freight-mom-growth':
+          return await this.generateFreightMoMGrowthReport(parameters);
         default:
           throw new BadRequestException(`Report ${reportName} not implemented`);
       }
@@ -3888,7 +3890,7 @@ export class OperationReportsService {
     const {
       FromDate,
       ToDate,
-      network,
+      Network:network,
       NetworkFrom,
       CompanyId: CompanyMasterSid,
       Branch: BranchMasterSid,
@@ -3909,6 +3911,7 @@ export class OperationReportsService {
         });
         departmentIds = allDepartments.map(d => d.DepartmentMasterSid);
       }
+
 
       // 2. Load masters
       const organizationMaster = await this._db.customerMaster.findMany({
@@ -3935,7 +3938,8 @@ export class OperationReportsService {
         AND: [
           { BookingDateTime: { gte: FromDate } },
           { BookingDateTime: { lte: ToDate } }
-        ],      };
+        ],
+      };
 
       // 4. Fetch booking data
       const networkData = await this._db.bookingHeader.findMany({
@@ -3943,31 +3947,33 @@ export class OperationReportsService {
         include: {
           bookingRates: true,
           bookingCargo: true,
-          houseJob: true
+          houseJob:{
+            select:{
+              Cargo:true
+            }
+          }
         },
-        orderBy:{
-          BookingDateTime:"asc"
+        orderBy: {
+          BookingDateTime: "asc"
         }
       });
 
       // 5. Apply network filters + map result
       const data = networkData
-        .filter(b => {
-          const customer = organizationMaster.find(c => c.CustomerMasterSid === b.CustomerMasterSid);
-          if (!customer) return false;
-
-          if (network && customer.Network !== network) return false;
-          if (NetworkFrom && customer.Network !== NetworkFrom) return false;
-
-          return true;
-        })
         .map(b => {
           const customer = organizationMaster.find(c => c.CustomerMasterSid === b.CustomerMasterSid);
           const department = departments.find(d => d.DepartmentMasterSid === b.DepartmentMasterSid);
-          const destinationAgent  = organizationMaster.find(c=>c.CustomerMasterSid === b.DestinationAgent);
+          const destinationAgent = organizationMaster.find(c => c.CustomerMasterSid === b.DestinationAgent);
+          const totalRevenue = (b.bookingRates || [])
+            .reduce((sum, r) => sum + Number(r.RevenueLocalAmount || 0), 0);
+
+          const totalCost = (b.bookingRates || [])
+            .reduce((sum, r) => sum + Number(r.CostLocalAmount || 0), 0);
+
           return {
             customerName: customer?.CustomerName || '',
             departmentName: department?.departmentName || '',
+            network:customer?.Network || '',
             BookingNo: b.BookingNo,
             HouseNo: b.HouseNo,
             HblNo: b.HBLNo,
@@ -3976,7 +3982,13 @@ export class OperationReportsService {
             destinationAgent: destinationAgent?.CustomerName || '',
             nominationBy: b.NominatedBy,
             grossWt: b.bookingCargo?.[0]?.GrossWeight || 0,
-            netWt: b.bookingCargo?.[0]?.NetWeight || 0, 
+            netWt: b.bookingCargo?.[0]?.NetWeight || 0,
+            bookingRates: {
+              revenue: totalRevenue,
+              cost: totalCost,
+              gp: totalRevenue - totalCost
+            }
+
           };
         });
 
@@ -3993,8 +4005,6 @@ export class OperationReportsService {
       throw error;
     }
   }
-
-
 
   // async getBranchNames(companyMasterSid:number,branchIds?:number[])
   // :Promise<{
@@ -5006,6 +5016,184 @@ export class OperationReportsService {
         },
         groupedRoutes
       }
+    } catch (error) {
+      throw error
+    }
+  }
+
+  // Freight MoM Growth Report
+  async generateFreightMoMGrowthReport(params: any) {
+    const {
+      FromDate,
+      ToDate,
+      companyId: CompanyMasterSid,
+      Branch: BranchMasterSid,
+      DeptId: DepartmentMasterSid,
+    } = params
+
+    try {
+      const baseWhere = {
+        CompanyMasterSid,
+        BranchMasterSid,
+        DepartmentMasterSid,
+        AND: [
+          { MasterJobDate: { gte: FromDate } },
+          { MasterJobDate: { lte: ToDate } }
+        ]
+      }
+
+      const department = await this._db.departmentMaster.findMany({
+        select: { DepartmentMasterSid: true, departmentName: true }
+      })
+
+      const containerTypesMaster = await this._db.containerTypeMaster.findMany({
+        select: { ContainerTypeMasterSid: true, ContainerSize: true }
+      });
+
+      const containerTypeMap = new Map(
+        containerTypesMaster.map(ct => [ct.ContainerTypeMasterSid, ct.ContainerSize])
+      );
+
+      const masterJobData = await this._db.masterJob.findMany({
+        where: baseWhere,
+        include: {
+          houseJob: true,
+          others: true,
+          containers: {
+            where: { Status: 'A' },
+            include: {
+              containerType: {
+                select: {
+                  ContainerSize: true,
+                  NoOfTeu: true
+                }
+              }
+            }
+          },
+        },
+        orderBy: { MasterJobDate: 'asc' }
+      })
+
+      const masterJobMenu = await this._db.menuMaster.findFirst({
+        where: { MenuName: 'Master Job' },
+        select: { MenuMasterSid: true },
+      });
+
+      if (!masterJobMenu) {
+        throw new BadRequestException('Master Job menu not found');
+      }
+
+      const masterJobIds = masterJobData.map(h => h.MasterJobSid);
+
+      const masterCR = await this._db.costRevenueCharges.findMany({
+        where: {
+          MenuMasterSid: masterJobMenu.MenuMasterSid,
+          TransactionSid: { in: masterJobIds },
+          status: 'A'
+        },
+        select: {
+          RevenueLocalAmount: true,
+          CostLocalAmount: true,
+          TransactionSid: true
+        }
+      });
+
+      const jobRows = masterJobData.map(m => {
+
+        const containerSize = ["20'", "40'", "45'"];
+
+        const containerCountByType: Record<string, number> = {};
+        let totalNoOfTEU = 0;
+        let numberOfFourtyFt = 0;
+        let numberofFurtyFive = 0;
+        let numberOfTwentyFt = 0;
+        containerSize.forEach(col => containerCountByType[col] = 0);
+
+        (m.containers || []).forEach(c => {
+
+          const teu = Number(c.containerType?.NoOfTeu || 0);
+          totalNoOfTEU += teu;
+
+          const size = c.containerType?.ContainerSize?.trim();
+
+          if (size === '20') numberOfTwentyFt++;
+          if (size === '40') numberOfFourtyFt++;
+          if (size === '45') numberofFurtyFive++;
+        });
+
+        const crForJob = masterCR.filter(
+          cr => cr.TransactionSid === m.MasterJobSid
+        );
+
+        const totalRevenue = crForJob.reduce(
+          (sum, c) => sum + Number(c.RevenueLocalAmount || 0), 0
+        );
+
+        const totalCost = crForJob.reduce(
+          (sum, c) => sum + Number(c.CostLocalAmount || 0), 0
+        );
+
+        const grossProfit = totalRevenue - totalCost;
+
+        const gpPercentage = Number(grossProfit) / Number(totalRevenue) * 100;
+
+        return {
+          MBLNo: m.MBLNo,
+          department: department.find(d => d.DepartmentMasterSid === m.DepartmentMasterSid)?.departmentName || '',
+          grossWt: Number(m.GrossWeight || 0),
+          vol: Number(m.Volume || 0),
+          shipmentCount: m.houseJob.length,
+          totalRevenue,
+          totalCost,
+          grossProfit,
+          totalNoOfTEU,
+          gpPercentage
+        };
+      });
+
+
+      const departmentWise = Object.values(
+        jobRows.reduce((acc: any, row) => {
+
+          if (row.department?.toLowerCase() === 'Air') {
+            return acc;
+          }
+
+          if (!acc[row.department]) {
+            acc[row.department] = {
+              department: row.department,
+              totalShipment: 0,
+              totalGrossWt: 0,
+              totalVolume: 0,
+              totalRevenue: 0,
+              totalCost: 0,
+              grossProfit: 0,
+              totalNoOfTEU: 0,
+              gpPercentage:0,
+              jobs: []
+            };
+          }
+
+          acc[row.department].totalShipment += row.shipmentCount;
+          acc[row.department].totalGrossWt += row.grossWt;
+          acc[row.department].totalVolume += row.vol;
+          acc[row.department].totalRevenue += row.totalRevenue;
+          acc[row.department].totalCost += row.totalCost;
+          acc[row.department].grossProfit += row.grossProfit;
+          acc[row.department].totalNoOfTEU += row.totalNoOfTEU;
+          acc[row.department].gpPercentage += row.gpPercentage;
+          acc[row.department].jobs.push(row);
+
+          return acc;
+        }, {})
+      );
+
+
+      return {
+        data: departmentWise,
+        params
+      }
+
     } catch (error) {
       throw error
     }
