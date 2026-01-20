@@ -725,6 +725,13 @@ export class PaymentService {
                 if (!voucher.VoucherDetail || voucher.VoucherDetail.length === 0) throw new BadRequestException('No detail lines are found.');
                 if (!voucher.voucherTypeMaster) throw new BadRequestException('Voucher type is not found.');
 
+                // Check if any transaction is already matched
+                const { isValid, matchedTransactions } = await this.checkIfTransactionMatched(voucher.SourceMatchingDetail.map(d => d.VoucherTransactionSid),tx);
+
+                if(!isValid) {
+                    throw new BadRequestException( `Already matched vouchers:\n${matchedTransactions.map(m => m.VoucherNumber).join('\n')}`);
+                }
+
 
                 const { voucherTypeMaster, SourceMatchingDetail, VoucherDetail, ...VoucherHeader } = voucher;
 
@@ -1172,5 +1179,81 @@ export class PaymentService {
             throw error;
         }
     }
+
+    
+/**
+ * Check if any voucher transaction is already fully matched.
+ * Returns:
+ *  - isValid = false → includes fully matched transactions
+ *  - isValid = true → doesn't include any fully matched transactions
+ *  - matchedTransactions → list of already matched VoucherTransactionSid
+ */
+async checkIfTransactionMatched(
+  transactions: number[],
+  prisma ?: Prisma.TransactionClient
+): Promise<{ isValid: boolean; matchedTransactions: any[] }> {
+    const txn = prisma || this._db;
+  try {
+    const allTransactions = await txn.voucherTransaction.findMany({
+      where: {
+        VoucherTransactionSid: { in: transactions },
+        Status: 'A'
+      },
+      include: {
+        voucherMatchings: true
+      }
+    });
+
+    const matchedTransactions: any[] = [];
+
+    for (const vt of allTransactions) {
+      const totalMatchingCurrAmount = vt.voucherMatchings.reduce((sum, m) => {
+        return m.DrCr === 'C'
+          ? sum + toNumber(m.Amount)
+          : sum - toNumber(m.Amount);
+      }, 0);
+
+      const totalMatchingLocalAmount = vt.voucherMatchings.reduce((sum, m) => {
+        return m.DrCr === 'C'
+          ? sum + toNumber(m.LocalAmount)
+          : sum - toNumber(m.LocalAmount);
+      }, 0);
+
+      const remainingCurr =
+        toNumber(vt.Amount) - totalMatchingCurrAmount;
+
+      const remainingLocal =
+        toNumber(vt.LocalAmount) - totalMatchingLocalAmount;
+
+      /**
+       * Already matched condition:
+       * remainingCurr <= 0 AND remainingLocal <= 0
+       */
+      if (remainingCurr <= 0 && remainingLocal <= 0) {
+        matchedTransactions.push({
+            VoucherTransactionSid: vt.VoucherTransactionSid,
+            VoucherNumber : vt.VoucherNumber
+        });
+      }
+    }
+
+    // If any transaction is already matched → return false
+    if (matchedTransactions.length > 0) {
+      return {
+        isValid: false,
+        matchedTransactions
+      };
+    }
+
+    // Otherwise all have outstanding
+    return {
+      isValid: true,
+      matchedTransactions
+    };
+
+  } catch (error) {
+    throw error;
+  }
+}
 
 }

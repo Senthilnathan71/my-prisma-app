@@ -130,6 +130,7 @@ export class VendorInvoiceService {
                                 YearMasterSid : detail.YearMasterSid || payload.YearMasterSid,
                                 MasterJobSid: detail.MasterJobSid || payload.MasterJobSid,
                                 HouseJobSid: detail.HouseJobSid || payload.HouseJobSid,
+                                DepartmentMasterSid : detail.DepartmentMasterSid || null,
                                 CreatedBy: payload.CreatedBy || 'System',
                                 Status: 'A'
                             }
