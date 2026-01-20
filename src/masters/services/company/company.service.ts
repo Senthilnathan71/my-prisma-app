@@ -354,19 +354,29 @@ export class CompanyService {
                 }
             }
 
-            // Extract logo filenames from uploaded files
-            let companyLogoPath: string | null = null;
-            let reportLogoPath: string | null = null;
+            // Build logo update logic
+            // undefined = don't change, null = remove, string = new file
+            let companyLogoUpdate: string | null | undefined = undefined;
+            let reportLogoUpdate: string | null | undefined = undefined;
 
+            // If new files uploaded, use them
             if (files && Array.isArray(files) && files.length > 0) {
                 // First file is Company Logo
                 if (files[0]) {
-                    companyLogoPath = files[0].filename;
+                    companyLogoUpdate = files[0].filename;
                 }
                 // Second file is Report Logo
                 if (files[1]) {
-                    reportLogoPath = files[1].filename;
+                    reportLogoUpdate = files[1].filename;
                 }
+            }
+
+            // If removal flags are set (and no new file), set to null to remove
+            if (updateData.removeCompanyLogo && companyLogoUpdate === undefined) {
+                companyLogoUpdate = null;
+            }
+            if (updateData.removeReportLogo && reportLogoUpdate === undefined) {
+                reportLogoUpdate = null;
             }
 
             // 1. Prepare company payload without destructuring
@@ -385,9 +395,9 @@ export class CompanyService {
                 remarks: updateData.remarks,
                 CIN: updateData.CIN,
                 TAN: updateData.TAN,
-                // Only update logos if new files were uploaded
-                ...(companyLogoPath && { companyLogo: companyLogoPath }),
-                ...(reportLogoPath && { reportLogo: reportLogoPath }),
+                // Only include logo fields if they need to change (new file or removal)
+                ...(companyLogoUpdate !== undefined && { companyLogo: companyLogoUpdate }),
+                ...(reportLogoUpdate !== undefined && { reportLogo: reportLogoUpdate }),
                 config: updateData.config,
                 updatedBy: user.userEmail
             };
