@@ -190,7 +190,7 @@ export class VoucherService {
 
             // Add year if YearFlag is 'Y'
             if (voucherTypeMaster.YearFlag === 'Y') {
-                parts.push(date.getFullYear().toString());
+                parts.push(date.getFullYear().toString().substring(2,4));
             }
 
            

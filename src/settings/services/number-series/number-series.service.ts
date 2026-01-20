@@ -342,7 +342,7 @@ export class NumberSeriesService {
 
     // 5. Year (YearCode from YearMaster)
     if (config.YearFlagRequired === 'Y' && yearMaster?.YearCode) {
-      parts.push(String(yearMaster.YearCode)); // e.g., "25"
+      parts.push(String(yearMaster.YearCode).slice(-2)); // e.g., "25"
     }
 
     // 6. Sequence Number (padded to configured length)
