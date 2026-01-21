@@ -67,7 +67,7 @@ export class QuotationService {
             }
 
             // Step 1: Create Quote Header
-            const quoteDate = payload.quoteDate ? new Date(payload.QuoteDate) : new Date();
+            const quoteDate = payload.QuoteDate ? new Date(payload.QuoteDate) : new Date();
             const quoteHeaderPayload: any = {
                 CustomerName: payload.CustomerName,
                 CustomerMasterSid: Number(payload.CustomerMasterSid) || null,
@@ -342,6 +342,12 @@ export class QuotationService {
                         where : { status : statusWhereClause},
                         orderBy: { createdOn: 'desc' },
                         include : {
+                            bookingHeader: {
+                                select: {
+                                    BookingHeaderSid: true,
+                                    BookingNo: true,
+                                },
+                            },
                             // route - carrier - charge
                             quoteCarrier : { where : 
                                 { status : statusWhereClause},
@@ -382,6 +388,7 @@ export class QuotationService {
             const updatedQuoteHeader = await this._db.quoteHeader.update({
                 where: { QuoteHeaderSid: QuoteHeaderSid },
                 data: {
+                    QuoteDate: payload.QuoteDate ? new Date(payload.QuoteDate) : new Date(),
                     CustomerRef: payload.CustomerRef,
                     Email: payload.Email,
                     ContactPerson:payload.ContactPerson,

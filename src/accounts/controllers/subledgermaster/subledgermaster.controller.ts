@@ -38,6 +38,32 @@ export class SubledgermasterController {
         return resp;
     }
 
+    @ApiOperation({ summary: 'Get All SubledgerMaster by COAMasterSid' })
+    @ApiCreatedResponse({
+        description: 'Get All SubledgerMaster by COAMasterSid',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Post('fetch-by-coa')
+    async getAllSuledgermasterByCOAId(@Body() payload:any) {
+        let resp = new ResponseData();
+        try {
+            let res = await this.SubledgermasterService.getAllMappedLedgerByCOA(payload.COAMasterSid , payload.CompanyMasterSid);
+            this.logger.log(`All SubledgerMaster Fetched with COA Id : ${JSON.stringify(res)}`);
+            resp.data = res;
+            resp.message = "All SubledgerMaster are successfully fetched";
+        } catch (error) {
+            this.logger.warn(`Get All SubledgerMaster Error : ${JSON.stringify(error), error}`);
+            resp.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                resp.message = error.message;
+            } else {
+                resp.message = "Internal Server Error";
+            }
+        }
+        return resp;
+    }
+
     @ApiOperation({ summary: 'Create new SubledgerMaster' })
     @ApiCreatedResponse({
         description: 'Create new SubledgerMaster',

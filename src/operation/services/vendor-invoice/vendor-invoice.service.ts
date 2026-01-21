@@ -90,6 +90,7 @@ export class VendorInvoiceService {
                         MasterNumber: payload.MBLNo,
                         HouseNumber: payload.HBLNo,
                         Remarks: payload.Remarks,
+                        CashOrBank : payload.CashOrBank || 'N',
                         Status: payload.Status || 'A',
                         CreatedBy: payload.CreatedBy || 'System'
                     }
@@ -657,7 +658,7 @@ export class VendorInvoiceService {
             // Calculate local amount and TDS amount for each invoice
             const enrichedItems = items.map(item => ({
                 ...item,
-                LocalAmount: item.VoucherDetail?.reduce((sum, d) => sum + Number(d.LocalAmount || 0), 0) || 0,
+                Amount: item.Amount,
                 TDSAmount: item.VoucherTDS?.[0]?.TDSAmount || 0,
                 VendorName: item.PartyName,
                 BillNo: item.DocumentNumber,
