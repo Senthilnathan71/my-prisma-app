@@ -70,6 +70,33 @@ export class SubledgermasterService {
         }
     }
 
+    async getAllMappedLedgerByCOA(
+        COAMasterSid : number, 
+        CompanyMasterSid : number,
+    ){
+        try {
+            const allSubledgers = await this._db.subledgerMaster.findMany({
+                where: {
+                    Status: "A",
+                    CompanyMasterSid : CompanyMasterSid,
+                    OR : [
+                        { DrCOAMasterSid : COAMasterSid },
+                        { CrCOAMasterSid : COAMasterSid }
+                    ]
+                },
+                select : {
+                    SubledgerMasterSid : true,
+                    SubledgerName : true,
+                    DrCOAMasterSid : true,
+                    CrCOAMasterSid : true
+                }
+            })
+            return allSubledgers;
+        } catch (error) {
+            throw error;
+        }
+    }
+
     async getAllMappedLedgerByCOAId(COAMasterSid : number, CompanyMasterSid : number,DrCr : string){
         try {
             const whereClause : Prisma.SubledgerMasterWhereInput = {

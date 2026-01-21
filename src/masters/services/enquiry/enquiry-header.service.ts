@@ -80,7 +80,7 @@ export class EnquiryHeaderService {
                     ContactPerson:payload.ContactPerson,
                     ContactNumber:payload.ContactNumber,
                     EnquiryNumber: enquiryNumber,
-                    EnquiryDate: new Date(),
+                    EnquiryDate: payload.EnquiryDate,
                     authorizerStatus: payload.authorizerStatus || "Pending"
                 };
 
@@ -290,6 +290,7 @@ export class EnquiryHeaderService {
             const updatedEnquiryHeader = await this._db.enquiryHeader.update({
                 where: { EnquiryHeaderSid: enquiryHeaderSid },
                 data: {
+                    EnquiryDate : payload.EnquiryDate,
                     CustomerName: payload.CustomerName,
                     FreightPPCC: payload.FreightPPCC,
                     ShipmentExpectedDate: payload.shipmentDate,
