@@ -478,14 +478,52 @@ ${payload.ShipmentType?.length}, IncoTerms: ${payload.IncoTerms?.length}`);
                 })
             }
 
-            if(bookingHeader.QuotationHeaderSid){
-                await this._db.quoteHeader.update({
-                    where: { QuoteHeaderSid: bookingHeader.QuotationHeaderSid },
-                    data: {
-                        BookingHeaderSid : bookingHeader.BookingHeaderSid
+            if (bookingHeader.QuotationHeaderSid) {
+                try {
+                    const quoteRouteSid = payload.QuoteRouteSid;
+
+                    // 1. ALWAYS update the specific QuoteRoute with BookingHeaderSid
+                    if (quoteRouteSid) {
+                        
+
+                        await this._db.quoteRoute.update({
+                            where: {
+                                QuoteRouteSid: quoteRouteSid,
+                                QuoteHeaderSid: bookingHeader.QuotationHeaderSid // Extra safety check
+                            },
+                            data: {
+                                BookingHeaderSid: bookingHeader.BookingHeaderSid,
+                                updatedOn: new Date(),
+                                updatedBy: payload.createdBy || bookingHeader.createdBy
+                            }
+                        });
+
+                    } 
+
+                    // 2. Update QuoteHeader.BookingHeaderSid ONLY if it's null (first booking)
+                    const quoteHeader = await this._db.quoteHeader.findUnique({
+                        where: { QuoteHeaderSid: bookingHeader.QuotationHeaderSid },
+                        select: { BookingHeaderSid: true }
+                    });
+
+                    if (!quoteHeader?.BookingHeaderSid) {
+                       
+
+                        await this._db.quoteHeader.update({
+                            where: { QuoteHeaderSid: bookingHeader.QuotationHeaderSid },
+                            data: {
+                                BookingHeaderSid: bookingHeader.BookingHeaderSid,
+                                updatedOn: new Date(),
+                                updatedBy: payload.createdBy || bookingHeader.createdBy
+                            }
+                        });
                     }
-                })
-            }
+
+                } catch (error) {
+                    this.logger.error(`[Booking] Failed to update Quote/Route with BookingHeaderSid: ${error.message}`);
+
+                }
+            }        
 
             return {
                 bookingHeader,

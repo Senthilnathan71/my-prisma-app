@@ -342,6 +342,12 @@ export class QuotationService {
                         where : { status : statusWhereClause},
                         orderBy: { createdOn: 'desc' },
                         include : {
+                            bookingHeader: {
+                                select: {
+                                    BookingHeaderSid: true,
+                                    BookingNo: true,
+                                },
+                            },
                             // route - carrier - charge
                             quoteCarrier : { where : 
                                 { status : statusWhereClause},
