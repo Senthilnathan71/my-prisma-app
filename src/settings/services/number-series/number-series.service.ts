@@ -93,6 +93,7 @@ export class NumberSeriesService {
           NumberLength: payload.NumberLength || 5,
           ResetOption: payload.ResetOption || 'None',
           DepartmentWiseCounter: payload.DepartmentWiseCounter || 'N',
+          StartingNumber: payload.StartingNumber || 1,
           UpdatedBy: payload.UpdatedBy || payload.CreatedBy,
           Status: 'A',
         },
@@ -114,6 +115,7 @@ export class NumberSeriesService {
           NumberLength: payload.NumberLength || 5,
           ResetOption: payload.ResetOption || 'None',
           DepartmentWiseCounter: payload.DepartmentWiseCounter || 'N',
+          StartingNumber: payload.StartingNumber || 1,
           CreatedBy: payload.CreatedBy,
           Status: 'A',
         },
@@ -196,9 +198,9 @@ export class NumberSeriesService {
         });
 
         let nextNumber: number;
+        const startingNumber = config.StartingNumber || 1;
+
         if (!counter) {
-          // Use StartingNumber from config (default to 1 if not set)
-          const startingNumber = config.StartingNumber || 1;
           // Create new counter starting at configured StartingNumber
           counter = await prisma.numberSeriesCounter.create({
             data: {
@@ -214,8 +216,17 @@ export class NumberSeriesService {
           });
           nextNumber = startingNumber;
         } else {
-          // Increment counter
-          nextNumber = counter.LastNumber + 1;
+          // Check if StartingNumber was updated to be greater than current LastNumber
+          // This handles the case where user updates an existing config with a new StartingNumber
+          if (startingNumber > counter.LastNumber) {
+            // StartingNumber was increased, use it as the next number
+            nextNumber = startingNumber;
+            this.logger.log(`[NumberSeries] StartingNumber (${startingNumber}) > LastNumber (${counter.LastNumber}), jumping to StartingNumber`);
+          } else {
+            // Normal increment
+            nextNumber = counter.LastNumber + 1;
+          }
+
           await prisma.numberSeriesCounter.update({
             where: {
               NumberSeriesCounterSid: counter.NumberSeriesCounterSid,
@@ -290,10 +301,19 @@ export class NumberSeriesService {
       },
     });
 
-    // If counter exists, use LastNumber + 1; otherwise use StartingNumber from config
-    const nextNumber = counter
-      ? counter.LastNumber + 1
-      : (config.StartingNumber || 1);
+    const startingNumber = config.StartingNumber || 1;
+    let nextNumber: number;
+
+    if (!counter) {
+      // No counter exists, use StartingNumber
+      nextNumber = startingNumber;
+    } else if (startingNumber > counter.LastNumber) {
+      // StartingNumber was updated to be greater than current LastNumber
+      nextNumber = startingNumber;
+    } else {
+      // Normal increment
+      nextNumber = counter.LastNumber + 1;
+    }
     const preview = await this.buildFormattedNumber(
       this._db,
       config,
@@ -497,6 +517,10 @@ export class NumberSeriesService {
     const deptSid =
       config.DepartmentWiseCounter === 'Y' ? DepartmentMasterSid : null;
 
+    // Reset to StartingNumber - 1 so the next generated number will be StartingNumber
+    // Using max(0, StartingNumber - 1) to handle edge case where StartingNumber is 1
+    const resetValue = Math.max(0, (config.StartingNumber || 1) - 1);
+
     return await this._db.numberSeriesCounter.updateMany({
       where: {
         NumberSeriesConfigSid: config.NumberSeriesConfigSid,
@@ -504,7 +528,7 @@ export class NumberSeriesService {
         YearMasterSid: yearMasterSid,
         Month: month,
       },
-      data: { LastNumber: 0 },
+      data: { LastNumber: resetValue },
     });
   }
 }
