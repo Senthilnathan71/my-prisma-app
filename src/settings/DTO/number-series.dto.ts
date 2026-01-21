@@ -74,6 +74,11 @@ export class CreateNumberSeriesConfigDto {
   @IsOptional()
   DepartmentWiseCounter?: string;
 
+  @IsNumber()
+  @Min(1)
+  @IsOptional()
+  StartingNumber?: number;
+
   @IsString()
   CreatedBy: string;
 }

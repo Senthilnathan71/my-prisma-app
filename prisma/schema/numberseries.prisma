@@ -21,6 +21,7 @@ model NumberSeriesConfig {
   NumberLength           Int      @default(5)                     // Padding length for sequence (e.g., 5 = 00001)
   ResetOption            String   @default("None") @db.VarChar(10) // None, Monthly, Yearly (financial year)
   DepartmentWiseCounter  String   @default("N") @db.Char(1)       // Y = separate counter per dept, N = shared
+  StartingNumber         Int      @default(1)                     // Starting sequence number (e.g., 1, 100, 1000)
 
   // Audit Fields
   CreatedOn              DateTime @default(now()) @db.Timestamptz(6)

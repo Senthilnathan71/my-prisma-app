@@ -197,7 +197,9 @@ export class NumberSeriesService {
 
         let nextNumber: number;
         if (!counter) {
-          // Create new counter starting at 1
+          // Use StartingNumber from config (default to 1 if not set)
+          const startingNumber = config.StartingNumber || 1;
+          // Create new counter starting at configured StartingNumber
           counter = await prisma.numberSeriesCounter.create({
             data: {
               NumberSeriesConfigSid: config.NumberSeriesConfigSid,
@@ -207,10 +209,10 @@ export class NumberSeriesService {
               DepartmentMasterSid: deptSid,
               YearMasterSid: yearMasterSid,
               Month: month,
-              LastNumber: 1,
+              LastNumber: startingNumber,
             },
           });
-          nextNumber = 1;
+          nextNumber = startingNumber;
         } else {
           // Increment counter
           nextNumber = counter.LastNumber + 1;
@@ -288,7 +290,10 @@ export class NumberSeriesService {
       },
     });
 
-    const nextNumber = (counter?.LastNumber || 0) + 1;
+    // If counter exists, use LastNumber + 1; otherwise use StartingNumber from config
+    const nextNumber = counter
+      ? counter.LastNumber + 1
+      : (config.StartingNumber || 1);
     const preview = await this.buildFormattedNumber(
       this._db,
       config,
