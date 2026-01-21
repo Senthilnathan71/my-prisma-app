@@ -1889,7 +1889,7 @@ export class VoucherService {
             // --- MATCHING LOGIC (only when applicable) ---
             if (checkIfMatchingApplicable(voucherType)) {
                 // party line from recorded transactions (Customer subledger)
-                const partyDtlInRecTrans = fullUpdatedDetail.find(d => d.subledgerMaster?.SubledgerType === 'Customer');
+                const partyDtlInRecTrans = fullUpdatedDetail.filter(d => d.subledgerMaster?.SubledgerType === 'Customer');
 
                 if (!partyDtlInRecTrans) {
                     throw new BadRequestException('Party Voucher Detail not found in recorded transactions');

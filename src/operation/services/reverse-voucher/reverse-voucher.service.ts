@@ -761,6 +761,8 @@ export class ReverseVoucherService {
       if (!voucher.VoucherDetail?.length) throw new BadRequestException('No detail lines are found.');
       if (!voucher.voucherTypeMaster) throw new BadRequestException('Voucher type is not found.');
 
+      const now = new Date();
+
       const {
         voucherTypeMaster,
         SourceMatchingDetail,
@@ -829,7 +831,7 @@ export class ReverseVoucherService {
         VoucherNumber: voucher.VoucherNumber,
         VoucherType: voucher.VoucherType,
         VoucherDate: voucher.VoucherDate,
-        PostDate: voucher.PostDate!,
+        PostDate: now,
         GST_VAT: voucher.GST_VAT || "",
         Sno: item.Sno,
         ChargeDescription: item.ChargeDescription || "",
@@ -877,7 +879,7 @@ export class ReverseVoucherService {
       }
 
       // Matching: Party details
-      const partyDetail = allCompleteDetails.find(
+      const partyDetailForMatching = allCompleteDetails.filter(
         vd => vd.subledgerMaster?.SubledgerType === 'Customer'
       );
 
@@ -905,7 +907,7 @@ export class ReverseVoucherService {
       // Create voucher matching
       let newVoucherMatchings: any;
 
-      if (partyDetail && object && (billMatchingCurrencyAmount > 0 || billMatchingLocalAmount > 0)) {
+      if (partyDetailForMatching && object && (billMatchingCurrencyAmount > 0 || billMatchingLocalAmount > 0)) {
         newVoucherMatchings = await this.voucherService.createVoucherMatching({
           CompanyMasterSid: payload.companyMasterSid,
           BranchMasterSid: payload.branchMasterSid,
@@ -913,17 +915,21 @@ export class ReverseVoucherService {
           voucherTypeInName: voucher.voucherTypeMaster.DocumentTypeName,
           VoucherTypeMasterSid: voucher.voucherTypeMaster.VoucherTypeMasterSid,
           SubledgerName : voucher.subledgerMaster?.SubledgerName || '',
-          PostDate: voucher.PostDate!,
+          PostDate: now,
           Narration: `${voucher.VoucherNumber} ${voucher.VoucherDate.toISOString().split('T')[0]} ${voucher.CurrencyCode} ${voucher.Amount}`,
           createdBy: payload.postedBy,
           voucherMatching: [object],
-          partyVoucherDetail: partyDetail,
+          partyVoucherDetail: partyDetailForMatching,
           BillMatchingCurrencyAmount: billMatchingCurrencyAmount,
           BillMatchingLocalAmount: billMatchingLocalAmount
         }, tx);
       }
 
       // Update voucher as posted
+        const partyDetail = allCompleteDetails.find(
+            d => d.subledgerMaster?.SubledgerType === 'Customer' ||
+                d.LedgerMasterSid === voucher.PartyMasterSid
+        );
       const updatedVoucher = await tx.voucherHeader.update({
         where: {
           VoucherHeaderSid: voucher.VoucherHeaderSid
@@ -932,7 +938,7 @@ export class ReverseVoucherService {
           Amount: partyDetail.Amount,
           LocalAmount: partyDetail.LocalAmount,
           PostStatus: 'P',
-          PostDate: voucher.PostDate,
+          PostDate: now,
           UpdatedBy: payload.postedBy
         }
       });
