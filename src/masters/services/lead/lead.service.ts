@@ -233,35 +233,143 @@ async getAllCustomer(user,CompanyMasterSid:number) {
         }
     }
 
-    async updateLeadById(PreCustomerMasterSid: number, payload) {
-        try {
-            const exist = await this._db.preCustomerMaster.findUnique({
-                where: {
-                    PreCustomerMasterSid: PreCustomerMasterSid
-                }
-            })
-            if (!exist) {
-                throw new BadRequestException(`Lead with Id : ${PreCustomerMasterSid} not exists`);
-            }
-            if (payload.city && typeof payload.city === 'object') {
-                payload.CityMasterSid = payload.city.CityMasterSid;
-                delete payload.city;
-            }
+    // async updateLeadById(PreCustomerMasterSid: number, payload) {
+    //     try {
+    //         const exist = await this._db.preCustomerMaster.findUnique({
+    //             where: {
+    //                 PreCustomerMasterSid: PreCustomerMasterSid
+    //             }
+    //         })
+    //         if (!exist) {
+    //             throw new BadRequestException(`Lead with Id : ${PreCustomerMasterSid} not exists`);
+    //         }
+    //         if (payload.city && typeof payload.city === 'object') {
+    //             payload.CityMasterSid = payload.city.CityMasterSid;
+    //             delete payload.city;
+    //         }
 
-            if (!payload.CityMasterSid) {
-                throw new BadRequestException('CityMasterSid is required');
-            }
-            const updatedLead = this._db.preCustomerMaster.update({
+    //         if (!payload.CityMasterSid) {
+    //             throw new BadRequestException('CityMasterSid is required');
+    //         }
+    //         const updatedLead = this._db.preCustomerMaster.update({
+    //             where: {
+    //                 PreCustomerMasterSid: PreCustomerMasterSid
+    //             },
+    //             data: payload
+    //         })
+    //         return updatedLead;
+    //     } catch (error) {
+    //         throw error;
+    //     }
+    // }
+
+    async updateLeadById(PreCustomerMasterSid: number, payload: any) {
+    try {
+        // 1️⃣ Check existing lead
+        const exist = await this._db.preCustomerMaster.findUnique({
+            where: { PreCustomerMasterSid }
+        });
+
+        if (!exist) {
+            throw new BadRequestException(
+                `Lead with Id : ${PreCustomerMasterSid} not exists`
+            );
+        }
+
+        // 2️⃣ Normalize city payload
+        if (payload.city && typeof payload.city === 'object') {
+            payload.CityMasterSid = payload.city.CityMasterSid;
+            delete payload.city;
+        }
+
+        if (!payload.CityMasterSid) {
+            throw new BadRequestException('CityMasterSid is required');
+        }
+
+        if (!payload.CompanyMasterSid) {
+            throw new BadRequestException('CompanyMasterSid is required');
+        }
+
+        // 3️⃣ DUPLICATE CHECK (exclude current record)
+        if (payload.preCustomerName?.trim()) {
+            const duplicateLead = await this._db.preCustomerMaster.findFirst({
                 where: {
-                    PreCustomerMasterSid: PreCustomerMasterSid
+                    PreCustomerMasterSid: {
+                        not: PreCustomerMasterSid, // 🔑 exclude current lead
+                    },
+                    CompanyMasterSid: payload.CompanyMasterSid,
+                    preCustomerName: {
+                        equals: payload.preCustomerName.trim(),
+                        mode: 'insensitive',
+                    },
+                    status: 'A',
                 },
-                data: payload
-            })
-            return updatedLead;
-        } catch (error) {
+            });
+
+            if (duplicateLead) {
+                throw new BadRequestException(
+                    'lead already exists'
+                );
+            }
+        }
+
+        // 4️⃣ Update lead
+        const updatedLead = await this._db.preCustomerMaster.update({
+            where: { PreCustomerMasterSid },
+            data: {
+                preCustomerName: payload.preCustomerName,
+                leadReferredBy: payload.leadReferredBy,
+                leadFrom: payload.leadFrom,
+                preCustomerType: payload.preCustomerType,
+                preCustomerAddress1: payload.preCustomerAddress1,
+                preCustomerAddress2: payload.preCustomerAddress2,
+                POBOX: payload.POBOX,
+                contactPerson: payload.contactPerson,
+                email: payload.email,
+                phone: payload.phone,
+                PreferredContactMode: payload.PreferredContactMode,
+                LanguagePreferrence: payload.LanguagePreferrence,
+                ServiceOfInterest: payload.ServiceOfInterest,
+                PurchaseTimeline: payload.PurchaseTimeline,
+                SpecificRequirements: payload.SpecificRequirements,
+                Industry: payload.Industry,
+                CompanySize: payload.CompanySize,
+                AnnualRevenue: payload.AnnualRevenue,
+                Notes: payload.Notes,
+                isQualify: payload.isQualify,
+                leadStatus: payload.leadStatus,
+                CityMasterSid: payload.CityMasterSid,
+                StateMasterSid: payload.StateMasterSid,
+                CountryMasterSid: payload.CountryMasterSid,
+                BranchMasterSid: payload.BranchMasterSid,
+            },
+        });
+
+        this.logger.log(`Lead updated: ${PreCustomerMasterSid}`);
+        return updatedLead;
+
+    } catch (error) {
+        this.logger.error(
+            `Error updating lead ${PreCustomerMasterSid}: ${error.message}`,
+            error.stack
+        );
+
+        if (error instanceof BadRequestException) {
             throw error;
         }
+
+        if (error.code === 'P2002') {
+            throw new BadRequestException(
+                'Duplicate lead detected'
+            );
+        }
+
+        throw new InternalServerErrorException(
+            'Failed to update lead'
+        );
     }
+}
+
 
 
     async deleteLead(PreCustomerMasterSid: number) {
