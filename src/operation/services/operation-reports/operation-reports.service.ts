@@ -3886,6 +3886,7 @@ export class OperationReportsService {
     }
   }
 
+  // Network Report
   private async generateNetworkReport(params: any) {
     const {
       FromDate,
@@ -5023,179 +5024,213 @@ export class OperationReportsService {
 
   // Freight MoM Growth Report
   async generateFreightMoMGrowthReport(params: any) {
+
     const {
       FromDate,
       ToDate,
       companyId: CompanyMasterSid,
       Branch: BranchMasterSid,
       DeptId: DepartmentMasterSid,
-    } = params
+    } = params;
 
     try {
-      const baseWhere = {
-        CompanyMasterSid,
-        BranchMasterSid,
-        DepartmentMasterSid,
-        AND: [
-          { MasterJobDate: { gte: FromDate } },
-          { MasterJobDate: { lte: ToDate } }
-        ]
-      }
 
-      const department = await this._db.departmentMaster.findMany({
-        select: { DepartmentMasterSid: true, departmentName: true }
-      })
+      /* ---------- DATE HELPERS (UTC SAFE) ---------- */
 
-      const containerTypesMaster = await this._db.containerTypeMaster.findMany({
-        select: { ContainerTypeMasterSid: true, ContainerSize: true }
-      });
+      const toUTCDate = (d: Date) =>
+        new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
 
-      const containerTypeMap = new Map(
-        containerTypesMaster.map(ct => [ct.ContainerTypeMasterSid, ct.ContainerSize])
-      );
+      const getLastDayOfMonth = (year: number, month: number) =>
+        new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
 
-      const masterJobData = await this._db.masterJob.findMany({
-        where: baseWhere,
-        include: {
-          houseJob: true,
-          others: true,
-          containers: {
-            where: { Status: 'A' },
-            include: {
-              containerType: {
-                select: {
-                  ContainerSize: true,
-                  NoOfTeu: true
-                }
-              }
-            }
-          },
-        },
-        orderBy: { MasterJobDate: 'asc' }
-      })
+      const getPreviousMonthRange = (from: Date, to: Date) => {
 
-      const masterJobMenu = await this._db.menuMaster.findFirst({
-        where: { MenuName: 'Master Job' },
-        select: { MenuMasterSid: true },
-      });
+        const y = from.getUTCFullYear();
+        const m = from.getUTCMonth();
 
-      if (!masterJobMenu) {
-        throw new BadRequestException('Master Job menu not found');
-      }
+        const prevYear = m === 0 ? y - 1 : y;
+        const prevMonth = m === 0 ? 11 : m - 1;
 
-      const masterJobIds = masterJobData.map(h => h.MasterJobSid);
+        const lastDayPrevMonth = getLastDayOfMonth(prevYear, prevMonth);
 
-      const masterCR = await this._db.costRevenueCharges.findMany({
-        where: {
-          MenuMasterSid: masterJobMenu.MenuMasterSid,
-          TransactionSid: { in: masterJobIds },
-          status: 'A'
-        },
-        select: {
-          RevenueLocalAmount: true,
-          CostLocalAmount: true,
-          TransactionSid: true
+        const fromDay = from.getUTCDate();
+        const toDay = to.getUTCDate();
+
+        const prevFromDay = Math.min(fromDay, lastDayPrevMonth);
+        const prevToDay = Math.min(toDay, lastDayPrevMonth);
+
+        const prevFrom = new Date(Date.UTC(prevYear, prevMonth, prevFromDay));
+        const prevTo = new Date(Date.UTC(prevYear, prevMonth, prevToDay));
+
+        return { prevFrom, prevTo };
+      };
+
+      const currentFrom = toUTCDate(new Date(FromDate));
+      const currentTo = toUTCDate(new Date(ToDate));
+
+      const { prevFrom, prevTo } = getPreviousMonthRange(currentFrom, currentTo);
+
+      /* ---------- COMMON FETCH ---------- */
+
+      const fetchDepartmentData = async (from: Date, to: Date) => {
+
+        const baseWhere: any = {
+          CompanyMasterSid,
+          BranchMasterSid,
+          AND: [
+            { MasterJobDate: { gte: from } },
+            { MasterJobDate: { lte: to } }
+          ]
+        };
+
+        if (DepartmentMasterSid) {
+          baseWhere.DepartmentMasterSid = DepartmentMasterSid;
         }
-      });
 
-      const jobRows = masterJobData.map(m => {
-
-        const containerSize = ["20'", "40'", "45'"];
-
-        const containerCountByType: Record<string, number> = {};
-        let totalNoOfTEU = 0;
-        let numberOfFourtyFt = 0;
-        let numberofFurtyFive = 0;
-        let numberOfTwentyFt = 0;
-        containerSize.forEach(col => containerCountByType[col] = 0);
-
-        (m.containers || []).forEach(c => {
-
-          const teu = Number(c.containerType?.NoOfTeu || 0);
-          totalNoOfTEU += teu;
-
-          const size = c.containerType?.ContainerSize?.trim();
-
-          if (size === '20') numberOfTwentyFt++;
-          if (size === '40') numberOfFourtyFt++;
-          if (size === '45') numberofFurtyFive++;
+        const departments = await this._db.departmentMaster.findMany({
+          select: { DepartmentMasterSid: true, departmentName: true }
         });
 
-        const crForJob = masterCR.filter(
-          cr => cr.TransactionSid === m.MasterJobSid
-        );
+        const masterJobData = await this._db.masterJob.findMany({
+          where: baseWhere,
+          include: {
+            houseJob: true,
+            containers: {
+              where: { Status: 'A' },
+              include: {
+                containerType: { select: { NoOfTeu: true } }
+              }
+            }
+          }
+        });
 
-        const totalRevenue = crForJob.reduce(
-          (sum, c) => sum + Number(c.RevenueLocalAmount || 0), 0
-        );
+        if (!masterJobData.length) return [];
 
-        const totalCost = crForJob.reduce(
-          (sum, c) => sum + Number(c.CostLocalAmount || 0), 0
-        );
+        const masterJobMenu = await this._db.menuMaster.findFirst({
+          where: { MenuName: 'Master Job' },
+          select: { MenuMasterSid: true },
+        });
 
-        const grossProfit = totalRevenue - totalCost;
+        const houseJobMenu = await this._db.menuMaster.findFirst({
+          where: { MenuName: 'House Job' },
+          select: { MenuMasterSid: true },
+        });
 
-        const gpPercentage = Number(grossProfit) / Number(totalRevenue) * 100;
+        const masterJobIds = masterJobData.map(m => m.MasterJobSid);
 
-        return {
-          MBLNo: m.MBLNo,
-          department: department.find(d => d.DepartmentMasterSid === m.DepartmentMasterSid)?.departmentName || '',
-          grossWt: Number(m.GrossWeight || 0),
-          vol: Number(m.Volume || 0),
-          shipmentCount: m.houseJob.length,
-          totalRevenue,
-          totalCost,
-          grossProfit,
-          totalNoOfTEU,
-          gpPercentage
-        };
-      });
+        const houseJobIds: number[] = masterJobData
+          .flatMap(m => m.houseJob)
+          .map(h => h.HouseJobSid)
+          .filter((id): id is number => typeof id === 'number');
 
+        const masterCR = await this._db.costRevenueCharges.findMany({
+          where: {
+            MenuMasterSid: masterJobMenu?.MenuMasterSid,
+            TransactionSid: { in: masterJobIds },
+            status: 'A'
+          }
+        });
 
-      const departmentWise = Object.values(
-        jobRows.reduce((acc: any, row) => {
+        const houseCR = await this._db.costRevenueCharges.findMany({
+          where: {
+            MenuMasterSid: houseJobMenu?.MenuMasterSid,
+            TransactionSid: { in: houseJobIds },
+            status: 'A'
+          }
+        });
 
-          if (row.department?.toLowerCase() === 'Air') {
+        const jobRows = masterJobData.map(m => {
+
+          const crMaster = masterCR.filter(c => c.TransactionSid === m.MasterJobSid);
+          const crHouse = houseCR.filter(c =>
+            m.houseJob.some(h => h.HouseJobSid === c.TransactionSid)
+          );
+
+          const totalRevenue =
+            crMaster.reduce((s, c) => s + Number(c.RevenueLocalAmount || 0), 0) +
+            crHouse.reduce((s, c) => s + Number(c.RevenueLocalAmount || 0), 0);
+
+          const totalCost =
+            crMaster.reduce((s, c) => s + Number(c.CostLocalAmount || 0), 0) +
+            crHouse.reduce((s, c) => s + Number(c.CostLocalAmount || 0), 0);
+
+          const grossProfit = totalRevenue - totalCost;
+
+          const totalNoOfTEU = m.containers.reduce(
+            (sum, c) => sum + Number(c.containerType?.NoOfTeu || 0), 0
+          );
+
+          return {
+            department:
+              departments.find(d => d.DepartmentMasterSid === m.DepartmentMasterSid)?.departmentName || '',
+            shipmentCount: m.houseJob.length,
+            grossWt: Number(m.GrossWeight || 0),
+            vol: Number(m.Volume || 0),
+            totalRevenue,
+            totalCost,
+            grossProfit,
+            totalNoOfTEU
+          };
+        });
+
+        const departmentWise = Object.values(
+          jobRows.reduce((acc: any, row) => {
+
+            if (row.department.toLowerCase().includes('air')) return acc;
+
+            if (!acc[row.department]) {
+              acc[row.department] = {
+                department: row.department,
+                totalShipment: 0,
+                totalGrossWt: 0,
+                totalVolume: 0,
+                totalRevenue: 0,
+                totalCost: 0,
+                grossProfit: 0,
+                totalNoOfTEU: 0,
+                jobCount: 0
+              };
+            }
+
+            acc[row.department].totalShipment += row.shipmentCount;
+            acc[row.department].totalGrossWt += row.grossWt;
+            acc[row.department].totalVolume += row.vol;
+            acc[row.department].totalRevenue += row.totalRevenue;
+            acc[row.department].totalCost += row.totalCost;
+            acc[row.department].grossProfit += row.grossProfit;
+            acc[row.department].totalNoOfTEU += row.totalNoOfTEU;
+            acc[row.department].jobCount += 1;
+
             return acc;
-          }
+          }, {})
+        );
 
-          if (!acc[row.department]) {
-            acc[row.department] = {
-              department: row.department,
-              totalShipment: 0,
-              totalGrossWt: 0,
-              totalVolume: 0,
-              totalRevenue: 0,
-              totalCost: 0,
-              grossProfit: 0,
-              totalNoOfTEU: 0,
-              gpPercentage:0,
-              jobs: []
-            };
-          }
+        return departmentWise;
+      };
 
-          acc[row.department].totalShipment += row.shipmentCount;
-          acc[row.department].totalGrossWt += row.grossWt;
-          acc[row.department].totalVolume += row.vol;
-          acc[row.department].totalRevenue += row.totalRevenue;
-          acc[row.department].totalCost += row.totalCost;
-          acc[row.department].grossProfit += row.grossProfit;
-          acc[row.department].totalNoOfTEU += row.totalNoOfTEU;
-          acc[row.department].gpPercentage += row.gpPercentage;
-          acc[row.department].jobs.push(row);
+      /* ---------- FETCH BOTH ---------- */
 
-          return acc;
-        }, {})
-      );
+      const currentMonthData = await fetchDepartmentData(currentFrom, currentTo);
+      const previousMonthData = await fetchDepartmentData(prevFrom, prevTo);
 
+      /* ---------- RESPONSE ---------- */
 
       return {
-        data: departmentWise,
-        params
-      }
+        params,
+        currentPeriod: {
+          from: currentFrom,
+          to: currentTo,
+          data: currentMonthData
+        },
+        previousPeriod: {
+          from: prevFrom,
+          to: prevTo,
+          data: previousMonthData
+        }
+      };
 
     } catch (error) {
-      throw error
+      throw error;
     }
   }
 
