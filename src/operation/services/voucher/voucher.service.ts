@@ -1931,7 +1931,7 @@ export class VoucherService {
                     voucherTypeInName: voucher?.voucherTypeMaster.DocumentTypeName,
                     VoucherTypeMasterSid: voucher?.voucherTypeMaster.VoucherTypeMasterSid,
                     SubledgerName: voucher?.subledgerMaster?.SubledgerName || '',
-                    PostDate: voucher.PostDate!,
+                    PostDate: now,
                     Narration: `${voucher.VoucherNumber} ${voucher.VoucherDate.toISOString().split('T')[0]} ${voucher.CurrencyCode} ${voucher.Amount}`,
                     createdBy: payload.postedBy,
                     partyVoucherDetail: partyDtlInRecTrans,

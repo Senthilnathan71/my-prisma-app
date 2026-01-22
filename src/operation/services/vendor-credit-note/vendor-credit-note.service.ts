@@ -58,7 +58,7 @@ export class VendorCreditNoteService {
                         data: {
                             VoucherNumber: VoucherNumber,
                             VoucherDate: payload.VoucherDate ? new Date(payload.VoucherDate) : new Date(),
-                            PostDate: payload.PostDate ? new Date(payload.PostDate) : new Date(),
+                            PostDate: null,
                             VoucherType: voucherTypeMaster.VoucherTypeMasterSid,
                             Narration: payload.Narration || '',
                             COAMasterSid: payload.COAMasterSid,
