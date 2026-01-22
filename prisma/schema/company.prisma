@@ -122,6 +122,7 @@ model CompanyMaster {
   yearMaster                 YearMaster[]
   numberSeriesConfig         NumberSeriesConfig[]
   numberSeriesCounter        NumberSeriesCounter[]
+  VoucherPeriod              VoucherPeriod[]
 }
 
 model BranchMaster {
@@ -230,6 +231,7 @@ model BranchMaster {
   voyageMasterHeader         VoyageMasterHeader[]
   numberSeriesConfig         NumberSeriesConfig[]
   numberSeriesCounter        NumberSeriesCounter[]
+  VoucherPeriod              VoucherPeriod[]
 }
 
 model UserMaster {
@@ -2101,6 +2103,7 @@ model YearMaster {
   VoucherTransaction  VoucherTransaction[]
   companyMaster       CompanyMaster         @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
   numberSeriesCounter NumberSeriesCounter[]
+  VoucherPeriod VoucherPeriod[]
 }
 
 model TandCTransaction {
@@ -3646,4 +3649,32 @@ enum LeadStatus {
   ContractSigned
   DealWon
   DealLost
+}
+
+model VoucherPeriod {
+  VoucherPeriodSid  Int       @id @default(autoincrement())
+  CompanyMasterSid  Int
+  BranchMasterSid   Int
+  YearMasterSid     Int
+  CreatedOn         DateTime  @default(now())
+  CreatedBy         String    @db.VarChar(100)
+  UpdatedOn         DateTime  @default(now())
+  UpdatedBy         String?   @db.VarChar(100)
+  Status            String    @default("A") @db.Char(1)
+  PeriodCode        Int
+  PeriodName        String    @db.VarChar(10)
+  StartDate         DateTime  @db.Date
+  EndDate           DateTime  @db.Date
+  Remarks           String?   @db.VarChar(200)
+  APClosed          String?   @db.Char(1)
+  APGraceDays       Decimal?  @db.Decimal(3, 0)
+  ARClosed          String?   @db.Char(1)
+  ARGraceDays       Decimal?  @db.Decimal(3, 0)
+  GLClosed          String?   @db.Char(1)
+  GLGraceDays       Decimal?  @db.Decimal(3, 0)
+
+  /// Relations
+  YearMaster        YearMaster    @relation(fields: [YearMasterSid], references: [YearMasterSid])
+  CompanyMaster     CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+  BranchMaster      BranchMaster  @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
 }
