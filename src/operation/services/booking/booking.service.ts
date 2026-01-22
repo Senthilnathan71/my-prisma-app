@@ -8,6 +8,7 @@ import { OperationCommonService, RateDTO } from '../operation-common/operation-c
 import { CurrencyExchangeService } from 'src/masters/services/currency-exchange/currency-exchange.service';
 import { statusWhereClause } from 'src/common/helper';
 import { NumberSeriesService } from 'src/settings/services/number-series/number-series.service';
+import { DuplicateCheckDTO } from 'src/operation/DTO/booking.dto';
 
 interface CostRevenueDTO {
     MenuMasterSid?: number,
@@ -53,6 +54,37 @@ export class BookingService {
         private currencyExchangeService: CurrencyExchangeService,
         private numberSeriesService: NumberSeriesService,
     ) { }
+
+    async checkDuplicateBooking(payload: DuplicateCheckDTO) {
+        try {
+            const whereClause: Prisma.BookingHeaderWhereInput = {
+                CompanyMasterSid: payload.CompanyMasterSid,
+                BranchMasterSid: payload.BranchMasterSid,
+                DepartmentMasterSid: payload.DepartmentMasterSid,
+                BookingDateTime: payload.BookingDateTime,
+                CustomerMasterSid: payload.CustomerMasterSid,
+                POL: payload.POL,
+                POD: payload.POD,
+                status: 'A'
+            }
+
+            if(payload.isEditMode){
+                whereClause.BookingHeaderSid = { not : payload.BookingHeaderSid }
+            }
+
+            const existingRecord = await this._db.bookingHeader.findFirst({
+                where: whereClause
+            })
+
+            if (existingRecord) {
+                return true;
+            }
+            return false;
+
+        } catch (error) {
+            throw error;
+        }
+    }
 
     async createBooking(payload: any) {
         let newBooking;
@@ -145,7 +177,7 @@ ${payload.ShipmentType?.length}, IncoTerms: ${payload.IncoTerms?.length}`);
                         BranchMasterSid: payload.BranchMasterSid,
                         MenuMasterSid: payload.MenuMasterSid,
                         BookingNo: BookingNo,
-                        BookingDateTime: new Date(),
+                        BookingDateTime: payload.BookingDateTime,
                         DepartmentMasterSid: payload.DepartmentMasterSid,
                         CustomerMasterSid: payload.CustomerMasterSid,
                         CustomerBranchSid: payload.CustomerBranchSid,
@@ -639,6 +671,7 @@ ${payload.ShipmentType?.length}, IncoTerms: ${payload.IncoTerms?.length}`);
                         BookingHeaderSid: BookingHeaderSid
                     },
                     data: {
+                        BookingDateTime : payload.BookingDateTime,
                         CustomerName: payload.CustomerName,
                         CustomerAddress: payload.CustomerAddress,
                         CustomerBranchSid: payload.CustomerBranchSid,

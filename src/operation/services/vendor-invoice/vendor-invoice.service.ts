@@ -133,6 +133,7 @@ export class VendorInvoiceService {
                                 HouseJobSid: detail.HouseJobSid || payload.HouseJobSid,
                                 DepartmentMasterSid : detail.DepartmentMasterSid || null,
                                 CreatedBy: payload.CreatedBy || 'System',
+                                Narration : detail.Narration || null,
                                 Status: 'A'
                             }
                         });
