@@ -165,28 +165,77 @@ export class FollowupService {
         }
     }
 
-    async updateFollowup(followupMasterSid: number, payload: any, user) {
-        const existing = await this._db.followup.findUnique({
-            where: {
-                FollowupSid: followupMasterSid
-            }
-        });
-
-        if (!existing) {
-            throw new Error('followup does not exists');
-        }
-
-        try{
-            const followup = await this._db.followup.update({
+        async getFollowupsByDocumentId(documentSid: number) {
+        try {
+            const followups = await this._db.followup.findFirst({
                 where: {
-                    FollowupSid: followupMasterSid
-                }, data: payload
+                    DocumentSid: documentSid,
+                    Status: 'A'
+                },
             });
-            return followup;
+            
+            return followups;
         } catch (error) {
-            throw new Error(`Error updating: ${error.message}`);
+            this.logger.error(`Error fetching followups by document ID: ${error.message}`);
         }
     }
+
+    async updateFollowup(followupMasterSid: number, payload: any, user) {
+
+  const existing = await this._db.followup.findUnique({
+    where: { FollowupSid: followupMasterSid }
+  });
+
+  if (!existing) {
+    throw new NotFoundException('Followup does not exist');
+  }
+
+  const { followupCreate, mailContent, updatedBy } = payload;
+
+  const parsedDate = this.parseNgbDate(followupCreate.FollowupDate);
+
+  const correctedDate = parsedDate
+    ? moment(parsedDate).add(1, 'day').startOf('day').toDate()
+    : undefined;
+
+  try {
+    const followup = await this._db.followup.update({
+      where: { FollowupSid: followupMasterSid },
+      data: {
+        ...followupCreate,
+        FollowupDate: correctedDate,
+        FollowupRequire: followupCreate.FollowupRequire ? 'Y' : 'N',
+        Public: followupCreate.Public ? 'Y' : 'N',
+        sentEmail: followupCreate.sentEmail ? 'Y' : 'N',
+        UpdatedBy: updatedBy,
+        UpdatedOn: new Date()
+      }
+    });
+
+    // 🔒 Only send if not already sent
+    if (
+      followupCreate.sentEmail &&
+      followup.Status === 'A' &&
+      mailContent &&
+      !existing.ReceivedDate
+    ) {
+      await this.sendSpecificFollowupEmail(followup.FollowupSid, mailContent);
+      await this.scheduleFollowupEmail(
+        followup.FollowupSid,
+        followupCreate.FollowupDate,
+        mailContent
+      );
+    }
+
+    return followup;
+
+  } catch (error) {
+    this.logger.error(`Error updating followup: ${error.message}`);
+    throw new BadRequestException(error.message);
+  }
+}
+
+
 
     async softDelete(id: number) {
         const existingfollowup = await this._db.followup.findUnique({
@@ -212,4 +261,13 @@ export class FollowupService {
             }
         });
     }
+
+    private parseNgbDate(date: any): Date | null {
+  if (!date || typeof date !== 'object') return null;
+
+  const { year, month, day } = date;
+  if (!year || !month || !day) return null;
+
+  return new Date(year, month - 1, day);
+}
 }
