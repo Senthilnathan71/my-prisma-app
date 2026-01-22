@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { DatabaseService } from 'src/database/database.service';
 import { ApprovalStatus, Prisma, PrismaClient } from '@prisma/client';
-import { BLIssueListReportQueryDto, ContainerKPIReportQueryDto, DestinationReportQueryDto, DOIssueListReportQueryDto, exportJobVolumeTEUReportQueryDto, houseJobLossReportQueryDto, lostCustomerReportQueryDto, profitabilityReportQueryDto, ProfitSummaryReportQueryDto, ShipmentDetailedSummaryReportQueryDto, ShipmentSummaryReportQueryDto, tradelaneProfitabilityReportQueryDto, unbilledcostReportQueryDto } from 'src/operation/DTO/operation-reports.dto';
+import { BLIssueListReportQueryDto, ContainerKPIReportQueryDto, DestinationReportQueryDto, DOIssueListReportQueryDto, exportJobVolumeTEUReportQueryDto, houseJobLossReportQueryDto, lostCustomerReportQueryDto, NetworkReportQueryDto, profitabilityReportQueryDto, ProfitSummaryReportQueryDto, ShipmentDetailedSummaryReportQueryDto, ShipmentSummaryReportQueryDto, tradelaneProfitabilityReportQueryDto, unbilledcostReportQueryDto } from 'src/operation/DTO/operation-reports.dto';
 import { toNumber } from 'src/common/helper';
 
 @Injectable()
@@ -3887,15 +3887,13 @@ export class OperationReportsService {
   }
 
   // Network Report
-  private async generateNetworkReport(params: any) {
+  private async generateNetworkReport(params: NetworkReportQueryDto) {
     const {
       FromDate,
       ToDate,
-      Network:network,
-      NetworkFrom,
-      CompanyId: CompanyMasterSid,
-      Branch: BranchMasterSid,
-      Department
+      Network: network,
+      companyId: CompanyMasterSid,
+      Dept: Department
     } = params;
 
     try {
@@ -3930,72 +3928,206 @@ export class OperationReportsService {
         }
       });
 
-      // 3. Build booking filter
+      const containerTypesMaster = await this._db.containerTypeMaster.findMany({
+        select: { ContainerTypeMasterSid: true, ContainerSize: true }
+      });
+
+      // Map ID → Name for fast lookup
+      const containerTypeMap = new Map(
+        containerTypesMaster.map(ct => [ct.ContainerTypeMasterSid, ct.ContainerSize])
+      );
+
+      // 3. Build house filter
       const whereClause: any = {
-        CompanyMasterSid,
-        BranchMasterSid,
         DepartmentMasterSid: { in: departmentIds },
         status: 'A',
         AND: [
-          { BookingDateTime: { gte: FromDate } },
-          { BookingDateTime: { lte: ToDate } }
-        ],
+          { HBLDate: { gte: FromDate } },
+          { HBLDate: { lte: ToDate } }
+        ]
       };
 
-      // 4. Fetch booking data
-      const networkData = await this._db.bookingHeader.findMany({
+      if (CompanyMasterSid) whereClause.CompanyMasterSid = CompanyMasterSid;
+
+      // 4. Fetch house data
+      const networkData = await this._db.houseJob.findMany({
         where: whereClause,
         include: {
-          bookingRates: true,
-          bookingCargo: true,
-          houseJob:{
-            select:{
-              Cargo:true
+          masterJob: {
+            where: {
+              Status: 'A'
+            },
+            select: {
+              GrossWeight: true,
+              NetWeight: true,
+              MasterJobNumber: true,
+              OriginAgent: true,
+              containers: {
+                where: { Status: 'A' },
+                include: {
+                  containerType: {
+                    select: {
+                      ContainerSize: true,
+                      NoOfTeu: true,
+                    }
+                  }
+                }
+              },
             }
-          }
+          },
         },
         orderBy: {
-          BookingDateTime: "asc"
+          HBLDate: "asc"
         }
       });
 
-      // 5. Apply network filters + map result
+      const houseJobIds = networkData.map(h => h.HouseJobSid);
+      const houseJobMenu = await this._db.menuMaster.findFirst({
+        where: { MenuName: 'House Job' },
+        select: { MenuMasterSid: true },
+      });
+
+      if (!houseJobMenu) {
+        throw new BadRequestException('House Job menu not found');
+      }
+
+      const allHouseCR = await this._db.costRevenueCharges.findMany({
+        where: {
+          MenuMasterSid: houseJobMenu.MenuMasterSid,
+          TransactionSid: { in: houseJobIds },
+          status: 'A',
+          OR: [
+            { CostVoucherHeaderSid: null },
+            { RevenueVoucherHeaderSid: null },
+          ],
+        },
+        select: {
+          TransactionSid: true,
+          CostLocalAmount: true,
+          RevenueLocalAmount: true,
+        },
+      });
+
+
+      const houseRateMap = new Map<number, any[]>();
+      allHouseCR.forEach(cr => {
+        if (!houseRateMap.has(cr.TransactionSid!)) {
+          houseRateMap.set(cr.TransactionSid!, []);
+        }
+        houseRateMap.get(cr.TransactionSid!)!.push(cr);
+      });
+
+
       const data = networkData
         .map(b => {
           const customer = organizationMaster.find(c => c.CustomerMasterSid === b.CustomerMasterSid);
           const department = departments.find(d => d.DepartmentMasterSid === b.DepartmentMasterSid);
           const destinationAgent = organizationMaster.find(c => c.CustomerMasterSid === b.DestinationAgent);
-          const totalRevenue = (b.bookingRates || [])
-            .reduce((sum, r) => sum + Number(r.RevenueLocalAmount || 0), 0);
+          const originAgent = organizationMaster.find(c => c.CustomerMasterSid === b.masterJob?.OriginAgent);
+          const houseCR = allHouseCR.filter(cr => cr.TransactionSid === b.HouseJobSid);
+          const { totalRevenue, totalCost } = houseCR.reduce(
+            (acc, cr) => {
+              acc.totalRevenue += cr.RevenueLocalAmount ? Number(cr.RevenueLocalAmount) : 0;
+              acc.totalCost += cr.CostLocalAmount ? Number(cr.CostLocalAmount) : 0;
+              return acc;
+            },
+            { totalRevenue: 0, totalCost: 0 }
+          );
+          const profit = totalRevenue - totalCost;
 
-          const totalCost = (b.bookingRates || [])
-            .reduce((sum, r) => sum + Number(r.CostLocalAmount || 0), 0);
+          const masterContainerSid = b.masterJob?.containers?.[0]?.MasterJobContainerSid;
+          let totalNoOfTEU = 0;
+          let numberOfTwentyFt = 0;
+          let numberOfFourtyFt = 0;
+          let numberofFurtyFiveFt = 0;
+
+          let numberOfTwentyRefer = 0;
+          let numberOfFourtyRefer = 0;
+          let numberOfFourtyFiveRefer = 0;
+
+          let numberofTwentyOpen = 0;
+          let numberofFourtyOpen = 0;
+          let numberofFourtyFiveOpen = 0;
+
+          (b.masterJob?.containers || []).forEach(c => {
+            totalNoOfTEU += Number(c.containerType?.NoOfTeu || 0);
+
+
+            const normalizeContainerSize = (size?: string): string =>
+              (size || '')
+                .replace(/['"]/g, '')
+                .replace(/\s+/g, ' ')
+                .trim()
+                .toUpperCase();
+
+
+            const size = normalizeContainerSize(c.containerType?.ContainerSize);
+
+            switch (size) {
+              case '20 F':
+                numberOfTwentyFt++;
+                break;
+
+              case '40 F':
+                numberOfFourtyFt++;
+                break;
+
+              case '40 HC':
+                numberofFurtyFiveFt++;
+                break;
+
+              case '20 REFER':
+                numberOfTwentyRefer++;
+                break;
+
+              case '40 REFER':
+                numberOfFourtyRefer++;
+                break;
+
+              case '40 HC REFER':
+                numberOfFourtyFiveRefer++;
+                break;
+
+              case '20 OPEN TOP':
+                numberofTwentyOpen++;
+                break;
+
+              case '40 OPEN TOP':
+                numberofFourtyOpen++;
+                break;
+
+              case '40 HC OPEN TOP':
+                numberofFourtyFiveOpen++;
+                break;
+            }
+          });
 
           return {
             customerName: customer?.CustomerName || '',
             departmentName: department?.departmentName || '',
-            network:customer?.Network || '',
+            network: customer?.Network || '',
             BookingNo: b.BookingNo,
             HouseNo: b.HouseNo,
             HblNo: b.HBLNo,
             MBLNo: b.MBLNo,
+            masterJobNo: b.masterJob?.MasterJobNumber,
             originAgent: b.AgentName,
+            originNetwork: originAgent?.Network,
             destinationAgent: destinationAgent?.CustomerName || '',
+            destinationNetwork: destinationAgent?.Network || '',
             nominationBy: b.NominatedBy,
-            grossWt: b.bookingCargo?.[0]?.GrossWeight || 0,
-            netWt: b.bookingCargo?.[0]?.NetWeight || 0,
-            bookingRates: {
-              revenue: totalRevenue,
-              cost: totalCost,
-              gp: totalRevenue - totalCost
-            }
-
+            totalRevenue,
+            totalCost,
+            profit,
+            grossWt: b.masterJob?.GrossWeight,
+            netWt: b.masterJob?.NetWeight,
+            totalNoOfTEU
           };
         });
 
       return {
         CompanyMasterSid,
-        BranchMasterSid,
+        params,
         FromDate,
         ToDate,
         count: data.length,
@@ -4481,21 +4613,22 @@ export class OperationReportsService {
           leadAssignTo: { not: null }
         },
         _count: {
-          leadAssignTo: true
+          leadAssignTo: true,
+          isQualify:true
         }
       });
 
-      const meetingCount = await this._db.preCustomerMaster.groupBy({
+      const meetingCount = await this._db.preCustomerMeeting.groupBy({
         by: ['leadAssignTo'],
         where: {
           CompanyMasterSid,
           BranchMasterSid: { in: resolvedBranchIds },
-          leadAssignTo: { not: null }
         },
         _count: {
           leadAssignTo: true
         }
       });
+
 
 
       const makeKey = (sid: number, dept: number) => `${sid}_${dept}`;
@@ -4535,14 +4668,20 @@ export class OperationReportsService {
         }
       });
 
+      const departmentMap = new Map(
+  departments.map(d => [d.DepartmentMasterSid, d.departmentName])
+);
+
 
       const salesmanSummary: any[] = [];
 
       for (const dept of resolvedDeptIds) {
+
+         const departmentName = departmentMap.get(dept) || '';
         for (const user of allSalesman) {
 
           const key = makeKey(user.UserMasterSid, dept);
-
+ 
           const q = quotationMap.get(key) || 0;
           const e = enquiryMap.get(key) || 0;
           const b = bookingMap.get(key) || 0;
@@ -4552,6 +4691,7 @@ export class OperationReportsService {
           if (q || e || b || l || m) {
             salesmanSummary.push({
               DepartmentMasterSid: dept,
+              DepartmentName: departmentName,
               SalesmanSid: user.UserMasterSid,
               SalesmanName: user.userName,
               TotalQuotations: q,
