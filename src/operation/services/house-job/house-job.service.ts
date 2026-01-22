@@ -492,6 +492,43 @@ export class HouseJobService {
               }
           }
 
+          let finalAllMilestones: any = [];
+          const allMilestones = payload.milestones || [];
+          if (allMilestones.length > 0) {
+              for (const milestone of allMilestones) {
+                const createdMilestone = await prisma.shipmentMilestone.create({
+                    data: {
+                        HouseJobSid: houseJob.HouseJobSid,
+                        ShipmentNo: houseJob.ShipmentNo!,
+                        CompanyMasterSid: houseJob.CompanyMasterSid,
+                        BranchMasterSid: houseJob.BranchMasterSid!,
+                        CreatedBy: payload.createdBy,
+                        Status: "A",
+                        MilestoneMasterSid: milestone.MilestoneMasterSid,
+                        Remarks: milestone.Remarks,
+                        MilestoneName: milestone.MilestoneName,
+                        MilestoneDate: milestone.MilestoneDate,
+                        AutoCaptured: milestone.AutoCaptured ? 'Y' : 'N'
+                    }
+                });
+                finalAllMilestones.push(createdMilestone);
+              }
+            }
+        //   const allMilestones = await prisma.shipmentMilestone.createMany({
+        //     data :(payload.milestones || []).map(milestone => ({
+        //         ShipmentNo : houseJob.ShipmentNo,
+        //         CompanyMasterSid : houseJob.CompanyMasterSid,
+        //         BranchMasterSid : houseJob.BranchMasterSid!,
+        //         CreatedBy : payload.createdBy,
+        //         Status : "A",
+        //         MilestoneMasterSid : milestone.MilestoneMasterSid,
+        //         Remarks : milestone.Remarks,
+        //         MilestoneName : milestone.MilestoneName,
+        //         MilestoneDate : milestone.MilestoneDate,
+        //         AutoCaptured : milestone.AutoCaptured ? 'Y' : 'N'
+        //     }))
+        //   })
+
           return {
               houseJob,
               houseJobCargo: finalHouseJobCargo,
@@ -502,7 +539,10 @@ export class HouseJobService {
               houseJobVehicle: finalHouseJobVehicle,
               houseJobCustoms: finalHouseJobCustoms,
               bookingRates: finalCharges,
-              costRevenueCharges: finalCharges
+              costRevenueCharges: finalCharges,
+              shipmentMilestones: finalAllMilestones,
+
+              
           };
       });
 
@@ -558,6 +598,11 @@ export class HouseJobService {
                         }
                     }, 
                      houseJobCustoms:{
+                        where:{
+                            Status:'A'
+                        }
+                    },
+                    ShipmentMilestone:{
                         where:{
                             Status:'A'
                         }
@@ -1421,6 +1466,53 @@ export class HouseJobService {
                 }
             }
 
+            const finalShipmentMilestones : any[] = [];
+            const milestonePayload = payload.milestones || [];
+ 
+            if (milestonePayload.length > 0) {
+                for (const milestone of milestonePayload) {
+                    let createdMilestone;
+                    let updatedMilestone;
+                    if (milestone.ShipmentMilestoneSid) {
+                        // Update existing milestone
+                        updatedMilestone = await this._db.shipmentMilestone.update({
+                            where: {
+                                ShipmentMilestoneSid: milestone.ShipmentMilestoneSid
+                            },
+                            data: {
+                                HouseJobSid: updatedHouseJob.HouseJobSid,
+                                ShipmentNo: updatedHouseJob.ShipmentNo!,
+                                UpdatedBy: milestone.UpdatedBy || milestone.CreatedBy,
+                                Status: String(milestone.Status).charAt(0),
+                                MilestoneMasterSid: milestone.MilestoneMasterSid,
+                                Remarks: milestone.Remarks,
+                                MilestoneName: milestone.MilestoneName,
+                                MilestoneDate: milestone.MilestoneDate,
+                                AutoCaptured: milestone.AutoCaptured ? 'Y' : 'N'
+                            }
+                        });
+                    } else {
+                        // Create new milestone
+                        createdMilestone = await this._db.shipmentMilestone.create({    
+                            data: {
+                                HouseJobSid: updatedHouseJob.HouseJobSid,
+                                ShipmentNo: updatedHouseJob.ShipmentNo!,
+                                CompanyMasterSid: milestone.CompanyMasterSid,
+                                BranchMasterSid: milestone.BranchMasterSid,
+                                CreatedBy: milestone.UpdatedBy ,
+                                Status: "A",
+                                MilestoneMasterSid: milestone.MilestoneMasterSid,
+                                Remarks: milestone.Remarks,
+                                MilestoneName: milestone.MilestoneName,
+                                MilestoneDate: milestone.MilestoneDate,
+                                AutoCaptured: milestone.AutoCaptured ? 'Y' : 'N'
+                            }
+                        });
+                    }
+                    finalShipmentMilestones.push(updatedMilestone || createdMilestone);
+                }
+            }
+
             return {
                 houseJob: updatedHouseJob,
                 houseJobCargo: finalHouseJobCargo,
@@ -1431,7 +1523,8 @@ export class HouseJobService {
                 houseJobVehicle: finalHouseJobVehicle,
                 houseJobCustoms: finalHouseJobCustoms,
                 bookingRates: finalCharges,
-                costRevenueCharges: finalCharges
+                costRevenueCharges: finalCharges,
+                shipmentMilestones: finalShipmentMilestones
             };
         }
         catch (error) {
