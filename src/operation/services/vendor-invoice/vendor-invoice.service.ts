@@ -438,6 +438,7 @@ export class VendorInvoiceService {
                     MasterJobSid: detail.MasterJobSid || payload.MasterJobSid,
                     HouseJobSid: detail.HouseJobSid || payload.HouseJobSid,
                     UpdatedBy: payload.UpdatedBy || 'System',
+                    Narration : detail.Narration || "",
                     Status: 'A'
                 }
             });
