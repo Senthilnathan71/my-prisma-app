@@ -1443,7 +1443,8 @@ export class ReceiptService {
         if (!voucher.voucherTypeMaster) throw new BadRequestException('Voucher type is not found.');
 
         // Check if any transaction is already matched
-        const { isValid, matchedTransactions } = await this.checkIfTransactionMatched(voucher.SourceMatchingDetail.map(d => d.VoucherTransactionSid), tx);
+        const validTransactions = voucher.SourceMatchingDetail.filter(d => toNumber(d.MatchingAmount) > 0 && toNumber(d.MatchingLocalAmount) > 0).map(d => d.VoucherTransactionSid);
+        const { isValid, matchedTransactions } = await this.checkIfTransactionMatched(validTransactions, tx);
 
         if (!isValid) {
           throw new BadRequestException(`Already matched vouchers:\n${matchedTransactions.map(m => m.VoucherNumber).join('\n')}`);

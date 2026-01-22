@@ -128,7 +128,7 @@ export class PreCustomerMeetingService {
                 payload.updatedOn = new Date(); // Only update UpdatedOn
                 payload.updatedBy = params.createdBy
                 payload.followUpDate = params.followUpDate ? toUTCISO(params.followUpDate) : null,
-                    payload.meetingDate = toUTCISO(params.meetingDate)
+                    payload.meetingDate = params.meetingDate
 
                 updatePreCustomer = await this._db.preCustomerMeeting.update({
                     where: { PreCustomerMeetingSid: params.PreCustomerMeetingSid },
@@ -154,7 +154,7 @@ export class PreCustomerMeetingService {
                 payload.updatedOn = new Date();
                 const payloadData = {
                     createdBy: params.userEmail || '',
-                    meetingDate: toUTCISO(params.meetingDate),
+                    meetingDate: params.meetingDate,
                     meetingType: params.meetingType,
                     meetingStatus: params.meetingStatus ? params.meetingStatus : 'Scheduled',
                     customerProfile: params.customerProfile,
