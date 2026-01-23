@@ -1800,6 +1800,7 @@ export class OperationReportsService {
               MasterJobNumber: true,
               JobStatus: true,
               CreatedBy: true,
+              MBLNo:true,
               containers: {
                 where: { Status: 'A' },
                 include: {
@@ -1996,7 +1997,7 @@ export class OperationReportsService {
           : '';
 
         return {
-          MBL: mj.MBLNo,
+          MBL: mj.masterJob?.MBLNo,
           shipmentNo: mj.ShipmentNo,
           bookingDate: mj.BookingDateTime,
           masterDate: mj.MBLDate,
@@ -2670,7 +2671,7 @@ export class OperationReportsService {
           houseDept: houseDepartment,
           houseStatus: house.HouseStatus,
           jobType: house.JobType,
-          MBLNo: house.MBLNo,
+          MBLNo: house.masterJob?.MBLNo,
           vesselName: house.VesselName,
           voyNo: house.VoyageNo,
           originAgent: house.AgentName,
