@@ -7,8 +7,8 @@ export const PARTY_VTYPE_DRCR_MAP = {
   "Receipt": { DrCr: "C" },          // Party Credited (Customer pays)
   "Payment Voucher": { DrCr: "D" },  // Party Debited (We pay Vendor)
   "Debit Note": { DrCr: "D" },       // Party Debited (They owe us more)
-  "Credit Note": { DrCr: "D" },      // Party Credited (We owe them)
-  "Vendor Credit Note" : { DrCr: "C" }, // Party Debited (They owe us more)
+  "Credit Note": { DrCr: "C" },      // Party Credited (We owe them)
+  "Vendor Credit Note" : { DrCr: "D" }, // Party Debited (They owe us more)
   "Journal Voucher" : { DrCr : "D"} 
 } as const;
 

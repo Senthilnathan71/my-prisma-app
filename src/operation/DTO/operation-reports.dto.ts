@@ -591,3 +591,36 @@ export class tradelaneProfitabilityReportQueryDto {
   @IsInt()
   POD?: String;
 }
+
+
+export class NetworkReportQueryDto {
+  @ApiProperty()
+  @IsNotEmpty()
+  @IsDateString()
+  FromDate: string;
+
+  @ApiProperty()
+  @IsNotEmpty()
+  @IsDateString()
+  ToDate: string;
+
+  @ApiProperty()
+  @IsNotEmpty()
+  @IsInt()
+  companyId: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsInt()
+  Branch?: number[];
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsInt()
+  Network?: number[];
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsInt()
+  Dept?: number[];
+}

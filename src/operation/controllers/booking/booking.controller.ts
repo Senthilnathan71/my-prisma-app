@@ -1,14 +1,46 @@
-import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, Post, Query, UnauthorizedException, UploadedFile, UseInterceptors } from "@nestjs/common";
+import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, Post, Query, UnauthorizedException, UploadedFile, UseInterceptors, UsePipes, ValidationPipe } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
 import { ApiCreatedResponse, ApiOperation } from "@nestjs/swagger";
 import { ResponseData } from "src/common/response-data";
 import { EmailService } from "src/email/email.service";
 import { filterDto } from "src/masters/DTO/search-vessel.dto";
+import { DuplicateCheckDTO } from "src/operation/DTO/booking.dto";
 import { BookingService } from "src/operation/services/booking/booking.service";
 
 @Controller('ff-booking')
 export class BookingController {
     constructor(private bookingService: BookingService, private logger: Logger,private emailService:EmailService) { }
+
+    @ApiOperation({ summary : 'Check if Booking already exists' })
+    @ApiCreatedResponse({
+        description: 'Booking already exists',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @UsePipes(new ValidationPipe({
+        transform: true,
+        whitelist: true,
+        forbidNonWhitelisted: true,
+    }))
+    @Post('check-duplicate')
+    async checkDuplicateBooking(@Body() payload : DuplicateCheckDTO) {
+        const output = new ResponseData();
+        try {
+            const isDuplicate = await this.bookingService.checkDuplicateBooking(payload);
+            this.logger.debug(`checkDuplicateBooking: ${JSON.stringify(isDuplicate)}`)
+            output.data = isDuplicate;
+            output.message = "Booking already exists";
+        } catch (error) {
+            this.logger.warn(`checkDuplicateBooking: ${JSON.stringify(error), error}`)
+            output.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                output.message = error.message;
+            } else {
+                output.message = error;
+            }
+        }
+        return output
+    }
 
     @ApiOperation({ summary: 'Create Booking' })
     @ApiCreatedResponse({

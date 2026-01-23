@@ -76,11 +76,11 @@ export class FollowupController {
     })
     @HttpCode(HttpStatus.OK)
     @Get('fetch/:id')
-    async getfollowupById(@Param('id', ParseIntPipe) followupId: number) {
+    async getFollowupsByDocumentId(@Param('id', ParseIntPipe) DocumentSid: number) {
         const output = new ResponseData;
         try{ 
-            const followup = await this.followupService.findOne(followupId)
-            this.logger.log(`getfollowupId: ${JSON.stringify(followup)}`)
+            const followup = await this.followupService.getFollowupsByDocumentId(DocumentSid)
+            this.logger.log(`getfollowupId: ${JSON.stringify(DocumentSid)}`)
             output.data = followup
         } catch (error) {
             this.logger.warn(`getfollowupById: ${JSON.stringify(error)}`)

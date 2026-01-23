@@ -133,6 +133,7 @@ export class VendorInvoiceService {
                                 HouseJobSid: detail.HouseJobSid || payload.HouseJobSid,
                                 DepartmentMasterSid : detail.DepartmentMasterSid || null,
                                 CreatedBy: payload.CreatedBy || 'System',
+                                Narration : detail.Narration || null,
                                 Status: 'A'
                             }
                         });
@@ -437,6 +438,7 @@ export class VendorInvoiceService {
                     MasterJobSid: detail.MasterJobSid || payload.MasterJobSid,
                     HouseJobSid: detail.HouseJobSid || payload.HouseJobSid,
                     UpdatedBy: payload.UpdatedBy || 'System',
+                    Narration : detail.Narration || "",
                     Status: 'A'
                 }
             });
