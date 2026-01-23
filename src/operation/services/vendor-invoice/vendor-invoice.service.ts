@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, InternalServerErrorException, Logger, NotFoundException } from '@nestjs/common';
 import { DatabaseService } from 'src/database/database.service';
 import { VoucherService } from '../voucher/voucher.service';
+import { VoucherPeriodService } from 'src/masters/services/voucher-period/voucher-period.service';
 import * as moment from 'moment-timezone';
 import { statusWhereClause, toNumber } from 'src/common/helper';
 import { Prisma } from '@prisma/client';
@@ -11,7 +12,8 @@ export class VendorInvoiceService {
 
     constructor(
         private readonly _db: DatabaseService,
-        private readonly voucherService: VoucherService
+        private readonly voucherService: VoucherService,
+        private readonly voucherPeriodService: VoucherPeriodService
     ) {}
 
     /**
@@ -19,6 +21,17 @@ export class VendorInvoiceService {
      */
     async createVendorInvoice(payload: any): Promise<any> {
         try {
+            // Validate period before creating vendor invoice (AP module)
+            const periodValidation = await this.voucherPeriodService.validateVoucherPeriod({
+                voucherDate: payload.VoucherDate || new Date(),
+                module: 'AP',
+                CompanyMasterSid: payload.CompanyMasterSid,
+                BranchMasterSid: payload.BranchMasterSid
+            });
+            if (!periodValidation.allowed) {
+                throw new BadRequestException(periodValidation.message);
+            }
+
             return await this._db.$transaction(async (tx) => {
                 // Validate vendor exists
                 if (!payload.PartyMasterSid) {

@@ -58,6 +58,7 @@ import { VoucherMatchingController } from './controllers/voucher-matching/vouche
 import { ShipmentMilestoneController } from './controllers/shipment-milestone/shipment-milestone.controller';
 import { ShipmentMilestoneService } from './services/shipment-milestone/shipment-milestone.service';
 import { SettingsModule } from 'src/settings/settings.module';
+import { VoucherPeriodService } from 'src/masters/services/voucher-period/voucher-period.service';
 
 @Module({
         imports: [CommonModule, SettingsModule],
@@ -94,7 +95,8 @@ import { SettingsModule } from 'src/settings/settings.module';
                 ReverseVoucherService,
                 EDIManifestService,
                 VoucherMatchingService,
-                ShipmentMilestoneService
+                ShipmentMilestoneService,
+                VoucherPeriodService
         ],
         controllers: [
                 BookingController,

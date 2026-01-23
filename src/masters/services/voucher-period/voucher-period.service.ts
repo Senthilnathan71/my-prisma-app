@@ -218,4 +218,212 @@ export class VoucherPeriodService {
             throw new Error(`Error fetching audit logs: ${error.message}`);
         }
     }
+
+    /**
+     * Check if voucher periods already exist for a given year
+     */
+    async checkPeriodsExistForYear(
+        YearMasterSid: number,
+        CompanyMasterSid: number,
+        BranchMasterSid: number
+    ): Promise<boolean> {
+        try {
+            const existingPeriods = await this._db.voucherPeriod.findFirst({
+                where: {
+                    YearMasterSid,
+                    CompanyMasterSid,
+                    BranchMasterSid,
+                    Status: { not: 'D' }
+                }
+            });
+            return !!existingPeriods;
+        } catch (error) {
+            this.logger.warn(`checkPeriodsExistForYear Error: ${error}`);
+            throw error;
+        }
+    }
+
+    /**
+     * Create 12 monthly periods for a given year
+     */
+    async createPeriodsForYear(payload: {
+        YearMasterSid: number;
+        CompanyMasterSid: number;
+        BranchMasterSid: number;
+        CreatedBy: string;
+    }) {
+        try {
+            const { YearMasterSid, CompanyMasterSid, BranchMasterSid, CreatedBy } = payload;
+
+            // 1. Get YearMaster to get start/end dates
+            const yearMaster = await this._db.yearMaster.findUnique({
+                where: { YearMasterSid }
+            });
+
+            if (!yearMaster) {
+                throw new BadRequestException(`Year with ID ${YearMasterSid} not found`);
+            }
+
+            // 2. Check if periods already exist
+            const periodsExist = await this.checkPeriodsExistForYear(
+                YearMasterSid,
+                CompanyMasterSid,
+                BranchMasterSid
+            );
+
+            if (periodsExist) {
+                throw new BadRequestException(
+                    `Voucher periods already exist for year ${yearMaster.YearName}`
+                );
+            }
+
+            // 3. Generate 12 monthly periods
+            const periods: any[] = [];
+            const startDate = new Date(yearMaster.StartDate);
+            const endDate = new Date(yearMaster.EndDate);
+
+            // Month names for period naming
+            const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+            let currentDate = new Date(startDate);
+            let periodCode = 1;
+
+            while (currentDate <= endDate && periodCode <= 12) {
+                const periodStartDate = new Date(currentDate);
+
+                // Calculate period end date (last day of the month or year end date, whichever is earlier)
+                const monthEndDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
+                const periodEndDate = monthEndDate > endDate ? new Date(endDate) : monthEndDate;
+
+                const monthIndex = currentDate.getMonth();
+                const year = currentDate.getFullYear();
+                const periodName = `${monthNames[monthIndex]}-${year}`;
+
+                periods.push({
+                    PeriodCode: periodCode,
+                    PeriodName: periodName,
+                    StartDate: periodStartDate,
+                    EndDate: periodEndDate,
+                    CompanyMasterSid,
+                    BranchMasterSid,
+                    YearMasterSid,
+                    CreatedBy,
+                    Status: 'A',
+                    GLClosed: 'N',
+                    GLGraceDays: 0,
+                    ARClosed: 'N',
+                    ARGraceDays: 0,
+                    APClosed: 'N',
+                    APGraceDays: 0
+                });
+
+                // Move to next month
+                currentDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1);
+                periodCode++;
+            }
+
+            // 4. Create all periods in a transaction
+            const createdPeriods = await this._db.$transaction(
+                periods.map(period =>
+                    this._db.voucherPeriod.create({ data: period })
+                )
+            );
+
+            return {
+                message: `Successfully created ${createdPeriods.length} periods for year ${yearMaster.YearName}`,
+                periods: createdPeriods
+            };
+        } catch (error) {
+            this.logger.warn(`createPeriodsForYear Error: ${error}`);
+            throw error;
+        }
+    }
+
+    /**
+     * Validate if a voucher can be posted for a given date and module
+     * Takes into account period closure and grace days
+     */
+    async validateVoucherPeriod(payload: {
+        voucherDate: Date | string;
+        module: 'GL' | 'AR' | 'AP';
+        CompanyMasterSid: number;
+        BranchMasterSid: number;
+    }): Promise<{ allowed: boolean; message: string }> {
+        try {
+            const { voucherDate, module, CompanyMasterSid, BranchMasterSid } = payload;
+            const vDate = new Date(voucherDate);
+
+            // Find the period that contains the voucher date
+            const period = await this._db.voucherPeriod.findFirst({
+                where: {
+                    CompanyMasterSid,
+                    BranchMasterSid,
+                    Status: 'A',
+                    StartDate: { lte: vDate },
+                    EndDate: { gte: vDate }
+                }
+            });
+
+            if (!period) {
+                return {
+                    allowed: false,
+                    message: `No voucher period found for date ${vDate.toLocaleDateString()}`
+                };
+            }
+
+            // Determine which closed flag and grace days to use based on module
+            let isClosed: boolean;
+            let graceDays: number;
+            let closedFieldName: string;
+
+            switch (module) {
+                case 'GL':
+                    isClosed = period.GLClosed === 'Y';
+                    graceDays = Number(period.GLGraceDays) || 0;
+                    closedFieldName = 'GL';
+                    break;
+                case 'AR':
+                    isClosed = period.ARClosed === 'Y';
+                    graceDays = Number(period.ARGraceDays) || 0;
+                    closedFieldName = 'AR';
+                    break;
+                case 'AP':
+                    isClosed = period.APClosed === 'Y';
+                    graceDays = Number(period.APGraceDays) || 0;
+                    closedFieldName = 'AP';
+                    break;
+                default:
+                    return { allowed: false, message: `Invalid module: ${module}` };
+            }
+
+            // If period is not closed, allow
+            if (!isClosed) {
+                return { allowed: true, message: 'Period is open' };
+            }
+
+            // Period is closed - check grace days
+            const periodEndDate = new Date(period.EndDate);
+            const graceEndDate = new Date(periodEndDate);
+            graceEndDate.setDate(graceEndDate.getDate() + graceDays);
+
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            if (today <= graceEndDate) {
+                return {
+                    allowed: true,
+                    message: `${closedFieldName} period is closed but within grace period (until ${graceEndDate.toLocaleDateString()})`
+                };
+            }
+
+            // Grace period has ended
+            return {
+                allowed: false,
+                message: `${closedFieldName} period '${period.PeriodName}' is closed. Grace period ended on ${graceEndDate.toLocaleDateString()}.`
+            };
+        } catch (error) {
+            this.logger.warn(`validateVoucherPeriod Error: ${error}`);
+            throw error;
+        }
+    }
 }

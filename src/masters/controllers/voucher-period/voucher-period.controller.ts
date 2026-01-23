@@ -208,4 +208,98 @@ export class VoucherPeriodController {
         }
         return resp;
     }
+
+    @ApiOperation({ summary: 'Create 12 monthly periods for a year' })
+    @ApiCreatedResponse({
+        description: 'Create periods for year',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Post('create-periods-for-year')
+    async createPeriodsForYear(@Body() body: {
+        YearMasterSid: number;
+        CompanyMasterSid: number;
+        BranchMasterSid: number;
+        CreatedBy: string;
+    }) {
+        const resp = new ResponseData();
+        try {
+            const res = await this.voucherPeriodService.createPeriodsForYear(body);
+            this.logger.log(`Periods created for year: ${JSON.stringify(res)}`);
+            resp.data = res;
+            resp.message = res.message;
+        } catch (error) {
+            this.logger.warn(`Create Periods For Year Error: ${JSON.stringify(error)}`);
+            resp.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                resp.message = error.message;
+            } else {
+                resp.message = 'Internal Server Error';
+            }
+        }
+        return resp;
+    }
+
+    @ApiOperation({ summary: 'Check if periods exist for a year' })
+    @ApiCreatedResponse({
+        description: 'Check periods exist',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Post('check-periods-exist')
+    async checkPeriodsExist(@Body() body: {
+        YearMasterSid: number;
+        CompanyMasterSid: number;
+        BranchMasterSid: number;
+    }) {
+        const resp = new ResponseData();
+        try {
+            const exists = await this.voucherPeriodService.checkPeriodsExistForYear(
+                body.YearMasterSid,
+                body.CompanyMasterSid,
+                body.BranchMasterSid
+            );
+            resp.data = { periodsExist: exists };
+            resp.message = exists ? 'Periods exist for this year' : 'No periods found for this year';
+        } catch (error) {
+            this.logger.warn(`Check Periods Exist Error: ${JSON.stringify(error)}`);
+            resp.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                resp.message = error.message;
+            } else {
+                resp.message = 'Internal Server Error';
+            }
+        }
+        return resp;
+    }
+
+    @ApiOperation({ summary: 'Validate voucher date against period closure' })
+    @ApiCreatedResponse({
+        description: 'Validate period for voucher',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Post('validate-period')
+    async validatePeriod(@Body() body: {
+        voucherDate: string;
+        module: 'GL' | 'AR' | 'AP';
+        CompanyMasterSid: number;
+        BranchMasterSid: number;
+    }) {
+        const resp = new ResponseData();
+        try {
+            const validation = await this.voucherPeriodService.validateVoucherPeriod(body);
+            resp.data = validation;
+            resp.message = validation.message;
+        } catch (error) {
+            this.logger.warn(`Validate Period Error: ${JSON.stringify(error)}`);
+            resp.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                resp.message = error.message;
+            } else {
+                resp.message = 'Internal Server Error';
+            }
+        }
+        return resp;
+    }
 }

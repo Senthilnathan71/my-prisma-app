@@ -7,6 +7,7 @@ import * as moment from 'moment-timezone';
 import { Debug } from '@prisma/client/runtime/library';
 import { toNumber } from 'src/common/helper';
 import { VoucherService } from 'src/operation/services/voucher/voucher.service';
+import { VoucherPeriodService } from 'src/masters/services/voucher-period/voucher-period.service';
 
 @Injectable()
 export class InvoiceService {
@@ -14,6 +15,7 @@ export class InvoiceService {
     private _db: DatabaseService,
     private logger: Logger,
     private voucherService: VoucherService,
+    private voucherPeriodService: VoucherPeriodService,
   ) { }
 
   // Helper method to get CurrencyMasterSid by CurrencyCode
@@ -240,6 +242,17 @@ export class InvoiceService {
 
   async createInvoice(payload: any) {
     try {
+      // Validate period before creating invoice (AR module)
+      const periodValidation = await this.voucherPeriodService.validateVoucherPeriod({
+        voucherDate: payload.VoucherDate || new Date(),
+        module: 'AR',
+        CompanyMasterSid: payload.CompanyMasterSid,
+        BranchMasterSid: payload.BranchMasterSid
+      });
+      if (!periodValidation.allowed) {
+        throw new BadRequestException(periodValidation.message);
+      }
+
       return await this._db.$transaction(async (prisma) => {
         // Fetch VoucherTypeMaster for Invoice
         const voucherTypeMaster = await prisma.voucherTypeMaster.findFirst({
