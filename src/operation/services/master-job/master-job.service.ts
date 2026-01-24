@@ -109,12 +109,19 @@ export class MasterJobService {
                         assignedMBLNo = payload.MBLNo || "";
                     }
                 } else {
-                    if(departmentExportImport === 'Export'){
-                        assignedMBLNo  = generatedMasterJobNumber || "";
-                    } else {
-                        assignedMBLNo = payload.MBLNo || "";
-                    }
-                }
+  if (departmentExportImport === 'Export') {
+    assignedMBLNo = generatedMasterJobNumber || "";
+  } else {
+    const mblValue = String(payload.MBLNo ?? '').trim();
+
+    if (!mblValue || mblValue.toLowerCase() === 'null' || mblValue.toLowerCase() === 'undefined') {
+      assignedMBLNo = generatedMasterJobNumber || "";
+    } else {
+      assignedMBLNo = mblValue;
+    }
+  }
+}
+
 
                 const headerPayload = {
                     MasterJobNumber: generatedMasterJobNumber,
@@ -390,8 +397,44 @@ export class MasterJobService {
             // SHIPMENT PART
 
             const allShipments = payload.shipmentList || [];
-            const recordToCreateShipment = allShipments.filter(shipment => !shipment.HBLNo);
-            const recordToUpdateShipment = allShipments.filter(shipment => shipment.HBLNo);
+            const transhipmentRecords = allShipments.filter(
+  (s) => String(s.JobType || '').toLowerCase() === 'transhipment'
+);
+
+if (transhipmentRecords.length > 0) {
+  for (const trans of transhipmentRecords) {
+
+    const booking = await prisma.bookingHeader.findUnique({
+      where: { BookingHeaderSid: trans.BookingHeaderSid },
+      select: {
+        BookingHeaderSid: true,
+        GeneralNote: true,
+        POL: true,
+        POD: true,
+      }
+    });
+
+    if (!booking) continue;
+
+    const polPortCode = booking.POL || '';
+    const podPortCode = booking.POD || '';
+
+    const newMBLNo = createdMasterJob.MBLNo;
+
+    await prisma.bookingHeader.update({
+      where: { BookingHeaderSid: booking.BookingHeaderSid },
+      data: {
+        GeneralNote: `${booking.GeneralNote || ''} ${newMBLNo} - ${polPortCode} / ${podPortCode}`.trim(),
+      }
+    });
+  }
+}
+
+            const recordToCreateShipment = allShipments.filter(shipment =>
+  !shipment.HBLNo || String(shipment.JobType || '').toLowerCase() === 'transhipment'
+);
+
+            const recordToUpdateShipment = allShipments.filter(shipment => shipment.HBLNo && String(shipment.JobType || '').toLowerCase() !== 'transhipment');
             // const recordToUpdateShipment = allShipments.filter(shipment => shipment.HBLNo && shipment.JobType !== 'Transhipment');
             // const recordToCreateTranshipment = allShipments.filter(shipment => shipment.HBLNo && shipment.JobType === 'Transhipment');
 
@@ -428,16 +471,22 @@ export class MasterJobService {
                     const houseJobMenuId = await this.menuMasterService.getMenuSidByName(department?.departmentType.toUpperCase() === 'AIR' ? 'House Air Waybill' : 'House Job');
                     
 
-                    let HBLNo;
-                    if (departmentExportImport === 'Export') {
-                        HBLNo = await this.numberSeriesService.generateNextNumber(
-                            payload.CompanyMasterSid,
-                            payload.BranchMasterSid,
-                            houseJobMenuId,
-                            bookingHeader.DepartmentMasterSid
-                        )
+                    let HBLNo = "";
+
+                    if (String(bookingHeader.JobType || '').toLowerCase() === 'transhipment') {
+                        // allow same HBLNo from booking
+                        HBLNo = String(bookingHeader.HBLNo || '').trim();
                     } else {
-                        HBLNo = "";
+                        if (departmentExportImport === 'Export') {
+                            HBLNo = await this.numberSeriesService.generateNextNumber(
+                                payload.CompanyMasterSid,
+                                payload.BranchMasterSid,
+                                houseJobMenuId,
+                                bookingHeader.DepartmentMasterSid
+                            )
+                        } else {
+                            HBLNo = "";
+                        }
                     }
                     // Step 1: Create main house job
                     const houseJob = await prisma.houseJob.create({
@@ -828,6 +877,8 @@ export class MasterJobService {
                         ));
                 }
             }
+
+            
 //             if (recordToCreateTranshipment.length > 0) {
 //                 console.log('recordToCreateTranshipment', recordToCreateTranshipment);
 //     for (const transhipmentRecord of recordToCreateTranshipment) {
@@ -4070,7 +4121,7 @@ private async createSingleBooking(tx : PrismaClient | Prisma.TransactionClient, 
             // PODTerminal: houseJob.PODTerminal,
             ShipmentNo: houseJob.ShipmentNo,
             OriginAgent: houseJob.OriginAgent,
-            BookingStatus: houseJob.BookingStatus,
+            BookingStatus: 'Booked',
             CarrierSid: houseJob.CarrierSid,
             JobType: houseJob.JobType,
             createdBy,

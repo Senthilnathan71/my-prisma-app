@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Injectable,
   Logger,
   NotFoundException,
@@ -89,7 +90,8 @@ export class NumberSeriesService {
           DepartmentCodeRequired: payload.DepartmentCodeRequired || 'N',
           MonthFlagRequired: payload.MonthFlagRequired || 'N',
           YearFlagRequired: payload.YearFlagRequired || 'N',
-          Separator: payload.Separator || '/',
+          Separator:payload.Separator !== null && payload.Separator !== undefined ? payload.Separator : '/',
+
           NumberLength: payload.NumberLength || 5,
           ResetOption: payload.ResetOption || 'None',
           DepartmentWiseCounter: payload.DepartmentWiseCounter || 'N',
@@ -111,7 +113,7 @@ export class NumberSeriesService {
           DepartmentCodeRequired: payload.DepartmentCodeRequired || 'N',
           MonthFlagRequired: payload.MonthFlagRequired || 'N',
           YearFlagRequired: payload.YearFlagRequired || 'N',
-          Separator: payload.Separator || '/',
+          Separator: payload.Separator !== null && payload.Separator !== undefined ? payload.Separator : '/',
           NumberLength: payload.NumberLength || 5,
           ResetOption: payload.ResetOption || 'None',
           DepartmentWiseCounter: payload.DepartmentWiseCounter || 'N',
@@ -151,16 +153,17 @@ export class NumberSeriesService {
 
         // Fallback to legacy format if no config exists
         if (!config) {
-          this.logger.warn(`[NumberSeries] No config found! Falling back to legacy format. Checking all configs for this menu...`);
+          // this.logger.warn(`[NumberSeries] No config found! Falling back to legacy format. Checking all configs for this menu...`);
 
-          // Debug: Check if config exists with different company/branch
-          const allConfigsForMenu = await prisma.numberSeriesConfig.findMany({
-            where: { MenuMasterSid, Status: 'A' },
-            select: { CompanyMasterSid: true, BranchMasterSid: true, MenuMasterSid: true }
-          });
-          this.logger.log(`[NumberSeries] All active configs for MenuMasterSid=${MenuMasterSid}: ${JSON.stringify(allConfigsForMenu)}`);
+          // // Debug: Check if config exists with different company/branch
+          // const allConfigsForMenu = await prisma.numberSeriesConfig.findMany({
+          //   where: { MenuMasterSid, Status: 'A' },
+          //   select: { CompanyMasterSid: true, BranchMasterSid: true, MenuMasterSid: true }
+          // });
+          // this.logger.log(`[NumberSeries] All active configs for MenuMasterSid=${MenuMasterSid}: ${JSON.stringify(allConfigsForMenu)}`);
 
-          return await this.generateLegacyNumber(prisma, MenuMasterSid);
+          // return await this.generateLegacyNumber(prisma, MenuMasterSid);
+          throw new BadRequestException ('No configuration found for this menu.\nPlease configure it in the Operation Document Number settings.')
         }
 
         this.logger.log(`[NumberSeries] Config found: ${JSON.stringify({ ConfigSid: config.NumberSeriesConfigSid, CompanyPrefix: config.CompanyPrefix, BranchPrefix: config.BranchPrefix })}`);

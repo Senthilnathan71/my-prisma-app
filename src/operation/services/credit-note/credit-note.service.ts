@@ -280,7 +280,7 @@ export class CreditNoteService {
            const voucherHeaderPayload: any = {
              VoucherNumber: VoucherNumber,
              VoucherDate: payload.VoucherDate ? new Date(payload.VoucherDate) : new Date(),
-             PostDate: payload.PostDate ? new Date(payload.PostDate) : new Date(),
+             PostDate: null,
              CreatedBy: payload.CreatedBy,
              Status: "A",
              VoucherType: voucherTypeMaster.VoucherTypeMasterSid,
@@ -509,7 +509,7 @@ export class CreditNoteService {
              UpdatedBy: payload.UpdatedBy,
              UpdatedOn: new Date(),
              VoucherDate: payload.VoucherDate ? new Date(payload.VoucherDate) : existingVoucher.VoucherDate,
-             PostDate: payload.PostDate ? new Date(payload.PostDate) : existingVoucher.PostDate,
+             PostDate: null,
              PartyMasterSid: payload.PartyMasterSid ? Number(payload.PartyMasterSid) : existingVoucher.PartyMasterSid,
              PartyName: payload.PartyName != null ? (resolvedPartyNameForUpdate ?? String(payload.PartyName)) : existingVoucher.PartyName,
              PartyAddress: payload.PartyAddress || existingVoucher.PartyAddress,
