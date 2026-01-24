@@ -508,7 +508,7 @@ export class HouseJobService {
                         Remarks: milestone.Remarks,
                         MilestoneName: milestone.MilestoneName,
                         MilestoneDate: milestone.MilestoneDate,
-                        AutoCaptured: milestone.AutoCaptured ? 'Y' : 'N'
+                        AutoCaptured: milestone.AutoCaptured ,
                     }
                 });
                 finalAllMilestones.push(createdMilestone);
@@ -1488,7 +1488,7 @@ export class HouseJobService {
                                 Remarks: milestone.Remarks,
                                 MilestoneName: milestone.MilestoneName,
                                 MilestoneDate: milestone.MilestoneDate,
-                                AutoCaptured: milestone.AutoCaptured ? 'Y' : 'N'
+                                AutoCaptured: milestone.AutoCaptured ,
                             }
                         });
                     } else {
@@ -1505,7 +1505,7 @@ export class HouseJobService {
                                 Remarks: milestone.Remarks,
                                 MilestoneName: milestone.MilestoneName,
                                 MilestoneDate: milestone.MilestoneDate,
-                                AutoCaptured: milestone.AutoCaptured ? 'Y' : 'N'
+                                AutoCaptured: milestone.AutoCaptured ,
                             }
                         });
                     }
