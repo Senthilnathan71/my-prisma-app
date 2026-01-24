@@ -177,6 +177,7 @@ export class CargoreceiptService {
       departmentMaster: {
         ExportImport: 'Export',
         FCLLCL: 'LCL',
+        departmentType:'Sea',
       },
       bookingProduct: {
     some: {

@@ -979,7 +979,7 @@ if (!croPayload?.BookingCroSid) {
                     let updatedConnection;
                     let createdConnection;
 
-                    if (!connection.TransactionSid) {
+                    if (!connection.BookingConnectionSid) {
                         createdConnection = await prisma.bookingConnection.create({
                             data: {
                                 BookingHeaderSid: updatedBooking.BookingHeaderSid,
@@ -997,9 +997,8 @@ if (!croPayload?.BookingCroSid) {
 
                     } else {
                         updatedConnection = await prisma.bookingConnection.update({
-                            where: { BookingConnectionSid: connection.TransactionSid },
+                            where: { BookingConnectionSid: connection.BookingConnectionSid },
                             data: {
-                                BookingHeaderSid: updatedBooking.BookingHeaderSid,
                                 Mode: connection.Mode,
                                 VesselName: connection.VesselName,
                                 VoyageNo: connection.VoyageNo,

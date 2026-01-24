@@ -1495,10 +1495,9 @@ private getWeightInFromUnitSid(weightUnitSid: number): string {
                 for (const connection of allConnections) {
                     let connectionResult;
 
-                    if (connection.TransactionSid) {
+                    if (connection.MasterJobConnectionSid) {
                         // update existing connection
                         const connectionPayload = {
-                            MasterJobSid: payload.MasterJobSid,
                             Mode: connection.Mode,
                             POL: connection.POL,
                             POD: connection.POD,
@@ -1515,7 +1514,7 @@ private getWeightInFromUnitSid(weightUnitSid: number): string {
 
                         connectionResult = await prisma.masterJobConnection.update({
                             where: {
-                                MasterJobConnectionSid: connection.TransactionSid
+                                MasterJobConnectionSid: connection.MasterJobConnectionSid
                             },
                             data: connectionPayload
                         });
