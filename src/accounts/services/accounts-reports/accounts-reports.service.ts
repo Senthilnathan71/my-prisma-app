@@ -1244,6 +1244,7 @@ export class AccountsReportsService {
       Ledger : coaMasterSid,
       Branch: branchId,
       companyId : CompanyMasterSid,
+      VoucherType: voucherType
     } = params;
     
     try {
@@ -1290,6 +1291,7 @@ const ledger = coaMasterSid
         }
       })
 
+
       const voucherTransactions = await this._db.voucherTransaction.findMany({
         where: {
           CompanyMasterSid: CompanyMasterSid,
@@ -1300,6 +1302,9 @@ const ledger = coaMasterSid
           ],
     ...(coaMasterSid && { COAMasterSid: coaMasterSid }),
     ...(ledgerMasterSid && { LedgerMasterSid: ledgerMasterSid }),
+  ...(voucherType && { VoucherTypeMasterSid: Number(voucherType) }),
+
+
           Status: 'A',
         },
         include: {
@@ -1427,13 +1432,13 @@ const ledger = coaMasterSid
       };
 
       this.logger.log(
-        `Customer outstanding calculated: ${transactions.length} transactions, Total=${response.totalOutstandingLocal}`,
+        `ledger calculated: ${transactions.length} transactions, Total=${response.totalOutstandingLocal}`,
       );
 
       return response;
     } catch (error) {
       this.logger.error(
-        `Error getting customer outstanding for ${ledgerMasterSid}: ${error.message}`,
+        `Error getting ledger for ${ledgerMasterSid}: ${error.message}`,
         error.stack,
       );
       throw error;
@@ -1606,6 +1611,7 @@ const ledger = coaMasterSid
               SubledgerName: true,
             },
           },
+        
         },
       });
 
@@ -1629,12 +1635,17 @@ const ledger = coaMasterSid
       const voucherData = await this._db.voucherTransaction.findMany({
         where: {
           CompanyMasterSid,
-         AND : [
-            { VoucherDate : {gte : FromDate}},
-            { VoucherDate : { lte : ToDate}}
+          AND: [
+            { VoucherDate: { gte: FromDate } },
+            { VoucherDate: { lte: ToDate } }
           ],
           Status: 'A',
           COAMasterSid: coamasterSid,
+          voucherTypeMaster: {
+            DocumentTypeName: {
+              in: ['Vendor Invoice', 'Credit Note'],
+            },
+          },
         },
         include: {
           VoucherHeader: {
@@ -1644,7 +1655,12 @@ const ledger = coaMasterSid
               VoucherType: true,
               VoucherTypeMasterSid: true,
               DocumentDate: true,
-              DocumentNumber: true
+              DocumentNumber: true,
+            }
+          },
+          voucherTypeMaster: {
+            select: {
+              DocumentTypeName: true
             }
           },
           coaMaster: {
@@ -1668,7 +1684,7 @@ const ledger = coaMasterSid
         const ledgerType = v.coaMaster?.LedgerType;
 
         const voucherType1 =
-          v.VoucherTypeMasterSid === 1
+          v.VoucherTypeMasterSid === 2
             ? 'Sales' : ''
 
 
@@ -1826,9 +1842,180 @@ const ledger = coaMasterSid
   }
 
   private async generateVATPayableReport(params: any) {
-    // TODO: Implement VAT payable logic
-    this.logger.log('generateVATPayableReport called with params:', params);
-    throw new BadRequestException('VAT Payable Report generator not yet implemented');
+     const {
+      VoucherFromDate : FromDate,
+      VoucherToDate : ToDate,
+      companyId: CompanyMasterSid,
+      coamasterSid
+    } = params
+
+    try {
+      this.logger.log(
+        `Getting VAT Report: CompanySid=${CompanyMasterSid}`,
+      );
+
+      // oragnizaton master
+
+      const oragnizatonMaster = await this._db.customerMaster.findMany({
+        select: {
+          CustomerMasterSid: true,
+          CustomerName: true,
+          PanType: true,
+        }
+      })
+
+      /* STEP 1: Customer subledger per voucher */
+      const customerSubledger = await this._db.voucherTransaction.findMany({
+        where: {
+          CompanyMasterSid,
+          subledgerMaster: {
+            SubledgerType: 'Customer',
+          },
+        },
+        select: {
+          VoucherHeaderSid: true,
+          subledgerMaster: {
+            select: {
+              SubledgerName: true,
+            },
+          },
+        },
+      });
+
+      const subledgerMap = new Map<number, string>();
+      customerSubledger.forEach(v => {
+        if (v.subledgerMaster?.SubledgerName) {
+          subledgerMap.set(v.VoucherHeaderSid, v.subledgerMaster.SubledgerName);
+        }
+      });
+
+
+      const panTypeMap = new Map<string, string>();
+
+      oragnizatonMaster.forEach(c => {
+        if (c.CustomerName) {
+          panTypeMap.set(c.CustomerName.trim(), c.PanType || '');
+        }
+      });
+
+      /* STEP 2: VAT transactions */
+      const voucherData = await this._db.voucherTransaction.findMany({
+        where: {
+          CompanyMasterSid,
+         AND : [
+            { VoucherDate : {gte : FromDate}},
+            { VoucherDate : { lte : ToDate}}
+          ],
+          Status: 'A',
+          COAMasterSid: coamasterSid,
+            voucherTypeMaster: {
+      DocumentTypeName: {
+        in: ['Invoice', 'Journal Voucher'],
+      },
+    },
+        },
+        include: {
+          VoucherHeader: {
+            select: {
+              VoucherNumber: true,
+              VoucherDate: true,
+              VoucherType: true,
+              VoucherTypeMasterSid: true,
+              DocumentDate: true,
+              DocumentNumber: true
+            }
+          },
+          coaMaster: {
+            select: {
+              COAMasterSid: true,
+              GroupName: true,
+              LedgerType: true,
+            },
+          },
+          voucherTypeMaster:{
+            select:{
+              DocumentTypeName:true
+            }
+          }
+        },
+        orderBy: { VoucherDate: 'asc' },
+      });
+
+      const inputTax: any[] = [];
+      const outputTax: any[] = [];
+
+
+      voucherData.forEach(v => {
+
+
+        const ledgerType = v.coaMaster?.LedgerType;
+
+        const voucherType1 =
+          v.VoucherTypeMasterSid === 1
+            ? 'Sales' : ''
+
+
+        const voucherType2 = v.VoucherTypeMasterSid === 1
+          ? 'Purchase'
+          : 'Journal'
+          ;
+
+        const isVendorInvoice =
+          v.VoucherHeader?.VoucherTypeMasterSid === 1;
+
+        const documentNo = isVendorInvoice
+          ? v.VoucherHeader?.DocumentNumber ?? ''
+          : '';
+
+        const documentDate = isVendorInvoice
+          ? v.VoucherHeader?.DocumentDate ?? null
+          : null;
+
+
+        const subledgerName = subledgerMap.get(v.VoucherHeaderSid) || '';
+
+        const panType = panTypeMap.get(subledgerName.trim()) || '';
+
+        const row = {
+          subledgerName,
+          voucherNo: v.VoucherNumber,
+          voucherMasterSid: v.VoucherTransactionSid,
+          voucherDate: v.VoucherDate,
+          coaMasterSid: v.COAMasterSid,
+          taxableAmt: v.TaxableAmount,
+          taxAmt: v.LocalAmount,
+          chargeDescription: v.ChargeDescription,
+          ledgerType,
+          groupname: v.coaMaster?.GroupName,
+          voucherType1,
+          voucherType2,
+          panType,
+          documentNo,
+          documentDate
+        };
+
+        if (ledgerType === 'Input Tax') {
+          inputTax.push(row);
+        }
+
+        if (ledgerType === 'Output Tax') {
+          outputTax.push(row);
+        }
+      });
+
+
+      return {
+        params,
+        CompanyMasterSid,
+        data: {
+          inputTax,
+          outputTax,
+        },
+      };
+
+    } catch (error) {
+      throw error;
+    }
   }
 
   private async generateProfitSummaryReport(params: any) {
