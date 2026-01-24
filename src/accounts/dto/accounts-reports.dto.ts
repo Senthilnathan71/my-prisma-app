@@ -165,6 +165,11 @@ export class LedgerReportQueryDto {
   @IsOptional()
   @IsInt()
   Branch?: number[];
+
+  @ApiProperty()
+  @IsNotEmpty()
+  @IsInt()
+  VoucherType: number;
 }
 
 // Trial Balance DTOs (already exists, just import reference)
