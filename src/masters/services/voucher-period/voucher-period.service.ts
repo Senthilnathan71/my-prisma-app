@@ -31,7 +31,7 @@ export class VoucherPeriodService {
 
     async createVoucherPeriod(payload: any) {
         try {
-            const { CompanyMasterSid, BranchMasterSid, YearMasterSid, ...rest } = payload;
+            const { CompanyMasterSid, BranchMasterSid, YearMasterSid, createdBy, status, ...rest } = payload;
 
             // Check for duplicate PeriodCode within the same Year
             const existingPeriod = await this._db.voucherPeriod.findFirst({
@@ -49,6 +49,8 @@ export class VoucherPeriodService {
             const createdVoucherPeriod = await this._db.voucherPeriod.create({
                 data: {
                     ...rest,
+                    Status: status,
+                    CreatedBy: createdBy,
                     CompanyMaster: {
                         connect: { CompanyMasterSid },
                     },
@@ -97,18 +99,21 @@ export class VoucherPeriodService {
     async updateVoucherPeriodById(VoucherPeriodSid: number, payload: any) {
         try {
             const exist = await this._db.voucherPeriod.findUnique({
-                where: {
-                    VoucherPeriodSid: VoucherPeriodSid
-                }
+                where: { VoucherPeriodSid }
             });
             if (!exist) {
                 throw new BadRequestException(`VoucherPeriod with Id : ${VoucherPeriodSid} not exists`);
             }
+
+            const { updatedBy, status, CompanyMasterSid, BranchMasterSid, YearMasterSid, ...rest } = payload;
+
             const updatedVoucherPeriod = await this._db.voucherPeriod.update({
-                where: {
-                    VoucherPeriodSid: VoucherPeriodSid
+                where: { VoucherPeriodSid },
+                data: {
+                    ...rest,
+                    Status: status,
+                    UpdatedBy: updatedBy,
                 },
-                data: payload,
                 include: {
                     YearMaster: true,
                     CompanyMaster: true,
