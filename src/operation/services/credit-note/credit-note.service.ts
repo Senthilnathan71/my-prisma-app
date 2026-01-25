@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client';
 import { DatabaseService } from 'src/database/database.service';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 import { VoucherService } from '../voucher/voucher.service';
+import { VoucherPeriodService } from 'src/masters/services/voucher-period/voucher-period.service';
 import { connect } from 'node:http2';
 
 @Injectable()
@@ -11,6 +12,7 @@ export class CreditNoteService {
         private _db: DatabaseService,
         private logger: Logger,
         private voucherService: VoucherService,
+        private voucherPeriodService: VoucherPeriodService,
     ) {}
 
     // Helper method to get CurrencyMasterSid by CurrencyCode
@@ -231,6 +233,17 @@ export class CreditNoteService {
    
      async createCreditNote(payload: any) {
        try {
+         // Validate period before creating credit note (AR module)
+         const periodValidation = await this.voucherPeriodService.validateVoucherPeriod({
+           voucherDate: payload.VoucherDate || new Date(),
+           module: 'AR',
+           CompanyMasterSid: payload.CompanyMasterSid,
+           BranchMasterSid: payload.BranchMasterSid
+         });
+         if (!periodValidation.allowed) {
+           throw new BadRequestException(periodValidation.message);
+         }
+
          return await this._db.$transaction(async (prisma) => {
            // Fetch VoucherTypeMaster for Credit Note
            const voucherTypeMaster = await prisma.voucherTypeMaster.findFirst({

@@ -149,6 +149,8 @@ import { CompanyConfigService } from './services/company/company-config.service'
 import { MailConfigurationController } from './controllers/mail-configuration/mail-configuration.controller';
 import { MailConfigurationService } from './services/mail-configuration/mail-configuration.service';
 import { NumberSeriesService } from 'src/settings/services/number-series/number-series.service';
+import { VoucherPeriodService } from './services/voucher-period/voucher-period.service';
+import { VoucherPeriodController } from './controllers/voucher-period/voucher-period.controller';
 
 @Module({
   providers: [
@@ -227,7 +229,8 @@ import { NumberSeriesService } from 'src/settings/services/number-series/number-
     NetworkMasterService,
     RoleMenuService,
     CompanyConfigService,
-    MailConfigurationService
+    MailConfigurationService,
+    VoucherPeriodService
   ],
   controllers: [
     LeadController,
@@ -302,7 +305,8 @@ import { NumberSeriesService } from 'src/settings/services/number-series/number-
     NetworkMasterController,
     RoleMenuController,
     CompanyConfigController,
-    MailConfigurationController
+    MailConfigurationController,
+    VoucherPeriodController
   ],
   exports: [UserService,MenuService]
 })

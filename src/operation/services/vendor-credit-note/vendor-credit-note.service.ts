@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, InternalServerErrorException, Logger, 
 import { DatabaseService } from 'src/database/database.service';
 import { Prisma } from '@prisma/client';
 import { VoucherService } from '../voucher/voucher.service';
+import { VoucherPeriodService } from 'src/masters/services/voucher-period/voucher-period.service';
 
 @Injectable()
 export class VendorCreditNoteService {
@@ -10,10 +11,22 @@ export class VendorCreditNoteService {
     constructor(
         private readonly _db: DatabaseService,
         private readonly voucherService: VoucherService,
+        private readonly voucherPeriodService: VoucherPeriodService,
     ) {}
 
     async createVendorCreditNote(payload: any): Promise<any> {
             try {
+                // Validate period before creating vendor credit note (AP module)
+                const periodValidation = await this.voucherPeriodService.validateVoucherPeriod({
+                    voucherDate: payload.VoucherDate || new Date(),
+                    module: 'AP',
+                    CompanyMasterSid: payload.CompanyMasterSid,
+                    BranchMasterSid: payload.BranchMasterSid
+                });
+                if (!periodValidation.allowed) {
+                    throw new BadRequestException(periodValidation.message);
+                }
+
                 return await this._db.$transaction(async (tx) => {
                     // Validate vendor exists
                     if (!payload.PartyMasterSid) {
