@@ -281,20 +281,32 @@ model BookingRates {
   RevenueVoucherHeaderSid     Int?
   RevenueVoucherTypeMasterSid Int?
   NoOfUnit                    Decimal?             @db.Decimal(15, 3)
+  PartyCOAMasterSid           Int?
+  VendorCOAMasterSid          Int?
+  PartySubledgerMasterSid     Int?
+  VendorSubledgerMasterSid    Int?
+  ChargeCOAMasterSid          Int?
+  ChargeSubledgerMasterSid    Int?
   customerMasterAG            CustomerMaster?      @relation("Agent", fields: [AgentMasterSid], references: [CustomerMasterSid])
   BookingHeader               BookingHeader        @relation(fields: [BookingHeaderSid], references: [BookingHeaderSid])
   BranchMaster                BranchMaster         @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
   companyMaster               CompanyMaster        @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+  chargeCOAMaster             COAMaster?           @relation("ChargeLedger", fields: [ChargeCOAMasterSid], references: [COAMasterSid])
+  chargeSubledgerMaster       SubledgerMaster?     @relation("ChargeSubledger", fields: [ChargeSubledgerMasterSid], references: [SubledgerMasterSid])
   costChargeUOMMaster         UOMMaster?           @relation("COST", fields: [CostChargeUomSid], references: [UOMMasterSid])
   costVoucherHeader           VoucherHeader?       @relation("COST", fields: [CostVoucherHeaderSid], references: [VoucherHeaderSid])
   costVoucherTypeMaster       VoucherTypeMaster?   @relation("COST", fields: [CostVoucherTypeMasterSid], references: [VoucherTypeMasterSid])
   customerBranch              CustomerBranch?      @relation(fields: [CustomerBranchSid], references: [CustomerBranchSid])
   customerMasterBP            CustomerMaster?      @relation("BillingParty", fields: [CustomerMasterSid], references: [CustomerMasterSid])
+  partyCOAMaster              COAMaster?           @relation("PartyLedger", fields: [PartyCOAMasterSid], references: [COAMasterSid])
+  partySubledgerMaster        SubledgerMaster?     @relation("PartySubledger", fields: [PartySubledgerMasterSid], references: [SubledgerMasterSid])
   quoteCharge                 QuoteCharge?         @relation(fields: [QuoteChargeSid], references: [QuoteChargeSid])
   revenueChargeUOMMaster      UOMMaster?           @relation("REVENUE", fields: [RevenueChargeUomSid], references: [UOMMasterSid])
   revenueVoucherHeader        VoucherHeader?       @relation("REVENUE", fields: [RevenueVoucherHeaderSid], references: [VoucherHeaderSid])
   revenueVoucherTypeMaster    VoucherTypeMaster?   @relation("REVENUE", fields: [RevenueVoucherTypeMasterSid], references: [VoucherTypeMasterSid])
   tariffDetail                TariffDetail?        @relation(fields: [TariffDetailSid], references: [TariffDetailSid])
+  vendorCOAMaster             COAMaster?           @relation("VendorLedger", fields: [VendorCOAMasterSid], references: [COAMasterSid])
+  vendorSubledgerMaster       SubledgerMaster?     @relation("VendorSubledger", fields: [VendorSubledgerMasterSid], references: [SubledgerMasterSid])
   CostRevenueCharges          CostRevenueCharges[]
   HouseJob                    HouseJob[]
 }
@@ -427,7 +439,7 @@ model VoyageMasterDetail {
 
 model ShipmentMilestone {
   ShipmentMilestoneSid Int           @id @default(autoincrement())
-  ShipmentNo           String        @db.VarChar(20)
+  ShipmentNo           String        @db.VarChar(50)
   CompanyMasterSid     Int
   BranchMasterSid      Int
   CreatedOn            DateTime      @default(now())
