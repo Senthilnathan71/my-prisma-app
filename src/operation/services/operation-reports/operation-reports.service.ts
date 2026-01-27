@@ -155,7 +155,8 @@ export class OperationReportsService {
 
       const resolvedBranchIds = branches.map(b => b.BranchMasterSid);
       const resolvedBranchNames = branches.map(b => b.branchName);
-      const branchSet = new Set(resolvedBranchNames);
+      const branchInvolved = branchId && branchId.length > 0 ? branches.map(b=>b.branchName).join(', '): 'All Branches';
+
 
 
       const departments = deptId && deptId.length > 0
@@ -226,6 +227,7 @@ export class OperationReportsService {
       return {
         companyMasterSid: CompanyMasterSid,
         branchMasterSid: branchId,
+        branchInvolved,
         data,
         branchNames: resolvedBranchNames.join(', '),
         departmentNames: resolvedDeptNames.join(', '),
@@ -264,8 +266,7 @@ export class OperationReportsService {
 
       const resolvedBranchIds = branches.map(b => b.BranchMasterSid);
       const resolvedBranchNames = branches.map(b => b.branchName);
-      const branchSet = new Set(resolvedBranchNames);
-
+      const branchInvolved = branchId && branchId.length > 0 ? branches.map(b=>b.branchName).join(', '): 'All Branches';
 
       const departments = deptId && deptId.length > 0
         ? await this._db.departmentMaster.findMany({
@@ -472,6 +473,7 @@ export class OperationReportsService {
       return {
         companyMasterSid: CompanyMasterSid,
         branchMasterSid: branchId,
+        branchInvolved,
         data,
         branchNames: resolvedBranchNames.join(', '),
         departmentNames: resolvedDeptNames.join(', '),
@@ -511,8 +513,7 @@ export class OperationReportsService {
 
       const resolvedBranchIds = branches.map(b => b.BranchMasterSid);
       const resolvedBranchNames = branches.map(b => b.branchName);
-      const branchSet = new Set(resolvedBranchNames);
-
+      const branchInvolved = branchId && branchId.length > 0 ? branches.map(b=> b.branchName).join(', ') : 'All Branches'
 
       const departments = deptId && deptId.length > 0
         ? await this._db.departmentMaster.findMany({
@@ -770,6 +771,7 @@ export class OperationReportsService {
       return {
         companyMasterSid: CompanyMasterSid,
         branchMasterSid: branchId,
+        branchInvolved,
         data,
         branchNames: resolvedBranchNames.join(', '),
         departmentNames: resolvedDeptNames.join(', '),
@@ -990,7 +992,7 @@ export class OperationReportsService {
       const {
         companyId,
         customer,
-        Branch,
+        Branch:branchId,
         department,
         BookingFromDate: FromDate,
         BookingToDate: ToDate,
@@ -1042,10 +1044,10 @@ export class OperationReportsService {
       /* -------------------- BRANCH IDS -------------------- */
       const allBranchIds: number[] = [];
 
-      if (Array.isArray(Branch) && Branch.length > 0) {
-        allBranchIds.push(...Branch);
-      } else if (typeof Branch === 'number') {
-        allBranchIds.push(Branch);
+      if (Array.isArray(branchId) && branchId.length > 0) {
+        allBranchIds.push(...branchId);
+      } else if (typeof branchId === 'number') {
+        allBranchIds.push(branchId);
       } else {
         const branches = await this._db.branchMaster.findMany({
           where: {
@@ -1094,7 +1096,7 @@ export class OperationReportsService {
           status: true,
           data: [],
           companyId,
-          Branch
+          branchId
         };
       }
 
@@ -1214,7 +1216,7 @@ export class OperationReportsService {
         status: true,
         data,
         companyId,
-        Branch,
+        branchId,
         params
       };
 
@@ -1254,7 +1256,7 @@ export class OperationReportsService {
 
       const resolvedBranchIds = branches.map(b => b.BranchMasterSid);
       const resolvedBranchNames = branches.map(b => b.branchName);
-      const branchSet = new Set(resolvedBranchNames);
+      const branchInvolved = branchId && branchId.length > 0 ? branches.map(b=>b.branchName).join(', ') :  'All Branches';
 
 
       const departments = deptId && deptId.length > 0
@@ -1507,6 +1509,7 @@ export class OperationReportsService {
       return {
         companyMasterSid: CompanyMasterSid,
         branchMasterSid: branchId,
+        branchInvolved,
         data,
         branchNames: resolvedBranchNames.join(', '),
         departmentNames: resolvedDeptNames.join(', '),
@@ -1552,6 +1555,7 @@ export class OperationReportsService {
 
       const resolvedBranchIds = branches.map(b => b.BranchMasterSid);
       const resolvedBranchNames = branches.map(b => b.branchName);
+      const branchInvolved = branchId && branchId.length > 0 ? branches.map(b=>b.branchName).join(', ') :  'All Branches';
 
       const departments = deptId && deptId.length > 0
         ? await this._db.departmentMaster.findMany({
@@ -1624,6 +1628,7 @@ export class OperationReportsService {
         companyMasterSid: CompanyMasterSid,
         branchNames: resolvedBranchNames.join(', '),
         departmentNames: resolvedDeptNames.join(', '),
+        branchInvolved,
         data,
         params,
       };
@@ -1641,7 +1646,7 @@ export class OperationReportsService {
       companyId: CompanyMasterSid,
       ToHblDt,
       FromHblDt,
-      branchId,
+      Branch : branchId,
       Dept: deptId,
       Transhipment = false,
       Customer,
@@ -1670,7 +1675,7 @@ export class OperationReportsService {
 
       const resolvedBranchIds = branches.map(b => b.BranchMasterSid);
       const resolvedBranchNames = branches.map(b => b.branchName);
-
+      const branchInvolved = branchId && branchId.length > 0 ? branches.map(b => b.branchName).join(', ') : 'All Branches'
       const departments = deptId && deptId.length > 0
         ? await this._db.departmentMaster.findMany({
           where: { DepartmentMasterSid: { in: deptId } },
@@ -1711,8 +1716,8 @@ export class OperationReportsService {
         Customer?.length
           ? Customer
             .map(id => customerMap.get(id))
-            .filter((name): name is string => !!name)
-          : [];
+            .filter((name): name is string => !!name).join(', ')
+          : 'All Customer';
 
       const countryMaster = await this._db.countryMaster.findMany({
         select: {
@@ -1735,8 +1740,8 @@ export class OperationReportsService {
         SalePerson?.length
           ? SalePerson
             .map(id => salespersonMap.get(id))
-            .filter((name): name is string => !!name)
-          : [];
+            .filter((name): name is string => !!name).join(', ')
+          : 'All Salesperson';
 
 
       const isTranshipment: boolean = Transhipment === true;
@@ -2100,13 +2105,14 @@ export class OperationReportsService {
       return {
         companyMasterSid: CompanyMasterSid,
         branchMasterSid: branchId,
+        branchInvolved,
         data,
         branchNames: resolvedBranchNames.join(', '),
         departmentNames: resolvedDeptNames.join(', '),
         params,
         Transhipment,
-        Customer: selectedCustomerNames.join(", "),
-        SalePerson: selectedSalespersonNames.join(', '),
+        Customer: selectedCustomerNames,
+        SalePerson: selectedSalespersonNames,
       };
 
     } catch (error) {
@@ -2141,7 +2147,7 @@ export class OperationReportsService {
 
       const resolvedBranchIds = branches.map(b => b.BranchMasterSid);
       const resolvedBranchNames = branches.map(b => b.branchName);
-      const branchSet = new Set(resolvedBranchNames);
+      const branchInvoled = branchId && branchId.length > 0 ? branches.map(b=>b.branchName).join(', ') : 'All Branches'
 
 
       const departments = deptId && deptId.length > 0
@@ -2277,6 +2283,7 @@ export class OperationReportsService {
         departmentNames: resolvedDeptNames.join(', '),
         params,
         data,
+        branchInvoled
       };
     } catch (error) {
       this.logger.error(
@@ -2298,7 +2305,7 @@ export class OperationReportsService {
 
     try {
       this.logger.log(
-        `Getting UNBILLED House Job Cost/Revenue report for CompanySid=${CompanyMasterSid}, From=${FromHblDt}, To=${ToHblDt}`
+        `Getting UNBILLED Cost/Revenue report for CompanySid=${CompanyMasterSid}, From=${FromHblDt}, To=${ToHblDt}`
       );
 
       const branches = branchId && branchId.length > 0
@@ -2313,8 +2320,7 @@ export class OperationReportsService {
 
       const resolvedBranchIds = branches.map(b => b.BranchMasterSid);
       const resolvedBranchNames = branches.map(b => b.branchName);
-      const branchSet = new Set(resolvedBranchNames);
-
+      const branchInvoled = branchId && branchId.length > 0 ? branches.map(b=>b.branchName).join(', ') : 'All Branches'
 
       const departments = deptId && deptId.length > 0
         ? await this._db.departmentMaster.findMany({
@@ -2468,6 +2474,7 @@ export class OperationReportsService {
         departmentNames: resolvedDeptNames.join(', '),
         params,
         data,
+        branchInvoled
       };
 
     } catch (error) {
@@ -2513,7 +2520,7 @@ export class OperationReportsService {
 
       const resolvedBranchIds = branches.map(b => b.BranchMasterSid);
       const resolvedBranchNames = branches.map(b => b.branchName);
-
+      const branchInvoled = branchId && branchId.length > 0 ? branches.map(b=>b.branchName).join(', '):'All Branches'
       const departments = deptId && deptId.length > 0
         ? await this._db.departmentMaster.findMany({
           where: { DepartmentMasterSid: { in: deptId } },
@@ -2550,8 +2557,8 @@ export class OperationReportsService {
         Customer?.length
           ? Customer
             .map(id => customerMap.get(id))
-            .filter((name): name is string => !!name)
-          : [];
+            .filter((name): name is string => !!name).join(", ")
+          : 'All Customers';
 
 
       const houseJobs = await this._db.houseJob.findMany({
@@ -2689,8 +2696,9 @@ export class OperationReportsService {
         branchNames: resolvedBranchNames.join(', '),
         departmentNames: resolvedDeptNames.join(', '),
         params,
-        Customer: selectedCustomerNames.join(', '),
+        Customer: selectedCustomerNames,
         data,
+        branchInvoled
       };
 
     } catch (error) {
@@ -2953,6 +2961,7 @@ export class OperationReportsService {
 
       const allBranchIds = allBranches.map(b => b.BranchMasterSid);
 
+      const brancesInvoled = branchId && branchId.length > 0 ? allBranches.map(b=>b.branchName).join(', ') : 'All Branches'
       const [departments, masterJobMenu, houseJobMenu, customer, user] = await Promise.all([
         this._db.departmentMaster.findMany({
           where: { DepartmentMasterSid: { in: dept } },
@@ -3172,6 +3181,7 @@ export class OperationReportsService {
         companyMasterSid: CompanyMasterSid,
         branchMasterSid: branchId,
         BranchInvolved: allBranches.map(b => b.branchName).join(', '),
+        brancesInvoled,
         DeptNames: departments.map(d => d.departmentName).join(', '),
         data,
         params
@@ -3190,7 +3200,7 @@ export class OperationReportsService {
       companyId: CompanyMasterSid,
       ToHblDt,
       FromHblDt,
-      branchId,
+      Branch:branchId,
       Dept: deptId,
       Transhipment = false,
       Customer,
@@ -3221,6 +3231,7 @@ export class OperationReportsService {
 
       const resolvedBranchIds = branches.map(b => b.BranchMasterSid);
       const resolvedBranchNames = branches.map(b => b.branchName);
+      const branchesInvoled = branchId && branchId.length > 0 ? branches.map(b=>b.branchName).join(", "):'All Branches'
 
       const departments = deptId && deptId.length > 0
         ? await this._db.departmentMaster.findMany({
@@ -3262,8 +3273,8 @@ export class OperationReportsService {
         Customer?.length
           ? Customer
             .map(id => customerMap.get(id))
-            .filter((name): name is string => !!name)
-          : [];
+            .filter((name): name is string => !!name).join(', ')
+          : 'All Customers';
 
       const countryMaster = await this._db.countryMaster.findMany({
         select: {
@@ -3333,7 +3344,7 @@ export class OperationReportsService {
           ? SalePerson
             .map(id => salespersonMap.get(id))
             .filter((name): name is string => !!name)
-          : [];
+          : 'All Salesperson';
 
 
       const isTranshipment: boolean = Transhipment === true;
@@ -3692,10 +3703,11 @@ export class OperationReportsService {
         departmentNames: resolvedDeptNames.join(', '),
         params,
         Transhipment,
-        Customer: selectedCustomerNames.join(", "),
-        SalePerson: selectedSalespersonNames.join(', '),
+        Customer: selectedCustomerNames,
+        SalePerson: selectedSalespersonNames,
         POL: polNameParam || POL,
         POD: podNameParam || POD,
+        branchesInvoled
       };
 
     } catch (error) {
@@ -3730,7 +3742,7 @@ export class OperationReportsService {
 
       const resolvedBranchIds = branches.map(b => b.BranchMasterSid);
       const resolvedBranchNames = branches.map(b => b.branchName);
-      const branchSet = new Set(resolvedBranchNames);
+      const branchesInvolved = branchId && branchId.length > 0 ? branches.map(b=>b.branchName).join(", "):'All Branches'
 
 
       const departments = deptId && deptId.length > 0
@@ -3762,7 +3774,7 @@ export class OperationReportsService {
 
       const resolvedDeptIds = departments.map(d => d.DepartmentMasterSid);
       const resolvedDeptNames = departments.map(d => d.departmentName);
-
+      const departmentInvoled = deptId && deptId.length > 0 ? departments.map(d=>d.departmentName).join(", ") : 'All Departments'
       const customer = await this._db.customerMaster.findMany({
         select: { CustomerMasterSid: true, CustomerName: true }
       })
@@ -3879,6 +3891,8 @@ export class OperationReportsService {
         branchNames: resolvedBranchNames.join(', '),
         departmentNames: resolvedDeptNames.join(', '),
         data,
+        departmentInvoled,
+        branchesInvolved
       }
 
 
@@ -4218,7 +4232,7 @@ export class OperationReportsService {
 
       const resolvedBranchIds = branches.map(b => b.BranchMasterSid);
       const resolvedBranchNames = branches.map(b => b.branchName);
-
+      const branchesInvolved = BranchId && BranchId.length > 0 ? branches.map(b=>b.branchName).join(', '): 'All Branches'
       const departments = deptId && deptId.length > 0
         ? await this._db.departmentMaster.findMany({
           where: {
@@ -4247,7 +4261,7 @@ export class OperationReportsService {
 
       const resolvedDeptIds = departments.map(d => d.DepartmentMasterSid);
       const resolvedDeptNames = departments.map(d => d.departmentName).join(', ');
-
+      const departmentInvolved = deptId && deptId.length > 0 ? departments.map(d=>d.departmentName).join(", ") : 'All Departments'
       // Booking data
       const bookingData = await this._db.bookingHeader.findMany({
         where: {
@@ -5020,6 +5034,8 @@ export class OperationReportsService {
         vendorRows,
         resolvedDeptNames,
         resolvedBranchNames,
+        branchesInvolved,
+        departmentInvolved,
         params
       }
 
