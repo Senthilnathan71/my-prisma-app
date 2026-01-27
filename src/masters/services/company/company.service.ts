@@ -63,31 +63,40 @@ export class CompanyService {
                 }
             }
 
-            // 1. Prepare company payload
-            const companyPayload = {
-                companyName: newData.companyName,
-                companyCode: newData.companyCode,
-                CountryMasterSid: newData.CountryMasterSid,
-                CurrencyMasterSid: newData.CurrencyMasterSid,
-                addressLine1: newData.addressLine1,
-                webSite: newData.webSite,
-                email: newData.email,
-                phoneNumber: newData.phoneNumber,
-                Pan: newData.Pan,
-                isHo: newData.isHo,
-                status: newData.status,
-                remarks: newData.remarks,
-                CIN: newData.CIN,
-                TAN: newData.TAN,
-                config: newData.config || {},
-                createdBy: user.userEmail,
-                companyLogo: companyLogoPath,
-                reportLogo: reportLogoPath
-            };
-
+            
             const result = await this._db.$transaction(async (prisma) => {
                 // 2. Create Company
+                
+                const currencySync = await this.syncCompanyCurrencyWithConfig(
+                    null,
+                    newData.config,
+                    newData.CurrencyMasterSid,
+                    prisma
+                );
+                
+                // 1. Prepare company payload
+                const companyPayload = {
+                    companyName: newData.companyName,
+                    companyCode: newData.companyCode,
+                    CountryMasterSid: newData.CountryMasterSid,
+                    CurrencyMasterSid: newData.CurrencyMasterSid,
+                    addressLine1: newData.addressLine1,
+                    webSite: newData.webSite,
+                    email: newData.email,
+                    phoneNumber: newData.phoneNumber,
+                    Pan: newData.Pan,
+                    isHo: newData.isHo,
+                    status: newData.status,
+                    remarks: newData.remarks,
+                    CIN: newData.CIN,
+                    TAN: newData.TAN,
+                    config: currencySync || {},
+                    createdBy: user.userEmail,
+                    companyLogo: companyLogoPath,
+                    reportLogo: reportLogoPath
+                };
                 console.log('Creating company:', companyPayload);
+                
                 const createdCompany = await prisma.companyMaster.create({
                     data: companyPayload
                 });
@@ -420,6 +429,13 @@ export class CompanyService {
                     data: companyPayload
                 });
 
+                const updateCompanyWithConfig = await this.syncCompanyCurrencyWithConfig(
+                    companySid,
+                    updatedCompany.config,
+                    updateData.CurrencyMasterSid,
+                    prisma
+                );
+
                 // 3. Get existing branches
                 const existingBranches = await prisma.branchMaster.findMany({
                     where: { CompanyMasterSid: companySid, status: 'A' },
@@ -542,7 +558,7 @@ export class CompanyService {
                 }
 
                 return {
-                    company: updatedCompany,
+                    company: updateCompanyWithConfig,
                     branches: updatedBranches
                 };
             });
@@ -669,6 +685,16 @@ export class CompanyService {
                     updatedBy: user.userEmail
                 }
             });
+
+            if(configData?.systemSettings?.currency?.currencyMasterSid){
+                await this._db.companyMaster.update({
+                    where: { CompanyMasterSid: companyId },
+                    data: {
+                        CurrencyMasterSid: configData.systemSettings.currency.currencyMasterSid,
+                        updatedBy: user.userEmail
+                    }
+                });
+            }
 
             return updatedCompany;
         } catch (error) {
@@ -925,6 +951,74 @@ export class CompanyService {
         }
     }
 
+    async syncCompanyCurrencyWithConfig(
+        CompanyMasterSid: number | null,   // null during CREATE
+        config: any,
+        CurrencyMasterSid: number,
+        txn?: Prisma.TransactionClient
+    ) {
+        try {
+            const prisma = txn ?? this._db;
+
+            // 1. Validate currency
+            const currency = await prisma.currencyMaster.findUnique({
+                where: { CurrencyMasterSid }
+            });
+
+            if (!currency) {
+                throw new BadRequestException('Currency not found');
+            }
+
+            // 2. Read existing config only during UPDATE
+            let existingConfig: any = {};
+
+            if (CompanyMasterSid) {
+                const company = await prisma.companyMaster.findUnique({
+                    where: { CompanyMasterSid },
+                    select: { config: true }
+                });
+
+                existingConfig = company?.config || {};
+            }
+
+            // 3. Merge config safely (only currency)
+            const finalConfig = {
+                ...existingConfig,
+                ...config,
+                systemSettings: {
+                    ...(existingConfig?.systemSettings || {}),
+                    ...(config?.systemSettings || {}),
+                    currency: {
+                        currencyMasterSid: currency.CurrencyMasterSid,
+                        code: currency.currencyCode,
+                        symbol: currency.Symbol,
+                        position: 'before',
+                        decimalPlaces: currency.amountDecimal ?? 2
+                    }
+                }
+            };
+
+            // 4. Update company only when CompanyMasterSid exists (UPDATE flow)
+            if (CompanyMasterSid) {
+                return await prisma.companyMaster.update({
+                    where: { CompanyMasterSid },
+                    data: {
+                        CurrencyMasterSid: currency.CurrencyMasterSid,
+                        config: finalConfig
+                    }
+                });
+            }
+
+            // 5. Return values for CREATE flow
+            return {
+                CurrencyMasterSid: currency.CurrencyMasterSid,
+                config: finalConfig
+            };
+
+        } catch (error) {
+            throw error;
+        }
+    }
 }
 interface Company {
     CompanyMasterSid: number;
