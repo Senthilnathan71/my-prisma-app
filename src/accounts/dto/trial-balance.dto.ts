@@ -60,6 +60,12 @@ export class TrialBalanceQueryDto {
   @IsBoolean()
   @Type(() => Boolean)
   SubTotal?: boolean;
+
+  @ApiProperty()
+  @IsOptional()
+  @IsBoolean()
+  @Type(() => Boolean)
+  Subledger?: boolean;
 }
 
 export class TrialBalanceItemDto {
@@ -179,6 +185,7 @@ export class TrialBalanceResponseDto {
     SubGroupName?: string;
     showSubtotals: boolean;
     SubTotal?: boolean;
+    Subledger?:boolean;
   };
 
   @ApiProperty({ type: [TrialBalanceItemDto], description: 'Trial balance ledger items' })

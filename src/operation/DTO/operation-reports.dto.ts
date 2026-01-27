@@ -252,7 +252,7 @@ export class ShipmentDetailedSummaryReportQueryDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsInt()
-  branchId?: number[];
+  Branch?: number[];
 
   @ApiProperty()
   @IsNotEmpty()
@@ -345,7 +345,7 @@ export class lostCustomerReportQueryDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsInt()
-  Branch?: number;
+  Branch?: number[];
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -482,7 +482,7 @@ export class DestinationReportQueryDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsInt()
-  Branch?: number;
+  Branch?: number[];
 
   @ApiPropertyOptional()
   @IsOptional()

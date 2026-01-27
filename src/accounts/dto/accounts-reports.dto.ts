@@ -250,7 +250,7 @@ export class ProfitLossReportQueryDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsInt()
-  branchId?: number[];
+  Branch?: number[];
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -288,7 +288,7 @@ export class BalanceSheetReportQueryDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsInt()
-  branchId?: number[];
+  Branch?: number[];
 }
 
 // VAT Receivable/Payable DTOs
@@ -421,7 +421,7 @@ export class TopNCustomerReportQueryDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsInt()
-  branchId?: number[];
+  Branch?: number[];
 
   @ApiProperty()
   @IsNotEmpty()
@@ -544,7 +544,7 @@ export class UnpostedVoucherListReportQueryDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsInt()
-  branchId?: number[];
+  Branch?: number[];
 
 
   @ApiPropertyOptional()

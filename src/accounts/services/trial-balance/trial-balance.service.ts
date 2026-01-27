@@ -288,10 +288,26 @@ if (query.SubGroupName) {
   };
 
   if (GroupName !== undefined && GroupName !== null) {
-    where.GroupName = String(GroupName);
+    const group = await this.databaseService.cOAMaster.findUnique({
+      where: { COAMasterSid: Number(GroupName) },
+      select: { GroupName: true },
+    });
+
+    if (group?.GroupName) {
+      where.GroupName = group.GroupName;
+    }
   }
+
+  // ✅ Resolve SubGroup ID → Name
   if (SubGroupName !== undefined && SubGroupName !== null) {
-    where.SubGroupName = String(SubGroupName);
+    const subGroup = await this.databaseService.cOAMaster.findUnique({
+      where: { COAMasterSid: Number(SubGroupName) },
+      select: { SubGroupName: true },
+    });
+
+    if (subGroup?.SubGroupName) {
+      where.SubGroupName = subGroup.SubGroupName;
+    }
   }
 
   return await this.databaseService.cOAMaster.findMany({

@@ -218,7 +218,6 @@ export class AccountsReportsService {
       });
       allBranches.forEach(branch => branchSet.add(branch.branchName));
     }
-
     // -------------------------------------------
     // 2. Fetch vouchers
     // -------------------------------------------
@@ -486,7 +485,7 @@ export class AccountsReportsService {
       concludedUpto: ToDate,
       LedgerName: coa.LedgerName || '',
       params: params,
-      branchInvolved: Array.from(branchSet).join(', '),
+      branchInvolved:Array.from(branchSet).join(', '),
       bucketLabels,
       currencyCount: ageingResult.length,
       subledgerCount: totalSubledgers,
@@ -593,6 +592,7 @@ export class AccountsReportsService {
 
       const resolvedBranchIds = branches.map(b => b.BranchMasterSid);
       const resolvedBranchNames = branches.map(b => b.branchName);
+      const brancesInvoled = branchId && branchId.length > 0 ? branches.map(b=>b.branchName).join(', ') : 'All Branches'
   
       // Get customer/subledger information
       const subledger = await this._db.subledgerMaster.findUnique({
@@ -731,6 +731,7 @@ export class AccountsReportsService {
         companyMasterSid: CompanyMasterSid,
         branchMasterSid : branchId,
         branchNames: resolvedBranchNames.join(', '),
+        brancesInvoled,
         ledgerMasterSid: ledgerMasterSid!,
         subledgerName: subledger?.SubledgerName,
         ledgerName : ledger?.LedgerName,
@@ -788,6 +789,9 @@ export class AccountsReportsService {
 
       const resolvedBranchIds = branches.map(b => b.BranchMasterSid);
       const resolvedBranchNames = branches.map(b => b.branchName);
+      const BranchInvolved = branchId && branchId.length > 0
+        ? branches.map(b => b.branchName).join(', ')
+        : 'All Branches';
   
       // Get customer/subledger information
       const subledger = await this._db.subledgerMaster.findUnique({
@@ -938,6 +942,7 @@ export class AccountsReportsService {
         voucherCount: transactions.length,
         transactions: transactions,
         branchNames: resolvedBranchNames.join(', '),
+        BranchInvolved,
         params : params,
       };
 
@@ -1122,7 +1127,7 @@ export class AccountsReportsService {
     const {
       ToDate,
       FromDate,
-      branchId: Branch,
+      Branch:branchId,
       companyId: CompanyMasterSid,
       COAMasterSid,
     } = params;
@@ -1132,9 +1137,9 @@ export class AccountsReportsService {
         `Getting customer profit and loss: CompanySid=${CompanyMasterSid}`,
       );
 
-        const branches = Branch && Branch.length > 0
+        const branches = branchId && branchId.length > 0
         ? await this._db.branchMaster.findMany({
-          where: { BranchMasterSid: { in: Branch } },
+          where: { BranchMasterSid: { in: branchId } },
           select: {
             BranchMasterSid: true,
             branchName: true,
@@ -1150,6 +1155,9 @@ export class AccountsReportsService {
 
       const resolvedBranchIds = branches.map(b => b.BranchMasterSid);
       const resolvedBranchNames = branches.map(b => b.branchName);
+      const BranchInvolved = branchId && branchId.length > 0
+        ? branches.map(b => b.branchName).join(', ')
+        : 'All Branches';
       const voucherTransactions = await this._db.voucherTransaction.findMany({
         where: {
           CompanyMasterSid,
@@ -1221,6 +1229,7 @@ export class AccountsReportsService {
       return {
         CompanyMasterSid,
         branchNames: resolvedBranchNames.join(', '),
+        BranchInvolved,
         fromDate: FromDate,
         toDate: ToDate,
         params,
@@ -1270,18 +1279,18 @@ export class AccountsReportsService {
 
       const resolvedBranchIds = branches.map(b => b.BranchMasterSid);
       const resolvedBranchNames = branches.map(b => b.branchName);
-  
-const subledger = ledgerMasterSid
-  ? await this._db.subledgerMaster.findUnique({
-      where: { SubledgerMasterSid: ledgerMasterSid },
-    })
-  : null;
+      const branchInvolved = branchId && branchId.length > 0 ? branches.map(b=>b.branchName).join(', ') : 'All Branches'
+      const subledger = ledgerMasterSid
+        ? await this._db.subledgerMaster.findUnique({
+            where: { SubledgerMasterSid: ledgerMasterSid },
+          })
+        : null;
 
-const ledger = coaMasterSid
-  ? await this._db.cOAMaster.findUnique({
-      where: { COAMasterSid: coaMasterSid },
-    })
-  : null;
+      const ledger = coaMasterSid
+        ? await this._db.cOAMaster.findUnique({
+            where: { COAMasterSid: coaMasterSid },
+          })
+        : null;
 
 
       const userMaster =  await this._db.userMaster.findMany({
@@ -1420,6 +1429,7 @@ const ledger = coaMasterSid
       const response = {
         companyMasterSid: CompanyMasterSid,
         branchMasterSid : branchId,
+        branchInvolved,
         ledgerMasterSid: ledgerMasterSid!,
         subledgerName: subledger?.SubledgerName,
         ledgerName : ledger?.LedgerName,
@@ -1450,7 +1460,7 @@ const ledger = coaMasterSid
       companyId: CompanyMasterSid,
       FromDate,
       ToDate,
-      branchId: Branch
+      Branch: branchId
     } = params;
 
     try {
@@ -1458,9 +1468,9 @@ const ledger = coaMasterSid
         `Getting Balance Sheet : CompanySid=${CompanyMasterSid}`,
       );
 
-      const branches = Branch && Branch.length > 0
+      const branches = branchId && branchId.length > 0
         ? await this._db.branchMaster.findMany({
-          where: { BranchMasterSid: { in: Branch } },
+          where: { BranchMasterSid: { in: branchId } },
           select: {
             BranchMasterSid: true,
             branchName: true,
@@ -1476,7 +1486,7 @@ const ledger = coaMasterSid
 
       const resolvedBranchIds = branches.map(b => b.BranchMasterSid);
       const resolvedBranchNames = branches.map(b => b.branchName);
-
+      const branchInvolved = branchId && branchId.length > 0 ? branches.map(b=>b.branchName).join(', ') : 'All Branches'
       const voucherData = await this._db.voucherTransaction.findMany({
         where: {
           CompanyMasterSid,
@@ -1559,7 +1569,8 @@ const ledger = coaMasterSid
         expenseTotal: Math.abs(totalExpense),
         data,
         CompanyMasterSid,
-        BranchMasterSid: Branch,
+        BranchMasterSid: branchId,
+        branchInvolved,
         params,
         branchNames: resolvedBranchNames.join(', '),
       };
@@ -1756,7 +1767,7 @@ const ledger = coaMasterSid
       VoucherFromDate: FromDate,
       VoucherToDate: ToDate,
       companyId: CompanyMasterSid,
-      branchId: Branch
+      Branch: branchId,
     } = params;
 
     try {
@@ -1766,9 +1777,9 @@ const ledger = coaMasterSid
 
 
 
-      const branches = Branch && Branch.length > 0
+      const branches = branchId && branchId.length > 0
         ? await this._db.branchMaster.findMany({
-          where: { BranchMasterSid: { in: Branch } },
+          where: { BranchMasterSid: { in: branchId } },
           select: {
             BranchMasterSid: true,
             branchName: true,
@@ -1784,7 +1795,7 @@ const ledger = coaMasterSid
 
       const resolvedBranchIds = branches.map(b => b.BranchMasterSid);
       const resolvedBranchNames = branches.map(b => b.branchName);
-
+      const brancesInvoled = branchId && branchId.length > 0 ? branches.map(b=>b.branchName).join(', ') : 'All Branches'
 
       const voucherData = await this._db.voucherHeader.findMany({
         where: {
@@ -1830,6 +1841,7 @@ const ledger = coaMasterSid
 
       return {
         tableData: data,
+        brancesInvoled,
         params,
         CompanyMasterSid,
         branchNames: resolvedBranchNames.join(', ')
@@ -2035,7 +2047,7 @@ const ledger = coaMasterSid
       FromDate,
       ToDate,
       companyId: CompanyMasterSid,
-      branchId: Branch,
+      Branch: branchId,
       Dept: deptId,
       TopN: topN,
       Volume,
@@ -2048,9 +2060,9 @@ const ledger = coaMasterSid
         `Getting top N Customer: CompanySid=${CompanyMasterSid}`,
       );
 
-      const branches = Branch && Branch.length > 0
+      const branches = branchId && branchId.length > 0
         ? await this._db.branchMaster.findMany({
-          where: { BranchMasterSid: { in: Branch } },
+          where: { BranchMasterSid: { in: branchId } },
           select: {
             BranchMasterSid: true,
             branchName: true,
@@ -2066,7 +2078,7 @@ const ledger = coaMasterSid
 
       const resolvedBranchIds = branches.map(b => b.BranchMasterSid);
       const resolvedBranchNames = branches.map(b => b.branchName);
-
+      const branchInvolved = branchId && branchId.length > 0 ? branches.map(b=>b.branchName).join(', ') : 'All Branches'
       const excludedDepartments = ['Air Export', 'Air Import'];
       const departments = deptId && deptId.length > 0
         ? await this._db.departmentMaster.findMany({
@@ -2086,7 +2098,7 @@ const ledger = coaMasterSid
 
       const resolvedDeptIds = departments.map(d => d.DepartmentMasterSid);
       const resolvedDeptNames = departments.map(d => d.departmentName);
-
+      const departmentInvoled = deptId && deptId.length > 0 ? departments.map(d=>d.departmentName).join(', ') : 'All Departments'
       const customerMaster = await this._db.customerMaster.findMany({
         select: { CustomerMasterSid: true, CustomerName: true }
       })
@@ -2111,7 +2123,7 @@ const ledger = coaMasterSid
       });
 
       if (!masterJobs.length) {
-        return { companyMasterSid: CompanyMasterSid, branchMasterSid: Branch, data: [] };
+        return { companyMasterSid: CompanyMasterSid, branchMasterSid: branchId, data: [] };
       }
 
       let data = await Promise.all(
@@ -2356,7 +2368,9 @@ const ledger = coaMasterSid
       console.log('After slice:', data.length);
       return {
         companyMasterSid: CompanyMasterSid,
-        branchMasterSid: Branch,
+        branchMasterSid: branchId,
+        branchInvolved,
+        departmentInvoled,
         data: customerData,
         branchNames: resolvedBranchNames.join(', '),
         departmentNames: resolvedDeptNames.join(', '),
@@ -2383,7 +2397,7 @@ const ledger = coaMasterSid
     try {
 
       /* -------------------- BRANCH NAME (SELECTED / ALL) -------------------- */
-      let branchName = 'All';
+      let branchName = 'All Branches';
 
       if (Array.isArray(BranchId) && BranchId.length > 0) {
         const branches = await this._db.branchMaster.findMany({
@@ -2411,7 +2425,6 @@ const ledger = coaMasterSid
         });  
         BranchId = branches.map(b => b.BranchMasterSid);
       }
-
 
       const baseHeaderWhere = {
         CompanyMasterSid: CompanyId,
