@@ -482,3 +482,12 @@ export class CreateUpdateCustomerDto {
     @IsNotEmpty()
     customerBranches: CustomerBranchDto[];
 }
+
+// Bulk Create Customers DTO
+export class BulkCreateCustomerDto {
+    @IsArray()
+    @ValidateNested({ each: true })
+    @Type(() => CreateUpdateCustomerDto)
+    @IsNotEmpty()
+    customers: CreateUpdateCustomerDto[];
+}

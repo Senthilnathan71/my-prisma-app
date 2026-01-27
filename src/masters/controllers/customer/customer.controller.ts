@@ -5,7 +5,7 @@ import { UserData } from 'src/common/decorators/user.decorator';
 import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
-import { CreateUpdateCustomerDto } from 'src/masters/DTO/customer.dto';
+import { CreateUpdateCustomerDto, BulkCreateCustomerDto } from 'src/masters/DTO/customer.dto';
 import { CustomerService } from 'src/masters/services/customer/customer.service';
 class CompanyIdDto {
     CompanyMasterSid: number;
@@ -53,6 +53,36 @@ export class CustomerController {
         return output
     }
 
+    @ApiOperation({ summary: 'Bulk Customer Creation' })
+    @ApiCreatedResponse({
+        description: 'Bulk Customer Creation',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.CREATED)
+    @Post('bulk-create')
+    @UsePipes(new ValidationPipe({ transform: true, whitelist: true }))
+    async createBulkCustomers(@Body() body: BulkCreateCustomerDto, @UserData() user: any) {
+        this.logger.log(`createBulkCustomers: ${body.customers?.length} customers`);
+        let output = new ResponseData;
+        try {
+            let result = await this.customerService.createBulkCustomers(body, user);
+            this.logger.debug(`createBulkCustomers result: ${JSON.stringify(result)}`);
+            output.data = result;
+            output.message = `Created ${result.success.length} customer(s). Failed: ${result.failed.length}`;
+            if (result.failed.length > 0 && result.success.length === 0) {
+                output.status = false;
+            }
+        } catch (error) {
+            this.logger.warn(`createBulkCustomersError: ${error}`);
+            output.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                output.message = error.message;
+            } else {
+                output.message = 'Error during bulk creation';
+            }
+        }
+        return output;
+    }
 
     @ApiOperation({ summary: 'Get All Customer' })
     @ApiCreatedResponse({

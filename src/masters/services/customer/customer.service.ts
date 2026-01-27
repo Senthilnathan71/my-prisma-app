@@ -221,6 +221,32 @@ export class CustomerService {
         });
     }
 
+    async createBulkCustomers(payload: { customers: CreateUpdateCustomerDto[] }, user: any) {
+        this.logger.log(`createBulkCustomers: ${payload.customers.length} customers`);
+
+        const results: { success: any[]; failed: any[] } = {
+            success: [],
+            failed: []
+        };
+
+        for (const customerPayload of payload.customers) {
+            try {
+                const customer = await this.createCustomer(customerPayload, user);
+                results.success.push({
+                    CustomerName: customerPayload.customer.CustomerName,
+                    CustomerMasterSid: customer.CustomerMasterSid
+                });
+            } catch (error: any) {
+                results.failed.push({
+                    CustomerName: customerPayload.customer.CustomerName,
+                    error: error.message || 'Failed to create'
+                });
+            }
+        }
+
+        return results;
+    }
+
     async findOne(customerMasterSid: any) {
         try {
             const customerData: any = await this._db.customerMaster.findUnique({
