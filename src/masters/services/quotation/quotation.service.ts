@@ -125,6 +125,7 @@ export class QuotationService {
                             createdBy: payload.createdBy,
                             TransitDays: Number(route.TransitDays) || Number(route.transit) || null,
                             segmentType: route.segmentType,
+                            FreightPPCC : route.FreightPPCC,
                             ServiceLevel: route.ServiceLevel,
 
                             // Need to be removed later
@@ -440,6 +441,7 @@ export class QuotationService {
                             TransitDays: Number(route.TransitDays) || Number(route.transit) || null,
                             segmentType: route.segmentType,
                             ServiceLevel: route.ServiceLevel,
+                            FreightPPCC : route.FreightPPCC,
                         }
                     });
                 } else {

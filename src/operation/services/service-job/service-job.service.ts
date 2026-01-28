@@ -67,7 +67,18 @@ export class ServiceJobService {
         
         return this._db.$transaction(async (prisma) => {
             // 1. Create the MasterJob
-            const masterJobMenuId = await this.menuService.getMenuSidByName("Service Job");
+            const department = await prisma.departmentMaster.findUnique({
+                where: { DepartmentMasterSid: mainPayload.DepartmentMasterSid },
+                select: {
+                    departmentType: true
+                }
+            });
+
+            if (!department) {
+                throw new BadRequestException('Department not found.');
+            }
+
+            const masterJobMenuId = await this.menuService.getMenuSidByName(department.departmentType?.toUpperCase() === 'AIR' ? "Master Air Waybill" : "Master Job");
             const dateString = moment().format('YYYYMMDD');
             const masterCount = await prisma.masterJob.count({
                     where: { MasterJobNumber: { contains: dateString } }
@@ -98,7 +109,7 @@ export class ServiceJobService {
             }
 
             // 2. Get Menu SID for 'Service Job'
-            const serviceJobMenuId = await this.menuService.getMenuSidByName("Service Job");
+            const serviceJobMenuId = await this.menuService.getMenuSidByName(department.departmentType?.toUpperCase() === 'AIR' ? "House Air Waybill" : "House Job");
 
             // 3. Create the HouseJob
             const count = await prisma.houseJob.count({
@@ -255,11 +266,9 @@ export class ServiceJobService {
                 throw new NotFoundException(`Service job with ID ${houseJobSid} not found.`);
             }
 
-            const menuId = await this.menuService.getMenuSidByName("Service Job");
-
             const costRevenuePayload = {
                 TransactionSid: serviceJob.HouseJobSid,
-                MenuMasterSid: menuId || serviceJob.MenuMasterSid!,
+                MenuMasterSid: serviceJob.MenuMasterSid!,
                 CompanyMasterSid: serviceJob.CompanyMasterSid,
                 BranchMasterSid: serviceJob.BranchMasterSid!,
             };
@@ -283,6 +292,17 @@ export class ServiceJobService {
 
         return this._db.$transaction(async (prisma) => {
             // 1. Fetch existing HouseJob
+            const department = await prisma.departmentMaster.findUnique({
+                where: { DepartmentMasterSid: mainPayload.DepartmentMasterSid },
+                select: {
+                    departmentType: true
+                }
+            });
+
+            if (!department) {
+                throw new BadRequestException('Department not found.');
+            }
+
             const existingHouseJob = await prisma.houseJob.findUnique({
                 where: { HouseJobSid: houseJobSid },
             });
@@ -344,7 +364,7 @@ export class ServiceJobService {
             // 4. Update or Create CostRevenueCharges
             let chargeIndex = 1;
             if (costRevenueCharges && costRevenueCharges.length > 0) {
-                const menuId = await this.menuService.getMenuSidByName("Service Job");
+                const menuId = await this.menuService.getMenuSidByName(department?.departmentType?.toUpperCase() === 'AIR' ? "Master Air Waybill" : "Master Job");
                 
                 for (const charge of costRevenueCharges) {
                     const chargePayload = {
