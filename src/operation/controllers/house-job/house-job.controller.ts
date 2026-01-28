@@ -284,4 +284,32 @@ async createHouseJob(@Body() payload: any) {
     }
     return output
   }
+@ApiOperation({ summary: 'Search house job or HAWBill Search'})
+@ApiCreatedResponse({
+  description: 'House Job or HAWBill Search',
+  type: ResponseData
+})
+@HttpCode(HttpStatus.OK)
+@Post('search')
+async searchHouseJob(@Body() payload: any) {
+  let resp = new ResponseData();
+  try {
+    this.logger.log(`Searching House Job or HAWBill Search : ${JSON.stringify(payload)}`);
+    const result = await this.houseJobService.searchHouseJob(payload);
+    this.logger.debug(`Searched House Job or HAWBill Search : ${JSON.stringify(result)}`);
+    resp.message = 'House Job or HAWBill Searched successfully';
+    resp.data = result;
+  } catch (error) {
+    resp.status = false;
+    this.logger.warn(`Error in searching House Job or HAWBill Search : ${JSON.stringify(error), error}`);
+    if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+      resp.message = error.message;
+    } else {
+      resp.message = 'Internal Server Error';
+    }
+  }
+  return resp;
+}
+
+
 }

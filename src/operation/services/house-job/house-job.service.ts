@@ -3,9 +3,17 @@ import { DatabaseService } from 'src/database/database.service';
 import { OperationCommonService } from '../operation-common/operation-common.service';
 import { MenuService } from 'src/masters/services/menu/menu.service';
 import * as moment from 'moment-timezone';
-import { toNumber } from 'src/common/helper';
+import { parseDateFromString, toNumber } from 'src/common/helper';
 import { NumberSeriesService } from 'src/settings/services/number-series/number-series.service';
-
+import { Prisma } from '@prisma/client';
+interface searchHouseJob {
+    search: string,
+    page: number,
+    pageSize: number,
+    activeCompanyId: number,
+    activeBranchId: number,
+    departmentType: string
+}
 @Injectable()
 export class HouseJobService {
     constructor(
@@ -1666,4 +1674,74 @@ async softDeleteHouseJobProduct(HouseJobProductSid: number) {
     throw error;
   } 
 }
+
+
+async searchHouseJob(params: searchHouseJob) {
+  const {
+    search = '',
+    page = 1,
+    pageSize = 15,
+    activeCompanyId,
+    activeBranchId,
+    departmentType,
+  } = params;
+
+  const skip = (page - 1) * pageSize;
+
+  const where: Prisma.HouseJobWhereInput = {
+    status: 'A',
+    CompanyMasterSid: activeCompanyId,
+    BranchMasterSid: activeBranchId,
+
+    // ✅ Correct department filter
+    ...(departmentType
+      ? {
+          departmentMaster: {
+            departmentType: {
+              equals: departmentType.toUpperCase(), // SEA / AIR
+              mode: 'insensitive',
+            },
+          },
+        }
+      : {}),
+
+    ...(search
+      ? {
+          OR: [
+            { HBLNo: { contains: search, mode: 'insensitive' } },
+            { ShipmentNo: { contains: search, mode: 'insensitive' } },
+            { POL: { contains: search, mode: 'insensitive' } },
+            { POD: { contains: search, mode: 'insensitive' } },
+          ],
+        }
+      : {}),
+  };
+
+  const [items, totalCount] = await this._db.$transaction([
+    this._db.houseJob.findMany({
+      where,
+      skip,
+      take: pageSize,
+      orderBy: { HouseJobSid: 'desc' },
+      include: {
+        departmentMaster: {
+          select: { departmentType: true, departmentName: true },
+        },
+        masterJob:{
+            select:{
+                MasterJobNumber:true,
+            }
+        }
+      },
+    }),
+    this._db.houseJob.count({ where }),
+  ]);
+
+  return {
+    items,
+    totalCount,
+  };
+}
+
+
 }
