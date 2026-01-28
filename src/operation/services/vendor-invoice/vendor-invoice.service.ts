@@ -5,6 +5,7 @@ import { VoucherPeriodService } from 'src/masters/services/voucher-period/vouche
 import * as moment from 'moment-timezone';
 import { statusWhereClause, toNumber } from 'src/common/helper';
 import { Prisma } from '@prisma/client';
+import { MenuService } from 'src/masters/services/menu/menu.service';
 
 @Injectable()
 export class VendorInvoiceService {
@@ -13,7 +14,8 @@ export class VendorInvoiceService {
     constructor(
         private readonly _db: DatabaseService,
         private readonly voucherService: VoucherService,
-        private readonly voucherPeriodService: VoucherPeriodService
+        private readonly voucherPeriodService: VoucherPeriodService,
+        private readonly menuService: MenuService,
     ) {}
 
     /**
@@ -145,6 +147,7 @@ export class VendorInvoiceService {
                                 MasterJobSid: detail.MasterJobSid || payload.MasterJobSid,
                                 HouseJobSid: detail.HouseJobSid || payload.HouseJobSid,
                                 DepartmentMasterSid : detail.DepartmentMasterSid || null,
+                                CostRevenueChargeSid : detail.CostRevenueChargesSid || null,
                                 CreatedBy: payload.CreatedBy || 'System',
                                 Narration : detail.Narration || null,
                                 Status: 'A'
@@ -488,6 +491,7 @@ export class VendorInvoiceService {
                     YearMasterSid : detail.YearMasterSid || payload.YearMasterSid,
                     MasterJobSid: detail.MasterJobSid || payload.MasterJobSid,
                     HouseJobSid: detail.HouseJobSid || payload.HouseJobSid,
+                    CostRevenueChargeSid : detail.CostRevenueChargeSid || null,
                     CreatedBy: payload.UpdatedBy || 'System',
                     Status: 'A'
                 }
@@ -745,7 +749,7 @@ async searchPendingCosts(searchCriteria: {
             transactionSid = jobRecord.MasterJobSid;
             masterJobSid = jobRecord.MasterJobSid;
             masterJobNumber = jobRecord.MasterJobNumber;
-            menuName = 'MasterJob';
+            menuName = 'Master Job';
           }
           break;
 
@@ -774,14 +778,14 @@ async searchPendingCosts(searchCriteria: {
           if (jobRecord) {
             transactionSid = jobRecord.HouseJobSid;
             houseJobSid = jobRecord.HouseJobSid;
-            houseJobNumber = jobRecord.BookingNo;
+            houseJobNumber = jobRecord.HBLNo;
             
             if (jobRecord.masterJob) {
               masterJobSid = jobRecord.masterJob.MasterJobSid;
               masterJobNumber = jobRecord.masterJob.MasterJobNumber;
             }
             
-            menuName = 'HouseJob';
+            menuName = 'House Job';
           }
           break;
 
@@ -800,7 +804,7 @@ async searchPendingCosts(searchCriteria: {
             transactionSid = jobRecord.MasterJobSid;
             masterJobSid = jobRecord.MasterJobSid;
             masterJobNumber = jobRecord.MasterJobNumber;
-            menuName = 'MasterJob';
+            menuName = 'Master Job';
           }
           break;
 
@@ -833,7 +837,7 @@ async searchPendingCosts(searchCriteria: {
               masterJobNumber = jobRecord.masterJob.MasterJobNumber;
             }
             
-            menuName = 'HouseJob';
+            menuName = 'House Job';
           }
           break;
 
@@ -863,7 +867,7 @@ async searchPendingCosts(searchCriteria: {
             transactionSid = jobRecord.MasterJobSid;
             masterJobSid = jobRecord.MasterJobSid;
             masterJobNumber = jobRecord.MasterJobNumber;
-            menuName = 'MasterJob';
+            menuName = 'Master Job';
           }
           break;
       }
@@ -878,7 +882,8 @@ async searchPendingCosts(searchCriteria: {
     }
 
     // Step 2: Build cost/revenue query
-    const whereClause: any = {
+    const whereClause: Prisma.CostRevenueChargesWhereInput = {
+      TransactionSid : transactionSid,
       CompanyMasterSid: companyMasterSid,
       BranchMasterSid: branchMasterSid,
       status: 'A',
@@ -886,23 +891,28 @@ async searchPendingCosts(searchCriteria: {
     };
 
     // Add transaction-specific filters based on menu type
-    if (menuName === 'MasterJob') {
-      whereClause.MasterJobNo = jobRecord.MasterJobNumber;
-    } else if (menuName === 'HouseJob') {
-      whereClause.ShipmentNo = jobRecord.BookingNo;
-    } else if (menuName === 'Vendor') {
-      // For vendor name search, filter by vendor
-      if (vendorSid) {
-        whereClause.CostAgentMasterSid = vendorSid;
-      }
+    const menuId = await this.menuService.getMenuSidByName(menuName);
+    if (menuId) {
+      whereClause.MenuMasterSid = menuId;
     }
-
-    // Add vendor filter if provided
-    if (vendorSid && menuName !== 'Vendor') {
+    // if (menuName === 'Master Job') {
+    //   whereClause.MasterJobNo = jobRecord.MasterJobNumber;
+    // } else if (menuName === 'House Job') {
+    //   whereClause.ShipmentNo = jobRecord.ShipmentNo;
+    // } else if (menuName === 'Vendor') {
+    //   // For vendor name search, filter by vendor
+    // }
+    if (menuName === 'Vendor' && vendorSid) {
       whereClause.CostAgentMasterSid = vendorSid;
     }
 
+    // // Add vendor filter if provided
+    // if (vendorSid && menuName !== 'Vendor') {
+    //   whereClause.CostAgentMasterSid = vendorSid;
+    // }
+
     // Step 3: Fetch pending costs
+    console.log(whereClause);
     const pendingCosts = await this._db.costRevenueCharges.findMany({
       where: whereClause,
       include: {
