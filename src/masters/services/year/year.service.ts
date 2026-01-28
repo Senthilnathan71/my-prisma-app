@@ -29,6 +29,19 @@ export class YearService {
         try {
             const { CompanyMasterSid, ...rest } = payload;
 
+            // Check if year name already exists for this company
+            const existingYear = await this._db.yearMaster.findFirst({
+                where: {
+                    YearName: rest.YearName,
+                    CompanyMasterSid: CompanyMasterSid,
+                    status: { not: 'D' }  // Exclude deleted records
+                }
+            });
+
+            if (existingYear) {
+                throw new BadRequestException(`Year with name '${rest.YearName}' already exists`);
+            }
+
             const createdYear = await this._db.yearMaster.create({
                 data: {
                     ...rest,
