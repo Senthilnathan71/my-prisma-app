@@ -991,12 +991,12 @@ export class OperationReportsService {
     try {
       const {
         companyId,
-        customer,
+        Customer:customer,
         Branch:branchId,
-        department,
+        Dept:department,
         BookingFromDate: FromDate,
         BookingToDate: ToDate,
-        salesman
+        Salesman:salesman
       } = params;
 
 
@@ -1039,6 +1039,26 @@ export class OperationReportsService {
 
         customers.forEach(c => allCustomerIds.push(c.CustomerMasterSid));
       }
+      let customerNames: string[] = [];
+
+      if (allCustomerIds.length > 0) {
+        const customerRecords = await this._db.customerMaster.findMany({
+          where: {
+            CompanyMasterSid: companyId,
+            CustomerMasterSid: { in: allCustomerIds },
+            status: 'A'
+          },
+          select: {
+            CustomerName: true 
+          }
+        });
+
+        customerNames = customerRecords.map(c => c.CustomerName);
+      }
+      const customerInvolved =
+        (Array.isArray(customer) && customer.length > 0) || typeof customer === 'number'
+          ? customerNames.join(', ')
+          : 'All Customers';
 
 
       /* -------------------- BRANCH IDS -------------------- */
@@ -1061,10 +1081,33 @@ export class OperationReportsService {
 
         branches.forEach(b => allBranchIds.push(b.BranchMasterSid));
       }
+      let branchNames: string[] = [];
+
+      if (allBranchIds.length > 0) {
+        const branchRecords = await this._db.branchMaster.findMany({
+          where: {
+            CompanyMasterSid: companyId,
+            status: 'A',
+            BranchMasterSid: { in: allBranchIds }
+          },
+          select: {
+            branchName: true
+          }
+        });
+
+        branchNames = branchRecords.map(b => b.branchName);
+      }
+
+      const branchInvolved =
+        Array.isArray(branchId) && branchId.length > 0 || typeof branchId === 'number'
+          ? branchNames.join(', ')
+          : 'All Branches';
 
 
       /* -------------------- DEPARTMENT IDS -------------------- */
+
       const allDepartmentIds: number[] = [];
+
       if (Array.isArray(department) && department.length > 0) {
         allDepartmentIds.push(...department);
       } else if (typeof department === 'number') {
@@ -1073,24 +1116,85 @@ export class OperationReportsService {
         const departments = await this._db.departmentMaster.findMany({
           where: {
             CompanyMasterSid: companyId,
-            Status: 'A'
+            Status: 'A',
           },
           select: {
             DepartmentMasterSid: true,
-            departmentName:true,
-          }
+          },
         });
 
         departments.forEach(d => allDepartmentIds.push(d.DepartmentMasterSid));
       }
 
+      let departmentNames: string[] = [];
+
+      if (allDepartmentIds.length > 0) {
+        const departmentRecords = await this._db.departmentMaster.findMany({
+          where: {
+            CompanyMasterSid: companyId,
+            Status: 'A',
+            DepartmentMasterSid: { in: allDepartmentIds },
+          },
+          select: {
+            departmentName: true,
+          },
+        });
+
+        departmentNames = departmentRecords.map(d => d.departmentName);
+      }
+
+      const departmentInvolved =
+        (Array.isArray(department) && department.length > 0) || typeof department === 'number'
+          ? departmentNames.join(', ')
+          : 'All Departments';
+
+        const allSalesmanIds: number[] = [];
+
+if (Array.isArray(salesman) && salesman.length > 0) {
+  allSalesmanIds.push(...salesman);
+} else if (typeof salesman === 'number') {
+  allSalesmanIds.push(salesman);
+} else {
+  const salesmen = await this._db.userMaster.findMany({
+    where: {
+      status: 'A',
+    },
+    select: {
+      UserMasterSid: true,
+    },
+  });
+
+  salesmen.forEach(s => allSalesmanIds.push(s.UserMasterSid));
+}
+
+let salesmanNames: string[] = [];
+
+if (allSalesmanIds.length > 0) {
+  const salesmanRecords = await this._db.userMaster.findMany({
+    where: {
+      status: 'A',
+      UserMasterSid: { in: allSalesmanIds },
+    },
+    select: {
+      userName: true, 
+    },
+  });
+
+  salesmanNames = salesmanRecords.map(s => s.userName);
+}
+
+const salesmanInvolved =
+  (Array.isArray(salesman) && salesman.length > 0) || typeof salesman === 'number'
+    ? salesmanNames.join(', ')
+    : 'All Salesmen';
 
 
       /* -------------------- GUARD EMPTY ARRAYS -------------------- */
       if (
         !allCustomerIds.length ||
         !allBranchIds.length ||
-        !allDepartmentIds.length
+        !allDepartmentIds.length || 
+        !allSalesmanIds.length
       ) {
         return {
           status: true,
@@ -1106,16 +1210,13 @@ export class OperationReportsService {
         BranchMasterSid: { in: allBranchIds },
         CustomerMasterSid: { in: allCustomerIds },
         DepartmentMasterSid: { in: allDepartmentIds },
+        SalesmanSid: { in: allSalesmanIds },
        AND:[
         {BookingDateTime:{gte:FromDate}},
         {BookingDateTime:{lte:ToDate}}
        ],
         status: 'A'
       };
-
-      if (salesman) {
-        baseWhereClause.SalesmanSid = salesman;
-      }
 
       /* -------------------- CUSTOMERS WHO BOOKED -------------------- */
       const customerBookingCount = await this._db.bookingHeader.groupBy({
@@ -1142,6 +1243,7 @@ export class OperationReportsService {
             CompanyMasterSid: companyId,
             BranchMasterSid: { in: allBranchIds },
             DepartmentMasterSid: { in: allDepartmentIds },
+            SalesmanSid:{in:allSalesmanIds},
             CustomerMasterSid,
             status: 'A'
           },
@@ -1217,7 +1319,11 @@ export class OperationReportsService {
         data,
         companyId,
         branchId,
-        params
+        params,
+        branchInvolved,
+        departmentInvolved,
+        customerInvolved,
+        salesmanInvolved
       };
 
     } catch (error) {

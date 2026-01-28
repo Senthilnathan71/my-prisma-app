@@ -218,6 +218,11 @@ export class AccountsReportsService {
       });
       allBranches.forEach(branch => branchSet.add(branch.branchName));
     }
+    const branchInvolvedText =
+  SelectedBranches && SelectedBranches.length > 0
+    ? Array.from(branchSet).join(', ')
+    : 'All Branches';
+
     // -------------------------------------------
     // 2. Fetch vouchers
     // -------------------------------------------
@@ -485,6 +490,7 @@ export class AccountsReportsService {
       concludedUpto: ToDate,
       LedgerName: coa.LedgerName || '',
       params: params,
+      branchInvolvedText,
       branchInvolved:Array.from(branchSet).join(', '),
       bucketLabels,
       currencyCount: ageingResult.length,
@@ -2050,6 +2056,7 @@ export class AccountsReportsService {
       Branch: branchId,
       Dept: deptId,
       TopN: topN,
+      CalculationType,
       Volume,
       Gp
     } = params
@@ -2356,11 +2363,22 @@ export class AccountsReportsService {
       /* ================= APPLY TOP N ON CUSTOMER DATA ================= */
       let customerData = finalCustomerData;
 
-      if (Gp) {
-        customerData = customerData.sort((a, b) => b.GP - a.GP);
-      } else if (Volume) {
-        customerData = customerData.sort((a, b) => b.Vol - a.Vol);
-      }
+     const calculationType = params.CalculationType?.toUpperCase();
+
+        switch (calculationType) {
+          case 'GP':
+            customerData.sort((a, b) => b.GP - a.GP);
+            break;
+
+          case 'VOLUME':
+            customerData.sort((a, b) => b.Vol - a.Vol);
+            break;
+
+          default:
+            // fallback to GP
+            customerData.sort((a, b) => b.GP - a.GP);
+        }
+
 
       const limit = Number(topN) || customerData.length;
       customerData = customerData.slice(0, limit);

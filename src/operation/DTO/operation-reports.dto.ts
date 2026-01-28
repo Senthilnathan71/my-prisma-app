@@ -355,12 +355,12 @@ export class lostCustomerReportQueryDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsInt()
-  customer?: number[];
+  Customer?: number[];
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsInt()
-  salesman?: number;
+  Salesman?: number[];
 }
 
 export class unbilledcostReportQueryDto {

@@ -435,6 +435,11 @@ export class TopNCustomerReportQueryDto {
   @IsOptional()
   @IsBoolean()
   Gp : boolean;
+
+  @IsOptional()
+  @IsBoolean()
+ CalculationType: 'GP' | 'VOLUME';
+
 }
 
 
