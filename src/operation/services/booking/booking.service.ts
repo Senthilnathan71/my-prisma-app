@@ -1353,6 +1353,9 @@ if (!croPayload?.BookingCroSid) {
                                     MasterJobNumber : true
                                 }
                             }
+                        },
+                        where : {
+                            status : 'A'
                         }
                     }
                 }
@@ -2106,6 +2109,7 @@ if (!croPayload?.BookingCroSid) {
                     select: {
                         ProductMasterSId: true,
                         ProductName: true,
+                        ProductCode : true,
                         IMOClass: true,
                         ProductType: true,
                         UNNo: true,

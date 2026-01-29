@@ -113,19 +113,38 @@ export class GlobalDocumentSearchService {
                     CompanyMasterSid: companyId,
                     BranchMasterSid: branchId,
                     Status: 'A',
-                    MasterJobNumber: { contains: search, mode: 'insensitive' },
+                    OR : [
+                        { MasterJobNumber: { contains: search, mode: 'insensitive' }},
+                        { MBLNo : {contains : search, mode: 'insensitive'}},
+                    ]
                 },
-                select: { MasterJobSid: true, MasterJobNumber: true },
+                select: { 
+                    MasterJobSid: true, 
+                    MasterJobNumber: true,
+                    MBLNo : true,
+                    DepartmentMasterSid : true,
+                },
                 take: 5,
             });
 
-            return masterJobs.map((m) => ({
+            return await Promise.all(masterJobs.map(async (m) => {
+                const department = await this.db.departmentMaster.findUnique({
+                    where: {
+                        DepartmentMasterSid: m.DepartmentMasterSid
+                    },
+                    select: {
+                        departmentType: true
+                    }
+                })
+                const isSeaJob = department?.departmentType.toUpperCase() === 'SEA'
+                return {
                 id: m.MasterJobSid,
                 documentNumber: m.MasterJobNumber || '',
                 documentType: 'MASTER_JOB',
-                displayType: 'Master Job',
-                path: `/operation/master-job/entry/${m.MasterJobSid}`,
-                title: `Master Job: ${m.MasterJobNumber}`,
+                displayType: m.MasterJobNumber?.includes(search) ? `Master Job` : `${isSeaJob ? 'MBL' : 'MAWB'}`,
+                path: `/operation/${isSeaJob ? 'master-job' : 'mawbill'}/entry/${m.MasterJobSid}`,
+                title: m.MasterJobNumber?.includes(search) ? `${isSeaJob ? 'Master Job' : 'Master Air Waybill'}: ${m.MasterJobNumber}` : `${isSeaJob ? 'MBL' : 'MAWB'} : ${m.MBLNo}`,
+                }
             }));
         } catch (error) {
             this.logger.error(`Error searching master jobs: ${error.message}`);
@@ -144,20 +163,23 @@ export class GlobalDocumentSearchService {
                     CompanyMasterSid: companyId,
                     BranchMasterSid: branchId,
                     status: 'A',
-                    HBLNo: { contains: search, mode: 'insensitive' },
+                    HBLNo: { contains: search, mode: 'insensitive' }
                 },
-                select: { HouseJobSid: true, HBLNo: true },
+                select: { HouseJobSid: true, HBLNo: true , departmentMaster : {select : {departmentType : true}}},
                 take: 5,
             });
 
-            return houseJobs.map((h) => ({
+            return houseJobs.map((h) => {
+                const isSeaJob = h.departmentMaster?.departmentType.toUpperCase() === 'SEA'
+                return {
                 id: h.HouseJobSid,
                 documentNumber: h.HBLNo || '',
                 documentType: 'HOUSE_JOB',
-                displayType: 'HBL',
+                displayType: isSeaJob ? 'HBL' : 'HAWB',
                 path: `/operation/house-job/entry/${h.HouseJobSid}`,
-                title: `HBL: ${h.HBLNo}`,
-            }));
+                title: `${isSeaJob ? 'HBL' : 'HAWB'}: ${h.HBLNo}`,
+                }
+            });
         } catch (error) {
             this.logger.error(`Error searching house jobs: ${error.message}`);
             return [];

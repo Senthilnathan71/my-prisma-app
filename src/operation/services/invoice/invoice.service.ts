@@ -190,7 +190,6 @@ export class InvoiceService {
             }
            },
           BookingHeader: {
-            where: { status: 'A' },
             select: {
               BookingHeaderSid: true,
               BookingNo: true,
