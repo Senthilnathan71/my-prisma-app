@@ -616,8 +616,8 @@ export class NetworkReportQueryDto {
 
   @ApiPropertyOptional()
   @IsOptional()
-  @IsInt()
-  Network?: number[];
+  @IsString()
+  Network: string;
 
   @ApiPropertyOptional()
   @IsOptional()

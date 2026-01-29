@@ -186,6 +186,8 @@ export class TrialBalanceResponseDto {
     showSubtotals: boolean;
     SubTotal?: boolean;
     Subledger?:boolean;
+    GroupNameResolved?:string;
+    SubGroupNameResolved?:string;
   };
 
   @ApiProperty({ type: [TrialBalanceItemDto], description: 'Trial balance ledger items' })

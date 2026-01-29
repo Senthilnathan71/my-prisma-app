@@ -4019,20 +4019,6 @@ const salesmanInvolved =
 
     try {
 
-      // 1. Resolve departments (selected or all)
-      let departmentIds: number[] = [];
-
-      if (Department) {
-        departmentIds = Array.isArray(Department) ? Department : [Department];
-      } else {
-        const allDepartments = await this._db.departmentMaster.findMany({
-          where: { CompanyMasterSid, Status: 'A' },
-          select: { DepartmentMasterSid: true }
-        });
-        departmentIds = allDepartments.map(d => d.DepartmentMasterSid);
-      }
-
-
       // 2. Load masters
       const organizationMaster = await this._db.customerMaster.findMany({
         select: {
@@ -4059,21 +4045,27 @@ const salesmanInvolved =
       );
 
       // 3. Build house filter
-      const whereClause: any = {
-        DepartmentMasterSid: { in: departmentIds },
+      const whereClause: Prisma.HouseJobWhereInput = {
+        CompanyMasterSid: CompanyMasterSid,
         status: 'A',
         AND: [
           { HBLDate: { gte: FromDate } },
           { HBLDate: { lte: ToDate } }
         ]
       };
-
-      if (CompanyMasterSid) whereClause.CompanyMasterSid = CompanyMasterSid;
-
+      if (network) {
+        whereClause.customerMaster = {
+          Network: {
+            contains: String(network).trim(),
+            mode: 'insensitive'
+          }
+        };
+      }
       // 4. Fetch house data
       const networkData = await this._db.houseJob.findMany({
         where: whereClause,
         include: {
+          Cargo: true,
           masterJob: {
             where: {
               Status: 'A'
@@ -4096,6 +4088,11 @@ const salesmanInvolved =
               },
             }
           },
+          customerMaster: {
+            select: {
+              Network: true
+            }
+          }
         },
         orderBy: {
           HBLDate: "asc"
@@ -4129,7 +4126,6 @@ const salesmanInvolved =
         },
       });
 
-
       const houseRateMap = new Map<number, any[]>();
       allHouseCR.forEach(cr => {
         if (!houseRateMap.has(cr.TransactionSid!)) {
@@ -4138,13 +4134,12 @@ const salesmanInvolved =
         houseRateMap.get(cr.TransactionSid!)!.push(cr);
       });
 
-
       const data = networkData
         .map(b => {
           const customer = organizationMaster.find(c => c.CustomerMasterSid === b.CustomerMasterSid);
           const department = departments.find(d => d.DepartmentMasterSid === b.DepartmentMasterSid);
           const destinationAgent = organizationMaster.find(c => c.CustomerMasterSid === b.DestinationAgent);
-          const originAgent = organizationMaster.find(c => c.CustomerMasterSid === b.masterJob?.OriginAgent);
+          const originAgent = organizationMaster.find(c => c.CustomerName === b.AgentName);
           const houseCR = allHouseCR.filter(cr => cr.TransactionSid === b.HouseJobSid);
           const { totalRevenue, totalCost } = houseCR.reduce(
             (acc, cr) => {
@@ -4172,18 +4167,13 @@ const salesmanInvolved =
 
           (b.masterJob?.containers || []).forEach(c => {
             totalNoOfTEU += Number(c.containerType?.NoOfTeu || 0);
-
-
             const normalizeContainerSize = (size?: string): string =>
               (size || '')
                 .replace(/['"]/g, '')
                 .replace(/\s+/g, ' ')
                 .trim()
                 .toUpperCase();
-
-
             const size = normalizeContainerSize(c.containerType?.ContainerSize);
-
             switch (size) {
               case '20 F':
                 numberOfTwentyFt++;
@@ -4240,8 +4230,8 @@ const salesmanInvolved =
             totalRevenue,
             totalCost,
             profit,
-            grossWt: b.masterJob?.GrossWeight,
-            netWt: b.masterJob?.NetWeight,
+            grossWt: b.Cargo?.[0]?.GrossWeight,
+            netWt: b.Cargo?.[0]?.NetWeight,
             totalNoOfTEU
           };
         });
@@ -4694,12 +4684,16 @@ const salesmanInvolved =
       const quotationCount = await this._db.quoteHeader.groupBy({
         where: {
           CompanyMasterSid,
-          QuoteDate: { gte: FromDate, lte: ToDate },
-          DepartmentMasterSid: { in: resolvedDeptIds },
-          BranchMasterSid: { in: resolvedBranchIds }
+          AND:[
+            {QuoteDate: {gte: FromDate}},
+            {QuoteDate:{lte:ToDate}}
+          ],
+          // DepartmentMasterSid: { in: resolvedDeptIds },
+          BranchMasterSid: { in: resolvedBranchIds },
+          SalesmanSid:{not:null}
         },
-        by: ['SalesmanSid', 'DepartmentMasterSid'],
-        _count: { _all: true }
+        by: ['SalesmanSid'],
+        _count: { SalesmanSid:true }
       });
 
       const enquiryCount = await this._db.enquiryHeader.groupBy({
@@ -4735,6 +4729,18 @@ const salesmanInvolved =
         },
         _count: {
           leadAssignTo: true,
+        }
+      });
+
+      const opportunity = await this._db.preCustomerMaster.groupBy({
+        by: ['leadAssignTo'],
+        where: {
+          CompanyMasterSid,
+          BranchMasterSid: { in: resolvedBranchIds },
+          leadAssignTo: { not: null }
+        },
+        _count: {
+          leadAssignTo: true,
           isQualify:true
         }
       });
@@ -4754,12 +4760,14 @@ const salesmanInvolved =
 
       const makeKey = (sid: number, dept: number) => `${sid}_${dept}`;
 
-      const quotationMap = new Map<string, number>();
+      const quotationMap = new Map<number, number>();
+
       quotationCount.forEach(q => {
-        if (q.SalesmanSid && q.DepartmentMasterSid) {
-          quotationMap.set(makeKey(q.SalesmanSid, q.DepartmentMasterSid), q._count._all);
+        if (q.SalesmanSid != null) {
+          quotationMap.set(Number(q.SalesmanSid), q._count.SalesmanSid);
         }
       });
+
 
       const enquiryMap = new Map<string, number>();
       enquiryCount.forEach(e => {
@@ -4789,9 +4797,16 @@ const salesmanInvolved =
         }
       });
 
+      const opportunityMap = new Map<number,number>();
+      opportunity.forEach(o=>{
+        if(o.leadAssignTo){
+          opportunityMap.set(o.leadAssignTo, o._count.leadAssignTo)
+        }
+      })
+
       const departmentMap = new Map(
-  departments.map(d => [d.DepartmentMasterSid, d.departmentName])
-);
+        departments.map(d => [d.DepartmentMasterSid, d.departmentName])
+      );
 
 
       const salesmanSummary: any[] = [];
@@ -4803,13 +4818,13 @@ const salesmanInvolved =
 
           const key = makeKey(user.UserMasterSid, dept);
  
-          const q = quotationMap.get(key) || 0;
+          const q = quotationMap.get(user.UserMasterSid) || 0;
           const e = enquiryMap.get(key) || 0;
           const b = bookingMap.get(key) || 0;
           const l = leadMap.get(user.UserMasterSid) || 0;
           const m = meetingMap.get(user.UserMasterSid) || 0;
-
-          if (q || e || b || l || m) {
+          const o = opportunityMap.get(user.UserMasterSid) || 0;
+          if (q || e || b || l || m || o) {
             salesmanSummary.push({
               DepartmentMasterSid: dept,
               DepartmentName: departmentName,
@@ -4819,7 +4834,8 @@ const salesmanInvolved =
               TotalEnquiries: e,
               TotalBookings: b,
               TotalLeads: l,
-              TotalMeetings: m
+              TotalMeetings: m,
+              TotalOpportunity:o
             });
           }
         }
@@ -4832,6 +4848,14 @@ const salesmanInvolved =
         where: { CompanyMasterSid, Status: 'A' },
         select: { LedgerName: true }
       });
+
+      const userMaster = await this._db.userMaster.findMany({
+        where:{status:'A'},
+        select:{
+          UserMasterSid:true,
+          userName:true
+        }
+      })
 
       const vouchers = await this._db.voucherTransaction.findMany({
         where: {
@@ -4984,7 +5008,7 @@ const salesmanInvolved =
           VoucherDate: { gte: FromDate, lte: ToDate },
           Status: 'A',
           voucherTypeMaster: {
-            DocumentTypeCode: 'VINV'
+            DocumentTypeCode: 'VIN'
           }
         },
         include: {
@@ -5012,8 +5036,6 @@ const salesmanInvolved =
           OSLocalAmount: Number(v.LocalAmount) - Math.abs(matchLocal),
         };
       });
-
-      
 
       const vendorRowsMap = new Map<number, any>();
 
@@ -5090,7 +5112,6 @@ const salesmanInvolved =
           }
         }
       });
-
 
       const customerCreditMap = new Map<number, { CreditDays: number; CreditLimit: number }>();
 

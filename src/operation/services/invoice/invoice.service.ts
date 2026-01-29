@@ -173,7 +173,9 @@ export class InvoiceService {
                 select : {
                   NoOfPackage : true,
                   GrossWeight : true,
-                  Volume : true
+                  Volume : true,
+                  ChargeableWeight:true,
+                  CommodityDescription:true
                 }
               },
               Others : {
@@ -209,6 +211,7 @@ export class InvoiceService {
               CustomerName: true,
               CustomerAddress: true,
               SalesmanSid : true,
+              DepartmentMasterSid:true,
               bookingCargo : {
                 where : {
                   status : 'A'
@@ -216,7 +219,8 @@ export class InvoiceService {
                 select : {
                   NoOfPackage : true,
                   GrossWeight : true,
-                  Volume : true
+                  Volume : true,
+                  ChargeableWeight:true
                 }
               }
             }

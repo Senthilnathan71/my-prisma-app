@@ -89,7 +89,7 @@ if (query.SubGroupName) {
 }
 
     
-    let BranchInvolved = 'All';
+    let BranchInvolved = 'All Branches';
     if (query.Branch && query.Branch.length > 0) {
 
       const selectedBranches = await this.databaseService.branchMaster.findMany({
@@ -117,6 +117,8 @@ if (query.SubGroupName) {
         parameters: {
           CompanyMasterSid,
           BranchInvolved,
+          GroupNameResolved,
+          SubGroupNameResolved,
           BranchMasterSid,
           fromDate,
           toDate,
@@ -171,6 +173,8 @@ if (query.SubGroupName) {
       parameters: {
         CompanyMasterSid,
         BranchInvolved,
+        GroupNameResolved,
+        SubGroupNameResolved,
         BranchMasterSid,
         fromDate,
         toDate,
