@@ -20,6 +20,7 @@ export class CreateServiceJobDto {
 
     // Related entities
     houseJobCargo: any;
+    houseJobOthers: any; 
     costRevenueCharges: any[];
 
     // Common fields
@@ -47,6 +48,7 @@ export class UpdateServiceJobDto {
     POD: string;
     status: string;
     houseJobCargo: any;
+     houseJobOthers: any; 
     costRevenueCharges: any[];
     updatedBy: string;
 }
@@ -63,7 +65,7 @@ export class ServiceJobService {
      * Creates a new Service Job, which includes a MasterJob and a HouseJob.
      */
     async createServiceJob(payload: CreateServiceJobDto) {
-        const { houseJobCargo, costRevenueCharges, ...mainPayload } = payload;
+        const { houseJobCargo, houseJobOthers, costRevenueCharges, ...mainPayload } = payload;
         
         return this._db.$transaction(async (prisma) => {
             // 1. Create the MasterJob
@@ -238,10 +240,56 @@ export class ServiceJobService {
                 }
             }
 
+let createdOthers;
+
+if (houseJobOthers && Object.keys(houseJobOthers).length > 0) {
+    createdOthers = await prisma.houseJobOthers.create({
+        data: {
+            HouseJobSid: houseJob.HouseJobSid,
+
+            CustomerRefNo: houseJobOthers.CustomerRefNo || "",
+            OperationUser: houseJobOthers.OperationUser || null,
+            DocumentationUser: houseJobOthers.DocumentationUser || null,
+            CustomerServiceuser: houseJobOthers.CustomerServiceuser || null,
+
+            NotifyParty: houseJobOthers.NotifyParty || "",
+            NotifyPartyAddress: houseJobOthers.NotifyPartyAddress || "",
+
+            CHAName: houseJobOthers.CHAName || "",
+            PickupMode: houseJobOthers.PickupMode || null,
+
+            YardCFS: houseJobOthers.YardCFS || "",
+            LocalTransport: houseJobOthers.LocalTransport || null,
+
+            PickupPlace: houseJobOthers.PickupPlace || "",
+            PickupDate: houseJobOthers.PickupDate ? new Date(houseJobOthers.PickupDate) : null,
+            PickupAddress: houseJobOthers.PickupAddress || "",
+
+            DeliveryPlace: houseJobOthers.DeliveryPlace || "",
+            DeliveryDate: houseJobOthers.DeliveryDate || "",
+            DeliveryAddress: houseJobOthers.DeliveryAddress || "",
+
+            CargoCurrency: houseJobOthers.CargoCurrency || "USD",
+            CargoValue: new Prisma.Decimal(houseJobOthers.CargoValue || 0),
+
+            // ✅ THIS WAS MISSING
+            ExternalNote: houseJobOthers.ExternalNote || null,
+            InternalNote: houseJobOthers.InternalNote || null,
+
+            BlClause: houseJobOthers.BlClause || [],
+
+            createdBy: payload.createdBy,
+            status: 'A',
+        }
+    });
+}
+
+
             return {
                 ...houseJob,
                 masterJob,
                 Cargo: createdCargo,
+                Others: createdOthers,
                 costRevenueCharges: createdCharges,
             };
         });
@@ -259,7 +307,14 @@ export class ServiceJobService {
                 },
                 include: {
                     Cargo: { where: { status: 'A' } },
-                },
+                    Others: { where: { status: 'A' },
+                select: {
+                    HouseJobOthersSid: true,
+                    HouseJobSid: true,
+                    ExternalNote: true,
+                    InternalNote: true}
+                }
+                }
             });
 
             if (!serviceJob) {
@@ -288,7 +343,7 @@ export class ServiceJobService {
      * Updates an existing Service Job
      */
     async updateServiceJob(houseJobSid: number, payload: UpdateServiceJobDto) {
-        const { houseJobCargo, costRevenueCharges, ...mainPayload } = payload;
+        const { houseJobCargo,houseJobOthers, costRevenueCharges, ...mainPayload } = payload;
 
         return this._db.$transaction(async (prisma) => {
             // 1. Fetch existing HouseJob
@@ -420,6 +475,58 @@ export class ServiceJobService {
                     });
                 }
             }
+           
+if (houseJobOthers && Object.keys(houseJobOthers).length > 0) {
+
+    const othersPayload = {
+        CustomerRefNo: houseJobOthers.CustomerRefNo || "",
+        NotifyParty: houseJobOthers.NotifyParty || "",
+        NotifyPartyAddress: houseJobOthers.NotifyPartyAddress || "",
+        CHAName: houseJobOthers.CHAName || "",
+        YardCFS: houseJobOthers.YardCFS || "",
+        PickupPlace: houseJobOthers.PickupPlace || "",
+        PickupAddress: houseJobOthers.PickupAddress || "",
+        DeliveryPlace: houseJobOthers.DeliveryPlace || "",
+        DeliveryDate: houseJobOthers.DeliveryDate || "",
+        DeliveryAddress: houseJobOthers.DeliveryAddress || "",
+
+        CargoCurrency: houseJobOthers.CargoCurrency || "USD",
+        CargoValue: new Prisma.Decimal(houseJobOthers.CargoValue || 0),
+
+        ExternalNote: houseJobOthers.ExternalNote || null,
+        InternalNote: houseJobOthers.InternalNote || null,
+
+        BlClause: houseJobOthers.BlClause || [],
+
+        updatedBy: payload.updatedBy,
+        status: 'A',
+    };
+
+    const existingOthers = await prisma.houseJobOthers.findFirst({
+        where: {
+            HouseJobSid: houseJobSid,
+            status: 'A'
+        }
+    });
+
+    if (existingOthers) {
+        await prisma.houseJobOthers.update({
+            where: {
+                HouseJobOthersSid: existingOthers.HouseJobOthersSid
+            },
+            data: othersPayload
+        });
+    } else {
+        await prisma.houseJobOthers.create({
+            data: {
+                HouseJobSid: houseJobSid,
+                ...othersPayload,
+                createdBy: payload.updatedBy
+            }
+        });
+    }
+}
+
 
             return this.fetchServiceJobById(houseJobSid);
         });

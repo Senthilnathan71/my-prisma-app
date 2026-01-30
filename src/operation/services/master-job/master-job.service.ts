@@ -878,7 +878,7 @@ if (transhipmentRecords.length > 0) {
                 }
             }
 
-            await this._db.houseJob.updateMany({
+            await prisma.houseJob.updateMany({
                 where : {
                     MasterJobSid : createdMasterJob.MasterJobSid
                 },
