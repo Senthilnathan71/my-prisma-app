@@ -878,6 +878,19 @@ if (transhipmentRecords.length > 0) {
                 }
             }
 
+            await this._db.houseJob.updateMany({
+                where : {
+                    MasterJobSid : createdMasterJob.MasterJobSid
+                },
+                data : {
+                    VoyageMasterSid : voyagePayload.VoyageMasterSid,
+                    VoyageNo : voyagePayload.VoyageNo,
+                    VesselName : voyagePayload.VesselName,
+                    ETA : voyagePayload.ETA ? new Date(voyagePayload.ETA) : null,
+                    ETD : voyagePayload.ETD ? new Date(voyagePayload.ETD) : null,
+                }
+            })
+
             
 //             if (recordToCreateTranshipment.length > 0) {
 //                 console.log('recordToCreateTranshipment', recordToCreateTranshipment);
@@ -2361,6 +2374,20 @@ private getWeightInFromUnitSid(weightUnitSid: number): string {
 
                 }
             }
+            
+            await this._db.houseJob.updateMany({
+                where : {
+                    MasterJobSid : updatedMasterJob.MasterJobSid,
+                    status : 'A'
+                },
+                data : {
+                    VoyageMasterSid : payload.VoyageMasterSid,
+                    VoyageNo : payload.VoyageNo,
+                    VesselName : payload.VesselName,
+                    ETA : payload.ETA ? new Date(payload.ETA) : null,
+                    ETD : payload.ETD ? new Date(payload.ETD) : null,
+                }
+            })
 
             return {
                 updatedMasterJob
