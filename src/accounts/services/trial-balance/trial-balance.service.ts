@@ -38,6 +38,7 @@ export class TrialBalanceService {
     const showSubtotals = query.showSubtotals ?? true;
     const YearMasterSid = query.YearMasterSid ? Number(query.YearMasterSid) : undefined;
     const SubTotal =  query.SubTotal
+    const Subledger = query.Subledger ?? false;
     // Validate dates
     this.validateDates(fromDate, toDate);
 
@@ -59,34 +60,34 @@ export class TrialBalanceService {
 
 
     // --- Resolve Group Name ---
-let GroupNameResolved = 'All';
-if (query.GroupName) {
-  const groupIds = Array.isArray(query.GroupName)
-    ? query.GroupName.map(Number)
-    : [Number(query.GroupName)];
+    let GroupNameResolved = 'All';
+    if (query.GroupName) {
+      const groupIds = Array.isArray(query.GroupName)
+        ? query.GroupName.map(Number)
+        : [Number(query.GroupName)];
 
-  const groups = await this.databaseService.cOAMaster.findMany({
-    where: { COAMasterSid: { in: groupIds } },
-    select: { GroupName: true },
-  });
+      const groups = await this.databaseService.cOAMaster.findMany({
+        where: { COAMasterSid: { in: groupIds } },
+        select: { GroupName: true },
+      });
 
-  GroupNameResolved = groups.map(g => g.GroupName).join(', ') || 'All';
-}
+      GroupNameResolved = groups.map(g => g.GroupName).join(', ') || 'All';
+    }
 
-// --- Resolve SubGroup Name ---
-let SubGroupNameResolved = 'All';
-if (query.SubGroupName) {
-  const subGroupIds = Array.isArray(query.SubGroupName)
-    ? query.SubGroupName.map(Number)
-    : [Number(query.SubGroupName)];
+    // --- Resolve SubGroup Name ---
+    let SubGroupNameResolved = 'All';
+    if (query.SubGroupName) {
+      const subGroupIds = Array.isArray(query.SubGroupName)
+        ? query.SubGroupName.map(Number)
+        : [Number(query.SubGroupName)];
 
-  const subGroups = await this.databaseService.cOAMaster.findMany({
-    where: { COAMasterSid: { in: subGroupIds } },
-    select: { SubGroupName: true },
-  });
+      const subGroups = await this.databaseService.cOAMaster.findMany({
+        where: { COAMasterSid: { in: subGroupIds } },
+        select: { SubGroupName: true },
+      });
 
-  SubGroupNameResolved = subGroups.map(s => s.SubGroupName).join(', ') || 'All';
-}
+      SubGroupNameResolved = subGroups.map(s => s.SubGroupName).join(', ') || 'All';
+    }
 
     
     let BranchInvolved = 'All Branches';
@@ -125,7 +126,8 @@ if (query.SubGroupName) {
           GroupName,
           SubGroupName,
           showSubtotals,
-          SubTotal
+          SubTotal,
+          Subledger
         },
         items: [],
         subtotals: [],
@@ -136,17 +138,30 @@ if (query.SubGroupName) {
     }
 
     // Calculate balances for each ledger
-    const items: TrialBalanceItemDto[] = await Promise.all(
-      ledgers.map((ledger) =>
-        this.calculateLedgerBalances(
-          ledger,
-          CompanyMasterSid,
-          BranchMasterSid,
-          fromDate,
-          toDate,
+    let items: TrialBalanceItemDto[];
+    if (Subledger) {
+      items = await this.calculateWithSubledger(
+        ledgers,
+        CompanyMasterSid,
+        BranchMasterSid,
+        fromDate,
+        toDate,
+      );
+    } else {
+      items = await Promise.all(
+        ledgers.map((ledger) =>
+          this.calculateLedgerBalances(
+            ledger,
+            CompanyMasterSid,
+            BranchMasterSid,
+            fromDate,
+            toDate,
+          ),
         ),
-      ),
-    );
+      );
+    }
+
+ 
 
     // Filter out zero balance ledgers
     const nonZeroItems = items.filter(
@@ -181,7 +196,8 @@ if (query.SubGroupName) {
         GroupName,
         SubGroupName,
         showSubtotals,
-        SubTotal
+        SubTotal,
+        Subledger
       },
       items: sortedItems,
       subtotals,
@@ -191,7 +207,95 @@ if (query.SubGroupName) {
     };
   }
   
-
+private async calculateWithSubledger(
+  ledgers: any[],
+  CompanyMasterSid: number,
+  BranchMasterSid: number[] | undefined,
+  fromDate: string,
+  toDate: string,
+): Promise<TrialBalanceItemDto[]> {
+ 
+  const from = new Date(fromDate);
+  const to = new Date(toDate);
+  const results: TrialBalanceItemDto[] = [];
+ 
+  for (const ledger of ledgers) {
+ 
+    const txs = await this.databaseService.voucherTransaction.findMany({
+      where: {
+        COAMasterSid: ledger.COAMasterSid,
+        CompanyMasterSid,
+        Status: 'A',
+        ...(BranchMasterSid?.length && {
+          BranchMasterSid: { in: BranchMasterSid },
+        }),
+      },
+      select: {
+        LedgerMasterSid: true,     // ✅ correct field
+        VoucherDate: true,
+        DrCr: true,
+        LocalAmount: true,
+        subledgerMaster: {
+          select: {
+            SubledgerName: true,
+          },
+        },
+      },
+    });
+ 
+    // group by LedgerMasterSid (subledger)
+    const map = new Map<number | null, typeof txs>();
+ 
+    for (const t of txs) {
+      const key = t.LedgerMasterSid ?? null;
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(t);
+    }
+ 
+    map.forEach((list, subSid) => {
+ 
+      const opening = list.filter(t => new Date(t.VoucherDate) < from);
+      const current = list.filter(t => {
+        const d = new Date(t.VoucherDate);
+        return d >= from && d <= to;
+      });
+ 
+      const sum = (arr, drcr) =>
+        arr.filter(x => x.DrCr === drcr)
+           .reduce((s,x)=> s + Number(x.LocalAmount),0);
+ 
+      const openingDebit = sum(opening,'D');
+      const openingCredit = sum(opening,'C');
+      const currentDebit = sum(current,'D');
+      const currentCredit = sum(current,'C');
+ 
+      const closingDebit = openingDebit + currentDebit;
+      const closingCredit = openingCredit + currentCredit;
+ 
+      results.push({
+        COAMasterSid: ledger.COAMasterSid,
+        LedgerCode: ledger.LedgerCode || '',
+        LedgerName: ledger.LedgerName || '',
+        SubledgerName: list[0]?.subledgerMaster?.SubledgerName || '',
+        Category: ledger.Category || '',
+        GroupName: ledger.GroupName || '',
+        SubGroupName: ledger.SubGroupName || '',
+        LedgerType: ledger.LedgerType || '',
+        OpeningDebit: openingDebit,
+        OpeningCredit: openingCredit,
+        CurrentDebit: currentDebit,
+        CurrentCredit: currentCredit,
+        ClosingDebit: closingDebit,
+        ClosingCredit: closingCredit,
+        ClosingNet: closingDebit - closingCredit,
+      });
+ 
+    });
+ 
+  }
+ 
+  return results;
+}
   /**
    * Validate date range
    */

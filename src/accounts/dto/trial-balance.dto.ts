@@ -110,6 +110,10 @@ export class TrialBalanceItemDto {
 
   @ApiProperty({ description: 'Ledger Type' })
   LedgerType: string;
+
+  @ApiProperty({ required: false, description: 'Subledger Name' })
+  SubledgerName?: string;
+ 
 }
 
 export class TrialBalanceSubtotalDto {
