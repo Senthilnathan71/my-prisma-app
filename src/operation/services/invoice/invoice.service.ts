@@ -764,6 +764,9 @@ Debug.log('DEBUG - Processing voucher details:', payload.VoucherDetail.length, '
             where: { Status: 'A' },
             take: 1
           },
+          departmentMaster : {
+            select : { departmentType : true },
+          },
           BookingHeader:{
             where:{status:'A'},
             select:{
