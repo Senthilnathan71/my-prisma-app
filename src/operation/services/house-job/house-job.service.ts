@@ -61,28 +61,32 @@ export class HouseJobService {
 
       // Generate HBL number using NumberSeriesService (for Export only)
       let HBLNo: string | null = null;
-      if (departmentExportImport === 'Export') {
-          if (numberSeriesMenuId) {
-              HBLNo = await this.numberSeriesService.generateNextNumber(
-                  payload.CompanyMasterSid,
-                  payload.BranchMasterSid,
-                  numberSeriesMenuId,
-                  payload.DepartmentMasterSid
-              );
-          }
+      if (payload.HBLNo && payload.HBLNo.trim() !== '') {
+    HBLNo = payload.HBLNo.trim();
+} 
+// 🎯 Otherwise → Auto generate
+else {
+    if (numberSeriesMenuId) {
+        HBLNo = await this.numberSeriesService.generateNextNumber(
+            payload.CompanyMasterSid,
+            payload.BranchMasterSid,
+            numberSeriesMenuId,
+            payload.DepartmentMasterSid
+        );
+    }
 
-          // Fallback to legacy format if NumberSeriesService didn't generate
-          if (!HBLNo) {
-              const dateString = moment().format('YYYYMMDD');
-              const hblBaseCount = await this._db.houseJob.count({
-                  where: { HBLNo: { contains: dateString } },
-              });
-              HBLNo = `HOUSE-${dateString}-${(hblBaseCount + 1).toString().padStart(3, '0')}`;
-          }
-      } else {
-          // For Import, use the provided HBLNo
-          HBLNo = payload.HBLNo;
-      }
+    // fallback generator
+    if (!HBLNo) {
+        const dateString = moment().format('YYYYMMDD');
+        const hblBaseCount = await this._db.houseJob.count({
+            where: { HBLNo: { contains: dateString } },
+        });
+
+        HBLNo = `HOUSE-${dateString}-${(hblBaseCount + 1)
+            .toString()
+            .padStart(3, '0')}`;
+    }
+}
 
       const createdHouseJob = await this._db.$transaction(async (prisma) => {
 
