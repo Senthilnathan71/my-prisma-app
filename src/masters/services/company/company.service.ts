@@ -938,7 +938,7 @@ export class CompanyService {
 
     async getBankDetails(payload: any) {
         try {
-            const bankDetails = await this._db.branchBank.findFirst({
+            const bankDetails = await this._db.branchBank.findMany({
                 where: {
                     BranchMasterSid: payload.BranchMasterSid,
                     CurrencyMasterSid : payload.CurrencyMasterSid,

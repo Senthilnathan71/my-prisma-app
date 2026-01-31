@@ -4690,10 +4690,10 @@ const salesmanInvolved =
           ],
           // DepartmentMasterSid: { in: resolvedDeptIds },
           BranchMasterSid: { in: resolvedBranchIds },
-          SalesmanSid:{not:null}
+          SalesmanSid:{not:null},
         },
-        by: ['SalesmanSid'],
-        _count: { SalesmanSid:true }
+        by: ['SalesmanSid', 'DepartmentMasterSid'],
+        _count: { _all:true }
       });
 
       const enquiryCount = await this._db.enquiryHeader.groupBy({
@@ -4756,18 +4756,15 @@ const salesmanInvolved =
         }
       });
 
-
-
       const makeKey = (sid: number, dept: number) => `${sid}_${dept}`;
 
       const quotationMap = new Map<number, number>();
 
       quotationCount.forEach(q => {
-        if (q.SalesmanSid != null) {
-          quotationMap.set(Number(q.SalesmanSid), q._count.SalesmanSid);
+        if (q.SalesmanSid !== null) {
+          quotationMap.set(Number(q.SalesmanSid), q._count._all);
         }
       });
-
 
       const enquiryMap = new Map<string, number>();
       enquiryCount.forEach(e => {
@@ -4846,16 +4843,8 @@ const salesmanInvolved =
 
       const coa = await this._db.cOAMaster.findFirst({
         where: { CompanyMasterSid, Status: 'A' },
-        select: { LedgerName: true }
+        select: { LedgerName: true , COAMasterSid:true}
       });
-
-      const userMaster = await this._db.userMaster.findMany({
-        where:{status:'A'},
-        select:{
-          UserMasterSid:true,
-          userName:true
-        }
-      })
 
       const vouchers = await this._db.voucherTransaction.findMany({
         where: {
@@ -4867,7 +4856,23 @@ const salesmanInvolved =
           ],
           Status: 'A'
         },
-        include: { subledgerMaster: true, voucherMatchings: { where: { Status: 'A' } } },
+        include: {
+          subledgerMaster: {
+            where: {
+              Status: 'A',
+              SubledgerType: 'Customer'
+            },
+            select: {
+              SubledgerMasterSid: true,
+              SubledgerName: true,
+              SubledgerType: true
+            }
+          },
+          voucherMatchings: {
+            where: { Status: 'A' }
+          }
+        },
+
         orderBy: [
           { VoucherDate: 'asc' },
         ],
@@ -4886,6 +4891,7 @@ const salesmanInvolved =
 
         return {
           VoucherTransactionSid: v.VoucherTransactionSid,
+          SubledgerMasterSid: v.subledgerMaster?.SubledgerMasterSid,
           LedgerName: coa?.LedgerName,
           SubledgerName: v.subledgerMaster?.SubledgerName,
           LedgerMasterSid: v.LedgerMasterSid,
@@ -4910,8 +4916,8 @@ const salesmanInvolved =
       const customerRowsMap = new Map<number, any>();
 
       reportData.forEach(row => {
-        const subId = row.LedgerMasterSid;
-        if (subId === null) return; 
+        const subId = row.SubledgerMasterSid;
+        if (!subId) return; 
 
         if (!customerRowsMap.has(subId)) {
           customerRowsMap.set(subId, {
@@ -4962,16 +4968,27 @@ const salesmanInvolved =
             { VoucherDate: { lte: ToDate } }
           ],
           Status: 'A',
+          subledgerMaster:{
+            Status:"A",
+            SubledgerType:'Customer'
+          }
         },
         select: {
           CashOrBank: true,
           LocalAmount: true,
           Amount: true,
+          subledgerMaster:{
+            select:{
+              SubledgerMasterSid:true,
+              SubledgerType:true,
+              SubledgerName:true
+            }
+          },
           VoucherDetail: {
             select: {
               DrCr: true,
               LedgerMasterSid: true,
-              COAMasterSid: true
+              COAMasterSid: true,
             }
           },
         },
@@ -4985,19 +5002,41 @@ const salesmanInvolved =
         }
       })
 
-      const AllCashAndBank = AllBankCash.map(bc => {
+     const customerMap = new Map<number, any>();
 
-        const drCr = bc.VoucherDetail?.[0]?.DrCr
-        return {
-          ledgerMasterSid: bc.VoucherDetail?.[0]?.LedgerMasterSid,
-          Account: coamaster.find(c => c.COAMasterSid === bc.VoucherDetail?.[0]?.COAMasterSid)?.LedgerName || '',
-          DrAmount: drCr === 'D' ? Number(bc.LocalAmount) : 0,
-          CrAmount: drCr === 'C' ? Number(bc.LocalAmount) : 0,
-          Balance:
-            (drCr === 'D' ? Number(bc.LocalAmount) : 0) -
-            (drCr === 'C' ? Number(bc.LocalAmount) : 0),
-        };
-      });
+      AllBankCash
+        .filter(bc => bc.subledgerMaster)
+        .forEach(bc => {
+
+          const drCr = bc.VoucherDetail?.[0]?.DrCr;
+          const subId = bc.subledgerMaster.SubledgerMasterSid;
+
+          const drAmount = drCr === 'D' ? Number(bc.LocalAmount) : 0;
+          const crAmount = drCr === 'C' ? Number(bc.LocalAmount) : 0;
+
+          if (!customerMap.has(subId)) {
+            customerMap.set(subId, {
+              SubledgerMasterSid: subId,
+              SubledgerName: bc.subledgerMaster.SubledgerName,
+              Account:
+                coamaster.find(
+                  c => c.COAMasterSid === bc.VoucherDetail?.[0]?.COAMasterSid
+                )?.LedgerName || '',
+              DrAmount: 0,
+              CrAmount: 0,
+              Balance: 0,
+            });
+          }
+
+          const customer = customerMap.get(subId);
+          customer.DrAmount += drAmount;
+          customer.CrAmount += crAmount;
+          customer.Balance += drAmount - crAmount;
+        });
+
+      const AllCashAndBank = Array.from(customerMap.values());
+
+
 
       // ----Vendor Os ---------
       const vendorOsVouchers = await this._db.voucherTransaction.findMany({
@@ -5012,7 +5051,17 @@ const salesmanInvolved =
           }
         },
         include: {
-          subledgerMaster: true,
+          subledgerMaster: {
+            where:{
+              SubledgerType:'Customer',
+              Status:'A'
+            },
+            select:{
+              SubledgerName:true,
+              SubledgerType:true,
+              SubledgerMasterSid:true
+            }
+          },
           voucherMatchings: {
             where: { Status: 'A' }
           }
