@@ -147,7 +147,7 @@ export class VendorInvoiceService {
                                 MasterJobSid: detail.MasterJobSid || payload.MasterJobSid,
                                 HouseJobSid: detail.HouseJobSid || payload.HouseJobSid,
                                 DepartmentMasterSid : detail.DepartmentMasterSid || null,
-                                CostRevenueChargeSid : detail.CostRevenueChargesSid || null,
+                                CostRevenueChargesSid : detail.CostRevenueChargesSid || null,
                                 CreatedBy: payload.CreatedBy || 'System',
                                 Narration : detail.Narration || null,
                                 Status: 'A'
@@ -491,7 +491,7 @@ export class VendorInvoiceService {
                     YearMasterSid : detail.YearMasterSid || payload.YearMasterSid,
                     MasterJobSid: detail.MasterJobSid || payload.MasterJobSid,
                     HouseJobSid: detail.HouseJobSid || payload.HouseJobSid,
-                    CostRevenueChargeSid : detail.CostRevenueChargeSid || null,
+                    CostRevenueChargesSid : detail.CostRevenueChargeSid || null,
                     CreatedBy: payload.UpdatedBy || 'System',
                     Status: 'A'
                 }

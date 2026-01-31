@@ -1329,7 +1329,7 @@ if (!croPayload?.BookingCroSid) {
                     { FPD: { contains: search, mode: 'insensitive' } },
                     { VesselName: { contains: search, mode: 'insensitive' } },
                     { VoyageNo: { contains: search, mode: 'insensitive' } },
-                    { houseJob : { some : { masterJob : { MasterJobNumber : { contains : search , mode : 'insensitive'}}}}},
+                    { houseJob : { masterJob : { MasterJobNumber : { contains : search , mode : 'insensitive'}}}},
                     ...(salesmanIds.length ? [{ SalesmanSid: { in: salesmanIds } }] : []),
                     { BookingStatus : {contains : search , mode : 'insensitive'}},
                     ...(shipmentNosByMilestone.length ? [{ ShipmentNo: { in: shipmentNosByMilestone } }] : []),
