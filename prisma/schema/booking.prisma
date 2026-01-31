@@ -68,6 +68,7 @@ model BookingHeader {
   CarrierSid                 Int?
   JobType                    String?                      @db.VarChar(12)
   TranshipmentHouseSid       Int?
+  HouseJobSid                Int?
   ActivityResourceAllocation ActivityResourceAllocation[]
   bookingCargo               BookingCargo[]
   bookingConnection          BookingConnection[]
@@ -76,13 +77,13 @@ model BookingHeader {
   companyMaster              CompanyMaster                @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
   customerBranch             CustomerBranch?              @relation(fields: [CustomerBranchSid], references: [CustomerBranchSid])
   departmentMaster           DepartmentMaster             @relation(fields: [DepartmentMasterSid], references: [DepartmentMasterSid])
+  houseJob                   HouseJob?
   menuMaster                 MenuMaster?                  @relation(fields: [MenuMasterSid], references: [MenuMasterSid])
   portMaster                 PortMaster?                  @relation(fields: [TsPortSid], references: [PortMasterSid])
   voyageMasterHeader         VoyageMasterHeader?          @relation(fields: [VoyageMasterSid], references: [VoyageMasterHeaderSid])
   bookingOthers              BookingOthers[]
   bookingProduct             BookingProduct[]
   bookingRates               BookingRates[]
-  houseJob                   HouseJob[]
   paymentRequest             PaymentRequest[]
   quotationHeader            QuoteHeader?
   quotationRoute             QuoteRoute?

@@ -104,6 +104,8 @@ model CompanyMaster {
   ShippingInstruction        ShippingInstruction[]
   subledgerMaster            SubledgerMaster[]
   supplierTdsMapping         SupplierTdsMapping[]
+  stdRateHeader              StdRateHeader[]
+  stdTariffDetail            StdTariffDetail[]
   tdsSetHeader               TDSSetHeader[]
   tandCTransaction           TandCTransaction[]
   tariffDetail               TariffDetail[]
@@ -330,10 +332,13 @@ model CurrencyMaster {
   MatchingDetail       MatchingDetail[]
   paymentRequestDetail PaymentRequestDetail[]
   quoteCharge          QuoteCharge[]
+  SaleStdTariffDetail  StdTariffDetail[]      @relation("SaleCurrency")
+  CostStdTariffDetail  StdTariffDetail[]      @relation("CostCurrency")
   tariffDetailBuy      TariffDetail[]         @relation("Buy")
   tariffDetailSale     TariffDetail[]         @relation("Sale")
   VoucherDetail        VoucherDetail[]
-  VoucherHeader        VoucherHeader[]
+  VoucherHeader        VoucherHeader[]        @relation("PartyCurrency")
+  bankVoucherHeader    VoucherHeader[]        @relation("BankCurrency")
 }
 
 model CurrencyExchange {
@@ -483,6 +488,7 @@ model DepartmentMaster {
   quoteHeader           QuoteHeader[]
   quoteRoute            QuoteRoute[]
   SubledgerMaster       SubledgerMaster[]
+  StdRateHeader         StdRateHeader[]
   tariffHeader          TariffHeader[]
   VoucherDetail         VoucherDetail[]
   VoucherHeader         VoucherHeader[]
@@ -575,6 +581,7 @@ model ChargeMaster {
   chargeTds            ChargeTds[]
   costRevenueCharges   CostRevenueCharges[]
   paymentRequestDetail PaymentRequestDetail[]
+  StdTariffDetail      StdTariffDetail[]
   VoucherDetail        VoucherDetail[]
   VoucherTransaction   VoucherTransaction[]
 }
@@ -1373,6 +1380,7 @@ model UOMMaster {
   paymentRequestDetail PaymentRequestDetail[]
   quoteCargo           QuoteCargo[]
   quoteCharge          QuoteCharge[]
+  StdTariffDetail      StdTariffDetail[]
   tariffDetail         TariffDetail[]
 
   @@index([status])
@@ -1555,7 +1563,7 @@ model BranchBank {
   BankCode          String?         @db.VarChar(50)
   BankName          String          @db.VarChar(100)
   BankAddress       String?         @db.VarChar(500)
-  IFSCCode          String?         @db.VarChar(20)
+  IFSCCode          String?         @db.VarChar(30)
   BankAccountNo     String?         @db.VarChar(50)
   BeneficiaryName   String?         @db.VarChar(100)
   BranchMasterSid   Int
@@ -2770,7 +2778,7 @@ model HouseJob {
   IsServiceJob               String?                      @db.Char(1)
   CarrierSid                 Int?
   CustomerBranchSid          Int?
-  BookingHeaderSid           Int?
+  BookingHeaderSid           Int?                         @unique
   AuthorizerRemarks          String?                      @db.VarChar(100)
   BookingDateTime            DateTime?
   BookingStatus              String?                      @db.VarChar(100)
@@ -3072,6 +3080,8 @@ model VoucherHeader {
   MasterJobSid              Int?
   CurrencyMasterSid         Int?
   CurrencyCode              String?                 @db.Char(3)
+  BankCurrencyMasterSid     Int?
+  BankCurrencyCode          String?                 @db.Char(3)
   ExchangeRate              Decimal?                @db.Decimal(8, 5)
   Amount                    Decimal?                @db.Decimal(15, 3)
   LocalAmount               Decimal?                @db.Decimal(15, 3)
@@ -3091,6 +3101,7 @@ model VoucherHeader {
   CashOrBank                String?                 @default("C") @db.Char(1)
   MultiBranch               String?                 @default("N") @db.Char(1)
   BookingHeaderSid          Int?
+  Salesman                  String?                 @db.VarChar(30)
   BookingRatesCost          BookingRates[]          @relation("COST")
   BookingRatesRevenue       BookingRates[]          @relation("REVENUE")
   CostRevenueChargesCost    CostRevenueCharges[]    @relation("COST")
@@ -3102,7 +3113,8 @@ model VoucherHeader {
   BranchMaster              BranchMaster            @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
   coaMaster                 COAMaster?              @relation(fields: [COAMasterSid], references: [COAMasterSid])
   CompanyMaster             CompanyMaster           @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
-  currencyMaster            CurrencyMaster?         @relation(fields: [CurrencyMasterSid], references: [CurrencyMasterSid])
+  currencyMaster            CurrencyMaster?         @relation("PartyCurrency", fields: [CurrencyMasterSid], references: [CurrencyMasterSid])
+  bankCurrencyMaster        CurrencyMaster?         @relation("BankCurrency", fields: [BankCurrencyMasterSid], references: [CurrencyMasterSid])
   customerBranch            CustomerBranch?         @relation(fields: [CustomerBranchSid], references: [CustomerBranchSid])
   departmentMaster          DepartmentMaster?       @relation(fields: [DepartmentMasterSid], references: [DepartmentMasterSid])
   houseJob                  HouseJob?               @relation(fields: [HouseJobSid], references: [HouseJobSid])
@@ -3159,10 +3171,10 @@ model VoucherDetail {
   PartyAmount           Decimal?            @db.Decimal(15, 3)
   VoucherTransactionSid Int?                @unique
   IsAutoGenerated       String?             @default("N") @db.Char(1)
-  CostRevenueChargeSid  Int?
+  CostRevenueChargesSid  Int?
   BranchMaster          BranchMaster        @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
   coaMaster             COAMaster           @relation(fields: [COAMasterSid], references: [COAMasterSid])
-  costRevenueCharge     CostRevenueCharges? @relation(fields: [CostRevenueChargeSid], references: [CostRevenueChargesSid])
+  costRevenueCharge     CostRevenueCharges? @relation(fields: [CostRevenueChargesSid], references: [CostRevenueChargesSid])
   chargeMaster          ChargeMaster?       @relation(fields: [ChargeMasterSid], references: [ChargeMasterSid])
   CompanyMaster         CompanyMaster       @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
   CostCenterMaster      CostCenterMaster?   @relation(fields: [CostCenter], references: [CostCenterMasterSid])
@@ -3692,4 +3704,50 @@ model VoucherPeriod {
   YearMaster    YearMaster    @relation(fields: [YearMasterSid], references: [YearMasterSid])
   CompanyMaster CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
   BranchMaster  BranchMaster  @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
+}
+
+model StdRateHeader {
+  StdRateHeaderSid    Int       @id @default(autoincrement())
+  CompanyMasterSid    Int
+  CreatedOn           DateTime
+  CreatedBy           String    @db.VarChar(100)
+  UpdatedOn           DateTime?
+  UpdatedBy           String?   @db.VarChar(100)
+  DepartmentMasterSid Int
+  Remarks             String?   @db.VarChar(200)
+  Status              String    @default("A") @db.Char(1)
+
+  CompanyMaster    CompanyMaster     @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+  DepartmentMaster DepartmentMaster  @relation(fields: [DepartmentMasterSid], references: [DepartmentMasterSid])
+  StdTariffDetails StdTariffDetail[]
+}
+
+model StdTariffDetail {
+  StdTariffDetailSid Int       @id @default(autoincrement())
+  StdRateHeaderSid   Int
+  CreatedOn          DateTime
+  CreatedBy          String    @db.VarChar(100)
+  UpdatedOn          DateTime?
+  UpdatedBy          String?   @db.VarChar(100)
+  Status             String    @default("A") @db.Char(1)
+  CompanyMasterSid   Int
+  CargoType          String?   @db.VarChar(20)
+  ChargeMasterSid    Int
+  ChargeName         String    @db.VarChar(100)
+  UomSid             Int
+  SaleCurrency       Int
+  SaleAmount         Decimal   @db.Decimal(12, 3)
+  CostCurrency       Int
+  CostAmount         Decimal   @db.Decimal(12, 3)
+  CalculationType    String    @default("Normal") @db.VarChar(10) //Normal, Slab, Additional, Percentage
+  ValidFrom          DateTime  @db.Date
+  ValidTo            DateTime  @db.Date
+  Remarks            String?   @db.VarChar(200)
+
+  CompanyMaster      CompanyMaster  @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+  ChargeMaster       ChargeMaster   @relation(fields: [ChargeMasterSid], references: [ChargeMasterSid])
+  UOMMaster          UOMMaster      @relation(fields: [UomSid], references: [UOMMasterSid])
+  SaleCurrencyMaster CurrencyMaster @relation("SaleCurrency", fields: [SaleCurrency], references: [CurrencyMasterSid])
+  CostCurrencyMaster CurrencyMaster @relation("CostCurrency", fields: [CostCurrency], references: [CurrencyMasterSid])
+  StdRateHeader      StdRateHeader  @relation(fields: [StdRateHeaderSid], references: [StdRateHeaderSid])
 }
