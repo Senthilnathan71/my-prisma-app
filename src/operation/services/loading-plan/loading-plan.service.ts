@@ -82,6 +82,7 @@ export class LoadingPlanService {
 
                     return {
                         BookingHeaderSid : booking.BookingHeaderSid,
+                        HouseJobSid : booking.HouseJobSid,
                         BookingNo: booking.BookingNo,
                         BookingDate : booking.BookingDateTime,
                         DepartmentMasterSid : booking.DepartmentMasterSid,

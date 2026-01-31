@@ -3,7 +3,7 @@ import { DatabaseService } from 'src/database/database.service';
 import { OperationCommonService } from '../operation-common/operation-common.service';
 import { MenuService } from 'src/masters/services/menu/menu.service';
 import * as moment from 'moment-timezone';
-import { parseDateFromString, toNumber } from 'src/common/helper';
+import { parseDateFromString, statusWhereClause, toNumber } from 'src/common/helper';
 import { NumberSeriesService } from 'src/settings/services/number-series/number-series.service';
 import { Prisma } from '@prisma/client';
 interface searchHouseJob {
@@ -1693,7 +1693,7 @@ async searchHouseJob(params: searchHouseJob) {
   const skip = (page - 1) * pageSize;
 
   const where: Prisma.HouseJobWhereInput = {
-    status: 'A',
+    status: statusWhereClause,
     CompanyMasterSid: activeCompanyId,
     BranchMasterSid: activeBranchId,
 
