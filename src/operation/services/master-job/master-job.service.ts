@@ -1537,7 +1537,7 @@ private getWeightInFromUnitSid(weightUnitSid: number): string {
                             ATD: connection.ATD ? new Date(connection.ATD) : null,
                             ATA: connection.ATA ? new Date(connection.ATA) : null,
                             Remarks: connection.Remarks,
-                            UpdatedBy: payload.UpdatedBy || payload.CreatedBy,
+                            UpdatedBy: payload.updatedBy || payload.createdBy,
                             UpdatedOn: new Date(),
                         };
 
@@ -1562,7 +1562,7 @@ private getWeightInFromUnitSid(weightUnitSid: number): string {
                             ATA: connection.ATA ? new Date(connection.ATA) : null,
                             Remarks: connection.Remarks,
                             Status: String(connection.status).charAt(0) || 'A',
-                            CreatedBy: payload.CreatedBy,
+                            CreatedBy: payload.updatedBy,
                             CreatedOn: new Date(),
                         };
 
@@ -1597,6 +1597,8 @@ private getWeightInFromUnitSid(weightUnitSid: number): string {
                         AgentRef: otherFormValue?.AgentRef,
                         ExportDoDate: otherFormValue?.ExportDoDate ? new Date(otherFormValue?.ExportDoDate) : null,
                         SOBDate: otherFormValue?.SOBDate ? new Date(otherFormValue?.SOBDate) : null,
+                        UpdatedBy : payload.updatedBy,
+                        CreatedOn : new Date(),
                     }
                     finalOthers = await prisma.masterJobOthers.update({
                         where: {
@@ -1608,7 +1610,6 @@ private getWeightInFromUnitSid(weightUnitSid: number): string {
                 else {
                     const otherPayload = {
                         MasterJobSid: updatedMasterJob?.MasterJobSid,
-                        CreatedBy: payload.CreatedBy,
                         Status: "A",
                         Yard: otherFormValue?.Yard ? Number(otherFormValue?.Yard) : null,
                         YardAddress: otherFormValue?.YardAddress,
@@ -1629,6 +1630,8 @@ private getWeightInFromUnitSid(weightUnitSid: number): string {
                         AgentRef: otherFormValue?.AgentRef,
                         ExportDoDate: otherFormValue?.ExportDoDate ? new Date(otherFormValue?.ExportDoDate) : null,
                         SOBDate: otherFormValue?.SOBDate ? new Date(otherFormValue?.SOBDate) : null,
+                        CreatedBy : payload.updatedBy,
+                        CreatedOn : new Date(),
                     }
                     finalOthers = await prisma.masterJobOthers.create({
                         data: otherPayload
@@ -1655,7 +1658,9 @@ private getWeightInFromUnitSid(weightUnitSid: number): string {
                                 NetWeight: item.NetWeight ? Number(item.NetWeight) : null,
                                 ChargeableWeight: item.ChargeableWeight ? Number(item.ChargeableWeight) : null,
                                 Volume: item.Volume ? Number(item.Volume) : null,
-                                IsSoc: item.IsSoc
+                                IsSoc: item.IsSoc,
+                                UpdatedBy : payload.updatedBy,
+                                UpdatedOn : new Date()
                             }
                             updatedContainer = await prisma.masterJobContainer.update({
                                 where: {
@@ -1667,7 +1672,7 @@ private getWeightInFromUnitSid(weightUnitSid: number): string {
                             // create - For new containers, use payload.MasterJobSid
                             const containerPayload = {
                                 MasterJobSid: payload.MasterJobSid, // This is correct for new containers
-                                CreatedBy: payload.CreatedBy,
+                                CreatedBy: payload.updatedBy,
                                 Status: "A",
                                 ContainerType: Number(item.ContainerType),
                                 ContainerNumber: item.ContainerNumber,
@@ -1704,7 +1709,8 @@ private getWeightInFromUnitSid(weightUnitSid: number): string {
                             MenuMasterSid: masterJobMenuId || updatedMasterJob.MenuMasterSid!,
                             ShipmentNo: updatedMasterJob.MasterJobNumber,
                             MasterJobNo: updatedMasterJob.MasterJobNumber,
-                            updatedBy: payload.UpdatedBy || '',
+                            updatedBy: payload.updatedBy || '',
+                            updatedOn : new Date(),
                             status: String(item.status).charAt(0) || 'A',
                             Remarks: item.Remarks || '',
 
@@ -1804,7 +1810,7 @@ private getWeightInFromUnitSid(weightUnitSid: number): string {
                             CostVoucherHeaderSid: item.CostVoucherHeaderSid ? Number(item.CostVoucherHeaderSid) : null,
                             CostVoucherTypeMasterSid: item.CostVoucherTypeSid ? Number(item.CostVoucherTypeSid) : null,
 
-                            createdBy: payload.CreatedBy,
+                            createdBy: payload.updatedBy,
                             status: "A",
                             Remarks: item.Remarks
                         }
@@ -1833,7 +1839,7 @@ private getWeightInFromUnitSid(weightUnitSid: number): string {
                             ActivityFrom: act.ActivityFrom,
                             ActivityTo: act.ActivityTo,
                             Remarks: act.Remarks,
-                            UpdatedBy: payload.UpdatedBy || payload.CreatedBy,
+                            UpdatedBy: payload.updatedBy || payload.createdBy,
                             UpdatedOn: new Date(),
                         };
 
@@ -1855,7 +1861,7 @@ private getWeightInFromUnitSid(weightUnitSid: number): string {
                             ActivityFrom: act.ActivityFrom,
                             ActivityTo: act.ActivityTo,
                             Remarks: act.Remarks,
-                            CreatedBy: payload.CreatedBy,
+                            CreatedBy: payload.updatedBy,
                             Status: "A",
                         };
 
@@ -1900,7 +1906,7 @@ private getWeightInFromUnitSid(weightUnitSid: number): string {
                                 MinTemperature: customs.MinTemperature ? Number(customs.MinTemperature) : null,
                                 MaxTemperature: customs.MaxTemperature ? Number(customs.MaxTemperature) : null,
                                 RefTemperatureUnit: customs.RefTemperatureUnit,
-                                UpdatedBy: payload.updatedBy || payload.CreatedBy,
+                                UpdatedBy: payload.updatedBy || payload.createdBy,
                                 UpdatedOn: new Date(),
                             };
 
@@ -1945,7 +1951,7 @@ private getWeightInFromUnitSid(weightUnitSid: number): string {
                                 MinTemperature: customs.MinTemperature ? Number(customs.MinTemperature) : null,
                                 MaxTemperature: customs.MaxTemperature ? Number(customs.MaxTemperature) : null,
                                 RefTemperatureUnit: customs.RefTemperatureUnit,
-                                CreatedBy: payload.updatedBy || payload.CreatedBy,
+                                CreatedBy: payload.updatedBy || payload.createdBy,
                                 Status: "A"
                             };
 
@@ -1985,8 +1991,8 @@ private getWeightInFromUnitSid(weightUnitSid: number): string {
             // SHIPMENT PART
 
             const allShipments = payload.shipmentList || [];
-            const recordToCreateShipment = allShipments.filter(shipment => !shipment.HBLNo);
-            const recordToUpdateShipment = allShipments.filter(shipment => shipment.HBLNo);
+            const recordToCreateShipment = allShipments.filter(shipment => !shipment.HouseJobSid);
+            const recordToUpdateShipment = allShipments.filter(shipment => shipment.HouseJobSid);
 
 
             if (recordToCreateShipment.length > 0) {
@@ -2002,11 +2008,6 @@ private getWeightInFromUnitSid(weightUnitSid: number): string {
                     },
                 });
 
-                const dateString = moment().format('YYYYMMDD');
-                let hblBaseCount = await this._db.houseJob.count({
-                    where: { HBLNo: { contains: dateString } },
-                });
-                let hblSerial = hblBaseCount;
 
                 const allCreatedHouseJobs: any[] = [];
                 for (const booking of allBookings) {
@@ -2021,16 +2022,26 @@ private getWeightInFromUnitSid(weightUnitSid: number): string {
                         }
                     });
                     const departmentExportImport = department?.ExportImport ?? null;
-                    hblSerial += 1;
-                    let HBLNo;
-                    if (departmentExportImport === 'Export') {
-                        HBLNo = `HOUSE-${dateString}-${hblSerial.toString().padStart(3, '0')}`;
-                    } else {
-                        HBLNo = "";
-                    }
 
                     const houseJobMenuId = await this.menuMasterService.getMenuSidByName(payload.screenName === 'Master Job' ? 'House Job' : 'House Air Waybill');
 
+                    let HBLNo = "";
+
+                    if (String(bookingHeader.JobType || '').toLowerCase() === 'transhipment') {
+                        // allow same HBLNo from booking
+                        HBLNo = String(bookingHeader.HBLNo || '').trim();
+                    } else {
+                        if (departmentExportImport === 'Export') {
+                            HBLNo = await this.numberSeriesService.generateNextNumber(
+                                payload.CompanyMasterSid,
+                                payload.BranchMasterSid,
+                                houseJobMenuId,
+                                bookingHeader.DepartmentMasterSid
+                            )
+                        } else {
+                            HBLNo = "";
+                        }
+                    }
 
                     // Step 1: Create main house job
                     let houseJob = await this._db.houseJob.create({
@@ -2077,7 +2088,7 @@ private getWeightInFromUnitSid(weightUnitSid: number): string {
                             MovementType: bookingHeader.MovementType || '',
                             DoValid: bookingHeader.DoValid ? new Date(bookingHeader.DoValid) : null,
                             IsServiceJob: bookingHeader.IsServiceJob || '',
-                            createdBy: payload.CreatedBy || '',
+                            createdBy: payload.createdBy || '',
                             status: bookingHeader.status || '',
                             BookingStatus: bookingHeader.BookingStatus || '',
                             DepartmentMasterSid: bookingHeader.DepartmentMasterSid,
@@ -2125,7 +2136,7 @@ private getWeightInFromUnitSid(weightUnitSid: number): string {
                                 PackageType: cargo.PackageType || null,
                                 Qty: cargo.Qty || 0,
                                 ShipmentTerms: cargo.ShipmentTerms || '',
-                                createdBy: payload.CreatedBy || '',
+                                createdBy: payload.createdBy || '',
                                 updatedBy: cargo.updatedBy || null,
                                 status: 'A',
                                 FreightTerms: cargo.FreightTerms || '',
@@ -2164,7 +2175,7 @@ private getWeightInFromUnitSid(weightUnitSid: number): string {
                                 Width: product.Width || 0,
                                 UomMasterSid: product.UomMasterSid || null,
                                 MarksAndNumber: '',
-                                createdBy: payload.CreatedBy || '',
+                                createdBy: payload.createdBy || '',
                             }))
                         }).catch(err => {
                             console.error('HouseJobProduct createMany error:', err);
@@ -2184,8 +2195,7 @@ private getWeightInFromUnitSid(weightUnitSid: number): string {
                                 ETA: connection.ETA ? new Date(connection.ETA) : null,
                                 Remarks: connection.Remarks || '',
                                 status: 'A',
-                                createdBy: payload.CreatedBy || '',
-                                updatedBy: connection.updatedBy || null,
+                                createdBy: payload.createdBy || '',
                             }))
                         }).catch(err => {
                             console.error('HouseJobConnection createMany error:', err);
@@ -2223,7 +2233,7 @@ private getWeightInFromUnitSid(weightUnitSid: number): string {
                                 ExternalRemarks: other.ExternalRemarks,
                                 SwitchBL: other.SwitchBL,
                                 TransporterName: other.TransporterName,
-                                createdBy: payload.CreatedBy || '',
+                                createdBy: payload.createdBy || '',
                                 status: 'A',
                                 Forwarder: other.Forwarder || '',
                                 ForwarderAddress: other.ForwarderAddress || '',
@@ -2260,7 +2270,7 @@ private getWeightInFromUnitSid(weightUnitSid: number): string {
                                 MasterJobNo: updatedMasterJob.MasterJobNumber,
                                 CompanyMasterSid: houseJob.CompanyMasterSid,
                                 BranchMasterSid: houseJob.BranchMasterSid!,
-                                createdBy: payload.CreatedBy || '',
+                                createdBy: payload.createdBy || '',
                                 status: "A",
                                 Remarks: rate.Remarks || '',
 
@@ -2317,6 +2327,8 @@ private getWeightInFromUnitSid(weightUnitSid: number): string {
                                     HouseJobSid: houseJob.HouseJobSid,
                                     MasterNumber: updatedMasterJob.MBLNo,
                                     HouseNumber: houseJob.HBLNo,
+                                    UpdatedBy : payload.updatedBy,
+                                    UpdatedOn : new Date()
                                 }
                             }).catch(err => {
                                 console.error('Revenue VoucherHeader update error:', err);
@@ -2334,6 +2346,8 @@ private getWeightInFromUnitSid(weightUnitSid: number): string {
                                     HouseJobSid: houseJob.HouseJobSid,
                                     MasterNumber: updatedMasterJob.MBLNo,
                                     HouseNumber: houseJob.HBLNo,
+                                    UpdatedBy : payload.updatedBy,
+                                    UpdatedOn : new Date()
                                 }
                             }).catch(err => {
                                 console.error('Cost VoucherHeader update error:', err);
@@ -2349,6 +2363,8 @@ private getWeightInFromUnitSid(weightUnitSid: number): string {
                             MBLNo: updatedMasterJob.MBLNo,
                             MBLDate: updatedMasterJob.MBLDate,
                             BookingStatus: 'Stuffed',
+                            updatedBy : payload.updatedBy,
+                            updatedOn : new Date()
                         },
                     }).catch(err => {
                         console.error('bookingHeader update error:', err);
@@ -2359,30 +2375,37 @@ private getWeightInFromUnitSid(weightUnitSid: number): string {
             }
 
             if (recordToUpdateShipment.length > 0) {
-                let houseJobNeedUpdateIds = recordToUpdateShipment.map(shipment => shipment.HBLNo);
-                for (const houseNo of houseJobNeedUpdateIds) {
-                    const ourHouse = await this._db.houseJob.findFirst({
+                let houseJobNeedUpdateIds = recordToUpdateShipment.map(shipment => shipment.HouseJobSid);
+                for (const houseId of houseJobNeedUpdateIds) {
+                    const ourHouse = await this._db.houseJob.findUnique({
                         where: {
-                            HBLNo: houseNo
+                            HouseJobSid: houseId
                         }
                     })
                     if (!ourHouse) continue;
-                    const updatedHouseJob = await this._db.houseJob.update({
+                    await this._db.houseJob.update({
                         where: { HouseJobSid: ourHouse.HouseJobSid },
                         data: {
                             MasterJobSid: updatedMasterJob.MasterJobSid,
+                            MBLNo : updatedMasterJob.MBLNo,
+                            MBLDate : updatedMasterJob.MBLDate,
+                            HouseStatus : 'Job Generated',
+                            updatedBy : payload.updatedBy,
+                            updatedOn : new Date()
                         }
                     }).catch(err => {
                         console.error('houseJob update error:', err);
                     });
 
-                    const updatedBooking = await this._db.bookingHeader.update({
+                    await this._db.bookingHeader.update({
                         where: { BookingHeaderSid: ourHouse.BookingHeaderSid! },
                         data: {
                             MasterNoSid: updatedMasterJob.MasterJobSid,
                             MBLNo: updatedMasterJob.MBLNo,
                             MBLDate: updatedMasterJob.MBLDate,
-                            BookingStatus: 'Stuffed',
+                            BookingStatus: 'Job Generated',
+                            updatedBy : payload.updatedBy,
+                            updatedOn : new Date()
                         }
                     }).catch(error =>
                         console.error('Error updating booking header', error
@@ -2402,6 +2425,8 @@ private getWeightInFromUnitSid(weightUnitSid: number): string {
                     VesselName: payload.VesselName,
                     ETA: payload.ETA ? new Date(payload.ETA) : null,
                     ETD: payload.ETD ? new Date(payload.ETD) : null,
+                    updatedBy : payload.updatedBy,
+                    updatedOn : new Date()
                 }
             })
 
