@@ -1344,7 +1344,10 @@ if (!croPayload?.BookingCroSid) {
                 where,
                 skip,
                 take: pageSize,
-                orderBy: { BookingDateTime: 'desc' },
+                orderBy: [
+                    { BookingDateTime: 'desc' },
+                    { BookingNo: 'desc' }
+                ],
                 include : {
                     houseJob : {
                         include : {

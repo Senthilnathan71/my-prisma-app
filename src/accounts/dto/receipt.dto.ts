@@ -11,6 +11,7 @@ import {
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { VoucherDetailDto } from './voucher-posting.dto';
+import { Decimal } from '@prisma/client/runtime/library';
 
 /**
  * DTO for creating a receipt voucher
@@ -271,6 +272,7 @@ export class OutstandingInvoiceDto {
   OutstandingCurrencyAmount: number;
   CurrencyCode: string;
   DrCr: string;
+  ExchangeRate : number | Decimal;
 
   // Additional search fields
   HouseNumber?: string;
