@@ -170,6 +170,8 @@ export class ReceiptService {
         OutstandingCurrencyAmount: Number(txn.Amount) - matchedAmount,
         CurrencyCode: txn.CurrencyCode || 'INR',
         DrCr: txn.DrCr,
+        ExchangeRate : txn.ExchangeRate || null,
+        ChargeDescription : txn.ChargeDescription || '',
       });
     }
 

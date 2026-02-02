@@ -140,7 +140,9 @@ export class PaymentService {
                 OutstandingLocalAmount: outstandingAmount,
                 OutstandingCurrencyAmount: Number(txn.Amount) - matchedAmount,
                 CurrencyCode: txn.CurrencyCode || 'INR',
+                ExchangeRate : txn.ExchangeRate || null,
                 DrCr: txn.DrCr,
+                ChargeDescription : txn.ChargeDescription || '',
             });
         }
 
