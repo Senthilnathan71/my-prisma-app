@@ -151,6 +151,8 @@ import { MailConfigurationService } from './services/mail-configuration/mail-con
 import { NumberSeriesService } from 'src/settings/services/number-series/number-series.service';
 import { VoucherPeriodService } from './services/voucher-period/voucher-period.service';
 import { VoucherPeriodController } from './controllers/voucher-period/voucher-period.controller';
+import { StandardChargeController } from './controllers/standard-charge/standard-charge.controller';
+import { StandardChargeService } from './services/standard-charge/standard-charge.service';
 
 @Module({
   providers: [
@@ -230,7 +232,8 @@ import { VoucherPeriodController } from './controllers/voucher-period/voucher-pe
     RoleMenuService,
     CompanyConfigService,
     MailConfigurationService,
-    VoucherPeriodService
+    VoucherPeriodService,
+    StandardChargeService
   ],
   controllers: [
     LeadController,
@@ -306,7 +309,8 @@ import { VoucherPeriodController } from './controllers/voucher-period/voucher-pe
     RoleMenuController,
     CompanyConfigController,
     MailConfigurationController,
-    VoucherPeriodController
+    VoucherPeriodController,
+    StandardChargeController
   ],
   exports: [UserService,MenuService]
 })
