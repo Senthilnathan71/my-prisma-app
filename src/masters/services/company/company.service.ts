@@ -157,6 +157,7 @@ export class CompanyService {
                                 BankName: bank.BankName,
                                 BankCode: bank.BankCode,
                                 BankAddress: bank.BankAddress || null,
+                                 BeneficiaryName:bank.BeneficiaryName || null,
                                 IFSCCode: bank.IFSCCode,
                                 BankAccountNo: bank.BankAccountNo,
                                 status: bank.status,
@@ -508,6 +509,7 @@ export class CompanyService {
                             const bankCreateData = branchData.branchBank.map(bank => ({
                                 BankName: bank.BankName,
                                 BankCode: bank.BankCode,
+                                BeneficiaryName:bank.BeneficiaryName || null,
                                 BankAddress: bank.BankAddress || null,
                                 IFSCCode: bank.IFSCCode,
                                 BankAccountNo: bank.BankAccountNo,
@@ -1072,6 +1074,7 @@ interface BankCreateInput {
     Remarks?: string | null;
     BranchMasterSid: number;
     createdBy: string;
+    BeneficiaryName:string;
     // Add other required fields from your Prisma schema
 }
 // Define interfaces at the top level of your file or in a separate types file
@@ -1085,6 +1088,7 @@ interface BankCreateInput {
     Remarks?: string | null;
     BranchMasterSid: number;
     createdBy: string;
+    BeneficiaryName:string;
 }
 
 interface BranchWithBanks extends Omit<Branch, 'branchBank'> {
@@ -1108,6 +1112,7 @@ interface BankCreateInput {
     Remarks?: string | null;
     BranchMasterSid: number;
     createdBy: string;
+    BeneficiaryName:string;
 }
 
 interface BranchWithBanks extends Omit<Branch, 'branchBank'> {

@@ -27,7 +27,6 @@ export class StandardChargeService {
             const result = await this._db.$transaction(async (prisma) => {
                 const createdHeader = await prisma.stdRateHeader.create({
                     data: {
-                        StdRateHeaderSid: payload.StdRateHeaderSid,
                         DepartmentMasterSid: payload.DepartmentMasterSid,
                         Status: payload.Status,
                         Remarks: payload.Remarks,
@@ -41,7 +40,6 @@ export class StandardChargeService {
                     dtl => {
                         return {
                             StdRateHeaderSid: createdHeader.StdRateHeaderSid,
-                            StdTariffDetailSid: payload.StdTariffDetailSid,
                             CompanyMasterSid: payload.CompanyMasterSid,
                             CreatedBy: payload.CreatedBy,
                             CreatedOn: new Date(),
@@ -71,38 +69,107 @@ export class StandardChargeService {
     }
 
     async fetchStdChargeById(StdRateHeaderSid: number) {
-        const record = await this._db.stdRateHeader.findUnique({
+        try {
+            return await this._db.stdRateHeader.findUnique({
             where: { StdRateHeaderSid },
+            include:{
+                StdTariffDetails:{
+                   where:{
+                    Status:'A'
+                   }
+                }
+            }
         });
-
-        if (!record) {
-            throw new BadRequestException(
-                `Standard Charge with id ${StdRateHeaderSid} not found`,
-            );
+        } catch (error) {
+            throw error
         }
-        return record;
     }
 
     async updateStdChargeById(StdRateHeaderSid: number, payload: any) {
-        const existingStdcharge = await this._db.stdRateHeader.findUnique({
-            where: { StdRateHeaderSid: StdRateHeaderSid },
-        });
+        try {
+            
+            const result = await this._db.$transaction(async(prisma)=>{
+                const updatedHeader = await prisma.stdRateHeader.update({
+                    where : {
+                        StdRateHeaderSid : StdRateHeaderSid
+                    },
+                    data : {
+                        CompanyMasterSid: payload.CompanyMasterSid,
+                        DepartmentMasterSid: payload.DepartmentMasterSid,
+                        Status: payload.Status,
+                        Remarks: payload.Remarks,
+                        UpdatedBy: payload.UpdatedBy,
+                        UpdatedOn : new Date(),
+                    }
+                });
 
-        if(!existingStdcharge){}
-        
-       const stdHeader=await this._db.stdRateHeader.update({
-            where: { StdRateHeaderSid ,Status:'A'},
-            data: payload,
-        });
+                const allDetailPayload = payload.StdTariffDetails || [];
 
-        await this._db.stdTariffDetail.updateMany({
-            where:{
-                StdRateHeaderSid,
-                Status:'A'
-            },
-            data:payload
-        })
-        return stdHeader
+                /**
+                 *  id - Edit
+                 *  no id - create
+                 */
+
+                const finalDetail : any[] = [];
+                for(const detail of allDetailPayload){
+                    let updatedDetail : any;
+                    let createdDetail : any;
+                    if(detail.StdTariffDetailSid){
+                        updatedDetail = await prisma.stdTariffDetail.update({
+                            where: { StdTariffDetailSid: detail.StdTariffDetailSid },
+                            data: {
+                                CompanyMasterSid: payload.CompanyMasterSid,
+                                UpdatedBy: payload.UpdatedBy,
+                                UpdatedOn: new Date(),
+                                CargoType: detail.CargoType,
+                                ChargeMasterSid: detail.ChargeMasterSid,
+                                UomSid: detail.UomSid,
+                                SaleCurrency: detail.SaleCurrency,
+                                SaleAmount: detail.SaleAmount,
+                                CostCurrency: detail.CostCurrency,
+                                CostAmount: detail.CostAmount,
+                                ValidFrom: detail.ValidFrom,
+                                ValidTo: detail.ValidTo,
+                                Status: detail.Status,
+                                ChargeName: detail.ChargeName
+                            }
+                        })
+                    } else {
+                        createdDetail = await prisma.stdTariffDetail.create({
+                            data: {
+                                StdRateHeaderSid: updatedHeader.StdRateHeaderSid,
+                                CompanyMasterSid: payload.CompanyMasterSid,
+                                CreatedBy: payload.CreatedBy,
+                                CreatedOn: new Date(),
+                                CargoType: detail.CargoType,
+                                ChargeMasterSid: detail.ChargeMasterSid,
+                                UomSid: detail.UomSid,
+                                SaleCurrency: detail.SaleCurrency,
+                                SaleAmount: detail.SaleAmount,
+                                CostCurrency: detail.CostCurrency,
+                                CostAmount: detail.CostAmount,
+                                ValidFrom: detail.ValidFrom,
+                                ValidTo: detail.ValidTo,
+                                Status: detail.Status,
+                                ChargeName: detail.ChargeName
+                            }
+                        })
+                    }
+                    finalDetail.push(updatedDetail || createdDetail);
+                }
+
+                return {
+                    updatedHeader,
+                    finalDetail
+                }
+
+            })
+
+            return result
+
+        } catch (error) {
+            
+        }
     }
 
     async deleteStdCharge(id: number) {
