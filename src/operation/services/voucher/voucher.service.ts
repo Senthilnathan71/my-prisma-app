@@ -3,7 +3,7 @@ import { Prisma, PrismaClient } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
 import { VoucherMatchingPayload } from 'src/accounts/dto/receipt.dto';
 import { PostVoucherResponseDto, TaxSummaryDto, VoucherDetailDto } from 'src/accounts/dto/voucher-posting.dto';
-import { checkIfExJvApplicable, checkIfMatchingApplicable, getPartyDrCr, getTaxInputOutput, getTaxLedger, TaxLedgerType, TaxVoucherType } from 'src/common/config/voucher-type.config';
+import { checkIfExJvApplicable, checkIfMatchingApplicable, checkIfReversalApplicable, getPartyDrCr, getTaxInputOutput, getTaxLedger, TaxLedgerType, TaxVoucherType } from 'src/common/config/voucher-type.config';
 import { DatabaseService } from 'src/database/database.service';
 import * as moment from 'moment-timezone';
 import { CheckAutoPostingDto, CreateVoucherPayload } from 'src/accounts/dto/voucher.dto';
@@ -1941,6 +1941,17 @@ export class VoucherService {
                 }, tx);
 
                 (matchingRecords.voucherMatchingDetails || []).forEach(mr => allMatchingIds.add(mr.VoucherMatchingSid));
+            }
+
+            if(checkIfReversalApplicable(voucherType)){
+                const allDetails = voucher.VoucherDetail || [];
+                for(const detail of allDetails){
+                    if(!detail.SourceDetailSid) continue;
+                    await tx.voucherDetail.update({
+                        where : { VoucherDetailSid : detail.SourceDetailSid },
+                        data : { ReversalAmount : detail.PartyAmount }
+                    })
+                }
             }
 
         } else {

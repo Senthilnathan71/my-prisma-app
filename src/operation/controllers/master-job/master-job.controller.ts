@@ -204,11 +204,14 @@ export class MasterJobController {
     })
     @HttpCode(HttpStatus.OK)
     @Delete('detach/:BookingHeaderSid')
-    async detachBookingFromMasterJob(@Param('BookingHeaderSid', ParseIntPipe) BookingHeaderSid: number) {
+    async detachBookingFromMasterJob(
+        @Param('BookingHeaderSid', ParseIntPipe) BookingHeaderSid: number,
+        @Query('userEmail') userEmail: string
+    ) {
       let resp = new ResponseData();
       try {
         this.logger.log(`Detaching Booking with id : ${BookingHeaderSid}`);
-        const result = await this.masterJobService.detachBookingFromMasterJob(BookingHeaderSid);
+        const result = await this.masterJobService.detachBookingFromMasterJob(BookingHeaderSid,userEmail);
         this.logger.debug(`Detached Booking with id : ${BookingHeaderSid}`);
         resp.data = result;
         resp.message = `Booking with id: ${BookingHeaderSid} is successfully detached from Master Job`;

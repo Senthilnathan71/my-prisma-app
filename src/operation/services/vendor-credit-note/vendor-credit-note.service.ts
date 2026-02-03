@@ -3,6 +3,8 @@ import { DatabaseService } from 'src/database/database.service';
 import { Prisma } from '@prisma/client';
 import { VoucherService } from '../voucher/voucher.service';
 import { VoucherPeriodService } from 'src/masters/services/voucher-period/voucher-period.service';
+import { PullVoucherDTO, VoucherHeaderDto } from 'src/accounts/dto/voucher.dto';
+import { toNumber } from 'src/common/helper';
 
 @Injectable()
 export class VendorCreditNoteService {
@@ -101,6 +103,7 @@ export class VendorCreditNoteService {
                             Status: payload.status || 'A',
                             CreatedBy: payload.CreatedBy || 'System',
                             ReversalVoucher: payload.ReversalVoucher || null,
+                            CreditNoteReason : payload.CreditNoteReason || null,
                         }
                     });
     
@@ -134,6 +137,7 @@ export class VendorCreditNoteService {
                                     DrCr: detail.DrCr || 'D', // Vendor CreditNote = Debit (payable)
                                     LedgerMasterSid: detail.LedgerMasterSid,
                                     COAMasterSid: detail.COAMasterSid,
+                                    PartyAmount : detail.PartyAmount,
                                     MasterJobSid: detail.MasterJobSid || payload.MasterJobSid,
                                     HouseJobSid: detail.HouseJobSid || payload.HouseJobSid,
                                     YearMasterSid : detail.YearMasterSid || payload.YearMasterSid,
@@ -254,7 +258,7 @@ export class VendorCreditNoteService {
         }
     }
 
-    async fetchVendorCreditNoteById(VoucherHeaderSid: number, tx?: any): Promise<any> {
+    async fetchVendorCreditNoteById(VoucherHeaderSid: number, tx?: Prisma.TransactionClient): Promise<any> {
             try {
                 const db = tx || this._db;
     
@@ -295,10 +299,52 @@ export class VendorCreditNoteService {
                         
                     }
                 }); 
-    
+
                 if (!vendorCreditNote) {
                     throw new NotFoundException(`Vendor CreditNote with ID ${VoucherHeaderSid} not found`);
                 }
+
+                if (vendorCreditNote.ReversalVoucher) {
+                    // Checking if any other credit note is created against this vendor invoice
+                    const reversalVoucher = await this._db.voucherHeader.findMany({
+                        where: { 
+                            AND : [
+                                { ReversalVoucher: vendorCreditNote.ReversalVoucher },
+                                { VoucherHeaderSid : { not : VoucherHeaderSid } },
+                                { voucherTypeMaster : { DocumentTypeCode : 'VCN' } },
+                                { PostStatus : 'P' },
+                            ]
+                        },
+                        select :{
+                            VoucherHeaderSid: true,
+                            VoucherNumber: true,
+                            VoucherDetail : {
+                                select : {
+                                    VoucherDetailSid : true,
+                                    Rate : true,
+                                    CostRevenueChargesSid : true
+                                }
+                            }
+                        }
+                    })
+
+                    // If no reversal voucher found, return original vendor credit note
+                    if(!reversalVoucher ||  reversalVoucher.length === 0) {
+                        return vendorCreditNote;
+                    }
+
+                    // Get Updated Amount for Each Detail (meaning , another credit note is already created for this vendor invoice)
+                    const updatedVoucherDetails = vendorCreditNote.VoucherDetail.forEach(detail => {
+
+                    });
+
+                    return {
+                        ...vendorCreditNote,
+                        reversalVoucher
+                    }
+                }
+
+
     
                 return vendorCreditNote;
             } catch (error) {
@@ -357,7 +403,8 @@ export class VendorCreditNoteService {
                         Remarks: payload.Remarks,
                         Status: payload.status,
                         UpdatedBy: payload.UpdatedBy || 'System',
-                        UpdatedOn: new Date()
+                        UpdatedOn: new Date(),
+                        CreditNoteReason : payload.CreditNoteReason || null,
                     }
                 });
 
@@ -408,6 +455,7 @@ if (payload.VoucherDetail && Array.isArray(payload.VoucherDetail)) {
                     DrCr: detail.DrCr || 'D',
                     LedgerMasterSid: detail.LedgerMasterSid,
                     COAMasterSid: detail.COAMasterSid,
+                    PartyAmount : detail.PartyAmount,
                     MasterJobSid: detail.MasterJobSid || payload.MasterJobSid,
                     HouseJobSid: detail.HouseJobSid || payload.HouseJobSid,
                     UpdatedBy: payload.UpdatedBy || 'System',
@@ -444,6 +492,7 @@ if (payload.VoucherDetail && Array.isArray(payload.VoucherDetail)) {
                     DrCr: detail.DrCr || 'D',
                     LedgerMasterSid: detail.LedgerMasterSid,
                     COAMasterSid: detail.COAMasterSid,
+                    PartyAmount : detail.PartyAmount,
                     MasterJobSid: detail.MasterJobSid || payload.MasterJobSid,
                     HouseJobSid: detail.HouseJobSid || payload.HouseJobSid,
                     YearMasterSid : detail.YearMasterSid || payload.YearMasterSid,
@@ -640,69 +689,54 @@ if (payload.VoucherDetail && Array.isArray(payload.VoucherDetail)) {
         }
     }
 
-    async fetchVendorInvoiceById(VoucherHeaderSid: number, tx?: any): Promise<any> {
+    async fetchVendorInvoice(payload: PullVoucherDTO, tx ?: Prisma.TransactionClient ) : Promise<any> {
         try {
-            const db = tx || this._db;
+            const prisma = tx || this._db;
+            const { VoucherNumber, CompanyMasterSid, BranchMasterSid } = payload;
 
-            const vendorInvoice = await db.voucherHeader.findUnique({
-                where: { VoucherHeaderSid },
-                include: {
-                    // VoucherDetail: {
-                    //     where: { Status: 'A' },
-                    //     include: {
-                    //         chargeMaster: {
-                    //             include: {
-                    //                 chargeTaxMaster: true
-                    //             }
-                    //         },
-                    //         hSSACMaster: true,
-                    //         currencyMaster: true
-                    //     }
-                    // },
-                    // VoucherTDS: {
-                    //     where: { Status: 'A' },
-                    //     include: {
-                    //         TDSSetRate: {
-                    //             include: {
-                    //                 tdsSetHeader: true
-                    //             }
-                    //         }
-                    //     }
-                    // },
-                    VoucherOthers: {
-                        where: { Status: 'A' }
+            const vendorInvoice = await prisma.voucherHeader.findFirst({
+                where : {
+                    VoucherNumber : { contains : VoucherNumber, mode : 'insensitive' },
+                    CompanyMasterSid,
+                    BranchMasterSid,
+                    voucherTypeMaster : {
+                        DocumentTypeCode : 'VIN'
                     },
-                    subledgerMaster: true,
-                    customerBranch: true,
-                    currencyMaster: true,
-                    masterJob: true,
-                    houseJob: true,
-                    voucherTypeMaster: true,
-                    VoucherTransaction: {
-                where: {
-                  OR: [
-                    { IsAutoGenerated: 'N' },
-                    { IsAutoGenerated: null }
-                  ]
+                    Status : 'A',
                 },
                 include : {
-                  voucherDetail : true
+                    VoucherDetail : {
+                        where : {
+                            IsAutoGenerated : 'N',
+                            Status : 'A'
+                        },
+                        orderBy : {
+                            Sno : 'asc'
+                        }
+                    },
+                    voucherTypeMaster : {
+                        select : {
+                            DocumentTypeName : true
+                        }
+                    }
                 }
-            }
-                }
-            }); 
+            });
 
-            if (!vendorInvoice) {
-                throw new NotFoundException(`Vendor Invoice with ID ${VoucherHeaderSid} not found`);
+            if(!vendorInvoice) {
+                throw new NotFoundException(`Vendor Invoice with Voucher Number ${VoucherNumber} not found`);
             }
 
-            return vendorInvoice;
+            if(vendorInvoice.PostStatus !== 'P') {
+                throw new BadRequestException(`Vendor Invoice with Voucher Number ${VoucherNumber} is not posted`);
+            }
+
+            if(vendorInvoice.VoucherDetail.length === 0) {
+                throw new BadRequestException(`Vendor Invoice with Voucher Number ${VoucherNumber} has no details`);
+            }
+
+
         } catch (error) {
-            this.logger.error(`Error fetching vendor invoice by ID: ${error.message}`);
-            if (error instanceof NotFoundException) {
-                throw error;
-            }
-            throw new InternalServerErrorException('Failed to fetch vendor invoice');
+            throw error;
         }
     }
 

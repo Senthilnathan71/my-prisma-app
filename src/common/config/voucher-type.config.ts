@@ -68,6 +68,14 @@ export const checkIfExJvApplicable = (voucherType: string): boolean => {
 };
 
 /**
+ * Voucher Type those are reversals
+ */
+const reversalVouchers = ["Credit Note", "Vendor Credit Note","Reversal Voucher"];
+export const checkIfReversalApplicable = (voucherType: string): boolean => {
+  return reversalVouchers.includes(voucherType);
+};
+
+/**
  * Voucher Type those can have Voucher Matching
  * Voucher Matching is created when :
  * We generate a invoice for a customer
