@@ -35,6 +35,7 @@ export class EDIManifestService {
     const masterJob = await this._db.masterJob.findUnique({
       where: { MasterJobSid: masterJobSid, Status: 'A' },
       include: {
+        houseJobCustoms: { where: { Status: 'A' } },
         voyages: { where: { Status: 'A' } },
         containers: { where: { Status: 'A' }, include: { containerType: true } },
         others: { where: { Status: 'A' } },
@@ -68,13 +69,13 @@ export class EDIManifestService {
     }
 
     // Validate mandatory fields before generating
-    const validation = this.validateMandatoryFields(masterJob, originCountryCode);
-    if (!validation.isValid) {
-      throw new BadRequestException({
-        message: 'Mandatory fields are missing. Please fill all required fields before generating EDI Manifest.',
-        errors: validation.errors,
-      });
-    }
+    // const validation = this.validateMandatoryFields(masterJob, originCountryCode);
+    // if (!validation.isValid) {
+    //   throw new BadRequestException({
+    //     message: 'Mandatory fields are missing. Please fill all required fields before generating EDI Manifest.',
+    //     errors: validation.errors,
+    //   });
+    // }
 
     return this.generateManifestText(masterJob, originCountryCode);
   }
@@ -156,7 +157,7 @@ export class EDIManifestService {
       }
 
       // CON Records - Consignment Details
-      const conRecords = this.generateCONRecords(houseJob);
+      const conRecords = this.generateCONRecords(masterJob, houseJob);
       lines.push(...conRecords);
     }
 
@@ -173,7 +174,7 @@ export class EDIManifestService {
   private generateVOYRecord(masterJob: any): string {
     const voyage = masterJob.voyages?.[0] || {};
     const houseJob = masterJob.houseJob?.[0] || {};
-    const customs = houseJob.houseJobCustoms?.[0] || {};
+    const customs = houseJob.houseJobCustoms?.[0] || masterJob.houseJobCustoms?.[0] || {};
 
     const fields = [
       'VOY',
@@ -207,7 +208,7 @@ export class EDIManifestService {
   private generateBOLRecord(masterJob: any, houseJob: any, originCountryCode: string = ''): string {
     const cargo = houseJob.Cargo?.[0] || {};
     const others = houseJob.Others?.[0] || {};
-    const customs = houseJob.houseJobCustoms?.[0] || {};
+    const customs = houseJob.houseJobCustoms?.[0] || masterJob.houseJobCustoms?.[0] || {};
     const voyage = masterJob.voyages?.[0] || {};
 
     // Fix 2.17: Use ShipmentTerms field instead of CargoType
@@ -351,9 +352,9 @@ export class EDIManifestService {
    *         "PackageType","PackageCode","Pallets","Weight","Volume","DGIndicator","IMOClass","UNNumber",
    *         "FlashPoint","TempUnit","DGStorage","RefRequired","MinTemp","MaxTemp","RefTempUnit"
    */
-  private generateCONRecords(houseJob: any): string[] {
+  private generateCONRecords(masterJob: any, houseJob: any): string[] {
     const records: string[] = [];
-    const customs = houseJob.houseJobCustoms || [];
+    const customs = (houseJob.houseJobCustoms?.length ? houseJob.houseJobCustoms : masterJob.houseJobCustoms) || [];
     const cargo = houseJob.Cargo?.[0] || {};
     const product = houseJob.Products?.[0] || {};
 
@@ -478,7 +479,7 @@ export class EDIManifestService {
       const bolErrors = this.validateBOLRecord(masterJob, houseJob, originCountryCode);
       errors.push(...bolErrors);
 
-      const conErrors = this.validateCONRecord(houseJob);
+      const conErrors = this.validateCONRecord(masterJob, houseJob);
       errors.push(...conErrors);
 
       // CTR validation only for containerized cargo
@@ -501,7 +502,7 @@ export class EDIManifestService {
     const errors: MandatoryFieldError[] = [];
     const voyage = masterJob.voyages?.[0] || {};
     const houseJob = masterJob.houseJob?.[0] || {};
-    const customs = houseJob.houseJobCustoms?.[0] || {};
+    const customs = houseJob.houseJobCustoms?.[0] || masterJob.houseJobCustoms?.[0] || {};
 
     // 1.1 LINE CODE (M)
     if (!customs.LineCode) {
@@ -548,7 +549,7 @@ export class EDIManifestService {
     const errors: MandatoryFieldError[] = [];
     const cargo = houseJob.Cargo?.[0] || {};
     const others = houseJob.Others?.[0] || {};
-    const customs = houseJob.houseJobCustoms?.[0] || {};
+    const customs = houseJob.houseJobCustoms?.[0] || masterJob.houseJobCustoms?.[0] || {};
     const hblNo = houseJob.HBLNo || masterJob.MBLNo || '';
     const houseJobSid = houseJob.HouseJobSid;
 
@@ -725,9 +726,9 @@ export class EDIManifestService {
   /**
    * Validate CON Record mandatory fields
    */
-  private validateCONRecord(houseJob: any): MandatoryFieldError[] {
+  private validateCONRecord(masterJob: any, houseJob: any): MandatoryFieldError[] {
     const errors: MandatoryFieldError[] = [];
-    const customs = houseJob.houseJobCustoms?.[0] || {};
+    const customs = houseJob.houseJobCustoms?.[0] || masterJob.houseJobCustoms?.[0] || {};
     const cargo = houseJob.Cargo?.[0] || {};
     const product = houseJob.Products?.[0] || {};
     const hblNo = houseJob.HBLNo || '';

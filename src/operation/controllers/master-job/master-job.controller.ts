@@ -685,10 +685,19 @@ export class MasterJobController {
             res.send(manifestText);
         } catch (error) {
             this.logger.warn(`Error generating EDI Manifest for Master Job ID ${id}: ${JSON.stringify(error)}, ${error}`);
-            res.status(HttpStatus.BAD_REQUEST).json({
-                status: false,
-                message: error.message || 'Failed to generate EDI manifest'
-            });
+            if (error instanceof BadRequestException) {
+                const response = error.getResponse() as any;
+                res.status(HttpStatus.BAD_REQUEST).json({
+                    status: false,
+                    message: response?.message || error.message || 'Failed to generate EDI manifest',
+                    errors: response?.errors || [],
+                });
+            } else {
+                res.status(HttpStatus.BAD_REQUEST).json({
+                    status: false,
+                    message: 'Failed to generate EDI manifest',
+                });
+            }
         }
     }
 
