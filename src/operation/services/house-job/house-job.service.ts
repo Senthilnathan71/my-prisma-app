@@ -19,574 +19,574 @@ export class HouseJobService {
     constructor(
         private _db: DatabaseService,
         private commonService: OperationCommonService,
-        private menuService : MenuService,
+        private menuService: MenuService,
         private logger: Logger,
         private numberSeriesService: NumberSeriesService,
     ) { }
     async createHouseJob(payload: any) {
-  try {
-      if(!payload.DepartmentMasterSid){
-        throw new BadRequestException('Department Master Sid is required');
-      }
-      const department = await this._db.departmentMaster.findUnique({
-          where: { DepartmentMasterSid: payload.DepartmentMasterSid },
-          select: {
-              departmentType: true,
-              ExportImport: true
-          }
-      });
-      if (!department) {
-          throw new BadRequestException('Department not found.');
-      }
+        try {
+            if (!payload.DepartmentMasterSid) {
+                throw new BadRequestException('Department Master Sid is required');
+            }
+            const department = await this._db.departmentMaster.findUnique({
+                where: { DepartmentMasterSid: payload.DepartmentMasterSid },
+                select: {
+                    departmentType: true,
+                    ExportImport: true
+                }
+            });
+            if (!department) {
+                throw new BadRequestException('Department not found.');
+            }
 
-      const menuId = await this.menuService.getMenuSidByName(department.departmentType?.toUpperCase() === 'AIR' ? "House Air Waybill" : "House Job");
+            const menuId = await this.menuService.getMenuSidByName(department.departmentType?.toUpperCase() === 'AIR' ? "House Air Waybill" : "House Job");
 
-      // Get MenuMasterSid for House Job (look up by code or use provided value)
-      let numberSeriesMenuId = payload.NumberSeriesMenuMasterSid;
-      if (!numberSeriesMenuId) {
-          const houseJobMenu = await this._db.menuMaster.findFirst({
-              where: {
-                  OR: [
-                      { MenuCode: 'HJB' },
-                      { MenuCode: 'HJ' },
-                      { MenuName: { contains: 'house job', mode: 'insensitive' } }
-                  ],
-                  status: 'A'
-              }
-          });
-          numberSeriesMenuId = houseJobMenu?.MenuMasterSid;
-      }
-
-      const departmentExportImport = department?.ExportImport ?? null;
-
-      // Generate HBL number using NumberSeriesService (for Export only)
-      let HBLNo: string | null = null;
-      if (payload.HBLNo && payload.HBLNo.trim() !== '') {
-    HBLNo = payload.HBLNo.trim();
-} 
-// 🎯 Otherwise → Auto generate
-else {
-    if (numberSeriesMenuId) {
-        HBLNo = await this.numberSeriesService.generateNextNumber(
-            payload.CompanyMasterSid,
-            payload.BranchMasterSid,
-            numberSeriesMenuId,
-            payload.DepartmentMasterSid
-        );
-    }
-
-    // fallback generator
-    if (!HBLNo) {
-        const dateString = moment().format('YYYYMMDD');
-        const hblBaseCount = await this._db.houseJob.count({
-            where: { HBLNo: { contains: dateString } },
-        });
-
-        HBLNo = `HOUSE-${dateString}-${(hblBaseCount + 1)
-            .toString()
-            .padStart(3, '0')}`;
-    }
-}
-
-      const createdHouseJob = await this._db.$transaction(async (prisma) => {
-
-
-          // Create main House Job record
-          const houseJob = await prisma.houseJob.create({
-              data: {
-                  MasterJobSid: payload.MasterJobSid || null,
-                  BookingHeaderSid: payload.BookingHeaderSid || null,
-                  ColoadedBy: payload.ColoadedBy || '',
-                  BookingNo: payload.BookingNo || '',
-                  BookingDateTime: payload.BookingDateTime || null,
-                  CompanyMasterSid: payload.CompanyMasterSid || null,
-                  BranchMasterSid: payload.BranchMasterSid || null,
-                  CustomerMasterSid: payload.CustomerMasterSid || null,
-                  CustomerName: payload.CustomerName || '',
-                  CustomerAddress: payload.CustomerAddress || '',
-                  SalesmanSid: payload.SalesmanSid || null,
-                  CargoExpectedon: payload.CargoExpectedon || null,
-                  FreightTerms: payload.FreightTerms || '',
-                  POO: payload.POO || '',
-                  POL: payload.POL || '',
-                  POD: payload.POD || '',
-                  FPD: payload.FPD || '',
-                  TsPortSid: payload.TsPortSid || null,
-                  POLTerminal: payload.POLTerminal || '',
-                  VoyageMasterSid: payload.VoyageMasterSid || null,
-                  VesselName: payload.VesselName || '',
-                  VoyageNo: payload.VoyageNo || '',
-                  HBLDate: payload.HBLDate ? new Date(payload.HBLDate) : new Date(),
-                  ETD: payload.ETD ? new Date(payload.ETD) : null,
-                  ETA: payload.ETA ? new Date(payload.ETA) : null,
-                  IncoTerms: payload.IncoTerms || '',
-                  BLLocation: payload.BLLocation || null,
-                  ShipperName: payload.ShipperName || '',
-                  ShipperAddress: payload.ShipperAddress || '',
-                  ConsigneeName: payload.ConsigneeName || '',
-                  ConsigneeAddress: payload.ConsigneeAddress || '',
-                  ClearanceRequire: payload.ClearanceRequire || '',
-                  ShipmentType: payload.ShipmentType || '',
-                  DestinationAgent: payload.DestinationAgent,
-                  AgentName: payload.AgentName || '',
-                  AgentAddress: payload.AgentAddress || '',
-                  HouseNo: payload.HouseNo || '',
-                  QuotationHeaderSid: payload.QuotationHeaderSid || null,
-                  EnquiryHeaderSid: payload.EnquiryHeaderSid || null,
-                  MovementType: payload.MovementType || '',
-                  DoValid: payload.DoValid || null,
-                  IsServiceJob: payload.IsServiceJob || '',
-                  createdBy: payload.createdBy || '',
-                  updatedBy: payload.updatedBy || '',
-                  status: payload.status || 'A',
-                  HouseStatus: payload.HouseStatus,
-                  HBLCount: payload.HBLCount || 0,
-                  BookingStatus: payload.BookingStatus || '',
-                  DepartmentMasterSid: payload.DepartmentMasterSid,
-                  CustomerBranchSid: payload.CustomerBranchSid || null,
-                  AuthorizerRemarks: payload.AuthorizerRemarks || '',
-                  authorizerStatus: payload.authorizerStatus,
-                  MenuMasterSid: menuId || payload.MenuMasterSid,
-                  CarrierSid: payload.CarrierSid || null,
-                  CarrierName: payload.CarrierName || '',
-                  Coload: payload.Coload || '',
-                  GeneralNote: payload.GeneralNote || '',
-                  HBLNo: HBLNo,
-                  InternalNote: payload.InternalNote || '',
-                  MBLDate: payload.MBLDate || null,
-                  MBLNo: payload.MBLNo || '',
-                  Nominated: payload.Nominated || '',
-                  NominatedBy: payload.NominatedBy || '',
-                  Notify: payload.Notify || '',
-                  NotifyAddress: payload.NotifyAddress || '',
-                  PODTerminal: payload.PODTerminal || '',
-                  ShipmentNo: payload.ShipmentNo || '',
-                  OriginAgent: payload.OriginAgent || '',
-                  JobType: payload.JobType
-              }
-          });
-
-          const HouseJobSid = houseJob.HouseJobSid;
-
-          let finalHouseJobCargo: any = null;
-
-          // Create House Job Cargo if payload exists
-          const cargoPayload = payload.houseJobCargo;
-          if (cargoPayload && Object.keys(cargoPayload).length > 0) {
-              finalHouseJobCargo = await prisma.houseJobCargo.create({
-                  data: {
-                      HouseJobSid,
-                      CompanyMasterSid: payload.CompanyMasterSid ?? null,
-                      BranchMasterSid: payload.BranchMasterSid ?? null,
-                      NoOfPackage: Number(cargoPayload.NoOfPackage) || 0,
-                      FreightAmount: String(cargoPayload.FreightAmount ?? '0'),
-                      CargoType: cargoPayload.CargoType ?? '',
-                      ContainerType: cargoPayload.ContainerType ?? null,
-                      WeightUnitSid: cargoPayload.WeightUnit,
-                      GrossWeight: Number(cargoPayload.GrossWeight) || 0,
-                      NetWeight: Number(cargoPayload.NetWeight) || 0,
-                      Volume: Number(cargoPayload.Volume) || 0,
-                      ChargeableWeight: Number(cargoPayload.ChargeableWeight) || 0,
-                      PackageType: cargoPayload.PackageType,
-                      Qty: Number(cargoPayload.Qty) || 0,
-                      ShipmentTerms: cargoPayload.ShipmentTerms || '',
-                      createdBy: payload.createdBy,
-                      updatedBy: payload.updatedBy ?? null,
-                      status: 'A',
-                      FreightTerms: cargoPayload.FreightTerms || '',
-                      MovementType: cargoPayload.MovementType || '',
-                      CommodityDescription: cargoPayload.CommodityDescription || '',
-                      MarksAndNumber: cargoPayload.MarksAndNumber || '',
-                      LandedMarksandNumber: cargoPayload.LandedMarksandNumber || '',
-                      ModeOfTransport: cargoPayload.ModeOfTransport || '',
-                      NoofContainers: Number(cargoPayload.NoofContainers) || 0,
-                      StuffingAt: cargoPayload.StuffingAt || '',
-                  },
-              });
-          }
-
-          // Create House Job Products
-          const finalHouseJobProduct: any[] = [];
-          const houseJobProductPayload = payload.houseJobProduct || [];
-          if (houseJobProductPayload.length > 0) {
-              for (const product of houseJobProductPayload) {
-                  const createdProduct = await prisma.houseJobProduct.create({
-                      data: {
-                          HouseJobSid,
-                          ProductName: product.ProductName || '',
-                          ProductDescription: product.ProductDescription || '',
-                          ShippingBillNo: product.ShippingBillNo || '',
-                          ShippingBillDate: product.ShippingBillDate ? new Date(product.ShippingBillDate) : null,
-                          ExternaPkg: product.ExternaPkg,
-                          ExternlQty: String(product.ExternlQty) || null,
-                          GrossWeight: Number(product.GrossWeight) || 0,
-                          ActualGrWeight: Number(product.GrossWeight) || 0,
-                          NetWeight: Number(product.NetWeight) || 0,
-                          Volume: Number(product.Volume) || 0,
-                          ActualVolume: Number(product.Volume) || 0,
-                          RecdPack: product.RecdPack || '',
-                          CargoRecDate: product.CargoRecDate ? new Date(product.CargoRecDate) : null,
-                          CFS: product.CFS || '',
-                          createdBy: payload.createdBy,
-                          status: product.status ? String(product.status).charAt(0) : 'A',
-                          Height: product.Height || 0,
-                          Volumetric: Number(product.Volumetric) || 0,
-                          HSCode: product.HSCode || '',
-                          ImcoClass: product.ImcoClass || '',
-                          IsHaz: product.IsHaz || 'N',
-                          Length: product.Length || 0,
-                          PkgGroup: product.PkgGroup || '',
-                          UnNo: product.UnNo || '',
-                          Width: product.Width || 0,
-                          UomMasterSid: product.UomMasterSid || null,
-                          ContainerNo: product.ContainerNo,
-                          MasterJobContainerSid: product.MasterJobContainerSid || null,
-                          DeliveryDate: product.DeliveryDate ? new Date(product.DeliveryDate) : null,
-                          ReceivedQty: product.ReceivedQty || 0,
-                          DamageQty: product.DamageQty || 0,
-                          DamageRemarks: product.DamageRemarks || '',
-                          DeliveredQty: product.DeliveredQty || 0,
-                          MarksAndNumber: product.MarksAndNumber
-                      }
-                  });
-                  finalHouseJobProduct.push(createdProduct);
-              }
-          }
-
-          // Create House Job Connections
-          const finalHouseConnections: any[] = [];
-          const houseConnectionPayload = payload.houseConnections || [];
-          if (houseConnectionPayload.length > 0) {
-              for (const connection of houseConnectionPayload) {
-                  const createdConnection = await prisma.houseJobConnection.create({
-                      data: {
-                          HouseJobSid,
-                          Mode: connection.Mode,
-                          POL: connection.POL,
-                          POD: connection.POD,
-                          VesselName: connection.VesselName,
-                          VoyageNo: connection.VoyageNo,
-                          ETD: connection.ETD ? new Date(connection.ETD) : null,
-                          ETA: connection.ETA ? new Date(connection.ETA) : null,
-                          Remarks: connection.Remarks,
-                          status: String(connection.status).charAt(0) || 'A',
-                          createdBy: payload.createdBy,
-                      }
-                  });
-                  finalHouseConnections.push(createdConnection);
-              }
-          }
-
-          // Create House Job Others
-          let finalHouseJobOthers: any = null;
-          const otherPayload = payload.houseJobOthers || {};
-          if (Object.keys(otherPayload).length > 0) {
-              finalHouseJobOthers = await prisma.houseJobOthers.create({
-                  data: {
-                      HouseJobSid,
-                      CustomerRefNo: otherPayload.CustomerRefNo || '',
-                      OperationUser: otherPayload.OperationUser || '',
-                      DocumentationUser: otherPayload.DocumentationUser || '',
-                      CustomerServiceuser: otherPayload.CustomerServiceuser || '',
-                      NotifyParty: otherPayload.NotifyParty || '',
-                      NotifyPartyAddress: otherPayload.NotifyPartyAddress || '',
-                      CHAName: otherPayload.CHAName || '',
-                      PickupMode: otherPayload.PickupMode || '',
-                      YardCFS: otherPayload.YardCFS || '',
-                      LocalTransport: otherPayload.LocalTransport || '',
-                      OverseasTransport: otherPayload.OverseasTransport || '',
-                      OverseasClearance: otherPayload.OverseasClearance || '',
-                      PickupPlace: otherPayload.PickupPlace || '',
-                      PickupDate: otherPayload.PickupDate ? new Date(otherPayload.PickupDate) : null,
-                      SIConfirmationDate: otherPayload.SIConfirmationDate ? new Date(otherPayload.SIConfirmationDate) : null,
-                      DGConfirmationDate: otherPayload.DGConfirmationDate ? new Date(otherPayload.DGConfirmationDate) : null,
-                      PickupAddress: otherPayload.PickupAddress || '',
-                      BlClause: otherPayload.BlClause || [],
-                      DeliveryPlace: otherPayload.DeliveryPlace || '',
-                      DeliveryDate: otherPayload.DeliveryDate || "",
-                      DeliveryAddress: otherPayload.DeliveryAddress || '',
-                      CargoCurrency: otherPayload.CargoCurrency || '',
-                      CargoValue: Number(otherPayload.CargoValue) || 0,
-                      ValueForInsurance: Number(otherPayload.ValueForInsurance) || 0,
-                      InsuranceAmount: Number(otherPayload.InsuranceAmount) || 0,
-                      ValuationCharge: Number(otherPayload.ValuationCharge) || 0,
-                      HandlingInformation: otherPayload.HandlingInformation || '',
-                      DeliveryMode: otherPayload.DeliveryMode || '',
-                      ExternalRemarks: otherPayload.ExternalRemarks || '',
-                      SwitchBL: otherPayload.SwitchBL || '',
-                      TransporterName: otherPayload.TransporterName || '',
-                      AgentAddress: otherPayload.AgentAddress || '',
-                      BacktoBack: otherPayload.BackToBack || '',
-                      CarrierBookingRef: otherPayload.CarrierBookingRef || '',
-                      CarrierBookingDate: otherPayload.CarrierBookingDate ? new Date(otherPayload.CarrierBookingDate) : null,
-                      Coloader: otherPayload.Coloader || '',
-                      Forwarder: otherPayload.Forwarder || '',
-                      ForwarderAddress: otherPayload.ForwarderAddress || '',
-                      HBLNo: otherPayload.HBLNo || '',
-                      Notify2: otherPayload.Notify2 || '',
-                      NotifyAddress2: otherPayload.NotifyAddress2 || '',
-                      ROValidity: otherPayload.ROValidity || '',
-                      ReleaseType: otherPayload.ReleaseType || '',
-                      DeclaredValueOfCarriage : otherPayload.DeclaredValueOfCarriage || '',
-                      DeclaredValueOfCustoms: otherPayload.DeclaredValueOfCustoms || '',
-                      SwitchBLAgent: otherPayload.SwitchBLAgent || '',
-                      SwitchBLConsignee: otherPayload.SwitchBLConsignee || '',
-                      SwitchBLShipper: otherPayload.SwitchBLShipper || '',
-                      SwitchLocation: otherPayload.SwitchLocation || '',
-                      Depo: otherPayload.Depo,
-                      DONo: otherPayload.DONo || '',
-                      DODate: otherPayload.DODate ? new Date(otherPayload.DODate) : null,
-                      status: 'A',
-                      createdBy: payload.createdBy,
-                  }
-              });
-          }
-
-          // Create Cost Revenue Charges
-          const finalCharges: any[] = [];
-          const allCostRevenueCharges = payload?.bookingRates || [];
-
-          let itemIndex = 1;
-          for (const item of allCostRevenueCharges) {
-              const costRevenueChargesPayload = {
-                  TransactionSid: houseJob.HouseJobSid,
-                  MenuMasterSid: menuId || payload.MenuMasterSid,
-                  ShipmentNo: houseJob.ShipmentNo,
-                  MasterJobNo: houseJob.MBLNo,
-                  CompanyMasterSid: payload.CompanyMasterSid,
-                  BranchMasterSid: payload.BranchMasterSid,
-
-                  SerialNumber: itemIndex++,
-                  ChargeMasterSid: item.ChargeMasterSid ? Number(item.ChargeMasterSid) : null,
-                  ChargeDescription: item.ChargeDescription,
-
-                  ChargeUomSid: item.ChargeUomSid ? Number(item.ChargeUomSid) : null,
-                  RevenueChargeUomSid: Number(item.RevenueChargeUomSid),
-                  CostChargeUomSid: Number(item.CostChargeUomSid),
-                  RevenueNumberOfUnit: item.RevenueNumberOfUnit ? Number(item.RevenueNumberOfUnit) : null,
-                  CostNumberOfUnit: item.CostNumberOfUnit ? Number(item.CostNumberOfUnit) : null,
-
-                  // Revenue Section
-                  RevenueCurrencyMasterSid: item.RevenueCurrencyMasterSid ? item.RevenueCurrencyMasterSid : null,
-                  RevenueExchangeRate: item.RevenueExchangeRate ? Number(item.RevenueExchangeRate) : null,
-                  RevenueRate: item.RevenueRate ? Number(item.RevenueRate) : null,
-                  RevenueAmount: item.RevenueAmount ? Number(item.RevenueAmount) : null,
-                  RevenueLocalAmount: item.RevenueLocalAmount ? Number(item.RevenueLocalAmount) : null,
-                  RevenueDrCr: item.RevenueDrCr,
-                  RevenueCustomerMasterSid: item.RevenueCustomerMasterSid ? Number(item.RevenueCustomerMasterSid) : null,
-                  RevenueCustomerBranchSid: item.RevenueCustomerBranchSid ? Number(item.RevenueCustomerBranchSid) : null,
-                  RevenuePrepaidCollect: item.RevenuePrepaidCollect,
-                  RevenueVoucherHeaderSid: item.RevenueVoucherHeaderSid ? Number(item.RevenueVoucherHeaderSid) : null,
-                  RevenueVoucherTypeMasterSid: item.RevenueVoucherTypeSid ? Number(item.RevenueVoucherTypeSid) : null,
-
-                  // Cost Section
-                  CostCurrencyMasterSid: item.CostCurrencyMasterSid ? item.CostCurrencyMasterSid : null,
-                  CostExchangeRate: item.CostExchangeRate ? Number(item.CostExchangeRate) : null,
-                  CostRate: item.CostRate ? Number(item.CostRate) : null,
-                  CostAmount: item.CostAmount ? Number(item.CostAmount) : null,
-                  CostLocalAmount: item.CostLocalAmount ? Number(item.CostLocalAmount) : null,
-                  CostDrCr: item.CostDrCr,
-                  CostAgentMasterSid: item.CostAgentMasterSid ? Number(item.CostAgentMasterSid) : null,
-                  CostAgentBranchSid: item.CostAgentBranchSid ? Number(item.CostAgentBranchSid) : null,
-                  CostPrepaidCollect: item.CostPrepaidCollect,
-                  CostVoucherHeaderSid: item.CostVoucherHeaderSid ? Number(item.CostVoucherHeaderSid) : null,
-                  CostVoucherTypeMasterSid: item.CostVoucherTypeSid ? Number(item.CostVoucherTypeSid) : null,
-
-                  createdBy: payload.createdBy,
-                  status: "A",
-                  Remarks: item.Remarks
-              }
-
-              const createdCharge = await prisma.costRevenueCharges.create({
-                  data: costRevenueChargesPayload
-              });
-              finalCharges.push(createdCharge);
-          }
-
-          // Create House Job BOE
-          const finalHouseJobBOE: any[] = [];
-          const houseJobBOEPayload = payload.houseJobBOE || [];
-          if (houseJobBOEPayload.length > 0) {
-              for (const boe of houseJobBOEPayload) {
-                  const createdBOE = await prisma.houseJobBOE.create({
-                      data: {
-                          HouseJobSid,
-                          CompanyMasterSid: payload.CompanyMasterSid,
-                          Sno: boe.Sno || 1,
-                          DeclarationNo: boe.DeclarationNo || '',
-                          BOENo: boe.BOENo || '',
-                          BOEDate: boe.BOEDate ? new Date(boe.BOEDate) : null,
-                          BOEValue: boe.BOEValue ? Number(boe.BOEValue) : null,
-                          BOEInvoiceValue: boe.BOEInvoiceValue ? Number(boe.BOEInvoiceValue) : null,
-                          TransactionType: boe.TransactionType || '',
-                          Amount: boe.Amount ? Number(boe.Amount) : null,
-                          ProcessDate: boe.ProcessDate ? new Date(boe.ProcessDate) : null,
-                          ReceivedDate: boe.ReceivedDate ? new Date(boe.ReceivedDate) : null,
-                          AckNumber: boe.AckNumber || '',
-                          AckDate: boe.AckDate ? new Date(boe.AckDate) : null,
-                          AckStatus: boe.AckStatus || '',
-                          Remarks: boe.Remarks || '',
-                          CreatedBy: payload.createdBy,
-                          Status: 'A'
-                      }
-                  });
-                  finalHouseJobBOE.push(createdBOE);
-              }
-          }
-
-          // Create House Job Vehicle
-          let finalHouseJobVehicle: any[] = [];
-          const houseJobVehiclePayload = payload.houseJobVehicle || [];
-          if (houseJobVehiclePayload.length > 0) {
-              for (const vehicle of houseJobVehiclePayload) {
-                  const createdVehicle = await prisma.houseJobVehicle.create({
-                      data: {
-                          HouseJobSid,
-                          CompanyMasterSid: payload.CompanyMasterSid,
-                          VehicleIndicator: vehicle.VehicleIndicator,
-                          UsedNew: vehicle.UsedNew,
-                          ChassisNo: vehicle.ChassisNo,
-                          CaseNo: vehicle.CaseNo,
-                          Make: vehicle.Make,
-                          Model: vehicle.Model,
-                          EngineNo: vehicle.EngineNo,
-                          YearBuilt: vehicle.YearBuilt,
-                          Color: vehicle.Color,
-                          Rolling: vehicle.Rolling,
-                          GoodsDescription: vehicle.GoodsDescription,
-                          Weight: vehicle.Weight ? Number(vehicle.Weight) : null,
-                          Volume: vehicle.Volume ? Number(vehicle.Volume) : null,
-                          Remarks: vehicle.Remarks,
-                          CreatedBy: payload.createdBy,
-                          Status: 'A'
-                      }
-                  });
-                  finalHouseJobVehicle.push(createdVehicle);
-              }
-          }
-
-          // Create House Job Customs
-          let finalHouseJobCustoms: any[] = [];
-          const houseJobCustomsPayload = payload.houseJobCustoms || [];
-          if (houseJobCustomsPayload.length > 0) {
-              for (const customs of houseJobCustomsPayload) {
-                  const createdCustoms = await prisma.houseJobCustoms.create({
-                      data: {
-                          HouseJobSid,
-                          CompanyMasterSid: payload.CompanyMasterSid,
-                          LineCode: customs.LineCode,
-                          VoyageAgentCode: customs.VoyageAgentCode,
-                          RotationNumber: customs.RotationNumber,
-                          ManifestSequence: customs.ManifestSequence,
-                          CargoCode: customs.CargoCode,
-                          StorageRequest: customs.StorageRequest,
-                          PackageTypeCode: customs.PackageTypeCode,
-                          FreightTonne: customs.FreightTonne ? Number(customs.FreightTonne) : null,
-                          NoOfPallets: customs.NoOfPallets ? Number(customs.NoOfPallets) : null,
-                          SLACIndicator: customs.SLACIndicator,
-                          ImporterCode: customs.ImporterCode,
-                          SerialNumber: customs.SerialNumber ? Number(customs.SerialNumber) : 0,
-                          UsedOrNew: customs.UsedOrNew,
-                          UNHSCode: customs.UNHSCode,
-                          UNNumber: customs.UNNumber,
-                          FlashPoints: customs.FlashPoints ? Number(customs.FlashPoints) : null,
-                          TemperatureUnit: customs.TemperatureUnit,
-                          HazStorageRequest: customs.HazStorageRequest,
-                          RefrigerationRequired: customs.RefrigerationRequired,
-                          MinTemperature: customs.MinTemperature ? Number(customs.MinTemperature) : null,
-                          MaxTemperature: customs.MaxTemperature ? Number(customs.MaxTemperature) : null,
-                          RefTemperatureUnit: customs.RefTemperatureUnit,
-                          CreatedBy: payload.createdBy,
-                          Status: 'A'
-                      }
-                  });
-                  finalHouseJobCustoms.push(createdCustoms);
-              }
-          }
-
-          let finalAllMilestones: any = [];
-          const allMilestones = payload.milestones || [];
-          if (allMilestones.length > 0) {
-              for (const milestone of allMilestones) {
-                const createdMilestone = await prisma.shipmentMilestone.create({
-                    data: {
-                        HouseJobSid: houseJob.HouseJobSid,
-                        ShipmentNo: houseJob.ShipmentNo!,
-                        CompanyMasterSid: houseJob.CompanyMasterSid,
-                        BranchMasterSid: houseJob.BranchMasterSid!,
-                        CreatedBy: payload.createdBy,
-                        Status: "A",
-                        MilestoneMasterSid: milestone.MilestoneMasterSid,
-                        Remarks: milestone.Remarks,
-                        MilestoneName: milestone.MilestoneName,
-                        MilestoneDate: milestone.MilestoneDate,
-                        AutoCaptured: milestone.AutoCaptured ,
+            // Get MenuMasterSid for House Job (look up by code or use provided value)
+            let numberSeriesMenuId = payload.NumberSeriesMenuMasterSid;
+            if (!numberSeriesMenuId) {
+                const houseJobMenu = await this._db.menuMaster.findFirst({
+                    where: {
+                        OR: [
+                            { MenuCode: 'HJB' },
+                            { MenuCode: 'HJ' },
+                            { MenuName: { contains: 'house job', mode: 'insensitive' } }
+                        ],
+                        status: 'A'
                     }
                 });
-                finalAllMilestones.push(createdMilestone);
-              }
+                numberSeriesMenuId = houseJobMenu?.MenuMasterSid;
             }
-        //   const allMilestones = await prisma.shipmentMilestone.createMany({
-        //     data :(payload.milestones || []).map(milestone => ({
-        //         ShipmentNo : houseJob.ShipmentNo,
-        //         CompanyMasterSid : houseJob.CompanyMasterSid,
-        //         BranchMasterSid : houseJob.BranchMasterSid!,
-        //         CreatedBy : payload.createdBy,
-        //         Status : "A",
-        //         MilestoneMasterSid : milestone.MilestoneMasterSid,
-        //         Remarks : milestone.Remarks,
-        //         MilestoneName : milestone.MilestoneName,
-        //         MilestoneDate : milestone.MilestoneDate,
-        //         AutoCaptured : milestone.AutoCaptured ? 'Y' : 'N'
-        //     }))
-        //   })
 
-          return {
-              houseJob,
-              houseJobCargo: finalHouseJobCargo,
-              houseJobProduct: finalHouseJobProduct,
-              houseConnections: finalHouseConnections,
-              houseJobOthers: finalHouseJobOthers,
-              houseJobBOE: finalHouseJobBOE,
-              houseJobVehicle: finalHouseJobVehicle,
-              houseJobCustoms: finalHouseJobCustoms,
-              bookingRates: finalCharges,
-              costRevenueCharges: finalCharges,
-              shipmentMilestones: finalAllMilestones,
+            const departmentExportImport = department?.ExportImport ?? null;
 
-              
-          };
-      });
+            // Generate HBL number using NumberSeriesService (for Export only)
+            let HBLNo: string | null = null;
+            if (payload.HBLNo && payload.HBLNo.trim() !== '') {
+                HBLNo = payload.HBLNo.trim();
+            }
+            // 🎯 Otherwise → Auto generate
+            else {
+                if (numberSeriesMenuId) {
+                    HBLNo = await this.numberSeriesService.generateNextNumber(
+                        payload.CompanyMasterSid,
+                        payload.BranchMasterSid,
+                        numberSeriesMenuId,
+                        payload.DepartmentMasterSid
+                    );
+                }
 
-    return createdHouseJob;
-  } catch (error) {
-    throw error;
-  }
-}
+                // fallback generator
+                if (!HBLNo) {
+                    const dateString = moment().format('YYYYMMDD');
+                    const hblBaseCount = await this._db.houseJob.count({
+                        where: { HBLNo: { contains: dateString } },
+                    });
+
+                    HBLNo = `HOUSE-${dateString}-${(hblBaseCount + 1)
+                        .toString()
+                        .padStart(3, '0')}`;
+                }
+            }
+
+            const createdHouseJob = await this._db.$transaction(async (prisma) => {
 
 
+                // Create main House Job record
+                const houseJob = await prisma.houseJob.create({
+                    data: {
+                        MasterJobSid: payload.MasterJobSid || null,
+                        BookingHeaderSid: payload.BookingHeaderSid || null,
+                        ColoadedBy: payload.ColoadedBy || '',
+                        BookingNo: payload.BookingNo || '',
+                        BookingDateTime: payload.BookingDateTime || null,
+                        CompanyMasterSid: payload.CompanyMasterSid || null,
+                        BranchMasterSid: payload.BranchMasterSid || null,
+                        CustomerMasterSid: payload.CustomerMasterSid || null,
+                        CustomerName: payload.CustomerName || '',
+                        CustomerAddress: payload.CustomerAddress || '',
+                        SalesmanSid: payload.SalesmanSid || null,
+                        CargoExpectedon: payload.CargoExpectedon || null,
+                        FreightTerms: payload.FreightTerms || '',
+                        POO: payload.POO || '',
+                        POL: payload.POL || '',
+                        POD: payload.POD || '',
+                        FPD: payload.FPD || '',
+                        TsPortSid: payload.TsPortSid || null,
+                        POLTerminal: payload.POLTerminal || '',
+                        VoyageMasterSid: payload.VoyageMasterSid || null,
+                        VesselName: payload.VesselName || '',
+                        VoyageNo: payload.VoyageNo || '',
+                        HBLDate: payload.HBLDate ? new Date(payload.HBLDate) : new Date(),
+                        ETD: payload.ETD ? new Date(payload.ETD) : null,
+                        ETA: payload.ETA ? new Date(payload.ETA) : null,
+                        IncoTerms: payload.IncoTerms || '',
+                        BLLocation: payload.BLLocation || null,
+                        ShipperName: payload.ShipperName || '',
+                        ShipperAddress: payload.ShipperAddress || '',
+                        ConsigneeName: payload.ConsigneeName || '',
+                        ConsigneeAddress: payload.ConsigneeAddress || '',
+                        ClearanceRequire: payload.ClearanceRequire || '',
+                        ShipmentType: payload.ShipmentType || '',
+                        DestinationAgent: payload.DestinationAgent,
+                        AgentName: payload.AgentName || '',
+                        AgentAddress: payload.AgentAddress || '',
+                        HouseNo: payload.HouseNo || '',
+                        QuotationHeaderSid: payload.QuotationHeaderSid || null,
+                        EnquiryHeaderSid: payload.EnquiryHeaderSid || null,
+                        MovementType: payload.MovementType || '',
+                        DoValid: payload.DoValid || null,
+                        IsServiceJob: payload.IsServiceJob || '',
+                        createdBy: payload.createdBy || '',
+                        updatedBy: payload.updatedBy || '',
+                        status: payload.status || 'A',
+                        HouseStatus: payload.HouseStatus,
+                        HBLCount: payload.HBLCount || 0,
+                        BookingStatus: payload.BookingStatus || '',
+                        DepartmentMasterSid: payload.DepartmentMasterSid,
+                        CustomerBranchSid: payload.CustomerBranchSid || null,
+                        AuthorizerRemarks: payload.AuthorizerRemarks || '',
+                        authorizerStatus: payload.authorizerStatus,
+                        MenuMasterSid: menuId || payload.MenuMasterSid,
+                        CarrierSid: payload.CarrierSid || null,
+                        CarrierName: payload.CarrierName || '',
+                        Coload: payload.Coload || '',
+                        GeneralNote: payload.GeneralNote || '',
+                        HBLNo: HBLNo,
+                        InternalNote: payload.InternalNote || '',
+                        MBLDate: payload.MBLDate || null,
+                        MBLNo: payload.MBLNo || '',
+                        Nominated: payload.Nominated || '',
+                        NominatedBy: payload.NominatedBy || '',
+                        Notify: payload.Notify || '',
+                        NotifyAddress: payload.NotifyAddress || '',
+                        PODTerminal: payload.PODTerminal || '',
+                        ShipmentNo: payload.ShipmentNo || '',
+                        OriginAgent: payload.OriginAgent || '',
+                        JobType: payload.JobType
+                    }
+                });
+
+                const HouseJobSid = houseJob.HouseJobSid;
+
+                let finalHouseJobCargo: any = null;
+
+                // Create House Job Cargo if payload exists
+                const cargoPayload = payload.houseJobCargo;
+                if (cargoPayload && Object.keys(cargoPayload).length > 0) {
+                    finalHouseJobCargo = await prisma.houseJobCargo.create({
+                        data: {
+                            HouseJobSid,
+                            CompanyMasterSid: payload.CompanyMasterSid ?? null,
+                            BranchMasterSid: payload.BranchMasterSid ?? null,
+                            NoOfPackage: Number(cargoPayload.NoOfPackage) || 0,
+                            FreightAmount: String(cargoPayload.FreightAmount ?? '0'),
+                            CargoType: cargoPayload.CargoType ?? '',
+                            ContainerType: cargoPayload.ContainerType ?? null,
+                            WeightUnitSid: cargoPayload.WeightUnit,
+                            GrossWeight: Number(cargoPayload.GrossWeight) || 0,
+                            NetWeight: Number(cargoPayload.NetWeight) || 0,
+                            Volume: Number(cargoPayload.Volume) || 0,
+                            ChargeableWeight: Number(cargoPayload.ChargeableWeight) || 0,
+                            PackageType: cargoPayload.PackageType,
+                            Qty: Number(cargoPayload.Qty) || 0,
+                            ShipmentTerms: cargoPayload.ShipmentTerms || '',
+                            createdBy: payload.createdBy,
+                            updatedBy: payload.updatedBy ?? null,
+                            status: 'A',
+                            FreightTerms: cargoPayload.FreightTerms || '',
+                            MovementType: cargoPayload.MovementType || '',
+                            CommodityDescription: cargoPayload.CommodityDescription || '',
+                            MarksAndNumber: cargoPayload.MarksAndNumber || '',
+                            LandedMarksandNumber: cargoPayload.LandedMarksandNumber || '',
+                            ModeOfTransport: cargoPayload.ModeOfTransport || '',
+                            NoofContainers: Number(cargoPayload.NoofContainers) || 0,
+                            StuffingAt: cargoPayload.StuffingAt || '',
+                        },
+                    });
+                }
+
+                // Create House Job Products
+                const finalHouseJobProduct: any[] = [];
+                const houseJobProductPayload = payload.houseJobProduct || [];
+                if (houseJobProductPayload.length > 0) {
+                    for (const product of houseJobProductPayload) {
+                        const createdProduct = await prisma.houseJobProduct.create({
+                            data: {
+                                HouseJobSid,
+                                ProductName: product.ProductName || '',
+                                ProductDescription: product.ProductDescription || '',
+                                ShippingBillNo: product.ShippingBillNo || '',
+                                ShippingBillDate: product.ShippingBillDate ? new Date(product.ShippingBillDate) : null,
+                                ExternaPkg: product.ExternaPkg,
+                                ExternlQty: String(product.ExternlQty) || null,
+                                GrossWeight: Number(product.GrossWeight) || 0,
+                                ActualGrWeight: Number(product.GrossWeight) || 0,
+                                NetWeight: Number(product.NetWeight) || 0,
+                                Volume: Number(product.Volume) || 0,
+                                ActualVolume: Number(product.Volume) || 0,
+                                RecdPack: product.RecdPack || '',
+                                CargoRecDate: product.CargoRecDate ? new Date(product.CargoRecDate) : null,
+                                CFS: product.CFS || '',
+                                createdBy: payload.createdBy,
+                                status: product.status ? String(product.status).charAt(0) : 'A',
+                                Height: product.Height || 0,
+                                Volumetric: Number(product.Volumetric) || 0,
+                                HSCode: product.HSCode || '',
+                                ImcoClass: product.ImcoClass || '',
+                                IsHaz: product.IsHaz || 'N',
+                                Length: product.Length || 0,
+                                PkgGroup: product.PkgGroup || '',
+                                UnNo: product.UnNo || '',
+                                Width: product.Width || 0,
+                                UomMasterSid: product.UomMasterSid || null,
+                                ContainerNo: product.ContainerNo,
+                                MasterJobContainerSid: product.MasterJobContainerSid || null,
+                                DeliveryDate: product.DeliveryDate ? new Date(product.DeliveryDate) : null,
+                                ReceivedQty: product.ReceivedQty || 0,
+                                DamageQty: product.DamageQty || 0,
+                                DamageRemarks: product.DamageRemarks || '',
+                                DeliveredQty: product.DeliveredQty || 0,
+                                MarksAndNumber: product.MarksAndNumber
+                            }
+                        });
+                        finalHouseJobProduct.push(createdProduct);
+                    }
+                }
+
+                // Create House Job Connections
+                const finalHouseConnections: any[] = [];
+                const houseConnectionPayload = payload.houseConnections || [];
+                if (houseConnectionPayload.length > 0) {
+                    for (const connection of houseConnectionPayload) {
+                        const createdConnection = await prisma.houseJobConnection.create({
+                            data: {
+                                HouseJobSid,
+                                Mode: connection.Mode,
+                                POL: connection.POL,
+                                POD: connection.POD,
+                                VesselName: connection.VesselName,
+                                VoyageNo: connection.VoyageNo,
+                                ETD: connection.ETD ? new Date(connection.ETD) : null,
+                                ETA: connection.ETA ? new Date(connection.ETA) : null,
+                                Remarks: connection.Remarks,
+                                status: String(connection.status).charAt(0) || 'A',
+                                createdBy: payload.createdBy,
+                            }
+                        });
+                        finalHouseConnections.push(createdConnection);
+                    }
+                }
+
+                // Create House Job Others
+                let finalHouseJobOthers: any = null;
+                const otherPayload = payload.houseJobOthers || {};
+                if (Object.keys(otherPayload).length > 0) {
+                    finalHouseJobOthers = await prisma.houseJobOthers.create({
+                        data: {
+                            HouseJobSid,
+                            CustomerRefNo: otherPayload.CustomerRefNo || '',
+                            OperationUser: otherPayload.OperationUser || '',
+                            DocumentationUser: otherPayload.DocumentationUser || '',
+                            CustomerServiceuser: otherPayload.CustomerServiceuser || '',
+                            NotifyParty: otherPayload.NotifyParty || '',
+                            NotifyPartyAddress: otherPayload.NotifyPartyAddress || '',
+                            CHAName: otherPayload.CHAName || '',
+                            PickupMode: otherPayload.PickupMode || '',
+                            YardCFS: otherPayload.YardCFS || '',
+                            LocalTransport: otherPayload.LocalTransport || '',
+                            OverseasTransport: otherPayload.OverseasTransport || '',
+                            OverseasClearance: otherPayload.OverseasClearance || '',
+                            PickupPlace: otherPayload.PickupPlace || '',
+                            PickupDate: otherPayload.PickupDate ? new Date(otherPayload.PickupDate) : null,
+                            SIConfirmationDate: otherPayload.SIConfirmationDate ? new Date(otherPayload.SIConfirmationDate) : null,
+                            DGConfirmationDate: otherPayload.DGConfirmationDate ? new Date(otherPayload.DGConfirmationDate) : null,
+                            PickupAddress: otherPayload.PickupAddress || '',
+                            BlClause: otherPayload.BlClause || [],
+                            DeliveryPlace: otherPayload.DeliveryPlace || '',
+                            DeliveryDate: otherPayload.DeliveryDate || "",
+                            DeliveryAddress: otherPayload.DeliveryAddress || '',
+                            CargoCurrency: otherPayload.CargoCurrency || '',
+                            CargoValue: Number(otherPayload.CargoValue) || 0,
+                            ValueForInsurance: Number(otherPayload.ValueForInsurance) || 0,
+                            InsuranceAmount: Number(otherPayload.InsuranceAmount) || 0,
+                            ValuationCharge: Number(otherPayload.ValuationCharge) || 0,
+                            HandlingInformation: otherPayload.HandlingInformation || '',
+                            DeliveryMode: otherPayload.DeliveryMode || '',
+                            ExternalRemarks: otherPayload.ExternalRemarks || '',
+                            SwitchBL: otherPayload.SwitchBL || '',
+                            TransporterName: otherPayload.TransporterName || '',
+                            AgentAddress: otherPayload.AgentAddress || '',
+                            BacktoBack: otherPayload.BackToBack || '',
+                            CarrierBookingRef: otherPayload.CarrierBookingRef || '',
+                            CarrierBookingDate: otherPayload.CarrierBookingDate ? new Date(otherPayload.CarrierBookingDate) : null,
+                            Coloader: otherPayload.Coloader || '',
+                            Forwarder: otherPayload.Forwarder || '',
+                            ForwarderAddress: otherPayload.ForwarderAddress || '',
+                            HBLNo: otherPayload.HBLNo || '',
+                            Notify2: otherPayload.Notify2 || '',
+                            NotifyAddress2: otherPayload.NotifyAddress2 || '',
+                            ROValidity: otherPayload.ROValidity || '',
+                            ReleaseType: otherPayload.ReleaseType || '',
+                            DeclaredValueOfCarriage: otherPayload.DeclaredValueOfCarriage || '',
+                            DeclaredValueOfCustoms: otherPayload.DeclaredValueOfCustoms || '',
+                            SwitchBLAgent: otherPayload.SwitchBLAgent || '',
+                            SwitchBLConsignee: otherPayload.SwitchBLConsignee || '',
+                            SwitchBLShipper: otherPayload.SwitchBLShipper || '',
+                            SwitchLocation: otherPayload.SwitchLocation || '',
+                            Depo: otherPayload.Depo,
+                            DONo: otherPayload.DONo || '',
+                            DODate: otherPayload.DODate ? new Date(otherPayload.DODate) : null,
+                            status: 'A',
+                            createdBy: payload.createdBy,
+                        }
+                    });
+                }
+
+                // Create Cost Revenue Charges
+                const finalCharges: any[] = [];
+                const allCostRevenueCharges = payload?.bookingRates || [];
+
+                let itemIndex = 1;
+                for (const item of allCostRevenueCharges) {
+                    const costRevenueChargesPayload = {
+                        TransactionSid: houseJob.HouseJobSid,
+                        MenuMasterSid: menuId || payload.MenuMasterSid,
+                        ShipmentNo: houseJob.ShipmentNo,
+                        MasterJobNo: houseJob.MBLNo,
+                        CompanyMasterSid: payload.CompanyMasterSid,
+                        BranchMasterSid: payload.BranchMasterSid,
+
+                        SerialNumber: itemIndex++,
+                        ChargeMasterSid: item.ChargeMasterSid ? Number(item.ChargeMasterSid) : null,
+                        ChargeDescription: item.ChargeDescription,
+
+                        ChargeUomSid: item.ChargeUomSid ? Number(item.ChargeUomSid) : null,
+                        RevenueChargeUomSid: Number(item.RevenueChargeUomSid),
+                        CostChargeUomSid: Number(item.CostChargeUomSid),
+                        RevenueNumberOfUnit: item.RevenueNumberOfUnit ? Number(item.RevenueNumberOfUnit) : null,
+                        CostNumberOfUnit: item.CostNumberOfUnit ? Number(item.CostNumberOfUnit) : null,
+
+                        // Revenue Section
+                        RevenueCurrencyMasterSid: item.RevenueCurrencyMasterSid ? item.RevenueCurrencyMasterSid : null,
+                        RevenueExchangeRate: item.RevenueExchangeRate ? Number(item.RevenueExchangeRate) : null,
+                        RevenueRate: item.RevenueRate ? Number(item.RevenueRate) : null,
+                        RevenueAmount: item.RevenueAmount ? Number(item.RevenueAmount) : null,
+                        RevenueLocalAmount: item.RevenueLocalAmount ? Number(item.RevenueLocalAmount) : null,
+                        RevenueDrCr: item.RevenueDrCr,
+                        RevenueCustomerMasterSid: item.RevenueCustomerMasterSid ? Number(item.RevenueCustomerMasterSid) : null,
+                        RevenueCustomerBranchSid: item.RevenueCustomerBranchSid ? Number(item.RevenueCustomerBranchSid) : null,
+                        RevenuePrepaidCollect: item.RevenuePrepaidCollect,
+                        RevenueVoucherHeaderSid: item.RevenueVoucherHeaderSid ? Number(item.RevenueVoucherHeaderSid) : null,
+                        RevenueVoucherTypeMasterSid: item.RevenueVoucherTypeSid ? Number(item.RevenueVoucherTypeSid) : null,
+
+                        // Cost Section
+                        CostCurrencyMasterSid: item.CostCurrencyMasterSid ? item.CostCurrencyMasterSid : null,
+                        CostExchangeRate: item.CostExchangeRate ? Number(item.CostExchangeRate) : null,
+                        CostRate: item.CostRate ? Number(item.CostRate) : null,
+                        CostAmount: item.CostAmount ? Number(item.CostAmount) : null,
+                        CostLocalAmount: item.CostLocalAmount ? Number(item.CostLocalAmount) : null,
+                        CostDrCr: item.CostDrCr,
+                        CostAgentMasterSid: item.CostAgentMasterSid ? Number(item.CostAgentMasterSid) : null,
+                        CostAgentBranchSid: item.CostAgentBranchSid ? Number(item.CostAgentBranchSid) : null,
+                        CostPrepaidCollect: item.CostPrepaidCollect,
+                        CostVoucherHeaderSid: item.CostVoucherHeaderSid ? Number(item.CostVoucherHeaderSid) : null,
+                        CostVoucherTypeMasterSid: item.CostVoucherTypeSid ? Number(item.CostVoucherTypeSid) : null,
+
+                        createdBy: payload.createdBy,
+                        status: "A",
+                        Remarks: item.Remarks
+                    }
+
+                    const createdCharge = await prisma.costRevenueCharges.create({
+                        data: costRevenueChargesPayload
+                    });
+                    finalCharges.push(createdCharge);
+                }
+
+                // Create House Job BOE
+                const finalHouseJobBOE: any[] = [];
+                const houseJobBOEPayload = payload.houseJobBOE || [];
+                if (houseJobBOEPayload.length > 0) {
+                    for (const boe of houseJobBOEPayload) {
+                        const createdBOE = await prisma.houseJobBOE.create({
+                            data: {
+                                HouseJobSid,
+                                CompanyMasterSid: payload.CompanyMasterSid,
+                                Sno: boe.Sno || 1,
+                                DeclarationNo: boe.DeclarationNo || '',
+                                BOENo: boe.BOENo || '',
+                                BOEDate: boe.BOEDate ? new Date(boe.BOEDate) : null,
+                                BOEValue: boe.BOEValue ? Number(boe.BOEValue) : null,
+                                BOEInvoiceValue: boe.BOEInvoiceValue ? Number(boe.BOEInvoiceValue) : null,
+                                TransactionType: boe.TransactionType || '',
+                                Amount: boe.Amount ? Number(boe.Amount) : null,
+                                ProcessDate: boe.ProcessDate ? new Date(boe.ProcessDate) : null,
+                                ReceivedDate: boe.ReceivedDate ? new Date(boe.ReceivedDate) : null,
+                                AckNumber: boe.AckNumber || '',
+                                AckDate: boe.AckDate ? new Date(boe.AckDate) : null,
+                                AckStatus: boe.AckStatus || '',
+                                Remarks: boe.Remarks || '',
+                                CreatedBy: payload.createdBy,
+                                Status: 'A'
+                            }
+                        });
+                        finalHouseJobBOE.push(createdBOE);
+                    }
+                }
+
+                // Create House Job Vehicle
+                let finalHouseJobVehicle: any[] = [];
+                const houseJobVehiclePayload = payload.houseJobVehicle || [];
+                if (houseJobVehiclePayload.length > 0) {
+                    for (const vehicle of houseJobVehiclePayload) {
+                        const createdVehicle = await prisma.houseJobVehicle.create({
+                            data: {
+                                HouseJobSid,
+                                CompanyMasterSid: payload.CompanyMasterSid,
+                                VehicleIndicator: vehicle.VehicleIndicator,
+                                UsedNew: vehicle.UsedNew,
+                                ChassisNo: vehicle.ChassisNo,
+                                CaseNo: vehicle.CaseNo,
+                                Make: vehicle.Make,
+                                Model: vehicle.Model,
+                                EngineNo: vehicle.EngineNo,
+                                YearBuilt: vehicle.YearBuilt,
+                                Color: vehicle.Color,
+                                Rolling: vehicle.Rolling,
+                                GoodsDescription: vehicle.GoodsDescription,
+                                Weight: vehicle.Weight ? Number(vehicle.Weight) : null,
+                                Volume: vehicle.Volume ? Number(vehicle.Volume) : null,
+                                Remarks: vehicle.Remarks,
+                                CreatedBy: payload.createdBy,
+                                Status: 'A'
+                            }
+                        });
+                        finalHouseJobVehicle.push(createdVehicle);
+                    }
+                }
+
+                // Create House Job Customs
+                let finalHouseJobCustoms: any[] = [];
+                const houseJobCustomsPayload = payload.houseJobCustoms || [];
+                if (houseJobCustomsPayload.length > 0) {
+                    for (const customs of houseJobCustomsPayload) {
+                        const createdCustoms = await prisma.houseJobCustoms.create({
+                            data: {
+                                HouseJobSid,
+                                CompanyMasterSid: payload.CompanyMasterSid,
+                                LineCode: customs.LineCode,
+                                VoyageAgentCode: customs.VoyageAgentCode,
+                                RotationNumber: customs.RotationNumber,
+                                ManifestSequence: customs.ManifestSequence,
+                                CargoCode: customs.CargoCode,
+                                StorageRequest: customs.StorageRequest,
+                                PackageTypeCode: customs.PackageTypeCode,
+                                FreightTonne: customs.FreightTonne ? Number(customs.FreightTonne) : null,
+                                NoOfPallets: customs.NoOfPallets ? Number(customs.NoOfPallets) : null,
+                                SLACIndicator: customs.SLACIndicator,
+                                ImporterCode: customs.ImporterCode,
+                                SerialNumber: customs.SerialNumber ? Number(customs.SerialNumber) : 0,
+                                UsedOrNew: customs.UsedOrNew,
+                                UNHSCode: customs.UNHSCode,
+                                UNNumber: customs.UNNumber,
+                                FlashPoints: customs.FlashPoints ? Number(customs.FlashPoints) : null,
+                                TemperatureUnit: customs.TemperatureUnit,
+                                HazStorageRequest: customs.HazStorageRequest,
+                                RefrigerationRequired: customs.RefrigerationRequired,
+                                MinTemperature: customs.MinTemperature ? Number(customs.MinTemperature) : null,
+                                MaxTemperature: customs.MaxTemperature ? Number(customs.MaxTemperature) : null,
+                                RefTemperatureUnit: customs.RefTemperatureUnit,
+                                CreatedBy: payload.createdBy,
+                                Status: 'A'
+                            }
+                        });
+                        finalHouseJobCustoms.push(createdCustoms);
+                    }
+                }
+
+                let finalAllMilestones: any = [];
+                const allMilestones = payload.milestones || [];
+                if (allMilestones.length > 0) {
+                    for (const milestone of allMilestones) {
+                        const createdMilestone = await prisma.shipmentMilestone.create({
+                            data: {
+                                HouseJobSid: houseJob.HouseJobSid,
+                                ShipmentNo: houseJob.ShipmentNo!,
+                                CompanyMasterSid: houseJob.CompanyMasterSid,
+                                BranchMasterSid: houseJob.BranchMasterSid!,
+                                CreatedBy: payload.createdBy,
+                                Status: "A",
+                                MilestoneMasterSid: milestone.MilestoneMasterSid,
+                                Remarks: milestone.Remarks,
+                                MilestoneName: milestone.MilestoneName,
+                                MilestoneDate: milestone.MilestoneDate,
+                                AutoCaptured: milestone.AutoCaptured,
+                            }
+                        });
+                        finalAllMilestones.push(createdMilestone);
+                    }
+                }
+                //   const allMilestones = await prisma.shipmentMilestone.createMany({
+                //     data :(payload.milestones || []).map(milestone => ({
+                //         ShipmentNo : houseJob.ShipmentNo,
+                //         CompanyMasterSid : houseJob.CompanyMasterSid,
+                //         BranchMasterSid : houseJob.BranchMasterSid!,
+                //         CreatedBy : payload.createdBy,
+                //         Status : "A",
+                //         MilestoneMasterSid : milestone.MilestoneMasterSid,
+                //         Remarks : milestone.Remarks,
+                //         MilestoneName : milestone.MilestoneName,
+                //         MilestoneDate : milestone.MilestoneDate,
+                //         AutoCaptured : milestone.AutoCaptured ? 'Y' : 'N'
+                //     }))
+                //   })
+
+                return {
+                    houseJob,
+                    houseJobCargo: finalHouseJobCargo,
+                    houseJobProduct: finalHouseJobProduct,
+                    houseConnections: finalHouseConnections,
+                    houseJobOthers: finalHouseJobOthers,
+                    houseJobBOE: finalHouseJobBOE,
+                    houseJobVehicle: finalHouseJobVehicle,
+                    houseJobCustoms: finalHouseJobCustoms,
+                    bookingRates: finalCharges,
+                    costRevenueCharges: finalCharges,
+                    shipmentMilestones: finalAllMilestones,
 
 
-    async getHouseJobById(HouseJobSid:number) {
+                };
+            });
+
+            return createdHouseJob;
+        } catch (error) {
+            throw error;
+        }
+    }
+
+
+
+
+    async getHouseJobById(HouseJobSid: number) {
         try {
             const ourHouseJob = await this._db.houseJob.findUnique({
                 where: {
                     HouseJobSid: HouseJobSid
                 },
                 include: {
-                    departmentMaster : {
-                        select : {
-                            departmentType : true
+                    departmentMaster: {
+                        select: {
+                            departmentType: true
                         }
                     },
                     Cargo: {
-                        where : {status : 'A'}
+                        where: { status: 'A' }
                     },
                     Connections: {
-                        where : {status : 'A'}
+                        where: { status: 'A' }
                     },
                     Others: {
-                        where : {status : 'A'}
+                        where: { status: 'A' }
                     },
                     Products: {
                         where: { status: 'A' },
@@ -599,66 +599,67 @@ else {
                             }
                         }
                     },
-                    houseJobBOE:{
-                        where:{
-                            Status:'A'
-                        }
-                    }, 
-                     houseJobVehicle:{
-                        where:{
-                            Status:'A'
-                        }
-                    }, 
-                     houseJobCustoms:{
-                        where:{
-                            Status:'A'
+                    houseJobBOE: {
+                        where: {
+                            Status: 'A'
                         }
                     },
-                    ShipmentMilestone:{
-                        where:{
-                            Status:'A'
+                    houseJobVehicle: {
+                        where: {
+                            Status: 'A'
                         }
-                    },                    
-                    masterJob:  {
-                        
-                        where:{Status : 'A',
-                       
+                    },
+                    houseJobCustoms: {
+                        where: {
+                            Status: 'A'
+                        }
+                    },
+                    ShipmentMilestone: {
+                        where: {
+                            Status: 'A'
+                        }
+                    },
+                    masterJob: {
+
+                        where: {
+                            Status: 'A',
+
                         },
-                        select:{
-                            MasterJobSid:true,
-                            NoofOriginal:true,
-                            MasterJobNumber:true,
-                            MBLNo:true,
-                            WeightIn:true,
-                            containers:true,
-                            others:true,
-                            voyages : {
-                                where : {
-                                    Status : 'A'
+                        select: {
+                            MasterJobSid: true,
+                            NoofOriginal: true,
+                            MasterJobNumber: true,
+                            MBLNo: true,
+                            WeightIn: true,
+                            containers: true,
+                            others: true,
+                            voyages: {
+                                where: {
+                                    Status: 'A'
                                 },
-                                take : 1
+                                take: 1
                             }
                         },
-                       
-                    } 
-                    
-                    
+
+                    }
+
+
                 }
             })
-            if(!ourHouseJob){
+            if (!ourHouseJob) {
                 throw new BadRequestException('Error fetching house job record.');
             }
 
             const menuId = await this.menuService.getMenuSidByName(
-                ourHouseJob.departmentMaster?.departmentType?.toUpperCase() === 'AIR' ? 
+                ourHouseJob.departmentMaster?.departmentType?.toUpperCase() === 'AIR' ?
                     "House Air Waybill" : "House Job"
             );
 
             const costRevenuePayload = {
-                TransactionSid : ourHouseJob.HouseJobSid,
-                MenuMasterSid : menuId || ourHouseJob.MenuMasterSid!,
-                CompanyMasterSid : ourHouseJob.CompanyMasterSid,
-                BranchMasterSid : ourHouseJob.BranchMasterSid!,
+                TransactionSid: ourHouseJob.HouseJobSid,
+                MenuMasterSid: menuId || ourHouseJob.MenuMasterSid!,
+                CompanyMasterSid: ourHouseJob.CompanyMasterSid,
+                BranchMasterSid: ourHouseJob.BranchMasterSid!,
             }
 
             const costRevenueCharges = await this.commonService.getAllCostRevenueCharges(costRevenuePayload);
@@ -673,9 +674,9 @@ else {
         }
     }
 
-    async getHouseJobByMasterJobSid(payload:any) {
+    async getHouseJobByMasterJobSid(payload: any) {
         try {
-            const {MasterJobSid,CompanyMasterSid,BranchMasterSid} = payload;
+            const { MasterJobSid, CompanyMasterSid, BranchMasterSid } = payload;
             const ourHouseJob = await this._db.houseJob.findMany({
                 where: {
                     MasterJobSid: MasterJobSid,
@@ -683,9 +684,9 @@ else {
                     BranchMasterSid: BranchMasterSid,
                     status: 'A'
                 },
-                select :{
-                    HouseJobSid : true,
-                    HBLNo : true
+                select: {
+                    HouseJobSid: true,
+                    HBLNo: true
                 }
             })
             return ourHouseJob;
@@ -792,7 +793,40 @@ else {
                         JobType: payload.JobType
                     }
                 })
+
             })
+            // 🔁 Sync HBL / MBL to BookingHeader (ONLY if BookingHeaderSid exists)
+            if (payload.BookingHeaderSid) {
+
+                const houseJob = await this._db.houseJob.findUnique({
+                    where: { HouseJobSid },
+                    select: {
+                        HBLNo: true,
+                        MasterJobSid: true
+                    }
+                });
+
+                if (houseJob?.MasterJobSid) {
+
+                    const masterJob = await this._db.masterJob.findUnique({
+                        where: { MasterJobSid: houseJob.MasterJobSid },
+                        select: {
+                            MBLNo: true
+                        }
+                    });
+
+                    await this._db.bookingHeader.update({
+                        where: {
+                            BookingHeaderSid: payload.BookingHeaderSid
+                        },
+                        data: {
+                            ...(houseJob.HBLNo && { HBLNo: houseJob.HBLNo }),
+                            ...(masterJob?.MBLNo && { MBLNo: masterJob.MBLNo }),
+                            updatedBy: payload.updatedBy
+                        }
+                    });
+                }
+            }
 
             let finalHouseJobCargo;
 
@@ -1070,8 +1104,8 @@ else {
                         NotifyAddress2: otherPayload.NotifyAddress2 || '',
                         ROValidity: otherPayload.ROValidity || '',
                         ReleaseType: otherPayload.ReleaseType || '',
-                          DeclaredValueOfCarriage : otherPayload.DeclaredValueOfCarriage || '',
-                      DeclaredValueOfCustoms: otherPayload.DeclaredValueOfCustoms || '',
+                        DeclaredValueOfCarriage: otherPayload.DeclaredValueOfCarriage || '',
+                        DeclaredValueOfCustoms: otherPayload.DeclaredValueOfCustoms || '',
                         SwitchBLAgent: otherPayload.SwitchBLAgent || '',
                         SwitchBLConsignee: otherPayload.SwitchBLConsignee || '',
                         SwitchBLShipper: otherPayload.SwitchBLShipper || '',
@@ -1130,8 +1164,8 @@ else {
                         NotifyAddress2: otherPayload.NotifyAddress2 || '',
                         ROValidity: otherPayload.ROValidity || '',
                         ReleaseType: otherPayload.ReleaseType || '',
-                          DeclaredValueOfCarriage : otherPayload.DeclaredValueOfCarriage || '',
-                      DeclaredValueOfCustoms: otherPayload.DeclaredValueOfCustoms || '',
+                        DeclaredValueOfCarriage: otherPayload.DeclaredValueOfCarriage || '',
+                        DeclaredValueOfCustoms: otherPayload.DeclaredValueOfCustoms || '',
                         SwitchBLAgent: otherPayload.SwitchBLAgent || '',
                         SwitchBLConsignee: otherPayload.SwitchBLConsignee || '',
                         SwitchBLShipper: otherPayload.SwitchBLShipper || '',
@@ -1478,9 +1512,9 @@ else {
                 }
             }
 
-            const finalShipmentMilestones : any[] = [];
+            const finalShipmentMilestones: any[] = [];
             const milestonePayload = payload.milestones || [];
- 
+
             if (milestonePayload.length > 0) {
                 for (const milestone of milestonePayload) {
                     let createdMilestone;
@@ -1500,30 +1534,33 @@ else {
                                 Remarks: milestone.Remarks,
                                 MilestoneName: milestone.MilestoneName,
                                 MilestoneDate: milestone.MilestoneDate,
-                                AutoCaptured: milestone.AutoCaptured ,
+                                AutoCaptured: milestone.AutoCaptured,
                             }
                         });
                     } else {
                         // Create new milestone
-                        createdMilestone = await this._db.shipmentMilestone.create({    
+                        createdMilestone = await this._db.shipmentMilestone.create({
                             data: {
                                 HouseJobSid: updatedHouseJob.HouseJobSid,
                                 ShipmentNo: updatedHouseJob.ShipmentNo!,
                                 CompanyMasterSid: milestone.CompanyMasterSid,
                                 BranchMasterSid: milestone.BranchMasterSid,
-                                CreatedBy: milestone.UpdatedBy ,
+                                CreatedBy: milestone.UpdatedBy,
                                 Status: "A",
                                 MilestoneMasterSid: milestone.MilestoneMasterSid,
                                 Remarks: milestone.Remarks,
                                 MilestoneName: milestone.MilestoneName,
                                 MilestoneDate: milestone.MilestoneDate,
-                                AutoCaptured: milestone.AutoCaptured ,
+                                AutoCaptured: milestone.AutoCaptured,
                             }
                         });
                     }
                     finalShipmentMilestones.push(updatedMilestone || createdMilestone);
                 }
             }
+
+
+
 
             return {
                 houseJob: updatedHouseJob,
@@ -1546,74 +1583,74 @@ else {
 
 
     async getHouseJobByBookingNo(BookingNumber: string) {
-            try {
-                const ourBooking = await this._db.houseJob.findFirst({
+        try {
+            const ourBooking = await this._db.houseJob.findFirst({
+                where: {
+                    ShipmentNo: BookingNumber
+                },
+                include: {
+                    Cargo: { where: { status: 'A' } },
+                    Products: { where: { status: 'A' } },
+                    Others: { where: { status: 'A' } },
+                    Connections: { where: { status: 'A' } }
+                }
+            })
+
+            if (!ourBooking) {
+                throw new BadRequestException('Error fetching booking record.');
+            }
+
+            let voyageDetails;
+            if (ourBooking.VoyageMasterSid) {
+                const data = await this._db.voyageMasterHeader.findUnique({
                     where: {
-                        ShipmentNo: BookingNumber
+                        VoyageMasterHeaderSid: ourBooking.VoyageMasterSid
                     },
                     include: {
-                        Cargo: { where: { status: 'A' } },
-                        Products: { where: { status: 'A' } },
-                        Others: { where: { status: 'A' } },
-                        Connections: { where: { status: 'A' } }
+                        voyageMasterDetail: {
+                            where: {
+                                status: 'A'
+                            },
+                            select: {
+                                ETA: true,
+                                ETD: true,
+                                PortCutoff: true,
+                                portMasterPOL: {
+                                    select: {
+                                        PortCode: true
+                                    }
+                                }
+                            },
+                        }
                     }
                 })
-    
-                if (!ourBooking) {
-                    throw new BadRequestException('Error fetching booking record.');
+                const POL = data?.voyageMasterDetail.find(vd => vd.portMasterPOL?.PortCode === ourBooking.POL);
+                const POD = data?.voyageMasterDetail.find(vd => vd.portMasterPOL?.PortCode === ourBooking.POD);
+                voyageDetails = {
+                    POLETA: POL?.ETA,
+                    POLETD: POL?.ETD,
+                    PODETA: POD?.ETA,
+                    PODETD: POD?.ETD,
+                    POLCutOffDate: POL?.PortCutoff,
+                    PODCutOffDate: POD?.PortCutoff
                 }
-
-                let voyageDetails;
-                if (ourBooking.VoyageMasterSid) {
-                    const data = await this._db.voyageMasterHeader.findUnique({
-                        where: {
-                            VoyageMasterHeaderSid: ourBooking.VoyageMasterSid
-                        },
-                        include: {
-                            voyageMasterDetail: {
-                                where: {
-                                    status: 'A'
-                                },
-                                select: {
-                                    ETA: true,
-                                    ETD: true,
-                                    PortCutoff: true,
-                                    portMasterPOL: {
-                                        select: {
-                                            PortCode: true
-                                        }
-                                    }
-                                },
-                            }
-                        }
-                    })
-                    const POL = data?.voyageMasterDetail.find(vd => vd.portMasterPOL?.PortCode === ourBooking.POL);
-                    const POD = data?.voyageMasterDetail.find(vd => vd.portMasterPOL?.PortCode === ourBooking.POD);
-                    voyageDetails = {
-                        POLETA: POL?.ETA,
-                        POLETD: POL?.ETD,
-                        PODETA: POD?.ETA,
-                        PODETD: POD?.ETD,
-                        POLCutOffDate: POL?.PortCutoff,
-                        PODCutOffDate: POD?.PortCutoff
-                    }
-                }
-    
-                return {
-                    ...ourBooking,
-                    voyageDetails
-                }
-            } catch (error) {
-                throw error;
             }
+
+            return {
+                ...ourBooking,
+                voyageDetails
+            }
+        } catch (error) {
+            throw error;
         }
+    }
 
     async getMasterJobContainersByMasterJobSid(MasterJobSid: number) {
         try {
             const ourMasterJobContainers = await this._db.masterJobContainer.findMany({
-                where : {
-                    MasterJobSid : MasterJobSid,
-                    Status : 'A'
+                where: {
+                    MasterJobSid: MasterJobSid,
+                    Status: 'A'
                 }
             })
             return ourMasterJobContainers;
@@ -1622,22 +1659,22 @@ else {
         }
     }
 
-    async updateHBLCount(payload : {
-        CompanyMasterSid : number,
-        BranchMasterSid : number,
-        HouseJobSid : number,
-    }){
+    async updateHBLCount(payload: {
+        CompanyMasterSid: number,
+        BranchMasterSid: number,
+        HouseJobSid: number,
+    }) {
         try {
             const ourHouse = await this._db.houseJob.update({
-                where : {
-                    CompanyMasterSid : payload.CompanyMasterSid,
-                    BranchMasterSid : payload.BranchMasterSid,
-                    HouseJobSid : payload.HouseJobSid,
-                    status : 'A'
+                where: {
+                    CompanyMasterSid: payload.CompanyMasterSid,
+                    BranchMasterSid: payload.BranchMasterSid,
+                    HouseJobSid: payload.HouseJobSid,
+                    status: 'A'
                 },
-                data : {
-                    HBLCount : {
-                        increment : 1
+                data: {
+                    HBLCount: {
+                        increment: 1
                     }
                 }
             })
@@ -1647,105 +1684,105 @@ else {
         }
     }
 
-async getHouseJobARAPData(HouseJobSid: number): Promise<any> {
-  try {
-    // Using Prisma view instead of raw query
-    const arapData = await this._db.vHouseARAP.findMany({
-      where: {
-        HouseJobSid: HouseJobSid
-      },
-      orderBy: {
-        VoucherDate: 'desc'
-      }
-    });
- 
-    return arapData;
-  } catch (error) {
-    this.logger.error(`Error fetching AR/AP data: ${error.message}`);
-    throw error;
-  }
-}
-async softDeleteHouseJobProduct(HouseJobProductSid: number) {
-  try {
-    const deletedHouseJobProduct = await this._db.houseJobProduct.update({
-      where: {
-        HouseJobProductSid: HouseJobProductSid
-      },
-      data: { status: 'D' }
-    })
-    return deletedHouseJobProduct;
-  } catch (error) {
-    throw error;
-  } 
-}
+    async getHouseJobARAPData(HouseJobSid: number): Promise<any> {
+        try {
+            // Using Prisma view instead of raw query
+            const arapData = await this._db.vHouseARAP.findMany({
+                where: {
+                    HouseJobSid: HouseJobSid
+                },
+                orderBy: {
+                    VoucherDate: 'desc'
+                }
+            });
 
-
-async searchHouseJob(params: searchHouseJob) {
-  const {
-    search = '',
-    page = 1,
-    pageSize = 15,
-    activeCompanyId,
-    activeBranchId,
-    departmentType,
-  } = params;
-
-  const skip = (page - 1) * pageSize;
-
-  const where: Prisma.HouseJobWhereInput = {
-    status: statusWhereClause,
-    CompanyMasterSid: activeCompanyId,
-    BranchMasterSid: activeBranchId,
-
-    // ✅ Correct department filter
-    ...(departmentType
-      ? {
-          departmentMaster: {
-            departmentType: {
-              equals: departmentType.toUpperCase(), // SEA / AIR
-              mode: 'insensitive',
-            },
-          },
+            return arapData;
+        } catch (error) {
+            this.logger.error(`Error fetching AR/AP data: ${error.message}`);
+            throw error;
         }
-      : {}),
-
-    ...(search
-      ? {
-          OR: [
-            { HBLNo: { contains: search, mode: 'insensitive' } },
-            { ShipmentNo: { contains: search, mode: 'insensitive' } },
-            { POL: { contains: search, mode: 'insensitive' } },
-            { POD: { contains: search, mode: 'insensitive' } },
-          ],
+    }
+    async softDeleteHouseJobProduct(HouseJobProductSid: number) {
+        try {
+            const deletedHouseJobProduct = await this._db.houseJobProduct.update({
+                where: {
+                    HouseJobProductSid: HouseJobProductSid
+                },
+                data: { status: 'D' }
+            })
+            return deletedHouseJobProduct;
+        } catch (error) {
+            throw error;
         }
-      : {}),
-  };
+    }
 
-  const [items, totalCount] = await this._db.$transaction([
-    this._db.houseJob.findMany({
-      where,
-      skip,
-      take: pageSize,
-      orderBy: { HouseJobSid: 'desc' },
-      include: {
-        departmentMaster: {
-          select: { departmentType: true, departmentName: true },
-        },
-        masterJob:{
-            select:{
-                MasterJobNumber:true,
-            }
-        }
-      },
-    }),
-    this._db.houseJob.count({ where }),
-  ]);
 
-  return {
-    items,
-    totalCount,
-  };
-}
+    async searchHouseJob(params: searchHouseJob) {
+        const {
+            search = '',
+            page = 1,
+            pageSize = 15,
+            activeCompanyId,
+            activeBranchId,
+            departmentType,
+        } = params;
+
+        const skip = (page - 1) * pageSize;
+
+        const where: Prisma.HouseJobWhereInput = {
+            status: statusWhereClause,
+            CompanyMasterSid: activeCompanyId,
+            BranchMasterSid: activeBranchId,
+
+            // ✅ Correct department filter
+            ...(departmentType
+                ? {
+                    departmentMaster: {
+                        departmentType: {
+                            equals: departmentType.toUpperCase(), // SEA / AIR
+                            mode: 'insensitive',
+                        },
+                    },
+                }
+                : {}),
+
+            ...(search
+                ? {
+                    OR: [
+                        { HBLNo: { contains: search, mode: 'insensitive' } },
+                        { ShipmentNo: { contains: search, mode: 'insensitive' } },
+                        { POL: { contains: search, mode: 'insensitive' } },
+                        { POD: { contains: search, mode: 'insensitive' } },
+                    ],
+                }
+                : {}),
+        };
+
+        const [items, totalCount] = await this._db.$transaction([
+            this._db.houseJob.findMany({
+                where,
+                skip,
+                take: pageSize,
+                orderBy: { HouseJobSid: 'desc' },
+                include: {
+                    departmentMaster: {
+                        select: { departmentType: true, departmentName: true },
+                    },
+                    masterJob: {
+                        select: {
+                            MasterJobNumber: true,
+                        }
+                    }
+                },
+            }),
+            this._db.houseJob.count({ where }),
+        ]);
+
+        return {
+            items,
+            totalCount,
+        };
+    }
 
 
 }

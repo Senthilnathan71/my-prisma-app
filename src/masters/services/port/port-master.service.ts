@@ -64,6 +64,7 @@ export class PortService {
           countryMaster: {
             select: {
               countryName: true,
+              countryCode: true
             },
           },
           sectorMaster: {
@@ -97,6 +98,7 @@ export class PortService {
           countryMaster: {
             select: {
               countryName: true,
+              countryCode: true
             },
           },
           sectorMaster: {

@@ -1612,7 +1612,8 @@ export class CustomerService {
                     CustomerBranch : true,
                     countryMaster: {
                         select: {
-                            countryName: true
+                            countryName: true,
+                            countryCode: true
                         }
                     }
                 }
@@ -1627,7 +1628,10 @@ export class CustomerService {
                     CustomerBranchSid: branch.CustomerBranchSid,
                     BranchName: branch.BranchName,
                     Address: branch.Address,
-                    Email: branch.Email
+                    Email: branch.Email,
+                    countryName: cus.countryMaster?.countryName,
+                   Countrycode: cus.countryMaster?.countryCode
+                    
                 }))
             })
 
