@@ -3,6 +3,8 @@ import { DatabaseService } from 'src/database/database.service';
 import { Prisma } from '@prisma/client';
 import { VoucherService } from '../voucher/voucher.service';
 import { VoucherPeriodService } from 'src/masters/services/voucher-period/voucher-period.service';
+import { PullVoucherDTO, VoucherHeaderDto } from 'src/accounts/dto/voucher.dto';
+import { roundAmount, toNumber } from 'src/common/helper';
 
 @Injectable()
 export class VendorCreditNoteService {
@@ -101,15 +103,18 @@ export class VendorCreditNoteService {
                             Status: payload.status || 'A',
                             CreatedBy: payload.CreatedBy || 'System',
                             ReversalVoucher: payload.ReversalVoucher || null,
+                            CreditNoteReason : payload.CreditNoteReason || null,
+                            CashOrBank : payload.CashOrBank || null,
                         }
                     });
     
                     // Create VoucherDetails
                     let totalTaxableAmount = 0;
+                    const finalDetails : any[] = [];
                     if (payload.VoucherDetail && Array.isArray(payload.VoucherDetail)) {
                         let sno = 1;
                         for (const detail of payload.VoucherDetail) {
-                            await tx.voucherDetail.create({
+                            const newDetail = await tx.voucherDetail.create({
                                 data: {
                                     VoucherHeaderSid: voucherHeader.VoucherHeaderSid,
                                     Sno: sno++,
@@ -134,14 +139,17 @@ export class VendorCreditNoteService {
                                     DrCr: detail.DrCr || 'D', // Vendor CreditNote = Debit (payable)
                                     LedgerMasterSid: detail.LedgerMasterSid,
                                     COAMasterSid: detail.COAMasterSid,
+                                    PartyAmount : detail.PartyAmount,
                                     MasterJobSid: detail.MasterJobSid || payload.MasterJobSid,
                                     HouseJobSid: detail.HouseJobSid || payload.HouseJobSid,
                                     YearMasterSid : detail.YearMasterSid || payload.YearMasterSid,
                                     CreatedBy: payload.CreatedBy || 'System',
+                                    SourceDetailSid : detail.SourceDetailSid,
+                                    CostRevenueChargesSid : detail.CostRevenueChargesSid,
                                     Status: 'A'
                                 }
                             });
-    
+                            finalDetails.push(newDetail);
                             totalTaxableAmount += Number(detail.TaxableAmount || detail.Amount || 0);
                         }
                     }
@@ -207,12 +215,31 @@ export class VendorCreditNoteService {
                     }
     
                     // Fetch complete vendor creditnote with relations
-                    const completeVendorCreditNote = await this.fetchVendorCreditNoteById(voucherHeader.VoucherHeaderSid, tx);
+                    if(voucherTypeMaster.IsAutoPosting === 'Y'){
+                        const postResult = await this.voucherService.postVoucherByVoucherSid({
+                            voucherHeaderSid : voucherHeader.VoucherHeaderSid,
+                            companyMasterSid : voucherHeader.CompanyMasterSid,
+                            branchMasterSid : voucherHeader.BranchMasterSid,
+                            yearMasterSid : payload.YearMasterSid,
+                            localCurrencyMasterSid : Number(payload?.PostingInfo?.LocalCurrencyMasterSid),
+                            localCurrencyCode : String(payload?.PostingInfo?.LocalCurrencyCode),
+                            postedBy : payload.CreatedBy,
+                            taxDetails : payload?.PostingInfo?.TaxDetails,
+                        }, tx );
+
+                        if(postResult && payload.IsFullyReversed) {
+                            await this.voucherService.handleFullVoucherReversal({
+                                VoucherHeaderSid : voucherHeader.VoucherHeaderSid,
+                                VoucherDetails : finalDetails,
+                                userEmail : payload.CreatedBy
+                            }, 'cost', tx );
+                        }
+                    }
+
     
                     return {
-                        newVoucher: completeVendorCreditNote,
-                        VoucherHeaderSid: voucherHeader.VoucherHeaderSid,
-                        VoucherNumber: VoucherNumber
+                        ...voucherHeader,
+                        VoucherDetail : finalDetails
                     };
                 });
             } catch (error) {
@@ -254,7 +281,7 @@ export class VendorCreditNoteService {
         }
     }
 
-    async fetchVendorCreditNoteById(VoucherHeaderSid: number, tx?: any): Promise<any> {
+    async fetchVendorCreditNoteById(VoucherHeaderSid: number, tx?: Prisma.TransactionClient): Promise<any> {
             try {
                 const db = tx || this._db;
     
@@ -271,6 +298,9 @@ export class VendorCreditNoteService {
                                 },
                                 hSSACMaster: true,
                                 currencyMaster: true
+                            },
+                            orderBy : {
+                                Sno : 'asc'
                             }
                         },
                         // VoucherTDS: {
@@ -295,10 +325,46 @@ export class VendorCreditNoteService {
                         
                     }
                 }); 
-    
+
                 if (!vendorCreditNote) {
                     throw new NotFoundException(`Vendor CreditNote with ID ${VoucherHeaderSid} not found`);
                 }
+
+                if (vendorCreditNote.ReversalVoucher) {
+                    // Checking if any other credit note is created against this vendor invoice
+                    const reversalVoucher = await this._db.voucherHeader.findFirst({
+                        where: { 
+                            AND : [
+                                { VoucherHeaderSid : vendorCreditNote.ReversalVoucher },
+                                { voucherTypeMaster : { DocumentTypeCode : 'VIN' } },
+                                { PostStatus : 'P' },
+                            ]
+                        },
+                        select :{
+                            VoucherHeaderSid: true,
+                            VoucherNumber: true,
+                            VoucherDetail : {
+                                select : {
+                                    VoucherDetailSid : true,
+                                    Rate : true,
+                                    CostRevenueChargesSid : true
+                                }
+                            }
+                        }
+                    })
+
+                    // If no reversal voucher found, return original vendor credit note
+                    if(!reversalVoucher) {
+                        return vendorCreditNote;
+                    }
+
+                    return {
+                        ...vendorCreditNote,
+                        reversalVoucher
+                    }
+                }
+
+
     
                 return vendorCreditNote;
             } catch (error) {
@@ -357,7 +423,8 @@ export class VendorCreditNoteService {
                         Remarks: payload.Remarks,
                         Status: payload.status,
                         UpdatedBy: payload.UpdatedBy || 'System',
-                        UpdatedOn: new Date()
+                        UpdatedOn: new Date(),
+                        CreditNoteReason : payload.CreditNoteReason || null,
                     }
                 });
 
@@ -408,8 +475,10 @@ if (payload.VoucherDetail && Array.isArray(payload.VoucherDetail)) {
                     DrCr: detail.DrCr || 'D',
                     LedgerMasterSid: detail.LedgerMasterSid,
                     COAMasterSid: detail.COAMasterSid,
+                    PartyAmount : detail.PartyAmount,
                     MasterJobSid: detail.MasterJobSid || payload.MasterJobSid,
                     HouseJobSid: detail.HouseJobSid || payload.HouseJobSid,
+                    SourceDetailSid : detail.SourceDetailSid || null,
                     UpdatedBy: payload.UpdatedBy || 'System',
                     Status: 'A'
                 }
@@ -444,9 +513,11 @@ if (payload.VoucherDetail && Array.isArray(payload.VoucherDetail)) {
                     DrCr: detail.DrCr || 'D',
                     LedgerMasterSid: detail.LedgerMasterSid,
                     COAMasterSid: detail.COAMasterSid,
+                    PartyAmount : detail.PartyAmount,
                     MasterJobSid: detail.MasterJobSid || payload.MasterJobSid,
                     HouseJobSid: detail.HouseJobSid || payload.HouseJobSid,
                     YearMasterSid : detail.YearMasterSid || payload.YearMasterSid,
+                    SourceDetailSid : detail.SourceDetailSid || null,
                     CreatedBy: payload.UpdatedBy || 'System',
                     Status: 'A'
                 }
@@ -640,70 +711,211 @@ if (payload.VoucherDetail && Array.isArray(payload.VoucherDetail)) {
         }
     }
 
-    async fetchVendorInvoiceById(VoucherHeaderSid: number, tx?: any): Promise<any> {
-        try {
-            const db = tx || this._db;
+    async fetchVendorInvoice(
+        payload: PullVoucherDTO,
+        tx?: Prisma.TransactionClient,
+    ): Promise<any> {
+        const prisma = tx || this._db;
 
-            const vendorInvoice = await db.voucherHeader.findUnique({
-                where: { VoucherHeaderSid },
-                include: {
-                    // VoucherDetail: {
-                    //     where: { Status: 'A' },
-                    //     include: {
-                    //         chargeMaster: {
-                    //             include: {
-                    //                 chargeTaxMaster: true
-                    //             }
-                    //         },
-                    //         hSSACMaster: true,
-                    //         currencyMaster: true
-                    //     }
-                    // },
-                    // VoucherTDS: {
-                    //     where: { Status: 'A' },
-                    //     include: {
-                    //         TDSSetRate: {
-                    //             include: {
-                    //                 tdsSetHeader: true
-                    //             }
-                    //         }
-                    //     }
-                    // },
-                    VoucherOthers: {
-                        where: { Status: 'A' }
+        const { VoucherNumber, CompanyMasterSid, BranchMasterSid } =
+            payload;
+
+        const vendorInvoice = await prisma.voucherHeader.findFirst({
+            where: {
+                VoucherNumber: { contains: VoucherNumber, mode: 'insensitive' },
+                CompanyMasterSid,
+                BranchMasterSid,
+                voucherTypeMaster: { DocumentTypeCode: 'VIN' },
+                Status: 'A',
+            },
+            include: {
+                VoucherDetail: {
+                    where: { IsAutoGenerated: 'N', Status: 'A' },
+                    include: {
+                        currencyMaster: { select: { amountDecimal: true } },
                     },
-                    subledgerMaster: true,
-                    customerBranch: true,
-                    currencyMaster: true,
-                    masterJob: true,
-                    houseJob: true,
-                    voucherTypeMaster: true,
-                    VoucherTransaction: {
-                where: {
-                  OR: [
-                    { IsAutoGenerated: 'N' },
-                    { IsAutoGenerated: null }
-                  ]
+                    orderBy: { Sno: 'asc' },
                 },
-                include : {
-                  voucherDetail : true
-                }
-            }
-                }
-            }); 
+                voucherTypeMaster: { select: { DocumentTypeName: true } },
+                currencyMaster: {
+                    select: { amountDecimal: true, currencyCode: true },
+                },
+            },
+        });
 
-            if (!vendorInvoice) {
-                throw new NotFoundException(`Vendor Invoice with ID ${VoucherHeaderSid} not found`);
-            }
-
-            return vendorInvoice;
-        } catch (error) {
-            this.logger.error(`Error fetching vendor invoice by ID: ${error.message}`);
-            if (error instanceof NotFoundException) {
-                throw error;
-            }
-            throw new InternalServerErrorException('Failed to fetch vendor invoice');
+        if (!vendorInvoice) {
+            throw new NotFoundException(
+                `Vendor Invoice with Voucher Number ${VoucherNumber} not found`,
+            );
         }
+
+        if (vendorInvoice.PostStatus !== 'P') {
+            throw new BadRequestException(
+                `Vendor Invoice with Voucher Number ${VoucherNumber} is not posted`,
+            );
+        }
+
+        if (!vendorInvoice.VoucherDetail?.length) {
+            throw new BadRequestException(
+                `Vendor Invoice with Voucher Number ${VoucherNumber} has no details`,
+            );
+        }
+
+        const headerCurrencyDecimals =
+            vendorInvoice.currencyMaster?.amountDecimal ?? 2;
+
+        /* ------------------------------------------------------------------ */
+        /* Helpers                                                            */
+        /* ------------------------------------------------------------------ */
+
+        const toSafeNumber = (val: any): number => {
+            const n = toNumber(val);
+            return Math.abs(n) < 1e-8 ? 0 : n;
+        };
+
+        const roundFinal = (val: number, decimals: number): number =>
+            roundAmount(val, decimals);
+
+        const calculatePartyAmountRaw = (detail: any): number => {
+            const amount = toSafeNumber(detail.Amount);
+            const localAmount = toSafeNumber(detail.LocalAmount);
+            const exchangeRate = toSafeNumber(vendorInvoice.ExchangeRate);
+
+            if (detail.CurrencyMasterSid === vendorInvoice.CurrencyMasterSid) {
+                return amount;
+            }
+
+            if (!exchangeRate) return 0;
+
+            return localAmount / exchangeRate;
+        };
+
+        /* ------------------------------------------------------------------ */
+        /* Fetch Credit Notes                                                  */
+        /* ------------------------------------------------------------------ */
+
+        const vendorCreditNotes = await prisma.voucherHeader.findMany({
+            where: {
+                ReversalVoucher: vendorInvoice.VoucherHeaderSid,
+                CompanyMasterSid: vendorInvoice.CompanyMasterSid,
+                BranchMasterSid: vendorInvoice.BranchMasterSid,
+                PostStatus: 'P',
+                Status: 'A',
+            },
+            include: {
+                VoucherDetail: { where: { Status: 'A' } },
+            },
+        });
+
+        const creditMap = new Map<number, any[]>();
+
+        vendorCreditNotes.forEach((credit) => {
+            credit.VoucherDetail.forEach((d) => {
+                if (!d.SourceDetailSid) return;
+                const arr = creditMap.get(d.SourceDetailSid) || [];
+                creditMap.set(d.SourceDetailSid, [...arr, d]);
+            });
+        });
+
+        /* ------------------------------------------------------------------ */
+        /* Process Voucher Details                                             */
+        /* ------------------------------------------------------------------ */
+
+        const updatedDetails = vendorInvoice.VoucherDetail.map((detail) => {
+            const partyAmountRaw = calculatePartyAmountRaw(detail);
+
+            let rate = toSafeNumber(detail.Rate);
+            let amount = toSafeNumber(detail.Amount);
+            let taxableAmount = toSafeNumber(detail.TaxableAmount);
+            let localAmount = toSafeNumber(detail.LocalAmount);
+            let tax1 = toSafeNumber(detail.TaxAmount1);
+            let tax2 = toSafeNumber(detail.TaxAmount2);
+            let partyAmount = partyAmountRaw;
+
+            if (creditMap.has(detail.VoucherDetailSid)) {
+                const credits = creditMap.get(detail.VoucherDetailSid)!;
+
+                rate -= credits.reduce((s, d) => s + toSafeNumber(d.Rate), 0);
+                amount -= credits.reduce((s, d) => s + toSafeNumber(d.Amount), 0);
+                taxableAmount -= credits.reduce(
+                    (s, d) => s + toSafeNumber(d.TaxableAmount),
+                    0,
+                );
+                localAmount -= credits.reduce(
+                    (s, d) => s + toSafeNumber(d.LocalAmount),
+                    0,
+                );
+                tax1 -= credits.reduce(
+                    (s, d) => s + toSafeNumber(d.TaxAmount1),
+                    0,
+                );
+                tax2 -= credits.reduce(
+                    (s, d) => s + toSafeNumber(d.TaxAmount2),
+                    0,
+                );
+                partyAmount -= credits.reduce(
+                    (s, d) => s + calculatePartyAmountRaw(d),
+                    0,
+                );
+            }
+
+            return {
+                ...detail,
+                Rate: roundFinal(rate, 4),
+                Amount: roundFinal(amount, 4),
+                TaxableAmount: roundFinal(taxableAmount, 4),
+                LocalAmount: roundFinal(localAmount, 4),
+                TaxAmount1: roundFinal(tax1, 4),
+                TaxAmount2: roundFinal(tax2, 4),
+                PartyAmount: roundFinal(partyAmount, headerCurrencyDecimals),
+            };
+        });
+
+        /* ------------------------------------------------------------------ */
+        /* Totals                                                             */
+        /* ------------------------------------------------------------------ */
+
+        let totalPartyAmount = 0;
+        let totalTaxAmount = 0;
+
+        updatedDetails.forEach((d) => {
+            const party = toSafeNumber(d.PartyAmount);
+            const tax =
+                toSafeNumber(d.TaxAmount1) + toSafeNumber(d.TaxAmount2);
+
+            if (d.DrCr === 'C') {
+                totalPartyAmount -= party;
+                totalTaxAmount -= tax;
+            } else {
+                totalPartyAmount += party;
+                totalTaxAmount += tax;
+            }
+        });
+
+        totalPartyAmount = roundFinal(
+            totalPartyAmount,
+            headerCurrencyDecimals,
+        );
+        totalTaxAmount = roundFinal(
+            totalTaxAmount,
+            headerCurrencyDecimals,
+        );
+
+        const outstandingAmount = roundFinal(
+            totalPartyAmount + totalTaxAmount,
+            headerCurrencyDecimals,
+        );
+
+        const {VoucherDetail , currencyMaster , voucherTypeMaster , ...header} = vendorInvoice;
+        return {
+            ...header,
+            VoucherDetail: updatedDetails,
+            totalPartyAmount,
+            totalTaxAmount,
+            outstandingAmount,
+            hasOutstandingAmount: outstandingAmount > 0,
+        };
     }
+
 
 }

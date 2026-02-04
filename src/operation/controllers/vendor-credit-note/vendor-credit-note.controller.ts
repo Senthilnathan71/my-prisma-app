@@ -1,5 +1,6 @@
-import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, Post, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, NotFoundException, Param, ParseIntPipe, Patch, Post, UnauthorizedException, UsePipes, ValidationPipe } from '@nestjs/common';
 import { ApiOperation, ApiCreatedResponse } from '@nestjs/swagger';
+import { PullVoucherDTO } from 'src/accounts/dto/voucher.dto';
 import { ResponseData } from 'src/common/response-data';
 import { VendorCreditNoteService } from 'src/operation/services/vendor-credit-note/vendor-credit-note.service';
 class CompanyIdDto {
@@ -207,18 +208,23 @@ export class VendorCreditNoteController {
     type: ResponseData
   })
   @HttpCode(HttpStatus.OK)
-  @Get('fetch/vendor-invoice/:VoucherHeaderSid')
-  async getVendorInvoiceById(@Param('VoucherHeaderSid', ParseIntPipe) VoucherHeaderSid: number) {
+  @UsePipes(new ValidationPipe({
+    transform: true,
+    whitelist: true,
+    forbidNonWhitelisted: true,
+  }))
+  @Post('fetch/vendor-invoice')
+  async getVendorInvoiceById(@Body() payload : PullVoucherDTO) {
     const output = new ResponseData();
     try {
-      const finalOutput = await this.vendorCreditNoteService.fetchVendorInvoiceById(VoucherHeaderSid);
-      this.logger.debug(`getVendorInvoiceById: ${VoucherHeaderSid}`);
+      const finalOutput = await this.vendorCreditNoteService.fetchVendorInvoice(payload);
+      this.logger.debug(`getting VendorInvoice: ${payload.VoucherNumber}`);
       output.data = finalOutput;
       output.message = "Vendor Invoice data fetched successfully";
     } catch (error) {
-      this.logger.warn(`getVendorInvoiceById error for ID ${VoucherHeaderSid}`, (error as any)?.stack || (error as any)?.message || error);
+      this.logger.warn(`Get Vendor Invoice Error : ${JSON.stringify(error),error.message} `);
       output.status = false;
-      if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+      if (error instanceof BadRequestException || error instanceof UnauthorizedException || error instanceof NotFoundException) {
         output.message = (error as any).message || 'Bad request';
       } else {
         output.message = 'Internal Server Error';

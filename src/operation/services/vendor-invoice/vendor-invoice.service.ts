@@ -883,17 +883,19 @@ async searchPendingCosts(searchCriteria: {
 
     // Step 2: Build cost/revenue query
     const whereClause: Prisma.CostRevenueChargesWhereInput = {
-      TransactionSid : transactionSid,
-      CompanyMasterSid: companyMasterSid,
-      BranchMasterSid: branchMasterSid,
-      status: 'A',
-      CostVoucherHeaderSid: null, 
+        CompanyMasterSid: companyMasterSid,
+        BranchMasterSid: branchMasterSid,
+        status: 'A',
+        CostVoucherHeaderSid: null, 
     };
-
+    
     // Add transaction-specific filters based on menu type
-    const menuId = await this.menuService.getMenuSidByName(menuName);
-    if (menuId) {
-      whereClause.MenuMasterSid = menuId;
+    if(menuName !== 'Vendor'){
+        whereClause.TransactionSid = transactionSid;
+        const menuId = await this.menuService.getMenuSidByName(menuName);
+        if (menuId) {
+          whereClause.MenuMasterSid = menuId;
+        }
     }
     // if (menuName === 'Master Job') {
     //   whereClause.MasterJobNo = jobRecord.MasterJobNumber;

@@ -2640,7 +2640,7 @@ private getWeightInFromUnitSid(weightUnitSid: number): string {
         }
     }
 
-        async detachBookingFromMasterJob(HouseJobSid: number) {
+        async detachBookingFromMasterJob(HouseJobSid: number,userEmail ?: string) {
         try {
             const result = await this._db.$transaction(async (tx) => {
                 const detachedHouse = await tx.houseJob.update({
@@ -2649,7 +2649,9 @@ private getWeightInFromUnitSid(weightUnitSid: number): string {
                     },
                     data: {
                         MasterJobSid: null,
-                        HouseStatus : 'Stuffed'
+                        HouseStatus : 'Stuffed',
+                        updatedBy : userEmail,
+                        updatedOn : new Date()
                     },
                     include : {
                         bookingHeader : {
@@ -2674,6 +2676,8 @@ private getWeightInFromUnitSid(weightUnitSid: number): string {
                             MBLNo: null,
                             MBLDate: null,
                             BookingStatus: isLCLExport ? 'Cargo Received' : 'Booked',
+                            updatedBy : userEmail,
+                            updatedOn : new Date()
                         }
                     })
                 }

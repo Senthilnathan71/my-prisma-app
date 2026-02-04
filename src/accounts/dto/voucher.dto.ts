@@ -605,3 +605,18 @@ export class CheckAutoPostingDto {
     @IsInt()
     BranchMasterSid : number;  
 }
+
+export class PullVoucherDTO {
+    @IsNotEmpty({message : 'VoucherNumber is required'})
+    @IsString()
+    @Length(10)
+    VoucherNumber : string;
+
+    @IsNotEmpty({ message : 'CompanyMasterSid is required' })
+    @IsInt()
+    CompanyMasterSid : number;
+
+    @IsNotEmpty({ message : 'BranchMasterSid is required' })
+    @IsInt()
+    BranchMasterSid : number;
+}
