@@ -944,6 +944,7 @@ export class CompanyService {
                 where: {
                     BranchMasterSid: payload.BranchMasterSid,
                     CurrencyMasterSid : payload.CurrencyMasterSid,
+                    PrintOnInvoice : 'Y',
                     status: 'A'
                 }
             });
