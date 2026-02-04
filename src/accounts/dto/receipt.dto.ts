@@ -457,7 +457,7 @@ export class VoucherMatchingPayload {
    * It is the sum of currency amount that user provided against this receipt
    * In receipt case , it is the sum of currency amount in voucherMatching's Matching Part (right part)
    */
-  BillMatchingCurrencyAmount : number;
+  BillMatchingCurrencyAmount ?: number;
 
   @IsNotEmpty()
   @IsNumber()
@@ -467,6 +467,6 @@ export class VoucherMatchingPayload {
    * It is the sum of local amount that user provided against this receipt
    * In receipt case , it is the sum of local amount in voucherMatching's Matching Part (right part)
    */
-  BillMatchingLocalAmount : number;
+  BillMatchingLocalAmount ?: number;
 
 }
