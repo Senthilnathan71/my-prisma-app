@@ -68,7 +68,7 @@ export class StandardChargeController {
     @ApiOperation({ summary: 'Get Standard Charge by Id' })
     @ApiCreatedResponse({ type: ResponseData })
     @HttpCode(HttpStatus.OK)
-    @Get(':StdRateHeaderSid')
+    @Get('fetch/:StdRateHeaderSid')
     async getById(
         @Param('StdRateHeaderSid', ParseIntPipe) StdRateHeaderSid: number,
     ) {
