@@ -825,10 +825,17 @@ export class AccountsReportsService {
           ],
           COAMasterSid : coaMasterSid,
           LedgerMasterSid: ledgerMasterSid,
+          VoucherHeader:{
+            PostStatus:"P"
+          },
           Status: 'A',
         },
         include: {
-          VoucherHeader: true,
+          VoucherHeader: {
+            select:{
+              PostStatus:true
+            }
+          },
           masterJob : true,
           houseJob:true,
           departmentMaster:{
@@ -1315,15 +1322,21 @@ export class AccountsReportsService {
             { VoucherDate : {gte : FromDate}},
             { VoucherDate : { lte : ToDate}}
           ],
-    ...(coaMasterSid && { COAMasterSid: coaMasterSid }),
-    ...(ledgerMasterSid && { LedgerMasterSid: ledgerMasterSid }),
-  ...(voucherType && { VoucherTypeMasterSid: Number(voucherType) }),
-
+          ...(coaMasterSid && { COAMasterSid: coaMasterSid }),
+          ...(ledgerMasterSid && { LedgerMasterSid: ledgerMasterSid }),
+          ...(voucherType && { VoucherTypeMasterSid: Number(voucherType) }),
+          VoucherHeader: {
+            PostStatus: 'P'
+          },
 
           Status: 'A',
         },
         include: {
-          VoucherHeader: true,
+          VoucherHeader: {
+            select: {
+              PostStatus: true,
+            }
+          },
           masterJob : true,
           houseJob:true,
           departmentMaster:{
@@ -1660,7 +1673,7 @@ export class AccountsReportsService {
           COAMasterSid: coamasterSid,
           voucherTypeMaster: {
             DocumentTypeName: {
-              in: ['Vendor Invoice', 'Credit Note'],
+              in: ['Vendor Invoice', 'Vendor Credit Note'],
             },
           },
         },
@@ -1677,6 +1690,7 @@ export class AccountsReportsService {
           },
           voucherTypeMaster: {
             select: {
+              DocumentTypeCode:true,
               DocumentTypeName: true
             }
           },
@@ -1710,8 +1724,15 @@ export class AccountsReportsService {
           : 'Journal'
           ;
 
-        const isVendorInvoice =
-          v.VoucherHeader?.VoucherTypeMasterSid === 2;
+          
+        const invoiceTypes = ["VIN","VRN"];
+
+        const isVendorInvoice = invoiceTypes.includes(
+          v.voucherTypeMaster?.DocumentTypeCode
+        );
+
+        // const isVendorInvoice =
+        //   v.voucherTypeMaster?.DocumentTypeCode === 'VIN';
 
         const documentNo = isVendorInvoice
           ? v.VoucherHeader?.DocumentNumber ?? ''
@@ -1741,7 +1762,8 @@ export class AccountsReportsService {
           voucherType2,
           panType,
           documentNo,
-          documentDate
+          documentDate,
+          vocuherType:v.voucherTypeMaster?.DocumentTypeName,
         };
 
         if (ledgerType === 'Input Tax') {
@@ -1926,11 +1948,11 @@ export class AccountsReportsService {
           ],
           Status: 'A',
           COAMasterSid: coamasterSid,
-            voucherTypeMaster: {
-      DocumentTypeName: {
-        in: ['Invoice', 'Journal Voucher'],
-      },
-    },
+          voucherTypeMaster: {
+            DocumentTypeName: {
+              in: ['Invoice', 'Journal Voucher','Credit Note'],
+            },
+          },
         },
         include: {
           VoucherHeader: {
@@ -1952,7 +1974,8 @@ export class AccountsReportsService {
           },
           voucherTypeMaster:{
             select:{
-              DocumentTypeName:true
+              DocumentTypeName : true,
+              DocumentTypeCode :true
             }
           }
         },
@@ -1978,14 +2001,18 @@ export class AccountsReportsService {
           : 'Journal'
           ;
 
-        const isVendorInvoice =
-          v.VoucherHeader?.VoucherTypeMasterSid === 1;
+        const invoiceTypes = ["INV","CRN","JV"];
 
-        const documentNo = isVendorInvoice
+        const isInvoice = invoiceTypes.includes(
+          v.voucherTypeMaster?.DocumentTypeCode
+        );
+
+
+        const documentNo = isInvoice
           ? v.VoucherHeader?.DocumentNumber ?? ''
           : '';
 
-        const documentDate = isVendorInvoice
+        const documentDate = isInvoice
           ? v.VoucherHeader?.DocumentDate ?? null
           : null;
 
@@ -2003,6 +2030,7 @@ export class AccountsReportsService {
           taxableAmt: v.TaxableAmount,
           taxAmt: v.LocalAmount,
           chargeDescription: v.ChargeDescription,
+          vocuherType:v.voucherTypeMaster?.DocumentTypeName,
           ledgerType,
           groupname: v.coaMaster?.GroupName,
           voucherType1,

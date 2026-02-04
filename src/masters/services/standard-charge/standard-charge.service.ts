@@ -139,7 +139,7 @@ export class StandardChargeService {
                             data: {
                                 StdRateHeaderSid: updatedHeader.StdRateHeaderSid,
                                 CompanyMasterSid: payload.CompanyMasterSid,
-                                CreatedBy: payload.CreatedBy,
+                                CreatedBy: payload.UpdatedBy,
                                 CreatedOn: new Date(),
                                 CargoType: detail.CargoType,
                                 ChargeMasterSid: detail.ChargeMasterSid,
@@ -157,7 +157,6 @@ export class StandardChargeService {
                     }
                     finalDetail.push(updatedDetail || createdDetail);
                 }
-
                 return {
                     updatedHeader,
                     finalDetail
@@ -168,7 +167,7 @@ export class StandardChargeService {
             return result
 
         } catch (error) {
-            
+            throw error;
         }
     }
 
