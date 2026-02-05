@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, InternalServerErrorException, Logger, NotFoundException } from '@nestjs/common';
 import { Prisma, PrismaClient, VoucherDetail } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
 import { VoucherMatchingPayload } from 'src/accounts/dto/receipt.dto';
@@ -7,6 +7,7 @@ import { checkIfExJvApplicable, checkIfMatchingApplicable, checkIfReversalApplic
 import { DatabaseService } from 'src/database/database.service';
 import * as moment from 'moment-timezone';
 import { CheckAutoPostingDto, CreateVoucherPayload } from 'src/accounts/dto/voucher.dto';
+import { roundAmount, toNumber } from 'src/common/helper';
 
 interface InvoiceHeaderDTO {
     currencyMasterSid?: number;
@@ -1621,6 +1622,7 @@ export class VoucherService {
             localCurrencyMasterSid: number,
             localCurrencyCode: string,
             postedBy: string,
+            isFullyReversed ?: boolean,
             taxDetails: {
                 CountryMasterSid: number,
                 countryCode: string,
@@ -1650,7 +1652,7 @@ export class VoucherService {
         tx: Prisma.TransactionClient
     ) {
 
-        const { voucherHeaderSid, companyMasterSid, branchMasterSid, postedBy, taxDetails } = payload;
+        const { voucherHeaderSid, companyMasterSid, branchMasterSid, postedBy, taxDetails , isFullyReversed = false } = payload;
 
         const voucher = await tx.voucherHeader.findUnique({
             where: {
@@ -1676,6 +1678,12 @@ export class VoucherService {
 
         const voucherType = voucher.voucherTypeMaster?.DocumentTypeName;
 
+        const localCurrency = await tx.currencyMaster.findUnique({
+            where: { CurrencyMasterSid: payload.localCurrencyMasterSid },
+            select: { amountDecimal: true }
+        });
+
+        const localCurrencyDecimal = localCurrency?.amountDecimal || 2;
 
         // Validate year
         const yearMaster = await tx.yearMaster.findUnique({
@@ -1713,9 +1721,10 @@ export class VoucherService {
             );
 
             let currentSno = chargeLineItems.length + 1;
+
             for (const taxSummary of taxSummaries) {
                 const headerExchangeRate = this.toNumber(voucher.ExchangeRate || 1);
-                let finalTaxPartyAmount = this.toNumber(taxSummary.taxAmount) / this.toNumber(headerExchangeRate);
+                let finalTaxPartyAmount = roundAmount(this.toNumber(taxSummary.taxAmount) / this.toNumber(headerExchangeRate) , localCurrencyDecimal);
 
                 const taxDetail = await tx.voucherDetail.create({
                     data: {
@@ -1755,7 +1764,13 @@ export class VoucherService {
 
 
             // --- PARTY ROW CREATION ---
-            const allDetails = [...chargeLineItems, ...createdTaxRows];
+            let allDetails = [...chargeLineItems, ...createdTaxRows];
+            if(isFullyReversed && checkIfReversalApplicable(voucherType)){
+                const reversalVoucher = voucher.ReversalVoucher;
+                if(reversalVoucher){
+                    allDetails = await this.addToleranceToReversal(reversalVoucher ,voucherHeaderSid ,tx);
+                }
+            }
 
             let totalDebit = 0;
             let totalCredit = 0;
@@ -1791,6 +1806,7 @@ export class VoucherService {
                 }
                 else throw new Error("DrCr not found for a line item");
             }
+
 
             const totalAmount = Math.abs(totalCredit - totalDebit);
             const totalLocalAmount = Math.abs(totalLocalCredit - totalLocalDebit);
@@ -2724,5 +2740,268 @@ export class VoucherService {
             throw error;
         }
     }
+
+    /**
+     * Add tolerance to reversal voucher rows
+     * Compares against original invoice and adjusts rounding within ±0.01
+     */
+    private async addToleranceToReversal(
+        VoucherHeaderSid: number,        // Invoice SID
+        ReversalVoucherSid: number,      // Current Credit Note SID
+        tx: Prisma.TransactionClient,
+    ): Promise<any[]> {
+
+        const TOLERANCE = 0.01;
+        const updatedRows: any[] = [];
+
+        /* ------------------------------------------------------------------ */
+        /* Fetch Current Credit Note                                           */
+        /* ------------------------------------------------------------------ */
+
+        const currentCreditNote = await tx.voucherHeader.findUnique({
+            where: {
+                VoucherHeaderSid: ReversalVoucherSid,
+                Status: 'A',
+            },
+            include: {
+                VoucherDetail: {
+                    where: { Status: 'A' },
+                    orderBy: { Sno: 'asc' },
+                },
+            },
+        });
+
+        if (!currentCreditNote) {
+            throw new BadRequestException('Credit Note not found');
+        }
+
+        if (currentCreditNote.PostStatus === 'P') {
+            throw new BadRequestException('Credit Note already posted');
+        }
+
+        /* ------------------------------------------------------------------ */
+        /* Fetch Original Invoice                                              */
+        /* ------------------------------------------------------------------ */
+
+        const invoice = await tx.voucherHeader.findUnique({
+            where: {
+                VoucherHeaderSid,
+                Status: 'A',
+            },
+            include: {
+                VoucherDetail: {
+                    where: { Status: 'A' },
+                },
+            },
+        });
+
+        if (!invoice) {
+            throw new BadRequestException('Invoice not found');
+        }
+
+        /* ------------------------------------------------------------------ */
+        /* Fetch Other Posted Credit Notes                                     */
+        /* ------------------------------------------------------------------ */
+
+        const otherCreditNotes = await tx.voucherHeader.findMany({
+            where: {
+                VoucherHeaderSid: { not: ReversalVoucherSid },
+                ReversalVoucher: VoucherHeaderSid,
+                PostStatus: 'P',
+                Status: 'A',
+            },
+            include: {
+                VoucherDetail: { where: { Status: 'A' } },
+            },
+        });
+
+        /* ------------------------------------------------------------------ */
+        /* Group Invoice & Credits by SourceDetailSid                          */
+        /* ------------------------------------------------------------------ */
+
+        const invoiceMap = new Map<number, any>();
+        invoice.VoucherDetail.forEach(d =>
+            invoiceMap.set(d.VoucherDetailSid, d),
+        );
+
+        const creditMap = new Map<number, any[]>();
+
+        for (const cn of otherCreditNotes) {
+            for (const d of cn.VoucherDetail || []) {
+                if (!d.SourceDetailSid) continue;
+                const arr = creditMap.get(d.SourceDetailSid) || [];
+                creditMap.set(d.SourceDetailSid, [...arr, d]);
+            }
+        }
+
+        /* ------------------------------------------------------------------ */
+        /* Apply Tolerance                                                     */
+        /* ------------------------------------------------------------------ */
+
+        for (const curDetail of currentCreditNote.VoucherDetail) {
+            if (!curDetail.SourceDetailSid) continue;
+
+            const invoiceDetail = invoiceMap.get(curDetail.SourceDetailSid);
+            if (!invoiceDetail) continue;
+
+            const prevCredits = creditMap.get(curDetail.SourceDetailSid) || [];
+
+            const sum = (rows: any[], key: string) =>
+                rows.reduce((s, r) => s + Number(r[key] || 0), 0);
+
+            const diff = {
+                Amount : 
+                    Number(invoiceDetail.Amount || 0) - 
+                    (sum(prevCredits, 'Amount') + Number(curDetail.Amount || 0)),
+
+                PartyAmount:
+                    Number(invoiceDetail.PartyAmount || 0) -
+                    (sum(prevCredits, 'PartyAmount') + Number(curDetail.PartyAmount || 0)),
+
+                LocalAmount:
+                    Number(invoiceDetail.LocalAmount || 0) -
+                    (sum(prevCredits, 'LocalAmount') + Number(curDetail.LocalAmount || 0)),
+
+                TaxAmount1:
+                    Number(invoiceDetail.TaxAmount1 || 0) -
+                    (sum(prevCredits, 'TaxAmount1') + Number(curDetail.TaxAmount1 || 0)),
+
+                TaxAmount2:
+                    Number(invoiceDetail.TaxAmount2 || 0) -
+                    (sum(prevCredits, 'TaxAmount2') + Number(curDetail.TaxAmount2 || 0)),
+            };
+
+            const updateData: any = {};
+            let remainingTolerance = TOLERANCE;
+
+            // 1️⃣ PARTY AMOUNT (highest priority)
+            if (Math.abs(diff.PartyAmount) <= remainingTolerance) {
+                updateData.PartyAmount =
+                    Number(curDetail.PartyAmount) + diff.PartyAmount;
+                remainingTolerance -= Math.abs(diff.PartyAmount);
+            }
+
+            // 2️⃣ LOCAL AMOUNT
+            if (
+                remainingTolerance > 0 &&
+                Math.abs(diff.LocalAmount) <= remainingTolerance
+            ) {
+                updateData.LocalAmount =
+                    Number(curDetail.LocalAmount) + diff.LocalAmount;
+                remainingTolerance -= Math.abs(diff.LocalAmount);
+            }
+
+            // 2️⃣ AMOUNT
+            if (
+                remainingTolerance > 0 &&
+                Math.abs(diff.Amount) <= remainingTolerance
+            ) {
+                updateData.Amount =
+                    Number(curDetail.Amount) + diff.Amount;
+                remainingTolerance -= Math.abs(diff.Amount);
+            }
+
+            // 3️⃣ TAX 1
+            if (
+                remainingTolerance > 0 &&
+                Math.abs(diff.TaxAmount1) <= remainingTolerance
+            ) {
+                updateData.TaxAmount1 =
+                    Number(curDetail.TaxAmount1) + diff.TaxAmount1;
+                remainingTolerance -= Math.abs(diff.TaxAmount1);
+            }
+
+            // 4️⃣ TAX 2
+            if (
+                remainingTolerance > 0 &&
+                Math.abs(diff.TaxAmount2) <= remainingTolerance
+            ) {
+                updateData.TaxAmount2 =
+                    Number(curDetail.TaxAmount2) + diff.TaxAmount2;
+            }
+
+            if (Object.keys(updateData).length) {
+                await tx.voucherDetail.update({
+                    where: { VoucherDetailSid: curDetail.VoucherDetailSid },
+                    data: updateData,
+                });
+
+                updatedRows.push({
+                    VoucherDetailSid: curDetail.VoucherDetailSid,
+                    ...updateData,
+                });
+            }
+        }
+
+        return updatedRows;
+    }
+    async getOutstandingAmount(
+        voucherTransactionSid: number,
+        txn?: Prisma.TransactionClient,
+    ) {
+        try {
+            const prisma = txn || this._db;
+
+            const voucherTransaction =
+                await prisma.voucherTransaction.findUnique({
+                    where: {
+                        VoucherTransactionSid: voucherTransactionSid,
+                    },
+                    include: {
+                        voucherMatchings: {
+                            where: { Status: 'A' }, // 👈 matches SQL condition
+                        },
+                    },
+                });
+
+            if (!voucherTransaction) {
+                throw new NotFoundException(
+                    `VoucherTransaction ${voucherTransactionSid} not found`,
+                );
+            }
+
+            const toNum = (v: any) => Number(v || 0);
+
+            const originalAmount = toNum(voucherTransaction.Amount);
+            const originalLocalAmount = toNum(voucherTransaction.LocalAmount);
+
+            const matchedAmount = voucherTransaction.voucherMatchings.reduce(
+                (sum, m) => sum + toNum(m.Amount),
+                0,
+            );
+
+            const matchedLocalAmount = voucherTransaction.voucherMatchings.reduce(
+                (sum, m) => sum + toNum(m.LocalAmount),
+                0,
+            );
+
+            const outstandingAmount = originalAmount - matchedAmount;
+            const outstandingLocalAmount =
+                originalLocalAmount - matchedLocalAmount;
+
+            return {
+                VoucherTransactionSid:
+                    voucherTransaction.VoucherTransactionSid,
+                VoucherHeaderSid: voucherTransaction.VoucherHeaderSid,
+                VoucherNumber: voucherTransaction.VoucherNumber,
+
+                OriginalAmount: originalAmount,
+                OriginalLocalAmount: originalLocalAmount,
+
+                MatchedAmount: matchedAmount,
+                MatchedLocalAmount: matchedLocalAmount,
+
+                OutstandingAmount: outstandingAmount,
+                OutstandingLocalAmount: outstandingLocalAmount,
+
+                IsFullySettled:
+                    Math.abs(outstandingAmount) < 0.01 &&
+                    Math.abs(outstandingLocalAmount) < 0.01,
+            };
+        } catch (error) {
+            throw error;
+        }
+    }
+
 
 }
