@@ -265,6 +265,31 @@ export class StandardChargeService {
         return deletedRecord;
     }
 
+    async getStdTariffDetailById(StdTariffDetailSid: number , email ?: string) {
+        const record = await this._db.stdTariffDetail.findUnique({
+            where: {
+                StdTariffDetailSid: StdTariffDetailSid,
+                Status : 'A'
+            }
+        })
+
+        if(!record){
+            throw new NotFoundException(`Standard Tariff Detail with ID ${StdTariffDetailSid} not found`);
+        }
+
+        if(record?.Status === 'D'){
+            throw new BadRequestException(`Standard Tariff Detail with ID ${StdTariffDetailSid} is already deleted`);
+        }
+
+        const deletedRecord = await this._db.stdTariffDetail.update({
+            where: { StdTariffDetailSid: StdTariffDetailSid },
+            data: { Status: 'D' , UpdatedBy : email , UpdatedOn : new Date() },
+        });
+
+        return deletedRecord;
+
+    }
+
     async searchStdHeaderNew(params: filterDto) {
         const { search = '', page = 1, pageSize = 15 } = params;
         const skip = (page - 1) * pageSize;

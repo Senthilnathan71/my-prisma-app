@@ -14,7 +14,7 @@ import {
     UnauthorizedException,
     Query,
 } from '@nestjs/common';
-import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
+import { ApiCreatedResponse, ApiOkResponse, ApiOperation } from '@nestjs/swagger';
 import { ResponseData } from 'src/common/response-data';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 import { StandardChargeService } from 'src/masters/services/standard-charge/standard-charge.service';
@@ -162,6 +162,38 @@ export class StandardChargeController {
             resp.status = false;
             resp.message = error.message || 'Internal Server Error';
         }
+        return resp;
+    }
+
+
+    @ApiOperation({ summary: 'Delete Standard Charge by Id' })
+    @ApiOkResponse({ type: ResponseData })
+    @HttpCode(HttpStatus.OK)
+    @Delete('delete-detail/:StdTariffDetailSid')
+    async deleteDetail(
+        @Param('StdTariffDetailSid', ParseIntPipe) StdTariffDetailSid: number,
+        @Query('email') email?: string
+    ): Promise<ResponseData> {
+
+        const resp = new ResponseData();
+
+        try {
+            const res = await this.standardChargeService.getStdTariffDetailById(
+                StdTariffDetailSid,
+                email
+            );
+
+            resp.data = res;
+            resp.status = true;
+            resp.message = 'Standard Charge Detail deleted successfully';
+
+        } catch (error) {
+            this.logger.warn(error);
+
+            resp.status = false;
+            resp.message = error?.message || 'Internal Server Error';
+        }
+
         return resp;
     }
 
