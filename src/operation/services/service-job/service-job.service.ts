@@ -10,6 +10,9 @@ import * as moment from 'moment-timezone';
 export class CreateServiceJobDto {
     FreightPPCC: string;
     FreightTerms: string;
+    MBLNo?: string;
+    MBLDate?: Date;
+    HBLNo?: string;
 
     // HouseJob fields
     BookingNo: string;
@@ -40,6 +43,9 @@ export class UpdateServiceJobDto {
     BranchMasterSid: number;
     DepartmentMasterSid: number;
     CustomerMasterSid: number;
+    MBLNo?: string;
+    MBLDate?: Date;
+    HBLNo?: string;
     CustomerBranchSid: number;
     CustomerName: string;
     CustomerAddress: string;
@@ -86,12 +92,16 @@ export class ServiceJobService {
                     where: { MasterJobNumber: { contains: dateString } }
             })
             const MasterJobNumber = `MASTER-${dateString}-${(masterCount + 1).toString().padStart(3, '0')}`;
+            const finalMBLNo =
+                payload.MBLNo && payload.MBLNo.trim() !== ''
+                    ? payload.MBLNo
+                    : MasterJobNumber;
             const masterJob = await prisma.masterJob.create({
                 data: {
                     MasterJobDate: new Date(),
-                    MasterJobNumber: MasterJobNumber,
-                    MBLNo : MasterJobNumber,
-                    MBLDate : new Date(),
+                    MasterJobNumber: finalMBLNo,
+                    MBLNo : finalMBLNo,
+                    MBLDate : payload.MBLDate || new Date(),
                     FreightPPCC: mainPayload.FreightPPCC || "Prepaid",
                     CompanyMasterSid: mainPayload.CompanyMasterSid,
                     BranchMasterSid: mainPayload.BranchMasterSid,
@@ -127,6 +137,11 @@ export class ServiceJobService {
             });
             const serviceJobRefNo = `SRVJ-${dateString}-${(count + 1).toString().padStart(3, '0')}`;
             const generatedHBLNo = `HOUSE-${dateString}-${(houseCount + 1).toString().padStart(3, '0')}`;
+            const finalHBLNo =
+                payload.HBLNo && payload.HBLNo.trim() !== ''
+                    ? payload.HBLNo
+                    : generatedHBLNo;
+
             
             const houseJob = await prisma.houseJob.create({
                 data: {
@@ -142,7 +157,7 @@ export class ServiceJobService {
                     CustomerBranchSid: mainPayload.CustomerBranchSid || null,
                     CustomerName: mainPayload.CustomerName,
                     CustomerAddress: mainPayload.CustomerAddress,
-                    HBLNo: generatedHBLNo,
+                    HBLNo: finalHBLNo,
                     POL: mainPayload.POL,
                     POD: mainPayload.POD,
                     FreightTerms: mainPayload.FreightTerms || mainPayload.FreightPPCC || "Prepaid",
@@ -365,25 +380,55 @@ if (houseJobOthers && Object.keys(houseJobOthers).length > 0) {
             if (!existingHouseJob) {
                 throw new NotFoundException(`Service job with ID ${houseJobSid} not found.`);
             }
+            // ✅ Update MBLNo only if sent
+            if (payload.MBLNo && payload.MBLNo.trim() !== '') {
 
-            // 2. Update the HouseJob
+                // Update MasterJob
+                await prisma.masterJob.update({
+                    where: {
+                        MasterJobSid: existingHouseJob.MasterJobSid!,
+                    },
+                    data: {
+                        MasterJobNumber: payload.MBLNo,
+                        MBLNo: payload.MBLNo,
+                        UpdatedBy: payload.updatedBy, // ✅ FIXED
+                    },
+                });
+
+                // Keep HouseJob in sync
+                await prisma.houseJob.update({
+                    where: { HouseJobSid: houseJobSid },
+                    data: {
+                        MBLNo: payload.MBLNo,
+                    },
+                });
+            }
+
+
+            const houseJobUpdateData: any = {
+                CustomerMasterSid: mainPayload.CustomerMasterSid,
+                CustomerBranchSid: mainPayload.CustomerBranchSid || null,
+                CustomerName: mainPayload.CustomerName,
+                CustomerAddress: mainPayload.CustomerAddress,
+                POL: mainPayload.POL,
+                POD: mainPayload.POD,
+                FreightTerms: mainPayload.FreightPPCC || "Prepaid",
+                status: mainPayload.status || 'A',
+                updatedBy: payload.updatedBy,
+            };
+
+            if (payload.HBLNo && payload.HBLNo.trim() !== '') {
+                houseJobUpdateData.HBLNo = payload.HBLNo;
+            }
+
             const updatedHouseJob = await prisma.houseJob.update({
                 where: { HouseJobSid: houseJobSid },
-                data: {
-                    CustomerMasterSid: mainPayload.CustomerMasterSid,
-                    CustomerBranchSid: mainPayload.CustomerBranchSid || null,
-                    CustomerName: mainPayload.CustomerName,
-                    CustomerAddress: mainPayload.CustomerAddress,
-                    POL: mainPayload.POL,
-                    POD: mainPayload.POD,
-                    FreightTerms: mainPayload.FreightPPCC || "Prepaid",
-                    status: mainPayload.status || 'A',
-                    updatedBy: payload.updatedBy,
-                },
+                data: houseJobUpdateData,
             });
 
+
             // 3. Update or Create HouseJobCargo
-            if (houseJobCargo && Object.keys(houseJobCargo).length > 0) {
+            if (houseJobCargo && Object.keys(houseJobCargo).length > 0) {   
                 const cargoData = {
                     HouseJobSid: houseJobSid,
                     CompanyMasterSid: payload.CompanyMasterSid,
@@ -419,7 +464,7 @@ if (houseJobOthers && Object.keys(houseJobOthers).length > 0) {
             // 4. Update or Create CostRevenueCharges
             let chargeIndex = 1;
             if (costRevenueCharges && costRevenueCharges.length > 0) {
-                const menuId = await this.menuService.getMenuSidByName(department?.departmentType?.toUpperCase() === 'AIR' ? "Master Air Waybill" : "Master Job");
+                const menuId = await this.menuService.getMenuSidByName(department?.departmentType?.toUpperCase() === 'AIR' ? "House Air Waybill" : "House Job");
                 
                 for (const charge of costRevenueCharges) {
                     const chargePayload = {
