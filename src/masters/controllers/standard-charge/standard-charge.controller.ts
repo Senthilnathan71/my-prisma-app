@@ -18,6 +18,11 @@ import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
 import { ResponseData } from 'src/common/response-data';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 import { StandardChargeService } from 'src/masters/services/standard-charge/standard-charge.service';
+import { CompanyIdDto } from '../department/department.controller';
+export class StdChargeDeptDto {
+    CompanyMasterSid: number;
+    DepartmentMasterSid: number;
+}
 
 @Controller('standard-charge')
 export class StandardChargeController {
@@ -112,6 +117,32 @@ export class StandardChargeController {
         return resp;
     }
 
+    @ApiOperation({ summary: 'Get All Standard Charge' })
+    @ApiCreatedResponse({
+        description: 'Get All Standard Charge',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Post('department-wise')
+    async getAllTariff(@Body() body: StdChargeDeptDto) {
+        let resp = new ResponseData();
+        try {
+            let res = await this.standardChargeService.getStdCharges(body.CompanyMasterSid,
+                body.DepartmentMasterSid);
+            this.logger.log(`All Standard Fetched : ${JSON.stringify(res)}`);
+            resp.data = res;
+            resp.message = "Standard Charge fetched successfully";
+        } catch (error) {
+            this.logger.warn(`Get All Standard Charge Error : ${JSON.stringify(error), error}`);
+            resp.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                resp.message = error.message;
+            } else {
+                resp.message = "Internal Server Error";
+            }
+        }
+        return resp;
+    }
 
     @ApiOperation({ summary: 'Delete Standard Charge by Id' })
     @ApiCreatedResponse({ type: ResponseData })
@@ -123,7 +154,7 @@ export class StandardChargeController {
         const resp = new ResponseData();
         try {
             const res =
-            await this.standardChargeService.deleteStdCharge(StdRateHeaderSid);
+                await this.standardChargeService.deleteStdCharge(StdRateHeaderSid);
             resp.data = res;
             resp.message = 'Standard Charge deleted successfully';
         } catch (error) {

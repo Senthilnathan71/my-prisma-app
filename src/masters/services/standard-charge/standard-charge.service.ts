@@ -23,6 +23,25 @@ export class StandardChargeService {
     }
 
     async createNewStdCharge(payload: any) {
+        const existing = await this._db.stdRateHeader.findFirst({
+            where: {
+                CompanyMasterSid: payload.CompanyMasterSid,
+                DepartmentMasterSid: payload.DepartmentMasterSid,
+                Status: 'A'
+            },
+            select: {
+                StdRateHeaderSid: true,
+                DepartmentMaster: {
+                    select: {
+                        departmentName: true
+                    }
+                }
+            }
+        });
+        if (existing) {
+            throw new BadRequestException(`Standard Rate for ${existing.DepartmentMaster?.departmentName} already exists.`);
+        }
+
         try {
             const result = await this._db.$transaction(async (prisma) => {
                 const createdHeader = await prisma.stdRateHeader.create({
@@ -71,35 +90,82 @@ export class StandardChargeService {
     async fetchStdChargeById(StdRateHeaderSid: number) {
         try {
             return await this._db.stdRateHeader.findUnique({
-            where: { StdRateHeaderSid },
-            include:{
-                StdTariffDetails:{
-                   where:{
-                    Status:'A'
-                   }
+                where: { StdRateHeaderSid },
+                include: {
+                    StdTariffDetails: {
+                        where: {
+                            Status: 'A'
+                        }
+                    }
                 }
-            }
-        });
+            });
         } catch (error) {
             throw error
         }
     }
 
+    async getStdCharges(CompanyMasterSid: number, DepartmentMasterSid: number) {
+        try {
+            const stdCharge = await this._db.stdRateHeader.findFirst({
+                where: {
+                    Status: "A",
+                    CompanyMasterSid: CompanyMasterSid,
+                    DepartmentMasterSid: DepartmentMasterSid
+                },
+                include: {
+                    StdTariffDetails: {
+                        where: {
+                            Status: "A"
+                        }
+                    }
+                }
+            });
+
+            if (!stdCharge) {
+                throw new NotFoundException("Standard Charge not found for this department");
+            }
+
+            return stdCharge;
+        } catch (error) {
+            throw error;
+        }
+    }
+
+
+
     async updateStdChargeById(StdRateHeaderSid: number, payload: any) {
         try {
-            
-            const result = await this._db.$transaction(async(prisma)=>{
+            const existing = await this._db.stdRateHeader.findFirst({
+                where: {
+                    StdRateHeaderSid: { not: StdRateHeaderSid },
+                    CompanyMasterSid: payload.CompanyMasterSid,
+                    DepartmentMasterSid: payload.DepartmentMasterSid,
+                    Status: 'A'
+                },
+                select: {
+                    StdRateHeaderSid: true,
+                    DepartmentMaster: {
+                        select: {
+                            departmentName: true
+                        }
+                    }
+                }
+            });
+            if (existing) {
+                throw new BadRequestException(`Standard Rate for ${existing.DepartmentMaster?.departmentName} already exists.`);
+            }
+            const result = await this._db.$transaction(async (prisma) => {
                 const updatedHeader = await prisma.stdRateHeader.update({
-                    where : {
-                        StdRateHeaderSid : StdRateHeaderSid
+                    where: {
+                        StdRateHeaderSid: StdRateHeaderSid
                     },
-                    data : {
+                    data: {
                         CompanyMasterSid: payload.CompanyMasterSid,
                         DepartmentMasterSid: payload.DepartmentMasterSid,
                         Status: payload.Status,
                         Remarks: payload.Remarks,
                         UpdatedBy: payload.UpdatedBy,
-                        UpdatedOn : new Date(),
+                        UpdatedOn: new Date(),
                     }
                 });
 
@@ -110,11 +176,11 @@ export class StandardChargeService {
                  *  no id - create
                  */
 
-                const finalDetail : any[] = [];
-                for(const detail of allDetailPayload){
-                    let updatedDetail : any;
-                    let createdDetail : any;
-                    if(detail.StdTariffDetailSid){
+                const finalDetail: any[] = [];
+                for (const detail of allDetailPayload) {
+                    let updatedDetail: any;
+                    let createdDetail: any;
+                    if (detail.StdTariffDetailSid) {
                         updatedDetail = await prisma.stdTariffDetail.update({
                             where: { StdTariffDetailSid: detail.StdTariffDetailSid },
                             data: {
@@ -190,10 +256,10 @@ export class StandardChargeService {
         });
 
         await this._db.stdTariffDetail.updateMany({
-            where : {
-                StdRateHeaderSid : id
+            where: {
+                StdRateHeaderSid: id
             },
-            data : { Status : 'D'}
+            data: { Status: 'D' }
         })
 
         return deletedRecord;
