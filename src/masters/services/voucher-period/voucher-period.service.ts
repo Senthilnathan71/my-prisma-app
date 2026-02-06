@@ -283,35 +283,35 @@ export class VoucherPeriodService {
             }
 
             // 3. Generate 12 monthly periods
-            const periods: any[] = [];
+            const periods: Prisma.VoucherPeriodCreateInput[] = [];
             const startDate = new Date(yearMaster.StartDate);
             const endDate = new Date(yearMaster.EndDate);
 
-            // Month names for period naming
-            const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            const monthAbbrevs = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
 
-            let currentDate = new Date(startDate);
-            let periodCode = 1;
+            // Start from the 1st of the startDate's month
+            let currentYear = startDate.getFullYear();
+            let currentMonth = startDate.getMonth();
+            let periodSeq = 1;
 
-            while (currentDate <= endDate && periodCode <= 12) {
-                const periodStartDate = new Date(currentDate);
+            while (periodSeq <= 12) {
+                // Always 1st of the month (UTC to avoid timezone shift)
+                const periodStartDate = new Date(Date.UTC(currentYear, currentMonth, 1));
 
-                // Calculate period end date (last day of the month or year end date, whichever is earlier)
-                const monthEndDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
-                const periodEndDate = monthEndDate > endDate ? new Date(endDate) : monthEndDate;
+                // Last day of month (handles leap year & 28/29/30/31 automatically)
+                const periodEndDate = new Date(Date.UTC(currentYear, currentMonth + 1, 0));
 
-                const monthIndex = currentDate.getMonth();
-                const year = currentDate.getFullYear();
-                const periodName = `${monthNames[monthIndex]}-${year}`;
+                if (periodStartDate > endDate) break;
+
+                const paddedSeq = String(periodSeq).padStart(2, '0');
+                const periodCode = Number(`${yearMaster.YearCode}${paddedSeq}`);
+                const periodName = `${yearMaster.YearCode}${paddedSeq}(${monthAbbrevs[currentMonth]})`;
 
                 periods.push({
                     PeriodCode: periodCode,
                     PeriodName: periodName,
                     StartDate: periodStartDate,
                     EndDate: periodEndDate,
-                    CompanyMasterSid,
-                    BranchMasterSid,
-                    YearMasterSid,
                     CreatedBy,
                     Status: 'A',
                     GLClosed: 'N',
@@ -319,12 +319,20 @@ export class VoucherPeriodService {
                     ARClosed: 'N',
                     ARGraceDays: 0,
                     APClosed: 'N',
-                    APGraceDays: 0
+                    APGraceDays: 0,
+                    Remarks: 'Generated from Year',
+                    CompanyMaster: { connect: { CompanyMasterSid } },
+                    BranchMaster: { connect: { BranchMasterSid } },
+                    YearMaster: { connect: { YearMasterSid } },
                 });
 
                 // Move to next month
-                currentDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1);
-                periodCode++;
+                currentMonth++;
+                if (currentMonth > 11) {
+                    currentMonth = 0;
+                    currentYear++;
+                }
+                periodSeq++;
             }
 
             // 4. Create all periods in a transaction

@@ -3691,7 +3691,7 @@ model VoucherPeriod {
   UpdatedBy        String?  @db.VarChar(100)
   Status           String   @default("A") @db.Char(1)
   PeriodCode       Int
-  PeriodName       String   @db.VarChar(10)
+  PeriodName       String   @db.VarChar(20)
   StartDate        DateTime @db.Date
   EndDate          DateTime @db.Date
   Remarks          String?  @db.VarChar(200)
