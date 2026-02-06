@@ -275,7 +275,8 @@ export class InvoiceService {
           voucherTypeMaster,
           payload.CompanyMasterSid,
           payload.BranchMasterSid,
-          prisma
+          prisma,
+          payload.VoucherDate ? new Date(payload.VoucherDate) : undefined
         );
 
         // Normalize & validate PartyMasterSid

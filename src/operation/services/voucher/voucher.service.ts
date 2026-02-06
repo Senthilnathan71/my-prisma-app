@@ -149,7 +149,8 @@ export class VoucherService {
         voucherTypeMaster: any,
         companyMasterSid: number,
         branchMasterSid: number,
-        tx: any
+        tx: any,
+        voucherDate?: Date
     ): Promise<string> {
         try {
             // CRITICAL: Lock the VoucherTypeMaster row FIRST to prevent race conditions
@@ -164,8 +165,14 @@ export class VoucherService {
 
             const parts: string[] = [];
             const separator = (voucherTypeMaster.DocumentSeparator || '-').trim();
-            const date = new Date();
-              // Add company code if CompanyFlag is 'Y'
+            // Use provided voucherDate or fall back to current date
+            // This ensures month/year flags reflect the voucher date, not the current date
+            const date = voucherDate ? new Date(voucherDate) : new Date();
+
+            // Get resetValue early as it's needed for building query prefix
+            const resetValue = voucherTypeMaster.ResetValue?.toLowerCase()?.replace(/\s+/g, ''); // normalize: "financial year" -> "financialyear"
+
+            // Add company code if CompanyFlag is 'Y'
             if (voucherTypeMaster.CompanyFlag === 'Y') {
                 const company = await tx.companyMaster.findUnique({
                     where: { CompanyMasterSid: companyMasterSid },
@@ -194,32 +201,41 @@ export class VoucherService {
                 parts.push(date.getFullYear().toString().substring(2,4));
             }
 
-           
+            // Track index before adding month (for building query prefix)
+            const partsBeforeMonth = [...parts];
 
             // Add month if MonthFlag is 'Y'
             if (voucherTypeMaster.MonthFlag === 'Y') {
                 parts.push((date.getMonth() + 1).toString().padStart(2, '0'));
             }
 
-          
+            // Build display prefix (includes all parts for final voucher number)
+            const displayPrefix = parts.join(separator);
 
-            
-
-            // Build prefix for reset logic (all parts except serial number)
-            const prefix = parts.join(separator);
+            // Build query prefix based on ResetValue
+            // For "Year" reset: exclude month from query to prevent monthly reset
+            // For "Month" reset: include month (use full prefix)
+            // For "Financial Year": use date range from YearMaster (handled separately)
+            let queryPrefixParts = [...parts];
+            if (resetValue === 'year' && voucherTypeMaster.MonthFlag === 'Y') {
+                // For yearly reset with month flag enabled, query by prefix WITHOUT month
+                // This ensures sequence continues across months within the same year
+                queryPrefixParts = partsBeforeMonth;
+            }
+            const queryPrefix = queryPrefixParts.join(separator);
 
             // Build WHERE clause conditions
-            const resetValue = voucherTypeMaster.ResetValue?.toLowerCase()?.replace(/\s+/g, ''); // normalize: "financial year" -> "financialyear"
             let whereConditions: string[] = [
                 `"CompanyMasterSid" = ${companyMasterSid}`,
                 `"BranchMasterSid" = ${branchMasterSid}`,
                 `"VoucherTypeMasterSid" = ${voucherTypeMaster.VoucherTypeMasterSid}`
             ];
 
-            // ALWAYS filter by voucher number prefix to ensure we only count vouchers with the SAME format
-            // This prevents old format vouchers (e.g., "VEN-20260116-003") from affecting new format sequence
-            const escapedPrefix = prefix.replace(/'/g, "''");
-            whereConditions.push(`"VoucherNumber" LIKE '${escapedPrefix}${separator}%'`);
+            // Filter by query prefix to find vouchers in the same reset period
+            // For Year reset: matches "IPL/INV/26/*" (any month in 2026)
+            // For Month reset: matches "IPL/INV/26/02/*" (only February 2026)
+            const escapedQueryPrefix = queryPrefix.replace(/'/g, "''");
+            whereConditions.push(`"VoucherNumber" LIKE '${escapedQueryPrefix}${separator}%'`);
 
             // Apply additional reset logic based on ResetValue
             if (resetValue === 'financialyear' || resetValue === 'financial year') {
@@ -251,7 +267,9 @@ export class VoucherService {
                 whereConditions.push(`"CreatedOn"::date >= '${fyStartDate}'::date`);
                 whereConditions.push(`"CreatedOn"::date <= '${fyEndDate}'::date`);
             }
-            // For "Month" and "Year" resets, the prefix already includes year/month components
+            // For "Month" reset, queryPrefix includes month (resets each month)
+            // For "Year" reset, queryPrefix excludes month (continues across months in same year)
+            // For "Financial Year", uses date range filtering (handled above)
             // For "Never" or empty, we still filter by prefix to ensure format consistency
 
             const whereClause = whereConditions.join(' AND ');
@@ -266,7 +284,7 @@ export class VoucherService {
                 FOR UPDATE
             `;
             this.logger.log(`[VOUCHER-GEN] Query: ${query}`);
-            this.logger.log(`[VOUCHER-GEN] Prefix: ${prefix}, ResetValue: ${resetValue}`);
+            this.logger.log(`[VOUCHER-GEN] QueryPrefix: ${queryPrefix}, DisplayPrefix: ${displayPrefix}, ResetValue: ${resetValue}`);
 
             // Use raw SQL with FOR UPDATE to lock the row during transaction
             // This prevents race conditions where multiple requests get the same sequence
@@ -829,7 +847,8 @@ export class VoucherService {
                     voucherTypeMaster,
                     payload.CompanyMasterSid,
                     payload.BranchMasterSid,
-                    prisma
+                    prisma,
+                    payload.VoucherDate ? new Date(payload.VoucherDate) : undefined
                 );
 
                 const createdVoucherHeader = await prisma.voucherHeader.create({

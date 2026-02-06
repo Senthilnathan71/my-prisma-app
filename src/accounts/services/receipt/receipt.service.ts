@@ -204,7 +204,8 @@ export class ReceiptService {
           voucherTypeMaster,
           createDto.CompanyMasterSid,
           createDto.BranchMasterSid,
-          prisma
+          prisma,
+          createDto.VoucherDate ? new Date(createDto.VoucherDate) : undefined
         );
 
         // 2. Get current year
@@ -612,7 +613,8 @@ export class ReceiptService {
       jvVoucherTypeMaster,
       companySid,
       payingBranchSid,
-      prisma
+      prisma,
+      date
     );
 
     // Get inter-branch COA accounts
@@ -988,7 +990,8 @@ export class ReceiptService {
           voucherType,
           payload.CompanyMasterSid,
           payload.BranchMasterSid,
-          prisma
+          prisma,
+          payload.VoucherDate ? new Date(payload.VoucherDate) : undefined
         );
 
 

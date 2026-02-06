@@ -38,7 +38,8 @@ export class ReverseVoucherService {
                             voucherTypeMaster,
                             payload.CompanyMasterSid,
                             payload.BranchMasterSid,
-                            tx
+                            tx,
+                            payload.VoucherDate ? new Date(payload.VoucherDate) : undefined
                         );
         
                         // Get currency master ID
