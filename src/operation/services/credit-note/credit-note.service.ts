@@ -758,8 +758,22 @@ export class CreditNoteService {
                         },
                         subledgerMaster: true,
                         currencyMaster: true,
-             masterJob: true,
-             houseJob: true,
+             masterJob: {
+               select: {
+                 MasterJobNumber: true
+               }
+             },
+             departmentMaster: {
+               select: {
+                 departmentType: true
+               }
+             },
+
+             houseJob: {
+               select: {
+                 HBLNo: true
+               }
+             },
              
            },
            orderBy: { VoucherHeaderSid: 'desc' }

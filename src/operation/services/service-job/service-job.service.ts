@@ -6,6 +6,7 @@ import { OperationCommonService } from '../operation-common/operation-common.ser
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 import { statusWhereClause } from 'src/common/helper';
 import * as moment from 'moment-timezone';
+import { DuplicateCheckDTO } from 'src/operation/controllers/service-job/service-job.controller';
 
 export class CreateServiceJobDto {
     FreightPPCC: string;
@@ -634,4 +635,29 @@ if (houseJobOthers && Object.keys(houseJobOthers).length > 0) {
             throw error;
         }
     }
+
+async checkDuplicateServiceJob(payload: DuplicateCheckDTO) {
+  const existingRecord = await this._db.houseJob.findFirst({
+    where: {
+      CompanyMasterSid: payload.CompanyMasterSid,
+      BranchMasterSid: payload.BranchMasterSid,
+      DepartmentMasterSid: payload.DepartmentMasterSid,
+      IsServiceJob: 'Y',
+      status: 'A',
+      OR: [
+        {
+          HBLNo: payload.HBLNo,   
+        },
+        {
+          MBLNo: payload.MBLNo,   
+        }
+      ]
+    },
+    select: { HouseJobSid: true }
+  });
+
+  return !!existingRecord;
+}
+
+
 }
