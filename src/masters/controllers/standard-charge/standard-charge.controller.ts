@@ -13,12 +13,16 @@ import {
     Post,
     UnauthorizedException,
     Query,
+    UsePipes,
+    ValidationPipe,
+    NotFoundException,
 } from '@nestjs/common';
 import { ApiCreatedResponse, ApiOkResponse, ApiOperation } from '@nestjs/swagger';
 import { ResponseData } from 'src/common/response-data';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 import { StandardChargeService } from 'src/masters/services/standard-charge/standard-charge.service';
 import { CompanyIdDto } from '../department/department.controller';
+import { PullStandardRateDTO } from 'src/masters/DTO/standard-rate.dto';
 export class StdChargeDeptDto {
     CompanyMasterSid: number;
     DepartmentMasterSid: number;
@@ -123,19 +127,23 @@ export class StandardChargeController {
         type: ResponseData
     })
     @HttpCode(HttpStatus.OK)
+    @UsePipes(new ValidationPipe({
+        transform : true,
+        whitelist : true,
+        forbidNonWhitelisted : true,
+    }))
     @Post('department-wise')
-    async getAllTariff(@Body() body: StdChargeDeptDto) {
+    async getAllTariff(@Body() body: PullStandardRateDTO) {
         let resp = new ResponseData();
         try {
-            let res = await this.standardChargeService.getStdCharges(body.CompanyMasterSid,
-                body.DepartmentMasterSid);
+            let res = await this.standardChargeService.getStdCharges(body);
             this.logger.log(`All Standard Fetched : ${JSON.stringify(res)}`);
             resp.data = res;
             resp.message = "Standard Charge fetched successfully";
         } catch (error) {
             this.logger.warn(`Get All Standard Charge Error : ${JSON.stringify(error), error}`);
             resp.status = false;
-            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException || error instanceof NotFoundException) {
                 resp.message = error.message;
             } else {
                 resp.message = "Internal Server Error";

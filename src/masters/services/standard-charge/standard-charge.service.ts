@@ -8,12 +8,17 @@ import { Prisma } from '@prisma/client';
 import { statusWhereClause } from 'src/common/helper';
 import { DatabaseService } from 'src/database/database.service';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
+import { PullStandardRateDTO } from 'src/masters/DTO/standard-rate.dto';
+import { CurrencyExchangeService } from '../currency-exchange/currency-exchange.service';
+import { GlobalConfigService } from 'src/common/config/master-config.service';
 
 @Injectable()
 export class StandardChargeService {
     constructor(
         private _db: DatabaseService,
         private logger: Logger,
+        private currencyExchangeService: CurrencyExchangeService,
+        private globalConfigService: GlobalConfigService,
     ) { }
 
     async getAllStdCharges() {
@@ -94,7 +99,7 @@ export class StandardChargeService {
                 include: {
                     StdTariffDetails: {
                         where: {
-                            Status: 'A'
+                            Status: statusWhereClause
                         }
                     }
                 }
@@ -104,35 +109,96 @@ export class StandardChargeService {
         }
     }
 
-    async getStdCharges(CompanyMasterSid: number, DepartmentMasterSid: number) {
+    async getStdCharges(payload: PullStandardRateDTO) {
         try {
-            const stdCharge = await this._db.stdRateHeader.findFirst({
-                where: {
-                    Status: "A",
-                    CompanyMasterSid: CompanyMasterSid,
-                    DepartmentMasterSid: DepartmentMasterSid
-                },
-                include: {
-                    StdTariffDetails: {
-                        where: {
-                            Status: "A"
-                        }
-                    }
-                }
-            });
+            const { CompanyMasterSid, DepartmentMasterSid, OperationDate, CargoType ,BranchMasterSid} = payload;
 
-            if (!stdCharge) {
-                throw new NotFoundException("Standard Charge not found for this department");
+            const whereClause: Prisma.StdTariffDetailWhereInput = {
+                ValidFrom: { lte: new Date(OperationDate) },
+                ValidTo: { gte: new Date(OperationDate) },
+                Status: 'A',
+                StdRateHeader: {
+                    DepartmentMasterSid,
+                    CompanyMasterSid,
+                    Status: 'A',
+                },
+            };
+
+            if (CargoType) {
+                whereClause.CargoType = CargoType;
             }
 
-            return stdCharge;
+            const stdCharge = await this._db.stdTariffDetail.findMany({
+                where: whereClause,
+                include: {
+                    SaleCurrencyMaster: true,
+                    CostCurrencyMaster: true,
+                    UOMMaster: true,
+                },
+            });
+
+            if (!stdCharge.length) {
+                throw new NotFoundException("Standard Charges not found");
+            }
+
+            const company = await this._db.companyMaster.findUnique({
+                where: { CompanyMasterSid },
+            });
+
+            const toCurrency = company?.CurrencyMasterSid
+                ? await this.globalConfigService.getMasterData(
+                    'currency_master',
+                    company.CurrencyMasterSid
+                )
+                : null;
+
+            const enrichedDetails = await Promise.all(
+                stdCharge.map(async (detail) => {
+
+                    const costFromCurrency = detail.CostCurrencyMaster;
+                    const revenueFromCurrency = detail.SaleCurrencyMaster;
+                    const costExchangeRate = toCurrency
+                        ? costFromCurrency.currencyCode === toCurrency.currencyCode
+                            ? 1
+                            : (await this.currencyExchangeService.getExchangeRate({
+                                CompanyMasterSid,
+                                BranchMasterSid,
+                                fromCurrencyCode: costFromCurrency.currencyCode,
+                                toCurrencyCode: toCurrency.currencyCode,
+                                EffectiveFrom: new Date(OperationDate),
+                                segment: 'cost',
+                            })) || 1
+                        : 1;
+                    const revenueExchangeRate = toCurrency
+                        ? revenueFromCurrency.currencyCode === toCurrency.currencyCode
+                            ? 1
+                            : (await this.currencyExchangeService.getExchangeRate({
+                                CompanyMasterSid,
+                                BranchMasterSid,
+                                fromCurrencyCode: revenueFromCurrency.currencyCode,
+                                toCurrencyCode: toCurrency.currencyCode,
+                                EffectiveFrom: new Date(OperationDate),
+                                segment: 'revenue',
+                            })) || 1
+                        : 1;
+
+                    return {
+                        ...detail,
+                        costExchangeRate,
+                        revenueExchangeRate,
+                        isStandardRate: true,
+                    };
+                })
+            );
+
+            return enrichedDetails;
+
         } catch (error) {
             throw error;
         }
     }
 
-
-
+    
     async updateStdChargeById(StdRateHeaderSid: number, payload: any) {
         try {
             const existing = await this._db.stdRateHeader.findFirst({
@@ -265,25 +331,24 @@ export class StandardChargeService {
         return deletedRecord;
     }
 
-    async getStdTariffDetailById(StdTariffDetailSid: number , email ?: string) {
+    async getStdTariffDetailById(StdTariffDetailSid: number, email?: string) {
         const record = await this._db.stdTariffDetail.findUnique({
             where: {
                 StdTariffDetailSid: StdTariffDetailSid,
-                Status : 'A'
             }
         })
 
-        if(!record){
+        if (!record) {
             throw new NotFoundException(`Standard Tariff Detail with ID ${StdTariffDetailSid} not found`);
         }
 
-        if(record?.Status === 'D'){
+        if (record?.Status === 'D') {
             throw new BadRequestException(`Standard Tariff Detail with ID ${StdTariffDetailSid} is already deleted`);
         }
 
         const deletedRecord = await this._db.stdTariffDetail.update({
             where: { StdTariffDetailSid: StdTariffDetailSid },
-            data: { Status: 'D' , UpdatedBy : email , UpdatedOn : new Date() },
+            data: { Status: 'D', UpdatedBy: email, UpdatedOn: new Date() },
         });
 
         return deletedRecord;
