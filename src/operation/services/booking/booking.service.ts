@@ -1349,6 +1349,13 @@ if (!croPayload?.BookingCroSid) {
                     { BookingNo: 'desc' }
                 ],
                 include : {
+                    departmentMaster : {
+                        select : {
+                            DepartmentMasterSid : true,
+                            departmentName : true,
+                            departmentType : true
+                        }
+                    },
                     houseJob : {
                         include : {
                             masterJob : {
@@ -1371,10 +1378,7 @@ if (!croPayload?.BookingCroSid) {
          */
         items = await Promise.all(
             items.map(async (item) => {
-                const [departmentMaster, salesman] = await Promise.all([
-                    item.DepartmentMasterSid !== null ?
-                        this.globalConfigService.getMasterData('department_master', item.DepartmentMasterSid) :
-                        { DepartmentMasterSid: null, departmentName: '' },
+                const [ salesman] = await Promise.all([
 
                     item.SalesmanSid !== null ?
                         this.globalConfigService.getMasterData('user_master', item.SalesmanSid) :
@@ -1382,7 +1386,6 @@ if (!croPayload?.BookingCroSid) {
                 ])
                 return {
                     ...item,
-                    departmentMaster,
                     salesman
                 }
             })
