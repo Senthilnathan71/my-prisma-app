@@ -111,11 +111,18 @@ export class StandardChargeService {
 
     async getStdCharges(payload: PullStandardRateDTO) {
         try {
-            const { CompanyMasterSid, DepartmentMasterSid, OperationDate, CargoType ,BranchMasterSid} = payload;
+            const { 
+                CompanyMasterSid, 
+                DepartmentMasterSid, 
+                OperationDate, 
+                CargoType ,
+                BranchMasterSid,
+                isQuotation,
+                EffectiveFrom,
+                ExpiredTo
+            } = payload;
 
             const whereClause: Prisma.StdTariffDetailWhereInput = {
-                ValidFrom: { lte: new Date(OperationDate) },
-                ValidTo: { gte: new Date(OperationDate) },
                 Status: 'A',
                 StdRateHeader: {
                     DepartmentMasterSid,
@@ -124,13 +131,29 @@ export class StandardChargeService {
                 },
             };
 
+            if (isQuotation === true) {
+                whereClause.ValidFrom = { lte : EffectiveFrom },
+                whereClause.ValidTo = { gte : ExpiredTo }
+            } else {
+                whereClause.ValidFrom = { lte : OperationDate },
+                whereClause.ValidTo = { gte : OperationDate }
+            }
+
             if (CargoType) {
                 whereClause.CargoType = CargoType;
             }
 
+           
+
             const stdCharge = await this._db.stdTariffDetail.findMany({
                 where: whereClause,
                 include: {
+                    ChargeMaster:{
+                        select:{
+                            chargeCode:true,
+                            chargeName:true
+                        }
+                    },
                     SaleCurrencyMaster: true,
                     CostCurrencyMaster: true,
                     UOMMaster: true,
@@ -165,7 +188,7 @@ export class StandardChargeService {
                                 BranchMasterSid,
                                 fromCurrencyCode: costFromCurrency.currencyCode,
                                 toCurrencyCode: toCurrency.currencyCode,
-                                EffectiveFrom: new Date(OperationDate),
+                                EffectiveFrom: isQuotation ? EffectiveFrom : OperationDate,
                                 segment: 'cost',
                             })) || 1
                         : 1;
@@ -177,7 +200,7 @@ export class StandardChargeService {
                                 BranchMasterSid,
                                 fromCurrencyCode: revenueFromCurrency.currencyCode,
                                 toCurrencyCode: toCurrency.currencyCode,
-                                EffectiveFrom: new Date(OperationDate),
+                                EffectiveFrom: isQuotation ? EffectiveFrom : OperationDate,
                                 segment: 'revenue',
                             })) || 1
                         : 1;
