@@ -266,7 +266,9 @@ export class CreditNoteService {
              voucherTypeMaster,
              payload.CompanyMasterSid,
              payload.BranchMasterSid,
-             prisma
+             payload.YearMasterSid,
+             prisma,
+             payload.VoucherDate ? new Date(payload.VoucherDate) : undefined
            );
 
            // Normalize & validate PartyMasterSid

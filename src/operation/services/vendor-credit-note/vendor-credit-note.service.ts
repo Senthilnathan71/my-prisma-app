@@ -56,7 +56,9 @@ export class VendorCreditNoteService {
                         voucherTypeMaster,
                         payload.CompanyMasterSid,
                         payload.BranchMasterSid,
-                        tx
+                        payload.YearMasterSid,
+                        tx,
+                        payload.VoucherDate ? new Date(payload.VoucherDate) : undefined
                     );
     
                     // Get currency master ID

@@ -149,7 +149,9 @@ export class VoucherService {
         voucherTypeMaster: any,
         companyMasterSid: number,
         branchMasterSid: number,
-        tx: any
+        yearMasterSid : number,
+        tx: any,
+        voucherDate?: Date
     ): Promise<string> {
         try {
             // CRITICAL: Lock the VoucherTypeMaster row FIRST to prevent race conditions
@@ -164,8 +166,14 @@ export class VoucherService {
 
             const parts: string[] = [];
             const separator = (voucherTypeMaster.DocumentSeparator || '-').trim();
-            const date = new Date();
-              // Add company code if CompanyFlag is 'Y'
+            // Use provided voucherDate or fall back to current date
+            // This ensures month/year flags reflect the voucher date, not the current date
+            const date = voucherDate ? new Date(voucherDate) : new Date();
+
+            // Get resetValue early as it's needed for building query prefix
+            const resetValue = voucherTypeMaster.ResetValue?.toLowerCase()?.replace(/\s+/g, ''); // normalize: "financial year" -> "financialyear"
+
+            // Add company code if CompanyFlag is 'Y'
             if (voucherTypeMaster.CompanyFlag === 'Y') {
                 const company = await tx.companyMaster.findUnique({
                     where: { CompanyMasterSid: companyMasterSid },
@@ -194,32 +202,41 @@ export class VoucherService {
                 parts.push(date.getFullYear().toString().substring(2,4));
             }
 
-           
+            // Track index before adding month (for building query prefix)
+            const partsBeforeMonth = [...parts];
 
             // Add month if MonthFlag is 'Y'
             if (voucherTypeMaster.MonthFlag === 'Y') {
                 parts.push((date.getMonth() + 1).toString().padStart(2, '0'));
             }
 
-          
+            // Build display prefix (includes all parts for final voucher number)
+            const displayPrefix = parts.join(separator);
 
-            
-
-            // Build prefix for reset logic (all parts except serial number)
-            const prefix = parts.join(separator);
+            // Build query prefix based on ResetValue
+            // For "Year" reset: exclude month from query to prevent monthly reset
+            // For "Month" reset: include month (use full prefix)
+            // For "Financial Year": use date range from YearMaster (handled separately)
+            let queryPrefixParts = [...parts];
+            if (resetValue === 'year' && voucherTypeMaster.MonthFlag === 'Y') {
+                // For yearly reset with month flag enabled, query by prefix WITHOUT month
+                // This ensures sequence continues across months within the same year
+                queryPrefixParts = partsBeforeMonth;
+            }
+            const queryPrefix = queryPrefixParts.join(separator);
 
             // Build WHERE clause conditions
-            const resetValue = voucherTypeMaster.ResetValue?.toLowerCase()?.replace(/\s+/g, ''); // normalize: "financial year" -> "financialyear"
             let whereConditions: string[] = [
                 `"CompanyMasterSid" = ${companyMasterSid}`,
                 `"BranchMasterSid" = ${branchMasterSid}`,
                 `"VoucherTypeMasterSid" = ${voucherTypeMaster.VoucherTypeMasterSid}`
             ];
 
-            // ALWAYS filter by voucher number prefix to ensure we only count vouchers with the SAME format
-            // This prevents old format vouchers (e.g., "VEN-20260116-003") from affecting new format sequence
-            const escapedPrefix = prefix.replace(/'/g, "''");
-            whereConditions.push(`"VoucherNumber" LIKE '${escapedPrefix}${separator}%'`);
+            // Filter by query prefix to find vouchers in the same reset period
+            // For Year reset: matches "IPL/INV/26/*" (any month in 2026)
+            // For Month reset: matches "IPL/INV/26/02/*" (only February 2026)
+            const escapedQueryPrefix = queryPrefix.replace(/'/g, "''");
+            whereConditions.push(`"VoucherNumber" LIKE '${escapedQueryPrefix}${separator}%'`);
 
             // Apply additional reset logic based on ResetValue
             if (resetValue === 'financialyear' || resetValue === 'financial year') {
@@ -227,7 +244,7 @@ export class VoucherService {
                 const currentFinancialYear = await tx.yearMaster.findFirst({
                     where: {
                         CompanyMasterSid: companyMasterSid,
-                        CurrentYear: 'Y',
+                        CurrentYear: yearMasterSid,
                         status: 'A'
                     },
                     select: {
@@ -248,10 +265,12 @@ export class VoucherService {
                 const fyStartDate = new Date(currentFinancialYear.StartDate).toISOString().split('T')[0];
                 const fyEndDate = new Date(currentFinancialYear.EndDate).toISOString().split('T')[0];
 
-                whereConditions.push(`"CreatedOn"::date >= '${fyStartDate}'::date`);
-                whereConditions.push(`"CreatedOn"::date <= '${fyEndDate}'::date`);
+                whereConditions.push(`"VoucherDate"::date >= '${fyStartDate}'::date`);
+                whereConditions.push(`"VoucherDate"::date <= '${fyEndDate}'::date`);
             }
-            // For "Month" and "Year" resets, the prefix already includes year/month components
+            // For "Month" reset, queryPrefix includes month (resets each month)
+            // For "Year" reset, queryPrefix excludes month (continues across months in same year)
+            // For "Financial Year", uses date range filtering (handled above)
             // For "Never" or empty, we still filter by prefix to ensure format consistency
 
             const whereClause = whereConditions.join(' AND ');
@@ -266,7 +285,7 @@ export class VoucherService {
                 FOR UPDATE
             `;
             this.logger.log(`[VOUCHER-GEN] Query: ${query}`);
-            this.logger.log(`[VOUCHER-GEN] Prefix: ${prefix}, ResetValue: ${resetValue}`);
+            this.logger.log(`[VOUCHER-GEN] QueryPrefix: ${queryPrefix}, DisplayPrefix: ${displayPrefix}, ResetValue: ${resetValue}`);
 
             // Use raw SQL with FOR UPDATE to lock the row during transaction
             // This prevents race conditions where multiple requests get the same sequence
@@ -814,14 +833,32 @@ export class VoucherService {
                     where: {
                         CompanyMasterSid : payload.CompanyMasterSid,
                         BranchMasterSid : payload.BranchMasterSid,
-                        menuMaster : {
-                            MenuName : payload.VoucherTypeMenuName
-                        }
+                        DocumentTypeCode : payload.VoucherType,
+                        status : 'A'
                     }
                 });
 
                 if(!voucherTypeMaster){
-                    throw new BadRequestException(`Voucher Type "${payload.VoucherTypeMenuName}" not configured for this company/branch. Please configure it in VoucherTypeMaster.`);
+                    throw new BadRequestException(`Voucher Type "${payload.VoucherType === 'INV' ? 'Invoice' : 'Vendor Invoice'}" not configured for this company/branch. Please configure it in VoucherTypeMaster.`);
+                }
+                
+                if(voucherTypeMaster.IsAutoPosting === 'Y'){
+                    let missingFields : string[] = [];
+                    if(payload.VoucherType === 'INV'){
+                        if(!payload.DocumentNumber){
+                            missingFields.push('Ref No. is required');
+                        }
+                    } else {
+                        if(!payload.DocumentNumber){
+                            missingFields.push('Bill No. is required');
+                        }
+                        if(!payload.DocumentDate) {
+                            missingFields.push('Bill Date is required');
+                        }
+                    }
+                    if(missingFields.length > 0){
+                        throw new BadRequestException(missingFields.join(' \n'));
+                    }
                 }
 
                 // Generate voucher number using config-based approach
@@ -829,7 +866,9 @@ export class VoucherService {
                     voucherTypeMaster,
                     payload.CompanyMasterSid,
                     payload.BranchMasterSid,
-                    prisma
+                    payload.YearMasterSid,
+                    prisma,
+                    payload.VoucherDate ? new Date(payload.VoucherDate) : undefined
                 );
 
                 const createdVoucherHeader = await prisma.voucherHeader.create({
@@ -883,10 +922,12 @@ export class VoucherService {
                         CashOrBank : payload.CashOrBank ?? "",
                         MultiBranch : payload.MultiBranch ?? "",
                         BookingHeaderSid : payload.BookingHeaderSid ?? null,
+                        Salesman : payload.Salesman
                     }
                 });
 
-                const allVoucherDetails = (payload.VoucherDetail || []).map((detail,index) => {
+                const allDetails = payload.VoucherDetail || [];
+                const allVoucherDetails = allDetails.map((detail,index) => {
                     return {
                         CreatedBy : payload.CreatedBy,
                         Status : 'A',
@@ -925,7 +966,9 @@ export class VoucherService {
                         YearMasterSid : payload.YearMasterSid ?? null,
                         PartyAmount : detail.PartyAmount ?? 0,
                         VoucherTransactionSid : detail.VoucherTransactionSid ?? null,
-                        IsAutoGenerated : detail.IsAutoGenerated ?? "N"
+                        IsAutoGenerated : detail.IsAutoGenerated ?? "N",
+                        CostRevenueChargesSid : detail.CostRevenueChargesSid ?? null,
+                        BookingRatesSid : detail.BookingRatesSid ?? null
                     }
                 });
 
@@ -933,12 +976,13 @@ export class VoucherService {
                     data : allVoucherDetails
                 });
 
-                if(payload.selectedRateIds.length > 0){
-                    if(payload.screenName === 'Booking'){
-                        if(payload.VoucherTypeMenuName === 'Invoice'){
+                if(allDetails.length > 0){
+                    if(payload.isBookingScreen){
+                        const allBookingRateSid = allDetails.map(detail => detail.BookingRatesSid);
+                        if(payload.VoucherType === 'INV'){
                             await prisma.bookingRates.updateMany({
                                 where: {
-                                    BookingRatesSid: { in: payload.selectedRateIds }
+                                    BookingRatesSid: { in: allBookingRateSid  }
                                 },
                                 data: {
                                     RevenueVoucherHeaderSid : createdVoucherHeader.VoucherHeaderSid,
@@ -948,7 +992,7 @@ export class VoucherService {
                         } else {
                             await prisma.bookingRates.updateMany({
                                 where: {
-                                    BookingRatesSid: { in: payload.selectedRateIds }
+                                    BookingRatesSid: { in: allBookingRateSid }
                                 },
                                 data: {
                                     CostVoucherHeaderSid : createdVoucherHeader.VoucherHeaderSid,
@@ -957,10 +1001,11 @@ export class VoucherService {
                             })
                         }
                     } else {
-                        if(payload.VoucherTypeMenuName === 'Invoice'){
+                        const allCostRevenueChargeSid = allDetails.map(detail => detail.CostRevenueChargesSid);
+                        if(payload.VoucherType === 'INV'){
                             await prisma.costRevenueCharges.updateMany({
                                 where: {
-                                    CostRevenueChargesSid: { in: payload.selectedRateIds }
+                                    CostRevenueChargesSid: { in: allCostRevenueChargeSid }
                                 },
                                 data: {
                                     RevenueVoucherHeaderSid : createdVoucherHeader.VoucherHeaderSid,
@@ -970,7 +1015,7 @@ export class VoucherService {
                         } else {
                             await prisma.costRevenueCharges.updateMany({
                                 where: {
-                                    CostRevenueChargesSid: { in: payload.selectedRateIds }
+                                    CostRevenueChargesSid: { in: allCostRevenueChargeSid }
                                 },
                                 data: {
                                     CostVoucherHeaderSid : createdVoucherHeader.VoucherHeaderSid,
@@ -989,6 +1034,7 @@ export class VoucherService {
                         yearMasterSid : payload.YearMasterSid,
                         localCurrencyMasterSid : payload.LocalCurrencyMasterSid,
                         localCurrencyCode : payload.LocalCurrencyCode,
+                        current_date : payload.current_date,
                         postedBy : payload.CreatedBy,
                         taxDetails : payload.taxDetails
                     },prisma);
@@ -1621,6 +1667,7 @@ export class VoucherService {
             yearMasterSid: number,
             localCurrencyMasterSid: number,
             localCurrencyCode: string,
+            current_date ?: Date | string,
             postedBy: string,
             isFullyReversed ?: boolean,
             taxDetails: {
@@ -1701,7 +1748,7 @@ export class VoucherService {
         const endDate = new Date(yearMaster.EndDate);
         if (voucherDate <= startDate || voucherDate >= endDate) throw new BadRequestException('Voucher date is outside of current financial year.');
 
-        const now = new Date();
+        const now = payload.current_date || new Date();
         const chargeLineItems = voucher.VoucherDetail;
         const transactionSids: number[] = [];
         const autoGeneratedDetailSids = new Set<number>();

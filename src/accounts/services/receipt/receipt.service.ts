@@ -204,7 +204,9 @@ export class ReceiptService {
           voucherTypeMaster,
           createDto.CompanyMasterSid,
           createDto.BranchMasterSid,
-          prisma
+          createDto.YearMasterSid,
+          prisma,
+          createDto.VoucherDate ? new Date(createDto.VoucherDate) : undefined
         );
 
         // 2. Get current year
@@ -608,12 +610,15 @@ export class ReceiptService {
     }
 
     // Generate JV number using config-based approach
-    const jvNumber = await this.voucherService.generateVoucherNumberFromConfig(
-      jvVoucherTypeMaster,
-      companySid,
-      payingBranchSid,
-      prisma
-    );
+    // const jvNumber = await this.voucherService.generateVoucherNumberFromConfig(
+    //   jvVoucherTypeMaster,
+    //   companySid,
+    //   payingBranchSid,
+    //   yearMasterSId,
+    //   prisma
+    // );
+    //FIXME - Hardcoded for now
+    const jvNumber = 'DOFI';
 
     // Get inter-branch COA accounts
     const payingBranchCOA = await this.getInterBranchCOA(companySid, 'Payable', prisma);
@@ -988,7 +993,9 @@ export class ReceiptService {
           voucherType,
           payload.CompanyMasterSid,
           payload.BranchMasterSid,
-          prisma
+          payload.YearMasterSid,
+          prisma,
+          payload.VoucherDate ? new Date(payload.VoucherDate) : undefined
         );
 
 

@@ -158,14 +158,20 @@ export class OperationCommonService {
                             chargeName : true,
                             HSNSAC : true,
                             chargeTaxMaster : {
-                                select : {
-                                    ChargeTaxMasterSid : true,
-                                    HSSACMasterSid : true,
-                                    HSNCode : true,
-                                    TaxGroupSid : true,
-                                    description : true,
-                                    TaxGroup : true,
-                                    TaxRate : true
+                                where : {
+                                    Status : 'A'
+                                },
+                                select: {
+                                    ChargeTaxMasterSid: true,
+                                    hssacMaster : {
+                                        select : {
+                                            HSSACMasterSid : true,
+                                            HSSACCode : true,
+                                            TaxRate : true,
+                                            TaxType : true,
+                                            TaxGroupSid : true,
+                                        }
+                                    }
                                 }
                             }
                         }
