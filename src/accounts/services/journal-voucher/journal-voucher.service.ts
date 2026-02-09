@@ -48,6 +48,7 @@ export class JournalVoucherService {
                     voucherTypeMaster,
                     payload.CompanyMasterSid,
                     payload.BranchMasterSid,
+                    payload.YearMasterSid,
                     tx
                 );
 

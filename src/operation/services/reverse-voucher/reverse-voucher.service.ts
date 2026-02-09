@@ -38,6 +38,7 @@ export class ReverseVoucherService {
                             voucherTypeMaster,
                             payload.CompanyMasterSid,
                             payload.BranchMasterSid,
+                            payload.YearMasterSid,
                             tx
                         );
         

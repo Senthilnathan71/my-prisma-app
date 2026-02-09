@@ -275,6 +275,7 @@ export class InvoiceService {
           voucherTypeMaster,
           payload.CompanyMasterSid,
           payload.BranchMasterSid,
+          payload.YearMasterSid,
           prisma
         );
 
@@ -758,7 +759,7 @@ Debug.log('DEBUG - Processing voucher details:', payload.VoucherDetail.length, '
         where,
         skip,
         take: pageSize,
-        orderBy: { VoucherHeaderSid: 'desc' },
+        orderBy: { VoucherDate: 'desc' , VoucherNumber : 'desc' },
         include: {
           VoucherDetail: {
             where: { Status: 'A' },

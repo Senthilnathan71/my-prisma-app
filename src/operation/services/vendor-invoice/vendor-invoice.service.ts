@@ -61,6 +61,7 @@ export class VendorInvoiceService {
                     voucherTypeMaster,
                     payload.CompanyMasterSid,
                     payload.BranchMasterSid,
+                    payload.YearMasterSid,
                     tx
                 );
 
@@ -666,7 +667,8 @@ export class VendorInvoiceService {
                         currencyMaster: true
                     },
                     orderBy: {
-                        [sortColumn]: sortDirection
+                        VoucherDate : 'desc',
+                        VoucherNumber : 'desc'
                     },
                     skip,
                     take
