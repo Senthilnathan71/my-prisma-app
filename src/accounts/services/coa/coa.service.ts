@@ -114,7 +114,8 @@ export class CoaService {
                 select: {
                     COAMasterSid: true,
                     LedgerName: true,
-                    SubledgerName : true  // is subledgermapped?
+                    SubledgerName : true,  // is subledgermapped?
+                    JobNoRequire : true
                 },
                 orderBy: {
                     LedgerName: 'asc'

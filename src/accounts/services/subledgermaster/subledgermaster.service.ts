@@ -392,18 +392,24 @@ export class SubledgermasterService {
                 SubledgerMasterSid: true, // ADD THIS
                 SubledgerMappingSid : true,
                 CrCOAMasterSid : true,
-                SubledgerName : true
+                SubledgerName : true,
+                CoaMasterCr : {
+                    select : {
+                        JobNoRequire : true
+                    }
+                }
             }
         })
         const allMappedCustomerSubledgersIds = allCustomerCreditors.map(customerCreditor => customerCreditor.SubledgerMappingSid!);
 
         // Create a map of Customer to Ledger mapping INCLUDING SubledgerMasterSid
-        const ledgerToCustomerMapping = new Map<number, { crCOAMasterSid: number, subledgerMasterSid: number,SubledgerName : string }>();
+        const ledgerToCustomerMapping = new Map<number, { crCOAMasterSid: number, subledgerMasterSid: number,SubledgerName : string  , JobNoRequire : string}>();
         allCustomerCreditors.forEach(customerCreditor => {
             ledgerToCustomerMapping.set(customerCreditor.SubledgerMappingSid!, {
                 crCOAMasterSid: customerCreditor.CrCOAMasterSid!,
                 subledgerMasterSid: customerCreditor.SubledgerMasterSid, // ADD THIS
-                SubledgerName : customerCreditor.SubledgerName
+                SubledgerName : customerCreditor.SubledgerName,
+                JobNoRequire : customerCreditor.CoaMasterCr?.JobNoRequire || 'N'
             });
         });
 
@@ -463,6 +469,7 @@ export class SubledgermasterService {
                     COAMappedId : mapping?.crCOAMasterSid,
                     SubledgerMasterSid: mapping?.subledgerMasterSid, // ADD THIS
                     SubledgerName: 'Y',
+                    JobNoRequire : mapping?.JobNoRequire,
                     StateMasterSid : branch.stateMaster?.StateMasterSid
                 }
             })
@@ -487,19 +494,25 @@ export class SubledgermasterService {
                     SubledgerMasterSid : true,
                     SubledgerMappingSid : true,
                     DrCOAMasterSid : true,
-                    SubledgerName : true
+                    SubledgerName : true,
+                    CoaMasterDb: {
+                        select: {
+                            JobNoRequire: true
+                        }
+                    }
                 }
             })
             const allMappedCustomerSubledgersIds = allCustomerDebtors.map(customerDebtor => customerDebtor.SubledgerMappingSid!);
 
             // Create a map of Customer to Ledger mapping
-            const ledgerToCustomerMapping = new Map<number, { DrCOAMasterSid: number, SubledgerMasterSid: number , SubledgerName : string }>();
+            const ledgerToCustomerMapping = new Map<number, { DrCOAMasterSid: number, SubledgerMasterSid: number , SubledgerName : string , JobNoRequire : string }>();
             allCustomerDebtors.forEach(customerDebtor => {
                 ledgerToCustomerMapping.set(customerDebtor.SubledgerMappingSid!,
                     {
                         DrCOAMasterSid: customerDebtor.DrCOAMasterSid!,
                         SubledgerMasterSid: customerDebtor.SubledgerMasterSid,
-                        SubledgerName: customerDebtor.SubledgerName
+                        SubledgerName: customerDebtor.SubledgerName,
+                        JobNoRequire : customerDebtor.CoaMasterDb?.JobNoRequire || 'N'
                     });
             });
 
@@ -558,6 +571,7 @@ export class SubledgermasterService {
                         COAMappedId : COAMappedId?.DrCOAMasterSid,
                         SubledgerMasterSid: COAMappedId?.SubledgerMasterSid,
                         SubledgerName: 'Y',
+                        JobNoRequire : COAMappedId?.JobNoRequire,
                         StateMasterSid : branch.stateMaster?.StateMasterSid
                     }
                 })
