@@ -1775,12 +1775,15 @@ if (!croPayload?.BookingCroSid) {
                                 },
                                 select: {
                                     ChargeTaxMasterSid: true,
-                                    HSSACMasterSid : true,
-                                    HSNCode: true,
-                                    description: true,
-                                    TaxGroup: true,
-                                    TaxRate: true,
-                                    TaxGroupSid: true,
+                                    hssacMaster : {
+                                        select : {
+                                            HSSACMasterSid : true,
+                                            HSSACCode : true,
+                                            TaxRate : true,
+                                            TaxType : true,
+                                            TaxGroupSid : true,
+                                        }
+                                    }
                                 }
                             }
                         }
