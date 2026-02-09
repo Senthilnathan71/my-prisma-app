@@ -17,13 +17,14 @@ export class CustomerService {
 
         // Extract user email from JWT token
         const userEmail = user?.UserEmail || user?.email || user?.userEmail;
-
+         
         // Step 1: Check duplicate for CustomerMaster
         const existing = await this._db.customerMaster.findFirst({
             where: {
+                  CompanyMasterSid: payload.customer.CompanyMasterSid,
                 OR: [
                     { CustomerName: { equals: payload.customer.CustomerName.trim(), mode: 'insensitive' } },
-                    { CustomerShortCode: { equals: payload.customer.CustomerShortCode?.trim(), mode: 'insensitive' } }
+                  
                 ]
             }
         });
@@ -763,7 +764,6 @@ export class CustomerService {
         const duplicateCheck = await this.checkUniqueCustomerFields({
             CompanyMasterSid: payload.customer.CompanyMasterSid,
             customerName: payload.customer.CustomerName,
-            customerShortCode: payload.customer.CustomerShortCode,
             excludeCustomerMasterSid: CustomerMasterSid
         });
 

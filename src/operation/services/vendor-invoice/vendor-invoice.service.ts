@@ -61,6 +61,7 @@ export class VendorInvoiceService {
                     voucherTypeMaster,
                     payload.CompanyMasterSid,
                     payload.BranchMasterSid,
+                    payload.YearMasterSid,
                     tx,
                     payload.VoucherDate ? new Date(payload.VoucherDate) : undefined
                 );
@@ -666,9 +667,10 @@ export class VendorInvoiceService {
                         subledgerMaster: true,
                         currencyMaster: true
                     },
-                    orderBy: {
-                        [sortColumn]: sortDirection
-                    },
+                    orderBy: [
+                       { VoucherDate : 'desc' },
+                       { VoucherNumber : 'desc' }
+                    ],
                     skip,
                     take
                 }),

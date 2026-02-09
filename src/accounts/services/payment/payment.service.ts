@@ -271,6 +271,7 @@ export class PaymentService {
                     voucherType,
                     payload.CompanyMasterSid,
                     payload.BranchMasterSid,
+                    payload.YearMasterSid,
                     prisma,
                     payload.VoucherDate ? new Date(payload.VoucherDate) : undefined
                 );
