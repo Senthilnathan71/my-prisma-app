@@ -96,35 +96,54 @@ export class VoucherPeriodService {
         }
     }
 
-    async updateVoucherPeriodById(VoucherPeriodSid: number, payload: any) {
-        try {
-            const exist = await this._db.voucherPeriod.findUnique({
-                where: { VoucherPeriodSid }
-            });
-            if (!exist) {
-                throw new BadRequestException(`VoucherPeriod with Id : ${VoucherPeriodSid} not exists`);
-            }
+   async updateVoucherPeriodById(VoucherPeriodSid: number, payload: any) {
+  try {
+    const exist = await this._db.voucherPeriod.findUnique({
+      where: { VoucherPeriodSid },
+    });
 
-            const { updatedBy, status, CompanyMasterSid, BranchMasterSid, YearMasterSid, ...rest } = payload;
-
-            const updatedVoucherPeriod = await this._db.voucherPeriod.update({
-                where: { VoucherPeriodSid },
-                data: {
-                    ...rest,
-                    Status: status,
-                    UpdatedBy: updatedBy,
-                },
-                include: {
-                    YearMaster: true,
-                    CompanyMaster: true,
-                    BranchMaster: true
-                }
-            });
-            return updatedVoucherPeriod;
-        } catch (error) {
-            throw error;
-        }
+    if (!exist) {
+      throw new BadRequestException(
+        `VoucherPeriod with Id : ${VoucherPeriodSid} not exists`
+      );
     }
+
+    const data = {
+      Remarks: payload.Remarks,
+      APClosed: payload.APClosed,
+      APGraceDays: payload.APGraceDays
+        ? new Prisma.Decimal(payload.APGraceDays)
+        : null,
+
+      ARClosed: payload.ARClosed,
+      ARGraceDays: payload.ARGraceDays
+        ? new Prisma.Decimal(payload.ARGraceDays)
+        : null,
+
+      GLClosed: payload.GLClosed,
+      GLGraceDays: payload.GLGraceDays
+        ? new Prisma.Decimal(payload.GLGraceDays)
+        : null,
+      UpdatedOn: new Date(),
+    };
+
+    const updatedVoucherPeriod = await this._db.voucherPeriod.update({
+      where: { VoucherPeriodSid },
+      data,
+      include: {
+        YearMaster: true,
+        CompanyMaster: true,
+        BranchMaster: true,
+      },
+    });
+
+    return updatedVoucherPeriod;
+  } catch (error) {
+    console.log("VoucherPeriod Updation Error:", error);
+    throw error;
+  }
+}
+
 
     async deleteVoucherPeriod(VoucherPeriodSid: number) {
         try {
