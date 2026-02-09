@@ -285,7 +285,6 @@ export class OperationReportsService {
         select: { ContainerTypeMasterSid: true, ContainerSize: true }
       });
 
-      // Map ID → Name for fast lookup
       const containerTypeMap = new Map(
         containerTypesMaster.map(ct => [ct.ContainerTypeMasterSid, ct.ContainerSize])
       );
@@ -297,53 +296,58 @@ export class OperationReportsService {
         }
       });
 
-      const masterJobData = await this._db.masterJob.findMany({
+      const houseJobData = await this._db.houseJob.findMany({
         where: {
           CompanyMasterSid,
           AND: [
-            { MBLDate: { gte: FromJobDt } },
-            { MBLDate: { lte: ToJobDt } }
+            { HBLDate: { gte: FromJobDt } },
+            { HBLDate: { lte: ToJobDt } }
           ],
-          Status: 'A',
+          status: 'A',
           BranchMasterSid: { in: resolvedBranchIds },
           DepartmentMasterSid: { in: resolvedDeptIds },
         },
         include: {
-          houseJob: { include: { Cargo: true } },
-          containers: {
-            where: { Status: 'A' },
+          Cargo:true,
+          Products:true,
+          masterJob: {
             include: {
-              containerType: {
-                select: {
-                  ContainerSize: true,
-                  NoOfTeu: true,
+              containers: {
+                where: { Status: 'A' },
+                include: {
+                  containerType: {
+                    select: {
+                      ContainerSize: true,
+                      NoOfTeu: true,
+                    }
+                  }
                 }
-              }
-            }
-          },
-          voyages: true,
+              },
+              voyages: true,
+            },
+           
+          }
+
         },
-        orderBy: { MBLDate: 'asc' },
+        orderBy: { HBLDate: 'asc' },
       });
 
 
-
-      if (masterJobData.length === 0) {
+      if (houseJobData.length === 0) {
         this.logger.log(`No shipment vouchers found for the given filters.`);
         return { companyMasterSid: CompanyMasterSid, branchMasterSid: branchId, data: [] };
       }
 
       const portCodes = new Set<string>();
 
-      masterJobData.forEach(mj => {
+      houseJobData.forEach(mj => {
         if (mj.POL) portCodes.add(mj.POL);
         if (mj.POD) portCodes.add(mj.POD);
         if (mj.FPD) portCodes.add(mj.FPD);
         if (mj.POO) portCodes.add(mj.POO);
-        // Add any other port fields you need
       });
 
-      // Fetch port details
+      
       const ports = await this._db.portMaster.findMany({
         where: {
           PortCode: { in: Array.from(portCodes) }
@@ -354,87 +358,87 @@ export class OperationReportsService {
         }
       });
 
-      // Create a map of port code to port name
+      
       const portMap = new Map(
         ports.map(port => [port.PortCode, port.PortName])
       );
 
       const containerSize = ["20'", "40'", "45'"];
 
-      // Map the master job data
-      const data = masterJobData.map(mj => {
-        // Determine the type based on destinationPort (or any other field)
+     
+      const data = houseJobData.map(mj => {
         const type = mj.DestinationAgent ? 'Agent' : null;
 
-        // Sum volumes for local shipment (Import + Export)
-        const localShipmentVol = mj.houseJob?.reduce((sum, job) => {
-          if (job.JobType === 'Import' || job.JobType === 'Export') {
-            return sum + (job.Cargo?.reduce((cSum, cargo) => cSum + Number(cargo.Volume || 0), 0) || 0);
-          }
-          return sum;
-        }, 0) || 0;
+        const localShipmentVol = (mj.JobType === 'Import' || mj.JobType === 'Export')
+          ? mj.Cargo?.reduce((sum, cargo) => sum + Number(cargo.Volume || 0), 0)
+          : 0;
 
-        // Sum volumes for transhipment shipment
-        const transhipmentVol = mj.houseJob?.reduce((sum, job) => {
-          if (job.JobType === 'Transhipment') {
-            return sum + (job.Cargo?.reduce((cSum, cargo) => cSum + Number(cargo.Volume || 0), 0) || 0);
-          }
-          return sum;
-        }, 0) || 0;
+        const transhipmentVol = (mj.JobType === 'Transhipment')
+          ? mj.Cargo?.reduce((sum, cargo) => sum + Number(cargo.Volume || 0), 0)
+          : 0;
 
-        const masterContainerSid = mj.containers?.[0]?.MasterJobContainerSid;
-
-        const containerInfo = (mj.containers || [])
-          .filter(c => c.MasterJobContainerSid === masterContainerSid)
-          .map(c => {
-            const containerTypeId = c.ContainerType;
-            return {
-              containerNumber: c.ContainerNumber,
-              containerType: containerTypeId != null
-                ? containerTypeMap.get(containerTypeId) || `Unknown(${containerTypeId})`
-                : 'Unknown',
-            };
-          });
-
-        const containerCountByType: Record<string, number> = {};
+        const houseProducts = mj.Products; 
+        const allContainers = mj.masterJob?.containers || [];
+        
         let totalNoOfTEU = 0;
+        let numberOfTwentyFt = 0;
         let numberOfFourtyFt = 0;
         let numberofFurtyFive = 0;
-        let numberOfTwentyFt = 0;
-        containerSize.forEach(col => containerCountByType[col] = 0);
+        let containerInfo : any[] = [];
+        houseProducts.forEach(hp => {
+          const ourMJContainer = allContainers.find(mc => mc.MasterJobContainerSid === hp.MasterJobContainerSid);
+          const ourContainerType = ourMJContainer?.containerType;
+          containerInfo.push({
+            containerNumber : hp?.ContainerNo,
+            containerType : ourContainerType?.ContainerSize,
+            NoOfTeu : toNumber(ourContainerType?.NoOfTeu)
+          })
+          totalNoOfTEU += toNumber(ourContainerType?.NoOfTeu);
+          const size = ourContainerType?.ContainerSize;
+          if (size === "20") numberOfTwentyFt++;
+          if (size === "40") numberOfFourtyFt++;
+          if (size === "45") numberofFurtyFive++;
+        })
 
-        (mj.containers || []).forEach(c => {
 
-          totalNoOfTEU += toNumber(c.containerType?.NoOfTeu);
+        // const containerInfo = (mj.masterJob?.containers || [])
+        //   .filter(c => houseContainerSids.includes(c.MasterJobContainerSid))
+        //   .map(c => ({
+        //     containerNumber: mj.Products?.find(p => p.MasterJobContainerSid === c.MasterJobContainerSid)?.ContainerNo || '',
+        //     containerType: c.containerType?.ContainerSize || '',
+        //     NoOfTeu: c.containerType?.NoOfTeu || 0,
+        //   }));
 
-          if (c.containerType?.ContainerSize.trim() === '20') {
-            numberOfTwentyFt++;
-          }
 
-          if (c.containerType?.ContainerSize.trim() === '40') {
-            numberOfFourtyFt++;
-          }
+        // (mj.masterJob?.containers || [])
+        //   .filter(c => c.MasterJobContainerSid === houseContainerSid)
+        //   .forEach(c => {
+        //     totalNoOfTEU += Number(c.containerType?.NoOfTeu || 0);
 
-          if (c.containerType?.ContainerSize.trim() === '45') {
-            numberofFurtyFive++;
-          }
-        });
+        //     const size = c.containerType?.ContainerSize?.trim();
+        //     if (size === "20") numberOfTwentyFt++;
+        //     if (size === "40") numberOfFourtyFt++;
+        //     if (size === "45") numberofFurtyFive++;
+        //   });
 
 
         const polName = mj.POL ? portMap.get(mj.POL) || '' : '';
         const podName = mj.POD ? portMap.get(mj.POD) || '' : '';
         const fpdName = mj.FPD ? portMap.get(mj.FPD) || '' : '';
-        const pooName = mj.FPD ? portMap.get(mj.POO) || '' : '';
+        const pooName = mj.POO ? portMap.get(mj.POO) || '' : '';
+        const jobTypesArray = Array.isArray(mj.JobType) ? mj.JobType : [{ JobType: mj.JobType }];
 
         return {
-          masterNo: mj.MasterJobNumber,
+          masterNo: mj.MBLNo,
+          Hblno:mj.HBLNo,
+          HblDate:mj.HBLDate,
           masterDate: mj.MBLDate,
           department: departments.find(d => d.DepartmentMasterSid === mj.DepartmentMasterSid)?.departmentName || '',
           mblNo: mj.MBLNo || '',
-          vesselName: mj?.voyages?.[0]?.VesselName || '',
-          voyageNo: mj?.voyages?.[0]?.VoyageNo || '',
-          etd: mj?.voyages?.[0]?.ETD || '',
-          eta: mj?.voyages?.[0]?.ETA || '',
+          vesselName: mj?.VesselName|| '',
+          voyageNo: mj?.VoyageNo|| '',
+          etd: mj?.ETA|| '',
+          eta: mj?.ETD || '',
           originPort: mj.POO || '',
           originPortName: pooName || '',
           loadPort: mj.POL || '',
@@ -443,16 +447,16 @@ export class OperationReportsService {
           dischargePortName: podName,
           destinationPort: mj.FPD || '',
           destinationPortName: fpdName,
-          carrier: mj?.voyages?.[0]?.CarrierName || '',
-          weight: mj.GrossWeight || 0,
-          volume: mj.Volume || 0,
-          chargeable: mj.ChargeableWeight || 0,
-          noOfContainers: mj.houseJob?.reduce((sum, job) => sum + (job.Cargo?.reduce((cSum, cargo) => cSum + (cargo.NoofContainers || 0), 0) || 0), 0) || 0,
-          shipper: mj.houseJob?.[0]?.ShipperName || '',
-          containerNoList: mj?.containers?.map((c: any) => c.ContainerNumber).join(', ') || '',
-          mastercontainerSid: mj?.containers?.map((c: any) => c.mastercontainerSid).join(', ') || '',
-          masterContanierSid: mj?.containers?.[0]?.MasterJobContainerSid,
-          sendingAgent: agentMaster.find(d => d.CustomerMasterSid === mj.OriginAgent)?.CustomerName || '',
+          carrier: mj?.CarrierName || '',
+          weight: mj.Cargo?.[0]?.GrossWeight || 0,
+          volume: mj.Cargo?.[0]?.Volume || 0,
+          chargeable: mj.Cargo?.[0]?.ChargeableWeight || 0,
+          shipper: mj?.ShipperName || '',
+          containerNoList: mj?.Products?.map((c: any) => c.ContainerNo).join(', '),
+          noOfContainers: mj.Cargo?.reduce((sum, cargo) => sum + (cargo.NoofContainers || 0), 0) || 0,
+          mastercontainerSid: mj?.masterJob?.containers?.map((c: any) => c.mastercontainerSid).join(', ') || '',
+          masterContanierSid: mj?.masterJob?.containers?.[0]?.MasterJobContainerSid,
+          sendingAgent: mj?.AgentName,
           receivingAgent: agentMaster.find(d => d.CustomerMasterSid === mj.DestinationAgent)?.CustomerName || '',
           type,
           containerInfo,
@@ -460,13 +464,13 @@ export class OperationReportsService {
           numberOfTwentyFt,
           numberOfFourtyFt,
           numberofFurtyFive,
-          localShipment: mj.houseJob?.filter(job => job.JobType === 'Import' || job.JobType === 'Export').length || 0,
-          transhipmentShipment: mj.houseJob?.filter(job => job.JobType === 'Transhipment').length || 0,
-          totalShipment: (mj.houseJob?.filter(job => job.JobType === 'Import' || job.JobType === 'Export').length || 0) +
-            (mj.houseJob?.filter(job => job.JobType === 'Transhipment').length || 0),
+          localShipment: jobTypesArray?.filter(job => job.JobType === 'Import' || job.JobType === 'Export').length || 0,
+          transhipmentShipment: jobTypesArray?.filter(job => job.JobType === 'Transhipment').length || 0,
+          totalShipment: (jobTypesArray?.filter(job => job.JobType === 'Import' || job.JobType === 'Export').length || 0) +
+            (jobTypesArray?.filter(job => job.JobType === 'Transhipment').length || 0),
           localShipmentVol,
           transhipmentVol,
-          houseStatus:mj.houseJob?.[0]?.HouseStatus
+          houseStatus:mj?.HouseStatus
         };
       });
 
@@ -552,7 +556,19 @@ export class OperationReportsService {
           houseJob: {
             where: { status: 'A' }
           },
-          containers: true,
+          containers: {
+            where:{
+              Status:'A'
+            },
+            include:{
+              containerType:{
+                select:{
+                  ContainerSize:true,
+                  NoOfTeu:true
+                }
+              }
+            }
+          },
         },
         orderBy: { MBLDate: 'asc' },
       });
@@ -646,7 +662,6 @@ export class OperationReportsService {
           }
         })
 
-
         // Count containers by size
         let number20 = 0, number40 = 0, number45 = 0;
         (job.containers || []).forEach(c => {
@@ -737,22 +752,24 @@ export class OperationReportsService {
         const actualCost = actualCostMaster + actualCostHouse;
         const actualRevenue = actualRevenueMaster + actualRevenueHouse;
         const actualGp = actualRevenue - actualCost;
-        const profit = (Number(GP) * 100) / Number(totalRevenueWithHouse);
+        const profit = (Number(actualGp) * 100) / Number(actualRevenue);
         const space = Number(job?.ChargeableWeight) - Number(job?.Volume);
+        const proveprofit = (Number(GP) * 100) / Number(totalRevenueWithHouse);
         return {
           jobNumber: job.MasterJobNumber,
           Mbl: job.MBLNo,
           POL: job.POL,
           POD: job.POD,
-          chargeable: job?.ChargeableWeight ?? 0,
-          Vol: job?.Volume ?? 0,
-          noOfShipment: job.houseJob?.length ?? 0,
+          chargeable: job?.ChargeableWeight,
+          Vol: job?.Volume,
+          noOfShipment: job.houseJob?.length,
           GP,
           actualRevenue,
           actualCost,
           profit,
+          proveprofit,
           actualGp,
-          containerNo: job?.containers?.[0]?.ContainerNumber ?? null,
+          containerNo: job?.containers?.map(c=>c.ContainerNumber).join(", "),
           twentyft: number20,
           fourty: number40,
           fourtyfive: number45,
