@@ -12,6 +12,9 @@ import {
   BadRequestException,
   Query,
   ParseIntPipe,
+  ValidationPipe,
+  UsePipes,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { ApiBody, ApiCreatedResponse, ApiOperation, ApiQuery } from '@nestjs/swagger';
 import { ResponseData } from 'src/common/response-data';
@@ -19,9 +22,28 @@ import { Auth } from 'src/common/decorators/auth.decorator';
 import { UserData } from 'src/common/decorators/user.decorator';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 import { ServiceJobService } from 'src/operation/services/service-job/service-job.service';
+import { IsInt, IsNotEmpty, IsOptional, IsString } from 'class-validator';
+export class DuplicateCheckDTO {
+  @IsInt()
+  CompanyMasterSid: number;
 
+  @IsInt()
+  BranchMasterSid: number;
+
+  @IsInt()
+  DepartmentMasterSid: number;
+
+  @IsOptional()
+  @IsString()
+  HBLNo?: string;
+
+  @IsOptional()
+  @IsString()
+  MBLNo?: string;
+}
 @Auth()
 @Controller('service-job')
+
 export class ServiceJobController {
   private readonly logger = new Logger(ServiceJobController.name);
 
@@ -136,6 +158,38 @@ export class ServiceJobController {
       output.message = error.message || 'Internal Server Error';
     }
     return output;
+  }
+
+
+  @ApiOperation({ summary:'Check if Service Job already exists' })
+  @ApiCreatedResponse({
+    description: 'Service Job already exists',
+    type: ResponseData
+  })
+  @HttpCode(HttpStatus.OK)
+  @UsePipes(new ValidationPipe({
+    transform: true,
+    whitelist: true,
+    forbidNonWhitelisted: true,
+  }))
+  @Post('check-duplicate')
+  async checkDuplicateServiceJob(@Body() payload : DuplicateCheckDTO) {
+    const output = new ResponseData();
+    try {
+      const isDuplicate = await this.serviceJobService.checkDuplicateServiceJob(payload);
+      this.logger.debug(`checkDuplicateServiceJob: ${JSON.stringify(isDuplicate)}`)
+      output.data = isDuplicate;
+      output.message = "Service Job already exists";
+    } catch (error) {
+      this.logger.warn(`checkDuplicateServiceJob: ${JSON.stringify(error), error}`)
+      output.status = false;
+      if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+        output.message = error.message;
+      } else {
+        output.message = error;
+      }
+    }
+    return output
   }
 
 }

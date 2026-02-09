@@ -2428,7 +2428,38 @@ private getWeightInFromUnitSid(weightUnitSid: number): string {
                     updatedBy : payload.updatedBy,
                     updatedOn : new Date()
                 }
+                
             })
+            // 🔁 Sync MasterJob MBLNo / MBLDate to all related BookingHeaders
+const houseJobsForBookingSync = await this._db.houseJob.findMany({
+    where: {
+        MasterJobSid: updatedMasterJob.MasterJobSid,
+        status: 'A',
+        BookingHeaderSid: { not: null }
+    },
+    select: {
+        BookingHeaderSid: true
+    }
+});
+
+if (houseJobsForBookingSync.length > 0) {
+    await Promise.all(
+        houseJobsForBookingSync.map(hj =>
+            this._db.bookingHeader.update({
+                where: {
+                    BookingHeaderSid: hj.BookingHeaderSid!
+                },
+                data: {
+                    ...(updatedMasterJob.MBLNo && { MBLNo: updatedMasterJob.MBLNo }),
+                    ...(updatedMasterJob.MBLDate && { MBLDate: updatedMasterJob.MBLDate }),
+                    updatedBy: payload.updatedBy,
+                    updatedOn: new Date()
+                }
+            })
+        )
+    );
+}
+
 
             return {
                 updatedMasterJob

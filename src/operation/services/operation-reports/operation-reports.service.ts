@@ -5007,7 +5007,7 @@ const salesmanInvolved =
       AllBankCash
         .filter(bc => bc.subledgerMaster)
         .forEach(bc => {
-
+          if(!bc.subledgerMaster) return;
           const drCr = bc.VoucherDetail?.[0]?.DrCr;
           const subId = bc.subledgerMaster.SubledgerMasterSid;
 

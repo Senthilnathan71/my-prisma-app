@@ -310,6 +310,7 @@ model BookingRates {
   vendorSubledgerMaster       SubledgerMaster?     @relation("VendorSubledger", fields: [VendorSubledgerMasterSid], references: [SubledgerMasterSid])
   CostRevenueCharges          CostRevenueCharges[]
   HouseJob                    HouseJob[]
+  VoucherDetail               VoucherDetail[]
 }
 
 model BookingCro {

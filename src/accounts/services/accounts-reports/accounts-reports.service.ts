@@ -566,15 +566,14 @@ export class AccountsReportsService {
   }
 
   private async generateOutstandingReport(params: OutstandingReportQueryDto) {
-    // {"ToDate":"2025-12-06T00:00:00.000Z","Ledger":54,"Subledger":59,"Branch":[50],"companyId":7}
     const {
       ToDate,
-      Subledger : ledgerMasterSid,
-      Ledger : coaMasterSid,
+      Subledger: ledgerMasterSid,
+      Ledger: coaMasterSid,
       Branch: branchId,
-      companyId : CompanyMasterSid,
+      companyId: CompanyMasterSid,
     } = params;
-    
+
     try {
       this.logger.log(
         `Getting customer outstanding: CompanySid=${CompanyMasterSid}, LedgerMasterSid=${ledgerMasterSid}`,
@@ -598,41 +597,38 @@ export class AccountsReportsService {
 
       const resolvedBranchIds = branches.map(b => b.BranchMasterSid);
       const resolvedBranchNames = branches.map(b => b.branchName);
-      const brancesInvoled = branchId && branchId.length > 0 ? branches.map(b=>b.branchName).join(', ') : 'All Branches'
-  
-      // Get customer/subledger information
+      const brancesInvoled = branchId && branchId.length > 0 ? branches.map(b => b.branchName).join(', ') : 'All Branches'
+
       const subledger = await this._db.subledgerMaster.findUnique({
         where: { SubledgerMasterSid: ledgerMasterSid },
       });
 
       const ledger = await this._db.cOAMaster.findUnique({
-        where:{COAMasterSid:coaMasterSid}
+        where: { COAMasterSid: coaMasterSid }
       })
 
       const userMaster = await this._db.userMaster.findMany({
-        select:{
-          UserMasterSid:true,
-          userName:true
+        select: {
+          UserMasterSid: true,
+          userName: true
         }
       })
 
-      // Fetch all active voucher transactions for this customer
-      // Exclude reversed vouchers
       const voucherTransactions = await this._db.voucherTransaction.findMany({
         where: {
           CompanyMasterSid: CompanyMasterSid,
           BranchMasterSid: { in: resolvedBranchIds },
-          VoucherDate : { lte : ToDate},
-          COAMasterSid : coaMasterSid,
+          VoucherDate: { lte: ToDate },
+          COAMasterSid: coaMasterSid,
           LedgerMasterSid: ledgerMasterSid,
           Status: 'A',
         },
         include: {
           VoucherHeader: true,
-          masterJob : true,
-          houseJob:true,
-          departmentMaster:{
-            select:{departmentName:true}
+          masterJob: true,
+          houseJob: true,
+          departmentMaster: {
+            select: { departmentName: true }
           },
           voucherMatchings: {
             where: {
@@ -652,11 +648,11 @@ export class AccountsReportsService {
         this.logger.log(`No outstanding vouchers found for LedgerMasterSid ${ledgerMasterSid}`);
         return {
           companyMasterSid: CompanyMasterSid,
-          BranchMasterSid:branchId,
+          BranchMasterSid: branchId,
           branchNames: resolvedBranchNames.join(', '),
           ledgerMasterSid: ledgerMasterSid,
           subledgerName: subledger?.SubledgerName,
-          ledgerName : ledger?.LedgerName,
+          ledgerName: ledger?.LedgerName,
           totalOutstandingCurrency: 0,
           totalOutstandingLocal: 0,
           voucherCount: 0,
@@ -668,7 +664,17 @@ export class AccountsReportsService {
       const transactions: any[] = [];
       let totalOutstandingCurrency = 0;
       let totalOutstandingLocal = 0;
+      // ✅ Ageing Bucket Summary
+      const ageingSummary = {
+        totalOutstanding: 0,
+        bucket_0_30: 0,
+        bucket_31_60: 0,
+        bucket_61_90: 0,
+        bucket_91_120: 0,
+        bucket_121_above: 0,
+      };
 
+      const currencyWiseSummary: Record<string, any> = {};
       for (const vt of voucherTransactions) {
         const originalCurrencyAmount = toNumber(vt.Amount);
         const originalLocalAmount = toNumber(vt.LocalAmount);
@@ -699,8 +705,64 @@ export class AccountsReportsService {
           ? roundAmount(originalLocalAmount / originalCurrencyAmount, 4)
           : 1.0;
 
+        // ✅ Ageing Calculation
+        const voucherDate = new Date(vt.VoucherDate);
+        const reportToDate = new Date(ToDate);
+
+        // Ageing = (ToDate - VoucherDate) + 1
+        const ageingDays =
+          Math.floor(
+            (reportToDate.getTime() - voucherDate.getTime()) /
+            (1000 * 60 * 60 * 24)
+          ) + 1;
+
+
+
         // Only include if there's outstanding balance
         if (Math.abs(outstandingCurrencyAmount) > 0 || Math.abs(outstandingLocalAmount) > 0) {
+          let ageingBucket = "";
+
+          if (ageingDays <= 30) ageingBucket = "0 - 30 Days";
+          else if (ageingDays <= 60) ageingBucket = "31 - 60 Days";
+          else if (ageingDays <= 90) ageingBucket = "61 - 90 Days";
+          else if (ageingDays <= 120) ageingBucket = "91 - 120 Days";
+          else ageingBucket = "121+ Above";
+
+       // ====================================================
+// ✅ Currency Wise Ageing Bucket Summary
+// ====================================================
+
+const currency = vt.CurrencyCode || "USD";
+
+// Initialize currency bucket if not exists
+if (!currencyWiseSummary[currency]) {
+  currencyWiseSummary[currency] = {
+    currencyCode: currency,
+    totalOutstanding: 0,
+    bucket_0_30: 0,
+    bucket_31_60: 0,
+    bucket_61_90: 0,
+    bucket_91_120: 0,
+    bucket_121_above: 0,
+  };
+}
+
+// Add totals currency-wise
+currencyWiseSummary[currency].totalOutstanding += outstandingLocalAmount;
+
+if (ageingDays <= 30)
+  currencyWiseSummary[currency].bucket_0_30 += outstandingLocalAmount;
+else if (ageingDays <= 60)
+  currencyWiseSummary[currency].bucket_31_60 += outstandingLocalAmount;
+else if (ageingDays <= 90)
+  currencyWiseSummary[currency].bucket_61_90 += outstandingLocalAmount;
+else if (ageingDays <= 120)
+  currencyWiseSummary[currency].bucket_91_120 += outstandingLocalAmount;
+else
+  currencyWiseSummary[currency].bucket_121_above += outstandingLocalAmount;
+
+
+
           transactions.push({
             voucherTransactionSid: vt.VoucherTransactionSid,
             voucherHeaderSid: vt.VoucherHeaderSid,
@@ -710,8 +772,8 @@ export class AccountsReportsService {
             voucherTypeMasterSid: vt.VoucherTypeMasterSid,
             ledgerMasterSid: vt.LedgerMasterSid!,
             coaMasterSid: vt.COAMasterSid!,
-            MasterJobNumber : vt.masterJob?.MasterJobNumber,
-            HouseJobNumber : vt.houseJob?.HBLNo,
+            MasterJobNumber: vt.masterJob?.MasterJobNumber,
+            HouseJobNumber: vt.houseJob?.HBLNo,
             voucherType: vt.voucherTypeMaster?.DocumentTypeCode,
             originalCurrencyAmount: toNumber(originalCurrencyAmount),
             originalLocalAmount: toNumber(originalLocalAmount),
@@ -723,29 +785,45 @@ export class AccountsReportsService {
             exchangeRate: toNumber(vt.ExchangeRate || 1),
             drCr: vt.DrCr,
             chargeDescription: vt.ChargeDescription || "",
-            deptname:vt.departmentMaster?.departmentName,
-            salesmanSid: userMaster.find(u=>u.UserMasterSid === vt.houseJob?.SalesmanSid)?.userName || '',
-            naration:vt.Narration,
+            deptname: vt.departmentMaster?.departmentName,
+            salesmanSid: userMaster.find(u => u.UserMasterSid === vt.houseJob?.SalesmanSid)?.userName || '',
+            naration: vt.Narration,
+            ageingDays: ageingDays,
+            ageingBucket: ageingSummary,
           });
 
           totalOutstandingCurrency += outstandingCurrencyAmount;
           totalOutstandingLocal += outstandingLocalAmount;
         }
+        ageingSummary.totalOutstanding = roundAmount(
+          ageingSummary.totalOutstanding,
+          2
+        );
+        ageingSummary.bucket_0_30 = roundAmount(ageingSummary.bucket_0_30, 2);
+        ageingSummary.bucket_31_60 = roundAmount(ageingSummary.bucket_31_60, 2);
+        ageingSummary.bucket_61_90 = roundAmount(ageingSummary.bucket_61_90, 2);
+        ageingSummary.bucket_91_120 = roundAmount(ageingSummary.bucket_91_120, 2);
+        ageingSummary.bucket_121_above = roundAmount(
+          ageingSummary.bucket_121_above,
+          2
+        );
       }
 
       const response = {
         companyMasterSid: CompanyMasterSid,
-        branchMasterSid : branchId,
+        branchMasterSid: branchId,
         branchNames: resolvedBranchNames.join(', '),
         brancesInvoled,
         ledgerMasterSid: ledgerMasterSid!,
         subledgerName: subledger?.SubledgerName,
-        ledgerName : ledger?.LedgerName,
+        ledgerName: ledger?.LedgerName,
         totalOutstandingCurrency: roundAmount(totalOutstandingCurrency, 2),
         totalOutstandingLocal: roundAmount(totalOutstandingLocal, 2),
         voucherCount: transactions.length,
         transactions: transactions,
-        params : params,
+        params: params,
+        ageingSummary,
+        currencyWiseSummary: Object.values(currencyWiseSummary)
       };
 
       this.logger.log(

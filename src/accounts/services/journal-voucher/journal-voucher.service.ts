@@ -158,7 +158,7 @@ export class JournalVoucherService {
                         CurrencyCode: payload.CurrencyCode,
                         ExchangeRate: payload.ExchangeRate || 1,
                         DocumentNumber: payload.DocumentNumber,
-                        DocumentDate: payload.DocumentDate ? new Date(payload.DocumentDate) : null,
+                        DocumentDate: payload.DocumentDate || null,
                         Amount: payload.Amount,
                         LocalAmount: payload.LocalAmount,
                         NetAmount: payload.NetAmount,
@@ -354,7 +354,7 @@ export class JournalVoucherService {
                 await tx.voucherHeader.update({
                     where: { VoucherHeaderSid },
                     data: {
-                        VoucherDate: payload.VoucherDate ? new Date(payload.VoucherDate) : undefined,
+                        VoucherDate: payload.VoucherDate || null,
                         Narration: payload.Narration,
                         PartyMasterSid: payload.PartyMasterSid,
                         PartyName: payload.PartyName,
@@ -367,7 +367,7 @@ export class JournalVoucherService {
                         ExchangeRate: payload.ExchangeRate,
                         PostStatus: payload.PostStatus,
                         DocumentNumber: payload.DocumentNumber,
-                        DocumentDate: payload.DocumentDate ? new Date(payload.DocumentDate) : undefined,
+                        DocumentDate: payload.DocumentDate || null,
                         Amount: payload.Amount,
                         LocalAmount: payload.LocalAmount,
                         NetAmount: payload.NetAmount,
