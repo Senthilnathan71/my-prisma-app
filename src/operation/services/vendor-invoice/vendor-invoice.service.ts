@@ -666,10 +666,10 @@ export class VendorInvoiceService {
                         subledgerMaster: true,
                         currencyMaster: true
                     },
-                    orderBy: {
-                        VoucherDate : 'desc',
-                        VoucherNumber : 'desc'
-                    },
+                    orderBy: [
+                       { VoucherDate : 'desc' },
+                       { VoucherNumber : 'desc' }
+                    ],
                     skip,
                     take
                 }),

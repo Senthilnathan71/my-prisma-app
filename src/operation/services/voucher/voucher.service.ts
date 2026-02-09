@@ -249,8 +249,8 @@ export class VoucherService {
                 const fyStartDate = new Date(currentFinancialYear.StartDate).toISOString().split('T')[0];
                 const fyEndDate = new Date(currentFinancialYear.EndDate).toISOString().split('T')[0];
 
-                whereConditions.push(`"CreatedOn"::date >= '${fyStartDate}'::date`);
-                whereConditions.push(`"CreatedOn"::date <= '${fyEndDate}'::date`);
+                whereConditions.push(`"VoucherDate"::date >= '${fyStartDate}'::date`);
+                whereConditions.push(`"VoucherDate"::date <= '${fyEndDate}'::date`);
             }
             // For "Month" and "Year" resets, the prefix already includes year/month components
             // For "Never" or empty, we still filter by prefix to ensure format consistency

@@ -759,7 +759,7 @@ Debug.log('DEBUG - Processing voucher details:', payload.VoucherDetail.length, '
         where,
         skip,
         take: pageSize,
-        orderBy: { VoucherDate: 'desc' , VoucherNumber : 'desc' },
+        orderBy: [{ VoucherDate: 'desc' } ,{ VoucherNumber : 'desc' }],
         include: {
           VoucherDetail: {
             where: { Status: 'A' },
