@@ -29,6 +29,10 @@ export class CustomerMasterDto {
     @IsOptional()
     CountryMasterSid?: number;
 
+    @IsInt()
+    @IsOptional()
+    CurrencyMasterSid?: number;
+
     @IsString()
     @IsNotEmpty()
     @MaxLength(100)

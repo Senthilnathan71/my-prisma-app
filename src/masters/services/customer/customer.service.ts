@@ -52,6 +52,7 @@ export class CustomerService {
                     CustomerAddress1: payload.customer.CustomerAddress1,
                     CustomerAddress2: payload.customer.CustomerAddress2,
                     CountryMasterSid: payload.customer.CountryMasterSid,
+                    CurrencyMasterSid: payload.customer.CurrencyMasterSid,
                     CustomerType: payload.customer.CustomerType,
                     PanName: payload.customer.PanName,
                     PanType: payload.customer.PanType,
@@ -264,6 +265,7 @@ export class CustomerService {
                             CountryMasterSid: true
                         }
                     },
+                    CurrencyMasterSid: true,
                     CustomerName: true,
                     CompanyMasterSid: true,
                     CustomerShortCode: true,
@@ -788,6 +790,7 @@ export class CustomerService {
                     CustomerAddress1: payload.customer.CustomerAddress1,
                     CustomerAddress2: payload.customer.CustomerAddress2,
                     CountryMasterSid: payload.customer.CountryMasterSid,
+                    CurrencyMasterSid: payload.customer.CurrencyMasterSid,
                     CustomerType: payload.customer.CustomerType,
                     PanName: payload.customer.PanName,
                     PanType: payload.customer.PanType,

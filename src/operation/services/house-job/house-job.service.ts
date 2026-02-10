@@ -526,6 +526,14 @@ export class HouseJobService {
                         finalAllMilestones.push(createdMilestone);
                     }
                 }
+
+                if (houseJob.MasterJobSid) {
+                    await this.recalculateMasterJobTotals(
+                        prisma,
+                        houseJob.MasterJobSid
+                    );
+                }
+
                 //   const allMilestones = await prisma.shipmentMilestone.createMany({
                 //     data :(payload.milestones || []).map(milestone => ({
                 //         ShipmentNo : houseJob.ShipmentNo,
@@ -717,7 +725,7 @@ export class HouseJobService {
 
             const updatedHouseJob = await this._db.$transaction(async (prisma) => {
 
-                return await prisma.houseJob.update({
+                const updatedHouseJob = await prisma.houseJob.update({
                     where: {
                         HouseJobSid: HouseJobSid
                     },
@@ -792,9 +800,53 @@ export class HouseJobService {
                         OriginAgent: payload.OriginAgent || '',
                         JobType: payload.JobType
                     }
-                })
+                });
+               if (payload.houseJobCargo) {
+    const cargo = payload.houseJobCargo;
 
-            })
+    if (cargo.HouseJobCargoSid) {
+      await prisma.houseJobCargo.update({
+        where: { HouseJobCargoSid: cargo.HouseJobCargoSid },
+        data: {
+          NoOfPackage: Number(cargo.NoOfPackage) || 0,
+          GrossWeight: Number(cargo.GrossWeight) || 0,
+          NetWeight: Number(cargo.NetWeight) || 0,
+          ChargeableWeight: Number(cargo.ChargeableWeight) || 0,
+          Volume: Number(cargo.Volume) || 0,
+          updatedBy: payload.updatedBy
+        }
+      });
+    } else {
+      await prisma.houseJobCargo.create({
+  data: {
+    HouseJobSid,
+    CompanyMasterSid: payload.CompanyMasterSid ?? null,
+    BranchMasterSid: payload.BranchMasterSid ?? null,
+    CargoType: cargo.CargoType ?? '',   // REQUIRED
+    NoOfPackage: Number(cargo.NoOfPackage) || 0,
+    GrossWeight: Number(cargo.GrossWeight) || 0,
+    NetWeight: Number(cargo.NetWeight) || 0,
+    ChargeableWeight: Number(cargo.ChargeableWeight) || 0,
+    Volume: Number(cargo.Volume) || 0,
+    status: 'A',
+    createdBy: payload.updatedBy
+  }
+});
+
+    }
+  }
+
+  // 3️⃣ ✅ NOW RECALCULATE MASTER JOB (CORRECT PLACE)
+  if (updatedHouseJob.MasterJobSid) {
+    await this.recalculateMasterJobTotals(
+      prisma,
+      updatedHouseJob.MasterJobSid
+    );
+  }
+
+  return updatedHouseJob;
+            });
+            
             // 🔁 Sync HBL / MBL to BookingHeader (ONLY if BookingHeaderSid exists)
             if (payload.BookingHeaderSid) {
 
@@ -1559,6 +1611,8 @@ export class HouseJobService {
                 }
             }
 
+           
+
 
 
 
@@ -1579,7 +1633,7 @@ export class HouseJobService {
         catch (error) {
             throw error;
         }
-    }
+    } 
 
 
     async getHouseJobByBookingNo(BookingNumber: string) {
@@ -1801,5 +1855,53 @@ export class HouseJobService {
             throw new Error(`Error fetching audit logs: ${error.message}`);
         }
     }
+private async recalculateMasterJobTotals(
+  prisma: any,
+  masterJobSid: number
+) {
+  if (!masterJobSid) return;
+
+  const houseJobs = await prisma.houseJob.findMany({
+    where: {
+      MasterJobSid: masterJobSid,
+      status: 'A'
+    },
+    include: {
+      Cargo: {
+        where: { status: 'A' }
+      }
+    }
+  });
+
+  let totals = {
+    NoOfPkg: 0,
+    GrossWeight: 0,
+    NetWeight: 0,
+    ChargeableWeight: 0,
+    Volume: 0
+  };
+
+  for (const hj of houseJobs) {
+    for (const cargo of hj.Cargo || []) {
+      totals.NoOfPkg += Number(cargo.NoOfPackage) || 0;
+      totals.GrossWeight += Number(cargo.GrossWeight) || 0;
+      totals.NetWeight += Number(cargo.NetWeight) || 0;
+      totals.ChargeableWeight += Number(cargo.ChargeableWeight) || 0;
+      totals.Volume += Number(cargo.Volume) || 0;
+    }
+  }
+
+  await prisma.masterJob.update({
+    where: { MasterJobSid: masterJobSid },
+    data: {
+      NoOfPkg: totals.NoOfPkg,
+      GrossWeight: Number(totals.GrossWeight.toFixed(3)),
+      NetWeight: Number(totals.NetWeight.toFixed(3)),
+      ChargeableWeight: Number(totals.ChargeableWeight.toFixed(3)),
+      Volume: Number(totals.Volume.toFixed(3)),
+      UpdatedOn: new Date()
+    }
+  });
+}
 
 }
