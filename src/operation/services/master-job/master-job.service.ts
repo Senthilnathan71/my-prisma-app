@@ -2471,8 +2471,11 @@ private getWeightInFromUnitSid(weightUnitSid: number): string {
                     VoyageMasterSid: payload.VoyageMasterSid,
                     VoyageNo: payload.VoyageNo,
                     VesselName: payload.VesselName,
+                    POL: updatedMasterJob.POL,
+                    POD: updatedMasterJob.POD,
                     ETA: payload.ETA ? new Date(payload.ETA) : null,
                     ETD: payload.ETD ? new Date(payload.ETD) : null,
+                    HBLDate: updatedMasterJob.MBLDate,
                     updatedBy : payload.updatedBy,
                     updatedOn : new Date()
                 }
