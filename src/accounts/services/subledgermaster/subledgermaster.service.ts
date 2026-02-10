@@ -432,6 +432,13 @@ export class SubledgermasterService {
                         countryCode: true
                     }
                 },
+                currencyMaster : {
+                    select : {
+                        CurrencyMasterSid : true,
+                        currencyName : true,
+                        currencyCode : true,
+                    }
+                },
                 CustomerBranch: {
                     where: { status: 'A' },
                     select: {
@@ -470,7 +477,8 @@ export class SubledgermasterService {
                     SubledgerMasterSid: mapping?.subledgerMasterSid, // ADD THIS
                     SubledgerName: 'Y',
                     JobNoRequire : mapping?.JobNoRequire,
-                    StateMasterSid : branch.stateMaster?.StateMasterSid
+                    StateMasterSid : branch.stateMaster?.StateMasterSid,
+                    currencyMaster : deptor.currencyMaster
                 }
             })
         });
@@ -535,7 +543,13 @@ export class SubledgermasterService {
                             countryCode : true
                         }
                     },
-                    
+                    currencyMaster : {
+                        select : {
+                            CurrencyMasterSid : true,
+                            currencyName : true,
+                            currencyCode : true,
+                        }
+                    },
                     CustomerBranch : {
                         where : {status : 'A'},
                         select : {
@@ -572,7 +586,8 @@ export class SubledgermasterService {
                         SubledgerMasterSid: COAMappedId?.SubledgerMasterSid,
                         SubledgerName: 'Y',
                         JobNoRequire : COAMappedId?.JobNoRequire,
-                        StateMasterSid : branch.stateMaster?.StateMasterSid
+                        StateMasterSid : branch.stateMaster?.StateMasterSid,
+                        currencyMaster : deptor.currencyMaster
                     }
                 })
             });

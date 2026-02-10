@@ -784,7 +784,7 @@ export class MasterJobService {
                         /** Updating Vouchers with MasterJobSid && HouseJobSid */
                         if (allRevenueVouchers.length > 0) {
                             for (const revenueVoucher of allRevenueVouchers) {
-                                await prisma.voucherHeader.update({
+                                const updatedVoucher = await prisma.voucherHeader.update({
                                     where: {
                                         VoucherHeaderSid: revenueVoucher!
                                     },
@@ -799,11 +799,35 @@ export class MasterJobService {
                                 }).catch(err => {
                                     console.error('Revenue VoucherHeader update error:', err);
                                 });
+
+                                await prisma.voucherDetail.updateMany({
+                                    where : {
+                                        VoucherHeaderSid : updatedVoucher!.VoucherHeaderSid
+                                    },
+                                    data : {
+                                        MasterJobSid : createdMasterJob.MasterJobSid,
+                                        HouseJobSid : houseJob.HouseJobSid,
+                                        UpdatedBy : payload.createdBy,
+                                        UpdatedOn : new Date()
+                                    }
+                                })
+
+                                await prisma.voucherTransaction.updateMany({
+                                    where : {
+                                        VoucherHeaderSid : updatedVoucher!.VoucherHeaderSid
+                                    },
+                                    data : {
+                                        MasterJobSid : createdMasterJob.MasterJobSid,
+                                        HouseJobSid : houseJob.HouseJobSid,
+                                        UpdatedBy : payload.createdBy,
+                                        UpdatedOn : new Date()
+                                    }
+                                });
                             }
                         }
                         if (allCostVouchers.length > 0) {
                             for (const costVoucher of allCostVouchers) {
-                                await prisma.voucherHeader.update({
+                                const updatedVoucher = await prisma.voucherHeader.update({
                                     where: {
                                         VoucherHeaderSid: costVoucher!
                                     },
@@ -817,6 +841,30 @@ export class MasterJobService {
                                     }
                                 }).catch(err => {
                                     console.error('Cost VoucherHeader update error:', err);
+                                });
+
+                                await prisma.voucherDetail.updateMany({
+                                    where : {
+                                        VoucherHeaderSid : updatedVoucher!.VoucherHeaderSid
+                                    },
+                                    data : {
+                                        MasterJobSid : createdMasterJob.MasterJobSid,
+                                        HouseJobSid : houseJob.HouseJobSid,
+                                        UpdatedBy : payload.createdBy,
+                                        UpdatedOn : new Date()
+                                    }
+                                })
+
+                                await prisma.voucherTransaction.updateMany({
+                                    where : {
+                                        VoucherHeaderSid : updatedVoucher!.VoucherHeaderSid
+                                    },
+                                    data : {
+                                        MasterJobSid : createdMasterJob.MasterJobSid,
+                                        HouseJobSid : houseJob.HouseJobSid,
+                                        UpdatedBy : payload.createdBy,
+                                        UpdatedOn : new Date()
+                                    }
                                 });
                             }
                         }
