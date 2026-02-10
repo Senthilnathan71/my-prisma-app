@@ -103,6 +103,7 @@ model BookingCargo {
   NetWeight        Decimal?             @db.Decimal(10, 3)
   Volume           Decimal?             @db.Decimal(10, 3)
   ChargeableWeight Decimal?             @db.Decimal(10, 3)
+  Volumetric       Decimal?             @db.Decimal(10, 3)
   Qty              Decimal?             @db.Decimal(5, 0)
   ShipmentTerms    String?              @db.VarChar(10)
   createdOn        DateTime             @default(now()) @db.Timestamptz(6)

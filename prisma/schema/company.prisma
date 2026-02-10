@@ -329,6 +329,7 @@ model CurrencyMaster {
   CostCharges          CostRevenueCharges[]   @relation("COST")
   RevenueCharges       CostRevenueCharges[]   @relation("REVENUE")
   countryMaster        CountryMaster?         @relation(fields: [CountryMasterSid], references: [CountryMasterSid])
+  customerMaster       CustomerMaster[]
   MatchingDetail       MatchingDetail[]
   paymentRequestDetail PaymentRequestDetail[]
   quoteCharge          QuoteCharge[]
@@ -901,6 +902,7 @@ model CustomerMaster {
   PortMasterSid              Int?
   AirlineCode                String?
   AirlineNumber              String?
+  CurrencyMasterSid          Int?
   BookingRatesAG             BookingRates[]          @relation("Agent")
   BookingRatesBP             BookingRates[]          @relation("BillingParty")
   costCharges                CostRevenueCharges[]    @relation("COST")
@@ -913,6 +915,7 @@ model CustomerMaster {
   CustomerLogin              CustomerLogin[]
   companyMaster              CompanyMaster?          @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
   countryMaster              CountryMaster?          @relation(fields: [CountryMasterSid], references: [CountryMasterSid])
+  currencyMaster             CurrencyMaster?         @relation(fields: [CurrencyMasterSid], references: [CurrencyMasterSid])
   portMaster                 PortMaster?             @relation(fields: [PortMasterSid], references: [PortMasterSid])
   preCustomerMaster          PreCustomerMaster?      @relation(fields: [PreCustomerMasterSid], references: [PreCustomerMasterSid])
   CustomerMilestone          CustomerMilestone[]
@@ -2849,6 +2852,7 @@ model HouseJobCargo {
   NetWeight            Decimal?             @db.Decimal(10, 3)
   Volume               Decimal?             @db.Decimal(10, 3)
   ChargeableWeight     Decimal?             @db.Decimal(10, 3)
+  Volumetric           Decimal?             @db.Decimal(10, 3)
   PackageType          Int?
   NoOfPackage          Int?
   FreightAmount        String?              @db.VarChar(50)
