@@ -309,7 +309,9 @@ export class OperationReportsService {
         },
         include: {
           Cargo:true,
-          Products:true,
+          Products:{
+            where:{status:'A'},
+          },
           masterJob: {
             include: {
               containers: {
@@ -429,12 +431,12 @@ export class OperationReportsService {
         const jobTypesArray = Array.isArray(mj.JobType) ? mj.JobType : [{ JobType: mj.JobType }];
 
         return {
-          masterNo: mj.MBLNo,
+          masterNo: mj.masterJob?.MasterJobNumber,
           Hblno:mj.HBLNo,
           HblDate:mj.HBLDate,
           masterDate: mj.MBLDate,
           department: departments.find(d => d.DepartmentMasterSid === mj.DepartmentMasterSid)?.departmentName || '',
-          mblNo: mj.MBLNo || '',
+          mblNo: mj.masterJob?.MBLNo || '',
           vesselName: mj?.VesselName|| '',
           voyageNo: mj?.VoyageNo|| '',
           etd: mj?.ETA|| '',
@@ -453,7 +455,8 @@ export class OperationReportsService {
           chargeable: mj.Cargo?.[0]?.ChargeableWeight || 0,
           shipper: mj?.ShipperName || '',
           containerNoList: mj?.Products?.map((c: any) => c.ContainerNo).join(', '),
-          noOfContainers: mj.Cargo?.reduce((sum, cargo) => sum + (cargo.NoofContainers || 0), 0) || 0,
+          // noOfContainers: mj.Cargo?.reduce((sum, cargo) => sum + (cargo.NoofContainers || 0), 0) || 0,
+          nofcontainer:numberOfFourtyFt + numberOfTwentyFt + numberofFurtyFive,
           mastercontainerSid: mj?.masterJob?.containers?.map((c: any) => c.mastercontainerSid).join(', ') || '',
           masterContanierSid: mj?.masterJob?.containers?.[0]?.MasterJobContainerSid,
           sendingAgent: mj?.AgentName,
@@ -534,7 +537,7 @@ export class OperationReportsService {
 
       // Load container type master (ID → Size Map)
       const containerTypesMaster = await this._db.containerTypeMaster.findMany({
-        select: { ContainerTypeMasterSid: true, ContainerSize: true }
+        select: { ContainerTypeMasterSid: true, ContainerSize: true,MaxVolume:true }
       });
       const containerTypeMap = new Map(
         containerTypesMaster.map(ct => [ct.ContainerTypeMasterSid, ct.ContainerSize])
@@ -554,7 +557,17 @@ export class OperationReportsService {
         },
         include: {
           houseJob: {
-            where: { status: 'A' }
+            select:{
+              Products:{
+                where:{
+                  status:'A'
+                }
+              },
+              HouseJobSid:true,
+              HouseNo:true,
+              HBLNo:true
+            },
+            where: { status: 'A' },
           },
           containers: {
             where:{
@@ -563,6 +576,7 @@ export class OperationReportsService {
             include:{
               containerType:{
                 select:{
+                  MaxVolume:true,
                   ContainerSize:true,
                   NoOfTeu:true
                 }
@@ -611,7 +625,6 @@ export class OperationReportsService {
           return cr.RevenueDrCr === 'C' ? toNumber(sum) + toNumber(cr.RevenueLocalAmount) :
             toNumber(sum) - toNumber(cr.RevenueLocalAmount)
         }, 0);
-
 
 
         const houseJobs = job.houseJob || [];
@@ -702,18 +715,13 @@ export class OperationReportsService {
           };
         });
 
-        // Combine master job totals with house jobs totals
         const totalCostWithHouse = totalCost + totalHouseCost;
         const totalRevenueWithHouse = totalRevenue + totalHouseRevenue;
 
-
-        // actual Gp 
-
         const GP = totalRevenueWithHouse - totalCostWithHouse;
 
-        // using VoucherNo
 
-        const masterVouchers = relatedCR.filter(cr => cr.CostVoucherHeaderSid); // only those with vouchers
+        const masterVouchers = relatedCR.filter(cr => cr.CostVoucherHeaderSid); 
         const actualCostMaster = masterVouchers.reduce((sum, cr) => {
           return cr.CostDrCr === 'D' ? Number(sum) + Number(cr.CostLocalAmount ?? 0) :
             Number(sum) - Number(cr.CostLocalAmount ?? 0);
@@ -725,7 +733,6 @@ export class OperationReportsService {
             Number(sum) - Number(cr.RevenueLocalAmount ?? 0);
         }, 0);
 
-        // Calculate for HouseJobs
         let actualCostHouse = 0;
         let actualRevenueHouse = 0;
 
@@ -748,13 +755,21 @@ export class OperationReportsService {
           actualRevenueHouse += revenue;
         });
 
-        // Final totals based on vouchers
         const actualCost = actualCostMaster + actualCostHouse;
         const actualRevenue = actualRevenueMaster + actualRevenueHouse;
         const actualGp = actualRevenue - actualCost;
         const profit = (Number(actualGp) * 100) / Number(actualRevenue);
-        const space = Number(job?.ChargeableWeight) - Number(job?.Volume);
         const proveprofit = (Number(GP) * 100) / Number(totalRevenueWithHouse);
+        let totalMaxVolumeFromJobContainers = 0;
+        job.containers.forEach(container => {
+          if (container.containerType) {
+            const maxVol = Number(container.containerType.MaxVolume ?? 0);
+            totalMaxVolumeFromJobContainers += maxVol;
+          }
+        });
+        const maxVolume = totalMaxVolumeFromJobContainers;
+        const jobVolume = Number(job?.Volume ?? 0);
+        const space = maxVolume - jobVolume;
         return {
           jobNumber: job.MasterJobNumber,
           Mbl: job.MBLNo,
@@ -769,7 +784,7 @@ export class OperationReportsService {
           profit,
           proveprofit,
           actualGp,
-          containerNo: job?.containers?.map(c=>c.ContainerNumber).join(", "),
+          containerNo: job?.houseJob?.[0]?.Products.map(c=>c.ContainerNo).join(", "),
           twentyft: number20,
           fourty: number40,
           fourtyfive: number45,

@@ -19,8 +19,8 @@ interface SubledgerGroup {
   totalOutstandingLocal: number;
   totalOnAccountCreditCurr: number;
   totalOnAccountCreditLocal: number;
-  CreditDays : number;
-  CreditLimit : number;
+  CreditDays: number;
+  CreditLimit: number;
   // rows : any[];
   voucherCount: number;
   buckets: BucketMap;
@@ -145,6 +145,8 @@ export class AccountsReportsService {
           return await this.generateUnpostedVoucherList(parameters);
         case 'vat-report':
           return await this.vat201(parameters);
+           case 'outstanding-local':
+          return await this.gernerateOustandingLocal(parameters);
         default:
           throw new BadRequestException(`Report ${reportName} not implemented`);
       }
@@ -219,9 +221,9 @@ export class AccountsReportsService {
       allBranches.forEach(branch => branchSet.add(branch.branchName));
     }
     const branchInvolvedText =
-  SelectedBranches && SelectedBranches.length > 0
-    ? Array.from(branchSet).join(', ')
-    : 'All Branches';
+      SelectedBranches && SelectedBranches.length > 0
+        ? Array.from(branchSet).join(', ')
+        : 'All Branches';
 
     // -------------------------------------------
     // 2. Fetch vouchers
@@ -261,20 +263,20 @@ export class AccountsReportsService {
         Math.floor((+new Date() - +new Date(v.VoucherDate)) / (1000 * 60 * 60 * 24)) + 1;
 
       return {
-        VoucherTransactionSid : v.VoucherTransactionSid,
+        VoucherTransactionSid: v.VoucherTransactionSid,
         LedgerName: coa.LedgerName,
         SubledgerName: v.subledgerMaster?.SubledgerName ?? null,
         SubledgerMasterSid: v.LedgerMasterSid ?? null,
         VoucherDate: v.VoucherDate,
         CurrencyCode: v.CurrencyCode ?? null,
-        DrCr : v.DrCr,
+        DrCr: v.DrCr,
         Ageing: ageing,
         OriginalCurrAmount: toNumber(v.Amount),
         OriginalLocalAmount: toNumber(v.LocalAmount),
         OSCurrencyAmount: toNumber(v.Amount) - Math.abs(matchCurr),
         OSLocalAmount: toNumber(v.LocalAmount) - Math.abs(matchLocal),
-        OnAccountCreditCurr : v.DrCr === 'C' ?  toNumber(v.Amount) - Math.abs(matchCurr) : 0,
-        OnAccountCreditLocal : v.DrCr === 'C' ?  toNumber(v.LocalAmount) - Math.abs(matchLocal) : 0,
+        OnAccountCreditCurr: v.DrCr === 'C' ? toNumber(v.Amount) - Math.abs(matchCurr) : 0,
+        OnAccountCreditLocal: v.DrCr === 'C' ? toNumber(v.LocalAmount) - Math.abs(matchLocal) : 0,
       };
     });
 
@@ -339,8 +341,8 @@ export class AccountsReportsService {
           totalOutstandingLocal: 0,
           totalOnAccountCreditCurr: 0,
           totalOnAccountCreditLocal: 0,
-          CreditDays : 0,
-          CreditLimit : 0,
+          CreditDays: 0,
+          CreditLimit: 0,
           voucherCount: 0,
           // rows : [],
           buckets,
@@ -366,7 +368,7 @@ export class AccountsReportsService {
         const subledger = getOrCreateSubledger(currGroup, subId, row);
 
         // Update subledger totals (currency amounts)
-        subledger.totalOutstandingCurrency += row.DrCr==='C' ? -row.OSCurrencyAmount : row.OSCurrencyAmount;
+        subledger.totalOutstandingCurrency += row.DrCr === 'C' ? -row.OSCurrencyAmount : row.OSCurrencyAmount;
         subledger.totalOutstandingLocal += row.DrCr === 'C' ? -row.OSLocalAmount : row.OSLocalAmount;
         subledger.totalOnAccountCreditCurr += row.DrCr === 'C' ? -row.OnAccountCreditCurr : 0;
         subledger.totalOnAccountCreditLocal += row.DrCr === 'C' ? -row.OnAccountCreditLocal : 0;
@@ -491,7 +493,7 @@ export class AccountsReportsService {
       LedgerName: coa.LedgerName || '',
       params: params,
       branchInvolvedText,
-      branchInvolved:Array.from(branchSet).join(', '),
+      branchInvolved: Array.from(branchSet).join(', '),
       bucketLabels,
       currencyCount: ageingResult.length,
       subledgerCount: totalSubledgers,
@@ -510,17 +512,17 @@ export class AccountsReportsService {
       const subledger = await this._db.subledgerMaster.findUnique({
         where: {
           SubledgerMasterSid: SubledgerMasterSid,
-          SubledgerType : "Customer",
+          SubledgerType: "Customer",
           Status: 'A'
         },
-        select : { SubledgerMappingSid : true }
+        select: { SubledgerMappingSid: true }
       });
 
-      if(!subledger) {
+      if (!subledger) {
         throw new BadRequestException('No subledger found.');
       }
 
-      if(!subledger.SubledgerMappingSid) {
+      if (!subledger.SubledgerMappingSid) {
         throw new BadRequestException('No mapping found.');
       }
 
@@ -528,24 +530,24 @@ export class AccountsReportsService {
         where: {
           CustomerMasterSid: subledger.SubledgerMappingSid!
         },
-        include : {
-          customerCreditRequest : {
-            where : {
-              ApprovalStatus : ApprovalStatus.Approved,
-              Status : 'A'
+        include: {
+          customerCreditRequest: {
+            where: {
+              ApprovalStatus: ApprovalStatus.Approved,
+              Status: 'A'
             }
           }
         }
       });
 
-      if(!customer){
+      if (!customer) {
         throw new BadRequestException('No customer found.');
       }
 
-      if(customer.CashCredit === "C" || customer.customerCreditRequest.length === 0){
+      if (customer.CashCredit === "C" || customer.customerCreditRequest.length === 0) {
         return {
-          CreditDays : 0,
-          CreditLimit : 0
+          CreditDays: 0,
+          CreditLimit: 0
         }
       }
 
@@ -556,8 +558,8 @@ export class AccountsReportsService {
       });
 
       return {
-        CreditDays : reqWithHighestLimit.CreditDays,
-        CreditLimit : reqWithHighestLimit.CreditLimit
+        CreditDays: reqWithHighestLimit.CreditDays,
+        CreditLimit: reqWithHighestLimit.CreditLimit
       }
 
     } catch (error) {
@@ -664,6 +666,8 @@ export class AccountsReportsService {
       const transactions: any[] = [];
       let totalOutstandingCurrency = 0;
       let totalOutstandingLocal = 0;
+      let cumulativeTotal = 0;
+      let localAmt =0;
       // ✅ Ageing Bucket Summary
       const ageingSummary = {
         totalOutstanding: 0,
@@ -698,6 +702,7 @@ export class AccountsReportsService {
           originalCurrencyAmount - matchedCurrencyAmount,
           2,
         );
+        
         const outstandingLocalAmount = roundAmount(originalLocalAmount - matchedLocalAmount, 2);
 
         // Calculate exchange rate
@@ -717,6 +722,30 @@ export class AccountsReportsService {
           ) + 1;
 
 
+        const drCr = vt.DrCr?.toUpperCase();
+        let signedAmount = outstandingCurrencyAmount;
+        if (ledger?.LedgerType?.trim() === "Sy Cr") {
+          if (drCr === "C") signedAmount = +outstandingCurrencyAmount;
+          if (drCr === "D") signedAmount = -outstandingCurrencyAmount;
+        }
+        else if (ledger?.LedgerType?.trim() === "Sy Dr") {
+          if (drCr === "D") signedAmount = +outstandingCurrencyAmount;
+          if (drCr === "C") signedAmount = -outstandingCurrencyAmount;
+        }
+        cumulativeTotal += signedAmount;
+        cumulativeTotal = roundAmount(cumulativeTotal, 2);
+
+
+        if (ledger?.LedgerType?.trim() === "Sy Cr") {
+          if (drCr === "C") signedAmount = +outstandingLocalAmount;
+          if (drCr === "D") signedAmount = -outstandingLocalAmount;
+        }
+        else if (ledger?.LedgerType?.trim() === "Sy Dr") {
+          if (drCr === "D") signedAmount = +outstandingLocalAmount;
+          if (drCr === "C") signedAmount = -outstandingLocalAmount;
+        }
+        localAmt += signedAmount;
+        localAmt = roundAmount(localAmt, 2);
 
         // Only include if there's outstanding balance
         if (Math.abs(outstandingCurrencyAmount) > 0 || Math.abs(outstandingLocalAmount) > 0) {
@@ -728,39 +757,41 @@ export class AccountsReportsService {
           else if (ageingDays <= 120) ageingBucket = "91 - 120 Days";
           else ageingBucket = "121+ Above";
 
-       // ====================================================
-// ✅ Currency Wise Ageing Bucket Summary
-// ====================================================
+          // ====================================================
+          // ✅ Currency Wise Ageing Bucket Summary
+          // ====================================================
 
-const currency = vt.CurrencyCode || "USD";
+          const currency = vt.CurrencyCode || "";
 
-// Initialize currency bucket if not exists
-if (!currencyWiseSummary[currency]) {
-  currencyWiseSummary[currency] = {
-    currencyCode: currency,
-    totalOutstanding: 0,
-    bucket_0_30: 0,
-    bucket_31_60: 0,
-    bucket_61_90: 0,
-    bucket_91_120: 0,
-    bucket_121_above: 0,
-  };
-}
+          // Initialize currency bucket if not exists
+          if (!currencyWiseSummary[currency]) {
+            currencyWiseSummary[currency] = {
+              currencyCode: currency,
+              totalOutstanding: 0,
+              bucket_0_30: 0,
+              bucket_31_60: 0,
+              bucket_61_90: 0,
+              bucket_91_120: 0,
+              bucket_121_above: 0,
+            };
+          }
 
-// Add totals currency-wise
-currencyWiseSummary[currency].totalOutstanding += outstandingLocalAmount;
+         
+          // Add totals currency-wise
+          currencyWiseSummary[currency].totalOutstanding += outstandingLocalAmount;
 
-if (ageingDays <= 30)
-  currencyWiseSummary[currency].bucket_0_30 += outstandingLocalAmount;
-else if (ageingDays <= 60)
-  currencyWiseSummary[currency].bucket_31_60 += outstandingLocalAmount;
-else if (ageingDays <= 90)
-  currencyWiseSummary[currency].bucket_61_90 += outstandingLocalAmount;
-else if (ageingDays <= 120)
-  currencyWiseSummary[currency].bucket_91_120 += outstandingLocalAmount;
-else
-  currencyWiseSummary[currency].bucket_121_above += outstandingLocalAmount;
+          if (ageingDays <= 30)
+            currencyWiseSummary[currency].bucket_0_30 += outstandingLocalAmount;
+          else if (ageingDays <= 60)
+            currencyWiseSummary[currency].bucket_31_60 += outstandingLocalAmount;
+          else if (ageingDays <= 90)
+            currencyWiseSummary[currency].bucket_61_90 += outstandingLocalAmount;
+          else if (ageingDays <= 120)
+            currencyWiseSummary[currency].bucket_91_120 += outstandingLocalAmount;
+          else
+            currencyWiseSummary[currency].bucket_121_above += outstandingLocalAmount;
 
+          
 
 
           transactions.push({
@@ -781,7 +812,7 @@ else
             matchedLocalAmount: toNumber(matchedLocalAmount),
             outstandingCurrencyAmount: outstandingCurrencyAmount,
             outstandingLocalAmount: outstandingLocalAmount,
-            currencyCode: vt.CurrencyCode || 'USD',
+            currencyCode: vt.CurrencyCode || '',
             exchangeRate: toNumber(vt.ExchangeRate || 1),
             drCr: vt.DrCr,
             chargeDescription: vt.ChargeDescription || "",
@@ -790,6 +821,8 @@ else
             naration: vt.Narration,
             ageingDays: ageingDays,
             ageingBucket: ageingSummary,
+            cumulativeOutstanding: cumulativeTotal,
+            localAmt:localAmt
           });
 
           totalOutstandingCurrency += outstandingCurrencyAmount;
@@ -840,16 +873,310 @@ else
     }
   }
 
+  private async gernerateOustandingLocal(params: OutstandingReportQueryDto) {
+    const {
+      ToDate,
+      Subledger: ledgerMasterSid,
+      Ledger: coaMasterSid,
+      Branch: branchId,
+      companyId: CompanyMasterSid,
+    } = params;
+
+    try {
+      this.logger.log(
+        `Getting customer outstanding: CompanySid=${CompanyMasterSid}, LedgerMasterSid=${ledgerMasterSid}`,
+      );
+
+      const branches = branchId && branchId.length > 0
+        ? await this._db.branchMaster.findMany({
+          where: { BranchMasterSid: { in: branchId } },
+          select: {
+            BranchMasterSid: true,
+            branchName: true,
+          },
+        })
+        : await this._db.branchMaster.findMany({
+          where: { CompanyMasterSid },
+          select: {
+            BranchMasterSid: true,
+            branchName: true,
+          },
+        });
+
+      const resolvedBranchIds = branches.map(b => b.BranchMasterSid);
+      const resolvedBranchNames = branches.map(b => b.branchName);
+      const brancesInvoled = branchId && branchId.length > 0 ? branches.map(b => b.branchName).join(', ') : 'All Branches'
+
+      const subledger = await this._db.subledgerMaster.findUnique({
+        where: { SubledgerMasterSid: ledgerMasterSid },
+      });
+
+      const ledger = await this._db.cOAMaster.findUnique({
+        where: { COAMasterSid: coaMasterSid },
+        select: {
+          LedgerName: true, LedgerType: true
+        }
+      })
+
+      const userMaster = await this._db.userMaster.findMany({
+        select: {
+          UserMasterSid: true,
+          userName: true
+        }
+      })
+
+      const voucherTransactions = await this._db.voucherTransaction.findMany({
+        where: {
+          CompanyMasterSid: CompanyMasterSid,
+          BranchMasterSid: { in: resolvedBranchIds },
+          VoucherDate: { lte: ToDate },
+          COAMasterSid: coaMasterSid,
+          LedgerMasterSid: ledgerMasterSid,
+          Status: 'A',
+        },
+        include: {
+          VoucherHeader: true,
+          masterJob: true,
+          houseJob: true,
+          departmentMaster: {
+            select: { departmentName: true }
+          },
+          voucherMatchings: {
+            where: {
+              Status: 'A',
+            },
+          },
+          voucherTypeMaster: {
+            select: { DocumentTypeCode: true }
+          }
+        },
+        orderBy: {
+          VoucherDate: 'asc',
+        },
+      });
+
+      if (voucherTransactions.length === 0) {
+        this.logger.log(`No outstanding vouchers found for LedgerMasterSid ${ledgerMasterSid}`);
+        return {
+          companyMasterSid: CompanyMasterSid,
+          BranchMasterSid: branchId,
+          branchNames: resolvedBranchNames.join(', '),
+          ledgerMasterSid: ledgerMasterSid,
+          subledgerName: subledger?.SubledgerName,
+          ledgerName: ledger?.LedgerName,
+          totalOutstandingCurrency: 0,
+          totalOutstandingLocal: 0,
+          voucherCount: 0,
+          transactions: [],
+        };
+      }
+
+
+      const transactions: any[] = [];
+      let totalOutstandingCurrency = 0;
+      let totalOutstandingLocal = 0;
+      let cumulativeTotal = 0;
+
+      const ageingSummary = {
+        totalOutstanding: 0,
+        bucket_0_30: 0,
+        bucket_31_60: 0,
+        bucket_61_90: 0,
+        bucket_91_120: 0,
+        bucket_121_above: 0,
+      };
+
+      const currencyWiseSummary: Record<string, any> = {};
+      for (const vt of voucherTransactions) {
+        const originalCurrencyAmount = toNumber(vt.Amount);
+        const originalLocalAmount = toNumber(vt.LocalAmount);
+
+
+        let matchedCurrencyAmount = 0;
+        let matchedLocalAmount = 0;
+
+        if (vt.voucherMatchings && vt.voucherMatchings.length > 0) {
+          matchedCurrencyAmount = vt.voucherMatchings.reduce(
+            (sum, m) => sum + toNumber(m.Amount),
+            0,
+          );
+          matchedLocalAmount = vt.voucherMatchings.reduce(
+            (sum, m) => sum + toNumber(m.LocalAmount),
+            0,
+          );
+        }
+
+        const outstandingCurrencyAmount = roundAmount(
+          originalCurrencyAmount - matchedCurrencyAmount,
+          2,
+        );
+        const outstandingLocalAmount = roundAmount(originalLocalAmount - matchedLocalAmount, 2);
+
+        const drCr = vt.DrCr?.toUpperCase();
+        let signedAmount = outstandingCurrencyAmount;
+        if (ledger?.LedgerType?.trim() === "Sy Cr") {
+          if (drCr === "C") signedAmount = +outstandingCurrencyAmount;
+          if (drCr === "D") signedAmount = -outstandingCurrencyAmount;
+        }
+        else if (ledger?.LedgerType?.trim() === "Sy Dr") {
+          if (drCr === "D") signedAmount = +outstandingCurrencyAmount;
+          if (drCr === "C") signedAmount = -outstandingCurrencyAmount;
+        }
+        cumulativeTotal += signedAmount;
+        cumulativeTotal = roundAmount(cumulativeTotal, 2);
+        const exchangeRate = originalCurrencyAmount !== 0
+          ? roundAmount(originalLocalAmount / originalCurrencyAmount, 4)
+          : 1.0;
+
+        const voucherDate = new Date(vt.VoucherDate);
+        const reportToDate = new Date(ToDate);
+
+        const ageingDays =
+          Math.floor(
+            (reportToDate.getTime() - voucherDate.getTime()) /
+            (1000 * 60 * 60 * 24)
+          ) + 1;
+
+        if (Math.abs(outstandingCurrencyAmount) > 0 || Math.abs(outstandingLocalAmount) > 0) {
+          let ageingBucket = "";
+
+          if (ageingDays <= 30) ageingBucket = "0 - 30 Days";
+          else if (ageingDays <= 60) ageingBucket = "31 - 60 Days";
+          else if (ageingDays <= 90) ageingBucket = "61 - 90 Days";
+          else if (ageingDays <= 120) ageingBucket = "91 - 120 Days";
+          else ageingBucket = "121+ Above";
+
+          const currency = vt.CurrencyCode || "";
+
+          if (!currencyWiseSummary[currency]) {
+            currencyWiseSummary[currency] = {
+              currencyCode: currency,
+              totalOutstanding: 0,
+              bucket_0_30: 0,
+              bucket_31_60: 0,
+              bucket_61_90: 0,
+              bucket_91_120: 0,
+              bucket_121_above: 0,
+            };
+          }
+
+          ageingSummary.totalOutstanding += outstandingLocalAmount;
+
+          if (ageingDays <= 30)
+            ageingSummary.bucket_0_30 += outstandingLocalAmount;
+          else if (ageingDays <= 60)
+            ageingSummary.bucket_31_60 += outstandingLocalAmount;
+          else if (ageingDays <= 90)
+            ageingSummary.bucket_61_90 += outstandingLocalAmount;
+          else if (ageingDays <= 120)
+            ageingSummary.bucket_91_120 += outstandingLocalAmount;
+          else
+            ageingSummary.bucket_121_above += outstandingLocalAmount;
+
+          currencyWiseSummary[currency].totalOutstanding += outstandingCurrencyAmount;
+
+          if (ageingDays <= 30)
+            currencyWiseSummary[currency].bucket_0_30 += outstandingCurrencyAmount;
+          else if (ageingDays <= 60)
+            currencyWiseSummary[currency].bucket_31_60 += outstandingCurrencyAmount;
+          else if (ageingDays <= 90)
+            currencyWiseSummary[currency].bucket_61_90 += outstandingCurrencyAmount;
+          else if (ageingDays <= 120)
+            currencyWiseSummary[currency].bucket_91_120 += outstandingCurrencyAmount;
+          else
+            currencyWiseSummary[currency].bucket_121_above += outstandingCurrencyAmount;
+
+          transactions.push({
+            voucherTransactionSid: vt.VoucherTransactionSid,
+            voucherHeaderSid: vt.VoucherHeaderSid,
+            voucherDetailSid: vt.VoucherDetailSid,
+            voucherNumber: vt.VoucherNumber,
+            voucherDate: vt.VoucherDate,
+            voucherTypeMasterSid: vt.VoucherTypeMasterSid,
+            ledgerMasterSid: vt.LedgerMasterSid!,
+            coaMasterSid: vt.COAMasterSid!,
+            MasterJobNumber: vt.masterJob?.MasterJobNumber,
+            HouseJobNumber: vt.houseJob?.HBLNo,
+            voucherType: vt.voucherTypeMaster?.DocumentTypeCode,
+            originalCurrencyAmount: toNumber(originalCurrencyAmount),
+            originalLocalAmount: toNumber(originalLocalAmount),
+            matchedCurrencyAmount: toNumber(matchedCurrencyAmount),
+            matchedLocalAmount: toNumber(matchedLocalAmount),
+            outstandingCurrencyAmount: outstandingCurrencyAmount,
+            outstandingLocalAmount: outstandingLocalAmount,
+            currencyCode: vt.CurrencyCode || '',
+            exchangeRate: toNumber(vt.ExchangeRate || 1),
+            drCr: vt.DrCr,
+            chargeDescription: vt.ChargeDescription || "",
+            deptname: vt.departmentMaster?.departmentName,
+            salesmanSid: userMaster.find(u => u.UserMasterSid === vt.houseJob?.SalesmanSid)?.userName || '',
+            naration: vt.Narration,
+            ageingDays: ageingDays,
+            ageingBucket: ageingBucket,
+            cumulativeOutstanding: cumulativeTotal,
+          });
+
+          totalOutstandingCurrency += outstandingCurrencyAmount;
+          totalOutstandingLocal += outstandingLocalAmount;
+        }
+        ageingSummary.totalOutstanding = roundAmount(
+          ageingSummary.totalOutstanding,
+          2
+        );
+        ageingSummary.bucket_0_30 = roundAmount(ageingSummary.bucket_0_30, 2);
+        ageingSummary.bucket_31_60 = roundAmount(ageingSummary.bucket_31_60, 2);
+        ageingSummary.bucket_61_90 = roundAmount(ageingSummary.bucket_61_90, 2);
+        ageingSummary.bucket_91_120 = roundAmount(ageingSummary.bucket_91_120, 2);
+        ageingSummary.bucket_121_above = roundAmount(
+          ageingSummary.bucket_121_above,
+          2
+        );
+      }
+
+      transactions.sort((a, b) =>
+        a.currencyCode.localeCompare(b.currencyCode)
+      );
+
+      const response = {
+        companyMasterSid: CompanyMasterSid,
+        branchMasterSid: branchId,
+        branchNames: resolvedBranchNames.join(', '),
+        brancesInvoled,
+        ledgerMasterSid: ledgerMasterSid!,
+        subledgerName: subledger?.SubledgerName,
+        ledgerName: ledger?.LedgerName,
+        totalOutstandingCurrency: roundAmount(totalOutstandingCurrency, 2),
+        totalOutstandingLocal: roundAmount(totalOutstandingLocal, 2),
+        voucherCount: transactions.length,
+        transactions: transactions,
+        params: params,
+        ageingSummary,
+        currencyWiseSummary: Object.values(currencyWiseSummary)
+      };
+
+      this.logger.log(
+        `Customer outstanding calculated: ${transactions.length} transactions, Total=${response.totalOutstandingLocal}`,
+      );
+
+      return response;
+    } catch (error) {
+      this.logger.error(
+        `Error getting customer outstanding for ${ledgerMasterSid}: ${error.message}`,
+        error.stack,
+      );
+      throw error;
+    }
+  }
   private async generateStatementLedgerReport(params: StatementLedgerReportQueryDto) {
-     const {
+    const {
       FromDate,
       ToDate,
-      Subledger : ledgerMasterSid,
-      Ledger : coaMasterSid,
+      Subledger: ledgerMasterSid,
+      Ledger: coaMasterSid,
       Branch: branchId,
-      companyId : CompanyMasterSid,
+      companyId: CompanyMasterSid,
     } = params;
-    
+
     try {
       this.logger.log(
         `Getting customer outstanding: CompanySid=${CompanyMasterSid}, LedgerMasterSid=${ledgerMasterSid}`,
@@ -876,20 +1203,20 @@ else
       const BranchInvolved = branchId && branchId.length > 0
         ? branches.map(b => b.branchName).join(', ')
         : 'All Branches';
-  
+
       // Get customer/subledger information
       const subledger = await this._db.subledgerMaster.findUnique({
         where: { SubledgerMasterSid: ledgerMasterSid },
       });
 
       const ledger = await this._db.cOAMaster.findUnique({
-        where:{COAMasterSid:coaMasterSid}
+        where: { COAMasterSid: coaMasterSid }
       })
 
-      const userMaster =  await this._db.userMaster.findMany({
-        select:{
-          UserMasterSid:true,
-          userName:true
+      const userMaster = await this._db.userMaster.findMany({
+        select: {
+          UserMasterSid: true,
+          userName: true
         }
       })
 
@@ -897,27 +1224,27 @@ else
         where: {
           CompanyMasterSid: CompanyMasterSid,
           BranchMasterSid: { in: resolvedBranchIds },
-          AND : [
-            { VoucherDate : {gte : FromDate}},
-            { VoucherDate : { lte : ToDate}}
+          AND: [
+            { VoucherDate: { gte: FromDate } },
+            { VoucherDate: { lte: ToDate } }
           ],
-          COAMasterSid : coaMasterSid,
+          COAMasterSid: coaMasterSid,
           LedgerMasterSid: ledgerMasterSid,
-          VoucherHeader:{
-            PostStatus:"P"
+          VoucherHeader: {
+            PostStatus: "P"
           },
           Status: 'A',
         },
         include: {
           VoucherHeader: {
-            select:{
-              PostStatus:true
+            select: {
+              PostStatus: true
             }
           },
-          masterJob : true,
-          houseJob:true,
-          departmentMaster:{
-            select:{departmentName:true}
+          masterJob: true,
+          houseJob: true,
+          departmentMaster: {
+            select: { departmentName: true }
           },
           voucherMatchings: {
             where: {
@@ -937,11 +1264,11 @@ else
         this.logger.log(`No outstanding vouchers found for LedgerMasterSid ${ledgerMasterSid}`);
         return {
           companyMasterSid: CompanyMasterSid,
-          branchMasterSid : branchId,
+          branchMasterSid: branchId,
           ledgerMasterSid: ledgerMasterSid,
-          COAMasterSid : coaMasterSid,
+          COAMasterSid: coaMasterSid,
           subledgerName: subledger?.SubledgerName,
-          ledgerName : ledger?.LedgerName,
+          ledgerName: ledger?.LedgerName,
           totalOutstandingCurrency: 0,
           totalOutstandingLocal: 0,
           voucherCount: 0,
@@ -986,55 +1313,55 @@ else
 
         // Only include if there's outstanding balance
         // if (Math.abs(outstandingCurrencyAmount) > 0 || Math.abs(outstandingLocalAmount) > 0) {
-          transactions.push({
-            voucherTransactionSid: vt.VoucherTransactionSid,
-            voucherHeaderSid: vt.VoucherHeaderSid,
-            voucherDetailSid: vt.VoucherDetailSid,
-            voucherNumber: vt.VoucherNumber,
-            voucherDate: vt.VoucherDate,
-            voucherTypeMasterSid: vt.VoucherTypeMasterSid,
-            ledgerMasterSid: vt.LedgerMasterSid!,
-            coaMasterSid: vt.COAMasterSid!,
-            MasterJobNumber : vt.masterJob?.MasterJobNumber,
-            HouseJobNumber : vt.houseJob?.HBLNo,
-            voucherType: vt.voucherTypeMaster?.DocumentTypeCode,
-            originalCurrencyAmount: toNumber(originalCurrencyAmount),
-            originalLocalAmount: toNumber(originalLocalAmount),
-            matchedCurrencyAmount: toNumber(matchedCurrencyAmount),
-            matchedLocalAmount: toNumber(matchedLocalAmount),
-            outstandingCurrencyAmount: outstandingCurrencyAmount,
-            outstandingLocalAmount: outstandingLocalAmount,
-            currencyCode: vt.CurrencyCode || 'USD',
-            exchangeRate: toNumber(vt.ExchangeRate || 1),
-            drCr: vt.DrCr,
-            chargeDescription: vt.ChargeDescription || "",
-            deptname:
-              vt.departmentMaster?.departmentName &&
-                !vt.departmentMaster.departmentName.toLowerCase().includes('air')
-                ? vt.departmentMaster.departmentName
-                : null,
-            salesmanSid: userMaster.find(u=>u.UserMasterSid ===vt.houseJob?.SalesmanSid)?.userName || '',
-             naration:vt.Narration
-          });
+        transactions.push({
+          voucherTransactionSid: vt.VoucherTransactionSid,
+          voucherHeaderSid: vt.VoucherHeaderSid,
+          voucherDetailSid: vt.VoucherDetailSid,
+          voucherNumber: vt.VoucherNumber,
+          voucherDate: vt.VoucherDate,
+          voucherTypeMasterSid: vt.VoucherTypeMasterSid,
+          ledgerMasterSid: vt.LedgerMasterSid!,
+          coaMasterSid: vt.COAMasterSid!,
+          MasterJobNumber: vt.masterJob?.MasterJobNumber,
+          HouseJobNumber: vt.houseJob?.HBLNo,
+          voucherType: vt.voucherTypeMaster?.DocumentTypeCode,
+          originalCurrencyAmount: toNumber(originalCurrencyAmount),
+          originalLocalAmount: toNumber(originalLocalAmount),
+          matchedCurrencyAmount: toNumber(matchedCurrencyAmount),
+          matchedLocalAmount: toNumber(matchedLocalAmount),
+          outstandingCurrencyAmount: outstandingCurrencyAmount,
+          outstandingLocalAmount: outstandingLocalAmount,
+          currencyCode: vt.CurrencyCode || 'USD',
+          exchangeRate: toNumber(vt.ExchangeRate || 1),
+          drCr: vt.DrCr,
+          chargeDescription: vt.ChargeDescription || "",
+          deptname:
+            vt.departmentMaster?.departmentName &&
+              !vt.departmentMaster.departmentName.toLowerCase().includes('air')
+              ? vt.departmentMaster.departmentName
+              : null,
+          salesmanSid: userMaster.find(u => u.UserMasterSid === vt.houseJob?.SalesmanSid)?.userName || '',
+          naration: vt.Narration
+        });
 
-          totalOutstandingCurrency += outstandingCurrencyAmount;
-          totalOutstandingLocal += outstandingLocalAmount;
-        }
+        totalOutstandingCurrency += outstandingCurrencyAmount;
+        totalOutstandingLocal += outstandingLocalAmount;
+      }
       // }
 
       const response = {
         companyMasterSid: CompanyMasterSid,
-        branchMasterSid : branchId,
+        branchMasterSid: branchId,
         ledgerMasterSid: ledgerMasterSid!,
         subledgerName: subledger?.SubledgerName,
-        ledgerName : ledger?.LedgerName,
+        ledgerName: ledger?.LedgerName,
         totalOutstandingCurrency: roundAmount(totalOutstandingCurrency, 2),
         totalOutstandingLocal: roundAmount(totalOutstandingLocal, 2),
         voucherCount: transactions.length,
         transactions: transactions,
         branchNames: resolvedBranchNames.join(', '),
         BranchInvolved,
-        params : params,
+        params: params,
       };
 
       this.logger.log(
@@ -1113,7 +1440,7 @@ else
   //             COAMasterSid: true,
   //           },
   //         },
-       
+
   //       },
   //       orderBy: { VoucherDate: 'asc' },
   //     });
@@ -1218,7 +1545,7 @@ else
     const {
       ToDate,
       FromDate,
-      Branch:branchId,
+      Branch: branchId,
       companyId: CompanyMasterSid,
       COAMasterSid,
     } = params;
@@ -1228,7 +1555,7 @@ else
         `Getting customer profit and loss: CompanySid=${CompanyMasterSid}`,
       );
 
-        const branches = branchId && branchId.length > 0
+      const branches = branchId && branchId.length > 0
         ? await this._db.branchMaster.findMany({
           where: { BranchMasterSid: { in: branchId } },
           select: {
@@ -1293,13 +1620,13 @@ else
         const { Category, GroupName, SubGroupName, LedgerName } = vt.coaMaster;
         const yearCode = vt.yearMaster.YearCode;
 
-       
+
         const amount = vt.LocalAmount.toNumber();
 
         const signedAmount =
           vt.DrCr === 'C' ? amount : vt.DrCr === 'D' ? amount * -1 : 0;
 
-       
+
         const key = `${Category}|${GroupName}|${SubGroupName}|${LedgerName}`;
 
         if (!profitLossMap.has(key)) {
@@ -1337,16 +1664,16 @@ else
   }
 
   private async generateLedgerReport(params: LedgerReportQueryDto) {
-     const {
+    const {
       FromDate,
       ToDate,
-      Subledger : ledgerMasterSid,
-      Ledger : coaMasterSid,
+      Subledger: ledgerMasterSid,
+      Ledger: coaMasterSid,
       Branch: branchId,
-      companyId : CompanyMasterSid,
+      companyId: CompanyMasterSid,
       VoucherType: voucherType
     } = params;
-    
+
     try {
       this.logger.log(
         `Getting ledger report: CompanySid=${CompanyMasterSid}, LedgerMasterSid=${ledgerMasterSid}`,
@@ -1370,24 +1697,24 @@ else
 
       const resolvedBranchIds = branches.map(b => b.BranchMasterSid);
       const resolvedBranchNames = branches.map(b => b.branchName);
-      const branchInvolved = branchId && branchId.length > 0 ? branches.map(b=>b.branchName).join(', ') : 'All Branches'
+      const branchInvolved = branchId && branchId.length > 0 ? branches.map(b => b.branchName).join(', ') : 'All Branches'
       const subledger = ledgerMasterSid
         ? await this._db.subledgerMaster.findUnique({
-            where: { SubledgerMasterSid: ledgerMasterSid },
-          })
+          where: { SubledgerMasterSid: ledgerMasterSid },
+        })
         : null;
 
       const ledger = coaMasterSid
         ? await this._db.cOAMaster.findUnique({
-            where: { COAMasterSid: coaMasterSid },
-          })
+          where: { COAMasterSid: coaMasterSid },
+        })
         : null;
 
 
-      const userMaster =  await this._db.userMaster.findMany({
-        select:{
-          UserMasterSid:true,
-          userName:true
+      const userMaster = await this._db.userMaster.findMany({
+        select: {
+          UserMasterSid: true,
+          userName: true
         }
       })
 
@@ -1396,9 +1723,9 @@ else
         where: {
           CompanyMasterSid: CompanyMasterSid,
           BranchMasterSid: { in: resolvedBranchIds },
-          AND : [
-            { VoucherDate : {gte : FromDate}},
-            { VoucherDate : { lte : ToDate}}
+          AND: [
+            { VoucherDate: { gte: FromDate } },
+            { VoucherDate: { lte: ToDate } }
           ],
           ...(coaMasterSid && { COAMasterSid: coaMasterSid }),
           ...(ledgerMasterSid && { LedgerMasterSid: ledgerMasterSid }),
@@ -1415,10 +1742,10 @@ else
               PostStatus: true,
             }
           },
-          masterJob : true,
-          houseJob:true,
-          departmentMaster:{
-            select:{departmentName:true}
+          masterJob: true,
+          houseJob: true,
+          departmentMaster: {
+            select: { departmentName: true }
           },
           voucherMatchings: {
             where: {
@@ -1438,11 +1765,11 @@ else
         this.logger.log(`No Ledger Report found for LedgerMasterSid ${ledgerMasterSid}`);
         return {
           companyMasterSid: CompanyMasterSid,
-          branchMasterSid : branchId,
+          branchMasterSid: branchId,
           ledgerMasterSid: ledgerMasterSid || null,
-          COAMasterSid : coaMasterSid || null,
+          COAMasterSid: coaMasterSid || null,
           subledgerName: subledger?.SubledgerName,
-          ledgerName : ledger?.LedgerName,
+          ledgerName: ledger?.LedgerName,
           totalOutstandingCurrency: 0,
           totalOutstandingLocal: 0,
           voucherCount: 0,
@@ -1486,56 +1813,56 @@ else
           : 1.0;
 
         // Only include if there's outstanding balance
-       
-          transactions.push({
-            voucherTransactionSid: vt.VoucherTransactionSid,
-            voucherHeaderSid: vt.VoucherHeaderSid,
-            voucherDetailSid: vt.VoucherDetailSid,
-            voucherNumber: vt.VoucherNumber,
-            voucherDate: vt.VoucherDate,
-            voucherTypeMasterSid: vt.VoucherTypeMasterSid,
-            ledgerMasterSid: vt.LedgerMasterSid!,
-            coaMasterSid: vt.COAMasterSid!,
-            MasterJobNumber : vt.masterJob?.MasterJobNumber,
-            HouseJobNumber : vt.houseJob?.HBLNo,
-            voucherType: vt.voucherTypeMaster?.DocumentTypeCode,
-            originalCurrencyAmount: toNumber(originalCurrencyAmount),
-            originalLocalAmount: toNumber(originalLocalAmount),
-            matchedCurrencyAmount: toNumber(matchedCurrencyAmount),
-            matchedLocalAmount: toNumber(matchedLocalAmount),
-            outstandingCurrencyAmount: outstandingCurrencyAmount,
-            outstandingLocalAmount: outstandingLocalAmount,
-            currencyCode: vt.CurrencyCode || 'USD',
-            exchangeRate: toNumber(vt.ExchangeRate || 1),
-            drCr: vt.DrCr,
-            chargeDescription: vt.ChargeDescription || "",
-            deptname:
-              vt.departmentMaster?.departmentName &&
-                !vt.departmentMaster.departmentName.toLowerCase().includes('air')
-                ? vt.departmentMaster.departmentName
-                : null,
-            salesmanSid: userMaster.find(u=>u.UserMasterSid ===vt.houseJob?.SalesmanSid)?.userName || '',
-            naration:vt.Narration
-          });
 
-          totalOutstandingCurrency += outstandingCurrencyAmount;
-          totalOutstandingLocal += outstandingLocalAmount;
-        
+        transactions.push({
+          voucherTransactionSid: vt.VoucherTransactionSid,
+          voucherHeaderSid: vt.VoucherHeaderSid,
+          voucherDetailSid: vt.VoucherDetailSid,
+          voucherNumber: vt.VoucherNumber,
+          voucherDate: vt.VoucherDate,
+          voucherTypeMasterSid: vt.VoucherTypeMasterSid,
+          ledgerMasterSid: vt.LedgerMasterSid!,
+          coaMasterSid: vt.COAMasterSid!,
+          MasterJobNumber: vt.masterJob?.MasterJobNumber,
+          HouseJobNumber: vt.houseJob?.HBLNo,
+          voucherType: vt.voucherTypeMaster?.DocumentTypeCode,
+          originalCurrencyAmount: toNumber(originalCurrencyAmount),
+          originalLocalAmount: toNumber(originalLocalAmount),
+          matchedCurrencyAmount: toNumber(matchedCurrencyAmount),
+          matchedLocalAmount: toNumber(matchedLocalAmount),
+          outstandingCurrencyAmount: outstandingCurrencyAmount,
+          outstandingLocalAmount: outstandingLocalAmount,
+          currencyCode: vt.CurrencyCode || 'USD',
+          exchangeRate: toNumber(vt.ExchangeRate || 1),
+          drCr: vt.DrCr,
+          chargeDescription: vt.ChargeDescription || "",
+          deptname:
+            vt.departmentMaster?.departmentName &&
+              !vt.departmentMaster.departmentName.toLowerCase().includes('air')
+              ? vt.departmentMaster.departmentName
+              : null,
+          salesmanSid: userMaster.find(u => u.UserMasterSid === vt.houseJob?.SalesmanSid)?.userName || '',
+          naration: vt.Narration
+        });
+
+        totalOutstandingCurrency += outstandingCurrencyAmount;
+        totalOutstandingLocal += outstandingLocalAmount;
+
       }
 
       const response = {
         companyMasterSid: CompanyMasterSid,
-        branchMasterSid : branchId,
+        branchMasterSid: branchId,
         branchInvolved,
         ledgerMasterSid: ledgerMasterSid!,
         subledgerName: subledger?.SubledgerName,
-        ledgerName : ledger?.LedgerName,
+        ledgerName: ledger?.LedgerName,
         totalOutstandingCurrency: roundAmount(totalOutstandingCurrency, 2),
         totalOutstandingLocal: roundAmount(totalOutstandingLocal, 2),
         voucherCount: transactions.length,
         transactions: transactions,
         branchNames: resolvedBranchNames.join(', '),
-        params : params,
+        params: params,
       };
 
       this.logger.log(
@@ -1583,7 +1910,7 @@ else
 
       const resolvedBranchIds = branches.map(b => b.BranchMasterSid);
       const resolvedBranchNames = branches.map(b => b.branchName);
-      const branchInvolved = branchId && branchId.length > 0 ? branches.map(b=>b.branchName).join(', ') : 'All Branches'
+      const branchInvolved = branchId && branchId.length > 0 ? branches.map(b => b.branchName).join(', ') : 'All Branches'
       const voucherData = await this._db.voucherTransaction.findMany({
         where: {
           CompanyMasterSid,
@@ -1624,7 +1951,7 @@ else
               0;
 
         const category = v.coaMaster.Category;
-      
+
         if (category === 'Income') {
           totalIncome += signedAmount;
           return;
@@ -1683,8 +2010,8 @@ else
 
   private async generateVATReceivableReport(params: VATReportQueryDto) {
     const {
-      VoucherFromDate : FromDate,
-      VoucherToDate : ToDate,
+      VoucherFromDate: FromDate,
+      VoucherToDate: ToDate,
       companyId: CompanyMasterSid,
       coamasterSid
     } = params
@@ -1719,7 +2046,7 @@ else
               SubledgerName: true,
             },
           },
-        
+
         },
       });
 
@@ -1768,7 +2095,7 @@ else
           },
           voucherTypeMaster: {
             select: {
-              DocumentTypeCode:true,
+              DocumentTypeCode: true,
               DocumentTypeName: true
             }
           },
@@ -1802,8 +2129,8 @@ else
           : 'Journal'
           ;
 
-          
-        const invoiceTypes = ["VIN","VRN"];
+
+        const invoiceTypes = ["VIN", "VRN"];
 
         const isVendorInvoice = invoiceTypes.includes(
           v.voucherTypeMaster?.DocumentTypeCode
@@ -1841,7 +2168,7 @@ else
           panType,
           documentNo,
           documentDate,
-          vocuherType:v.voucherTypeMaster?.DocumentTypeName,
+          vocuherType: v.voucherTypeMaster?.DocumentTypeName,
         };
 
         if (ledgerType === 'Input Tax') {
@@ -1901,7 +2228,7 @@ else
 
       const resolvedBranchIds = branches.map(b => b.BranchMasterSid);
       const resolvedBranchNames = branches.map(b => b.branchName);
-      const brancesInvoled = branchId && branchId.length > 0 ? branches.map(b=>b.branchName).join(', ') : 'All Branches'
+      const brancesInvoled = branchId && branchId.length > 0 ? branches.map(b => b.branchName).join(', ') : 'All Branches'
 
       const voucherData = await this._db.voucherHeader.findMany({
         where: {
@@ -1917,12 +2244,12 @@ else
           voucherTypeMaster: {
             select: {
               DocumentTypeName: true,
-              DocumentTypeCode:true
+              DocumentTypeCode: true
             }
           }
         },
         orderBy: [
-          { voucherTypeMaster : {DocumentTypeName : 'asc'}},
+          { voucherTypeMaster: { DocumentTypeName: 'asc' } },
           { VoucherDate: 'asc' }
         ]
       });
@@ -1930,14 +2257,14 @@ else
 
       const data = voucherData
         .filter(v => v.PostStatus === 'U')
-        
+
         .map(v => ({
-          VoucherHeaderSid : v.VoucherHeaderSid,
+          VoucherHeaderSid: v.VoucherHeaderSid,
           voucherNo: v.VoucherNumber,
           voucherDate: v.VoucherDate,
-          voucherTypeId : v.VoucherTypeMasterSid,
+          voucherTypeId: v.VoucherTypeMasterSid,
           voucherType: v.voucherTypeMaster?.DocumentTypeName,
-          voucherCode : v.voucherTypeMaster?.DocumentTypeCode,
+          voucherCode: v.voucherTypeMaster?.DocumentTypeCode,
           createdBy: v.CreatedBy,
           createdOn: v.CreatedOn,
           postStatus: v.PostStatus,
@@ -1960,9 +2287,9 @@ else
   }
 
   private async generateVATPayableReport(params: any) {
-     const {
-      VoucherFromDate : FromDate,
-      VoucherToDate : ToDate,
+    const {
+      VoucherFromDate: FromDate,
+      VoucherToDate: ToDate,
       companyId: CompanyMasterSid,
       coamasterSid
     } = params
@@ -2020,15 +2347,15 @@ else
       const voucherData = await this._db.voucherTransaction.findMany({
         where: {
           CompanyMasterSid,
-         AND : [
-            { VoucherDate : {gte : FromDate}},
-            { VoucherDate : { lte : ToDate}}
+          AND: [
+            { VoucherDate: { gte: FromDate } },
+            { VoucherDate: { lte: ToDate } }
           ],
           Status: 'A',
           COAMasterSid: coamasterSid,
           voucherTypeMaster: {
             DocumentTypeName: {
-              in: ['Invoice', 'Journal Voucher','Credit Note'],
+              in: ['Invoice', 'Journal Voucher', 'Credit Note'],
             },
           },
         },
@@ -2050,10 +2377,10 @@ else
               LedgerType: true,
             },
           },
-          voucherTypeMaster:{
-            select:{
-              DocumentTypeName : true,
-              DocumentTypeCode :true
+          voucherTypeMaster: {
+            select: {
+              DocumentTypeName: true,
+              DocumentTypeCode: true
             }
           }
         },
@@ -2079,7 +2406,7 @@ else
           : 'Journal'
           ;
 
-        const invoiceTypes = ["INV","CRN","JV"];
+        const invoiceTypes = ["INV", "CRN", "JV"];
 
         const isInvoice = invoiceTypes.includes(
           v.voucherTypeMaster?.DocumentTypeCode
@@ -2108,7 +2435,7 @@ else
           taxableAmt: v.TaxableAmount,
           taxAmt: v.LocalAmount,
           chargeDescription: v.ChargeDescription,
-          vocuherType:v.voucherTypeMaster?.DocumentTypeName,
+          vocuherType: v.voucherTypeMaster?.DocumentTypeName,
           ledgerType,
           groupname: v.coaMaster?.GroupName,
           voucherType1,
@@ -2191,7 +2518,7 @@ else
 
       const resolvedBranchIds = branches.map(b => b.BranchMasterSid);
       const resolvedBranchNames = branches.map(b => b.branchName);
-      const branchInvolved = branchId && branchId.length > 0 ? branches.map(b=>b.branchName).join(', ') : 'All Branches'
+      const branchInvolved = branchId && branchId.length > 0 ? branches.map(b => b.branchName).join(', ') : 'All Branches'
       const excludedDepartments = ['Air Export', 'Air Import'];
       const departments = deptId && deptId.length > 0
         ? await this._db.departmentMaster.findMany({
@@ -2211,7 +2538,7 @@ else
 
       const resolvedDeptIds = departments.map(d => d.DepartmentMasterSid);
       const resolvedDeptNames = departments.map(d => d.departmentName);
-      const departmentInvoled = deptId && deptId.length > 0 ? departments.map(d=>d.departmentName).join(', ') : 'All Departments'
+      const departmentInvoled = deptId && deptId.length > 0 ? departments.map(d => d.departmentName).join(', ') : 'All Departments'
       const customerMaster = await this._db.customerMaster.findMany({
         select: { CustomerMasterSid: true, CustomerName: true }
       })
@@ -2221,7 +2548,7 @@ else
           CompanyMasterSid,
           AND: [
             { MBLDate: { gte: FromDate } },
-            { MBLDate: { lte: ToDate} }
+            { MBLDate: { lte: ToDate } }
           ],
           Status: 'A',
           BranchMasterSid: { in: resolvedBranchIds },
@@ -2469,21 +2796,21 @@ else
       /* ================= APPLY TOP N ON CUSTOMER DATA ================= */
       let customerData = finalCustomerData;
 
-     const calculationType = params.CalculationType?.toUpperCase();
+      const calculationType = params.CalculationType?.toUpperCase();
 
-        switch (calculationType) {
-          case 'GP':
-            customerData.sort((a, b) => b.GP - a.GP);
-            break;
+      switch (calculationType) {
+        case 'GP':
+          customerData.sort((a, b) => b.GP - a.GP);
+          break;
 
-          case 'VOLUME':
-            customerData.sort((a, b) => b.Vol - a.Vol);
-            break;
+        case 'VOLUME':
+          customerData.sort((a, b) => b.Vol - a.Vol);
+          break;
 
-          default:
-            // fallback to GP
-            customerData.sort((a, b) => b.GP - a.GP);
-        }
+        default:
+          // fallback to GP
+          customerData.sort((a, b) => b.GP - a.GP);
+      }
 
 
       const limit = Number(topN) || customerData.length;
@@ -2526,7 +2853,7 @@ else
       if (Array.isArray(BranchId) && BranchId.length > 0) {
         const branches = await this._db.branchMaster.findMany({
           where: {
-            BranchMasterSid: {in : BranchId},
+            BranchMasterSid: { in: BranchId },
             CompanyMasterSid: CompanyId,
             status: 'A'
           },
@@ -2535,7 +2862,7 @@ else
           }
         });
 
-        branchName =branches && branches.length > 1 ? branches.map(b=>b.branchName).join(', ') : branches[0].branchName;
+        branchName = branches && branches.length > 1 ? branches.map(b => b.branchName).join(', ') : branches[0].branchName;
       } else {
         const branches = await this._db.branchMaster.findMany({
           where: {
@@ -2543,16 +2870,16 @@ else
             status: 'A'
           },
           select: {
-            BranchMasterSid : true,
+            BranchMasterSid: true,
             branchName: true
           }
-        });  
+        });
         BranchId = branches.map(b => b.BranchMasterSid);
       }
 
       const baseHeaderWhere = {
         CompanyMasterSid: CompanyId,
-         ...(BranchId ? { BranchMasterSid: {in : BranchId} } : {}),
+        ...(BranchId ? { BranchMasterSid: { in: BranchId } } : {}),
         VoucherDate: {
           gte: fromDate,
           lte: toDate,
@@ -2763,7 +3090,7 @@ else
       const unpostedVoucher = await this._db.voucherHeader.count({
         where: {
           CompanyMasterSid: CompanyId,
-          BranchMasterSid: { in : BranchId},
+          BranchMasterSid: { in: BranchId },
           Status: 'A',
           VoucherDate: {
             gte: fromDate,
@@ -2784,13 +3111,13 @@ else
         where: {
           Status: 'A',
           CompanyMasterSid: CompanyId,
-           ...(BranchId ? { BranchMasterSid:{ in : BranchId} } : {}),
+          ...(BranchId ? { BranchMasterSid: { in: BranchId } } : {}),
           VoucherDate: {
             gte: fromDate,
             lte: toDate,
           },
-          PostStatus:{
-            in:['P','U']
+          PostStatus: {
+            in: ['P', 'U']
           },
           voucherTypeMaster: {
             DocumentTypeName: 'Payment Voucher',
@@ -2803,7 +3130,7 @@ else
         where: {
           Status: 'A',
           CompanyMasterSid: CompanyId,
-           ...(BranchId ? { BranchMasterSid: { in : BranchId} } : {}),
+          ...(BranchId ? { BranchMasterSid: { in: BranchId } } : {}),
           VoucherDate: {
             gte: fromDate,
             lte: toDate,
@@ -2811,7 +3138,7 @@ else
           voucherTypeMaster: {
             DocumentTypeName: 'Payment Voucher',
           },
-           VoucherDetail: {
+          VoucherDetail: {
             some: {
               subledgerMaster: {
                 SubledgerType: 'Tax'
@@ -2893,7 +3220,7 @@ else
    */
   async executeParameterQuery(
     parameterId: number,
-    context: { companyId?: number; branchId?: number; [key: string]: any }
+    context: { companyId?: number; branchId?: number;[key: string]: any }
   ): Promise<Array<{ value: any; label: string }>> {
     try {
       // Fetch the parameter details
