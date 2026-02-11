@@ -202,4 +202,131 @@ export class MawbStockController {
             }
             return resp;
         }
+
+    @ApiOperation({ summary: 'Allocate MAWB stock to customer' })
+    @ApiCreatedResponse({
+        description: 'MAWB stock allocated to customer',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Post('allocate')
+    async allocateStock(@Body() body: {
+        stockIds: number[],
+        customerId: number,
+        companyId: number,
+        branchId: number
+    }) {
+
+        const resp = new ResponseData();
+
+        try {
+
+            const result = await this.mawbStockService.allocateStock(body);
+
+            resp.data = result;
+            resp.message = 'Stock allocated successfully';
+
+        } catch (error) {
+            resp.status = false;
+            resp.message = error.message || 'Internal Server Error';
+        }
+
+        return resp;
+    }
+
+
+    @ApiOperation({ summary: 'Deallocate MAWB stock from customer' })
+    @ApiCreatedResponse({
+        description: 'MAWB stock deallocated from customer',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Post('deallocate')
+    async deallocateStock(@Body() body: {
+        stockIds: number[],
+        customerId: number,
+        companyId: number,
+        branchId: number
+    }) {
+
+        const resp = new ResponseData();
+
+        try {
+
+            const result = await this.mawbStockService.deallocateStock(body);
+
+            resp.data = result;
+            resp.message = 'Stock deallocated successfully';
+
+        } catch (error) {
+            resp.status = false;
+            resp.message = error.message || 'Internal Server Error';
+        }
+
+        return resp;
+    }
+
+
+    @ApiOperation({ summary: 'Get Airline Free Stock' })
+    @ApiCreatedResponse({
+        description: 'Airline Free Stock',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Post('free-stock')
+    @HttpCode(HttpStatus.OK)
+    async getFreeStock(@Body() body: {
+        airlineId: number,
+        companyId: number,
+        branchId: number
+    }) {
+
+        const resp = new ResponseData();
+
+        try {
+
+            const result = await this.mawbStockService.getFreeStock(body);
+
+            resp.data = result;
+            resp.message = 'Free stock fetched successfully';
+
+        } catch (error) {
+            resp.status = false;
+            resp.message = error.message || 'Internal Server Error';
+        }
+
+        return resp;
+    }
+
+    @ApiOperation({ summary: 'Allocated Stock' })
+    @ApiCreatedResponse({
+        description: 'Allocated Stock',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Post('allocated-stock')
+@HttpCode(HttpStatus.OK)
+async getAllocatedStock(@Body() body: {
+  customerId: number,
+  companyId: number,
+  branchId: number
+}) {
+
+  const resp = new ResponseData();
+
+  try {
+
+    const result = await this.mawbStockService.getAllocatedStock(body);
+
+    resp.data = result;
+    resp.message = 'Allocated stock fetched successfully';
+
+  } catch (error) {
+    resp.status = false;
+    resp.message = error.message || 'Internal Server Error';
+  }
+
+  return resp;
+}
+
 }
