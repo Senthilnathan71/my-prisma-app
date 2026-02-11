@@ -2200,6 +2200,7 @@ model MawbStock {
   updatedBy        String?         @db.VarChar(100)
   status           String?         @default("A") @db.Char(1)
   Remarks          String?         @db.VarChar(500)
+  AvailableStatus  String?         @default("Available") @db.VarChar(15)
   AWBList          String?
   customerMaster   CustomerMaster? @relation(fields: [Agent], references: [CustomerMasterSid])
   branchMaster     BranchMaster    @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
@@ -3123,7 +3124,7 @@ model VoucherHeader {
   departmentMaster          DepartmentMaster?       @relation(fields: [DepartmentMasterSid], references: [DepartmentMasterSid])
   houseJob                  HouseJob?               @relation(fields: [HouseJobSid], references: [HouseJobSid])
   masterJob                 MasterJob?              @relation(fields: [MasterJobSid], references: [MasterJobSid])
-  subledgerMaster           SubledgerMaster?         @relation(fields: [PartyMasterSid], references: [SubledgerMasterSid])
+  subledgerMaster           SubledgerMaster?        @relation(fields: [PartyMasterSid], references: [SubledgerMasterSid])
   voucherTypeMaster         VoucherTypeMaster       @relation(fields: [VoucherTypeMasterSid], references: [VoucherTypeMasterSid])
   voucherMatchings          VoucherMatching[]
   voucherMatchingHeader     VoucherMatchingHeader[]
