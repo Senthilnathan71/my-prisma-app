@@ -1632,6 +1632,8 @@ export class CustomerService {
                     BranchName: branch.BranchName,
                     Address: branch.Address,
                     Email: branch.Email,
+                    AirlineCode: cus.AirlineCode,
+                    AirlineNumber: cus.AirlineNumber,
                     countryName: cus.countryMaster?.countryName,
                    Countrycode: cus.countryMaster?.countryCode
                     

@@ -58,6 +58,7 @@ export class MawbStockService {
                   ? new Date(payload.ReceivedDate)
                   : new Date(),
                 StockStatus: 'Free',
+                AvailableStatus: 'Available',
                 Remarks: payload.Remarks || payload.Remarks || null,
                 createdBy: payload.createdBy,
                 updatedBy: payload.updatedBy,
@@ -185,6 +186,7 @@ export class MawbStockService {
                             { MAWBSerial: { contains: search, mode: 'insensitive' } },
                             { StockStatus: { contains: search, mode: 'insensitive' } },
                             { status: { contains: search, mode: 'insensitive' } },
+                            { AvailableStatus: {contains: search, mode: 'insensitive'}},
                             { Remarks: { contains: search, mode: 'insensitive' } },
     
                         ],
@@ -218,7 +220,7 @@ export class MawbStockService {
                             this.globalConfigService.getMasterData('company_master', item.CompanyMasterSid, item.CompanyMasterSid) :
                             { CompanyMasterSid: null, companyName: '', companyCode: '' },
     
-                        item.CustomerMasterSid !== null ?
+                        item.Agent  !== null ?
                             this.globalConfigService.getMasterData('customer_master', Number(item.Agent), item.CompanyMasterSid) :
                             { CustomerMasterSid: null, CustomerName: '', CustomerShortCode: '', PanName: '', CountryMasterSid: '' },
                     ]);
@@ -252,5 +254,105 @@ export class MawbStockService {
                 this.logger.warn(`getAuditLogsError: ${error}`);
                 throw new Error(`Error fetching audit logs: ${error.message}`);
             }
+    }
+    async allocateStock(payload: {
+        stockIds: number[],
+        customerId: number,
+        companyId: number,
+        branchId: number
+    }) {
+
+        return await this._db.mawbStock.updateMany({
+            where: {
+                MawbStockSid: { in: payload.stockIds },
+                CompanyMasterSid: payload.companyId,
+                BranchMasterSid: payload.branchId,
+                AirwayBillType: 'Airline',
+                StockStatus: 'Free',
+                AvailableStatus: 'Available',
+                status: 'A'
+            },
+            data: {
+                Agent: payload.customerId,
+                AvailableStatus: 'Allocated'
+            }
+        });
+    }
+
+
+    async deallocateStock(payload: {
+        stockIds: number[],
+        customerId: number,
+        companyId: number,
+        branchId: number
+    }) {
+
+        if (!payload.stockIds?.length) {
+            throw new BadRequestException('No stock selected');
         }
+
+        return await this._db.mawbStock.updateMany({
+            where: {
+                MawbStockSid: { in: payload.stockIds },
+                CompanyMasterSid: payload.companyId,
+                BranchMasterSid: payload.branchId,
+                AirwayBillType: 'Airline',
+                StockStatus: 'Free',
+                AvailableStatus: 'Allocated',
+                Agent: payload.customerId,
+                status: 'A'
+            },
+            data: {
+                Agent: null,
+                AvailableStatus: 'Available',
+                updatedOn: new Date()
+            }
+        });
+    }
+
+
+    async getFreeStock(payload: {
+        airlineId: number,
+        companyId: number,
+        branchId: number
+    }) {
+
+        return await this._db.mawbStock.findMany({
+            where: {
+                CompanyMasterSid: payload.companyId,
+                BranchMasterSid: payload.branchId,
+                AirwayBillType: 'Airline',
+                Agent: payload.airlineId,
+                StockStatus: 'Free',
+                AvailableStatus: 'Available',
+                status: 'A'
+            },
+            orderBy: {
+                MawbStockSid: 'desc'
+            }
+        });
+    }
+
+    async getAllocatedStock(payload: {
+        customerId: number,
+        companyId: number,
+        branchId: number
+    }) {
+
+        return await this._db.mawbStock.findMany({
+            where: {
+                CompanyMasterSid: payload.companyId,
+                BranchMasterSid: payload.branchId,
+                AirwayBillType: 'Airline',
+                StockStatus: 'Free',
+                AvailableStatus: 'Allocated',
+                Agent: payload.customerId,
+                status: 'A'
+            },
+            orderBy: {
+                MawbStockSid: 'desc'
+            }
+        });
+    }
+
 }
