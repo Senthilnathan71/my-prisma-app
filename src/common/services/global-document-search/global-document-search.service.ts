@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { statusWhereClause } from 'src/common/helper';
 import { DatabaseService } from 'src/database/database.service';
 
 interface DocumentSearchResult {
@@ -81,7 +82,7 @@ export class GlobalDocumentSearchService {
                 where: {
                     CompanyMasterSid: companyId,
                     BranchMasterSid: branchId,
-                    status: 'A',
+                    status: statusWhereClause,
                     BookingNo: { contains: search, mode: 'insensitive' },
                 },
                 select: { BookingHeaderSid: true, BookingNo: true },
@@ -112,7 +113,7 @@ export class GlobalDocumentSearchService {
                 where: {
                     CompanyMasterSid: companyId,
                     BranchMasterSid: branchId,
-                    Status: 'A',
+                    Status: statusWhereClause,
                     OR : [
                         { MasterJobNumber: { contains: search, mode: 'insensitive' }},
                         { MBLNo : {contains : search, mode: 'insensitive'}},
@@ -162,7 +163,7 @@ export class GlobalDocumentSearchService {
                 where: {
                     CompanyMasterSid: companyId,
                     BranchMasterSid: branchId,
-                    status: 'A',
+                    status: statusWhereClause,
                     HBLNo: { contains: search, mode: 'insensitive' }
                 },
                 select: { HouseJobSid: true, HBLNo: true , departmentMaster : {select : {departmentType : true}}},
@@ -196,7 +197,7 @@ export class GlobalDocumentSearchService {
                 where: {
                     CompanyMasterSid: companyId,
                     BranchMasterSid: branchId,
-                    status: 'A',
+                    status: statusWhereClause,
                     EnquiryNumber: { contains: search, mode: 'insensitive' },
                 },
                 select: { EnquiryHeaderSid: true, EnquiryNumber: true },
@@ -227,7 +228,7 @@ export class GlobalDocumentSearchService {
                 where: {
                     CompanyMasterSid: companyId,
                     BranchMasterSid: branchId,
-                    status: 'A',
+                    status: statusWhereClause,
                     QuoteNumber: { contains: search, mode: 'insensitive' },
                 },
                 select: { QuoteHeaderSid: true, QuoteNumber: true },
@@ -258,51 +259,71 @@ export class GlobalDocumentSearchService {
                 where: {
                     CompanyMasterSid: companyId,
                     BranchMasterSid: branchId,
-                    Status: 'A',
+                    Status: statusWhereClause,
                     VoucherNumber: { contains: search, mode: 'insensitive' },
                 },
                 include: {
                     voucherTypeMaster: {
-                        select: { DocumentTypeName: true },
+                        select: { DocumentTypeCode: true },
                     },
                 },
                 take: 10,
             });
 
             return vouchers.map((v) => {
-                const voucherType = v.voucherTypeMaster?.DocumentTypeName || 'Voucher';
-                const voucherTypeLower = voucherType.toLowerCase();
+                const voucherType = v.voucherTypeMaster?.DocumentTypeCode || 'Voucher';
 
                 // Determine path and display type based on document type name (case-insensitive partial match)
                 let basePath: string;
                 let displayType: string;
                 let documentType: string;
 
-                if (voucherTypeLower.includes('vendor') && voucherTypeLower.includes('invoice')) {
-                    basePath = '/operation/vendor-invoice/view';
-                    displayType = 'Vendor Invoice';
-                    documentType = 'VENDOR_INVOICE';
-                } else if (voucherTypeLower.includes('invoice')) {
-                    basePath = '/operation/invoice/entry';
-                    displayType = 'Invoice';
-                    documentType = 'INVOICE';
-                } else if (voucherTypeLower.includes('payment')) {
-                    basePath = '/accounts/payment/entry';
-                    displayType = 'Payment';
-                    documentType = 'PAYMENT';
-                } else if (voucherTypeLower.includes('receipt')) {
-                    basePath = '/accounts/receipt/entry';
-                    displayType = 'Receipt';
-                    documentType = 'RECEIPT';
-                } else if (voucherTypeLower.includes('journal')) {
-                    basePath = '/accounts/journal-voucher/entry';
-                    displayType = 'Journal';
-                    documentType = 'JOURNAL';
-                } else {
-                    // Default fallback
-                    basePath = '/accounts/journal-voucher/entry';
-                    displayType = voucherType;
-                    documentType = voucherType.toUpperCase().replace(/\s+/g, '_');
+                switch (voucherType) {
+                    case 'INV' :
+                        basePath = '/operation/invoice/entry';
+                        displayType = 'Invoice';
+                        documentType = 'INVOICE';
+                        break;
+                    case 'VIN' :
+                        basePath = '/operation/vendor-invoice/entry';
+                        displayType = 'Vendor Invoice';
+                        documentType = 'VENDOR_INVOICE';
+                        break;
+                    case 'RPT':
+                        basePath = '/accounts/receipt/entry';
+                        displayType = 'Receipt';
+                        documentType = 'RECEIPT';
+                        break;
+                    case 'PMT' :
+                        basePath = '/accounts/payment/entry';
+                        displayType = 'Payment';
+                        documentType = 'PAYMENT';
+                        break;
+                    case 'CRN' :
+                        basePath = '/accounts/credit-note/entry';
+                        displayType = 'Credit Note';
+                        documentType = 'CREDIT_NOTE';
+                        break;
+                    case 'VRN' :
+                        basePath = '/accounts/vendor-credit-note/entry';
+                        displayType = 'Vendor Credit Note';
+                        documentType = 'VENDOR_CREDIT_NOTE';
+                        break;
+                    case 'JV':
+                        basePath = '/accounts/journal-voucher/entry';
+                        displayType = 'Journal';
+                        documentType = 'JOURNAL';
+                        break;
+                    case 'RJV':
+                        basePath = '/accounts/reversal-journal-voucher/entry';
+                        displayType = 'Reversal Journal';
+                        documentType = 'REVERSAL_JOURNAL';
+                        break;
+                    default:
+                        // Default fallback
+                        basePath = '/accounts/journal-voucher/entry';
+                        displayType = voucherType;
+                        documentType = voucherType.toUpperCase().replace(/\s+/g, '_');
                 }
 
                 return {

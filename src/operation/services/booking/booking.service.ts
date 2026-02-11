@@ -599,7 +599,16 @@ ${payload.ShipmentType?.length}, IncoTerms: ${payload.IncoTerms?.length}`);
                     bookingProduct: { where: { status: 'A' } },
                     bookingOthers: { where: { status: 'A' } },
                      bookingCro: true,
-                    bookingConnection: { where: { status: 'A' } }
+                    bookingConnection: { where: { status: 'A' } },
+                    houseJob : {
+                        where :{
+                            status : 'A'
+                        },
+                        select : {
+                            HouseJobSid : true,
+                            HBLNo : true,
+                        }
+                    }
                 }
             })
             if (!ourBooking) {
@@ -1859,7 +1868,13 @@ if (!croPayload?.BookingCroSid) {
                                     CityMasterSid: true,
                                     Zip_PostBox: true,
                                     GSTNo: true,
-                                    Registered: true
+                                    Registered: true,
+                                    stateMaster: {
+                                        select: {
+                                            StateMasterSid: true,
+                                            stateName: true,
+                                        }
+                                    }
                                 }
                             });
                             enrichments.AgentBranch = agentBranch;

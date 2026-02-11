@@ -627,6 +627,13 @@ export class HouseJobService {
                             Status: 'A'
                         }
                     },
+                    bookingHeader : {
+                        select : {
+                            BookingHeaderSid : true,
+                            BookingNo : true,
+                            status : true
+                        }
+                    },
                     masterJob: {
 
                         where: {

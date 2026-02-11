@@ -244,7 +244,7 @@ export class VoucherService {
                 const currentFinancialYear = await tx.yearMaster.findFirst({
                     where: {
                         CompanyMasterSid: companyMasterSid,
-                        CurrentYear: yearMasterSid,
+                        YearMasterSid: yearMasterSid,
                         status: 'A'
                     },
                     select: {
@@ -844,11 +844,7 @@ export class VoucherService {
                 
                 if(voucherTypeMaster.IsAutoPosting === 'Y'){
                     let missingFields : string[] = [];
-                    if(payload.VoucherType === 'INV'){
-                        if(!payload.DocumentNumber){
-                            missingFields.push('Ref No. is required');
-                        }
-                    } else {
+                    if(payload.VoucherType === 'VIN'){
                         if(!payload.DocumentNumber){
                             missingFields.push('Bill No. is required');
                         }
