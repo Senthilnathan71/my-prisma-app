@@ -5,7 +5,7 @@ import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 import { Prisma } from '@prisma/client';
 import * as moment from 'moment-timezone';
 import { Debug } from '@prisma/client/runtime/library';
-import { toNumber } from 'src/common/helper';
+import { statusWhereClause, toNumber } from 'src/common/helper';
 import { VoucherService } from 'src/operation/services/voucher/voucher.service';
 import { VoucherPeriodService } from 'src/masters/services/voucher-period/voucher-period.service';
 
@@ -128,7 +128,7 @@ export class InvoiceService {
   async findVoucherHeaderById(VoucherHeaderSid: number) {
     try {
       const voucherHeader = await this._db.voucherHeader.findUnique({
-        where: { VoucherHeaderSid: VoucherHeaderSid, Status: 'A' } as any,
+        where: { VoucherHeaderSid: VoucherHeaderSid , Status : statusWhereClause },
         include: {
           VoucherDetail: {
             where: { Status: 'A' ,
@@ -458,7 +458,7 @@ export class InvoiceService {
           where: { VoucherHeaderSid: VoucherHeaderSid } as any
         });
 
-        if (!existingVoucher || existingVoucher.Status !== 'A') {
+        if (!existingVoucher) {
           throw new BadRequestException('Voucher not found');
         }
 
@@ -512,7 +512,7 @@ export class InvoiceService {
           DocumentNumber: payload.DocumentNumber || existingVoucher.DocumentNumber,
           DocumentDate: payload.DocumentDate ? new Date(payload.DocumentDate) : existingVoucher.DocumentDate,
           Narration: payload.Narration || existingVoucher.Narration,
-          
+          Status : String(payload.status || 'A').charAt(0)?.toUpperCase()
         };
 
         const updatedVoucherHeader = await prisma.voucherHeader.update({
@@ -740,7 +740,7 @@ Debug.log('DEBUG - Processing voucher details:', payload.VoucherDetail.length, '
     const where: Prisma.VoucherHeaderWhereInput = {
       CompanyMasterSid: activeCompanyId,
       BranchMasterSid: activeBranchId,
-      Status: 'A',
+      Status: statusWhereClause,
       voucherTypeMaster: {
       DocumentTypeCode: 'INV'
     },

@@ -8,7 +8,7 @@ import {
 import { Decimal } from '@prisma/client/runtime/library';
 import { PostVoucherResponseDto, VoucherDetailDto } from 'src/accounts/dto/voucher-posting.dto';
 import { TaxVoucherType } from 'src/common/config/voucher-type.config';
-import { toNumber } from 'src/common/helper';
+import { statusWhereClause, toNumber } from 'src/common/helper';
 import { DatabaseService } from 'src/database/database.service';
 import { VoucherService } from 'src/operation/services/voucher/voucher.service';
 
@@ -558,7 +558,7 @@ if (payload.VoucherDetail && Array.isArray(payload.VoucherDetail)) {
                 voucherTypeMaster: {
                     DocumentTypeName: 'Journal Voucher'
                 },
-                Status: 'A'
+                Status: statusWhereClause
             };
 
             // Add search filter
@@ -574,10 +574,10 @@ if (payload.VoucherDetail && Array.isArray(payload.VoucherDetail)) {
                     where,
                     include: {
                         VoucherDetail: {
-                            where: { Status: 'A' }
+                            where: { Status: statusWhereClause }
                         },
                         VoucherOthers: {
-                            where: { Status: 'A' }
+                            where: { Status: statusWhereClause }
                         },
                         subledgerMaster: true,
                         currencyMaster: true,

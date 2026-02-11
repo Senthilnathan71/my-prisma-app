@@ -44,7 +44,7 @@ export class UserController {
     }
 
     @Get('logo/:logoId')
-    @Header('Cache-Control', 'public, max-age=86400') // Cache for 1 day
+    @Header('Cache-Control', 'no-store')
     @Header('Content-Disposition', 'inline')
     async getCompanyLogo(
         @Param('logoId') logoId: string,
