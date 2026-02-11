@@ -2177,6 +2177,8 @@ model HawbStock {
   status           String?         @default("A") @db.Char(1)
   Remarks          String?         @db.VarChar(500)
   AWBList          String?
+  AvailableStatus  String?         @default("Available") @db.VarChar(15)
+  Customer         Int?
   customerMaster   CustomerMaster? @relation(fields: [Agent], references: [CustomerMasterSid])
   branchMaster     BranchMaster    @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
   companyMaster    CompanyMaster   @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
@@ -2202,6 +2204,7 @@ model MawbStock {
   Remarks          String?         @db.VarChar(500)
   AvailableStatus  String?         @default("Available") @db.VarChar(15)
   AWBList          String?
+  Customer         Int?
   customerMaster   CustomerMaster? @relation(fields: [Agent], references: [CustomerMasterSid])
   branchMaster     BranchMaster    @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
   companyMaster    CompanyMaster   @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
