@@ -70,13 +70,13 @@ export class EDIManifestService {
     }
 
     // Validate mandatory fields before generating
-    const validation = this.validateMandatoryFields(masterJob, originCountryCode);
-    if (!validation.isValid) {
-      throw new BadRequestException({
-        message: 'Mandatory fields are missing. Please fill all required fields before generating EDI Manifest.',
-        errors: validation.errors,
-      });
-    }
+    // const validation = this.validateMandatoryFields(masterJob, originCountryCode);
+    // if (!validation.isValid) {
+    //   throw new BadRequestException({
+    //     message: 'Mandatory fields are missing. Please fill all required fields before generating EDI Manifest.',
+    //     errors: validation.errors,
+    //   });
+    // }
 
     return this.generateManifestText(masterJob, originCountryCode);
   }
@@ -126,13 +126,13 @@ export class EDIManifestService {
     };
 
     // Validate mandatory fields before generating
-    const validation = this.validateMandatoryFields(masterJobData, originCountryCode);
-    if (!validation.isValid) {
-      throw new BadRequestException({
-        message: 'Mandatory fields are missing. Please fill all required fields before generating EDI Manifest.',
-        errors: validation.errors,
-      });
-    }
+    // const validation = this.validateMandatoryFields(masterJobData, originCountryCode);
+    // if (!validation.isValid) {
+    //   throw new BadRequestException({
+    //     message: 'Mandatory fields are missing. Please fill all required fields before generating EDI Manifest.',
+    //     errors: validation.errors,
+    //   });
+    // }
 
     return this.generateManifestText(masterJobData, originCountryCode);
   }
