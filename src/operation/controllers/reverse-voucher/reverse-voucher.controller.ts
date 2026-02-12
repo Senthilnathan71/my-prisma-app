@@ -2,7 +2,10 @@ import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatu
 import { ApiOperation, ApiCreatedResponse } from '@nestjs/swagger';
 import { ResponseData } from 'src/common/response-data';
 import { ReverseVoucherService } from 'src/operation/services/reverse-voucher/reverse-voucher.service';
-
+class CompanyIdDto {
+  CompanyMasterSid: number;
+  BranchMasterSid: number;
+}
 @Controller('reverse-voucher')
 export class ReverseVoucherController {
     private readonly logger = new Logger(ReverseVoucherController.name);
@@ -178,11 +181,11 @@ export class ReverseVoucherController {
         type: ResponseData
       })
       @HttpCode(HttpStatus.OK)
-      @Get('voucher')
-      async fetchVouchers() {
+      @Post('voucher')
+      async fetchVouchers(@Body() body: CompanyIdDto) {
         const output = new ResponseData();
         try {
-          const finalOutput = await this.reverseVoucherService.fetchVouchers();
+          const finalOutput = await this.reverseVoucherService.fetchVouchers(body.CompanyMasterSid, body.BranchMasterSid);
           this.logger.debug(`fetchVouchers: returned ${Array.isArray(finalOutput) ? finalOutput.length : 0} items`);
           output.data = finalOutput;
           output.message = "All Vouchers fetched successfully";

@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, Post, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, Post, Query, UnauthorizedException } from '@nestjs/common';
 import { ApiOperation, ApiCreatedResponse } from '@nestjs/swagger';
 import { ResponseData } from 'src/common/response-data';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
@@ -241,6 +241,65 @@ export class InvoiceController {
       } else {
         output.message = (error as any)?.message || 'Failed to send invoice email';
       }
+    }
+    return output;
+  }
+
+@ApiOperation({ summary: 'Get Uninvoiced Revenue Charges for House Job or Master Job' })
+@ApiCreatedResponse({
+  description: 'Uninvoiced revenue charges fetched successfully',
+  type: ResponseData
+})
+@HttpCode(HttpStatus.OK)
+@Post('uninvoiced-charges')
+async getUninvoicedRevenueCharges(@Body() payload: {
+  CompanyMasterSid: number,
+  BranchMasterSid: number,
+  transactionSid: number,
+  MenuMasterSid: number,
+  RevenueCustomerBranchSid?: number,
+  RevenueCustomerMasterSid?: number
+}) {
+  const output = new ResponseData();
+  try {
+    if (!payload.transactionSid || !payload.MenuMasterSid) {
+      throw new BadRequestException('transactionSid and MenuMasterSid are required');
+    }
+    
+    const charges = await this.invoiceService.getUninvoicedRevenueCharges(payload);
+    
+    output.data = charges;
+    output.message = "Uninvoiced revenue charges fetched successfully";
+  } catch (error) {
+    this.logger.warn('getUninvoicedRevenueCharges error', error?.stack || error?.message || error);
+    output.status = false;
+    output.message = error instanceof BadRequestException ? error.message : "Internal Server Error";
+  }
+  return output;
+}
+
+  @ApiOperation({ summary: 'Update CostRevenueCharges with Voucher Header after Invoice Creation' })
+  @ApiCreatedResponse({
+    description: 'CostRevenueCharges updated with voucher header successfully',
+    type: ResponseData
+  })
+  @HttpCode(HttpStatus.OK)
+  @Post('update-charges-voucher')
+  async updateChargesWithVoucher(@Body() payload: {
+    costRevenueChargesSids: number[],
+    voucherHeaderSid: number,
+    voucherTypeMasterSid: number,
+    updatedBy: string
+  }) {
+    const output = new ResponseData();
+    try {
+      const result = await this.invoiceService.updateChargesWithVoucher(payload);
+      output.data = result;
+      output.message = "CostRevenueCharges updated successfully";
+    } catch (error) {
+      this.logger.warn('updateChargesWithVoucher error', error?.stack || error?.message || error);
+      output.status = false;
+      output.message = error instanceof BadRequestException ? error.message : "Internal Server Error";
     }
     return output;
   }
