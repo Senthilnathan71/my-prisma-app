@@ -807,4 +807,158 @@ Debug.log('DEBUG - Processing voucher details:', payload.VoucherDetail.length, '
 
     return { items, totalCount };
   }
+
+async getUninvoicedRevenueCharges(payload: { 
+  CompanyMasterSid: number, 
+  BranchMasterSid: number,
+  transactionSid: number, 
+  MenuMasterSid: number,
+  RevenueCustomerBranchSid?: number,
+  RevenueCustomerMasterSid?: number
+}) {
+  try {
+    const { 
+      CompanyMasterSid, 
+      BranchMasterSid, 
+      transactionSid, 
+      MenuMasterSid,
+      RevenueCustomerBranchSid,
+      RevenueCustomerMasterSid 
+    } = payload;
+    
+    // Build where condition
+    const whereCondition: any = {
+      TransactionSid: transactionSid,
+      MenuMasterSid,
+      CompanyMasterSid,
+      BranchMasterSid,
+      status: 'A',
+      RevenueVoucherHeaderSid: null
+    };
+
+    // Add customer filters if provided
+    if (RevenueCustomerMasterSid) {
+      whereCondition.RevenueCustomerMasterSid = RevenueCustomerMasterSid;
+    }
+    
+    if (RevenueCustomerBranchSid) {
+      whereCondition.RevenueCustomerBranchSid = RevenueCustomerBranchSid;
+    }
+    
+    const charges = await this._db.costRevenueCharges.findMany({
+      where: whereCondition,
+      include: {
+        revenueCustomerMaster: {
+          select: {
+            CustomerMasterSid: true,
+            CustomerName: true,
+            PanType: true,
+            CustomerAddress1: true,
+            CustomerAddress2: true
+          }
+        },
+        revenueCustomerBranch: {
+          select: {
+            CustomerBranchSid: true,
+            Address: true,
+            GSTNo: true,
+            Registered: true,
+            Zip_PostBox: true,
+            stateMaster: {
+              select: {
+                StateMasterSid: true,
+                stateName: true
+              }
+            },
+            cityMaster: {
+              select: {
+                cityName: true
+              }
+            }
+          }
+        },
+        revenueCurrencyMaster: {
+          select: {
+            CurrencyMasterSid: true,
+            currencyCode: true,
+            currencyName: true
+          }
+        },
+        chargeMaster: {
+          select: {
+            ChargeMasterSid: true,
+            chargeName: true,
+            chargeCode: true,
+            UOM: true,
+            HSNSAC: true,
+            chargeTaxMaster: {
+              where: { Status: 'A' },
+              select: {
+                ChargeTaxMasterSid: true,
+                HSNCode: true,
+                TaxRate: true,
+                TaxGroup: true
+              }
+            }
+          }
+        },
+        revenueChargeUOMMaster: {
+          select: {
+            UOMMasterSid: true,
+            UOMCode: true,
+            UOMName: true
+          }
+        }
+      },
+      orderBy: {
+        SerialNumber: 'asc'
+      }
+    });
+
+    return charges;
+  } catch (error) {
+    this.logger.error('getUninvoicedRevenueCharges error', error);
+    throw error;
+  }
+}
+
+   async updateChargesWithVoucher(payload: {
+    costRevenueChargesSids: number[],
+    voucherHeaderSid: number,
+    voucherTypeMasterSid: number,
+    updatedBy: string
+  }) {
+    try {
+      const { costRevenueChargesSids, voucherHeaderSid, voucherTypeMasterSid, updatedBy } = payload;
+      
+      if (!costRevenueChargesSids || costRevenueChargesSids.length === 0) {
+        throw new BadRequestException('No CostRevenueChargesSids provided');
+      }
+
+      const result = await this._db.costRevenueCharges.updateMany({
+        where: {
+          CostRevenueChargesSid: {
+            in: costRevenueChargesSids
+          }
+        },
+        data: {
+          RevenueVoucherHeaderSid: voucherHeaderSid,
+          RevenueVoucherTypeMasterSid: voucherTypeMasterSid,
+          updatedBy: updatedBy,
+          updatedOn: new Date()
+        }
+      });
+
+      return {
+        count: result.count,
+        updatedSids: costRevenueChargesSids
+      };
+    } catch (error) {
+      this.logger.error('updateChargesWithVoucher error', error);
+      throw error;
+    }
+  }
+
+
+
 }
