@@ -1810,10 +1810,13 @@ export class HouseJobService {
             ...(search
                 ? {
                     OR: [
+                        { masterJob:{MasterJobNumber : { contains: search, mode:'insensitive'}}},
                         { HBLNo: { contains: search, mode: 'insensitive' } },
-                        { ShipmentNo: { contains: search, mode: 'insensitive' } },
+                        { BookingNo: { contains: search, mode: 'insensitive' } },
+                        { departmentMaster: {departmentName: { contains: search, mode: 'insensitive'}}},
                         { POL: { contains: search, mode: 'insensitive' } },
                         { POD: { contains: search, mode: 'insensitive' } },
+                        { HouseStatus: { contains: search, mode: 'insensitive'}}
                     ],
                 }
                 : {}),
