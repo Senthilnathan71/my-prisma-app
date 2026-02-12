@@ -1040,7 +1040,7 @@ export class VoucherService {
                     ...createdVoucherHeader,
                     voucherDetails : createdVoucherDetails
                 }
-            });
+            },{timeout : 60000});
             return result;
         } catch (error) {
             throw error;
@@ -1681,7 +1681,7 @@ export class VoucherService {
             const result = await (tx
                 ? this.postVoucherInternal(payload, tx)
                 : this._db.$transaction((newTx) =>
-                    this.postVoucherInternal(payload, newTx)
+                    this.postVoucherInternal(payload, newTx),{timeout : 60000}
                 )
             );
             return result;

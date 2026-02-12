@@ -1,5 +1,6 @@
-import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, Post, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, NotFoundException, Param, ParseIntPipe, Patch, Post, UnauthorizedException, UsePipes, ValidationPipe } from '@nestjs/common';
 import { ApiOperation, ApiCreatedResponse } from '@nestjs/swagger';
+import { PullVoucherDTO } from 'src/accounts/dto/voucher.dto';
 import { ResponseData } from 'src/common/response-data';
 import { EmailService } from 'src/email/email.service';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
@@ -231,5 +232,36 @@ export class CreditNoteController {
           }
         }
         return resp;
+      }
+
+      @ApiOperation({ summary: 'Get Invoice by Voucher Number with outstanding deduction' })
+      @ApiCreatedResponse({
+        description: 'Invoice data fetched successfully with outstanding deduction',
+        type: ResponseData
+      })
+      @HttpCode(HttpStatus.OK)
+      @UsePipes(new ValidationPipe({
+        transform: true,
+        whitelist: true,
+        forbidNonWhitelisted: true,
+      }))
+      @Post('fetch/invoice')
+      async getInvoiceByNumber(@Body() payload: PullVoucherDTO) {
+        const output = new ResponseData();
+        try {
+          const finalOutput = await this.creditNoteService.fetchInvoice(payload);
+          this.logger.debug(`getting Invoice: ${payload.VoucherNumber}`);
+          output.data = finalOutput;
+          output.message = "Invoice data fetched successfully";
+        } catch (error) {
+          this.logger.warn(`Get Invoice Error : ${JSON.stringify(error),error.message} `);
+          output.status = false;
+          if (error instanceof BadRequestException || error instanceof UnauthorizedException || error instanceof NotFoundException) {
+            output.message = (error as any).message || 'Bad request';
+          } else {
+            output.message = 'Internal Server Error';
+          }
+        }
+        return output;
       }
 }
