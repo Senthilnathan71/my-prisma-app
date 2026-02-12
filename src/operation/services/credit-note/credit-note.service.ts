@@ -327,6 +327,7 @@ export class CreditNoteService {
             DocumentNumber: payload.BillNo || payload.DocumentNumber,
             DocumentDate: payload.BillDate ? new Date(payload.BillDate) : null,
             Amount: payload.BillAmt || payload.Amount,
+            BookingHeaderSid : payload.BookingHeaderSid || null,
             MasterJobSid: payload.MasterJobSid,
             HouseJobSid: payload.HouseJobSid,
             MasterNumber: payload.MBLNo,
@@ -337,6 +338,8 @@ export class CreditNoteService {
             ReversalVoucher: payload.ReversalVoucher || null,
             CreditNoteReason: payload.CreditNoteReason || null,
             CashOrBank: payload.CashOrBank || null,
+            Salesman : payload.Salesman || null,
+            DepartmentMasterSid : payload.DepartmentMasterSid || null,
           }
         });
 
@@ -378,6 +381,8 @@ export class CreditNoteService {
                 CreatedBy: payload.CreatedBy || 'System',
                 SourceDetailSid: detail.SourceDetailSid,
                 DepartmentMasterSid : detail.DepartmentMasterSid,
+                BookingRatesSid: detail.BookingRatesSid,
+                Narration : detail.Narration,
                 CostRevenueChargesSid: detail.CostRevenueChargesSid,
                 Status: 'A'
               }
@@ -419,10 +424,12 @@ export class CreditNoteService {
           }, prisma);
 
           if (postResult && payload.IsFullyReversed) {
+            const isBookingScreen = !!voucherHeader.BookingHeaderSid && !voucherHeader.HouseJobSid;
             await this.voucherService.handleFullVoucherReversal({
               VoucherHeaderSid: voucherHeader.VoucherHeaderSid,
               VoucherDetails: finalDetails,
-              userEmail: payload.CreatedBy
+              userEmail: payload.CreatedBy,
+              isBookingScreen
             }, 'revenue', prisma);
           }
         }

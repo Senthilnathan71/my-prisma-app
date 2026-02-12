@@ -97,6 +97,7 @@ export class VendorCreditNoteService {
                             DocumentNumber: payload.BillNo || payload.DocumentNumber,
                             DocumentDate: payload.BillDate ? new Date(payload.BillDate) : null,
                             Amount: payload.BillAmt || payload.Amount,
+                            BookingHeaderSid : payload.BookingHeaderSid || null,
                             MasterJobSid: payload.MasterJobSid,
                             HouseJobSid: payload.HouseJobSid,
                             MasterNumber: payload.MBLNo,
@@ -107,6 +108,8 @@ export class VendorCreditNoteService {
                             ReversalVoucher: payload.ReversalVoucher || null,
                             CreditNoteReason : payload.CreditNoteReason || null,
                             CashOrBank : payload.CashOrBank || null,
+                            Salesman : payload.Salesman || null,
+                            DepartmentMasterSid : payload.DepartmentMasterSid || null
                         }
                     });
     
@@ -144,9 +147,12 @@ export class VendorCreditNoteService {
                                     PartyAmount : detail.PartyAmount,
                                     MasterJobSid: detail.MasterJobSid || payload.MasterJobSid,
                                     HouseJobSid: detail.HouseJobSid || payload.HouseJobSid,
+                                    DepartmentMasterSid : detail.DepartmentMasterSid || payload.DepartmentMasterSid,
                                     YearMasterSid : detail.YearMasterSid || payload.YearMasterSid,
                                     CreatedBy: payload.CreatedBy || 'System',
                                     SourceDetailSid : detail.SourceDetailSid,
+                                    Narration : detail.Narration,
+                                    BookingRatesSid : detail.BookingRatesSid,
                                     CostRevenueChargesSid : detail.CostRevenueChargesSid,
                                     Status: 'A'
                                 }
@@ -231,10 +237,12 @@ export class VendorCreditNoteService {
                         }, tx );
 
                         if(postResult && payload.IsFullyReversed) {
+                            const isBookingScreen = !!voucherHeader.BookingHeaderSid && !voucherHeader.HouseJobSid;
                             await this.voucherService.handleFullVoucherReversal({
                                 VoucherHeaderSid : voucherHeader.VoucherHeaderSid,
                                 VoucherDetails : finalDetails,
-                                userEmail : payload.CreatedBy
+                                userEmail : payload.CreatedBy,
+                                isBookingScreen
                             }, 'cost', tx );
                         }
                     }
