@@ -1,6 +1,6 @@
-import { BadRequestException, Body, Controller, Delete, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Post, UnauthorizedException, UsePipes, ValidationPipe } from "@nestjs/common";
+import { BadRequestException, Body, Controller, Delete, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Post, Query, UnauthorizedException, UsePipes, ValidationPipe } from "@nestjs/common";
 import { ApiCreatedResponse, ApiOperation } from "@nestjs/swagger";
-import { CheckAutoPostingDto, CreateVoucherPayload } from "src/accounts/dto/voucher.dto";
+import { CheckAutoPostingDto, CreateVoucherPayload, DeleteVoucherPayload } from "src/accounts/dto/voucher.dto";
 import { ResponseData } from "src/common/response-data";
 import { VoucherService } from "src/operation/services/voucher/voucher.service";
 
@@ -231,6 +231,35 @@ export class VoucherController {
         return output;
     }
 
+
+    @ApiOperation({ summary : 'Delete Voucher'})
+    @ApiCreatedResponse({
+        description: 'Voucher has been deleted successfully',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Post('delete-voucher')
+    async deleteVoucher(
+        @Body() payload : DeleteVoucherPayload
+    ) {
+        let output = new ResponseData();
+        this.logger.log(`deleteVoucher request body: ${JSON.stringify(payload)}`);
+        try {
+            const result = await this.voucherService.deleteVoucher(payload);
+            this.logger.debug(`deleteVoucher result: ${JSON.stringify(result)}`);
+            output.data = result;
+            output.message = "Voucher has been deleted successfully";
+        } catch (error) {
+            this.logger.warn(`deleteVoucher error: ${JSON.stringify(error), error}`);
+            output.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                output.message = error.message;
+            } else {
+                output.message = error;
+            }
+        }
+        return output;
+    }
 
     @ApiOperation({ summary : 'Delete Voucher Detail By VoucherDetailSid'})
     @ApiCreatedResponse({

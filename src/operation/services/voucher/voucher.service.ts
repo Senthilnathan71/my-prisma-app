@@ -6,7 +6,7 @@ import { PostVoucherResponseDto, TaxSummaryDto, VoucherDetailDto } from 'src/acc
 import { checkIfExJvApplicable, checkIfMatchingApplicable, checkIfReversalApplicable, getPartyDrCr, getTaxInputOutput, getTaxLedger, TaxLedgerType, TaxVoucherType } from 'src/common/config/voucher-type.config';
 import { DatabaseService } from 'src/database/database.service';
 import * as moment from 'moment-timezone';
-import { CheckAutoPostingDto, CreateVoucherPayload } from 'src/accounts/dto/voucher.dto';
+import { CheckAutoPostingDto, CreateVoucherPayload, DeleteVoucherPayload } from 'src/accounts/dto/voucher.dto';
 import { roundAmount, toNumber } from 'src/common/helper';
 
 interface InvoiceHeaderDTO {
@@ -2569,6 +2569,41 @@ export class VoucherService {
         if (normalized.startsWith('D')) return 'D';
         if (normalized.startsWith('C')) return 'C';
         return drCr;
+    }
+
+    async deleteVoucher(payload: DeleteVoucherPayload) {
+        try {
+            const { VoucherHeaderSid, CompanyMasterSid, BranchMasterSid, UserEmail } = payload;
+            const result = await this._db.$transaction(async (prisma) => {
+                const existing = await prisma.voucherHeader.findUnique({
+                    where : { VoucherHeaderSid : VoucherHeaderSid }
+                });
+
+                if (!existing || existing.Status !== 'A') {
+                    throw new BadRequestException('Voucher is already deleted.');
+                }
+
+                const deletedVoucherHeader = await prisma.voucherHeader.update({
+                    where: { VoucherHeaderSid: VoucherHeaderSid },
+                    data: { Status: 'S' , UpdatedBy : UserEmail , UpdatedOn : new Date() }
+                });
+
+                // await prisma.voucherDetail.updateMany({
+                //     where: { VoucherHeaderSid: VoucherHeaderSid, Status: 'A' },
+                //     data: { Status: 'S' , UpdatedBy : UserEmail , UpdatedOn : new Date() }
+                // });
+
+                // await prisma.voucherOthers.updateMany({
+                //     where: { VoucherHeaderSid: VoucherHeaderSid, Status: 'A' },
+                //     data: { Status: 'S' , UpdatedBy : UserEmail , UpdatedOn : new Date() }
+                // });
+
+                return deletedVoucherHeader;
+            });
+            return result;
+        } catch (error) {
+            throw error;
+        }
     }
 
   async softDeleteVoucherDetail(VoucherDetailSid: number) {

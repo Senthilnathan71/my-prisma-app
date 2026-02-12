@@ -86,12 +86,29 @@ export class ReceiptService {
           ChargeDescription: txn.chargeDescription,
         }));
 
+        let result = invoices;
+
         // Filter out fully paid if requested
         if (!searchDto.IncludeFullyPaid) {
-          return invoices.filter((inv) => Math.abs(inv.OutstandingLocalAmount) > 0);  // No tolerance
+          result = result.filter((inv) => Math.abs(inv.OutstandingLocalAmount) > 0);
         }
 
-        return invoices;
+        // Filter by DrCr if provided
+        if (searchDto.DrCr) {
+          result = result.filter((inv) => inv.DrCr === searchDto.DrCr);
+        }
+
+        // Sort by VoucherDate ascending
+        result.sort((a, b) => new Date(a.VoucherDate).getTime() - new Date(b.VoucherDate).getTime());
+
+        // Apply pagination
+        if (searchDto.Skip !== undefined || searchDto.Take !== undefined) {
+          const skip = searchDto.Skip || 0;
+          const take = searchDto.Take || result.length;
+          result = result.slice(skip, skip + take);
+        }
+
+        return result;
       }
 
       // Advanced search by invoice number, house number, etc.

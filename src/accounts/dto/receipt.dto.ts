@@ -203,6 +203,18 @@ export class SearchOutstandingDto {
   @IsOptional()
   @IsBoolean()
   IncludeFullyPaid?: boolean; // Default: false
+
+  @IsOptional()
+  @IsNumber()
+  Skip?: number;
+
+  @IsOptional()
+  @IsNumber()
+  Take?: number;
+
+  @IsOptional()
+  @IsString()
+  DrCr?: string; // 'D' or 'C'
 }
 
 /**
