@@ -59,6 +59,7 @@ export class MawbStockService {
                   : new Date(),
                 StockStatus: 'Free',
                 AvailableStatus: 'Available',
+                Customer: payload.Customer,
                 Remarks: payload.Remarks || payload.Remarks || null,
                 createdBy: payload.createdBy,
                 updatedBy: payload.updatedBy,
@@ -273,7 +274,7 @@ export class MawbStockService {
                 status: 'A'
             },
             data: {
-                Agent: payload.customerId,
+                Customer: payload.customerId,
                 AvailableStatus: 'Allocated'
             }
         });
@@ -303,7 +304,7 @@ export class MawbStockService {
                 status: 'A'
             },
             data: {
-                Agent: null,
+                Customer: null,
                 AvailableStatus: 'Available',
                 updatedOn: new Date()
             }
@@ -346,7 +347,7 @@ export class MawbStockService {
                 AirwayBillType: 'Airline',
                 StockStatus: 'Free',
                 AvailableStatus: 'Allocated',
-                Agent: payload.customerId,
+                Customer: payload.customerId,
                 status: 'A'
             },
             orderBy: {
@@ -354,5 +355,49 @@ export class MawbStockService {
             }
         });
     }
+ async deallocateStockWithStatus(payload: {
+  stockIds: number[],
+  customerId: number,
+  companyId: number,
+  branchId: number,
+  stockStatus: string  
+}) {
+
+  if (!payload.stockIds?.length) {
+    throw new BadRequestException('No stock selected');
+  }
+
+  const updateData: any = {
+    updatedOn: new Date()
+  };
+
+  // 🔥 If VOID
+  if (payload.stockStatus === 'Void') {
+    updateData.StockStatus = 'Void';
+    updateData.AvailableStatus = 'Void';
+
+    
+  } else {
+
+    updateData.StockStatus = payload.stockStatus;
+    updateData.AvailableStatus = 'Available';
+
+    // Remove customer only for non-void
+    updateData.Customer = null;
+  }
+
+  return await this._db.mawbStock.updateMany({
+    where: {
+      MawbStockSid: { in: payload.stockIds },
+      CompanyMasterSid: payload.companyId,
+      BranchMasterSid: payload.branchId,
+      AirwayBillType: 'Airline',
+      AvailableStatus: 'Allocated',
+      Customer: payload.customerId,  // ✅ fixed
+      status: 'A'
+    },
+    data: updateData
+  });
+}
 
 }

@@ -38,7 +38,7 @@ export class VendorCreditNoteService {
                     // Get VoucherTypeMaster for "Vendor Credit Note"
                     const voucherTypeMaster = await tx.voucherTypeMaster.findFirst({
                         where: {
-                            DocumentTypeName: 'Vendor Credit Note',
+                            DocumentTypeCode: 'VRN',
                             CompanyMasterSid: payload.CompanyMasterSid,
                             BranchMasterSid: payload.BranchMasterSid,
                             status: 'A'
@@ -223,6 +223,7 @@ export class VendorCreditNoteService {
                             companyMasterSid : voucherHeader.CompanyMasterSid,
                             branchMasterSid : voucherHeader.BranchMasterSid,
                             yearMasterSid : payload.YearMasterSid,
+                            current_date : payload.current_date,
                             localCurrencyMasterSid : Number(payload?.PostingInfo?.LocalCurrencyMasterSid),
                             localCurrencyCode : String(payload?.PostingInfo?.LocalCurrencyCode),
                             postedBy : payload.CreatedBy,
@@ -243,7 +244,7 @@ export class VendorCreditNoteService {
                         ...voucherHeader,
                         VoucherDetail : finalDetails
                     };
-                });
+                },{timeout : 60000});
             } catch (error) {
                 this.logger.error(`Error creating vendor creditNote: ${error.message}`);
                 if (error instanceof BadRequestException) {
@@ -370,11 +371,7 @@ export class VendorCreditNoteService {
     
                 return vendorCreditNote;
             } catch (error) {
-                this.logger.error(`Error fetching vendor creditNote by ID: ${error.message}`);
-                if (error instanceof NotFoundException) {
-                    throw error;
-                }
-                throw new InternalServerErrorException('Failed to fetch vendor creditNote');
+                throw error;
             }
         }
 

@@ -639,10 +639,12 @@ export class ReverseVoucherService {
                         }
                     }
             
-                    async fetchVouchers(): Promise<any[]> {
+                    async fetchVouchers(CompanyMasterSid: number, BranchMasterSid: number): Promise<any[]> {
                     try {
                         const vouchers = await this._db.voucherHeader.findMany({
                             where: {
+                                CompanyMasterSid: CompanyMasterSid,
+                                BranchMasterSid: BranchMasterSid,
                                 voucherMatchings: {
                                     none: {} 
                                 },

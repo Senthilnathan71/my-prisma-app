@@ -668,7 +668,7 @@ export class AccountsReportsService {
       let totalOutstandingLocal = 0;
       let cumulativeTotal = 0;
       let localAmt =0;
-    
+      let oscurrenecyAmt = 0;
       const ageingSummary = {
         totalOutstanding: 0,
         bucket_0_30: 0,
@@ -762,6 +762,17 @@ export class AccountsReportsService {
         const signedOriginalLocal = sign * originalLocalAmount;
         const signedOutstandingCurrency = sign * outstandingCurrencyAmount;
         const signedOutstandingLocal = sign * outstandingLocalAmount;
+        let oscurramt = outstandingCurrencyAmount;
+        if (ledger?.LedgerType?.trim() === "Sy Cr") {
+          if (drCr === "C") oscurramt = +outstandingCurrencyAmount;
+          if (drCr === "D") oscurramt = -outstandingCurrencyAmount;
+        }
+        else if (ledger?.LedgerType?.trim() === "Sy Dr") {
+          if (drCr === "D") oscurramt = +outstandingCurrencyAmount;
+          if (drCr === "C") oscurramt = -outstandingCurrencyAmount;
+        }
+
+        oscurrenecyAmt += oscurramt;
 
         if (Math.abs(outstandingCurrencyAmount) > 0 || Math.abs(outstandingLocalAmount) > 0) {
           let ageingBucket = "";
@@ -785,18 +796,18 @@ export class AccountsReportsService {
             };
           }
 
-          currencyWiseSummary[currency].totalOutstanding += signedAmount;
+          currencyWiseSummary[currency].totalOutstanding += oscurramt;
 
           if (ageingDays <= 30)
-            currencyWiseSummary[currency].bucket_0_30 += signedAmount;
+            currencyWiseSummary[currency].bucket_0_30 += oscurramt;
           else if (ageingDays <= 60)
-            currencyWiseSummary[currency].bucket_31_60 += signedAmount;
+            currencyWiseSummary[currency].bucket_31_60 += oscurramt;
           else if (ageingDays <= 90)
-            currencyWiseSummary[currency].bucket_61_90 += signedAmount;
+            currencyWiseSummary[currency].bucket_61_90 += oscurramt;
           else if (ageingDays <= 120)
-            currencyWiseSummary[currency].bucket_91_120 += signedAmount;
+            currencyWiseSummary[currency].bucket_91_120 += oscurramt;
           else
-            currencyWiseSummary[currency].bucket_121_above += signedAmount;
+            currencyWiseSummary[currency].bucket_121_above += oscurramt;
 
           transactions.push({
             voucherTransactionSid: vt.VoucherTransactionSid,
@@ -1085,18 +1096,18 @@ export class AccountsReportsService {
             };
           }
 
-          ageingSummary.totalOutstanding += outstandingLocalAmount;
+          ageingSummary.totalOutstanding += outstandingCurrencyAmount;
 
           if (ageingDays <= 30)
-            ageingSummary.bucket_0_30 += outstandingLocalAmount;
+            ageingSummary.bucket_0_30 += outstandingCurrencyAmount;
           else if (ageingDays <= 60)
-            ageingSummary.bucket_31_60 += outstandingLocalAmount;
+            ageingSummary.bucket_31_60 += outstandingCurrencyAmount;
           else if (ageingDays <= 90)
-            ageingSummary.bucket_61_90 += outstandingLocalAmount;
+            ageingSummary.bucket_61_90 += outstandingCurrencyAmount;
           else if (ageingDays <= 120)
-            ageingSummary.bucket_91_120 += outstandingLocalAmount;
+            ageingSummary.bucket_91_120 += outstandingCurrencyAmount;
           else
-            ageingSummary.bucket_121_above += outstandingLocalAmount;
+            ageingSummary.bucket_121_above += outstandingCurrencyAmount;
 
           currencyWiseSummary[currency].totalOutstanding += signedAmount;
 
@@ -1248,6 +1259,41 @@ export class AccountsReportsService {
           userName: true
         }
       })
+      
+      const openingTransactions = await this._db.voucherTransaction.findMany({
+        where: {
+          CompanyMasterSid,
+          BranchMasterSid: { in: resolvedBranchIds },
+          VoucherDate: { lt: FromDate },
+          ...(coaMasterSid && { COAMasterSid: coaMasterSid }),
+          ...(ledgerMasterSid && { LedgerMasterSid: ledgerMasterSid }),
+          VoucherHeader: {
+            PostStatus: 'P',
+          },
+          Status: 'A',
+        },
+      });
+
+      let openingBalance = 0;
+
+      for (const vt of openingTransactions) {
+        // opening balance before take from date and  Amt 
+        const amt = toNumber(vt.Amount);
+        const drCr = vt.DrCr?.trim().toUpperCase();
+        let signedAmt = amt;
+        if (ledger?.LedgerType?.trim() === "Sy Cr") {
+          if (drCr === "D") signedAmt = -amt;
+          if (drCr === "C") signedAmt = +amt;
+        }
+
+        if (ledger?.LedgerType?.trim() === "Sy Dr") {
+          if (drCr === "C") signedAmt = -amt;
+          if (drCr === "D") signedAmt = +amt;
+        }
+        openingBalance += signedAmt;
+      }
+
+      openingBalance = roundAmount(openingBalance, 2);
 
       const voucherTransactions = await this._db.voucherTransaction.findMany({
         where: {
@@ -1309,7 +1355,7 @@ export class AccountsReportsService {
       const transactions: any[] = [];
       let totalOutstandingCurrency = 0;
       let totalOutstandingLocal = 0;
-
+      let cumulativeTotal = 0;
       for (const vt of voucherTransactions) {
         const originalCurrencyAmount = toNumber(vt.Amount);
         const originalLocalAmount = toNumber(vt.LocalAmount);
@@ -1317,6 +1363,7 @@ export class AccountsReportsService {
         // Sum matched amounts for this transaction
         let matchedCurrencyAmount = 0;
         let matchedLocalAmount = 0;
+        
 
         if (vt.voucherMatchings && vt.voucherMatchings.length > 0) {
           matchedCurrencyAmount = vt.voucherMatchings.reduce(
@@ -1334,7 +1381,34 @@ export class AccountsReportsService {
           2,
         );
         const outstandingLocalAmount = roundAmount(originalLocalAmount - matchedLocalAmount, 2);
+        const ledgerType = ledger?.LedgerType?.trim();
+        const drCrValue = vt.DrCr?.trim().toUpperCase();
 
+        const drCr = vt.DrCr?.toUpperCase();
+        let signedAmount = outstandingLocalAmount;
+        if (ledger?.LedgerType?.trim() === "Sy Cr") {
+          if (drCr === "C") signedAmount = +outstandingLocalAmount;
+          if (drCr === "D") signedAmount = -outstandingLocalAmount;
+        }
+        else if (ledger?.LedgerType?.trim() === "Sy Dr") {
+          if (drCr === "D") signedAmount = +outstandingLocalAmount;
+          if (drCr === "C") signedAmount = -outstandingLocalAmount;
+        }
+
+        cumulativeTotal += signedAmount;
+        cumulativeTotal = roundAmount(cumulativeTotal, 2);
+        
+        let sign = 1;
+        if (
+          (ledgerType === "Sy Cr" && drCrValue === "D") ||
+          (ledgerType === "Sy Dr" && drCrValue === "C")
+        ) {
+          sign = -1;
+        }
+        const signedOriginalCurrency = sign * originalCurrencyAmount;
+        const signedOutstandingCurrency = sign * outstandingCurrencyAmount;
+        const signedLocalAmt = sign * originalLocalAmount;
+        const signedoutstandingLocalAmount = sign * outstandingLocalAmount;
         // Calculate exchange rate
         const exchangeRate = originalCurrencyAmount !== 0
           ? roundAmount(originalLocalAmount / originalCurrencyAmount, 4)
@@ -1370,7 +1444,14 @@ export class AccountsReportsService {
               ? vt.departmentMaster.departmentName
               : null,
           salesmanSid: userMaster.find(u => u.UserMasterSid === vt.houseJob?.SalesmanSid)?.userName || '',
-          naration: vt.Narration
+          naration: vt.Narration,
+          // currency amt
+          signedOriginalCurrency:toNumber(signedOriginalCurrency),
+          signedOutstandingCurrency:toNumber(signedOutstandingCurrency),
+          // local amt
+          signedLocalAmt:toNumber(signedLocalAmt),
+          signedoutstandingLocalAmount:toNumber(signedoutstandingLocalAmount),
+          cumulativeOutstanding: cumulativeTotal,
         });
 
         totalOutstandingCurrency += outstandingCurrencyAmount;
@@ -1384,8 +1465,10 @@ export class AccountsReportsService {
         ledgerMasterSid: ledgerMasterSid!,
         subledgerName: subledger?.SubledgerName,
         ledgerName: ledger?.LedgerName,
+        ledgerType:ledger?.LedgerType,
         totalOutstandingCurrency: roundAmount(totalOutstandingCurrency, 2),
         totalOutstandingLocal: roundAmount(totalOutstandingLocal, 2),
+        openingBalance:openingBalance,
         voucherCount: transactions.length,
         transactions: transactions,
         branchNames: resolvedBranchNames.join(', '),
@@ -1747,6 +1830,54 @@ export class AccountsReportsService {
         }
       })
 
+      const voucherTypeMaster = voucherType
+        ? await this._db.voucherTypeMaster.findUnique({
+          where: { VoucherTypeMasterSid: Number(voucherType) },
+          select: {
+            VoucherTypeMasterSid: true,
+            DocumentTypeCode: true,
+          },
+        })
+        : null;
+
+      const openingTransactions = await this._db.voucherTransaction.findMany({
+        where: {
+          CompanyMasterSid,
+          BranchMasterSid: { in: resolvedBranchIds },
+          VoucherDate: { lt: FromDate },
+          ...(coaMasterSid && { COAMasterSid: coaMasterSid }),
+          ...(ledgerMasterSid && { LedgerMasterSid: ledgerMasterSid }),
+          ...(voucherType && {
+            VoucherTypeMasterSid: Number(voucherType),
+          }),
+          VoucherHeader: {
+            PostStatus: 'P',
+          },
+          Status: 'A',
+        },
+      });
+
+      let openingBalance = 0;
+
+      for (const vt of openingTransactions) {
+        // opening balance before take from date and  Amt 
+        const amt = toNumber(vt.Amount);
+        const drCr = vt.DrCr?.trim().toUpperCase();
+        let signedAmt = amt;
+        if (ledger?.LedgerType?.trim() === "Sy Cr") {
+          if (drCr === "D") signedAmt = -amt;
+          if (drCr === "C") signedAmt = +amt;
+        }
+
+        if (ledger?.LedgerType?.trim() === "Sy Dr") {
+          if (drCr === "C") signedAmt = -amt;
+          if (drCr === "D") signedAmt = +amt;
+        }
+        openingBalance += signedAmt;
+      }
+
+      openingBalance = roundAmount(openingBalance, 2);
+
 
       const voucherTransactions = await this._db.voucherTransaction.findMany({
         where: {
@@ -1758,7 +1889,9 @@ export class AccountsReportsService {
           ],
           ...(coaMasterSid && { COAMasterSid: coaMasterSid }),
           ...(ledgerMasterSid && { LedgerMasterSid: ledgerMasterSid }),
-          ...(voucherType && { VoucherTypeMasterSid: Number(voucherType) }),
+          ...(voucherType && {
+            VoucherTypeMasterSid: Number(voucherType),
+          }),
           VoucherHeader: {
             PostStatus: 'P'
           },
@@ -1810,7 +1943,7 @@ export class AccountsReportsService {
       const transactions: any[] = [];
       let totalOutstandingCurrency = 0;
       let totalOutstandingLocal = 0;
-
+      let cumulativeTotal = 0;
       for (const vt of voucherTransactions) {
         const originalCurrencyAmount = toNumber(vt.Amount);
         const originalLocalAmount = toNumber(vt.LocalAmount);
@@ -1835,6 +1968,34 @@ export class AccountsReportsService {
           2,
         );
         const outstandingLocalAmount = roundAmount(originalLocalAmount - matchedLocalAmount, 2);
+        const ledgerType = ledger?.LedgerType?.trim();
+        const drCrValue = vt.DrCr?.trim().toUpperCase();
+
+        const drCr = vt.DrCr?.toUpperCase();
+        let signedAmount = outstandingLocalAmount;
+        if (ledger?.LedgerType?.trim() === "Sy Cr") {
+          if (drCr === "C") signedAmount = +outstandingLocalAmount;
+          if (drCr === "D") signedAmount = -outstandingLocalAmount;
+        }
+        else if (ledger?.LedgerType?.trim() === "Sy Dr") {
+          if (drCr === "D") signedAmount = +outstandingLocalAmount;
+          if (drCr === "C") signedAmount = -outstandingLocalAmount;
+        }
+
+        cumulativeTotal += signedAmount;
+        cumulativeTotal = roundAmount(cumulativeTotal, 2);
+        
+        let sign = 1;
+        if (
+          (ledgerType === "Sy Cr" && drCrValue === "D") ||
+          (ledgerType === "Sy Dr" && drCrValue === "C")
+        ) {
+          sign = -1;
+        }
+        const signedOriginalCurrency = sign * originalCurrencyAmount;
+        const signedOutstandingCurrency = sign * outstandingCurrencyAmount;
+        const signedLocalAmt = sign * originalLocalAmount;
+        const signedoutstandingLocalAmount = sign * outstandingLocalAmount;
 
         // Calculate exchange rate
         const exchangeRate = originalCurrencyAmount !== 0
@@ -1871,12 +2032,17 @@ export class AccountsReportsService {
               ? vt.departmentMaster.departmentName
               : null,
           salesmanSid: userMaster.find(u => u.UserMasterSid === vt.houseJob?.SalesmanSid)?.userName || '',
-          naration: vt.Narration
+          naration: vt.Narration,
+          cumulativeOutstanding: cumulativeTotal,
+          signedOriginalCurrency:toNumber(signedOriginalCurrency),
+          signedOutstandingCurrency:toNumber(signedOutstandingCurrency),
+          signedLocalAmt:toNumber(signedLocalAmt),
+          signedoutstandingLocalAmount:toNumber(signedoutstandingLocalAmount),
         });
-
+        
         totalOutstandingCurrency += outstandingCurrencyAmount;
         totalOutstandingLocal += outstandingLocalAmount;
-
+        
       }
 
       const response = {
@@ -1886,11 +2052,14 @@ export class AccountsReportsService {
         ledgerMasterSid: ledgerMasterSid!,
         subledgerName: subledger?.SubledgerName,
         ledgerName: ledger?.LedgerName,
+        ledgerType:ledger?.LedgerType,
         totalOutstandingCurrency: roundAmount(totalOutstandingCurrency, 2),
         totalOutstandingLocal: roundAmount(totalOutstandingLocal, 2),
+        openingBalance: openingBalance,
         voucherCount: transactions.length,
         transactions: transactions,
         branchNames: resolvedBranchNames.join(', '),
+        voucherTypeName: voucherTypeMaster?.DocumentTypeCode || "All Vouchers",
         params: params,
       };
 
