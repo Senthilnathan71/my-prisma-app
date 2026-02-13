@@ -540,7 +540,7 @@ Debug.log('DEBUG - Processing voucher details:', payload.VoucherDetail.length, '
     },
     data: { Status: 'D' }
   });
-
+  const patchedCostRevenueIds: number[] = [];
   // 3️⃣ Create / Update details
   let sno = 1;
 
@@ -550,7 +550,9 @@ Debug.log('DEBUG - Processing voucher details:', payload.VoucherDetail.length, '
     const currencyMasterSid = detail.CurrencyMasterSid
       ? Number(detail.CurrencyMasterSid)
       : await this.getCurrencyMasterIdByCode(detail.CurrencyCode, prisma);
-
+if (detail.CostRevenueChargesSid) {
+            patchedCostRevenueIds.push(Number(detail.CostRevenueChargesSid));
+          }
     if (detail.VoucherDetailSid) {
       // -------------------------------
       // UPDATE EXISTING RECORD
@@ -641,7 +643,37 @@ Debug.log('DEBUG - Processing voucher details:', payload.VoucherDetail.length, '
       });
     }
   }
+
+        // 5️⃣ Update CostRevenueCharges if patched charges exist
+        if (patchedCostRevenueIds.length > 0) {
+          console.log('Updating CostRevenueCharges with IDs:', patchedCostRevenueIds);
+          
+          // Get VoucherTypeMaster for this voucher
+          const voucherTypeMaster = await prisma.voucherTypeMaster.findFirst({
+            where: {
+              VoucherTypeMasterSid: existingVoucher.VoucherTypeMasterSid
+            }
+          });
+
+          await prisma.costRevenueCharges.updateMany({
+            where: { 
+              CostRevenueChargesSid: { in: patchedCostRevenueIds }
+            },
+            data: {
+              RevenueVoucherHeaderSid: VoucherHeaderSid,
+              RevenueVoucherTypeMasterSid: voucherTypeMaster?.VoucherTypeMasterSid,
+              updatedOn: new Date(),
+              updatedBy: payload.UpdatedBy
+            }
+          });
+
+          console.log(`Updated ${patchedCostRevenueIds.length} CostRevenueCharges records`);
+        }
+      
+
 }
+
+
 
 
         // Update or create VoucherOthers
@@ -884,6 +916,15 @@ async getUninvoicedRevenueCharges(payload: {
             currencyName: true
           }
         },
+        // chargeSubledgerMaster:{
+          
+        //   select : {
+        //     SubledgerMasterSid : true,
+        //     SubledgerName : true,
+        //     CrCOAMasterSid: true,
+        //   }
+        // },
+       
         chargeMaster: {
           select: {
             ChargeMasterSid: true,
@@ -896,12 +937,14 @@ async getUninvoicedRevenueCharges(payload: {
               select: {
                 ChargeTaxMasterSid: true,
                 HSNCode: true,
+                HSSACMasterSid: true,
                 TaxRate: true,
                 TaxGroup: true
               }
             }
           }
         },
+        
         revenueChargeUOMMaster: {
           select: {
             UOMMasterSid: true,
