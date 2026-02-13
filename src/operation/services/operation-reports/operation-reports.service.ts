@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { DatabaseService } from 'src/database/database.service';
 import { ApprovalStatus, Prisma, PrismaClient } from '@prisma/client';
-import { BLIssueListReportQueryDto, ContainerKPIReportQueryDto, DestinationReportQueryDto, DOIssueListReportQueryDto, exportJobVolumeTEUReportQueryDto, houseJobLossReportQueryDto, lostCustomerReportQueryDto, NetworkReportQueryDto, profitabilityReportQueryDto, ProfitSummaryReportQueryDto, ShipmentDetailedSummaryReportQueryDto, ShipmentSummaryReportQueryDto, tradelaneProfitabilityReportQueryDto, unbilledcostReportQueryDto } from 'src/operation/DTO/operation-reports.dto';
+import { BLIssueListReportQueryDto, ContainerKPIReportQueryDto, DestinationReportQueryDto, DOIssueListReportQueryDto, exportJobVolumeTEUReportQueryDto, houseJobLossReportQueryDto, lostCustomerReportQueryDto, NetworkReportQueryDto, profitabilityReportQueryDto, ProfitSummaryReportQueryDto, ShipmentDetailedSummaryReportQueryDto, ShipmentSummaryReportQueryDto, tradelaneProfitabilityReportQueryDto, unbilledcostReportQueryDto, unbilledrevenueReportQueryDto } from 'src/operation/DTO/operation-reports.dto';
 import { toNumber } from 'src/common/helper';
 
 @Injectable()
@@ -1491,11 +1491,20 @@ const salesmanInvolved =
               Status: "A"
             },
             select: {
+              MBLNo:true,
               voyages: true,
               containers: true
             }
           },
-          bookingHeader: true,
+          bookingHeader: {
+            where:{
+              status:'A'
+            },
+            select:{
+              BookingDateTime:true,
+              BookingNo:true
+            }
+          },
           Products: {
             where: {
               status: "A"
@@ -1506,6 +1515,16 @@ const salesmanInvolved =
               Volume: true,
               GrossWeight: true,
               IsHaz: true,
+              masterJobContainer : {
+                select : {
+                  containerType : {
+                    select : {
+                      ContainerSize : true,
+                      ContainerName:true
+                    }
+                  }
+                }
+              }
             }
           },
           Cargo: true,
@@ -1563,26 +1582,31 @@ const salesmanInvolved =
           )
           .reduce((sum, cr) => sum + Number(cr.RevenueLocalAmount), 0);
 
-        const product = data.Products?.[0];
+        const product = data.Products;
+        const containerSid = product?.map(pr => pr.MasterJobContainerSid);
+        const containerInfo = product?.map(pr => pr.masterJobContainer?.containerType?.ContainerName).join(',');
+        const totalVolume = (data.Products || []).reduce((sum,p) => sum + toNumber(p.Volume), 0);
+        const totalGrossWeight = (data.Products || []).reduce((sum,p)=> sum + toNumber(p.GrossWeight),0);
+        const isHaz = (data.Products || []).some(p => p.IsHaz === 'Y');
+      
 
-        const masterContainerSid = data.masterJob?.containers?.[0]?.MasterJobContainerSid;
+        // const masterContainerSid = product?.MasterJobContainerSid;
+        // const masterContainerSid = data.masterJob?.containers?.[0]?.MasterJobContainerSid;
 
-        const containerInfo = (data.masterJob?.containers || [])
-          .filter(c => c.MasterJobContainerSid === masterContainerSid)
-          .map(c => {
-            const containerTypeId = c.ContainerType;
-            const typeInfo = containerTypeId != null
-              ? containerTypeMap.get(containerTypeId)
-              : null;
+        // const containerInfo = (data.masterJob?.containers || [])
+        //   .filter(c => c.MasterJobContainerSid === masterContainerSid)
+        //   .map(c => {
+        //     const containerTypeId = c.ContainerType;
+        //     const typeInfo = containerTypeId != null
+        //       ? containerTypeMap.get(containerTypeId)
+        //       : null;
 
-            return {
-              containerNumber: c.ContainerNumber,
-              containerName: typeInfo?.name || `Unknown(${containerTypeId})`,
-              containerSize: typeInfo?.size || '',
-            };
-          });
-
-
+        //     return {
+        //       containerNumber: c.ContainerNumber,
+        //       containerName: typeInfo?.name || `Unknown(${containerTypeId})`,
+        //       containerSize: typeInfo?.size || '',
+        //     };
+        //   });
 
         // Alternative: Use the map you created earlier
         // let containerName = '';
@@ -1616,9 +1640,9 @@ const salesmanInvolved =
         }
 
         return {
-          bookingNo: data?.BookingNo,
+          bookingNo: data?.bookingHeader?.BookingNo,
           vesselName: data?.VesselName,
-          MBL: data?.MBLNo,
+          MBL: data?.masterJob?.MBLNo,
           HBL: data?.HBLNo,
           shipmentType: data?.Cargo?.[0]?.ShipmentTerms,
           consigneeName: data?.ConsigneeName,
@@ -1629,15 +1653,15 @@ const salesmanInvolved =
           ETA: data?.ETA,
           ETD: data?.ETD,
           freightTerms: data?.FreightTerms,
-          bookingDate: data?.BookingDateTime,
-          containerNo: product?.ContainerNo,
+          bookingDate: data?.bookingHeader?.BookingDateTime,
+          containerNo: data?.Products.map(c=>c.ContainerNo).join(", "),
           containerInfo,
-          containerSid: product?.MasterJobContainerSid,
-          vol: product?.Volume,
-          weight: product?.GrossWeight,
+          containerSid: containerSid,
+          vol: totalVolume,
+          weight: totalGrossWeight,
           costRevenueCharges,
           freightRevenue,
-          dgDelaration: product?.IsHaz,
+          dgDelaration: isHaz,
           ATDPOL: data?.masterJob?.voyages?.[0]?.ATD,
           ATA: data?.masterJob?.voyages?.[0]?.ATA,
           dgAprrovelDate: data?.Others?.[0]?.DGConfirmationDate,
@@ -2262,15 +2286,15 @@ const salesmanInvolved =
   private async generateUnbilledCostReport(params: unbilledcostReportQueryDto) {
     const {
       companyId: CompanyMasterSid,
-      ToHblDt,
-      FromHblDt,
+      ToDt,
+      FromDt,
       Branch: branchId,
       Dept: deptId,
     } = params;
 
     try {
       this.logger.log(
-        `Getting UNBILLED House Job Cost/Revenue report for CompanySid=${CompanyMasterSid}, From=${FromHblDt}, To=${ToHblDt}`
+        `Getting UNBILLED House Job Cost/Revenue report for CompanySid=${CompanyMasterSid}, From=${FromDt}, To=${ToDt}`
       );
 
       const branches = branchId && branchId.length > 0
@@ -2285,8 +2309,7 @@ const salesmanInvolved =
 
       const resolvedBranchIds = branches.map(b => b.BranchMasterSid);
       const resolvedBranchNames = branches.map(b => b.branchName);
-      const branchInvoled = branchId && branchId.length > 0 ? branches.map(b=>b.branchName).join(', ') : 'All Branches'
-
+      const branchInvoled = branchId && branchId.length > 0 ? branches.map(b => b.branchName).join(', ') : 'All Branches'
 
       const departments = deptId && deptId.length > 0
         ? await this._db.departmentMaster.findMany({
@@ -2301,7 +2324,6 @@ const salesmanInvolved =
       const resolvedDeptIds = departments.map(d => d.DepartmentMasterSid);
       const resolvedDeptNames = departments.map(d => d.departmentName);
 
-      //  Connection Table
       const chargeMaster = await this._db.chargeMaster.findMany({
         select: { ChargeMasterSid: true, chargeName: true },
       });
@@ -2310,31 +2332,63 @@ const salesmanInvolved =
         select: { CustomerMasterSid: true, CustomerName: true },
       });
 
+      // master job
+      const masterJobs = await this._db.masterJob.findMany({
+        where: {
+          CompanyMasterSid,
+          BranchMasterSid: { in: resolvedBranchIds },
+          DepartmentMasterSid: { in: resolvedDeptIds },
+          AND: [
+            { MBLDate: { gte: new Date(FromDt) } },
+            { MBLDate: { lte: new Date(ToDt) } },
+          ],
+          Status: 'A',
+        },
+        include: {
+          houseJob: {
+            where: {
+              status: "A"
+            },
+            select: {
+              bookingHeader:
+              {
+                where: {
+                  status: "A"
+                },
+                select: {
+                  BookingHeaderSid: true,
+                  BookingDateTime: true,
+                  BookingNo: true,
+                  bookingRates: true
+                }
+              },
+              HouseJobSid: true,
+              HouseNo: true,
+              HBLNo: true,
+              HouseStatus: true,
+              FreightTerms: true,
+            }
+          }
+        },
+        orderBy: { MBLDate: 'asc' },
+      });
 
+      //  house data 
       const houseJobs = await this._db.houseJob.findMany({
         where: {
           CompanyMasterSid,
           BranchMasterSid: { in: resolvedBranchIds },
           DepartmentMasterSid: { in: resolvedDeptIds },
           AND: [
-            { HBLDate: { gte: new Date(FromHblDt) } },
-            { HBLDate: { lte: new Date(ToHblDt) } },
+            { HBLDate: { gte: new Date(FromDt) } },
+            { HBLDate: { lte: new Date(ToDt) } },
           ],
           status: 'A',
         },
-        select: {
-          HouseJobSid: true,
-          HouseNo: true,
-          HBLNo: true,
-          DepartmentMasterSid: true,
-          HouseStatus: true,
-          BookingNo: true,
-          FreightTerms: true,
-          BranchMasterSid: true,
-          Others: true,
-        },
         orderBy: { HBLDate: 'asc' },
+        include: { masterJob: true }
       });
+
 
       if (!houseJobs.length) {
         return {
@@ -2345,8 +2399,12 @@ const salesmanInvolved =
         };
       }
 
-      const houseJobIds = houseJobs.map(h => h.HouseJobSid);
-
+      const houseJobIds: number[] = [];
+      houseJobs.forEach(h => {
+        if (h.HouseJobSid) {
+          houseJobIds.push(h.HouseJobSid);
+        }
+      });
 
       const houseJobMenu = await this._db.menuMaster.findFirst({
         where: { MenuName: 'House Job' },
@@ -2364,7 +2422,6 @@ const salesmanInvolved =
           status: 'A',
           OR: [
             { CostVoucherHeaderSid: null },
-            { RevenueVoucherHeaderSid: null },
           ],
         },
       });
@@ -2377,8 +2434,68 @@ const salesmanInvolved =
         houseRateMap.get(cr.TransactionSid!)!.push(cr);
       });
 
+      // master cost and revenue part
+      const masterJobIds: number[] = [];
+      masterJobs.forEach(h => {
+        if (h.MasterJobSid) {
+          masterJobIds.push(h.MasterJobSid);
+        }
+      });
 
-      const data = houseJobs.map(house => {
+      const masterJobMenu = await this._db.menuMaster.findFirst({
+        where: { MenuName: 'Master Job' },
+        select: { MenuMasterSid: true },
+      });
+
+      if (!masterJobMenu) {
+        throw new BadRequestException('Master Job menu not found');
+      }
+
+      const allMasterCR = await this._db.costRevenueCharges.findMany({
+        where: {
+          MenuMasterSid: masterJobMenu.MenuMasterSid,
+          TransactionSid: { in: masterJobIds },
+          status: 'A',
+          OR: [
+            { CostVoucherHeaderSid: null },
+          ],
+        },
+      });
+
+      const masterRateMap = new Map<number, any[]>();
+      allMasterCR.forEach(cr => {
+        if (!masterRateMap.has(cr.TransactionSid!)) {
+          masterRateMap.set(cr.TransactionSid!, []);
+        }
+        masterRateMap.get(cr.TransactionSid!)!.push(cr);
+      });
+
+      //  Booking data
+      const allBookingCostWithUnbilledRates = await this._db.bookingHeader.findMany({
+        where: {
+          CompanyMasterSid: CompanyMasterSid,
+          BranchMasterSid: { in: resolvedBranchIds },
+          DepartmentMasterSid: { in: resolvedDeptIds },
+          AND: [
+            { BookingDateTime: { gte: new Date(FromDt) } },
+            { BookingDateTime: { lte: new Date(ToDt) } },
+          ],
+          status: 'A',
+        },
+        include: {
+          bookingRates: {
+            where: {
+              Status: 'A',
+              CostVoucherHeaderSid: null
+            }
+          }
+        },
+        orderBy: { BookingDateTime: 'asc' }
+      })
+
+      //  house job map function 
+      const housedata = houseJobs.map(house => {
+
         const houseDepartment =
           departments.find(d => d.DepartmentMasterSid === house.DepartmentMasterSid)
             ?.departmentName || '';
@@ -2391,59 +2508,138 @@ const salesmanInvolved =
           HouseJobSid: house.HouseJobSid,
           HouseNo: house.HouseNo,
           HBLNo: house.HBLNo,
+          MBLNo: house.masterJob?.MBLNo,
           houseDept: houseDepartment,
           houseStatus: house.HouseStatus,
           bookingNo: house.BookingNo,
           PPCC: house.FreightTerms,
           branchName:
-            branches.find(b => b.BranchMasterSid === house.BranchMasterSid)?.branchName || '',
-          costRevenueDetails: costRevenues.map(cr => ({
+            branches.find(b => b.BranchMasterSid === house.BranchMasterSid)
+              ?.branchName || '',
+
+          costRevenueDetails: costRevenues.length > 0 ? costRevenues.filter(cr => cr.CostRevenueChargesSid).map(cr => ({
+            CostRevenueChargesSid: cr.CostRevenueChargesSid,
             ChargeMasterSid: cr.ChargeMasterSid,
             chargeName:
-              chargeMaster.find(c => c.ChargeMasterSid === cr.ChargeMasterSid)?.chargeName || '',
+              chargeMaster.find(c => c.ChargeMasterSid === cr.ChargeMasterSid)
+                ?.chargeName || '',
             ChargeDescription: cr.ChargeDescription,
             CostLocalAmount: cr.CostLocalAmount,
-            RevenueLocalAmount: cr.RevenueLocalAmount,
             CostDrCr: cr.CostDrCr,
             CostAmount: cr.CostAmount,
-            RevenueDrCr: cr.RevenueDrCr,
             partyName:
               customerMaster.find(c => c.CustomerMasterSid === cr.CostAgentMasterSid)
                 ?.CustomerName || '',
-          })),
+          })) : []
         };
       });
 
+      //  master job map function 
+      const masterdata = masterJobs.map(m => {
+
+        const masterDept =
+          departments.find(d => d.DepartmentMasterSid === m.DepartmentMasterSid)
+            ?.departmentName || '';
+
+        const mastercostRevenues = (masterRateMap.get(m.MasterJobSid) || []).filter(
+          cr => cr.CostVoucherHeaderSid === null
+        );
+
+        return {
+          MasterJobSid: m.MasterJobSid,
+          masterDept: masterDept,
+          MBLNo: m.MBLNo,
+          branchName:
+            branches.find(b => b.BranchMasterSid === m.BranchMasterSid)
+              ?.branchName || '',
+          masterCrDetails: mastercostRevenues.length > 0 ? mastercostRevenues.filter(cr => cr.CostRevenueChargesSid).map(cr => ({
+            CostRevenueChargesSid: cr.CostRevenueChargesSid,
+            ChargeMasterSid: cr.ChargeMasterSid,
+            chargeName:
+              chargeMaster.find(c => c.ChargeMasterSid === cr.ChargeMasterSid)
+                ?.chargeName || '',
+            ChargeDescription: cr.ChargeDescription,
+            CostLocalAmount: cr.CostLocalAmount,
+            CostDrCr: cr.CostDrCr,
+            CostAmount: cr.CostAmount,
+            partyName:
+              customerMaster.find(c => c.CustomerMasterSid === cr.CostAgentMasterSid)
+                ?.CustomerName || '',
+          })) : []
+        };
+      })
+
+        const bookingRates = allBookingCostWithUnbilledRates
+        .filter(b => b.bookingRates && b.bookingRates.length > 0)
+        .flatMap(b => {
+
+          const bookingDept =
+            departments.find(d => d.DepartmentMasterSid === b.DepartmentMasterSid)
+              ?.departmentName || '';
+
+          return b.bookingRates.map(rate => ({
+            dept: bookingDept,
+            bookingNo: b.BookingNo,
+            HBLno: b.HBLNo,
+            FreightTerm: b.FreightTerms,
+
+            branchName:
+              branches.find(br => br.BranchMasterSid === b.BranchMasterSid)
+                ?.branchName || '',
+
+            BookingRatesSid: rate.BookingRatesSid,
+            ChargeMasterSid: rate.ChargeMasterSid,
+
+            chargeName:
+              chargeMaster.find(c => c.ChargeMasterSid === rate.ChargeMasterSid)
+                ?.chargeName || '',
+
+            ChargeDescription: rate.ChargeDescription,
+
+            CostLocalAmount: rate.CostLocalAmount,
+            CostDrCr: rate.CostDrCr,
+            CostAmount: rate.CostAmount,
+
+            partyName:
+              customerMaster.find(c => c.CustomerMasterSid === rate.CustomerMasterSid)
+                ?.CustomerName || '',
+          }));
+        });
+    
+      const fulldata = [
+        ...housedata,
+        ...masterdata,
+        ...bookingRates
+      ];
 
       return {
         companyMasterSid: CompanyMasterSid,
-        branchNames: resolvedBranchNames.join(', '),
         departmentNames: resolvedDeptNames.join(', '),
         params,
-        data,
+        data: fulldata,
         branchInvoled
       };
     } catch (error) {
       this.logger.error(
-        `Error generating UNBILLED house job report: ${error.message}`,
+        `Error generating UNBILLED Cost report: ${error.message}`,
         error.stack
       );
       throw error;
     }
   }
 
-  private async generateUnbilledRevenueReport(params: unbilledcostReportQueryDto) {
+  private async generateUnbilledRevenueReport(params: unbilledrevenueReportQueryDto) {
     const {
       companyId: CompanyMasterSid,
-      ToHblDt,
-      FromHblDt,
+      ToDt,
+      FromDt,
       Branch: branchId,
       Dept: deptId,
     } = params;
 
     try {
       this.logger.log(
-        `Getting UNBILLED Cost/Revenue report for CompanySid=${CompanyMasterSid}, From=${FromHblDt}, To=${ToHblDt}`
+        `Getting UNBILLED Revenue report for CompanySid=${CompanyMasterSid}, From=${FromDt}, To=${ToDt}`
       );
 
       const branches = branchId && branchId.length > 0
@@ -2458,7 +2654,7 @@ const salesmanInvolved =
 
       const resolvedBranchIds = branches.map(b => b.BranchMasterSid);
       const resolvedBranchNames = branches.map(b => b.branchName);
-      const branchInvoled = branchId && branchId.length > 0 ? branches.map(b=>b.branchName).join(', ') : 'All Branches'
+      const branchInvoled = branchId && branchId.length > 0 ? branches.map(b => b.branchName).join(', ') : 'All Branches'
 
       const departments = deptId && deptId.length > 0
         ? await this._db.departmentMaster.findMany({
@@ -2483,28 +2679,64 @@ const salesmanInvolved =
       })
 
 
+      // master job
+      const masterJobs = await this._db.masterJob.findMany({
+        where: {
+          CompanyMasterSid,
+          BranchMasterSid: { in: resolvedBranchIds },
+          DepartmentMasterSid: { in: resolvedDeptIds },
+          AND: [
+            { MBLDate: { gte: new Date(FromDt) } },
+            { MBLDate: { lte: new Date(ToDt) } },
+          ],
+          Status: 'A',
+        },
+        include: {
+          houseJob: {
+            where: {
+              status: "A"
+            },
+            select: {
+              bookingHeader:
+              {
+                where: {
+                  status: "A"
+                },
+                select: {
+                  BookingHeaderSid: true,
+                  BookingDateTime: true,
+                  BookingNo: true,
+                  bookingRates: true
+                }
+              },
+              HouseJobSid: true,
+              HouseNo: true,
+              HBLNo: true,
+              HouseStatus: true,
+              FreightTerms: true,
+            }
+          }
+        },
+        orderBy: { MBLDate: 'asc' },
+      });
       const houseJobs = await this._db.houseJob.findMany({
         where: {
           CompanyMasterSid,
 
           AND: [
-            { HBLDate: { gte: new Date(FromHblDt) } },
-            { HBLDate: { lte: new Date(ToHblDt) } },
+            { HBLDate: { gte: new Date(FromDt) } },
+            { HBLDate: { lte: new Date(ToDt) } },
           ],
           status: 'A',
           BranchMasterSid: { in: resolvedBranchIds },
           DepartmentMasterSid: { in: resolvedDeptIds },
         },
-        select: {
-          HouseJobSid: true,
-          HouseNo: true,
-          HBLNo: true,
-          DepartmentMasterSid: true,
-          HouseStatus: true,
-          BookingNo: true,
-          FreightTerms: true,
-          BranchMasterSid: true,
-          Others: true
+        include: {
+          masterJob: {
+            where: {
+              Status: "A"
+            }
+          }
         },
         orderBy: { HBLDate: 'asc' },
       });
@@ -2517,7 +2749,12 @@ const salesmanInvolved =
         };
       }
 
-      const houseJobIds = houseJobs.map(h => h.HouseJobSid);
+      const houseJobIds: number[] = [];
+      houseJobs.forEach(h => {
+        if (h.HouseJobSid) {
+          houseJobIds.push(h.HouseJobSid);
+        }
+      });
 
 
       const houseJobMenu = await this._db.menuMaster.findFirst({
@@ -2536,24 +2773,8 @@ const salesmanInvolved =
           TransactionSid: { in: houseJobIds },
           status: 'A',
           OR: [
-            { CostVoucherHeaderSid: null },
             { RevenueVoucherHeaderSid: null },
           ],
-        },
-        select: {
-          TransactionSid: true,
-          CostLocalAmount: true,
-          RevenueLocalAmount: true,
-          ChargeDescription: true,
-          ChargeMasterSid: true,
-          CostAgentMasterSid: true,
-          RevenueCustomerMasterSid: true,
-          CostDrCr: true,
-          RevenueDrCr: true,
-          CostVoucherHeaderSid: true,
-          RevenueVoucherHeaderSid: true,
-          RevenueAmount: true,
-          CostAmount: true,
         },
       });
 
@@ -2567,51 +2788,190 @@ const salesmanInvolved =
       });
 
 
-      const data = houseJobs.map(house => {
+      // master cost and revenue part
+      const masterJobIds: number[] = [];
+      masterJobs.forEach(h => {
+        if (h.MasterJobSid) {
+          masterJobIds.push(h.MasterJobSid);
+        }
+      });
+
+      const masterJobMenu = await this._db.menuMaster.findFirst({
+        where: { MenuName: 'Master Job' },
+        select: { MenuMasterSid: true },
+      });
+
+      if (!masterJobMenu) {
+        throw new BadRequestException('Master Job menu not found');
+      }
+
+      const allMasterCR = await this._db.costRevenueCharges.findMany({
+        where: {
+          MenuMasterSid: masterJobMenu.MenuMasterSid,
+          TransactionSid: { in: masterJobIds },
+          status: 'A',
+          OR: [
+            { RevenueVoucherHeaderSid: null },
+          ],
+        },
+      });
+
+      const masterRateMap = new Map<number, any[]>();
+      allMasterCR.forEach(cr => {
+        if (!masterRateMap.has(cr.TransactionSid!)) {
+          masterRateMap.set(cr.TransactionSid!, []);
+        }
+        masterRateMap.get(cr.TransactionSid!)!.push(cr);
+      });
+
+      //  Booking data
+      const allBookingCostWithUnbilledRates = await this._db.bookingHeader.findMany({
+        where: {
+          CompanyMasterSid: CompanyMasterSid,
+          BranchMasterSid: { in: resolvedBranchIds },
+          DepartmentMasterSid: { in: resolvedDeptIds },
+          AND: [
+            { BookingDateTime: { gte: new Date(FromDt) } },
+            { BookingDateTime: { lte: new Date(ToDt) } },
+          ],
+          status: 'A',
+        },
+        include: {
+          bookingRates: {
+            where: {
+              Status: 'A',
+              RevenueVoucherHeaderSid: null
+            }
+          }
+        },
+        orderBy: { BookingDateTime: 'asc' }
+      })
+
+      //  house job map function 
+      const housedata = houseJobs.map(house => {
+
         const houseDepartment =
           departments.find(d => d.DepartmentMasterSid === house.DepartmentMasterSid)
             ?.departmentName || '';
 
-        const costRevenues = (houseRateMap.get(house.HouseJobSid) || []).filter(cr =>
-          cr.RevenueVoucherHeaderSid === null
+        const costRevenues = (houseRateMap.get(house.HouseJobSid) || []).filter(
+          cr => cr.CostVoucherHeaderSid === null
         );
-
 
         return {
           HouseJobSid: house.HouseJobSid,
           HouseNo: house.HouseNo,
           HBLNo: house.HBLNo,
+          MBLNo: house.masterJob?.MBLNo,
           houseDept: houseDepartment,
           houseStatus: house.HouseStatus,
           bookingNo: house.BookingNo,
           PPCC: house.FreightTerms,
-          branchName: branches.find(b => house.BranchMasterSid === b.BranchMasterSid)?.branchName || '',
-          costRevenueDetails: costRevenues.map(cr => ({
+          branchName:
+            branches.find(b => b.BranchMasterSid === house.BranchMasterSid)
+              ?.branchName || '',
+
+          costRevenueDetails: costRevenues.length > 0 ? costRevenues.filter(cr => cr.CostRevenueChargesSid).map(cr => ({
+            CostRevenueChargesSid: cr.CostRevenueChargesSid,
             ChargeMasterSid: cr.ChargeMasterSid,
             chargeName:
               chargeMaster.find(c => c.ChargeMasterSid === cr.ChargeMasterSid)
                 ?.chargeName || '',
             ChargeDescription: cr.ChargeDescription,
-            RevenueLocalAmount: cr.RevenueVoucherHeaderSid === null ? cr.RevenueLocalAmount : 0,
+            RevenueLocalAmt: cr.RevenueLocalAmount,
             RevenueDrCr: cr.RevenueDrCr,
             RevenueAmount: cr.RevenueAmount,
-            partyName: customerMaster.find(c => c.CustomerMasterSid === cr.RevenueCustomerMasterSid)?.CustomerName || '',
-            RevenueCustomerMasterSid: cr.RevenueCustomerMasterSid,
-            RevenueVoucherHeaderSid: cr.RevenueVoucherHeaderSid,
-            CostAmount: cr.CostAmount,
-          })),
-
-
+            partyName:
+              customerMaster.find(c => c.CustomerMasterSid === cr.RevenueCustomerMasterSid)
+                ?.CustomerName || '',
+          })) : []
         };
       });
 
+      //  master job map function 
+      const masterdata = masterJobs.map(m => {
+
+        const masterDept =
+          departments.find(d => d.DepartmentMasterSid === m.DepartmentMasterSid)
+            ?.departmentName || '';
+
+        const mastercostRevenues = (masterRateMap.get(m.MasterJobSid) || []).filter(
+          cr => cr.CostVoucherHeaderSid === null
+        );
+
+        return {
+          MasterJobSid: m.MasterJobSid,
+          masterDept: masterDept,
+          MBLNo: m.MBLNo,
+          branchName:
+            branches.find(b => b.BranchMasterSid === m.BranchMasterSid)
+              ?.branchName || '',
+          masterCrDetails: mastercostRevenues.length > 0 ? mastercostRevenues.filter(cr => cr.CostRevenueChargesSid).map(cr => ({
+            CostRevenueChargesSid: cr.CostRevenueChargesSid,
+            ChargeMasterSid: cr.ChargeMasterSid,
+            chargeName:
+              chargeMaster.find(c => c.ChargeMasterSid === cr.ChargeMasterSid)
+                ?.chargeName || '',
+            ChargeDescription: cr.ChargeDescription,
+            RevenueLocalAmt: cr.RevenueLocalAmount,
+            RevenueDrCr: cr.RevenueDrCr,
+            RevenueAmount: cr.RevenueAmount,
+            partyName:
+              customerMaster.find(c => c.CustomerMasterSid === cr.RevenueCustomerMasterSid)
+                ?.CustomerName || '',
+          })) : []
+        };
+      })
+
+      const bookingRates = allBookingCostWithUnbilledRates
+        .filter(b => b.bookingRates && b.bookingRates.length > 0)
+        .flatMap(b => {
+
+          const bookingDept =
+            departments.find(d => d.DepartmentMasterSid === b.DepartmentMasterSid)
+              ?.departmentName || '';
+
+          return b.bookingRates.map(rate => ({
+            dept: bookingDept,
+            bookingNo: b.BookingNo,
+            HBLno: b.HBLNo,
+            FreightTerm: b.FreightTerms,
+
+            branchName:
+              branches.find(br => br.BranchMasterSid === b.BranchMasterSid)
+                ?.branchName || '',
+
+            BookingRatesSid: rate.BookingRatesSid,
+            ChargeMasterSid: rate.ChargeMasterSid,
+
+            chargeName:
+              chargeMaster.find(c => c.ChargeMasterSid === rate.ChargeMasterSid)
+                ?.chargeName || '',
+
+            ChargeDescription: rate.ChargeDescription,
+
+            RevenueLocalAmount: rate.RevenueLocalAmount,
+            ReveuneDrCr: rate.RevenueDrCr,
+            RevenueAmount: rate.RevenueAmount,
+
+            partyName:
+              customerMaster.find(c => c.CustomerMasterSid === rate.CustomerMasterSid)
+                ?.CustomerName || '',
+          }));
+        });
+
+      const fulldata = [
+        ...housedata,
+        ...masterdata,
+        ...bookingRates
+      ];
       return {
         companyMasterSid: CompanyMasterSid,
         branchMasterSid: branchId,
         branchNames: resolvedBranchNames.join(', '),
         departmentNames: resolvedDeptNames.join(', '),
         params,
-        data,
+        data:fulldata,
         branchInvoled
       };
 
@@ -2809,6 +3169,7 @@ const salesmanInvolved =
           GP: totalGP,
         };
 
+       
         return {
           HouseJobSid: house.HouseJobSid,
           HouseNo: house.masterJob?.MasterJobNumber,
@@ -2826,7 +3187,10 @@ const salesmanInvolved =
           jobNo: house.masterJob?.MasterJobNumber,
           costRevenueDetails: costRevenueDetails
         };
-      });
+       
+      }).filter(item => item.costRevenueDetails.GP < 0);
+
+      
 
       return {
         companyMasterSid: CompanyMasterSid,
@@ -5284,7 +5648,6 @@ const salesmanInvolved =
         podCode = podRow?.PortCode;
       }
 
-
       const branches = await this._db.branchMaster.findMany({
         where: { CompanyMasterSid },
         select: {
@@ -5299,11 +5662,6 @@ const salesmanInvolved =
       const whereCondition: any = {
         CompanyMasterSid,
         BranchMasterSid: { in: resolvedBranchIds },
-        AND: [
-          { BookingDateTime: { gte: FromDate } },
-          { BookingDateTime: { lte: ToDate } }
-        ],
-        status: 'A'
       };
 
       if (polCode) whereCondition.POL = polCode;
@@ -5311,39 +5669,228 @@ const salesmanInvolved =
 
 
       const bookingData = await this._db.bookingHeader.findMany({
-        where: whereCondition,
+        where: {
+          ...whereCondition,
+          status: 'A',
+          AND: [
+            { BookingDateTime: { gte: FromDate } },
+            { BookingDateTime: { lte: ToDate } }
+          ]
+        },
         include: {
           bookingCargo: true,
-          bookingRates: true
+          bookingRates: {
+            where:{
+              Status:'A'
+            }
+          }
+        },
+        orderBy: { BookingDateTime: 'asc' }
+      })
+
+      const houseJob = await this._db.houseJob.findMany({
+        where: {
+          ...whereCondition,
+          AND: [
+            { HBLDate: { gte: FromDate } },
+            { HBLDate: { lte: ToDate } }
+          ],
+          status: 'A'
+        },
+        include: {
+          Cargo: true
+        },
+        orderBy: {
+          HBLDate: 'asc'
         }
       })
 
+      const houseJobIds: number[] = [];
+      houseJob.forEach(h => {
+        if (h.HouseJobSid) {
+          houseJobIds.push(h.HouseJobSid);
+        }
+      });
+
+      const houseJobMenu = await this._db.menuMaster.findFirst({
+        where: { MenuName: 'House Job' , status:"A"},
+        select: { MenuMasterSid: true },
+      });
+
+      if (!houseJobMenu) {
+        throw new BadRequestException('House Job menu not found');
+      }
+
+      const allHouseCR = await this._db.costRevenueCharges.findMany({
+        where: {
+          MenuMasterSid: houseJobMenu.MenuMasterSid,
+          TransactionSid: { in: houseJobIds },
+          status: 'A',
+        },
+      });
+
+      const houseRateMap = new Map<number, any[]>();
+      allHouseCR.forEach(cr => {
+        if (!houseRateMap.has(cr.TransactionSid!)) {
+          houseRateMap.set(cr.TransactionSid!, []);
+        }
+        houseRateMap.get(cr.TransactionSid!)!.push(cr);
+      });
+
+      //  master job 
+      const masterJob = await this._db.masterJob.findMany({
+        where: {
+          ...whereCondition,
+          AND: [
+            { MBLDate: { gte: FromDate } },
+            { MBLDate: { lte: ToDate } }
+          ],
+          Status: 'A'
+        },
+        include:{
+          containers:true
+        },
+        orderBy: {
+          MBLDate: 'asc'
+        }
+      });
+
+      const masterJobIds: number[] = [];
+      masterJob.forEach(h => {
+        if (h.MasterJobSid) {
+          masterJobIds.push(h.MasterJobSid);
+        }
+      });
+
+      const masterJobMenu = await this._db.menuMaster.findFirst({
+        where: { MenuName: 'Master Job', status:'A' },
+        select: { MenuMasterSid: true },
+      });
+
+      if (!masterJobMenu) {
+        throw new BadRequestException('Master Job menu not found');
+      }
+
+      const allMasterCR = await this._db.costRevenueCharges.findMany({
+        where: {
+          MenuMasterSid: masterJobMenu.MenuMasterSid,
+          TransactionSid: { in: masterJobIds },
+          status: 'A',
+        },
+      });
+
+      const masterRateMap = new Map<number, any[]>();
+      allMasterCR.forEach(cr => {
+        if (!masterRateMap.has(cr.TransactionSid!)) {
+          masterRateMap.set(cr.TransactionSid!, []);
+        }
+        masterRateMap.get(cr.TransactionSid!)!.push(cr);
+      });
+
+      const AllMasterJob = masterJob.map(m => {
+        const crList = masterRateMap.get(m.MasterJobSid) || [];
+        const revenue = crList.reduce(
+          (sum, r) => sum + Number(r.RevenueLocalAmount || 0),
+          0
+        );
+        const cost = crList.reduce(
+          (sum, r) => sum + Number(r.CostLocalAmount || 0),
+          0
+        );
+        return {
+          screen: "Master Job",
+          jobNo: m.MasterJobNumber,
+          MBLNo: m.MBLNo,
+          POL: m.POL,
+          POD: m.POD,
+          grossWt: m.GrossWeight,
+          netWt: m.NetWeight,
+          vol: m.Volume,
+          revenueLocalAmt: revenue,
+          costLocalAmt: cost,
+          profit: revenue - cost
+        };
+      });
+
+      const AllHouseJob = houseJob.map(h => {
+        const crList = houseRateMap.get(h.HouseJobSid) || [];
+
+        const revenue = crList.reduce(
+          (sum, r) => sum + Number(r.RevenueLocalAmount || 0),
+          0
+        );
+
+        const cost = crList.reduce(
+          (sum, r) => sum + Number(r.CostLocalAmount || 0),
+          0
+        );
+
+        const grossweight = h.Cargo.reduce((sum, c) => sum + toNumber(c.GrossWeight), 0)
+        const netwt = h.Cargo.reduce((sum, c) => sum + toNumber(c.NetWeight), 0);
+        const vol = h.Cargo.reduce((sum, c) => sum + toNumber(c.Volume), 0)
+        return {
+          HBLNo: h.HBLNo,
+          POL: h.POL,
+          POD: h.POD,
+          grossWt: grossweight,
+          netWt: netwt,
+          vol: vol,
+          revenueLocalAmt: revenue,
+          costLocalAmt: cost,
+          profit: revenue - cost
+        };
+      });
+
       const AllBooking = bookingData.map(b => {
-        const revenue = b.bookingRates?.[0]?.RevenueLocalAmount
-        const cost = b.bookingRates?.[0]?.CostLocalAmount
+        const grossWt = b.bookingCargo?.reduce((sum, c) => sum + Number(c.GrossWeight || 0), 0) || 0;
+        const netWt = b.bookingCargo?.reduce((sum, c) => sum + Number(c.NetWeight || 0), 0) || 0;
+        const vol = b.bookingCargo?.reduce((sum, c) => sum + Number(c.Volume || 0), 0) || 0;
+
+        const revenue = (b.bookingRates || []).reduce((sum, r) => sum + Number(r.RevenueLocalAmount || 0), 0);
+        const cost = (b.bookingRates || []).reduce((sum, r) => sum + Number(r.CostLocalAmount || 0), 0);
+
         return {
           bookingNo: b.BookingNo,
           POL: b.POL,
           POD: b.POD,
-          grossWt: b.bookingCargo?.[0]?.GrossWeight,
-          netWt: b.bookingCargo?.[0]?.NetWeight,
-          vol: b.bookingCargo?.[0]?.Volume,
+          grossWt,
+          netWt,
+          vol,
           revenueLocalAmt: revenue,
           costLocalAmt: cost,
-          profit: Number(revenue) - Number(cost),
+          profit: revenue - cost
         }
-      })
+      });
 
       const routeMap = new Map<string, any>();
 
-      AllBooking.forEach(b => {
-        const routeKey = `${b.POL} - ${b.POD}`;
+      // --- Add Booking Data ---
+      AllBooking.forEach(item => {
+        const routeKey = `${item.POL} - ${item.POD}`;
 
         if (!routeMap.has(routeKey)) {
           routeMap.set(routeKey, {
             route: routeKey,
-            rows: [],
-            totals: {
+            bookingRows: [],
+            masterRows: [],
+            houseRows: [],
+            bookingTotals: {
+              revenue: 0,
+              cost: 0,
+              profit: 0,
+              grossWt: 0,
+              netWt: 0,
+              vol: 0,
+            },
+            masterTotals: {
+              revenue: 0,
+              cost: 0,
+              profit: 0,
+              grossWt: 0,
+              netWt: 0,
+              vol: 0,
+            },
+            houseTotals: {
               revenue: 0,
               cost: 0,
               profit: 0,
@@ -5354,25 +5901,85 @@ const salesmanInvolved =
           });
         }
 
-        const routeGroup = routeMap.get(routeKey);
+        const group = routeMap.get(routeKey);
 
-        routeGroup.rows.push(b);
+        // Ensure totals exist
+        group.bookingTotals ||= { revenue: 0, cost: 0, profit: 0, grossWt: 0, netWt: 0, vol: 0 };
 
-        routeGroup.totals.revenue += Number(b.revenueLocalAmt || 0);
-        routeGroup.totals.cost += Number(b.costLocalAmt || 0);
-        routeGroup.totals.profit += Number(b.profit || 0);
-        routeGroup.totals.grossWt += Number(b.grossWt || 0);
-        routeGroup.totals.netWt += Number(b.netWt || 0);
-        routeGroup.totals.vol += Number(b.vol || 0);
+        group.bookingRows.push(item);
+        group.bookingTotals.revenue += Number(item.revenueLocalAmt || 0);
+        group.bookingTotals.cost += Number(item.costLocalAmt || 0);
+        group.bookingTotals.profit += Number(item.profit || 0);
+        group.bookingTotals.grossWt += Number(item.grossWt || 0);
+        group.bookingTotals.netWt += Number(item.netWt || 0);
+        group.bookingTotals.vol += Number(item.vol || 0);
       });
 
+      // --- Add Master Job Data ---
+      AllMasterJob.forEach(item => {
+        const routeKey = `${item.POL} - ${item.POD}`;
+
+        if (!routeMap.has(routeKey)) {
+          routeMap.set(routeKey, {
+            route: routeKey,
+            bookingRows: [],
+            masterRows: [],
+            houseRows: [],
+            bookingTotals: { revenue: 0, cost: 0, profit: 0, grossWt: 0, netWt: 0, vol: 0 },
+            masterTotals: { revenue: 0, cost: 0, profit: 0, grossWt: 0, netWt: 0, vol: 0 },
+            houseTotals: { revenue: 0, cost: 0, profit: 0, grossWt: 0, netWt: 0, vol: 0 }
+          });
+        }
+
+        const group = routeMap.get(routeKey);
+
+        // Ensure masterTotals exists
+        group.masterTotals ||= { revenue: 0, cost: 0, profit: 0, grossWt: 0, netWt: 0, vol: 0 };
+
+        group.masterRows.push(item);
+        group.masterTotals.revenue += Number(item.revenueLocalAmt || 0);
+        group.masterTotals.cost += Number(item.costLocalAmt || 0);
+        group.masterTotals.profit += Number(item.profit || 0);
+        group.masterTotals.grossWt += Number(item.grossWt || 0);
+        group.masterTotals.netWt += Number(item.netWt || 0);
+        group.masterTotals.vol += Number(item.vol || 0);
+      });
+
+      // --- Add House Job Data ---
+      AllHouseJob.forEach(item => {
+        const routeKey = `${item.POL} - ${item.POD}`;
+
+        if (!routeMap.has(routeKey)) {
+          routeMap.set(routeKey, {
+            route: routeKey,
+            bookingRows: [],
+            masterRows: [],
+            houseRows: [],
+            bookingTotals: { revenue: 0, cost: 0, profit: 0, grossWt: 0, netWt: 0, vol: 0 },
+            masterTotals: { revenue: 0, cost: 0, profit: 0, grossWt: 0, netWt: 0, vol: 0 },
+            houseTotals: { revenue: 0, cost: 0, profit: 0, grossWt: 0, netWt: 0, vol: 0 }
+          });
+        }
+
+        const group = routeMap.get(routeKey);
+
+        // Ensure houseTotals exists
+        group.houseTotals ||= { revenue: 0, cost: 0, profit: 0, grossWt: 0, netWt: 0, vol: 0 };
+
+        group.houseRows.push(item);
+        group.houseTotals.revenue += Number(item.revenueLocalAmt || 0);
+        group.houseTotals.cost += Number(item.costLocalAmt || 0);
+        group.houseTotals.profit += Number(item.profit || 0);
+        group.houseTotals.grossWt += Number(item.grossWt || 0);
+        group.houseTotals.netWt += Number(item.netWt || 0);
+        group.houseTotals.vol += Number(item.vol || 0);
+      });
+
+
+      // Final Output
       const groupedRoutes = Array.from(routeMap.values());
-
-
       const displayPOL = polCode ?? 'All';
       const displayPOD = podCode ?? 'All';
-
-
       return {
         params,
         resolvedBranchNames,
