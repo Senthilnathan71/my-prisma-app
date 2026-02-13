@@ -87,7 +87,7 @@ export class ServiceJobService {
                 throw new BadRequestException('Department not found.');
             }
 
-            const masterJobMenuId = await this.menuService.getMenuSidByName(department.departmentType?.toUpperCase() === 'AIR' ? "Master Air Waybill" : "Master Job");
+            const masterJobMenuId = await this.menuService.getMenuSidByName("Service Job");
             const dateString = moment().format('YYYYMMDD');
             const masterCount = await prisma.masterJob.count({
                     where: { MasterJobNumber: { contains: dateString } }
@@ -615,6 +615,8 @@ if (houseJobOthers && Object.keys(houseJobOthers).length > 0) {
                             select: { departmentName: true },
                         },
                         HBLNo: true,
+                        MBLNo: true,       
+                        MBLDate: true,
                         ShipmentNo: true,
                         POL: true,
                         POD: true,

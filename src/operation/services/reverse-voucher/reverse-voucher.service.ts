@@ -651,7 +651,18 @@ export class ReverseVoucherService {
                                 Status: 'A',
                                 PostStatus: 'P',
                                 VoucherDetail: {}
+
                             },
+                            include: {
+                               voucherTypeMaster: {
+                                select: {
+                                    VoucherTypeMasterSid: true,
+                                    DocumentTypeCode: true
+                                 }
+                              }
+                           }
+        
+
                         });
             
                         return vouchers;
