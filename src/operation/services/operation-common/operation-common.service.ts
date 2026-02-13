@@ -356,6 +356,9 @@ export class OperationCommonService {
                             VoucherTypeMasterSid: true
                         }
                     }
+                },
+                orderBy : {
+                    SerialNumber : 'asc'
                 }
             });
 

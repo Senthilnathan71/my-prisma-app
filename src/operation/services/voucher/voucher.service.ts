@@ -1987,6 +1987,7 @@ export class VoucherService {
                 // Adjust amounts for matching
                 partyDtlInInvTrans.PartyAmount = new Decimal(billMatchingCurrencyAmount);
                 partyDtlInInvTrans.LocalAmount = new Decimal(billMatchingLocalAmount);
+                partyDtlInInvTrans['VoucherType'] = partyDetailInInv?.VoucherTypeMasterSid;
 
                 const matchingRecords = await this.createVoucherMatching({
                     CompanyMasterSid: payload.companyMasterSid,
@@ -2739,7 +2740,7 @@ export class VoucherService {
     }
 
     async handleFullVoucherReversal(
-        payload: { VoucherHeaderSid: number, VoucherDetails: VoucherDetail[] , userEmail : string },
+        payload: { VoucherHeaderSid: number, VoucherDetails: VoucherDetail[] , userEmail : string , isBookingScreen : boolean},
         revenueOrCost : 'revenue' | 'cost',
         txn : Prisma.TransactionClient
     ) {
@@ -2747,37 +2748,63 @@ export class VoucherService {
             if(!revenueOrCost){
                 throw new BadRequestException('Revenue or cost is required');
             }
-
-            
             const prisma = txn || this._db;
             const { VoucherHeaderSid, VoucherDetails , userEmail } = payload;
-            const allCostRevenueChargesIds = VoucherDetails.map(d => d.CostRevenueChargesSid!).filter(Boolean);
-
-            const updateData = {
-                ...(revenueOrCost === 'revenue' ? 
-                    {
-                        RevenueVoucherHeaderSid : null,
-                        RevenueVoucherTypeMasterSid : null,
-                        updatedOn : new Date(),
-                        updatedBy : userEmail,
-                    } : 
-                    {
-                        CostVoucherHeaderSid : null,
-                        CostVoucherTypeMasterSid : null,
-                        updatedOn : new Date(),
-                        updatedBy : userEmail,
-                    }
-                )
+            console.log("isBookingScreen",payload.isBookingScreen);
+            if(payload.isBookingScreen){
+                const allBookingRatesIds = VoucherDetails.map(d => d.BookingRatesSid!).filter(Boolean);
+                const updateData = {
+                    ...(revenueOrCost === 'revenue' ? 
+                        {
+                            RevenueVoucherHeaderSid : null,
+                            RevenueVoucherTypeMasterSid : null,
+                            UpdatedOn : new Date(),
+                            UpdatedBy : userEmail,
+                        } : 
+                        {
+                            CostVoucherHeaderSid : null,
+                            CostVoucherTypeMasterSid : null,
+                            updatedOn : new Date(),
+                            updatedBy : userEmail,
+                        }
+                    )
+                }
+                console.log('UPDATE PAYLOAD',updateData);
+                const updatedResults = await prisma.bookingRates.updateMany({
+                    where : {
+                        BookingRatesSid : { in : allBookingRatesIds },
+                    },
+                    data : updateData
+                })
+                return updatedResults;
+            } else {
+                const allCostRevenueChargesIds = VoucherDetails.map(d => d.CostRevenueChargesSid!).filter(Boolean);
+    
+                const updateData = {
+                    ...(revenueOrCost === 'revenue' ? 
+                        {
+                            RevenueVoucherHeaderSid : null,
+                            RevenueVoucherTypeMasterSid : null,
+                            updatedOn : new Date(),
+                            updatedBy : userEmail,
+                        } : 
+                        {
+                            CostVoucherHeaderSid : null,
+                            CostVoucherTypeMasterSid : null,
+                            updatedOn : new Date(),
+                            updatedBy : userEmail,
+                        }
+                    )
+                }
+    
+                const updatedResults = await prisma.costRevenueCharges.updateMany({
+                    where : {
+                        CostRevenueChargesSid : { in : allCostRevenueChargesIds },
+                    },
+                    data : updateData
+                })
+                return updatedResults;
             }
-
-            const updatedResults = await prisma.costRevenueCharges.updateMany({
-                where : {
-                    CostRevenueChargesSid : { in : allCostRevenueChargesIds },
-                },
-                data : updateData
-            })
-
-            return updatedResults;
 
         } catch (error) {
             throw error;
