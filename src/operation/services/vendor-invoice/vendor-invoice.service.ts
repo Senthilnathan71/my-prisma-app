@@ -634,15 +634,14 @@ export class VendorInvoiceService {
             //     },
             //     Status: statusWhereClause
             // };
-            const where: Prisma.VoucherHeaderWhereInput = {
-                CompanyMasterSid: activeCompanyId,
-                BranchMasterSid: activeBranchId,
-                Status: 'A',
-                voucherTypeMaster: {
-                    DocumentTypeCode: 'VIN',
-                    status: 'A'
+             const where: Prisma.VoucherHeaderWhereInput = {
+                  CompanyMasterSid: activeCompanyId,
+                  BranchMasterSid: activeBranchId,
+                  Status: 'A',
+                  voucherTypeMaster: {
+                  DocumentTypeCode: 'VIN'
                 },
-            }
+              }
 
             // Add search filter
             if (search) {
@@ -666,18 +665,7 @@ export class VendorInvoiceService {
                             where: { Status: 'A' }
                         },
                         subledgerMaster: true,
-                        currencyMaster: true,
-                        BookingHeader : {
-                            select : {
-                                BookingNo : true
-                            }
-                        },
-                        departmentMaster : {
-                            select : {
-                                departmentName : true,
-                                departmentType : true
-                            }
-                        }
+                        currencyMaster: true
                     },
                     orderBy: [
                        { VoucherDate : 'desc' },
@@ -698,8 +686,7 @@ export class VendorInvoiceService {
                 BillNo: item.DocumentNumber,
                 BillDate: item.DocumentDate,
                 MBLNo: item.MasterNumber,
-                HBLNo: item.HouseNumber,
-                BookingNo : item.BookingHeader?.BookingNo,
+                HBLNo: item.HouseNumber
             }));
 
             return {

@@ -1794,7 +1794,6 @@ export class HouseJobService {
             status: statusWhereClause,
             CompanyMasterSid: activeCompanyId,
             BranchMasterSid: activeBranchId,
-            IsServiceJob : { not : 'Y' },
 
             // ✅ Correct department filter
             ...(departmentType

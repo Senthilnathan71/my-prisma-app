@@ -256,7 +256,7 @@ export class MawbStockService {
                 throw new Error(`Error fetching audit logs: ${error.message}`);
             }
     }
-  async allocateStock(payload: {
+    async allocateStock(payload: {
         stockIds: number[],
         customerId: number,
         companyId: number,
@@ -281,66 +281,35 @@ export class MawbStockService {
     }
 
 
-async deallocateStock(payload: {
-  companyId: number,
-  branchId: number,
-  customerId: number,
-  stocks: Array<{ MawbStockSid: number, StockStatus: string }>
-}) {
-  if (!payload.stocks?.length) {
-    throw new BadRequestException('No stock selected');
-  }
+    async deallocateStock(payload: {
+        stockIds: number[],
+        customerId: number,
+        companyId: number,
+        branchId: number
+    }) {
 
-  // Explicitly type the updates array
-  const updates: any[] = [];
-  
-  for (const stock of payload.stocks) {
-    // For "Void" status, keep the customer
-    if (stock.StockStatus === 'Void') {
-      const update = await this._db.mawbStock.update({
-        where: {
-          MawbStockSid: stock.MawbStockSid,
-          CompanyMasterSid: payload.companyId,
-          BranchMasterSid: payload.branchId,
-          AirwayBillType: 'Airline',
-          StockStatus: 'Free',
-          AvailableStatus: 'Allocated',
-          Customer: payload.customerId,
-          status: 'A'
-        },
-        data: {
-          AvailableStatus: 'Available',
-          StockStatus: stock.StockStatus,
-          updatedOn: new Date()
+        if (!payload.stockIds?.length) {
+            throw new BadRequestException('No stock selected');
         }
-      });
-      updates.push(update);
-    } else {
-      // For other statuses, remove customer
-      const update = await this._db.mawbStock.update({
-        where: {
-          MawbStockSid: stock.MawbStockSid,
-          CompanyMasterSid: payload.companyId,
-          BranchMasterSid: payload.branchId,
-          AirwayBillType: 'Airline',
-          StockStatus: 'Free',
-          AvailableStatus: 'Allocated',
-          Customer: payload.customerId,
-          status: 'A'
-        },
-        data: {
-          Customer: null,
-          AvailableStatus: 'Available',
-          StockStatus: stock.StockStatus,
-          updatedOn: new Date()
-        }
-      });
-      updates.push(update);
+
+        return await this._db.mawbStock.updateMany({
+            where: {
+                MawbStockSid: { in: payload.stockIds },
+                CompanyMasterSid: payload.companyId,
+                BranchMasterSid: payload.branchId,
+                AirwayBillType: 'Airline',
+                StockStatus: 'Free',
+                AvailableStatus: 'Allocated',
+                Agent: payload.customerId,
+                status: 'A'
+            },
+            data: {
+                Customer: null,
+                AvailableStatus: 'Available',
+                updatedOn: new Date()
+            }
+        });
     }
-  }
-  
-  return updates;
-}
 
 
     async getFreeStock(payload: {
@@ -386,6 +355,49 @@ async deallocateStock(payload: {
             }
         });
     }
+ async deallocateStockWithStatus(payload: {
+  stockIds: number[],
+  customerId: number,
+  companyId: number,
+  branchId: number,
+  stockStatus: string  
+}) {
 
+  if (!payload.stockIds?.length) {
+    throw new BadRequestException('No stock selected');
+  }
+
+  const updateData: any = {
+    updatedOn: new Date()
+  };
+
+  // 🔥 If VOID
+  if (payload.stockStatus === 'Void') {
+    updateData.StockStatus = 'Void';
+    updateData.AvailableStatus = 'Void';
+
+    
+  } else {
+
+    updateData.StockStatus = payload.stockStatus;
+    updateData.AvailableStatus = 'Available';
+
+    // Remove customer only for non-void
+    updateData.Customer = null;
+  }
+
+  return await this._db.mawbStock.updateMany({
+    where: {
+      MawbStockSid: { in: payload.stockIds },
+      CompanyMasterSid: payload.companyId,
+      BranchMasterSid: payload.branchId,
+      AirwayBillType: 'Airline',
+      AvailableStatus: 'Allocated',
+      Customer: payload.customerId,  // ✅ fixed
+      status: 'A'
+    },
+    data: updateData
+  });
+}
 
 }

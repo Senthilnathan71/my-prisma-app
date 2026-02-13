@@ -203,7 +203,7 @@ export class MawbStockController {
             return resp;
         }
 
-     @ApiOperation({ summary: 'Allocate MAWB stock to customer' })
+    @ApiOperation({ summary: 'Allocate MAWB stock to customer' })
     @ApiCreatedResponse({
         description: 'MAWB stock allocated to customer',
         type: ResponseData
@@ -235,37 +235,36 @@ export class MawbStockController {
     }
 
 
-  @ApiOperation({ summary: 'Deallocate MAWB stock from customer' })
-@ApiCreatedResponse({
-    description: 'MAWB stock deallocated from customer',
-    type: ResponseData
-})
-@HttpCode(HttpStatus.OK)
-@Post('deallocate')
-async deallocateStock(@Body() body: {
-    companyId: number,
-    branchId: number,
-    customerId: number,
-    stocks: {
-        MawbStockSid: number,
-        StockStatus: string
-    }[]
-}) {
+    @ApiOperation({ summary: 'Deallocate MAWB stock from customer' })
+    @ApiCreatedResponse({
+        description: 'MAWB stock deallocated from customer',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Post('deallocate')
+    async deallocateStock(@Body() body: {
+        stockIds: number[],
+        customerId: number,
+        companyId: number,
+        branchId: number
+    }) {
 
-    const resp = new ResponseData();
+        const resp = new ResponseData();
 
-    try {
-        const result = await this.mawbStockService.deallocateStock(body);
-        resp.data = result;
-        resp.message = 'Stock deallocated successfully';
+        try {
 
-    } catch (error) {
-        resp.status = false;
-        resp.message = error.message || 'Internal Server Error';
+            const result = await this.mawbStockService.deallocateStock(body);
+
+            resp.data = result;
+            resp.message = 'Stock deallocated successfully';
+
+        } catch (error) {
+            resp.status = false;
+            resp.message = error.message || 'Internal Server Error';
+        }
+
+        return resp;
     }
-
-    return resp;
-}
 
 
     @ApiOperation({ summary: 'Get Airline Free Stock' })
@@ -330,5 +329,32 @@ async getAllocatedStock(@Body() body: {
   return resp;
 }
 
+@ApiOperation({ summary: 'Deallocate MAWB stock from customer with status changes' })
+@ApiCreatedResponse({
+    description: 'MAWB stock deallocated from customer with status updates',
+    type: ResponseData
+})
+@HttpCode(HttpStatus.OK)
+@Post('deallocate-with-status')
+async deallocateStockWithStatus(@Body() body: {
+    stockIds: number[],
+    customerId: number,
+    companyId: number,
+    branchId: number,
+    stockStatus: string
+}) {
+    const resp = new ResponseData();
+
+    try {
+        const result = await this.mawbStockService.deallocateStockWithStatus(body);
+        resp.data = result;
+        resp.message = 'Stock deallocated successfully with status updates';
+    } catch (error) {
+        resp.status = false;
+        resp.message = error.message || 'Internal Server Error';
+    }
+
+    return resp;
+}
 
 }

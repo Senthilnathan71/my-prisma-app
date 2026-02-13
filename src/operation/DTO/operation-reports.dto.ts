@@ -367,49 +367,12 @@ export class unbilledcostReportQueryDto {
   @ApiProperty()
   @IsNotEmpty()
   @IsDateString()
-  FromDt: string;
+  FromHblDt: string;
 
   @ApiProperty()
   @IsNotEmpty()
   @IsDateString()
-  ToDt: string;
-
-  @ApiProperty({ enum: ShipmentStatusEnum })
-  @IsNotEmpty()
-  @IsEnum(ShipmentStatusEnum)
-  shipmentStatus: string;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsInt()
-  port?: number;
-
-  @ApiProperty()
-  @IsNotEmpty()
-  @IsInt()
-  companyId: number;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsInt()
-  Branch?: number[];
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsInt()
-  Dept?: number[];
-}
-
-export class unbilledrevenueReportQueryDto {
-  @ApiProperty()
-  @IsNotEmpty()
-  @IsDateString()
-  FromDt: string;
-
-  @ApiProperty()
-  @IsNotEmpty()
-  @IsDateString()
-  ToDt: string;
+  ToHblDt: string;
 
   @ApiProperty({ enum: ShipmentStatusEnum })
   @IsNotEmpty()
