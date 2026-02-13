@@ -615,6 +615,8 @@ if (houseJobOthers && Object.keys(houseJobOthers).length > 0) {
                             select: { departmentName: true },
                         },
                         HBLNo: true,
+                        MBLNo: true,       
+                        MBLDate: true,
                         ShipmentNo: true,
                         POL: true,
                         POD: true,
