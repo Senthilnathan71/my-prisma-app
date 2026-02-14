@@ -2672,7 +2672,7 @@ export class VoucherService {
                         CurrencyCode: matching.CurrencyCode,
                         ExchangeRate: matching.ExchangeRate,
                         DrCr: String(matching.DrCr).charAt(0),
-                        Amount: matching.PartyAmount,
+                        Amount: matching.PartyAmount || matching.Amount,
                         LocalAmount: matching.LocalAmount,
                         PartyAmount : matching.PartyAmount,
                         MatchingType: 'Object'

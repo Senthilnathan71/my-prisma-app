@@ -114,6 +114,7 @@ export class ReverseVoucherService {
                                         TaxPercentage2: detail.TaxPercentage2 || 0, // SGST
                                         TaxAmount2: detail.TaxAmount2 || 0,
                                         LocalAmount: detail.LocalAmount || 0,
+                                        PartyAmount : detail.Amount || 0,
                                         CurrencyCode: detail.CurrencyCode || payload.CurrencyCode,
                                         CurrencyMasterSid: detail.CurrencyMasterSid || currencyMasterSid,
                                         ExchangeRate: detail.ExchangeRate || payload.ExchangeRate || 1,
@@ -390,6 +391,7 @@ export class ReverseVoucherService {
                                 TaxPercentage2: detail.TaxPercentage2 || 0,
                                 TaxAmount2: detail.TaxAmount2 || 0,
                                 LocalAmount: detail.LocalAmount || 0,
+                                PartyAmount : detail.Amount || 0,
                                 CurrencyCode: detail.CurrencyCode || payload.CurrencyCode,
                                 CurrencyMasterSid: detail.CurrencyMasterSid || currencyMasterSid,
                                 ExchangeRate: detail.ExchangeRate || payload.ExchangeRate || 1,
@@ -428,6 +430,7 @@ export class ReverseVoucherService {
                                 TaxPercentage2: detail.TaxPercentage2 || 0,
                                 TaxAmount2: detail.TaxAmount2 || 0,
                                 LocalAmount: detail.LocalAmount || 0,
+                                PartyAmount : detail.Amount || 0,
                                 CurrencyCode: detail.CurrencyCode || payload.CurrencyCode,
                                 CurrencyMasterSid: detail.CurrencyMasterSid || currencyMasterSid,
                                 ExchangeRate: detail.ExchangeRate || payload.ExchangeRate || 1,
@@ -894,7 +897,7 @@ export class ReverseVoucherService {
       }
 
       // Matching: Party details
-      const partyDetailForMatching = allCompleteDetails.filter(
+      const partyDetailForMatching = allCompleteDetails.find(
         vd => vd.subledgerMaster?.SubledgerType === 'Customer'
       );
 
@@ -915,7 +918,7 @@ export class ReverseVoucherService {
           Status: 'A',
           subledgerMaster: { SubledgerType: 'Customer' }
         }
-      });
+      });   
 
     //   if (!object) throw new BadRequestException('Reversal Voucher not found');
 
@@ -923,6 +926,9 @@ export class ReverseVoucherService {
       let newVoucherMatchings: any;
 
       if (partyDetailForMatching && object && (billMatchingCurrencyAmount > 0 || billMatchingLocalAmount > 0)) {
+        partyDetailForMatching['Amount'] = billMatchingCurrencyAmount;
+        partyDetailForMatching['PartyAmount'] = billMatchingCurrencyAmount;
+        partyDetailForMatching['LocalAmount'] = billMatchingLocalAmount;
         newVoucherMatchings = await this.voucherService.createVoucherMatching({
           CompanyMasterSid: payload.companyMasterSid,
           BranchMasterSid: payload.branchMasterSid,
@@ -934,7 +940,7 @@ export class ReverseVoucherService {
           Narration: `${voucher.VoucherNumber} ${voucher.VoucherDate.toISOString().split('T')[0]} ${voucher.CurrencyCode} ${voucher.Amount}`,
           createdBy: payload.postedBy,
           voucherMatching: [object],
-          partyVoucherDetail: partyDetailForMatching,
+          partyVoucherDetail: [partyDetailForMatching],
           BillMatchingCurrencyAmount: billMatchingCurrencyAmount,
           BillMatchingLocalAmount: billMatchingLocalAmount
         }, tx);
