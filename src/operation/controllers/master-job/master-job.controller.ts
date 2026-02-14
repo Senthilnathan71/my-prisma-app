@@ -255,6 +255,35 @@ export class MasterJobController {
         return resp;
     }
 
+
+     // create post endpoint for searchMasterJob
+    @ApiOperation({ summary: 'Search Master Jobs' })
+    @ApiCreatedResponse({
+        description: 'Search Master Jobs',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Post('job-close/search-list')
+    async searchJobCloseMasterJob(@Body() payload:any){
+        let resp = new ResponseData();
+        try {
+            this.logger.log(`Searching Master Jobs with params : ${JSON.stringify(payload)}`);
+            const result = await this.masterJobService.searchJobCloseMasterJobList(payload);
+            this.logger.debug(`Searched Master Jobs : ${JSON.stringify(result)}`);
+            resp.message = 'Master Jobs fetched successfully';
+            resp.data = result;
+        } catch (error) {
+            resp.status = false;
+            this.logger.warn(`Error in searching Master Jobs : ${JSON.stringify(error),error}`);
+            if(error instanceof BadRequestException || error instanceof UnauthorizedException){
+                resp.message = error.message;
+            } else {
+                resp.message = 'Internal Server Error';
+            }
+        }
+        return resp;
+    }
+
     @ApiOperation({ summary: 'Delete Master Job Connection by MasterJobConnectionSid' })
     @ApiCreatedResponse({
         description: 'Delete Master Job Container by MasterJobConnectionSid',
