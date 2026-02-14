@@ -62,7 +62,8 @@ export class QuotationService {
                     payload.CompanyMasterSid,
                     payload.BranchMasterSid,
                     MenuMasterSid,
-                    DepartmentMasterSid
+                    DepartmentMasterSid,
+                    payload.QuoteDate ? new Date(payload.QuoteDate) : undefined,
                 );
             }
 

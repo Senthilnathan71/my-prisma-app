@@ -56,7 +56,8 @@ export class MasterJobService {
                 payload.CompanyMasterSid,
                 payload.BranchMasterSid,
                 menuId,
-                payload.DepartmentMasterSid
+                payload.DepartmentMasterSid,
+                payload.MasterJobDate ? new Date(payload.MasterJobDate) : undefined,
             );
 
             if (!generatedMasterJobNumber) {
@@ -482,7 +483,8 @@ export class MasterJobService {
                                     payload.CompanyMasterSid,
                                     payload.BranchMasterSid,
                                     houseJobMenuId,
-                                    bookingHeader.DepartmentMasterSid
+                                    bookingHeader.DepartmentMasterSid,
+                                    payload.MasterJobDate ? new Date(payload.MasterJobDate) : undefined,
                                 )
                             } else {
                                 HBLNo = "";
@@ -2085,7 +2087,8 @@ private getWeightInFromUnitSid(weightUnitSid: number): string {
                                 payload.CompanyMasterSid,
                                 payload.BranchMasterSid,
                                 houseJobMenuId,
-                                bookingHeader.DepartmentMasterSid
+                                bookingHeader.DepartmentMasterSid,
+                                bookingHeader.BookingDateTime ? new Date(bookingHeader.BookingDateTime) : undefined,
                             )
                         } else {
                             HBLNo = "";

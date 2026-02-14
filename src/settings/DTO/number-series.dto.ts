@@ -3,6 +3,7 @@ import {
   IsString,
   IsOptional,
   IsIn,
+  IsDateString,
   Length,
   Min,
   Max,
@@ -102,6 +103,10 @@ export class GenerateNumberDto {
   @IsNumber()
   @IsOptional()
   DepartmentMasterSid?: number;
+
+  @IsDateString()
+  @IsOptional()
+  DocumentDate?: string;
 }
 
 export class PreviewNumberDto extends GenerateNumberDto {}

@@ -39,7 +39,8 @@ export class EnquiryHeaderService {
                     CompanyMasterSid,
                     BranchMasterSid,
                     MenuMasterSid,
-                    DepartmentMasterSid
+                    DepartmentMasterSid,
+                    undefined,
                 );
             }
 

@@ -47,7 +47,8 @@ export class EnquiryHeaderService {
                     payload.CompanyMasterSid,
                     payload.BranchMasterSid,
                     MenuMasterSid,
-                    DepartmentMasterSid
+                    DepartmentMasterSid,
+                    payload.EnquiryDate ? new Date(payload.EnquiryDate) : undefined,
                 );
             }
 

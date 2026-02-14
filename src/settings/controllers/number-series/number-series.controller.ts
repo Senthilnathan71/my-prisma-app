@@ -93,6 +93,7 @@ export class NumberSeriesController {
         payload.BranchMasterSid,
         payload.MenuMasterSid,
         payload.DepartmentMasterSid,
+        payload.DocumentDate ? new Date(payload.DocumentDate) : undefined,
       );
       return { status: true, data: number };
     } catch (error) {
@@ -112,6 +113,7 @@ export class NumberSeriesController {
         payload.BranchMasterSid,
         payload.MenuMasterSid,
         payload.DepartmentMasterSid,
+        payload.DocumentDate ? new Date(payload.DocumentDate) : undefined,
       );
       return { status: true, data: result };
     } catch (error) {
