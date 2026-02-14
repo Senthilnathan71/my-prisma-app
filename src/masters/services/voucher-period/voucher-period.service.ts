@@ -178,13 +178,14 @@ export class VoucherPeriodService {
     }
 
     async searchVoucherPeriodNew(params: filterDto) {
-        const { search = '', page = 1, pageSize = 15, activeCompanyId, activeBranchId } = params;
+        const { search = '', page = 1, pageSize = 15, activeCompanyId, activeBranchId, yearMasterSid } = params;
         const skip = (page - 1) * pageSize;
 
         const where: any = {
             Status: statusWhereClause,
             CompanyMasterSid: activeCompanyId,
             BranchMasterSid: activeBranchId,
+            ...(yearMasterSid ? { YearMasterSid: yearMasterSid } : {}),
 
             ...(search
                 ? {
