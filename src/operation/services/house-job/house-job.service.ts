@@ -71,7 +71,8 @@ export class HouseJobService {
                         payload.CompanyMasterSid,
                         payload.BranchMasterSid,
                         numberSeriesMenuId,
-                        payload.DepartmentMasterSid
+                        payload.DepartmentMasterSid,
+                        payload.HBLDate ? new Date(payload.HBLDate) : undefined,
                     );
                 }
 

@@ -119,7 +119,8 @@ export class BookingService {
                         payload.CompanyMasterSid,
                         payload.BranchMasterSid,
                         numberSeriesMenuId,
-                        payload.DepartmentMasterSid ?? undefined
+                        payload.DepartmentMasterSid ?? undefined,
+                        payload.BookingDateTime ? new Date(payload.BookingDateTime) : undefined,
                     );
                     this.logger.log(`[NumberSeries] Generated BookingNo: ${BookingNo}, Length: ${BookingNo?.length}`);
                 } catch (err) {

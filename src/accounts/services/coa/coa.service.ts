@@ -115,7 +115,9 @@ export class CoaService {
                     COAMasterSid: true,
                     LedgerName: true,
                     SubledgerName : true,  // is subledgermapped?
-                    JobNoRequire : true
+                    JobNoRequire : true,
+                    LedgerType: true,
+                    LedgerCurrency: true,
                 },
                 orderBy: {
                     LedgerName: 'asc'

@@ -40,7 +40,8 @@ export class BookingService {
           CompanyMasterSid,
           BranchMasterSid,
           MenuMasterSid,
-          DepartmentMasterSid
+          DepartmentMasterSid,
+          undefined,
         );
       }
 

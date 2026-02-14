@@ -70,13 +70,13 @@ export class EDIManifestService {
     }
 
     // Validate mandatory fields before generating
-    // const validation = this.validateMandatoryFields(masterJob, originCountryCode);
-    // if (!validation.isValid) {
-    //   throw new BadRequestException({
-    //     message: 'Mandatory fields are missing. Please fill all required fields before generating EDI Manifest.',
-    //     errors: validation.errors,
-    //   });
-    // }
+    const validation = this.validateMandatoryFields(masterJob, originCountryCode, false);
+    if (!validation.isValid) {
+      throw new BadRequestException({
+        message: 'Mandatory fields are missing. Please fill all required fields before generating EDI Manifest.',
+        errors: validation.errors,
+      });
+    }
 
     return this.generateManifestText(masterJob, originCountryCode);
   }
@@ -126,13 +126,13 @@ export class EDIManifestService {
     };
 
     // Validate mandatory fields before generating
-    // const validation = this.validateMandatoryFields(masterJobData, originCountryCode);
-    // if (!validation.isValid) {
-    //   throw new BadRequestException({
-    //     message: 'Mandatory fields are missing. Please fill all required fields before generating EDI Manifest.',
-    //     errors: validation.errors,
-    //   });
-    // }
+    const validation = this.validateMandatoryFields(masterJobData, originCountryCode, true);
+    if (!validation.isValid) {
+      throw new BadRequestException({
+        message: 'Mandatory fields are missing. Please fill all required fields before generating EDI Manifest.',
+        errors: validation.errors,
+      });
+    }
 
     return this.generateManifestText(masterJobData, originCountryCode);
   }
@@ -468,12 +468,17 @@ export class EDIManifestService {
    * Validate all mandatory fields before generating EDI Manifest
    * Returns validation result with list of missing mandatory fields
    */
-  private validateMandatoryFields(masterJob: any, originCountryCode: string): EDIValidationResponse {
+  private validateMandatoryFields(masterJob: any, originCountryCode: string, isHouseJob: boolean = false): EDIValidationResponse {
     const errors: MandatoryFieldError[] = [];
 
     // VOY Record Validation
     const voyErrors = this.validateVOYRecord(masterJob);
-    errors.push(...voyErrors);
+    if (isHouseJob) {
+      // Skip Master-tab fields (VesselName, VoyageNo, POD, ETA) — validated at Master Job level
+      errors.push(...voyErrors.filter(e => e.tabName !== 'Master'));
+    } else {
+      errors.push(...voyErrors);
+    }
 
     // BOL, CON, CTR Record Validation for each House Job
     for (const houseJob of masterJob.houseJob || []) {
@@ -483,8 +488,8 @@ export class EDIManifestService {
       const conErrors = this.validateCONRecord(masterJob, houseJob);
       errors.push(...conErrors);
 
-      // CTR validation only for containerized cargo
-      if (this.isContainerized(masterJob, houseJob)) {
+      // CTR validation only for containerized cargo (skip for House Job — containers are at Master Job level)
+      if (!isHouseJob && this.isContainerized(masterJob, houseJob)) {
         const ctrErrors = this.validateCTRRecords(masterJob, houseJob);
         errors.push(...ctrErrors);
       }

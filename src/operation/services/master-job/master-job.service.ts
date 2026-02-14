@@ -56,7 +56,8 @@ export class MasterJobService {
                 payload.CompanyMasterSid,
                 payload.BranchMasterSid,
                 menuId,
-                payload.DepartmentMasterSid
+                payload.DepartmentMasterSid,
+                payload.MasterJobDate ? new Date(payload.MasterJobDate) : undefined,
             );
 
             if (!generatedMasterJobNumber) {
@@ -482,7 +483,8 @@ export class MasterJobService {
                                     payload.CompanyMasterSid,
                                     payload.BranchMasterSid,
                                     houseJobMenuId,
-                                    bookingHeader.DepartmentMasterSid
+                                    bookingHeader.DepartmentMasterSid,
+                                    payload.MasterJobDate ? new Date(payload.MasterJobDate) : undefined,
                                 )
                             } else {
                                 HBLNo = "";
@@ -2086,7 +2088,8 @@ private getWeightInFromUnitSid(weightUnitSid: number): string {
                                 payload.CompanyMasterSid,
                                 payload.BranchMasterSid,
                                 houseJobMenuId,
-                                bookingHeader.DepartmentMasterSid
+                                bookingHeader.DepartmentMasterSid,
+                                bookingHeader.BookingDateTime ? new Date(bookingHeader.BookingDateTime) : undefined,
                             )
                         } else {
                             HBLNo = "";
@@ -2685,6 +2688,138 @@ if (houseJobsForBookingSync.length > 0) {
             mj."POL",
             mj."POD",
             mj."FPD" AS "FDC",
+            COALESCE(cc."NoOfContainers", 0) AS "NoOfContainers",
+            COALESCE(hc."NoOfHouses", 0) AS "NoOfHouses",
+            mj."Status"
+        FROM "MasterJob" mj
+        LEFT JOIN (
+            SELECT "MasterJobSid", COUNT(*)::integer AS "NoOfContainers"
+            FROM "MasterJobContainer"
+            WHERE "Status" = 'A'
+            GROUP BY "MasterJobSid"
+        ) cc ON mj."MasterJobSid" = cc."MasterJobSid"
+        LEFT JOIN (
+            SELECT "MasterJobSid", COUNT(*)::integer AS "NoOfHouses"
+            FROM "HouseJob"
+            WHERE status = 'A'
+            GROUP BY "MasterJobSid"
+        ) hc ON mj."MasterJobSid" = hc."MasterJobSid"
+        LEFT JOIN "DepartmentMaster" dm ON mj."DepartmentMasterSid" = dm."DepartmentMasterSid"
+        WHERE ${whereClause}
+        ORDER BY mj."MasterJobSid" DESC
+        LIMIT ${pageSizeNum}::bigint OFFSET ${skip}::bigint
+    `;
+
+        // Count query
+        const countQuery = `
+        SELECT COUNT(*)::integer as total
+        FROM "MasterJob" mj
+        LEFT JOIN "DepartmentMaster" dm ON mj."DepartmentMasterSid" = dm."DepartmentMasterSid"
+        LEFT JOIN (
+            SELECT "MasterJobSid", COUNT(*)::integer AS "NoOfContainers"
+            FROM "MasterJobContainer"
+            WHERE "Status" = 'A'
+            GROUP BY "MasterJobSid"
+        ) cc ON mj."MasterJobSid" = cc."MasterJobSid"
+        LEFT JOIN (
+            SELECT "MasterJobSid", COUNT(*)::integer AS "NoOfHouses"
+            FROM "HouseJob"
+            WHERE status = 'A'
+            GROUP BY "MasterJobSid"
+        ) hc ON mj."MasterJobSid" = hc."MasterJobSid"
+        WHERE ${whereClause}
+    `;
+
+        const [items, countResult] = await this._db.$transaction([
+            this._db.$queryRawUnsafe(query, ...params_array),
+            this._db.$queryRawUnsafe(countQuery, ...params_array),
+        ]);
+
+        return {
+            items,
+            totalCount: (countResult as any)[0]?.total || 0,
+        };
+    }
+
+    async searchJobCloseMasterJobList(params: searchMasterJob) {
+        const { search = '', page = 1, pageSize = 15, activeCompanyId, activeBranchId, MenuMasterSid, departmentType } = params;
+
+        // Ensure numeric values
+        const pageNum = Number(page);
+        const pageSizeNum = Number(pageSize);
+        const skip = (pageNum - 1) * pageSizeNum;
+
+        const parsedDate = parseDateFromString(search);
+        const isValidDate = parsedDate && !isNaN(parsedDate.getTime());
+        const isNumeric = !isNaN(Number(search)) && search.trim() !== '';
+
+        // Build dynamic WHERE conditions
+        let whereConditions = [`mj."Status" = 'A'`,`mj."JobStatus" === 'Job Generated'`];
+        let params_array: any[] = [activeCompanyId, activeBranchId, MenuMasterSid];
+        let paramIndex = 4;
+
+        whereConditions.push(`mj."CompanyMasterSid" = $1`);
+        whereConditions.push(`mj."BranchMasterSid" = $2`);
+        whereConditions.push(`mj."MenuMasterSid" = $3`);
+
+        // Department type filter
+        if (departmentType === "Air") {
+            whereConditions.push(`dm."departmentType" = $${paramIndex}`);
+            params_array.push(departmentType);
+            paramIndex++;
+        } else {
+            whereConditions.push(`dm."departmentType" != 'Air'`);
+        }
+
+        // Search conditions
+        if (search) {
+            const searchConditions: string[] = [
+                `dm."departmentName" ILIKE $${paramIndex}`,
+                `mj."MasterJobNumber" ILIKE $${paramIndex}`,
+                `mj."MBLNo" ILIKE $${paramIndex}`,
+                `mj."POL" ILIKE $${paramIndex}`,
+                `mj."POD" ILIKE $${paramIndex}`,
+                `mj."FPD" ILIKE $${paramIndex}`,
+            ];
+
+            if (isNumeric) {
+                searchConditions.push(`cc."NoOfContainers" = $${paramIndex + 1}`);
+                searchConditions.push(`hc."NoOfHouses" = $${paramIndex + 1}`);
+            }
+
+            if (isValidDate) {
+                searchConditions.push(`mj."MasterJobDate" = $${paramIndex + 2}`);
+                searchConditions.push(`mj."MBLDate" = $${paramIndex + 2}`);
+            }
+
+            whereConditions.push(`(${searchConditions.join(' OR ')})`);
+            params_array.push(`%${search}%`); // For ILIKE searches
+            if (isNumeric) {
+                params_array.push(Number(search));
+            }
+            if (isValidDate) {
+                params_array.push(parsedDate);
+            }
+        }
+
+        const whereClause = whereConditions.join(' AND ');
+
+        // Main query - Cast LIMIT and OFFSET explicitly to bigint
+        const query = `
+        SELECT 
+            mj."MasterJobSid",
+            mj."CompanyMasterSid",
+            mj."BranchMasterSid",
+            dm."departmentName",
+            dm."departmentType",
+            mj."MasterJobNumber",
+            mj."MasterJobDate",
+            mj."MBLNo",
+            mj."MBLDate",
+            mj."POL",
+            mj."POD",
+            mj."FPD" AS "FDC",
+            mj."JobStatus",                 -- 👈 Added 
             COALESCE(cc."NoOfContainers", 0) AS "NoOfContainers",
             COALESCE(hc."NoOfHouses", 0) AS "NoOfHouses",
             mj."Status"

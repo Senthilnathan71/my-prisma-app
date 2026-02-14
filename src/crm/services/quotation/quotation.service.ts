@@ -43,7 +43,8 @@ export class QuotationService {
                     CompanyMasterSid,
                     BranchMasterSid,
                     MenuMasterSid,
-                    DepartmentMasterSid ?? undefined
+                    DepartmentMasterSid ?? undefined,
+                    payload.quoteDate ? new Date(payload.quoteDate) : undefined,
                 );
             }
 
