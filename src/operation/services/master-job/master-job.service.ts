@@ -577,6 +577,7 @@ export class MasterJobService {
                                     GrossWeight: cargo.GrossWeight || 0,
                                     NetWeight: cargo.NetWeight || 0,
                                     Volume: cargo.Volume || 0,
+                                    Volumetric: cargo.Volumetric || 0,
                                     ChargeableWeight: cargo.ChargeableWeight || 0,
                                     MarksAndNumber: '',
                                     CommodityDescription: '',
@@ -2178,6 +2179,7 @@ private getWeightInFromUnitSid(weightUnitSid: number): string {
                                 GrossWeight: cargo.GrossWeight || 0,
                                 NetWeight: cargo.NetWeight || 0,
                                 Volume: cargo.Volume || 0,
+                                Volumetric: cargo.Volumetric || 0,
                                 ChargeableWeight: cargo.ChargeableWeight || 0,
                                 MarksAndNumber: '',
                                 CommodityDescription: '',
@@ -2803,6 +2805,37 @@ if (houseJobsForBookingSync.length > 0) {
         async detachBookingFromMasterJob(HouseJobSid: number,userEmail ?: string) {
         try {
             const result = await this._db.$transaction(async (tx) => {
+                const houseJob = await tx.houseJob.findUnique({
+                where: {
+                    HouseJobSid: HouseJobSid
+                },
+                include: {
+                    Products: {
+                        where: { status: 'A' }
+                    }
+                }
+            });
+
+            if (!houseJob) {
+                throw new BadRequestException('House Job not found');
+            }
+
+            // Update house job products - set MasterJobContainerSid and ContainerNo to null
+            if (houseJob.Products && houseJob.Products.length > 0) {
+                await tx.houseJobProduct.updateMany({
+                    where: {
+                        HouseJobSid: HouseJobSid,
+                        status: 'A'
+                    },
+                    data: {
+                        MasterJobContainerSid: null,
+                        ContainerNo: null,
+                        updatedBy: userEmail,
+                        updatedOn: new Date()
+                    }
+                });
+            }
+
                 const detachedHouse = await tx.houseJob.update({
                     where: {
                         HouseJobSid: HouseJobSid
@@ -2841,12 +2874,15 @@ if (houseJobsForBookingSync.length > 0) {
                         }
                     })
                 }
-               
+                if (houseJob.MasterJobSid) {
+                await this.updateMasterJobTotals(houseJob.MasterJobSid);
+            }
  
                
                 return {
                     detachedBooking,
-                    detachedHouse
+                    detachedHouse,
+                    updatedProducts: houseJob.Products?.length || 0
                 }
             })
            
@@ -2977,6 +3013,7 @@ if (houseJobsForBookingSync.length > 0) {
                             GrossWeight: cargo.GrossWeight || 0,
                             NetWeight: cargo.NetWeight || 0,
                             Volume: cargo.Volume || 0,
+                            Volumetric: cargo.Volumetric || 0,
                             ChargeableWeight: cargo.ChargeableWeight || 0,
                             MarksAndNumber: '',
                             CommodityDescription: '',
@@ -3566,6 +3603,7 @@ private async updateMasterJobTotals(masterJobSid: number): Promise<void> {
                                     GrossWeight: cargo.GrossWeight,
                                     NetWeight: cargo.NetWeight,
                                     Volume: cargo.Volume,
+                                    Volumetric: cargo.Volumetric,
                                     ChargeableWeight: cargo.ChargeableWeight,
                                     PackageType: cargo.PackageType,
                                     NoOfPackage: cargo.NoOfPackage,
