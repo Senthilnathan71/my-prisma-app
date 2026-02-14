@@ -134,6 +134,7 @@ export class NumberSeriesService {
     BranchMasterSid: number,
     MenuMasterSid: number,
     DepartmentMasterSid?: number,
+    documentDate?: Date,
   ): Promise<string> {
     this.logger.log(`[NumberSeries] generateNextNumber called with: Company=${CompanyMasterSid}, Branch=${BranchMasterSid}, Menu=${MenuMasterSid}, Dept=${DepartmentMasterSid}`);
 
@@ -169,17 +170,17 @@ export class NumberSeriesService {
         this.logger.log(`[NumberSeries] Config found: ${JSON.stringify({ ConfigSid: config.NumberSeriesConfigSid, CompanyPrefix: config.CompanyPrefix, BranchPrefix: config.BranchPrefix })}`);
 
 
-        // 2. Get current financial year for company
-        const currentYear = await prisma.yearMaster.findFirst({
-          where: {
-            CompanyMasterSid,
-            CurrentYear: 'Y',
-            status: 'A',
-          },
-        });
+        // 2. Determine reference date from document date or current date
+        const now = documentDate ? moment(documentDate) : moment();
 
-        // 3. Determine counter key based on reset option
-        const now = moment();
+        // 3. Get financial year for the reference date
+        const currentYear = await this.findFinancialYear(
+          prisma,
+          CompanyMasterSid,
+          now,
+        );
+
+        // 4. Determine counter key based on reset option
         const yearMasterSid =
           config.ResetOption !== 'None' ? currentYear?.YearMasterSid : null;
         const month =
@@ -245,6 +246,7 @@ export class NumberSeriesService {
           nextNumber,
           DepartmentMasterSid,
           currentYear,
+          documentDate,
         );
       },
       {
@@ -261,6 +263,7 @@ export class NumberSeriesService {
     BranchMasterSid: number,
     MenuMasterSid: number,
     DepartmentMasterSid?: number,
+    documentDate?: Date,
   ): Promise<{ preview: string; nextNumber: number }> {
     const config = await this._db.numberSeriesConfig.findFirst({
       where: {
@@ -279,16 +282,15 @@ export class NumberSeriesService {
       return { preview: legacyPreview, nextNumber: 1 };
     }
 
-    // Get current financial year
-    const currentYear = await this._db.yearMaster.findFirst({
-      where: {
-        CompanyMasterSid,
-        CurrentYear: 'Y',
-        status: 'A',
-      },
-    });
+    // Determine reference date from document date or current date
+    const now = documentDate ? moment(documentDate) : moment();
 
-    const now = moment();
+    // Get financial year for the reference date
+    const currentYear = await this.findFinancialYear(
+      this._db,
+      CompanyMasterSid,
+      now,
+    );
     const yearMasterSid =
       config.ResetOption !== 'None' ? currentYear?.YearMasterSid : null;
     const month = config.ResetOption === 'Monthly' ? now.month() + 1 : null;
@@ -323,6 +325,7 @@ export class NumberSeriesService {
       nextNumber,
       DepartmentMasterSid,
       currentYear,
+      documentDate,
     );
 
     return { preview, nextNumber };
@@ -337,10 +340,11 @@ export class NumberSeriesService {
     sequenceNumber: number,
     DepartmentMasterSid?: number,
     yearMaster?: any,
+    documentDate?: Date,
   ): Promise<string> {
     const parts: string[] = [];
     const sep = config.Separator || '';
-    const now = moment();
+    const now = documentDate ? moment(documentDate) : moment();
 
     // 1. Company Prefix
     if (config.CompanyFlagRequired === 'Y' && config.CompanyPrefix) {
@@ -380,6 +384,44 @@ export class NumberSeriesService {
     parts.push(paddedNumber);
 
     return parts.join(sep);
+  }
+
+  /**
+   * Find the financial year that contains the given date.
+   * Falls back to CurrentYear='Y' if no matching year is found.
+   */
+  private async findFinancialYear(
+    prisma: any,
+    CompanyMasterSid: number,
+    referenceDate: moment.Moment,
+  ): Promise<any> {
+    const dateValue = referenceDate.toDate();
+
+    // Find the year where the date falls within StartDate-EndDate
+    const matchingYear = await prisma.yearMaster.findFirst({
+      where: {
+        CompanyMasterSid,
+        status: 'A',
+        StartDate: { lte: dateValue },
+        EndDate: { gte: dateValue },
+      },
+    });
+
+    if (matchingYear) {
+      return matchingYear;
+    }
+
+    // Fallback: use the current year marker
+    this.logger.warn(
+      `[NumberSeries] No YearMaster found containing date ${referenceDate.format('YYYY-MM-DD')} for Company=${CompanyMasterSid}. Falling back to CurrentYear='Y'.`,
+    );
+    return await prisma.yearMaster.findFirst({
+      where: {
+        CompanyMasterSid,
+        CurrentYear: 'Y',
+        status: 'A',
+      },
+    });
   }
 
   /**
