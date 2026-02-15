@@ -816,209 +816,6 @@ export class OperationReportsService {
     }
   }
 
-  //    private async generateProfitabilityReport(params: profitabilityReportQueryDto) {
-  //   const {
-  //     companyId: CompanyMasterSid,
-  //     ToJobDt,
-  //     FormJobDt,
-  //     Branch: branchId,
-  //     Dept: dept,
-  //   } = params;
-
-  //   try {
-  //     this.logger.log(
-  //       `Getting Profitability report for CompanySid=${CompanyMasterSid}, From=${FormJobDt}, To=${ToJobDt}`
-  //     );
-
-  //     const allBranches = await this._db.branchMaster.findMany({
-  //       where: { BranchMasterSid: { in: branchId } },
-  //       select: { branchName: true }
-  //     });
-  //     const branchSet = new Set(allBranches.map(b => b.branchName));
-
-  //     // Load container type master (ID → Size Map)
-  //     const containerTypesMaster = await this._db.containerTypeMaster.findMany({
-  //       select: { ContainerTypeMasterSid: true, ContainerSize: true }
-  //     });
-  //     const containerTypeMap = new Map(
-  //       containerTypesMaster.map(ct => [ct.ContainerTypeMasterSid, ct.ContainerSize])
-  //     );
-
-  //     // Fetch master jobs with house jobs and containers
-  //     const masterJobs = await this._db.masterJob.findMany({
-  //       where: {
-  //         CompanyMasterSid,
-  //         BranchMasterSid: { in: branchId },
-  //         AND: [
-  //           { MBLDate: { gte: new Date(FormJobDt) } },
-  //           { MBLDate: { lte: new Date(ToJobDt) } }
-  //         ],
-  //         Status: 'A',
-  //         DepartmentMasterSid: { in: dept },
-  //       },
-  //       include: {
-  //         houseJob: {
-  //           where : { status : 'A'}
-  //         },
-  //         containers: true,
-  //       },
-  //       orderBy: { MBLDate: 'asc' },
-  //     });
-
-  //     if (!masterJobs.length) {
-  //       return { companyMasterSid: CompanyMasterSid, branchMasterSid: branchId, data: [] };
-  //     }
-
-
-
-
-  //     const data = await Promise.all(masterJobs.map(async job => {
-
-
-  //       const relatedCR = await this._db.costRevenueCharges.findMany({
-  //         where: {
-  //           MenuMasterSid: job.MenuMasterSid!,
-  //           TransactionSid: job.MasterJobSid,
-  //           status: 'A'
-  //         },
-  //         select: {
-  //           MenuMasterSid: true,
-  //           CostLocalAmount: true,
-  //           RevenueLocalAmount: true,
-  //           ChargeDescription: true,
-  //           ChargeMasterSid: true,
-  //           CostAgentMasterSid: true,
-  //           RevenueCustomerMasterSid: true,
-  //           CostDrCr: true,
-  //           RevenueDrCr: true
-  //         }
-  //       });
-
-  //       const totalCost = relatedCR.reduce((sum, cr) => {
-  //         return cr.CostDrCr === 'D' ? toNumber(sum) + toNumber(cr.CostLocalAmount) :
-  //           toNumber(sum) - toNumber(cr.CostLocalAmount)
-  //       }, 0);
-
-  //       const totalRevenue = relatedCR.reduce((sum, cr) => {
-  //         return cr.RevenueDrCr === 'C' ? toNumber(sum) + toNumber(cr.RevenueLocalAmount) :
-  //           toNumber(sum) - toNumber(cr.RevenueLocalAmount)
-  //       }, 0);
-
-  //       const GP = totalRevenue - totalCost;
-
-  //       const houseJobs = job.houseJob || [];
-
-  //       const houseRateMap: Map<number, any[]> = new Map([]);
-
-  //       const houseJobIds = new Set(houseJobs.map(hj => hj.HouseJobSid));
-  //       const houseJobIdArr = houseJobs.map(hj => hj.HouseJobSid);
-  //       const houseJobMenu = await this._db.menuMaster.findFirst({
-  //         where: { MenuName: 'House Job' },
-  //         select: { MenuMasterSid: true }
-  //       })
-
-  //       if (!houseJobMenu) {
-  //         throw new BadRequestException("House Job is found in menuMaster.")
-  //       }
-
-  //       const allHouseCR = await this._db.costRevenueCharges.findMany({
-  //         where: {
-  //           MenuMasterSid: houseJobMenu.MenuMasterSid,
-  //           TransactionSid: { in: houseJobIdArr },
-  //           status: 'A'
-  //         },
-  //         select: {
-  //           TransactionSid: true,
-  //           MenuMasterSid: true,
-  //           CostLocalAmount: true,
-  //           RevenueLocalAmount: true,
-  //           ChargeDescription: true,
-  //           ChargeMasterSid: true,
-  //           CostAgentMasterSid: true,
-  //           RevenueCustomerMasterSid: true,
-  //           CostDrCr: true,
-  //           RevenueDrCr: true
-  //         }
-  //       })
-
-  //       allHouseCR.forEach(hcr => {
-  //         const key = hcr.TransactionSid!;
-  //         if (houseRateMap.has(key)) {
-  //           const prev = houseRateMap.get(key) || [];
-  //           houseRateMap.set(key, [...prev, hcr]);
-  //         } else {
-  //           houseRateMap.set(key, [hcr]);
-  //         }
-  //       })
-
-
-
-  //       let number20 = 0, number40 = 0, number45 = 0;
-  //       (job.containers || []).forEach(c => {
-  //         const typeId = c.ContainerType ?? null;
-  //         if (!typeId) return;
-  //         const size = containerTypeMap.get(typeId)?.trim() ?? null;
-  //         if (size === "20") number20++;
-  //         if (size === "40") number40++;
-  //         if (size === "45") number45++;
-  //       });
-
-
-
-
-  //       return {
-  //         jobNumber: job.MasterJobNumber,
-  //         Mbl: job.MBLNo,
-  //         POL: job.POL,
-  //         POD: job.POD,
-  //         chargeable: job?.ChargeableWeight ?? 0,
-  //         Vol: job?.Volume ?? 0,
-  //         noOfShipment: job.houseJob?.length ?? 0,
-  //         GP,
-  //         containerNo: job?.containers?.[0]?.ContainerNumber ?? null,
-  //         twentyft: number20,
-  //         fourty: number40,
-  //         fourtyfive: number45,
-  //         totalCost,
-  //         totalRevenue,
-  //         houseCount : houseJobs.length || 0,
-  //         houseJobs: houseJobs.map(house => {
-  //           const costRevenues = houseRateMap.get(house.HouseJobSid) || [];
-  //           const totalCost = costRevenues.reduce((sum, cr) => {
-  //             return cr.CostDrCr === 'D' ? toNumber(sum) + toNumber(cr.CostLocalAmount) :
-  //               toNumber(sum) - toNumber(cr.CostLocalAmount)
-  //           }, 0);
-
-  //           const totalRevenue = costRevenues.reduce((sum, cr) => {
-  //             return cr.RevenueDrCr === 'C' ? toNumber(sum) + toNumber(cr.RevenueLocalAmount) :
-  //               toNumber(sum) - toNumber(cr.RevenueLocalAmount)
-  //           }, 0);
-  //           return {
-  //             HouseJobSid: house.HouseJobSid,
-  //             HouseNo: house.HouseNo,
-  //             HBLNo : house.HBLNo,
-  //             totalCost,
-  //             totalRevenue
-  //           }
-  //         })
-  //       };
-  //     })
-  //     );
-
-  //     return {
-  //       companyMasterSid: CompanyMasterSid,
-  //       branchMasterSid: branchId,
-  //       data,
-  //       branchesInvolved: Array.from(branchSet).join(','),
-  //       params
-  //     };
-
-  //   } catch (error) {
-  //     this.logger.error(`Error generating profitability report: ${error.message}`, error.stack);
-  //     throw error;
-  //   }
-  // }
-
   async generateLostCustomerReport(params: lostCustomerReportQueryDto) {
     try {
       const {
@@ -1808,7 +1605,7 @@ const salesmanInvolved =
       companyId: CompanyMasterSid,
       ToHblDt,
       FromHblDt,
-      Branch : branchId,
+      Branch: branchId,
       Dept: deptId,
       Transhipment = false,
       Customer,
@@ -1953,6 +1750,14 @@ const salesmanInvolved =
           Cargo: true,
           Others: true,
           Products: true,
+          bookingHeader: {
+            where: {
+              status: "A"
+            },
+            select: {
+              BookingDateTime: true
+            }
+          },
           masterJob: {
             where: {
               Status: "A",
@@ -1967,12 +1772,13 @@ const salesmanInvolved =
               MasterJobNumber: true,
               JobStatus: true,
               CreatedBy: true,
-              MBLNo:true,
+              MBLNo: true,
               containers: {
                 where: { Status: 'A' },
                 include: {
                   containerType: {
                     select: {
+                      ContainerName: true,
                       ContainerSize: true,
                       NoOfTeu: true,
                     }
@@ -2005,12 +1811,12 @@ const salesmanInvolved =
       // Fetch port details
       const ports = await this._db.portMaster.findMany({
         where: {
-          PortCode: { in: Array.from(portCodes) }
+          PortCode: { in: Array.from(portCodes) },
         },
         select: {
           PortCode: true,
           PortName: true,
-          CountryMasterSid: true
+          CountryMasterSid: true,
         }
       });
 
@@ -2067,11 +1873,12 @@ const salesmanInvolved =
               containerNumber: c.ContainerNumber,
               containerType: containerTypeId != null
                 ? containerTypeMap.get(containerTypeId) || `Unknown(${containerTypeId})`
-                : 'Unknown',
+                : '',
             };
           });
 
-        const containerCountByType: Record<string, number> = {};
+        const houseProducts = mj.Products;
+        const allContainers = mj.masterJob?.containers || [];
         let totalNoOfTEU = 0;
 
         let numberOfTwentyFt = 0;
@@ -2086,63 +1893,43 @@ const salesmanInvolved =
         let numberofFourtyOpen = 0;
         let numberofFourtyFiveOpen = 0;
 
-        (mj.masterJob?.containers || []).forEach(c => {
-          totalNoOfTEU += Number(c.containerType?.NoOfTeu || 0);
+        houseProducts.forEach(hp => {
 
+          const ourMJContainer = allContainers.find(
+            mc => mc.MasterJobContainerSid === hp.MasterJobContainerSid
+          );
 
-          const normalizeContainerSize = (size?: string): string =>
-            (size || '')
-              .replace(/['"]/g, '')
-              .replace(/\s+/g, ' ')
-              .trim()
-              .toUpperCase();
+          const ourContainerType = ourMJContainer?.containerType;
 
+          containerInfo.push({
+            containerNumber: hp?.ContainerNo ?? '',
+            containerType: ourContainerType?.ContainerSize ?? '',
+          });
 
-          const size = normalizeContainerSize(c.containerType?.ContainerSize);
+          totalNoOfTEU += toNumber(ourContainerType?.NoOfTeu);
 
-          switch (size) {
-            case '20 F':
-              numberOfTwentyFt++;
-              break;
+          const size = ourContainerType?.ContainerName ?? '';
 
-            case '40 F':
-              numberOfFourtyFt++;
-              break;
+          if (size === "20ft Standard") numberOfTwentyFt++;
+          if (size === "40ft Container") numberOfFourtyFt++;
+          if (size === "45ft High Cube ") numberofFurtyFiveFt++;
+          if (size === "20ft Flat Rack" || size === "20ft Reefer") numberOfTwentyRefer++;
+          if (size === "40RF" || size === "40 Flat Rack") numberOfFourtyRefer++;
+          if (size === "40 Flat Rack") numberOfFourtyFiveRefer++;
+          if (size === "20ft Open Top") numberofTwentyOpen++;
+          if (size === "40Ft Open Top") numberofFourtyOpen++;
+          if (size === "45Ft Open Top") numberofFourtyFiveOpen++;
 
-            case '40 HC':
-              numberofFurtyFiveFt++;
-              break;
-
-            case '20 REFER':
-              numberOfTwentyRefer++;
-              break;
-
-            case '40 REFER':
-              numberOfFourtyRefer++;
-              break;
-
-            case '40 HC REFER':
-              numberOfFourtyFiveRefer++;
-              break;
-
-            case '20 OPEN TOP':
-              numberofTwentyOpen++;
-              break;
-
-            case '40 OPEN TOP':
-              numberofFourtyOpen++;
-              break;
-
-            case '40 HC OPEN TOP':
-              numberofFourtyFiveOpen++;
-              break;
-          }
         });
+
 
         const polName = mj.POL ? portMap.get(mj.POL) || '' : '';
         const podName = mj.POD ? portMap.get(mj.POD) || '' : '';
         const fpdName = mj.FPD ? portMap.get(mj.FPD) || '' : '';
         const pooName = mj.POO ? portMap.get(mj.POO) || '' : '';
+
+        const pooCountrySid = mj.POO ? portCountryMap.get(mj.POO) : undefined;
+        const pooCountry = pooCountrySid ? countryMap.get(pooCountrySid) : undefined;
 
         const polCountrySid = mj.POL ? portCountryMap.get(mj.POL) : undefined;
         const polCountry = polCountrySid ? countryMap.get(polCountrySid) : undefined;
@@ -2151,6 +1938,9 @@ const salesmanInvolved =
         const podCountrySid = mj.POD ? portCountryMap.get(mj.POD) : undefined;
         const podCountry = podCountrySid ? countryMap.get(podCountrySid) : undefined;
 
+        // FDC Conutry
+        const fdcCountrySid = mj.FPD ? portCountryMap.get(mj.FPD) : undefined;
+        const fdcCountry = fdcCountrySid ? countryMap.get(fdcCountrySid) : undefined;
 
         const houseDepartment = departments.find(d => d.DepartmentMasterSid === mj.DepartmentMasterSid)?.departmentName || '';
         const masterJob = Array.isArray(mj.masterJob) ? mj.masterJob[0] : mj.masterJob;
@@ -2166,7 +1956,7 @@ const salesmanInvolved =
         return {
           MBL: mj.masterJob?.MBLNo,
           shipmentNo: mj.ShipmentNo,
-          bookingDate: mj.BookingDateTime,
+          bookingDate: mj.bookingHeader?.BookingDateTime,
           masterDate: mj.MBLDate,
           houseDepartment,
           HBL: mj.HBLNo,
@@ -2188,16 +1978,22 @@ const salesmanInvolved =
           ATD: mj.masterJob?.voyages?.[0]?.ATD,
           originPort: mj.POO || '',
           originPortName: pooName || '',
+          POOCode: mj.POO,
+          POOName: pooName || '',
           POLCode: mj.POL || '',
           POLName: polName,
           PODCode: mj.POD || '',
           PODName: podName,
           FPDCode: mj.FPD || '',
           FPDName: fpdName,
+          POOCountryName: pooCountry?.countryName || '',
+          POOCountryCode: pooCountry?.countryCode || '',
           POLCountryName: polCountry?.countryName || '',
           POLCountryCode: polCountry?.countryCode || '',
           PODCountryName: podCountry?.countryName || '',
           PODCountryCode: podCountry?.countryCode || '',
+          FDCCounryName: fdcCountry?.countryName || '',
+          FDCCountryCode: fdcCountry?.countryCode || '',
           // salesPerson:mj.SalesmanSid,
           salesPerson: userMaster.find(d => d.UserMasterSid === mj.SalesmanSid)?.userName || '',
           nominationBY: mj.NominatedBy,
@@ -2222,6 +2018,8 @@ const salesmanInvolved =
           chargeable: mj.masterJob?.ChargeableWeight || 0,
           netWeight: mj.masterJob?.NetWeight,
           customer: mj.CustomerName,
+          nofcontainer: numberOfTwentyFt + numberOfFourtyFt + numberofFurtyFiveFt + numberOfTwentyRefer +
+            numberOfFourtyRefer + numberOfFourtyFiveRefer + numberofTwentyOpen + numberofFourtyOpen + numberofFourtyFiveOpen,
           noOfContainers: houseJobData.reduce((sum, job) => sum + (job.Cargo?.reduce((cSum, cargo) => cSum + (cargo.NoofContainers || 0), 0) || 0), 0) || 0,
           shipper: mj.ShipperName || '',
           consignee: mj.ConsigneeName,
@@ -3212,235 +3010,6 @@ const salesmanInvolved =
     }
   }
 
-  // private async generateProfitSummaryReport(params: ProfitSummaryReportQueryDto) {
-  //   const {
-  //     companyId: CompanyMasterSid,
-  //     ToJobDt,
-  //     FormJobDt,
-  //     Branch: branchId,
-  //     Dept: dept,
-  //   } = params;
-
-  //   try {
-  //     this.logger.log(
-  //       `Getting Profit Summary Report for CompanySid=${CompanyMasterSid}, From=${FormJobDt}, To=${ToJobDt}`
-  //     );
-
-  //     /* ===================== MASTERS ===================== */
-  //     const allBranches = await this.getBranchNames(CompanyMasterSid,branchId);
-  //     const allBranchIds = allBranches.map(b => b.BranchMasterSid);
-
-  //     const [departments, masterJobMenu, houseJobMenu] = await Promise.all([
-  //       this._db.departmentMaster.findMany({
-  //         where: { DepartmentMasterSid: { in: dept } },
-  //         select: { DepartmentMasterSid: true, departmentName: true },
-  //       }),
-  //       this._db.menuMaster.findFirst({
-  //         where: { MenuName: 'Master Job' },
-  //         select: { MenuMasterSid: true },
-  //       }),
-  //       this._db.menuMaster.findFirst({
-  //         where: { MenuName: 'House Job' },
-  //         select: { MenuMasterSid: true },
-  //       }),
-  //     ]);
-
-  //     if (!masterJobMenu || !houseJobMenu) {
-  //       throw new BadRequestException('Menu not found');
-  //     }
-
-
-  //     /* ===================== MASTER JOBS ===================== */
-
-  //     const masterJob = await this._db.masterJob.findMany({
-  //       where: {
-  //         CompanyMasterSid,
-  //         BranchMasterSid: { in: allBranchIds },
-  //         AND: [
-  //           { MBLDate: { gte: new Date(FormJobDt) } },
-  //           { MBLDate: { lte: new Date(ToJobDt) } },
-  //         ],
-  //         Status: 'A',
-  //         DepartmentMasterSid: { in: dept },
-  //       },
-  //       select: {
-  //         MasterJobSid: true,
-  //         MasterJobNumber: true,
-  //         DepartmentMasterSid: true,
-  //         MBLDate: true,
-  //         MBLNo: true,
-  //         OriginAgent: true,
-  //         DestinationAgent: true,
-  //         POL: true,
-  //         POD: true,
-  //         POO: true,
-  //         FPD: true,
-  //         voyages: { select: { ETA: true, ETD: true, ATA: true, ATD: true } },
-  //         houseJob: {
-  //           select: {
-  //             HouseJobSid: true,
-  //             HouseNo: true,
-  //             HBLNo: true,
-  //             HouseStatus: true,
-  //             JobType: true,
-  //             CustomerMasterSid: true,
-  //             SalesmanSid: true,
-  //             FreightTerms: true,
-  //             Cargo: { select: { ModeOfTransport: true } },
-  //           },
-  //         },
-  //       },
-  //       orderBy: { MBLDate: 'asc' },
-  //     });
-
-  //     if (!masterJob.length) {
-  //       return {
-  //         companyMasterSid: CompanyMasterSid,
-  //         branchMasterSid: branchId,
-  //         data: [],
-  //       };
-  //     }
-
-  //     const masterJobIds = masterJob.map(m => m.MasterJobSid);
-  //     const houseJobIds = masterJob.flatMap(m => m.houseJob.map(h => h.HouseJobSid));
-  //     /* ===================== COST / REVENUE ===================== */
-
-  //     const fetchCostRevenue = async (menuId: number, ids: number[]) => {
-  //       const costRevenues = await this._db.costRevenueCharges.findMany({
-  //         where: {
-  //           TransactionSid : { in : ids},
-  //           MenuMasterSid: menuId,
-  //           status: 'A',
-  //         },
-  //         select: { 
-  //           RevenueVoucherHeaderSid: true, RevenueLocalAmount: true,
-  //           CostVoucherHeaderSid : true,
-  //           CostLocalAmount : true
-  //         },
-  //       });
-
-  //       const revenue = costRevenues.map(cr => ({
-  //         RevenueVoucherHeaderSid: cr.RevenueVoucherHeaderSid, 
-  //         RevenueLocalAmount: cr.RevenueLocalAmount,
-  //       }))
-
-  //       const cost = costRevenues.map(cr => ({
-  //         CostVoucherHeaderSid: cr.CostVoucherHeaderSid,
-  //         CostLocalAmount: cr.CostLocalAmount,
-  //       }))
-
-  //       return { revenue, cost };
-  //     };
-
-  //     const masterCR = await fetchCostRevenue(masterJobMenu.MenuMasterSid, masterJobIds);
-  //     const houseCR = await fetchCostRevenue(houseJobMenu.MenuMasterSid, houseJobIds);
-
-  //     /* ===================== MAPS ===================== */
-
-  //     const splitMap = (list: any[], key: string) => {
-  //       const linked = new Map<number, any[]>();
-  //       const unlinked: any[] = [];
-
-  //       list.forEach(item => {
-  //         const id = item[key];
-  //         if (id == null) unlinked.push(item);
-  //         else {
-  //           if (!linked.has(id)) linked.set(id, []);
-  //           const existing = linked.get(id)!;
-  //           if (!existing.some(x => JSON.stringify(x) === JSON.stringify(item))) {
-  //             existing.push(item); // avoid duplicates
-  //           }
-  //         }
-  //       });
-
-  //       return { linked, unlinked };
-  //     };
-
-  //     const masterRevenueMap = splitMap(masterCR.revenue, 'RevenueVoucherHeaderSid');
-  //     const masterCostMap = splitMap(masterCR.cost, 'CostVoucherHeaderSid');
-  //     const houseRevenueMap = splitMap(houseCR.revenue, 'RevenueVoucherHeaderSid');
-  //     const houseCostMap = splitMap(houseCR.cost, 'CostVoucherHeaderSid');
-
-  //     const mapRows = (list: any[], field: string) => {
-  //       return list.map(r => ({
-  //         [field]: Number(r[`${field}LocalAmount`] ?? 0),
-  //       }));
-  //     };
-
-  //     /* ===================== FINAL DATA ===================== */
-
-  //     const data = await Promise.all(
-  //       masterJob.map(async mj => ({
-  //         JobNo: mj.MasterJobNumber,
-  //         MBLNo: mj.MBLNo,
-  //         MBLDate: mj.MBLDate,
-  //         OriginAgent: mj.OriginAgent,
-  //         DestinationAgent: mj.DestinationAgent,
-  //         POL: mj.POL,
-  //         POD: mj.POD,
-  //         FPD: mj.FPD,
-  //         POO: mj.POO,
-  //         ETA: mj.voyages?.[0]?.ETA,
-  //         ETD: mj.voyages?.[0]?.ETD,
-  //         ATA: mj.voyages?.[0]?.ATA,
-  //         ATD: mj.voyages?.[0]?.ATD,
-  //         deptName:
-  //           departments.find(d => d.DepartmentMasterSid === mj.DepartmentMasterSid)
-  //             ?.departmentName || '',
-
-  //         masterCostRevenue: {
-  //           revenue: {
-  //             linked: mapRows(masterRevenueMap.linked.get(mj.MasterJobSid) || [], 'Revenue'),
-  //             unlinked: mapRows(masterRevenueMap.unlinked, 'Revenue'),
-  //           },
-  //           cost: {
-  //             linked: mapRows(masterCostMap.linked.get(mj.MasterJobSid) || [], 'Cost'),
-  //             unlinked: mapRows(masterCostMap.unlinked, 'Cost'),
-  //           },
-  //         },
-
-  //         houseJobs: await Promise.all(
-  //           mj.houseJob.map(async hj => ({
-  //             HouseJobSid: hj.HouseJobSid,
-  //             HouseNo: hj.HouseNo,
-  //             HBLNo: hj.HBLNo,
-  //             HouseStatus: hj.HouseStatus,
-  //             JobType: hj.JobType,
-  //             customerName: await this.getCustomerName(CompanyMasterSid, hj.CustomerMasterSid),
-  //             salesperson: await this.getSalespersonName(CompanyMasterSid, hj.SalesmanSid),
-  //             FreightTerms: hj.FreightTerms,
-  //             ModeOfTransport: hj.Cargo?.[0]?.ModeOfTransport,
-  //             costRevenue: {
-  //               revenue: {
-  //                 linked: mapRows(houseRevenueMap.linked.get(hj.HouseJobSid) || [], 'Revenue'),
-  //                 unlinked: mapRows(houseRevenueMap.unlinked, 'Revenue'),
-  //               },
-  //               cost: {
-  //                 linked: mapRows(houseCostMap.linked.get(hj.HouseJobSid) || [], 'Cost'),
-  //                 unlinked: mapRows(houseCostMap.unlinked, 'Cost'),
-  //               },
-  //             },
-  //           }))
-  //         ),
-  //       }))
-  //     );
-
-  //     return {
-  //       companyMasterSid: CompanyMasterSid,
-  //       branchMasterSid: branchId,
-  //       branchesInvolved: allBranches.map(b => b.branchName).join(','),
-  //       params,
-  //       data,
-  //     };
-  //   } catch (error) {
-  //     this.logger.error(
-  //       `Error generating Profit Summary report: ${error.message}`,
-  //       error.stack
-  //     );
-  //     throw error;
-  //   }
-  // }
-
   private async generateProfitSummaryReport(
     params: ProfitSummaryReportQueryDto
   ) {
@@ -3791,7 +3360,6 @@ const salesmanInvolved =
         select: { UserMasterSid: true, userName: true }
       })
 
-      // Convert POL / POD ID → PortCode
       const portIds = [POL, POD].filter(
         (id): id is number => typeof id === 'number'
       );
@@ -3806,14 +3374,13 @@ const salesmanInvolved =
           },
           select: {
             PortMasterSid: true,
-            PortCode: true, // ✅ CHANGED HERE
+            PortCode: true, 
           },
         });
 
         polCode = ports.find(p => p.PortMasterSid === POL)?.PortCode;
         podCode = ports.find(p => p.PortMasterSid === POD)?.PortCode;
       }
-
 
       let polNameParam: string | undefined;
       let podNameParam: string | undefined;
@@ -3832,10 +3399,6 @@ const salesmanInvolved =
         polNameParam = portsById.find(p => p.PortMasterSid === POL)?.PortName;
         podNameParam = portsById.find(p => p.PortMasterSid === POD)?.PortName;
       }
-
-
-
-
 
       const salespersonMap = new Map<number, string>(
         userMaster.map(u => [u.UserMasterSid, u.userName])
@@ -3886,6 +3449,14 @@ const salesmanInvolved =
           Cargo: true,
           Others: true,
           Products: true,
+          bookingHeader:{
+            where:{
+              status:"A"
+            },
+            select:{
+              BookingDateTime:true
+            }
+          },
           masterJob: {
             where: {
               Status: "A",
@@ -3908,6 +3479,7 @@ const salesmanInvolved =
                     select: {
                       ContainerSize: true,
                       NoOfTeu: true,
+                      ContainerName:true
                     }
                   }
                 }
@@ -4004,7 +3576,8 @@ const salesmanInvolved =
             };
           });
 
-        const containerCountByType: Record<string, number> = {};
+        const houseProducts = mj.Products;
+        const allContainers = mj.masterJob?.containers || [];
         let totalNoOfTEU = 0;
 
         let numberOfTwentyFt = 0;
@@ -4019,63 +3592,43 @@ const salesmanInvolved =
         let numberofFourtyOpen = 0;
         let numberofFourtyFiveOpen = 0;
 
-        (mj.masterJob?.containers || []).forEach(c => {
-          totalNoOfTEU += Number(c.containerType?.NoOfTeu || 0);
+         houseProducts.forEach(hp => {
 
+          const ourMJContainer = allContainers.find(
+            mc => mc.MasterJobContainerSid === hp.MasterJobContainerSid
+          );
 
-          const normalizeContainerSize = (size?: string): string =>
-            (size || '')
-              .replace(/['"]/g, '')
-              .replace(/\s+/g, ' ')
-              .trim()
-              .toUpperCase();
+          const ourContainerType = ourMJContainer?.containerType;
 
+          containerInfo.push({
+            containerNumber: hp?.ContainerNo ?? '',
+            containerType: ourContainerType?.ContainerSize ?? '',
+          });
 
-          const size = normalizeContainerSize(c.containerType?.ContainerSize);
+          totalNoOfTEU += toNumber(ourContainerType?.NoOfTeu);
 
-          switch (size) {
-            case '20 F':
-              numberOfTwentyFt++;
-              break;
+          const size = ourContainerType?.ContainerName ?? '';
 
-            case '40 F':
-              numberOfFourtyFt++;
-              break;
+          if (size === "20ft Standard") numberOfTwentyFt++;
+          if (size === "40ft Container") numberOfFourtyFt++;
+          if (size === "45ft High Cube ") numberofFurtyFiveFt++;
+          if (size === "20ft Flat Rack" || size === "20ft Reefer") numberOfTwentyRefer++;
+          if (size === "40RF" || size === "40 Flat Rack") numberOfFourtyRefer++;
+          if (size === "40 Flat Rack") numberOfFourtyFiveRefer++;
+          if (size === "20ft Open Top") numberofTwentyOpen++;
+          if (size === "40Ft Open Top") numberofFourtyOpen++;
+          if (size === "45Ft Open Top") numberofFourtyFiveOpen++;
 
-            case '40 HC':
-              numberofFurtyFiveFt++;
-              break;
-
-            case '20 REFER':
-              numberOfTwentyRefer++;
-              break;
-
-            case '40 REFER':
-              numberOfFourtyRefer++;
-              break;
-
-            case '40 HC REFER':
-              numberOfFourtyFiveRefer++;
-              break;
-
-            case '20 OPEN TOP':
-              numberofTwentyOpen++;
-              break;
-
-            case '40 OPEN TOP':
-              numberofFourtyOpen++;
-              break;
-
-            case '40 HC OPEN TOP':
-              numberofFourtyFiveOpen++;
-              break;
-          }
         });
 
         const polName = mj.POL ? portMap.get(mj.POL) || '' : '';
         const podName = mj.POD ? portMap.get(mj.POD) || '' : '';
         const fpdName = mj.FPD ? portMap.get(mj.FPD) || '' : '';
         const pooName = mj.POO ? portMap.get(mj.POO) || '' : '';
+
+        
+        const pooCountrySid = mj.POO ? portCountryMap.get(mj.POO) : undefined;
+        const pooCountry = pooCountrySid ? countryMap.get(pooCountrySid) : undefined;
 
         const polCountrySid = mj.POL ? portCountryMap.get(mj.POL) : undefined;
         const polCountry = polCountrySid ? countryMap.get(polCountrySid) : undefined;
@@ -4084,6 +3637,8 @@ const salesmanInvolved =
         const podCountrySid = mj.POD ? portCountryMap.get(mj.POD) : undefined;
         const podCountry = podCountrySid ? countryMap.get(podCountrySid) : undefined;
 
+        const fdcCountrySid = mj.FPD ? portCountryMap.get(mj.FPD) : undefined;
+        const fdcCountry = fdcCountrySid ? countryMap.get(fdcCountrySid) : undefined;
 
         const houseDepartment = departments.find(d => d.DepartmentMasterSid === mj.DepartmentMasterSid)?.departmentName || '';
         const masterJob = Array.isArray(mj.masterJob) ? mj.masterJob[0] : mj.masterJob;
@@ -4099,7 +3654,7 @@ const salesmanInvolved =
         return {
           MBL: mj.MBLNo,
           shipmentNo: mj.ShipmentNo,
-          bookingDate: mj.BookingDateTime,
+          bookingDate: mj.bookingHeader?.BookingDateTime,
           masterDate: mj.MBLDate,
           houseDepartment,
           HBL: mj.HBLNo,
@@ -4121,16 +3676,22 @@ const salesmanInvolved =
           ATD: mj.masterJob?.voyages?.[0]?.ATD,
           originPort: mj.POO || '',
           originPortName: pooName || '',
+          POOCode: mj.POO,
+          POOName: pooName || '',
           POLCode: mj.POL || '',
           POLName: polName,
           PODCode: mj.POD || '',
           PODName: podName,
           FPDCode: mj.FPD || '',
           FPDName: fpdName,
+          POOCountryName: pooCountry?.countryName || '',
+          POOCountryCode: pooCountry?.countryCode || '',
           POLCountryName: polCountry?.countryName || '',
           POLCountryCode: polCountry?.countryCode || '',
           PODCountryName: podCountry?.countryName || '',
           PODCountryCode: podCountry?.countryCode || '',
+          FDCCounryName: fdcCountry?.countryName || '',
+          FDCCountryCode: fdcCountry?.countryCode || '',
           // salesPerson:mj.SalesmanSid,
           salesPerson: userMaster.find(d => d.UserMasterSid === mj.SalesmanSid)?.userName || '',
           nominationBY: mj.NominatedBy,
@@ -4155,6 +3716,8 @@ const salesmanInvolved =
           chargeable: mj.masterJob?.ChargeableWeight || 0,
           netWeight: mj.masterJob?.NetWeight,
           customer: mj.CustomerName,
+          nofcontainer: numberOfTwentyFt + numberOfFourtyFt + numberofFurtyFiveFt + numberOfTwentyRefer +
+          numberOfFourtyRefer + numberOfFourtyFiveRefer + numberofTwentyOpen + numberofFourtyOpen + numberofFourtyFiveOpen,
           noOfContainers: houseJobData.reduce((sum, job) => sum + (job.Cargo?.reduce((cSum, cargo) => cSum + (cargo.NoofContainers || 0), 0) || 0), 0) || 0,
           shipper: mj.ShipperName || '',
           consignee: mj.ConsigneeName,
@@ -4244,18 +3807,27 @@ const salesmanInvolved =
 
       const resolvedBranchIds = branches.map(b => b.BranchMasterSid);
       const resolvedBranchNames = branches.map(b => b.branchName);
-      const branchesInvolved = branchId && branchId.length > 0 ? branches.map(b=>b.branchName).join(", "):'All Branches'
-
+      const branchesInvolved = branchId && branchId.length > 0 ? branches.map(b => b.branchName).join(", ") : 'All Branches'
 
       const departments = deptId && deptId.length > 0
         ? await this._db.departmentMaster.findMany({
           where: {
             DepartmentMasterSid: { in: deptId },
             NOT: {
-              departmentName: {
-                contains: 'AIR',
-                mode: 'insensitive',
-              },
+              OR: [
+                {
+                  departmentName: {
+                    contains: 'AIR',
+                    mode: 'insensitive',
+                  },
+                },
+                {
+                  departmentName: {
+                    contains: 'IMPORT',
+                    mode: 'insensitive',
+                  },
+                },
+              ],
             },
           },
           select: { DepartmentMasterSid: true, departmentName: true },
@@ -4263,25 +3835,33 @@ const salesmanInvolved =
         : await this._db.departmentMaster.findMany({
           where: {
             CompanyMasterSid,
-            NOT: {
-              departmentName: {
-                contains: 'AIR',
-                mode: 'insensitive',
-              },
+          NOT: {
+              OR: [
+                {
+                  departmentName: {
+                    contains: 'AIR',
+                    mode: 'insensitive',
+                  },
+                },
+                {
+                  departmentName: {
+                    contains: 'IMPORT',
+                    mode: 'insensitive',
+                  },
+                },
+              ],
             },
           },
           select: { DepartmentMasterSid: true, departmentName: true },
         });
 
-
       const resolvedDeptIds = departments.map(d => d.DepartmentMasterSid);
       const resolvedDeptNames = departments.map(d => d.departmentName);
-      const departmentInvoled = deptId && deptId.length > 0 ? departments.map(d=>d.departmentName).join(", ") : 'All Departments'
+      const departmentInvoled = deptId && deptId.length > 0 ? departments.map(d => d.departmentName).join(", ") : 'All Departments'
       const customer = await this._db.customerMaster.findMany({
         select: { CustomerMasterSid: true, CustomerName: true }
       })
 
-      // Container Type Master
       const containerTypesMaster = await this._db.containerTypeMaster.findMany({
         select: { ContainerTypeMasterSid: true, ContainerSize: true }
       });
@@ -4302,6 +3882,15 @@ const salesmanInvolved =
           DepartmentMasterSid: { in: resolvedDeptIds },
         },
         include: {
+          houseJob: {
+            where: {
+              status: 'A'
+            },
+            select: {
+              Cargo:true,
+              Products: true
+            }
+          },
           containers: {
             where: { Status: 'A' },
             include: {
@@ -4318,15 +3907,11 @@ const salesmanInvolved =
         orderBy: { MBLDate: 'asc' },
       })
 
-      const containerSize = ["20'", "40'", "45'"];
-
       const masterContainerMap = new Map<string, number>();
-
       containerTypesMaster.forEach(m => {
-        const size = m.ContainerSize.replace("'", '').trim(); // normalize
-        masterContainerMap.set(size, 1); // presence map
+        const size = m.ContainerSize.replace("'", '').trim();
+        masterContainerMap.set(size, 1);
       });
-
 
       // Map the master job data
       const data = masterJobs.map(mj => {
@@ -4340,33 +3925,35 @@ const salesmanInvolved =
               containerNumber: c.ContainerNumber,
               containerType: containerTypeId != null
                 ? containerTypeMap.get(containerTypeId) || `Unknown(${containerTypeId})`
-                : 'Unknown',
+                : '',
             };
           });
 
-        const containerCountByType: Record<string, number> = {};
+        const allContainers = mj?.containers || [];
+
         let totalNoOfTEU = 0;
+        let numberOfTwentyFt = 0;
         let numberOfFourtyFt = 0;
         let numberofFurtyFive = 0;
-        let numberOfTwentyFt = 0;
-        containerSize.forEach(col => containerCountByType[col] = 0);
+        const houseProducts =
+          mj.houseJob?.flatMap(h => h.Products || []) || [];
 
-        (mj.containers || []).forEach(c => {
+        houseProducts.forEach(hp => {
+          const ourMJContainer = allContainers.find(
+            mc => mc.MasterJobContainerSid === hp.MasterJobContainerSid
+          );
 
-          totalNoOfTEU += toNumber(c.containerType?.NoOfTeu);
+          const ourContainerType = ourMJContainer?.containerType;
 
-          if (c.containerType?.ContainerSize.trim() === '20') {
-            numberOfTwentyFt++;
-          }
+          totalNoOfTEU += toNumber(ourContainerType?.NoOfTeu);
 
-          if (c.containerType?.ContainerSize.trim() === '40') {
-            numberOfFourtyFt++;
-          }
+          const size = ourContainerType?.ContainerSize;
 
-          if (c.containerType?.ContainerSize.trim() === '45') {
-            numberofFurtyFive++;
-          }
+          if (size?.includes("20")) numberOfTwentyFt++;
+          if (size?.includes("40")) numberOfFourtyFt++;
+          if (size?.includes("45")) numberofFurtyFive++;
         });
+
 
         return {
           TEUCount: totalNoOfTEU,
@@ -4375,7 +3962,7 @@ const salesmanInvolved =
           twentyft: numberOfTwentyFt,
           dept: departments.find(d => d.DepartmentMasterSid === mj.DepartmentMasterSid)?.departmentName || '',
           jobNo: mj.MasterJobNumber,
-          movementType: mj.MovementType,
+          movementType: mj.houseJob?.[0]?.Cargo?.[0]?.ModeOfTransport,
           MBLDate: mj.MBLDate,
           ETD: mj.voyages?.[0]?.ETD,
           deliveyAgent: customer.find(c => c.CustomerMasterSid === mj.DestinationAgent)?.CustomerName || '',
@@ -4417,6 +4004,7 @@ const salesmanInvolved =
 
       // 2. Load masters
       const organizationMaster = await this._db.customerMaster.findMany({
+        where: { status: 'A' },
         select: {
           CustomerMasterSid: true,
           CustomerName: true,
@@ -4425,6 +4013,9 @@ const salesmanInvolved =
       });
 
       const departments = await this._db.departmentMaster.findMany({
+        where: {
+          Status: "A"
+        },
         select: {
           DepartmentMasterSid: true,
           departmentName: true
@@ -4432,6 +4023,7 @@ const salesmanInvolved =
       });
 
       const containerTypesMaster = await this._db.containerTypeMaster.findMany({
+        where: { status: 'A' },
         select: { ContainerTypeMasterSid: true, ContainerSize: true }
       });
 
@@ -4462,6 +4054,7 @@ const salesmanInvolved =
         where: whereClause,
         include: {
           Cargo: true,
+          Products: true,
           masterJob: {
             where: {
               Status: 'A'
@@ -4470,6 +4063,7 @@ const salesmanInvolved =
               GrossWeight: true,
               NetWeight: true,
               MasterJobNumber: true,
+              MBLNo: true,
               OriginAgent: true,
               containers: {
                 where: { Status: 'A' },
@@ -4482,6 +4076,14 @@ const salesmanInvolved =
                   }
                 }
               },
+            }
+          },
+          bookingHeader: {
+            where: {
+              status: 'A'
+            },
+            select: {
+              BookingNo: true
             }
           },
           customerMaster: {
@@ -4547,76 +4149,34 @@ const salesmanInvolved =
           );
           const profit = totalRevenue - totalCost;
 
-          const masterContainerSid = b.masterJob?.containers?.[0]?.MasterJobContainerSid;
+          const allContainers = b?.masterJob?.containers || [];
+
           let totalNoOfTEU = 0;
           let numberOfTwentyFt = 0;
           let numberOfFourtyFt = 0;
-          let numberofFurtyFiveFt = 0;
+          let numberofFurtyFive = 0;
+          const houseProducts = b.Products
 
-          let numberOfTwentyRefer = 0;
-          let numberOfFourtyRefer = 0;
-          let numberOfFourtyFiveRefer = 0;
-
-          let numberofTwentyOpen = 0;
-          let numberofFourtyOpen = 0;
-          let numberofFourtyFiveOpen = 0;
-
-          (b.masterJob?.containers || []).forEach(c => {
-            totalNoOfTEU += Number(c.containerType?.NoOfTeu || 0);
-            const normalizeContainerSize = (size?: string): string =>
-              (size || '')
-                .replace(/['"]/g, '')
-                .replace(/\s+/g, ' ')
-                .trim()
-                .toUpperCase();
-            const size = normalizeContainerSize(c.containerType?.ContainerSize);
-            switch (size) {
-              case '20 F':
-                numberOfTwentyFt++;
-                break;
-
-              case '40 F':
-                numberOfFourtyFt++;
-                break;
-
-              case '40 HC':
-                numberofFurtyFiveFt++;
-                break;
-
-              case '20 REFER':
-                numberOfTwentyRefer++;
-                break;
-
-              case '40 REFER':
-                numberOfFourtyRefer++;
-                break;
-
-              case '40 HC REFER':
-                numberOfFourtyFiveRefer++;
-                break;
-
-              case '20 OPEN TOP':
-                numberofTwentyOpen++;
-                break;
-
-              case '40 OPEN TOP':
-                numberofFourtyOpen++;
-                break;
-
-              case '40 HC OPEN TOP':
-                numberofFourtyFiveOpen++;
-                break;
-            }
+          houseProducts.forEach(hp => {
+            const ourMJContainer = allContainers.find(
+              mc => mc.MasterJobContainerSid === hp.MasterJobContainerSid
+            );
+            const ourContainerType = ourMJContainer?.containerType;
+            totalNoOfTEU += toNumber(ourContainerType?.NoOfTeu);
+            const size = ourContainerType?.ContainerSize;
+            if (size?.includes("20")) numberOfTwentyFt++;
+            if (size?.includes("40")) numberOfFourtyFt++;
+            if (size?.includes("45")) numberofFurtyFive++;
           });
 
           return {
             customerName: customer?.CustomerName || '',
             departmentName: department?.departmentName || '',
             network: customer?.Network || '',
-            BookingNo: b.BookingNo,
+            BookingNo: b.bookingHeader?.BookingNo,
             HouseNo: b.HouseNo,
             HblNo: b.HBLNo,
-            MBLNo: b.MBLNo,
+            MBLNo: b.masterJob?.MBLNo,
             masterJobNo: b.masterJob?.MasterJobNumber,
             originAgent: b.AgentName,
             originNetwork: originAgent?.Network,
@@ -5632,6 +5192,27 @@ const salesmanInvolved =
       let polCode: string | undefined;
       let podCode: string | undefined;
 
+      // Take MenuMasterSid of Master Air Waybill -[168] , House Air Waybill [178]
+
+       const houseAirWaybillMenu = await this._db.menuMaster.findFirst({
+        where: { MenuName: 'House Air Waybill' , status:"A"},
+        select: { MenuMasterSid: true },
+      });
+
+         const masterAirWaybillMenu = await this._db.menuMaster.findFirst({
+        where: { MenuName: 'Master Air Waybill' , status:"A"},
+        select: { MenuMasterSid: true },
+      });
+
+      const excludedMenuId = [
+        houseAirWaybillMenu?.MenuMasterSid,
+        masterAirWaybillMenu?.MenuMasterSid
+      ].filter(Boolean) as number[];
+
+      if (excludedMenuId.length === 0) {
+        throw new BadRequestException('Air MenuMasterSid not found');
+      }
+
       if (POL) {
         const polRow = await this._db.portMaster.findFirst({
           where: { PortMasterSid: Number(POL) },
@@ -5671,6 +5252,9 @@ const salesmanInvolved =
       const bookingData = await this._db.bookingHeader.findMany({
         where: {
           ...whereCondition,
+          departmentMaster : {
+            departmentType : {not : 'Air'}
+          },
           status: 'A',
           AND: [
             { BookingDateTime: { gte: FromDate } },
@@ -5691,6 +5275,7 @@ const salesmanInvolved =
       const houseJob = await this._db.houseJob.findMany({
         where: {
           ...whereCondition,
+          MenuMasterSid: { notIn: excludedMenuId },
           AND: [
             { HBLDate: { gte: FromDate } },
             { HBLDate: { lte: ToDate } }
@@ -5741,6 +5326,7 @@ const salesmanInvolved =
       const masterJob = await this._db.masterJob.findMany({
         where: {
           ...whereCondition,
+          MenuMasterSid: { notIn: excludedMenuId },
           AND: [
             { MBLDate: { gte: FromDate } },
             { MBLDate: { lte: ToDate } }
@@ -5996,7 +5582,6 @@ const salesmanInvolved =
 
   // Freight MoM Growth Report
   async generateFreightMoMGrowthReport(params: any) {
-
     const {
       FromDate,
       ToDate,
@@ -6006,8 +5591,6 @@ const salesmanInvolved =
     } = params;
 
     try {
-
-      /* ---------- DATE HELPERS (UTC SAFE) ---------- */
 
       const toUTCDate = (d: Date) =>
         new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
@@ -6042,8 +5625,6 @@ const salesmanInvolved =
 
       const { prevFrom, prevTo } = getPreviousMonthRange(currentFrom, currentTo);
 
-      /* ---------- COMMON FETCH ---------- */
-
       const fetchDepartmentData = async (from: Date, to: Date) => {
 
         const baseWhere: any = {
@@ -6070,7 +5651,7 @@ const salesmanInvolved =
             containers: {
               where: { Status: 'A' },
               include: {
-                containerType: { select: { NoOfTeu: true } }
+                containerType: { where : {status:'A'} ,select : { NoOfTeu: true } }
               }
             }
           }
@@ -6132,12 +5713,19 @@ const salesmanInvolved =
             (sum, c) => sum + Number(c.containerType?.NoOfTeu || 0), 0
           );
 
+          const totalGrossWt = masterJobData.reduce((sum, m) => {
+            return sum + Number(m.GrossWeight || 0);
+          }, 0);
+
+          const totalVol = masterJobData.reduce((s,c)=>s + toNumber(c.NetWeight),0)
+
+
           return {
             department:
-              departments.find(d => d.DepartmentMasterSid === m.DepartmentMasterSid)?.departmentName || '',
+            departments.find(d => d.DepartmentMasterSid === m.DepartmentMasterSid)?.departmentName || '',
             shipmentCount: m.houseJob.length,
-            grossWt: Number(m.GrossWeight || 0),
-            vol: Number(m.Volume || 0),
+            grossWt: totalGrossWt,
+            vol: totalVol,
             totalRevenue,
             totalCost,
             grossProfit,

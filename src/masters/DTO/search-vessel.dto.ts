@@ -22,4 +22,8 @@ export class filterDto {
   @IsOptional()
   @IsInt()
   activeBranchId: number;
+
+  @IsOptional()
+  @IsInt()
+  yearMasterSid?: number;
 }
