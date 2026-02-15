@@ -1,7 +1,8 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { DatabaseService } from 'src/database/database.service';
 import { MenuService } from 'src/masters/services/menu/menu.service';
+import { NumberSeriesService } from 'src/settings/services/number-series/number-series.service';
 import { OperationCommonService } from '../operation-common/operation-common.service';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 import { statusWhereClause } from 'src/common/helper';
@@ -14,6 +15,7 @@ export class CreateServiceJobDto {
     MBLNo?: string;
     MBLDate?: Date;
     HBLNo?: string;
+    ShipmentNo?: string;
 
     // HouseJob fields
     BookingNo: string;
@@ -62,10 +64,13 @@ export class UpdateServiceJobDto {
 
 @Injectable()
 export class ServiceJobService {
+    private readonly logger = new Logger(ServiceJobService.name);
+
     constructor(
         private readonly _db: DatabaseService,
         private readonly commonService: OperationCommonService,
         private readonly menuService: MenuService,
+        private readonly numberSeriesService: NumberSeriesService,
     ) { }
 
     /**
@@ -73,44 +78,121 @@ export class ServiceJobService {
      */
     async createServiceJob(payload: CreateServiceJobDto) {
         const { houseJobCargo, houseJobOthers, costRevenueCharges, ...mainPayload } = payload;
-        
-        return this._db.$transaction(async (prisma) => {
-            // 1. Create the MasterJob
-            const department = await prisma.departmentMaster.findUnique({
-                where: { DepartmentMasterSid: mainPayload.DepartmentMasterSid },
-                select: {
-                    departmentType: true
+
+        // --- Pre-transaction: lookups and number generation ---
+
+        // 1. Look up department
+        const department = await this._db.departmentMaster.findUnique({
+            where: { DepartmentMasterSid: mainPayload.DepartmentMasterSid },
+            select: { departmentType: true }
+        });
+
+        if (!department) {
+            throw new BadRequestException('Department not found.');
+        }
+
+        const documentDate = payload.MBLDate ? new Date(payload.MBLDate) : undefined;
+
+        // 2. Generate Master Job number via NumberSeriesService
+        const masterJobMenuId = await this.menuService.getMenuSidByName(
+            department.departmentType?.toUpperCase() === 'AIR' ? "Master Air Waybill" : "Master Job"
+        );
+        const serviceJobMenuId = await this.menuService.getMenuSidByName("Service Job");
+
+        let generatedMasterJobNumber: string | null = null;
+        try {
+            generatedMasterJobNumber = await this.numberSeriesService.generateNextNumber(
+                mainPayload.CompanyMasterSid,
+                mainPayload.BranchMasterSid,
+                masterJobMenuId,
+                mainPayload.DepartmentMasterSid,
+                documentDate,
+            );
+        } catch (err) {
+            this.logger.error(`[ServiceJob] MasterJob number generation failed: ${err.message}`);
+        }
+
+        // Fallback to legacy if config-based generation failed
+        if (!generatedMasterJobNumber) {
+            const dateString = moment().format('YYYYMMDD');
+            const masterCount = await this._db.masterJob.count({
+                where: { MasterJobNumber: { contains: dateString } }
+            });
+            generatedMasterJobNumber = `MASTER-${dateString}-${(masterCount + 1).toString().padStart(3, '0')}`;
+        }
+
+        // Payload MBLNo overrides generated number
+        const finalMBLNo =
+            payload.MBLNo && payload.MBLNo.trim() !== ''
+                ? payload.MBLNo
+                : generatedMasterJobNumber;
+
+        // 3. Generate House Job HBL number via NumberSeriesService
+        const houseJobMenuId = await this.menuService.getMenuSidByName(
+            department.departmentType?.toUpperCase() === 'AIR' ? "House Air Waybill" : "House Job"
+        );
+
+        let generatedHBLNo: string | null = null;
+        try {
+            generatedHBLNo = await this.numberSeriesService.generateNextNumber(
+                mainPayload.CompanyMasterSid,
+                mainPayload.BranchMasterSid,
+                houseJobMenuId,
+                mainPayload.DepartmentMasterSid,
+                documentDate,
+            );
+        } catch (err) {
+            this.logger.error(`[ServiceJob] HBL number generation failed: ${err.message}`);
+        }
+
+        // Fallback to legacy if config-based generation failed
+        if (!generatedHBLNo) {
+            const dateString = moment().format('YYYYMMDD');
+            const houseCount = await this._db.houseJob.count({
+                where: { HBLNo: { contains: dateString } }
+            });
+            generatedHBLNo = `HOUSE-${dateString}-${(houseCount + 1).toString().padStart(3, '0')}`;
+        }
+
+        // Payload HBLNo overrides generated number
+        const finalHBLNo =
+            payload.HBLNo && payload.HBLNo.trim() !== ''
+                ? payload.HBLNo
+                : generatedHBLNo;
+
+        // 4. Service Job ShipmentNo — open text from payload or legacy fallback
+        let serviceJobRefNo: string;
+        if (payload.ShipmentNo && payload.ShipmentNo.trim() !== '') {
+            serviceJobRefNo = payload.ShipmentNo.trim();
+        } else {
+            const dateString = moment().format('YYYYMMDD');
+            const count = await this._db.houseJob.count({
+                where: {
+                    ShipmentNo: { contains: dateString },
+                    IsServiceJob: 'Y'
                 }
             });
+            serviceJobRefNo = `SRVJ-${dateString}-${(count + 1).toString().padStart(3, '0')}`;
+        }
 
-            if (!department) {
-                throw new BadRequestException('Department not found.');
-            }
+        // --- Transaction: create all records ---
 
-            const masterJobMenuId = await this.menuService.getMenuSidByName("Service Job");
-            const dateString = moment().format('YYYYMMDD');
-            const masterCount = await prisma.masterJob.count({
-                    where: { MasterJobNumber: { contains: dateString } }
-            })
-            const MasterJobNumber = `MASTER-${dateString}-${(masterCount + 1).toString().padStart(3, '0')}`;
-            const finalMBLNo =
-                payload.MBLNo && payload.MBLNo.trim() !== ''
-                    ? payload.MBLNo
-                    : MasterJobNumber;
+        return this._db.$transaction(async (prisma) => {
+            // Create the MasterJob
             const masterJob = await prisma.masterJob.create({
                 data: {
-                    MasterJobDate: new Date(),
+                    MasterJobDate: payload.MBLDate ? new Date(payload.MBLDate) : new Date(),
                     MasterJobNumber: finalMBLNo,
-                    MBLNo : finalMBLNo,
-                    MBLDate : payload.MBLDate || new Date(),
+                    MBLNo: finalMBLNo,
+                    MBLDate: payload.MBLDate ? new Date(payload.MBLDate) : new Date(),
                     FreightPPCC: mainPayload.FreightPPCC || "Prepaid",
                     CompanyMasterSid: mainPayload.CompanyMasterSid,
                     BranchMasterSid: mainPayload.BranchMasterSid,
                     DepartmentMasterSid: mainPayload.DepartmentMasterSid,
-                    MenuMasterSid: masterJobMenuId,
+                    MenuMasterSid: serviceJobMenuId,
                     POO: "",
-                    POL: mainPayload.POL|| "",
-                    POD: mainPayload.POD||"",
+                    POL: mainPayload.POL || "",
+                    POD: mainPayload.POD || "",
                     FPD: "",
                     Status: mainPayload.status || 'A',
                     CreatedBy: mainPayload.createdBy,
@@ -121,35 +203,13 @@ export class ServiceJobService {
                 throw new BadRequestException('Failed to create the master job component.');
             }
 
-            // 2. Get Menu SID for 'Service Job'
-            const serviceJobMenuId = await this.menuService.getMenuSidByName(department.departmentType?.toUpperCase() === 'AIR' ? "House Air Waybill" : "House Job");
-
-            // 3. Create the HouseJob
-            const count = await prisma.houseJob.count({
-                where: { 
-                    ShipmentNo: { contains: dateString },
-                    IsServiceJob: 'Y'
-                }
-            });
-            const houseCount = await prisma.houseJob.count({
-                where: { 
-                    HBLNo: { contains: dateString },
-                }
-            });
-            const serviceJobRefNo = `SRVJ-${dateString}-${(count + 1).toString().padStart(3, '0')}`;
-            const generatedHBLNo = `HOUSE-${dateString}-${(houseCount + 1).toString().padStart(3, '0')}`;
-            const finalHBLNo =
-                payload.HBLNo && payload.HBLNo.trim() !== ''
-                    ? payload.HBLNo
-                    : generatedHBLNo;
-
-            
+            // Create the HouseJob
             const houseJob = await prisma.houseJob.create({
                 data: {
                     MasterJobSid: masterJob.MasterJobSid,
                     MBLNo : masterJob.MasterJobNumber,
                     MBLDate : masterJob.MBLDate,
-                    MenuMasterSid: serviceJobMenuId,
+                    MenuMasterSid: houseJobMenuId,
                     CompanyMasterSid: mainPayload.CompanyMasterSid,
                     BranchMasterSid: mainPayload.BranchMasterSid,
                     DepartmentMasterSid: mainPayload.DepartmentMasterSid,
@@ -210,7 +270,7 @@ export class ServiceJobService {
                             CompanyMasterSid: payload.CompanyMasterSid,
                             BranchMasterSid: payload.BranchMasterSid,
                             TransactionSid: houseJob.HouseJobSid,
-                            MenuMasterSid: serviceJobMenuId,
+                            MenuMasterSid: houseJobMenuId,
                             ShipmentNo: houseJob.ShipmentNo,
                             MasterJobNo: houseJob.MBLNo || "",
                             createdBy: payload.updatedBy || '',
