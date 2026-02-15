@@ -383,13 +383,20 @@ if (houseJobOthers && Object.keys(houseJobOthers).length > 0) {
                 },
                 include: {
                     Cargo: { where: { status: 'A' } },
-                    Others: { where: { status: 'A' },
-                select: {
-                    HouseJobOthersSid: true,
-                    HouseJobSid: true,
-                    ExternalNote: true,
-                    InternalNote: true}
-                }
+                    Others: {
+                        where: { status: 'A' },
+                        select: {
+                            HouseJobOthersSid: true,
+                            HouseJobSid: true,
+                            ExternalNote: true,
+                            InternalNote: true
+                        }
+                    },
+                    masterJob : {
+                        select : {
+                            MasterJobNumber : true
+                        }
+                    }
                 }
             });
 

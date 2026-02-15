@@ -38,10 +38,11 @@ export class GlobalDocumentSearchService {
 
         try {
             // Execute all searches in parallel
-            const [bookings, masterJobs, houseJobs, enquiries, quotations, vouchers] = await Promise.all([
+            const [bookings, masterJobs, houseJobs, serviceJobs , enquiries, quotations, vouchers] = await Promise.all([
                 this.searchBookings(search, CompanyMasterSid, BranchMasterSid),
                 this.searchMasterJobs(search, CompanyMasterSid, BranchMasterSid),
                 this.searchHouseJobs(search, CompanyMasterSid, BranchMasterSid),
+                this.searchServiceJobs(search, CompanyMasterSid, BranchMasterSid),
                 this.searchEnquiries(search, CompanyMasterSid, BranchMasterSid),
                 this.searchQuotations(search, CompanyMasterSid, BranchMasterSid),
                 this.searchVouchers(search, CompanyMasterSid, BranchMasterSid),
@@ -51,6 +52,7 @@ export class GlobalDocumentSearchService {
                 ...bookings,
                 ...masterJobs,
                 ...houseJobs,
+                ...serviceJobs,
                 ...enquiries,
                 ...quotations,
                 ...vouchers,
@@ -109,11 +111,20 @@ export class GlobalDocumentSearchService {
         branchId: number,
     ): Promise<DocumentSearchResult[]> {
         try {
+
+            const serviceJobMenu = await this.db.menuMaster.findFirst({
+                where: {
+                    MenuName: 'Service Job'
+                },
+                select : { MenuMasterSid : true }
+            });
+
             const masterJobs = await this.db.masterJob.findMany({
                 where: {
                     CompanyMasterSid: companyId,
                     BranchMasterSid: branchId,
                     Status: statusWhereClause,
+                    ...(serviceJobMenu && { MenuMasterSid: { not: serviceJobMenu.MenuMasterSid } }),
                     OR : [
                         { MasterJobNumber: { contains: search, mode: 'insensitive' }},
                         { MBLNo : {contains : search, mode: 'insensitive'}},
@@ -164,6 +175,7 @@ export class GlobalDocumentSearchService {
                     CompanyMasterSid: companyId,
                     BranchMasterSid: branchId,
                     status: statusWhereClause,
+                    IsServiceJob : { not : 'Y'},
                     HBLNo: { contains: search, mode: 'insensitive' }
                 },
                 select: { HouseJobSid: true, HBLNo: true , departmentMaster : {select : {departmentType : true}}},
@@ -183,6 +195,75 @@ export class GlobalDocumentSearchService {
             });
         } catch (error) {
             this.logger.error(`Error searching house jobs: ${error.message}`);
+            return [];
+        }
+    }
+
+    private async searchServiceJobs(
+        search: string,
+        companyId: number,
+        branchId: number,
+    ): Promise<DocumentSearchResult[]> {
+        try {
+            // Search in house jobs with IsServiceJob = 'Y'
+            const serviceJobs = await this.db.houseJob.findMany({
+                where: {
+                    CompanyMasterSid: companyId,
+                    BranchMasterSid: branchId,
+                    status: statusWhereClause,
+                    IsServiceJob: 'Y',
+                    OR: [
+                        { ShipmentNo: { contains: search, mode: 'insensitive' } },
+                        { HBLNo: { contains: search, mode: 'insensitive' } },
+                        { masterJob: { MasterJobNumber: { contains: search, mode: 'insensitive' } } },
+                    ]
+                },
+                select: {
+                    HouseJobSid: true,
+                    ShipmentNo: true,
+                    HBLNo: true,
+                    MasterJobSid: true,
+                    departmentMaster: { select: { departmentType: true } },
+                    masterJob: { select: { MasterJobNumber: true } }
+                },
+                take: 5,
+            });
+
+            return serviceJobs.map((sj) => {
+                const isSeaJob = sj.departmentMaster?.departmentType.toUpperCase() === 'SEA';
+                const searchMatchesShipmentNo = sj.ShipmentNo?.toLowerCase().includes(search.toLowerCase());
+                const searchMatchesHBLNo = sj.HBLNo?.toLowerCase().includes(search.toLowerCase());
+                const searchMatchesMasterJobNumber = sj.masterJob?.MasterJobNumber?.toLowerCase().includes(search.toLowerCase());
+
+                let documentNumber: string;
+                let displayType: string;
+                let title: string;
+
+                if (searchMatchesMasterJobNumber) {
+                    documentNumber = sj.masterJob?.MasterJobNumber || '';
+                    displayType = `Service Job`;
+                    title = `Service Job ${isSeaJob ? 'MBL' : 'MAWB'}: ${documentNumber}`;
+                } else if (searchMatchesShipmentNo) {
+                    documentNumber = sj.ShipmentNo || '';
+                    displayType = 'Service Job';
+                    title = `Service Job: ${documentNumber}`;
+                } else {
+                    documentNumber = sj.HBLNo || '';
+                    displayType = 'Service Job';
+                    title = `Service Job HBL: ${documentNumber}`;
+                }
+
+                return {
+                    id: sj.HouseJobSid,
+                    documentNumber,
+                    documentType: 'SERVICE_JOB',
+                    displayType,
+                    path: `/operation/service-job/entry/${sj.HouseJobSid}`,
+                    title,
+                };
+            });
+        } catch (error) {
+            this.logger.error(`Error searching service jobs: ${error.message}`);
             return [];
         }
     }
