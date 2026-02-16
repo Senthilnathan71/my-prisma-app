@@ -40,7 +40,27 @@ export class HouseJobService {
             }
 
             const menuId = await this.menuService.getMenuSidByName(department.departmentType?.toUpperCase() === 'AIR' ? "House Air Waybill" : "House Job");
+            // ================= RESOLVE JOB DATE FIRST =================
+            let resolvedJobDate: Date = payload.HBLDate
+                ? new Date(payload.HBLDate)
+                : new Date();
 
+            if (payload?.shipmentList?.length) {
+                const bookingIds = payload.shipmentList
+                    .map(s => s.BookingHeaderSid)
+                    .filter(Boolean);
+
+                if (bookingIds.length > 0) {
+                    const firstBooking = await this._db.bookingHeader.findFirst({
+                        where: { BookingHeaderSid: { in: bookingIds } },
+                        select: { BookingDateTime: true }
+                    });
+
+                    if (firstBooking?.BookingDateTime) {
+                        resolvedJobDate = new Date(firstBooking.BookingDateTime);
+                    }
+                }
+            }
             // Get MenuMasterSid for House Job (look up by code or use provided value)
             let numberSeriesMenuId = payload.NumberSeriesMenuMasterSid;
             if (!numberSeriesMenuId) {
@@ -72,7 +92,7 @@ export class HouseJobService {
                         payload.BranchMasterSid,
                         numberSeriesMenuId,
                         payload.DepartmentMasterSid,
-                        payload.HBLDate ? new Date(payload.HBLDate) : undefined,
+                        resolvedJobDate,
                     );
                 }
 
