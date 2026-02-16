@@ -106,9 +106,31 @@ export class BookingService {
                     }
                 });
                 numberSeriesMenuId = bookingMenu?.MenuMasterSid;
+            // ================= RESOLVE JOB DATE FIRST =================
+            let resolvedJobDate: Date = payload.BookingDateTime
+                ? new Date(payload.BookingDateTime)
+                : new Date();
+
+            if (payload?.shipmentList?.length) {
+                const bookingIds = payload.shipmentList
+                    .map(s => s.BookingHeaderSid)
+                    .filter(Boolean);
+
+                if (bookingIds.length > 0) {
+                    const firstBooking = await this._db.bookingHeader.findFirst({
+                        where: { BookingHeaderSid: { in: bookingIds } },
+                        select: { BookingDateTime: true }
+                    });
+
+                    if (firstBooking?.BookingDateTime) {
+                        resolvedJobDate = new Date(firstBooking.BookingDateTime);
+                    }
+                }
+            }
                 this.logger.log(`[NumberSeries] Menu lookup result: ${JSON.stringify(bookingMenu)}`);
             // }
             this.logger.log(`[NumberSeries] Final numberSeriesMenuId: ${numberSeriesMenuId}`);
+
 
             // Generate booking number using NumberSeriesService
             let BookingNo: string | null = null;
@@ -120,7 +142,7 @@ export class BookingService {
                         payload.BranchMasterSid,
                         numberSeriesMenuId,
                         payload.DepartmentMasterSid ?? undefined,
-                        payload.BookingDateTime ? new Date(payload.BookingDateTime) : undefined,
+                        resolvedJobDate
                     );
                     this.logger.log(`[NumberSeries] Generated BookingNo: ${BookingNo}, Length: ${BookingNo?.length}`);
                 } catch (err) {

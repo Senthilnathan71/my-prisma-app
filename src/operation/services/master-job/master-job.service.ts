@@ -51,13 +51,36 @@ export class MasterJobService {
             }
 
             const menuId = await this.menuMasterService.getMenuSidByName(department.departmentType?.toUpperCase() === 'AIR' ? "Master Air Waybill" : "Master Job");
+            // ================= RESOLVE JOB DATE FIRST =================
+            let resolvedJobDate: Date = payload.MasterJobDate
+                ? new Date(payload.MasterJobDate)
+                : new Date();
+
+            if (payload?.shipmentList?.length) {
+                const bookingIds = payload.shipmentList
+                    .map(s => s.BookingHeaderSid)
+                    .filter(Boolean);
+
+                if (bookingIds.length > 0) {
+                    const firstBooking = await this._db.bookingHeader.findFirst({
+                        where: { BookingHeaderSid: { in: bookingIds } },
+                        select: { BookingDateTime: true }
+                    });
+
+                    if (firstBooking?.BookingDateTime) {
+                        resolvedJobDate = new Date(firstBooking.BookingDateTime);
+                    }
+                }
+            }
+            // ==========================================================
+
 
             let generatedMasterJobNumber = await this.numberSeriesService.generateNextNumber(
                 payload.CompanyMasterSid,
                 payload.BranchMasterSid,
                 menuId,
                 payload.DepartmentMasterSid,
-                payload.MasterJobDate ? new Date(payload.MasterJobDate) : undefined,
+                resolvedJobDate
             );
 
             if (!generatedMasterJobNumber) {
@@ -127,7 +150,7 @@ export class MasterJobService {
 
                 const headerPayload = {
                     MasterJobNumber: generatedMasterJobNumber,
-                    MasterJobDate: payload.MasterJobDate ? new Date(payload.MasterJobDate) : new Date(),
+                    MasterJobDate: resolvedJobDate,
                     CreatedBy: payload.createdBy,
                     Status: "A",
                     MenuMasterSid: menuId || payload.MenuMasterSid,
@@ -139,7 +162,7 @@ export class MasterJobService {
                     DestinationAgentName: payload.DestinationAgentName,
                     DestinationAgentAddress: payload.DestinationAgentAddress?.substring(0, 20) || '',
                     MBLNo: assignedMBLNo,
-                    MBLDate: payload.MasterJobDate ? new Date(payload.MasterJobDate) : new Date(),
+                    MBLDate: resolvedJobDate,
                     BLReleaseType: payload.BLReleaseType,
                     NoofOriginal: Number(payload.NoofOriginal) || 3,
                     OriginAgent: Number(payload.OriginAgent),
@@ -451,11 +474,6 @@ export class MasterJobService {
                             bookingRates: { where: { Status: 'A' } }
                         },
                     });
-
-
-
-
-
                     const allCreatedHouseJobs: any[] = [];
                     for (const booking of allBookings) {
                         const { bookingCargo, bookingProduct, bookingOthers, bookingConnection, bookingRates, ...bookingHeader } = booking;
@@ -470,7 +488,27 @@ export class MasterJobService {
                         const departmentExportImport = department?.ExportImport ?? null;
 
                         const houseJobMenuId = await this.menuMasterService.getMenuSidByName(department?.departmentType.toUpperCase() === 'AIR' ? 'House Air Waybill' : 'House Job');
+                         // ================= RESOLVE JOB DATE FIRST =================
+            let resolvedJobDate: Date = payload.HBLDate
+                ? new Date(payload.HBLDate)
+                : new Date();
 
+            if (payload?.shipmentList?.length) {
+                const bookingIds = payload.shipmentList
+                    .map(s => s.BookingHeaderSid)
+                    .filter(Boolean);
+
+                if (bookingIds.length > 0) {
+                    const firstBooking = await this._db.bookingHeader.findFirst({
+                        where: { BookingHeaderSid: { in: bookingIds } },
+                        select: { BookingDateTime: true }
+                    });
+
+                    if (firstBooking?.BookingDateTime) {
+                        resolvedJobDate = new Date(firstBooking.BookingDateTime);
+                    }
+                }
+            }
 
                         let HBLNo = "";
 
@@ -484,7 +522,7 @@ export class MasterJobService {
                                     payload.BranchMasterSid,
                                     houseJobMenuId,
                                     bookingHeader.DepartmentMasterSid,
-                                    payload.MasterJobDate ? new Date(payload.MasterJobDate) : undefined,
+                                    resolvedJobDate,
                                 )
                             } else {
                                 HBLNo = "";
@@ -494,7 +532,7 @@ export class MasterJobService {
                         const houseJob = await prisma.houseJob.create({
                             data: {
                                 MasterJobSid: createdMasterJob.MasterJobSid,
-                                HBLDate: new Date(),
+                                HBLDate: resolvedJobDate,
                                 BookingHeaderSid: bookingHeader.BookingHeaderSid || null,
                                 ColoadedBy: bookingHeader.NominatedBy,
                                 BookingNo: bookingHeader.BookingNo || '',
