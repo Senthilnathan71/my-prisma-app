@@ -1395,6 +1395,7 @@ if (!croPayload?.BookingCroSid) {
                         include : {
                             masterJob : {
                                 select : {
+                                    MasterJobSid : true,
                                     MasterJobNumber : true
                                 }
                             }

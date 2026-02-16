@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { DatabaseService } from 'src/database/database.service';
 import * as moment from 'moment-timezone';
-import { Prisma, PrismaClient } from '@prisma/client';
+import { MawbStock, Prisma, PrismaClient } from '@prisma/client';
 import { create } from 'domain';
 import { stat } from 'fs';
 import { parseDateFromString, toNumber } from 'src/common/helper';
@@ -65,7 +65,7 @@ export class MasterJobService {
                     const firstBooking = await this._db.bookingHeader.findFirst({
                         where: { BookingHeaderSid: { in: bookingIds } },
                         select: { BookingDateTime: true }
-                    });
+                    }); 
 
                     if (firstBooking?.BookingDateTime) {
                         resolvedJobDate = new Date(firstBooking.BookingDateTime);
@@ -97,33 +97,96 @@ export class MasterJobService {
                 let departmentExportImport = department?.ExportImport ?? null;
                 if (departmentType === 'Air') {
                     if (departmentExportImport === 'Export') {
+
+                        // If user manually entered MBL, use it
                         if (payload.MBLNo && String(payload.MBLNo).trim() !== '') {
                             assignedMBLNo = String(payload.MBLNo).trim();
-                        } else {
+                        }
+                        else {
 
-                            // Find the first available MAWB with StockStatus = 'Free'
-                            const availableMawb = await prisma.mawbStock.findFirst({
-                                where: {
-                                    StockStatus: 'Free',
-                                    status: 'A',
-                                    CompanyMasterSid: payload.CompanyMasterSid,
-                                    BranchMasterSid: payload.BranchMasterSid
-                                },
-                                orderBy: { MawbStockSid: 'asc' }
-                            });
+                            // -------------------------------------------------
+                            // STEP 1 : Identify Booking Customer & Carrier
+                            // -------------------------------------------------
+                            let bookingCustomerId: number | null = null;
+                            let carrierId: number | null = payload.CarrierSid || null;
 
+                            if (payload?.shipmentList?.length) {
+                                const firstBooking = await prisma.bookingHeader.findFirst({
+                                    where: {
+                                        BookingHeaderSid: {
+                                            in: payload.shipmentList.map(s => s.BookingHeaderSid).filter(Boolean)
+                                        }
+                                    },
+                                    select: { CustomerMasterSid: true }
+                                });
+
+                                bookingCustomerId = firstBooking?.CustomerMasterSid || null;
+                            }
+
+                            let availableMawb: MawbStock | null = null;
+                            // -------------------------------------------------
+                            // PRIORITY 1 : CUSTOMER MAWB
+                            // -------------------------------------------------
+                            if (bookingCustomerId) {
+                                availableMawb = await prisma.mawbStock.findFirst({
+                                    where: {
+                                        StockStatus: 'Free',
+                                        status: 'A',
+                                        CompanyMasterSid: payload.CompanyMasterSid,
+                                        BranchMasterSid: payload.BranchMasterSid,
+                                        Customer: bookingCustomerId
+                                    },
+                                    orderBy: { MawbStockSid: 'asc' }
+                                });
+                            }
+
+                            // -------------------------------------------------
+                            // PRIORITY 2 : COMMON MAWB (Customer NULL)
+                            // -------------------------------------------------
                             if (!availableMawb) {
-                                // If no free MAWB available, use the provided MBLNo or empty string
+                                availableMawb = await prisma.mawbStock.findFirst({
+                                    where: {
+                                        StockStatus: 'Free',
+                                        status: 'A',
+                                        CompanyMasterSid: payload.CompanyMasterSid,
+                                        BranchMasterSid: payload.BranchMasterSid,
+                                        Customer: null
+                                    },
+                                    orderBy: { MawbStockSid: 'asc' }
+                                });
+                            }
+
+                            // -------------------------------------------------
+                            // PRIORITY 3 : CARRIER MAWB (DIRECT JOB)
+                            // -------------------------------------------------
+                            if (!availableMawb && carrierId) {
+                                availableMawb = await prisma.mawbStock.findFirst({
+                                    where: {
+                                        StockStatus: 'Free',
+                                        status: 'A',
+                                        CompanyMasterSid: payload.CompanyMasterSid,
+                                        BranchMasterSid: payload.BranchMasterSid,
+                                        Customer: carrierId
+                                    },
+                                    orderBy: { MawbStockSid: 'asc' }
+                                });
+                            }
+
+                            // -------------------------------------------------
+                            // FINAL ASSIGNMENT
+                            // -------------------------------------------------
+                            if (!availableMawb) {
+                                // fallback to system generated
                                 assignedMBLNo = generatedMasterJobNumber || "";
                             } else {
-                                // Assign the MasterBillNumber to MBLNo
+
                                 assignedMBLNo = availableMawb.MasterBillNumber;
 
-                                // Update the MAWB stock status to 'Blocked'
+                                // block MAWB
                                 await prisma.mawbStock.update({
                                     where: { MawbStockSid: availableMawb.MawbStockSid },
                                     data: {
-                                        StockStatus: 'Blocked',
+                                        StockStatus: 'Utilised',
                                         updatedBy: payload.createdBy,
                                         updatedOn: new Date()
                                     }
@@ -133,7 +196,8 @@ export class MasterJobService {
                     } else {
                         assignedMBLNo = payload.MBLNo || "";
                     }
-                } else {
+                }
+                else {
                     if (departmentExportImport === 'Export') {
                         assignedMBLNo = generatedMasterJobNumber || "";
                     } else {
@@ -3414,11 +3478,16 @@ private async updateMasterJobTotals(masterJobSid: number): Promise<void> {
     let totalGrossWeight = 0;
     let totalNetWeight = 0;
     let totalVolume = 0;
+    let totalChargeableWeight = 0;
+    let totalNoOfPkg = 0;
+
     
     allContainers.forEach(container => {
       totalGrossWeight += Number(container.GrossWeight) || 0;
       totalNetWeight += Number(container.NetWeight) || 0;
       totalVolume += Number(container.Volume) || 0;
+      totalChargeableWeight += Number(container.ChargeableWeight) || 0;
+      totalNoOfPkg += Number(container.NoOfPkg) || 0;   
     });
     
     // Update master job with container totals
@@ -3428,6 +3497,8 @@ private async updateMasterJobTotals(masterJobSid: number): Promise<void> {
         GrossWeight: parseFloat(totalGrossWeight.toFixed(3)),
         NetWeight: parseFloat(totalNetWeight.toFixed(3)),
         Volume: parseFloat(totalVolume.toFixed(3)),
+        ChargeableWeight: parseFloat(totalChargeableWeight.toFixed(3)),
+        NoOfPkg: totalNoOfPkg,
       }
     });
   } catch (error) {
