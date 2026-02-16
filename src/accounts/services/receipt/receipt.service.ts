@@ -78,7 +78,7 @@ export class ReceiptService {
           OriginalLocalAmount: txn.originalLocalAmount,
           MatchedAmount: txn.matchedLocalAmount,
           MatchedCurrencyAmount: txn.matchedCurrencyAmount,
-          OutstandingLocalAmount: txn.outstandingCurrencyAmount * txn.exchangeRate,
+          OutstandingLocalAmount: txn.outstandingLocalAmount,
           OutstandingCurrencyAmount: txn.outstandingCurrencyAmount,
           CurrencyCode: txn.currencyCode,
           ExchangeRate: txn.exchangeRate,
