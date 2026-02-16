@@ -259,9 +259,8 @@ export class ShipmentDetailedSummaryReportQueryDto {
   @IsDateString()
   Dept: number[];
 
-  @ApiProperty({ enum: BLStatusEnum })
+  @ApiProperty()
   @IsNotEmpty()
-  @IsEnum(BLStatusEnum)
   Transhipment: Boolean;
 
   @ApiPropertyOptional()
