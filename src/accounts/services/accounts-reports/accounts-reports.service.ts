@@ -6,6 +6,7 @@ import { roundAmount, toNumber } from 'src/common/helper';
 import { CustomerOutstandingResponseDto, CustomerOutstandingTransactionDto } from 'src/accounts/dto/outstanding.dto';
 import { transcode } from 'buffer';
 import { Decimal } from '@prisma/client/runtime/library';
+import { ProfitSummaryReportQueryDto } from 'src/operation/DTO/operation-reports.dto';
 // -------------------------
 // Helper types (local)
 // -------------------------
@@ -384,19 +385,20 @@ export class AccountsReportsService {
 
         // Bucket allocation (use OSCurrencyAmount here by your requirement)
         let placed = false;
+        const bucketAmount = row.DrCr === 'C' ? -row.OSCurrencyAmount : row.OSCurrencyAmount;
         for (let i = 0; i < bucketRanges.length; i++) {
           if (row.Ageing <= bucketRanges[i]) {
             const label = bucketLabels[i];
-            subledger.buckets[label] += row.DrCr === 'D' ? row.OSCurrencyAmount : 0;
-            currGroup.bucketTotals[label] += row.DrCr === 'D' ? row.OSCurrencyAmount : 0;
+            subledger.buckets[label] += bucketAmount;
+            currGroup.bucketTotals[label] += bucketAmount;
             placed = true;
             break;
           }
         }
         if (!placed) {
           const last = bucketLabels[bucketLabels.length - 1];
-          subledger.buckets[last] += row.DrCr === 'D' ? row.OSCurrencyAmount : 0;
-          currGroup.bucketTotals[last] += row.DrCr === 'D' ? row.OSCurrencyAmount : 0;
+          subledger.buckets[last] += bucketAmount;
+          currGroup.bucketTotals[last] += bucketAmount;
         }
       } else {
         // Combined mode: use a single group key
@@ -2504,10 +2506,262 @@ export class AccountsReportsService {
     }
   }
 
-  private async generateProfitSummaryReport(params: any) {
-    // TODO: Implement profit summary logic
-    this.logger.log('generateProfitSummaryReport called with params:', params);
-    throw new BadRequestException('Profit Summary Report generator not yet implemented');
+  private async generateProfitSummaryReport(params: ProfitSummaryReportQueryDto) {
+    {
+      try {
+        const {
+          companyId: CompanyMasterSid,
+          ToJobDt,
+          FromJobDt,
+          Branch: branchId,
+          Dept: dept,
+        } = params;
+
+        this.logger.log(
+          `Getting Profit Summary Report for CompanySid=${CompanyMasterSid}, From=${FromJobDt}, To=${ToJobDt}`
+        );
+
+        /* ===================== MASTERS ===================== */
+
+        const allBranches = await this.getBranchNames(CompanyMasterSid, branchId);
+
+        const allBranchIds = allBranches.map(b => b.BranchMasterSid);
+
+        const brancesInvoled = branchId && branchId.length > 0 ? allBranches.map(b => b.branchName).join(', ') : 'All Branches'
+        const [departments, masterJobMenu, houseJobMenu, customer, user] = await Promise.all([
+          this._db.departmentMaster.findMany({
+            where: { DepartmentMasterSid: { in: dept } },
+            select: { DepartmentMasterSid: true, departmentName: true },
+          }),
+          this._db.menuMaster.findFirst({
+            where: { MenuName: 'Master Job' },
+            select: { MenuMasterSid: true },
+          }),
+          this._db.menuMaster.findFirst({
+            where: { MenuName: 'House Job' },
+            select: { MenuMasterSid: true },
+          }),
+          this._db.customerMaster.findMany({
+            select: { CustomerMasterSid: true, CustomerName: true }
+          }),
+          this._db.userMaster.findMany({
+            select: { UserMasterSid: true, userName: true }
+          })
+        ]);
+
+        if (!masterJobMenu || !houseJobMenu) {
+          throw new BadRequestException('Menu not found');
+        }
+
+        /* ===================== MASTER JOBS ===================== */
+
+        const masterJob = await this._db.masterJob.findMany({
+          where: {
+            CompanyMasterSid,
+            BranchMasterSid: { in: allBranchIds },
+            AND: [
+              { MBLDate: { gte: FromJobDt } },
+              { MBLDate: { lte: ToJobDt } },
+            ],
+            Status: 'A',
+            DepartmentMasterSid: { in: dept },
+          },
+          include: {
+            voyages: {
+              select: {
+                ETA: true,
+                ETD: true,
+                ATA: true,
+                ATD: true,
+              },
+            },
+            houseJob: {
+              where: { status: 'A' },
+              include: {
+                Cargo: true
+              }
+            },
+          },
+          orderBy: { MBLDate: 'asc' },
+        });
+
+
+        if (!masterJob.length) {
+          return {
+            companyMasterSid: CompanyMasterSid,
+            branchMasterSid: branchId,
+            data: [],
+          };
+        }
+
+        const getDepartmentName = (deptId: number) =>
+          departments.find(d => d.DepartmentMasterSid === deptId)?.departmentName ||
+          '';
+
+        const getCostRevenues = async (
+          MenuMasterSid: number,
+          TransactionSid: number
+        ) => {
+          return this._db.costRevenueCharges.findMany({
+            where: {
+              TransactionSid,
+              MenuMasterSid,
+              status: 'A',
+            },
+            select: {
+              CostRevenueChargesSid: true,
+              RevenueVoucherHeaderSid: true,
+              RevenueDrCr: true,
+              RevenueLocalAmount: true,
+              CostVoucherHeaderSid: true,
+              CostDrCr: true,
+              CostLocalAmount: true,
+            },
+          });
+        };
+
+
+
+        /* ===================== FINAL DATA ===================== */
+
+        const data = await Promise.all(
+          masterJob.map(async mj => {
+            const masterCR = await getCostRevenues(
+              masterJobMenu.MenuMasterSid,
+              mj.MasterJobSid
+            );
+
+            const linkedRev = masterCR.filter(cr => cr.RevenueVoucherHeaderSid);
+            const linkedCost = masterCR.filter(cr => cr.CostVoucherHeaderSid);
+
+            const calc = (arr: any[], type: 'R' | 'C') =>
+              arr.reduce((sum, cr) => {
+                if (type === 'R') {
+                  return cr.RevenueDrCr === 'C'
+                    ? sum + Number(cr.RevenueLocalAmount || 0)
+                    : sum - Number(cr.RevenueLocalAmount || 0);
+                }
+                return cr.CostDrCr === 'D'
+                  ? sum + Number(cr.CostLocalAmount || 0)
+                  : sum - Number(cr.CostLocalAmount || 0);
+              }, 0);
+
+            const pSale = calc(masterCR, 'R');
+            const pCost = calc(masterCR, 'C');
+            const aSale = calc(linkedRev, 'R');
+            const aCost = calc(linkedCost, 'C');
+
+            const houseWithCR = await Promise.all(
+              mj.houseJob.map(async hj => {
+                const houseCR = await getCostRevenues(
+                  houseJobMenu.MenuMasterSid,
+                  hj.HouseJobSid
+                );
+
+                const linkedRevH = houseCR.filter(cr => cr.RevenueVoucherHeaderSid);
+                const linkedCostH = houseCR.filter(cr => cr.CostVoucherHeaderSid);
+
+                const hpSale = calc(houseCR, 'R');
+                const hpCost = calc(houseCR, 'C');
+                const haSale = calc(linkedRevH, 'R');
+                const haCost = calc(linkedCostH, 'C');
+
+                return {
+                  HouseJobSid: hj.HouseJobSid,
+                  HBLNo: hj.HBLNo,
+                  houseStatus: hj.HouseStatus,
+                  jobType: hj.JobType,
+                  customerName: customer.find(d => d.CustomerMasterSid === hj.CustomerMasterSid)?.CustomerName,
+                  OriginAgent: hj.AgentName,
+                  DestinationAgent: customer.find(d => d.CustomerMasterSid === hj.DestinationAgent)?.CustomerName,
+                  ModeOfTransport: hj.Cargo?.[0]?.ModeOfTransport,
+                  salesPerson: user.find(u => u.UserMasterSid === hj.SalesmanSid)?.userName,
+                  PPCC: hj.FreightTerms,
+                  POO: hj.POO,
+                  FPD: hj.FPD,
+                  costRevenues: {
+                    totalNoOfCostRevenues: houseCR.length,
+                    linkedRevenueRecords: linkedRevH.map(
+                      cr => cr.CostRevenueChargesSid
+                    ),
+                    linkedCostRecords: linkedCostH.map(
+                      cr => cr.CostRevenueChargesSid
+                    ),
+                    houseCrSummary: {
+                      pSale: hpSale,
+                      pCost: hpCost,
+                      pGp: hpSale - hpCost,
+                      aSale: haSale,
+                      aCost: haCost,
+                      aGp: haSale - haCost,
+                    },
+                  },
+                };
+              })
+            );
+
+            return {
+              JobNo: mj.MasterJobNumber,
+              MBLNo: mj.MBLNo,
+              MBLDate: mj.MBLDate,
+              OriginAgent: customer.find(o => o.CustomerMasterSid === mj.OriginAgent)?.CustomerName || '',
+              DestinationAgent: customer.find(d => d.CustomerMasterSid === mj.DestinationAgent)?.CustomerName || '',
+              customerName: customer.find(c => c.CustomerMasterSid === mj.houseJob?.[0]?.CustomerMasterSid)?.CustomerName || '',
+              jobType: mj.houseJob?.[0]?.JobType,
+              houseNo: mj.houseJob?.[0]?.HouseNo,
+              HBLNo: mj.houseJob?.[0]?.HBLNo,
+              houseStatus: mj.houseJob?.[0]?.HouseStatus,
+              ModeOfTransport: mj.houseJob?.[0]?.Cargo?.[0]?.ModeOfTransport,
+              PPCC: mj.houseJob?.[0]?.FreightTerms,
+              salesPerson: user.find(u => u.UserMasterSid === mj.houseJob?.[0]?.SalesmanSid)?.userName || '',
+              POO: mj.POO,
+              POL: mj.POL,
+              POD: mj.POD,
+              FPD: mj.FPD,
+              ETA: mj.voyages[0]?.ETA,
+              ETD: mj.voyages[0]?.ETD,
+              ATA: mj.voyages[0]?.ATA,
+              ATD: mj.voyages[0]?.ATD,
+              deptName: getDepartmentName(mj.DepartmentMasterSid),
+              costRevenues: {
+                totalNoOfCostRevenues: masterCR.length,
+                linkedRevenueRecords: linkedRev.map(
+                  cr => cr.CostRevenueChargesSid
+                ),
+                linkedCostRecords: linkedCost.map(
+                  cr => cr.CostRevenueChargesSid
+                ),
+                masterCrSummary: {
+                  pSale,
+                  pCost,
+                  pGp: pSale - pCost,
+                  aSale,
+                  aCost,
+                  aGp: aSale - aCost,
+                },
+              },
+              houseWithCR,
+            };
+          })
+        );
+
+        return {
+          companyMasterSid: CompanyMasterSid,
+          branchMasterSid: branchId,
+          BranchInvolved: allBranches.map(b => b.branchName).join(', '),
+          brancesInvoled,
+          DeptNames: departments.map(d => d.departmentName).join(', '),
+          data,
+          params
+        };
+      } catch (error) {
+        this.logger.error(
+          `Error generating Profit Summary Report: ${error.message}`,
+          error.stack
+        );
+        throw error;
+      }
+    }
   }
 
   private async generateMatchingListReport(params: any) {
@@ -3204,6 +3458,31 @@ export class AccountsReportsService {
       };
     } catch (error) {
       console.error('VAT 201 report generation failed:', error);
+      throw error;
+    }
+  }
+
+  async getBranchNames(
+    companyMasterSid: number,
+    branchIds?: number[]
+  ): Promise<{ BranchMasterSid: number; branchName: string }[]> {
+    try {
+      const whereClause: any = {
+        CompanyMasterSid: companyMasterSid,
+        status: 'A',
+      };
+      if (branchIds && branchIds.length > 0) {
+        whereClause['BranchMasterSid'] = { in: branchIds };
+      }
+      const branches = await this._db.branchMaster.findMany({
+        where: whereClause,
+        select: {
+          BranchMasterSid: true,
+          branchName: true,
+        },
+      });
+      return branches;
+    } catch (error) {
       throw error;
     }
   }

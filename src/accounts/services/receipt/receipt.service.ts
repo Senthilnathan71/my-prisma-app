@@ -21,7 +21,7 @@ import { isNumber } from 'class-validator';
 import { VoucherService } from 'src/operation/services/voucher/voucher.service';
 import moment from 'moment';
 import { Decimal } from '@prisma/client/runtime/library';
-import { toNumber } from 'src/common/helper';
+import { roundAmount, toNumber } from 'src/common/helper';
 import { VoucherDetailDto } from 'src/accounts/dto/voucher.dto';
 import { CompanyConfigService } from 'src/masters/services/company/company-config.service';
 
@@ -143,11 +143,33 @@ export class ReceiptService {
     const results: OutstandingInvoiceDto[] = [];
 
     for (const txn of transactions) {
-      const matchedAmount = txn.voucherMatchings.reduce((sum, m) => sum + Number(m.Amount), 0);
-      const outstandingAmount = Number(txn.Amount) - matchedAmount;
+      const originalCurrencyAmount = this.toNumber(txn.Amount);
+        const originalLocalAmount = this.toNumber(txn.LocalAmount);
+
+        // Sum matched amounts for this transaction
+        let matchedCurrencyAmount = 0;
+        let matchedLocalAmount = 0;
+
+        if (txn.voucherMatchings && txn.voucherMatchings.length > 0) {
+          matchedCurrencyAmount = txn.voucherMatchings.reduce(
+            (sum, m) => sum + this.toNumber(m.Amount),
+            0,
+          );
+          matchedLocalAmount = txn.voucherMatchings.reduce(
+            (sum, m) => sum + this.toNumber(m.LocalAmount),
+            0,
+          );
+        }
+
+        const outstandingCurrencyAmount = roundAmount(
+          originalCurrencyAmount - matchedCurrencyAmount,
+          2,
+        );
+        const outstandingLocalAmount = roundAmount(originalLocalAmount - matchedLocalAmount, 2);
+
 
       // Skip fully paid if not requested
-      if (!searchDto.IncludeFullyPaid && Math.abs(outstandingAmount) <= 0) {
+      if (!searchDto.IncludeFullyPaid && Math.abs(outstandingCurrencyAmount) <= 0) {
         continue;
       }
 
@@ -164,10 +186,10 @@ export class ReceiptService {
         CustomerName: txn.subledgerMaster?.SubledgerName || '',
         OriginalCurrencyAmount: Number(txn.Amount),
         OriginalLocalAmount: Number(txn.LocalAmount),
-        MatchedAmount: matchedAmount,
-        MatchedCurrencyAmount: 0, // Would need to sum currency amounts
-        OutstandingLocalAmount: outstandingAmount,
-        OutstandingCurrencyAmount: Number(txn.Amount) - matchedAmount,
+        MatchedAmount: matchedLocalAmount,
+        MatchedCurrencyAmount: matchedCurrencyAmount, // Would need to sum currency amounts
+        OutstandingLocalAmount: outstandingLocalAmount,
+        OutstandingCurrencyAmount: outstandingCurrencyAmount,
         CurrencyCode: txn.CurrencyCode || 'INR',
         DrCr: txn.DrCr,
         ExchangeRate : txn.ExchangeRate || null,
@@ -1281,9 +1303,9 @@ export class ReceiptService {
         // ========================================
         // 5. Handle VoucherDetail: Update if ID exists, Create if not
         // ========================================
-        let detailIndex = 1;
-        const detailOperations = (detailItems || []).map(async (item: any) => {
+        const detailOperations = (detailItems || []).map(async (item: any,index : number) => {
           const commonData = {
+            Sno : index + 1,
             ChargeMasterSid: item.ChargeMasterSid ?? null,
             ChargeDescription: item.ChargeDescription || null,
             LedgerMasterSid: item.LedgerMasterSid ?? null,
@@ -1342,8 +1364,7 @@ export class ReceiptService {
                 Status: 'A',
                 CompanyMasterSid,
                 BranchMasterSid,
-                VoucherHeaderSid,
-                Sno: detailIndex++,
+                VoucherHeaderSid
               },
             });
           }
@@ -1725,8 +1746,9 @@ export class ReceiptService {
           partyDetail.PartyAmount = billMatchingPartyAmount;
           partyDetail.LocalAmount = billMatchingLocalAmount;
           const allSourceDetails = [partyDetail];
-          if(partyExchangeJvDetail){
-            allSourceDetails.push(partyExchangeJvDetail);
+          const partyRowFromExJv = (allCompleteDetails || []).find(d => d.VoucherDetailSid === partyExchangeJvDetail?.VoucherDetailSid);
+          if(partyRowFromExJv){
+            allSourceDetails.push(partyRowFromExJv);
           }
 
           newVoucherMatchings = await this.voucherService.createVoucherMatching({

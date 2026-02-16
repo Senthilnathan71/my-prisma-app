@@ -191,6 +191,14 @@ export class OperationReportsService {
               MBLNo: true,
             }
           },
+          bookingHeader:{
+            where:{
+              status:'A'
+            },
+            select:{
+              BookingNo:true
+            }
+          },
           departmentMaster: {
             select: {
               departmentName: true
@@ -214,7 +222,7 @@ export class OperationReportsService {
           HBLDate: hj.HBLDate,
           HBLNo: hj.HBLNo,
           MBLNo: masterJob ? masterJob.MBLNo : null,
-          BookingNo: hj.BookingNo,
+          BookingNo: hj.bookingHeader?.BookingNo,
           Shipper: hj.ShipperName,
           Consignee: hj.ConsigneeName,
           POL: hj.POL,
@@ -520,7 +528,7 @@ export class OperationReportsService {
 
       const resolvedBranchIds = branches.map(b => b.BranchMasterSid);
       const resolvedBranchNames = branches.map(b => b.branchName);
-      const branchInvolved = branchId && branchId.length > 0 ? branches.map(b=> b.branchName).join(', ') : 'All Branches'
+      const branchInvolved = branchId && branchId.length > 0 ? branches.map(b => b.branchName).join(', ') : 'All Branches'
 
       const departments = deptId && deptId.length > 0
         ? await this._db.departmentMaster.findMany({
@@ -537,7 +545,7 @@ export class OperationReportsService {
 
       // Load container type master (ID → Size Map)
       const containerTypesMaster = await this._db.containerTypeMaster.findMany({
-        select: { ContainerTypeMasterSid: true, ContainerSize: true,MaxVolume:true }
+        select: { ContainerTypeMasterSid: true, ContainerSize: true, MaxVolume: true }
       });
       const containerTypeMap = new Map(
         containerTypesMaster.map(ct => [ct.ContainerTypeMasterSid, ct.ContainerSize])
@@ -557,28 +565,29 @@ export class OperationReportsService {
         },
         include: {
           houseJob: {
-            select:{
-              Products:{
-                where:{
-                  status:'A'
+            select: {
+              Products: {
+                where: {
+                  status: 'A'
                 }
               },
-              HouseJobSid:true,
-              HouseNo:true,
-              HBLNo:true
+              HouseJobSid: true,
+              HouseNo: true,
+              HBLNo: true
             },
             where: { status: 'A' },
           },
           containers: {
-            where:{
-              Status:'A'
+            where: {
+              Status: 'A'
             },
-            include:{
-              containerType:{
-                select:{
-                  MaxVolume:true,
-                  ContainerSize:true,
-                  NoOfTeu:true
+            include: {
+              containerType: {
+                select: {
+                  MaxVolume: true,
+                  ContainerSize: true,
+                  ContainerName: true,
+                  NoOfTeu: true
                 }
               }
             }
@@ -676,36 +685,62 @@ export class OperationReportsService {
         })
 
         // Count containers by size
-        let number20 = 0, number40 = 0, number45 = 0;
-        (job.containers || []).forEach(c => {
-          const typeId = c.ContainerType ?? null;
-          if (!typeId) return;
-          const size = containerTypeMap.get(typeId)?.trim() ?? null;
-          if (size === "20") number20++;
-          if (size === "40") number40++;
-          if (size === "45") number45++;
+        const houseProducts = job.houseJob.flatMap(h => h.Products || []);
+        const allContainers = job.containers || [];
+        let totalNoOfTEU = 0;
+        let numberOfTwentyFt = 0;
+        let numberOfFourtyFt = 0;
+        let numberofFurtyFive = 0;
+        let containerInfo: any[] = [];
+        houseProducts.forEach(hp => {
+          const ourMJContainer = allContainers.find(
+            mc => mc.MasterJobContainerSid === hp.MasterJobContainerSid
+          );
+          const ourContainerType = ourMJContainer?.containerType;
+          if (!ourContainerType) return;
+          containerInfo.push({
+            containerNumber: hp.ContainerNo,
+            containerType: ourContainerType.ContainerSize,
+            NoOfTeu: toNumber(ourContainerType.NoOfTeu)
+          });
+          totalNoOfTEU += toNumber(ourContainerType.NoOfTeu);
+          const size = ourContainerType.ContainerName;
+          if (
+            size === "20ft Standard" ||
+            size === "20ft Reefer" ||
+            size === "20ft Open Top" ||
+            size === "20ft Flat Rack"
+          ) {
+            numberOfTwentyFt++;
+          }
+          if (
+            size === "40ft Container" ||
+            size === "40 RF" ||
+            size === "40 Flat Rack" ||
+            size === "40Ft Open Top"
+          ) {
+            numberOfFourtyFt++;
+          }
+          if (size === "45ft Container") {
+            numberofFurtyFive++;
+          }
         });
 
         // First, calculate total for house jobs
         let totalHouseCost = 0;
         let totalHouseRevenue = 0;
-
         const houseJobsData = houseJobs.map(house => {
           const costRevenues = houseRateMap.get(house.HouseJobSid) || [];
-
           const totalCost = costRevenues.reduce((sum, cr) => {
             return cr.CostDrCr === 'D' ? Number(sum) + Number(cr.CostLocalAmount ?? 0) :
               Number(sum) - Number(cr.CostLocalAmount ?? 0);
           }, 0);
-
           const totalRevenue = costRevenues.reduce((sum, cr) => {
             return cr.RevenueDrCr === 'C' ? Number(sum) + Number(cr.RevenueLocalAmount ?? 0) :
               Number(sum) - Number(cr.RevenueLocalAmount ?? 0);
           }, 0);
-
           totalHouseCost += totalCost;
           totalHouseRevenue += totalRevenue;
-
           return {
             HouseJobSid: house.HouseJobSid,
             HouseNo: house.HouseNo,
@@ -717,11 +752,8 @@ export class OperationReportsService {
 
         const totalCostWithHouse = totalCost + totalHouseCost;
         const totalRevenueWithHouse = totalRevenue + totalHouseRevenue;
-
         const GP = totalRevenueWithHouse - totalCostWithHouse;
-
-
-        const masterVouchers = relatedCR.filter(cr => cr.CostVoucherHeaderSid); 
+        const masterVouchers = relatedCR.filter(cr => cr.CostVoucherHeaderSid);
         const actualCostMaster = masterVouchers.reduce((sum, cr) => {
           return cr.CostDrCr === 'D' ? Number(sum) + Number(cr.CostLocalAmount ?? 0) :
             Number(sum) - Number(cr.CostLocalAmount ?? 0);
@@ -784,10 +816,12 @@ export class OperationReportsService {
           profit,
           proveprofit,
           actualGp,
-          containerNo: job?.houseJob?.[0]?.Products.map(c=>c.ContainerNo).join(", "),
-          twentyft: number20,
-          fourty: number40,
-          fourtyfive: number45,
+          containerNo: job.houseJob
+            ?.flatMap(hj => hj.Products.map(p => p.ContainerNo))
+            .join(", "),
+          twentyft: numberOfTwentyFt,
+          fourty: numberOfFourtyFt,
+          fourtyfive: numberofFurtyFive,
           totalCost,
           totalRevenue,
           totalCostWithHouse,
@@ -820,12 +854,12 @@ export class OperationReportsService {
     try {
       const {
         companyId,
-        Customer:customer,
-        Branch:branchId,
-        Dept:department,
+        Customer: customer,
+        Branch: branchId,
+        Dept: department,
         BookingFromDate: FromDate,
         BookingToDate: ToDate,
-        Salesman:salesman
+        Salesman: salesman
       } = params;
 
 
@@ -878,7 +912,7 @@ export class OperationReportsService {
             status: 'A'
           },
           select: {
-            CustomerName: true 
+            CustomerName: true
           }
         });
 
@@ -977,52 +1011,52 @@ export class OperationReportsService {
           ? departmentNames.join(', ')
           : 'All Departments';
 
-        const allSalesmanIds: number[] = [];
+      const allSalesmanIds: number[] = [];
 
-if (Array.isArray(salesman) && salesman.length > 0) {
-  allSalesmanIds.push(...salesman);
-} else if (typeof salesman === 'number') {
-  allSalesmanIds.push(salesman);
-} else {
-  const salesmen = await this._db.userMaster.findMany({
-    where: {
-      status: 'A',
-    },
-    select: {
-      UserMasterSid: true,
-    },
-  });
+      if (Array.isArray(salesman) && salesman.length > 0) {
+        allSalesmanIds.push(...salesman);
+      } else if (typeof salesman === 'number') {
+        allSalesmanIds.push(salesman);
+      } else {
+        const salesmen = await this._db.userMaster.findMany({
+          where: {
+            status: 'A',
+          },
+          select: {
+            UserMasterSid: true,
+          },
+        });
 
-  salesmen.forEach(s => allSalesmanIds.push(s.UserMasterSid));
-}
+        salesmen.forEach(s => allSalesmanIds.push(s.UserMasterSid));
+      }
 
-let salesmanNames: string[] = [];
+      let salesmanNames: string[] = [];
 
-if (allSalesmanIds.length > 0) {
-  const salesmanRecords = await this._db.userMaster.findMany({
-    where: {
-      status: 'A',
-      UserMasterSid: { in: allSalesmanIds },
-    },
-    select: {
-      userName: true, 
-    },
-  });
+      if (allSalesmanIds.length > 0) {
+        const salesmanRecords = await this._db.userMaster.findMany({
+          where: {
+            status: 'A',
+            UserMasterSid: { in: allSalesmanIds },
+          },
+          select: {
+            userName: true,
+          },
+        });
 
-  salesmanNames = salesmanRecords.map(s => s.userName);
-}
+        salesmanNames = salesmanRecords.map(s => s.userName);
+      }
 
-const salesmanInvolved =
-  (Array.isArray(salesman) && salesman.length > 0) || typeof salesman === 'number'
-    ? salesmanNames.join(', ')
-    : 'All Salesmen';
+      const salesmanInvolved =
+        (Array.isArray(salesman) && salesman.length > 0) || typeof salesman === 'number'
+          ? salesmanNames.join(', ')
+          : 'All Salesmen';
 
 
       /* -------------------- GUARD EMPTY ARRAYS -------------------- */
       if (
         !allCustomerIds.length ||
         !allBranchIds.length ||
-        !allDepartmentIds.length || 
+        !allDepartmentIds.length ||
         !allSalesmanIds.length
       ) {
         return {
@@ -1040,10 +1074,10 @@ const salesmanInvolved =
         CustomerMasterSid: { in: allCustomerIds },
         DepartmentMasterSid: { in: allDepartmentIds },
         SalesmanSid: { in: allSalesmanIds },
-       AND:[
-        {BookingDateTime:{gte:FromDate}},
-        {BookingDateTime:{lte:ToDate}}
-       ],
+        AND: [
+          { BookingDateTime: { gte: FromDate } },
+          { BookingDateTime: { lte: ToDate } }
+        ],
         status: 'A'
       };
 
@@ -1072,7 +1106,7 @@ const salesmanInvolved =
             CompanyMasterSid: companyId,
             BranchMasterSid: { in: allBranchIds },
             DepartmentMasterSid: { in: allDepartmentIds },
-            SalesmanSid:{in:allSalesmanIds},
+            SalesmanSid: { in: allSalesmanIds },
             CustomerMasterSid,
             status: 'A'
           },
@@ -1554,6 +1588,14 @@ const salesmanInvolved =
           departmentMaster: {
             select: { departmentName: true },
           },
+          bookingHeader:{
+            where:{
+              status:"A"
+            },
+            select:{
+              BookingNo:true
+            }
+          }
         },
         orderBy: { HBLDate: 'asc' },
       });
@@ -1575,7 +1617,7 @@ const salesmanInvolved =
           HBLDate: hj.HBLDate,
           HBLNo: hj.HBLNo,
           MBLNo: hj.masterJob?.MBLNo || null,
-          BookingNo: hj.BookingNo,
+          BookingNo: hj.bookingHeader?.BookingNo,
           Shipper: hj.ShipperName,
           Consignee: hj.ConsigneeName,
           POL: hj.POL,
@@ -3032,7 +3074,7 @@ const salesmanInvolved =
 
       const allBranchIds = allBranches.map(b => b.BranchMasterSid);
 
-      const brancesInvoled = branchId && branchId.length > 0 ? allBranches.map(b=>b.branchName).join(', ') : 'All Branches'
+      const brancesInvoled = branchId && branchId.length > 0 ? allBranches.map(b => b.branchName).join(', ') : 'All Branches'
       const [departments, masterJobMenu, houseJobMenu, customer, user] = await Promise.all([
         this._db.departmentMaster.findMany({
           where: { DepartmentMasterSid: { in: dept } },
@@ -3071,35 +3113,25 @@ const salesmanInvolved =
           Status: 'A',
           DepartmentMasterSid: { in: dept },
         },
-        select: {
-          MasterJobSid: true,
-          MasterJobNumber: true,
-          DepartmentMasterSid: true,
-          MBLDate: true,
-          MBLNo: true,
-          OriginAgent: true,
-          DestinationAgent: true,
-          POL: true,
-          POD: true,
-          POO: true,
-          FPD: true,
-          voyages: { select: { ETA: true, ETD: true, ATA: true, ATD: true } },
-          houseJob: {
+        include: {
+          voyages: {
             select: {
-              HouseJobSid: true,
-              HouseNo: true,
-              HBLNo: true,
-              HouseStatus: true,
-              JobType: true,
-              CustomerMasterSid: true,
-              SalesmanSid: true,
-              FreightTerms: true,
-              Cargo: { select: { ModeOfTransport: true } },
+              ETA: true,
+              ETD: true,
+              ATA: true,
+              ATD: true,
             },
+          },
+          houseJob: {
+            where: { status: 'A' },
+            include: {
+              Cargo: true
+            }
           },
         },
         orderBy: { MBLDate: 'asc' },
       });
+
 
       if (!masterJob.length) {
         return {
@@ -3134,6 +3166,8 @@ const salesmanInvolved =
           },
         });
       };
+
+      
 
       /* ===================== FINAL DATA ===================== */
 
@@ -3182,6 +3216,16 @@ const salesmanInvolved =
               return {
                 HouseJobSid: hj.HouseJobSid,
                 HBLNo: hj.HBLNo,
+                houseStatus:hj.HouseStatus,
+                jobType:hj.JobType,
+                customerName:customer.find(d=>d.CustomerMasterSid === hj.CustomerMasterSid)?.CustomerName,
+                OriginAgent:hj.AgentName,
+                DestinationAgent:customer.find(d=>d.CustomerMasterSid === hj.DestinationAgent)?.CustomerName,
+                ModeOfTransport:hj.Cargo?.[0]?.ModeOfTransport,
+                salesPerson:user.find(u=>u.UserMasterSid === hj.SalesmanSid)?.userName,
+                PPCC:hj.FreightTerms,
+                POO:hj.POO,
+                FPD:hj.FPD,
                 costRevenues: {
                   totalNoOfCostRevenues: houseCR.length,
                   linkedRevenueRecords: linkedRevH.map(
@@ -4813,6 +4857,11 @@ const salesmanInvolved =
           Status: 'A'
         },
         include: {
+          VoucherHeader:{
+            select:{
+              Salesman:true
+            }
+          },
           subledgerMaster: {
             where: {
               Status: 'A',
@@ -4834,7 +4883,6 @@ const salesmanInvolved =
         ],
       });
 
-
       const reportData = vouchers.map(v => {
         const matchLocal = v.voucherMatchings.reduce(
           (acc, m) => acc + (m.DrCr === 'D' ? +m.LocalAmount : -m.LocalAmount), 0
@@ -4853,6 +4901,7 @@ const salesmanInvolved =
           LedgerMasterSid: v.LedgerMasterSid,
           VoucherDate: v.VoucherDate,
           CurrencyCode: v.CurrencyCode,
+          Salesman : v.VoucherHeader?.Salesman,
           DrCr: v.DrCr,
           Ageing: ageing,
           OriginalCurrAmount: Number(v.Amount),
@@ -4864,13 +4913,9 @@ const salesmanInvolved =
         };
       });
 
-
       const bucketRanges = [30, 60, 90, 120];
       const bucketLabels = ['0-30', '31-60', '61-90', '91-120', '120 & Above'];
-
-
       const customerRowsMap = new Map<number, any>();
-
       reportData.forEach(row => {
         const subId = row.SubledgerMasterSid;
         if (!subId) return; 
@@ -4878,7 +4923,7 @@ const salesmanInvolved =
         if (!customerRowsMap.has(subId)) {
           customerRowsMap.set(subId, {
             SubledgerName: row.SubledgerName,
-            // SalesmanName: row.Salesman || '',
+            SalesmanName: row.Salesman || '',
             TotalOutstanding: 0,
             buckets: {
               '0-30': 0,
@@ -4908,12 +4953,8 @@ const salesmanInvolved =
         customer.buckets[bucket] += row.OSLocalAmount;
       });
 
-
       const customerRows = Array.from(customerRowsMap.values());
-
-
       // ----Bank/Cash----
-
       const AllBankCash = await this._db.voucherHeader.findMany({
         where: {
           CompanyMasterSid,
@@ -5833,7 +5874,6 @@ const salesmanInvolved =
       throw error;
     }
   }
-
 
   async exportReport(reportName: string, exportParams: any) {
     try {
