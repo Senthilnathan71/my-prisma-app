@@ -49,6 +49,7 @@ export class UpdateServiceJobDto {
     MBLNo?: string;
     MBLDate?: Date;
     HBLNo?: string;
+    ShipmentNo?: string;
     CustomerBranchSid: number;
     CustomerName: string;
     CustomerAddress: string;
@@ -487,6 +488,10 @@ if (houseJobOthers && Object.keys(houseJobOthers).length > 0) {
 
             if (payload.HBLNo && payload.HBLNo.trim() !== '') {
                 houseJobUpdateData.HBLNo = payload.HBLNo;
+            }
+
+            if(payload.ShipmentNo && payload.ShipmentNo.trim() !== ''){
+                houseJobUpdateData.ShipmentNo = mainPayload.ShipmentNo;
             }
 
             const updatedHouseJob = await prisma.houseJob.update({
