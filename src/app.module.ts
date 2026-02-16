@@ -14,6 +14,7 @@ import { AccountsModule } from './accounts/accounts.module';
 import { OperationModule } from './operation/operation.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { SettingsModule } from './settings/settings.module';
+import { OcrModule } from './ocr/ocr.module';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { SettingsModule } from './settings/settings.module';
     AccountsModule,
     OperationModule,
     SettingsModule,
+    OcrModule,
     ScheduleModule.forRoot(),
   ],
   controllers: [AppController],
