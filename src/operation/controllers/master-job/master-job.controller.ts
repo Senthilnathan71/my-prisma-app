@@ -256,10 +256,10 @@ export class MasterJobController {
     }
 
 
-     // create post endpoint for searchMasterJob
-    @ApiOperation({ summary: 'Search Master Jobs' })
+     // Job Close Endpoints
+    @ApiOperation({ summary: 'Search Job Close Master Jobs' })
     @ApiCreatedResponse({
-        description: 'Search Master Jobs',
+        description: 'Search Job Close Master Jobs',
         type: ResponseData
     })
     @HttpCode(HttpStatus.OK)
@@ -267,14 +267,68 @@ export class MasterJobController {
     async searchJobCloseMasterJob(@Body() payload:any){
         let resp = new ResponseData();
         try {
-            this.logger.log(`Searching Master Jobs with params : ${JSON.stringify(payload)}`);
+            this.logger.log(`Searching Job Close Master Jobs with params : ${JSON.stringify(payload)}`);
             const result = await this.masterJobService.searchJobCloseMasterJobList(payload);
-            this.logger.debug(`Searched Master Jobs : ${JSON.stringify(result)}`);
+            this.logger.debug(`Searched Job Close Master Jobs : ${JSON.stringify(result)}`);
             resp.message = 'Master Jobs fetched successfully';
             resp.data = result;
         } catch (error) {
             resp.status = false;
-            this.logger.warn(`Error in searching Master Jobs : ${JSON.stringify(error),error}`);
+            this.logger.warn(`Error in searching Job Close Master Jobs : ${JSON.stringify(error),error}`);
+            if(error instanceof BadRequestException || error instanceof UnauthorizedException){
+                resp.message = error.message;
+            } else {
+                resp.message = 'Internal Server Error';
+            }
+        }
+        return resp;
+    }
+
+    @ApiOperation({ summary: 'Get Job Close Detail' })
+    @ApiCreatedResponse({
+        description: 'Get Job Close Detail by MasterJobSid',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Get('job-close/detail/:MasterJobSid')
+    async getJobCloseDetail(@Param('MasterJobSid', ParseIntPipe) MasterJobSid: number){
+        let resp = new ResponseData();
+        try {
+            this.logger.log(`Getting Job Close Detail for MasterJobSid : ${MasterJobSid}`);
+            const result = await this.masterJobService.getJobCloseDetail(MasterJobSid);
+            this.logger.debug(`Got Job Close Detail : ${JSON.stringify(result)}`);
+            resp.message = 'Job Close detail fetched successfully';
+            resp.data = result;
+        } catch (error) {
+            resp.status = false;
+            this.logger.warn(`Error in getting Job Close Detail : ${JSON.stringify(error),error}`);
+            if(error instanceof BadRequestException || error instanceof UnauthorizedException){
+                resp.message = error.message;
+            } else {
+                resp.message = 'Internal Server Error';
+            }
+        }
+        return resp;
+    }
+
+    @ApiOperation({ summary: 'Save Job Close Status' })
+    @ApiCreatedResponse({
+        description: 'Save Job Close Status',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Patch('job-close/save')
+    async saveJobCloseStatus(@Body() payload: any){
+        let resp = new ResponseData();
+        try {
+            this.logger.log(`Saving Job Close Status : ${JSON.stringify(payload)}`);
+            const result = await this.masterJobService.saveJobCloseStatus(payload);
+            this.logger.debug(`Saved Job Close Status : ${JSON.stringify(result)}`);
+            resp.message = 'Job Close status saved successfully';
+            resp.data = result;
+        } catch (error) {
+            resp.status = false;
+            this.logger.warn(`Error in saving Job Close Status : ${JSON.stringify(error),error}`);
             if(error instanceof BadRequestException || error instanceof UnauthorizedException){
                 resp.message = error.message;
             } else {

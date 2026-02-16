@@ -2792,7 +2792,8 @@ if (houseJobsForBookingSync.length > 0) {
             mj."FPD" AS "FDC",
             COALESCE(cc."NoOfContainers", 0) AS "NoOfContainers",
             COALESCE(hc."NoOfHouses", 0) AS "NoOfHouses",
-            mj."Status"
+            mj."Status",
+            mj."JobStatus"
         FROM "MasterJob" mj
         LEFT JOIN (
             SELECT "MasterJobSid", COUNT(*)::integer AS "NoOfContainers"
@@ -2843,8 +2844,8 @@ if (houseJobsForBookingSync.length > 0) {
         };
     }
 
-    async searchJobCloseMasterJobList(params: searchMasterJob) {
-        const { search = '', page = 1, pageSize = 15, activeCompanyId, activeBranchId, MenuMasterSid, departmentType } = params;
+    async searchJobCloseMasterJobList(params: any) {
+        const { search = '', page = 1, pageSize = 15, activeCompanyId, activeBranchId, MenuMasterSid, departmentType, JobStatus } = params;
 
         // Ensure numeric values
         const pageNum = Number(page);
@@ -2856,20 +2857,25 @@ if (houseJobsForBookingSync.length > 0) {
         const isNumeric = !isNaN(Number(search)) && search.trim() !== '';
 
         // Build dynamic WHERE conditions
-        let whereConditions = [`mj."Status" = 'A'`,`mj."JobStatus" === 'Job Generated'`];
-        let params_array: any[] = [activeCompanyId, activeBranchId, MenuMasterSid];
-        let paramIndex = 4;
+        let whereConditions = [`mj."Status" = 'A'`, `mj."JobStatus" = 'Job Generated'`];
+        let params_array: any[] = [activeCompanyId, activeBranchId];
+        let paramIndex = 3;
 
         whereConditions.push(`mj."CompanyMasterSid" = $1`);
         whereConditions.push(`mj."BranchMasterSid" = $2`);
-        whereConditions.push(`mj."MenuMasterSid" = $3`);
+
+        if (MenuMasterSid) {
+            whereConditions.push(`mj."MenuMasterSid" = $${paramIndex}`);
+            params_array.push(MenuMasterSid);
+            paramIndex++;
+        }
 
         // Department type filter
         if (departmentType === "Air") {
             whereConditions.push(`dm."departmentType" = $${paramIndex}`);
             params_array.push(departmentType);
             paramIndex++;
-        } else {
+        } else if (departmentType) {
             whereConditions.push(`dm."departmentType" != 'Air'`);
         }
 
@@ -2906,9 +2912,9 @@ if (houseJobsForBookingSync.length > 0) {
 
         const whereClause = whereConditions.join(' AND ');
 
-        // Main query - Cast LIMIT and OFFSET explicitly to bigint
+        // Main query
         const query = `
-        SELECT 
+        SELECT
             mj."MasterJobSid",
             mj."CompanyMasterSid",
             mj."BranchMasterSid",
@@ -2921,7 +2927,7 @@ if (houseJobsForBookingSync.length > 0) {
             mj."POL",
             mj."POD",
             mj."FPD" AS "FDC",
-            mj."JobStatus",                 -- 👈 Added 
+            mj."JobStatus",
             COALESCE(cc."NoOfContainers", 0) AS "NoOfContainers",
             COALESCE(hc."NoOfHouses", 0) AS "NoOfHouses",
             mj."Status"
@@ -5456,4 +5462,631 @@ console.log('Created product:', createdProduct);
         throw error;
     }
 }
+
+    // ==================== Job Close Methods ====================
+
+    async getJobCloseDetail(MasterJobSid: number) {
+        try {
+            // 1. Get master job info with closure fields
+            const masterJob = await this._db.masterJob.findUnique({
+                where: { MasterJobSid },
+                select: {
+                    MasterJobSid: true,
+                    MasterJobNumber: true,
+                    MasterJobDate: true,
+                    MBLNo: true,
+                    POL: true,
+                    POD: true,
+                    JobStatus: true,
+                    DepartmentMasterSid: true,
+                }
+            });
+
+            if (!masterJob) {
+                throw new NotFoundException('Master Job not found');
+            }
+
+            // Get closure fields from MasterJobOthers
+            const masterJobOthers = await this._db.masterJobOthers.findFirst({
+                where: { MasterJobSid, Status: 'A' },
+                select: {
+                    MasterJobOthersSid: true,
+                    DocCloseStatus: true,
+                    DocClosedDate: true,
+                    DocClosedBy: true,
+                    OpsCloseStatus: true,
+                    OpsClosedDate: true,
+                    OpsClosedBy: true,
+                    AccCloseStatus: true,
+                    AccClosedDate: true,
+                    AccClosedBy: true,
+                    JobCloseStatus: true,
+                    JobClosedDate: true,
+                    JobClosedBy: true,
+                }
+            });
+
+            // Get department type
+            const department = await this._db.departmentMaster.findUnique({
+                where: { DepartmentMasterSid: masterJob.DepartmentMasterSid },
+                select: { departmentType: true, departmentName: true }
+            });
+            const departmentType = department?.departmentType || '';
+
+            // 2. Get containers with container type name
+            const containers = await this._db.masterJobContainer.findMany({
+                where: { MasterJobSid, Status: 'A' },
+                select: {
+                    MasterJobContainerSid: true,
+                    ContainerNumber: true,
+                    ContainerType: true,
+                    Volume: true,
+                    containerType: {
+                        select: { ContainerName: true }
+                    }
+                }
+            });
+
+            const containerData = containers.map(c => ({
+                ContainerNumber: c.ContainerNumber,
+                ContainerTypeName: c.containerType?.ContainerName || '',
+                Volume: c.Volume,
+            }));
+
+            // 3. Get active house jobs
+            const houseJobs = await this._db.houseJob.findMany({
+                where: { MasterJobSid, status: 'A' },
+                select: {
+                    HouseJobSid: true,
+                    HBLNo: true,
+                    ShipmentNo: true,
+                }
+            });
+
+            const houseJobSids = houseJobs.map(h => h.HouseJobSid);
+
+            // 4. Get cargo data for each house job
+            const cargoData = houseJobSids.length > 0 ? await this._db.houseJobCargo.findMany({
+                where: { HouseJobSid: { in: houseJobSids }, status: 'A' },
+                select: {
+                    HouseJobSid: true,
+                    GrossWeight: true,
+                    Volumetric: true,
+                    Volume: true,
+                }
+            }) : [];
+
+            // 5. Get cost/revenue aggregation per house job
+            const costRevenueData = houseJobSids.length > 0 ? await this._db.$queryRawUnsafe(`
+                SELECT
+                    hj."HouseJobSid",
+                    COALESCE(SUM(cr."CostLocalAmount"), 0) AS "ActualCost",
+                    COALESCE(SUM(cr."RevenueLocalAmount"), 0) AS "ActualRevenue"
+                FROM "HouseJob" hj
+                LEFT JOIN "CostRevenueCharges" cr ON cr."ShipmentNo" = hj."ShipmentNo"
+                    AND cr.status = 'A'
+                WHERE hj."HouseJobSid" = ANY($1::int[])
+                AND hj.status = 'A'
+                GROUP BY hj."HouseJobSid"
+            `, houseJobSids) as any[] : [];
+
+            // Build HBL data
+            const hblData = houseJobs.map(hj => {
+                const cargo = cargoData.filter(c => c.HouseJobSid === hj.HouseJobSid);
+                const cr = costRevenueData.find((c: any) => c.HouseJobSid === hj.HouseJobSid);
+                return {
+                    HBLNo: hj.HBLNo,
+                    GrossWt: cargo.reduce((sum, c) => sum + Number(c.GrossWeight || 0), 0),
+                    Volumetric: cargo.reduce((sum, c) => sum + Number(c.Volumetric || 0), 0),
+                    CBM: cargo.reduce((sum, c) => sum + Number(c.Volume || 0), 0),
+                    ProvCost: 0,
+                    ProvRevenue: 0,
+                    ActualCost: Number(cr?.ActualCost || 0),
+                    ActualRevenue: Number(cr?.ActualRevenue || 0),
+                };
+            });
+
+            // 6. Compute milestone checks
+            const milestoneChecks = await this.computeMilestoneChecks(MasterJobSid, houseJobSids, departmentType, masterJobOthers);
+
+            return {
+                masterJob: {
+                    MasterJobSid: masterJob.MasterJobSid,
+                    MasterJobNumber: masterJob.MasterJobNumber,
+                    MasterJobDate: masterJob.MasterJobDate,
+                    MBLNo: masterJob.MBLNo,
+                    POL: masterJob.POL,
+                    POD: masterJob.POD,
+                    departmentType,
+                    departmentName: department?.departmentName || '',
+                },
+                containers: containerData,
+                hblData,
+                closureStatus: {
+                    DocCloseStatus: masterJobOthers?.DocCloseStatus,
+                    DocClosedDate: masterJobOthers?.DocClosedDate,
+                    DocClosedBy: masterJobOthers?.DocClosedBy,
+                    OpsCloseStatus: masterJobOthers?.OpsCloseStatus,
+                    OpsClosedDate: masterJobOthers?.OpsClosedDate,
+                    OpsClosedBy: masterJobOthers?.OpsClosedBy,
+                    AccCloseStatus: masterJobOthers?.AccCloseStatus,
+                    AccClosedDate: masterJobOthers?.AccClosedDate,
+                    AccClosedBy: masterJobOthers?.AccClosedBy,
+                    JobCloseStatus: masterJobOthers?.JobCloseStatus,
+                    JobClosedDate: masterJobOthers?.JobClosedDate,
+                    JobClosedBy: masterJobOthers?.JobClosedBy,
+                },
+                milestoneChecks,
+            };
+        } catch (error) {
+            this.logger.warn(`getJobCloseDetail error: ${error}`);
+            throw error;
+        }
+    }
+
+    private async computeMilestoneChecks(
+        MasterJobSid: number,
+        houseJobSids: number[],
+        departmentType: string,
+        masterJobOthers: any
+    ) {
+        const isExport = departmentType?.toLowerCase().includes('export');
+        const hasHouses = houseJobSids.length > 0;
+
+        // Documentation milestone checks
+        const documentation: { label: string; passed: boolean }[] = [];
+
+        if (isExport) {
+            // Check: All Houses have Pkg, Gross Wt, CBM
+            let allHousesCargo = true;
+            if (hasHouses) {
+                const cargoCheck = await this._db.houseJobCargo.findMany({
+                    where: { HouseJobSid: { in: houseJobSids }, status: 'A' },
+                    select: { HouseJobSid: true, NoOfPackage: true, GrossWeight: true, Volume: true }
+                });
+                for (const hjSid of houseJobSids) {
+                    const hjCargo = cargoCheck.filter(c => c.HouseJobSid === hjSid);
+                    if (hjCargo.length === 0 || !hjCargo.some(c => Number(c.NoOfPackage || 0) > 0 && Number(c.GrossWeight || 0) > 0 && Number(c.Volume || 0) > 0)) {
+                        allHousesCargo = false;
+                        break;
+                    }
+                }
+            } else {
+                allHousesCargo = false;
+            }
+            documentation.push({ label: 'All Houses have Pkg, Gross Wt, CBM', passed: allHousesCargo });
+
+            // Check: Container mapping done
+            const containerCount = await this._db.masterJobContainer.count({
+                where: { MasterJobSid, Status: 'A' }
+            });
+            documentation.push({ label: 'Container mapping done', passed: containerCount > 0 });
+
+            // Check: Draft BL generated & SI confirmed
+            let siConfirmed = true;
+            if (hasHouses) {
+                const othersCheck = await this._db.houseJobOthers.findMany({
+                    where: { HouseJobSid: { in: houseJobSids }, status: 'A' },
+                    select: { HouseJobSid: true, SIConfirmationDate: true }
+                });
+                for (const hjSid of houseJobSids) {
+                    const hjOther = othersCheck.find(o => o.HouseJobSid === hjSid);
+                    if (!hjOther || !hjOther.SIConfirmationDate) {
+                        siConfirmed = false;
+                        break;
+                    }
+                }
+            } else {
+                siConfirmed = false;
+            }
+            documentation.push({ label: 'Draft BL generated & SI confirmed', passed: siConfirmed });
+        } else {
+            // Import documentation checks
+            // Check: Cargo Arrival Notice sent
+            let cargoArrivalNotice = false;
+            if (hasHouses) {
+                const milestones = await this._db.shipmentMilestone.findMany({
+                    where: {
+                        HouseJobSid: { in: houseJobSids },
+                        MilestoneName: { contains: 'Cargo Arrival Notice' },
+                        Status: 'A'
+                    }
+                });
+                cargoArrivalNotice = milestones.length > 0;
+            }
+            documentation.push({ label: 'Cargo Arrival Notice sent', passed: cargoArrivalNotice });
+
+            // Check: Cargo Received
+            let cargoReceived = true;
+            if (hasHouses) {
+                const products = await this._db.houseJobProduct.findMany({
+                    where: { HouseJobSid: { in: houseJobSids }, status: 'A' },
+                    select: { HouseJobSid: true, CargoRecDate: true }
+                });
+                for (const hjSid of houseJobSids) {
+                    const hjProducts = products.filter(p => p.HouseJobSid === hjSid);
+                    if (hjProducts.length === 0 || hjProducts.some(p => !p.CargoRecDate)) {
+                        cargoReceived = false;
+                        break;
+                    }
+                }
+            } else {
+                cargoReceived = false;
+            }
+            documentation.push({ label: 'Cargo Received', passed: cargoReceived });
+        }
+
+        // Operation milestone checks
+        const operation: { label: string; passed: boolean }[] = [];
+
+        if (isExport) {
+            // Check: Pre Alert Sent
+            let preAlertSent = false;
+            if (hasHouses) {
+                const milestones = await this._db.shipmentMilestone.findMany({
+                    where: {
+                        HouseJobSid: { in: houseJobSids },
+                        MilestoneName: { contains: 'Pre Alert' },
+                        Status: 'A'
+                    }
+                });
+                preAlertSent = milestones.length > 0;
+            }
+            operation.push({ label: 'Pre Alert Sent', passed: preAlertSent });
+
+            // Check: Invoice generated
+            let invoiceGenerated = false;
+            if (hasHouses) {
+                const vouchers = await this._db.voucherHeader.findMany({
+                    where: {
+                        HouseJobSid: { in: houseJobSids },
+                        Status: 'A'
+                    }
+                });
+                invoiceGenerated = vouchers.length > 0;
+            }
+            operation.push({ label: 'Invoice generated', passed: invoiceGenerated });
+
+            // Check: ATD or On Board Confirmation
+            const voyages = await this._db.masterJobVoyage.findMany({
+                where: { MasterJobSid, Status: 'A' },
+                select: { ATD: true }
+            });
+            const atdConfirmed = voyages.some(v => v.ATD !== null);
+            operation.push({ label: 'ATD or On Board Confirmation', passed: atdConfirmed });
+
+            // Check: Cargo Manifest generated
+            let manifestGenerated = false;
+            if (hasHouses) {
+                const customs = await this._db.houseJobCustoms.findMany({
+                    where: {
+                        MasterJobSid,
+                        Status: 'A',
+                        ManifestSequence: { not: '' }
+                    }
+                });
+                manifestGenerated = customs.length > 0;
+            }
+            operation.push({ label: 'Cargo Manifest generated', passed: manifestGenerated });
+        } else {
+            // Import operation checks
+            // Check: Delivery Order Issued
+            let doIssued = true;
+            if (hasHouses) {
+                const othersCheck = await this._db.houseJobOthers.findMany({
+                    where: { HouseJobSid: { in: houseJobSids }, status: 'A' },
+                    select: { HouseJobSid: true, DONo: true }
+                });
+                for (const hjSid of houseJobSids) {
+                    const hjOther = othersCheck.find(o => o.HouseJobSid === hjSid);
+                    if (!hjOther || !hjOther.DONo) {
+                        doIssued = false;
+                        break;
+                    }
+                }
+            } else {
+                doIssued = false;
+            }
+            operation.push({ label: 'Delivery Order Issued', passed: doIssued });
+
+            // Check: Cargo Delivered
+            let cargoDelivered = true;
+            if (hasHouses) {
+                const products = await this._db.houseJobProduct.findMany({
+                    where: { HouseJobSid: { in: houseJobSids }, status: 'A' },
+                    select: { HouseJobSid: true, DeliveryDate: true }
+                });
+                for (const hjSid of houseJobSids) {
+                    const hjProducts = products.filter(p => p.HouseJobSid === hjSid);
+                    if (hjProducts.length === 0 || hjProducts.some(p => !p.DeliveryDate)) {
+                        cargoDelivered = false;
+                        break;
+                    }
+                }
+            } else {
+                cargoDelivered = false;
+            }
+            operation.push({ label: 'Cargo Delivered', passed: cargoDelivered });
+
+            // Check: Invoice generated (same as export)
+            let invoiceGenerated = false;
+            if (hasHouses) {
+                const vouchers = await this._db.voucherHeader.findMany({
+                    where: {
+                        HouseJobSid: { in: houseJobSids },
+                        Status: 'A'
+                    }
+                });
+                invoiceGenerated = vouchers.length > 0;
+            }
+            operation.push({ label: 'Invoice generated', passed: invoiceGenerated });
+        }
+
+        // Accounts milestone checks
+        const accounts: { label: string; passed: boolean }[] = [];
+
+        // Check: Invoice generated (Revenue VoucherHeader exists)
+        let revenueInvoice = false;
+        if (hasHouses) {
+            const revenueVouchers = await this._db.voucherHeader.findMany({
+                where: {
+                    HouseJobSid: { in: houseJobSids },
+                    Status: 'A'
+                }
+            });
+            revenueInvoice = revenueVouchers.length > 0;
+        }
+        accounts.push({ label: 'Invoice generated', passed: revenueInvoice });
+
+        // Check: Vendor Invoice booked
+        let vendorInvoiceBooked = false;
+        if (hasHouses) {
+            const shipmentNos = houseJobSids.length > 0
+                ? (await this._db.houseJob.findMany({
+                    where: { HouseJobSid: { in: houseJobSids } },
+                    select: { ShipmentNo: true }
+                })).map(h => h.ShipmentNo).filter(Boolean)
+                : [];
+            if (shipmentNos.length > 0) {
+                const costCharges = await this._db.costRevenueCharges.findMany({
+                    where: {
+                        ShipmentNo: { in: shipmentNos as string[] },
+                        status: 'A',
+                        CostVoucherHeaderSid: { not: null }
+                    }
+                });
+                vendorInvoiceBooked = costCharges.length > 0;
+            }
+        }
+        accounts.push({ label: 'Vendor Invoice booked', passed: vendorInvoiceBooked });
+
+        // Check: Revenue entered in all HBL
+        let revenueInAllHbl = true;
+        if (hasHouses) {
+            const shipmentNos = (await this._db.houseJob.findMany({
+                where: { HouseJobSid: { in: houseJobSids } },
+                select: { HouseJobSid: true, ShipmentNo: true }
+            }));
+            for (const hj of shipmentNos) {
+                if (!hj.ShipmentNo) { revenueInAllHbl = false; break; }
+                const revCharges = await this._db.costRevenueCharges.findMany({
+                    where: {
+                        ShipmentNo: hj.ShipmentNo,
+                        status: 'A',
+                        RevenueAmount: { gt: 0 }
+                    }
+                });
+                if (revCharges.length === 0) {
+                    revenueInAllHbl = false;
+                    break;
+                }
+            }
+        } else {
+            revenueInAllHbl = false;
+        }
+        accounts.push({ label: 'Revenue entered in all HBL', passed: revenueInAllHbl });
+
+        // Check: Job Profitable
+        let jobProfitable = false;
+        if (hasHouses) {
+            const shipmentNos = (await this._db.houseJob.findMany({
+                where: { HouseJobSid: { in: houseJobSids } },
+                select: { ShipmentNo: true }
+            })).map(h => h.ShipmentNo).filter(Boolean);
+            if (shipmentNos.length > 0) {
+                const profitCheck = await this._db.$queryRawUnsafe(`
+                    SELECT
+                        COALESCE(SUM("RevenueLocalAmount"), 0) AS "TotalRevenue",
+                        COALESCE(SUM("CostLocalAmount"), 0) AS "TotalCost"
+                    FROM "CostRevenueCharges"
+                    WHERE "ShipmentNo" = ANY($1::varchar[])
+                    AND status = 'A'
+                `, shipmentNos) as any[];
+                if (profitCheck.length > 0) {
+                    jobProfitable = Number(profitCheck[0].TotalRevenue) >= Number(profitCheck[0].TotalCost);
+                }
+            }
+        }
+        accounts.push({ label: 'Job Profitable', passed: jobProfitable });
+
+        // Check: Unbooked cost to Accrual (no unbooked cost entries)
+        let unbookedCostClear = true;
+        if (hasHouses) {
+            const shipmentNos = (await this._db.houseJob.findMany({
+                where: { HouseJobSid: { in: houseJobSids } },
+                select: { ShipmentNo: true }
+            })).map(h => h.ShipmentNo).filter(Boolean);
+            if (shipmentNos.length > 0) {
+                const unbookedCost = await this._db.costRevenueCharges.findMany({
+                    where: {
+                        ShipmentNo: { in: shipmentNos as string[] },
+                        status: 'A',
+                        CostAmount: { gt: 0 },
+                        CostVoucherHeaderSid: null
+                    }
+                });
+                unbookedCostClear = unbookedCost.length === 0;
+            }
+        }
+        accounts.push({ label: 'Unbooked cost to Accrual', passed: unbookedCostClear });
+
+        // Check: Unbooked Revenue to WIP (no unbooked revenue entries)
+        let unbookedRevenueClear = true;
+        if (hasHouses) {
+            const shipmentNos = (await this._db.houseJob.findMany({
+                where: { HouseJobSid: { in: houseJobSids } },
+                select: { ShipmentNo: true }
+            })).map(h => h.ShipmentNo).filter(Boolean);
+            if (shipmentNos.length > 0) {
+                const unbookedRevenue = await this._db.costRevenueCharges.findMany({
+                    where: {
+                        ShipmentNo: { in: shipmentNos as string[] },
+                        status: 'A',
+                        RevenueAmount: { gt: 0 },
+                        RevenueVoucherHeaderSid: null
+                    }
+                });
+                unbookedRevenueClear = unbookedRevenue.length === 0;
+            }
+        }
+        accounts.push({ label: 'Unbooked Revenue to WIP', passed: unbookedRevenueClear });
+
+        // Job Closer checks
+        const jobClose: { label: string; passed: boolean }[] = [];
+        const allPreviousClosed =
+            masterJobOthers?.DocCloseStatus === 'Closed' &&
+            masterJobOthers?.OpsCloseStatus === 'Closed' &&
+            masterJobOthers?.AccCloseStatus === 'Closed';
+        jobClose.push({ label: 'All previous closers done', passed: allPreviousClosed });
+
+        return { documentation, operation, accounts, jobClose };
+    }
+
+    async saveJobCloseStatus(payload: any) {
+        try {
+            const {
+                MasterJobSid,
+                DocCloseStatus, DocClosedDate, DocClosedBy,
+                OpsCloseStatus, OpsClosedDate, OpsClosedBy,
+                AccCloseStatus, AccClosedDate, AccClosedBy,
+                JobCloseStatus, JobClosedDate, JobClosedBy,
+                UpdatedBy
+            } = payload;
+
+            if (!MasterJobSid) {
+                throw new BadRequestException('MasterJobSid is required');
+            }
+
+            // Re-validate milestones server-side before saving
+            const masterJob = await this._db.masterJob.findUnique({
+                where: { MasterJobSid },
+                select: {
+                    MasterJobSid: true,
+                    DepartmentMasterSid: true,
+                }
+            });
+
+            if (!masterJob) {
+                throw new NotFoundException('Master Job not found');
+            }
+
+            // Get existing MasterJobOthers record
+            const masterJobOthers = await this._db.masterJobOthers.findFirst({
+                where: { MasterJobSid, Status: 'A' },
+                select: {
+                    MasterJobOthersSid: true,
+                    DocCloseStatus: true,
+                    OpsCloseStatus: true,
+                    AccCloseStatus: true,
+                    JobCloseStatus: true,
+                }
+            });
+
+            const department = await this._db.departmentMaster.findUnique({
+                where: { DepartmentMasterSid: masterJob.DepartmentMasterSid },
+                select: { departmentType: true }
+            });
+
+            const houseJobs = await this._db.houseJob.findMany({
+                where: { MasterJobSid, status: 'A' },
+                select: { HouseJobSid: true }
+            });
+            const houseJobSids = houseJobs.map(h => h.HouseJobSid);
+
+            const milestoneChecks = await this.computeMilestoneChecks(
+                MasterJobSid, houseJobSids, department?.departmentType || '', masterJobOthers
+            );
+
+            // Validate each closer being set to "Closed"
+            if (DocCloseStatus === 'Closed') {
+                const allDocPassed = milestoneChecks.documentation.every(m => m.passed);
+                if (!allDocPassed) {
+                    throw new BadRequestException('Documentation milestones not met');
+                }
+            }
+            if (OpsCloseStatus === 'Closed') {
+                const allOpsPassed = milestoneChecks.operation.every(m => m.passed);
+                if (!allOpsPassed) {
+                    throw new BadRequestException('Operation milestones not met');
+                }
+            }
+            if (AccCloseStatus === 'Closed') {
+                const allAccPassed = milestoneChecks.accounts.every(m => m.passed);
+                if (!allAccPassed) {
+                    throw new BadRequestException('Accounts milestones not met');
+                }
+            }
+            if (JobCloseStatus === 'Closed') {
+                const allJobPassed = milestoneChecks.jobClose.every(m => m.passed);
+                if (!allJobPassed) {
+                    throw new BadRequestException('Job Close milestones not met. All previous closers must be done.');
+                }
+            }
+
+            // Determine JobStatus
+            const allClosed =
+                DocCloseStatus === 'Closed' &&
+                OpsCloseStatus === 'Closed' &&
+                AccCloseStatus === 'Closed' &&
+                JobCloseStatus === 'Closed';
+
+            // Update closure fields in MasterJobOthers
+            if (masterJobOthers) {
+                await this._db.masterJobOthers.update({
+                    where: { MasterJobOthersSid: masterJobOthers.MasterJobOthersSid },
+                    data: {
+                        DocCloseStatus: DocCloseStatus || 'Open',
+                        DocClosedDate: DocClosedDate ? new Date(DocClosedDate) : null,
+                        DocClosedBy: DocClosedBy || null,
+                        OpsCloseStatus: OpsCloseStatus || 'Open',
+                        OpsClosedDate: OpsClosedDate ? new Date(OpsClosedDate) : null,
+                        OpsClosedBy: OpsClosedBy || null,
+                        AccCloseStatus: AccCloseStatus || 'Open',
+                        AccClosedDate: AccClosedDate ? new Date(AccClosedDate) : null,
+                        AccClosedBy: AccClosedBy || null,
+                        JobCloseStatus: JobCloseStatus || 'Open',
+                        JobClosedDate: JobClosedDate ? new Date(JobClosedDate) : null,
+                        JobClosedBy: JobClosedBy || null,
+                        UpdatedBy: UpdatedBy,
+                        UpdatedOn: new Date(),
+                    }
+                });
+            }
+
+            // Update JobStatus in MasterJob
+            const updatedJob = await this._db.masterJob.update({
+                where: { MasterJobSid },
+                data: {
+                    JobStatus: allClosed ? 'Job Closed' : 'Job Generated',
+                    UpdatedBy: UpdatedBy,
+                    UpdatedOn: new Date(),
+                }
+            });
+
+            return updatedJob;
+        } catch (error) {
+            this.logger.warn(`saveJobCloseStatus error: ${error}`);
+            throw error;
+        }
+    }
 }

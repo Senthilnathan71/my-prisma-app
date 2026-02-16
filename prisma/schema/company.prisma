@@ -2710,6 +2710,18 @@ model MasterJobOthers {
   ContainerReleaseDate  DateTime? @db.Date
   ContainerValidityDate DateTime? @db.Date
   AMSRefNo              String?   @db.VarChar(20)
+  DocCloseStatus        String?   @default("Open") @db.VarChar(10)
+  DocClosedDate         DateTime? @db.Timestamptz(6)
+  DocClosedBy           String?   @db.VarChar(100)
+  OpsCloseStatus        String?   @default("Open") @db.VarChar(10)
+  OpsClosedDate         DateTime? @db.Timestamptz(6)
+  OpsClosedBy           String?   @db.VarChar(100)
+  AccCloseStatus        String?   @default("Open") @db.VarChar(10)
+  AccClosedDate         DateTime? @db.Timestamptz(6)
+  AccClosedBy           String?   @db.VarChar(100)
+  JobCloseStatus        String?   @default("Open") @db.VarChar(10)
+  JobClosedDate         DateTime? @db.Timestamptz(6)
+  JobClosedBy           String?   @db.VarChar(100)
   masterJob             MasterJob @relation(fields: [MasterJobSid], references: [MasterJobSid])
 }
 
