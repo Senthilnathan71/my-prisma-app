@@ -713,18 +713,26 @@ export class HouseJobService {
 
     async getHouseJobByMasterJobSid(payload: any) {
         try {
-            const { MasterJobSid, CompanyMasterSid, BranchMasterSid } = payload;
+            const { MasterJobSid, CompanyMasterSid, BranchMasterSid, SearchText, Skip, Take } = payload;
+            const where: any = {
+                MasterJobSid,
+                CompanyMasterSid,
+                BranchMasterSid,
+                status: 'A',
+                ...(SearchText && {
+                    HBLNo: { contains: SearchText, mode: 'insensitive' },
+                }),
+            };
             const ourHouseJob = await this._db.houseJob.findMany({
-                where: {
-                    MasterJobSid: MasterJobSid,
-                    CompanyMasterSid: CompanyMasterSid,
-                    BranchMasterSid: BranchMasterSid,
-                    status: 'A'
-                },
+                where,
                 select: {
                     HouseJobSid: true,
-                    HBLNo: true
-                }
+                    HBLNo: true,
+                    HBLDate : true
+                },
+                orderBy: [{ HBLDate : 'desc' } , { HBLNo: 'desc' }],
+                skip: Skip ?? 0,
+                take: Take ?? 100,
             })
             return ourHouseJob;
         } catch (error) {

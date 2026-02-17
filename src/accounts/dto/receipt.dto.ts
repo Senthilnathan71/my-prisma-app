@@ -203,6 +203,14 @@ export class SearchOutstandingDto {
   @IsOptional()
   @IsBoolean()
   IncludeFullyPaid?: boolean; // Default: false
+
+  @IsOptional()
+  @IsNumber()
+  Skip?: number; // Pagination offset
+
+  @IsOptional()
+  @IsNumber()
+  Take?: number; // Pagination limit
 }
 
 /**
