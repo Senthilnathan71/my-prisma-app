@@ -54,7 +54,12 @@ export class ReceiptService {
   async searchOutstandingInvoices(searchDto: SearchOutstandingDto): Promise<OutstandingInvoiceDto[]> {
     this.logger.log(`Searching outstanding invoices with criteria: ${JSON.stringify(searchDto)}`);
 
+    const skip = searchDto.Skip ?? 0;
+    const take = searchDto.Take ?? 50;
+
     try {
+      let invoices: OutstandingInvoiceDto[];
+
       // If searching by customer (most common case)
       if (searchDto.LedgerMasterSid) {
         const customerOutstanding = await this.outstandingService.getCustomerOutstanding(
@@ -63,7 +68,7 @@ export class ReceiptService {
         );
 
         // Convert to OutstandingInvoiceDto format
-        const invoices: OutstandingInvoiceDto[] = customerOutstanding.transactions.map((txn) => ({
+        invoices = customerOutstanding.transactions.map((txn) => ({
           VoucherTransactionSid: txn.voucherTransactionSid,
           VoucherHeaderSid: txn.voucherHeaderSid,
           VoucherDetailSid: txn.voucherDetailSid,
@@ -88,14 +93,15 @@ export class ReceiptService {
 
         // Filter out fully paid if requested
         if (!searchDto.IncludeFullyPaid) {
-          return invoices.filter((inv) => Math.abs(inv.OutstandingLocalAmount) > 0);  // No tolerance
+          invoices = invoices.filter((inv) => inv.OutstandingLocalAmount > 0);  // No tolerance
         }
-
-        return invoices;
+      } else {
+        // Advanced search by invoice number, house number, etc.
+        invoices = await this.advancedSearchOutstanding(searchDto);
       }
 
-      // Advanced search by invoice number, house number, etc.
-      return await this.advancedSearchOutstanding(searchDto);
+      // Apply pagination
+      return invoices.slice(skip, skip + take);
     } catch (error) {
       this.logger.error(`Failed to search outstanding invoices: ${error.message}`, error.stack);
       throw new BadRequestException(`Failed to search outstanding invoices: ${error.message}`);
@@ -136,7 +142,7 @@ export class ReceiptService {
       orderBy: {
         VoucherDate: 'desc',
       },
-      take: 100, // Limit results
+      take: (searchDto.Skip ?? 0) + (searchDto.Take ?? 50) + 50, // Fetch enough to cover pagination + outstanding filtering
     });
 
     // Calculate outstanding for each transaction
@@ -169,7 +175,7 @@ export class ReceiptService {
 
 
       // Skip fully paid if not requested
-      if (!searchDto.IncludeFullyPaid && Math.abs(outstandingCurrencyAmount) <= 0) {
+      if (!searchDto.IncludeFullyPaid && outstandingCurrencyAmount <= 0) {
         continue;
       }
 
@@ -1421,7 +1427,7 @@ export class ReceiptService {
           matchings: updatedCreatedMatchings,
           message: 'Receipt updated successfully',
         };
-      });
+      },{timeout: 48000});
     } catch (error) {
       if (error instanceof BadRequestException) {
         throw error;

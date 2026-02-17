@@ -4462,19 +4462,28 @@ private async updateMasterJobTotals(masterJobSid: number): Promise<void> {
 
     async getMasterJobByDepartmentid(payload: any) {
         try {
-            const { DepartmentMasterSid, CompanyMasterSid, BranchMasterSid } = payload;
+            const { DepartmentMasterSid, CompanyMasterSid, BranchMasterSid, SearchText, Skip, Take } = payload;
+            const where: any = {
+                MasterJobNumber: { not: null },
+                CompanyMasterSid,
+                BranchMasterSid,
+                Status: 'A',
+                ...(DepartmentMasterSid && { DepartmentMasterSid }),
+                ...(SearchText && {
+                    MasterJobNumber: { contains: SearchText, mode: 'insensitive' },
+                }),
+            };
             const masterJob = await this._db.masterJob.findMany({
-                where: {
-                    MasterJobNumber: { not: null },
-                    DepartmentMasterSid: DepartmentMasterSid,
-                    CompanyMasterSid: CompanyMasterSid,
-                    BranchMasterSid: BranchMasterSid,
-                    Status: 'A'
-                },
+                where,
                 select: {
                     MasterJobSid: true,
                     MasterJobNumber: true,
-                }
+                    DepartmentMasterSid: true,
+                    MBLDate : true
+                },
+                orderBy: [{ MBLDate: 'desc' } ,{ MasterJobNumber: 'desc' }],
+                skip: Skip ?? 0,
+                take: Take ?? 100,
             })
             return masterJob;
         } catch (error) {
