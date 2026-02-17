@@ -428,7 +428,7 @@ export class VoucherMatchingPayload {
   VoucherHeaderSid : number;
 
   @IsString()
-  voucherTypeInName : string;
+  VoucherTypeCode : string;
 
   @IsNotEmpty()
   @IsNumber()

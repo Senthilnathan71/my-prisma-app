@@ -6,6 +6,7 @@ import * as moment from 'moment-timezone';
 import { statusWhereClause, toNumber } from 'src/common/helper';
 import { Prisma } from '@prisma/client';
 import { MenuService } from 'src/masters/services/menu/menu.service';
+import { DOC_TYPE_CODE } from 'src/common/config/voucher-type.config';
 
 @Injectable()
 export class VendorInvoiceService {
@@ -43,7 +44,7 @@ export class VendorInvoiceService {
                 // Get VoucherTypeMaster for "Vendor Invoice"
                 const voucherTypeMaster = await tx.voucherTypeMaster.findFirst({
                     where: {
-                        DocumentTypeName: 'Vendor Invoice',
+                        DocumentTypeCode : DOC_TYPE_CODE.VENDOR_INVOICE,
                         CompanyMasterSid: payload.CompanyMasterSid,
                         BranchMasterSid: payload.BranchMasterSid,
                         status: 'A'
@@ -270,7 +271,7 @@ export class VendorInvoiceService {
             const vendorInvoices = await this._db.voucherHeader.findMany({
                 where: {
                     voucherTypeMaster: {
-                        DocumentTypeName: 'Vendor Invoice'
+                        DocumentTypeCode : DOC_TYPE_CODE.VENDOR_INVOICE
                     },
                      Status: { in: ['A', 'S'] } 
                 },
@@ -639,7 +640,7 @@ export class VendorInvoiceService {
                 BranchMasterSid: activeBranchId,
                 Status: 'A',
                 voucherTypeMaster: {
-                    DocumentTypeCode: 'VIN',
+                    DocumentTypeCode: DOC_TYPE_CODE.VENDOR_INVOICE,
                     status: 'A'
                 },
             }

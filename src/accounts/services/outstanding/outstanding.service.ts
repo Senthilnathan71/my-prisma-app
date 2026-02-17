@@ -6,6 +6,7 @@ import {
   CustomerOutstandingTransactionDto,
 } from '../../dto/outstanding.dto';
 import { Decimal } from '@prisma/client/runtime/library';
+import { DOC_TYPE_CODE } from 'src/common/config/voucher-type.config';
 
 /**
  * Service for calculating outstanding amounts for vouchers and customers
@@ -165,7 +166,7 @@ export class OutstandingService {
             SubledgerType : 'Customer'
           },
           voucherTypeMaster : {
-            DocumentTypeName : {not : 'Receipt'}
+            DocumentTypeCode : {not : DOC_TYPE_CODE.RECEIPT}
           },
           /**
            * UPDATE:

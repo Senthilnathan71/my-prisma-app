@@ -7,6 +7,7 @@ import { CustomerOutstandingResponseDto, CustomerOutstandingTransactionDto } fro
 import { transcode } from 'buffer';
 import { Decimal } from '@prisma/client/runtime/library';
 import { ProfitSummaryReportQueryDto } from 'src/operation/DTO/operation-reports.dto';
+import { DOC_TYPE_CODE } from 'src/common/config/voucher-type.config';
 // -------------------------
 // Helper types (local)
 // -------------------------
@@ -2114,8 +2115,8 @@ export class AccountsReportsService {
           Status: 'A',
           COAMasterSid: coamasterSid,
           voucherTypeMaster: {
-            DocumentTypeName: {
-              in: ['Vendor Invoice', 'Vendor Credit Note'],
+            DocumentTypeCode: {
+              in: [DOC_TYPE_CODE.VENDOR_INVOICE, DOC_TYPE_CODE.VENDOR_CREDIT_NOTE],
             },
           },
         },
@@ -2391,8 +2392,8 @@ export class AccountsReportsService {
           Status: 'A',
           COAMasterSid: coamasterSid,
           voucherTypeMaster: {
-            DocumentTypeName: {
-              in: ['Invoice', 'Journal Voucher', 'Credit Note'],
+            DocumentTypeCode: {
+              in: [DOC_TYPE_CODE.INVOICE, DOC_TYPE_CODE.JOURNAL_VOUCHER, DOC_TYPE_CODE.CREDIT_NOTE],
             },
           },
         },
@@ -3174,8 +3175,8 @@ export class AccountsReportsService {
           lte: toDate,
         },
         voucherTypeMaster: {
-          DocumentTypeName: {
-            in: ['Invoice', 'Vendor Invoice', 'Credit Note', 'Vendor Credit Note'],
+          DocumentTypeCode: {
+            in: [DOC_TYPE_CODE.INVOICE, DOC_TYPE_CODE.VENDOR_INVOICE, DOC_TYPE_CODE.CREDIT_NOTE, DOC_TYPE_CODE.VENDOR_CREDIT_NOTE],
           },
         },
         PostStatus: {
@@ -3387,8 +3388,8 @@ export class AccountsReportsService {
           },
           PostStatus: 'U',
           voucherTypeMaster: {
-            DocumentTypeName: {
-              in: ['Invoice', 'Vendor Invoice', 'Credit Note', 'Vendor Credit Note'],
+            DocumentTypeCode : {
+              in: [DOC_TYPE_CODE.INVOICE , DOC_TYPE_CODE.VENDOR_INVOICE, DOC_TYPE_CODE.CREDIT_NOTE, DOC_TYPE_CODE.VENDOR_CREDIT_NOTE],
             },
           },
         }
@@ -3409,7 +3410,7 @@ export class AccountsReportsService {
             in: ['P', 'U']
           },
           voucherTypeMaster: {
-            DocumentTypeName: 'Payment Voucher',
+            DocumentTypeCode: DOC_TYPE_CODE.PAYMENT,
           }
         },
       })
@@ -3425,7 +3426,7 @@ export class AccountsReportsService {
             lte: toDate,
           },
           voucherTypeMaster: {
-            DocumentTypeName: 'Payment Voucher',
+            DocumentTypeCode: DOC_TYPE_CODE.PAYMENT,
           },
           VoucherDetail: {
             some: {

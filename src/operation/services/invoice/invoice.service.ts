@@ -8,6 +8,7 @@ import { Debug } from '@prisma/client/runtime/library';
 import { statusWhereClause, toNumber } from 'src/common/helper';
 import { VoucherService } from 'src/operation/services/voucher/voucher.service';
 import { VoucherPeriodService } from 'src/masters/services/voucher-period/voucher-period.service';
+import { DOC_TYPE_CODE } from 'src/common/config/voucher-type.config';
 
 @Injectable()
 export class InvoiceService {
@@ -260,7 +261,7 @@ export class InvoiceService {
         // Fetch VoucherTypeMaster for Invoice
         const voucherTypeMaster = await prisma.voucherTypeMaster.findFirst({
           where: {
-            DocumentTypeCode: 'INV',
+            DocumentTypeCode: DOC_TYPE_CODE.INVOICE,
             CompanyMasterSid: payload.CompanyMasterSid,
             BranchMasterSid: payload.BranchMasterSid,
             status: 'A'
@@ -774,7 +775,7 @@ if (detail.CostRevenueChargesSid) {
       BranchMasterSid: activeBranchId,
       Status: statusWhereClause,
       voucherTypeMaster: {
-      DocumentTypeCode: 'INV'
+      DocumentTypeCode: DOC_TYPE_CODE.INVOICE
     },
       ...(search && {
         OR: [

@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { Decimal } from '@prisma/client/runtime/library';
 import { PostVoucherResponseDto, VoucherDetailDto } from 'src/accounts/dto/voucher-posting.dto';
-import { TaxVoucherType } from 'src/common/config/voucher-type.config';
+import { TaxVoucherType, DOC_TYPE_CODE } from 'src/common/config/voucher-type.config';
 import { statusWhereClause, toNumber } from 'src/common/helper';
 import { DatabaseService } from 'src/database/database.service';
 import { VoucherService } from 'src/operation/services/voucher/voucher.service';
@@ -30,7 +30,7 @@ export class JournalVoucherService {
                 // Get VoucherTypeMaster for "Journal Voucher"
                 const voucherTypeMaster = await tx.voucherTypeMaster.findFirst({
                     where: {
-                        DocumentTypeName: 'Journal Voucher',
+                        DocumentTypeCode: DOC_TYPE_CODE.JOURNAL_VOUCHER,
                         CompanyMasterSid: payload.CompanyMasterSid,
                         BranchMasterSid: payload.BranchMasterSid,
                         status: 'A'
@@ -242,7 +242,7 @@ export class JournalVoucherService {
             const journalVouchers = await this._db.voucherHeader.findMany({
                 where: {
                     voucherTypeMaster: {
-                        DocumentTypeName: 'Journal Voucher'
+                        DocumentTypeCode: DOC_TYPE_CODE.JOURNAL_VOUCHER
                     },
                     Status: 'A'
                 },
@@ -556,7 +556,7 @@ if (payload.VoucherDetail && Array.isArray(payload.VoucherDetail)) {
                 CompanyMasterSid: activeCompanyId,
                 BranchMasterSid: activeBranchId,
                 voucherTypeMaster: {
-                    DocumentTypeName: 'Journal Voucher'
+                    DocumentTypeCode: DOC_TYPE_CODE.JOURNAL_VOUCHER
                 },
                 Status: statusWhereClause
             };
@@ -651,7 +651,7 @@ if (payload.VoucherDetail && Array.isArray(payload.VoucherDetail)) {
                 if (!voucher.VoucherDetail || voucher.VoucherDetail.length === 0) throw new BadRequestException('No detail lines are found.');
                 if (!voucher.voucherTypeMaster) throw new BadRequestException('Voucher type is not found.');
 
-                const voucherType  = voucher.voucherTypeMaster?.DocumentTypeName;
+                const voucherType  = voucher.voucherTypeMaster?.DocumentTypeCode;
 
 
                 // Validate year
@@ -704,7 +704,7 @@ if (payload.VoucherDetail && Array.isArray(payload.VoucherDetail)) {
                                 DepartmentMasterSid: voucher.DepartmentMasterSid,
                                 HouseJobSid: voucher.HouseJobSid,
                                 MasterJobSid: voucher.MasterJobSid,
-                                CostRevenue: voucher.voucherTypeMaster.DocumentTypeName === "Invoice" || voucher.voucherTypeMaster.DocumentTypeName === "Credit Note" ? "Revenue" : "Cost",
+                                CostRevenue: voucher.voucherTypeMaster.DocumentTypeCode === DOC_TYPE_CODE.INVOICE || voucher.voucherTypeMaster.DocumentTypeCode === DOC_TYPE_CODE.CREDIT_NOTE ? "Revenue" : "Cost",
                                 CurrencyMasterSid: voucher.CurrencyMasterSid! || payload.localCurrencyMasterSid,
                                 CurrencyCode: voucher.CurrencyCode! || payload.localCurrencyCode,
                                 ExchangeRate: new Decimal(1),
@@ -905,7 +905,7 @@ if (payload.VoucherDetail && Array.isArray(payload.VoucherDetail)) {
                         const journalVoucher = await this._db.voucherHeader.findMany({
                             where: {
                                 voucherTypeMaster: {
-                                    DocumentTypeName: 'Journal Voucher'
+                                    DocumentTypeCode: DOC_TYPE_CODE.JOURNAL_VOUCHER
                                 },
                                 Status: 'A'
                             },

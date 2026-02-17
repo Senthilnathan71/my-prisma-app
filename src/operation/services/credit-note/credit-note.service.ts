@@ -6,6 +6,7 @@ import { VoucherService } from '../voucher/voucher.service';
 import { VoucherPeriodService } from 'src/masters/services/voucher-period/voucher-period.service';
 import { PullVoucherDTO } from 'src/accounts/dto/voucher.dto';
 import { roundAmount, toNumber } from 'src/common/helper';
+import { DOC_TYPE_CODE } from 'src/common/config/voucher-type.config';
 
 @Injectable()
 export class CreditNoteService {
@@ -105,7 +106,7 @@ export class CreditNoteService {
           Status: 'A',
           PostStatus: 'P',
           voucherTypeMaster: {
-            DocumentTypeName: 'Invoice'
+            DocumentTypeName: DOC_TYPE_CODE.INVOICE
           },
           CompanyMasterSid: CompanyMasterSid,
          },
@@ -164,8 +165,8 @@ export class CreditNoteService {
          const result = await this._db.voucherHeader.findMany({
            where: { 
             voucherTypeMaster: {
-                        DocumentTypeName: 'Credit Note'
-                    },
+              DocumentTypeCode : DOC_TYPE_CODE.CREDIT_NOTE
+            },
             Status: 'A' 
         },
            include: {
@@ -226,7 +227,7 @@ export class CreditNoteService {
              where: {
                AND: [
                  { VoucherHeaderSid: creditNote.ReversalVoucher },
-                 { voucherTypeMaster: { DocumentTypeCode: 'INV' } },
+                 { voucherTypeMaster: { DocumentTypeCode : DOC_TYPE_CODE.INVOICE } },
                  { PostStatus: 'P' },
                ]
              },
@@ -277,7 +278,7 @@ export class CreditNoteService {
         // Fetch VoucherTypeMaster for Credit Note
         const voucherTypeMaster = await prisma.voucherTypeMaster.findFirst({
           where: {
-            DocumentTypeCode: 'CRN',
+            DocumentTypeCode: DOC_TYPE_CODE.CREDIT_NOTE,
             CompanyMasterSid: payload.CompanyMasterSid,
             BranchMasterSid: payload.BranchMasterSid,
             status: 'A'
@@ -672,8 +673,8 @@ export class CreditNoteService {
          CompanyMasterSid: activeCompanyId,
          BranchMasterSid: activeBranchId,
          voucherTypeMaster: {
-                DocumentTypeName: 'Credit Note'
-            },
+            DocumentTypeCode : DOC_TYPE_CODE.CREDIT_NOTE
+        },
          Status: 'A',
         }
          if(search) {
@@ -759,7 +760,7 @@ export class CreditNoteService {
                 VoucherNumber: { contains: VoucherNumber, mode: 'insensitive' },
                 CompanyMasterSid,
                 BranchMasterSid,
-                voucherTypeMaster: { DocumentTypeCode: 'INV' },
+                voucherTypeMaster: { DocumentTypeCode: DOC_TYPE_CODE.INVOICE },
                 Status: 'A',
             },
             include: {

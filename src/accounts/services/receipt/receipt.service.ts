@@ -24,6 +24,7 @@ import { Decimal } from '@prisma/client/runtime/library';
 import { roundAmount, toNumber } from 'src/common/helper';
 import { VoucherDetailDto } from 'src/accounts/dto/voucher.dto';
 import { CompanyConfigService } from 'src/masters/services/company/company-config.service';
+import { DOC_TYPE_CODE } from 'src/common/config/voucher-type.config';
 
 /**
  * Receipt Voucher Service
@@ -93,7 +94,7 @@ export class ReceiptService {
 
         // Filter out fully paid if requested
         if (!searchDto.IncludeFullyPaid) {
-          invoices = invoices.filter((inv) => inv.OutstandingLocalAmount > 0);  // No tolerance
+          invoices = invoices.filter((inv) => inv.OutstandingCurrencyAmount > 0 || inv.OutstandingLocalAmount > 0);  // No tolerance
         }
       } else {
         // Advanced search by invoice number, house number, etc.
@@ -206,651 +207,6 @@ export class ReceiptService {
     return results.filter(r => (r.OutstandingLocalAmount > 0 || r.OutstandingCurrencyAmount > 0));
   }
 
-  /**
-   * Create receipt voucher with all features
-   */
-  async createReceipt(createDto: CreateReceiptDto): Promise<ReceiptResponseDto> {
-    this.logger.log(`Creating receipt for customer ${createDto.LedgerMasterSid}`);
-
-    try {
-      return await this._db.$transaction(async (prisma) => {
-        // 1. Get VoucherTypeMaster for Receipt
-        const voucherTypeMaster = await prisma.voucherTypeMaster.findFirst({
-          where: {
-            DocumentTypeName: 'Receipt',
-            CompanyMasterSid: createDto.CompanyMasterSid,
-            BranchMasterSid: createDto.BranchMasterSid,
-            status: 'A'
-          }
-        });
-        if (!voucherTypeMaster) {
-          throw new BadRequestException('Receipt voucher type not configured for this company/branch. Please configure VoucherTypeMaster.');
-        }
-
-        // Generate voucher number using config-based approach
-        const voucherNumber = await this.voucherService.generateVoucherNumberFromConfig(
-          voucherTypeMaster,
-          createDto.CompanyMasterSid,
-          createDto.BranchMasterSid,
-          createDto.YearMasterSid,
-          prisma,
-          createDto.VoucherDate ? new Date(createDto.VoucherDate) : undefined
-        );
-
-        // 2. Get current year
-        const currentYear = await prisma.yearMaster.findFirst({
-          where: {
-            CompanyMasterSid: createDto.CompanyMasterSid,
-            CurrentYear: 'Y',
-          },
-        });
-
-        if (!currentYear) {
-          throw new BadRequestException('Current fiscal year not found');
-        }
-
-        // 3. Validate date is within fiscal year
-        const voucherDate = new Date(createDto.VoucherDate);
-        const startDate = new Date(currentYear.StartDate);
-        const endDate = new Date(currentYear.EndDate);
-
-        if (voucherDate < startDate || voucherDate > endDate) {
-          throw new BadRequestException(
-            `Voucher date must be within fiscal year ${startDate.toISOString().split('T')[0]} to ${endDate.toISOString().split('T')[0]}`,
-          );
-        }
-
-        // 4. Get cash/bank account (Dr side)
-        const cashBankAccount = await this.getCashBankAccount(createDto.PaymentMode, createDto.CompanyMasterSid, prisma);
-
-        // 5. Get customer details for voucher header
-        const customer = await prisma.subledgerMaster.findUnique({
-          where: { SubledgerMasterSid: createDto.LedgerMasterSid },
-        });
-
-        // 5. Create VoucherHeader with all required fields
-        const voucherHeader = await prisma.voucherHeader.create({
-          data: {
-            CompanyMasterSid: createDto.CompanyMasterSid,
-            BranchMasterSid: createDto.BranchMasterSid,
-            VoucherNumber: voucherNumber,
-            VoucherDate: voucherDate,
-            PostDate: voucherDate, // Required
-            VoucherType: this.RECEIPT_VOUCHER_TYPE,
-            PartyMasterSid: createDto.LedgerMasterSid, // Required
-            PartyName: customer?.SubledgerName || 'Customer', // Required
-            COAMasterSid: (await this.getCustomerCOA(createDto.CompanyMasterSid, prisma)).COAMasterSid, // Required
-            VoucherTypeMasterSid: 1, // Required - Receipt voucher type master
-            Narration: createDto.Narration || `Receipt from customer ${createDto.LedgerMasterSid}`,
-            SetoffStatus: 'Posted',
-            InstrumentMode: createDto.PaymentMode,
-            InstrumentNumber: createDto.ChequeNumber || null,
-            InstrumentDate: createDto.ChequeDate ? new Date(createDto.ChequeDate) : null,
-            Status: 'A',
-            CreatedBy: createDto.CreatedBy || 'system',
-            UpdatedBy: createDto.CreatedBy || 'system',
-          },
-        });
-
-        // 6. Calculate amounts
-        const netReceiptAmount = createDto.TotalAmount - (createDto.TDSAmount || 0);
-        const currencyAmount = createDto.CurrencyAmount || createDto.TotalAmount;
-        const exchangeRate = createDto.ExchangeRate || 1;
-
-        // 7. Create VoucherDetail and VoucherTransaction records
-        const transactions: any[] = [];
-        let sno = 1;
-
-        // Dr: Cash/Bank Account (net receipt amount)
-        const drDetail = await prisma.voucherDetail.create({
-          data: {
-            VoucherHeaderSid: voucherHeader.VoucherHeaderSid,
-            CompanyMasterSid: createDto.CompanyMasterSid,
-            BranchMasterSid: createDto.BranchMasterSid,
-            Sno: sno++,
-            COAMasterSid: cashBankAccount.COAMasterSid,
-            CurrencyMasterSid: createDto.CurrencyMasterSid || 1, // Required - default to INR
-            CurrencyCode: createDto.CurrencyMasterSid ? (await this.getCurrencyCode(createDto.CurrencyMasterSid, prisma)) : 'INR',
-            ExchangeRate: exchangeRate,
-            Rate: 1, // Required
-            TaxableAmount: 0, // Required - no tax on cash/bank
-            DrCr: 'D',
-            Amount: netReceiptAmount,
-            LocalAmount: netReceiptAmount,
-            Narration: `Receipt via ${createDto.PaymentMode}`,
-            YearMasterSid : createDto.YearMasterSid,
-            Status: 'A',
-            CreatedBy: createDto.CreatedBy || 'system',
-            UpdatedBy: createDto.CreatedBy || 'system',
-          },
-        });
-
-        const drTransaction = await prisma.voucherTransaction.create({
-          data: {
-            VoucherHeaderSid: voucherHeader.VoucherHeaderSid,
-            VoucherDetailSid: drDetail.VoucherDetailSid,
-            CompanyMasterSid: createDto.CompanyMasterSid,
-            BranchMasterSid: createDto.BranchMasterSid,
-            VoucherType: this.RECEIPT_VOUCHER_TYPE,
-            VoucherDate: voucherDate,
-            PostDate: voucherDate, // Required
-            VoucherNumber: voucherNumber,
-            Sno: drDetail.Sno,
-            COAMasterSid: cashBankAccount.COAMasterSid,
-            LedgerMasterSid: createDto.LedgerMasterSid, // Required - can't be null
-            CurrencyCode: drDetail.CurrencyCode,
-            ExchangeRate: exchangeRate,
-            DrCr: 'D',
-            Amount: netReceiptAmount,
-            LocalAmount: netReceiptAmount, // Required
-            // Required fields with defaults
-            GST_VAT: '', // Required
-            ChargeDescription: 'Receipt', // Required
-            DepartmentMasterSid: 1, // Required - default department
-            HouseJobSid: 1, // Required - default job
-            MasterJobSid: 1, // Required - default job
-            CostRevenue: 'R', // Required - Revenue
-            Rate: 1, // Required
-            NumberOfUnit: 1, // Required
-            TaxableAmount: 0, // Required
-            TransType: 'R', // Required - Receipt
-            VoucherTypeMasterSid: 1, // Required
-            Narration: drDetail.Narration,
-            Status: 'A',
-            CreatedBy: createDto.CreatedBy || 'system',
-            UpdatedBy: createDto.CreatedBy || 'system',
-          },
-        });
-
-        transactions.push(drTransaction);
-
-        // Cr: Customer Account (total amount)
-        const customerCOA = await this.getCustomerCOA(createDto.CompanyMasterSid, prisma);
-
-        const crDetail = await prisma.voucherDetail.create({
-          data: {
-            VoucherHeaderSid: voucherHeader.VoucherHeaderSid,
-            CompanyMasterSid: createDto.CompanyMasterSid,
-            BranchMasterSid: createDto.BranchMasterSid,
-            Sno: sno++,
-            COAMasterSid: customerCOA.COAMasterSid,
-            LedgerMasterSid: createDto.LedgerMasterSid,
-            CurrencyMasterSid: createDto.CurrencyMasterSid || 1, // Required
-            CurrencyCode: drDetail.CurrencyCode,
-            ExchangeRate: exchangeRate,
-            Rate: 1, // Required
-            TaxableAmount: 0, // Required
-            DrCr: 'C',
-            Amount: createDto.TotalAmount,
-            LocalAmount: createDto.TotalAmount,
-            Narration: createDto.Narration || 'Receipt',
-            YearMasterSid : createDto.YearMasterSid,
-            Status: 'A',
-            CreatedBy: createDto.CreatedBy || 'system',
-            UpdatedBy: createDto.CreatedBy || 'system',
-          },
-        });
-
-        const crTransaction = await prisma.voucherTransaction.create({
-          data: {
-            VoucherHeaderSid: voucherHeader.VoucherHeaderSid,
-            VoucherDetailSid: crDetail.VoucherDetailSid,
-            CompanyMasterSid: createDto.CompanyMasterSid,
-            BranchMasterSid: createDto.BranchMasterSid,
-            VoucherType: this.RECEIPT_VOUCHER_TYPE,
-            VoucherDate: voucherDate,
-            PostDate: voucherDate, // Required
-            VoucherNumber: voucherNumber,
-            Sno: crDetail.Sno,
-            COAMasterSid: customerCOA.COAMasterSid,
-            LedgerMasterSid: createDto.LedgerMasterSid,
-            CurrencyCode: crDetail.CurrencyCode,
-            ExchangeRate: exchangeRate,
-            DrCr: 'C',
-            Amount: createDto.TotalAmount,
-            LocalAmount: createDto.TotalAmount, // Required
-            // Required fields with defaults
-            GST_VAT: '', // Required
-            ChargeDescription: 'Receipt', // Required
-            DepartmentMasterSid: 1, // Required - default department
-            HouseJobSid: 1, // Required - default job
-            MasterJobSid: 1, // Required - default job
-            CostRevenue: 'R', // Required - Revenue
-            Rate: 1, // Required
-            NumberOfUnit: 1, // Required
-            TaxableAmount: 0, // Required
-            TransType: 'R', // Required - Receipt
-            VoucherTypeMasterSid: 1, // Required
-            Narration: crDetail.Narration,
-            Status: 'A',
-            CreatedBy: createDto.CreatedBy || 'system',
-            UpdatedBy: createDto.CreatedBy || 'system',
-          },
-        });
-
-        transactions.push(crTransaction);
-
-        // 8. Handle TDS if applicable
-        if (createDto.HasTDS && createDto.TDSAmount && createDto.TDSAmount > 0) {
-          const tdsDetail = await prisma.voucherDetail.create({
-            data: {
-              VoucherHeaderSid: voucherHeader.VoucherHeaderSid,
-              CompanyMasterSid: createDto.CompanyMasterSid,
-              BranchMasterSid: createDto.BranchMasterSid,
-              Sno: sno++,
-              COAMasterSid: createDto.TDSLedgerMasterSid || customerCOA.COAMasterSid,
-              CurrencyMasterSid: 1, // Required - INR
-              CurrencyCode: 'INR',
-              ExchangeRate: 1,
-              Rate: 1, // Required
-              TaxableAmount: 0, // Required
-              DrCr: 'D',
-              Amount: createDto.TDSAmount,
-              LocalAmount: createDto.TDSAmount,
-              Narration: `TDS deducted @ ${createDto.TDSPercentage || 0}%`,
-              YearMasterSid : createDto.YearMasterSid,
-              Status: 'A',
-              CreatedBy: createDto.CreatedBy || 'system',
-              UpdatedBy: createDto.CreatedBy || 'system',
-            },
-          });
-
-          await prisma.voucherTransaction.create({
-            data: {
-              VoucherHeaderSid: voucherHeader.VoucherHeaderSid,
-              VoucherDetailSid: tdsDetail.VoucherDetailSid,
-              CompanyMasterSid: createDto.CompanyMasterSid,
-              BranchMasterSid: createDto.BranchMasterSid,
-              VoucherType: this.RECEIPT_VOUCHER_TYPE,
-              VoucherDate: voucherDate,
-              PostDate: voucherDate, // Required
-              VoucherNumber: voucherNumber,
-              Sno: tdsDetail.Sno,
-              COAMasterSid: tdsDetail.COAMasterSid || customerCOA.COAMasterSid,
-              LedgerMasterSid: createDto.LedgerMasterSid, // Required
-              CurrencyCode: 'INR',
-              ExchangeRate: 1,
-              DrCr: 'D',
-              Amount: createDto.TDSAmount,
-              LocalAmount: createDto.TDSAmount, // Required
-              // Required fields with defaults
-              GST_VAT: '', // Required
-              ChargeDescription: 'TDS', // Required
-              DepartmentMasterSid: 1, // Required - default department
-              HouseJobSid: 1, // Required - default job
-              MasterJobSid: 1, // Required - default job
-              CostRevenue: 'R', // Required - Revenue
-              Rate: 1, // Required
-              NumberOfUnit: 1, // Required
-              TaxableAmount: 0, // Required
-              TransType: 'R', // Required - Receipt
-              VoucherTypeMasterSid: 1, // Required
-              Narration: tdsDetail.Narration,
-              Status: 'A',
-              CreatedBy: createDto.CreatedBy || 'system',
-              UpdatedBy: createDto.CreatedBy || 'system',
-            },
-          });
-        }
-
-        // 9. Create voucher matching records for invoice payments
-        const matchedInvoices = await this.createVoucherMatchings(
-          createDto,
-          voucherHeader.VoucherHeaderSid,
-          crTransaction.VoucherTransactionSid,
-          prisma,
-        );
-
-        // 10. Create inter-branch JV if applicable
-        let interBranchJV: InterBranchJVDto | undefined;
-        if (createDto.IsInterBranch && createDto.ReceivingBranchMasterSid) {
-          interBranchJV = await this.createInterBranchJV(
-            createDto.CompanyMasterSid,
-            createDto.BranchMasterSid, // Paying branch
-            createDto.ReceivingBranchMasterSid, // Receiving branch
-            netReceiptAmount,
-            voucherDate,
-            `Inter-branch transfer for receipt ${voucherNumber}`,
-            createDto.CreatedBy || 'system',
-            prisma,
-          );
-        }
-
-        // 11. Return response
-        return {
-          VoucherHeaderSid: voucherHeader.VoucherHeaderSid,
-          VoucherNumber: voucherNumber,
-          VoucherDate: createDto.VoucherDate,
-          CompanyMasterSid: createDto.CompanyMasterSid,
-          BranchMasterSid: createDto.BranchMasterSid,
-          LedgerMasterSid: createDto.LedgerMasterSid,
-          CustomerName: customer?.SubledgerName || '',
-          TotalAmount: createDto.TotalAmount,
-          TDSAmount: createDto.TDSAmount,
-          NetAmount: netReceiptAmount,
-          MatchedInvoices: matchedInvoices,
-          InterBranchJV: interBranchJV,
-          CreatedAt: voucherHeader.CreatedOn,
-          Status: voucherHeader.Status,
-        };
-      });
-    } catch (error) {
-      this.logger.error(`Failed to create receipt: ${error.message}`, error.stack);
-      throw new BadRequestException(`Failed to create receipt: ${error.message}`);
-    }
-  }
-
-  /**
-   * Create voucher matching records for invoice payments
-   */
-  private async createVoucherMatchings(
-    createDto: CreateReceiptDto,
-    voucherHeaderSid: number,
-    receiptTransactionSid: number,
-    prisma: any,
-  ): Promise<MatchedInvoiceDto[]> {
-    const matchedInvoices: MatchedInvoiceDto[] = [];
-
-    for (const detail of createDto.Details) {
-      // Skip advance receipts
-      if (detail.IsAdvance || !detail.VoucherTransactionSid) {
-        continue;
-      }
-
-      // Get invoice transaction
-      const invoiceTransaction = await prisma.voucherTransaction.findUnique({
-        where: { VoucherTransactionSid: detail.VoucherTransactionSid },
-        include: { VoucherHeader: true },
-      });
-
-      if (!invoiceTransaction) {
-        throw new NotFoundException(`Invoice transaction ${detail.VoucherTransactionSid} not found`);
-      }
-
-      // Create matching record
-      await prisma.voucherMatching.create({
-        data: {
-          CompanyMasterSid: createDto.CompanyMasterSid,
-          BranchMasterSid: createDto.BranchMasterSid,
-          VoucherMatchingHeaderSid: 1, // Would need to create header first
-          VoucherHeaderSid: voucherHeaderSid,
-          VoucherDetailSid: 1, // Would map to actual detail
-          VoucherTransactionSid: receiptTransactionSid,
-          VoucherMatchingDate: new Date(createDto.VoucherDate),
-          VoucherType: this.RECEIPT_VOUCHER_TYPE,
-          Sno: 1,
-          COAMasterSid: invoiceTransaction.COAMasterSid,
-          CurrencyCode: invoiceTransaction.CurrencyCode || 'INR',
-          ExchangeRate: Number(invoiceTransaction.ExchangeRate || 1),
-          DrCr: invoiceTransaction.DrCr,
-          Amount: detail.Amount,
-          LocalAmount: detail.Amount,
-          MatchingType: 'Receipt',
-          Status: 'A',
-          CreatedBy: createDto.CreatedBy || 'system',
-          UpdatedBy: createDto.CreatedBy || 'system',
-        },
-      });
-
-      matchedInvoices.push({
-        VoucherTransactionSid: detail.VoucherTransactionSid,
-        InvoiceNumber: invoiceTransaction.VoucherHeader.VoucherNumber,
-        InvoiceDate: invoiceTransaction.VoucherDate.toISOString(),
-        OriginalAmount: Number(invoiceTransaction.Amount),
-        PreviouslyMatched: 0, // Would need to calculate
-        MatchedAmount: detail.Amount,
-        OutstandingAmount: Number(invoiceTransaction.Amount) - detail.Amount,
-      });
-    }
-
-    return matchedInvoices;
-  }
-
-  /**
-   * Create automatic inter-branch journal voucher
-   */
-  private async createInterBranchJV(
-    companySid: number,
-    payingBranchSid: number,
-    receivingBranchSid: number,
-    amount: number,
-    date: Date,
-    narration: string,
-    createdBy: string,
-    prisma: any,
-  ): Promise<InterBranchJVDto> {
-    this.logger.log(`Creating inter-branch JV: ${payingBranchSid} -> ${receivingBranchSid} for ${amount}`);
-
-    // Fetch VoucherTypeMaster for Journal Voucher
-    const jvVoucherTypeMaster = await prisma.voucherTypeMaster.findFirst({
-      where: {
-        DocumentTypeName: 'Journal Voucher',
-        CompanyMasterSid: companySid,
-        BranchMasterSid: payingBranchSid,
-        status: 'A'
-      }
-    });
-
-    if (!jvVoucherTypeMaster) {
-      throw new BadRequestException(
-        'Journal Voucher type not configured. Please configure "Journal Voucher" in VoucherTypeMaster for this company/branch.'
-      );
-    }
-
-    // Generate JV number using config-based approach
-    // const jvNumber = await this.voucherService.generateVoucherNumberFromConfig(
-    //   jvVoucherTypeMaster,
-    //   companySid,
-    //   payingBranchSid,
-    //   yearMasterSId,
-    //   prisma
-    // );
-    //FIXME - Hardcoded for now
-    const jvNumber = 'DOFI';
-
-    // Get inter-branch COA accounts
-    const payingBranchCOA = await this.getInterBranchCOA(companySid, 'Payable', prisma);
-    const receivingBranchCOA = await this.getInterBranchCOA(companySid, 'Receivable', prisma);
-
-    // Create JV Header
-    const jvHeader = await prisma.voucherHeader.create({
-      data: {
-        CompanyMasterSid: companySid,
-        BranchMasterSid: payingBranchSid,
-        VoucherNumber: jvNumber,
-        VoucherDate: date,
-        VoucherType: jvVoucherTypeMaster.VoucherTypeMasterSid,
-        VoucherTypeMasterSid: jvVoucherTypeMaster.VoucherTypeMasterSid,
-        Narration: narration,
-        SetoffStatus: 'Posted',
-        Status: 'A',
-        CreatedBy: createdBy,
-        UpdatedBy: createdBy,
-      },
-    });
-
-    // Dr: Receiving Branch (branch that got the money)
-    await this.createJVEntry(
-      jvHeader.VoucherHeaderSid,
-      companySid,
-      payingBranchSid,
-      1,
-      receivingBranchCOA.COAMasterSid,
-      receivingBranchSid,
-      'D',
-      amount,
-      `Transfer to ${receivingBranchSid}`,
-      date,
-      jvNumber,
-      createdBy,
-      jvVoucherTypeMaster.VoucherTypeMasterSid,
-      prisma,
-    );
-
-    // Cr: Paying Branch (branch that recorded the receipt)
-    await this.createJVEntry(
-      jvHeader.VoucherHeaderSid,
-      companySid,
-      payingBranchSid,
-      2,
-      payingBranchCOA.COAMasterSid,
-      payingBranchSid,
-      'C',
-      amount,
-      `Transfer from ${payingBranchSid}`,
-      date,
-      jvNumber,
-      createdBy,
-      jvVoucherTypeMaster.VoucherTypeMasterSid,
-      prisma,
-    );
-
-    return {
-      JVHeaderSid: jvHeader.VoucherHeaderSid,
-      JVNumber: jvNumber,
-      PayingBranchSid: payingBranchSid,
-      ReceivingBranchSid: receivingBranchSid,
-      Amount: amount,
-      CreatedAt: jvHeader.CreatedOn,
-    };
-  }
-
-  /**
-   * Helper: Create JV entry (detail + transaction)
-   */
-  private async createJVEntry(
-    headerSid: number,
-    companySid: number,
-    branchSid: number,
-    sno: number,
-    coaSid: number,
-    ledgerSid: number | null,
-    drCr: string,
-    amount: number,
-    narration: string,
-    date: Date,
-    voucherNumber: string,
-    createdBy: string,
-    voucherTypeMasterSid: number,
-    prisma: any,
-  ) {
-    const detail = await prisma.voucherDetail.create({
-      data: {
-        VoucherHeaderSid: headerSid,
-        CompanyMasterSid: companySid,
-        BranchMasterSid: branchSid,
-        Sno: sno,
-        COAMasterSid: coaSid,
-        LedgerMasterSid: ledgerSid,
-        CurrencyCode: 'INR',
-        ExchangeRate: 1,
-        DrCr: drCr,
-        Amount: amount,
-        LocalAmount: amount,
-        Narration: narration,
-        Status: 'A',
-        CreatedBy: createdBy,
-        UpdatedBy: createdBy,
-      },
-    });
-
-    await prisma.voucherTransaction.create({
-      data: {
-        VoucherHeaderSid: headerSid,
-        VoucherDetailSid: detail.VoucherDetailSid,
-        CompanyMasterSid: companySid,
-        BranchMasterSid: branchSid,
-        VoucherType: voucherTypeMasterSid,
-        VoucherTypeMasterSid: voucherTypeMasterSid,
-        VoucherDate: date,
-        VoucherNumber: voucherNumber,
-        Sno: sno,
-        COAMasterSid: coaSid,
-        LedgerMasterSid: ledgerSid,
-        CurrencyCode: 'INR',
-        ExchangeRate: 1,
-        DrCr: drCr,
-        Amount: amount,
-        Narration: narration,
-        Status: 'A',
-        CreatedBy: createdBy,
-        UpdatedBy: createdBy,
-      },
-    });
-  }
-
-
-  /**
-   * Get cash/bank account based on payment mode
-   */
-  private async getCashBankAccount(paymentMode: string, companySid: number, prisma: any) {
-    const searchTerm = paymentMode.toLowerCase().includes('cash') ? 'Cash' : 'Bank';
-
-    const account = await prisma.cOAMaster.findFirst({
-      where: {
-        CompanyMasterSid: companySid,
-        LedgerName: { contains: searchTerm, mode: 'insensitive' },
-        Status: 'A',
-      },
-    });
-
-    if (!account) {
-      throw new BadRequestException(`${searchTerm} account not found in COA`);
-    }
-
-    return account;
-  }
-
-  /**
-   * Get customer receivable account
-   */
-  private async getCustomerCOA(companySid: number, prisma: any) {
-    const account = await prisma.cOAMaster.findFirst({
-      where: {
-        CompanyMasterSid: companySid,
-        LedgerName: { contains: 'Sundry Debtors', mode: 'insensitive' },
-        Status: 'A',
-      },
-    });
-
-    if (!account) {
-      throw new BadRequestException('Customer receivable account not found in COA');
-    }
-
-    return account;
-  }
-
-  /**
-   * Get inter-branch COA account
-   */
-  private async getInterBranchCOA(companySid: number, type: 'Payable' | 'Receivable', prisma: any) {
-    const searchTerm = type === 'Payable' ? 'Inter Branch Payable' : 'Inter Branch Receivable';
-
-    const account = await prisma.cOAMaster.findFirst({
-      where: {
-        CompanyMasterSid: companySid,
-        LedgerName: { contains: searchTerm, mode: 'insensitive' },
-        Status: 'A',
-      },
-    });
-
-    if (!account) {
-      throw new BadRequestException(`${searchTerm} account not found in COA`);
-    }
-
-    return account;
-  }
-
-  /**
-   * Get currency code from master
-   */
-  private async getCurrencyCode(currencyMasterSid: number, prisma: any): Promise<string> {
-    const currency = await prisma.currencyMaster.findUnique({
-      where: { CurrencyMasterSid: currencyMasterSid },
-    });
-
-    return currency?.CurrencyCode || 'INR';
-  }
 
   /**
    * Get receipt by ID
@@ -915,7 +271,17 @@ export class ReceiptService {
           return sum + Number(m.Amount);
         }
       , 0);
+      const matchedLocalAmount = transactionDetail.voucherMatchings.reduce(
+        (sum, m) => {
+          if(m.DrCr === 'C'){
+            return sum + Number(m.LocalAmount);
+          }
+          return sum + Number(m.LocalAmount);
+        }
+      , 0);
       const outstandingAmount = Number(transactionDetail.Amount) - matchedAmount;
+      const outstandingLocalAmount = Number(transactionDetail.LocalAmount) - matchedLocalAmount;
+      
 
       return {
         VoucherMatchingHeaderSid: detail.VoucherMatchingHeaderSid,
@@ -936,7 +302,7 @@ export class ReceiptService {
         OriginalCurrencyAmount: transactionDetail?.Amount,
         OriginalLocalAmount: transactionDetail?.LocalAmount,
         OutstandingCurrencyAmount: outstandingAmount,
-        OutstandingLocalAmount: outstandingAmount * Number(detail.ExchangeRate),
+        OutstandingLocalAmount: outstandingLocalAmount,
         MatchingCurrency : detail.MatchingCurrency,
         MatchingExRate : detail.MatchingExRate,
         MatchingAmount: detail.MatchingAmount,
@@ -1005,11 +371,10 @@ export class ReceiptService {
         // 1. Get VoucherType for 'Receipt'
         const voucherType = await prisma.voucherTypeMaster.findFirst({
           where: {
+            DocumentTypeCode : DOC_TYPE_CODE.RECEIPT,
             CompanyMasterSid: payload.CompanyMasterSid,
             BranchMasterSid: payload.BranchMasterSid,
-            menuMaster: {
-              MenuName: 'Receipt'
-            }
+            status : 'A'
           },
         });
         if (!voucherType) {
@@ -1060,9 +425,9 @@ export class ReceiptService {
             VoucherNumber: voucherNumber,
             CashOrBank : payload.CashOrBank,
             MultiBranch : payload.MultiBranch,
-            VoucherDate: new Date(payload.VoucherDate), // ensure Date type
+            VoucherDate: payload.VoucherDate ? new Date(payload.VoucherDate) : new Date(), // ensure Date type
             VoucherType: voucherType.VoucherTypeMasterSid,
-            PostDate: null, // usually same as VoucherDate
+            PostDate: null,
             Narration: payload.Narration || "",
             PartyMasterSid: payload.PartyMasterSid,
             PartyName: payload.PartyName || "",
@@ -1222,11 +587,10 @@ export class ReceiptService {
         // 2. Validate Voucher Type
         const voucherType = await prisma.voucherTypeMaster.findFirst({
           where: { 
+            DocumentTypeCode : DOC_TYPE_CODE.RECEIPT,
             CompanyMasterSid : payload.CompanyMasterSid,
             BranchMasterSid : payload.BranchMasterSid,
-            menuMaster : {
-              MenuName : 'Receipt'
-            }
+            status : 'A'
           },
         });
 
@@ -1444,6 +808,7 @@ export class ReceiptService {
       yearMasterSid: number,
       localCurrencyMasterSid: number,
       localCurrencyCode: string,
+      current_date ?: Date | string,
       postedBy: string,
       taxDetails: {
         CountryMasterSid: number,
@@ -1510,7 +875,7 @@ export class ReceiptService {
         const endDate = new Date(yearMaster.EndDate);
         if (voucherDate < startDate || voucherDate > endDate) throw new Error('Voucher date is outside of current financial year.');
         
-        const now = new Date();
+        const now = payload.current_date ? new Date(payload.current_date) : new Date();
 
         // Check for Exchange JV
         // Taking party amount from detail
@@ -1646,7 +1011,7 @@ export class ReceiptService {
           VoucherDetailSid: item.VoucherDetailSid,
           VoucherNumber: voucher.VoucherNumber,
           VoucherType: voucher.VoucherType,
-          VoucherDate: voucher.VoucherDate,
+          VoucherDate: voucher.VoucherDate ? new Date(voucher.VoucherDate) : now,
           PostDate: now,
           GST_VAT: voucher.GST_VAT || "",
           Sno: item.Sno,
@@ -1762,7 +1127,7 @@ export class ReceiptService {
             BranchMasterSid: payload.branchMasterSid,
             VoucherHeaderSid: payload.voucherHeaderSid,
             SubledgerName : voucher?.subledgerMaster?.SubledgerName || '',
-            voucherTypeInName: voucher?.voucherTypeMaster.DocumentTypeName,
+            VoucherTypeCode: voucher?.voucherTypeMaster.DocumentTypeCode,
             VoucherTypeMasterSid: voucher?.voucherTypeMaster.VoucherTypeMasterSid,
             PostDate: now ,
             Narration: `${voucher.VoucherNumber} ${voucher.VoucherDate.toISOString().split('T')[0]} ${voucher.CurrencyCode} ${voucher.Amount}`,
@@ -1842,7 +1207,7 @@ export class ReceiptService {
         CompanyMasterSid: activeCompanyId,
         BranchMasterSid: activeBranchId,
         voucherTypeMaster: {
-          DocumentTypeCode : 'RPT'
+          DocumentTypeCode : DOC_TYPE_CODE.RECEIPT
         },
         Status: 'A'
       };

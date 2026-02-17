@@ -5,6 +5,7 @@ import { VoucherService } from '../voucher/voucher.service';
 import { VoucherPeriodService } from 'src/masters/services/voucher-period/voucher-period.service';
 import { PullVoucherDTO, VoucherHeaderDto } from 'src/accounts/dto/voucher.dto';
 import { roundAmount, toNumber } from 'src/common/helper';
+import { DOC_TYPE_CODE } from 'src/common/config/voucher-type.config';
 
 @Injectable()
 export class VendorCreditNoteService {
@@ -38,7 +39,7 @@ export class VendorCreditNoteService {
                     // Get VoucherTypeMaster for "Vendor Credit Note"
                     const voucherTypeMaster = await tx.voucherTypeMaster.findFirst({
                         where: {
-                            DocumentTypeCode: 'VRN',
+                            DocumentTypeCode: DOC_TYPE_CODE.VENDOR_CREDIT_NOTE,
                             CompanyMasterSid: payload.CompanyMasterSid,
                             BranchMasterSid: payload.BranchMasterSid,
                             status: 'A'
@@ -267,7 +268,7 @@ export class VendorCreditNoteService {
             const vendorCreditNotes = await this._db.voucherHeader.findMany({
                 where: {
                     voucherTypeMaster: {
-                        DocumentTypeName: 'Vendor Credit Note'
+                        DocumentTypeCode : DOC_TYPE_CODE.VENDOR_CREDIT_NOTE
                     },
                     Status: 'A'
                 },
@@ -347,7 +348,7 @@ export class VendorCreditNoteService {
                         where: { 
                             AND : [
                                 { VoucherHeaderSid : vendorCreditNote.ReversalVoucher },
-                                { voucherTypeMaster : { DocumentTypeCode : 'VIN' } },
+                                { voucherTypeMaster : { DocumentTypeCode : DOC_TYPE_CODE.VENDOR_INVOICE } },
                                 { PostStatus : 'P' },
                             ]
                         },
@@ -634,14 +635,14 @@ if (payload.VoucherDetail && Array.isArray(payload.VoucherDetail)) {
                 //     },
                 //     Status: 'A'
                 // };
-    const where: Prisma.VoucherHeaderWhereInput = {
-      CompanyMasterSid: activeCompanyId,
-      BranchMasterSid: activeBranchId,
-      Status: 'A',
-      voucherTypeMaster: {
-      DocumentTypeName:  'Vendor Credit Note'
-    },
-}
+                const where: Prisma.VoucherHeaderWhereInput = {
+                    CompanyMasterSid: activeCompanyId,
+                    BranchMasterSid: activeBranchId,
+                    Status: 'A',
+                    voucherTypeMaster: {
+                        DocumentTypeCode: DOC_TYPE_CODE.VENDOR_CREDIT_NOTE
+                    },
+                }
                 // Add search filter
                 if (search) {
                     where.OR = [
@@ -703,7 +704,7 @@ if (payload.VoucherDetail && Array.isArray(payload.VoucherDetail)) {
             const vendorInvoices = await this._db.voucherHeader.findMany({
                 where: {
                     voucherTypeMaster: {
-                        DocumentTypeName: 'Vendor Invoice'
+                        DocumentTypeCode : DOC_TYPE_CODE.VENDOR_INVOICE
                     },
                     Status: 'A',
                     PostStatus: 'P',
@@ -732,7 +733,7 @@ if (payload.VoucherDetail && Array.isArray(payload.VoucherDetail)) {
                 VoucherNumber: { contains: VoucherNumber, mode: 'insensitive' },
                 CompanyMasterSid,
                 BranchMasterSid,
-                voucherTypeMaster: { DocumentTypeCode: 'VIN' },
+                voucherTypeMaster: { DocumentTypeCode: DOC_TYPE_CODE.VENDOR_INVOICE },
                 Status: 'A',
             },
             include: {

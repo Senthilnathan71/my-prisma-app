@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, InternalServerErrorException, Logger, 
 import { DatabaseService } from 'src/database/database.service';
 import { VoucherService } from '../voucher/voucher.service';
 import { Prisma } from '@prisma/client';
+import { DOC_TYPE_CODE } from 'src/common/config/voucher-type.config';
 
 @Injectable()
 export class ReverseVoucherService {
@@ -20,7 +21,7 @@ export class ReverseVoucherService {
         
                         const voucherTypeMaster = await tx.voucherTypeMaster.findFirst({
                             where: {
-                                DocumentTypeName: 'Reverse Voucher',
+                                DocumentTypeCode: DOC_TYPE_CODE.REVERSAL_JOURNAL_VOUCHER,
                                 CompanyMasterSid: payload.CompanyMasterSid,
                                 BranchMasterSid: payload.BranchMasterSid,
                                 status: 'A'
@@ -219,7 +220,7 @@ export class ReverseVoucherService {
                         const reverseVouchers = await this._db.voucherHeader.findMany({
                             where: {
                                 voucherTypeMaster: {
-                                    DocumentTypeName: 'Reverse Voucher'
+                                    DocumentTypeCode: DOC_TYPE_CODE.REVERSAL_JOURNAL_VOUCHER
                                 },
                                 Status: 'A'
                             },
@@ -544,7 +545,7 @@ export class ReverseVoucherService {
                 
                             // const where: any = {
                             //     voucherTypeMaster: {
-                            //         DocumentTypeName: 'Reverse Voucher'
+                            //         DocumentTypeCode: DOC_TYPE_CODE.REVERSAL_JOURNAL_VOUCHER
                             //     },
                             //     Status: 'A'
                             // };
@@ -553,7 +554,7 @@ export class ReverseVoucherService {
                       BranchMasterSid: activeBranchId,
                       Status: 'A',
                       voucherTypeMaster: {
-                      DocumentTypeName: 'Reverse Voucher'
+                      DocumentTypeCode: DOC_TYPE_CODE.REVERSAL_JOURNAL_VOUCHER
                     },}
                             // Add search filter
                             if (search) {
@@ -933,7 +934,7 @@ export class ReverseVoucherService {
           CompanyMasterSid: payload.companyMasterSid,
           BranchMasterSid: payload.branchMasterSid,
           VoucherHeaderSid: payload.voucherHeaderSid,
-          voucherTypeInName: voucher.voucherTypeMaster.DocumentTypeName,
+          VoucherTypeCode : voucher.voucherTypeMaster.DocumentTypeCode,
           VoucherTypeMasterSid: voucher.voucherTypeMaster.VoucherTypeMasterSid,
           SubledgerName : voucher.subledgerMaster?.SubledgerName || '',
           PostDate: now,

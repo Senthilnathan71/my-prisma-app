@@ -3,7 +3,7 @@ import { Prisma, PrismaClient, VoucherDetail } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
 import { VoucherMatchingPayload } from 'src/accounts/dto/receipt.dto';
 import { PostVoucherResponseDto, TaxSummaryDto, VoucherDetailDto } from 'src/accounts/dto/voucher-posting.dto';
-import { checkIfExJvApplicable, checkIfMatchingApplicable, checkIfReversalApplicable, getPartyDrCr, getTaxInputOutput, getTaxLedger, TaxLedgerType, TaxVoucherType } from 'src/common/config/voucher-type.config';
+import { checkIfExJvApplicable, checkIfMatchingApplicable, checkIfReversalApplicable, DOC_TYPE_CODE, getPartyDrCr, getTaxInputOutput, getTaxLedger, TaxLedgerType, TaxVoucherType } from 'src/common/config/voucher-type.config';
 import { DatabaseService } from 'src/database/database.service';
 import * as moment from 'moment-timezone';
 import { CheckAutoPostingDto, CreateVoucherPayload } from 'src/accounts/dto/voucher.dto';
@@ -72,70 +72,70 @@ export class VoucherService {
         private readonly _db: DatabaseService
     ) {}
 
-    /**
-     * Generate voucher number based on voucher type and company
-     */
-    async generateVoucherNumber(
-        voucherTypeMasterSid: number,
-        companyMasterSid: number,
-        branchMasterSid: number
-    ): Promise<string> {
-        try {
-            // Get voucher type details
-            const voucherType = await this._db.voucherTypeMaster.findUnique({
-                where: { VoucherTypeMasterSid: voucherTypeMasterSid },
-                select: {
-                    DocumentTypeName: true
-                }
-            });
+    // /**
+    //  * Generate voucher number based on voucher type and company
+    //  */
+    // async generateVoucherNumber(
+    //     voucherTypeMasterSid: number,
+    //     companyMasterSid: number,
+    //     branchMasterSid: number
+    // ): Promise<string> {
+    //     try {
+    //         // Get voucher type details
+    //         const voucherType = await this._db.voucherTypeMaster.findUnique({
+    //             where: { VoucherTypeMasterSid: voucherTypeMasterSid },
+    //             select: {
+    //                 DocumentTypeName: true
+    //             }
+    //         });
 
-            if (!voucherType) {
-                throw new BadRequestException('Voucher type not found');
-            }
+    //         if (!voucherType) {
+    //             throw new BadRequestException('Voucher type not found');
+    //         }
 
-            // Get company details for prefix
-            const company = await this._db.companyMaster.findUnique({
-                where: { CompanyMasterSid: companyMasterSid },
-                select: { companyCode: true }
-            });
+    //         // Get company details for prefix
+    //         const company = await this._db.companyMaster.findUnique({
+    //             where: { CompanyMasterSid: companyMasterSid },
+    //             select: { companyCode: true }
+    //         });
 
-            // Get last voucher number for this type and company
-            const lastVoucher = await this._db.voucherHeader.findFirst({
-                where: {
-                    CompanyMasterSid: companyMasterSid,
-                    BranchMasterSid: branchMasterSid,
-                    VoucherTypeMasterSid: voucherTypeMasterSid
-                },
-                orderBy: {
-                    VoucherHeaderSid: 'desc'
-                },
-                select: {
-                    VoucherNumber: true
-                }
-            });
+    //         // Get last voucher number for this type and company
+    //         const lastVoucher = await this._db.voucherHeader.findFirst({
+    //             where: {
+    //                 CompanyMasterSid: companyMasterSid,
+    //                 BranchMasterSid: branchMasterSid,
+    //                 VoucherTypeMasterSid: voucherTypeMasterSid
+    //             },
+    //             orderBy: {
+    //                 VoucherHeaderSid: 'desc'
+    //             },
+    //             select: {
+    //                 VoucherNumber: true
+    //             }
+    //         });
 
-            // Extract number from last voucher and increment
-            let nextNumber = 1;
-            if (lastVoucher?.VoucherNumber) {
-                const match = lastVoucher.VoucherNumber.match(/(\d+)$/);
-                if (match) {
-                    nextNumber = parseInt(match[1]) + 1;
-                }
-            }
+    //         // Extract number from last voucher and increment
+    //         let nextNumber = 1;
+    //         if (lastVoucher?.VoucherNumber) {
+    //             const match = lastVoucher.VoucherNumber.match(/(\d+)$/);
+    //             if (match) {
+    //                 nextNumber = parseInt(match[1]) + 1;
+    //             }
+    //         }
 
-            // Generate new voucher number (max 20 chars as per schema)
-            const year = new Date().getFullYear();
-            const prefix = (voucherType.DocumentTypeName?.substring(0, 2).toUpperCase() || 'VC');
-            const companyCode = (company?.companyCode || 'CO').substring(0, 3).toUpperCase();
-            // Format: XX-XXX-YYYY-NNNNN (2-3-4-5 = 14-17 chars with dashes)
-            const voucherNumber = `${prefix}-${companyCode}-${year}-${String(nextNumber).padStart(5, '0')}`;
+    //         // Generate new voucher number (max 20 chars as per schema)
+    //         const year = new Date().getFullYear();
+    //         const prefix = (voucherType.DocumentTypeName?.substring(0, 2).toUpperCase() || 'VC');
+    //         const companyCode = (company?.companyCode || 'CO').substring(0, 3).toUpperCase();
+    //         // Format: XX-XXX-YYYY-NNNNN (2-3-4-5 = 14-17 chars with dashes)
+    //         const voucherNumber = `${prefix}-${companyCode}-${year}-${String(nextNumber).padStart(5, '0')}`;
 
-            return voucherNumber;
-        } catch (error) {
-            this.logger.error(`Error generating voucher number: ${error.message}`);
-            throw new InternalServerErrorException('Failed to generate voucher number');
-        }
-    }
+    //         return voucherNumber;
+    //     } catch (error) {
+    //         this.logger.error(`Error generating voucher number: ${error.message}`);
+    //         throw new InternalServerErrorException('Failed to generate voucher number');
+    //     }
+    // }
 
     /**
      * Generate voucher number based on VoucherTypeMaster configuration
@@ -975,7 +975,7 @@ export class VoucherService {
                 if(allDetails.length > 0){
                     if(payload.isBookingScreen){
                         const allBookingRateSid = allDetails.map(detail => detail.BookingRatesSid);
-                        if(payload.VoucherType === 'INV'){
+                        if(payload.VoucherType === DOC_TYPE_CODE.INVOICE){
                             await prisma.bookingRates.updateMany({
                                 where: {
                                     BookingRatesSid: { in: allBookingRateSid  }
@@ -998,7 +998,7 @@ export class VoucherService {
                         }
                     } else {
                         const allCostRevenueChargeSid = allDetails.map(detail => detail.CostRevenueChargesSid);
-                        if(payload.VoucherType === 'INV'){
+                        if(payload.VoucherType === DOC_TYPE_CODE.INVOICE){
                             await prisma.costRevenueCharges.updateMany({
                                 where: {
                                     CostRevenueChargesSid: { in: allCostRevenueChargeSid }
@@ -1719,7 +1719,7 @@ export class VoucherService {
         if (!voucher.VoucherDetail || voucher.VoucherDetail.length === 0) throw new BadRequestException('No detail lines are found.');
         if (!voucher.voucherTypeMaster) throw new BadRequestException('Voucher type is not found.');
 
-        const voucherType = voucher.voucherTypeMaster?.DocumentTypeName;
+        const voucherType = voucher.voucherTypeMaster?.DocumentTypeCode;
 
         const localCurrency = await tx.currencyMaster.findUnique({
             where: { CurrencyMasterSid: payload.localCurrencyMasterSid },
@@ -1742,7 +1742,7 @@ export class VoucherService {
         const voucherDate = new Date(voucher.VoucherDate);
         const startDate = new Date(yearMaster.StartDate);
         const endDate = new Date(yearMaster.EndDate);
-        if (voucherDate <= startDate || voucherDate >= endDate) throw new BadRequestException('Voucher date is outside of current financial year.');
+        if (voucherDate < startDate || voucherDate > endDate) throw new BadRequestException('Voucher date is outside of current financial year.');
 
         const now = payload.current_date || new Date();
         const chargeLineItems = voucher.VoucherDetail;
@@ -1782,7 +1782,7 @@ export class VoucherService {
                         DepartmentMasterSid: voucher.DepartmentMasterSid,
                         HouseJobSid: voucher.HouseJobSid,
                         MasterJobSid: voucher.MasterJobSid,
-                        CostRevenue: voucher.voucherTypeMaster.DocumentTypeName === "Invoice" || voucher.voucherTypeMaster.DocumentTypeName === "Credit Note" ? "Revenue" : "Cost",
+                        CostRevenue: voucher.voucherTypeMaster.DocumentTypeCode === DOC_TYPE_CODE.INVOICE || voucher.voucherTypeMaster.DocumentTypeCode === DOC_TYPE_CODE.CREDIT_NOTE ? "Revenue" : "Cost",
                         CurrencyMasterSid: payload.localCurrencyMasterSid,
                         CurrencyCode: payload.localCurrencyCode,
                         ExchangeRate: new Decimal(1),
@@ -1854,7 +1854,7 @@ export class VoucherService {
             const totalAmount = Math.abs(totalCredit - totalDebit);
             const totalLocalAmount = Math.abs(totalLocalCredit - totalLocalDebit);
 
-            const partyDrCr = getPartyDrCr(voucher.voucherTypeMaster.DocumentTypeName);
+            const partyDrCr = getPartyDrCr(voucher.voucherTypeMaster.DocumentTypeCode);
 
             const partyDetail = await tx.voucherDetail.create({
                 data: {
@@ -1868,7 +1868,7 @@ export class VoucherService {
                     COAMasterSid: voucher.COAMasterSid!,
                     HouseJobSid: voucher.HouseJobSid,
                     MasterJobSid: voucher.MasterJobSid,
-                    CostRevenue: voucher.voucherTypeMaster.DocumentTypeName === "Invoice" || voucher.voucherTypeMaster.DocumentTypeName === "Credit Note" ? "Revenue" : "Cost",
+                    CostRevenue: voucher.voucherTypeMaster.DocumentTypeCode === DOC_TYPE_CODE.INVOICE || voucher.voucherTypeMaster.DocumentTypeCode === DOC_TYPE_CODE.CREDIT_NOTE ? "Revenue" : "Cost",
                     CurrencyMasterSid: voucher.CurrencyMasterSid!,
                     CurrencyCode: voucher.CurrencyCode!,
                     ExchangeRate: voucher.ExchangeRate || new Decimal(1),
@@ -1892,8 +1892,8 @@ export class VoucherService {
             // --- CREATE TRANSACTIONS FOR ALL DETAILS (including party) ---
             const allDetailsWithParty = [...allDetails, partyDetail];
             for (const detail of allDetailsWithParty) {
-                const documentType = voucher.voucherTypeMaster.DocumentTypeName;
-                const costRevenue = documentType === "Invoice" || documentType === "Credit Note" ? "Revenue" : "Cost";
+                const documentType = voucher.voucherTypeMaster.DocumentTypeCode;
+                const costRevenue = documentType === DOC_TYPE_CODE.INVOICE || documentType === DOC_TYPE_CODE.CREDIT_NOTE ? "Revenue" : "Cost";
                 const transaction = await tx.voucherTransaction.create({
                     data: {
                         CompanyMasterSid: voucher.CompanyMasterSid,
@@ -1993,7 +1993,7 @@ export class VoucherService {
                     CompanyMasterSid: payload.companyMasterSid,
                     BranchMasterSid: payload.branchMasterSid,
                     VoucherHeaderSid: voucherHeaderSid,
-                    voucherTypeInName: voucher?.voucherTypeMaster.DocumentTypeName,
+                    VoucherTypeCode: voucher?.voucherTypeMaster.DocumentTypeCode,
                     VoucherTypeMasterSid: voucher?.voucherTypeMaster.VoucherTypeMasterSid,
                     SubledgerName: voucher?.subledgerMaster?.SubledgerName || '',
                     PostDate: now,
@@ -2165,7 +2165,7 @@ export class VoucherService {
                     CompanyMasterSid: payload.companyMasterSid,
                     BranchMasterSid: payload.branchMasterSid,
                     VoucherHeaderSid: voucherHeaderSid,
-                    voucherTypeInName: voucher?.voucherTypeMaster.DocumentTypeName,
+                    VoucherTypeCode: voucher?.voucherTypeMaster.DocumentTypeCode,
                     SubledgerName: voucher?.subledgerMaster?.SubledgerName || '',
                     VoucherTypeMasterSid: voucher?.voucherTypeMaster.VoucherTypeMasterSid,
                     PostDate: voucher.PostDate!,
@@ -2638,7 +2638,7 @@ export class VoucherService {
                     LedgerMasterSid : detail.LedgerMasterSid!,
                     CurrencyCode : detail.CurrencyCode,
                     ExchangeRate : detail.ExchangeRate,
-                    DrCr : detail.DrCr! || getPartyDrCr(payload.voucherTypeInName)!,
+                    DrCr : detail.DrCr! || getPartyDrCr(payload.VoucherTypeCode)!,
                     Amount : this.toNumber(detail.PartyAmount),
                     LocalAmount : this.toNumber(detail.LocalAmount),
                     PartyAmount : this.toNumber(detail.PartyAmount),

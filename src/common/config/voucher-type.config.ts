@@ -1,15 +1,30 @@
 // ==============================
+// Document Type Codes
+// ==============================
+export const DOC_TYPE_CODE = {
+  INVOICE: 'INV',
+  VENDOR_INVOICE: 'VIN',
+  CREDIT_NOTE: 'CRN',
+  RECEIPT: 'RPT',
+  PAYMENT: 'PMT',
+  VENDOR_CREDIT_NOTE: 'VRN',
+  JOURNAL_VOUCHER: 'JV',
+  REVERSAL_JOURNAL_VOUCHER: 'RJV',
+} as const;
+
+export type DocTypeCode = typeof DOC_TYPE_CODE[keyof typeof DOC_TYPE_CODE];
+
+// ==============================
 // Party vs Voucher Type → Debit/Credit Mapping
 // ==============================
 export const PARTY_VTYPE_DRCR_MAP = {
-  "Invoice": { DrCr: "D" },          // Party (Customer) Debited
-  "Vendor Invoice": { DrCr: "C" },   // Party (Vendor) Credited
-  "Receipt": { DrCr: "C" },          // Party Credited (Customer pays)
-  "Payment Voucher": { DrCr: "D" },  // Party Debited (We pay Vendor)
-  "Debit Note": { DrCr: "D" },       // Party Debited (They owe us more)
-  "Credit Note": { DrCr: "C" },      // Party Credited (We owe them)
-  "Vendor Credit Note" : { DrCr: "D" }, // Party Debited (They owe us more)
-  "Journal Voucher" : { DrCr : "D"} 
+  "INV": { DrCr: "D" },   // Party (Customer) Debited
+  "VIN": { DrCr: "C" },   // Party (Vendor) Credited
+  "RPT": { DrCr: "C" },   // Party Credited (Customer pays)
+  "PMT": { DrCr: "D" },   // Party Debited (We pay Vendor)
+  "CRN": { DrCr: "C" },   // Party Credited (We owe them)
+  "VRN": { DrCr: "D" },   // Party Debited (They owe us more)
+  "JV":  { DrCr: "D" },   // Journal Voucher
 } as const;
 
 export type VoucherType = keyof typeof PARTY_VTYPE_DRCR_MAP;
@@ -27,14 +42,13 @@ export const getPartyDrCr = (voucherType: VoucherType | string): DrCrType | unde
 // - Input Tax (on Vendor Invoice) → Debit (asset)
 // - For Receipts/Payments, depends on nature of underlying transaction
 export const TAX_VTYPE_DRCR_MAP = {
-  "Invoice": { DrCr: "C" , Tax_Type : "Input" ,Ledger : 'Creditor'},
-  "Vendor Invoice": { DrCr: "D", Tax_Type : "Output" , Ledger : "Debtor" },
-  "Receipt": { DrCr: "C" , Tax_Type : null , Ledger : null },
-  "Payment Voucher": { DrCr: "D" , Tax_Type : null , Ledger : null },
-  "Debit Note": { DrCr: "D", Tax_Type : "Output" ,Ledger : null},
-  "Credit Note": { DrCr: "D", Tax_Type : "Input" , Ledger : 'Creditor' },
-  "Vendor Credit Note": { DrCr: "C", Tax_Type : "Output" , Ledger : 'Debtor' },
-  "Journal Voucher": { DrCr: null, Tax_Type : null , Ledger : null }, // Handled by Ledger Type of that particular detail's ledger
+  "INV": { DrCr: "C" , Tax_Type : "Input" ,Ledger : 'Creditor'},
+  "VIN": { DrCr: "D", Tax_Type : "Output" , Ledger : "Debtor" },
+  "RPT": { DrCr: "C" , Tax_Type : null , Ledger : null },
+  "PMT": { DrCr: "D" , Tax_Type : null , Ledger : null },
+  "CRN": { DrCr: "D", Tax_Type : "Input" , Ledger : 'Creditor' },
+  "VRN": { DrCr: "C", Tax_Type : "Output" , Ledger : 'Debtor' },
+  "JV":  { DrCr: null, Tax_Type : null , Ledger : null }, // Handled by Ledger Type of that particular detail's ledger
 } as const;
 
 export type TaxVoucherType = keyof typeof TAX_VTYPE_DRCR_MAP;
@@ -62,7 +76,7 @@ export const getTaxLedger = (voucherType: TaxVoucherType): TaxLedgerType | undef
  * Sum of currency debits and credits = 0
  * Sum of local debits and credits > 0
  */
-const typeWithExJv = ["Receipt", "Payment Voucher","Journal Voucher"];
+const typeWithExJv: string[] = [DOC_TYPE_CODE.RECEIPT, DOC_TYPE_CODE.PAYMENT, DOC_TYPE_CODE.JOURNAL_VOUCHER];
 export const checkIfExJvApplicable = (voucherType: string): boolean => {
   return typeWithExJv.includes(voucherType);
 };
@@ -70,7 +84,7 @@ export const checkIfExJvApplicable = (voucherType: string): boolean => {
 /**
  * Voucher Type those are reversals
  */
-const reversalVouchers = ["Credit Note", "Vendor Credit Note","Reversal Voucher"];
+const reversalVouchers: string[] = [DOC_TYPE_CODE.CREDIT_NOTE, DOC_TYPE_CODE.VENDOR_CREDIT_NOTE, DOC_TYPE_CODE.REVERSAL_JOURNAL_VOUCHER];
 export const checkIfReversalApplicable = (voucherType: string): boolean => {
   return reversalVouchers.includes(voucherType);
 };
@@ -82,7 +96,7 @@ export const checkIfReversalApplicable = (voucherType: string): boolean => {
  * The customer pays us back
  * We have a matching record for the invoice
  */
-const typeWithMatching = ["Credit Note", "Vendor Credit Note", "Payment Voucher", "Receipt"];
+const typeWithMatching: string[] = [DOC_TYPE_CODE.CREDIT_NOTE, DOC_TYPE_CODE.VENDOR_CREDIT_NOTE, DOC_TYPE_CODE.PAYMENT, DOC_TYPE_CODE.RECEIPT];
 export const checkIfMatchingApplicable = (voucherType: string): boolean => {
   return typeWithMatching.includes(voucherType);
 };
