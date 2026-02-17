@@ -872,7 +872,8 @@ export class OperationReportsService {
         const validCustomers = await this._db.customerMaster.findMany({
           where: {
             CustomerMasterSid: { in: customer },
-            createdOn: { lt: FromDate }
+            createdOn: { lt: FromDate },
+            status:"A"
           }
         })
         if (!validCustomers) {
@@ -883,7 +884,8 @@ export class OperationReportsService {
         const validCustomer = await this._db.customerMaster.findUnique({
           where: {
             CustomerMasterSid: customer,
-            createdOn: { lt: FromDate }
+            createdOn: { lt: FromDate },
+            status:"A"
           }
         })
         if (!validCustomer) {
