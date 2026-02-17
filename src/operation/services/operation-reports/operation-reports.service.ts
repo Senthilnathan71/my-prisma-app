@@ -157,8 +157,6 @@ export class OperationReportsService {
       const resolvedBranchNames = branches.map(b => b.branchName);
       const branchInvolved = branchId && branchId.length > 0 ? branches.map(b=>b.branchName).join(', '): 'All Branches';
 
-
-
       const departments = deptId && deptId.length > 0
         ? await this._db.departmentMaster.findMany({
           where: { DepartmentMasterSid: { in: deptId } },
@@ -177,7 +175,10 @@ export class OperationReportsService {
           CompanyMasterSid,
           AND: [
             { HBLDate: { gte: FromHblDt } },
-            { HBLDate: { lte: ToHblDt } }
+            { HBLDate: { lte: ToHblDt } },
+            BLIssue
+              ? { HBLCount: { gt: 0 } }
+              : { HBLCount: 0 }   
           ],
           status: 'A',
           BranchMasterSid: { in: resolvedBranchIds },
@@ -221,6 +222,7 @@ export class OperationReportsService {
         return {
           HBLDate: hj.HBLDate,
           HBLNo: hj.HBLNo,
+          HBLCount : hj.HBLCount,
           MBLNo: masterJob ? masterJob.MBLNo : null,
           BookingNo: hj.bookingHeader?.BookingNo,
           Shipper: hj.ShipperName,
