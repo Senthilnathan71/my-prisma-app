@@ -26,7 +26,7 @@ export class CreateServiceJobDto {
 
     // Related entities
     houseJobCargo: any;
-    houseJobOthers: any; 
+    houseJobOthers: any;
     costRevenueCharges: any[];
 
     // Common fields
@@ -37,7 +37,7 @@ export class CreateServiceJobDto {
     POD: string;
     status: string;
     createdBy: string;
-    updatedBy : string;
+    updatedBy: string;
 }
 
 // DTO for UpdateServiceJob payload
@@ -58,7 +58,7 @@ export class UpdateServiceJobDto {
     POD: string;
     status: string;
     houseJobCargo: any;
-     houseJobOthers: any; 
+    houseJobOthers: any;
     costRevenueCharges: any[];
     updatedBy: string;
 }
@@ -208,8 +208,8 @@ export class ServiceJobService {
             const houseJob = await prisma.houseJob.create({
                 data: {
                     MasterJobSid: masterJob.MasterJobSid,
-                    MBLNo : masterJob.MasterJobNumber,
-                    MBLDate : masterJob.MBLDate,
+                    MBLNo: masterJob.MasterJobNumber,
+                    MBLDate: masterJob.MBLDate,
                     MenuMasterSid: houseJobMenuId,
                     CompanyMasterSid: mainPayload.CompanyMasterSid,
                     BranchMasterSid: mainPayload.BranchMasterSid,
@@ -220,8 +220,8 @@ export class ServiceJobService {
                     CustomerName: mainPayload.CustomerName,
                     CustomerAddress: mainPayload.CustomerAddress,
                     HBLNo: finalHBLNo,
-                    POL: mainPayload.POL ||"",
-                    POD: mainPayload.POD ||"",
+                    POL: mainPayload.POL || "",
+                    POD: mainPayload.POD || "",
                     FreightTerms: mainPayload.FreightTerms || mainPayload.FreightPPCC || "Prepaid",
                     BookingNo: "",
                     IsServiceJob: 'Y',
@@ -317,49 +317,49 @@ export class ServiceJobService {
                 }
             }
 
-let createdOthers;
+            let createdOthers;
 
-if (houseJobOthers && Object.keys(houseJobOthers).length > 0) {
-    createdOthers = await prisma.houseJobOthers.create({
-        data: {
-            HouseJobSid: houseJob.HouseJobSid,
+            if (houseJobOthers && Object.keys(houseJobOthers).length > 0) {
+                createdOthers = await prisma.houseJobOthers.create({
+                    data: {
+                        HouseJobSid: houseJob.HouseJobSid,
 
-            CustomerRefNo: houseJobOthers.CustomerRefNo || "",
-            OperationUser: houseJobOthers.OperationUser || null,
-            DocumentationUser: houseJobOthers.DocumentationUser || null,
-            CustomerServiceuser: houseJobOthers.CustomerServiceuser || null,
+                        CustomerRefNo: houseJobOthers.CustomerRefNo || "",
+                        OperationUser: houseJobOthers.OperationUser || null,
+                        DocumentationUser: houseJobOthers.DocumentationUser || null,
+                        CustomerServiceuser: houseJobOthers.CustomerServiceuser || null,
 
-            NotifyParty: houseJobOthers.NotifyParty || "",
-            NotifyPartyAddress: houseJobOthers.NotifyPartyAddress || "",
+                        NotifyParty: houseJobOthers.NotifyParty || "",
+                        NotifyPartyAddress: houseJobOthers.NotifyPartyAddress || "",
 
-            CHAName: houseJobOthers.CHAName || "",
-            PickupMode: houseJobOthers.PickupMode || null,
+                        CHAName: houseJobOthers.CHAName || "",
+                        PickupMode: houseJobOthers.PickupMode || null,
 
-            YardCFS: houseJobOthers.YardCFS || "",
-            LocalTransport: houseJobOthers.LocalTransport || null,
+                        YardCFS: houseJobOthers.YardCFS || "",
+                        LocalTransport: houseJobOthers.LocalTransport || null,
 
-            PickupPlace: houseJobOthers.PickupPlace || "",
-            PickupDate: houseJobOthers.PickupDate ? new Date(houseJobOthers.PickupDate) : null,
-            PickupAddress: houseJobOthers.PickupAddress || "",
+                        PickupPlace: houseJobOthers.PickupPlace || "",
+                        PickupDate: houseJobOthers.PickupDate ? new Date(houseJobOthers.PickupDate) : null,
+                        PickupAddress: houseJobOthers.PickupAddress || "",
 
-            DeliveryPlace: houseJobOthers.DeliveryPlace || "",
-            DeliveryDate: houseJobOthers.DeliveryDate || "",
-            DeliveryAddress: houseJobOthers.DeliveryAddress || "",
+                        DeliveryPlace: houseJobOthers.DeliveryPlace || "",
+                        DeliveryDate: houseJobOthers.DeliveryDate || "",
+                        DeliveryAddress: houseJobOthers.DeliveryAddress || "",
 
-            CargoCurrency: houseJobOthers.CargoCurrency || "USD",
-            CargoValue: new Prisma.Decimal(houseJobOthers.CargoValue || 0),
+                        CargoCurrency: houseJobOthers.CargoCurrency || "USD",
+                        CargoValue: new Prisma.Decimal(houseJobOthers.CargoValue || 0),
 
-            // ✅ THIS WAS MISSING
-            ExternalNote: houseJobOthers.ExternalNote || null,
-            InternalNote: houseJobOthers.InternalNote || null,
+                        // ✅ THIS WAS MISSING
+                        ExternalNote: houseJobOthers.ExternalNote || null,
+                        InternalNote: houseJobOthers.InternalNote || null,
 
-            BlClause: houseJobOthers.BlClause || [],
+                        BlClause: houseJobOthers.BlClause || [],
 
-            createdBy: payload.createdBy,
-            status: 'A',
-        }
-    });
-}
+                        createdBy: payload.createdBy,
+                        status: 'A',
+                    }
+                });
+            }
 
 
             return {
@@ -393,9 +393,9 @@ if (houseJobOthers && Object.keys(houseJobOthers).length > 0) {
                             InternalNote: true
                         }
                     },
-                    masterJob : {
-                        select : {
-                            MasterJobNumber : true
+                    masterJob: {
+                        select: {
+                            MasterJobNumber: true
                         }
                     }
                 }
@@ -427,7 +427,7 @@ if (houseJobOthers && Object.keys(houseJobOthers).length > 0) {
      * Updates an existing Service Job
      */
     async updateServiceJob(houseJobSid: number, payload: UpdateServiceJobDto) {
-        const { houseJobCargo,houseJobOthers, costRevenueCharges, ...mainPayload } = payload;
+        const { houseJobCargo, houseJobOthers, costRevenueCharges, ...mainPayload } = payload;
 
         return this._db.$transaction(async (prisma) => {
             // 1. Fetch existing HouseJob
@@ -490,7 +490,7 @@ if (houseJobOthers && Object.keys(houseJobOthers).length > 0) {
                 houseJobUpdateData.HBLNo = payload.HBLNo;
             }
 
-            if(payload.ShipmentNo && payload.ShipmentNo.trim() !== ''){
+            if (payload.ShipmentNo && payload.ShipmentNo.trim() !== '') {
                 houseJobUpdateData.ShipmentNo = mainPayload.ShipmentNo;
             }
 
@@ -501,7 +501,7 @@ if (houseJobOthers && Object.keys(houseJobOthers).length > 0) {
 
 
             // 3. Update or Create HouseJobCargo
-            if (houseJobCargo && Object.keys(houseJobCargo).length > 0) {   
+            if (houseJobCargo && Object.keys(houseJobCargo).length > 0) {
                 const cargoData = {
                     HouseJobSid: houseJobSid,
                     CompanyMasterSid: payload.CompanyMasterSid,
@@ -538,7 +538,7 @@ if (houseJobOthers && Object.keys(houseJobOthers).length > 0) {
             let chargeIndex = 1;
             if (costRevenueCharges && costRevenueCharges.length > 0) {
                 const menuId = await this.menuService.getMenuSidByName(department?.departmentType?.toUpperCase() === 'AIR' ? "House Air Waybill" : "House Job");
-                
+
                 for (const charge of costRevenueCharges) {
                     const chargePayload = {
                         CompanyMasterSid: payload.CompanyMasterSid,
@@ -554,8 +554,8 @@ if (houseJobOthers && Object.keys(houseJobOthers).length > 0) {
                         ChargeMasterSid: charge.ChargeMasterSid ? Number(charge.ChargeMasterSid) : null,
                         ChargeDescription: charge.ChargeDescription,
                         ChargeUomSid: Number(charge.ChargeUomSid),
-                        RevenueChargeUomSid: Number(charge.RevenueChargeUomSid) ||  Number(charge.ChargeUomSid),
-                        CostChargeUomSid: Number(charge.CostChargeUomSid) ||  Number(charge.ChargeUomSid) ,
+                        RevenueChargeUomSid: Number(charge.RevenueChargeUomSid) || Number(charge.ChargeUomSid),
+                        CostChargeUomSid: Number(charge.CostChargeUomSid) || Number(charge.ChargeUomSid),
                         RevenueNumberOfUnit: charge.RevenueNumberOfUnit ? Number(charge.RevenueNumberOfUnit) : (charge.NoOfUnit ? Number(charge.NoOfUnit) : null),
                         CostNumberOfUnit: charge.CostNumberOfUnit ? Number(charge.CostNumberOfUnit) : (charge.NoOfUnit ? Number(charge.NoOfUnit) : null),
 
@@ -593,57 +593,57 @@ if (houseJobOthers && Object.keys(houseJobOthers).length > 0) {
                     });
                 }
             }
-           
-if (houseJobOthers && Object.keys(houseJobOthers).length > 0) {
 
-    const othersPayload = {
-        CustomerRefNo: houseJobOthers.CustomerRefNo || "",
-        NotifyParty: houseJobOthers.NotifyParty || "",
-        NotifyPartyAddress: houseJobOthers.NotifyPartyAddress || "",
-        CHAName: houseJobOthers.CHAName || "",
-        YardCFS: houseJobOthers.YardCFS || "",
-        PickupPlace: houseJobOthers.PickupPlace || "",
-        PickupAddress: houseJobOthers.PickupAddress || "",
-        DeliveryPlace: houseJobOthers.DeliveryPlace || "",
-        DeliveryDate: houseJobOthers.DeliveryDate || "",
-        DeliveryAddress: houseJobOthers.DeliveryAddress || "",
+            if (houseJobOthers && Object.keys(houseJobOthers).length > 0) {
 
-        CargoCurrency: houseJobOthers.CargoCurrency || "USD",
-        CargoValue: new Prisma.Decimal(houseJobOthers.CargoValue || 0),
+                const othersPayload = {
+                    CustomerRefNo: houseJobOthers.CustomerRefNo || "",
+                    NotifyParty: houseJobOthers.NotifyParty || "",
+                    NotifyPartyAddress: houseJobOthers.NotifyPartyAddress || "",
+                    CHAName: houseJobOthers.CHAName || "",
+                    YardCFS: houseJobOthers.YardCFS || "",
+                    PickupPlace: houseJobOthers.PickupPlace || "",
+                    PickupAddress: houseJobOthers.PickupAddress || "",
+                    DeliveryPlace: houseJobOthers.DeliveryPlace || "",
+                    DeliveryDate: houseJobOthers.DeliveryDate || "",
+                    DeliveryAddress: houseJobOthers.DeliveryAddress || "",
 
-        ExternalNote: houseJobOthers.ExternalNote || null,
-        InternalNote: houseJobOthers.InternalNote || null,
+                    CargoCurrency: houseJobOthers.CargoCurrency || "USD",
+                    CargoValue: new Prisma.Decimal(houseJobOthers.CargoValue || 0),
 
-        BlClause: houseJobOthers.BlClause || [],
+                    ExternalNote: houseJobOthers.ExternalNote || null,
+                    InternalNote: houseJobOthers.InternalNote || null,
 
-        updatedBy: payload.updatedBy,
-        status: 'A',
-    };
+                    BlClause: houseJobOthers.BlClause || [],
 
-    const existingOthers = await prisma.houseJobOthers.findFirst({
-        where: {
-            HouseJobSid: houseJobSid,
-            status: 'A'
-        }
-    });
+                    updatedBy: payload.updatedBy,
+                    status: 'A',
+                };
 
-    if (existingOthers) {
-        await prisma.houseJobOthers.update({
-            where: {
-                HouseJobOthersSid: existingOthers.HouseJobOthersSid
-            },
-            data: othersPayload
-        });
-    } else {
-        await prisma.houseJobOthers.create({
-            data: {
-                HouseJobSid: houseJobSid,
-                ...othersPayload,
-                createdBy: payload.updatedBy
+                const existingOthers = await prisma.houseJobOthers.findFirst({
+                    where: {
+                        HouseJobSid: houseJobSid,
+                        status: 'A'
+                    }
+                });
+
+                if (existingOthers) {
+                    await prisma.houseJobOthers.update({
+                        where: {
+                            HouseJobOthersSid: existingOthers.HouseJobOthersSid
+                        },
+                        data: othersPayload
+                    });
+                } else {
+                    await prisma.houseJobOthers.create({
+                        data: {
+                            HouseJobSid: houseJobSid,
+                            ...othersPayload,
+                            createdBy: payload.updatedBy
+                        }
+                    });
+                }
             }
-        });
-    }
-}
 
 
             return this.fetchServiceJobById(houseJobSid);
@@ -687,12 +687,17 @@ if (houseJobOthers && Object.keys(houseJobOthers).length > 0) {
                             select: { departmentName: true },
                         },
                         HBLNo: true,
-                        MBLNo: true,       
+                        MBLNo: true,
                         MBLDate: true,
                         ShipmentNo: true,
                         POL: true,
                         POD: true,
-                        status: true
+                        status: true,
+                        masterJob: {   
+                            select: {
+                                MasterJobNumber: true,
+                            }
+                        }
                     },
                     orderBy: {
                         HouseJobSid: 'desc',
@@ -710,28 +715,28 @@ if (houseJobOthers && Object.keys(houseJobOthers).length > 0) {
         }
     }
 
-async checkDuplicateServiceJob(payload: DuplicateCheckDTO) {
-  const existingRecord = await this._db.houseJob.findFirst({
-    where: {
-      CompanyMasterSid: payload.CompanyMasterSid,
-      BranchMasterSid: payload.BranchMasterSid,
-      DepartmentMasterSid: payload.DepartmentMasterSid,
-      IsServiceJob: 'Y',
-      status: 'A',
-      OR: [
-        {
-          HBLNo: payload.HBLNo,   
-        },
-        {
-          MBLNo: payload.MBLNo,   
-        }
-      ]
-    },
-    select: { HouseJobSid: true }
-  });
+    async checkDuplicateServiceJob(payload: DuplicateCheckDTO) {
+        const existingRecord = await this._db.houseJob.findFirst({
+            where: {
+                CompanyMasterSid: payload.CompanyMasterSid,
+                BranchMasterSid: payload.BranchMasterSid,
+                DepartmentMasterSid: payload.DepartmentMasterSid,
+                IsServiceJob: 'Y',
+                status: 'A',
+                OR: [
+                    {
+                        HBLNo: payload.HBLNo,
+                    },
+                    {
+                        MBLNo: payload.MBLNo,
+                    }
+                ]
+            },
+            select: { HouseJobSid: true }
+        });
 
-  return !!existingRecord;
-}
+        return !!existingRecord;
+    }
 
 
 }

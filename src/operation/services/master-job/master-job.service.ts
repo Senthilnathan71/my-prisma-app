@@ -95,107 +95,122 @@ export class MasterJobService {
             const newMasterJob = await this._db.$transaction(async (prisma) => {
                 let departmentType = department.departmentType;
                 let departmentExportImport = department?.ExportImport ?? null;
+                // if (departmentType === 'Air') {
+                //     if (departmentExportImport === 'Export') {
+
+                //         // If user manually entered MBL, use it
+                //         if (payload.MBLNo && String(payload.MBLNo).trim() !== '') {
+                //             assignedMBLNo = String(payload.MBLNo).trim();
+                //         }
+                //         else {
+
+                //             // -------------------------------------------------
+                //             // STEP 1 : Identify Booking Customer & Carrier
+                //             // -------------------------------------------------
+                //             let bookingCustomerId: number | null = null;
+                //             let carrierId: number | null = payload.CarrierSid || null;
+
+                //             if (payload?.shipmentList?.length) {
+                //                 const firstBooking = await prisma.bookingHeader.findFirst({
+                //                     where: {
+                //                         BookingHeaderSid: {
+                //                             in: payload.shipmentList.map(s => s.BookingHeaderSid).filter(Boolean)
+                //                         }
+                //                     },
+                //                     select: { CustomerMasterSid: true }
+                //                 });
+
+                //                 bookingCustomerId = firstBooking?.CustomerMasterSid || null;
+                //             }
+
+                //             let availableMawb: MawbStock | null = null;
+                //             // -------------------------------------------------
+                //             // PRIORITY 1 : CUSTOMER MAWB
+                //             // -------------------------------------------------
+                //             if (bookingCustomerId) {
+                //                 availableMawb = await prisma.mawbStock.findFirst({
+                //                     where: {
+                //                         StockStatus: 'Free',
+                //                         status: 'A',
+                //                         CompanyMasterSid: payload.CompanyMasterSid,
+                //                         BranchMasterSid: payload.BranchMasterSid,
+                //                         Customer: bookingCustomerId
+                //                     },
+                //                     orderBy: { MawbStockSid: 'asc' }
+                //                 });
+                //             }
+
+                //             // -------------------------------------------------
+                //             // PRIORITY 2 : COMMON MAWB (Customer NULL)
+                //             // -------------------------------------------------
+                //             if (!availableMawb) {
+                //                 availableMawb = await prisma.mawbStock.findFirst({
+                //                     where: {
+                //                         StockStatus: 'Free',
+                //                         status: 'A',
+                //                         CompanyMasterSid: payload.CompanyMasterSid,
+                //                         BranchMasterSid: payload.BranchMasterSid,
+                //                         Customer: null
+                //                     },
+                //                     orderBy: { MawbStockSid: 'asc' }
+                //                 });
+                //             }
+
+                //             // -------------------------------------------------
+                //             // PRIORITY 3 : CARRIER MAWB (DIRECT JOB)
+                //             // -------------------------------------------------
+                //             if (!availableMawb && carrierId) {
+                //                 availableMawb = await prisma.mawbStock.findFirst({
+                //                     where: {
+                //                         StockStatus: 'Free',
+                //                         status: 'A',
+                //                         CompanyMasterSid: payload.CompanyMasterSid,
+                //                         BranchMasterSid: payload.BranchMasterSid,
+                //                         Customer: carrierId
+                //                     },
+                //                     orderBy: { MawbStockSid: 'asc' }
+                //                 });
+                //             }
+
+                //             // -------------------------------------------------
+                //             // FINAL ASSIGNMENT
+                //             // -------------------------------------------------
+                //             if (!availableMawb) {
+                //                 // fallback to system generated
+                //                 assignedMBLNo = generatedMasterJobNumber || "";
+                //             } 
+                //             else {
+
+                //                 assignedMBLNo = availableMawb.MasterBillNumber;
+
+                //                 // block MAWB
+                //                 await prisma.mawbStock.update({
+                //                     where: { MasterBillNumber: availableMawb.MasterBillNumber },
+                //                     data: {
+                //                         StockStatus: 'Utilised',
+                //                         updatedBy: payload.createdBy,
+                //                         updatedOn: new Date()
+                //                     }
+                //                 });
+                //             }
+                //         }
+                //     } else {
+                //         assignedMBLNo = payload.MBLNo || "";
+                //     }
+                // }
+                
+                // AIR → ALWAYS TAKE FROM FRONTEND (NO AUTO ALLOCATION)
+                
                 if (departmentType === 'Air') {
-                    if (departmentExportImport === 'Export') {
 
-                        // If user manually entered MBL, use it
-                        if (payload.MBLNo && String(payload.MBLNo).trim() !== '') {
-                            assignedMBLNo = String(payload.MBLNo).trim();
-                        }
-                        else {
+                    const mblValue = String(payload.MBLNo ?? '').trim();
 
-                            // -------------------------------------------------
-                            // STEP 1 : Identify Booking Customer & Carrier
-                            // -------------------------------------------------
-                            let bookingCustomerId: number | null = null;
-                            let carrierId: number | null = payload.CarrierSid || null;
-
-                            if (payload?.shipmentList?.length) {
-                                const firstBooking = await prisma.bookingHeader.findFirst({
-                                    where: {
-                                        BookingHeaderSid: {
-                                            in: payload.shipmentList.map(s => s.BookingHeaderSid).filter(Boolean)
-                                        }
-                                    },
-                                    select: { CustomerMasterSid: true }
-                                });
-
-                                bookingCustomerId = firstBooking?.CustomerMasterSid || null;
-                            }
-
-                            let availableMawb: MawbStock | null = null;
-                            // -------------------------------------------------
-                            // PRIORITY 1 : CUSTOMER MAWB
-                            // -------------------------------------------------
-                            if (bookingCustomerId) {
-                                availableMawb = await prisma.mawbStock.findFirst({
-                                    where: {
-                                        StockStatus: 'Free',
-                                        status: 'A',
-                                        CompanyMasterSid: payload.CompanyMasterSid,
-                                        BranchMasterSid: payload.BranchMasterSid,
-                                        Customer: bookingCustomerId
-                                    },
-                                    orderBy: { MawbStockSid: 'asc' }
-                                });
-                            }
-
-                            // -------------------------------------------------
-                            // PRIORITY 2 : COMMON MAWB (Customer NULL)
-                            // -------------------------------------------------
-                            if (!availableMawb) {
-                                availableMawb = await prisma.mawbStock.findFirst({
-                                    where: {
-                                        StockStatus: 'Free',
-                                        status: 'A',
-                                        CompanyMasterSid: payload.CompanyMasterSid,
-                                        BranchMasterSid: payload.BranchMasterSid,
-                                        Customer: null
-                                    },
-                                    orderBy: { MawbStockSid: 'asc' }
-                                });
-                            }
-
-                            // -------------------------------------------------
-                            // PRIORITY 3 : CARRIER MAWB (DIRECT JOB)
-                            // -------------------------------------------------
-                            if (!availableMawb && carrierId) {
-                                availableMawb = await prisma.mawbStock.findFirst({
-                                    where: {
-                                        StockStatus: 'Free',
-                                        status: 'A',
-                                        CompanyMasterSid: payload.CompanyMasterSid,
-                                        BranchMasterSid: payload.BranchMasterSid,
-                                        Customer: carrierId
-                                    },
-                                    orderBy: { MawbStockSid: 'asc' }
-                                });
-                            }
-
-                            // -------------------------------------------------
-                            // FINAL ASSIGNMENT
-                            // -------------------------------------------------
-                            if (!availableMawb) {
-                                // fallback to system generated
-                                assignedMBLNo = generatedMasterJobNumber || "";
-                            } else {
-
-                                assignedMBLNo = availableMawb.MasterBillNumber;
-
-                                // block MAWB
-                                await prisma.mawbStock.update({
-                                    where: { MawbStockSid: availableMawb.MawbStockSid },
-                                    data: {
-                                        StockStatus: 'Utilised',
-                                        updatedBy: payload.createdBy,
-                                        updatedOn: new Date()
-                                    }
-                                });
-                            }
-                        }
+                    if (!mblValue || mblValue.toLowerCase() === 'null' || mblValue.toLowerCase() === 'undefined') {
+                        assignedMBLNo = ""; 
                     } else {
-                        assignedMBLNo = payload.MBLNo || "";
+                        assignedMBLNo = mblValue;
                     }
+
                 }
                 else {
                     if (departmentExportImport === 'Export') {
@@ -1286,6 +1301,7 @@ export class MasterJobService {
                             Notify: true,
                             NotifyAddress: true,
                             HouseStatus: true,
+                            CustomerMasterSid: true,
                             CustomerName: true,
                             CustomerAddress: true,
                             FreightTerms: true,
@@ -1586,7 +1602,47 @@ private getWeightInFromUnitSid(weightUnitSid: number): string {
                 });
 
                 const masterJobMenuId = await this.menuMasterService.getMenuSidByName(payload.screenName || "Master Job");
+                const currentMasterJob = await prisma.masterJob.findUnique({
+                where: { MasterJobSid: payload.MasterJobSid },
+                select: { MBLNo: true }
+            });
 
+            // Handle MAWB stock update if MBLNo has changed
+            if (currentMasterJob && 
+                payload.MBLNo && 
+                currentMasterJob.MBLNo !== payload.MBLNo && 
+                String(payload.MBLNo).trim() !== '') {
+                
+                // Mark old MAWB as Free again
+                // if (currentMasterJob.MBLNo && String(currentMasterJob.MBLNo).trim() !== '') {
+                //     await prisma.mawbStock.updateMany({
+                //         where: { 
+                //             MasterBillNumber: currentMasterJob.MBLNo,
+                //             StockStatus: 'Utilised'
+                //         },
+                //         data: {
+                //             StockStatus: 'Free',
+                //             updatedBy: payload.updatedBy,
+                //             updatedOn: new Date()
+                //         }
+                //     });
+                // }
+
+                // Mark new MAWB as Utilised
+                if (String(payload.MBLNo).trim() !== '') {
+                    await prisma.mawbStock.updateMany({
+                        where: { 
+                            MasterBillNumber: payload.MBLNo,
+                            StockStatus: 'Free'
+                        },
+                        data: {
+                            StockStatus: 'Utilised',
+                            updatedBy: payload.updatedBy,
+                            updatedOn: new Date()
+                        }
+                    });
+                }
+            }
                 const headerPayload : Prisma.MasterJobUpdateInput = {
                     FreightPPCC: payload.FreightPPCC,
                     DestinationAgent: payload.DestinationAgent,
