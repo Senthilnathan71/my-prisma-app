@@ -8,6 +8,7 @@ import { transcode } from 'buffer';
 import { Decimal } from '@prisma/client/runtime/library';
 import { ProfitSummaryReportQueryDto } from 'src/operation/DTO/operation-reports.dto';
 import { DOC_TYPE_CODE } from 'src/common/config/voucher-type.config';
+import { error } from 'console';
 // -------------------------
 // Helper types (local)
 // -------------------------
@@ -43,8 +44,8 @@ interface CurrencyGroup {
 export class AccountsReportsService {
   constructor(
     private _db: DatabaseService,
-    private logger: Logger
-  ) { }
+    private logger: Logger,
+  ) {}
 
   async getAvailableReports(companyId: number) {
     try {
@@ -52,8 +53,8 @@ export class AccountsReportsService {
       const accountsMenu = await this._db.menuMaster.findFirst({
         where: {
           MenuName: 'Accounts Reports',
-          status: 'A'
-        }
+          status: 'A',
+        },
       });
 
       if (!accountsMenu) {
@@ -63,19 +64,19 @@ export class AccountsReportsService {
       const allReports = await this._db.reportMaster.findMany({
         where: {
           ReportMenuSid: accountsMenu.MenuMasterSid,
-          Status: 'A'
+          Status: 'A',
         },
         include: {
           ReportMasterDetail: {
             where: { Status: 'A' },
-            orderBy: { ReportMasterDetailSid: 'asc' }
-          }
+            orderBy: { ReportMasterDetailSid: 'asc' },
+          },
         },
-        orderBy: { ReportMasterSid: 'asc' }
+        orderBy: { ReportMasterSid: 'asc' },
       });
 
       // Filter by company exclusion
-      const filteredReports = allReports.filter(report => {
+      const filteredReports = allReports.filter((report) => {
         if (!report.ReportExcludedCompany) return true;
         const excludedCompanies = Array.isArray(report.ReportExcludedCompany)
           ? report.ReportExcludedCompany
@@ -95,14 +96,14 @@ export class AccountsReportsService {
       const report = await this._db.reportMaster.findFirst({
         where: {
           ReportName: reportName,
-          Status: 'A'
+          Status: 'A',
         },
         include: {
           ReportMasterDetail: {
             where: { Status: 'A' },
-            orderBy: { ReportMasterDetailSid: 'asc' }
-          }
-        }
+            orderBy: { ReportMasterDetailSid: 'asc' },
+          },
+        },
       });
 
       if (!report) {
@@ -147,7 +148,7 @@ export class AccountsReportsService {
           return await this.generateUnpostedVoucherList(parameters);
         case 'vat-report':
           return await this.vat201(parameters);
-           case 'outstanding-local':
+        case 'outstanding-local':
           return await this.gernerateOustandingLocal(parameters);
         default:
           throw new BadRequestException(`Report ${reportName} not implemented`);
@@ -208,7 +209,7 @@ export class AccountsReportsService {
           branchName: true,
         },
       });
-      allBranches.forEach(branch => branchSet.add(branch.branchName));
+      allBranches.forEach((branch) => branchSet.add(branch.branchName));
     } else {
       const allBranches = await this._db.branchMaster.findMany({
         where: {
@@ -220,7 +221,7 @@ export class AccountsReportsService {
           branchName: true,
         },
       });
-      allBranches.forEach(branch => branchSet.add(branch.branchName));
+      allBranches.forEach((branch) => branchSet.add(branch.branchName));
     }
     const branchInvolvedText =
       SelectedBranches && SelectedBranches.length > 0
@@ -251,7 +252,7 @@ export class AccountsReportsService {
     // -------------------------------------------
     // 3. Transform rows
     // -------------------------------------------
-    const reportData = vouchers.map(v => {
+    const reportData = vouchers.map((v) => {
       const matchLocal = v.voucherMatchings.reduce(
         (acc, m) => acc + (m.DrCr === 'D' ? +m.LocalAmount : -m.LocalAmount),
         0,
@@ -262,7 +263,9 @@ export class AccountsReportsService {
       );
 
       const ageing =
-        Math.floor((+new Date() - +new Date(v.VoucherDate)) / (1000 * 60 * 60 * 24)) + 1;
+        Math.floor(
+          (+new Date() - +new Date(v.VoucherDate)) / (1000 * 60 * 60 * 24),
+        ) + 1;
 
       return {
         VoucherTransactionSid: v.VoucherTransactionSid,
@@ -277,8 +280,10 @@ export class AccountsReportsService {
         OriginalLocalAmount: toNumber(v.LocalAmount),
         OSCurrencyAmount: toNumber(v.Amount) - Math.abs(matchCurr),
         OSLocalAmount: toNumber(v.LocalAmount) - Math.abs(matchLocal),
-        OnAccountCreditCurr: v.DrCr === 'C' ? toNumber(v.Amount) - Math.abs(matchCurr) : 0,
-        OnAccountCreditLocal: v.DrCr === 'C' ? toNumber(v.LocalAmount) - Math.abs(matchLocal) : 0,
+        OnAccountCreditCurr:
+          v.DrCr === 'C' ? toNumber(v.Amount) - Math.abs(matchCurr) : 0,
+        OnAccountCreditLocal:
+          v.DrCr === 'C' ? toNumber(v.LocalAmount) - Math.abs(matchLocal) : 0,
       };
     });
 
@@ -290,7 +295,7 @@ export class AccountsReportsService {
     if (AgeingType === '30_60_90') bucketRanges = [30, 60, 90];
     else if (AgeingType === '15_30_45_60') bucketRanges = [15, 30, 45, 60];
     else if (AgeingType.includes('-')) {
-      bucketRanges = AgeingType.split('-').map(s => +s);
+      bucketRanges = AgeingType.split('-').map((s) => +s);
       bucketRanges.sort((a, b) => a - b);
     } else {
       throw new BadRequestException('Invalid ageingType');
@@ -309,11 +314,14 @@ export class AccountsReportsService {
     const currencyMap = new Map<string, CurrencyGroup>();
 
     // helpers to create/get groups safely
-    const getOrCreateCurrencyGroup = (key: string, currencyCode: string | null) => {
+    const getOrCreateCurrencyGroup = (
+      key: string,
+      currencyCode: string | null,
+    ) => {
       let cg = currencyMap.get(key);
       if (!cg) {
         const bucketTotals: BucketMap = {};
-        bucketLabels.forEach(b => (bucketTotals[b] = 0));
+        bucketLabels.forEach((b) => (bucketTotals[b] = 0));
 
         cg = {
           CurrencyCode: currencyCode,
@@ -330,11 +338,15 @@ export class AccountsReportsService {
       return cg;
     };
 
-    const getOrCreateSubledger = (group: CurrencyGroup, sid: number, row: any) => {
+    const getOrCreateSubledger = (
+      group: CurrencyGroup,
+      sid: number,
+      row: any,
+    ) => {
       let sl = group.subledgers.get(sid);
       if (!sl) {
         const buckets: BucketMap = {};
-        bucketLabels.forEach(b => (buckets[b] = 0));
+        bucketLabels.forEach((b) => (buckets[b] = 0));
         sl = {
           SubledgerMasterSid: sid,
           SubledgerName: row.SubledgerName ?? null,
@@ -370,23 +382,32 @@ export class AccountsReportsService {
         const subledger = getOrCreateSubledger(currGroup, subId, row);
 
         // Update subledger totals (currency amounts)
-        subledger.totalOutstandingCurrency += row.DrCr === 'C' ? -row.OSCurrencyAmount : row.OSCurrencyAmount;
-        subledger.totalOutstandingLocal += row.DrCr === 'C' ? -row.OSLocalAmount : row.OSLocalAmount;
-        subledger.totalOnAccountCreditCurr += row.DrCr === 'C' ? -row.OnAccountCreditCurr : 0;
-        subledger.totalOnAccountCreditLocal += row.DrCr === 'C' ? -row.OnAccountCreditLocal : 0;
+        subledger.totalOutstandingCurrency +=
+          row.DrCr === 'C' ? -row.OSCurrencyAmount : row.OSCurrencyAmount;
+        subledger.totalOutstandingLocal +=
+          row.DrCr === 'C' ? -row.OSLocalAmount : row.OSLocalAmount;
+        subledger.totalOnAccountCreditCurr +=
+          row.DrCr === 'C' ? -row.OnAccountCreditCurr : 0;
+        subledger.totalOnAccountCreditLocal +=
+          row.DrCr === 'C' ? -row.OnAccountCreditLocal : 0;
         // subledger.rows?.push(row);
         subledger.voucherCount += 1;
 
         // Update currency group totals
-        currGroup.totalOutstandingCurrency += row.DrCr === 'C' ? -row.OSCurrencyAmount : row.OSCurrencyAmount;
-        currGroup.totalOutstandingLocal += row.DrCr === 'C' ? -row.OSLocalAmount : row.OSLocalAmount;
-        currGroup.totalOnAccountCreditCurr += row.DrCr === 'C' ? -row.OnAccountCreditCurr : 0;
-        currGroup.totalOnAccountCreditLocal += row.DrCr === 'C' ? -row.OnAccountCreditLocal : 0;
+        currGroup.totalOutstandingCurrency +=
+          row.DrCr === 'C' ? -row.OSCurrencyAmount : row.OSCurrencyAmount;
+        currGroup.totalOutstandingLocal +=
+          row.DrCr === 'C' ? -row.OSLocalAmount : row.OSLocalAmount;
+        currGroup.totalOnAccountCreditCurr +=
+          row.DrCr === 'C' ? -row.OnAccountCreditCurr : 0;
+        currGroup.totalOnAccountCreditLocal +=
+          row.DrCr === 'C' ? -row.OnAccountCreditLocal : 0;
         currGroup.voucherCount += 1;
 
         // Bucket allocation (use OSCurrencyAmount here by your requirement)
         let placed = false;
-        const bucketAmount = row.DrCr === 'C' ? -row.OSCurrencyAmount : row.OSCurrencyAmount;
+        const bucketAmount =
+          row.DrCr === 'C' ? -row.OSCurrencyAmount : row.OSCurrencyAmount;
         for (let i = 0; i < bucketRanges.length; i++) {
           if (row.Ageing <= bucketRanges[i]) {
             const label = bucketLabels[i];
@@ -409,16 +430,26 @@ export class AccountsReportsService {
         const subledger = getOrCreateSubledger(combinedGroup, subId, row);
 
         // Update subledger totals (we still record OSCurrencyAmount & OSLocalAmount)
-        subledger.totalOutstandingCurrency += row.OSCurrencyAmount ? -row.OSCurrencyAmount : 0;
-        subledger.totalOutstandingLocal += row.OSLocalAmount ? -row.OSLocalAmount : 0;
-        subledger.totalOnAccountCreditCurr += row.DrCr === 'C' ? -row.OnAccountCreditCurr : 0;
-        subledger.totalOnAccountCreditLocal += row.DrCr === 'C' ? -row.OnAccountCreditLocal : 0;
+        subledger.totalOutstandingCurrency += row.OSCurrencyAmount
+          ? -row.OSCurrencyAmount
+          : 0;
+        subledger.totalOutstandingLocal += row.OSLocalAmount
+          ? -row.OSLocalAmount
+          : 0;
+        subledger.totalOnAccountCreditCurr +=
+          row.DrCr === 'C' ? -row.OnAccountCreditCurr : 0;
+        subledger.totalOnAccountCreditLocal +=
+          row.DrCr === 'C' ? -row.OnAccountCreditLocal : 0;
         subledger.voucherCount += 1;
 
-        combinedGroup.totalOutstandingCurrency += row.DrCr === 'C' ? -row.OSCurrencyAmount : row.OSCurrencyAmount;
-        combinedGroup.totalOutstandingLocal += row.DrCr === 'C' ? -row.OSLocalAmount : row.OSLocalAmount;
-        combinedGroup.totalOnAccountCreditCurr += row.DrCr === 'C' ? -row.OnAccountCreditCurr : 0;
-        combinedGroup.totalOnAccountCreditLocal += row.DrCr === 'C' ? -row.OnAccountCreditLocal : 0;
+        combinedGroup.totalOutstandingCurrency +=
+          row.DrCr === 'C' ? -row.OSCurrencyAmount : row.OSCurrencyAmount;
+        combinedGroup.totalOutstandingLocal +=
+          row.DrCr === 'C' ? -row.OSLocalAmount : row.OSLocalAmount;
+        combinedGroup.totalOnAccountCreditCurr +=
+          row.DrCr === 'C' ? -row.OnAccountCreditCurr : 0;
+        combinedGroup.totalOnAccountCreditLocal +=
+          row.DrCr === 'C' ? -row.OnAccountCreditLocal : 0;
         combinedGroup.voucherCount += 1;
 
         // Bucket allocation (we still use OSCurrencyAmount for buckets per your previous logic)
@@ -426,16 +457,20 @@ export class AccountsReportsService {
         for (let i = 0; i < bucketRanges.length; i++) {
           if (row.Ageing <= bucketRanges[i]) {
             const label = bucketLabels[i];
-            subledger.buckets[label] += row.DrCr === 'D' ? row.OSCurrencyAmount : 0;
-            combinedGroup.bucketTotals[label] += row.DrCr === 'D' ? row.OSCurrencyAmount : 0;
+            subledger.buckets[label] +=
+              row.DrCr === 'D' ? row.OSCurrencyAmount : 0;
+            combinedGroup.bucketTotals[label] +=
+              row.DrCr === 'D' ? row.OSCurrencyAmount : 0;
             placed = true;
             break;
           }
         }
         if (!placed) {
           const last = bucketLabels[bucketLabels.length - 1];
-          subledger.buckets[last] += row.DrCr === 'D' ? row.OSCurrencyAmount : 0;
-          combinedGroup.bucketTotals[last] += row.DrCr === 'D' ? row.OSCurrencyAmount : 0;
+          subledger.buckets[last] +=
+            row.DrCr === 'D' ? row.OSCurrencyAmount : 0;
+          combinedGroup.bucketTotals[last] +=
+            row.DrCr === 'D' ? row.OSCurrencyAmount : 0;
         }
       }
     }
@@ -443,7 +478,7 @@ export class AccountsReportsService {
     // -------------------------------------------
     // 6. Convert Map to Array - Currency -> Subledgers
     // -------------------------------------------
-    const ageingResult = Array.from(currencyMap.values()).map(currGroup => ({
+    const ageingResult = Array.from(currencyMap.values()).map((currGroup) => ({
       CurrencyCode: currGroup.CurrencyCode,
       totalOutstandingCurrency: currGroup.totalOutstandingCurrency,
       totalOutstandingLocal: currGroup.totalOutstandingLocal,
@@ -451,25 +486,49 @@ export class AccountsReportsService {
       totalOnAccountCreditLocal: currGroup.totalOnAccountCreditLocal,
       voucherCount: currGroup.voucherCount,
       bucketTotals: currGroup.bucketTotals,
-      subledgers: Array.from(currGroup.subledgers.values()).filter(sl => sl.totalOutstandingCurrency !== 0 || sl.totalOutstandingLocal !== 0),
+      subledgers: Array.from(currGroup.subledgers.values()).filter(
+        (sl) =>
+          sl.totalOutstandingCurrency !== 0 || sl.totalOutstandingLocal !== 0,
+      ),
     }));
 
     // -------------------------------------------
     // 7. Grand Totals
     // -------------------------------------------
-    const grandTotalLocal = ageingResult.reduce((a, b) => a + (b.totalOutstandingLocal ?? 0), 0);
-    const grandTotalCurrency = ageingResult.reduce((a, b) => a + (b.totalOutstandingCurrency ?? 0), 0);
-    const grandTotalOnAccountCreditCurr = ageingResult.reduce((a, b) => a + (b.totalOnAccountCreditCurr ?? 0), 0);
-    const grandTotalOnAccountCreditLocal = ageingResult.reduce((a, b) => a + (b.totalOnAccountCreditLocal ?? 0), 0);
-    const totalVouchers = ageingResult.reduce((a, b) => a + (b.voucherCount ?? 0), 0);
-    const totalSubledgers = ageingResult.reduce((a, b) => a + (b.subledgers?.length ?? 0), 0);
+    const grandTotalLocal = ageingResult.reduce(
+      (a, b) => a + (b.totalOutstandingLocal ?? 0),
+      0,
+    );
+    const grandTotalCurrency = ageingResult.reduce(
+      (a, b) => a + (b.totalOutstandingCurrency ?? 0),
+      0,
+    );
+    const grandTotalOnAccountCreditCurr = ageingResult.reduce(
+      (a, b) => a + (b.totalOnAccountCreditCurr ?? 0),
+      0,
+    );
+    const grandTotalOnAccountCreditLocal = ageingResult.reduce(
+      (a, b) => a + (b.totalOnAccountCreditLocal ?? 0),
+      0,
+    );
+    const totalVouchers = ageingResult.reduce(
+      (a, b) => a + (b.voucherCount ?? 0),
+      0,
+    );
+    const totalSubledgers = ageingResult.reduce(
+      (a, b) => a + (b.subledgers?.length ?? 0),
+      0,
+    );
 
     // -------------------------------------------
     // 8. Overall Bucket Totals (across all currencies)
     // -------------------------------------------
     const overallBucketTotals: Record<string, number> = {};
-    bucketLabels.forEach(b => {
-      overallBucketTotals[b] = ageingResult.reduce((acc, curr) => acc + (curr.bucketTotals[b] ?? 0), 0);
+    bucketLabels.forEach((b) => {
+      overallBucketTotals[b] = ageingResult.reduce(
+        (acc, curr) => acc + (curr.bucketTotals[b] ?? 0),
+        0,
+      );
     });
 
     // -------------------------------------------
@@ -515,10 +574,10 @@ export class AccountsReportsService {
       const subledger = await this._db.subledgerMaster.findUnique({
         where: {
           SubledgerMasterSid: SubledgerMasterSid,
-          SubledgerType: "Customer",
-          Status: 'A'
+          SubledgerType: 'Customer',
+          Status: 'A',
         },
-        select: { SubledgerMappingSid: true }
+        select: { SubledgerMappingSid: true },
       });
 
       if (!subledger) {
@@ -531,27 +590,30 @@ export class AccountsReportsService {
 
       const customer = await this._db.customerMaster.findUnique({
         where: {
-          CustomerMasterSid: subledger.SubledgerMappingSid!
+          CustomerMasterSid: subledger.SubledgerMappingSid!,
         },
         include: {
           customerCreditRequest: {
             where: {
               ApprovalStatus: ApprovalStatus.Approved,
-              Status: 'A'
-            }
-          }
-        }
+              Status: 'A',
+            },
+          },
+        },
       });
 
       if (!customer) {
         throw new BadRequestException('No customer found.');
       }
 
-      if (customer.CashCredit === "C" || customer.customerCreditRequest.length === 0) {
+      if (
+        customer.CashCredit === 'C' ||
+        customer.customerCreditRequest.length === 0
+      ) {
         return {
           CreditDays: 0,
-          CreditLimit: 0
-        }
+          CreditLimit: 0,
+        };
       }
 
       const allCreditReq = customer.customerCreditRequest || [];
@@ -562,9 +624,8 @@ export class AccountsReportsService {
 
       return {
         CreditDays: reqWithHighestLimit.CreditDays,
-        CreditLimit: reqWithHighestLimit.CreditLimit
-      }
-
+        CreditLimit: reqWithHighestLimit.CreditLimit,
+      };
     } catch (error) {
       throw error;
     }
@@ -584,40 +645,44 @@ export class AccountsReportsService {
         `Getting customer outstanding: CompanySid=${CompanyMasterSid}, LedgerMasterSid=${ledgerMasterSid}`,
       );
 
-      const branches = branchId && branchId.length > 0
-        ? await this._db.branchMaster.findMany({
-          where: { BranchMasterSid: { in: branchId } },
-          select: {
-            BranchMasterSid: true,
-            branchName: true,
-          },
-        })
-        : await this._db.branchMaster.findMany({
-          where: { CompanyMasterSid },
-          select: {
-            BranchMasterSid: true,
-            branchName: true,
-          },
-        });
+      const branches =
+        branchId && branchId.length > 0
+          ? await this._db.branchMaster.findMany({
+              where: { BranchMasterSid: { in: branchId } },
+              select: {
+                BranchMasterSid: true,
+                branchName: true,
+              },
+            })
+          : await this._db.branchMaster.findMany({
+              where: { CompanyMasterSid },
+              select: {
+                BranchMasterSid: true,
+                branchName: true,
+              },
+            });
 
-      const resolvedBranchIds = branches.map(b => b.BranchMasterSid);
-      const resolvedBranchNames = branches.map(b => b.branchName);
-      const brancesInvoled = branchId && branchId.length > 0 ? branches.map(b => b.branchName).join(', ') : 'All Branches'
+      const resolvedBranchIds = branches.map((b) => b.BranchMasterSid);
+      const resolvedBranchNames = branches.map((b) => b.branchName);
+      const brancesInvoled =
+        branchId && branchId.length > 0
+          ? branches.map((b) => b.branchName).join(', ')
+          : 'All Branches';
 
       const subledger = await this._db.subledgerMaster.findUnique({
         where: { SubledgerMasterSid: ledgerMasterSid },
       });
 
       const ledger = await this._db.cOAMaster.findUnique({
-        where: { COAMasterSid: coaMasterSid }
-      })
+        where: { COAMasterSid: coaMasterSid },
+      });
 
       const userMaster = await this._db.userMaster.findMany({
         select: {
           UserMasterSid: true,
-          userName: true
-        }
-      })
+          userName: true,
+        },
+      });
 
       const voucherTransactions = await this._db.voucherTransaction.findMany({
         where: {
@@ -633,7 +698,7 @@ export class AccountsReportsService {
           masterJob: true,
           houseJob: true,
           departmentMaster: {
-            select: { departmentName: true }
+            select: { departmentName: true },
           },
           voucherMatchings: {
             where: {
@@ -641,8 +706,8 @@ export class AccountsReportsService {
             },
           },
           voucherTypeMaster: {
-            select: { DocumentTypeCode: true }
-          }
+            select: { DocumentTypeCode: true },
+          },
         },
         orderBy: {
           VoucherDate: 'asc',
@@ -650,7 +715,9 @@ export class AccountsReportsService {
       });
 
       if (voucherTransactions.length === 0) {
-        this.logger.log(`No outstanding vouchers found for LedgerMasterSid ${ledgerMasterSid}`);
+        this.logger.log(
+          `No outstanding vouchers found for LedgerMasterSid ${ledgerMasterSid}`,
+        );
         return {
           companyMasterSid: CompanyMasterSid,
           BranchMasterSid: branchId,
@@ -665,12 +732,11 @@ export class AccountsReportsService {
         };
       }
 
-     
       const transactions: any[] = [];
       let totalOutstandingCurrency = 0;
       let totalOutstandingLocal = 0;
       let cumulativeTotal = 0;
-      let localAmt =0;
+      let localAmt = 0;
       let oscurrenecyAmt = 0;
       const ageingSummary = {
         totalOutstanding: 0,
@@ -686,7 +752,6 @@ export class AccountsReportsService {
         const originalCurrencyAmount = toNumber(vt.Amount);
         const originalLocalAmount = toNumber(vt.LocalAmount);
 
-        
         let matchedCurrencyAmount = 0;
         let matchedLocalAmount = 0;
 
@@ -705,58 +770,56 @@ export class AccountsReportsService {
           originalCurrencyAmount - matchedCurrencyAmount,
           2,
         );
-        
-        const outstandingLocalAmount = roundAmount(originalLocalAmount - matchedLocalAmount, 2);
 
-       
-        const exchangeRate = originalCurrencyAmount !== 0
-          ? roundAmount(originalLocalAmount / originalCurrencyAmount, 4)
-          : 1.0;
+        const outstandingLocalAmount = roundAmount(
+          originalLocalAmount - matchedLocalAmount,
+          2,
+        );
+
+        const exchangeRate =
+          originalCurrencyAmount !== 0
+            ? roundAmount(originalLocalAmount / originalCurrencyAmount, 4)
+            : 1.0;
 
         const voucherDate = new Date(vt.VoucherDate);
         const reportToDate = new Date(ToDate);
 
-       
         const ageingDays =
           Math.floor(
             (reportToDate.getTime() - voucherDate.getTime()) /
-            (1000 * 60 * 60 * 24)
+              (1000 * 60 * 60 * 24),
           ) + 1;
-
 
         const drCr = vt.DrCr?.toUpperCase();
         let signedAmount = outstandingLocalAmount;
-        if (ledger?.LedgerType?.trim() === "Sy Cr") {
-          if (drCr === "C") signedAmount = +outstandingLocalAmount;
-          if (drCr === "D") signedAmount = -outstandingLocalAmount;
-        }
-        else if (ledger?.LedgerType?.trim() === "Sy Dr") {
-          if (drCr === "D") signedAmount = +outstandingLocalAmount;
-          if (drCr === "C") signedAmount = -outstandingLocalAmount;
+        if (ledger?.LedgerType?.trim() === 'Sy Cr') {
+          if (drCr === 'C') signedAmount = +outstandingLocalAmount;
+          if (drCr === 'D') signedAmount = -outstandingLocalAmount;
+        } else if (ledger?.LedgerType?.trim() === 'Sy Dr') {
+          if (drCr === 'D') signedAmount = +outstandingLocalAmount;
+          if (drCr === 'C') signedAmount = -outstandingLocalAmount;
         }
 
         cumulativeTotal += signedAmount;
         cumulativeTotal = roundAmount(cumulativeTotal, 2);
 
-        if (ledger?.LedgerType?.trim() === "Sy Cr") {
-          if (drCr === "C") signedAmount = +outstandingLocalAmount;
-          if (drCr === "D") signedAmount = -outstandingLocalAmount;
-        }
-        else if (ledger?.LedgerType?.trim() === "Sy Dr") {
-          if (drCr === "D") signedAmount = +outstandingLocalAmount;
-          if (drCr === "C") signedAmount = -outstandingLocalAmount;
+        if (ledger?.LedgerType?.trim() === 'Sy Cr') {
+          if (drCr === 'C') signedAmount = +outstandingLocalAmount;
+          if (drCr === 'D') signedAmount = -outstandingLocalAmount;
+        } else if (ledger?.LedgerType?.trim() === 'Sy Dr') {
+          if (drCr === 'D') signedAmount = +outstandingLocalAmount;
+          if (drCr === 'C') signedAmount = -outstandingLocalAmount;
         }
         localAmt += signedAmount;
         localAmt = roundAmount(localAmt, 2);
 
-       
         const ledgerType = ledger?.LedgerType?.trim();
         const drCrValue = vt.DrCr?.trim().toUpperCase();
 
         let sign = 1;
         if (
-          (ledgerType === "Sy Cr" && drCrValue === "D") ||
-          (ledgerType === "Sy Dr" && drCrValue === "C")
+          (ledgerType === 'Sy Cr' && drCrValue === 'D') ||
+          (ledgerType === 'Sy Dr' && drCrValue === 'C')
         ) {
           sign = -1;
         }
@@ -766,27 +829,29 @@ export class AccountsReportsService {
         const signedOutstandingCurrency = sign * outstandingCurrencyAmount;
         const signedOutstandingLocal = sign * outstandingLocalAmount;
         let oscurramt = outstandingCurrencyAmount;
-        if (ledger?.LedgerType?.trim() === "Sy Cr") {
-          if (drCr === "C") oscurramt = +outstandingCurrencyAmount;
-          if (drCr === "D") oscurramt = -outstandingCurrencyAmount;
-        }
-        else if (ledger?.LedgerType?.trim() === "Sy Dr") {
-          if (drCr === "D") oscurramt = +outstandingCurrencyAmount;
-          if (drCr === "C") oscurramt = -outstandingCurrencyAmount;
+        if (ledger?.LedgerType?.trim() === 'Sy Cr') {
+          if (drCr === 'C') oscurramt = +outstandingCurrencyAmount;
+          if (drCr === 'D') oscurramt = -outstandingCurrencyAmount;
+        } else if (ledger?.LedgerType?.trim() === 'Sy Dr') {
+          if (drCr === 'D') oscurramt = +outstandingCurrencyAmount;
+          if (drCr === 'C') oscurramt = -outstandingCurrencyAmount;
         }
 
         oscurrenecyAmt += oscurramt;
 
-        if (Math.abs(outstandingCurrencyAmount) > 0 || Math.abs(outstandingLocalAmount) > 0) {
-          let ageingBucket = "";
+        if (
+          Math.abs(outstandingCurrencyAmount) > 0 ||
+          Math.abs(outstandingLocalAmount) > 0
+        ) {
+          let ageingBucket = '';
 
-          if (ageingDays <= 30) ageingBucket = "0 - 30 Days";
-          else if (ageingDays <= 60) ageingBucket = "31 - 60 Days";
-          else if (ageingDays <= 90) ageingBucket = "61 - 90 Days";
-          else if (ageingDays <= 120) ageingBucket = "91 - 120 Days";
-          else ageingBucket = "121+ Above";
+          if (ageingDays <= 30) ageingBucket = '0 - 30 Days';
+          else if (ageingDays <= 60) ageingBucket = '31 - 60 Days';
+          else if (ageingDays <= 90) ageingBucket = '61 - 90 Days';
+          else if (ageingDays <= 120) ageingBucket = '91 - 120 Days';
+          else ageingBucket = '121+ Above';
 
-          const currency = vt.CurrencyCode || "";
+          const currency = vt.CurrencyCode || '';
           if (!currencyWiseSummary[currency]) {
             currencyWiseSummary[currency] = {
               currencyCode: currency,
@@ -809,8 +874,7 @@ export class AccountsReportsService {
             currencyWiseSummary[currency].bucket_61_90 += oscurramt;
           else if (ageingDays <= 120)
             currencyWiseSummary[currency].bucket_91_120 += oscurramt;
-          else
-            currencyWiseSummary[currency].bucket_121_above += oscurramt;
+          else currencyWiseSummary[currency].bucket_121_above += oscurramt;
 
           transactions.push({
             voucherTransactionSid: vt.VoucherTransactionSid,
@@ -837,14 +901,17 @@ export class AccountsReportsService {
             currencyCode: vt.CurrencyCode || '',
             exchangeRate: toNumber(vt.ExchangeRate || 1),
             drCr: vt.DrCr,
-            chargeDescription: vt.ChargeDescription || "",
+            chargeDescription: vt.ChargeDescription || '',
             deptname: vt.departmentMaster?.departmentName,
-            salesmanSid: userMaster.find(u => u.UserMasterSid === vt.houseJob?.SalesmanSid)?.userName || '',
+            salesmanSid:
+              userMaster.find(
+                (u) => u.UserMasterSid === vt.houseJob?.SalesmanSid,
+              )?.userName || '',
             naration: vt.Narration,
             ageingDays: ageingDays,
             ageingBucket: ageingSummary,
             cumulativeOutstanding: cumulativeTotal,
-            localAmt:localAmt
+            localAmt: localAmt,
           });
 
           totalOutstandingCurrency += outstandingCurrencyAmount;
@@ -852,15 +919,18 @@ export class AccountsReportsService {
         }
         ageingSummary.totalOutstanding = roundAmount(
           ageingSummary.totalOutstanding,
-          2
+          2,
         );
         ageingSummary.bucket_0_30 = roundAmount(ageingSummary.bucket_0_30, 2);
         ageingSummary.bucket_31_60 = roundAmount(ageingSummary.bucket_31_60, 2);
         ageingSummary.bucket_61_90 = roundAmount(ageingSummary.bucket_61_90, 2);
-        ageingSummary.bucket_91_120 = roundAmount(ageingSummary.bucket_91_120, 2);
+        ageingSummary.bucket_91_120 = roundAmount(
+          ageingSummary.bucket_91_120,
+          2,
+        );
         ageingSummary.bucket_121_above = roundAmount(
           ageingSummary.bucket_121_above,
-          2
+          2,
         );
       }
 
@@ -872,14 +942,14 @@ export class AccountsReportsService {
         ledgerMasterSid: ledgerMasterSid!,
         subledgerName: subledger?.SubledgerName,
         ledgerName: ledger?.LedgerName,
-        ledgerType : ledger?.LedgerType,
+        ledgerType: ledger?.LedgerType,
         totalOutstandingCurrency: roundAmount(totalOutstandingCurrency, 2),
         totalOutstandingLocal: roundAmount(totalOutstandingLocal, 2),
         voucherCount: transactions.length,
         transactions: transactions,
         params: params,
         ageingSummary,
-        currencyWiseSummary: Object.values(currencyWiseSummary)
+        currencyWiseSummary: Object.values(currencyWiseSummary),
       };
 
       this.logger.log(
@@ -910,25 +980,29 @@ export class AccountsReportsService {
         `Getting customer outstanding: CompanySid=${CompanyMasterSid}, LedgerMasterSid=${ledgerMasterSid}`,
       );
 
-      const branches = branchId && branchId.length > 0
-        ? await this._db.branchMaster.findMany({
-          where: { BranchMasterSid: { in: branchId } },
-          select: {
-            BranchMasterSid: true,
-            branchName: true,
-          },
-        })
-        : await this._db.branchMaster.findMany({
-          where: { CompanyMasterSid },
-          select: {
-            BranchMasterSid: true,
-            branchName: true,
-          },
-        });
+      const branches =
+        branchId && branchId.length > 0
+          ? await this._db.branchMaster.findMany({
+              where: { BranchMasterSid: { in: branchId } },
+              select: {
+                BranchMasterSid: true,
+                branchName: true,
+              },
+            })
+          : await this._db.branchMaster.findMany({
+              where: { CompanyMasterSid },
+              select: {
+                BranchMasterSid: true,
+                branchName: true,
+              },
+            });
 
-      const resolvedBranchIds = branches.map(b => b.BranchMasterSid);
-      const resolvedBranchNames = branches.map(b => b.branchName);
-      const brancesInvoled = branchId && branchId.length > 0 ? branches.map(b => b.branchName).join(', ') : 'All Branches'
+      const resolvedBranchIds = branches.map((b) => b.BranchMasterSid);
+      const resolvedBranchNames = branches.map((b) => b.branchName);
+      const brancesInvoled =
+        branchId && branchId.length > 0
+          ? branches.map((b) => b.branchName).join(', ')
+          : 'All Branches';
 
       const subledger = await this._db.subledgerMaster.findUnique({
         where: { SubledgerMasterSid: ledgerMasterSid },
@@ -937,16 +1011,17 @@ export class AccountsReportsService {
       const ledger = await this._db.cOAMaster.findUnique({
         where: { COAMasterSid: coaMasterSid },
         select: {
-          LedgerName: true, LedgerType: true
-        }
-      })
+          LedgerName: true,
+          LedgerType: true,
+        },
+      });
 
       const userMaster = await this._db.userMaster.findMany({
         select: {
           UserMasterSid: true,
-          userName: true
-        }
-      })
+          userName: true,
+        },
+      });
 
       const voucherTransactions = await this._db.voucherTransaction.findMany({
         where: {
@@ -962,7 +1037,7 @@ export class AccountsReportsService {
           masterJob: true,
           houseJob: true,
           departmentMaster: {
-            select: { departmentName: true }
+            select: { departmentName: true },
           },
           voucherMatchings: {
             where: {
@@ -970,8 +1045,8 @@ export class AccountsReportsService {
             },
           },
           voucherTypeMaster: {
-            select: { DocumentTypeCode: true }
-          }
+            select: { DocumentTypeCode: true },
+          },
         },
         orderBy: {
           VoucherDate: 'asc',
@@ -979,7 +1054,9 @@ export class AccountsReportsService {
       });
 
       if (voucherTransactions.length === 0) {
-        this.logger.log(`No outstanding vouchers found for LedgerMasterSid ${ledgerMasterSid}`);
+        this.logger.log(
+          `No outstanding vouchers found for LedgerMasterSid ${ledgerMasterSid}`,
+        );
         return {
           companyMasterSid: CompanyMasterSid,
           BranchMasterSid: branchId,
@@ -993,7 +1070,6 @@ export class AccountsReportsService {
           transactions: [],
         };
       }
-
 
       const transactions: any[] = [];
       let totalOutstandingCurrency = 0;
@@ -1014,7 +1090,7 @@ export class AccountsReportsService {
       for (const vt of voucherTransactions) {
         const originalCurrencyAmount = toNumber(vt.Amount);
         const originalLocalAmount = toNumber(vt.LocalAmount);
-        const currency = vt.CurrencyCode || "";
+        const currency = vt.CurrencyCode || '';
         if (!currencyCumulative[currency]) {
           currencyCumulative[currency] = 0;
         }
@@ -1036,23 +1112,28 @@ export class AccountsReportsService {
           originalCurrencyAmount - matchedCurrencyAmount,
           2,
         );
-        const outstandingLocalAmount = roundAmount(originalLocalAmount - matchedLocalAmount, 2);
+        const outstandingLocalAmount = roundAmount(
+          originalLocalAmount - matchedLocalAmount,
+          2,
+        );
 
         const drCr = vt.DrCr?.toUpperCase();
         let signedAmount = outstandingCurrencyAmount;
-        if (ledger?.LedgerType?.trim() === "Sy Cr") {
-          if (drCr === "C") signedAmount = outstandingCurrencyAmount;
-          if (drCr === "D") signedAmount = -1 * toNumber(outstandingCurrencyAmount);
-        }
-        else if (ledger?.LedgerType?.trim() === "Sy Dr") {
-          if (drCr === "D") signedAmount = outstandingCurrencyAmount;
-          if (drCr === "C") signedAmount = -1 * toNumber(outstandingCurrencyAmount);
+        if (ledger?.LedgerType?.trim() === 'Sy Cr') {
+          if (drCr === 'C') signedAmount = outstandingCurrencyAmount;
+          if (drCr === 'D')
+            signedAmount = -1 * toNumber(outstandingCurrencyAmount);
+        } else if (ledger?.LedgerType?.trim() === 'Sy Dr') {
+          if (drCr === 'D') signedAmount = outstandingCurrencyAmount;
+          if (drCr === 'C')
+            signedAmount = -1 * toNumber(outstandingCurrencyAmount);
         }
         cumulativeTotal += signedAmount;
         currencyCumulative[currency] += signedAmount;
-        const exchangeRate = originalCurrencyAmount !== 0
-          ? roundAmount(originalLocalAmount / originalCurrencyAmount, 4)
-          : 1.0;
+        const exchangeRate =
+          originalCurrencyAmount !== 0
+            ? roundAmount(originalLocalAmount / originalCurrencyAmount, 4)
+            : 1.0;
 
         const voucherDate = new Date(vt.VoucherDate);
         const reportToDate = new Date(ToDate);
@@ -1060,32 +1141,35 @@ export class AccountsReportsService {
         const ageingDays =
           Math.floor(
             (reportToDate.getTime() - voucherDate.getTime()) /
-            (1000 * 60 * 60 * 24)
+              (1000 * 60 * 60 * 24),
           ) + 1;
 
-           const ledgerType = ledger?.LedgerType?.trim();
+        const ledgerType = ledger?.LedgerType?.trim();
         const drCrValue = vt.DrCr?.trim().toUpperCase();
 
         let sign = 1;
         if (
-          (ledgerType === "Sy Cr" && drCrValue === "D") ||
-          (ledgerType === "Sy Dr" && drCrValue === "C")
+          (ledgerType === 'Sy Cr' && drCrValue === 'D') ||
+          (ledgerType === 'Sy Dr' && drCrValue === 'C')
         ) {
           sign = -1;
         }
         const signedOriginalCurrency = sign * originalCurrencyAmount;
         const signedOutstandingCurrency = sign * outstandingCurrencyAmount;
 
-        if (Math.abs(outstandingCurrencyAmount) > 0 || Math.abs(outstandingLocalAmount) > 0) {
-          let ageingBucket = "";
+        if (
+          Math.abs(outstandingCurrencyAmount) > 0 ||
+          Math.abs(outstandingLocalAmount) > 0
+        ) {
+          let ageingBucket = '';
 
-          if (ageingDays <= 30) ageingBucket = "0 - 30 Days";
-          else if (ageingDays <= 60) ageingBucket = "31 - 60 Days";
-          else if (ageingDays <= 90) ageingBucket = "61 - 90 Days";
-          else if (ageingDays <= 120) ageingBucket = "91 - 120 Days";
-          else ageingBucket = "121+ Above";
+          if (ageingDays <= 30) ageingBucket = '0 - 30 Days';
+          else if (ageingDays <= 60) ageingBucket = '31 - 60 Days';
+          else if (ageingDays <= 90) ageingBucket = '61 - 90 Days';
+          else if (ageingDays <= 120) ageingBucket = '91 - 120 Days';
+          else ageingBucket = '121+ Above';
 
-          const currency = vt.CurrencyCode || "";
+          const currency = vt.CurrencyCode || '';
 
           if (!currencyWiseSummary[currency]) {
             currencyWiseSummary[currency] = {
@@ -1109,8 +1193,7 @@ export class AccountsReportsService {
             ageingSummary.bucket_61_90 += outstandingCurrencyAmount;
           else if (ageingDays <= 120)
             ageingSummary.bucket_91_120 += outstandingCurrencyAmount;
-          else
-            ageingSummary.bucket_121_above += outstandingCurrencyAmount;
+          else ageingSummary.bucket_121_above += outstandingCurrencyAmount;
 
           currencyWiseSummary[currency].totalOutstanding += signedAmount;
 
@@ -1122,8 +1205,7 @@ export class AccountsReportsService {
             currencyWiseSummary[currency].bucket_61_90 += signedAmount;
           else if (ageingDays <= 120)
             currencyWiseSummary[currency].bucket_91_120 += signedAmount;
-          else
-            currencyWiseSummary[currency].bucket_121_above += signedAmount;
+          else currencyWiseSummary[currency].bucket_121_above += signedAmount;
 
           transactions.push({
             voucherTransactionSid: vt.VoucherTransactionSid,
@@ -1146,16 +1228,19 @@ export class AccountsReportsService {
             currencyCode: vt.CurrencyCode || '',
             exchangeRate: toNumber(vt.ExchangeRate || 1),
             drCr: vt.DrCr,
-            chargeDescription: vt.ChargeDescription || "",
+            chargeDescription: vt.ChargeDescription || '',
             deptname: vt.departmentMaster?.departmentName,
-            salesmanSid: userMaster.find(u => u.UserMasterSid === vt.houseJob?.SalesmanSid)?.userName || '',
+            salesmanSid:
+              userMaster.find(
+                (u) => u.UserMasterSid === vt.houseJob?.SalesmanSid,
+              )?.userName || '',
             naration: vt.Narration,
             ageingDays: ageingDays,
             ageingBucket: ageingBucket,
             cumulativeOutstanding: cumulativeTotal,
             currencyWiseCumulative: currencyCumulative[currency],
-            signedOriginalCurrency:toNumber(signedOriginalCurrency),
-            signedOutstandingCurrency:toNumber(signedOutstandingCurrency)
+            signedOriginalCurrency: toNumber(signedOriginalCurrency),
+            signedOutstandingCurrency: toNumber(signedOutstandingCurrency),
           });
 
           totalOutstandingCurrency += outstandingCurrencyAmount;
@@ -1163,21 +1248,22 @@ export class AccountsReportsService {
         }
         ageingSummary.totalOutstanding = roundAmount(
           ageingSummary.totalOutstanding,
-          2
+          2,
         );
         ageingSummary.bucket_0_30 = roundAmount(ageingSummary.bucket_0_30, 2);
         ageingSummary.bucket_31_60 = roundAmount(ageingSummary.bucket_31_60, 2);
         ageingSummary.bucket_61_90 = roundAmount(ageingSummary.bucket_61_90, 2);
-        ageingSummary.bucket_91_120 = roundAmount(ageingSummary.bucket_91_120, 2);
+        ageingSummary.bucket_91_120 = roundAmount(
+          ageingSummary.bucket_91_120,
+          2,
+        );
         ageingSummary.bucket_121_above = roundAmount(
           ageingSummary.bucket_121_above,
-          2
+          2,
         );
       }
 
-      transactions.sort((a, b) =>
-        a.currencyCode.localeCompare(b.currencyCode)
-      );
+      transactions.sort((a, b) => a.currencyCode.localeCompare(b.currencyCode));
 
       const response = {
         companyMasterSid: CompanyMasterSid,
@@ -1193,7 +1279,7 @@ export class AccountsReportsService {
         transactions: transactions,
         params: params,
         ageingSummary,
-        currencyWiseSummary: Object.values(currencyWiseSummary)
+        currencyWiseSummary: Object.values(currencyWiseSummary),
       };
 
       this.logger.log(
@@ -1210,7 +1296,9 @@ export class AccountsReportsService {
     }
   }
 
-  private async generateStatementLedgerReport(params: StatementLedgerReportQueryDto) {
+  private async generateStatementLedgerReport(
+    params: StatementLedgerReportQueryDto,
+  ) {
     const {
       FromDate,
       ToDate,
@@ -1225,27 +1313,29 @@ export class AccountsReportsService {
         `Getting customer outstanding: CompanySid=${CompanyMasterSid}, LedgerMasterSid=${ledgerMasterSid}`,
       );
 
-      const branches = branchId && branchId.length > 0
-        ? await this._db.branchMaster.findMany({
-          where: { BranchMasterSid: { in: branchId } },
-          select: {
-            BranchMasterSid: true,
-            branchName: true,
-          },
-        })
-        : await this._db.branchMaster.findMany({
-          where: { CompanyMasterSid },
-          select: {
-            BranchMasterSid: true,
-            branchName: true,
-          },
-        });
+      const branches =
+        branchId && branchId.length > 0
+          ? await this._db.branchMaster.findMany({
+              where: { BranchMasterSid: { in: branchId } },
+              select: {
+                BranchMasterSid: true,
+                branchName: true,
+              },
+            })
+          : await this._db.branchMaster.findMany({
+              where: { CompanyMasterSid },
+              select: {
+                BranchMasterSid: true,
+                branchName: true,
+              },
+            });
 
-      const resolvedBranchIds = branches.map(b => b.BranchMasterSid);
-      const resolvedBranchNames = branches.map(b => b.branchName);
-      const BranchInvolved = branchId && branchId.length > 0
-        ? branches.map(b => b.branchName).join(', ')
-        : 'All Branches';
+      const resolvedBranchIds = branches.map((b) => b.BranchMasterSid);
+      const resolvedBranchNames = branches.map((b) => b.branchName);
+      const BranchInvolved =
+        branchId && branchId.length > 0
+          ? branches.map((b) => b.branchName).join(', ')
+          : 'All Branches';
 
       // Get customer/subledger information
       const subledger = await this._db.subledgerMaster.findUnique({
@@ -1253,16 +1343,16 @@ export class AccountsReportsService {
       });
 
       const ledger = await this._db.cOAMaster.findUnique({
-        where: { COAMasterSid: coaMasterSid }
-      })
+        where: { COAMasterSid: coaMasterSid },
+      });
 
       const userMaster = await this._db.userMaster.findMany({
         select: {
           UserMasterSid: true,
-          userName: true
-        }
-      })
-      
+          userName: true,
+        },
+      });
+
       const openingTransactions = await this._db.voucherTransaction.findMany({
         where: {
           CompanyMasterSid,
@@ -1280,18 +1370,18 @@ export class AccountsReportsService {
       let openingBalance = 0;
 
       for (const vt of openingTransactions) {
-        // opening balance before take from date and  Amt 
+        // opening balance before take from date and  Amt
         const amt = toNumber(vt.Amount);
         const drCr = vt.DrCr?.trim().toUpperCase();
         let signedAmt = amt;
-        if (ledger?.LedgerType?.trim() === "Sy Cr") {
-          if (drCr === "D") signedAmt = -amt;
-          if (drCr === "C") signedAmt = +amt;
+        if (ledger?.LedgerType?.trim() === 'Sy Cr') {
+          if (drCr === 'D') signedAmt = -amt;
+          if (drCr === 'C') signedAmt = +amt;
         }
 
-        if (ledger?.LedgerType?.trim() === "Sy Dr") {
-          if (drCr === "C") signedAmt = -amt;
-          if (drCr === "D") signedAmt = +amt;
+        if (ledger?.LedgerType?.trim() === 'Sy Dr') {
+          if (drCr === 'C') signedAmt = -amt;
+          if (drCr === 'D') signedAmt = +amt;
         }
         openingBalance += signedAmt;
       }
@@ -1304,25 +1394,25 @@ export class AccountsReportsService {
           BranchMasterSid: { in: resolvedBranchIds },
           AND: [
             { VoucherDate: { gte: FromDate } },
-            { VoucherDate: { lte: ToDate } }
+            { VoucherDate: { lte: ToDate } },
           ],
           COAMasterSid: coaMasterSid,
           LedgerMasterSid: ledgerMasterSid,
           VoucherHeader: {
-            PostStatus: "P"
+            PostStatus: 'P',
           },
           Status: 'A',
         },
         include: {
           VoucherHeader: {
             select: {
-              PostStatus: true
-            }
+              PostStatus: true,
+            },
           },
           masterJob: true,
           houseJob: true,
           departmentMaster: {
-            select: { departmentName: true }
+            select: { departmentName: true },
           },
           voucherMatchings: {
             where: {
@@ -1330,8 +1420,8 @@ export class AccountsReportsService {
             },
           },
           voucherTypeMaster: {
-            select: { DocumentTypeCode: true }
-          }
+            select: { DocumentTypeCode: true },
+          },
         },
         orderBy: {
           VoucherDate: 'asc',
@@ -1339,7 +1429,9 @@ export class AccountsReportsService {
       });
 
       if (voucherTransactions.length === 0) {
-        this.logger.log(`No outstanding vouchers found for LedgerMasterSid ${ledgerMasterSid}`);
+        this.logger.log(
+          `No outstanding vouchers found for LedgerMasterSid ${ledgerMasterSid}`,
+        );
         return {
           companyMasterSid: CompanyMasterSid,
           branchMasterSid: branchId,
@@ -1366,7 +1458,6 @@ export class AccountsReportsService {
         // Sum matched amounts for this transaction
         let matchedCurrencyAmount = 0;
         let matchedLocalAmount = 0;
-        
 
         if (vt.voucherMatchings && vt.voucherMatchings.length > 0) {
           matchedCurrencyAmount = vt.voucherMatchings.reduce(
@@ -1383,28 +1474,30 @@ export class AccountsReportsService {
           originalCurrencyAmount - matchedCurrencyAmount,
           2,
         );
-        const outstandingLocalAmount = roundAmount(originalLocalAmount - matchedLocalAmount, 2);
+        const outstandingLocalAmount = roundAmount(
+          originalLocalAmount - matchedLocalAmount,
+          2,
+        );
         const ledgerType = ledger?.LedgerType?.trim();
         const drCrValue = vt.DrCr?.trim().toUpperCase();
 
         const drCr = vt.DrCr?.toUpperCase();
         let signedAmount = outstandingLocalAmount;
-        if (ledger?.LedgerType?.trim() === "Sy Cr") {
-          if (drCr === "C") signedAmount = +outstandingLocalAmount;
-          if (drCr === "D") signedAmount = -outstandingLocalAmount;
-        }
-        else if (ledger?.LedgerType?.trim() === "Sy Dr") {
-          if (drCr === "D") signedAmount = +outstandingLocalAmount;
-          if (drCr === "C") signedAmount = -outstandingLocalAmount;
+        if (ledger?.LedgerType?.trim() === 'Sy Cr') {
+          if (drCr === 'C') signedAmount = +outstandingLocalAmount;
+          if (drCr === 'D') signedAmount = -outstandingLocalAmount;
+        } else if (ledger?.LedgerType?.trim() === 'Sy Dr') {
+          if (drCr === 'D') signedAmount = +outstandingLocalAmount;
+          if (drCr === 'C') signedAmount = -outstandingLocalAmount;
         }
 
         cumulativeTotal += signedAmount;
         cumulativeTotal = roundAmount(cumulativeTotal, 2);
-        
+
         let sign = 1;
         if (
-          (ledgerType === "Sy Cr" && drCrValue === "D") ||
-          (ledgerType === "Sy Dr" && drCrValue === "C")
+          (ledgerType === 'Sy Cr' && drCrValue === 'D') ||
+          (ledgerType === 'Sy Dr' && drCrValue === 'C')
         ) {
           sign = -1;
         }
@@ -1413,9 +1506,10 @@ export class AccountsReportsService {
         const signedLocalAmt = sign * originalLocalAmount;
         const signedoutstandingLocalAmount = sign * outstandingLocalAmount;
         // Calculate exchange rate
-        const exchangeRate = originalCurrencyAmount !== 0
-          ? roundAmount(originalLocalAmount / originalCurrencyAmount, 4)
-          : 1.0;
+        const exchangeRate =
+          originalCurrencyAmount !== 0
+            ? roundAmount(originalLocalAmount / originalCurrencyAmount, 4)
+            : 1.0;
 
         // Only include if there's outstanding balance
         // if (Math.abs(outstandingCurrencyAmount) > 0 || Math.abs(outstandingLocalAmount) > 0) {
@@ -1440,20 +1534,22 @@ export class AccountsReportsService {
           currencyCode: vt.CurrencyCode || 'USD',
           exchangeRate: toNumber(vt.ExchangeRate || 1),
           drCr: vt.DrCr,
-          chargeDescription: vt.ChargeDescription || "",
+          chargeDescription: vt.ChargeDescription || '',
           deptname:
             vt.departmentMaster?.departmentName &&
-              !vt.departmentMaster.departmentName.toLowerCase().includes('air')
+            !vt.departmentMaster.departmentName.toLowerCase().includes('air')
               ? vt.departmentMaster.departmentName
               : null,
-          salesmanSid: userMaster.find(u => u.UserMasterSid === vt.houseJob?.SalesmanSid)?.userName || '',
+          salesmanSid:
+            userMaster.find((u) => u.UserMasterSid === vt.houseJob?.SalesmanSid)
+              ?.userName || '',
           naration: vt.Narration,
           // currency amt
-          signedOriginalCurrency:toNumber(signedOriginalCurrency),
-          signedOutstandingCurrency:toNumber(signedOutstandingCurrency),
+          signedOriginalCurrency: toNumber(signedOriginalCurrency),
+          signedOutstandingCurrency: toNumber(signedOutstandingCurrency),
           // local amt
-          signedLocalAmt:toNumber(signedLocalAmt),
-          signedoutstandingLocalAmount:toNumber(signedoutstandingLocalAmount),
+          signedLocalAmt: toNumber(signedLocalAmt),
+          signedoutstandingLocalAmount: toNumber(signedoutstandingLocalAmount),
           cumulativeOutstanding: cumulativeTotal,
         });
 
@@ -1468,10 +1564,10 @@ export class AccountsReportsService {
         ledgerMasterSid: ledgerMasterSid!,
         subledgerName: subledger?.SubledgerName,
         ledgerName: ledger?.LedgerName,
-        ledgerType:ledger?.LedgerType,
+        ledgerType: ledger?.LedgerType,
         totalOutstandingCurrency: roundAmount(totalOutstandingCurrency, 2),
         totalOutstandingLocal: roundAmount(totalOutstandingLocal, 2),
-        openingBalance:openingBalance,
+        openingBalance: openingBalance,
         voucherCount: transactions.length,
         transactions: transactions,
         branchNames: resolvedBranchNames.join(', '),
@@ -1507,27 +1603,29 @@ export class AccountsReportsService {
         `Getting customer profit and loss: CompanySid=${CompanyMasterSid}`,
       );
 
-      const branches = branchId && branchId.length > 0
-        ? await this._db.branchMaster.findMany({
-          where: { BranchMasterSid: { in: branchId } },
-          select: {
-            BranchMasterSid: true,
-            branchName: true,
-          },
-        })
-        : await this._db.branchMaster.findMany({
-          where: { CompanyMasterSid },
-          select: {
-            BranchMasterSid: true,
-            branchName: true,
-          },
-        });
+      const branches =
+        branchId && branchId.length > 0
+          ? await this._db.branchMaster.findMany({
+              where: { BranchMasterSid: { in: branchId } },
+              select: {
+                BranchMasterSid: true,
+                branchName: true,
+              },
+            })
+          : await this._db.branchMaster.findMany({
+              where: { CompanyMasterSid },
+              select: {
+                BranchMasterSid: true,
+                branchName: true,
+              },
+            });
 
-      const resolvedBranchIds = branches.map(b => b.BranchMasterSid);
-      const resolvedBranchNames = branches.map(b => b.branchName);
-      const BranchInvolved = branchId && branchId.length > 0
-        ? branches.map(b => b.branchName).join(', ')
-        : 'All Branches';
+      const resolvedBranchIds = branches.map((b) => b.BranchMasterSid);
+      const resolvedBranchNames = branches.map((b) => b.branchName);
+      const BranchInvolved =
+        branchId && branchId.length > 0
+          ? branches.map((b) => b.branchName).join(', ')
+          : 'All Branches';
       const voucherTransactions = await this._db.voucherTransaction.findMany({
         where: {
           CompanyMasterSid,
@@ -1572,12 +1670,10 @@ export class AccountsReportsService {
         const { Category, GroupName, SubGroupName, LedgerName } = vt.coaMaster;
         const yearCode = vt.yearMaster.YearCode;
 
-
         const amount = vt.LocalAmount.toNumber();
 
         const signedAmount =
           vt.DrCr === 'C' ? amount : vt.DrCr === 'D' ? amount * -1 : 0;
-
 
         const key = `${Category}|${GroupName}|${SubGroupName}|${LedgerName}`;
 
@@ -1605,7 +1701,6 @@ export class AccountsReportsService {
         params,
         profitLoss,
       };
-
     } catch (error) {
       this.logger.error(
         `Error getting customer profit and loss for ${CompanyMasterSid}: ${error.message}`,
@@ -1623,7 +1718,7 @@ export class AccountsReportsService {
       Ledger: coaMasterSid,
       Branch: branchId,
       companyId: CompanyMasterSid,
-      VoucherType: voucherType
+      VoucherType: voucherType,
     } = params;
 
     try {
@@ -1631,53 +1726,56 @@ export class AccountsReportsService {
         `Getting ledger report: CompanySid=${CompanyMasterSid}, LedgerMasterSid=${ledgerMasterSid}`,
       );
 
-      const branches = branchId && branchId.length > 0
-        ? await this._db.branchMaster.findMany({
-          where: { BranchMasterSid: { in: branchId } },
-          select: {
-            BranchMasterSid: true,
-            branchName: true,
-          },
-        })
-        : await this._db.branchMaster.findMany({
-          where: { CompanyMasterSid },
-          select: {
-            BranchMasterSid: true,
-            branchName: true,
-          },
-        });
+      const branches =
+        branchId && branchId.length > 0
+          ? await this._db.branchMaster.findMany({
+              where: { BranchMasterSid: { in: branchId } },
+              select: {
+                BranchMasterSid: true,
+                branchName: true,
+              },
+            })
+          : await this._db.branchMaster.findMany({
+              where: { CompanyMasterSid },
+              select: {
+                BranchMasterSid: true,
+                branchName: true,
+              },
+            });
 
-      const resolvedBranchIds = branches.map(b => b.BranchMasterSid);
-      const resolvedBranchNames = branches.map(b => b.branchName);
-      const branchInvolved = branchId && branchId.length > 0 ? branches.map(b => b.branchName).join(', ') : 'All Branches'
+      const resolvedBranchIds = branches.map((b) => b.BranchMasterSid);
+      const resolvedBranchNames = branches.map((b) => b.branchName);
+      const branchInvolved =
+        branchId && branchId.length > 0
+          ? branches.map((b) => b.branchName).join(', ')
+          : 'All Branches';
       const subledger = ledgerMasterSid
         ? await this._db.subledgerMaster.findUnique({
-          where: { SubledgerMasterSid: ledgerMasterSid },
-        })
+            where: { SubledgerMasterSid: ledgerMasterSid },
+          })
         : null;
 
       const ledger = coaMasterSid
         ? await this._db.cOAMaster.findUnique({
-          where: { COAMasterSid: coaMasterSid },
-        })
+            where: { COAMasterSid: coaMasterSid },
+          })
         : null;
-
 
       const userMaster = await this._db.userMaster.findMany({
         select: {
           UserMasterSid: true,
-          userName: true
-        }
-      })
+          userName: true,
+        },
+      });
 
       const voucherTypeMaster = voucherType
         ? await this._db.voucherTypeMaster.findUnique({
-          where: { VoucherTypeMasterSid: Number(voucherType) },
-          select: {
-            VoucherTypeMasterSid: true,
-            DocumentTypeCode: true,
-          },
-        })
+            where: { VoucherTypeMasterSid: Number(voucherType) },
+            select: {
+              VoucherTypeMasterSid: true,
+              DocumentTypeCode: true,
+            },
+          })
         : null;
 
       const openingTransactions = await this._db.voucherTransaction.findMany({
@@ -1700,24 +1798,23 @@ export class AccountsReportsService {
       let openingBalance = 0;
 
       for (const vt of openingTransactions) {
-        // opening balance before take from date and  Amt 
+        // opening balance before take from date and  Amt
         const amt = toNumber(vt.Amount);
         const drCr = vt.DrCr?.trim().toUpperCase();
         let signedAmt = amt;
-        if (ledger?.LedgerType?.trim() === "Sy Cr") {
-          if (drCr === "D") signedAmt = -amt;
-          if (drCr === "C") signedAmt = +amt;
+        if (ledger?.LedgerType?.trim() === 'Sy Cr') {
+          if (drCr === 'D') signedAmt = -amt;
+          if (drCr === 'C') signedAmt = +amt;
         }
 
-        if (ledger?.LedgerType?.trim() === "Sy Dr") {
-          if (drCr === "C") signedAmt = -amt;
-          if (drCr === "D") signedAmt = +amt;
+        if (ledger?.LedgerType?.trim() === 'Sy Dr') {
+          if (drCr === 'C') signedAmt = -amt;
+          if (drCr === 'D') signedAmt = +amt;
         }
         openingBalance += signedAmt;
       }
 
       openingBalance = roundAmount(openingBalance, 2);
-
 
       const voucherTransactions = await this._db.voucherTransaction.findMany({
         where: {
@@ -1725,7 +1822,7 @@ export class AccountsReportsService {
           BranchMasterSid: { in: resolvedBranchIds },
           AND: [
             { VoucherDate: { gte: FromDate } },
-            { VoucherDate: { lte: ToDate } }
+            { VoucherDate: { lte: ToDate } },
           ],
           ...(coaMasterSid && { COAMasterSid: coaMasterSid }),
           ...(ledgerMasterSid && { LedgerMasterSid: ledgerMasterSid }),
@@ -1733,7 +1830,7 @@ export class AccountsReportsService {
             VoucherTypeMasterSid: Number(voucherType),
           }),
           VoucherHeader: {
-            PostStatus: 'P'
+            PostStatus: 'P',
           },
 
           Status: 'A',
@@ -1742,12 +1839,12 @@ export class AccountsReportsService {
           VoucherHeader: {
             select: {
               PostStatus: true,
-            }
+            },
           },
           masterJob: true,
           houseJob: true,
           departmentMaster: {
-            select: { departmentName: true }
+            select: { departmentName: true },
           },
           voucherMatchings: {
             where: {
@@ -1755,8 +1852,8 @@ export class AccountsReportsService {
             },
           },
           voucherTypeMaster: {
-            select: { DocumentTypeCode: true }
-          }
+            select: { DocumentTypeCode: true },
+          },
         },
         orderBy: {
           VoucherDate: 'asc',
@@ -1764,7 +1861,9 @@ export class AccountsReportsService {
       });
 
       if (voucherTransactions.length === 0) {
-        this.logger.log(`No Ledger Report found for LedgerMasterSid ${ledgerMasterSid}`);
+        this.logger.log(
+          `No Ledger Report found for LedgerMasterSid ${ledgerMasterSid}`,
+        );
         return {
           companyMasterSid: CompanyMasterSid,
           branchMasterSid: branchId,
@@ -1807,28 +1906,30 @@ export class AccountsReportsService {
           originalCurrencyAmount - matchedCurrencyAmount,
           2,
         );
-        const outstandingLocalAmount = roundAmount(originalLocalAmount - matchedLocalAmount, 2);
+        const outstandingLocalAmount = roundAmount(
+          originalLocalAmount - matchedLocalAmount,
+          2,
+        );
         const ledgerType = ledger?.LedgerType?.trim();
         const drCrValue = vt.DrCr?.trim().toUpperCase();
 
         const drCr = vt.DrCr?.toUpperCase();
         let signedAmount = outstandingLocalAmount;
-        if (ledger?.LedgerType?.trim() === "Sy Cr") {
-          if (drCr === "C") signedAmount = +outstandingLocalAmount;
-          if (drCr === "D") signedAmount = -outstandingLocalAmount;
-        }
-        else if (ledger?.LedgerType?.trim() === "Sy Dr") {
-          if (drCr === "D") signedAmount = +outstandingLocalAmount;
-          if (drCr === "C") signedAmount = -outstandingLocalAmount;
+        if (ledger?.LedgerType?.trim() === 'Sy Cr') {
+          if (drCr === 'C') signedAmount = +outstandingLocalAmount;
+          if (drCr === 'D') signedAmount = -outstandingLocalAmount;
+        } else if (ledger?.LedgerType?.trim() === 'Sy Dr') {
+          if (drCr === 'D') signedAmount = +outstandingLocalAmount;
+          if (drCr === 'C') signedAmount = -outstandingLocalAmount;
         }
 
         cumulativeTotal += signedAmount;
         cumulativeTotal = roundAmount(cumulativeTotal, 2);
-        
+
         let sign = 1;
         if (
-          (ledgerType === "Sy Cr" && drCrValue === "D") ||
-          (ledgerType === "Sy Dr" && drCrValue === "C")
+          (ledgerType === 'Sy Cr' && drCrValue === 'D') ||
+          (ledgerType === 'Sy Dr' && drCrValue === 'C')
         ) {
           sign = -1;
         }
@@ -1838,9 +1939,10 @@ export class AccountsReportsService {
         const signedoutstandingLocalAmount = sign * outstandingLocalAmount;
 
         // Calculate exchange rate
-        const exchangeRate = originalCurrencyAmount !== 0
-          ? roundAmount(originalLocalAmount / originalCurrencyAmount, 4)
-          : 1.0;
+        const exchangeRate =
+          originalCurrencyAmount !== 0
+            ? roundAmount(originalLocalAmount / originalCurrencyAmount, 4)
+            : 1.0;
 
         // Only include if there's outstanding balance
 
@@ -1865,24 +1967,25 @@ export class AccountsReportsService {
           currencyCode: vt.CurrencyCode || 'USD',
           exchangeRate: toNumber(vt.ExchangeRate || 1),
           drCr: vt.DrCr,
-          chargeDescription: vt.ChargeDescription || "",
+          chargeDescription: vt.ChargeDescription || '',
           deptname:
             vt.departmentMaster?.departmentName &&
-              !vt.departmentMaster.departmentName.toLowerCase().includes('air')
+            !vt.departmentMaster.departmentName.toLowerCase().includes('air')
               ? vt.departmentMaster.departmentName
               : null,
-          salesmanSid: userMaster.find(u => u.UserMasterSid === vt.houseJob?.SalesmanSid)?.userName || '',
+          salesmanSid:
+            userMaster.find((u) => u.UserMasterSid === vt.houseJob?.SalesmanSid)
+              ?.userName || '',
           naration: vt.Narration,
           cumulativeOutstanding: cumulativeTotal,
-          signedOriginalCurrency:toNumber(signedOriginalCurrency),
-          signedOutstandingCurrency:toNumber(signedOutstandingCurrency),
-          signedLocalAmt:toNumber(signedLocalAmt),
-          signedoutstandingLocalAmount:toNumber(signedoutstandingLocalAmount),
+          signedOriginalCurrency: toNumber(signedOriginalCurrency),
+          signedOutstandingCurrency: toNumber(signedOutstandingCurrency),
+          signedLocalAmt: toNumber(signedLocalAmt),
+          signedoutstandingLocalAmount: toNumber(signedoutstandingLocalAmount),
         });
-        
+
         totalOutstandingCurrency += outstandingCurrencyAmount;
         totalOutstandingLocal += outstandingLocalAmount;
-        
       }
 
       const response = {
@@ -1892,14 +1995,14 @@ export class AccountsReportsService {
         ledgerMasterSid: ledgerMasterSid!,
         subledgerName: subledger?.SubledgerName,
         ledgerName: ledger?.LedgerName,
-        ledgerType:ledger?.LedgerType,
+        ledgerType: ledger?.LedgerType,
         totalOutstandingCurrency: roundAmount(totalOutstandingCurrency, 2),
         totalOutstandingLocal: roundAmount(totalOutstandingLocal, 2),
         openingBalance: openingBalance,
         voucherCount: transactions.length,
         transactions: transactions,
         branchNames: resolvedBranchNames.join(', '),
-        voucherTypeName: voucherTypeMaster?.DocumentTypeCode || "All Vouchers",
+        voucherTypeName: voucherTypeMaster?.DocumentTypeCode || 'All Vouchers',
         params: params,
       };
 
@@ -1922,33 +2025,35 @@ export class AccountsReportsService {
       companyId: CompanyMasterSid,
       FromDate,
       ToDate,
-      Branch: branchId
+      Branch: branchId,
     } = params;
 
     try {
-      this.logger.log(
-        `Getting Balance Sheet : CompanySid=${CompanyMasterSid}`,
-      );
+      this.logger.log(`Getting Balance Sheet : CompanySid=${CompanyMasterSid}`);
 
-      const branches = branchId && branchId.length > 0
-        ? await this._db.branchMaster.findMany({
-          where: { BranchMasterSid: { in: branchId } },
-          select: {
-            BranchMasterSid: true,
-            branchName: true,
-          },
-        })
-        : await this._db.branchMaster.findMany({
-          where: { CompanyMasterSid },
-          select: {
-            BranchMasterSid: true,
-            branchName: true,
-          },
-        });
+      const branches =
+        branchId && branchId.length > 0
+          ? await this._db.branchMaster.findMany({
+              where: { BranchMasterSid: { in: branchId } },
+              select: {
+                BranchMasterSid: true,
+                branchName: true,
+              },
+            })
+          : await this._db.branchMaster.findMany({
+              where: { CompanyMasterSid },
+              select: {
+                BranchMasterSid: true,
+                branchName: true,
+              },
+            });
 
-      const resolvedBranchIds = branches.map(b => b.BranchMasterSid);
-      const resolvedBranchNames = branches.map(b => b.branchName);
-      const branchInvolved = branchId && branchId.length > 0 ? branches.map(b => b.branchName).join(', ') : 'All Branches'
+      const resolvedBranchIds = branches.map((b) => b.BranchMasterSid);
+      const resolvedBranchNames = branches.map((b) => b.branchName);
+      const branchInvolved =
+        branchId && branchId.length > 0
+          ? branches.map((b) => b.branchName).join(', ')
+          : 'All Branches';
       const voucherData = await this._db.voucherTransaction.findMany({
         where: {
           CompanyMasterSid,
@@ -1968,7 +2073,7 @@ export class AccountsReportsService {
               LedgerName: true,
             },
           },
-          yearMaster: true
+          yearMaster: true,
         },
       });
 
@@ -1978,15 +2083,13 @@ export class AccountsReportsService {
       const groupedMap = new Map<string, any>();
       const data: any[] = [];
 
-      voucherData.forEach(v => {
+      voucherData.forEach((v) => {
         if (!v.coaMaster || !v.yearMaster) return;
 
         const amount = v.LocalAmount.toNumber();
 
         const signedAmount =
-          v.DrCr === 'C' ? amount :
-            v.DrCr === 'D' ? amount * -1 :
-              0;
+          v.DrCr === 'C' ? amount : v.DrCr === 'D' ? amount * -1 : 0;
 
         const category = v.coaMaster.Category;
 
@@ -2005,7 +2108,7 @@ export class AccountsReportsService {
             category,
             v.coaMaster.GroupName,
             v.coaMaster.SubGroupName,
-            v.coaMaster.LedgerName
+            v.coaMaster.LedgerName,
           ].join('|');
 
           if (!groupedMap.has(key)) {
@@ -2022,8 +2125,6 @@ export class AccountsReportsService {
         }
       });
 
-
-
       data.push(...groupedMap.values());
 
       return {
@@ -2036,11 +2137,10 @@ export class AccountsReportsService {
         params,
         branchNames: resolvedBranchNames.join(', '),
       };
-
     } catch (error) {
       this.logger.error(
         `Error generating Balance sheet report: ${error.message}`,
-        error.stack
+        error.stack,
       );
       throw error;
     }
@@ -2051,13 +2151,11 @@ export class AccountsReportsService {
       VoucherFromDate: FromDate,
       VoucherToDate: ToDate,
       companyId: CompanyMasterSid,
-      coamasterSid
-    } = params
+      coamasterSid,
+    } = params;
 
     try {
-      this.logger.log(
-        `Getting VAT Report: CompanySid=${CompanyMasterSid}`,
-      );
+      this.logger.log(`Getting VAT Report: CompanySid=${CompanyMasterSid}`);
 
       // oragnizaton master
 
@@ -2066,8 +2164,8 @@ export class AccountsReportsService {
           CustomerMasterSid: true,
           CustomerName: true,
           PanType: true,
-        }
-      })
+        },
+      });
 
       /* STEP 1: Customer subledger per voucher */
       const customerSubledger = await this._db.voucherTransaction.findMany({
@@ -2084,21 +2182,19 @@ export class AccountsReportsService {
               SubledgerName: true,
             },
           },
-
         },
       });
 
       const subledgerMap = new Map<number, string>();
-      customerSubledger.forEach(v => {
+      customerSubledger.forEach((v) => {
         if (v.subledgerMaster?.SubledgerName) {
           subledgerMap.set(v.VoucherHeaderSid, v.subledgerMaster.SubledgerName);
         }
       });
 
-
       const panTypeMap = new Map<string, string>();
 
-      oragnizatonMaster.forEach(c => {
+      oragnizatonMaster.forEach((c) => {
         if (c.CustomerName) {
           panTypeMap.set(c.CustomerName.trim(), c.PanType || '');
         }
@@ -2110,13 +2206,16 @@ export class AccountsReportsService {
           CompanyMasterSid,
           AND: [
             { VoucherDate: { gte: FromDate } },
-            { VoucherDate: { lte: ToDate } }
+            { VoucherDate: { lte: ToDate } },
           ],
           Status: 'A',
           COAMasterSid: coamasterSid,
           voucherTypeMaster: {
             DocumentTypeCode: {
-              in: [DOC_TYPE_CODE.VENDOR_INVOICE, DOC_TYPE_CODE.VENDOR_CREDIT_NOTE],
+              in: [
+                DOC_TYPE_CODE.VENDOR_INVOICE,
+                DOC_TYPE_CODE.VENDOR_CREDIT_NOTE,
+              ],
             },
           },
         },
@@ -2129,13 +2228,13 @@ export class AccountsReportsService {
               VoucherTypeMasterSid: true,
               DocumentDate: true,
               DocumentNumber: true,
-            }
+            },
           },
           voucherTypeMaster: {
             select: {
               DocumentTypeCode: true,
-              DocumentTypeName: true
-            }
+              DocumentTypeName: true,
+            },
           },
           coaMaster: {
             select: {
@@ -2151,40 +2250,29 @@ export class AccountsReportsService {
       const inputTax: any[] = [];
       const outputTax: any[] = [];
 
-
-      voucherData.forEach(v => {
-
-
+      voucherData.forEach((v) => {
         const ledgerType = v.coaMaster?.LedgerType;
 
-        const voucherType1 =
-          v.VoucherTypeMasterSid === 2
-            ? 'Sales' : ''
+        const voucherType1 = v.VoucherTypeMasterSid === 2 ? 'Sales' : '';
 
-
-        const voucherType2 = v.VoucherTypeMasterSid === 2
-          ? 'Purchase'
-          : 'Journal'
-          ;
-
-
-        const invoiceTypes = ["VIN", "VRN"];
+        const voucherType2 =
+          v.VoucherTypeMasterSid === 2 ? 'Purchase' : 'Journal';
+        const invoiceTypes = ['VIN', 'VRN'];
 
         const isVendorInvoice = invoiceTypes.includes(
-          v.voucherTypeMaster?.DocumentTypeCode
+          v.voucherTypeMaster?.DocumentTypeCode,
         );
 
         // const isVendorInvoice =
         //   v.voucherTypeMaster?.DocumentTypeCode === 'VIN';
 
         const documentNo = isVendorInvoice
-          ? v.VoucherHeader?.DocumentNumber ?? ''
+          ? (v.VoucherHeader?.DocumentNumber ?? '')
           : '';
 
         const documentDate = isVendorInvoice
-          ? v.VoucherHeader?.DocumentDate ?? null
+          ? (v.VoucherHeader?.DocumentDate ?? null)
           : null;
-
 
         const subledgerName = subledgerMap.get(v.VoucherHeaderSid) || '';
 
@@ -2218,7 +2306,6 @@ export class AccountsReportsService {
         }
       });
 
-
       return {
         params,
         CompanyMasterSid,
@@ -2227,13 +2314,14 @@ export class AccountsReportsService {
           outputTax,
         },
       };
-
     } catch (error) {
       throw error;
     }
   }
 
-  private async generateUnpostedVoucherList(params: UnpostedVoucherListReportQueryDto) {
+  private async generateUnpostedVoucherList(
+    params: UnpostedVoucherListReportQueryDto,
+  ) {
     const {
       VoucherFromDate: FromDate,
       VoucherToDate: ToDate,
@@ -2243,30 +2331,32 @@ export class AccountsReportsService {
 
     try {
       this.logger.log(
-        `Getting Unposted Voucher List : companySid=${CompanyMasterSid}`
+        `Getting Unposted Voucher List : companySid=${CompanyMasterSid}`,
       );
 
+      const branches =
+        branchId && branchId.length > 0
+          ? await this._db.branchMaster.findMany({
+              where: { BranchMasterSid: { in: branchId } },
+              select: {
+                BranchMasterSid: true,
+                branchName: true,
+              },
+            })
+          : await this._db.branchMaster.findMany({
+              where: { CompanyMasterSid },
+              select: {
+                BranchMasterSid: true,
+                branchName: true,
+              },
+            });
 
-
-      const branches = branchId && branchId.length > 0
-        ? await this._db.branchMaster.findMany({
-          where: { BranchMasterSid: { in: branchId } },
-          select: {
-            BranchMasterSid: true,
-            branchName: true,
-          },
-        })
-        : await this._db.branchMaster.findMany({
-          where: { CompanyMasterSid },
-          select: {
-            BranchMasterSid: true,
-            branchName: true,
-          },
-        });
-
-      const resolvedBranchIds = branches.map(b => b.BranchMasterSid);
-      const resolvedBranchNames = branches.map(b => b.branchName);
-      const brancesInvoled = branchId && branchId.length > 0 ? branches.map(b => b.branchName).join(', ') : 'All Branches'
+      const resolvedBranchIds = branches.map((b) => b.BranchMasterSid);
+      const resolvedBranchNames = branches.map((b) => b.branchName);
+      const brancesInvoled =
+        branchId && branchId.length > 0
+          ? branches.map((b) => b.branchName).join(', ')
+          : 'All Branches';
 
       const voucherData = await this._db.voucherHeader.findMany({
         where: {
@@ -2276,27 +2366,26 @@ export class AccountsReportsService {
             gte: FromDate,
             lte: ToDate,
           },
-          Status: 'A'
+          Status: 'A',
         },
         include: {
           voucherTypeMaster: {
             select: {
               DocumentTypeName: true,
-              DocumentTypeCode: true
-            }
-          }
+              DocumentTypeCode: true,
+            },
+          },
         },
         orderBy: [
           { voucherTypeMaster: { DocumentTypeName: 'asc' } },
-          { VoucherDate: 'asc' }
-        ]
+          { VoucherDate: 'asc' },
+        ],
       });
 
-
       const data = voucherData
-        .filter(v => v.PostStatus === 'U')
+        .filter((v) => v.PostStatus === 'U')
 
-        .map(v => ({
+        .map((v) => ({
           VoucherHeaderSid: v.VoucherHeaderSid,
           voucherNo: v.VoucherNumber,
           voucherDate: v.VoucherDate,
@@ -2306,7 +2395,9 @@ export class AccountsReportsService {
           createdBy: v.CreatedBy,
           createdOn: v.CreatedOn,
           postStatus: v.PostStatus,
-          branch: branches.find(b => b.BranchMasterSid === v.BranchMasterSid)?.branchName || '',
+          branch:
+            branches.find((b) => b.BranchMasterSid === v.BranchMasterSid)
+              ?.branchName || '',
           party: v.PartyName,
         }));
 
@@ -2315,9 +2406,8 @@ export class AccountsReportsService {
         brancesInvoled,
         params,
         CompanyMasterSid,
-        branchNames: resolvedBranchNames.join(', ')
+        branchNames: resolvedBranchNames.join(', '),
       };
-
     } catch (error) {
       this.logger.error(error);
       throw error;
@@ -2329,13 +2419,11 @@ export class AccountsReportsService {
       VoucherFromDate: FromDate,
       VoucherToDate: ToDate,
       companyId: CompanyMasterSid,
-      coamasterSid
-    } = params
+      coamasterSid,
+    } = params;
 
     try {
-      this.logger.log(
-        `Getting VAT Report: CompanySid=${CompanyMasterSid}`,
-      );
+      this.logger.log(`Getting VAT Report: CompanySid=${CompanyMasterSid}`);
 
       // oragnizaton master
 
@@ -2344,8 +2432,8 @@ export class AccountsReportsService {
           CustomerMasterSid: true,
           CustomerName: true,
           PanType: true,
-        }
-      })
+        },
+      });
 
       /* STEP 1: Customer subledger per voucher */
       const customerSubledger = await this._db.voucherTransaction.findMany({
@@ -2366,16 +2454,15 @@ export class AccountsReportsService {
       });
 
       const subledgerMap = new Map<number, string>();
-      customerSubledger.forEach(v => {
+      customerSubledger.forEach((v) => {
         if (v.subledgerMaster?.SubledgerName) {
           subledgerMap.set(v.VoucherHeaderSid, v.subledgerMaster.SubledgerName);
         }
       });
 
-
       const panTypeMap = new Map<string, string>();
 
-      oragnizatonMaster.forEach(c => {
+      oragnizatonMaster.forEach((c) => {
         if (c.CustomerName) {
           panTypeMap.set(c.CustomerName.trim(), c.PanType || '');
         }
@@ -2387,13 +2474,17 @@ export class AccountsReportsService {
           CompanyMasterSid,
           AND: [
             { VoucherDate: { gte: FromDate } },
-            { VoucherDate: { lte: ToDate } }
+            { VoucherDate: { lte: ToDate } },
           ],
           Status: 'A',
           COAMasterSid: coamasterSid,
           voucherTypeMaster: {
             DocumentTypeCode: {
-              in: [DOC_TYPE_CODE.INVOICE, DOC_TYPE_CODE.JOURNAL_VOUCHER, DOC_TYPE_CODE.CREDIT_NOTE],
+              in: [
+                DOC_TYPE_CODE.INVOICE,
+                DOC_TYPE_CODE.JOURNAL_VOUCHER,
+                DOC_TYPE_CODE.CREDIT_NOTE,
+              ],
             },
           },
         },
@@ -2405,8 +2496,8 @@ export class AccountsReportsService {
               VoucherType: true,
               VoucherTypeMasterSid: true,
               DocumentDate: true,
-              DocumentNumber: true
-            }
+              DocumentNumber: true,
+            },
           },
           coaMaster: {
             select: {
@@ -2418,9 +2509,9 @@ export class AccountsReportsService {
           voucherTypeMaster: {
             select: {
               DocumentTypeName: true,
-              DocumentTypeCode: true
-            }
-          }
+              DocumentTypeCode: true,
+            },
+          },
         },
         orderBy: { VoucherDate: 'asc' },
       });
@@ -2428,37 +2519,26 @@ export class AccountsReportsService {
       const inputTax: any[] = [];
       const outputTax: any[] = [];
 
-
-      voucherData.forEach(v => {
-
-
+      voucherData.forEach((v) => {
         const ledgerType = v.coaMaster?.LedgerType;
 
-        const voucherType1 =
-          v.VoucherTypeMasterSid === 1
-            ? 'Sales' : ''
+        const voucherType1 = v.VoucherTypeMasterSid === 1 ? 'Sales' : '';
 
-
-        const voucherType2 = v.VoucherTypeMasterSid === 1
-          ? 'Purchase'
-          : 'Journal'
-          ;
-
-        const invoiceTypes = ["INV", "CRN", "JV"];
+        const voucherType2 =
+          v.VoucherTypeMasterSid === 1 ? 'Purchase' : 'Journal';
+        const invoiceTypes = ['INV', 'CRN', 'JV'];
 
         const isInvoice = invoiceTypes.includes(
-          v.voucherTypeMaster?.DocumentTypeCode
+          v.voucherTypeMaster?.DocumentTypeCode,
         );
 
-
         const documentNo = isInvoice
-          ? v.VoucherHeader?.DocumentNumber ?? ''
+          ? (v.VoucherHeader?.DocumentNumber ?? '')
           : '';
 
         const documentDate = isInvoice
-          ? v.VoucherHeader?.DocumentDate ?? null
+          ? (v.VoucherHeader?.DocumentDate ?? null)
           : null;
-
 
         const subledgerName = subledgerMap.get(v.VoucherHeaderSid) || '';
 
@@ -2480,7 +2560,7 @@ export class AccountsReportsService {
           voucherType2,
           panType,
           documentNo,
-          documentDate
+          documentDate,
         };
 
         if (ledgerType === 'Input Tax') {
@@ -2492,7 +2572,6 @@ export class AccountsReportsService {
         }
       });
 
-
       return {
         params,
         CompanyMasterSid,
@@ -2501,13 +2580,14 @@ export class AccountsReportsService {
           outputTax,
         },
       };
-
     } catch (error) {
       throw error;
     }
   }
 
-  private async generateProfitSummaryReport(params: ProfitSummaryReportQueryDto) {
+  private async generateProfitSummaryReport(
+    params: ProfitSummaryReportQueryDto,
+  ) {
     {
       try {
         const {
@@ -2519,36 +2599,43 @@ export class AccountsReportsService {
         } = params;
 
         this.logger.log(
-          `Getting Profit Summary Report for CompanySid=${CompanyMasterSid}, From=${FromJobDt}, To=${ToJobDt}`
+          `Getting Profit Summary Report for CompanySid=${CompanyMasterSid}, From=${FromJobDt}, To=${ToJobDt}`,
         );
 
         /* ===================== MASTERS ===================== */
 
-        const allBranches = await this.getBranchNames(CompanyMasterSid, branchId);
+        const allBranches = await this.getBranchNames(
+          CompanyMasterSid,
+          branchId,
+        );
 
-        const allBranchIds = allBranches.map(b => b.BranchMasterSid);
+        const allBranchIds = allBranches.map((b) => b.BranchMasterSid);
 
-        const brancesInvoled = branchId && branchId.length > 0 ? allBranches.map(b => b.branchName).join(', ') : 'All Branches'
-        const [departments, masterJobMenu, houseJobMenu, customer, user] = await Promise.all([
-          this._db.departmentMaster.findMany({
-            where: { DepartmentMasterSid: { in: dept } },
-            select: { DepartmentMasterSid: true, departmentName: true },
-          }),
-          this._db.menuMaster.findFirst({
-            where: { MenuName: 'Master Job' },
-            select: { MenuMasterSid: true },
-          }),
-          this._db.menuMaster.findFirst({
-            where: { MenuName: 'House Job' },
-            select: { MenuMasterSid: true },
-          }),
-          this._db.customerMaster.findMany({
-            select: { CustomerMasterSid: true, CustomerName: true }
-          }),
-          this._db.userMaster.findMany({
-            select: { UserMasterSid: true, userName: true }
-          })
-        ]);
+        const brancesInvoled =
+          branchId && branchId.length > 0
+            ? allBranches.map((b) => b.branchName).join(', ')
+            : 'All Branches';
+        const [departments, masterJobMenu, houseJobMenu, customer, user] =
+          await Promise.all([
+            this._db.departmentMaster.findMany({
+              where: { DepartmentMasterSid: { in: dept } },
+              select: { DepartmentMasterSid: true, departmentName: true },
+            }),
+            this._db.menuMaster.findFirst({
+              where: { MenuName: 'Master Job' },
+              select: { MenuMasterSid: true },
+            }),
+            this._db.menuMaster.findFirst({
+              where: { MenuName: 'House Job' },
+              select: { MenuMasterSid: true },
+            }),
+            this._db.customerMaster.findMany({
+              select: { CustomerMasterSid: true, CustomerName: true },
+            }),
+            this._db.userMaster.findMany({
+              select: { UserMasterSid: true, userName: true },
+            }),
+          ]);
 
         if (!masterJobMenu || !houseJobMenu) {
           throw new BadRequestException('Menu not found');
@@ -2579,13 +2666,12 @@ export class AccountsReportsService {
             houseJob: {
               where: { status: 'A' },
               include: {
-                Cargo: true
-              }
+                Cargo: true,
+              },
             },
           },
           orderBy: { MBLDate: 'asc' },
         });
-
 
         if (!masterJob.length) {
           return {
@@ -2596,12 +2682,12 @@ export class AccountsReportsService {
         }
 
         const getDepartmentName = (deptId: number) =>
-          departments.find(d => d.DepartmentMasterSid === deptId)?.departmentName ||
-          '';
+          departments.find((d) => d.DepartmentMasterSid === deptId)
+            ?.departmentName || '';
 
         const getCostRevenues = async (
           MenuMasterSid: number,
-          TransactionSid: number
+          TransactionSid: number,
         ) => {
           return this._db.costRevenueCharges.findMany({
             where: {
@@ -2621,19 +2707,19 @@ export class AccountsReportsService {
           });
         };
 
-
-
         /* ===================== FINAL DATA ===================== */
 
         const data = await Promise.all(
-          masterJob.map(async mj => {
+          masterJob.map(async (mj) => {
             const masterCR = await getCostRevenues(
               masterJobMenu.MenuMasterSid,
-              mj.MasterJobSid
+              mj.MasterJobSid,
             );
 
-            const linkedRev = masterCR.filter(cr => cr.RevenueVoucherHeaderSid);
-            const linkedCost = masterCR.filter(cr => cr.CostVoucherHeaderSid);
+            const linkedRev = masterCR.filter(
+              (cr) => cr.RevenueVoucherHeaderSid,
+            );
+            const linkedCost = masterCR.filter((cr) => cr.CostVoucherHeaderSid);
 
             const calc = (arr: any[], type: 'R' | 'C') =>
               arr.reduce((sum, cr) => {
@@ -2653,14 +2739,18 @@ export class AccountsReportsService {
             const aCost = calc(linkedCost, 'C');
 
             const houseWithCR = await Promise.all(
-              mj.houseJob.map(async hj => {
+              mj.houseJob.map(async (hj) => {
                 const houseCR = await getCostRevenues(
                   houseJobMenu.MenuMasterSid,
-                  hj.HouseJobSid
+                  hj.HouseJobSid,
                 );
 
-                const linkedRevH = houseCR.filter(cr => cr.RevenueVoucherHeaderSid);
-                const linkedCostH = houseCR.filter(cr => cr.CostVoucherHeaderSid);
+                const linkedRevH = houseCR.filter(
+                  (cr) => cr.RevenueVoucherHeaderSid,
+                );
+                const linkedCostH = houseCR.filter(
+                  (cr) => cr.CostVoucherHeaderSid,
+                );
 
                 const hpSale = calc(houseCR, 'R');
                 const hpCost = calc(houseCR, 'C');
@@ -2672,21 +2762,27 @@ export class AccountsReportsService {
                   HBLNo: hj.HBLNo,
                   houseStatus: hj.HouseStatus,
                   jobType: hj.JobType,
-                  customerName: customer.find(d => d.CustomerMasterSid === hj.CustomerMasterSid)?.CustomerName,
+                  customerName: customer.find(
+                    (d) => d.CustomerMasterSid === hj.CustomerMasterSid,
+                  )?.CustomerName,
                   OriginAgent: hj.AgentName,
-                  DestinationAgent: customer.find(d => d.CustomerMasterSid === hj.DestinationAgent)?.CustomerName,
+                  DestinationAgent: customer.find(
+                    (d) => d.CustomerMasterSid === hj.DestinationAgent,
+                  )?.CustomerName,
                   ModeOfTransport: hj.Cargo?.[0]?.ModeOfTransport,
-                  salesPerson: user.find(u => u.UserMasterSid === hj.SalesmanSid)?.userName,
+                  salesPerson: user.find(
+                    (u) => u.UserMasterSid === hj.SalesmanSid,
+                  )?.userName,
                   PPCC: hj.FreightTerms,
                   POO: hj.POO,
                   FPD: hj.FPD,
                   costRevenues: {
                     totalNoOfCostRevenues: houseCR.length,
                     linkedRevenueRecords: linkedRevH.map(
-                      cr => cr.CostRevenueChargesSid
+                      (cr) => cr.CostRevenueChargesSid,
                     ),
                     linkedCostRecords: linkedCostH.map(
-                      cr => cr.CostRevenueChargesSid
+                      (cr) => cr.CostRevenueChargesSid,
                     ),
                     houseCrSummary: {
                       pSale: hpSale,
@@ -2698,23 +2794,35 @@ export class AccountsReportsService {
                     },
                   },
                 };
-              })
+              }),
             );
 
             return {
               JobNo: mj.MasterJobNumber,
               MBLNo: mj.MBLNo,
               MBLDate: mj.MBLDate,
-              OriginAgent: customer.find(o => o.CustomerMasterSid === mj.OriginAgent)?.CustomerName || '',
-              DestinationAgent: customer.find(d => d.CustomerMasterSid === mj.DestinationAgent)?.CustomerName || '',
-              customerName: customer.find(c => c.CustomerMasterSid === mj.houseJob?.[0]?.CustomerMasterSid)?.CustomerName || '',
+              OriginAgent:
+                customer.find((o) => o.CustomerMasterSid === mj.OriginAgent)
+                  ?.CustomerName || '',
+              DestinationAgent:
+                customer.find(
+                  (d) => d.CustomerMasterSid === mj.DestinationAgent,
+                )?.CustomerName || '',
+              customerName:
+                customer.find(
+                  (c) =>
+                    c.CustomerMasterSid === mj.houseJob?.[0]?.CustomerMasterSid,
+                )?.CustomerName || '',
               jobType: mj.houseJob?.[0]?.JobType,
               houseNo: mj.houseJob?.[0]?.HouseNo,
               HBLNo: mj.houseJob?.[0]?.HBLNo,
               houseStatus: mj.houseJob?.[0]?.HouseStatus,
               ModeOfTransport: mj.houseJob?.[0]?.Cargo?.[0]?.ModeOfTransport,
               PPCC: mj.houseJob?.[0]?.FreightTerms,
-              salesPerson: user.find(u => u.UserMasterSid === mj.houseJob?.[0]?.SalesmanSid)?.userName || '',
+              salesPerson:
+                user.find(
+                  (u) => u.UserMasterSid === mj.houseJob?.[0]?.SalesmanSid,
+                )?.userName || '',
               POO: mj.POO,
               POL: mj.POL,
               POD: mj.POD,
@@ -2727,10 +2835,10 @@ export class AccountsReportsService {
               costRevenues: {
                 totalNoOfCostRevenues: masterCR.length,
                 linkedRevenueRecords: linkedRev.map(
-                  cr => cr.CostRevenueChargesSid
+                  (cr) => cr.CostRevenueChargesSid,
                 ),
                 linkedCostRecords: linkedCost.map(
-                  cr => cr.CostRevenueChargesSid
+                  (cr) => cr.CostRevenueChargesSid,
                 ),
                 masterCrSummary: {
                   pSale,
@@ -2743,22 +2851,22 @@ export class AccountsReportsService {
               },
               houseWithCR,
             };
-          })
+          }),
         );
 
         return {
           companyMasterSid: CompanyMasterSid,
           branchMasterSid: branchId,
-          BranchInvolved: allBranches.map(b => b.branchName).join(', '),
+          BranchInvolved: allBranches.map((b) => b.branchName).join(', '),
           brancesInvoled,
-          DeptNames: departments.map(d => d.departmentName).join(', '),
+          DeptNames: departments.map((d) => d.departmentName).join(', '),
           data,
-          params
+          params,
         };
       } catch (error) {
         this.logger.error(
           `Error generating Profit Summary Report: ${error.message}`,
-          error.stack
+          error.stack,
         );
         throw error;
       }
@@ -2766,9 +2874,125 @@ export class AccountsReportsService {
   }
 
   private async generateMatchingListReport(params: any) {
-    // TODO: Implement matching list logic
-    this.logger.log('generateMatchingListReport called with params:', params);
-    throw new BadRequestException('Matching List Report generator not yet implemented');
+    const {
+      FromDate: fromDate,
+      ToDate: toDate,
+      companyId: CompanyMasterSid,
+      Subledger: ledgerMasterSid,
+      Ledger: coaMasterSid,
+      branch: branchId,
+    } = params;
+
+    try {
+      this.logger.log(
+        `Getting matching list report: CompanySid=${CompanyMasterSid}, From=${fromDate}, To=${toDate}`,
+      );
+
+      const branches =
+        branchId && branchId.length > 0
+          ? await this._db.branchMaster.findMany({
+              where: { BranchMasterSid: { in: branchId } },
+              select: {
+                BranchMasterSid: true,
+                branchName: true,
+              },
+            })
+          : await this._db.branchMaster.findMany({
+              where: { CompanyMasterSid },
+              select: {
+                BranchMasterSid: true,
+                branchName: true,
+              },
+            });
+
+      const resolvedBranchIds = branches.map((b) => b.BranchMasterSid);
+      const resolvedBranchNames = branches.map((b) => b.branchName);
+      const branchInvolved =
+        branchId && branchId.length > 0
+          ? branches.map((b) => b.branchName).join(', ')
+          : 'All Branches';
+
+      const subledgerMaster = await this._db.subledgerMaster.findUnique({
+        where: { SubledgerMasterSid: ledgerMasterSid },
+      });
+
+      const ledger = await this._db.cOAMaster.findUnique({
+        where: { COAMasterSid: coaMasterSid },
+      });
+      const matchingList = await this._db.voucherMatching.findMany({
+        where: {
+          CompanyMasterSid,
+          BranchMasterSid: { in: resolvedBranchIds },
+          VoucherMatchingDate: {
+            gte: new Date(fromDate),
+            lte: new Date(toDate),
+          },
+          Status: 'A',
+          COAMasterSid: coaMasterSid,
+          LedgerMasterSid: ledgerMasterSid,
+        },
+        include: {
+          VoucherTransaction: {
+            select: {
+              VoucherDate: true,
+              VoucherNumber: true,
+              VoucherType: true,
+            },
+          },
+          header: {
+            select: {
+              VoucherMatchingNo: true,
+            },
+          },
+          VoucherHeader: {
+            select: {
+              VoucherDate: true,
+              VoucherNumber: true,
+              VoucherType: true,
+              PostStatus: true,
+              voucherTypeMaster: {
+                select: {
+                  DocumentTypeName: true,
+                  DocumentTypeCode: true,
+                },
+              },
+            },
+          },
+        },
+        orderBy: {
+          VoucherMatchingDate: 'asc',
+        },
+      });
+
+      const data = matchingList.map((v) => ({
+        VoucherHeaderSid: v.VoucherHeaderSid,
+        VoucherNumber: v.VoucherTransaction?.VoucherNumber,
+        VoucherDate: v.VoucherTransaction?.VoucherDate,
+        VoucherType: v.VoucherTransaction?.VoucherType,
+        VoucherName: v.VoucherHeader?.voucherTypeMaster?.DocumentTypeName,
+        VoucherCode: v.VoucherHeader?.voucherTypeMaster?.DocumentTypeCode,
+        VoucherMatchingSid: v.VoucherMatchingSid,
+        VoucherMatchingHeaderSid: v?.VoucherMatchingHeaderSid,
+        VoucherMatchingDate: v?.VoucherMatchingDate,
+        VoucherMactingNo: v.header?.VoucherMatchingNo,
+        DrCr:v.DrCr,
+        CurrencyCode: v.CurrencyCode,
+        Amount: v.Amount,
+        LocalAmount: v.LocalAmount,
+        MatchingType: v?.MatchingType,
+        ExRate : v.ExchangeRate
+      }));
+
+      return {
+        data,
+        params,
+        branchInvolved,
+        ledgerMasterSid: subledgerMaster?.SubledgerName,
+        coaMasterSid: ledger?.LedgerName,
+      };
+    } catch {
+      throw error;
+    }
   }
 
   private async generateTopNCustomerReport(params: TopNCustomerReportQueryDto) {
@@ -2781,65 +3005,67 @@ export class AccountsReportsService {
       TopN: topN,
       CalculationType,
       Volume,
-      Gp
-    } = params
+      Gp,
+    } = params;
 
     try {
+      this.logger.log(`Getting top N Customer: CompanySid=${CompanyMasterSid}`);
 
-      this.logger.log(
-        `Getting top N Customer: CompanySid=${CompanyMasterSid}`,
-      );
+      const branches =
+        branchId && branchId.length > 0
+          ? await this._db.branchMaster.findMany({
+              where: { BranchMasterSid: { in: branchId } },
+              select: {
+                BranchMasterSid: true,
+                branchName: true,
+              },
+            })
+          : await this._db.branchMaster.findMany({
+              where: { CompanyMasterSid },
+              select: {
+                BranchMasterSid: true,
+                branchName: true,
+              },
+            });
 
-      const branches = branchId && branchId.length > 0
-        ? await this._db.branchMaster.findMany({
-          where: { BranchMasterSid: { in: branchId } },
-          select: {
-            BranchMasterSid: true,
-            branchName: true,
-          },
-        })
-        : await this._db.branchMaster.findMany({
-          where: { CompanyMasterSid },
-          select: {
-            BranchMasterSid: true,
-            branchName: true,
-          },
-        });
-
-      const resolvedBranchIds = branches.map(b => b.BranchMasterSid);
-      const resolvedBranchNames = branches.map(b => b.branchName);
-      const branchInvolved = branchId && branchId.length > 0 ? branches.map(b => b.branchName).join(', ') : 'All Branches'
+      const resolvedBranchIds = branches.map((b) => b.BranchMasterSid);
+      const resolvedBranchNames = branches.map((b) => b.branchName);
+      const branchInvolved =
+        branchId && branchId.length > 0
+          ? branches.map((b) => b.branchName).join(', ')
+          : 'All Branches';
       const excludedDepartments = ['Air Export', 'Air Import'];
-      const departments = deptId && deptId.length > 0
-        ? await this._db.departmentMaster.findMany({
-          where: {
-            DepartmentMasterSid: { in: deptId },
-            departmentName: { notIn: excludedDepartments }
-          },
-          select: { DepartmentMasterSid: true, departmentName: true },
-        })
-        : await this._db.departmentMaster.findMany({
-          where: {
-            CompanyMasterSid,
-            departmentName: { notIn: excludedDepartments }
-          },
-          select: { DepartmentMasterSid: true, departmentName: true },
-        });
+      const departments =
+        deptId && deptId.length > 0
+          ? await this._db.departmentMaster.findMany({
+              where: {
+                DepartmentMasterSid: { in: deptId },
+                departmentName: { notIn: excludedDepartments },
+              },
+              select: { DepartmentMasterSid: true, departmentName: true },
+            })
+          : await this._db.departmentMaster.findMany({
+              where: {
+                CompanyMasterSid,
+                departmentName: { notIn: excludedDepartments },
+              },
+              select: { DepartmentMasterSid: true, departmentName: true },
+            });
 
-      const resolvedDeptIds = departments.map(d => d.DepartmentMasterSid);
-      const resolvedDeptNames = departments.map(d => d.departmentName);
-      const departmentInvoled = deptId && deptId.length > 0 ? departments.map(d => d.departmentName).join(', ') : 'All Departments'
+      const resolvedDeptIds = departments.map((d) => d.DepartmentMasterSid);
+      const resolvedDeptNames = departments.map((d) => d.departmentName);
+      const departmentInvoled =
+        deptId && deptId.length > 0
+          ? departments.map((d) => d.departmentName).join(', ')
+          : 'All Departments';
       const customerMaster = await this._db.customerMaster.findMany({
-        select: { CustomerMasterSid: true, CustomerName: true }
-      })
+        select: { CustomerMasterSid: true, CustomerName: true },
+      });
 
       const masterJobs = await this._db.masterJob.findMany({
         where: {
           CompanyMasterSid,
-          AND: [
-            { MBLDate: { gte: FromDate } },
-            { MBLDate: { lte: ToDate } }
-          ],
+          AND: [{ MBLDate: { gte: FromDate } }, { MBLDate: { lte: ToDate } }],
           Status: 'A',
           BranchMasterSid: { in: resolvedBranchIds },
           DepartmentMasterSid: { in: resolvedDeptIds },
@@ -2853,24 +3079,28 @@ export class AccountsReportsService {
       });
 
       if (!masterJobs.length) {
-        return { companyMasterSid: CompanyMasterSid, branchMasterSid: branchId, data: [] };
+        return {
+          companyMasterSid: CompanyMasterSid,
+          branchMasterSid: branchId,
+          data: [],
+        };
       }
 
       let data = await Promise.all(
-        masterJobs.map(async job => {
+        masterJobs.map(async (job) => {
           const relatedCR = await this._db.costRevenueCharges.findMany({
             where: {
               MenuMasterSid: job.MenuMasterSid!,
               TransactionSid: job.MasterJobSid,
-              status: 'A'
+              status: 'A',
             },
             select: {
               CostLocalAmount: true,
               RevenueLocalAmount: true,
               RevenueCustomerMasterSid: true,
               CostDrCr: true,
-              RevenueDrCr: true
-            }
+              RevenueDrCr: true,
+            },
           });
 
           const customerWiseMap = new Map<
@@ -2881,7 +3111,7 @@ export class AccountsReportsService {
           const addToCustomerMap = (
             customerSid: number,
             cost: number,
-            revenue: number
+            revenue: number,
           ) => {
             if (!customerWiseMap.has(customerSid)) {
               customerWiseMap.set(customerSid, { cost: 0, revenue: 0 });
@@ -2894,7 +3124,7 @@ export class AccountsReportsService {
           let totalCost = 0;
           let totalRevenue = 0;
 
-          relatedCR.forEach(cr => {
+          relatedCR.forEach((cr) => {
             const customerSid = cr.RevenueCustomerMasterSid;
             if (!customerSid) return;
 
@@ -2915,11 +3145,11 @@ export class AccountsReportsService {
           });
 
           const houseJobs = job.houseJob || [];
-          const houseJobIds = houseJobs.map(h => h.HouseJobSid);
+          const houseJobIds = houseJobs.map((h) => h.HouseJobSid);
 
           const houseJobMenu = await this._db.menuMaster.findFirst({
             where: { MenuName: 'House Job' },
-            select: { MenuMasterSid: true }
+            select: { MenuMasterSid: true },
           });
 
           if (!houseJobMenu) {
@@ -2930,7 +3160,7 @@ export class AccountsReportsService {
             where: {
               MenuMasterSid: houseJobMenu.MenuMasterSid,
               TransactionSid: { in: houseJobIds },
-              status: 'A'
+              status: 'A',
             },
             select: {
               TransactionSid: true,
@@ -2938,13 +3168,13 @@ export class AccountsReportsService {
               RevenueLocalAmount: true,
               RevenueCustomerMasterSid: true,
               CostDrCr: true,
-              RevenueDrCr: true
-            }
+              RevenueDrCr: true,
+            },
           });
 
           const houseRateMap = new Map<number, any[]>();
 
-          allHouseCR.forEach(cr => {
+          allHouseCR.forEach((cr) => {
             const key = cr.TransactionSid!;
             if (!houseRateMap.has(key)) {
               houseRateMap.set(key, []);
@@ -2955,13 +3185,13 @@ export class AccountsReportsService {
           let totalHouseCost = 0;
           let totalHouseRevenue = 0;
 
-          const houseJobsData = houseJobs.map(house => {
+          const houseJobsData = houseJobs.map((house) => {
             const costRevenues = houseRateMap.get(house.HouseJobSid) || [];
 
             let houseCost = 0;
             let houseRevenue = 0;
 
-            costRevenues.forEach(cr => {
+            costRevenues.forEach((cr) => {
               const customerSid = cr.RevenueCustomerMasterSid;
               if (!customerSid) return;
 
@@ -2988,7 +3218,7 @@ export class AccountsReportsService {
               HouseNo: house.HouseNo,
               HBLNo: house.HBLNo,
               totalCost: houseCost,
-              totalRevenue: houseRevenue
+              totalRevenue: houseRevenue,
             };
           });
 
@@ -2999,12 +3229,12 @@ export class AccountsReportsService {
             ([customerSid, val]) => ({
               customerSid,
               customerName:
-                customerMaster.find(c => c.CustomerMasterSid === customerSid)
+                customerMaster.find((c) => c.CustomerMasterSid === customerSid)
                   ?.CustomerName || '',
               totalCost: val.cost,
               totalRevenue: val.revenue,
-              GP: val.revenue - val.cost
-            })
+              GP: val.revenue - val.cost,
+            }),
           );
 
           return {
@@ -3022,9 +3252,9 @@ export class AccountsReportsService {
             totalCostWithHouse,
             totalRevenueWithHouse,
             customerSummary,
-            houseJobs: houseJobsData
+            houseJobs: houseJobsData,
           };
-        })
+        }),
       );
 
       /* ================= CUSTOMER FINAL MERGE ================= */
@@ -3044,9 +3274,8 @@ export class AccountsReportsService {
         }
       >();
 
-
-      data.forEach(job => {
-        job.customerSummary.forEach(cust => {
+      data.forEach((job) => {
+        job.customerSummary.forEach((cust) => {
           if (!customerFinalMap.has(cust.customerSid)) {
             customerFinalMap.set(cust.customerSid, {
               customerSid: cust.customerSid,
@@ -3058,7 +3287,7 @@ export class AccountsReportsService {
               netwt: 0,
               Weight: 0,
               Vol: 0,
-              noOfShipment: 0
+              noOfShipment: 0,
             });
           }
 
@@ -3074,11 +3303,8 @@ export class AccountsReportsService {
           existing.Weight += Number(job.Weight ?? 0);
           existing.Vol += Number(job.Vol ?? 0);
           existing.noOfShipment += Number(job.noOfShipment ?? 0);
-
         });
       });
-
-
 
       /* FINAL CUSTOMER DATA */
       const finalCustomerData = Array.from(customerFinalMap.values());
@@ -3102,11 +3328,9 @@ export class AccountsReportsService {
           customerData.sort((a, b) => b.GP - a.GP);
       }
 
-
       const limit = Number(topN) || customerData.length;
       customerData = customerData.slice(0, limit);
 
-      console.log('After slice:', data.length);
       return {
         companyMasterSid: CompanyMasterSid,
         branchMasterSid: branchId,
@@ -3116,7 +3340,7 @@ export class AccountsReportsService {
         branchNames: resolvedBranchNames.join(', '),
         departmentNames: resolvedDeptNames.join(', '),
         params,
-        topN
+        topN,
       };
     } catch (error) {
       this.logger.error(
@@ -3128,15 +3352,13 @@ export class AccountsReportsService {
   }
 
   private async vat201(param: any) {
-
     let {
       companyId: CompanyId,
       Branch: BranchId,
       FromDate: fromDate,
       ToDate: toDate,
-    } = param
+    } = param;
     try {
-
       /* -------------------- BRANCH NAME (SELECTED / ALL) -------------------- */
       let branchName = 'All Branches';
 
@@ -3145,26 +3367,29 @@ export class AccountsReportsService {
           where: {
             BranchMasterSid: { in: BranchId },
             CompanyMasterSid: CompanyId,
-            status: 'A'
+            status: 'A',
           },
           select: {
-            branchName: true
-          }
+            branchName: true,
+          },
         });
 
-        branchName = branches && branches.length > 1 ? branches.map(b => b.branchName).join(', ') : branches[0].branchName;
+        branchName =
+          branches && branches.length > 1
+            ? branches.map((b) => b.branchName).join(', ')
+            : branches[0].branchName;
       } else {
         const branches = await this._db.branchMaster.findMany({
           where: {
             CompanyMasterSid: CompanyId,
-            status: 'A'
+            status: 'A',
           },
           select: {
             BranchMasterSid: true,
-            branchName: true
-          }
+            branchName: true,
+          },
         });
-        BranchId = branches.map(b => b.BranchMasterSid);
+        BranchId = branches.map((b) => b.BranchMasterSid);
       }
 
       const baseHeaderWhere = {
@@ -3176,7 +3401,12 @@ export class AccountsReportsService {
         },
         voucherTypeMaster: {
           DocumentTypeCode: {
-            in: [DOC_TYPE_CODE.INVOICE, DOC_TYPE_CODE.VENDOR_INVOICE, DOC_TYPE_CODE.CREDIT_NOTE, DOC_TYPE_CODE.VENDOR_CREDIT_NOTE],
+            in: [
+              DOC_TYPE_CODE.INVOICE,
+              DOC_TYPE_CODE.VENDOR_INVOICE,
+              DOC_TYPE_CODE.CREDIT_NOTE,
+              DOC_TYPE_CODE.VENDOR_CREDIT_NOTE,
+            ],
           },
         },
         PostStatus: {
@@ -3197,8 +3427,8 @@ export class AccountsReportsService {
           VoucherDetail: {
             some: {
               subledgerMaster: {
-                SubledgerType: 'Tax'
-              }
+                SubledgerType: 'Tax',
+              },
             },
           },
         },
@@ -3213,21 +3443,24 @@ export class AccountsReportsService {
         LedgerName: string;
         TaxableAmount: number;
         TaxAmount: number;
-        details: any[]
+        details: any[];
       };
 
       // Aggregation helper – handles null safety & grouping
 
       const aggregateByLedger = (
         details: Array<{
-          subledgerMaster: { SubledgerMasterSid: number | null; SubledgerName: string | null } | null;
+          subledgerMaster: {
+            SubledgerMasterSid: number | null;
+            SubledgerName: string | null;
+          } | null;
           TaxableAmount?: any | null;
           // TaxPercentage1: Decimal | null,
           // TaxAmount1?: any | null;
           // TaxPercentage2: Decimal | null,
           // TaxAmount2?: any | null;
-          Amount: Decimal | null,
-          LocalAmount: Decimal | null,
+          Amount: Decimal | null;
+          LocalAmount: Decimal | null;
           VoucherHeader?: {
             customerBranch?: {
               customerMaster?: {
@@ -3244,10 +3477,12 @@ export class AccountsReportsService {
           const sid = detail.subledgerMaster?.SubledgerMasterSid;
           if (sid == null) continue;
 
-          const ledgerName = detail.subledgerMaster?.SubledgerName ?? 'Unknown Tax Ledger';
+          const ledgerName =
+            detail.subledgerMaster?.SubledgerName ?? 'Unknown Tax Ledger';
 
           const countryCode =
-            detail.VoucherHeader?.customerBranch?.customerMaster?.countryMaster?.countryCode ?? 'UNKNOWN';
+            detail.VoucherHeader?.customerBranch?.customerMaster?.countryMaster
+              ?.countryCode ?? 'UNKNOWN';
 
           const isLocal = ['AE', 'SA', 'QA', 'OM', 'KW'].includes(countryCode);
 
@@ -3267,7 +3502,7 @@ export class AccountsReportsService {
               LedgerName: ledgerName,
               TaxableAmount: taxableAmount,
               TaxAmount: taxAmount,
-              details: [detail]
+              details: [detail],
             });
           }
         }
@@ -3277,7 +3512,6 @@ export class AccountsReportsService {
           overseas: Array.from(overseasMap.values()),
         };
       };
-
 
       // INPUT TAX – Purchases / Input VAT
 
@@ -3327,7 +3561,6 @@ export class AccountsReportsService {
 
       const inputTax = aggregateByLedger(inputTaxDetails);
 
-
       // OUTPUT TAX – Sales / Output VAT (also classified local/overseas)
 
       const outputTaxDetails = await this._db.voucherDetail.findMany({
@@ -3375,7 +3608,7 @@ export class AccountsReportsService {
 
       const outputTax = aggregateByLedger(outputTaxDetails);
 
-      // Unposted Voucher 
+      // Unposted Voucher
 
       const unpostedVoucher = await this._db.voucherHeader.count({
         where: {
@@ -3384,16 +3617,21 @@ export class AccountsReportsService {
           Status: 'A',
           VoucherDate: {
             gte: fromDate,
-            lte: toDate
+            lte: toDate,
           },
           PostStatus: 'U',
           voucherTypeMaster: {
-            DocumentTypeCode : {
-              in: [DOC_TYPE_CODE.INVOICE , DOC_TYPE_CODE.VENDOR_INVOICE, DOC_TYPE_CODE.CREDIT_NOTE, DOC_TYPE_CODE.VENDOR_CREDIT_NOTE],
+            DocumentTypeCode: {
+              in: [
+                DOC_TYPE_CODE.INVOICE,
+                DOC_TYPE_CODE.VENDOR_INVOICE,
+                DOC_TYPE_CODE.CREDIT_NOTE,
+                DOC_TYPE_CODE.VENDOR_CREDIT_NOTE,
+              ],
             },
           },
-        }
-      })
+        },
+      });
 
       // Payment Details
 
@@ -3407,14 +3645,13 @@ export class AccountsReportsService {
             lte: toDate,
           },
           PostStatus: {
-            in: ['P', 'U']
+            in: ['P', 'U'],
           },
           voucherTypeMaster: {
             DocumentTypeCode: DOC_TYPE_CODE.PAYMENT,
-          }
+          },
         },
-      })
-
+      });
 
       const totalPaymentVoucher = await this._db.voucherHeader.count({
         where: {
@@ -3431,21 +3668,21 @@ export class AccountsReportsService {
           VoucherDetail: {
             some: {
               subledgerMaster: {
-                SubledgerType: 'Tax'
-              }
+                SubledgerType: 'Tax',
+              },
             },
           },
-        }
-      })
+        },
+      });
 
-      const totalWithoutPayment = totalPayment - totalPaymentVoucher
+      const totalWithoutPayment = totalPayment - totalPaymentVoucher;
 
       return {
         summary: {
           totalVouchers,
           vouchersWithTaxLedger,
           vouchersWithoutTaxLedger,
-          unpostedVoucher
+          unpostedVoucher,
         },
         param,
         BranchName: branchName,
@@ -3454,7 +3691,7 @@ export class AccountsReportsService {
         payment: {
           totalPayment,
           totalPaymentVoucher,
-          totalWithoutPayment
+          totalWithoutPayment,
         },
       };
     } catch (error) {
@@ -3465,7 +3702,7 @@ export class AccountsReportsService {
 
   async getBranchNames(
     companyMasterSid: number,
-    branchIds?: number[]
+    branchIds?: number[],
   ): Promise<{ BranchMasterSid: number; branchName: string }[]> {
     try {
       const whereClause: any = {
@@ -3491,7 +3728,10 @@ export class AccountsReportsService {
   async exportReport(reportName: string, exportParams: any) {
     try {
       // Generate report first
-      const reportData = await this.generateReport(reportName, exportParams.parameters);
+      const reportData = await this.generateReport(
+        reportName,
+        exportParams.parameters,
+      );
 
       // Format and export based on format
       const format = exportParams.format || 'EXCEL';
@@ -3502,7 +3742,7 @@ export class AccountsReportsService {
         format,
         data: reportData,
         exportedAt: new Date(),
-        message: `Export to ${format} will be implemented by report-export service`
+        message: `Export to ${format} will be implemented by report-export service`,
       };
     } catch (error) {
       throw error;
@@ -3514,7 +3754,7 @@ export class AccountsReportsService {
       // Generate and export report
       const exportData = await this.exportReport(reportName, {
         parameters: emailParams.parameters,
-        format: emailParams.format || 'PDF'
+        format: emailParams.format || 'PDF',
       });
 
       // TODO: Implement email service integration
@@ -3522,7 +3762,7 @@ export class AccountsReportsService {
 
       return {
         success: true,
-        message: 'Email service integration pending'
+        message: 'Email service integration pending',
       };
     } catch (error) {
       throw error;
@@ -3535,33 +3775,41 @@ export class AccountsReportsService {
    */
   async executeParameterQuery(
     parameterId: number,
-    context: { companyId?: number; branchId?: number;[key: string]: any }
+    context: { companyId?: number; branchId?: number; [key: string]: any },
   ): Promise<Array<{ value: any; label: string }>> {
     try {
       // Fetch the parameter details
       const parameter = await this._db.reportMasterDetail.findFirst({
         where: {
           ReportMasterDetailSid: parameterId,
-          Status: 'A'
-        }
+          Status: 'A',
+        },
       });
 
       if (!parameter) {
-        throw new BadRequestException(`Parameter with ID ${parameterId} not found`);
+        throw new BadRequestException(
+          `Parameter with ID ${parameterId} not found`,
+        );
       }
 
       if (!parameter.ParameterQuery) {
         throw new BadRequestException(
-          `Parameter ${parameter.ParameterName} does not have a query defined`
+          `Parameter ${parameter.ParameterName} does not have a query defined`,
         );
       }
 
       // If this parameter depends on another, check if parent value is provided
       if (parameter.DependsOnParameter) {
         const parentValue = context[parameter.DependsOnParameter];
-        if (parentValue === undefined || parentValue === null || parentValue === '') {
+        if (
+          parentValue === undefined ||
+          parentValue === null ||
+          parentValue === ''
+        ) {
           // Parent not selected, return empty array
-          this.logger.log(`Parameter ${parameter.ParameterName} depends on ${parameter.DependsOnParameter} which is not provided`);
+          this.logger.log(
+            `Parameter ${parameter.ParameterName} depends on ${parameter.DependsOnParameter} which is not provided`,
+          );
           return [];
         }
       }
@@ -3582,7 +3830,12 @@ export class AccountsReportsService {
 
       // Dynamic parent parameter substitutions (e.g., {Ledger}, {Subledger})
       for (const [key, value] of Object.entries(context)) {
-        if (key !== 'companyId' && key !== 'branchId' && value !== undefined && value !== null) {
+        if (
+          key !== 'companyId' &&
+          key !== 'branchId' &&
+          value !== undefined &&
+          value !== null
+        ) {
           const placeholder = new RegExp(`\\{${key}\\}`, 'g');
           query = query.replace(placeholder, this.sanitizeValue(value));
         }
@@ -3590,7 +3843,10 @@ export class AccountsReportsService {
 
       // Execute the query
       this.logger.log(`Executing parameter query: ${query}`);
-      const results = await this._db.$queryRawUnsafe<Array<{ value: any; label: string }>>(query);
+      const results =
+        await this._db.$queryRawUnsafe<Array<{ value: any; label: string }>>(
+          query,
+        );
 
       return results;
     } catch (error) {
@@ -3611,7 +3867,7 @@ export class AccountsReportsService {
       return value.replace(/'/g, "''");
     }
     if (Array.isArray(value)) {
-      return value.map(v => this.sanitizeValue(v)).join(',');
+      return value.map((v) => this.sanitizeValue(v)).join(',');
     }
     return String(value);
   }
@@ -3647,12 +3903,14 @@ export class AccountsReportsService {
 
     for (const keyword of dangerousKeywords) {
       if (trimmedQuery.includes(keyword)) {
-        throw new BadRequestException(`Query contains forbidden keyword: ${keyword}`);
+        throw new BadRequestException(
+          `Query contains forbidden keyword: ${keyword}`,
+        );
       }
     }
 
     // Additional security: check for multiple statements
-    const statements = query.split(';').filter(s => s.trim().length > 0);
+    const statements = query.split(';').filter((s) => s.trim().length > 0);
     if (statements.length > 1) {
       throw new BadRequestException('Multiple SQL statements are not allowed');
     }

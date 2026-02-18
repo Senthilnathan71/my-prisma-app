@@ -331,6 +331,7 @@ export class OperationReportsService {
                     select: {
                       ContainerSize: true,
                       NoOfTeu: true,
+                      ContainerName:true
                     }
                   }
                 }
@@ -395,21 +396,21 @@ export class OperationReportsService {
         let totalNoOfTEU = 0;
         let numberOfTwentyFt = 0;
         let numberOfFourtyFt = 0;
-        let numberofFurtyFive = 0;
+        let numberOfFortyFive = 0;
         let containerInfo : any[] = [];
         houseProducts.forEach(hp => {
           const ourMJContainer = allContainers.find(mc => mc.MasterJobContainerSid === hp.MasterJobContainerSid);
           const ourContainerType = ourMJContainer?.containerType;
           containerInfo.push({
             containerNumber : hp?.ContainerNo,
-            containerType : ourContainerType?.ContainerSize,
+            containerType : ourContainerType?.ContainerName,
             NoOfTeu : toNumber(ourContainerType?.NoOfTeu)
           })
           totalNoOfTEU += toNumber(ourContainerType?.NoOfTeu);
-          const size = ourContainerType?.ContainerSize;
-          if (size === "20") numberOfTwentyFt++;
-          if (size === "40") numberOfFourtyFt++;
-          if (size === "45") numberofFurtyFive++;
+          const size = ourContainerType?.ContainerName;
+          if (size === "20ft Standard" || size === "20ft Reefer" || size === "20ft Flat Rack" || size === "20ft Open Top" ) numberOfTwentyFt++;
+          if (size === "40ft Container" || size === "40RF" || size === "40 Flat Rack" || size === "40Ft Open Top") numberOfFourtyFt++;
+          if (size === "45ft High Cube") numberOfFortyFive++;
         })
 
 
@@ -466,7 +467,7 @@ export class OperationReportsService {
           shipper: mj?.ShipperName || '',
           containerNoList: mj?.Products?.map((c: any) => c.ContainerNo).join(', '),
           // noOfContainers: mj.Cargo?.reduce((sum, cargo) => sum + (cargo.NoofContainers || 0), 0) || 0,
-          nofcontainer:numberOfFourtyFt + numberOfTwentyFt + numberofFurtyFive,
+          nofcontainer:numberOfFourtyFt + numberOfTwentyFt + numberOfFortyFive,
           mastercontainerSid: mj?.masterJob?.containers?.map((c: any) => c.mastercontainerSid).join(', ') || '',
           masterContanierSid: mj?.masterJob?.containers?.[0]?.MasterJobContainerSid,
           sendingAgent: mj?.AgentName,
@@ -476,7 +477,7 @@ export class OperationReportsService {
           totalNoOfTEU,
           numberOfTwentyFt,
           numberOfFourtyFt,
-          numberofFurtyFive,
+          numberOfFortyFive,
           localShipment: jobTypesArray?.filter(job => job.JobType === 'Import' || job.JobType === 'Export').length || 0,
           transhipmentShipment: jobTypesArray?.filter(job => job.JobType === 'Transhipment').length || 0,
           totalShipment: (jobTypesArray?.filter(job => job.JobType === 'Import' || job.JobType === 'Export').length || 0) +
