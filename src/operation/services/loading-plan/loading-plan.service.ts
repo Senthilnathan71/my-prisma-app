@@ -11,123 +11,222 @@ export class LoadingPlanService {
         private globalConfigService: GlobalConfigService,
     ) { }
 
-    async getAllAvailableBookings(payload :LoadingPlanDTO) {
-        try {
-            const dept = await this._db.departmentMaster.findUnique({
-                where : {
-                    DepartmentMasterSid : payload.DepartmentMasterSid
-                }
-            });
-            if(!dept) throw new Error('Department not found');
+    async getAllAvailableBookings(payload: LoadingPlanDTO) {
+  try {
 
-            const isLCLExport = dept.FCLLCL === 'LCL' && dept.departmentType === "Sea" && dept.ExportImport === "Export";
+    const dept = await this._db.departmentMaster.findUnique({
+      where: { DepartmentMasterSid: payload.DepartmentMasterSid }
+    });
+    if (!dept) throw new Error('Department not found');
 
-            let whereClause : Prisma.BookingHeaderWhereInput = {};
-            whereClause = {
-                CompanyMasterSid: payload.CompanyMasterSid,
-                BranchMasterSid: payload.BranchMasterSid,
-                DepartmentMasterSid: payload.DepartmentMasterSid,
-                POL: payload.POL,
-                POD: payload.POD,
-                // MBLNo: null,
-                MasterNoSid: null,
-                status: 'A'
-            }
-            if(payload.VesselName){
-                whereClause['VesselName'] = payload.VesselName;
-            }
-            if(payload.VoyageNo){
-                whereClause['VoyageNo'] = payload.VoyageNo;
-            }
+    const isLCLExport =
+      dept.FCLLCL === 'LCL' &&
+      dept.departmentType === "Sea" &&
+      dept.ExportImport === "Export";
 
-            if(isLCLExport){
-                whereClause['BookingStatus'] = "Cargo Received";
-            } else {
-                whereClause['BookingStatus'] = "Booked";
-            }
+    /* -------------------------------------------------- */
+    /* BOOKING WHERE CONDITION                            */
+    /* -------------------------------------------------- */
 
+    const bookingWhere: Prisma.BookingHeaderWhereInput = {
+      CompanyMasterSid: payload.CompanyMasterSid,
+      BranchMasterSid: payload.BranchMasterSid,
+      DepartmentMasterSid: payload.DepartmentMasterSid,
+      POL: payload.POL,
+      POD: payload.POD,
+      MasterNoSid: null,
+      status: 'A',
+      BookingStatus: isLCLExport ? "Cargo Received" : "Booked"
+    };
 
-            const availableBookings = await this._db.bookingHeader.findMany({
-                where : whereClause,
-                include : {
-                    bookingCargo : true,
-                    departmentMaster : {select : {departmentName : true}},
-                    bookingRates : { where : {Status : 'A'}}
-                },
-                orderBy : {
-                    BookingHeaderSid : 'desc'
-                }
-            })
-            const enrichedBookings = await Promise.all(
-                availableBookings.map(async booking => {
-                    const salesman = booking.SalesmanSid ? await this.globalConfigService.getMasterData('user_master', booking.SalesmanSid) : {
-                        UserMasterSid : null,
-                        userName : ''
-                    };
-                    const totalCost = (booking.bookingRates || []).reduce((acc, curr) => {
-                        const amount = curr.CostLocalAmount ? (curr.CostDrCr === "D" ? curr.CostLocalAmount.toNumber() : -curr.CostLocalAmount.toNumber()) : 0;
-                        return acc + amount;
-                    },0.0);
-                    const totalRevenue = (booking.bookingRates || []).reduce((acc, curr) => {
-                        const amount = curr.RevenueLocalAmount ? (curr.RevenueDrCr === "C" ? curr.RevenueLocalAmount.toNumber() : -curr.RevenueLocalAmount.toNumber()) : 0;
-                        return acc + amount;
-                    },0.0);
+    /* -------------------------------------------------- */
+    /* HOUSE JOB WHERE CONDITION                          */
+    /* -------------------------------------------------- */
 
-                    const agentName = booking.DestinationAgent ?
-                     (await this._db.customerMaster.findFirst({
-                        where : {CustomerMasterSid : booking.DestinationAgent},
-                        select : {CustomerName : true}
-                    }))?.CustomerName :
-                    {CustomerName : ''}
+    const houseJobWhere: Prisma.HouseJobWhereInput = {
+      CompanyMasterSid: payload.CompanyMasterSid,
+      BranchMasterSid: payload.BranchMasterSid,
+      DepartmentMasterSid: payload.DepartmentMasterSid,
+      POL: payload.POL,
+      POD: payload.POD,
+      MasterJobSid: null,   // MAIN CONDITION
+      status: 'A'
+    };
 
-                    return {
-                        BookingHeaderSid : booking.BookingHeaderSid,
-                        HouseJobSid : booking.HouseJobSid,
-                        BookingNo: booking.BookingNo,
-                        BookingDate : booking.BookingDateTime,
-                        DepartmentMasterSid : booking.DepartmentMasterSid,
-                        departmentName : booking.departmentMaster?.departmentName,
-                        HBLNo : booking.HBLNo,
-                        CustomerMasterSid : booking.CustomerMasterSid,
-                        JobType : booking.JobType,
-                        CustomerName: booking.CustomerName,
-                        CustomerAddress: booking.CustomerAddress,
-                        SalesmanName: salesman?.userName,
-                        ShipperName: booking.ShipperName,
-                        ShipperAddress : booking.ShipperAddress,
-                        ConsigneeName: booking.ConsigneeName,
-                        ConsigneeAddress : booking.ConsigneeAddress,
-                        DestinationAgent : booking.DestinationAgent,
-                        AgentName : agentName,
-                        MasterNoSid : booking.MasterNoSid,
-                        MBLNo : booking.MBLNo,
-                        MBLDate : booking.MBLDate,
-                        FreightTerms : booking.FreightTerms,
-                        POO: booking.POO,
-                        POL: booking.POL,
-                        POD: booking.POD,
-                        FPD: booking.FPD,
-                        VesselName : booking.VesselName,
-                        VoyageNo : booking.VoyageNo,
-                        ETD : booking.ETD,
-                        ETA : booking.ETA,
-                        VoyageMasterSid : booking.VoyageMasterSid,
-                        NoOfPackage: booking.bookingCargo[0]?.NoOfPackage,
-                        GrossWeight: booking.bookingCargo[0]?.GrossWeight,
-                        NetWeight : booking.bookingCargo[0]?.NetWeight,
-                        Volume: booking.bookingCargo[0]?.Volume,
-                        CargoType : booking.bookingCargo[0]?.CargoType,
-                        BookingStatus : booking.BookingStatus,
-                        totalCost: totalCost.toFixed(2),
-                        totalRevenue : totalRevenue.toFixed(2),
-                    }
-                })
-            );
-            return enrichedBookings;
-        } catch (error) {
-            throw error;
-        }
+    // Vessel / Voyage filter
+    if (payload.VesselName) {
+      bookingWhere.VesselName = payload.VesselName;
+      houseJobWhere.VesselName = payload.VesselName;
     }
+
+    if (payload.VoyageNo) {
+      bookingWhere.VoyageNo = payload.VoyageNo;
+      houseJobWhere.VoyageNo = payload.VoyageNo;
+    }
+
+    /* -------------------------------------------------- */
+    /* FETCH BOTH TABLES                                  */
+    /* -------------------------------------------------- */
+
+    const [bookings, houseJobs] = await Promise.all([
+
+      this._db.bookingHeader.findMany({
+        where: bookingWhere,
+        include: {
+          bookingCargo: true,
+          departmentMaster: { select: { departmentName: true } },
+          bookingRates: { where: { Status: 'A' } }
+        },
+        orderBy: { BookingHeaderSid: 'desc' }
+      }),
+
+      this._db.houseJob.findMany({
+        where: houseJobWhere,
+        include: {
+          Cargo: true,
+          departmentMaster: { select: { departmentName: true } },
+          bookingRates: true
+        },
+        orderBy: { HouseJobSid: 'desc' }
+      })
+
+    ]);
+
+    /* -------------------------------------------------- */
+    /* MAP BOOKING RESULT                                 */
+    /* -------------------------------------------------- */
+
+    const bookingMapped = bookings.map(booking => {
+
+      const totalCost = (booking.bookingRates || []).reduce((acc, curr) => {
+        const amount = curr.CostLocalAmount
+          ? (curr.CostDrCr === "D"
+              ? curr.CostLocalAmount.toNumber()
+              : -curr.CostLocalAmount.toNumber())
+          : 0;
+        return acc + amount;
+      }, 0);
+
+      const totalRevenue = (booking.bookingRates || []).reduce((acc, curr) => {
+        const amount = curr.RevenueLocalAmount
+          ? (curr.RevenueDrCr === "C"
+              ? curr.RevenueLocalAmount.toNumber()
+              : -curr.RevenueLocalAmount.toNumber())
+          : 0;
+        return acc + amount;
+      }, 0);
+
+      return {
+        BookingHeaderSid: booking.BookingHeaderSid,
+        HouseJobSid: null,
+
+        BookingNo: booking.BookingNo,
+        BookingDate: booking.BookingDateTime,
+        DepartmentMasterSid: booking.DepartmentMasterSid,
+        departmentName: booking.departmentMaster?.departmentName,
+
+        HBLNo: booking.HBLNo,
+        CustomerMasterSid: booking.CustomerMasterSid,
+        CustomerName: booking.CustomerName,
+        CustomerAddress: booking.CustomerAddress,
+
+        ShipperName: booking.ShipperName,
+        ShipperAddress: booking.ShipperAddress,
+        ConsigneeName: booking.ConsigneeName,
+        ConsigneeAddress: booking.ConsigneeAddress,
+
+        MasterNoSid: booking.MasterNoSid,
+        MBLNo: booking.MBLNo,
+        MBLDate: booking.MBLDate,
+
+        FreightTerms: booking.FreightTerms,
+        POO: booking.POO,
+        POL: booking.POL,
+        POD: booking.POD,
+        FPD: booking.FPD,
+
+        VesselName: booking.VesselName,
+        VoyageNo: booking.VoyageNo,
+        ETD: booking.ETD,
+        ETA: booking.ETA,
+
+        NoOfPackage: booking.bookingCargo?.[0]?.NoOfPackage,
+        GrossWeight: booking.bookingCargo?.[0]?.GrossWeight,
+        NetWeight: booking.bookingCargo?.[0]?.NetWeight,
+        Volume: booking.bookingCargo?.[0]?.Volume,
+        CargoType: booking.bookingCargo?.[0]?.CargoType,
+
+        BookingStatus: booking.BookingStatus,
+        totalCost: totalCost.toFixed(2),
+        totalRevenue: totalRevenue.toFixed(2),
+      };
+    });
+
+    /* -------------------------------------------------- */
+    /* MAP HOUSE JOB RESULT                               */
+    /* -------------------------------------------------- */
+
+    const houseJobMapped = houseJobs.map(job => ({
+      BookingHeaderSid: null,
+      HouseJobSid: job.HouseJobSid,
+
+      BookingNo: job.BookingNo,
+      BookingDate: job.BookingDateTime,
+      DepartmentMasterSid: job.DepartmentMasterSid,
+      departmentName: job.departmentMaster?.departmentName,
+
+      HBLNo: job.HBLNo,
+      CustomerMasterSid: job.CustomerMasterSid,
+      CustomerName: job.CustomerName,
+      CustomerAddress: job.CustomerAddress,
+
+      ShipperName: job.ShipperName,
+      ShipperAddress: job.ShipperAddress,
+      ConsigneeName: job.ConsigneeName,
+      ConsigneeAddress: job.ConsigneeAddress,
+
+      MasterNoSid: job.MasterJobSid,
+      MBLNo: job.MBLNo,
+      MBLDate: job.MBLDate,
+
+      FreightTerms: job.FreightTerms,
+      POO: job.POO,
+      POL: job.POL,
+      POD: job.POD,
+      FPD: job.FPD,
+
+      VesselName: job.VesselName,
+      VoyageNo: job.VoyageNo,
+      ETD: job.ETD,
+      ETA: job.ETA,
+
+      NoOfPackage: job.Cargo?.[0]?.NoOfPackage,
+      GrossWeight: job.Cargo?.[0]?.GrossWeight,
+      NetWeight: job.Cargo?.[0]?.NetWeight,
+      Volume: job.Cargo?.[0]?.Volume,
+      CargoType: job.Cargo?.[0]?.CargoType,
+
+      BookingStatus: "Job Created",
+      totalCost: "0.00",
+      totalRevenue: "0.00"
+    }));
+
+    /* -------------------------------------------------- */
+    /* MERGE BOTH                                         */
+    /* -------------------------------------------------- */
+
+    const finalResult = [...bookingMapped, ...houseJobMapped]
+      .sort((a, b) =>
+        new Date(b.BookingDate || 0).getTime() -
+        new Date(a.BookingDate || 0).getTime()
+      );
+
+    return finalResult;
+
+  } catch (error) {
+    throw error;
+  }
+}
 
     async shiftBookingToHouse(allBookingIds: number[],masterJobInfo:any) {
         try {
