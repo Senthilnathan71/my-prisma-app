@@ -2,27 +2,15 @@ import { Injectable, Logger, BadRequestException, NotFoundException, InternalSer
 import { DatabaseService } from 'src/database/database.service';
 import { OutstandingService } from '../outstanding/outstanding.service';
 import {
-  CreateReceiptDto,
-  ReceiptResponseDto,
   SearchOutstandingDto,
   OutstandingInvoiceDto,
-  VoucherMatchingDto,
-  InterBranchJVDto,
   ReceiptFilterDto,
-  UpdateReceiptDto,
-  ReverseReceiptDto,
-  MatchedInvoiceDto,
-  VoucherMatchingPayload,
 } from '../../dto/receipt.dto';
 import { Prisma, PrismaClient } from '@prisma/client';
-import { SearchListDto } from 'src/masters/DTO/search-list.dto';
-import { filterDto } from 'src/masters/DTO/search-vessel.dto';
-import { isNumber } from 'class-validator';
 import { VoucherService } from 'src/operation/services/voucher/voucher.service';
 import moment from 'moment';
 import { Decimal } from '@prisma/client/runtime/library';
 import { roundAmount, toNumber } from 'src/common/helper';
-import { VoucherDetailDto } from 'src/accounts/dto/voucher.dto';
 import { CompanyConfigService } from 'src/masters/services/company/company-config.service';
 import { DOC_TYPE_CODE } from 'src/common/config/voucher-type.config';
 
@@ -173,7 +161,6 @@ export class ReceiptService {
           2,
         );
         const outstandingLocalAmount = roundAmount(originalLocalAmount - matchedLocalAmount, 2);
-
 
       // Skip fully paid if not requested
       if (!searchDto.IncludeFullyPaid && outstandingCurrencyAmount <= 0) {
@@ -499,7 +486,7 @@ export class ReceiptService {
           TaxAmount1: item.TaxAmount1 ?? 0,
           TaxPercentage2: item.TaxPercentage2 ?? 0,
           TaxAmount2: item.TaxAmount2 ?? 0,
-          Amount:  item.Amount ?? 0,
+          Amount: item.Amount ?? 0,
           LocalAmount: item.LocalAmount ?? 0,
           InvoiceType: item.InvoiceType || "",
           CostCenter: item.CostCenter ?? null,
@@ -877,7 +864,6 @@ export class ReceiptService {
         
         const now = payload.current_date ? new Date(payload.current_date) : new Date();
 
-        // Check for Exchange JV
         // Taking party amount from detail
         const allPartyDetails = VoucherDetail.filter(d => d.LedgerMasterSid === voucher.PartyMasterSid);
         const detailPartyAmount = toNumber((allPartyDetails || []).reduce((sum, detail) => {
@@ -887,6 +873,7 @@ export class ReceiptService {
             return sum - Number(detail.PartyAmount);
           },
           0).toFixed(2));
+
         // Taking total party amount from matching
         const billMatchingPartyAmount = toNumber((SourceMatchingDetail || []).reduce((sum, matching) => {
           if(matching.DrCr === 'D'){
@@ -1168,13 +1155,11 @@ export class ReceiptService {
           voucherMatchings: newVoucherMatchings
         }
 
-      },{ timeout : 60000 })
+      }, {timeout : 60000 });
     } catch (error) {
       throw error;
     }
   }
-
-
 
   /**
    * Search Receipt with filters and pagination

@@ -46,8 +46,8 @@ export class PaymentService {
                     VoucherDetailSid: txn.voucherDetailSid,
                     VoucherNumber: txn.voucherNumber,
                     VoucherDate: typeof txn.voucherDate === 'string' ? txn.voucherDate : txn.voucherDate.toISOString(),
-                    VoucherTypeMasterSid: txn.voucherTypeMasterSid,
-                    COAMasterSid: txn.coaMasterSid!,
+                    VoucherTypeMasterSid : txn.voucherTypeMasterSid,
+                    COAMasterSid : txn.coaMasterSid!,
                     VoucherType: txn.voucherTypeCode,
                     LedgerMasterSid: txn.ledgerMasterSid!,
                     CustomerName: customerOutstanding.customerName || '',
@@ -86,8 +86,8 @@ export class PaymentService {
     private async advancedSearchOutstanding(searchDto: SearchOutstandingDto): Promise<OutstandingInvoiceDto[]> {
         const whereConditions: Prisma.VoucherTransactionWhereInput = {
             CompanyMasterSid: searchDto.CompanyMasterSid,
-            subledgerMaster: {
-                SubledgerType: 'Customer'
+            subledgerMaster : {
+                SubledgerType : 'Customer'
             },
             Status: 'A',
         };
@@ -104,8 +104,8 @@ export class PaymentService {
             include: {
                 VoucherHeader: true,
                 subledgerMaster: true,
-                voucherTypeMaster: {
-                    select: { DocumentTypeCode: true }
+                voucherTypeMaster : {
+                    select : { DocumentTypeCode : true }
                 },
                 voucherMatchings: {
                     where: { Status: 'A' },
@@ -121,34 +121,55 @@ export class PaymentService {
         const results: OutstandingInvoiceDto[] = [];
 
         for (const txn of transactions) {
-            const matchedAmount = txn.voucherMatchings.reduce((sum, m) => sum + Number(m.Amount), 0);
-            const outstandingAmount = Number(txn.Amount) - matchedAmount;
+            const originalCurrencyAmount = toNumber(txn.Amount);
+        const originalLocalAmount = toNumber(txn.LocalAmount);
+
+        // Sum matched amounts for this transaction
+        let matchedCurrencyAmount = 0;
+        let matchedLocalAmount = 0;
+
+        if (txn.voucherMatchings && txn.voucherMatchings.length > 0) {
+          matchedCurrencyAmount = txn.voucherMatchings.reduce(
+            (sum, m) => sum + toNumber(m.Amount),
+            0,
+          );
+          matchedLocalAmount = txn.voucherMatchings.reduce(
+            (sum, m) => sum + toNumber(m.LocalAmount),
+            0,
+          );
+        }
+
+        const outstandingCurrencyAmount = roundAmount(
+          originalCurrencyAmount - matchedCurrencyAmount,
+          2,
+        );
+        const outstandingLocalAmount = roundAmount(originalLocalAmount - matchedLocalAmount, 2);
 
             // Skip fully paid if not requested
-            if (!searchDto.IncludeFullyPaid && Math.abs(outstandingAmount) <= 0) {
+            if (!searchDto.IncludeFullyPaid && outstandingCurrencyAmount <= 0) {
                 continue;
             }
 
             results.push({
                 VoucherTransactionSid: txn.VoucherTransactionSid,
                 VoucherHeaderSid: txn.VoucherHeaderSid,
-                VoucherDetailSid: txn.VoucherDetailSid,
+                VoucherDetailSid : txn.VoucherDetailSid,
                 VoucherNumber: txn.VoucherHeader.VoucherNumber,
                 VoucherDate: txn.VoucherDate.toISOString(),
-                VoucherTypeMasterSid: txn.VoucherTypeMasterSid,
+                VoucherTypeMasterSid : txn.VoucherTypeMasterSid,
                 VoucherType: txn.voucherTypeMaster?.DocumentTypeCode,
                 LedgerMasterSid: txn.LedgerMasterSid || null,
                 COAMasterSid: txn.COAMasterSid || null,
                 CustomerName: txn.subledgerMaster?.SubledgerName || '',
                 OriginalCurrencyAmount: Number(txn.Amount),
                 OriginalLocalAmount: Number(txn.LocalAmount),
-                MatchedAmount: matchedAmount,
-                MatchedCurrencyAmount: 0, // Would need to sum currency amounts
-                OutstandingLocalAmount: outstandingAmount,
-                OutstandingCurrencyAmount: Number(txn.Amount) - matchedAmount,
+                MatchedAmount: matchedLocalAmount,
+                MatchedCurrencyAmount: matchedCurrencyAmount, // Would need to sum currency amounts
+                OutstandingLocalAmount: outstandingLocalAmount,
+                OutstandingCurrencyAmount: outstandingCurrencyAmount,
                 CurrencyCode: txn.CurrencyCode || 'INR',
-                ExchangeRate : txn.ExchangeRate || null,
                 DrCr: txn.DrCr,
+                ExchangeRate : txn.ExchangeRate || null,
                 ChargeDescription : txn.ChargeDescription || '',
             });
         }
@@ -164,24 +185,24 @@ export class PaymentService {
         const payment = await this._db.voucherHeader.findUnique({
             where: {
                 VoucherHeaderSid: voucherHeaderSid,
-                CompanyMasterSid: companyMasterSid,
-                BranchMasterSid: branchMasterSid,
-                Status: 'A'
+                CompanyMasterSid : companyMasterSid,
+                BranchMasterSid : branchMasterSid,
+                Status : 'A'
             },
             include: {
                 VoucherDetail: {
-                    where: {
-                        Status: 'A'
+                    where : {
+                        Status : 'A'
                     },
                     orderBy : {
                         Sno : 'asc'
                     }
                 },
-                SourceMatchingDetail: true,
-                voucherMatchingHeader: {
-                    select: {
-                        VoucherMatchingHeaderSid: true,
-                        VoucherMatchingNo: true
+                SourceMatchingDetail : true,
+                voucherMatchingHeader : {
+                    select : {
+                        VoucherMatchingHeaderSid : true,
+                        VoucherMatchingNo : true
                     }
                 }
             },
@@ -326,8 +347,8 @@ export class PaymentService {
                         CompanyMasterSid: payload.CompanyMasterSid,
                         BranchMasterSid: payload.BranchMasterSid,
                         VoucherNumber: voucherNumber,
-                        CashOrBank: payload.CashOrBank,
-                        MultiBranch: payload.MultiBranch,
+                        CashOrBank : payload.CashOrBank,
+                        MultiBranch : payload.MultiBranch,
                         VoucherDate: payload.VoucherDate ? new Date(payload.VoucherDate) : new Date(), // ensure Date type
                         VoucherType: voucherType.VoucherTypeMasterSid,
                         PostDate: null,
@@ -432,12 +453,12 @@ export class PaymentService {
                         DrCr: String(matching.DrCr).toUpperCase().charAt(0),                 // DrCr(invoice)
                         Amount: matching.Amount,             // Amount(invoice)
                         LocalAmount: matching.LocalAmount,   // LocalAmount(invoice)
-                        MatchingCurrency: matching.MatchingCurrency,
-                        MatchingExRate: matching.MatchingExRate,
+                        MatchingCurrency : matching.MatchingCurrency,
+                        MatchingExRate : matching.MatchingExRate,
                         MatchingAmount: matching.MatchingAmount,  // MatchingAmount(user input/payment)
                         MatchingLocalAmount: matching.MatchingLocalAmount,       // MatchingLocalAmount(user input / payment)
                         PartyAmount : matching.PartyAmount,
-                        MatchingTDSAmount: matching.MatchingTDSAmount,
+                        MatchingTDSAmount : matching.MatchingTDSAmount,
                         SourceVoucherHeaderSid: voucherHeader.VoucherHeaderSid, // SourceVoucherHeaderSid(payment)
                     }
                 });
@@ -736,8 +757,8 @@ export class PaymentService {
                             where: { Status: 'A' },
                             orderBy: { Sno: 'asc' },
                         },
-                        subledgerMaster: {
-                            select: { SubledgerName: true }
+                        subledgerMaster : {
+                            select : {SubledgerName : true}
                         },
                         SourceMatchingDetail: true,
                         voucherTypeMaster: true
@@ -751,12 +772,11 @@ export class PaymentService {
                 
                 // Check if any transaction is already matched
                 const validTransactions = voucher.SourceMatchingDetail.filter(d => toNumber(d.MatchingAmount) > 0 && toNumber(d.MatchingLocalAmount) > 0).map(d => d.VoucherTransactionSid);
-                const { isValid, matchedTransactions } = await this.checkIfTransactionMatched(validTransactions,tx);
+                const { isValid, matchedTransactions } = await this.checkIfTransactionMatched(validTransactions, tx);
                 
                 if (!isValid) {
                     throw new BadRequestException(`Already matched vouchers:\n${matchedTransactions.map(m => m.VoucherNumber).join('\n')}`);
                 }
-
 
                 const { voucherTypeMaster, SourceMatchingDetail, VoucherDetail, ...VoucherHeader } = voucher;
 
@@ -801,10 +821,10 @@ export class PaymentService {
 
                 const detailLocalAmount = toNumber(allPartyDetails.reduce((sum, detail) => {
                     return detail.DrCr === 'D' ? sum + toNumber(detail.LocalAmount) : sum - toNumber(detail.LocalAmount);
-                }, 0).toFixed(2));
+                },0).toFixed(2));
 
                 const billMatchingLocalAmount = toNumber((SourceMatchingDetail || []).reduce((sum, matching) => {
-                    if (matching.DrCr === 'C') {
+                    if(matching.DrCr === 'C'){
                         return sum + Number(matching.MatchingLocalAmount);
                     }
                     return sum - Number(matching.MatchingLocalAmount);
@@ -815,14 +835,14 @@ export class PaymentService {
 
                 let partyExchangeJvDetail : any = null;
 
-                if (detailPartyAmount && billMatchingPartyAmount && detailPartyAmount === billMatchingPartyAmount) {
-                    if (billMatchingLocalAmount !== detailLocalAmount) {
+                if(detailPartyAmount && billMatchingPartyAmount && detailPartyAmount === billMatchingPartyAmount){
+                    if(billMatchingLocalAmount !== detailLocalAmount){
                         // Exchange gain or loss exists
                         const difference = Math.abs(billMatchingLocalAmount - detailLocalAmount);
                         const isGain = billMatchingLocalAmount < detailLocalAmount;
                         const coaMasterSid = toNumber(await this.companyConfigService.getConfigurationValue(payload.companyMasterSid, 'ExchangeJVCOA'));
 
-                        if (!coaMasterSid) {
+                        if(!coaMasterSid){
                             throw new BadRequestException('Exchange gain/loss JV COA not configured in Company Config');
                         }
 
@@ -836,8 +856,8 @@ export class PaymentService {
                                 Sno: VoucherDetail.length + 1,
                                 ChargeMasterSid: null,
                                 ChargeDescription: '',
-                                LedgerMasterSid: null,
-                                COAMasterSid: coaMasterSid,
+                                LedgerMasterSid : null,
+                                COAMasterSid : coaMasterSid,
                                 HSSACMasterSid: null,
                                 DepartmentMasterSid: voucher.DepartmentMasterSid,
                                 HouseJobSid: voucher.HouseJobSid,
@@ -864,8 +884,8 @@ export class PaymentService {
                         });
                         allDetails.push(exchangeGainOrLossDetail);
 
-                        const exchangeGainLossForParty = await tx.voucherDetail.create({
-                            data: {
+                        partyExchangeJvDetail = await tx.voucherDetail.create({
+                            data : {
                                 CreatedBy: payload.postedBy,
                                 Status: 'A',
                                 CompanyMasterSid: payload.companyMasterSid,
@@ -874,34 +894,36 @@ export class PaymentService {
                                 Sno: VoucherDetail.length + 2,
                                 ChargeMasterSid: null,
                                 ChargeDescription: "",
-                                LedgerMasterSid: voucher.PartyMasterSid,
-                                COAMasterSid: voucher.COAMasterSid!,
+                                LedgerMasterSid : voucher.PartyMasterSid,
+                                COAMasterSid : voucher.COAMasterSid!,
                                 DepartmentMasterSid: voucher.DepartmentMasterSid ?? null,
                                 HouseJobSid: voucher.HouseJobSid ?? null,
                                 MasterJobSid: voucher.MasterJobSid ?? null,
                                 CostRevenue: isGain ? 'Cost' : 'Revenue',
-                                CurrencyMasterSid: voucher.CurrencyMasterSid!,
-                                CurrencyCode: voucher.CurrencyCode!,
-                                NumberOfUnit: 1,
-                                ExchangeRate: voucher.ExchangeRate!,
-                                Rate: 0,
-                                Amount: 0,
-                                LocalAmount: difference,
-                                TaxableAmount: 0,
-                                DrCr: isGain ? 'C' : 'D',
-                                Narration: `Exchange ${isGain ? 'Loss' : 'Gain'} adjustment for party ${voucher.PartyName}`,
-                                TaxPercentage1: 0,
-                                TaxAmount1: 0,
-                                TaxPercentage2: 0,
-                                TaxAmount2: 0,
-                                PartyAmount: 0,
-                                YearMasterSid: payload.yearMasterSid,
-                                IsAutoGenerated: 'Y',
+                                CurrencyMasterSid : voucher.CurrencyMasterSid!,
+                                CurrencyCode : voucher.CurrencyCode!,
+                                NumberOfUnit : 1,
+                                ExchangeRate : voucher.ExchangeRate!,
+                                Rate : 0,
+                                Amount : 0,
+                                LocalAmount : difference,
+                                TaxableAmount : 0,
+                                DrCr : isGain ? 'C' : 'D',
+                                Narration : `Exchange ${isGain ? 'Loss' : 'Gain'} adjustment for party ${voucher.PartyName}`,
+                                TaxPercentage1 : 0,
+                                TaxAmount1 : 0,
+                                TaxPercentage2 : 0,
+                                TaxAmount2 : 0,
+                                PartyAmount : 0,
+                                YearMasterSid : payload.yearMasterSid,
+                                IsAutoGenerated : 'Y',
                             }
                         });
-                        allDetails.push(exchangeGainLossForParty);
+                        allDetails.push(partyExchangeJvDetail);
                     }
                 }
+
+
 
                 // Prepare VoucherTransaction payload array
                 const voucherTransactionsPayload = allDetails.map((item, index) => ({
@@ -956,8 +978,8 @@ export class PaymentService {
                         data: {
                             VoucherTransactionSid: voucherTransaction.VoucherTransactionSid
                         },
-                        include: {
-                            subledgerMaster: { select: { SubledgerType: true } },
+                        include : {
+                            subledgerMaster : {select : {SubledgerType : true}},
                         }
                     })
                     allCompleteDetails.push(completeDetail);
@@ -996,7 +1018,7 @@ export class PaymentService {
                             }
                         });
                         return {
-                            MatchingDetailSid: matching.MatchingDetailSid,
+                            MatchingDetailSid : matching.MatchingDetailSid,
                             VoucherHeaderSid: matching.VoucherHeaderSid,
                             VoucherDetailSid: matching.VoucherDetailSid,
                             VoucherTransactionSid: matching.VoucherTransactionSid,
@@ -1008,7 +1030,7 @@ export class PaymentService {
                             DrCr: transaction?.DrCr || null,
                             Amount: matching.MatchingAmount,
                             LocalAmount: matching.MatchingLocalAmount,
-                            PartyAmount: matching.PartyAmount,
+                            PartyAmount : matching.PartyAmount,
                         }
                     })
                 );
@@ -1020,7 +1042,7 @@ export class PaymentService {
                     partyDetail.LocalAmount = billMatchingLocalAmount;
                     const allSourceDetails = [partyDetail];
                     const partyRowFromExJv = (allCompleteDetails || []).find(d => d.VoucherDetailSid === partyExchangeJvDetail?.VoucherDetailSid);
-                    if (partyRowFromExJv) {
+                    if(partyRowFromExJv){
                         allSourceDetails.push(partyRowFromExJv);
                     }
 
@@ -1028,14 +1050,14 @@ export class PaymentService {
                         CompanyMasterSid: payload.companyMasterSid,
                         BranchMasterSid: payload.branchMasterSid,
                         VoucherHeaderSid: payload.voucherHeaderSid,
-                        SubledgerName: voucher?.subledgerMaster?.SubledgerName || '',
-                        VoucherTypeCode : voucher?.voucherTypeMaster.DocumentTypeCode,
+                        SubledgerName : voucher?.subledgerMaster?.SubledgerName || '',
+                        VoucherTypeCode: voucher?.voucherTypeMaster.DocumentTypeCode,
                         VoucherTypeMasterSid: voucher?.voucherTypeMaster.VoucherTypeMasterSid,
                         PostDate: now ,
                         Narration: `${voucher.VoucherNumber} ${voucher.VoucherDate.toISOString().split('T')[0]} ${voucher.CurrencyCode} ${voucher.Amount}`,
                         createdBy: payload.postedBy,
                         voucherMatching: allValidMatchings,
-                        partyVoucherDetail: partyDetail,
+                        partyVoucherDetail: allSourceDetails,
                         BillMatchingCurrencyAmount: billMatchingPartyAmount,
                         BillMatchingLocalAmount: billMatchingLocalAmount,
 
@@ -1058,7 +1080,7 @@ export class PaymentService {
                     data: {
                         Amount: finalPartyCurrency,
                         LocalAmount: finalLocalAmount,
-                        PostStatus: 'P',
+                        PostStatus : 'P',
                         PostDate: now,
                         UpdatedBy: payload.postedBy
                     }
