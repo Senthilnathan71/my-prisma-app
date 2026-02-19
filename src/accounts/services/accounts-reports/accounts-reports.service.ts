@@ -1811,6 +1811,10 @@ export class AccountsReportsService {
           if (drCr === 'C') signedAmt = -amt;
           if (drCr === 'D') signedAmt = +amt;
         }
+        else{
+           if (drCr === 'D') signedAmt = +amt;
+           if (drCr === 'C') signedAmt = -amt;
+        }
         openingBalance += signedAmt;
       }
 
@@ -1919,6 +1923,9 @@ export class AccountsReportsService {
           if (drCr === 'C') signedAmount = +outstandingLocalAmount;
           if (drCr === 'D') signedAmount = -outstandingLocalAmount;
         } else if (ledger?.LedgerType?.trim() === 'Sy Dr') {
+          if (drCr === 'D') signedAmount = +outstandingLocalAmount;
+          if (drCr === 'C') signedAmount = -outstandingLocalAmount;
+        } else {
           if (drCr === 'D') signedAmount = +outstandingLocalAmount;
           if (drCr === 'C') signedAmount = -outstandingLocalAmount;
         }

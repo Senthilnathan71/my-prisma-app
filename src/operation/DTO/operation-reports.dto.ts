@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsString, IsOptional, IsInt, IsNotEmpty, IsDateString, IsEnum } from 'class-validator';
+import { IsString, IsOptional, IsInt, IsNotEmpty, IsDateString, IsEnum, IsBoolean } from 'class-validator';
 
 export enum BLStatusEnum {
   ISSUED = 'issued',
@@ -111,6 +111,10 @@ export class ShipmentSummaryReportQueryDto {
   @IsOptional()
   @IsInt()
   Dept?: number[];
+
+  @ApiProperty()
+  @IsNotEmpty()
+  JobGenerated: Boolean;
 }
 
 // Containerwise Details Report DTOs
@@ -659,4 +663,36 @@ export class NetworkReportQueryDto {
   @IsOptional()
   @IsInt()
   Dept?: number[];
+}
+
+
+export class CostRevenueNotBookedReportQueryDto {
+  @ApiProperty()
+  @IsNotEmpty()
+  @IsDateString()
+  FromDate: string;
+
+  @ApiProperty()
+  @IsNotEmpty()
+  @IsDateString()
+  ToDate: string;
+
+  @ApiProperty()
+  @IsNotEmpty()
+  @IsInt()
+  companyId: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsInt()
+  Branch?: number[];
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsInt()
+  Dept?: number[];
+
+  @IsOptional()
+  @IsBoolean()
+  CalculationType : 'Not Booked Cost' | 'Not Booked Revenue'
 }
