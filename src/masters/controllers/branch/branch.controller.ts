@@ -7,6 +7,9 @@ import { checkIfFileExists } from 'src/common/helper';
 import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { BranchService } from 'src/masters/services/branch/branch.service';
+class CompanyIdDto {
+    CompanyMasterSid: number;
+}
 
 @Controller('branch')
 export class BranchController {
@@ -65,6 +68,34 @@ export class BranchController {
         }
         return resp;
     }
+
+
+     @ApiOperation({ summary: 'Get All Branch' })
+    @ApiCreatedResponse({
+        description: "Get All Branch",
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Post()
+    async getCurrentBranch(@Body() body: CompanyIdDto) {
+        let resp = new ResponseData();
+        try {
+            let allBranches = await this.branchService.getCurrentBranch(body.CompanyMasterSid);
+            this.logger.log(`All Branches Fetched : ${JSON.stringify(allBranches)}`);
+            resp.data = allBranches;
+            resp.message = "All Branches are successfully fetched";
+        } catch (error) {
+            this.logger.warn(`Get All Branch Error : ${JSON.stringify(error), error}`)
+            resp.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                resp.message = error.message;
+            } else {
+                resp.message = "Internal Server Error";
+            }
+        }
+        return resp;
+    }
+
 
 
 

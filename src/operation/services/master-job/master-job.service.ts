@@ -1000,7 +1000,7 @@ export class MasterJobService {
                                 MBLNo: createdMasterJob.MBLNo,
                                 MBLDate: createdMasterJob.MBLDate,
                                 HBLNo: houseJob?.HBLNo,
-                                BookingStatus: 'Stuffed',
+                                BookingStatus: 'Job Generated',
 
                                 // If Sailing schedule changed during Loading Plan
                                 VoyageMasterSid: createdVoyage.VoyageMasterSid,
@@ -2575,7 +2575,7 @@ private getWeightInFromUnitSid(weightUnitSid: number): string {
                             MasterNoSid: updatedMasterJob.MasterJobSid,
                             MBLNo: updatedMasterJob.MBLNo,
                             MBLDate: updatedMasterJob.MBLDate,
-                            BookingStatus: 'Stuffed',
+                            BookingStatus: 'Job Generated',
                             updatedBy : payload.updatedBy,
                             updatedOn : new Date()
                         },
@@ -3216,7 +3216,7 @@ if (houseJobsForBookingSync.length > 0) {
                             MasterNoSid: null,
                             MBLNo: null,
                             MBLDate: null,
-                            BookingStatus: isLCLExport ? 'Cargo Received' : 'Booked',
+                            BookingStatus: 'Cargo Received',
                             updatedBy : userEmail,
                             updatedOn : new Date()
                         }
