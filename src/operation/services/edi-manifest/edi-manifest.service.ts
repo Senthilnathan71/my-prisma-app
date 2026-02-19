@@ -480,6 +480,12 @@ export class EDIManifestService {
       errors.push(...voyErrors);
     }
 
+    // Master container validation (once, before house job loop) to avoid duplicate errors
+    if (!isHouseJob && masterJob.containers?.length > 0) {
+      const masterCtrErrors = this.validateMasterContainers(masterJob);
+      errors.push(...masterCtrErrors);
+    }
+
     // BOL, CON, CTR Record Validation for each House Job
     for (const houseJob of masterJob.houseJob || []) {
       const bolErrors = this.validateBOLRecord(masterJob, houseJob, originCountryCode);
@@ -488,10 +494,10 @@ export class EDIManifestService {
       const conErrors = this.validateCONRecord(masterJob, houseJob);
       errors.push(...conErrors);
 
-      // CTR validation only for containerized cargo (skip for House Job — containers are at Master Job level)
+      // Product-level CTR validation (LCL seal numbers) per house job
       if (!isHouseJob && this.isContainerized(masterJob, houseJob)) {
-        const ctrErrors = this.validateCTRRecords(masterJob, houseJob);
-        errors.push(...ctrErrors);
+        const productCtrErrors = this.validateProductContainers(houseJob);
+        errors.push(...productCtrErrors);
       }
     }
 
@@ -615,8 +621,8 @@ export class EDIManifestService {
     }
 
     // 2.28 SHIPPER COUNTRY CODE (M)
-    const shipperCountryCode = houseJob.companyMaster?.countryMaster?.CountryCode ||
-                               masterJob.CompanyMaster?.countryMaster?.CountryCode;
+    const shipperCountryCode = houseJob.companyMaster?.countryMaster?.countryCode ||
+                               masterJob.CompanyMaster?.countryMaster?.countryCode;
     if (!shipperCountryCode) {
       errors.push({ recordType: 'BOL', fieldRef: '2.28', fieldName: 'Shipper Country Code', tabName: 'Shipment', houseJobSid, hblNo });
     }
@@ -745,15 +751,8 @@ export class EDIManifestService {
       errors.push({ recordType: 'CON', fieldRef: '3.1', fieldName: 'Serial Number', tabName: 'Customs', houseJobSid, hblNo });
     }
 
-    // 3.2 MARKS & NUMBERS (M)
-    if (!cargo.MarksAndNumber) {
-      errors.push({ recordType: 'CON', fieldRef: '3.2', fieldName: 'Marks & Numbers', tabName: 'Cargo', houseJobSid, hblNo });
-    }
-
-    // 3.3 CARGO DESCRIPTION (M)
-    if (!cargo.CommodityDescription) {
-      errors.push({ recordType: 'CON', fieldRef: '3.3', fieldName: 'Cargo Description', tabName: 'Cargo', houseJobSid, hblNo });
-    }
+    // 3.2 MARKS & NUMBERS — skipped, already validated as BOL 2.41
+    // 3.3 CARGO DESCRIPTION — skipped, already validated as BOL 2.43
 
     // 3.5 COMMODITY CODE / HS CODE (M)
     const hsCode = customs.UNHSCode || product.HSCode;
@@ -766,15 +765,8 @@ export class EDIManifestService {
       errors.push({ recordType: 'CON', fieldRef: '3.6', fieldName: 'Consignment Packages', tabName: 'Cargo', houseJobSid, hblNo });
     }
 
-    // 3.7 PACKAGE TYPE (M)
-    if (!cargo.PackageType) {
-      errors.push({ recordType: 'CON', fieldRef: '3.7', fieldName: 'Package Type', tabName: 'Cargo', houseJobSid, hblNo });
-    }
-
-    // 3.8 PACKAGE TYPE CODE (M)
-    if (!customs.PackageTypeCode) {
-      errors.push({ recordType: 'CON', fieldRef: '3.8', fieldName: 'Package Type Code', tabName: 'Customs', houseJobSid, hblNo });
-    }
+    // 3.7 PACKAGE TYPE — skipped, already validated as BOL 2.45
+    // 3.8 PACKAGE TYPE CODE — skipped, already validated as BOL 2.46
 
     // 3.9 NO OF PALLETS (M)
     if (!customs.NoOfPallets && customs.NoOfPallets !== 0) {
@@ -838,35 +830,44 @@ export class EDIManifestService {
   }
 
   /**
-   * Validate CTR Record mandatory fields (for containerized cargo)
+   * Validate CTR Record mandatory fields for master job containers (4.1, 4.3, 4.4)
+   * Called once before the house job loop to avoid duplicate errors.
    */
-  private validateCTRRecords(masterJob: any, houseJob: any): MandatoryFieldError[] {
+  private validateMasterContainers(masterJob: any): MandatoryFieldError[] {
     const errors: MandatoryFieldError[] = [];
     const containers = masterJob.containers || [];
-    const products = houseJob.Products || [];
-    const hblNo = houseJob.HBLNo || '';
-    const houseJobSid = houseJob.HouseJobSid;
 
-    // Check master job containers
     for (const container of containers) {
       // 4.1 CONTAINER NUMBER (M)
       if (!container.ContainerNumber) {
-        errors.push({ recordType: 'CTR', fieldRef: '4.1', fieldName: 'Container Number', tabName: 'Container', houseJobSid, hblNo });
+        errors.push({ recordType: 'CTR', fieldRef: '4.1', fieldName: 'Container Number', tabName: 'Container' });
       }
 
       // 4.3 TARE WEIGHT IN MT (M)
       const tareWeight = container.containerType?.TareWeight;
       if (!tareWeight && tareWeight !== 0) {
-        errors.push({ recordType: 'CTR', fieldRef: '4.3', fieldName: `Tare Weight for Container ${container.ContainerNumber || 'Unknown'}`, tabName: 'Container', houseJobSid, hblNo });
+        errors.push({ recordType: 'CTR', fieldRef: '4.3', fieldName: `Tare Weight for Container ${container.ContainerNumber || 'Unknown'}`, tabName: 'Container' });
       }
 
       // 4.4 SEAL NO (M)
       if (!container.LineSeal) {
-        errors.push({ recordType: 'CTR', fieldRef: '4.4', fieldName: `Seal Number for Container ${container.ContainerNumber || 'Unknown'}`, tabName: 'Container', houseJobSid, hblNo });
+        errors.push({ recordType: 'CTR', fieldRef: '4.4', fieldName: `Seal Number for Container ${container.ContainerNumber || 'Unknown'}`, tabName: 'Container' });
       }
     }
 
-    // Check product containers (for LCL)
+    return errors;
+  }
+
+  /**
+   * Validate CTR Record mandatory fields for product-level containers (LCL seal numbers)
+   * Called per house job inside the loop.
+   */
+  private validateProductContainers(houseJob: any): MandatoryFieldError[] {
+    const errors: MandatoryFieldError[] = [];
+    const products = houseJob.Products || [];
+    const hblNo = houseJob.HBLNo || '';
+    const houseJobSid = houseJob.HouseJobSid;
+
     for (const product of products) {
       if (product.ContainerNo) {
         // 4.4 SEAL NO (M)
