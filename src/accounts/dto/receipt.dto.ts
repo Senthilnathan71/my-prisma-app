@@ -8,6 +8,7 @@ import {
   IsDate,
   Min,
   IsBoolean,
+  IsInt,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { VoucherDetailDto } from './voucher-posting.dto';
@@ -440,6 +441,10 @@ export class VoucherMatchingPayload {
 
   @IsNotEmpty()
   @IsDate()
+  VoucherMatchingDate : Date;
+
+  @IsNotEmpty()
+  @IsDate()
   PostDate : Date;
   
   @IsNotEmpty()
@@ -456,6 +461,10 @@ export class VoucherMatchingPayload {
   @IsNotEmpty()
   @Type(()=>VoucherDetailDto)
   partyVoucherDetail: VoucherDetailDto[];
+
+  @IsNotEmpty()
+  @IsInt()
+  YearMasterSid : number;
 
   @IsNotEmpty()
   @IsNumber()

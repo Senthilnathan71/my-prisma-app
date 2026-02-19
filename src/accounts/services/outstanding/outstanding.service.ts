@@ -6,7 +6,8 @@ import {
   CustomerOutstandingTransactionDto,
 } from '../../dto/outstanding.dto';
 import { Decimal } from '@prisma/client/runtime/library';
-import { DOC_TYPE_CODE } from 'src/common/config/voucher-type.config';
+import { DOC_TYPE_CODE, DocTypeCode } from 'src/common/config/voucher-type.config';
+import { Prisma } from '@prisma/client';
 
 /**
  * Service for calculating outstanding amounts for vouchers and customers
@@ -143,6 +144,7 @@ export class OutstandingService {
   async getCustomerOutstanding(
     companyMasterSid: number,
     ledgerMasterSid: number,
+    exception ?: DocTypeCode,
   ): Promise<CustomerOutstandingResponseDto> {
     try {
       this.logger.log(
@@ -156,29 +158,22 @@ export class OutstandingService {
 
       // Fetch all active voucher transactions for this customer
       // Exclude reversed vouchers
-      const voucherTransactions = await this._db.voucherTransaction.findMany({
-        where: {
-          CompanyMasterSid: companyMasterSid,
+      const whereClause: Prisma.VoucherTransactionWhereInput = {
+        CompanyMasterSid: companyMasterSid,
           LedgerMasterSid: ledgerMasterSid,
           Status: 'A',
           VoucherHeader : { PostStatus : 'P'},
           subledgerMaster : {
             SubledgerType : 'Customer'
           },
-          voucherTypeMaster : {
-            DocumentTypeCode : {not : DOC_TYPE_CODE.RECEIPT}
-          },
-          /**
-           * UPDATE:
-           * Voucher Reversal also follows the same logic.
-           * Scenario: For 5000 invoice, customer paid 2500. 
-           * If invoice is reversed, outstanding should become zero.
-           * Meaning → Exclude vouchers that are reversed
-           */
-          // VoucherHeader: {
-          //   ReversalVoucher: null, // Exclude reversed vouchers
-          // },
-        },
+          ...( exception ? {
+            voucherTypeMaster : {
+              DocumentTypeCode : { not : exception }
+            },
+          } : {}),
+      }
+      const voucherTransactions = await this._db.voucherTransaction.findMany({
+        where: whereClause,
         include: {
           VoucherHeader: true,
           voucherMatchings: {

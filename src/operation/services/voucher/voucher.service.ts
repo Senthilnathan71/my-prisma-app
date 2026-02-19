@@ -6,7 +6,7 @@ import { PostVoucherResponseDto, TaxSummaryDto, VoucherDetailDto } from 'src/acc
 import { checkIfExJvApplicable, checkIfMatchingApplicable, checkIfReversalApplicable, DOC_TYPE_CODE, getPartyDrCr, getTaxInputOutput, getTaxLedger, TaxLedgerType, TaxVoucherType } from 'src/common/config/voucher-type.config';
 import { DatabaseService } from 'src/database/database.service';
 import * as moment from 'moment-timezone';
-import { CheckAutoPostingDto, CreateVoucherPayload } from 'src/accounts/dto/voucher.dto';
+import { CheckAutoPostingDto, CreateVoucherPayload, DeleteVoucherPayload } from 'src/accounts/dto/voucher.dto';
 import { roundAmount, toNumber } from 'src/common/helper';
 
 interface InvoiceHeaderDTO {
@@ -1996,7 +1996,9 @@ export class VoucherService {
                     VoucherTypeCode: voucher?.voucherTypeMaster.DocumentTypeCode,
                     VoucherTypeMasterSid: voucher?.voucherTypeMaster.VoucherTypeMasterSid,
                     SubledgerName: voucher?.subledgerMaster?.SubledgerName || '',
+                    VoucherMatchingDate : now,
                     PostDate: now,
+                    YearMasterSid : payload.yearMasterSid,
                     Narration: `${voucher.VoucherNumber} ${voucher.VoucherDate.toISOString().split('T')[0]} ${voucher.CurrencyCode} ${voucher.Amount}`,
                     createdBy: payload.postedBy,
                     partyVoucherDetail: partyDtlInRecTrans,
@@ -2168,7 +2170,9 @@ export class VoucherService {
                     VoucherTypeCode: voucher?.voucherTypeMaster.DocumentTypeCode,
                     SubledgerName: voucher?.subledgerMaster?.SubledgerName || '',
                     VoucherTypeMasterSid: voucher?.voucherTypeMaster.VoucherTypeMasterSid,
-                    PostDate: voucher.PostDate!,
+                    VoucherMatchingDate : now,
+                    PostDate: now,
+                    YearMasterSid : payload.yearMasterSid,
                     Narration: `${voucher.VoucherNumber} ${voucher.VoucherDate.toISOString().split('T')[0]} ${voucher.CurrencyCode} ${voucher.Amount}`,
                     createdBy: payload.postedBy,
                     partyVoucherDetail: partyDtlInRecTrans,
@@ -2597,10 +2601,32 @@ export class VoucherService {
 
     async createVoucherMatching(payload: VoucherMatchingPayload,prisma: Prisma.TransactionClient){
         try {
-            const newNumber = await this.generateVoucherMatchingHeaderNo(
+
+            if(!payload.YearMasterSid) {
+                throw new BadRequestException('YearMasterSid is required for VoucherMatching');
+            }
+
+            const voucherType = await prisma.voucherTypeMaster.findFirst({
+                where: {
+                    DocumentTypeCode: DOC_TYPE_CODE.VOUCHER_MATCHING,
+                    CompanyMasterSid: payload.CompanyMasterSid,
+                    BranchMasterSid: payload.BranchMasterSid,
+                    status: 'A'
+                },
+            });
+            if (!voucherType) {
+                throw new BadRequestException('Voucher Matching Type not found. Please configure VoucherTypeMaster for this company/branch.');
+            }
+
+
+            // 2. Generate voucher number using config-based approach
+            const voucherNumber = await this.generateVoucherNumberFromConfig(
+                voucherType,
                 payload.CompanyMasterSid,
                 payload.BranchMasterSid,
-                prisma
+                payload.YearMasterSid,
+                prisma,
+                payload.VoucherMatchingDate ? new Date(payload.VoucherMatchingDate) : new Date()
             );
 
             const createdVoucherHeader = await prisma.voucherMatchingHeader.create({
@@ -2611,8 +2637,8 @@ export class VoucherService {
                     BranchMasterSid : payload.BranchMasterSid,
                     VoucherHeaderSid : payload.VoucherHeaderSid,
                     SubledgerName : payload.SubledgerName,
-                    VoucherMatchingNo : newNumber,
-                    VoucherMatchingDate : payload.PostDate,
+                    VoucherMatchingNo : voucherNumber,
+                    VoucherMatchingDate : payload.VoucherMatchingDate ? new Date(payload.VoucherMatchingDate) : new Date(),
                     Narration : payload.Narration,
                     Remarks : ""
                 }
@@ -2639,7 +2665,7 @@ export class VoucherService {
                     CurrencyCode : detail.CurrencyCode,
                     ExchangeRate : detail.ExchangeRate,
                     DrCr : detail.DrCr! || getPartyDrCr(payload.VoucherTypeCode)!,
-                    Amount : this.toNumber(detail.PartyAmount),
+                    Amount : this.toNumber(detail.Amount),
                     LocalAmount : this.toNumber(detail.LocalAmount),
                     PartyAmount : this.toNumber(detail.PartyAmount),
                     MatchingType : 'Source'
@@ -2672,7 +2698,7 @@ export class VoucherService {
                         CurrencyCode: matching.CurrencyCode,
                         ExchangeRate: matching.ExchangeRate,
                         DrCr: String(matching.DrCr).charAt(0),
-                        Amount: matching.PartyAmount || matching.Amount,
+                        Amount: matching.Amount || matching.PartyAmount,
                         LocalAmount: matching.LocalAmount,
                         PartyAmount : matching.PartyAmount,
                         MatchingType: 'Object'
@@ -2687,7 +2713,7 @@ export class VoucherService {
         } catch (error) {
             throw error;
         }
-    }
+    } 
 
 
     /**
@@ -2806,6 +2832,87 @@ export class VoucherService {
                 return updatedResults;
             }
 
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    async deleteVoucher(payload: DeleteVoucherPayload) {
+        try {
+            const { VoucherHeaderSid, CompanyMasterSid, BranchMasterSid, UserEmail } = payload;
+            const result = await this._db.$transaction(async (prisma) => {
+                const existing = await prisma.voucherHeader.findUnique({
+                    where: { 
+                        CompanyMasterSid : CompanyMasterSid,
+                        BranchMasterSid : BranchMasterSid,
+                        VoucherHeaderSid: VoucherHeaderSid 
+                    }
+                });
+
+                if (!existing || existing.Status !== 'A') {
+                    throw new BadRequestException('Voucher is already deleted.');
+                }
+
+                const deletedVoucherHeader = await prisma.voucherHeader.update({
+                    where: { VoucherHeaderSid: VoucherHeaderSid },
+                    data: { Status: 'S', UpdatedBy: UserEmail, UpdatedOn: new Date() },
+                    include : {
+                        voucherTypeMaster : {
+                            select : { DocumentTypeCode : true}
+                        },
+                        VoucherDetail : {
+                            where : { Status : 'A'}
+                        }
+                    }
+                });
+
+
+                const voucherType = deletedVoucherHeader.voucherTypeMaster?.DocumentTypeCode;
+                if (voucherType === DOC_TYPE_CODE.INVOICE || voucherType === DOC_TYPE_CODE.VENDOR_INVOICE) {
+
+                    const isBookingVoucher = !!deletedVoucherHeader.BookingHeaderSid;
+
+                    const voucherDetails = deletedVoucherHeader.VoucherDetail || [];
+                    if (isBookingVoucher) {
+                        const allBookingRateSid = voucherDetails.map(d => d.BookingRatesSid!).filter(Boolean);
+                        const updateData = voucherType === DOC_TYPE_CODE.INVOICE ? {
+                            RevenueVoucherHeaderSid: null,
+                            RevenueVoucherTypeMasterSid: null,
+                            UpdatedOn: new Date(),
+                            UpdatedBy: UserEmail,
+                        } : {
+                            CostVoucherHeaderSid: null,
+                            CostVoucherTypeMasterSid: null,
+                            UpdatedOn: new Date(),
+                            UpdatedBy: UserEmail,
+                        };
+                        await prisma.bookingRates.updateMany({
+                            where: { BookingRatesSid: { in: allBookingRateSid } },
+                            data: updateData
+                        });
+                    } else {
+                        const allCostRevenueChargesIds = voucherDetails.map(d => d.CostRevenueChargesSid!).filter(Boolean);
+                        const updateData = voucherType === DOC_TYPE_CODE.INVOICE ? {
+                            RevenueVoucherHeaderSid: null,
+                            RevenueVoucherTypeMasterSid: null,
+                            updatedOn: new Date(),
+                            updatedBy: UserEmail
+                        } : {
+                            CostVoucherHeaderSid: null,
+                            CostVoucherTypeMasterSid: null,
+                            updatedOn: new Date(),
+                            updatedBy: UserEmail
+                        };
+                        await prisma.costRevenueCharges.updateMany({
+                            where: { CostRevenueChargesSid: { in: allCostRevenueChargesIds } },
+                            data: updateData
+                        });
+                    }
+                }
+
+                return deletedVoucherHeader;
+            });
+            return result;
         } catch (error) {
             throw error;
         }

@@ -10,6 +10,7 @@ export const DOC_TYPE_CODE = {
   VENDOR_CREDIT_NOTE: 'VRN',
   JOURNAL_VOUCHER: 'JV',
   REVERSAL_JOURNAL_VOUCHER: 'RJV',
+  VOUCHER_MATCHING : 'VM'
 } as const;
 
 export type DocTypeCode = typeof DOC_TYPE_CODE[keyof typeof DOC_TYPE_CODE];
