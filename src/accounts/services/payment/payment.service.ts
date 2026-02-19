@@ -4,7 +4,7 @@ import { OutstandingService } from '../outstanding/outstanding.service';
 import { VoucherService } from 'src/operation/services/voucher/voucher.service';
 import { OutstandingInvoiceDto, SearchOutstandingDto } from 'src/accounts/dto/receipt.dto';
 import { Prisma } from '@prisma/client';
-import { roundAmount, toNumber } from 'src/common/helper';
+import { roundAmount, statusWhereClause, toNumber } from 'src/common/helper';
 import { CompanyConfigService } from 'src/masters/services/company/company-config.service';
 import { DOC_TYPE_CODE } from 'src/common/config/voucher-type.config';
 
@@ -63,17 +63,34 @@ export class PaymentService {
                     ChargeDescription: txn.chargeDescription,
                 }));
 
+                let result = invoices;
+
                 // Filter out fully paid if requested
                 if (!searchDto.IncludeFullyPaid) {
-                    invoices = invoices.filter((inv) => inv.OutstandingCurrencyAmount > 0 || inv.OutstandingLocalAmount > 0);  // No tolerance
+                    result = result.filter((inv) => Math.abs(inv.OutstandingCurrencyAmount) > 0 || Math.abs(inv.OutstandingLocalAmount) > 0);  // No tolerance
                 }
-            } else {
-                // Advanced search by invoice number, house number, etc.
-                invoices = await this.advancedSearchOutstanding(searchDto);
+
+                // Filter by DrCr if provided
+                if (searchDto.DrCr) {
+                    result = result.filter((inv) => inv.DrCr === searchDto.DrCr);
+                }
+
+                // Sort by VoucherDate ascending
+                result.sort((a, b) => new Date(b.VoucherDate).getTime() - new Date(a.VoucherDate).getTime());
+
+                // Apply pagination
+                if (searchDto.Skip !== undefined || searchDto.Take !== undefined) {
+                    const skip = searchDto.Skip || 0;
+                    const take = searchDto.Take || result.length;
+                    result = result.slice(skip, skip + take);
+                }
+
+                return result;
             }
 
-            // Apply pagination
-            return invoices.slice(skip, skip + take);
+            // Advanced search by invoice number, house number, etc.
+            return await this.advancedSearchOutstanding(searchDto);
+
         } catch (error) {
             this.logger.error(`Failed to search outstanding invoices: ${error.message}`, error.stack);
             throw new BadRequestException(`Failed to search outstanding invoices: ${error.message}`);
@@ -187,7 +204,7 @@ export class PaymentService {
                 VoucherHeaderSid: voucherHeaderSid,
                 CompanyMasterSid : companyMasterSid,
                 BranchMasterSid : branchMasterSid,
-                Status : 'A'
+                Status : statusWhereClause
             },
             include: {
                 VoucherDetail: {
@@ -239,17 +256,19 @@ export class PaymentService {
                         return sum + Number(m.Amount);
                     }
                     return sum + Number(m.Amount);
-                }, 0);
-
+                }
+            , 0);
             const matchedLocalAmount = transactionDetail.voucherMatchings.reduce(
                 (sum, m) => {
-                    if (m.DrCr === 'C') {
+                    if (m.DrCr === 'D') {
                         return sum + Number(m.LocalAmount);
                     }
                     return sum + Number(m.LocalAmount);
-                }, 0);
+                }
+            , 0);
             const outstandingAmount = Number(transactionDetail.Amount) - matchedAmount;
             const outstandingLocalAmount = Number(transactionDetail.LocalAmount) - matchedLocalAmount;
+
 
             return {
                 VoucherMatchingHeaderSid: detail.VoucherMatchingHeaderSid,
@@ -265,26 +284,26 @@ export class PaymentService {
                 VoucherType: transactionDetail?.voucherTypeMaster?.DocumentTypeCode,
                 VoucherDate: transactionDetail?.VoucherDate,
                 DrCr: detail.DrCr,
-                CurrencyCode: detail.CurrencyCode,
+                CurrencyCode : detail.CurrencyCode,
                 ExchangeRate: detail.ExchangeRate || 1,
                 OriginalCurrencyAmount: transactionDetail?.Amount,
                 OriginalLocalAmount: transactionDetail?.LocalAmount,
                 OutstandingCurrencyAmount: outstandingAmount,
                 OutstandingLocalAmount: outstandingLocalAmount,
-                MatchingCurrency: detail.MatchingCurrency,
-                MatchingExRate: detail.MatchingExRate,
+                MatchingCurrency : detail.MatchingCurrency,
+                MatchingExRate : detail.MatchingExRate,
                 MatchingAmount: detail.MatchingAmount,
                 MatchingLocalAmount: detail.MatchingLocalAmount,
-                MatchingTDSAmount: detail.MatchingTDSAmount,
+                MatchingTDSAmount : detail.MatchingTDSAmount,
                 PartyAmount : detail.PartyAmount
             };
         }));
 
         return {
             ...VoucherHeader,
-            VoucherDetail: VoucherDetail,
+            VoucherDetail : VoucherDetail,
             VoucherMatchingHeader : voucherMatchingHeader,
-            voucherMatchings: formattedMatchingDetail
+            voucherMatchings : formattedMatchingDetail
         };
     }
 
@@ -325,7 +344,7 @@ export class PaymentService {
                     },
                 });
 
-                if (!currentYear) {
+                if(!currentYear) {
                     throw new Error('Financial year not found');
                 }
 
@@ -645,11 +664,11 @@ export class PaymentService {
                         });
                     } else {
                         // Create new detail
-                        const lastSno = await prisma.voucherDetail.findFirst({
-                            where: { VoucherHeaderSid },
-                            orderBy: { Sno: 'desc' },
-                            select: { Sno: true }
-                        });
+                        // const lastSno = await prisma.voucherDetail.findFirst({
+                        //     where: { VoucherHeaderSid },
+                        //     orderBy: { Sno: 'desc' },
+                        //     select: { Sno: true }
+                        // });
 
                         return prisma.voucherDetail.create({
                             data: {
@@ -715,7 +734,7 @@ export class PaymentService {
                     matchings: updatedCreatedMatchings,
                     message: 'Payment updated successfully',
                 };
-            },{timeout : 48000});
+            },{timeout: 48000});
         } catch (error) {
             if (error instanceof BadRequestException) {
                 throw error;
@@ -1050,14 +1069,14 @@ export class PaymentService {
                         SubledgerName : voucher?.subledgerMaster?.SubledgerName || '',
                         VoucherTypeCode: voucher?.voucherTypeMaster.DocumentTypeCode,
                         VoucherTypeMasterSid: voucher?.voucherTypeMaster.VoucherTypeMasterSid,
-                        VoucherMatchingDate: now,
+                        VoucherMatchingDate : now ,
                         PostDate: now ,
                         YearMasterSid : payload.yearMasterSid,
                         Narration: `${voucher.VoucherNumber} ${voucher.VoucherDate.toISOString().split('T')[0]} ${voucher.CurrencyCode} ${voucher.Amount}`,
                         createdBy: payload.postedBy,
                         voucherMatching: allValidMatchings,
                         partyVoucherDetail: allSourceDetails,
-                        BillMatchingCurrencyAmount : billMatchingPartyAmount,
+                        BillMatchingCurrencyAmount: billMatchingPartyAmount,
                         BillMatchingLocalAmount: billMatchingLocalAmount,
 
                     }, tx);
@@ -1153,10 +1172,11 @@ export class PaymentService {
             const isSearchTextANumber = !isNaN(Number(search)) && search.trim() !== '';
 
             let normalizedCashBank = "";
-            if (String(search).trim() === 'cash' || String(search).trim() === 'Cash') {
+            const searchTrimmed = String(search).trim().toLowerCase();
+            if (searchTrimmed === 'cash') {
                 normalizedCashBank = "C";
-            } else if (String(search).trim() === 'bank' || String(search).trim() === 'Bank') {
-                normalizedCashBank = "D";
+            } else if (searchTrimmed === 'bank') {
+                normalizedCashBank = "B";
             }
 
             const where: Prisma.VoucherHeaderWhereInput = {
@@ -1165,17 +1185,19 @@ export class PaymentService {
                 voucherTypeMaster: {
                     DocumentTypeCode : DOC_TYPE_CODE.PAYMENT
                 },
-                Status: 'A'
+                Status: statusWhereClause
             };
 
             // Add search filter
             if (search) {
                 where.OR = [
                     { VoucherNumber: { contains: search, mode: 'insensitive' } },
-                    { CashOrBank: { contains: normalizedCashBank, mode: 'insensitive' } },
                     { PartyName: { contains: search, mode: 'insensitive' } },
                     { CurrencyCode: { contains: search, mode: 'insensitive' } },
                     { PostStatus: { contains: search, mode: 'insensitive' } },
+                    { InstrumentNumber: { contains: search, mode: 'insensitive' } },
+                    // Only filter by CashOrBank when search term maps to a valid value
+                    ...(normalizedCashBank ? [{ CashOrBank: { equals: normalizedCashBank } }] : []),
                     ...(!isNaN(new Date(search).getTime())
                         ? [{ VoucherDate: new Date(search) }]
                         : []),
