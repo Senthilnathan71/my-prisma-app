@@ -206,6 +206,10 @@ export class SearchOutstandingDto {
   IncludeFullyPaid?: boolean; // Default: false
 
   @IsOptional()
+  @IsString()
+  DrCr?: string; // Filter by debit/credit side ('D' or 'C')
+
+  @IsOptional()
   @IsNumber()
   Skip?: number; // Pagination offset
 

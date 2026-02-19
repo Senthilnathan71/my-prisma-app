@@ -638,7 +638,7 @@ export class VendorInvoiceService {
             const where: Prisma.VoucherHeaderWhereInput = {
                 CompanyMasterSid: activeCompanyId,
                 BranchMasterSid: activeBranchId,
-                Status: 'A',
+                Status: statusWhereClause,
                 voucherTypeMaster: {
                     DocumentTypeCode: DOC_TYPE_CODE.VENDOR_INVOICE,
                     status: 'A'

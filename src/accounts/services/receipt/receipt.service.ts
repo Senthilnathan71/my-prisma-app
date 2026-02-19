@@ -10,7 +10,7 @@ import { Prisma, PrismaClient } from '@prisma/client';
 import { VoucherService } from 'src/operation/services/voucher/voucher.service';
 import moment from 'moment';
 import { Decimal } from '@prisma/client/runtime/library';
-import { roundAmount, toNumber } from 'src/common/helper';
+import { roundAmount, statusWhereClause, toNumber } from 'src/common/helper';
 import { CompanyConfigService } from 'src/masters/services/company/company-config.service';
 import { DOC_TYPE_CODE } from 'src/common/config/voucher-type.config';
 
@@ -63,8 +63,8 @@ export class ReceiptService {
           VoucherDetailSid: txn.voucherDetailSid,
           VoucherNumber: txn.voucherNumber,
           VoucherDate: typeof txn.voucherDate === 'string' ? txn.voucherDate : txn.voucherDate.toISOString(),
-          VoucherTypeMasterSid : txn.voucherTypeMasterSid,
-          COAMasterSid : txn.coaMasterSid!,
+          VoucherTypeMasterSid: txn.voucherTypeMasterSid,
+          COAMasterSid: txn.coaMasterSid!,
           VoucherType: txn.voucherTypeCode,
           LedgerMasterSid: txn.ledgerMasterSid!,
           CustomerName: customerOutstanding.customerName || '',
@@ -79,18 +79,33 @@ export class ReceiptService {
           DrCr: txn.drCr,
           ChargeDescription: txn.chargeDescription,
         }));
+        let result = invoices;
 
         // Filter out fully paid if requested
         if (!searchDto.IncludeFullyPaid) {
-          invoices = invoices.filter((inv) => inv.OutstandingCurrencyAmount > 0 || inv.OutstandingLocalAmount > 0);  // No tolerance
+          result = result.filter((inv) => Math.abs(inv.OutstandingCurrencyAmount) > 0 || Math.abs(inv.OutstandingLocalAmount) > 0);  // No tolerance
         }
-      } else {
-        // Advanced search by invoice number, house number, etc.
-        invoices = await this.advancedSearchOutstanding(searchDto);
+
+        // Filter by DrCr if provided
+        if (searchDto.DrCr) {
+          result = result.filter((inv) => inv.DrCr === searchDto.DrCr);
+        }
+
+        // Sort by VoucherDate ascending
+        result.sort((a, b) => new Date(b.VoucherDate).getTime() - new Date(a.VoucherDate).getTime());
+
+        // Apply pagination
+        if (searchDto.Skip !== undefined || searchDto.Take !== undefined) {
+          const skip = searchDto.Skip || 0;
+          const take = searchDto.Take || result.length;
+          result = result.slice(skip, skip + take);
+        }
+
+        return result;
       }
 
-      // Apply pagination
-      return invoices.slice(skip, skip + take);
+      // Advanced search by invoice number, house number, etc.
+      return await this.advancedSearchOutstanding(searchDto);
     } catch (error) {
       this.logger.error(`Failed to search outstanding invoices: ${error.message}`, error.stack);
       throw new BadRequestException(`Failed to search outstanding invoices: ${error.message}`);
@@ -204,7 +219,7 @@ export class ReceiptService {
         VoucherHeaderSid: voucherHeaderSid,
         CompanyMasterSid : companyMasterSid,
         BranchMasterSid : branchMasterSid,
-        Status : 'A'
+        Status : statusWhereClause
       },
       include: {
         VoucherDetail: {
@@ -1231,7 +1246,7 @@ export class ReceiptService {
         voucherTypeMaster: {
           DocumentTypeCode : DOC_TYPE_CODE.RECEIPT
         },
-        Status: 'A'
+        Status: statusWhereClause
       };
 
       // Add search filter
