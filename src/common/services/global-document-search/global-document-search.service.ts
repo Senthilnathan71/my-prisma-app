@@ -381,12 +381,12 @@ export class GlobalDocumentSearchService {
                         documentType = 'PAYMENT';
                         break;
                     case 'CRN' :
-                        basePath = '/accounts/credit-note/entry';
+                        basePath = '/operation/credit-note/entry';
                         displayType = 'Credit Note';
                         documentType = 'CREDIT_NOTE';
                         break;
                     case 'VRN' :
-                        basePath = '/accounts/vendor-credit-note/entry';
+                        basePath = '/operation/vendor-credit-note/entry';
                         displayType = 'Vendor Credit Note';
                         documentType = 'VENDOR_CREDIT_NOTE';
                         break;

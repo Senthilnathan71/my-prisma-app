@@ -55,6 +55,44 @@ export class BranchService {
         }
     }
 
+     async getCurrentBranch(CompanyMasterSid: number) {
+        try {
+            const allBranches = await this._db.branchMaster.findMany({
+                where: {
+                    status : 'A',
+                    CompanyMasterSid: CompanyMasterSid
+                },
+                include: {
+                    cityMaster: {
+                        select: {
+                            cityName: true,
+                            stateMaster: {
+                                select: {
+                                    stateName: true,
+                                    countryMaster: {
+                                        select: {
+                                            countryName: true
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    company: {
+                        select: {
+                            companyName: true
+                        }
+                    }
+
+                }
+            })
+            return allBranches;
+        } catch (error) {
+            throw error;
+        }
+    }
+
+
     async getBranchById(BranchMasterSid: number) {
         try {
             const ourBranch = await this._db.branchMaster.findUnique({

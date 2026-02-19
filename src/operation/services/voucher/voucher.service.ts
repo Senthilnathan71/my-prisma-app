@@ -276,11 +276,15 @@ export class VoucherService {
             const whereClause = whereConditions.join(' AND ');
 
             // DEBUG: Log the query being executed
+            // Use numeric sort on the trailing sequence digits to correctly find the highest
+            // sequence across all months when ResetValue="Year" (LIKE spans multiple months).
+            // Lexicographic DESC on "DW-AE-VC-26-02-0009" would incorrectly beat
+            // "DW-AE-VC-26-01-0010" because "02" > "01", causing duplicate generation.
             const query = `
                 SELECT "VoucherNumber"
                 FROM "VoucherHeader"
                 WHERE ${whereClause}
-                ORDER BY "VoucherNumber" DESC
+                ORDER BY CAST(REGEXP_REPLACE("VoucherNumber", '^.*-(\\d+)$', '\\1') AS INTEGER) DESC
                 LIMIT 1
                 FOR UPDATE
             `;
@@ -320,6 +324,128 @@ export class VoucherService {
             return voucherNumber;
         } catch (error) {
             this.logger.error(`Error generating voucher number from config: ${error.message}`);
+            throw error;
+        }
+    }
+
+    /**
+     * Generate voucher matching number by querying VoucherMatchingHeader.
+     * Separate from generateVoucherNumberFromConfig which always queries VoucherHeader.
+     */
+    private async generateVoucherMatchingNumber(
+        voucherTypeMaster: any,
+        companyMasterSid: number,
+        branchMasterSid: number,
+        yearMasterSid: number,
+        tx: any,
+        voucherDate?: Date
+    ): Promise<string> {
+        try {
+            // Lock the VoucherTypeMaster row to prevent race conditions
+            await tx.$queryRawUnsafe(`
+                SELECT "VoucherTypeMasterSid"
+                FROM "VoucherTypeMaster"
+                WHERE "VoucherTypeMasterSid" = ${voucherTypeMaster.VoucherTypeMasterSid}
+                FOR UPDATE
+            `);
+
+            const parts: string[] = [];
+            const separator = (voucherTypeMaster.DocumentSeparator || '-').trim();
+            const date = voucherDate ? new Date(voucherDate) : new Date();
+            const resetValue = voucherTypeMaster.ResetValue?.toLowerCase()?.replace(/\s+/g, '');
+
+            if (voucherTypeMaster.CompanyFlag === 'Y') {
+                const company = await tx.companyMaster.findUnique({
+                    where: { CompanyMasterSid: companyMasterSid },
+                    select: { companyCode: true }
+                });
+                const companyValue = (voucherTypeMaster.CompanyValue || company?.companyCode || 'CO').trim();
+                parts.push(companyValue.substring(0, 3));
+            }
+            if (voucherTypeMaster.BranchFlag === 'Y') {
+                const branch = await tx.branchMaster.findUnique({
+                    where: { BranchMasterSid: branchMasterSid },
+                    select: { branchCode: true }
+                });
+                const branchValue = (voucherTypeMaster.BranchValue || branch?.branchCode || 'BR').trim();
+                parts.push(branchValue.substring(0, 3));
+            }
+            if (voucherTypeMaster.DocumentFlag === 'Y') {
+                const docValue = (voucherTypeMaster.DocumentValue || voucherTypeMaster.DocumentTypeCode || 'DOC').trim();
+                parts.push(docValue.substring(0, 5));
+            }
+            if (voucherTypeMaster.YearFlag === 'Y') {
+                parts.push(date.getFullYear().toString().substring(2, 4));
+            }
+
+            const partsBeforeMonth = [...parts];
+
+            if (voucherTypeMaster.MonthFlag === 'Y') {
+                parts.push((date.getMonth() + 1).toString().padStart(2, '0'));
+            }
+
+            let queryPrefixParts = [...parts];
+            if (resetValue === 'year' && voucherTypeMaster.MonthFlag === 'Y') {
+                queryPrefixParts = partsBeforeMonth;
+            }
+            const queryPrefix = queryPrefixParts.join(separator);
+
+            const whereConditions: string[] = [
+                `"CompanyMasterSid" = ${companyMasterSid}`,
+                `"BranchMasterSid" = ${branchMasterSid}`,
+            ];
+
+            const escapedQueryPrefix = queryPrefix.replace(/'/g, "''");
+            whereConditions.push(`"VoucherMatchingNo" LIKE '${escapedQueryPrefix}${separator}%'`);
+
+            if (resetValue === 'financialyear' || resetValue === 'financial year') {
+                const currentFinancialYear = await tx.yearMaster.findFirst({
+                    where: { CompanyMasterSid: companyMasterSid, YearMasterSid: yearMasterSid, status: 'A' },
+                    select: { StartDate: true, EndDate: true }
+                });
+                if (!currentFinancialYear) {
+                    throw new BadRequestException('No current financial year found.');
+                }
+                const fyStartDate = new Date(currentFinancialYear.StartDate).toISOString().split('T')[0];
+                const fyEndDate = new Date(currentFinancialYear.EndDate).toISOString().split('T')[0];
+                whereConditions.push(`"VoucherMatchingDate"::date >= '${fyStartDate}'::date`);
+                whereConditions.push(`"VoucherMatchingDate"::date <= '${fyEndDate}'::date`);
+            }
+
+            const whereClause = whereConditions.join(' AND ');
+            const query = `
+                SELECT "VoucherMatchingNo" AS "VoucherNumber"
+                FROM "VoucherMatchingHeader"
+                WHERE ${whereClause}
+                ORDER BY "VoucherMatchingNo" DESC
+                LIMIT 1
+                FOR UPDATE
+            `;
+            this.logger.log(`[VM-GEN] Query: ${query}`);
+
+            const result: any[] = await tx.$queryRawUnsafe(query);
+            const lastVoucher = result[0];
+            this.logger.log(`[VM-GEN] Last matching number: ${JSON.stringify(lastVoucher)}`);
+
+            let nextNumber = Number(voucherTypeMaster.DocumentStartingNo || 1);
+            if (lastVoucher?.VoucherNumber) {
+                const match = lastVoucher.VoucherNumber.match(/(\d+)$/);
+                if (match) {
+                    nextNumber = parseInt(match[1]) + 1;
+                }
+            }
+
+            const slNoLength = Number(voucherTypeMaster.DocumentSLNoLength || 5);
+            parts.push(String(nextNumber).padStart(slNoLength, '0'));
+
+            const voucherNumber = parts.join(separator);
+            if (voucherNumber.length > 50) {
+                throw new BadRequestException(`Generated voucher matching number exceeds 50 characters: ${voucherNumber}.`);
+            }
+
+            return voucherNumber;
+        } catch (error) {
+            this.logger.error(`Error generating voucher matching number: ${error.message}`);
             throw error;
         }
     }
@@ -2619,8 +2745,8 @@ export class VoucherService {
             }
 
 
-            // 2. Generate voucher number using config-based approach
-            const voucherNumber = await this.generateVoucherNumberFromConfig(
+            // 2. Generate voucher matching number (queries VoucherMatchingHeader, not VoucherHeader)
+            const voucherNumber = await this.generateVoucherMatchingNumber(
                 voucherType,
                 payload.CompanyMasterSid,
                 payload.BranchMasterSid,
