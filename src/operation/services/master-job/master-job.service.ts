@@ -2201,8 +2201,9 @@ private getWeightInFromUnitSid(weightUnitSid: number): string {
             // SHIPMENT PART
 
             const allShipments = payload.shipmentList || [];
-            const recordToCreateShipment = allShipments.filter(shipment => !shipment.HouseJobSid);
+            const recordToCreateShipment = allShipments.filter(shipment =>shipment.BookingHeader && !shipment.HouseJobSid);
             const recordToUpdateShipment = allShipments.filter(shipment => shipment.HouseJobSid);
+            const manualHouseShipments = allShipments.filter(s => !s.BookingHeaderSid && !s.HouseJobSid && s.HBLNo);
 
 
             if (recordToCreateShipment.length > 0) {
@@ -2625,6 +2626,54 @@ private getWeightInFromUnitSid(weightUnitSid: number): string {
 
                 }
             }
+            /* --------------------------------------------- */
+            /* MANUAL HOUSE JOB ATTACH                       */
+            /* --------------------------------------------- */
+
+            if (manualHouseShipments.length > 0) {
+
+                for (const manual of manualHouseShipments) {
+
+                    const house = await this._db.houseJob.findFirst({
+                        where: {
+                            HBLNo: manual.HBLNo,
+                            CompanyMasterSid: payload.CompanyMasterSid,
+                            BranchMasterSid: payload.BranchMasterSid,
+                            MasterJobSid: null,
+                            status: 'A'
+                        }
+                    });
+
+                    if (!house) continue;
+
+                    await this._db.houseJob.update({
+                        where: { HouseJobSid: house.HouseJobSid },
+                        data: {
+                            MasterJobSid: updatedMasterJob.MasterJobSid,
+                            MBLNo: updatedMasterJob.MBLNo,
+                            MBLDate: updatedMasterJob.MBLDate,
+                            HouseStatus: 'Job Generated',
+                            updatedBy: payload.updatedBy,
+                            updatedOn: new Date()
+                        }
+                    });
+
+                    if (house.BookingHeaderSid) {
+                        await this._db.bookingHeader.update({
+                            where: { BookingHeaderSid: house.BookingHeaderSid },
+                            data: {
+                                MasterNoSid: updatedMasterJob.MasterJobSid,
+                                MBLNo: updatedMasterJob.MBLNo,
+                                MBLDate: updatedMasterJob.MBLDate,
+                                BookingStatus: 'Job Generated',
+                                updatedBy: payload.updatedBy,
+                                updatedOn: new Date()
+                            }
+                        });
+                    }
+                }
+            }
+
 
             await this._db.houseJob.updateMany({
                 where: {
