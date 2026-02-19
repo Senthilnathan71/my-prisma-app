@@ -986,9 +986,6 @@ export class PaymentService {
                 }
 
                 const partyDetail = allCompleteDetails.find(vd => vd.subledgerMaster?.SubledgerType === 'Customer');
-                if (!partyDetail) {
-                    throw new BadRequestException('Party Voucher Detail not found');
-                }
 
                 await tx.matchingDetail.deleteMany({
                     where: {
