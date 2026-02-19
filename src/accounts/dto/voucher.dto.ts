@@ -15,6 +15,7 @@ import {
     IsDate,
     IsBoolean,
     ValidateIf,
+    IsEmail,
 } from 'class-validator';
 
 
@@ -634,4 +635,22 @@ export class PullVoucherDTO {
     @IsNotEmpty({ message : 'BranchMasterSid is required' })
     @IsInt()
     BranchMasterSid : number;
+}
+
+export class DeleteVoucherPayload {
+    @IsNotEmpty({ message : 'VoucherHeaderSid is required' })
+    @IsInt()
+    VoucherHeaderSid : number;
+
+    @IsNotEmpty({ message : 'CompanyMasterSid is required' })
+    @IsInt()
+    CompanyMasterSid : number;
+
+    @IsNotEmpty({ message : 'BranchMasterSid is required' })
+    @IsInt()
+    BranchMasterSid : number;
+
+    @IsNotEmpty({ message : 'User Email is required' })
+    @IsEmail()
+    UserEmail : string;
 }

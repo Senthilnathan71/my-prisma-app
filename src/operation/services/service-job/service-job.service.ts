@@ -16,6 +16,7 @@ export class CreateServiceJobDto {
     MBLDate?: Date;
     HBLNo?: string;
     ShipmentNo?: string;
+    JobType?: string;
 
     // HouseJob fields
     BookingNo: string;
@@ -48,6 +49,7 @@ export class UpdateServiceJobDto {
     CustomerMasterSid: number;
     MBLNo?: string;
     MBLDate?: Date;
+    JobType?: string;
     HBLNo?: string;
     ShipmentNo?: string;
     CustomerBranchSid: number;
@@ -166,7 +168,8 @@ export class ServiceJobService {
         if (payload.ShipmentNo && payload.ShipmentNo.trim() !== '') {
             serviceJobRefNo = payload.ShipmentNo.trim();
         } else {
-            const dateString = moment().format('YYYYMMDD');
+             const refDate = payload.MBLDate ? moment(payload.MBLDate) : moment();
+            const dateString = refDate.format('YYYYMMDD');
             const count = await this._db.houseJob.count({
                 where: {
                     ShipmentNo: { contains: dateString },
@@ -219,6 +222,7 @@ export class ServiceJobService {
                     CustomerBranchSid: mainPayload.CustomerBranchSid || null,
                     CustomerName: mainPayload.CustomerName,
                     CustomerAddress: mainPayload.CustomerAddress,
+                    JobType: mainPayload.JobType || null,
                     HBLNo: finalHBLNo,
                     POL: mainPayload.POL || "",
                     POD: mainPayload.POD || "",
