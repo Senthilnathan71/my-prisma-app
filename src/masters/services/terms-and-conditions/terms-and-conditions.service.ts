@@ -25,20 +25,118 @@ export class TermsAndConditionsService {
 
     async createNewTermCond(payload){
         try {
-            // Used Rest Operator to Fix 'Unknown Argument' problem
-            const {departmentId,...termCondInput}=payload;
-            const createdTermCond = await this._db.termsAndConditionsMaster.create({
-                data :{
-                    ...termCondInput,
+            const { departmentOnTerms, departmentId, departments, termsAndConditionDetail, termsAndConditionsDetail, termsAndConditionsDetails, ...termCondInput } = payload;
+            const rawDepartments = departmentOnTerms ?? departmentId ?? departments ?? [];
+            const inputDepartments = Array.isArray(rawDepartments) ? rawDepartments : [rawDepartments];
+            const rawDetails = termsAndConditionDetail ?? termsAndConditionsDetail ?? termsAndConditionsDetails ?? [];
+            const inputDetails = Array.isArray(rawDetails) ? rawDetails : [rawDetails];
+
+            const normalizedDepartments = inputDepartments
+                .map((item: any) => {
+                    if (typeof item === 'object' && item !== null) {
+                        return {
+                            departmentId: Number(item.departmentId ?? item.DepartmentMasterSid),
+                            status: String(item.status ?? 'A').charAt(0) || 'A'
+                        };
+                    }
+                    return {
+                        departmentId: Number(item),
+                        status: 'A'
+                    };
+                })
+                .filter((item: any) => Number.isInteger(item.departmentId) && item.departmentId > 0);
+
+            if (normalizedDepartments.length === 0) {
+                throw new BadRequestException('departmentId is required');
+            }
+            if (!termCondInput.BranchMasterSid) {
+                throw new BadRequestException('BranchMasterSid is required');
+            }
+            if (!termCondInput.MenuMasterSid) {
+                throw new BadRequestException('MenuMasterSid is required');
+            }
+
+            const mergedObj = await this._db.$transaction(async (prisma) => {
+                const {
+                    CompanyMasterSid,
+                    BranchMasterSid,
+                    MenuMasterSid,
+                    POL,
+                    POD,
+                    FDC,
+                    ...masterInput
+                } = termCondInput;
+
+                const createdTermCond = await prisma.termsAndConditionsMaster.create({
+                    data: {
+                        ...masterInput,
+                        POL: Array.isArray(POL) ? POL : [],
+                        POD: Array.isArray(POD) ? POD : [],
+                        FDC: Array.isArray(FDC) ? FDC : [],
+                        branch: { connect: { BranchMasterSid: Number(BranchMasterSid) } },
+                        menu: { connect: { MenuMasterSid: Number(MenuMasterSid) } },
+                        ...(CompanyMasterSid ? { company: { connect: { CompanyMasterSid: Number(CompanyMasterSid) } } } : {})
+                    }
+                });
+
+                const finalDepartments: any[] = [];
+                if (normalizedDepartments.length > 0) {
+                    await prisma.departmentOnTerms.createMany({
+                        data: normalizedDepartments.map((item: any) => ({
+                            termsId: createdTermCond.TermsAndConditionsMasterSid,
+                            departmentId: item.departmentId,
+                            status: item.status
+                        }))
+                    });
+
+                    const createdDepartments = await prisma.departmentOnTerms.findMany({
+                        where: {
+                            termsId: createdTermCond.TermsAndConditionsMasterSid
+                        }
+                    });
+                    finalDepartments.push(...createdDepartments);
                 }
-            })
-            const departmentOnTerms = await this._db.departmentOnTerms.create({
-                data:{
-                    departmentId:departmentId,
-                    termsId:createdTermCond.TermsAndConditionsMasterSid
+
+                const normalizedDetails = inputDetails
+                    .map((item: any) => ({
+                        TandC: item?.TandC ?? item?.Terms ?? '',
+                        Type: item?.Type ?? null,
+                        TypeValue: item?.TypeValue ?? null,
+                        IsDefaut: item?.IsDefaut ?? 'A',
+                        createdBy: item?.createdBy ?? createdTermCond.createdBy,
+                        status: item?.status ?? 'A'
+                    }))
+                    .filter((item: any) => String(item.TandC).trim().length > 0);
+
+                let detailData: any[] = [];
+                if (normalizedDetails.length > 0) {
+                    await prisma.termsAndConditionsDetail.createMany({
+                        data: normalizedDetails.map((item: any) => ({
+                            TermsAndConditionsMasterSid: createdTermCond.TermsAndConditionsMasterSid,
+                            TandC: item.TandC,
+                            Type: item.Type,
+                            TypeValue: item.TypeValue,
+                            IsDefaut: item.IsDefaut,
+                            createdBy: item.createdBy,
+                            status: item.status
+                        }))
+                    });
+
+                    detailData = await prisma.termsAndConditionsDetail.findMany({
+                        where: {
+                            TermsAndConditionsMasterSid: createdTermCond.TermsAndConditionsMasterSid,
+                            status: 'A'
+                        }
+                    });
                 }
-            })
-            const mergedObj = {tandCData : {...createdTermCond},departmentData : {...departmentOnTerms}}
+
+                return {
+                    tandCData: createdTermCond,
+                    departmentData: finalDepartments,
+                    detailData
+                };
+            });
+
             return mergedObj;
         } catch (error) {
             throw error;
@@ -52,7 +150,20 @@ export class TermsAndConditionsService {
                     TermsAndConditionsMasterSid:TermsAndConditionsMasterSid
                 },
                 include:{
-                    departments:true
+                    termsAndConditionsDetail:{
+                        where:{
+                            status:'A'
+                        }
+                    },
+                    departments:{
+                        where:{
+                            status:'A'
+                        },
+                        include:{
+                            department:true
+                        }
+                    },
+                    
                 }
             })
             if(!ourTermCond){
@@ -75,26 +186,163 @@ export class TermsAndConditionsService {
                 throw new BadRequestException(`Terms and Conditions with Id : ${TermsAndConditionsMasterSid} not exists`);
             }
 
-            // Using rest operator to Fix 'Unknown Argument' error
+            const result = await this._db.$transaction(async (prisma) => {
+                const {
+                    departmentOnTerms,
+                    departmentId,
+                    departments,
+                    DepartmentOnTermSid,
+                    TermsAndConditionsDetailSid,
+                    termsAndConditionDetail,
+                    termsAndConditionsDetail,
+                    termsAndConditionsDetails,
+                    ...TandCUpdateData
+                } = payload;
 
-            const {departmentId,DepartmentOnTermSid,...TandCUpdateData}=payload;
-            const updatedTermCond = this._db.termsAndConditionsMaster.update({
-                where : {
-                    TermsAndConditionsMasterSid : TermsAndConditionsMasterSid
-                },
-                data : TandCUpdateData
-            })
+                const {
+                    CompanyMasterSid,
+                    BranchMasterSid,
+                    MenuMasterSid,
+                    POL,
+                    POD,
+                    FDC,
+                    ...masterInput
+                } = TandCUpdateData;
 
-            // 
-            const departmentOnTerms = await this._db.departmentOnTerms.update({
-                where:{
-                    DepartmentOnTermSid:DepartmentOnTermSid
-                },
-                data:{
-                    departmentId : departmentId,
+                const updatedTermCond = await prisma.termsAndConditionsMaster.update({
+                    where : {
+                        TermsAndConditionsMasterSid : TermsAndConditionsMasterSid
+                    },
+                    data : {
+                        ...masterInput,
+                        ...(POL !== undefined ? { POL: Array.isArray(POL) ? POL : [] } : {}),
+                        ...(POD !== undefined ? { POD: Array.isArray(POD) ? POD : [] } : {}),
+                        ...(FDC !== undefined ? { FDC: Array.isArray(FDC) ? FDC : [] } : {}),
+                        ...(BranchMasterSid ? { branch: { connect: { BranchMasterSid: Number(BranchMasterSid) } } } : {}),
+                        ...(MenuMasterSid ? { menu: { connect: { MenuMasterSid: Number(MenuMasterSid) } } } : {}),
+                        ...(CompanyMasterSid ? { company: { connect: { CompanyMasterSid: Number(CompanyMasterSid) } } } : {})
+                    }
+                });
+
+                const rawDepartments = departmentOnTerms ?? departmentId ?? departments ?? [];
+                const inputDepartments = Array.isArray(rawDepartments) ? rawDepartments : [rawDepartments];
+                const normalizedDepartments = inputDepartments
+                    .map((item: any) => {
+                        if (typeof item === 'object' && item !== null) {
+                            return {
+                                DepartmentOnTermSid: item.DepartmentOnTermSid ? Number(item.DepartmentOnTermSid) : null,
+                                departmentId: Number(item.departmentId ?? item.DepartmentMasterSid),
+                                status: String(item.status ?? 'A').charAt(0) || 'A'
+                            };
+                        }
+                        return {
+                            DepartmentOnTermSid: null,
+                            departmentId: Number(item),
+                            status: 'A'
+                        };
+                    })
+                    .filter((item: any) => Number.isInteger(item.departmentId) && item.departmentId > 0);
+
+                const finalDepartments: any[] = [];
+                for (const item of normalizedDepartments) {
+                    let updatedDepartment;
+                    let createdDepartment;
+
+                    if (item.DepartmentOnTermSid) {
+                        updatedDepartment = await prisma.departmentOnTerms.update({
+                            where: { DepartmentOnTermSid: item.DepartmentOnTermSid },
+                            data: {
+                                departmentId: item.departmentId,
+                                status: item.status
+                            }
+                        });
+                    } else {
+                        createdDepartment = await prisma.departmentOnTerms.create({
+                            data: {
+                                termsId: TermsAndConditionsMasterSid,
+                                departmentId: item.departmentId,
+                                status: item.status
+                            }
+                        });
+                    }
+
+                    finalDepartments.push(updatedDepartment || createdDepartment);
                 }
-            })
-            return updatedTermCond;
+
+                const departmentData = finalDepartments.length > 0
+                    ? finalDepartments
+                    : await prisma.departmentOnTerms.findMany({
+                        where: {
+                            termsId: TermsAndConditionsMasterSid,
+                            status: 'A'
+                        }
+                    });
+
+                const rawDetails = termsAndConditionDetail ?? termsAndConditionsDetail ?? termsAndConditionsDetails ?? [];
+                const inputDetails = Array.isArray(rawDetails) ? rawDetails : [rawDetails];
+                const normalizedDetails = inputDetails
+                    .map((item: any) => ({
+                        TermsAndConditionsDetailSid: item?.TermsAndConditionsDetailSid ? Number(item.TermsAndConditionsDetailSid) : null,
+                        TandC: item?.TandC ?? item?.Terms ?? '',
+                        Type: item?.Type ?? null,
+                        TypeValue: item?.TypeValue ?? null,
+                        IsDefaut: item?.IsDefaut ?? 'A',
+                        status: item?.status ?? 'A',
+                        updatedBy: item?.updatedBy ?? payload?.updatedBy ?? null
+                    }))
+                    .filter((item: any) => String(item.TandC).trim().length > 0);
+
+                const finalDetails: any[] = [];
+                for (const item of normalizedDetails) {
+                    let updatedDetail;
+                    let createdDetail;
+                    if (item.TermsAndConditionsDetailSid) {
+                        updatedDetail = await prisma.termsAndConditionsDetail.update({
+                            where: {
+                                TermsAndConditionsDetailSid: item.TermsAndConditionsDetailSid
+                            },
+                            data: {
+                                TandC: item.TandC,
+                                Type: item.Type,
+                                TypeValue: item.TypeValue,
+                                IsDefaut: item.IsDefaut,
+                                status: item.status,
+                                updatedBy: item.updatedBy
+                            }
+                        });
+                    } else {
+                        createdDetail = await prisma.termsAndConditionsDetail.create({
+                            data: {
+                                TermsAndConditionsMasterSid: TermsAndConditionsMasterSid,
+                                TandC: item.TandC,
+                                Type: item.Type,
+                                TypeValue: item.TypeValue,
+                                IsDefaut: item.IsDefaut,
+                                createdBy: payload?.updatedBy ?? updatedTermCond.updatedBy ?? updatedTermCond.createdBy,
+                                status: item.status
+                            }
+                        });
+                    }
+                    finalDetails.push(updatedDetail || createdDetail);
+                }
+
+                const detailData = finalDetails.length > 0
+                    ? finalDetails
+                    : await prisma.termsAndConditionsDetail.findMany({
+                        where: {
+                            TermsAndConditionsMasterSid: TermsAndConditionsMasterSid,
+                            status: 'A'
+                        }
+                    });
+
+                return {
+                    tandCData: updatedTermCond,
+                    departmentData,
+                    detailData
+                };
+            });
+
+            return result;
         } catch (error) {
             throw error;
         }

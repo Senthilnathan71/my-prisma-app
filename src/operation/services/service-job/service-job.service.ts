@@ -15,6 +15,7 @@ export class CreateServiceJobDto {
     MBLNo?: string;
     MBLDate?: Date;
     HBLNo?: string;
+    HBLDate?: Date;
     ShipmentNo?: string;
     JobType?: string;
 
@@ -51,6 +52,7 @@ export class UpdateServiceJobDto {
     MBLDate?: Date;
     JobType?: string;
     HBLNo?: string;
+    HBLDate?: Date;
     ShipmentNo?: string;
     CustomerBranchSid: number;
     CustomerName: string;
@@ -223,6 +225,7 @@ export class ServiceJobService {
                     CustomerName: mainPayload.CustomerName,
                     CustomerAddress: mainPayload.CustomerAddress,
                     JobType: mainPayload.JobType || null,
+                    HBLDate: mainPayload.HBLDate || null,
                     HBLNo: finalHBLNo,
                     POL: mainPayload.POL || "",
                     POD: mainPayload.POD || "",
