@@ -165,7 +165,9 @@ export class VoucherService {
             `);
 
             const parts: string[] = [];
-            const separator = (voucherTypeMaster.DocumentSeparator || '-').trim();
+            // "None" is a UI sentinel meaning no separator; null/undefined defaults to '-'
+            const separatorRaw = voucherTypeMaster.DocumentSeparator?.trim() ?? '-';
+            const separator = (separatorRaw === 'None' || separatorRaw === '') ? '' : separatorRaw;
             // Use provided voucherDate or fall back to current date
             // This ensures month/year flags reflect the voucher date, not the current date
             const date = voucherDate ? new Date(voucherDate) : new Date();
@@ -280,11 +282,19 @@ export class VoucherService {
             // sequence across all months when ResetValue="Year" (LIKE spans multiple months).
             // Lexicographic DESC on "DW-AE-VC-26-02-0009" would incorrectly beat
             // "DW-AE-VC-26-01-0010" because "02" > "01", causing duplicate generation.
+            // Escape the separator for PostgreSQL regex. In standard PG single-quoted strings backslash
+            // is literal, so one JS backslash = one regex backslash. Only '.' needs escaping here.
+            const escapedSeparatorForRegex = separator.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const slNoLengthForRegex = Number(voucherTypeMaster.DocumentSLNoLength || 5);
+            // When separator is empty, greedy .* would swallow digits; use fixed-width match instead.
+            const sortRegexPattern = separator
+                ? `'^.*${escapedSeparatorForRegex}(\\d+)$'`
+                : `'^.*(\\d{${slNoLengthForRegex}})$'`;
             const query = `
                 SELECT "VoucherNumber"
                 FROM "VoucherHeader"
                 WHERE ${whereClause}
-                ORDER BY CAST(REGEXP_REPLACE("VoucherNumber", '^.*-(\\d+)$', '\\1') AS INTEGER) DESC
+                ORDER BY CAST(REGEXP_REPLACE("VoucherNumber", ${sortRegexPattern}, '\\1') AS INTEGER) DESC
                 LIMIT 1
                 FOR UPDATE
             `;
@@ -350,7 +360,9 @@ export class VoucherService {
             `);
 
             const parts: string[] = [];
-            const separator = (voucherTypeMaster.DocumentSeparator || '-').trim();
+            // "None" is a UI sentinel meaning no separator; null/undefined defaults to '-'
+            const separatorRaw = voucherTypeMaster.DocumentSeparator?.trim() ?? '-';
+            const separator = (separatorRaw === 'None' || separatorRaw === '') ? '' : separatorRaw;
             const date = voucherDate ? new Date(voucherDate) : new Date();
             const resetValue = voucherTypeMaster.ResetValue?.toLowerCase()?.replace(/\s+/g, '');
 
