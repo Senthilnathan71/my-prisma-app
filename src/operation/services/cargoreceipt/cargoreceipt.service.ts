@@ -28,7 +28,7 @@ export class CargoreceiptService {
           POD: true,
           POL: true,
           FPD: true,
-          departmentMaster: { select: { departmentName: true } },
+          departmentMaster: { select: { departmentName: true, DepartmentMasterSid: true } },
           bookingProduct: {
             select: {
               ProductName: true,
