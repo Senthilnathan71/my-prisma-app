@@ -3008,7 +3008,7 @@ export class VoucherService {
                 const voucherType = deletedVoucherHeader.voucherTypeMaster?.DocumentTypeCode;
                 if (voucherType === DOC_TYPE_CODE.INVOICE || voucherType === DOC_TYPE_CODE.VENDOR_INVOICE) {
 
-                    const isBookingVoucher = !!deletedVoucherHeader.BookingHeaderSid;
+                    const isBookingVoucher = !!deletedVoucherHeader.BookingHeaderSid && !deletedVoucherHeader.HouseJobSid && !deletedVoucherHeader.MasterJobSid;
 
                     const voucherDetails = deletedVoucherHeader.VoucherDetail || [];
                     if (isBookingVoucher) {

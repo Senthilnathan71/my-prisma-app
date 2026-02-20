@@ -137,7 +137,9 @@ export class YearService {
                 select: {
                     YearMasterSid: true,
                     YearName: true,
-                    CurrentYear : true
+                    CurrentYear : true,
+                    StartDate: true,
+                    EndDate: true
                 },
                 orderBy: {
                     YearName: 'desc',

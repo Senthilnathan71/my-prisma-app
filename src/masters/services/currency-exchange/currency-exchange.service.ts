@@ -161,14 +161,18 @@ export class CurrencyExchangeService {
                 status: 'A'
             }
 
-            if(payload.EffectiveFrom){
-                whereClause.EffectiveFrom = { lte : payload.EffectiveFrom};
-            } else {
-                whereClause.EffectiveFrom = { lte : new Date()};
-            }
+            // Build a UTC midnight date to avoid timezone shifts when comparing against DATE columns.
+            // e.g., IST 3:00 AM on Feb 20 → new Date() → Feb 19 21:30 UTC → misses Feb 20 records.
+            const effectiveDate = payload.EffectiveFrom ? new Date(payload.EffectiveFrom) : new Date();
+            const utcDateOnly = new Date(Date.UTC(effectiveDate.getFullYear(), effectiveDate.getMonth(), effectiveDate.getDate()));
+            whereClause.EffectiveFrom = { lte: utcDateOnly };
 
             const exchangeRate = await this._db.currencyExchange.findFirst({
-                where: whereClause
+                where: whereClause,
+                orderBy: [
+                    { EffectiveFrom: 'desc' },
+                    { CurrencyExchangeSid: 'desc' }
+                ]
             })
 
             if(!exchangeRate){

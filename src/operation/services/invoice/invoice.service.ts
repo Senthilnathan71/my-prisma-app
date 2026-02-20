@@ -463,6 +463,15 @@ export class InvoiceService {
           throw new BadRequestException('Voucher not found');
         }
 
+        if(payload.status === 'S'){
+          return await this.voucherService.deleteVoucher({
+            VoucherHeaderSid : VoucherHeaderSid,
+            CompanyMasterSid : payload.CompanyMasterSid,
+            BranchMasterSid : payload.BranchMasterSid,
+            UserEmail : payload.UpdatedBy
+          })
+        }
+
         // Validate PartyMasterSid
         if (payload.PartyMasterSid != null && payload.PartyMasterSid !== '') {
           const subledgerExists = await prisma.subledgerMaster.findUnique({

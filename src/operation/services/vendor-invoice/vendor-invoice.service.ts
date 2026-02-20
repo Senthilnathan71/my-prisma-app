@@ -371,6 +371,15 @@ export class VendorInvoiceService {
                     throw new NotFoundException(`Vendor Invoice with ID ${VoucherHeaderSid} not found`);
                 }
 
+                if (payload.status === 'S') {
+                    return await this.voucherService.deleteVoucher({
+                        VoucherHeaderSid: VoucherHeaderSid,
+                        CompanyMasterSid: payload.CompanyMasterSid,
+                        BranchMasterSid: payload.BranchMasterSid,
+                        UserEmail: payload.UpdatedBy
+                    })
+                }
+
                 // Get currency master ID if needed
                 let currencyMasterSid = payload.CurrencyMasterSid;
                 if (!currencyMasterSid && payload.CurrencyCode) {
