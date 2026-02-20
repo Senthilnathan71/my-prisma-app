@@ -1482,13 +1482,13 @@ export class AccountsReportsService {
         const drCrValue = vt.DrCr?.trim().toUpperCase();
 
         const drCr = vt.DrCr?.toUpperCase();
-        let signedAmount = outstandingLocalAmount;
+        let signedAmount = originalLocalAmount;
         if (ledger?.LedgerType?.trim() === 'Sy Cr') {
-          if (drCr === 'C') signedAmount = +outstandingLocalAmount;
-          if (drCr === 'D') signedAmount = -outstandingLocalAmount;
+          if (drCr === 'C') signedAmount = +originalLocalAmount;
+          if (drCr === 'D') signedAmount = -originalLocalAmount;
         } else if (ledger?.LedgerType?.trim() === 'Sy Dr') {
-          if (drCr === 'D') signedAmount = +outstandingLocalAmount;
-          if (drCr === 'C') signedAmount = -outstandingLocalAmount;
+          if (drCr === 'D') signedAmount = +originalLocalAmount;
+          if (drCr === 'C') signedAmount = -originalLocalAmount;
         }
 
         cumulativeTotal += signedAmount;

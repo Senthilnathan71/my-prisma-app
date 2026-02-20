@@ -1,7 +1,24 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { DatabaseService } from 'src/database/database.service';
 import { ApprovalStatus, Prisma, PrismaClient } from '@prisma/client';
-import { BLIssueListReportQueryDto, ContainerKPIReportQueryDto, CostRevenueNotBookedReportQueryDto, DestinationReportQueryDto, DOIssueListReportQueryDto, exportJobVolumeTEUReportQueryDto, houseJobLossReportQueryDto, lostCustomerReportQueryDto, NetworkReportQueryDto, profitabilityReportQueryDto, ProfitSummaryReportQueryDto, ShipmentDetailedSummaryReportQueryDto, ShipmentSummaryReportQueryDto, tradelaneProfitabilityReportQueryDto, unbilledcostReportQueryDto, unbilledrevenueReportQueryDto } from 'src/operation/DTO/operation-reports.dto';
+import {
+  BLIssueListReportQueryDto,
+  ContainerKPIReportQueryDto,
+  CostRevenueNotBookedReportQueryDto,
+  DestinationReportQueryDto,
+  DOIssueListReportQueryDto,
+  exportJobVolumeTEUReportQueryDto,
+  houseJobLossReportQueryDto,
+  lostCustomerReportQueryDto,
+  NetworkReportQueryDto,
+  profitabilityReportQueryDto,
+  ProfitSummaryReportQueryDto,
+  ShipmentDetailedSummaryReportQueryDto,
+  ShipmentSummaryReportQueryDto,
+  tradelaneProfitabilityReportQueryDto,
+  unbilledcostReportQueryDto,
+  unbilledrevenueReportQueryDto,
+} from 'src/operation/DTO/operation-reports.dto';
 import { toNumber } from 'src/common/helper';
 
 @Injectable()
@@ -4656,7 +4673,6 @@ export class OperationReportsService {
         `Getting Cost & Revenue Not Booked report for CompanySid=${CompanyMasterSid}`,
       );
 
-      // ================= BRANCH =================
       const branches =
         branchId && branchId.length > 0
           ? await this._db.branchMaster.findMany({
@@ -4675,7 +4691,6 @@ export class OperationReportsService {
           ? branches.map((b) => b.branchName).join(', ')
           : 'All Branches';
 
-      // ================= DEPARTMENT =================
       const departments =
         deptId && deptId.length > 0
           ? await this._db.departmentMaster.findMany({
@@ -4688,8 +4703,9 @@ export class OperationReportsService {
             });
 
       const resolvedDeptIds = departments.map((d) => d.DepartmentMasterSid);
-
-      // ================= CHARGE MASTER =================
+      const resolvedDeptNames = deptId && deptId.length > 0
+        ? departments.map((d) => d.departmentName).join(', ')
+        : '';
       const chargeMaster = await this._db.chargeMaster.findMany({
         select: { ChargeMasterSid: true, chargeName: true },
       });
@@ -4698,7 +4714,6 @@ export class OperationReportsService {
         select: { CustomerMasterSid: true, CustomerName: true },
       });
 
-      // ================= HOUSE JOB DATA =================
       const houseJobData = await this._db.houseJob.findMany({
         where: {
           CompanyMasterSid,
@@ -4712,11 +4727,11 @@ export class OperationReportsService {
         },
         include: {
           masterJob: true,
-          bookingHeader:{
-            select:{
-              BookingNo:true
-            }
-          }
+          bookingHeader: {
+            select: {
+              BookingNo: true,
+            },
+          },
         },
         orderBy: { HBLDate: 'asc' },
       });
@@ -4728,20 +4743,14 @@ export class OperationReportsService {
           params,
         };
       }
-
-      // ================= HOUSE JOB IDS =================
       const houseJobIds = houseJobData.map((h) => h.HouseJobSid);
-
-      // ================= MENU MASTER =================
       const houseJobMenu = await this._db.menuMaster.findFirst({
         where: { MenuName: 'House Job' },
         select: { MenuMasterSid: true },
       });
-
       if (!houseJobMenu) {
         throw new BadRequestException('House Job menu not found');
       }
-
       const allHouseCR = await this._db.costRevenueCharges.findMany({
         where: {
           MenuMasterSid: houseJobMenu.MenuMasterSid,
@@ -4751,7 +4760,7 @@ export class OperationReportsService {
             ? {
                 RevenueVoucherHeaderSid: null,
                 CostLocalAmount: { gt: 0 },
-                RevenueLocalAmount: { equals: 0 },
+                OR: [{ RevenueLocalAmount: 0 }, { RevenueLocalAmount: null }],
               }
             : CalculationType === 'Not Booked Cost'
               ? {
@@ -4761,29 +4770,29 @@ export class OperationReportsService {
                 }
               : {}),
         },
-
         select: {
           TransactionSid: true,
           ChargeMasterSid: true,
+          CostAmount: true,
+          RevenueAmount: true,
           CostLocalAmount: true,
           RevenueLocalAmount: true,
           CostVoucherHeaderSid: true,
           RevenueVoucherHeaderSid: true,
-          RevenueCustomerMasterSid:true,
-          CostAgentMasterSid:true,
+          RevenueCustomerMasterSid: true,
+          CostAgentMasterSid: true,
+          ChargeUomSid: true,
         },
       });
 
       const filteredHouseCR = allHouseCR.filter((cr) => {
-  const chargeName =
-    chargeMaster.find((c) => c.ChargeMasterSid === cr.ChargeMasterSid)
-      ?.chargeName || "";
+        const chargeName =
+          chargeMaster.find((c) => c.ChargeMasterSid === cr.ChargeMasterSid)
+            ?.chargeName || '';
 
-  return chargeName !== "Freight";
-});
+        return chargeName !== 'Freight';
+      });
 
-
-      // ================= MAP TRANSACTION -> CHARGES =================
       const houseRateMap = new Map<number, any[]>();
 
       filteredHouseCR.forEach((cr) => {
@@ -4793,40 +4802,66 @@ export class OperationReportsService {
         houseRateMap.get(cr.TransactionSid!)!.push(cr);
       });
 
-      // ================= FINAL DATA BUILD =================
-      const finalData = houseJobData
+      const houseJobIdsWithCR = new Set(
+        filteredHouseCR.map((cr) => cr.TransactionSid),
+      );
+
+      const houseJobsWithoutCR = houseJobData.filter(
+        (hj) => !houseJobIdsWithCR.has(hj.HouseJobSid),
+      );
+
+      let finalData = houseJobData
         .map((hj) => {
           const charges = houseRateMap.get(hj.HouseJobSid) || [];
-
           return {
             HouseJobSid: hj.HouseJobSid,
-            HouseNo: hj.HouseNo,
-            HBLDate : hj.HBLDate,
+            BookingNo: hj.bookingHeader?.BookingNo,
+            HBLDate: hj.HBLDate,
             HBLNo: hj.HBLNo,
-            MBLNo: hj.masterJob?.MBLNo || '',
-            dept:
-              departments.find(
-                (d) => d.DepartmentMasterSid === hj.DepartmentMasterSid,
-              )?.departmentName || '',
-
+            MBLNo: hj.masterJob?.MBLNo,
+            MasterJobNo: hj.masterJob?.MasterJobNumber,
+            dept: departments.find(
+              (d) => d.DepartmentMasterSid === hj.DepartmentMasterSid,
+            )?.departmentName,
             costRevenues: charges.map((cr) => ({
-              Charge:
-                chargeMaster.find(
-                  (c) => c.ChargeMasterSid === cr.ChargeMasterSid,
-                )?.chargeName || '',
-
+              Charge: chargeMaster.find(
+                (c) => c.ChargeMasterSid === cr.ChargeMasterSid,
+              )?.chargeName,
+              CostAmt: Number(cr.CostAmount || 0),
+              RevenueAmt: Number(cr.RevenueAmount || 0),
               CostLocalAmount: Number(cr.CostLocalAmount || 0),
               RevenueLocalAmount: Number(cr.RevenueLocalAmount || 0),
-              costCustomer : customer.find(c=>c.CustomerMasterSid===cr.CostAgentMasterSid)?.CustomerName || '',
-              revenueCustomer : customer.find(c=>c.CustomerMasterSid===cr.RevenueCustomerMasterSid)?.CustomerName || '',
+              costCustomer: customer.find(
+                (c) => c.CustomerMasterSid === cr.CostAgentMasterSid,
+              )?.CustomerName,
+              revenueCustomer: customer.find(
+                (c) => c.CustomerMasterSid === cr.RevenueCustomerMasterSid,
+              )?.CustomerName,
             })),
           };
         })
         .filter((x) => x.costRevenues.length > 0);
 
+      if (CalculationType === 'Not Booked Revenue') {
+        const noRateData = houseJobsWithoutCR.map((hj) => ({
+          HouseJobSid: hj.HouseJobSid,
+          BookingNo: hj.bookingHeader?.BookingNo,
+          HBLDate: hj.HBLDate,
+          HBLNo: hj.HBLNo,
+          MBLNo: hj.masterJob?.MBLNo,
+          MasterJobNo: hj.masterJob?.MasterJobNumber,
+          dept: departments.find(
+            (d) => d.DepartmentMasterSid === hj.DepartmentMasterSid,
+          )?.departmentName,
+          costRevenues: [],
+        }));
+
+        finalData = [...finalData, ...noRateData];
+      }
       return {
         companyMasterSid: CompanyMasterSid,
         branchInvolved,
+        resolvedDeptNames,
         CalculationType,
         data: finalData,
         params,
