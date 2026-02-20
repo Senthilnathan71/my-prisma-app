@@ -1371,7 +1371,7 @@ export class AccountsReportsService {
 
       for (const vt of openingTransactions) {
         // opening balance before take from date and  Amt
-        const amt = toNumber(vt.Amount);
+        const amt = toNumber(vt.LocalAmount);
         const drCr = vt.DrCr?.trim().toUpperCase();
         let signedAmt = amt;
         if (ledger?.LedgerType?.trim() === 'Sy Cr') {
@@ -1450,7 +1450,7 @@ export class AccountsReportsService {
       const transactions: any[] = [];
       let totalOutstandingCurrency = 0;
       let totalOutstandingLocal = 0;
-      let cumulativeTotal = 0;
+      let cumulativeTotal = openingBalance;
       for (const vt of voucherTransactions) {
         const originalCurrencyAmount = toNumber(vt.Amount);
         const originalLocalAmount = toNumber(vt.LocalAmount);
@@ -1799,7 +1799,7 @@ export class AccountsReportsService {
 
       for (const vt of openingTransactions) {
         // opening balance before take from date and  Amt
-        const amt = toNumber(vt.Amount);
+        const amt = toNumber(vt.LocalAmount);
         const drCr = vt.DrCr?.trim().toUpperCase();
         let signedAmt = amt;
         if (ledger?.LedgerType?.trim() === 'Sy Cr') {
@@ -1886,11 +1886,12 @@ export class AccountsReportsService {
       const transactions: any[] = [];
       let totalOutstandingCurrency = 0;
       let totalOutstandingLocal = 0;
-      let cumulativeTotal = 0;
+      let cumulativeTotal = openingBalance;
       for (const vt of voucherTransactions) {
         const originalCurrencyAmount = toNumber(vt.Amount);
-        const originalLocalAmount = toNumber(vt.LocalAmount);
-
+        let originalLocalAmount = toNumber(vt.LocalAmount);
+        const localAmt = toNumber(vt.LocalAmount)
+      
         // Sum matched amounts for this transaction
         let matchedCurrencyAmount = 0;
         let matchedLocalAmount = 0;
@@ -1918,16 +1919,16 @@ export class AccountsReportsService {
         const drCrValue = vt.DrCr?.trim().toUpperCase();
 
         const drCr = vt.DrCr?.toUpperCase();
-        let signedAmount = outstandingLocalAmount;
+        let signedAmount = localAmt;
         if (ledger?.LedgerType?.trim() === 'Sy Cr') {
-          if (drCr === 'C') signedAmount = +outstandingLocalAmount;
-          if (drCr === 'D') signedAmount = -outstandingLocalAmount;
+          if (drCr === 'C') signedAmount = +localAmt;
+          if (drCr === 'D') signedAmount = -localAmt;
         } else if (ledger?.LedgerType?.trim() === 'Sy Dr') {
-          if (drCr === 'D') signedAmount = +outstandingLocalAmount;
-          if (drCr === 'C') signedAmount = -outstandingLocalAmount;
+          if (drCr === 'D') signedAmount = +localAmt;
+          if (drCr === 'C') signedAmount = -localAmt;
         } else {
-          if (drCr === 'D') signedAmount = +outstandingLocalAmount;
-          if (drCr === 'C') signedAmount = -outstandingLocalAmount;
+          if (drCr === 'D') signedAmount = +localAmt;
+          if (drCr === 'C') signedAmount = -localAmt;
         }
 
         cumulativeTotal += signedAmount;
