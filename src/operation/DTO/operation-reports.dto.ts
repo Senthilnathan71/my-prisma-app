@@ -670,12 +670,12 @@ export class CostRevenueNotBookedReportQueryDto {
   @ApiProperty()
   @IsNotEmpty()
   @IsDateString()
-  FromDate: string;
+  FromHblDt: string;
 
   @ApiProperty()
   @IsNotEmpty()
   @IsDateString()
-  ToDate: string;
+  ToHblDt: string;
 
   @ApiProperty()
   @IsNotEmpty()
