@@ -277,24 +277,17 @@ export class VoucherService {
 
             const whereClause = whereConditions.join(' AND ');
 
-            // DEBUG: Log the query being executed
-            // Use numeric sort on the trailing sequence digits to correctly find the highest
-            // sequence across all months when ResetValue="Year" (LIKE spans multiple months).
-            // Lexicographic DESC on "DW-AE-VC-26-02-0009" would incorrectly beat
-            // "DW-AE-VC-26-01-0010" because "02" > "01", causing duplicate generation.
-            // Escape the separator for PostgreSQL regex. In standard PG single-quoted strings backslash
-            // is literal, so one JS backslash = one regex backslash. Only '.' needs escaping here.
-            const escapedSeparatorForRegex = separator.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-            const slNoLengthForRegex = Number(voucherTypeMaster.DocumentSLNoLength || 5);
-            // When separator is empty, greedy .* would swallow digits; use fixed-width match instead.
-            const sortRegexPattern = separator
-                ? `'^.*${escapedSeparatorForRegex}(\\d+)$'`
-                : `'^.*(\\d{${slNoLengthForRegex}})$'`;
+            const slNoLength = Number(voucherTypeMaster.DocumentSLNoLength || 5);
+
+            // Use RIGHT() to extract the serial portion for numeric sorting.
+            // The serial is always the last slNoLength characters of the voucher number.
+            // This is more reliable than regex, especially when separator is empty and
+            // all parts (year, month, serial) are digits mashed together.
             const query = `
                 SELECT "VoucherNumber"
                 FROM "VoucherHeader"
                 WHERE ${whereClause}
-                ORDER BY CAST(REGEXP_REPLACE("VoucherNumber", ${sortRegexPattern}, '\\1') AS INTEGER) DESC
+                ORDER BY CAST(RIGHT("VoucherNumber", ${slNoLength}) AS INTEGER) DESC
                 LIMIT 1
                 FOR UPDATE
             `;
@@ -311,15 +304,21 @@ export class VoucherService {
             // Calculate next sequence number
             let nextNumber = Number(voucherTypeMaster.DocumentStartingNo || 1);
             if (lastVoucher?.VoucherNumber) {
-                const match = lastVoucher.VoucherNumber.match(/(\d+)$/);
-                if (match) {
-                    nextNumber = parseInt(match[1]) + 1;
+                // Strip the known prefix to isolate the serial number.
+                // When separator is empty, regex /(\d+)$/ greedily captures year/month
+                // digits along with the serial (e.g. "DWAEVC26020005" → "26020005").
+                // Instead, remove the prefix we built (displayPrefix + separator) and
+                // parse only the remaining serial portion.
+                const prefixToStrip = displayPrefix + separator;
+                const serialPart = lastVoucher.VoucherNumber.substring(prefixToStrip.length);
+                const parsed = parseInt(serialPart, 10);
+                if (!isNaN(parsed)) {
+                    nextNumber = parsed + 1;
                 }
             }
             this.logger.log(`[VOUCHER-GEN] Next number: ${nextNumber}, DocumentStartingNo: ${voucherTypeMaster.DocumentStartingNo}`);
 
             // Format serial number with specified length
-            const slNoLength = Number(voucherTypeMaster.DocumentSLNoLength || 5);
             const serialNumber = String(nextNumber).padStart(slNoLength, '0');
             parts.push(serialNumber);
 
@@ -2123,7 +2122,7 @@ export class VoucherService {
                 );
 
                 // Adjust amounts for matching
-                partyDtlInInvTrans.PartyAmount = new Decimal(billMatchingCurrencyAmount);
+                partyDtlInInvTrans.Amount = new Decimal(billMatchingCurrencyAmount);
                 partyDtlInInvTrans.LocalAmount = new Decimal(billMatchingLocalAmount);
                 partyDtlInInvTrans['VoucherType'] = partyDetailInInv?.VoucherTypeMasterSid;
 

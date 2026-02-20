@@ -4657,12 +4657,12 @@ export class OperationReportsService {
 
   // Cost & Revenue Not Booked
   private async generateCostRevenueNotBookedReport(
-    params: CostRevenueNotBookedReportQueryDto,
+    params: any,
   ) {
     const {
       companyId: CompanyMasterSid,
-      ToDate: ToHblDt,
-      FromDate: FromHblDt,
+      FromJobDt:FromDate,
+      ToJobDt:ToDate,
       Branch: branchId,
       Dept: deptId,
       CalculationType,
@@ -4717,10 +4717,7 @@ export class OperationReportsService {
       const houseJobData = await this._db.houseJob.findMany({
         where: {
           CompanyMasterSid,
-          HBLDate: {
-            gte: FromHblDt,
-            lte: ToHblDt,
-          },
+          AND: [{ HBLDate: { gte: FromDate } }, { HBLDate: { lte: ToDate } }],
           status: 'A',
           BranchMasterSid: { in: resolvedBranchIds },
           DepartmentMasterSid: { in: resolvedDeptIds },
@@ -4757,11 +4754,18 @@ export class OperationReportsService {
           TransactionSid: { in: houseJobIds },
           status: 'A',
           ...(CalculationType === 'Not Booked Revenue'
-            ? {
-                RevenueVoucherHeaderSid: null,
-                CostLocalAmount: { gt: 0 },
-                OR: [{ RevenueLocalAmount: 0 }, { RevenueLocalAmount: null }],
-              }
+              ? {
+                  AND: [
+                    { RevenueVoucherHeaderSid: null },
+                    { CostLocalAmount: { gt: 0 } },
+                    {
+                      OR: [
+                        { RevenueLocalAmount: 0 },
+                        { RevenueLocalAmount: null },
+                      ],
+                    },
+                  ],
+                }
             : CalculationType === 'Not Booked Cost'
               ? {
                   CostVoucherHeaderSid: null,
@@ -4840,7 +4844,6 @@ export class OperationReportsService {
             })),
           };
         })
-        .filter((x) => x.costRevenues.length > 0);
 
       if (CalculationType === 'Not Booked Revenue') {
         const noRateData = houseJobsWithoutCR.map((hj) => ({
