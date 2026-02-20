@@ -3,7 +3,6 @@ import { ApiOperation, ApiCreatedResponse } from '@nestjs/swagger';
 import { ResponseData } from 'src/common/response-data';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 import { VoucherMatchingService } from 'src/operation/services/voucher-matching/voucher-matching.service';
-import { SearchPostedVouchersDto, CreateStandaloneVoucherMatchingDto } from 'src/accounts/dto/voucher-matching.dto';
 
 @Controller('voucher-matching')
 export class VoucherMatchingController {
@@ -65,79 +64,4 @@ export class VoucherMatchingController {
               }
               return output;
             }
-
-      @ApiOperation({ summary: 'Search posted vouchers (Receipt/Payment) for matching' })
-      @ApiCreatedResponse({
-        description: 'Posted vouchers fetched successfully',
-        type: ResponseData,
-      })
-      @HttpCode(HttpStatus.OK)
-      @Post('search-posted-vouchers')
-      async searchPostedVouchers(@Body() searchParams: SearchPostedVouchersDto) {
-        const resp = new ResponseData();
-        try {
-          const res = await this.voucherMatchingService.searchPostedVouchers(searchParams);
-          resp.data = res;
-          resp.message = 'Posted vouchers fetched successfully';
-        } catch (error) {
-          this.logger.warn(`searchPostedVouchers Error: ${error}`);
-          resp.status = false;
-          if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
-            resp.message = error.message;
-          } else {
-            resp.message = 'Internal Server Error';
-          }
-        }
-        return resp;
-      }
-
-      @ApiOperation({ summary: 'Get posted voucher with details' })
-      @ApiCreatedResponse({
-        description: 'Posted voucher details fetched successfully',
-        type: ResponseData,
-      })
-      @HttpCode(HttpStatus.OK)
-      @Get('posted-voucher/:voucherHeaderSid')
-      async getPostedVoucherWithDetails(@Param('voucherHeaderSid', ParseIntPipe) voucherHeaderSid: number) {
-        const resp = new ResponseData();
-        try {
-          const res = await this.voucherMatchingService.getPostedVoucherWithDetails(voucherHeaderSid);
-          resp.data = res;
-          resp.message = 'Posted voucher details fetched successfully';
-        } catch (error) {
-          this.logger.warn(`getPostedVoucherWithDetails Error: ${error}`);
-          resp.status = false;
-          if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
-            resp.message = error.message;
-          } else {
-            resp.message = 'Internal Server Error';
-          }
-        }
-        return resp;
-      }
-
-      @ApiOperation({ summary: 'Create standalone voucher matching' })
-      @ApiCreatedResponse({
-        description: 'Voucher matching created successfully',
-        type: ResponseData,
-      })
-      @HttpCode(HttpStatus.CREATED)
-      @Post('create')
-      async createStandaloneVoucherMatching(@Body() dto: CreateStandaloneVoucherMatchingDto) {
-        const resp = new ResponseData();
-        try {
-          const res = await this.voucherMatchingService.createStandaloneVoucherMatching(dto);
-          resp.data = res;
-          resp.message = 'Voucher matching created successfully';
-        } catch (error) {
-          this.logger.warn(`createStandaloneVoucherMatching Error: ${error}`);
-          resp.status = false;
-          if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
-            resp.message = error.message;
-          } else {
-            resp.message = 'Internal Server Error';
-          }
-        }
-        return resp;
-      }
 }
