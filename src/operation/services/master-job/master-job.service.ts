@@ -273,6 +273,7 @@ export class MasterJobService {
                 const createdMasterJob = await prisma.masterJob.create({
                     data: headerPayload
                 })
+                
 
                 const voyagePayload = {
                     MasterJobSid: createdMasterJob.MasterJobSid,
@@ -1702,6 +1703,7 @@ private getWeightInFromUnitSid(weightUnitSid: number): string {
                         ATD: payload.ATD ? new Date(payload.ATD) : null,
                         DestinationATA: payload.DestinationATA ? new Date(payload.DestinationATA) : null,
                         CarrierName: payload.CarrierName,
+                        CarrierSid: payload.CarrierSid,
                     }
                     finalVoyage = await prisma.masterJobVoyage.update({
                         where: {
@@ -1722,6 +1724,7 @@ private getWeightInFromUnitSid(weightUnitSid: number): string {
                         ATD: payload.ATD ? new Date(payload.ATD) : null,
                         DestinationATA: payload.DestinationATA ? new Date(payload.DestinationATA) : null,
                         CarrierName: payload.CarrierName,
+                        CarrierSid: payload.CarrierSid,
                         Status: "A"
                     }
                     finalVoyage = await prisma.masterJobVoyage.create({

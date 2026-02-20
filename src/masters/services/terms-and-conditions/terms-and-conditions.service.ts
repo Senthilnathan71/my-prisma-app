@@ -23,125 +23,269 @@ export class TermsAndConditionsService {
         }
     }
 
-    async createNewTermCond(payload){
-        try {
-            const { departmentOnTerms, departmentId, departments, termsAndConditionDetail, termsAndConditionsDetail, termsAndConditionsDetails, ...termCondInput } = payload;
-            const rawDepartments = departmentOnTerms ?? departmentId ?? departments ?? [];
-            const inputDepartments = Array.isArray(rawDepartments) ? rawDepartments : [rawDepartments];
-            const rawDetails = termsAndConditionDetail ?? termsAndConditionsDetail ?? termsAndConditionsDetails ?? [];
-            const inputDetails = Array.isArray(rawDetails) ? rawDetails : [rawDetails];
+    // async createNewTermCond(payload){
+    //     try {
+    //         const { departmentOnTerms, departmentId, departments, termsAndConditionDetail, termsAndConditionsDetail, termsAndConditionsDetails, ...termCondInput } = payload;
+    //         const rawDepartments = departmentOnTerms ?? departmentId ?? departments ?? [];
+    //         const inputDepartments = Array.isArray(rawDepartments) ? rawDepartments : [rawDepartments];
+    //         const rawDetails = termsAndConditionDetail ?? termsAndConditionsDetail ?? termsAndConditionsDetails ?? [];
+    //         const inputDetails = Array.isArray(rawDetails) ? rawDetails : [rawDetails];
 
-            const normalizedDepartments = inputDepartments
-                .map((item: any) => {
-                    if (typeof item === 'object' && item !== null) {
-                        return {
-                            departmentId: Number(item.departmentId ?? item.DepartmentMasterSid),
-                            status: String(item.status ?? 'A').charAt(0) || 'A'
-                        };
-                    }
+    //         const normalizedDepartments = inputDepartments
+    //             .map((item: any) => {
+    //                 if (typeof item === 'object' && item !== null) {
+    //                     return {
+    //                         departmentId: Number(item.departmentId ?? item.DepartmentMasterSid),
+    //                         status: String(item.status ?? 'A').charAt(0) || 'A'
+    //                     };
+    //                 }
+    //                 return {
+    //                     departmentId: Number(item),
+    //                     status: 'A'
+    //                 };
+    //             })
+    //             .filter((item: any) => Number.isInteger(item.departmentId) && item.departmentId > 0);
+
+            
+    //         if (!termCondInput.BranchMasterSid) {
+    //             throw new BadRequestException('BranchMasterSid is required');
+    //         }
+    //         if (!termCondInput.MenuMasterSid) {
+    //             throw new BadRequestException('MenuMasterSid is required');
+    //         }
+
+    //         const mergedObj = await this._db.$transaction(async (prisma) => {
+    //             const {
+    //                 CompanyMasterSid,
+    //                 BranchMasterSid,
+    //                 MenuMasterSid,
+    //                 POL,
+    //                 POD,
+    //                 FDC,
+    //                 ...masterInput
+    //             } = termCondInput;
+
+    //             const createdTermCond = await prisma.termsAndConditionsMaster.create({
+    //                 data: {
+    //                     ...masterInput,
+    //                     POL: Array.isArray(POL) ? POL : [],
+    //                     POD: Array.isArray(POD) ? POD : [],
+    //                     FDC: Array.isArray(FDC) ? FDC : [],
+    //                     branch: { connect: { BranchMasterSid: Number(BranchMasterSid) } },
+    //                     menu: { connect: { MenuMasterSid: Number(MenuMasterSid) } },
+    //                     ...(CompanyMasterSid ? { company: { connect: { CompanyMasterSid: Number(CompanyMasterSid) } } } : {})
+    //                 }
+    //             });
+
+    //             const finalDepartments: any[] = [];
+    //             if (normalizedDepartments.length > 0) {
+    //                 await prisma.departmentOnTerms.createMany({
+    //                     data: normalizedDepartments.map((item: any) => ({
+    //                         termsId: createdTermCond.TermsAndConditionsMasterSid,
+    //                         departmentId: item.departmentId,
+    //                         status: item.status
+    //                     }))
+    //                 });
+
+    //                 const createdDepartments = await prisma.departmentOnTerms.findMany({
+    //                     where: {
+    //                         termsId: createdTermCond.TermsAndConditionsMasterSid
+    //                     }
+    //                 });
+    //                 finalDepartments.push(...createdDepartments);
+    //             }
+
+    //             const normalizedDetails = inputDetails
+    //                 .map((item: any) => ({
+    //                     TandC: item?.TandC ?? item?.Terms ?? '',
+    //                     Type: item?.Type ?? null,
+    //                     TypeValue: item?.TypeValue ?? null,
+    //                     IsDefaut: item?.IsDefaut ?? 'A',
+    //                     createdBy: item?.createdBy ?? createdTermCond.createdBy,
+    //                     status: item?.status ?? 'A'
+    //                 }))
+    //                 .filter((item: any) => String(item.TandC).trim().length > 0);
+
+    //             let detailData: any[] = [];
+    //             if (normalizedDetails.length > 0) {
+    //                 await prisma.termsAndConditionsDetail.createMany({
+    //                     data: normalizedDetails.map((item: any) => ({
+    //                         TermsAndConditionsMasterSid: createdTermCond.TermsAndConditionsMasterSid,
+    //                         TandC: item.TandC,
+    //                         Type: item.Type,
+    //                         TypeValue: item.TypeValue,
+    //                         IsDefaut: item.IsDefaut,
+    //                         createdBy: item.createdBy,
+    //                         status: item.status
+    //                     }))
+    //                 });
+
+    //                 detailData = await prisma.termsAndConditionsDetail.findMany({
+    //                     where: {
+    //                         TermsAndConditionsMasterSid: createdTermCond.TermsAndConditionsMasterSid,
+    //                         status: 'A'
+    //                     }
+    //                 });
+    //             }
+
+    //             return {
+    //                 tandCData: createdTermCond,
+    //                 departmentData: finalDepartments,
+    //                 detailData
+    //             };
+    //         });
+
+    //         return mergedObj;
+    //     } catch (error) {
+    //         throw error;
+    //     }
+    // }
+
+    async createNewTermCond(payload) {
+    try {
+        const {
+            departmentOnTerms,
+            departmentId,
+            departments,
+            termsAndConditionDetail,
+            termsAndConditionsDetail,
+            termsAndConditionsDetails,
+            ...termCondInput
+        } = payload;
+
+        const rawDepartments = departmentOnTerms ?? departmentId ?? departments ?? [];
+        const inputDepartments = Array.isArray(rawDepartments)
+            ? rawDepartments
+            : rawDepartments ? [rawDepartments] : [];
+
+        const rawDetails =
+            termsAndConditionDetail ??
+            termsAndConditionsDetail ??
+            termsAndConditionsDetails ??
+            [];
+
+        const inputDetails = Array.isArray(rawDetails)
+            ? rawDetails
+            : [rawDetails];
+
+        //  Normalize departments (OPTIONAL now)
+        const normalizedDepartments = inputDepartments
+            .map((item: any) => {
+                if (typeof item === 'object' && item !== null) {
                     return {
-                        departmentId: Number(item),
-                        status: 'A'
+                        departmentId: Number(item.departmentId ?? item.DepartmentMasterSid),
+                        status: String(item.status ?? 'A').charAt(0) || 'A'
                     };
-                })
-                .filter((item: any) => Number.isInteger(item.departmentId) && item.departmentId > 0);
-
-            if (normalizedDepartments.length === 0) {
-                throw new BadRequestException('departmentId is required');
-            }
-            if (!termCondInput.BranchMasterSid) {
-                throw new BadRequestException('BranchMasterSid is required');
-            }
-            if (!termCondInput.MenuMasterSid) {
-                throw new BadRequestException('MenuMasterSid is required');
-            }
-
-            const mergedObj = await this._db.$transaction(async (prisma) => {
-                const {
-                    CompanyMasterSid,
-                    BranchMasterSid,
-                    MenuMasterSid,
-                    POL,
-                    POD,
-                    FDC,
-                    ...masterInput
-                } = termCondInput;
-
-                const createdTermCond = await prisma.termsAndConditionsMaster.create({
-                    data: {
-                        ...masterInput,
-                        POL: Array.isArray(POL) ? POL : [],
-                        POD: Array.isArray(POD) ? POD : [],
-                        FDC: Array.isArray(FDC) ? FDC : [],
-                        branch: { connect: { BranchMasterSid: Number(BranchMasterSid) } },
-                        menu: { connect: { MenuMasterSid: Number(MenuMasterSid) } },
-                        ...(CompanyMasterSid ? { company: { connect: { CompanyMasterSid: Number(CompanyMasterSid) } } } : {})
-                    }
-                });
-
-                const finalDepartments: any[] = [];
-                if (normalizedDepartments.length > 0) {
-                    await prisma.departmentOnTerms.createMany({
-                        data: normalizedDepartments.map((item: any) => ({
-                            termsId: createdTermCond.TermsAndConditionsMasterSid,
-                            departmentId: item.departmentId,
-                            status: item.status
-                        }))
-                    });
-
-                    const createdDepartments = await prisma.departmentOnTerms.findMany({
-                        where: {
-                            termsId: createdTermCond.TermsAndConditionsMasterSid
-                        }
-                    });
-                    finalDepartments.push(...createdDepartments);
                 }
-
-                const normalizedDetails = inputDetails
-                    .map((item: any) => ({
-                        TandC: item?.TandC ?? item?.Terms ?? '',
-                        Type: item?.Type ?? null,
-                        TypeValue: item?.TypeValue ?? null,
-                        IsDefaut: item?.IsDefaut ?? 'A',
-                        createdBy: item?.createdBy ?? createdTermCond.createdBy,
-                        status: item?.status ?? 'A'
-                    }))
-                    .filter((item: any) => String(item.TandC).trim().length > 0);
-
-                let detailData: any[] = [];
-                if (normalizedDetails.length > 0) {
-                    await prisma.termsAndConditionsDetail.createMany({
-                        data: normalizedDetails.map((item: any) => ({
-                            TermsAndConditionsMasterSid: createdTermCond.TermsAndConditionsMasterSid,
-                            TandC: item.TandC,
-                            Type: item.Type,
-                            TypeValue: item.TypeValue,
-                            IsDefaut: item.IsDefaut,
-                            createdBy: item.createdBy,
-                            status: item.status
-                        }))
-                    });
-
-                    detailData = await prisma.termsAndConditionsDetail.findMany({
-                        where: {
-                            TermsAndConditionsMasterSid: createdTermCond.TermsAndConditionsMasterSid,
-                            status: 'A'
-                        }
-                    });
-                }
-
                 return {
-                    tandCData: createdTermCond,
-                    departmentData: finalDepartments,
-                    detailData
+                    departmentId: Number(item),
+                    status: 'A'
                 };
+            })
+            .filter((item: any) => Number.isInteger(item.departmentId) && item.departmentId > 0);
+
+
+        if (!termCondInput.BranchMasterSid) {
+            throw new BadRequestException('BranchMasterSid is required');
+        }
+
+        if (!termCondInput.MenuMasterSid) {
+            throw new BadRequestException('MenuMasterSid is required');
+        }
+
+        const mergedObj = await this._db.$transaction(async (prisma) => {
+            const {
+                CompanyMasterSid,
+                BranchMasterSid,
+                MenuMasterSid,
+                POL,
+                POD,
+                FDC,
+                ...masterInput
+            } = termCondInput;
+
+            const createdTermCond = await prisma.termsAndConditionsMaster.create({
+                data: {
+                    ...masterInput,
+                    POL: Array.isArray(POL) ? POL : [],
+                    POD: Array.isArray(POD) ? POD : [],
+                    FDC: Array.isArray(FDC) ? FDC : [],
+                    branch: { connect: { BranchMasterSid: Number(BranchMasterSid) } },
+                    menu: { connect: { MenuMasterSid: Number(MenuMasterSid) } },
+                    ...(CompanyMasterSid
+                        ? { company: { connect: { CompanyMasterSid: Number(CompanyMasterSid) } } }
+                        : {})
+                }
             });
 
-            return mergedObj;
-        } catch (error) {
-            throw error;
-        }
+            let finalDepartments: any[] = [];
+
+            //  Only create if departments exist
+            if (normalizedDepartments.length > 0) {
+                await prisma.departmentOnTerms.createMany({
+                    data: normalizedDepartments.map((item: any) => ({
+                        termsId: createdTermCond.TermsAndConditionsMasterSid,
+                        departmentId: item.departmentId,
+                        status: item.status
+                    }))
+                });
+
+                finalDepartments = await prisma.departmentOnTerms.findMany({
+                    where: {
+                        termsId: createdTermCond.TermsAndConditionsMasterSid
+                    }
+                });
+            }
+
+            // Normalize Details
+            const normalizedDetails = inputDetails
+                .map((item: any) => ({
+                    TandC: item?.TandC ?? item?.Terms ?? '',
+                    Type: item?.Type ?? null,
+                    TypeValue: item?.TypeValue ?? null,
+                    IsDefaut: item?.IsDefaut ?? 'A',
+                    createdBy: item?.createdBy ?? createdTermCond.createdBy,
+                    status: item?.status ?? 'A'
+                }))
+                .filter((item: any) => String(item.TandC).trim().length > 0);
+
+            let detailData: any[] = [];
+
+            if (normalizedDetails.length > 0) {
+                await prisma.termsAndConditionsDetail.createMany({
+                    data: normalizedDetails.map((item: any) => ({
+                        TermsAndConditionsMasterSid:
+                            createdTermCond.TermsAndConditionsMasterSid,
+                        TandC: item.TandC,
+                        Type: item.Type,
+                        TypeValue: item.TypeValue,
+                        IsDefaut: item.IsDefaut,
+                        createdBy: item.createdBy,
+                        status: item.status
+                    }))
+                });
+
+                detailData = await prisma.termsAndConditionsDetail.findMany({
+                    where: {
+                        TermsAndConditionsMasterSid:
+                            createdTermCond.TermsAndConditionsMasterSid,
+                        status: 'A'
+                    }
+                });
+            }
+
+            return {
+                tandCData: createdTermCond,
+                departmentData: finalDepartments, // empty if not provided
+                detailData
+            };
+        });
+
+        return mergedObj;
+    } catch (error) {
+        throw error;
     }
+}
 
     async fetchTermCondById(TermsAndConditionsMasterSid:number){
         try {
@@ -488,135 +632,343 @@ export class TermsAndConditionsService {
 
     }
 
-    async createTandCTransaction(payload: any) {
-        const {
-            CompanyMasterSid,
-            BranchMasterSid,
-            MenuMasterSid,
-            createdBy,
-            TandC,
-            IsDefaut,
-            POL = [],
-            POD = [],
-            FDC = [],
-            DocumentSid
-        } = payload;
+    // async createTandCTransaction(payload: any) {
+    //     const {
+    //         CompanyMasterSid,
+    //         BranchMasterSid,
+    //         MenuMasterSid,
+    //         createdBy,
+    //         TandC,
+    //         IsDefaut,
+    //         POL = [],
+    //         POD = [],
+    //         FDC = [],
+    //         DocumentSid
+    //     } = payload;
 
-        // Validate required fields
-        if (!CompanyMasterSid || !BranchMasterSid || !MenuMasterSid || !createdBy || !TandC) {
-            throw new BadRequestException('Missing required fields');
+    //     // Validate required fields
+    //     if (!CompanyMasterSid || !BranchMasterSid || !MenuMasterSid || !createdBy || !TandC) {
+    //         throw new BadRequestException('Missing required fields');
+    //     }
+
+    //     return await this._db.$transaction(async (tx) => {
+    //         try {
+    //             // Create TermsAndConditionsMaster
+    //             const termsAndConditionsMaster = await tx.termsAndConditionsMaster.create({
+    //                 data: {
+    //                     CompanyMasterSid,
+    //                     BranchMasterSid,
+    //                     MenuMasterSid,
+    //                     POL: { set: POL },
+    //                     POD: { set: POD },
+    //                     FDC: { set: FDC },
+    //                     createdBy,
+    //                     status: 'A',
+    //                 },
+    //             });
+
+    //             // Create TermsAndConditionsDetail
+    //             const termsAndConditionsDetail = await tx.termsAndConditionsDetail.create({
+    //                 data: {
+    //                     TermsAndConditionsMasterSid: termsAndConditionsMaster.TermsAndConditionsMasterSid,
+    //                     TandC,
+    //                     IsDefaut,
+    //                     createdBy,
+    //                     status: 'A',
+    //                 },
+    //             });
+
+    //             // Create DepartmentOnTerms
+    //             // const departmentOnTerms = await tx.departmentOnTerms.create({
+    //             //     data: {
+    //             //         departmentId,
+    //             //         termsId: termsAndConditionsMaster.TermsAndConditionsMasterSid,
+    //             //     },
+    //             // });
+
+    //             // Create TandCTransaction (optional DocumentSid)
+    //             const tandCTransaction = await tx.tandCTransaction.create({
+    //                 data: {
+    //                     CompanyMasterSid,
+    //                     TandCMasterSid: termsAndConditionsMaster.TermsAndConditionsMasterSid,
+    //                     TandCDetailSid: termsAndConditionsDetail.TermsAndConditionsDetailSid,
+    //                     Terms: TandC,
+    //                     DocumentSid,
+    //                     createdBy,
+    //                     status: 'A',
+    //                 },
+    //             });
+
+    //             return {
+    //                 tandCData: termsAndConditionsMaster,
+    //                 tandCDetailData: termsAndConditionsDetail,
+    //                 transactionData: tandCTransaction,
+    //             };
+    //         } catch (error) {
+    //             throw error;
+    //         }
+    //     });
+    // } 
+
+    // async getTandCByCondition(payload: TandCPayload) {
+    //     try {
+    //         // Validate required fields
+    //         if (!payload.MenuMasterSid) {
+    //             throw new Error('Missing required payload field: MenuMasterSid is required');
+    //         }
+
+    //         // Build the where clause dynamically
+    //         const whereClause: any = {
+    //             status:'A'
+    //         };
+
+    //         // Add filters only if provided
+    //         if (payload.BranchMasterSid !== undefined) {
+    //             whereClause.BranchMasterSid = payload.BranchMasterSid;
+    //         }
+    //         if (payload.MenuMasterSid !== undefined) {
+    //             whereClause.MenuMasterSid = payload.MenuMasterSid;
+    //         }
+    //         if (payload.POL !== undefined) {
+    //             whereClause.POL = { has: payload.POL };
+    //         }
+    //         if (payload.POD !== undefined) {
+    //             whereClause.POD = { has: payload.POD };
+    //         }
+    //         if (payload.FDC !== undefined) {
+    //             whereClause.FDC = { has: payload.FDC };
+    //         }
+    //         if (payload.Carrier !== undefined ) {
+    //         whereClause.Carrier = payload.Carrier;
+    //         }
+    //         if (payload.DepartmentMasterSid !== undefined) {
+    //             whereClause.departments = {
+    //                 some: { departmentId: payload.DepartmentMasterSid }
+    //             };
+    //         }
+
+    //         const gatheredTandC = await this._db.termsAndConditionsMaster.findMany({
+    //             where: whereClause,
+    //             include: {
+    //                 termsAndConditionsDetail: {
+    //                     where: { status : 'A' }
+    //                 }
+    //             }
+    //         });
+
+    //         // Flatten the details array
+    //         const gatheredTandCDetails = gatheredTandC.flatMap(
+    //             tandc => tandc.termsAndConditionsDetail
+    //         );
+
+    //         return gatheredTandCDetails;
+    //     } catch (error) {
+    //         console.error('Error fetching terms and conditions:', error);
+    //         throw new Error(`Failed to fetch terms and conditions: ${error.message}`);
+    //     }
+    // }
+
+    async createTandCTransaction(payload: any) {
+  const {
+    CompanyMasterSid,
+    BranchMasterSid,
+    MenuMasterSid,
+    createdBy,
+    TandC,
+    IsDefaut,
+    POL,
+    POD,
+    FDC,
+    Carrier,
+    DepartmentMasterSid,
+    DocumentSid
+  } = payload;
+
+  if (!CompanyMasterSid || !BranchMasterSid || !MenuMasterSid || !createdBy || !TandC) {
+    throw new BadRequestException('Missing required fields');
+  }
+
+  return await this._db.$transaction(async (tx) => {
+
+    // 🔎 Build dynamic where condition safely
+    const whereCondition: any = {
+      CompanyMasterSid,
+      BranchMasterSid,
+      MenuMasterSid,
+      status: 'A',
+    };
+
+    if (Carrier != null) {
+      whereCondition.Carrier = Carrier;
+    }
+
+    if (POL) {
+      whereCondition.POL = { has: POL };
+    }
+
+    if (POD) {
+      whereCondition.POD = { has: POD };
+    }
+
+    if (FDC) {
+      whereCondition.FDC = { has: FDC };
+    }
+
+    if (DepartmentMasterSid != null) {
+      whereCondition.departments = {
+        some: {
+          departmentId: DepartmentMasterSid,
+          status: 'A'
+        }
+      };
+    }
+
+    // 🔎 Find existing master
+    let existingMaster = await tx.termsAndConditionsMaster.findFirst({
+      where: whereCondition
+    });
+
+    // 🆕 Create master if not exists
+    if (!existingMaster) {
+      existingMaster = await tx.termsAndConditionsMaster.create({
+        data: {
+          CompanyMasterSid,
+          BranchMasterSid,
+          MenuMasterSid,
+          Carrier: Carrier ?? null,
+          POL: POL ? { set: [POL] } : { set: [] },
+          POD: POD ? { set: [POD] } : { set: [] },
+          FDC: FDC ? { set: [FDC] } : { set: [] },
+          createdBy,
+          status: 'A',
+
+          ...(DepartmentMasterSid != null && {
+            departments: {
+              create: {
+                departmentId: DepartmentMasterSid,
+                status: 'A'
+              }
+            }
+          })
+        }
+      });
+    }
+
+    // ✅ Create detail always
+    const newDetail = await tx.termsAndConditionsDetail.create({
+      data: {
+        TermsAndConditionsMasterSid:
+          existingMaster.TermsAndConditionsMasterSid,
+        TandC,
+        IsDefaut,
+        createdBy,
+        status: 'A',
+      },
+    });
+
+    // ✅ Transaction record
+    await tx.tandCTransaction.create({
+      data: {
+        CompanyMasterSid,
+        TandCMasterSid: existingMaster.TermsAndConditionsMasterSid,
+        TandCDetailSid: newDetail.TermsAndConditionsDetailSid,
+        Terms: TandC,
+        DocumentSid,
+        createdBy,
+        status: 'A',
+      },
+    });
+
+    return newDetail;
+  });
+}
+    async getTandCByCondition(payload: TandCPayload) {
+    try {
+        if (!payload.MenuMasterSid) {
+            throw new Error('MenuMasterSid is required');
         }
 
-        return await this._db.$transaction(async (tx) => {
-            try {
-                // Create TermsAndConditionsMaster
-                const termsAndConditionsMaster = await tx.termsAndConditionsMaster.create({
-                    data: {
-                        CompanyMasterSid,
-                        BranchMasterSid,
-                        MenuMasterSid,
-                        POL: { set: POL },
-                        POD: { set: POD },
-                        FDC: { set: FDC },
-                        createdBy,
-                        status: 'A',
-                    },
-                });
+        // Build filtered condition
+        const filteredWhere: any = {
+            MenuMasterSid: payload.MenuMasterSid,
+            status: 'A'
+        };
 
-                // Create TermsAndConditionsDetail
-                const termsAndConditionsDetail = await tx.termsAndConditionsDetail.create({
-                    data: {
-                        TermsAndConditionsMasterSid: termsAndConditionsMaster.TermsAndConditionsMasterSid,
-                        TandC,
-                        IsDefaut,
-                        createdBy,
-                        status: 'A',
-                    },
-                });
+        if (payload.BranchMasterSid) {
+            filteredWhere.BranchMasterSid = payload.BranchMasterSid;
+        }
 
-                // Create DepartmentOnTerms
-                // const departmentOnTerms = await tx.departmentOnTerms.create({
-                //     data: {
-                //         departmentId,
-                //         termsId: termsAndConditionsMaster.TermsAndConditionsMasterSid,
-                //     },
-                // });
+        if (payload.POL) {
+            filteredWhere.POL = { has: payload.POL };
+        }
 
-                // Create TandCTransaction (optional DocumentSid)
-                const tandCTransaction = await tx.tandCTransaction.create({
-                    data: {
-                        CompanyMasterSid,
-                        TandCMasterSid: termsAndConditionsMaster.TermsAndConditionsMasterSid,
-                        TandCDetailSid: termsAndConditionsDetail.TermsAndConditionsDetailSid,
-                        Terms: TandC,
-                        DocumentSid,
-                        createdBy,
-                        status: 'A',
-                    },
-                });
+        if (payload.POD) {
+            filteredWhere.POD = { has: payload.POD };
+        }
 
-                return {
-                    tandCData: termsAndConditionsMaster,
-                    tandCDetailData: termsAndConditionsDetail,
-                    transactionData: tandCTransaction,
-                };
-            } catch (error) {
-                throw error;
-            }
-        });
-    } 
+        if (payload.FDC) {
+            filteredWhere.FDC = { has: payload.FDC };
+        }
 
-    async getTandCByCondition(payload: TandCPayload) {
-        try {
-            // Validate required fields
-            if (!payload.MenuMasterSid) {
-                throw new Error('Missing required payload field: MenuMasterSid is required');
-            }
+        if (payload.Carrier) {
+            filteredWhere.Carrier = payload.Carrier;
+        }
 
-            // Build the where clause dynamically
-            const whereClause: any = {
-                status:'A'
+        if (payload.DepartmentMasterSid) {
+            filteredWhere.departments = {
+                some: { departmentId: payload.DepartmentMasterSid }
             };
+        }
 
-            // Add filters only if provided
-            if (payload.BranchMasterSid !== undefined) {
-                whereClause.BranchMasterSid = payload.BranchMasterSid;
-            }
-            if (payload.MenuMasterSid !== undefined) {
-                whereClause.MenuMasterSid = payload.MenuMasterSid;
-            }
-            if (payload.POL !== undefined) {
-                whereClause.POL = { has: payload.POL };
-            }
-            if (payload.POD !== undefined) {
-                whereClause.POD = { has: payload.POD };
-            }
-            if (payload.DepartmentMasterSid !== undefined) {
-                whereClause.departments = {
-                    some: { departmentId: payload.DepartmentMasterSid }
-                };
-            }
+        const gatheredTandC = await this._db.termsAndConditionsMaster.findMany({
+            where: {
+                OR: [
+                    // ✅ Normal filtered records
+                    filteredWhere,
 
-            const gatheredTandC = await this._db.termsAndConditionsMaster.findMany({
-                where: whereClause,
-                include: {
-                    termsAndConditionsDetail: {
-                        where: { status : 'A' }
+                    // ✅ Default records of same menu
+                    {
+                        MenuMasterSid: payload.MenuMasterSid,
+                        status: 'A',
+                        termsAndConditionsDetail: {
+                            some: {
+                                IsDefaut: 'A',
+                                status: 'A'
+                            }
+                        }
+                    }
+                ]
+            },
+            include: {
+                termsAndConditionsDetail: {
+                    where: {
+                        OR: [
+                            { status: 'A' }, 
+                            { IsDefaut: 'A', status: 'A' }
+                        ]
                     }
                 }
-            });
+            }
+        });
 
-            // Flatten the details array
-            const gatheredTandCDetails = gatheredTandC.flatMap(
-                tandc => tandc.termsAndConditionsDetail
-            );
+        // Flatten details
+        const allDetails = gatheredTandC.flatMap(
+            tandc => tandc.termsAndConditionsDetail
+        );
 
-            return gatheredTandCDetails;
-        } catch (error) {
-            console.error('Error fetching terms and conditions:', error);
-            throw new Error(`Failed to fetch terms and conditions: ${error.message}`);
-        }
+        // Remove duplicate details
+        const unique = new Map();
+        allDetails.forEach(detail => {
+            unique.set(detail.TermsAndConditionsDetailSid, detail);
+        });
+
+        return Array.from(unique.values());
+
+    } catch (error) {
+        console.error('Error fetching terms and conditions:', error);
+        throw new Error(`Failed to fetch terms and conditions: ${error.message}`);
     }
+}
 }
 
 interface TandCPayload {
@@ -624,5 +976,7 @@ interface TandCPayload {
     MenuMasterSid: number;
     POL?: string;
     POD?: string;
+    FDC?: string;
+    Carrier?: number;
     DepartmentMasterSid?: number;
 }
