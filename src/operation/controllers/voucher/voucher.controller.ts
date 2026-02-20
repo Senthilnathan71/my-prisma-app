@@ -266,35 +266,6 @@ export class VoucherController {
     }
 
 
-    @ApiOperation({ summary : 'Delete Voucher'})
-    @ApiCreatedResponse({
-        description: 'Voucher has been deleted successfully',
-        type: ResponseData
-    })
-    @HttpCode(HttpStatus.OK)
-    @Post('delete-voucher')
-    async deleteVoucher(
-        @Body() payload : DeleteVoucherPayload
-    ) {
-        let output = new ResponseData();
-        this.logger.log(`deleteVoucher request body: ${JSON.stringify(payload)}`);
-        try {
-            const result = await this.voucherService.deleteVoucher(payload);
-            this.logger.debug(`deleteVoucher result: ${JSON.stringify(result)}`);
-            output.data = result;
-            output.message = "Voucher has been deleted successfully";
-        } catch (error) {
-            this.logger.warn(`deleteVoucher error: ${JSON.stringify(error), error}`);
-            output.status = false;
-            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
-                output.message = error.message;
-            } else {
-                output.message = error;
-            }
-        }
-        return output;
-    }
-
     @ApiOperation({ summary : 'Delete Voucher Detail By VoucherDetailSid'})
     @ApiCreatedResponse({
         description: 'Voucher Detail has been deleted successfully',

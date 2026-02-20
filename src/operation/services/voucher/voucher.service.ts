@@ -2713,40 +2713,6 @@ export class VoucherService {
         return drCr;
     }
 
-    async deleteVoucher(payload: DeleteVoucherPayload) {
-        try {
-            const { VoucherHeaderSid, CompanyMasterSid, BranchMasterSid, UserEmail } = payload;
-            const result = await this._db.$transaction(async (prisma) => {
-                const existing = await prisma.voucherHeader.findUnique({
-                    where : { VoucherHeaderSid : VoucherHeaderSid }
-                });
-
-                if (!existing || existing.Status !== 'A') {
-                    throw new BadRequestException('Voucher is already deleted.');
-                }
-
-                const deletedVoucherHeader = await prisma.voucherHeader.update({
-                    where: { VoucherHeaderSid: VoucherHeaderSid },
-                    data: { Status: 'S' , UpdatedBy : UserEmail , UpdatedOn : new Date() }
-                });
-
-                // await prisma.voucherDetail.updateMany({
-                //     where: { VoucherHeaderSid: VoucherHeaderSid, Status: 'A' },
-                //     data: { Status: 'S' , UpdatedBy : UserEmail , UpdatedOn : new Date() }
-                // });
-
-                // await prisma.voucherOthers.updateMany({
-                //     where: { VoucherHeaderSid: VoucherHeaderSid, Status: 'A' },
-                //     data: { Status: 'S' , UpdatedBy : UserEmail , UpdatedOn : new Date() }
-                // });
-
-                return deletedVoucherHeader;
-            });
-            return result;
-        } catch (error) {
-            throw error;
-        }
-    }
 
   async softDeleteVoucherDetail(VoucherDetailSid: number) {
     try {
