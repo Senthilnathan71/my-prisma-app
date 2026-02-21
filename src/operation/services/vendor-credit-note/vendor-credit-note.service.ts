@@ -616,88 +616,145 @@ if (payload.VoucherDetail && Array.isArray(payload.VoucherDetail)) {
             }
         }
     async searchVendorCreditNotes(params: any): Promise<any> {
-            try {
-                const {
-                    search = '',
-                    page = 1,
-                    pageSize = 10,
-                    activeCompanyId, activeBranchId,
-                    sortColumn = 'VoucherDate',
-                    sortDirection = 'desc'
-                } = params;
-    
-                const skip = (page - 1) * pageSize;
-                const take = Number(pageSize);
-    
-                // const where: any = {
-                //     voucherTypeMaster: {
-                //         DocumentTypeName: 'Vendor Credit Note'
-                //     },
-                //     Status: 'A'
-                // };
-                const where: Prisma.VoucherHeaderWhereInput = {
-                    CompanyMasterSid: activeCompanyId,
-                    BranchMasterSid: activeBranchId,
-                    Status: 'A',
-                    voucherTypeMaster: {
-                        DocumentTypeCode: DOC_TYPE_CODE.VENDOR_CREDIT_NOTE
-                    },
-                }
-                // Add search filter
-                if (search) {
-                    where.OR = [
-                        { VoucherNumber: { contains: search, mode: 'insensitive' } },
-                        { PartyName: { contains: search, mode: 'insensitive' } },
-                        { DocumentNumber: { contains: search, mode: 'insensitive' } },
-                        { MasterNumber: { contains: search, mode: 'insensitive' } },
-                        { HouseNumber: { contains: search, mode: 'insensitive' } }
-                    ];
-                }
-                
-    
-                const [items, totalCount] = await Promise.all([
-                    this._db.voucherHeader.findMany({
-                        where,
-                        include: {
-                            VoucherDetail: {
-                                where: { Status: 'A' }
-                            },
-                            // VoucherTDS: {
-                            //     where: { Status: 'A' }
-                            // },
-                            subledgerMaster: true,
-                            currencyMaster: true
-                        },
-                        orderBy: { VoucherHeaderSid: 'desc' },
-                        skip,
-                        take
-                    }),
-                    this._db.voucherHeader.count({ where })
-                ]);
-    
-                // Calculate local amount and TDS amount for each invoice
-                const enrichedItems = items.map(item => ({
-                    ...item,
-                    LocalAmount: item.VoucherDetail?.reduce((sum, d) => sum + Number(d.LocalAmount || 0), 0) || 0,
-                    // TDSAmount: item.VoucherTDS?.[0]?.TDSAmount || 0,
-                    VendorName: item.PartyName,
-                    BillNo: item.DocumentNumber,
-                    BillDate: item.DocumentDate,
-                    MBLNo: item.MasterNumber,
-                    HBLNo: item.HouseNumber
-                }));
-    
-                return {
-                    items: enrichedItems,
-                    totalCount,
-                    page: Number(page),
-                    pageSize: Number(pageSize)
-                };
-            } catch (error) {
-                this.logger.error(`Error searching vendor creditNotes: ${error.message}`);
-                throw new InternalServerErrorException('Failed to search vendor creditNotes');
+    try {
+        const {
+            search = '',
+            page = 1,
+            pageSize = 10,
+            activeCompanyId,
+            activeBranchId,
+            sortColumn = 'VoucherDate',
+            sortDirection = 'desc'
+        } = params;
+
+        const skip = (page - 1) * pageSize;
+        const take = Number(pageSize);
+
+        const where: Prisma.VoucherHeaderWhereInput = {
+            CompanyMasterSid: activeCompanyId,
+            BranchMasterSid: activeBranchId,
+            Status: 'A',
+            voucherTypeMaster: {
+                DocumentTypeCode: DOC_TYPE_CODE.VENDOR_CREDIT_NOTE
             }
+        };
+
+        if (search) {
+
+            //  STEP 1: Find matching original vouchers
+            const matchingOriginalVouchers =
+                await this._db.voucherHeader.findMany({
+                    where: {
+                        VoucherNumber: {
+                            contains: search,
+                            mode: 'insensitive'
+                        }
+                    },
+                    select: {
+                        VoucherHeaderSid: true
+                    }
+                });
+
+            const reversalIds = matchingOriginalVouchers.map(
+                v => v.VoucherHeaderSid
+            );
+
+            //  STEP 2: Apply OR search including ReversalVoucher
+            where.OR = [
+                { VoucherNumber: { contains: search, mode: 'insensitive' } },
+                { PartyName: { contains: search, mode: 'insensitive' } },
+                { DocumentNumber: { contains: search, mode: 'insensitive' } },
+                { MasterNumber: { contains: search, mode: 'insensitive' } },
+                { HouseNumber: { contains: search, mode: 'insensitive' } },
+
+                ...(reversalIds.length > 0
+                    ? [{ ReversalVoucher: { in: reversalIds } }]
+                    : [])
+            ];
         }
+
+        const [items, totalCount] = await Promise.all([
+            this._db.voucherHeader.findMany({
+                where,
+                include: {
+                    VoucherDetail: {
+                        where: { Status: 'A' }
+                    },
+                    subledgerMaster: true,
+                    currencyMaster: true
+                },
+                orderBy: {
+                    VoucherHeaderSid: 'desc'
+                },
+                skip,
+                take
+            }),
+            this._db.voucherHeader.count({ where })
+        ]);
+
+        //  Collect reversal IDs
+        const reversalIds = items
+            .filter(item => item.ReversalVoucher)
+            .map(item => item.ReversalVoucher as number);
+
+        let reversalMap = new Map<number, string>();
+
+        if (reversalIds.length > 0) {
+            const reversalVouchers =
+                await this._db.voucherHeader.findMany({
+                    where: {
+                        VoucherHeaderSid: { in: reversalIds }
+                    },
+                    select: {
+                        VoucherHeaderSid: true,
+                        VoucherNumber: true
+                    }
+                });
+
+            reversalMap = new Map(
+                reversalVouchers.map(v => [
+                    v.VoucherHeaderSid,
+                    v.VoucherNumber
+                ])
+            );
+        }
+
+        const enrichedItems = items.map(item => ({
+            ...item,
+            LocalAmount:
+                item.VoucherDetail?.reduce(
+                    (sum, d) => sum + Number(d.LocalAmount || 0),
+                    0
+                ) || 0,
+
+            VendorName: item.PartyName,
+            BillNo: item.DocumentNumber,
+            BillDate: item.DocumentDate,
+            MBLNo: item.MasterNumber,
+            HBLNo: item.HouseNumber,
+
+            ReversalVoucherNumber: item.ReversalVoucher
+                ? reversalMap.get(item.ReversalVoucher) || null
+                : null
+        }));
+
+        return {
+            items: enrichedItems,
+            totalCount,
+            page: Number(page),
+            pageSize: Number(pageSize)
+        };
+
+    } catch (error) {
+        this.logger.error(
+            `Error searching vendor creditNotes: ${error.message}`
+        );
+        throw new InternalServerErrorException(
+            'Failed to search vendor creditNotes'
+        );
+    }
+}
+
 
         async fetchVendorInvoices(CompanyMasterSid: number): Promise<any[]> {
         try {

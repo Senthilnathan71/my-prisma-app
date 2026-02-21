@@ -669,7 +669,7 @@ export class CreditNoteService {
        const skip = (page - 1) * pageSize;
        const take = Number(pageSize);
    
-       const where: any = {
+       const where: Prisma.VoucherHeaderWhereInput = {
          CompanyMasterSid: activeCompanyId,
          BranchMasterSid: activeBranchId,
          voucherTypeMaster: {
@@ -678,12 +678,30 @@ export class CreditNoteService {
          Status: 'A',
         }
          if(search) {
+          const matchingOriginalVouchers = 
+          await this._db.voucherHeader.findMany({
+            where: {
+              VoucherNumber: {
+                contains:search,
+                mode: 'insensitive'
+              }
+            },
+            select:{
+              VoucherHeaderSid:true
+            }
+          });
+          const reverseIds = matchingOriginalVouchers.map(
+            v => v.VoucherHeaderSid
+          );
            where.OR =[
              { VoucherNumber: { contains: search, mode: 'insensitive' } },
              { PartyName: { contains: search, mode: 'insensitive' } },
              { DocumentNumber: { contains: search, mode: 'insensitive' } },
              { HouseNumber: { contains: search, mode: 'insensitive' } },
-             { MasterNumber: { contains: search, mode: 'insensitive' } }
+             { MasterNumber: { contains: search, mode: 'insensitive' } },
+             ...(reverseIds.length > 0
+                    ? [{ ReversalVoucher: { in: reverseIds } }]
+                    : [])
            ];
          };
    
@@ -723,6 +741,22 @@ export class CreditNoteService {
          }),
          this._db.voucherHeader.count({ where }),
        ]);
+       const reversalIds = items.filter(item => item.ReversalVoucher).map(item => item.ReversalVoucher as number);
+       let reversalMap = new Map<number, string>();
+       if (reversalIds.length > 0){
+        const reversalVoucher = await this._db.voucherHeader.findMany({
+          where:{
+            VoucherHeaderSid:{in:reversalIds}
+          },
+          select: {
+            VoucherHeaderSid: true,
+            VoucherNumber: true
+          }
+        });
+        reversalMap = new Map(
+          reversalVoucher.map(v => [v.VoucherHeaderSid,v.VoucherNumber])
+        );
+       }
        const enrichedItems = items.map(item => ({
                 ...item,
                 LocalAmount: item.VoucherDetail?.reduce((sum, d) => sum + Number(d.LocalAmount || 0), 0) || 0,
@@ -731,8 +765,10 @@ export class CreditNoteService {
                 BillNo: item.DocumentNumber,
                 BillDate: item.DocumentDate,
                 MBLNo: item.MasterNumber,
-                HBLNo: item.HouseNumber
-                
+                HBLNo: item.HouseNumber,
+                ReversalVoucherNumber: item.ReversalVoucher
+                ? reversalMap.get(item.ReversalVoucher) || null
+                : null
             }));
    
        return {
