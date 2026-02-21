@@ -3664,7 +3664,7 @@ model MailConfigurationMaster {
   UpdatedBy                  String?       @db.VarChar(100)
   Status                     String        @default("A") @db.Char(1)
   CompanyMasterSid           Int
-  Sno                        Decimal       @db.Decimal(3, 0)
+  Sno                        Int
   MailName                   String        @db.VarChar(50)
   MenuMasterSid              Int
   MailSubject                String        @db.VarChar(500)
@@ -3673,6 +3673,8 @@ model MailConfigurationMaster {
   CcEmailidFrom              String        @db.VarChar(200)
   AttachmentRequire          String        @default("Y") @db.Char(1)
   AutoPopup                  String        @default("P") @db.Char(1)
+  Action                     String        @db.VarChar(200)
+  Trigger                    String        @db.VarChar(50) 
   CompanyMaster              CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
   MenuMaster                 MenuMaster    @relation(fields: [MenuMasterSid], references: [MenuMasterSid])
 
