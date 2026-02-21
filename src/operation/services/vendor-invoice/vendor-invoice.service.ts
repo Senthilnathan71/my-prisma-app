@@ -337,6 +337,12 @@ export class VendorInvoiceService {
                     currencyMaster: true,
                     masterJob: true,
                     houseJob: true,
+                    BookingHeader : {
+                        select : {
+                            BookingHeaderSid : true,
+                            BookingNo : true
+                        }
+                    },
                     voucherTypeMaster: true,
                     
                 }
@@ -371,7 +377,7 @@ export class VendorInvoiceService {
                     throw new NotFoundException(`Vendor Invoice with ID ${VoucherHeaderSid} not found`);
                 }
 
-                if (payload.status === 'S') {
+                if (payload.Status === 'S') {
                     return await this.voucherService.deleteVoucher({
                         VoucherHeaderSid: VoucherHeaderSid,
                         CompanyMasterSid: payload.CompanyMasterSid,
