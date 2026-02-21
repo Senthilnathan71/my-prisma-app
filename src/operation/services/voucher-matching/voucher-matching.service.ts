@@ -213,6 +213,20 @@ export class VoucherMatchingService {
     async createStandaloneVoucherMatching(dto: CreateStandaloneVoucherMatchingDto) {
         try {
             const result = await this._db.$transaction(async (prisma) => {
+                // Lookup YearMasterSid for the posting date
+                const postDate = new Date(dto.PostDate);
+                const yearMaster = await prisma.yearMaster.findFirst({
+                    where: {
+                        CompanyMasterSid: dto.CompanyMasterSid,
+                        status: 'A',
+                        yearStartDate: { lte: postDate },
+                        yearEndDate: { gte: postDate },
+                    },
+                });
+                if (!yearMaster) {
+                    throw new BadRequestException('Active financial year not found for the posting date.');
+                }
+
                 const payload = {
                     CompanyMasterSid: dto.CompanyMasterSid,
                     BranchMasterSid: dto.BranchMasterSid,
@@ -220,7 +234,9 @@ export class VoucherMatchingService {
                     VoucherTypeMasterSid: dto.VoucherTypeMasterSid,
                     voucherTypeInName: dto.voucherTypeInName,
                     SubledgerName: dto.SubledgerName || '',
-                    PostDate: new Date(dto.PostDate),
+                    PostDate: postDate,
+                    VoucherMatchingDate: postDate,
+                    YearMasterSid: yearMaster.YearMasterSid,
                     Narration: dto.Narration || '',
                     createdBy: dto.CreatedBy,
                     partyVoucherDetail: dto.partyVoucherDetail.map((d, i) => ({
@@ -256,7 +272,17 @@ export class VoucherMatchingService {
                     ),
                 };
 
-                return await this.voucherService.createVoucherMatching(payload as any, prisma);
+                const matchingResult = await this.voucherService.createVoucherMatching(payload as any, prisma);
+
+                // Exchange JV creation for Scenario 2 (single foreign currency, different exchange rates)
+                if (dto.exchangeJvRequired && dto.exchangeDifference && Math.abs(dto.exchangeDifference) > 0.01) {
+                    const exchangeJvResult = await this.createExchangeJvForMatching(
+                        prisma, dto, matchingResult.VoucherMatchingHeaderSid, yearMaster.YearMasterSid
+                    );
+                    return { ...matchingResult, exchangeJv: exchangeJvResult };
+                }
+
+                return matchingResult;
             });
 
             return result;
@@ -265,5 +291,193 @@ export class VoucherMatchingService {
             if (error instanceof BadRequestException) throw error;
             throw new InternalServerErrorException('Failed to create voucher matching');
         }
+    }
+
+    /**
+     * Creates an Exchange JV for voucher matching when single foreign currency
+     * has different exchange rates causing a local amount difference.
+     * JV has 1 header, 2 details (party + exchange ledger), 2 transactions.
+     */
+    private async createExchangeJvForMatching(
+        prisma: Prisma.TransactionClient,
+        dto: CreateStandaloneVoucherMatchingDto,
+        voucherMatchingHeaderSid: number,
+        yearMasterSid: number,
+    ) {
+        const exchangeDiff = dto.exchangeDifference!;
+        const absExchangeDiff = Math.abs(exchangeDiff);
+        const postDate = new Date(dto.PostDate);
+
+        // 1. Get Exchange Rate Mismatch Ledger from company config
+        const exchangeRateLedgerSid = await this.voucherService.getExchangeRateMismatchLedger(dto.CompanyMasterSid);
+        if (!exchangeRateLedgerSid) {
+            throw new BadRequestException('Exchange Rate Mismatch Ledger not configured. Please configure it in Company Settings.');
+        }
+
+        // 2. Get JV VoucherTypeMaster
+        const jvVoucherType = await prisma.voucherTypeMaster.findFirst({
+            where: {
+                DocumentTypeCode: 'JV',
+                CompanyMasterSid: dto.CompanyMasterSid,
+                BranchMasterSid: dto.BranchMasterSid,
+                status: 'A',
+            },
+        });
+        if (!jvVoucherType) {
+            throw new BadRequestException('Journal Voucher type not found for this company/branch.');
+        }
+
+        // 3. Generate JV number
+        const jvNumber = await this.voucherService.generateVoucherNumberFromConfig(
+            jvVoucherType, dto.CompanyMasterSid, dto.BranchMasterSid, yearMasterSid, prisma, postDate
+        );
+
+        // 4. Create VoucherHeader (auto-posted)
+        const jvHeader = await prisma.voucherHeader.create({
+            data: {
+                VoucherNumber: jvNumber,
+                VoucherDate: postDate,
+                PostDate: postDate,
+                VoucherType: jvVoucherType.VoucherTypeMasterSid,
+                Narration: `Exchange Rate JV for Voucher Matching`,
+                CompanyMasterSid: dto.CompanyMasterSid,
+                BranchMasterSid: dto.BranchMasterSid,
+                VoucherTypeMasterSid: jvVoucherType.VoucherTypeMasterSid,
+                PostStatus: 'P',
+                Amount: absExchangeDiff,
+                LocalAmount: absExchangeDiff,
+                NetAmount: absExchangeDiff,
+                CurrencyCode: dto.exchangeCurrencyCode || '',
+                ExchangeRate: 1,
+                Status: 'A',
+                CreatedBy: dto.CreatedBy,
+            },
+        });
+
+        // 5. Determine Dr/Cr direction
+        // exchangeDiff > 0 (source local > object local) → Loss → Party Cr, Exchange Ledger Dr
+        // exchangeDiff < 0 (source local < object local) → Gain → Party Dr, Exchange Ledger Cr
+        const partyDrCr = exchangeDiff > 0 ? 'C' : 'D';
+        const exchangeLedgerDrCr = exchangeDiff > 0 ? 'D' : 'C';
+
+        // 6. Create 2 VoucherDetail lines
+        const partyDetail = await prisma.voucherDetail.create({
+            data: {
+                CompanyMasterSid: dto.CompanyMasterSid,
+                BranchMasterSid: dto.BranchMasterSid,
+                VoucherHeaderSid: jvHeader.VoucherHeaderSid,
+                Sno: 1,
+                ChargeDescription: 'Exchange Rate Difference - Party',
+                COAMasterSid: dto.partyLedgerSid!,
+                LedgerMasterSid: dto.partySubledgerSid || null,
+                CurrencyCode: dto.exchangeCurrencyCode || '',
+                ExchangeRate: 1,
+                Rate: absExchangeDiff,
+                NumberOfUnit: 1,
+                Narration: 'Exchange Rate Difference',
+                DrCr: partyDrCr,
+                Amount: absExchangeDiff,
+                LocalAmount: absExchangeDiff,
+                TaxableAmount: 0,
+                YearMasterSid: yearMasterSid,
+                CreatedBy: dto.CreatedBy,
+                Status: 'A',
+            },
+        });
+
+        const exchangeDetail = await prisma.voucherDetail.create({
+            data: {
+                CompanyMasterSid: dto.CompanyMasterSid,
+                BranchMasterSid: dto.BranchMasterSid,
+                VoucherHeaderSid: jvHeader.VoucherHeaderSid,
+                Sno: 2,
+                ChargeDescription: 'Exchange Rate',
+                COAMasterSid: exchangeRateLedgerSid,
+                CurrencyCode: dto.exchangeCurrencyCode || '',
+                ExchangeRate: 1,
+                Rate: absExchangeDiff,
+                NumberOfUnit: 1,
+                Narration: 'Exchange Rate',
+                DrCr: exchangeLedgerDrCr,
+                Amount: absExchangeDiff,
+                LocalAmount: absExchangeDiff,
+                TaxableAmount: 0,
+                YearMasterSid: yearMasterSid,
+                CreatedBy: dto.CreatedBy,
+                Status: 'A',
+            },
+        });
+
+        // 7. Create VoucherTransaction for each detail
+        const allDetails = [partyDetail, exchangeDetail];
+        for (const detail of allDetails) {
+            await prisma.voucherTransaction.create({
+                data: {
+                    CompanyMasterSid: dto.CompanyMasterSid,
+                    BranchMasterSid: dto.BranchMasterSid,
+                    VoucherHeaderSid: jvHeader.VoucherHeaderSid,
+                    VoucherDetailSid: detail.VoucherDetailSid,
+                    VoucherNumber: jvNumber,
+                    VoucherType: jvVoucherType.VoucherTypeMasterSid,
+                    VoucherDate: postDate,
+                    PostDate: postDate,
+                    Sno: detail.Sno,
+                    ChargeDescription: detail.ChargeDescription || '',
+                    LedgerMasterSid: detail.LedgerMasterSid!,
+                    COAMasterSid: detail.COAMasterSid!,
+                    CurrencyCode: detail.CurrencyCode,
+                    ExchangeRate: detail.ExchangeRate || 1,
+                    Narration: detail.Narration,
+                    DrCr: detail.DrCr,
+                    Amount: detail.Amount || 0,
+                    LocalAmount: detail.LocalAmount || 0,
+                    VoucherTypeMasterSid: jvVoucherType.VoucherTypeMasterSid,
+                    YearMasterSid: yearMasterSid,
+                    Status: 'A',
+                    CreatedBy: dto.CreatedBy,
+                    CreatedOn: postDate,
+                },
+            });
+        }
+
+        // 8. Add the Exchange JV party line as a matching record
+        const partyTransaction = await prisma.voucherTransaction.findFirst({
+            where: { VoucherHeaderSid: jvHeader.VoucherHeaderSid, COAMasterSid: dto.partyLedgerSid },
+        });
+
+        if (partyTransaction) {
+            await prisma.voucherMatching.create({
+                data: {
+                    CreatedBy: dto.CreatedBy,
+                    Status: 'A',
+                    CompanyMasterSid: dto.CompanyMasterSid,
+                    BranchMasterSid: dto.BranchMasterSid,
+                    VoucherMatchingHeaderSid: voucherMatchingHeaderSid,
+                    VoucherHeaderSid: jvHeader.VoucherHeaderSid,
+                    VoucherDetailSid: partyDetail.VoucherDetailSid,
+                    VoucherTransactionSid: partyTransaction.VoucherTransactionSid,
+                    MatchingTransactionSid: partyTransaction.VoucherTransactionSid,
+                    VoucherMatchingDate: postDate,
+                    VoucherType: jvVoucherType.VoucherTypeMasterSid,
+                    Sno: 0,
+                    COAMasterSid: dto.partyLedgerSid!,
+                    LedgerMasterSid: dto.partySubledgerSid || 0,
+                    CurrencyCode: dto.exchangeCurrencyCode || '',
+                    ExchangeRate: 1,
+                    DrCr: partyDrCr,
+                    Amount: absExchangeDiff,
+                    LocalAmount: absExchangeDiff,
+                    PartyAmount: absExchangeDiff,
+                    MatchingType: 'ExchangeJV',
+                },
+            });
+        }
+
+        return {
+            VoucherHeaderSid: jvHeader.VoucherHeaderSid,
+            VoucherNumber: jvNumber,
+            ExchangeDifference: exchangeDiff,
+            IsGain: exchangeDiff < 0,
+        };
     }
 }

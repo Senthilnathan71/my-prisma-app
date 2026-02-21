@@ -6,6 +6,7 @@ import {
   IsArray,
   ValidateNested,
   IsDate,
+  IsBoolean,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -182,4 +183,24 @@ export class CreateStandaloneVoucherMatchingDto {
   @ValidateNested({ each: true })
   @Type(() => StandaloneMatchObjectDto)
   matchingInvoices: StandaloneMatchObjectDto[];
+
+  @IsOptional()
+  @IsBoolean()
+  exchangeJvRequired?: boolean;
+
+  @IsOptional()
+  @IsNumber()
+  exchangeDifference?: number;
+
+  @IsOptional()
+  @IsString()
+  exchangeCurrencyCode?: string;
+
+  @IsOptional()
+  @IsNumber()
+  partyLedgerSid?: number;
+
+  @IsOptional()
+  @IsNumber()
+  partySubledgerSid?: number;
 }
