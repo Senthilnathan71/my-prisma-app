@@ -58,6 +58,17 @@ export class CreateMailConfigurationDto {
     AttachmentRequire?: string;
 
     @IsString()
+    @IsNotEmpty()
+    @MaxLength(200)
+    Action: string;
+
+    @IsString()
+    @IsNotEmpty()
+    @MaxLength(50)
+    Trigger: string;
+
+
+    @IsString()
     @IsOptional()
     @Length(1, 1)
     @IsIn(['A', 'P'])
