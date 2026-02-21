@@ -4753,7 +4753,7 @@ export class OperationReportsService {
           MenuMasterSid: houseJobMenu.MenuMasterSid,
           TransactionSid: { in: houseJobIds },
           status: 'A',
-          ...(CalculationType === 'Not Booked Revenue'
+          ...(CalculationType === 'Not Revenue'
               ? {
                   AND: [
                     { RevenueVoucherHeaderSid: null },
@@ -4766,7 +4766,7 @@ export class OperationReportsService {
                     },
                   ],
                 }
-            : CalculationType === 'Not Booked Cost'
+            : CalculationType === 'Not Cost'
               ? {
                   CostVoucherHeaderSid: null,
                   RevenueLocalAmount: { gt: 0 },
@@ -4845,22 +4845,23 @@ export class OperationReportsService {
           };
         })
 
-      if (CalculationType === 'Not Booked Revenue') {
-        const noRateData = houseJobsWithoutCR.map((hj) => ({
-          HouseJobSid: hj.HouseJobSid,
-          BookingNo: hj.bookingHeader?.BookingNo,
-          HBLDate: hj.HBLDate,
-          HBLNo: hj.HBLNo,
-          MBLNo: hj.masterJob?.MBLNo,
-          MasterJobNo: hj.masterJob?.MasterJobNumber,
-          dept: departments.find(
-            (d) => d.DepartmentMasterSid === hj.DepartmentMasterSid,
-          )?.departmentName,
-          costRevenues: [],
-        }));
+      if (CalculationType === 'Not Revenue') {
+      const noRateData = houseJobsWithoutCR.map((hj) => ({
+        HouseJobSid: hj.HouseJobSid,
+        BookingNo: hj.bookingHeader?.BookingNo,
+        HBLDate: hj.HBLDate,
+        HBLNo: hj.HBLNo,
+        MBLNo: hj.masterJob?.MBLNo,
+        MasterJobNo: hj.masterJob?.MasterJobNumber,
+        dept: departments.find(
+          (d) => d.DepartmentMasterSid === hj.DepartmentMasterSid,
+        )?.departmentName,
+        costRevenues: [], // empty array
+      }));
 
-        finalData = [...finalData, ...noRateData];
+      finalData = [...finalData, ...noRateData];
       }
+      
       return {
         companyMasterSid: CompanyMasterSid,
         branchInvolved,

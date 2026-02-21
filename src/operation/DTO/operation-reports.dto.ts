@@ -316,6 +316,10 @@ export class profitabilityReportQueryDto {
   @IsOptional()
   @IsInt()
   Dept?: number[];
+
+  @ApiProperty()
+  @IsOptional()
+  HouseOnly: Boolean;
 }
 
 
