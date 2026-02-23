@@ -341,7 +341,7 @@ export class VoucherService {
      * Generate voucher matching number by querying VoucherMatchingHeader.
      * Separate from generateVoucherNumberFromConfig which always queries VoucherHeader.
      */
-    private async generateVoucherMatchingNumber(
+    async generateVoucherMatchingNumber(
         voucherTypeMaster: any,
         companyMasterSid: number,
         branchMasterSid: number,
