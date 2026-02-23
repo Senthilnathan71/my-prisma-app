@@ -6694,7 +6694,7 @@ export class OperationReportsService {
    */
   async executeParameterQuery(
     parameterId: number,
-    context: { companyId?: number; branchId?: number },
+    context: { companyId?: number; branchId?: number; [key: string]: any },
   ): Promise<Array<{ value: any; label: string }>> {
     try {
       // Fetch the parameter details
@@ -6717,16 +6717,46 @@ export class OperationReportsService {
         );
       }
 
+      // If this parameter depends on another, check if parent value is provided
+      if (parameter.DependsOnParameter) {
+        const parentValue = context[parameter.DependsOnParameter];
+        if (
+          parentValue === undefined ||
+          parentValue === null ||
+          parentValue === ''
+        ) {
+          this.logger.log(
+            `Parameter ${parameter.ParameterName} depends on ${parameter.DependsOnParameter} which is not provided`,
+          );
+          return [];
+        }
+      }
+
       // Validate and sanitize the query
       this.validateQuery(parameter.ParameterQuery);
 
       // Substitute context variables in the query
       let query = parameter.ParameterQuery;
+
+      // Standard substitutions
       if (context.companyId) {
         query = query.replace(/\{companyId\}/g, context.companyId.toString());
       }
       if (context.branchId) {
         query = query.replace(/\{branchId\}/g, context.branchId.toString());
+      }
+
+      // Dynamic parameter substitutions (e.g., {POL}, {POD})
+      for (const [key, value] of Object.entries(context)) {
+        if (
+          key !== 'companyId' &&
+          key !== 'branchId' &&
+          value !== undefined &&
+          value !== null
+        ) {
+          const placeholder = new RegExp(`\\{${key}\\}`, 'g');
+          query = query.replace(placeholder, this.sanitizeValue(value));
+        }
       }
 
       // Execute the query
@@ -6741,6 +6771,19 @@ export class OperationReportsService {
       this.logger.error(`executeParameterQueryError: ${error}`);
       throw error;
     }
+  }
+
+  private sanitizeValue(value: any): string {
+    if (typeof value === 'number') {
+      return value.toString();
+    }
+    if (typeof value === 'string') {
+      return value.replace(/'/g, "''");
+    }
+    if (Array.isArray(value)) {
+      return value.map((v) => this.sanitizeValue(v)).join(',');
+    }
+    return String(value);
   }
 
   /**
