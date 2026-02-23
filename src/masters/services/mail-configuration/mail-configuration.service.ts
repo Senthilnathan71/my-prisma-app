@@ -38,6 +38,8 @@ export class MailConfigurationService {
                 data: {
                     CompanyMasterSid: dto.CompanyMasterSid,
                     Sno: dto.Sno,
+                    Action:dto.Action,
+                    Trigger: dto.Trigger,
                     MailName: dto.MailName.trim(),
                     MenuMasterSid: dto.MenuMasterSid,
                     MailSubject: dto.MailSubject,
