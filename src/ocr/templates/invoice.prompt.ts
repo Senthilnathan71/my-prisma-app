@@ -18,13 +18,13 @@ export function buildInvoicePrompt(ocrText: string): string {
 RULES:
 - The company issuing the invoice is the SELLER (usually the logistics/freight company)
 - BILLED TO is the BUYER (the customer)
-- Extract ALL line item columns accurately: qty, rate, vat%, vat amount
+- Extract ALL line item columns accurately: unit, qty, amount/qty, currency, ex.rate, FCY amount, taxable amount, non taxable amount, tax%, tax amount, total amount
 - Dates should be in DD/MM/YYYY format as they appear
 - Amounts should be numbers without currency symbols
 - Use null only if a field is truly absent from the document
 
 Return this exact JSON structure:
-{"invoice_number":"","invoice_date":"","due_date":"","place_of_supply":"","currency":"","seller":{"name":"the company issuing invoice","address":""},"buyer":{"name":"BILLED TO party","address":"","vat_no":""},"shipping":{"shipper":"","consignee":"","hbl":"","mbl":"","vessel":"","voyage":"","loading_port":"","destination":"","job_number":""},"line_items":[{"sno":1,"description":"","hsn_sac":"","currency":"","qty":0,"rate":0,"taxable_value":0,"vat_percent":0,"vat_amount":0,"total":0}],"subtotal":0,"total_vat":0,"grand_total":0,"amount_in_words":""}
+{"invoice_number":"","invoice_date":"","due_date":"","place_of_supply":"","currency":"","charge_heading":"Charges Unit Qty Amount / Qty Currency Ex.Rate FCY Amount Taxable Amount Non Taxable Amount Tax % Tax Amount Total Amount (AED)","seller":{"name":"the company issuing invoice","address":""},"buyer":{"name":"BILLED TO party","address":"","vat_no":""},"shipping":{"shipper":"","consignee":"","hbl":"","mbl":"","vessel":"","voyage":"","loading_port":"","destination":"","job_number":""},"line_items":[{"sno":1,"description":"","hsn_sac":"","currency":"","unit":"","qty":0,"amount_per_qty":0,"exchange_rate":0,"fcy_amount":0,"taxable_value":0,"non_taxable_amount":0,"vat_percent":0,"vat_amount":0,"total":0,"rate":0}],"subtotal":0,"total_vat":0,"grand_total":0,"amount_in_words":""}
 
 INVOICE TEXT:
 ${ocrText}
