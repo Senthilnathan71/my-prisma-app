@@ -3334,6 +3334,8 @@ model VoucherMatchingHeader {
   Remarks                  String?           @db.VarChar(100)
   VoucherHeaderSid         Int?
   SubledgerName            String?           @db.VarChar(100)
+  PostDate                 DateTime?         @db.Date
+  PostStatus               String            @default("U") @db.Char(1)
   MatchingDetail           MatchingDetail[]
   voucherMatchings         VoucherMatching[]
   branch                   BranchMaster      @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
@@ -3400,6 +3402,7 @@ model MatchingDetail {
   MatchingCurrency         Int?
   MatchingExRate           Decimal?               @db.Decimal(7, 3)
   MatchingTDSAmount        Decimal?               @db.Decimal(15, 3)
+  MatchingType             String?                @db.VarChar(10)
   currencyMaster           CurrencyMaster?        @relation(fields: [MatchingCurrency], references: [CurrencyMasterSid])
   SourceVoucherHeader      VoucherHeader          @relation("SourceVoucherHeader", fields: [SourceVoucherHeaderSid], references: [VoucherHeaderSid])
   VoucherHeader            VoucherHeader          @relation("VoucherHeader", fields: [VoucherHeaderSid], references: [VoucherHeaderSid])
@@ -3674,7 +3677,7 @@ model MailConfigurationMaster {
   AttachmentRequire          String        @default("Y") @db.Char(1)
   AutoPopup                  String        @default("P") @db.Char(1)
   Action                     String        @db.VarChar(200)
-  Trigger                    String        @db.VarChar(50) 
+  Trigger                    String        @db.VarChar(50)
   CompanyMaster              CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
   MenuMaster                 MenuMaster    @relation(fields: [MenuMasterSid], references: [MenuMasterSid])
 
