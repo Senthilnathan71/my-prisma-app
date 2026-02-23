@@ -5638,6 +5638,8 @@ console.log('Created product:', createdProduct);
                     ContainerNumber: true,
                     ContainerType: true,
                     Volume: true,
+                    GrossWeight:true,
+                    NetWeight:true,
                     containerType: {
                         select: { ContainerName: true }
                     }
@@ -5648,6 +5650,8 @@ console.log('Created product:', createdProduct);
                 ContainerNumber: c.ContainerNumber,
                 ContainerTypeName: c.containerType?.ContainerName || '',
                 Volume: c.Volume,
+                GrossWeight: c.GrossWeight,
+                NetWeight: c.NetWeight
             }));
 
             // 3. Get active house jobs
