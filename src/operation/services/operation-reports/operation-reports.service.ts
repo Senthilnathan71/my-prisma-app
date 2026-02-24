@@ -4656,13 +4656,11 @@ export class OperationReportsService {
   }
 
   // Cost & Revenue Not Booked
-  private async generateCostRevenueNotBookedReport(
-    params: any,
-  ) {
+  private async generateCostRevenueNotBookedReport(params: any) {
     const {
       companyId: CompanyMasterSid,
-      FromJobDt:FromDate,
-      ToJobDt:ToDate,
+      FromJobDt: FromDate,
+      ToJobDt: ToDate,
       Branch: branchId,
       Dept: deptId,
       CalculationType,
@@ -4703,9 +4701,10 @@ export class OperationReportsService {
             });
 
       const resolvedDeptIds = departments.map((d) => d.DepartmentMasterSid);
-      const resolvedDeptNames = deptId && deptId.length > 0
-        ? departments.map((d) => d.departmentName).join(', ')
-        : '';
+      const resolvedDeptNames =
+        deptId && deptId.length > 0
+          ? departments.map((d) => d.departmentName).join(', ')
+          : '';
       const chargeMaster = await this._db.chargeMaster.findMany({
         select: { ChargeMasterSid: true, chargeName: true },
       });
@@ -4753,26 +4752,6 @@ export class OperationReportsService {
           MenuMasterSid: houseJobMenu.MenuMasterSid,
           TransactionSid: { in: houseJobIds },
           status: 'A',
-          ...(CalculationType === 'Not Revenue'
-              ? {
-                  AND: [
-                    { RevenueVoucherHeaderSid: null },
-                    { CostLocalAmount: { gt: 0 } },
-                    {
-                      OR: [
-                        { RevenueLocalAmount: 0 },
-                        { RevenueLocalAmount: null },
-                      ],
-                    },
-                  ],
-                }
-            : CalculationType === 'Not Cost'
-              ? {
-                  CostVoucherHeaderSid: null,
-                  RevenueLocalAmount: { gt: 0 },
-                  CostLocalAmount: { equals: 0 },
-                }
-              : {}),
         },
         select: {
           TransactionSid: true,
@@ -4794,9 +4773,27 @@ export class OperationReportsService {
           chargeMaster.find((c) => c.ChargeMasterSid === cr.ChargeMasterSid)
             ?.chargeName || '';
 
-        return chargeName !== 'Freight';
-      });
+        // Remove Freight
+        if (chargeName === 'Freight') return false;
 
+        // NOT REVENUE
+        if (CalculationType === 'Not Revenue') {
+          return (
+            Number(cr.CostLocalAmount || 0) > 0 &&
+            Number(cr.RevenueLocalAmount || 0) === 0
+          );
+        }
+
+        // NOT COST
+        if (CalculationType === 'Not Cost') {
+          return (
+            Number(cr.RevenueLocalAmount || 0) > 0 &&
+            Number(cr.CostLocalAmount || 0) === 0
+          );
+        }
+
+        return true;
+      });
       const houseRateMap = new Map<number, any[]>();
 
       filteredHouseCR.forEach((cr) => {
@@ -4807,61 +4804,70 @@ export class OperationReportsService {
       });
 
       const houseJobIdsWithCR = new Set(
-        filteredHouseCR.map((cr) => cr.TransactionSid),
+        allHouseCR.map((cr) => cr.TransactionSid),
       );
 
       const houseJobsWithoutCR = houseJobData.filter(
         (hj) => !houseJobIdsWithCR.has(hj.HouseJobSid),
       );
 
-      let finalData = houseJobData
-        .map((hj) => {
-          const charges = houseRateMap.get(hj.HouseJobSid) || [];
-          return {
-            HouseJobSid: hj.HouseJobSid,
-            BookingNo: hj.bookingHeader?.BookingNo,
-            HBLDate: hj.HBLDate,
-            HBLNo: hj.HBLNo,
-            MBLNo: hj.masterJob?.MBLNo,
-            MasterJobNo: hj.masterJob?.MasterJobNumber,
-            dept: departments.find(
-              (d) => d.DepartmentMasterSid === hj.DepartmentMasterSid,
-            )?.departmentName,
-            costRevenues: charges.map((cr) => ({
-              Charge: chargeMaster.find(
-                (c) => c.ChargeMasterSid === cr.ChargeMasterSid,
-              )?.chargeName,
-              CostAmt: Number(cr.CostAmount || 0),
-              RevenueAmt: Number(cr.RevenueAmount || 0),
-              CostLocalAmount: Number(cr.CostLocalAmount || 0),
-              RevenueLocalAmount: Number(cr.RevenueLocalAmount || 0),
-              costCustomer: customer.find(
-                (c) => c.CustomerMasterSid === cr.CostAgentMasterSid,
-              )?.CustomerName,
-              revenueCustomer: customer.find(
-                (c) => c.CustomerMasterSid === cr.RevenueCustomerMasterSid,
-              )?.CustomerName,
-            })),
-          };
-        })
+      let finalData: any[] = [];
+
+      // Only jobs that match revenue condition
+      const jobsWithCR = houseJobData.filter((hj) =>
+        houseRateMap.has(hj.HouseJobSid),
+      );
+
+      const mappedJobsWithCR = jobsWithCR.map((hj) => {
+        const charges = houseRateMap.get(hj.HouseJobSid) || [];
+
+        return {
+          HouseJobSid: hj.HouseJobSid,
+          BookingNo: hj.bookingHeader?.BookingNo,
+          HBLDate: hj.HBLDate,
+          HBLNo: hj.HBLNo,
+          MBLNo: hj.masterJob?.MBLNo,
+          MasterJobNo: hj.masterJob?.MasterJobNumber,
+          dept: departments.find(
+            (d) => d.DepartmentMasterSid === hj.DepartmentMasterSid,
+          )?.departmentName,
+          costRevenues: charges.map((cr) => ({
+            Charge: chargeMaster.find(
+              (c) => c.ChargeMasterSid === cr.ChargeMasterSid,
+            )?.chargeName,
+            CostAmt: Number(cr.CostAmount || 0),
+            RevenueAmt: Number(cr.RevenueAmount || 0),
+            CostLocalAmount: Number(cr.CostLocalAmount || 0),
+            RevenueLocalAmount: Number(cr.RevenueLocalAmount || 0),
+            costCustomer: customer.find(
+              (c) => c.CustomerMasterSid === cr.CostAgentMasterSid,
+            )?.CustomerName,
+            revenueCustomer: customer.find(
+              (c) => c.CustomerMasterSid === cr.RevenueCustomerMasterSid,
+            )?.CustomerName,
+          })),
+        };
+      });
+
+      finalData = [...mappedJobsWithCR];
 
       if (CalculationType === 'Not Revenue') {
-      const noRateData = houseJobsWithoutCR.map((hj) => ({
-        HouseJobSid: hj.HouseJobSid,
-        BookingNo: hj.bookingHeader?.BookingNo,
-        HBLDate: hj.HBLDate,
-        HBLNo: hj.HBLNo,
-        MBLNo: hj.masterJob?.MBLNo,
-        MasterJobNo: hj.masterJob?.MasterJobNumber,
-        dept: departments.find(
-          (d) => d.DepartmentMasterSid === hj.DepartmentMasterSid,
-        )?.departmentName,
-        costRevenues: [], // empty array
-      }));
+        const noRateData = houseJobsWithoutCR.map((hj) => ({
+          HouseJobSid: hj.HouseJobSid,
+          BookingNo: hj.bookingHeader?.BookingNo,
+          HBLDate: hj.HBLDate,
+          HBLNo: hj.HBLNo,
+          MBLNo: hj.masterJob?.MBLNo,
+          MasterJobNo: hj.masterJob?.MasterJobNumber,
+          dept: departments.find(
+            (d) => d.DepartmentMasterSid === hj.DepartmentMasterSid,
+          )?.departmentName,
+          costRevenues: [],
+        }));
 
-      finalData = [...finalData, ...noRateData];
+        finalData = [...finalData, ...noRateData];
       }
-      
+
       return {
         companyMasterSid: CompanyMasterSid,
         branchInvolved,
