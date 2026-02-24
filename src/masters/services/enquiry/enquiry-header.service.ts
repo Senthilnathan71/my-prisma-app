@@ -219,8 +219,14 @@ export class EnquiryHeaderService {
                 },
                 include: {
                     enquiryRoute: {
+                        where: {
+                            status: 'A'
+                        },
                         include: {
-                            enquiryCargo: true
+                            enquiryCargo: { where: {
+                                status: 'A'
+                            }},
+                           
                         }
                     },
                     enquiryOther: true
@@ -388,6 +394,7 @@ export class EnquiryHeaderService {
                                     ProductName: cargoItem.ProductName,
                                     CargoDescription: cargoItem.CargoDescription,
                                     PackageType: cargoItem.PackageType,
+                                    PackageQty: Number(cargoItem.PackageQty) ,
                                     Qty: Number(cargoItem.Qty) || 0,
                                     WeightUnitSid: cargoItem.WeightUnitSid,
                                     GrossWeight: parseFloat(cargoItem.GrossWeight) || 0,
@@ -777,4 +784,32 @@ export class EnquiryHeaderService {
             throw new Error(`Error fetching audit logs: ${error.message}`);
         }
     }
+
+
+    async softDeleteRoute(routeId: number) {
+  const existingRoute = await this._db.enquiryRoute.findUnique({
+    where: { EnquiryRouteSid: routeId }
+  });
+
+  if (!existingRoute) {
+    throw new NotFoundException(`Route with ID ${routeId} not found`);
+  }
+
+  if (existingRoute.status === 'D') {
+    throw new BadRequestException(`Route with ID ${routeId} is already deleted`);
+  }
+
+  const deletedRoute = await this._db.enquiryRoute.update({
+    where: { EnquiryRouteSid: routeId },
+    data: { status: 'D' }
+  });
+
+  const deletedCargos = await this._db.enquiryCargo.updateMany({
+    where: { EnquiryRouteSid: routeId, status: { not: 'D' } },
+    data: { status: 'D' }
+  });
+
+  return { deletedRoute, deletedCargos };
+}
+
 }
