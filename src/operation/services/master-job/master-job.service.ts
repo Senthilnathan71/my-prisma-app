@@ -5626,9 +5626,11 @@ console.log('Created product:', createdProduct);
             // Get department type
             const department = await this._db.departmentMaster.findUnique({
                 where: { DepartmentMasterSid: masterJob.DepartmentMasterSid },
-                select: { departmentType: true, departmentName: true }
+                select: { departmentType: true, departmentName: true, ExportImport: true, FCLLCL: true }
             });
             const departmentType = department?.departmentType || '';
+            const exportImport = department?.ExportImport || '';
+            const fclLcl = department?.FCLLCL || '';
 
             // 2. Get containers with container type name
             const containers = await this._db.masterJobContainer.findMany({
@@ -5708,7 +5710,7 @@ console.log('Created product:', createdProduct);
             });
 
             // 6. Compute milestone checks
-            const milestoneChecks = await this.computeMilestoneChecks(MasterJobSid, houseJobSids, departmentType, masterJobOthers);
+            const milestoneChecks = await this.computeMilestoneChecks(MasterJobSid, houseJobSids, exportImport, masterJobOthers);
 
             return {
                 masterJob: {
@@ -5748,11 +5750,12 @@ console.log('Created product:', createdProduct);
     private async computeMilestoneChecks(
         MasterJobSid: number,
         houseJobSids: number[],
-        departmentType: string,
+        exportImport: string,
         masterJobOthers: any
     ) {
-        const isExport = departmentType?.toLowerCase().includes('export');
+        const isExport = exportImport?.toLowerCase() === 'export';
         const hasHouses = houseJobSids.length > 0;
+        let jobProfitable = false;
 
         // Documentation milestone checks
         const documentation: { label: string; passed: boolean }[] = [];
@@ -6008,7 +6011,7 @@ console.log('Created product:', createdProduct);
         accounts.push({ label: 'Revenue entered in all HBL', passed: revenueInAllHbl });
 
         // Check: Job Profitable
-        let jobProfitable = false;
+        jobProfitable = false;
         if (hasHouses) {
             const shipmentNos = (await this._db.houseJob.findMany({
                 where: { HouseJobSid: { in: houseJobSids } },
@@ -6073,12 +6076,20 @@ console.log('Created product:', createdProduct);
         accounts.push({ label: 'Unbooked Revenue to WIP', passed: unbookedRevenueClear });
 
         // Job Closer checks
-        const jobClose: { label: string; passed: boolean }[] = [];
+        const jobClose: { label: string; passed: boolean; nonBlocking?: boolean }[] = [];
+
+        // Job to SubJob done
+        jobClose.push({ label: 'Job to SubJob done', passed: hasHouses });
+
+        // All previous closers done
         const allPreviousClosed =
             masterJobOthers?.DocCloseStatus === 'Closed' &&
             masterJobOthers?.OpsCloseStatus === 'Closed' &&
             masterJobOthers?.AccCloseStatus === 'Closed';
         jobClose.push({ label: 'All previous closers done', passed: allPreviousClosed });
+
+        // Job Profit or Loss (informational, non-blocking)
+        jobClose.push({ label: 'Job Profit or Loss', passed: jobProfitable, nonBlocking: true });
 
         return { documentation, operation, accounts, jobClose };
     }
@@ -6125,7 +6136,7 @@ console.log('Created product:', createdProduct);
 
             const department = await this._db.departmentMaster.findUnique({
                 where: { DepartmentMasterSid: masterJob.DepartmentMasterSid },
-                select: { departmentType: true }
+                select: { departmentType: true, ExportImport: true, FCLLCL: true }
             });
 
             const houseJobs = await this._db.houseJob.findMany({
@@ -6135,7 +6146,7 @@ console.log('Created product:', createdProduct);
             const houseJobSids = houseJobs.map(h => h.HouseJobSid);
 
             const milestoneChecks = await this.computeMilestoneChecks(
-                MasterJobSid, houseJobSids, department?.departmentType || '', masterJobOthers
+                MasterJobSid, houseJobSids, department?.ExportImport || '', masterJobOthers
             );
 
             // Validate each closer being set to "Closed"
@@ -6158,7 +6169,9 @@ console.log('Created product:', createdProduct);
                 }
             }
             if (JobCloseStatus === 'Closed') {
-                const allJobPassed = milestoneChecks.jobClose.every(m => m.passed);
+                const allJobPassed = milestoneChecks.jobClose
+                    .filter(m => !m.nonBlocking)
+                    .every(m => m.passed);
                 if (!allJobPassed) {
                     throw new BadRequestException('Job Close milestones not met. All previous closers must be done.');
                 }
