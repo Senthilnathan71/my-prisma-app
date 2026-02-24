@@ -323,4 +323,30 @@ export class EnquiryHeaderController {
         return resp;
     }
 
+
+    @ApiOperation({ summary: 'Delete Enquiry route' })
+@ApiCreatedResponse({
+  description: 'Enquiry route and cargo deleted successfully',
+  type: ResponseData
+})
+@HttpCode(HttpStatus.OK)
+@Delete('route/:id')
+async softDeleteRoute(@Param('id', ParseIntPipe) id: number) {
+  const resp = new ResponseData();
+  try {
+    const result = await this.enquiryHeaderService.softDeleteRoute(id);
+    resp.data = result;
+    resp.message = 'Enquiry route deleted successfully';
+  } catch (error) {
+    resp.status = false;
+    if (error instanceof BadRequestException || error instanceof NotFoundException) {
+      resp.message = error.message;
+    } else {
+      resp.message = 'Internal Server Error';
+    }
+  }
+  return resp;
+}
+
+
 }
