@@ -3397,14 +3397,14 @@ model MatchingDetail {
   MatchingAmount           Decimal?               @db.Decimal(15, 3)
   MatchingLocalAmount      Decimal                @db.Decimal(15, 3)
   PartyAmount              Decimal?               @db.Decimal(15, 3)
-  SourceVoucherHeaderSid   Int
+  SourceVoucherHeaderSid   Int?
   VoucherMatchingHeaderSid Int?
   MatchingCurrency         Int?
   MatchingExRate           Decimal?               @db.Decimal(7, 3)
   MatchingTDSAmount        Decimal?               @db.Decimal(15, 3)
   MatchingType             String?                @db.VarChar(10)
   currencyMaster           CurrencyMaster?        @relation(fields: [MatchingCurrency], references: [CurrencyMasterSid])
-  SourceVoucherHeader      VoucherHeader          @relation("SourceVoucherHeader", fields: [SourceVoucherHeaderSid], references: [VoucherHeaderSid])
+  SourceVoucherHeader      VoucherHeader?          @relation("SourceVoucherHeader", fields: [SourceVoucherHeaderSid], references: [VoucherHeaderSid])
   VoucherHeader            VoucherHeader          @relation("VoucherHeader", fields: [VoucherHeaderSid], references: [VoucherHeaderSid])
   VoucherMatchingHeader    VoucherMatchingHeader? @relation(fields: [VoucherMatchingHeaderSid], references: [VoucherMatchingHeaderSid])
   VoucherTransaction       VoucherTransaction     @relation(fields: [VoucherTransactionSid], references: [VoucherTransactionSid])
