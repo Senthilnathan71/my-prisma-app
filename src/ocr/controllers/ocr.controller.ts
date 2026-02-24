@@ -60,10 +60,12 @@ export class OcrController {
       throw new HttpException('Uploaded file is empty.', HttpStatus.BAD_REQUEST);
     }
 
+    const normalizedDocumentType = (documentType || 'invoice').trim().toLowerCase();
+
     return this.ocrService.extractFromPdf(
       file.buffer,
       file.originalname,
-      documentType || 'invoice',
+      normalizedDocumentType,
     );
   }
 

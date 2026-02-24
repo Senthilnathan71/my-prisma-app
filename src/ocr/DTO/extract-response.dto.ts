@@ -4,6 +4,7 @@ export interface ExtractedInvoice {
   due_date: string | null;
   place_of_supply: string | null;
   currency: string | null;
+  charge_heading?: string | null;
   seller: {
     name: string | null;
     address: string | null;
@@ -29,12 +30,17 @@ export interface ExtractedInvoice {
     description: string | null;
     hsn_sac: string | null;
     currency: string | null;
+    unit?: string | null;
     qty: number | null;
-    rate: number | null;
+    amount_per_qty?: number | null;
+    exchange_rate?: number | null;
+    fcy_amount?: number | null;
     taxable_value: number | null;
+    non_taxable_amount?: number | null;
     vat_percent: number | null;
     vat_amount: number | null;
     total: number | null;
+    rate: number | null;
   }>;
   subtotal: number | null;
   total_vat: number | null;

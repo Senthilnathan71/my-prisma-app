@@ -722,6 +722,13 @@ export class DocVendorInvoiceService {
 
     try {
       const lines = text.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+
+      // Handle FWA-style invoices where charge rows are multiline and numeric values are concatenated.
+      const fwaRows = this.extractFwaCharges(lines);
+      if (fwaRows.length > 0) {
+        this.logger.log(`Extracted ${fwaRows.length} FWA charge rows`);
+        return { rows: fwaRows, fieldMappings };
+      }
       
       // Find the charge table - look for typical headers
       let tableStartIndex = -1;
@@ -780,6 +787,123 @@ export class DocVendorInvoiceService {
     }
 
     return { rows, fieldMappings };
+  }
+
+  private extractFwaCharges(lines: string[]): ChargeDetail[] {
+    const rows: ChargeDetail[] = [];
+    const compactLines = lines.map(line => line.replace(/\s+/g, '').toLowerCase());
+
+    const headerIndex = compactLines.findIndex(line => line.includes('chargesunitqty'));
+    if (headerIndex === -1) {
+      return rows;
+    }
+
+    const footerIndex = lines.findIndex((line, index) =>
+      index > headerIndex && /^sub\s*total/i.test(line)
+    );
+    const endIndex = footerIndex === -1 ? lines.length : footerIndex;
+
+    const descriptionParts: string[] = [];
+    for (let i = headerIndex + 1; i < endIndex; i++) {
+      const line = lines[i].trim();
+      if (!line) continue;
+
+      const numeric = this.parseFwaChargeNumericLine(line);
+      if (numeric) {
+        const description = descriptionParts
+          .filter(part => !/^(per|shipment)$/i.test(part))
+          .join(' ')
+          .replace(/\s+/g, ' ')
+          .trim();
+
+        if (description) {
+          rows.push({
+            chargeDescription: description,
+            unit: 'PER SHIPMENT',
+            numberOfUnit: 1,
+            drCr: 'Dr',
+            currencyCode: numeric.currencyCode,
+            rate: numeric.amountPerQty,
+            exchangeRate: numeric.exchangeRate,
+            amount: numeric.fcyAmount,
+            taxableAmount: numeric.taxableAmount,
+            igstRate: numeric.taxPercent,
+            igstAmount: numeric.taxAmount,
+            localAmount: numeric.totalAmount,
+            partyAmount: numeric.totalAmount,
+          });
+        }
+
+        descriptionParts.length = 0;
+        continue;
+      }
+
+      if (
+        /^(amount|qty|currency|ex\.?rate|fcy|taxable|non|tax|total|\(aed\)|charges)/i.test(line)
+      ) {
+        continue;
+      }
+      if (/^[^A-Za-z0-9]+$/.test(line)) {
+        continue;
+      }
+
+      descriptionParts.push(line);
+    }
+
+    return rows;
+  }
+
+  private parseFwaChargeNumericLine(line: string): {
+    amountPerQty: number;
+    currencyCode: string;
+    exchangeRate: number;
+    fcyAmount: number;
+    taxableAmount: number;
+    taxPercent: number;
+    taxAmount: number;
+    totalAmount: number;
+  } | null {
+    const compact = line.replace(/\s+/g, '');
+    const match = compact.match(/^(\d+\.\d{2})([A-Z]{3})(\d+\.\d{6})(.+)$/i);
+    if (!match) {
+      return null;
+    }
+
+    const amountPerQty = Number.parseFloat(match[1]);
+    const currencyCode = match[2].toUpperCase();
+    const exchangeRate = Number.parseFloat(match[3]);
+    const tail = match[4];
+    const amountTokens = (tail.match(/\d+\.\d{2}/g) || []).map(value => Number.parseFloat(value));
+
+    if (amountTokens.length < 3) {
+      return null;
+    }
+
+    const fcyAmount = amountTokens[0] || 0;
+    const taxableAmount = amountTokens[1] ?? fcyAmount;
+
+    let taxPercent = 0;
+    let taxAmount = 0;
+    let totalAmount = amountTokens[amountTokens.length - 1] || taxableAmount;
+
+    if (amountTokens.length === 5) {
+      taxPercent = amountTokens[3] || 0;
+    } else if (amountTokens.length >= 6) {
+      taxPercent = amountTokens[3] || 0;
+      taxAmount = amountTokens[4] || 0;
+      totalAmount = amountTokens[5] || totalAmount;
+    }
+
+    return {
+      amountPerQty,
+      currencyCode,
+      exchangeRate,
+      fcyAmount,
+      taxableAmount,
+      taxPercent,
+      taxAmount,
+      totalAmount,
+    };
   }
 
   private extractChargesFromLines(lines: string[]): { rows: ChargeDetail[]; fieldMappings: FieldMapping[] } {
@@ -1002,9 +1126,15 @@ export class DocVendorInvoiceService {
     return text
       .replace(/\r\n/g, '\n')
       .replace(/\r/g, '\n')
-      .replace(/\t/g, ' ')
-      .replace(/\s+/g, ' ')
-      .replace(/[^\S\r\n]+/g, ' ')
+      .split('\n')
+      .map(line =>
+        line
+          .replace(/\t/g, ' ')
+          .replace(/[^\S\r\n]+/g, ' ')
+          .trim()
+      )
+      .filter(line => line.length > 0)
+      .join('\n')
       .trim();
   }
 
