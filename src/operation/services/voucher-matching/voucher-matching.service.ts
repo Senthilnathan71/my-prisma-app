@@ -1139,7 +1139,7 @@ export class VoucherMatchingService {
     ) {
         const diff = Math.abs(params.sumOfLocalCredits - params.sumOfLocalDebits);
         const matchingDate = params.matchingDate;
-        const narration = `Being the difference of Voucher Matching Number ${params.voucherMatchingNo}`;
+        const narration = `Being the difference of ${params.voucherMatchingNo}`;
 
         // 1. Get Exchange Rate Mismatch Ledger from company config
         const exchangeRateLedgerSid = toNumber(await this.companyConfigService.getConfigurationValue(params.CompanyMasterSid, 'ExchangeJVCOA'));
