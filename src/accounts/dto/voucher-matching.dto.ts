@@ -6,12 +6,12 @@ import {
   IsArray,
   ValidateNested,
   IsDate,
-  IsBoolean,
   IsInt,
   Length,
   IsIn,
 } from 'class-validator';
 import { Type } from 'class-transformer';
+import { Decimal } from '@prisma/client/runtime/library';
 
 /**
  * DTO for searching posted vouchers (Receipts / Payments) for standalone matching
@@ -30,6 +30,11 @@ export class SearchPostedVouchersDto {
   VoucherType: string; // 'Receipt Voucher' or 'Payment Voucher'
 
   @IsOptional()
+  @Type(() => Date)
+  @IsDate()
+  VoucherMatchingDate?: Date;
+
+  @IsOptional()
   @IsString()
   search?: string;
 
@@ -40,100 +45,6 @@ export class SearchPostedVouchersDto {
   @IsOptional()
   @IsNumber()
   pageSize?: number;
-}
-
-/**
- * Source side detail (the receipt/payment voucher detail line being matched)
- */
-export class StandaloneMatchSourceDto {
-  @IsNotEmpty()
-  @IsNumber()
-  VoucherDetailSid: number;
-
-  @IsNotEmpty()
-  @IsNumber()
-  VoucherTransactionSid: number;
-
-  @IsNotEmpty()
-  @IsNumber()
-  COAMasterSid: number;
-
-  @IsOptional()
-  @IsNumber()
-  LedgerMasterSid?: number;
-
-  @IsNotEmpty()
-  @IsString()
-  CurrencyCode: string;
-
-  @IsNotEmpty()
-  @IsNumber()
-  ExchangeRate: number;
-
-  @IsOptional()
-  @IsString()
-  DrCr?: string;
-
-  @IsNotEmpty()
-  @IsNumber()
-  PartyAmount: number;
-
-  @IsNotEmpty()
-  @IsNumber()
-  LocalAmount: number;
-
-  @IsOptional()
-  @IsNumber()
-  Sno?: number;
-}
-
-/**
- * Object side detail (outstanding invoices being matched against)
- */
-export class StandaloneMatchObjectDto {
-  @IsNotEmpty()
-  @IsNumber()
-  VoucherHeaderSid: number;
-
-  @IsNotEmpty()
-  @IsNumber()
-  VoucherDetailSid: number;
-
-  @IsNotEmpty()
-  @IsNumber()
-  VoucherTransactionSid: number;
-
-  @IsOptional()
-  @IsNumber()
-  VoucherTypeMasterSid?: number;
-
-  @IsNotEmpty()
-  @IsNumber()
-  COAMasterSid: number;
-
-  @IsOptional()
-  @IsNumber()
-  LedgerMasterSid?: number;
-
-  @IsNotEmpty()
-  @IsString()
-  CurrencyCode: string;
-
-  @IsNotEmpty()
-  @IsNumber()
-  ExchangeRate: number;
-
-  @IsOptional()
-  @IsString()
-  DrCr?: string;
-
-  @IsNotEmpty()
-  @IsNumber()
-  PartyAmount: number;
-
-  @IsNotEmpty()
-  @IsNumber()
-  LocalAmount: number;
 }
 
 /**
@@ -204,7 +115,7 @@ export class CreateStandaloneVoucherMatchingDto {
   userEmail: string;
 
   @IsOptional()
-  @IsArray({ each: true })
+  @IsArray()
   @ValidateNested({ each: true })
   @Type(() => MatchingDetailDto)
   MatchingDetail: MatchingDetailDto[];
@@ -214,6 +125,38 @@ export class UpdateStandaloneVoucherMatchingDto extends CreateStandaloneVoucherM
   @IsNotEmpty({ message: 'VoucherMatchingHeaderSid is required' })
   @IsInt()
   VoucherMatchingHeaderSid: number;
+}
+
+export class FetchOutstandingVouchers {
+  @IsNotEmpty({ message: 'CompanyMasterSid is required' })
+  @IsInt()
+  CompanyMasterSid: number;
+
+  @IsNotEmpty({ message: 'BranchMasterSid is required' })
+  @IsInt()
+  BranchMasterSid: number;
+
+  @IsNotEmpty({ message: 'LedgerMasterSid is required' })
+  @IsInt()
+  LedgerMasterSid: number;
+
+  @IsNotEmpty({ message: 'DrCr is required' })
+  @IsIn(['D', 'C'], { message: 'DrCr must be specified as "D" or "C"' })
+  @Length(1, 1)
+  DrCr: string;
+
+  @IsOptional()
+  @IsNumber()
+  Skip: number;
+
+  @IsOptional()
+  @IsNumber()
+  Take: number;
+
+  @IsOptional()
+  @Type(() => Date)
+  @IsDate()
+  VoucherMatchingDate?: Date;
 }
 
 export class FetchVoucherMatchingByIdDto {
@@ -302,21 +245,21 @@ export class MatchingDetailDto {
   @Length(1, 1)
   DrCr: string;
 
-  @IsNotEmpty({ message: "Amount is required" })
-  @IsNumber({}, { message: "Amount must be a number" })
-  Amount: number;
+  @IsNotEmpty({ message: "OriginalCurrencyAmount is required" })
+  @IsNumber({}, { message: "OriginalCurrencyAmount must be a number" })
+  OriginalCurrencyAmount: number;
 
-  @IsNotEmpty({ message: "LocalAmount is required" })
-  @IsNumber({}, { message: "LocalAmount must be a number" })
-  LocalAmount: number;
+  @IsNotEmpty({ message: "OriginalLocalAmount is required" })
+  @IsNumber({}, { message: "OriginalLocalAmount must be a number" })
+  OriginalLocalAmount: number;
 
   @IsOptional()
-  @IsNumber({}, { message: "MatchingAmount must be a number" })
-  MatchingAmount?: number;
+  @IsNumber({}, { message: "MatchedCurrencyAmount must be a number" })
+  MatchedCurrencyAmount?: number;
 
-  @IsNotEmpty({ message: "MatchingLocalAmount is required" })
-  @IsNumber({}, { message: "MatchingLocalAmount must be a number" })
-  MatchingLocalAmount: number;
+  @IsNotEmpty({ message: "MatchedLocalAmount is required" })
+  @IsNumber({}, { message: "MatchedLocalAmount must be a number" })
+  MatchedLocalAmount: number;
 
   @IsOptional()
   @IsNumber({}, { message: "PartyAmount must be a number" })
@@ -376,9 +319,41 @@ export interface FetchVoucherMatchingResponse {
   VoucherMatchingDate: Date;
   Remarks: string | null;
   VoucherHeaderSid: number | null;
+  COAMasterSid: number | null;
+  LedgerName: string | null;
+  LedgerType: string | null;
+  SubledgerMasterSid: number | null,
   SubledgerName: string | null;
+  PostDate: Date | null;
+  PostStatus: string;
   Status: string;
-  MatchingDetail: any[];
+  MatchingDetail: MatchingDetail[];
+}
+
+export interface MatchingDetail {
+  MatchingDetailSid: number;
+  Sno: string | number,
+  VoucherMatchingHeaderSid: number;
+  VoucherHeaderSid: number;
+  VoucherDetailSid: number;
+  VoucherTransactionSid: number;
+  VoucherNumber: string;
+  VoucherType: string;
+  VoucherDate: Date;
+  DrCr: string;
+  CurrencyMasterSid: number | null;
+  CurrencyCode: string;
+  ExchangeRate: Decimal | number;
+  OriginalCurrencyAmount: Decimal | number;
+  OriginalLocalAmount: Decimal | number;
+  OutstandingCurrencyAmount: Decimal | number;
+  OutstandingLocalAmount: Decimal | number;
+  MatchingCurrency: number | null;
+  MatchingExRate: Decimal | number;
+  MatchedCurrencyAmount: Decimal | number;
+  MatchedLocalAmount: Decimal | number;
+  MatchingTDSAmount: Decimal | number;
+  MatchingType: string;
 }
 
 export interface PostVoucherMatchingResponse {
@@ -391,48 +366,9 @@ export interface PostVoucherMatchingResponse {
   VoucherHeaderSid: number | null;
   SubledgerName: string | null;
   Status: string;
+  PostStatus: string;
+  PostDate: Date | null;
   VoucherMatching: any[];
+  ExchangeJV?: any;
 }
 
-export interface VoucherMatchingResponse {
-  VoucherMatchingHeaderSid: number;
-  CreatedOn: Date;
-  CreatedBy: string;
-  UpdatedOn: Date;
-  UpdatedBy: string;
-  Status: string;
-  CompanyMasterSid: number;
-  BranchMasterSid: number;
-  VoucherMatchingNo: string;
-  VoucherMatchingDate: Date;
-  Narration: string;
-  Remarks: string;
-  VoucherHeaderSid: number;
-  LedgerName: string;
-  SubledgerName: string;
-  voucherMatchings: OutstandingForTransactionDto[]
-}
-
-export class OutstandingForTransactionDto {
-  VoucherMatchingSid: number;
-  MatchingDetailSid: number;
-  Sno: number;
-  VoucherMatchingHeaderSid: number;
-  VoucherHeaderSid: number;
-  VoucherDetailSid: number;
-  VoucherTransactionSid: number;
-  VoucherNumber: string;
-  VoucherType: string;
-  VoucherDate: Date;
-  DrCr: string;
-  CurrencyMasterSid: number;
-  CurrencyCode: string;
-  ExchangeRate: number;
-  OriginalCurrencyAmount: number;
-  OriginalLocalAmount: number;
-  OutstandingCurrencyAmount: number;
-  OutstandingLocalAmount: number;
-  MatchingCurrencyAmount: number;
-  MatchingLocalAmount: number;
-  MatchingType: string;
-}

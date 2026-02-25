@@ -59,6 +59,8 @@ import { ShipmentMilestoneController } from './controllers/shipment-milestone/sh
 import { ShipmentMilestoneService } from './services/shipment-milestone/shipment-milestone.service';
 import { SettingsModule } from 'src/settings/settings.module';
 import { VoucherPeriodService } from 'src/masters/services/voucher-period/voucher-period.service';
+import { OutstandingService } from 'src/accounts/services/outstanding/outstanding.service';
+import { CompanyConfigService } from 'src/masters/services/company/company-config.service';
 
 @Module({
         imports: [CommonModule, SettingsModule],
@@ -96,7 +98,9 @@ import { VoucherPeriodService } from 'src/masters/services/voucher-period/vouche
                 EDIManifestService,
                 VoucherMatchingService,
                 ShipmentMilestoneService,
-                VoucherPeriodService
+                VoucherPeriodService,
+                OutstandingService,
+                CompanyConfigService
         ],
         controllers: [
                 BookingController,

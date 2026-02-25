@@ -3,7 +3,7 @@ import { ApiOperation, ApiCreatedResponse } from '@nestjs/swagger';
 import { ResponseData } from 'src/common/response-data';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 import { VoucherMatchingService } from 'src/operation/services/voucher-matching/voucher-matching.service';
-import { SearchPostedVouchersDto, CreateStandaloneVoucherMatchingDto, UpdateStandaloneVoucherMatchingDto, FetchVoucherMatchingByIdDto, PostVoucherMatchingDto } from 'src/accounts/dto/voucher-matching.dto';
+import { SearchPostedVouchersDto, CreateStandaloneVoucherMatchingDto, UpdateStandaloneVoucherMatchingDto, FetchVoucherMatchingByIdDto, PostVoucherMatchingDto, FetchOutstandingVouchers } from 'src/accounts/dto/voucher-matching.dto';
 
 @Controller('voucher-matching')
 export class VoucherMatchingController {
@@ -117,6 +117,37 @@ export class VoucherMatchingController {
     }
     return resp;
   }
+
+  @ApiOperation({ summary: 'Get Outstanding Vouchers for a customer' })
+  @ApiCreatedResponse({
+    description: 'Outstanding vouchers for a customer is fetched successfully',
+    type: ResponseData
+  })
+  @HttpCode(HttpStatus.OK)
+  @UsePipes(new ValidationPipe({
+    whitelist: true,
+    transform: true,
+    forbidNonWhitelisted: true
+  }))
+  @Post('get-outstanding-vouchers')
+  async getOutstandingVouchers(@Body() payload: FetchOutstandingVouchers) {
+    const resp = new ResponseData();
+    try {
+      const res = await this.voucherMatchingService.getOutstandingForALedger(payload);
+      resp.data = res;
+      resp.message = "Outstanding Vouchers are successfully fetched."
+    } catch (error) {
+      this.logger.warn(`Error getting outstanding vouchers : ${JSON.stringify(error), error}`);
+      resp.status = false;
+      if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+        resp.message = error.message;
+      } else {
+        resp.message = 'Internal Server Error';
+      }
+    }
+    return resp;
+  }
+
 
   @ApiOperation({ summary: 'Create standalone voucher matching' })
   @ApiCreatedResponse({

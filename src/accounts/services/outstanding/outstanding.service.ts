@@ -145,6 +145,7 @@ export class OutstandingService {
     companyMasterSid: number,
     ledgerMasterSid: number,
     exception ?: DocTypeCode,
+    BranchMasterSid ?: number
   ): Promise<CustomerOutstandingResponseDto> {
     try {
       this.logger.log(
@@ -159,7 +160,8 @@ export class OutstandingService {
       // Fetch all active voucher transactions for this customer
       // Exclude reversed vouchers
       const whereClause: Prisma.VoucherTransactionWhereInput = {
-        CompanyMasterSid: companyMasterSid,
+          CompanyMasterSid: companyMasterSid,
+          ...(BranchMasterSid ? {BranchMasterSid : BranchMasterSid} : {}),
           LedgerMasterSid: ledgerMasterSid,
           Status: 'A',
           VoucherHeader : { PostStatus : 'P'},
@@ -172,6 +174,7 @@ export class OutstandingService {
             },
           } : {}),
       }
+
       const voucherTransactions = await this._db.voucherTransaction.findMany({
         where: whereClause,
         include: {
