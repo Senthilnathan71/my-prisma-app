@@ -380,4 +380,42 @@ export class CompanyController {
         }
         return resp;
     }
+
+    @ApiOperation({ summary: 'Get job close milestone config for a company' })
+    @ApiCreatedResponse({ description: "Get job close milestone config", type: ResponseData })
+    @HttpCode(HttpStatus.OK)
+    @Get(':id/job-close-milestones')
+    async getJobCloseMilestoneConfig(@Param('id', ParseIntPipe) companyId: number) {
+        const resp = new ResponseData();
+        try {
+            resp.data = await this.companyService.getJobCloseMilestoneConfig(companyId);
+            resp.message = 'Job close milestone config fetched successfully';
+        } catch (error) {
+            this.logger.warn(`getJobCloseMilestoneConfig error: ${error}`);
+            resp.status = false;
+            resp.message = error.message || 'Internal Server Error';
+        }
+        return resp;
+    }
+
+    @ApiOperation({ summary: 'Save job close milestone config for a company' })
+    @ApiCreatedResponse({ description: "Save job close milestone config", type: ResponseData })
+    @HttpCode(HttpStatus.OK)
+    @Post(':id/job-close-milestones')
+    async saveJobCloseMilestoneConfig(
+        @Param('id', ParseIntPipe) companyId: number,
+        @Body() configData: any,
+        @UserData() userInfo
+    ) {
+        const resp = new ResponseData();
+        try {
+            resp.data = await this.companyService.saveJobCloseMilestoneConfig(companyId, configData, userInfo);
+            resp.message = 'Job close milestone config saved successfully';
+        } catch (error) {
+            this.logger.warn(`saveJobCloseMilestoneConfig error: ${error}`);
+            resp.status = false;
+            resp.message = error.message || 'Internal Server Error';
+        }
+        return resp;
+    }
 }
