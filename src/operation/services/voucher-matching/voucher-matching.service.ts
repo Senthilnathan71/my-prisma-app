@@ -446,7 +446,7 @@ export class VoucherMatchingService {
                         VoucherHeaderSid: payload.VoucherHeaderSid,
                         SubledgerName: payload.SubledgerName,
                         UpdatedBy: payload.userEmail,
-                        UpdatedOn: payload.current_date,
+                        UpdatedOn: new Date(),
                     }
                 });
 
@@ -752,23 +752,23 @@ export class VoucherMatchingService {
 
         const ledgerInvolved = MatchingDetail[0].VoucherTransaction.COAMasterSid;
 
-        if(!ledgerInvolved){
+        if (!ledgerInvolved) {
             throw new BadRequestException('Ledger not found for this voucher');
         }
 
         const coaRecord = await this._db.cOAMaster.findUnique({
-            where : {
-                COAMasterSid : ledgerInvolved,
-                Status : 'A'
-            }, select : {
-                LedgerType : true
+            where: {
+                COAMasterSid: ledgerInvolved,
+                Status: 'A'
+            }, select: {
+                LedgerType: true
             }
-        }) 
+        })
 
-        if(!coaRecord){
+        if (!coaRecord) {
             throw new BadRequestException('Chart of Accounts not found.');
         }
-        if(!coaRecord.LedgerType){
+        if (!coaRecord.LedgerType) {
             throw new BadRequestException('Ledger Type not found.');
         }
 
@@ -885,26 +885,26 @@ export class VoucherMatchingService {
                     }
 
                     const currentInvolved = await tx.currencyMaster.findUnique({
-                        where : { CurrencyMasterSid : currencySet.values().next().value },
-                        select : {
-                            CurrencyMasterSid : true,
-                            currencyCode : true
+                        where: { CurrencyMasterSid: currencySet.values().next().value },
+                        select: {
+                            CurrencyMasterSid: true,
+                            currencyCode: true
                         }
                     })
 
-                    if(!currentInvolved){
+                    if (!currentInvolved) {
                         throw new BadRequestException('Party Currency not found in matching details.');
                     }
 
                     exchangeJVHeader = await this.createExchangeJvForMatching(tx, {
                         sumOfLocalCredits,
                         sumOfLocalDebits,
-                        LedgerType : coaRecord?.LedgerType,
+                        LedgerType: coaRecord?.LedgerType,
                         CompanyMasterSid,
                         BranchMasterSid,
                         YearMasterSid,
-                        PartyCurrency : currentInvolved?.CurrencyMasterSid,
-                        PartyCurrencyCode : currentInvolved?.currencyCode,
+                        PartyCurrency: currentInvolved?.CurrencyMasterSid,
+                        PartyCurrencyCode: currentInvolved?.currencyCode,
                         LocalCurrencyMasterSid,
                         LocalCurrencyCode,
                         partyLedgerSid,
@@ -972,6 +972,11 @@ export class VoucherMatchingService {
         // Paired posting algorithm: each Object row is matched against one or more Source rows.
         // Produces 2 VoucherMatching rows per pair (Object side + Source side), sharing the same Sno,
         // and linked to each other via MatchingTransactionSid.
+        //
+        // Phase 1: Same-currency pairs — derive local strictly from exchange rate (never proportion
+        //          from original totals to avoid revaluation drift).
+        // Phase 2: Cross-currency pairs — match remaining rows by local amount using remaining
+        //          values as proportion base.
         const sourceMds = allValidMatchingDetail
             .filter(md => md.MatchingType === 'Source')
             .sort((a, b) => toNumber(a.Sno) - toNumber(b.Sno));
@@ -984,51 +989,130 @@ export class VoucherMatchingService {
             remainingAmount: toNumber(s.MatchingAmount),
             remainingLocalAmount: toNumber(s.MatchingLocalAmount),
         }));
+        const objectQueue = objectMds.map(o => ({
+            ...o,
+            remainingAmount: toNumber(o.MatchingAmount),
+            remainingLocalAmount: toNumber(o.MatchingLocalAmount),
+        }));
 
         const pairs: Array<{
             pairSno: number;
-            objectMd: typeof objectMds[0];
+            objectMd: typeof objectQueue[0];
             sourceMd: typeof sourceQueue[0];
-            amount: number;
+            sourceAmount: number;
+            objectAmount: number;
             sourceLocalAmount: number;
             objectLocalAmount: number;
         }> = [];
         let pairSno = 1;
 
-        for (const objectMd of objectMds) {
-            let remainingObj = toNumber(objectMd.MatchingAmount);
-            let remainingObjLocal = toNumber(objectMd.MatchingLocalAmount);
-            while (remainingObj > 0 && sourceQueue.length > 0) {
-                const src = sourceQueue[0];
-                const consume = Number(Math.min(src.remainingAmount, remainingObj).toFixed(3));
+        // ─── Phase 1: Same-currency pairing ────────────────────────────────────────
+        // Local amount is derived from the exchange rate stored on each matching detail
+        // row — NOT proportioned from the original document totals. This is the only
+        // correct approach: allocate currency first, then derive local via rate so that
+        // partial allocations never revalue an already-booked document.
+        for (const obj of objectQueue) {
+            if (obj.remainingAmount <= 0) continue;
 
-                // Source local: use remaining on last slice to avoid rounding drift
-                let sourceLocalAmount: number;
-                if (Math.abs(src.remainingAmount - consume) < 0.001) {
-                    sourceLocalAmount = src.remainingLocalAmount;
-                } else {
-                    sourceLocalAmount = Number((consume / toNumber(src.MatchingAmount) * toNumber(src.MatchingLocalAmount)).toFixed(3));
-                }
+            for (const src of sourceQueue) {
+                if (src.remainingAmount <= 0) continue;
+                if (src.MatchingCurrency !== obj.MatchingCurrency) continue;
 
-                // Object local: use remaining on last slice to avoid rounding drift
-                let objectLocalAmount: number;
-                if (Math.abs(remainingObj - consume) < 0.001) {
-                    objectLocalAmount = remainingObjLocal;
-                } else {
-                    objectLocalAmount = Number((consume / toNumber(objectMd.MatchingAmount) * toNumber(objectMd.MatchingLocalAmount)).toFixed(3));
-                }
+                const consume = Number(Math.min(src.remainingAmount, obj.remainingAmount).toFixed(3));
+                if (consume <= 0) continue;
 
-                pairs.push({ pairSno, objectMd, sourceMd: src, amount: consume, sourceLocalAmount, objectLocalAmount });
+                // ✅ Derive local from exchange rate — never from original MatchingAmount/MatchingLocalAmount
+                const srcExRate = toNumber(src.ExchangeRate ?? src.MatchingExRate);
+                const objExRate = toNumber(obj.ExchangeRate ?? obj.MatchingExRate);
+                const sourceLocalAmount = Number((consume * srcExRate).toFixed(3));
+                const objectLocalAmount = Number((consume * objExRate).toFixed(3));
+
+                pairs.push({
+                    pairSno,
+                    objectMd: obj,
+                    sourceMd: src,
+                    sourceAmount: consume,
+                    objectAmount: consume,
+                    sourceLocalAmount,
+                    objectLocalAmount,
+                });
 
                 src.remainingAmount = Number((src.remainingAmount - consume).toFixed(3));
                 src.remainingLocalAmount = Number((src.remainingLocalAmount - sourceLocalAmount).toFixed(3));
-                remainingObj = Number((remainingObj - consume).toFixed(3));
-                remainingObjLocal = Number((remainingObjLocal - objectLocalAmount).toFixed(3));
+                obj.remainingAmount = Number((obj.remainingAmount - consume).toFixed(3));
+                obj.remainingLocalAmount = Number((obj.remainingLocalAmount - objectLocalAmount).toFixed(3));
 
-                if (src.remainingAmount <= 0) sourceQueue.shift();
                 pairSno++;
+                if (obj.remainingAmount <= 0) break;
             }
         }
+
+        // ─── Phase 2: Cross-currency pairing ───────────────────────────────────────
+        // Match remaining rows by local amount. Use current remaining values as the
+        // proportion base (not original totals) so Phase 1 partial consumption does
+        // not distort the allocation here.
+        for (const obj of objectQueue) {
+            if (obj.remainingLocalAmount <= 0) continue;
+
+            for (const src of sourceQueue) {
+                if (src.remainingLocalAmount <= 0) continue;
+
+                const consumeLocal = Number(Math.min(src.remainingLocalAmount, obj.remainingLocalAmount).toFixed(3));
+                if (consumeLocal <= 0) continue;
+
+                // ✅ Use remaining as proportion base — not original MatchingAmount/MatchingLocalAmount
+                let sourceAmount: number;
+                if (Math.abs(src.remainingLocalAmount - consumeLocal) < 0.001) {
+                    sourceAmount = src.remainingAmount;
+                } else {
+                    sourceAmount = Number((consumeLocal / src.remainingLocalAmount * src.remainingAmount).toFixed(3));
+                }
+
+                let objectAmount: number;
+                if (Math.abs(obj.remainingLocalAmount - consumeLocal) < 0.001) {
+                    objectAmount = obj.remainingAmount;
+                } else {
+                    objectAmount = Number((consumeLocal / obj.remainingLocalAmount * obj.remainingAmount).toFixed(3));
+                }
+
+                pairs.push({
+                    pairSno,
+                    objectMd: obj,
+                    sourceMd: src,
+                    sourceAmount,
+                    objectAmount,
+                    sourceLocalAmount: consumeLocal,
+                    objectLocalAmount: consumeLocal,
+                });
+
+                src.remainingAmount = Number((src.remainingAmount - sourceAmount).toFixed(3));
+                src.remainingLocalAmount = Number((src.remainingLocalAmount - consumeLocal).toFixed(3));
+                obj.remainingAmount = Number((obj.remainingAmount - objectAmount).toFixed(3));
+                obj.remainingLocalAmount = Number((obj.remainingLocalAmount - consumeLocal).toFixed(3));
+
+                pairSno++;
+                if (obj.remainingLocalAmount <= 0) break;
+            }
+        }
+
+        // // ─── Remainder Safety Check ─────────────────────────────────────────────────
+        // // After both phases, every row must be fully allocated. Any residual greater
+        // // than 0.01 indicates a rounding leak or a silent partial allocation — both
+        // // are accounting errors that must never reach the database.
+        // for (const obj of objectQueue) {
+        //     if (Math.abs(obj.remainingLocalAmount) > 0.01) {
+        //         throw new BadRequestException(
+        //             `Object row not fully allocated. Residual local amount: ${obj.remainingLocalAmount}. Please review matching amounts.`
+        //         );
+        //     }
+        // }
+        // for (const src of sourceQueue) {
+        //     if (Math.abs(src.remainingLocalAmount) > 0.01) {
+        //         throw new BadRequestException(
+        //             `Source row not fully allocated. Residual local amount: ${src.remainingLocalAmount}. Please review matching amounts.`
+        //         );
+        //     }
+        // }
 
         // Build VoucherMatching rows — 2 per pair (Object side + Source side)
         const voucherMatchingPayload: Prisma.VoucherMatchingCreateManyInput[] = [];
@@ -1053,7 +1137,7 @@ export class VoucherMatchingService {
                 CurrencyCode: sourceMd.CurrencyCode,
                 ExchangeRate: sourceMd.ExchangeRate ?? sourceMd.MatchingExRate,
                 DrCr: sourceMd.DrCr,
-                Amount: pair.amount,
+                Amount: pair.sourceAmount,
                 LocalAmount: pair.sourceLocalAmount,
                 MatchingType: 'Source',
             });
@@ -1077,7 +1161,7 @@ export class VoucherMatchingService {
                 CurrencyCode: objectMd.CurrencyCode,
                 ExchangeRate: objectMd.ExchangeRate ?? objectMd.MatchingExRate,
                 DrCr: objectMd.DrCr,
-                Amount: pair.amount,
+                Amount: pair.objectAmount,
                 LocalAmount: pair.objectLocalAmount,
                 MatchingType: 'Object',
             });
@@ -1094,7 +1178,7 @@ export class VoucherMatchingService {
                 PostStatus: 'P',
                 PostDate: current_date,
                 UpdatedBy: postedBy,
-                UpdatedOn: current_date,
+                UpdatedOn: new Date()
             }
         });
 
