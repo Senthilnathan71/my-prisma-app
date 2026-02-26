@@ -49,6 +49,7 @@ export class LoadingPlanService {
       DepartmentMasterSid: payload.DepartmentMasterSid,
       POL: payload.POL,
       POD: payload.POD,
+      BookingHeaderSid : null,
       MasterJobSid: null,   // MAIN CONDITION
       status: 'A'
     };
