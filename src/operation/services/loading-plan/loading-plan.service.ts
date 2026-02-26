@@ -118,7 +118,7 @@ export class LoadingPlanService {
 
       return {
         BookingHeaderSid: booking.BookingHeaderSid,
-        HouseJobSid: null,
+        HouseJobSid: booking.HouseJobSid,
 
         BookingNo: booking.BookingNo,
         BookingDate: booking.BookingDateTime,
@@ -167,7 +167,7 @@ export class LoadingPlanService {
     /* -------------------------------------------------- */
 
     const houseJobMapped = houseJobs.map(job => ({
-      BookingHeaderSid: null,
+      BookingHeaderSid: job.BookingHeaderSid,
       HouseJobSid: job.HouseJobSid,
 
       BookingNo: job.BookingNo,

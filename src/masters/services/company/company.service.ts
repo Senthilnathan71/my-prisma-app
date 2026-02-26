@@ -5,6 +5,7 @@ import { statusWhereClause } from 'src/common/helper';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
+import { MILESTONE_REGISTRY, MilestoneCode, getDefaultMilestoneCodes } from 'src/operation/services/master-job/milestone-registry';
 
 @Injectable()
 export class CompanyService {
@@ -729,6 +730,70 @@ export class CompanyService {
             console.error('Error fetching company config:', error);
             throw error;
         }
+    }
+
+    async getJobCloseMilestoneConfig(companyId: number) {
+        const company = await this._db.companyMaster.findUnique({
+            where: { CompanyMasterSid: companyId },
+            select: { CompanyMasterSid: true, companyName: true, config: true }
+        });
+        if (!company) {
+            throw new BadRequestException(`Company with id ${companyId} not found`);
+        }
+
+        const config = company.config as any;
+        const savedConfig = config?.systemSettings?.jobCloseMilestones || {};
+
+        // Build defaults for all department-type combos
+        const configKeys = ['Air_Export', 'Sea_Export', 'Air_Import', 'Sea_Import'];
+        const categories = ['documentation', 'operation', 'accounts', 'jobClose'] as const;
+        const defaults: Record<string, Record<string, MilestoneCode[]>> = {};
+        for (const key of configKeys) {
+            const exportImport = key.endsWith('_Export') ? 'Export' : 'Import';
+            defaults[key] = {};
+            for (const cat of categories) {
+                defaults[key][cat] = getDefaultMilestoneCodes(cat, exportImport);
+            }
+        }
+
+        return {
+            CompanyMasterSid: company.CompanyMasterSid,
+            companyName: company.companyName,
+            currentConfig: savedConfig,
+            defaults,
+            availableMilestones: MILESTONE_REGISTRY,
+        };
+    }
+
+    async saveJobCloseMilestoneConfig(companyId: number, milestoneConfig: Record<string, Record<string, string[]>>, user: any) {
+        const company = await this._db.companyMaster.findUnique({
+            where: { CompanyMasterSid: companyId },
+            select: { CompanyMasterSid: true, config: true }
+        });
+        if (!company) {
+            throw new BadRequestException(`Company with id ${companyId} not found`);
+        }
+
+        const existingConfig = (company.config as any) || {};
+        const existingSystemSettings = existingConfig.systemSettings || {};
+
+        const updatedConfig = {
+            ...existingConfig,
+            systemSettings: {
+                ...existingSystemSettings,
+                jobCloseMilestones: milestoneConfig,
+            }
+        };
+
+        const updatedCompany = await this._db.companyMaster.update({
+            where: { CompanyMasterSid: companyId },
+            data: {
+                config: updatedConfig,
+                updatedBy: user.userEmail
+            }
+        });
+
+        return updatedCompany;
     }
 
     async getFieldConfiguration() {

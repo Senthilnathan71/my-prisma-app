@@ -61,6 +61,8 @@ import { SettingsModule } from 'src/settings/settings.module';
 import { VoucherPeriodService } from 'src/masters/services/voucher-period/voucher-period.service';
 import { OutstandingService } from 'src/accounts/services/outstanding/outstanding.service';
 import { CompanyConfigService } from 'src/masters/services/company/company-config.service';
+import { VoucherCorrectionController } from './controllers/voucher-correction/voucher-correction.controller';
+import { VoucherCorrectionService } from './services/voucher-correction/voucher-correction.service';
 
 @Module({
         imports: [CommonModule, SettingsModule],
@@ -100,7 +102,8 @@ import { CompanyConfigService } from 'src/masters/services/company/company-confi
                 ShipmentMilestoneService,
                 VoucherPeriodService,
                 OutstandingService,
-                CompanyConfigService
+                CompanyConfigService,
+                VoucherCorrectionService
         ],
         controllers: [
                 BookingController,
@@ -127,7 +130,8 @@ import { CompanyConfigService } from 'src/masters/services/company/company-confi
                 CustomsController,
                 ReverseVoucherController,
                 VoucherMatchingController,
-                ShipmentMilestoneController
+                ShipmentMilestoneController,
+                VoucherCorrectionController
         ]
 })
 export class OperationModule { }

@@ -10,6 +10,7 @@ import { MenuService } from 'src/masters/services/menu/menu.service';
 import { OperationCommonService } from '../operation-common/operation-common.service';
 import { catchError, of } from 'rxjs';
 import { NumberSeriesService } from 'src/settings/services/number-series/number-series.service';
+import { MilestoneCode, MilestoneCategory, getDefaultMilestoneCodes, getMilestoneByCode } from './milestone-registry';
 
 interface searchMasterJob {
     search: string,
@@ -5596,6 +5597,7 @@ console.log('Created product:', createdProduct);
                     POD: true,
                     JobStatus: true,
                     DepartmentMasterSid: true,
+                    CompanyMasterSid: true,
                 }
             });
 
@@ -5710,7 +5712,7 @@ console.log('Created product:', createdProduct);
             });
 
             // 6. Compute milestone checks
-            const milestoneChecks = await this.computeMilestoneChecks(MasterJobSid, houseJobSids, exportImport, masterJobOthers);
+            const milestoneChecks = await this.computeMilestoneChecks(MasterJobSid, houseJobSids, exportImport, masterJobOthers, masterJob.CompanyMasterSid, departmentType);
 
             return {
                 masterJob: {
@@ -5747,349 +5749,353 @@ console.log('Created product:', createdProduct);
         }
     }
 
+    /**
+     * Fetches enabled milestone codes for a company/department combo from CompanyMaster.config.
+     * Falls back to default codes from the registry if no config exists.
+     */
+    private async getEnabledMilestones(
+        companyMasterSid: number,
+        departmentType: string,
+        exportImport: string
+    ): Promise<Record<MilestoneCategory, MilestoneCode[]>> {
+        const configKey = `${departmentType}_${exportImport}`; // e.g. "Air_Export"
+
+        try {
+            const company = await this._db.companyMaster.findUnique({
+                where: { CompanyMasterSid: companyMasterSid },
+                select: { config: true }
+            });
+
+            const config = company?.config as any;
+            const milestoneConfig = config?.systemSettings?.jobCloseMilestones?.[configKey];
+
+            if (milestoneConfig) {
+                const categories: MilestoneCategory[] = ['documentation', 'operation', 'accounts', 'jobClose'];
+                const result = {} as Record<MilestoneCategory, MilestoneCode[]>;
+                for (const cat of categories) {
+                    if (Array.isArray(milestoneConfig[cat])) {
+                        // Validate codes against registry, ignore unrecognized ones
+                        result[cat] = (milestoneConfig[cat] as string[]).filter(
+                            code => getMilestoneByCode(code) != null
+                        ) as MilestoneCode[];
+                    } else {
+                        // Category not in config — fall back to defaults
+                        result[cat] = getDefaultMilestoneCodes(cat, exportImport);
+                    }
+                }
+                return result;
+            }
+        } catch (e) {
+            this.logger.warn(`getEnabledMilestones config lookup failed, using defaults: ${e}`);
+        }
+
+        // No config found — return defaults for all categories
+        return {
+            documentation: getDefaultMilestoneCodes('documentation', exportImport),
+            operation: getDefaultMilestoneCodes('operation', exportImport),
+            accounts: getDefaultMilestoneCodes('accounts', exportImport),
+            jobClose: getDefaultMilestoneCodes('jobClose', exportImport),
+        };
+    }
+
     private async computeMilestoneChecks(
         MasterJobSid: number,
         houseJobSids: number[],
         exportImport: string,
-        masterJobOthers: any
+        masterJobOthers: any,
+        companyMasterSid: number,
+        departmentType: string
     ) {
-        const isExport = exportImport?.toLowerCase() === 'export';
         const hasHouses = houseJobSids.length > 0;
         let jobProfitable = false;
 
-        // Documentation milestone checks
-        const documentation: { label: string; passed: boolean }[] = [];
+        // Get enabled milestones from config (or defaults)
+        const enabledMilestones = await this.getEnabledMilestones(companyMasterSid, departmentType, exportImport);
 
-        if (isExport) {
-            // Check: All Houses have Pkg, Gross Wt, CBM
-            let allHousesCargo = true;
-            if (hasHouses) {
-                const cargoCheck = await this._db.houseJobCargo.findMany({
-                    where: { HouseJobSid: { in: houseJobSids }, status: 'A' },
-                    select: { HouseJobSid: true, NoOfPackage: true, GrossWeight: true, Volume: true }
-                });
-                for (const hjSid of houseJobSids) {
-                    const hjCargo = cargoCheck.filter(c => c.HouseJobSid === hjSid);
-                    if (hjCargo.length === 0 || !hjCargo.some(c => Number(c.NoOfPackage || 0) > 0 && Number(c.GrossWeight || 0) > 0 && Number(c.Volume || 0) > 0)) {
-                        allHousesCargo = false;
-                        break;
-                    }
+        // Define all check functions keyed by milestone code
+        const checkRunners: Map<MilestoneCode, () => Promise<boolean>> = new Map();
+
+        // --- Documentation checks ---
+
+        checkRunners.set('PKG_WT_CBM', async () => {
+            if (!hasHouses) return false;
+            const cargoCheck = await this._db.houseJobCargo.findMany({
+                where: { HouseJobSid: { in: houseJobSids }, status: 'A' },
+                select: { HouseJobSid: true, NoOfPackage: true, GrossWeight: true, Volume: true }
+            });
+            for (const hjSid of houseJobSids) {
+                const hjCargo = cargoCheck.filter(c => c.HouseJobSid === hjSid);
+                if (hjCargo.length === 0 || !hjCargo.some(c => Number(c.NoOfPackage || 0) > 0 && Number(c.GrossWeight || 0) > 0 && Number(c.Volume || 0) > 0)) {
+                    return false;
                 }
-            } else {
-                allHousesCargo = false;
             }
-            documentation.push({ label: 'All Houses have Pkg, Gross Wt, CBM', passed: allHousesCargo });
+            return true;
+        });
 
-            // Check: Container mapping done
+        checkRunners.set('CONTAINER_MAPPING', async () => {
             const containerCount = await this._db.masterJobContainer.count({
                 where: { MasterJobSid, Status: 'A' }
             });
-            documentation.push({ label: 'Container mapping done', passed: containerCount > 0 });
+            return containerCount > 0;
+        });
 
-            // Check: Draft BL generated & SI confirmed
-            let siConfirmed = true;
-            if (hasHouses) {
-                const othersCheck = await this._db.houseJobOthers.findMany({
-                    where: { HouseJobSid: { in: houseJobSids }, status: 'A' },
-                    select: { HouseJobSid: true, SIConfirmationDate: true }
-                });
-                for (const hjSid of houseJobSids) {
-                    const hjOther = othersCheck.find(o => o.HouseJobSid === hjSid);
-                    if (!hjOther || !hjOther.SIConfirmationDate) {
-                        siConfirmed = false;
-                        break;
-                    }
+        checkRunners.set('SI_CONFIRMED', async () => {
+            if (!hasHouses) return false;
+            const othersCheck = await this._db.houseJobOthers.findMany({
+                where: { HouseJobSid: { in: houseJobSids }, status: 'A' },
+                select: { HouseJobSid: true, SIConfirmationDate: true }
+            });
+            for (const hjSid of houseJobSids) {
+                const hjOther = othersCheck.find(o => o.HouseJobSid === hjSid);
+                if (!hjOther || !hjOther.SIConfirmationDate) return false;
+            }
+            return true;
+        });
+
+        checkRunners.set('CARGO_ARRIVAL_NOTICE', async () => {
+            if (!hasHouses) return false;
+            const milestones = await this._db.shipmentMilestone.findMany({
+                where: {
+                    HouseJobSid: { in: houseJobSids },
+                    MilestoneName: { contains: 'Cargo Arrival Notice' },
+                    Status: 'A'
                 }
-            } else {
-                siConfirmed = false;
-            }
-            documentation.push({ label: 'Draft BL generated & SI confirmed', passed: siConfirmed });
-        } else {
-            // Import documentation checks
-            // Check: Cargo Arrival Notice sent
-            let cargoArrivalNotice = false;
-            if (hasHouses) {
-                const milestones = await this._db.shipmentMilestone.findMany({
-                    where: {
-                        HouseJobSid: { in: houseJobSids },
-                        MilestoneName: { contains: 'Cargo Arrival Notice' },
-                        Status: 'A'
-                    }
-                });
-                cargoArrivalNotice = milestones.length > 0;
-            }
-            documentation.push({ label: 'Cargo Arrival Notice sent', passed: cargoArrivalNotice });
+            });
+            return milestones.length > 0;
+        });
 
-            // Check: Cargo Received
-            let cargoReceived = true;
-            if (hasHouses) {
-                const products = await this._db.houseJobProduct.findMany({
-                    where: { HouseJobSid: { in: houseJobSids }, status: 'A' },
-                    select: { HouseJobSid: true, CargoRecDate: true }
-                });
-                for (const hjSid of houseJobSids) {
-                    const hjProducts = products.filter(p => p.HouseJobSid === hjSid);
-                    if (hjProducts.length === 0 || hjProducts.some(p => !p.CargoRecDate)) {
-                        cargoReceived = false;
-                        break;
-                    }
+        checkRunners.set('CARGO_RECEIVED', async () => {
+            if (!hasHouses) return false;
+            const products = await this._db.houseJobProduct.findMany({
+                where: { HouseJobSid: { in: houseJobSids }, status: 'A' },
+                select: { HouseJobSid: true, CargoRecDate: true }
+            });
+            for (const hjSid of houseJobSids) {
+                const hjProducts = products.filter(p => p.HouseJobSid === hjSid);
+                if (hjProducts.length === 0 || hjProducts.some(p => !p.CargoRecDate)) return false;
+            }
+            return true;
+        });
+
+        // --- Operation checks ---
+
+        checkRunners.set('PRE_ALERT', async () => {
+            if (!hasHouses) return false;
+            const milestones = await this._db.shipmentMilestone.findMany({
+                where: {
+                    HouseJobSid: { in: houseJobSids },
+                    MilestoneName: { contains: 'Pre Alert' },
+                    Status: 'A'
                 }
-            } else {
-                cargoReceived = false;
-            }
-            documentation.push({ label: 'Cargo Received', passed: cargoReceived });
-        }
+            });
+            return milestones.length > 0;
+        });
 
-        // Operation milestone checks
-        const operation: { label: string; passed: boolean }[] = [];
+        checkRunners.set('INVOICE_OPS', async () => {
+            if (!hasHouses) return false;
+            const vouchers = await this._db.voucherHeader.findMany({
+                where: { HouseJobSid: { in: houseJobSids }, Status: 'A' }
+            });
+            return vouchers.length > 0;
+        });
 
-        if (isExport) {
-            // Check: Pre Alert Sent
-            let preAlertSent = false;
-            if (hasHouses) {
-                const milestones = await this._db.shipmentMilestone.findMany({
-                    where: {
-                        HouseJobSid: { in: houseJobSids },
-                        MilestoneName: { contains: 'Pre Alert' },
-                        Status: 'A'
-                    }
-                });
-                preAlertSent = milestones.length > 0;
-            }
-            operation.push({ label: 'Pre Alert Sent', passed: preAlertSent });
-
-            // Check: Invoice generated
-            let invoiceGenerated = false;
-            if (hasHouses) {
-                const vouchers = await this._db.voucherHeader.findMany({
-                    where: {
-                        HouseJobSid: { in: houseJobSids },
-                        Status: 'A'
-                    }
-                });
-                invoiceGenerated = vouchers.length > 0;
-            }
-            operation.push({ label: 'Invoice generated', passed: invoiceGenerated });
-
-            // Check: ATD or On Board Confirmation
+        checkRunners.set('ATD', async () => {
             const voyages = await this._db.masterJobVoyage.findMany({
                 where: { MasterJobSid, Status: 'A' },
                 select: { ATD: true }
             });
-            const atdConfirmed = voyages.some(v => v.ATD !== null);
-            operation.push({ label: 'ATD or On Board Confirmation', passed: atdConfirmed });
+            return voyages.some(v => v.ATD !== null);
+        });
 
-            // Check: Cargo Manifest generated
-            let manifestGenerated = false;
-            if (hasHouses) {
-                const customs = await this._db.houseJobCustoms.findMany({
-                    where: {
-                        MasterJobSid,
-                        Status: 'A',
-                        ManifestSequence: { not: '' }
-                    }
-                });
-                manifestGenerated = customs.length > 0;
+        checkRunners.set('CARGO_MANIFEST', async () => {
+            if (!hasHouses) return false;
+            const customs = await this._db.houseJobCustoms.findMany({
+                where: { MasterJobSid, Status: 'A', ManifestSequence: { not: '' } }
+            });
+            return customs.length > 0;
+        });
+
+        checkRunners.set('DO_ISSUED', async () => {
+            if (!hasHouses) return false;
+            const othersCheck = await this._db.houseJobOthers.findMany({
+                where: { HouseJobSid: { in: houseJobSids }, status: 'A' },
+                select: { HouseJobSid: true, DONo: true }
+            });
+            for (const hjSid of houseJobSids) {
+                const hjOther = othersCheck.find(o => o.HouseJobSid === hjSid);
+                if (!hjOther || !hjOther.DONo) return false;
             }
-            operation.push({ label: 'Cargo Manifest generated', passed: manifestGenerated });
-        } else {
-            // Import operation checks
-            // Check: Delivery Order Issued
-            let doIssued = true;
-            if (hasHouses) {
-                const othersCheck = await this._db.houseJobOthers.findMany({
-                    where: { HouseJobSid: { in: houseJobSids }, status: 'A' },
-                    select: { HouseJobSid: true, DONo: true }
-                });
-                for (const hjSid of houseJobSids) {
-                    const hjOther = othersCheck.find(o => o.HouseJobSid === hjSid);
-                    if (!hjOther || !hjOther.DONo) {
-                        doIssued = false;
-                        break;
-                    }
-                }
-            } else {
-                doIssued = false;
+            return true;
+        });
+
+        checkRunners.set('CARGO_DELIVERED', async () => {
+            if (!hasHouses) return false;
+            const products = await this._db.houseJobProduct.findMany({
+                where: { HouseJobSid: { in: houseJobSids }, status: 'A' },
+                select: { HouseJobSid: true, DeliveryDate: true }
+            });
+            for (const hjSid of houseJobSids) {
+                const hjProducts = products.filter(p => p.HouseJobSid === hjSid);
+                if (hjProducts.length === 0 || hjProducts.some(p => !p.DeliveryDate)) return false;
             }
-            operation.push({ label: 'Delivery Order Issued', passed: doIssued });
+            return true;
+        });
 
-            // Check: Cargo Delivered
-            let cargoDelivered = true;
-            if (hasHouses) {
-                const products = await this._db.houseJobProduct.findMany({
-                    where: { HouseJobSid: { in: houseJobSids }, status: 'A' },
-                    select: { HouseJobSid: true, DeliveryDate: true }
-                });
-                for (const hjSid of houseJobSids) {
-                    const hjProducts = products.filter(p => p.HouseJobSid === hjSid);
-                    if (hjProducts.length === 0 || hjProducts.some(p => !p.DeliveryDate)) {
-                        cargoDelivered = false;
-                        break;
-                    }
-                }
-            } else {
-                cargoDelivered = false;
-            }
-            operation.push({ label: 'Cargo Delivered', passed: cargoDelivered });
+        // --- Accounts checks ---
 
-            // Check: Invoice generated (same as export)
-            let invoiceGenerated = false;
-            if (hasHouses) {
-                const vouchers = await this._db.voucherHeader.findMany({
-                    where: {
-                        HouseJobSid: { in: houseJobSids },
-                        Status: 'A'
-                    }
-                });
-                invoiceGenerated = vouchers.length > 0;
-            }
-            operation.push({ label: 'Invoice generated', passed: invoiceGenerated });
-        }
-
-        // Accounts milestone checks
-        const accounts: { label: string; passed: boolean }[] = [];
-
-        // Check: Invoice generated (Revenue VoucherHeader exists)
-        let revenueInvoice = false;
-        if (hasHouses) {
+        checkRunners.set('INVOICE_ACC', async () => {
+            if (!hasHouses) return false;
             const revenueVouchers = await this._db.voucherHeader.findMany({
+                where: { HouseJobSid: { in: houseJobSids }, Status: 'A' }
+            });
+            return revenueVouchers.length > 0;
+        });
+
+        checkRunners.set('VENDOR_INVOICE', async () => {
+            if (!hasHouses) return false;
+            const shipmentNos = (await this._db.houseJob.findMany({
+                where: { HouseJobSid: { in: houseJobSids } },
+                select: { ShipmentNo: true }
+            })).map(h => h.ShipmentNo).filter(Boolean);
+            if (shipmentNos.length === 0) return false;
+            const costCharges = await this._db.costRevenueCharges.findMany({
                 where: {
-                    HouseJobSid: { in: houseJobSids },
-                    Status: 'A'
+                    ShipmentNo: { in: shipmentNos as string[] },
+                    status: 'A',
+                    CostVoucherHeaderSid: { not: null }
                 }
             });
-            revenueInvoice = revenueVouchers.length > 0;
-        }
-        accounts.push({ label: 'Invoice generated', passed: revenueInvoice });
+            return costCharges.length > 0;
+        });
 
-        // Check: Vendor Invoice booked
-        let vendorInvoiceBooked = false;
-        if (hasHouses) {
-            const shipmentNos = houseJobSids.length > 0
-                ? (await this._db.houseJob.findMany({
-                    where: { HouseJobSid: { in: houseJobSids } },
-                    select: { ShipmentNo: true }
-                })).map(h => h.ShipmentNo).filter(Boolean)
-                : [];
-            if (shipmentNos.length > 0) {
-                const costCharges = await this._db.costRevenueCharges.findMany({
-                    where: {
-                        ShipmentNo: { in: shipmentNos as string[] },
-                        status: 'A',
-                        CostVoucherHeaderSid: { not: null }
-                    }
-                });
-                vendorInvoiceBooked = costCharges.length > 0;
-            }
-        }
-        accounts.push({ label: 'Vendor Invoice booked', passed: vendorInvoiceBooked });
-
-        // Check: Revenue entered in all HBL
-        let revenueInAllHbl = true;
-        if (hasHouses) {
-            const shipmentNos = (await this._db.houseJob.findMany({
+        checkRunners.set('REVENUE_ALL_HBL', async () => {
+            if (!hasHouses) return false;
+            const houseJobsWithShipment = await this._db.houseJob.findMany({
                 where: { HouseJobSid: { in: houseJobSids } },
                 select: { HouseJobSid: true, ShipmentNo: true }
-            }));
-            for (const hj of shipmentNos) {
-                if (!hj.ShipmentNo) { revenueInAllHbl = false; break; }
+            });
+            for (const hj of houseJobsWithShipment) {
+                if (!hj.ShipmentNo) return false;
                 const revCharges = await this._db.costRevenueCharges.findMany({
-                    where: {
-                        ShipmentNo: hj.ShipmentNo,
-                        status: 'A',
-                        RevenueAmount: { gt: 0 }
-                    }
+                    where: { ShipmentNo: hj.ShipmentNo, status: 'A', RevenueAmount: { gt: 0 } }
                 });
-                if (revCharges.length === 0) {
-                    revenueInAllHbl = false;
-                    break;
+                if (revCharges.length === 0) return false;
+            }
+            return true;
+        });
+
+        checkRunners.set('JOB_PROFITABLE', async () => {
+            if (!hasHouses) return false;
+            const shipmentNos = (await this._db.houseJob.findMany({
+                where: { HouseJobSid: { in: houseJobSids } },
+                select: { ShipmentNo: true }
+            })).map(h => h.ShipmentNo).filter(Boolean);
+            if (shipmentNos.length === 0) return false;
+            const profitCheck = await this._db.$queryRawUnsafe(`
+                SELECT
+                    COALESCE(SUM("RevenueLocalAmount"), 0) AS "TotalRevenue",
+                    COALESCE(SUM("CostLocalAmount"), 0) AS "TotalCost"
+                FROM "CostRevenueCharges"
+                WHERE "ShipmentNo" = ANY($1::varchar[])
+                AND status = 'A'
+            `, shipmentNos) as any[];
+            const result = profitCheck.length > 0 && Number(profitCheck[0].TotalRevenue) >= Number(profitCheck[0].TotalCost);
+            jobProfitable = result;
+            return result;
+        });
+
+        checkRunners.set('UNBOOKED_COST', async () => {
+            if (!hasHouses) return true;
+            const shipmentNos = (await this._db.houseJob.findMany({
+                where: { HouseJobSid: { in: houseJobSids } },
+                select: { ShipmentNo: true }
+            })).map(h => h.ShipmentNo).filter(Boolean);
+            if (shipmentNos.length === 0) return true;
+            const unbookedCost = await this._db.costRevenueCharges.findMany({
+                where: {
+                    ShipmentNo: { in: shipmentNos as string[] },
+                    status: 'A',
+                    CostAmount: { gt: 0 },
+                    CostVoucherHeaderSid: null
+                }
+            });
+            return unbookedCost.length === 0;
+        });
+
+        checkRunners.set('UNBOOKED_REVENUE', async () => {
+            if (!hasHouses) return true;
+            const shipmentNos = (await this._db.houseJob.findMany({
+                where: { HouseJobSid: { in: houseJobSids } },
+                select: { ShipmentNo: true }
+            })).map(h => h.ShipmentNo).filter(Boolean);
+            if (shipmentNos.length === 0) return true;
+            const unbookedRevenue = await this._db.costRevenueCharges.findMany({
+                where: {
+                    ShipmentNo: { in: shipmentNos as string[] },
+                    status: 'A',
+                    RevenueAmount: { gt: 0 },
+                    RevenueVoucherHeaderSid: null
+                }
+            });
+            return unbookedRevenue.length === 0;
+        });
+
+        // --- Job Close checks ---
+
+        checkRunners.set('JOB_TO_SUBJOB', async () => hasHouses);
+
+        checkRunners.set('ALL_PREVIOUS_CLOSED', async () => {
+            return masterJobOthers?.DocCloseStatus === 'Closed' &&
+                masterJobOthers?.OpsCloseStatus === 'Closed' &&
+                masterJobOthers?.AccCloseStatus === 'Closed';
+        });
+
+        checkRunners.set('JOB_PROFIT_LOSS', async () => {
+            // If JOB_PROFITABLE was already run, reuse result; otherwise compute it
+            if (!jobProfitable && hasHouses) {
+                const shipmentNos = (await this._db.houseJob.findMany({
+                    where: { HouseJobSid: { in: houseJobSids } },
+                    select: { ShipmentNo: true }
+                })).map(h => h.ShipmentNo).filter(Boolean);
+                if (shipmentNos.length > 0) {
+                    const profitCheck = await this._db.$queryRawUnsafe(`
+                        SELECT
+                            COALESCE(SUM("RevenueLocalAmount"), 0) AS "TotalRevenue",
+                            COALESCE(SUM("CostLocalAmount"), 0) AS "TotalCost"
+                        FROM "CostRevenueCharges"
+                        WHERE "ShipmentNo" = ANY($1::varchar[])
+                        AND status = 'A'
+                    `, shipmentNos) as any[];
+                    if (profitCheck.length > 0) {
+                        jobProfitable = Number(profitCheck[0].TotalRevenue) >= Number(profitCheck[0].TotalCost);
+                    }
                 }
             }
-        } else {
-            revenueInAllHbl = false;
-        }
-        accounts.push({ label: 'Revenue entered in all HBL', passed: revenueInAllHbl });
+            return jobProfitable;
+        });
 
-        // Check: Job Profitable
-        jobProfitable = false;
-        if (hasHouses) {
-            const shipmentNos = (await this._db.houseJob.findMany({
-                where: { HouseJobSid: { in: houseJobSids } },
-                select: { ShipmentNo: true }
-            })).map(h => h.ShipmentNo).filter(Boolean);
-            if (shipmentNos.length > 0) {
-                const profitCheck = await this._db.$queryRawUnsafe(`
-                    SELECT
-                        COALESCE(SUM("RevenueLocalAmount"), 0) AS "TotalRevenue",
-                        COALESCE(SUM("CostLocalAmount"), 0) AS "TotalCost"
-                    FROM "CostRevenueCharges"
-                    WHERE "ShipmentNo" = ANY($1::varchar[])
-                    AND status = 'A'
-                `, shipmentNos) as any[];
-                if (profitCheck.length > 0) {
-                    jobProfitable = Number(profitCheck[0].TotalRevenue) >= Number(profitCheck[0].TotalCost);
-                }
+        // Helper to run enabled checks for a category
+        const runCategory = async (category: MilestoneCategory): Promise<{ code: MilestoneCode; label: string; passed: boolean; nonBlocking?: boolean }[]> => {
+            const codes = enabledMilestones[category];
+            const results: { code: MilestoneCode; label: string; passed: boolean; nonBlocking?: boolean }[] = [];
+            for (const code of codes) {
+                const def = getMilestoneByCode(code);
+                const runner = checkRunners.get(code);
+                if (!def || !runner) continue;
+                const passed = await runner();
+                const item: { code: MilestoneCode; label: string; passed: boolean; nonBlocking?: boolean } = {
+                    code, label: def.label, passed
+                };
+                if (def.nonBlocking) item.nonBlocking = true;
+                results.push(item);
             }
-        }
-        accounts.push({ label: 'Job Profitable', passed: jobProfitable });
+            return results;
+        };
 
-        // Check: Unbooked cost to Accrual (no unbooked cost entries)
-        let unbookedCostClear = true;
-        if (hasHouses) {
-            const shipmentNos = (await this._db.houseJob.findMany({
-                where: { HouseJobSid: { in: houseJobSids } },
-                select: { ShipmentNo: true }
-            })).map(h => h.ShipmentNo).filter(Boolean);
-            if (shipmentNos.length > 0) {
-                const unbookedCost = await this._db.costRevenueCharges.findMany({
-                    where: {
-                        ShipmentNo: { in: shipmentNos as string[] },
-                        status: 'A',
-                        CostAmount: { gt: 0 },
-                        CostVoucherHeaderSid: null
-                    }
-                });
-                unbookedCostClear = unbookedCost.length === 0;
-            }
-        }
-        accounts.push({ label: 'Unbooked cost to Accrual', passed: unbookedCostClear });
-
-        // Check: Unbooked Revenue to WIP (no unbooked revenue entries)
-        let unbookedRevenueClear = true;
-        if (hasHouses) {
-            const shipmentNos = (await this._db.houseJob.findMany({
-                where: { HouseJobSid: { in: houseJobSids } },
-                select: { ShipmentNo: true }
-            })).map(h => h.ShipmentNo).filter(Boolean);
-            if (shipmentNos.length > 0) {
-                const unbookedRevenue = await this._db.costRevenueCharges.findMany({
-                    where: {
-                        ShipmentNo: { in: shipmentNos as string[] },
-                        status: 'A',
-                        RevenueAmount: { gt: 0 },
-                        RevenueVoucherHeaderSid: null
-                    }
-                });
-                unbookedRevenueClear = unbookedRevenue.length === 0;
-            }
-        }
-        accounts.push({ label: 'Unbooked Revenue to WIP', passed: unbookedRevenueClear });
-
-        // Job Closer checks
-        const jobClose: { label: string; passed: boolean; nonBlocking?: boolean }[] = [];
-
-        // Job to SubJob done
-        jobClose.push({ label: 'Job to SubJob done', passed: hasHouses });
-
-        // All previous closers done
-        const allPreviousClosed =
-            masterJobOthers?.DocCloseStatus === 'Closed' &&
-            masterJobOthers?.OpsCloseStatus === 'Closed' &&
-            masterJobOthers?.AccCloseStatus === 'Closed';
-        jobClose.push({ label: 'All previous closers done', passed: allPreviousClosed });
-
-        // Job Profit or Loss (informational, non-blocking)
-        jobClose.push({ label: 'Job Profit or Loss', passed: jobProfitable, nonBlocking: true });
+        const documentation = await runCategory('documentation');
+        const operation = await runCategory('operation');
+        const accounts = await runCategory('accounts');
+        const jobClose = await runCategory('jobClose');
 
         return { documentation, operation, accounts, jobClose };
     }
@@ -6115,6 +6121,7 @@ console.log('Created product:', createdProduct);
                 select: {
                     MasterJobSid: true,
                     DepartmentMasterSid: true,
+                    CompanyMasterSid: true,
                 }
             });
 
@@ -6146,7 +6153,8 @@ console.log('Created product:', createdProduct);
             const houseJobSids = houseJobs.map(h => h.HouseJobSid);
 
             const milestoneChecks = await this.computeMilestoneChecks(
-                MasterJobSid, houseJobSids, department?.ExportImport || '', masterJobOthers
+                MasterJobSid, houseJobSids, department?.ExportImport || '', masterJobOthers,
+                masterJob.CompanyMasterSid, department?.departmentType || ''
             );
 
             // Validate each closer being set to "Closed"
