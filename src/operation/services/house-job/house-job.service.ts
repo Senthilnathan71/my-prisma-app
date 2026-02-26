@@ -39,7 +39,14 @@ export class HouseJobService {
                 throw new BadRequestException('Department not found.');
             }
 
-            const menuId = await this.menuService.getMenuSidByName(department.departmentType?.toUpperCase() === 'AIR' ? "House Air Waybill" : "House Job");
+            const isAgentMasterAirWaybill = String(payload.JobType || '').toLowerCase() === 'agent';
+            const menuId = await this.menuService.getMenuSidByName(
+                isAgentMasterAirWaybill
+                    ? "Agent Master Air Waybill"
+                    : department.departmentType?.toUpperCase() === 'AIR'
+                        ? "House Air Waybill"
+                        : "House Job"
+            );
             // ================= RESOLVE JOB DATE FIRST =================
             let resolvedJobDate: Date = payload.HBLDate
                 ? new Date(payload.HBLDate)
@@ -666,6 +673,7 @@ export class HouseJobService {
                             MasterJobSid: true,
                             NoofOriginal: true,
                             MasterJobNumber: true,
+                            MenuMasterSid: true,
                             MBLNo: true,
                             WeightIn: true,
                             containers: true,
@@ -687,9 +695,13 @@ export class HouseJobService {
                 throw new BadRequestException('Error fetching house job record.');
             }
 
+            const isAgentMasterAirWaybill = String(ourHouseJob.JobType || '').toLowerCase() === 'agent';
             const menuId = await this.menuService.getMenuSidByName(
-                ourHouseJob.departmentMaster?.departmentType?.toUpperCase() === 'AIR' ?
-                    "House Air Waybill" : "House Job"
+                isAgentMasterAirWaybill
+                    ? "Agent Master Air Waybill"
+                    : ourHouseJob.departmentMaster?.departmentType?.toUpperCase() === 'AIR'
+                        ? "House Air Waybill"
+                        : "House Job"
             );
 
             const costRevenuePayload = {
@@ -758,7 +770,14 @@ export class HouseJobService {
                 throw new BadRequestException('Department not found.');
             }
 
-            const menuId = await this.menuService.getMenuSidByName(department.departmentType?.toUpperCase() === 'AIR' ? "House Air Waybill" : "House Job");
+           const isAgentMasterAirWaybill = String(payload.JobType || '').toLowerCase() === 'agent';
+            const menuId = await this.menuService.getMenuSidByName(
+                isAgentMasterAirWaybill
+                    ? "Agent Master Air Waybill"
+                    : department.departmentType?.toUpperCase() === 'AIR'
+                        ? "House Air Waybill"
+                        : "House Job"
+            );
 
             const updatedHouseJob = await this._db.$transaction(async (prisma) => {
 

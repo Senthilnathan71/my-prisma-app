@@ -63,6 +63,8 @@ import { OutstandingService } from 'src/accounts/services/outstanding/outstandin
 import { CompanyConfigService } from 'src/masters/services/company/company-config.service';
 import { VoucherCorrectionController } from './controllers/voucher-correction/voucher-correction.controller';
 import { VoucherCorrectionService } from './services/voucher-correction/voucher-correction.service';
+import { AgentMasterAirWaybillService } from './services/agent-master-air-waybill/agent-master-air-waybill.service';
+import { AgentMasterAirWaybillController } from './controllers/agent-master-air-waybill/agent-master-air-waybill.controller';
 
 @Module({
         imports: [CommonModule, SettingsModule],
@@ -103,7 +105,8 @@ import { VoucherCorrectionService } from './services/voucher-correction/voucher-
                 VoucherPeriodService,
                 OutstandingService,
                 CompanyConfigService,
-                VoucherCorrectionService
+                VoucherCorrectionService,
+                AgentMasterAirWaybillService,
         ],
         controllers: [
                 BookingController,
@@ -131,7 +134,8 @@ import { VoucherCorrectionService } from './services/voucher-correction/voucher-
                 ReverseVoucherController,
                 VoucherMatchingController,
                 ShipmentMilestoneController,
-                VoucherCorrectionController
+                VoucherCorrectionController,
+                AgentMasterAirWaybillController
         ]
 })
 export class OperationModule { }
