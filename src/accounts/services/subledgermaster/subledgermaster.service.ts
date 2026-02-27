@@ -633,6 +633,7 @@ export class SubledgermasterService {
                 chargeCode: true,
                 chargeName: true,  
                 UOM: true,
+                DepartmentMasterSid : true,
 
                 chargeTaxMaster: {
                     where: {
@@ -672,6 +673,7 @@ export class SubledgermasterService {
                 ChargeTds: charge.chargeTds,
                 CrCOAMasterSid: mapping?.CrCOAMasterSid,
                 SubledgerMasterSid: mapping?.subledgerMasterSid,
+                Departments : charge.DepartmentMasterSid
             };
         });
     } catch (error) {
@@ -717,6 +719,7 @@ export class SubledgermasterService {
                 chargeCode: true,
                 chargeName: true,  
                 UOM: true,
+                DepartmentMasterSid : true,
 
                 chargeTaxMaster: {
                     where: {
@@ -757,6 +760,7 @@ export class SubledgermasterService {
                 ChargeTds: charge.chargeTds,
                 DrCOAMappedId: mapping?.DrCOAMasterSid,
                 SubledgerMasterSid: mapping?.subledgerMasterSid,
+                Departments : charge.DepartmentMasterSid
             };
         });
 

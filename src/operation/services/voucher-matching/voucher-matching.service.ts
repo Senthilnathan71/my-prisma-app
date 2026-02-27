@@ -1232,7 +1232,7 @@ export class VoucherMatchingService {
         // 1. Get Exchange Rate Mismatch Ledger from company config
         const exchangeRateLedgerSid = toNumber(await this.companyConfigService.getConfigurationValue(params.CompanyMasterSid, 'ExchangeJVCOA'));
         if (!exchangeRateLedgerSid) {
-            throw new BadRequestException('Exchange Rate Mismatch Ledger not configured. Please configure it in Company Settings.');
+            throw new BadRequestException('Exchange Rate Mismatch Ledger not configured. Please configure it in Company Configuration.');
         }
 
         // 2. Get JV VoucherTypeMaster

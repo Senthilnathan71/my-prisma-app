@@ -337,6 +337,12 @@ export class VendorInvoiceService {
                     currencyMaster: true,
                     masterJob: true,
                     houseJob: true,
+                    departmentMaster : {
+                        select : {
+                            departmentName : true,
+                            departmentType : true,
+                        }
+                    },
                     BookingHeader : {
                         select : {
                             BookingHeaderSid : true,

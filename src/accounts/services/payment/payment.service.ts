@@ -1218,10 +1218,19 @@ export class PaymentService {
                     where,
                     include: {
                         VoucherDetail: {
+                            where: {
+                                coaMaster: {
+                                    OR: [
+                                        { LedgerType: 'Bank' },
+                                        { LedgerType: 'Cash' }
+                                    ]
+                                },
+                                Status: 'A'
+                            },
                             orderBy: { Sno: 'asc' },
                             take: 1,
                             select: {
-                                LocalAmount: true,
+                                PartyAmount: true,
                             }
                         }
                     },
