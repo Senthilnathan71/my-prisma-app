@@ -154,6 +154,10 @@ export class FetchOutstandingVouchers {
   Take: number;
 
   @IsOptional()
+  @IsNumber()
+  COAMasterSid?: number;
+
+  @IsOptional()
   @Type(() => Date)
   @IsDate()
   VoucherMatchingDate?: Date;

@@ -218,7 +218,7 @@ export class VoucherMatchingService {
 
     // {"CompanyMasterSid":55,"BranchMasterSid":349,"LedgerMasterSid":612,"DrCr":"D","Skip":0,"Take":10}
     async getOutstandingForALedger(payload: FetchOutstandingVouchers): Promise<any> {
-        const { CompanyMasterSid, BranchMasterSid, LedgerMasterSid, DrCr, Skip = 0, Take = 50, VoucherMatchingDate } = payload;
+        const { CompanyMasterSid, BranchMasterSid, LedgerMasterSid, DrCr, Skip = 0, Take = 50, COAMasterSid, VoucherMatchingDate } = payload;
         const customerOutstanding = await this.outstandingService.getCustomerOutstanding(
             CompanyMasterSid,
             LedgerMasterSid,
@@ -249,6 +249,10 @@ export class VoucherMatchingService {
             ChargeDescription: txn.chargeDescription,
         }));
         let result = vouchers;
+
+        if (COAMasterSid) {
+            result = result.filter((inv) => inv.COAMasterSid === COAMasterSid);
+        }
 
         if (VoucherMatchingDate) {
             const matchingDate = new Date(VoucherMatchingDate);
