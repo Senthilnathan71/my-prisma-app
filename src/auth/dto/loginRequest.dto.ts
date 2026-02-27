@@ -1,5 +1,5 @@
 import { ApiProperty } from "@nestjs/swagger"
-import { IsNotEmpty, isNotEmpty, IsOptional, IsString, isString } from "class-validator" 
+import { IsBoolean, IsNotEmpty, isNotEmpty, IsOptional, IsString, isString } from "class-validator"
 
 export class LoginRequest{
     @ApiProperty({type: String, default: ''})
@@ -20,4 +20,9 @@ export class LoginRequest{
     @ApiProperty({type: String, default: ''})
     @IsString()
     location?: string;
+
+    @ApiProperty({ type: Boolean, default: false, required: false })
+    @IsOptional()
+    @IsBoolean()
+    forceLogin?: boolean;
 }

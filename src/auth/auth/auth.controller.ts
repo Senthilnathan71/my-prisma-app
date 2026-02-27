@@ -3,7 +3,7 @@ import { UserService } from './../../masters/services/user.service';
 import { BadRequestException, Body, Controller, Get, HttpCode, HttpException, HttpStatus, InternalServerErrorException, Logger, Patch, Post, Req, UnauthorizedException } from '@nestjs/common';
 import { ResponseData } from '../../common/response-data';
 import { AuthService } from './auth.service';
-import { checkPassword, encodePassword } from 'src/common/helper';
+import { checkPassword, encodePassword, getClientIp } from 'src/common/helper';
 import { LoginRequest } from '../dto/loginRequest.dto';
 import { ApiBody, ApiCreatedResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtStrategy } from './jwt.strategy';
@@ -13,6 +13,7 @@ import { ConfigService } from '@nestjs/config';
 import { EmailService } from 'src/email/email.service';
 import { TokenPayload } from 'src/common/decorators/token-payload.decorator';
 import { CreateUserDto } from '../dto/create-user.dto';
+import { Auth } from 'src/common/decorators/auth.decorator';
 
 @Controller('auth')
 @ApiTags('Auth')
@@ -68,13 +69,44 @@ export class AuthController {
                 throw new UnauthorizedException('Incorrect password.');
             }
 
+            // Session restriction: check if user is already logged in elsewhere
+            const existingSession = await this.authService.getActiveSession(user.UserMasterSid);
+
+            if (existingSession && !loginData.forceLogin) {
+                const staleThreshold = 3 * 60 * 60 * 1000; // 3 hours
+                const isStale = (Date.now() - existingSession.lastActivity.getTime()) > staleThreshold;
+
+                if (!isStale) {
+                    output.status = false;
+                    output.message = 'SESSION_ACTIVE_ELSEWHERE';
+                    output.data = {
+                        activeSessionInfo: {
+                            ipAddress: existingSession.ipAddress,
+                            location: existingSession.location,
+                            loginTime: existingSession.createdOn
+                        }
+                    };
+                    return output;
+                }
+            }
+
+            // Create session token and embed in JWT
+            const ipAddress = getClientIp(req);
+            const userAgent = req.headers['user-agent'] || 'Unknown';
+            const sessionToken = await this.authService.createSession(
+                user.UserMasterSid,
+                ipAddress,
+                userAgent,
+                loginData.location
+            );
+
             // Successful login — populate ResponseData
             output.status = true;
             output.message = 'Login successful';
             output.data = {
                 user: await this.authService.getUser(user.UserMasterSid),
                 token: await this.jwtService.sign(
-                    { id: user.UserMasterSid, projectType: loginData.projectType },
+                    { id: user.UserMasterSid, projectType: loginData.projectType, sessionToken },
                     { expiresIn: '3h' }
                 )
             };
@@ -244,5 +276,59 @@ export class AuthController {
             output.message = error.message || 'Internal Server Error';
         }
         return output
+    }
+
+
+    @ApiOperation({ summary: 'Check if current session is still valid (heartbeat)' })
+    @Get('session/heartbeat')
+    @Auth()
+    async sessionHeartbeat(@UserData() user: any, @TokenPayload() tokenPayload: any) {
+        const output = new ResponseData();
+        try {
+            const sessionToken = tokenPayload?.sessionToken;
+            if (!sessionToken) {
+                // Legacy token without sessionToken — allow for backward compatibility
+                output.status = true;
+                output.message = 'LEGACY_TOKEN';
+                return output;
+            }
+
+            const isValid = await this.authService.validateSessionToken(user.UserMasterSid, sessionToken);
+
+            if (!isValid) {
+                output.status = false;
+                output.message = 'SESSION_INVALIDATED';
+                return output;
+            }
+
+            // Session is valid — update lastActivity
+            await this.authService.touchSession(user.UserMasterSid);
+            output.status = true;
+            output.message = 'SESSION_VALID';
+        } catch (error) {
+            this.logger.error(`Session heartbeat error: ${error.message}`);
+            output.status = false;
+            output.message = 'SESSION_CHECK_FAILED';
+        }
+        return output;
+    }
+
+
+    @ApiOperation({ summary: 'Explicit logout — invalidate session' })
+    @Post('logout')
+    @Auth()
+    @HttpCode(HttpStatus.OK)
+    async logout(@UserData() user: any) {
+        const output = new ResponseData();
+        try {
+            await this.authService.invalidateSession(user.UserMasterSid);
+            output.status = true;
+            output.message = 'Logged out successfully';
+        } catch (error) {
+            this.logger.error(`Logout error: ${error.message}`);
+            output.status = false;
+            output.message = 'Logout failed';
+        }
+        return output;
     }
 }

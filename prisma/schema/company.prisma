@@ -280,6 +280,7 @@ model UserMaster {
   countryMaster                      CountryMaster?               @relation(fields: [CountryMasterSid], references: [CountryMasterSid])
   userType                           UserType?                    @relation(fields: [userTypeId], references: [UserTypeSid])
   userRoleMaster                     UserRoleMaster[]
+  activeSession                      ActiveSession?
 }
 
 model UserBranchMaster {
@@ -1983,6 +1984,18 @@ model UserLoginHistory {
   deletedAt          DateTime?
   status             String?    @default("A") @db.Char(1)
   user               UserMaster @relation(fields: [userId], references: [UserMasterSid])
+}
+
+model ActiveSession {
+  ActiveSessionId Int        @id @default(autoincrement()) @map("ActiveSessionId")
+  userId          Int        @unique
+  sessionToken    String     @db.VarChar(64)
+  ipAddress       String?    @db.VarChar(45)
+  userAgent       String?    @db.VarChar(500)
+  location        String?    @db.VarChar(255)
+  createdOn       DateTime   @default(now()) @db.Timestamptz(6)
+  lastActivity    DateTime   @default(now()) @db.Timestamptz(6)
+  user            UserMaster @relation(fields: [userId], references: [UserMasterSid])
 }
 
 model MilestoneMaster {
