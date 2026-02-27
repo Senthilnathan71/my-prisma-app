@@ -103,13 +103,14 @@ export class CoaService {
      * 1. Receipt detail part
      * 
      */
-    async getCOAByLedgerCategory(ledgerCategory: string, CompanyMasterSid: number) {
+    async getCOAByLedgerCategory(ledgerCategory: string, CompanyMasterSid: number , filterNonJob ?: boolean) {
         try {
             const allCoaWithSpecificLedgerCategory = await this._db.cOAMaster.findMany({
                 where: {
                     LedgerCategory: ledgerCategory,
                     Status: 'A',
-                    CompanyMasterSid: CompanyMasterSid
+                    CompanyMasterSid: CompanyMasterSid,
+                    ...(filterNonJob ? { JobNoRequire : 'N' } : {})
                 },
                 select: {
                     COAMasterSid: true,
