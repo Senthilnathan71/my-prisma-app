@@ -243,6 +243,12 @@ export class PaymentService {
                     Amount: true,
                     LocalAmount: true,
                     voucherMatchings: { where: { Status: 'A' } },
+                    VoucherHeader : {
+                        select : {
+                            DocumentNumber : true,
+                            DocumentDate : true
+                        }
+                    }
                 }
             });
 
@@ -280,6 +286,8 @@ export class PaymentService {
                 LedgerMasterSid: transactionDetail?.LedgerMasterSid,
                 COAMasterSid: transactionDetail?.COAMasterSid,
                 VoucherNumber: transactionDetail?.VoucherNumber,
+                BillNo : transactionDetail?.VoucherHeader?.DocumentNumber,
+                BillDate : transactionDetail?.VoucherHeader?.DocumentDate,
                 VoucherTypeMasterSid: transactionDetail?.VoucherTypeMasterSid,
                 VoucherType: transactionDetail?.voucherTypeMaster?.DocumentTypeCode,
                 VoucherDate: transactionDetail?.VoucherDate,
