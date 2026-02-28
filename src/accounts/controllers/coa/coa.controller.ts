@@ -355,7 +355,7 @@ export class CoaController {
     })
     @HttpCode(HttpStatus.OK)
     @Post('cashOrBank')
-    async getCoaByLedgerType(@Body() body: { LedgerType: 'Cash' | 'Bank'; CompanyMasterSid: number }) {
+    async getCoaByLedgerType(@Body() body: { LedgerType: 'Cash' | 'Bank'; CompanyMasterSid: number; filterNonJob?: boolean }) {
         let resp = new ResponseData();
         try {
             if(!body.LedgerType){
@@ -364,7 +364,7 @@ export class CoaController {
             if(!body.CompanyMasterSid){
                 throw new BadRequestException('CompanyMasterSid is required');
             }
-            let res = await this.coaService.getCOAByCashOrBank(body.LedgerType, body.CompanyMasterSid);
+            let res = await this.coaService.getCOAByCashOrBank(body.LedgerType, body.CompanyMasterSid, body.filterNonJob);
             this.logger.log(`Coa by LedgerType : ${JSON.stringify(res)}`);
             resp.data = res;
             resp.message = "Coa by LedgerType is successfully fetched";

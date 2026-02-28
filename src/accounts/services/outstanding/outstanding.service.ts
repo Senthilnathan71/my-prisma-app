@@ -145,7 +145,8 @@ export class OutstandingService {
     companyMasterSid: number,
     ledgerMasterSid: number,
     exception ?: DocTypeCode,
-    BranchMasterSid ?: number
+    BranchMasterSid ?: number,
+    ledgerType ?: string
   ): Promise<CustomerOutstandingResponseDto> {
     try {
       this.logger.log(
@@ -173,6 +174,7 @@ export class OutstandingService {
               DocumentTypeCode : { not : exception }
             },
           } : {}),
+          ...(ledgerType ? { coaMaster: { LedgerType: ledgerType } } : {}),
       }
 
       const voucherTransactions = await this._db.voucherTransaction.findMany({

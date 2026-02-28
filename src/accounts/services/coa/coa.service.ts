@@ -531,11 +531,12 @@ export class CoaService {
         }
     }
 
-    async getCOAByCashOrBank(LedgerType: 'Cash' | 'Bank', CompanyMasterSid: number) {
+    async getCOAByCashOrBank(LedgerType: 'Cash' | 'Bank', CompanyMasterSid: number, filterNonJob?: boolean) {
         try {
             const whereClause : any = {
                 Status : 'A',
-                CompanyMasterSid : CompanyMasterSid
+                CompanyMasterSid : CompanyMasterSid,
+                ...(filterNonJob ? { JobNoRequire: 'N' } : {})
             }
             if (Array.isArray(LedgerType)) {
                 whereClause.LedgerType = {
