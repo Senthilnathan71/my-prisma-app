@@ -18,6 +18,8 @@ import { TrialBalanceController } from './controllers/trial-balance/trial-balanc
 import { TrialBalanceService } from './services/trial-balance/trial-balance.service';
 import { AccountsReportsController } from './controllers/accounts-reports/accounts-reports.controller';
 import { AccountsReportsService } from './services/accounts-reports/accounts-reports.service';
+import { ManagementReportsController } from './controllers/management-reports/management-reports.controller';
+import { ManagementReportsService } from './services/management-reports/management-reports.service';
 import { GlobalConfigService } from 'src/common/config/master-config.service';
 import { ReportExportService } from 'src/common/services/report-export.service';
 import { VoucherService } from 'src/operation/services/voucher/voucher.service';
@@ -35,6 +37,7 @@ import { CompanyConfigService } from 'src/masters/services/company/company-confi
         JournalVoucherController,
         TrialBalanceController,
         AccountsReportsController,
+        ManagementReportsController,
         PaymentController
     ],
     providers: [
@@ -49,6 +52,7 @@ import { CompanyConfigService } from 'src/masters/services/company/company-confi
         JournalVoucherService,
         TrialBalanceService,
         AccountsReportsService,
+        ManagementReportsService,
         ReportExportService,
         Logger,
         VoucherService,

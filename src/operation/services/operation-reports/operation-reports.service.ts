@@ -5419,7 +5419,7 @@ export class OperationReportsService {
         },
       });
 
-      const makeKey = (sid: number, dept: number) => `${sid}_${dept}`;
+      const makeKey = (sid: number) => `${sid}`;
 
       const quotationMap = new Map<number, number>();
 
@@ -5429,23 +5429,19 @@ export class OperationReportsService {
         }
       });
 
-      const enquiryMap = new Map<string, number>();
-      enquiryCount.forEach((e) => {
-        if (e.UserMasterSid && e.DepartmentMasterSid) {
-          enquiryMap.set(
-            makeKey(e.UserMasterSid, e.DepartmentMasterSid),
-            e._count._all,
-          );
+      const enquiryMap = new Map<number, number>();
+     enquiryCount.forEach((e) => {
+        if (e.UserMasterSid !== null) {
+          const prev = enquiryMap.get(e.UserMasterSid) || 0;
+          enquiryMap.set(e.UserMasterSid, prev + e._count._all);
         }
       });
 
-      const bookingMap = new Map<string, number>();
+      const bookingMap = new Map<number, number>();
       bookingCount.forEach((b) => {
-        if (b.SalesmanSid && b.DepartmentMasterSid) {
-          bookingMap.set(
-            makeKey(b.SalesmanSid, b.DepartmentMasterSid),
-            b._count._all,
-          );
+        if (b.SalesmanSid) {
+          const prev = bookingMap.get(b.SalesmanSid) || 0;
+          bookingMap.set(b.SalesmanSid, prev + b._count._all);
         }
       });
 
@@ -5474,34 +5470,26 @@ export class OperationReportsService {
         departments.map((d) => [d.DepartmentMasterSid, d.departmentName]),
       );
 
-      const salesmanSummary: any[] = [];
+     const salesmanSummary: any[] = [];
 
-      for (const dept of resolvedDeptIds) {
-        const departmentName = departmentMap.get(dept) || '';
-        for (const user of allSalesman) {
-          const key = makeKey(user.UserMasterSid, dept);
+      for (const user of allSalesman) {
+        const q = quotationMap.get(user.UserMasterSid) || 0;
+        const e = enquiryMap.get(user.UserMasterSid) || 0;
+        const b = bookingMap.get(user.UserMasterSid) || 0;
+        const l = leadMap.get(user.UserMasterSid) || 0;
+        const m = meetingMap.get(user.UserMasterSid) || 0;
+        const o = opportunityMap.get(user.UserMasterSid) || 0;
 
-          const q = quotationMap.get(user.UserMasterSid) || 0;
-          const e = enquiryMap.get(key) || 0;
-          const b = bookingMap.get(key) || 0;
-          const l = leadMap.get(user.UserMasterSid) || 0;
-          const m = meetingMap.get(user.UserMasterSid) || 0;
-          const o = opportunityMap.get(user.UserMasterSid) || 0;
-          if (q || e || b || l || m || o) {
-            salesmanSummary.push({
-              DepartmentMasterSid: dept,
-              DepartmentName: departmentName,
-              SalesmanSid: user.UserMasterSid,
-              SalesmanName: user.userName,
-              TotalQuotations: q,
-              TotalEnquiries: e,
-              TotalBookings: b,
-              TotalLeads: l,
-              TotalMeetings: m,
-              TotalOpportunity: o,
-            });
-          }
-        }
+        salesmanSummary.push({
+          SalesmanSid: user.UserMasterSid,
+          SalesmanName: user.userName,
+          TotalQuotations: q,
+          TotalEnquiries: e,
+          TotalBookings: b,
+          TotalLeads: l,
+          TotalMeetings: m,
+          TotalOpportunity: o,
+        });
       }
 
       // -------Customer O/S------------
@@ -5625,42 +5613,44 @@ export class OperationReportsService {
 
       const customerRows = Array.from(customerRowsMap.values());
       // ----Bank/Cash----
-      const AllBankCash = await this._db.voucherHeader.findMany({
-        where: {
-          CompanyMasterSid,
-          BranchMasterSid: { in: resolvedBranchIds },
-          DepartmentMasterSid: { in: resolvedDeptIds },
-          AND: [
-            { VoucherDate: { gte: FromDate } },
-            { VoucherDate: { lte: ToDate } },
-          ],
-          Status: 'A',
-          subledgerMaster: {
-            Status: 'A',
-            SubledgerType: 'Customer',
-          },
-        },
-        select: {
-          CashOrBank: true,
-          LocalAmount: true,
-          Amount: true,
-          subledgerMaster: {
-            select: {
-              SubledgerMasterSid: true,
-              SubledgerType: true,
-              SubledgerName: true,
-            },
-          },
-          VoucherDetail: {
-            select: {
-              DrCr: true,
-              LedgerMasterSid: true,
-              COAMasterSid: true,
-            },
-          },
-        },
-        orderBy: { VoucherDate: 'asc' },
-      });
+    const AllBankCash = await this._db.voucherHeader.findMany({
+  where: {
+    CompanyMasterSid,
+    BranchMasterSid: { in: resolvedBranchIds },
+    DepartmentMasterSid: { in: resolvedDeptIds },
+    VoucherDate: { gte: FromDate, lte: ToDate },
+    Status: 'A',
+    subledgerMaster: {
+      Status: 'A',
+      SubledgerType: 'Customer',
+    },
+    coaMaster: {
+      LedgerType: {
+        in: ['Bank', 'Cash']
+      }
+    }
+  },
+  select: {
+    CashOrBank: true,
+    LocalAmount: true,
+    Amount: true,
+    subledgerMaster: {
+      select: {
+        SubledgerMasterSid: true,
+        SubledgerType: true,
+        SubledgerName: true,
+      },
+    },
+    VoucherDetail: {
+      select: {
+        DrCr: true,
+        LedgerMasterSid: true,
+        COAMasterSid: true,
+      },
+    },
+  },
+  orderBy: { VoucherDate: 'asc' },
+});
 
       const coamaster = await this._db.cOAMaster.findMany({
         select: {
@@ -5671,33 +5661,39 @@ export class OperationReportsService {
 
       const customerMap = new Map<number, any>();
 
-      AllBankCash.filter((bc) => bc.subledgerMaster).forEach((bc) => {
-        if (!bc.subledgerMaster) return;
-        const drCr = bc.VoucherDetail?.[0]?.DrCr;
-        const subId = bc.subledgerMaster.SubledgerMasterSid;
+     AllBankCash.filter((bc) => bc.subledgerMaster).forEach((bc) => {
+  if (!bc.subledgerMaster) return;
 
-        const drAmount = drCr === 'D' ? Number(bc.LocalAmount) : 0;
-        const crAmount = drCr === 'C' ? Number(bc.LocalAmount) : 0;
+  const subId = bc.subledgerMaster.SubledgerMasterSid;
 
-        if (!customerMap.has(subId)) {
-          customerMap.set(subId, {
-            SubledgerMasterSid: subId,
-            SubledgerName: bc.subledgerMaster.SubledgerName,
-            Account:
-              coamaster.find(
-                (c) => c.COAMasterSid === bc.VoucherDetail?.[0]?.COAMasterSid,
-              )?.LedgerName || '',
-            DrAmount: 0,
-            CrAmount: 0,
-            Balance: 0,
-          });
-        }
+  if (!customerMap.has(subId)) {
+    customerMap.set(subId, {
+      SubledgerMasterSid: subId,
+      SubledgerName: bc.subledgerMaster.SubledgerName,
+      Account: '',
+      DrAmount: 0,
+      CrAmount: 0,
+      Balance: 0,
+    });
+  }
 
-        const customer = customerMap.get(subId);
-        customer.DrAmount += drAmount;
-        customer.CrAmount += crAmount;
-        customer.Balance += drAmount - crAmount;
-      });
+  const customer = customerMap.get(subId);
+
+  bc.VoucherDetail?.forEach((vd) => {
+    const drAmount = vd.DrCr === 'D' ? Number(bc.LocalAmount) : 0;
+    const crAmount = vd.DrCr === 'C' ? Number(bc.LocalAmount) : 0;
+
+    customer.DrAmount += drAmount;
+    customer.CrAmount += crAmount;
+    customer.Balance += drAmount - crAmount;
+
+    if (!customer.Account) {
+      customer.Account =
+        coamaster.find((c) => c.COAMasterSid === vd.COAMasterSid)
+          ?.LedgerName || '';
+    }
+  });
+});
 
       const AllCashAndBank = Array.from(customerMap.values());
 
