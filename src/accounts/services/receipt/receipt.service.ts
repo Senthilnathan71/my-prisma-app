@@ -54,6 +54,9 @@ export class ReceiptService {
         const customerOutstanding = await this.outstandingService.getCustomerOutstanding(
           searchDto.CompanyMasterSid,
           searchDto.LedgerMasterSid,
+          undefined,
+          searchDto.BranchMasterSid,
+          searchDto.LedgerType,
         );
 
         // Convert to OutstandingInvoiceDto format
@@ -118,10 +121,12 @@ export class ReceiptService {
   private async advancedSearchOutstanding(searchDto: SearchOutstandingDto): Promise<OutstandingInvoiceDto[]> {
     const whereConditions: Prisma.VoucherTransactionWhereInput = {
       CompanyMasterSid: searchDto.CompanyMasterSid,
+      ...(searchDto.BranchMasterSid ? { BranchMasterSid: searchDto.BranchMasterSid } : {}),
       subledgerMaster : {
         SubledgerType : 'Customer'
       },
       Status: 'A',
+      ...(searchDto.LedgerType ? { coaMaster: { LedgerType: searchDto.LedgerType } } : {}),
     };
 
     // Build dynamic where clause based on search criteria
@@ -371,14 +376,27 @@ export class ReceiptService {
       return await this._db.$transaction(async (prisma) => {
 
         // 1. Get VoucherType for 'Receipt'
-        const voucherType = await prisma.voucherTypeMaster.findFirst({
+        const cashOrBankType = payload.CashOrBank === 'C' ? 'Cash' : 'Bank';
+        let voucherType = await prisma.voucherTypeMaster.findFirst({
           where: {
             DocumentTypeCode : DOC_TYPE_CODE.RECEIPT,
             CompanyMasterSid: payload.CompanyMasterSid,
             BranchMasterSid: payload.BranchMasterSid,
+            Type: cashOrBankType,
             status : 'A'
           },
         });
+        if (!voucherType) {
+          voucherType = await prisma.voucherTypeMaster.findFirst({
+            where: {
+              DocumentTypeCode : DOC_TYPE_CODE.RECEIPT,
+              CompanyMasterSid: payload.CompanyMasterSid,
+              BranchMasterSid: payload.BranchMasterSid,
+              Type: 'Others',
+              status : 'A'
+            },
+          });
+        }
         if (!voucherType) {
           throw new BadRequestException('Receipt Voucher Type not found');
         }
@@ -587,15 +605,27 @@ export class ReceiptService {
         }
 
         // 2. Validate Voucher Type
-        const voucherType = await prisma.voucherTypeMaster.findFirst({
-          where: { 
+        const cashOrBankType = payload.CashOrBank === 'C' ? 'Cash' : 'Bank';
+        let voucherType = await prisma.voucherTypeMaster.findFirst({
+          where: {
             DocumentTypeCode : DOC_TYPE_CODE.RECEIPT,
             CompanyMasterSid : payload.CompanyMasterSid,
             BranchMasterSid : payload.BranchMasterSid,
+            Type: cashOrBankType,
             status : 'A'
           },
         });
-
+        if (!voucherType) {
+          voucherType = await prisma.voucherTypeMaster.findFirst({
+            where: {
+              DocumentTypeCode : DOC_TYPE_CODE.RECEIPT,
+              CompanyMasterSid : payload.CompanyMasterSid,
+              BranchMasterSid : payload.BranchMasterSid,
+              Type: 'Others',
+              status : 'A'
+            },
+          });
+        }
         if (!voucherType) {
           throw new BadRequestException('Receipt Voucher Type not found');
         }
@@ -743,6 +773,24 @@ export class ReceiptService {
         });
 
         const updatedCreatedDetails = await Promise.all(detailOperations);
+
+        // Soft-delete detail rows that were removed from the payload (not present in incoming list)
+        const incomingDetailSids = (detailItems || [])
+          .map((d: any) => Number(d.VoucherDetailSid))
+          .filter((sid: number) => sid > 0);
+
+        await prisma.voucherDetail.updateMany({
+          where: {
+            VoucherHeaderSid,
+            ...(incomingDetailSids.length > 0 ? { VoucherDetailSid: { notIn: incomingDetailSids } } : {}),
+            Status: 'A',
+          },
+          data: {
+            Status: 'D',
+            UpdatedBy: payload.UpdatedBy || 'System',
+            UpdatedOn: new Date(),
+          },
+        });
 
         // ========================================
         // 6. Handle MatchingDetail: Update if ID exists, Create if not

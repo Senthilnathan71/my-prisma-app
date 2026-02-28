@@ -216,6 +216,14 @@ export class SearchOutstandingDto {
   @IsOptional()
   @IsString()
   DrCr?: string; // 'D' or 'C'
+
+  @IsOptional()
+  @IsString()
+  LedgerType?: string; // e.g. 'Sy Dr' for receipt, 'Sy Cr' for payment
+
+  @IsOptional()
+  @IsNumber()
+  BranchMasterSid?: number;
 }
 
 /**
