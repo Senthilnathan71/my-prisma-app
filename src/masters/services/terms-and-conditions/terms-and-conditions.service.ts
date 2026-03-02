@@ -142,184 +142,184 @@ export class TermsAndConditionsService {
     // }
 
     async createNewTermCond(payload) {
-    try {
-        const {
-            departmentOnTerms,
-            departmentId,
-            departments,
-            termsAndConditionDetail,
-            termsAndConditionsDetail,
-            termsAndConditionsDetails,
-            ...termCondInput
-        } = payload;
-
-        const rawDepartments = departmentOnTerms ?? departmentId ?? departments ?? [];
-        const inputDepartments = Array.isArray(rawDepartments)
-            ? rawDepartments
-            : rawDepartments ? [rawDepartments] : [];
-
-        const rawDetails =
-            termsAndConditionDetail ??
-            termsAndConditionsDetail ??
-            termsAndConditionsDetails ??
-            [];
-
-        const inputDetails = Array.isArray(rawDetails)
-            ? rawDetails
-            : [rawDetails];
-
-        const normalizedDepartments = inputDepartments
-            .map((item: any) => {
-                if (typeof item === 'object' && item !== null) {
-                    return Number(item.departmentId ?? item.DepartmentMasterSid);
-                }
-                return Number(item);
-            })
-            .filter((id: number) => Number.isInteger(id) && id > 0)
-            .sort((a, b) => a - b); // sort for exact match comparison
-
-        if (!termCondInput.BranchMasterSid) {
-            throw new BadRequestException('BranchMasterSid is required');
-        }
-
-        if (!termCondInput.MenuMasterSid) {
-            throw new BadRequestException('MenuMasterSid is required');
-        }
-
-        const mergedObj = await this._db.$transaction(async (prisma) => {
+        try {
             const {
-                CompanyMasterSid,
-                BranchMasterSid,
-                MenuMasterSid,
-                POL,
-                POD,
-                FDC,
-                Carrier,
-                ...masterInput
-            } = termCondInput;
+                departmentOnTerms,
+                departmentId,
+                departments,
+                termsAndConditionDetail,
+                termsAndConditionsDetail,
+                termsAndConditionsDetails,
+                ...termCondInput
+            } = payload;
 
-            const formattedPOL = Array.isArray(POL) ? [...POL].sort() : [];
-            const formattedPOD = Array.isArray(POD) ? [...POD].sort() : [];
-            const formattedFDC = Array.isArray(FDC) ? [...FDC].sort() : [];
+            const rawDepartments = departmentOnTerms ?? departmentId ?? departments ?? [];
+            const inputDepartments = Array.isArray(rawDepartments)
+                ? rawDepartments
+                : rawDepartments ? [rawDepartments] : [];
 
-            // 🔎 STRICT DUPLICATE CHECK
-            const existingMasters = await prisma.termsAndConditionsMaster.findMany({
-                where: {
-                    CompanyMasterSid: Number(CompanyMasterSid),
-                    BranchMasterSid: Number(BranchMasterSid),
-                    MenuMasterSid: Number(MenuMasterSid),
-                    Carrier: Carrier ?? null,
-                    status: 'A',
-                    POL: { equals: formattedPOL },
-                    POD: { equals: formattedPOD },
-                    FDC: { equals: formattedFDC }
-                },
-                include: {
-                    departments: {
-                        where: { status: 'A' }
+            const rawDetails =
+                termsAndConditionDetail ??
+                termsAndConditionsDetail ??
+                termsAndConditionsDetails ??
+                [];
+
+            const inputDetails = Array.isArray(rawDetails)
+                ? rawDetails
+                : [rawDetails];
+
+            const normalizedDepartments = inputDepartments
+                .map((item: any) => {
+                    if (typeof item === 'object' && item !== null) {
+                        return Number(item.departmentId ?? item.DepartmentMasterSid);
                     }
-                }
-            });
+                    return Number(item);
+                })
+                .filter((id: number) => Number.isInteger(id) && id > 0)
+                .sort((a, b) => a - b); // sort for exact match comparison
 
-            for (const master of existingMasters) {
-                const existingDeptIds = master.departments
-                    .map(d => d.departmentId)
-                    .sort((a, b) => a - b);
-
-                const isSameDepartments =
-                    JSON.stringify(existingDeptIds) === JSON.stringify(normalizedDepartments);
-
-                if (isSameDepartments) {
-                    throw new BadRequestException(
-                        'Terms & Conditions already exists with same Branch, Menu, Department, POL, POD and FDC combination'
-                    );
-                }
+            if (!termCondInput.BranchMasterSid) {
+                throw new BadRequestException('BranchMasterSid is required');
             }
 
-            // ✅ CREATE MASTER
-            const createdTermCond = await prisma.termsAndConditionsMaster.create({
-                data: {
-                    ...masterInput,
-                    CompanyMasterSid: CompanyMasterSid ? Number(CompanyMasterSid) : null,
-                    BranchMasterSid: Number(BranchMasterSid),
-                    MenuMasterSid: Number(MenuMasterSid),
-                    Carrier: Carrier ?? null,
-                    POL: formattedPOL,
-                    POD: formattedPOD,
-                    FDC: formattedFDC,
-                    status: 'A'
-                }
-            });
-
-            // ✅ CREATE DEPARTMENTS (if any)
-            let finalDepartments: any[] = [];
-
-            if (normalizedDepartments.length > 0) {
-                await prisma.departmentOnTerms.createMany({
-                    data: normalizedDepartments.map((deptId: number) => ({
-                        termsId: createdTermCond.TermsAndConditionsMasterSid,
-                        departmentId: deptId,
-                        status: 'A'
-                    }))
-                });
-
-                finalDepartments = await prisma.departmentOnTerms.findMany({
-                    where: {
-                        termsId: createdTermCond.TermsAndConditionsMasterSid
-                    }
-                });
+            if (!termCondInput.MenuMasterSid) {
+                throw new BadRequestException('MenuMasterSid is required');
             }
 
-            // ✅ NORMALIZE DETAILS
-            const normalizedDetails = inputDetails
-                .map((item: any) => ({
-                    TandC: item?.TandC ?? item?.Terms ?? '',
-                    Type: item?.Type ?? null,
-                    TypeValue: item?.TypeValue ?? null,
-                    IsDefaut: item?.IsDefaut ?? 'A',
-                    createdBy: item?.createdBy ?? createdTermCond.createdBy,
-                    status: item?.status ?? 'A'
-                }))
-                .filter((item: any) => String(item.TandC).trim().length > 0);
+            const mergedObj = await this._db.$transaction(async (prisma) => {
+                const {
+                    CompanyMasterSid,
+                    BranchMasterSid,
+                    MenuMasterSid,
+                    POL,
+                    POD,
+                    FDC,
+                    Carrier,
+                    ...masterInput
+                } = termCondInput;
 
-            let detailData: any[] = [];
+                const formattedPOL = Array.isArray(POL) ? [...POL].sort() : [];
+                const formattedPOD = Array.isArray(POD) ? [...POD].sort() : [];
+                const formattedFDC = Array.isArray(FDC) ? [...FDC].sort() : [];
 
-            if (normalizedDetails.length > 0) {
-                await prisma.termsAndConditionsDetail.createMany({
-                    data: normalizedDetails.map((item: any) => ({
-                        TermsAndConditionsMasterSid:
-                            createdTermCond.TermsAndConditionsMasterSid,
-                        TandC: item.TandC,
-                        Type: item.Type,
-                        TypeValue: item.TypeValue,
-                        IsDefaut: item.IsDefaut,
-                        createdBy: item.createdBy,
-                        status: item.status
-                    }))
+                // 🔎 STRICT DUPLICATE CHECK
+                const existingMasters = await prisma.termsAndConditionsMaster.findMany({
+                    where: {
+                        CompanyMasterSid: Number(CompanyMasterSid),
+                        BranchMasterSid: Number(BranchMasterSid),
+                        MenuMasterSid: Number(MenuMasterSid),
+                        Carrier: Carrier ?? null,
+                        status: 'A',
+                        POL: { equals: formattedPOL },
+                        POD: { equals: formattedPOD },
+                        FDC: { equals: formattedFDC }
+                    },
+                    include: {
+                        departments: {
+                            where: { status: 'A' }
+                        }
+                    }
                 });
 
-                detailData = await prisma.termsAndConditionsDetail.findMany({
-                    where: {
-                        TermsAndConditionsMasterSid:
-                            createdTermCond.TermsAndConditionsMasterSid,
+                for (const master of existingMasters) {
+                    const existingDeptIds = master.departments
+                        .map(d => d.departmentId)
+                        .sort((a, b) => a - b);
+
+                    const isSameDepartments =
+                        JSON.stringify(existingDeptIds) === JSON.stringify(normalizedDepartments);
+
+                    if (isSameDepartments) {
+                        throw new BadRequestException(
+                            'Terms & Conditions already exists with same Branch, Menu, Department, POL, POD and FDC combination'
+                        );
+                    }
+                }
+
+                // ✅ CREATE MASTER
+                const createdTermCond = await prisma.termsAndConditionsMaster.create({
+                    data: {
+                        ...masterInput,
+                        CompanyMasterSid: CompanyMasterSid ? Number(CompanyMasterSid) : null,
+                        BranchMasterSid: Number(BranchMasterSid),
+                        MenuMasterSid: Number(MenuMasterSid),
+                        Carrier: Carrier ?? null,
+                        POL: formattedPOL,
+                        POD: formattedPOD,
+                        FDC: formattedFDC,
                         status: 'A'
                     }
                 });
-            }
 
-            return {
-                tandCData: createdTermCond,
-                departmentData: finalDepartments,
-                detailData
-            };
-        });
+                // ✅ CREATE DEPARTMENTS (if any)
+                let finalDepartments: any[] = [];
 
-        return mergedObj;
+                if (normalizedDepartments.length > 0) {
+                    await prisma.departmentOnTerms.createMany({
+                        data: normalizedDepartments.map((deptId: number) => ({
+                            termsId: createdTermCond.TermsAndConditionsMasterSid,
+                            departmentId: deptId,
+                            status: 'A'
+                        }))
+                    });
 
-    } catch (error) {
-        throw error;
+                    finalDepartments = await prisma.departmentOnTerms.findMany({
+                        where: {
+                            termsId: createdTermCond.TermsAndConditionsMasterSid
+                        }
+                    });
+                }
+
+                // ✅ NORMALIZE DETAILS
+                const normalizedDetails = inputDetails
+                    .map((item: any) => ({
+                        TandC: item?.TandC ?? item?.Terms ?? '',
+                        Type: item?.Type ?? null,
+                        TypeValue: item?.TypeValue ?? null,
+                        IsDefaut: item?.IsDefaut ?? 'A',
+                        createdBy: item?.createdBy ?? createdTermCond.createdBy,
+                        status: item?.status ?? 'A'
+                    }))
+                    .filter((item: any) => String(item.TandC).trim().length > 0);
+
+                let detailData: any[] = [];
+
+                if (normalizedDetails.length > 0) {
+                    await prisma.termsAndConditionsDetail.createMany({
+                        data: normalizedDetails.map((item: any) => ({
+                            TermsAndConditionsMasterSid:
+                                createdTermCond.TermsAndConditionsMasterSid,
+                            TandC: item.TandC,
+                            Type: item.Type,
+                            TypeValue: item.TypeValue,
+                            IsDefaut: item.IsDefaut,
+                            createdBy: item.createdBy,
+                            status: item.status
+                        }))
+                    });
+
+                    detailData = await prisma.termsAndConditionsDetail.findMany({
+                        where: {
+                            TermsAndConditionsMasterSid:
+                                createdTermCond.TermsAndConditionsMasterSid,
+                            status: 'A'
+                        }
+                    });
+                }
+
+                return {
+                    tandCData: createdTermCond,
+                    departmentData: finalDepartments,
+                    detailData
+                };
+            });
+
+            return mergedObj;
+
+        } catch (error) {
+            throw error;
+        }
     }
-}
 
 
     async fetchTermCondById(TermsAndConditionsMasterSid: number) {
@@ -355,234 +355,224 @@ export class TermsAndConditionsService {
     }
 
     async updateTermCondById(TermsAndConditionsMasterSid: number, payload) {
-    try {
-        const exist = await this._db.termsAndConditionsMaster.findUnique({
-            where: { TermsAndConditionsMasterSid }
-        });
-
-        if (!exist) {
-            throw new BadRequestException(
-                `Terms and Conditions with Id : ${TermsAndConditionsMasterSid} not exists`
-            );
-        }
-
-        const result = await this._db.$transaction(async (prisma) => {
-
-            const {
-                departmentOnTerms,
-                departmentId,
-                departments,
-                termsAndConditionDetail,
-                termsAndConditionsDetail,
-                termsAndConditionsDetails,
-                ...TandCUpdateData
-            } = payload;
-
-            const {
-                CompanyMasterSid,
-                BranchMasterSid,
-                MenuMasterSid,
-                POL,
-                POD,
-                FDC,
-                Carrier,
-                ...masterInput
-            } = TandCUpdateData;
-
-            const formattedPOL = Array.isArray(POL) ? [...POL].sort() : [];
-            const formattedPOD = Array.isArray(POD) ? [...POD].sort() : [];
-            const formattedFDC = Array.isArray(FDC) ? [...FDC].sort() : [];
-
-            // ----------------------------
-            // 🔎 NORMALIZE DEPARTMENTS
-            // ----------------------------
-            const rawDepartments = departmentOnTerms ?? departmentId ?? departments ?? [];
-            const inputDepartments = Array.isArray(rawDepartments)
-                ? rawDepartments
-                : rawDepartments ? [rawDepartments] : [];
-
-            const normalizedDepartments = inputDepartments
-                .map((item: any) => {
-                    if (typeof item === 'object' && item !== null) {
-                        return Number(item.departmentId ?? item.DepartmentMasterSid);
-                    }
-                    return Number(item);
-                })
-                .filter((id: number) => Number.isInteger(id) && id > 0)
-                .sort((a, b) => a - b);
-
-            // ----------------------------
-            // 🔴 STRICT DUPLICATE CHECK
-            // ----------------------------
-            const existingMasters = await prisma.termsAndConditionsMaster.findMany({
-                where: {
-                    TermsAndConditionsMasterSid: { not: TermsAndConditionsMasterSid },
-                    CompanyMasterSid: Number(CompanyMasterSid),
-                    BranchMasterSid: Number(BranchMasterSid),
-                    MenuMasterSid: Number(MenuMasterSid),
-                    Carrier: Carrier ?? null,
-                    status: 'A',
-                    POL: { equals: formattedPOL },
-                    POD: { equals: formattedPOD },
-                    FDC: { equals: formattedFDC }
-                },
-                include: {
-                    departments: {
-                        where: { status: 'A' }
-                    }
-                }
+        try {
+            const exist = await this._db.termsAndConditionsMaster.findUnique({
+                where: { TermsAndConditionsMasterSid }
             });
 
-            for (const master of existingMasters) {
-                const existingDeptIds = master.departments
-                    .map(d => d.departmentId)
-                    .sort((a, b) => a - b);
-
-                const isSameDepartments =
-                    JSON.stringify(existingDeptIds) === JSON.stringify(normalizedDepartments);
-
-                if (isSameDepartments) {
-                    throw new BadRequestException(
-                        'Another Terms & Conditions already exists with same Branch, Menu, Department, POL, POD and FDC combination'
-                    );
-                }
+            if (!exist) {
+                throw new BadRequestException(
+                    `Terms and Conditions with Id : ${TermsAndConditionsMasterSid} not exists`
+                );
             }
 
-            // ----------------------------
-            // ✅ UPDATE MASTER
-            // ----------------------------
-            const updatedTermCond = await prisma.termsAndConditionsMaster.update({
-                where: { TermsAndConditionsMasterSid },
-                data: {
-                    ...masterInput,
-                    CompanyMasterSid: CompanyMasterSid ? Number(CompanyMasterSid) : null,
-                    BranchMasterSid: BranchMasterSid ? Number(BranchMasterSid) : undefined,
-                    MenuMasterSid: MenuMasterSid ? Number(MenuMasterSid) : undefined,
-                    Carrier: Carrier ?? null,
-                    POL: formattedPOL,
-                    POD: formattedPOD,
-                    FDC: formattedFDC
-                }
-            });
+            const result = await this._db.$transaction(async (prisma) => {
 
-            // ----------------------------
-            // ✅ UPSERT DEPARTMENTS
-            // ----------------------------
-            const finalDepartments: any[] = [];
+                const {
+                    departmentOnTerms,
+                    departmentId,
+                    departments,
+                    termsAndConditionDetail,
+                    termsAndConditionsDetail,
+                    termsAndConditionsDetails,
+                    ...TandCUpdateData
+                } = payload;
 
-            for (const deptId of normalizedDepartments) {
+                const {
+                    CompanyMasterSid,
+                    BranchMasterSid,
+                    MenuMasterSid,
+                    POL,
+                    POD,
+                    FDC,
+                    Carrier,
+                    ...masterInput
+                } = TandCUpdateData;
 
-                const existingDept = await prisma.departmentOnTerms.findFirst({
+                const formattedPOL = Array.isArray(POL) ? [...POL].sort() : [];
+                const formattedPOD = Array.isArray(POD) ? [...POD].sort() : [];
+                const formattedFDC = Array.isArray(FDC) ? [...FDC].sort() : [];
+
+                // ----------------------------
+                // 🔎 NORMALIZE DEPARTMENTS
+                // ----------------------------
+                const rawDepartments = departmentOnTerms ?? departmentId ?? departments ?? [];
+                const inputDepartments = Array.isArray(rawDepartments)
+                    ? rawDepartments
+                    : rawDepartments ? [rawDepartments] : [];
+
+                const normalizedDepartments = inputDepartments
+                    .map((item: any) => {
+                        if (typeof item === 'object' && item !== null) {
+                            return Number(item.departmentId ?? item.DepartmentMasterSid);
+                        }
+                        return Number(item);
+                    })
+                    .filter((id: number) => Number.isInteger(id) && id > 0)
+                    .sort((a, b) => a - b);
+
+                // ----------------------------
+                // 🔴 STRICT DUPLICATE CHECK
+                // ----------------------------
+                const existingMasters = await prisma.termsAndConditionsMaster.findMany({
                     where: {
-                        termsId: TermsAndConditionsMasterSid,
-                        departmentId: deptId
+                        TermsAndConditionsMasterSid: { not: TermsAndConditionsMasterSid },
+                        CompanyMasterSid: Number(CompanyMasterSid),
+                        BranchMasterSid: Number(BranchMasterSid),
+                        MenuMasterSid: Number(MenuMasterSid),
+                        Carrier: Carrier ?? null,
+                        status: 'A',
+                        POL: { equals: formattedPOL },
+                        POD: { equals: formattedPOD },
+                        FDC: { equals: formattedFDC }
+                    },
+                    include: {
+                        departments: {
+                            where: { status: 'A' }
+                        }
                     }
                 });
 
-                if (!existingDept) {
-                    const createdDept = await prisma.departmentOnTerms.create({
-                        data: {
+                for (const master of existingMasters) {
+                    const existingDeptIds = master.departments
+                        .map(d => d.departmentId)
+                        .sort((a, b) => a - b);
+
+                    const isSameDepartments =
+                        JSON.stringify(existingDeptIds) === JSON.stringify(normalizedDepartments);
+
+                    if (isSameDepartments) {
+                        throw new BadRequestException(
+                            'Another Terms & Conditions already exists with same Branch, Menu, Department, POL, POD and FDC combination'
+                        );
+                    }
+                }
+
+                // ----------------------------
+                // ✅ UPDATE MASTER
+                // ----------------------------
+                const updatedTermCond = await prisma.termsAndConditionsMaster.update({
+                    where: { TermsAndConditionsMasterSid },
+                    data: {
+                        ...masterInput,
+                        CompanyMasterSid: CompanyMasterSid ? Number(CompanyMasterSid) : null,
+                        BranchMasterSid: BranchMasterSid ? Number(BranchMasterSid) : undefined,
+                        MenuMasterSid: MenuMasterSid ? Number(MenuMasterSid) : undefined,
+                        Carrier: Carrier ?? null,
+                        POL: formattedPOL,
+                        POD: formattedPOD,
+                        FDC: formattedFDC
+                    }
+                });
+
+                // ----------------------------
+                // ✅ UPSERT DEPARTMENTS
+                // ----------------------------
+                await prisma.departmentOnTerms.deleteMany({
+                    where: {
+                        termsId: TermsAndConditionsMasterSid
+                    }
+                });
+
+                // 2️⃣ Insert only newly selected departments
+                let finalDepartments: any[] = [];
+
+                if (normalizedDepartments.length > 0) {
+                    await prisma.departmentOnTerms.createMany({
+                        data: normalizedDepartments.map((deptId) => ({
                             termsId: TermsAndConditionsMasterSid,
                             departmentId: deptId,
                             status: 'A'
-                        }
+                        }))
                     });
-                    finalDepartments.push(createdDept);
-                } else {
-                    const updatedDept = await prisma.departmentOnTerms.update({
-                        where: {
-                            DepartmentOnTermSid: existingDept.DepartmentOnTermSid
-                        },
-                        data: { status: 'A' }
-                    });
-                    finalDepartments.push(updatedDept);
+
+                    finalDepartments = normalizedDepartments;
                 }
-            }
 
-            // ----------------------------
-            // ✅ HANDLE DETAILS
-            // ----------------------------
-            const rawDetails =
-                termsAndConditionDetail ??
-                termsAndConditionsDetail ??
-                termsAndConditionsDetails ??
-                [];
+                // ----------------------------
+                // ✅ HANDLE DETAILS
+                // ----------------------------
+                const rawDetails =
+                    termsAndConditionDetail ??
+                    termsAndConditionsDetail ??
+                    termsAndConditionsDetails ??
+                    [];
 
-            const inputDetails = Array.isArray(rawDetails)
-                ? rawDetails
-                : [rawDetails];
+                const inputDetails = Array.isArray(rawDetails)
+                    ? rawDetails
+                    : [rawDetails];
 
-            const normalizedDetails = inputDetails
-                .map((item: any) => ({
-                    TermsAndConditionsDetailSid:
-                        item?.TermsAndConditionsDetailSid
-                            ? Number(item.TermsAndConditionsDetailSid)
-                            : null,
-                    TandC: item?.TandC ?? item?.Terms ?? '',
-                    Type: item?.Type ?? null,
-                    TypeValue: item?.TypeValue ?? null,
-                    IsDefaut: item?.IsDefaut ?? 'A',
-                    status: item?.status ?? 'A',
-                    updatedBy: payload?.updatedBy ?? null
-                }))
-                .filter((item: any) => String(item.TandC).trim().length > 0);
+                const normalizedDetails = inputDetails
+                    .map((item: any) => ({
+                        TermsAndConditionsDetailSid:
+                            item?.TermsAndConditionsDetailSid
+                                ? Number(item.TermsAndConditionsDetailSid)
+                                : null,
+                        TandC: item?.TandC ?? item?.Terms ?? '',
+                        Type: item?.Type ?? null,
+                        TypeValue: item?.TypeValue ?? null,
+                        IsDefaut: item?.IsDefaut ?? 'A',
+                        status: item?.status ?? 'A',
+                        updatedBy: payload?.updatedBy ?? null
+                    }))
+                    .filter((item: any) => String(item.TandC).trim().length > 0);
 
-            const finalDetails: any[] = [];
+                const finalDetails: any[] = [];
 
-            for (const item of normalizedDetails) {
+                for (const item of normalizedDetails) {
 
-                if (item.TermsAndConditionsDetailSid) {
-                    const updatedDetail =
-                        await prisma.termsAndConditionsDetail.update({
-                            where: {
-                                TermsAndConditionsDetailSid:
-                                    item.TermsAndConditionsDetailSid
-                            },
-                            data: {
-                                TandC: item.TandC,
-                                Type: item.Type,
-                                TypeValue: item.TypeValue,
-                                IsDefaut: item.IsDefaut,
-                                status: item.status,
-                                updatedBy: item.updatedBy
-                            }
-                        });
+                    if (item.TermsAndConditionsDetailSid) {
+                        const updatedDetail =
+                            await prisma.termsAndConditionsDetail.update({
+                                where: {
+                                    TermsAndConditionsDetailSid:
+                                        item.TermsAndConditionsDetailSid
+                                },
+                                data: {
+                                    TandC: item.TandC,
+                                    Type: item.Type,
+                                    TypeValue: item.TypeValue,
+                                    IsDefaut: item.IsDefaut,
+                                    status: item.status,
+                                    updatedBy: item.updatedBy
+                                }
+                            });
 
-                    finalDetails.push(updatedDetail);
-                } else {
-                    const createdDetail =
-                        await prisma.termsAndConditionsDetail.create({
-                            data: {
-                                TermsAndConditionsMasterSid,
-                                TandC: item.TandC,
-                                Type: item.Type,
-                                TypeValue: item.TypeValue,
-                                IsDefaut: item.IsDefaut,
-                                createdBy:
-                                    payload?.updatedBy ??
-                                    updatedTermCond.updatedBy ??
-                                    updatedTermCond.createdBy,
-                                status: item.status
-                            }
-                        });
+                        finalDetails.push(updatedDetail);
+                    } else {
+                        const createdDetail =
+                            await prisma.termsAndConditionsDetail.create({
+                                data: {
+                                    TermsAndConditionsMasterSid,
+                                    TandC: item.TandC,
+                                    Type: item.Type,
+                                    TypeValue: item.TypeValue,
+                                    IsDefaut: item.IsDefaut,
+                                    createdBy:
+                                        payload?.updatedBy ??
+                                        updatedTermCond.updatedBy ??
+                                        updatedTermCond.createdBy,
+                                    status: item.status
+                                }
+                            });
 
-                    finalDetails.push(createdDetail);
+                        finalDetails.push(createdDetail);
+                    }
                 }
-            }
 
-            return {
-                tandCData: updatedTermCond,
-                departmentData: finalDepartments,
-                detailData: finalDetails
-            };
-        });
+                return {
+                    tandCData: updatedTermCond,
+                    departmentData: finalDepartments,
+                    detailData: finalDetails
+                };
+            });
 
-        return result;
+            return result;
 
-    } catch (error) {
-        throw error;
+        } catch (error) {
+            throw error;
+        }
     }
-}
 
 
 
@@ -862,111 +852,111 @@ export class TermsAndConditionsService {
     // }
 
     async createTandCTransaction(payload: any) {
-    const {
-        CompanyMasterSid,
-        BranchMasterSid,
-        MenuMasterSid,
-        createdBy,
-        TandC,
-        IsDefaut,
-        POL,
-        POD,
-        FDC,
-        Carrier,
-        DepartmentMasterSid,
-        DocumentSid
-    } = payload;
-
-    if (!CompanyMasterSid || !BranchMasterSid || !MenuMasterSid || !createdBy || !TandC) {
-        throw new BadRequestException('Missing required fields');
-    }
-
-    return await this._db.$transaction(async (tx) => {
-
-        // 🔎 Build strict duplicate check condition
-        const duplicateWhere: any = {
+        const {
             CompanyMasterSid,
             BranchMasterSid,
             MenuMasterSid,
-            status: 'A',
-            Carrier: Carrier ?? null,
-            POL: POL ? { equals: [POL] } : { equals: [] },
-            POD: POD ? { equals: [POD] } : { equals: [] },
-            FDC: FDC ? { equals: [FDC] } : { equals: [] },
-        };
+            createdBy,
+            TandC,
+            IsDefaut,
+            POL,
+            POD,
+            FDC,
+            Carrier,
+            DepartmentMasterSid,
+            DocumentSid
+        } = payload;
 
-        if (DepartmentMasterSid != null) {
-            duplicateWhere.departments = {
-                some: {
-                    departmentId: DepartmentMasterSid,
-                    status: 'A'
-                }
-            };
+        if (!CompanyMasterSid || !BranchMasterSid || !MenuMasterSid || !createdBy || !TandC) {
+            throw new BadRequestException('Missing required fields');
         }
 
-        // 🚫 Check duplicate master
-        const existingMaster = await tx.termsAndConditionsMaster.findFirst({
-            where: duplicateWhere
-        });
+        return await this._db.$transaction(async (tx) => {
 
-        if (existingMaster) {
-            throw new BadRequestException(
-                'Terms & Conditions already exists for the same Department, POL, POD, FDC and Carrier combination'
-            );
-        }
-
-        // 🆕 Create Master
-        const newMaster = await tx.termsAndConditionsMaster.create({
-            data: {
+            // 🔎 Build strict duplicate check condition
+            const duplicateWhere: any = {
                 CompanyMasterSid,
                 BranchMasterSid,
                 MenuMasterSid,
+                status: 'A',
                 Carrier: Carrier ?? null,
-                POL: POL ? { set: [POL] } : { set: [] },
-                POD: POD ? { set: [POD] } : { set: [] },
-                FDC: FDC ? { set: [FDC] } : { set: [] },
-                createdBy,
-                status: 'A',
+                POL: POL ? { equals: [POL] } : { equals: [] },
+                POD: POD ? { equals: [POD] } : { equals: [] },
+                FDC: FDC ? { equals: [FDC] } : { equals: [] },
+            };
 
-                ...(DepartmentMasterSid != null && {
-                    departments: {
-                        create: {
-                            departmentId: DepartmentMasterSid,
-                            status: 'A'
-                        }
+            if (DepartmentMasterSid != null) {
+                duplicateWhere.departments = {
+                    some: {
+                        departmentId: DepartmentMasterSid,
+                        status: 'A'
                     }
-                })
+                };
             }
-        });
 
-        // ✅ Create Detail
-        const newDetail = await tx.termsAndConditionsDetail.create({
-            data: {
-                TermsAndConditionsMasterSid:
-                    newMaster.TermsAndConditionsMasterSid,
-                TandC,
-                IsDefaut,
-                createdBy,
-                status: 'A',
-            },
-        });
+            // 🚫 Check duplicate master
+            const existingMaster = await tx.termsAndConditionsMaster.findFirst({
+                where: duplicateWhere
+            });
 
-        // ✅ Transaction record
-        await tx.tandCTransaction.create({
-            data: {
-                CompanyMasterSid,
-                TandCMasterSid: newMaster.TermsAndConditionsMasterSid,
-                TandCDetailSid: newDetail.TermsAndConditionsDetailSid,
-                Terms: TandC,
-                DocumentSid,
-                createdBy,
-                status: 'A',
-            },
-        });
+            if (existingMaster) {
+                throw new BadRequestException(
+                    'Terms & Conditions already exists for the same Department, POL, POD, FDC and Carrier combination'
+                );
+            }
 
-        return newDetail;
-    });
-}
+            // 🆕 Create Master
+            const newMaster = await tx.termsAndConditionsMaster.create({
+                data: {
+                    CompanyMasterSid,
+                    BranchMasterSid,
+                    MenuMasterSid,
+                    Carrier: Carrier ?? null,
+                    POL: POL ? { set: [POL] } : { set: [] },
+                    POD: POD ? { set: [POD] } : { set: [] },
+                    FDC: FDC ? { set: [FDC] } : { set: [] },
+                    createdBy,
+                    status: 'A',
+
+                    ...(DepartmentMasterSid != null && {
+                        departments: {
+                            create: {
+                                departmentId: DepartmentMasterSid,
+                                status: 'A'
+                            }
+                        }
+                    })
+                }
+            });
+
+            // ✅ Create Detail
+            const newDetail = await tx.termsAndConditionsDetail.create({
+                data: {
+                    TermsAndConditionsMasterSid:
+                        newMaster.TermsAndConditionsMasterSid,
+                    TandC,
+                    IsDefaut,
+                    createdBy,
+                    status: 'A',
+                },
+            });
+
+            // ✅ Transaction record
+            await tx.tandCTransaction.create({
+                data: {
+                    CompanyMasterSid,
+                    TandCMasterSid: newMaster.TermsAndConditionsMasterSid,
+                    TandCDetailSid: newDetail.TermsAndConditionsDetailSid,
+                    Terms: TandC,
+                    DocumentSid,
+                    createdBy,
+                    status: 'A',
+                },
+            });
+
+            return newDetail;
+        });
+    }
 
     async getTandCByCondition(payload: TandCPayload) {
         try {
