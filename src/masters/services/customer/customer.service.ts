@@ -96,7 +96,7 @@ export class CustomerService {
                             Contact_Person: branch.Contact_Person,
                             Zip_PostBox: branch.Zip_PostBox,
                             ContactNo: branch.ContactNo,
-                            Email: branch.Email,
+                            Email: branch.Email ?? '',
                             Address: branch.Address,
                             Registered: branch.Registered,
                             CustomerGstType: branch.CustomerGstType,
@@ -876,7 +876,7 @@ export class CustomerService {
                             Contact_Person: branch.Contact_Person,
                             Zip_PostBox: branch.Zip_PostBox,
                             ContactNo: branch.ContactNo,
-                            Email: branch.Email,
+                            Email: branch.Email ?? '',
                             Address: branch.Address,
                             Registered: branch.Registered,
                             CustomerGstType: branch.CustomerGstType,
@@ -900,7 +900,7 @@ export class CustomerService {
                             Contact_Person: branch.Contact_Person,
                             Zip_PostBox: branch.Zip_PostBox,
                             ContactNo: branch.ContactNo,
-                            Email: branch.Email,
+                            Email: branch.Email ?? '',
                             Address: branch.Address,
                             Registered: branch.Registered,
                             CustomerGstType: branch.CustomerGstType,
@@ -1647,3 +1647,4 @@ export class CustomerService {
     }
 
 }
+
