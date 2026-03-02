@@ -89,6 +89,8 @@ model BookingHeader {
   quotationRoute             QuoteRoute?
   VoucherHeader              VoucherHeader[]
   VoucherOthers              VoucherOthers[]
+
+  @@unique([CompanyMasterSid,BookingNo ], name: "uq_bookingno_company")
 }
 
 model BookingCargo {
