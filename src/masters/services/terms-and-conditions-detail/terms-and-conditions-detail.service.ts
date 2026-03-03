@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
+import { statusWhereClause } from 'src/common/helper';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 
@@ -10,7 +11,7 @@ export class TermsAndConditionsDetailService {
         try {
             const allTCDetails = await this._db.termsAndConditionsDetail.findMany({
                 where : {
-                    status:'A'
+                    status: statusWhereClause
                 }
             })
             return allTCDetails;
