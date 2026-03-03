@@ -5430,7 +5430,7 @@ export class OperationReportsService {
       });
 
       const enquiryMap = new Map<number, number>();
-     enquiryCount.forEach((e) => {
+      enquiryCount.forEach((e) => {
         if (e.UserMasterSid !== null) {
           const prev = enquiryMap.get(e.UserMasterSid) || 0;
           enquiryMap.set(e.UserMasterSid, prev + e._count._all);
@@ -5470,7 +5470,7 @@ export class OperationReportsService {
         departments.map((d) => [d.DepartmentMasterSid, d.departmentName]),
       );
 
-     const salesmanSummary: any[] = [];
+      const salesmanSummary: any[] = [];
 
       for (const user of allSalesman) {
         const q = quotationMap.get(user.UserMasterSid) || 0;
@@ -5613,90 +5613,71 @@ export class OperationReportsService {
 
       const customerRows = Array.from(customerRowsMap.values());
       // ----Bank/Cash----
-    const AllBankCash = await this._db.voucherHeader.findMany({
-  where: {
-    CompanyMasterSid,
-    BranchMasterSid: { in: resolvedBranchIds },
-    DepartmentMasterSid: { in: resolvedDeptIds },
-    VoucherDate: { gte: FromDate, lte: ToDate },
-    Status: 'A',
-    subledgerMaster: {
-      Status: 'A',
-      SubledgerType: 'Customer',
-    },
-    coaMaster: {
-      LedgerType: {
-        in: ['Bank', 'Cash']
-      }
-    }
-  },
-  select: {
-    CashOrBank: true,
-    LocalAmount: true,
-    Amount: true,
-    subledgerMaster: {
-      select: {
-        SubledgerMasterSid: true,
-        SubledgerType: true,
-        SubledgerName: true,
-      },
-    },
-    VoucherDetail: {
-      select: {
-        DrCr: true,
-        LedgerMasterSid: true,
-        COAMasterSid: true,
-      },
-    },
-  },
-  orderBy: { VoucherDate: 'asc' },
-});
-
-      const coamaster = await this._db.cOAMaster.findMany({
-        select: {
-          COAMasterSid: true,
-          LedgerName: true,
+      const cashBankTxns = await this._db.voucherTransaction.findMany({
+        where: {
+          CompanyMasterSid,
+          BranchMasterSid: { in: resolvedBranchIds },
+          // DepartmentMasterSid: { in: resolvedDeptIds },
+          AND: [
+            { VoucherDate: { gte: FromDate } },
+            { VoucherDate: { lte: ToDate } },
+          ],
+          VoucherHeader : {
+            PostStatus : 'P'
+          },
+          Status: 'A',
+          coaMaster: {
+            LedgerType: {
+              in: ['Bank', 'Cash'],
+            },
+          },
         },
+        include: {
+          VoucherHeader: {
+            select: {
+              CashOrBank: true,
+            },
+          },
+          coaMaster: true,
+        },
+        orderBy: { VoucherDate: 'asc' },
       });
 
-      const customerMap = new Map<number, any>();
+      const coaMap = new Map<number, any>();
 
-     AllBankCash.filter((bc) => bc.subledgerMaster).forEach((bc) => {
-  if (!bc.subledgerMaster) return;
+      cashBankTxns.filter((vt) => vt.coaMaster).forEach((vt) => {
+        if (!vt.coaMaster) return;
 
-  const subId = bc.subledgerMaster.SubledgerMasterSid;
+        const pkey = vt.coaMaster.COAMasterSid;
 
-  if (!customerMap.has(subId)) {
-    customerMap.set(subId, {
-      SubledgerMasterSid: subId,
-      SubledgerName: bc.subledgerMaster.SubledgerName,
-      Account: '',
-      DrAmount: 0,
-      CrAmount: 0,
-      Balance: 0,
-    });
-  }
+        if (!coaMap.has(pkey)) {
+          coaMap.set(pkey, {
+            COAMasterSid: pkey,
+            LedgerName: vt.coaMaster.LedgerName,
+            Account: '',
+            DrAmount: 0,
+            CrAmount: 0,
+            Balance: 0,
+          });
+        }
 
-  const customer = customerMap.get(subId);
+        const customer = coaMap.get(pkey);
+        // });
 
-  bc.VoucherDetail?.forEach((vd) => {
-    const drAmount = vd.DrCr === 'D' ? Number(bc.LocalAmount) : 0;
-    const crAmount = vd.DrCr === 'C' ? Number(bc.LocalAmount) : 0;
+          const drAmount = vt.DrCr === 'D' ? Number(vt.LocalAmount) : 0;
+          const crAmount = vt.DrCr === 'C' ? Number(vt.LocalAmount) : 0;
 
-    customer.DrAmount += drAmount;
-    customer.CrAmount += crAmount;
-    customer.Balance += drAmount - crAmount;
+          customer.DrAmount += drAmount;
+          customer.CrAmount += crAmount;
+          customer.Balance += drAmount - crAmount;
 
-    if (!customer.Account) {
-      customer.Account =
-        coamaster.find((c) => c.COAMasterSid === vd.COAMasterSid)
-          ?.LedgerName || '';
-    }
-  });
-});
+          if (!customer.Account) {
+            customer.Account = vt?.coaMaster?.LedgerName || '';
+          }
+      });
 
-      const AllCashAndBank = Array.from(customerMap.values());
-
+      const AllCashAndBank = Array.from(coaMap.values());
+    
       // ----Vendor Os ---------
       const vendorOsVouchers = await this._db.voucherTransaction.findMany({
         where: {
