@@ -23,6 +23,15 @@ export class HouseJobService {
         private logger: Logger,
         private numberSeriesService: NumberSeriesService,
     ) { }
+
+    private async getAgentMasterAirWaybillMenuSid() {
+        try {
+            return await this.menuService.getMenuSidByName('Agent Master Air Waybill');
+        } catch {
+            return await this.menuService.getMenuSidByName('AgentMaster Air Waybill');
+        }
+    }
+
     async createHouseJob(payload: any) {
         try {
             if (!payload.DepartmentMasterSid) {
@@ -40,13 +49,13 @@ export class HouseJobService {
             }
 
             const isAgentMasterAirWaybill = String(payload.JobType || '').toLowerCase() === 'agent';
-            const menuId = await this.menuService.getMenuSidByName(
-                isAgentMasterAirWaybill
-                    ? "Agent Master Air Waybill"
-                    : department.departmentType?.toUpperCase() === 'AIR'
+            const menuId = isAgentMasterAirWaybill
+                ? await this.getAgentMasterAirWaybillMenuSid()
+                : await this.menuService.getMenuSidByName(
+                    department.departmentType?.toUpperCase() === 'AIR'
                         ? "House Air Waybill"
                         : "House Job"
-            );
+                );
             // ================= RESOLVE JOB DATE FIRST =================
             let resolvedJobDate: Date = payload.HBLDate
                 ? new Date(payload.HBLDate)
@@ -88,7 +97,10 @@ export class HouseJobService {
 
             // Generate HBL number using NumberSeriesService (for Export only)
             let HBLNo: string | null = null;
-            if (payload.HBLNo && payload.HBLNo.trim() !== '') {
+            if (isAgentMasterAirWaybill) {
+                HBLNo = null;
+            }
+            else if (payload.HBLNo && payload.HBLNo.trim() !== '') {
                 HBLNo = payload.HBLNo.trim();
             }
             // 🎯 Otherwise → Auto generate
@@ -696,13 +708,13 @@ export class HouseJobService {
             }
 
             const isAgentMasterAirWaybill = String(ourHouseJob.JobType || '').toLowerCase() === 'agent';
-            const menuId = await this.menuService.getMenuSidByName(
-                isAgentMasterAirWaybill
-                    ? "Agent Master Air Waybill"
-                    : ourHouseJob.departmentMaster?.departmentType?.toUpperCase() === 'AIR'
+            const menuId = isAgentMasterAirWaybill
+                ? await this.getAgentMasterAirWaybillMenuSid()
+                : await this.menuService.getMenuSidByName(
+                    ourHouseJob.departmentMaster?.departmentType?.toUpperCase() === 'AIR'
                         ? "House Air Waybill"
                         : "House Job"
-            );
+                );
 
             const costRevenuePayload = {
                 TransactionSid: ourHouseJob.HouseJobSid,
@@ -771,13 +783,13 @@ export class HouseJobService {
             }
 
            const isAgentMasterAirWaybill = String(payload.JobType || '').toLowerCase() === 'agent';
-            const menuId = await this.menuService.getMenuSidByName(
-                isAgentMasterAirWaybill
-                    ? "Agent Master Air Waybill"
-                    : department.departmentType?.toUpperCase() === 'AIR'
+            const menuId = isAgentMasterAirWaybill
+                ? await this.getAgentMasterAirWaybillMenuSid()
+                : await this.menuService.getMenuSidByName(
+                    department.departmentType?.toUpperCase() === 'AIR'
                         ? "House Air Waybill"
                         : "House Job"
-            );
+                );
 
             const updatedHouseJob = await this._db.$transaction(async (prisma) => {
 
@@ -843,7 +855,7 @@ export class HouseJobService {
                         CarrierName: payload.CarrierName || '',
                         Coload: payload.Coload || '',
                         GeneralNote: payload.GeneralNote || '',
-                        HBLNo: payload.HBLNo || '',
+                        HBLNo: isAgentMasterAirWaybill ? null : (payload.HBLNo || ''),
                         InternalNote: payload.InternalNote || '',
                         MBLDate: payload.MBLDate || null,
                         MBLNo: payload.MBLNo || '',
