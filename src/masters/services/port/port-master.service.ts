@@ -77,7 +77,13 @@ export class PortService {
               stateName: true,
             },
           },
+          cityMaster:{
+            select:{
+              cityName : true
+            },
+          },
         },
+
         where: {
           status: "A"
         },
@@ -109,6 +115,11 @@ export class PortService {
           stateMaster: {
             select: {
               stateName: true,
+            },
+          },
+          cityMaster:{
+            select:{
+              cityName : true
             },
           },
         },
@@ -205,6 +216,11 @@ export class PortService {
               sectorName: true
             }
           },
+          cityMaster:{
+            select:{
+              cityName : true
+            },
+          },
 
         }
       })
@@ -229,6 +245,7 @@ export class PortService {
             { countryMaster: { countryName: { contains: search, mode: 'insensitive' } } },
             { sectorMaster: { sectorName: { contains: search, mode: 'insensitive' } } },
             { stateMaster: { stateName: { contains: search, mode: 'insensitive' } } },
+            { cityMaster: { cityName: { contains: search, mode: 'insensitive' } } },
             { zoneMaster: { ZoneName: { contains: search, mode: 'insensitive' } } },
             { PortType: { contains: search, mode: 'insensitive' } },
             { TerminalCode: { contains: search, mode: 'insensitive' } },

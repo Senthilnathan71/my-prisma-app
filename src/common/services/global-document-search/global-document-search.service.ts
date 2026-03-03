@@ -135,6 +135,16 @@ export class GlobalDocumentSearchService {
                     MasterJobNumber: true,
                     MBLNo : true,
                     DepartmentMasterSid : true,
+                    houseJob: {
+                        where: {
+                            status: statusWhereClause,
+                            JobType: { equals: 'Agent', mode: 'insensitive' },
+                        },
+                        select: {
+                            HouseJobSid: true,
+                        },
+                        take: 1,
+                    },
                 },
                 take: 5,
             });
@@ -149,13 +159,27 @@ export class GlobalDocumentSearchService {
                     }
                 })
                 const isSeaJob = department?.departmentType.toUpperCase() === 'SEA'
+                const isAgentMasterAirWaybill = !isSeaJob && (m.houseJob?.length || 0) > 0;
+                const searchLower = search.toLowerCase();
+                const matchesMasterJobNumber = (m.MasterJobNumber || '').toLowerCase().includes(searchLower);
+                const matchesMBLNo = (m.MBLNo || '').toLowerCase().includes(searchLower);
+                const documentNumber = matchesMBLNo && !matchesMasterJobNumber ? (m.MBLNo || '') : (m.MasterJobNumber || '');
+                const displayType = isAgentMasterAirWaybill
+                    ? 'AMAWB'
+                    : (matchesMasterJobNumber ? 'Master Job' : `${isSeaJob ? 'MBL' : 'MAWB'}`);
+                const title = isAgentMasterAirWaybill
+                    ? `AMAWB: ${documentNumber}`
+                    : (matchesMasterJobNumber ? `${isSeaJob ? 'Master Job' : 'Master Air Waybill'}: ${m.MasterJobNumber}` : `${isSeaJob ? 'MBL' : 'MAWB'} : ${m.MBLNo}`);
+                const path = isAgentMasterAirWaybill
+                    ? `/operation/agent-master-air-waybill/entry/${m.houseJob[0].HouseJobSid}`
+                    : `/operation/${isSeaJob ? 'master-job' : 'mawbill'}/entry/${m.MasterJobSid}`;
                 return {
                 id: m.MasterJobSid,
-                documentNumber: m.MasterJobNumber || '',
+                documentNumber,
                 documentType: 'MASTER_JOB',
-                displayType: m.MasterJobNumber?.includes(search) ? `Master Job` : `${isSeaJob ? 'MBL' : 'MAWB'}`,
-                path: `/operation/${isSeaJob ? 'master-job' : 'mawbill'}/entry/${m.MasterJobSid}`,
-                title: m.MasterJobNumber?.includes(search) ? `${isSeaJob ? 'Master Job' : 'Master Air Waybill'}: ${m.MasterJobNumber}` : `${isSeaJob ? 'MBL' : 'MAWB'} : ${m.MBLNo}`,
+                displayType,
+                path,
+                title,
                 }
             }));
         } catch (error) {
