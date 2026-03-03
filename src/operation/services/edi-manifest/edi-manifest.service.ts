@@ -676,9 +676,9 @@ export class EDIManifestService {
     }
 
     // 2.45 PACKAGE TYPE (M)
-    if (!cargo.PackageType) {
-      errors.push({ recordType: 'BOL', fieldRef: '2.45', fieldName: 'Package Type', tabName: 'Cargo', houseJobSid, hblNo });
-    }
+    // if (!cargo.PackageType) {
+    //   errors.push({ recordType: 'BOL', fieldRef: '2.45', fieldName: 'Package Type', tabName: 'Cargo', houseJobSid, hblNo });
+    // }
 
     // 2.46 PACKAGE TYPE CODE (M)
     if (!customs.PackageTypeCode) {
@@ -868,14 +868,14 @@ export class EDIManifestService {
     const hblNo = houseJob.HBLNo || '';
     const houseJobSid = houseJob.HouseJobSid;
 
-    for (const product of products) {
-      if (product.ContainerNo) {
-        // 4.4 SEAL NO (M)
-        if (!product.SealNo) {
-          errors.push({ recordType: 'CTR', fieldRef: '4.4', fieldName: `Seal Number for Container ${product.ContainerNo}`, tabName: 'Container', houseJobSid, hblNo });
-        }
-      }
-    }
+    // for (const product of products) {
+    //   if (product.ContainerNo) {
+    //     // 4.4 SEAL NO (M)
+    //     // if (!product.SealNo) {
+    //       errors.push({ recordType: 'CTR', fieldRef: '4.4', fieldName: `Seal Number for Container ${product.ContainerNo}`, tabName: 'Container', houseJobSid, hblNo });
+    //     // }
+    //   }
+    // }
 
     return errors;
   }
