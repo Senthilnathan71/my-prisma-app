@@ -1,5 +1,6 @@
 import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, Post, UnauthorizedException } from '@nestjs/common';
 import { ApiOperation, ApiCreatedResponse } from '@nestjs/swagger';
+import { PullVoucherDTO } from 'src/accounts/dto/voucher.dto';
 import { ResponseData } from 'src/common/response-data';
 import { ReverseVoucherService } from 'src/operation/services/reverse-voucher/reverse-voucher.service';
 class CompanyIdDto {
@@ -207,16 +208,16 @@ export class ReverseVoucherController {
         type: ResponseData
       })
       @HttpCode(HttpStatus.OK)
-      @Get('fetch/voucher/:VoucherHeaderSid')
-      async fetchVoucherById(@Param('VoucherHeaderSid', ParseIntPipe) VoucherHeaderSid: number) {
+      @Post('fetch/voucher')
+      async fetchVoucherById(@Body() payload: PullVoucherDTO) {
         const output = new ResponseData();
         try {
-          const finalOutput = await this.reverseVoucherService.fetchVoucherById(VoucherHeaderSid);
-          this.logger.debug(`fetchVoucherById: ${VoucherHeaderSid}`);
+          const finalOutput = await this.reverseVoucherService.fetchVoucherById(payload);
+          this.logger.debug(`fetchVoucherById: ${payload}`);
           output.data = finalOutput;
           output.message = "Voucher data fetched successfully";
         } catch (error) {
-          this.logger.warn(`fetchVoucherById error for ID ${VoucherHeaderSid}`, (error as any)?.stack || (error as any)?.message || error);
+          this.logger.warn(`fetchVoucherById error for ID ${payload}`, (error as any)?.stack || (error as any)?.message || error);
           output.status = false;
           if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
             output.message = (error as any).message || 'Bad request';
@@ -236,7 +237,7 @@ async postReversalVoucher(
   this.logger.log(`Posting Reversal Voucher for company ${payload.CompanyMasterSid}`);
 
   try {
-    const payment = await this.reverseVoucherService.postReversalVoucher({
+    const payment = await this.reverseVoucherService.postReversalInternal({
       voucherHeaderSid: Number(payload.VoucherHeaderSid),
       companyMasterSid: Number(payload.CompanyMasterSid),
       branchMasterSid: Number(payload.BranchMasterSid),
