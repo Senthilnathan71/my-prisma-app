@@ -23,6 +23,11 @@ export class VoucherCorrectionService {
       BranchMasterSid: activeBranchId,
       Status: statusWhereClause,
       PostStatus: 'P',
+      voucherTypeMaster: {
+    DocumentTypeCode: {
+      not: 'RJV'
+    }
+  },
       ...(search
         ? {
           OR: [

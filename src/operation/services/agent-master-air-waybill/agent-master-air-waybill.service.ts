@@ -16,6 +16,14 @@ export class AgentMasterAirWaybillService {
     private readonly numberSeriesService: NumberSeriesService,
   ) {}
 
+  private async getAgentMasterAirWaybillMenuSid() {
+    try {
+      return await this.menuService.getMenuSidByName('Agent Master Air Waybill');
+    } catch {
+      return await this.menuService.getMenuSidByName('AgentMaster Air Waybill');
+    }
+  }
+
   async createAgentMasterAirWaybill(payload: any) {
     if (!payload.CompanyMasterSid) throw new BadRequestException('CompanyMasterSid is required');
     if (!payload.BranchMasterSid) throw new BadRequestException('BranchMasterSid is required');
@@ -29,7 +37,7 @@ export class AgentMasterAirWaybillService {
     });
     if (!department) throw new BadRequestException('Department not found.');
 
-    const masterMenuId = await this.menuService.getMenuSidByName('Agent Master Air Waybill');
+    const masterMenuId = await this.getAgentMasterAirWaybillMenuSid();
 
     const resolvedJobDate = payload.MBLDate ? new Date(payload.MBLDate) : new Date();
 
@@ -80,6 +88,7 @@ export class AgentMasterAirWaybillService {
       MasterJobSid: masterJob.MasterJobSid,
       MBLNo: payload.MBLNo,
       MBLDate: payload.MBLDate || null,
+      HBLNo: null,
       JobType: 'Agent',
       MenuMasterSid: masterMenuId || null,
     };

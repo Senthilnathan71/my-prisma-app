@@ -388,6 +388,7 @@ model CountryMaster {
   deletedAt         DateTime?
   createdBy         String              @db.VarChar(100)
   updatedBy         String?             @db.VarChar(100)
+  TeleCode          String?             @db.VarChar(10)
   status            String?             @default("A") @db.Char(1)
   CountryMasterSid  Int                 @id @default(autoincrement()) @map("CountryMasterSid")
   LoginSid          Int?
@@ -453,6 +454,7 @@ model CityMaster {
   stateMaster       StateMaster?        @relation(fields: [StateMasterSid], references: [StateMasterSid])
   companyMaster     CompanyMaster[]
   customerBranch    CustomerBranch[]
+  PortMaster        PortMaster[]
   preCustomerMaster PreCustomerMaster[]
 }
 
@@ -522,9 +524,11 @@ model PortMaster {
   PortMasterSid         Int                  @id @default(autoincrement()) @map("PortMasterSid")
   StateMasterSid        Int?
   ZoneMasterSid         Int?
+  CityMasterSid         Int?
   bookingHeader         BookingHeader[]
   customerMaster        CustomerMaster[]
   houseJob              HouseJob[]
+  cityMaster            CityMaster?          @relation(fields: [CityMasterSid], references: [CityMasterSid])
   countryMaster         CountryMaster?       @relation(fields: [CountryMasterSid], references: [CountryMasterSid])
   sectorMaster          SectorMaster?        @relation(fields: [SectorMasterSid], references: [SectorMasterSid])
   stateMaster           StateMaster?         @relation(fields: [StateMasterSid], references: [StateMasterSid])
@@ -1400,7 +1404,7 @@ model CustomerBranch {
   Zip_PostBox           String?                 @db.VarChar(10)
   TanNo                 String?                 @db.VarChar(20)
   Address               String                  @db.VarChar(200)
-  Email                 String                  @db.VarChar(200)
+  Email                 String?                 @db.VarChar(200)
   Registered            String                  @db.Char(1)
   CustomerGstType       String?                 @db.VarChar(20)
   VendorGstType         String?                 @db.VarChar(10)
@@ -2673,6 +2677,8 @@ model MasterJob {
   VoucherDetail              VoucherDetail[]
   VoucherHeader              VoucherHeader[]
   VoucherTransaction         VoucherTransaction[]
+
+  @@unique([CompanyMasterSid,MasterJobNumber], name: "uq_jobnumber_company")
 }
 
 model MasterJobVoyage {
@@ -3159,6 +3165,8 @@ model VoucherHeader {
   VoucherOthers             VoucherOthers[]
   VoucherTDS                VoucherTDS[]
   VoucherTransaction        VoucherTransaction[]
+
+  @@unique([CompanyMasterSid,VoucherNumber], name: "uq_voucher_company")
 }
 
 model VoucherDetail {
@@ -3699,6 +3707,7 @@ model MailConfigurationMaster {
 }
 
 enum ApprovalStatus {
+  Open
   Pending
   Approved
   Rejected

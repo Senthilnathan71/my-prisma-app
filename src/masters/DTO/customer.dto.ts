@@ -402,7 +402,8 @@ export class CustomerBranchDto {
     @IsEmail()
     @IsNotEmpty()
     @MaxLength(200)
-    Email: string;
+    @IsOptional()
+    Email?: string;
 
     @IsString()
     @IsNotEmpty()

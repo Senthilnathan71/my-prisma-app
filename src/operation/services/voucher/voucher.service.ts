@@ -3,7 +3,7 @@ import { Prisma, PrismaClient, VoucherDetail } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
 import { VoucherMatchingPayload } from 'src/accounts/dto/receipt.dto';
 import { PostVoucherResponseDto, TaxSummaryDto, VoucherDetailDto } from 'src/accounts/dto/voucher-posting.dto';
-import { checkIfExJvApplicable, checkIfMatchingApplicable, checkIfReversalApplicable, DOC_TYPE_CODE, getPartyDrCr, getTaxInputOutput, getTaxLedger, TaxLedgerType, TaxVoucherType } from 'src/common/config/voucher-type.config';
+import { checkIfExJvApplicable, checkIfMatchingApplicable, checkIfReversalApplicable, DOC_TYPE_CODE, DocTypeCode, getPartyDrCr, getTaxInputOutput, getTaxLedger, TaxLedgerType, TaxVoucherType } from 'src/common/config/voucher-type.config';
 import { DatabaseService } from 'src/database/database.service';
 import * as moment from 'moment-timezone';
 import { CheckAutoPostingDto, CreateVoucherPayload, DeleteVoucherPayload } from 'src/accounts/dto/voucher.dto';
@@ -2412,7 +2412,7 @@ export class VoucherService {
                 }
 
                 // Step 3: Fetch tax masters separately with proper filtering
-                const voucherThatDoesntHaveInpOut = ['Receipt', 'Journal Voucher', 'Payment Voucher'];
+                const voucherThatDoesntHaveInpOut : DocTypeCode[] = [DOC_TYPE_CODE.RECEIPT, DOC_TYPE_CODE.JOURNAL_VOUCHER, DOC_TYPE_CODE.PAYMENT];
                 const isExemption = voucherThatDoesntHaveInpOut.includes(voucherType);
                 const whereClause : Prisma.TaxMasterWhereInput = {
                     TaxGroupSid: hsSacMaster.taxGroup.TaxGroupSid,
