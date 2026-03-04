@@ -151,7 +151,7 @@ export class QuotationService {
                                     TransitTime: carrier.TransitTime,
                                     CompanyMasterSid: quoteHeader.CompanyMasterSid,
                                     BranchMasterSid: quoteHeader.BranchMasterSid,
-                                    ApprovalStatus: ApprovalStatus.Pending,
+                                    ApprovalStatus: ApprovalStatus.Open,
                                     createdBy: payload.createdBy,
                                 },
                             });
@@ -699,6 +699,23 @@ export class QuotationService {
                 createdAuthLog,
                 createdCustomer
             }
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    async moveOpenApprovalToWaitingForApproval(QuoteHeaderSid: number, updatedBy?: string) {
+        try {
+            return await this._db.quoteCarrier.updateMany({
+                where: {
+                    QuoteHeaderSid,
+                    ApprovalStatus: ApprovalStatus.Open,
+                },
+                data: {
+                    ApprovalStatus: ApprovalStatus.Pending,
+                    ...(updatedBy ? { updatedBy } : {}),
+                },
+            });
         } catch (error) {
             throw error;
         }
