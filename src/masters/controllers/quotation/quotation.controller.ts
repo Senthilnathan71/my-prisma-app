@@ -325,11 +325,46 @@ export class QuotationController {
             };
             console.log(reportPayload);
             let res = await this.emailService.sendEmailWithFileAttachment(reportPayload);
+            const quoteHeaderSid = Number(body?.QuoteHeaderSid || body?.DocumentSid || 0);
+            if (quoteHeaderSid > 0) {
+                await this.quotationService.moveOpenApprovalToWaitingForApproval(
+                    quoteHeaderSid,
+                    body?.CreatedBy
+                );
+            }
             this.logger.log(`Quotation Report Sent Successfully : ${JSON.stringify(res)}`);
             output.data = res;
             output.message = "Quotation Report Sent successfully";
         } catch (error) {
             this.logger.warn(`Quotation Report Error : ${error}`)
+            output.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                output.message = error.message;
+            } else {
+                output.message = "Internal Server Error";
+            }
+        }
+        return output;
+    }
+
+    @ApiOperation({ summary: 'Update Open ApprovalStatus to Waiting For Approval' })
+    @ApiCreatedResponse({
+        description: 'Updates quote carrier ApprovalStatus from Open to Waiting For Approval',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Patch('approval-status/waiting/:id')
+    async markWaitingForApproval(@Param('id', ParseIntPipe) id: number, @Body() body: any) {
+        const output = new ResponseData();
+        try {
+            const res = await this.quotationService.moveOpenApprovalToWaitingForApproval(
+                id,
+                body?.updatedBy || body?.CreatedBy
+            );
+            output.data = res;
+            output.message = `ApprovalStatus updated to Waiting For Approval for quotation id : ${id}`;
+        } catch (error) {
+            this.logger.warn(`markWaitingForApproval: ${JSON.stringify(error), error}`);
             output.status = false;
             if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
                 output.message = error.message;

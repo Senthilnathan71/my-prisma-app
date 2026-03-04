@@ -83,6 +83,7 @@ export class MasterJobService {
                 payload.DepartmentMasterSid,
                 resolvedJobDate
             );
+            console.log("generatedMasterJobNumber", generatedMasterJobNumber);
 
             if (!generatedMasterJobNumber) {
                 const dateString = moment().format('YYYYMMDD');
@@ -2263,7 +2264,7 @@ private getWeightInFromUnitSid(weightUnitSid: number): string {
                     let houseJob = await this._db.houseJob.create({
                         data: {
                             MasterJobSid: updatedMasterJob.MasterJobSid,
-
+                            HBLDate:  updatedMasterJob.MasterJobDate,
                             BookingHeaderSid: bookingHeader.BookingHeaderSid || null,
                             ColoadedBy: bookingHeader.NominatedBy,
                             BookingNo: bookingHeader.BookingNo || '',
@@ -2692,7 +2693,7 @@ private getWeightInFromUnitSid(weightUnitSid: number): string {
                     POD: updatedMasterJob.POD,
                     ETA: payload.ETA ? new Date(payload.ETA) : null,
                     ETD: payload.ETD ? new Date(payload.ETD) : null,
-                    HBLDate: updatedMasterJob.MBLDate,
+                    HBLDate: updatedMasterJob.MasterJobDate,
                     updatedBy : payload.updatedBy,
                     updatedOn : new Date()
                 }
@@ -6232,3 +6233,4 @@ console.log('Created product:', createdProduct);
         }
     }
 }
+
