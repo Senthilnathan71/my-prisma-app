@@ -488,11 +488,148 @@ export class CreateUpdateCustomerDto {
     customerBranches: CustomerBranchDto[];
 }
 
+// Bulk-specific Customer Branch DTO (relaxed state/city validation for name-based resolution)
+export class BulkCustomerBranchDto {
+    @IsInt()
+    @IsOptional()
+    CustomerBranchSid?: number;
+
+    @IsInt()
+    @IsOptional()
+    StateMasterSid?: number;
+
+    @IsInt()
+    @IsOptional()
+    CityMasterSid?: number;
+
+    @IsString()
+    @IsOptional()
+    StateName?: string;
+
+    @IsString()
+    @IsOptional()
+    CityName?: string;
+
+    @IsString()
+    @IsNotEmpty()
+    @MaxLength(20)
+    BranchName: string;
+
+    @IsString()
+    @IsOptional()
+    @MaxLength(10)
+    Branch_Code?: string;
+
+    @IsString()
+    @IsOptional()
+    @MaxLength(20)
+    Branch_Type?: string;
+
+    @IsString()
+    @IsOptional()
+    @MaxLength(20)
+    Contact_Person?: string;
+
+    @IsString()
+    @IsOptional()
+    @MaxLength(10)
+    Zip_PostBox?: string;
+
+    @IsString()
+    @IsOptional()
+    @MaxLength(20)
+    ContactNo?: string;
+
+    @IsEmail()
+    @IsNotEmpty()
+    @MaxLength(200)
+    @IsOptional()
+    Email?: string;
+
+    @IsString()
+    @IsNotEmpty()
+    @MaxLength(200)
+    Address: string;
+
+    @IsString()
+    @IsNotEmpty()
+    @Length(1, 1)
+    Registered: string;
+
+    @IsString()
+    @IsOptional()
+    @MaxLength(20)
+    CustomerGstType?: string;
+
+    @IsString()
+    @IsOptional()
+    GSTNo?: string;
+
+    @IsString()
+    @IsOptional()
+    @Length(1, 1)
+    status?: string;
+
+    @IsString()
+    @IsOptional()
+    @MaxLength(100)
+    createdBy?: string;
+
+    @IsString()
+    @IsOptional()
+    @MaxLength(100)
+    updatedBy?: string;
+
+    @IsArray()
+    @ValidateNested({ each: true })
+    @Type(() => CusBranchContactDto)
+    @IsOptional()
+    customerBranchContacts?: CusBranchContactDto[];
+
+    @IsArray()
+    @ValidateNested({ each: true })
+    @Type(() => CustomerBrEmailDto)
+    @IsOptional()
+    customerBranchEmails?: CustomerBrEmailDto[];
+
+    @IsArray()
+    @ValidateNested({ each: true })
+    @Type(() => CustomerLoginDto)
+    @IsOptional()
+    customerBranchLogins?: CustomerLoginDto[];
+
+    @IsArray()
+    @ValidateNested({ each: true })
+    @Type(() => CustomerSalesTeamDto)
+    @IsOptional()
+    customerSalesTeams?: CustomerSalesTeamDto[];
+
+    @IsArray()
+    @ValidateNested({ each: true })
+    @Type(() => CustomerMilestoneDto)
+    @IsOptional()
+    customerMilestones?: CustomerMilestoneDto[];
+}
+
+// Bulk-specific Create/Update Customer DTO (uses BulkCustomerBranchDto for branches)
+export class BulkCreateUpdateCustomerDto {
+    @ValidateNested()
+    @Type(() => CustomerMasterDto)
+    @IsNotEmpty()
+    customer: CustomerMasterDto;
+
+    @IsArray()
+    @ValidateNested({ each: true })
+    @Type(() => BulkCustomerBranchDto)
+    @IsNotEmpty()
+    customerBranches: BulkCustomerBranchDto[];
+}
+
 // Bulk Create Customers DTO
 export class BulkCreateCustomerDto {
     @IsArray()
     @ValidateNested({ each: true })
-    @Type(() => CreateUpdateCustomerDto)
+    @Type(() => BulkCreateUpdateCustomerDto)
     @IsNotEmpty()
-    customers: CreateUpdateCustomerDto[];
+    customers: BulkCreateUpdateCustomerDto[];
 }
