@@ -2874,8 +2874,6 @@ model HouseJob {
   VoucherDetail              VoucherDetail[]
   VoucherHeader              VoucherHeader[]
   VoucherTransaction         VoucherTransaction[]
-
-   @@unique([CompanyMasterSid,HBLNo], name: "uq_hbl_company")
 }
 
 model HouseJobCargo {

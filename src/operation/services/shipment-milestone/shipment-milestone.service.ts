@@ -7,6 +7,7 @@ import {
     ShipmentMilestoneCreateDTO,
     ShipmentMilestoneFetchDTO,
     ShipmentMilestoneFetchWithCodeDTO,
+    ShipmentMilestoneInsertByMasterJobDTO,
     ShipmentMilestoneResponseDTO,
     ShipmentMilestoneSafeInsertDTO,
     ShipmentMilestoneUpdateDTO,
@@ -222,13 +223,134 @@ export class ShipmentMilestoneService {
                 Status: 'A',
                 MilestoneMasterSid: milestone.MilestoneMasterSid,
                 MilestoneName: milestone.MilestoneName,
-                MilestoneDate: new Date(),
+                MilestoneDate: payload.MilestoneDate || new Date(),
                 AutoCaptured: 'Y',
                 Remarks: payload.Remarks || "System auto inserted",
                 HouseJobSid: null
             }, tx);
 
             return insertedMilestone;
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    async insertMilestoneByMasterJob(
+        payload: ShipmentMilestoneInsertByMasterJobDTO,
+        prisma?: PrismaClient | Prisma.TransactionClient,
+    ) {
+        try {
+            const tx = prisma || this._db;
+
+            const houseJobs = await tx.houseJob.findMany({
+                where: {
+                    MasterJobSid: payload.MasterJobSid,
+                    CompanyMasterSid: payload.CompanyMasterSid,
+                    BranchMasterSid: payload.BranchMasterSid,
+                    status: 'A',
+                },
+                select: {
+                    HouseJobSid: true,
+                    ShipmentNo: true,
+                    JobType: true,
+                    departmentMaster: {
+                        select: {
+                            departmentName: true,
+                        },
+                    },
+                },
+            });
+
+            if (!houseJobs.length) {
+                throw new BadRequestException(`No house jobs found for MasterJobSid ${payload.MasterJobSid}`);
+            }
+
+            let insertedCount = 0;
+            let skippedCount = 0;
+            let missingMilestoneConfigCount = 0;
+
+            for (const house of houseJobs) {
+                const shipmentNo = (house.ShipmentNo || '').trim();
+                if (!shipmentNo) {
+                    skippedCount++;
+                    continue;
+                }
+
+                const departmentName = house.departmentMaster?.departmentName;
+                const jobType = house.JobType || undefined;
+
+                let milestone : any = null;
+                if (departmentName && jobType) {
+                    milestone = await tx.milestoneMaster.findFirst({
+                        where: {
+                            CompanyMasterSid: payload.CompanyMasterSid,
+                            BranchMasterSid: payload.BranchMasterSid,
+                            DepartmentMasterSid: { has: departmentName },
+                            ShipmentType: jobType,
+                            MilestoneCode: payload.MilestoneCode,
+                            status: 'A',
+                        },
+                    });
+                }
+
+                if (!milestone) {
+                    milestone = await tx.milestoneMaster.findFirst({
+                        where: {
+                            CompanyMasterSid: payload.CompanyMasterSid,
+                            BranchMasterSid: payload.BranchMasterSid,
+                            MilestoneCode: payload.MilestoneCode,
+                            status: 'A',
+                        },
+                    });
+                }
+
+                if (!milestone) {
+                    missingMilestoneConfigCount++;
+                    skippedCount++;
+                    continue;
+                }
+
+                const alreadyExist = await tx.shipmentMilestone.findFirst({
+                    where: {
+                        CompanyMasterSid: payload.CompanyMasterSid,
+                        BranchMasterSid: payload.BranchMasterSid,
+                        ShipmentNo: shipmentNo,
+                        MilestoneMasterSid: milestone.MilestoneMasterSid,
+                        Status: 'A',
+                    },
+                });
+
+                if (alreadyExist) {
+                    skippedCount++;
+                    continue;
+                }
+
+                await tx.shipmentMilestone.create({
+                    data: {
+                        ShipmentNo: shipmentNo,
+                        CompanyMasterSid: payload.CompanyMasterSid,
+                        BranchMasterSid: payload.BranchMasterSid,
+                        CreatedBy: payload.createdBy,
+                        Status: 'A',
+                        MilestoneMasterSid: milestone.MilestoneMasterSid,
+                        MilestoneName: milestone.MilestoneName,
+                        MilestoneDate: payload.MilestoneDate || new Date(),
+                        AutoCaptured: 'Y',
+                        Remarks: payload.Remarks || 'System auto inserted',
+                        HouseJobSid: house.HouseJobSid,
+                    },
+                });
+                insertedCount++;
+            }
+
+            return {
+                MasterJobSid: payload.MasterJobSid,
+                MilestoneCode: payload.MilestoneCode,
+                totalHouseJobs: houseJobs.length,
+                insertedCount,
+                skippedCount,
+                missingMilestoneConfigCount,
+            };
         } catch (error) {
             throw error;
         }
