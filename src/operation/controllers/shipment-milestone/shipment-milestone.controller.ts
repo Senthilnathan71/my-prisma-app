@@ -27,6 +27,7 @@ import {
     ShipmentMilestoneCreateDTO,
     ShipmentMilestoneFetchDTO,
     ShipmentMilestoneFetchWithCodeDTO,
+    ShipmentMilestoneInsertByMasterJobDTO,
     ShipmentMilestoneSafeInsertDTO,
     ShipmentMilestoneUpdateDTO,
 } from 'src/operation/DTO/shipment-milestone.dto';
@@ -384,6 +385,53 @@ export class ShipmentMilestoneController {
         } catch (error) {
             this.logger.warn(
                 `Shipment Milestone Safe Insert Error : ${JSON.stringify(error),error}`,
+            );
+            response.status = false;
+            if (
+                error instanceof BadRequestException ||
+                error instanceof UnauthorizedException
+            ) {
+                response.message = error.message;
+            } else {
+                response.message = 'Internal Server Error';
+            }
+        }
+        return response;
+    }
+
+    /**
+     * Insert Shipment Milestone for all House Jobs under Master Job
+     */
+    @ApiOperation({ summary: 'Insert milestone for all house jobs under a master job' })
+    @ApiCreatedResponse({
+        description: 'Shipment milestones inserted successfully',
+        type: ResponseData,
+    })
+    @ApiBadRequestResponse({
+        description: 'Invalid request payload',
+    })
+    @HttpCode(HttpStatus.OK)
+    @Post('insert-by-master-job')
+    @UsePipes(
+        new ValidationPipe({
+            transform: true,
+            whitelist: true,
+            forbidNonWhitelisted: true,
+        }),
+    )
+    async insertMilestoneByMasterJob(
+        @Body() payload: ShipmentMilestoneInsertByMasterJobDTO,
+    ) {
+        let response = new ResponseData();
+        this.logger.log(`Inserting Shipment Milestone by Master Job : ${payload.MasterJobSid}`);
+        try {
+            const res = await this.shipmentMilestoneService.insertMilestoneByMasterJob(payload);
+            this.logger.debug(`Inserted milestones by master job : ${JSON.stringify(res)}`);
+            response.data = res;
+            response.message = `Milestone ${payload.MilestoneCode} processed for MasterJobSid ${payload.MasterJobSid}`;
+        } catch (error) {
+            this.logger.warn(
+                `Shipment Milestone Insert By Master Job Error : ${JSON.stringify(error),error}`,
             );
             response.status = false;
             if (
