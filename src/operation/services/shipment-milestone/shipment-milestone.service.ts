@@ -222,7 +222,7 @@ export class ShipmentMilestoneService {
                 Status: 'A',
                 MilestoneMasterSid: milestone.MilestoneMasterSid,
                 MilestoneName: milestone.MilestoneName,
-                MilestoneDate: new Date(),
+                MilestoneDate: payload.MilestoneDate || new Date(),
                 AutoCaptured: 'Y',
                 Remarks: payload.Remarks || "System auto inserted",
                 HouseJobSid: null

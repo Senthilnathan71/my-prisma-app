@@ -191,8 +191,13 @@ export class ShipmentMilestoneSafeInsertDTO {
 
     @IsNotEmpty({ message: 'Shipment No is required' })
     @IsString()
-    @MaxLength(20)
+    @MaxLength(50)
     ShipmentNo: string;
+
+    @IsOptional()
+    @Type(() => Date)
+    @IsDate()
+    MilestoneDate?: Date;
 
     @IsOptional()
     @IsString()
