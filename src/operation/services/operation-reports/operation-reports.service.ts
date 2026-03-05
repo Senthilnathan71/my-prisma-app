@@ -822,9 +822,15 @@ export class OperationReportsService {
             ) {
               numberOfFourtyFt++;
             }
-            if (size === '45ft Container') {
-              numberofFurtyFive++;
-            }
+           if (
+             size?.trim() === '45ft Container' ||
+             size?.trim() === '45Ft Open Top' ||
+             size?.trim() === '45 Flat Rack' ||
+             size?.trim() === '45 RF' ||
+             size?.trim() === '45ft High Cube'
+           ) {
+             numberofFurtyFive++;
+           }
           });
 
           // First, calculate total for house jobs
@@ -2600,7 +2606,7 @@ export class OperationReportsService {
           houseDept: houseDepartment,
           houseStatus: house.HouseStatus,
           bookingNo: house.BookingNo,
-          PPCC: house.FreightTerms,
+        
           branchName:
             branches.find((b) => b.BranchMasterSid === house.BranchMasterSid)
               ?.branchName || '',
@@ -2620,6 +2626,7 @@ export class OperationReportsService {
                     CostLocalAmount: cr.CostLocalAmount,
                     CostDrCr: cr.CostDrCr,
                     CostAmount: cr.CostAmount,
+                    PPCC: cr.CostPrepaidCollect,
                     partyName:
                       customerMaster.find(
                         (c) => c.CustomerMasterSid === cr.CostAgentMasterSid,
@@ -2662,6 +2669,7 @@ export class OperationReportsService {
                     CostLocalAmount: cr.CostLocalAmount,
                     CostDrCr: cr.CostDrCr,
                     CostAmount: cr.CostAmount,
+                    PPCC: cr.CostPrepaidCollect,
                     partyName:
                       customerMaster.find(
                         (c) => c.CustomerMasterSid === cr.CostAgentMasterSid,
@@ -2698,7 +2706,7 @@ export class OperationReportsService {
               )?.chargeName || '',
 
             ChargeDescription: rate.ChargeDescription,
-
+            PPCC:rate.CostPrepaidCollect,
             CostLocalAmount: rate.CostLocalAmount,
             CostDrCr: rate.CostDrCr,
             CostAmount: rate.CostAmount,
@@ -2983,6 +2991,7 @@ export class OperationReportsService {
                     RevenueLocalAmt: cr.RevenueLocalAmount,
                     RevenueDrCr: cr.RevenueDrCr,
                     RevenueAmount: cr.RevenueAmount,
+                    PPCC:cr.RevenuePrepaidCollect,
                     partyName:
                       customerMaster.find(
                         (c) =>
@@ -3026,6 +3035,7 @@ export class OperationReportsService {
                     RevenueLocalAmt: cr.RevenueLocalAmount,
                     RevenueDrCr: cr.RevenueDrCr,
                     RevenueAmount: cr.RevenueAmount,
+                    PPCC:cr.RevenuePrepaidCollect,
                     partyName:
                       customerMaster.find(
                         (c) =>
@@ -3056,7 +3066,7 @@ export class OperationReportsService {
 
             BookingRatesSid: rate.BookingRatesSid,
             ChargeMasterSid: rate.ChargeMasterSid,
-
+            PPCC:rate.RevenuePrepaidCollect,
             chargeName:
               chargeMaster.find(
                 (c) => c.ChargeMasterSid === rate.ChargeMasterSid,
@@ -5499,14 +5509,25 @@ export class OperationReportsService {
         select: { LedgerName: true, COAMasterSid: true },
       });
 
+      const toDateObj = new Date(ToDate);
+
       const vouchers = await this._db.voucherTransaction.findMany({
         where: {
           CompanyMasterSid,
           BranchMasterSid: { in: resolvedBranchIds },
-          AND: [
-            { VoucherDate: { gte: FromDate } },
-            { VoucherDate: { lte: ToDate } },
-          ],
+          VoucherDate: { lte: toDateObj },
+          subledgerMaster: {
+            is: {
+              Status: 'A',
+              SubledgerType: 'Customer',
+            },
+          },
+          coaMaster:{
+            is:{
+              LedgerType:"Sy Dr",
+              Status:'A'
+            }
+          },
           Status: 'A',
         },
         include: {
@@ -5516,10 +5537,6 @@ export class OperationReportsService {
             },
           },
           subledgerMaster: {
-            where: {
-              Status: 'A',
-              SubledgerType: 'Customer',
-            },
             select: {
               SubledgerMasterSid: true,
               SubledgerName: true,
@@ -5536,18 +5553,25 @@ export class OperationReportsService {
 
       const reportData = vouchers.map((v) => {
         const matchLocal = v.voucherMatchings.reduce(
-          (acc, m) => acc + (m.DrCr === 'D' ? +m.LocalAmount : -m.LocalAmount),
+          (acc, m) =>
+            acc + (m.DrCr === 'D' ? toNumber(m.LocalAmount) : -toNumber(m.LocalAmount)),
           0,
         );
         const matchCurr = v.voucherMatchings.reduce(
-          (acc, m) => acc + (m.DrCr === 'D' ? +m.Amount : -m.Amount),
+          (acc, m) =>
+            acc + (m.DrCr === 'D' ? toNumber(m.Amount) : -toNumber(m.Amount)),
           0,
         );
 
         const ageing =
           Math.floor(
-            (+new Date() - +new Date(v.VoucherDate)) / (1000 * 60 * 60 * 24),
+            (+toDateObj - +new Date(v.VoucherDate)) / (1000 * 60 * 60 * 24),
           ) + 1;
+
+        const osCurrencyAmount = toNumber(v.Amount) - Math.abs(matchCurr);
+        const osLocalAmount = toNumber(v.LocalAmount) - Math.abs(matchLocal);
+        const drCr = v.DrCr?.trim().toUpperCase();
+        const signedOSLocal = drCr === 'C' ? -osLocalAmount : osLocalAmount;
 
         return {
           VoucherTransactionSid: v.VoucherTransactionSid,
@@ -5560,14 +5584,15 @@ export class OperationReportsService {
           Salesman: v.VoucherHeader?.Salesman,
           DrCr: v.DrCr,
           Ageing: ageing,
-          OriginalCurrAmount: Number(v.Amount),
-          OriginalLocalAmount: Number(v.LocalAmount),
-          OSCurrencyAmount: Number(v.Amount) - Math.abs(matchCurr),
-          OSLocalAmount: Number(v.LocalAmount) - Math.abs(matchLocal),
+          OriginalCurrAmount: toNumber(v.Amount),
+          OriginalLocalAmount: toNumber(v.LocalAmount),
+          OSCurrencyAmount: osCurrencyAmount,
+          OSLocalAmount: osLocalAmount,
+          SignedOSLocal: signedOSLocal,
           OnAccountCreditCurr:
-            v.DrCr === 'C' ? Number(v.Amount) - Math.abs(matchCurr) : 0,
+            v.DrCr === 'C' ? osCurrencyAmount : 0,
           OnAccountCreditLocal:
-            v.DrCr === 'C' ? Number(v.LocalAmount) - Math.abs(matchLocal) : 0,
+            v.DrCr === 'C' ? osLocalAmount : 0,
         };
       });
 
@@ -5607,8 +5632,9 @@ export class OperationReportsService {
         }
 
         // Sum amounts
-        customer.TotalOutstanding += row.OSLocalAmount;
-        customer.buckets[bucket] += row.OSLocalAmount;
+        const signedOSLocal = toNumber(row.SignedOSLocal);
+        customer.TotalOutstanding += signedOSLocal;
+        customer.buckets[bucket] += signedOSLocal;
       });
 
       const customerRows = Array.from(customerRowsMap.values());
@@ -5683,19 +5709,26 @@ export class OperationReportsService {
         where: {
           CompanyMasterSid,
           BranchMasterSid: { in: resolvedBranchIds },
-          DepartmentMasterSid: { in: resolvedDeptIds },
-          VoucherDate: { gte: FromDate, lte: ToDate },
-          Status: 'A',
-          voucherTypeMaster: {
-            DocumentTypeCode: 'VIN',
+          VoucherDate: { lte: toDateObj },
+          subledgerMaster: {
+            is: {
+              Status: 'A',
+              SubledgerType: 'Customer',
+            },
           },
+          coaMaster:{
+            is:{
+              LedgerType:'Sy Cr',
+              Status:'A'
+            }
+          },
+          Status: 'A',
+          // voucherTypeMaster: {
+          //   DocumentTypeCode: 'VIN',
+          // },
         },
         include: {
           subledgerMaster: {
-            where: {
-              SubledgerType: 'Customer',
-              Status: 'A',
-            },
             select: {
               SubledgerName: true,
               SubledgerType: true,
@@ -5711,20 +5744,25 @@ export class OperationReportsService {
 
       const vendorReportData = vendorOsVouchers.map((v) => {
         const matchLocal = v.voucherMatchings.reduce(
-          (acc, m) => acc + (m.DrCr === 'D' ? +m.LocalAmount : -m.LocalAmount),
+          (acc, m) => acc + toNumber(m.LocalAmount),
           0,
         );
 
         const ageing =
           Math.floor(
-            (+new Date() - +new Date(v.VoucherDate)) / (1000 * 60 * 60 * 24),
+            (+toDateObj - +new Date(v.VoucherDate)) / (1000 * 60 * 60 * 24),
           ) + 1;
+
+        const osLocalAmount = toNumber(v.LocalAmount) - matchLocal;
+        const drCr = v.DrCr?.trim().toUpperCase();
+        const signedOSLocal = drCr === 'C' ? -osLocalAmount : osLocalAmount;
 
         return {
           SubledgerMasterSid: v.subledgerMaster?.SubledgerMasterSid,
           SubledgerName: v.subledgerMaster?.SubledgerName,
           Ageing: ageing,
-          OSLocalAmount: Number(v.LocalAmount) - Math.abs(matchLocal),
+          OSLocalAmount: osLocalAmount,
+          SignedOSLocal: signedOSLocal,
         };
       });
 
@@ -5745,6 +5783,8 @@ export class OperationReportsService {
               '91-120': 0,
               '120 & Above': 0,
             },
+            CreditDays: 0,
+            CreditLimit: 0,
           });
         }
 
@@ -5758,8 +5798,9 @@ export class OperationReportsService {
           }
         }
 
-        vendor.TotalOutstanding += row.OSLocalAmount;
-        vendor.buckets[bucket] += row.OSLocalAmount;
+        const signedOSLocal = toNumber(row.SignedOSLocal);
+        vendor.TotalOutstanding += signedOSLocal;
+        vendor.buckets[bucket] += signedOSLocal;
       });
 
       const vendorRows = Array.from(vendorRowsMap.values());
@@ -5890,7 +5931,8 @@ export class OperationReportsService {
     try {
       let polCode: string | undefined;
       let podCode: string | undefined;
-
+      let polName: string | undefined;
+      let podName: string | undefined;
       // Take MenuMasterSid of Master Air Waybill -[168] , House Air Waybill [178]
 
       const houseAirWaybillMenu = await this._db.menuMaster.findFirst({
@@ -5918,6 +5960,7 @@ export class OperationReportsService {
           select: { PortCode: true, PortName: true },
         });
         polCode = polRow?.PortCode;
+        polName = polRow?.PortName;
       }
 
       if (POD) {
@@ -5926,7 +5969,21 @@ export class OperationReportsService {
           select: { PortCode: true, PortName: true },
         });
         podCode = podRow?.PortCode;
+        podName = podRow?.PortName;
       }
+
+    const ports = await this._db.portMaster.findMany({
+  select: {
+    PortCode: true,
+    PortName: true,
+  },
+});
+
+const portMap = new Map<string, string>();
+
+ports.forEach((p) => {
+  portMap.set(p.PortCode, p.PortName);
+});
 
       const branches = await this._db.branchMaster.findMany({
         where: { CompanyMasterSid },
@@ -5946,6 +6003,8 @@ export class OperationReportsService {
 
       if (polCode) whereCondition.POL = polCode;
       if (podCode) whereCondition.POD = podCode;
+
+      
 
       const bookingData = await this._db.bookingHeader.findMany({
         where: {
@@ -6080,7 +6139,9 @@ export class OperationReportsService {
           jobNo: m.MasterJobNumber,
           MBLNo: m.MBLNo,
           POL: m.POL,
+          POLName: portMap.get(m.POL) || '',
           POD: m.POD,
+          PODName: portMap.get(m.POD) || '',
           grossWt: m.GrossWeight,
           netWt: m.NetWeight,
           vol: m.Volume,
@@ -6115,7 +6176,9 @@ export class OperationReportsService {
         return {
           HBLNo: h.HBLNo,
           POL: h.POL,
+          POLName: portMap.get(h.POL) || '',
           POD: h.POD,
+          PODName: portMap.get(h.POD) || '',
           grossWt: grossweight,
           netWt: netwt,
           vol: vol,
@@ -6147,12 +6210,14 @@ export class OperationReportsService {
         const cost = (b.bookingRates || []).reduce(
           (sum, r) => sum + Number(r.CostLocalAmount || 0),
           0,
-        );
+        ); 
 
         return {
           bookingNo: b.BookingNo,
           POL: b.POL,
+          POLName: portMap.get(b.POL) || '',
           POD: b.POD,
+          PODName: portMap.get(b.POD) || '',
           grossWt,
           netWt,
           vol,
@@ -6166,7 +6231,7 @@ export class OperationReportsService {
 
       // --- Add Booking Data ---
       AllBooking.forEach((item) => {
-        const routeKey = `${item.POL} - ${item.POD}`;
+       const routeKey = `${item.POLName} (${item.POL}) - ${item.PODName} (${item.POD})`;
 
         if (!routeMap.has(routeKey)) {
           routeMap.set(routeKey, {
@@ -6224,7 +6289,7 @@ export class OperationReportsService {
 
       // --- Add Master Job Data ---
       AllMasterJob.forEach((item) => {
-        const routeKey = `${item.POL} - ${item.POD}`;
+        const routeKey = `${item.POLName} (${item.POL}) - ${item.PODName} (${item.POD})`;
 
         if (!routeMap.has(routeKey)) {
           routeMap.set(routeKey, {
@@ -6282,7 +6347,7 @@ export class OperationReportsService {
 
       // --- Add House Job Data ---
       AllHouseJob.forEach((item) => {
-        const routeKey = `${item.POL} - ${item.POD}`;
+        const routeKey = `${item.POLName} (${item.POL}) - ${item.PODName} (${item.POD})`;
 
         if (!routeMap.has(routeKey)) {
           routeMap.set(routeKey, {
@@ -6340,8 +6405,8 @@ export class OperationReportsService {
 
       // Final Output
       const groupedRoutes = Array.from(routeMap.values());
-      const displayPOL = polCode ?? 'All';
-      const displayPOD = podCode ?? 'All';
+      const displayPOL = polCode ? `${polCode} - ${polName}` : 'All';
+      const displayPOD = podCode ? `${podCode} - ${podName}` : 'All';
       return {
         params,
         resolvedBranchNames,
