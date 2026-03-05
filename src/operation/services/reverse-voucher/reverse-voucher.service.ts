@@ -570,7 +570,10 @@ export class ReverseVoucherService {
                         subledgerMaster: true,
                         currencyMaster: true
                     },
-                    orderBy: { VoucherHeaderSid: 'desc' },
+                    orderBy: [
+                        { VoucherDate: 'desc' },
+                        { VoucherNumber: 'desc' }
+                    ],
                     skip,
                     take
                 }),
@@ -932,30 +935,41 @@ export class ReverseVoucherService {
                 });
                 allCompleteDetails.push(completeDetail);
             }
-
-            // Matching: Party details
-            const partyDetailForMatching = allCompleteDetails.find(
-                vd => vd.subledgerMaster?.SubledgerType === 'Customer'
-            );
-
-            const billMatchingCurrencyAmount = allCompleteDetails.reduce(
-                (sum, detail) => sum + Number(detail.Amount),
-                0
-            );
-
-            const billMatchingLocalAmount = allCompleteDetails.reduce(
-                (sum, detail) => sum + Number(detail.LocalAmount),
-                0
-            );
-
+            
             // Find reversal voucher customer entry
             const object = await tx.voucherTransaction.findFirst({
                 where: {
                     VoucherHeaderSid: voucher.ReversalVoucher!,
                     Status: 'A',
-                    subledgerMaster: { SubledgerType: 'Customer' }
+                    subledgerMaster: {  SubledgerType: 'Customer' }
+                },
+                orderBy : {
+                    Sno : 'asc'
+                },
+                include : {
+                    subledgerMaster : {
+                        select : {
+                            SubledgerName : true
+                        }
+                    }
                 }
             });
+
+            // Matching: Party details
+            const partyDetailForMatching = allCompleteDetails.filter(
+                vd => vd.subledgerMaster?.SubledgerType === 'Customer' && vd.LedgerMasterSid === object?.LedgerMasterSid
+            );
+
+            const billMatchingCurrencyAmount = partyDetailForMatching.reduce(
+                (sum, detail) => sum + Number(detail.Amount),
+                0
+            );
+
+            const billMatchingLocalAmount = partyDetailForMatching.reduce(
+                (sum, detail) => sum + Number(detail.LocalAmount),
+                0
+            );
+
 
             //   if (!object) throw new BadRequestException('Reversal Voucher not found');
 
@@ -972,14 +986,14 @@ export class ReverseVoucherService {
                     VoucherHeaderSid: payload.voucherHeaderSid,
                     VoucherTypeCode: voucher.voucherTypeMaster.DocumentTypeCode,
                     VoucherTypeMasterSid: voucher.voucherTypeMaster.VoucherTypeMasterSid,
-                    SubledgerName: voucher.subledgerMaster?.SubledgerName || '',
+                    SubledgerName: voucher.subledgerMaster?.SubledgerName || object.subledgerMaster?.SubledgerName || '',
                     VoucherMatchingDate: now,
                     PostDate: now,
                     YearMasterSid: payload.yearMasterSid,
-                    Narration: `${voucher.VoucherNumber} ${voucher.VoucherDate.toISOString().split('T')[0]} ${voucher.CurrencyCode} ${voucher.Amount}`,
+                    Narration: `${voucher.VoucherNumber} ${voucher.VoucherDate.toISOString().split('T')[0]} ${voucher.CurrencyCode || object.CurrencyCode} ${voucher.Amount || object.Amount}`,
                     createdBy: payload.postedBy,
                     voucherMatching: [object],
-                    partyVoucherDetail: [partyDetailForMatching],
+                    partyVoucherDetail: partyDetailForMatching,
                     BillMatchingCurrencyAmount: billMatchingCurrencyAmount,
                     BillMatchingLocalAmount: billMatchingLocalAmount
                 }, tx);
