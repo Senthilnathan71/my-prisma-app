@@ -619,7 +619,11 @@ export class CheckAutoPostingDto {
 
     @IsNotEmpty({message : 'Branch Master SID is required'})
     @IsInt()
-    BranchMasterSid : number;  
+    BranchMasterSid : number;
+
+    @IsOptional()
+    @IsString()
+    Type? : string;
 }
 
 export class PullVoucherDTO {

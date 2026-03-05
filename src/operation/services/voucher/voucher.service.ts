@@ -2771,6 +2771,8 @@ export class VoucherService {
                 data : {
                     CreatedBy : payload.createdBy,
                     Status : 'A',
+                    PostStatus : 'P',
+                    PostDate : new Date(),
                     CompanyMasterSid : payload.CompanyMasterSid,
                     BranchMasterSid : payload.BranchMasterSid,
                     VoucherHeaderSid : payload.VoucherHeaderSid,
@@ -2879,21 +2881,29 @@ export class VoucherService {
 
     async checkAutoPosting(payload: CheckAutoPostingDto): Promise<boolean> {
         try {
-            const { MenuName, CompanyMasterSid, BranchMasterSid } = payload;
+            const { MenuName, CompanyMasterSid, BranchMasterSid, Type = 'Others' } = payload;
 
-            const voucherType = await this._db.voucherTypeMaster.findFirst({
-                where: {
-                    CompanyMasterSid: CompanyMasterSid,
-                    BranchMasterSid: BranchMasterSid,
-                    menuMaster : {
-                        MenuName : MenuName
-                    },
-                    status: 'A'
+            const baseWhere = {
+                CompanyMasterSid: CompanyMasterSid,
+                BranchMasterSid: BranchMasterSid,
+                menuMaster : {
+                    MenuName : MenuName
                 },
-                select: {
-                    IsAutoPosting: true
-                }
+                status: 'A'
+            };
+
+            let voucherType = await this._db.voucherTypeMaster.findFirst({
+                where: { ...baseWhere, Type: Type },
+                select: { IsAutoPosting: true }
             });
+
+            if (!voucherType && Type !== 'Others') {
+                voucherType = await this._db.voucherTypeMaster.findFirst({
+                    where: { ...baseWhere, Type: 'Others' },
+                    select: { IsAutoPosting: true }
+                });
+            }
+
             if (!voucherType) {
                 throw new BadRequestException(`Voucher type not found`);
             }

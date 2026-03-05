@@ -12,7 +12,13 @@ interface searchHouseJob {
     pageSize: number,
     activeCompanyId: number,
     activeBranchId: number,
-    departmentType: string
+    departmentType: string,
+    dateFrom?: string,
+    dateTo?: string,
+    dateField?: string,
+    partyType?: string,
+    partyId?: number,
+    partyName?: string
 }
 @Injectable()
 export class HouseJobService {
@@ -1848,6 +1854,12 @@ export class HouseJobService {
             activeCompanyId,
             activeBranchId,
             departmentType,
+            dateFrom,
+            dateTo,
+            dateField,
+            partyType,
+            partyId,
+            partyName,
         } = params;
 
         const skip = (page - 1) * pageSize;
@@ -1885,12 +1897,34 @@ export class HouseJobService {
                 : {}),
         };
 
+        // Date range filter
+        const allowedDateFields = ['BookingDateTime', 'ETD', 'ETA', 'HBLDate', 'MBLDate'];
+        if (dateField && allowedDateFields.includes(dateField) && (dateFrom || dateTo)) {
+            const dateFilter: any = {};
+            if (dateFrom) dateFilter.gte = new Date(dateFrom);
+            if (dateTo) {
+                const end = new Date(dateTo);
+                end.setDate(end.getDate() + 1);
+                dateFilter.lt = end;
+            }
+            where[dateField] = dateFilter;
+        }
+
+        // Party filter
+        if (partyType === 'CustomerMasterSid' && partyId) {
+            where.CustomerMasterSid = partyId;
+        } else if (partyType === 'ShipperName' && partyName) {
+            where.ShipperName = { contains: partyName, mode: 'insensitive' };
+        } else if (partyType === 'ConsigneeName' && partyName) {
+            where.ConsigneeName = { contains: partyName, mode: 'insensitive' };
+        }
+
         const [items, totalCount] = await this._db.$transaction([
             this._db.houseJob.findMany({
                 where,
                 skip,
                 take: pageSize,
-                orderBy: { HouseJobSid: 'desc' },
+                orderBy: { HBLDate: 'desc' },
                 include: {
                     departmentMaster: {
                         select: { departmentType: true, departmentName: true },

@@ -707,7 +707,7 @@ export class ServiceJobService {
                         }
                     },
                     orderBy: {
-                        HouseJobSid: 'desc',
+                        MBLDate: 'desc',
                     },
                 }),
                 this._db.houseJob.count({ where }),
