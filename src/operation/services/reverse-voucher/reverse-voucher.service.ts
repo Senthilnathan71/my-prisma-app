@@ -247,6 +247,39 @@ export class ReverseVoucherService {
                 throw new NotFoundException(`Reverse Voucher with ID ${VoucherHeaderSid} not found`);
             }
 
+            if (reverseVoucher.ReversalVoucher) {
+                       // Checking if any other credit note is created against this vendor invoice
+                       const reversalVoucher = await this._db.voucherHeader.findFirst({
+                         where: {
+                           AND: [
+                             { VoucherHeaderSid: reverseVoucher.ReversalVoucher },
+                             { PostStatus: 'P' },
+                           ]
+                         },
+                         select: {
+                           VoucherHeaderSid: true,
+                           VoucherNumber: true,
+                           VoucherDetail: {
+                             select: {
+                               VoucherDetailSid: true,
+                               Rate: true,
+                               CostRevenueChargesSid: true
+                             }
+                           }
+                         }
+                       })
+            
+                       // If no reversal voucher found, return original vendor credit note
+                       if (!reversalVoucher) {
+                         return reverseVoucher;
+                       }
+            
+                       return {
+                         ...reverseVoucher,
+                         reversalVoucher
+                       }
+                     }
+
             return reverseVoucher;
         } catch (error) {
             this.logger.error(`Error fetching reverse voucher by ID: ${error.message}`);
@@ -698,39 +731,6 @@ export class ReverseVoucherService {
                     `Voucher ${voucher.VoucherNumber} is already reversed by ${alreadyReversed.VoucherNumber}`
                 );
             }
-
-            if (voucher.ReversalVoucher) {
-                       // Checking if any other credit note is created against this vendor invoice
-                       const reversalVoucher = await this._db.voucherHeader.findFirst({
-                         where: {
-                           AND: [
-                             { VoucherHeaderSid: voucher.ReversalVoucher },
-                             { PostStatus: 'P' },
-                           ]
-                         },
-                         select: {
-                           VoucherHeaderSid: true,
-                           VoucherNumber: true,
-                           VoucherDetail: {
-                             select: {
-                               VoucherDetailSid: true,
-                               Rate: true,
-                               CostRevenueChargesSid: true
-                             }
-                           }
-                         }
-                       })
-            
-                       // If no reversal voucher found, return original vendor credit note
-                       if (!reversalVoucher) {
-                         return voucher;
-                       }
-            
-                       return {
-                         ...voucher,
-                         reversalVoucher
-                       }
-                     }
 
             return voucher;
         } catch (error) {
