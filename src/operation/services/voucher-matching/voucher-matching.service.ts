@@ -838,7 +838,7 @@ export class VoucherMatchingService {
             }
         });
 
-        let exchangeJVHeader: VoucherHeader | undefined;
+        let exchangeJVData: { jvHeader: VoucherHeader; partyTransaction: any | null } | undefined;
         //Amount related Validation
         const currencySet = new Set(allValidMatchingDetail.map(md => md.MatchingCurrency).filter(Boolean));
         const isSingleCurrencyInvolved = currencySet.size === 1;
@@ -900,7 +900,7 @@ export class VoucherMatchingService {
                         throw new BadRequestException('Party Currency not found in matching details.');
                     }
 
-                    exchangeJVHeader = await this.createExchangeJvForMatching(tx, {
+                    exchangeJVData = await this.createExchangeJvForMatching(tx, {
                         sumOfLocalCredits,
                         sumOfLocalDebits,
                         LedgerType: coaRecord?.LedgerType,
@@ -973,14 +973,33 @@ export class VoucherMatchingService {
             }
         }
 
-        // Paired posting algorithm: each Object row is matched against one or more Source rows.
-        // Produces 2 VoucherMatching rows per pair (Object side + Source side), sharing the same Sno,
-        // and linked to each other via MatchingTransactionSid.
-        //
-        // Phase 1: Same-currency pairs — derive local strictly from exchange rate (never proportion
-        //          from original totals to avoid revaluation drift).
-        // Phase 2: Cross-currency pairs — match remaining rows by local amount using remaining
-        //          values as proportion base.
+        // ─── Fetch currency decimal precision ─────────────────────────────────────
+        // Collect all unique CurrencyMasterSid values (MatchingCurrency) + local currency
+        const allCurrencySids = new Set<number>();
+        allCurrencySids.add(LocalCurrencyMasterSid);
+        for (const md of allValidMatchingDetail) {
+            if (md.MatchingCurrency) allCurrencySids.add(toNumber(md.MatchingCurrency));
+        }
+        const currencyRecords = await tx.currencyMaster.findMany({
+            where: { CurrencyMasterSid: { in: Array.from(allCurrencySids) } },
+            select: { CurrencyMasterSid: true, amountDecimal: true },
+        });
+        const currencyDecimalMap = new Map<number, number>();
+        for (const cr of currencyRecords) {
+            currencyDecimalMap.set(cr.CurrencyMasterSid, cr.amountDecimal ?? 2);
+        }
+        const localDecimal = currencyDecimalMap.get(LocalCurrencyMasterSid) ?? 2;
+
+        const roundByCurrency = (value: number, currencyMasterSid: number | null | undefined): number => {
+            const decimals = currencyMasterSid ? (currencyDecimalMap.get(toNumber(currencyMasterSid)) ?? 2) : 2;
+            return Number(value.toFixed(decimals));
+        };
+
+        // ─── Local Amount Based Matching (FIFO) ──────────────────────────────────
+        // Matches Source entries against Object entries sequentially based on LocalAmount.
+        // For each pair: matchedLocal = MIN(sourceRemainingLocal, objectRemainingLocal)
+        // Amount is derived from LocalAmount using ExRate: amountUsed = matchedLocal / exRate
+        // Precision is determined by each currency's amountDecimal from CurrencyMaster.
         const sourceMds = allValidMatchingDetail
             .filter(md => md.MatchingType === 'Source')
             .sort((a, b) => toNumber(a.Sno) - toNumber(b.Sno));
@@ -1010,113 +1029,70 @@ export class VoucherMatchingService {
         }> = [];
         let pairSno = 1;
 
-        // ─── Phase 1: Same-currency pairing ────────────────────────────────────────
-        // Local amount is derived from the exchange rate stored on each matching detail
-        // row — NOT proportioned from the original document totals. This is the only
-        // correct approach: allocate currency first, then derive local via rate so that
-        // partial allocations never revalue an already-booked document.
-        for (const obj of objectQueue) {
-            if (obj.remainingAmount <= 0) continue;
+        let srcIdx = 0;
+        let objIdx = 0;
 
-            for (const src of sourceQueue) {
-                if (src.remainingAmount <= 0) continue;
-                if (src.MatchingCurrency !== obj.MatchingCurrency) continue;
+        while (srcIdx < sourceQueue.length && objIdx < objectQueue.length) {
+            const src = sourceQueue[srcIdx];
+            const obj = objectQueue[objIdx];
 
-                const consume = Number(Math.min(src.remainingAmount, obj.remainingAmount).toFixed(3));
-                if (consume <= 0) continue;
+            if (src.remainingLocalAmount <= 0) { srcIdx++; continue; }
+            if (obj.remainingLocalAmount <= 0) { objIdx++; continue; }
 
-                // ✅ Derive local from exchange rate — never from original MatchingAmount/MatchingLocalAmount
-                const srcExRate = toNumber(src.ExchangeRate ?? src.MatchingExRate);
-                const objExRate = toNumber(obj.ExchangeRate ?? obj.MatchingExRate);
-                const sourceLocalAmount = Number((consume * srcExRate).toFixed(3));
-                const objectLocalAmount = Number((consume * objExRate).toFixed(3));
+            const matchedLocal = roundByCurrency(
+                Math.min(src.remainingLocalAmount, obj.remainingLocalAmount),
+                LocalCurrencyMasterSid
+            );
+            if (matchedLocal <= 0) { srcIdx++; continue; }
 
-                pairs.push({
-                    pairSno,
-                    objectMd: obj,
-                    sourceMd: src,
-                    sourceAmount: consume,
-                    objectAmount: consume,
-                    sourceLocalAmount,
-                    objectLocalAmount,
-                });
+            // Derive currency amount from local amount using exchange rate
+            const srcExRate = toNumber(src.ExchangeRate ?? src.MatchingExRate) || 1;
+            const objExRate = toNumber(obj.ExchangeRate ?? obj.MatchingExRate) || 1;
 
-                src.remainingAmount = Number((src.remainingAmount - consume).toFixed(3));
-                src.remainingLocalAmount = Number((src.remainingLocalAmount - sourceLocalAmount).toFixed(3));
-                obj.remainingAmount = Number((obj.remainingAmount - consume).toFixed(3));
-                obj.remainingLocalAmount = Number((obj.remainingLocalAmount - objectLocalAmount).toFixed(3));
+            // If this consumes the entire remaining local, use the remaining amount directly to avoid rounding drift
+            const sourceAmount = Math.abs(src.remainingLocalAmount - matchedLocal) < Math.pow(10, -localDecimal)
+                ? src.remainingAmount
+                : roundByCurrency(matchedLocal / srcExRate, src.MatchingCurrency);
 
-                pairSno++;
-                if (obj.remainingAmount <= 0) break;
-            }
+            const objectAmount = Math.abs(obj.remainingLocalAmount - matchedLocal) < Math.pow(10, -localDecimal)
+                ? obj.remainingAmount
+                : roundByCurrency(matchedLocal / objExRate, obj.MatchingCurrency);
+
+            pairs.push({
+                pairSno,
+                objectMd: obj,
+                sourceMd: src,
+                sourceAmount,
+                objectAmount,
+                sourceLocalAmount: matchedLocal,
+                objectLocalAmount: matchedLocal,
+            });
+
+            src.remainingLocalAmount = roundByCurrency(src.remainingLocalAmount - matchedLocal, LocalCurrencyMasterSid);
+            src.remainingAmount = roundByCurrency(src.remainingAmount - sourceAmount, src.MatchingCurrency);
+            obj.remainingLocalAmount = roundByCurrency(obj.remainingLocalAmount - matchedLocal, LocalCurrencyMasterSid);
+            obj.remainingAmount = roundByCurrency(obj.remainingAmount - objectAmount, obj.MatchingCurrency);
+
+            pairSno++;
+            if (src.remainingLocalAmount <= 0) srcIdx++;
+            if (obj.remainingLocalAmount <= 0) objIdx++;
         }
 
-        // ─── Phase 2: Cross-currency pairing ───────────────────────────────────────
-        // Match remaining rows by local amount. Use current remaining values as the
-        // proportion base (not original totals) so Phase 1 partial consumption does
-        // not distort the allocation here.
-        for (const obj of objectQueue) {
-            if (obj.remainingLocalAmount <= 0) continue;
-
-            for (const src of sourceQueue) {
-                if (src.remainingLocalAmount <= 0) continue;
-
-                const consumeLocal = Number(Math.min(src.remainingLocalAmount, obj.remainingLocalAmount).toFixed(3));
-                if (consumeLocal <= 0) continue;
-
-                // ✅ Use remaining as proportion base — not original MatchingAmount/MatchingLocalAmount
-                let sourceAmount: number;
-                if (Math.abs(src.remainingLocalAmount - consumeLocal) < 0.001) {
-                    sourceAmount = src.remainingAmount;
-                } else {
-                    sourceAmount = Number((consumeLocal / src.remainingLocalAmount * src.remainingAmount).toFixed(3));
-                }
-
-                let objectAmount: number;
-                if (Math.abs(obj.remainingLocalAmount - consumeLocal) < 0.001) {
-                    objectAmount = obj.remainingAmount;
-                } else {
-                    objectAmount = Number((consumeLocal / obj.remainingLocalAmount * obj.remainingAmount).toFixed(3));
-                }
-
-                pairs.push({
-                    pairSno,
-                    objectMd: obj,
-                    sourceMd: src,
-                    sourceAmount,
-                    objectAmount,
-                    sourceLocalAmount: consumeLocal,
-                    objectLocalAmount: consumeLocal,
-                });
-
-                src.remainingAmount = Number((src.remainingAmount - sourceAmount).toFixed(3));
-                src.remainingLocalAmount = Number((src.remainingLocalAmount - consumeLocal).toFixed(3));
-                obj.remainingAmount = Number((obj.remainingAmount - objectAmount).toFixed(3));
-                obj.remainingLocalAmount = Number((obj.remainingLocalAmount - consumeLocal).toFixed(3));
-
-                pairSno++;
-                if (obj.remainingLocalAmount <= 0) break;
-            }
+        // ─── Post-pairing Local Amount Tally Check ──────────────────────────────
+        // Verify that total paired source local amount equals total paired object local amount.
+        const totalPairedSourceLocal = roundByCurrency(
+            pairs.reduce((sum, p) => sum + p.sourceLocalAmount, 0),
+            LocalCurrencyMasterSid
+        );
+        const totalPairedObjectLocal = roundByCurrency(
+            pairs.reduce((sum, p) => sum + p.objectLocalAmount, 0),
+            LocalCurrencyMasterSid
+        );
+        if (totalPairedSourceLocal !== totalPairedObjectLocal) {
+            throw new BadRequestException(
+                `Local Amount do not tally after pairing. Source total: ${totalPairedSourceLocal}, Object total: ${totalPairedObjectLocal}. Please review matching amounts.`
+            );
         }
-
-        // // ─── Remainder Safety Check ─────────────────────────────────────────────────
-        // // After both phases, every row must be fully allocated. Any residual greater
-        // // than 0.01 indicates a rounding leak or a silent partial allocation — both
-        // // are accounting errors that must never reach the database.
-        // for (const obj of objectQueue) {
-        //     if (Math.abs(obj.remainingLocalAmount) > 0.01) {
-        //         throw new BadRequestException(
-        //             `Object row not fully allocated. Residual local amount: ${obj.remainingLocalAmount}. Please review matching amounts.`
-        //         );
-        //     }
-        // }
-        // for (const src of sourceQueue) {
-        //     if (Math.abs(src.remainingLocalAmount) > 0.01) {
-        //         throw new BadRequestException(
-        //             `Source row not fully allocated. Residual local amount: ${src.remainingLocalAmount}. Please review matching amounts.`
-        //         );
-        //     }
-        // }
 
         // Build VoucherMatching rows — 2 per pair (Object side + Source side)
         const voucherMatchingPayload: Prisma.VoucherMatchingCreateManyInput[] = [];
@@ -1171,6 +1147,98 @@ export class VoucherMatchingService {
             });
         }
 
+        // ─── Exchange JV Pairs (remaining amounts after FIFO) ──────────────────────
+        if (exchangeJVData?.partyTransaction) {
+            const remainingSources = sourceQueue.filter(s => s.remainingLocalAmount > 0);
+            const remainingObjects = objectQueue.filter(o => o.remainingLocalAmount > 0);
+
+            // Remaining Source ↔ Exchange JV as Object
+            for (const src of remainingSources) {
+                voucherMatchingPayload.push({
+                    CreatedBy: postedBy, Status: 'A', CompanyMasterSid, BranchMasterSid,
+                    VoucherMatchingHeaderSid,
+                    VoucherHeaderSid: src.VoucherHeaderSid,
+                    VoucherDetailSid: src.VoucherDetailSid,
+                    VoucherTransactionSid: src.VoucherTransactionSid,
+                    MatchingTransactionSid: exchangeJVData.partyTransaction.VoucherTransactionSid,
+                    VoucherMatchingDate: voucherMatchingHeader.VoucherMatchingDate,
+                    VoucherType: src.VoucherTransaction?.VoucherTypeMasterSid,
+                    Sno: pairSno,
+                    COAMasterSid: src.VoucherTransaction?.COAMasterSid,
+                    LedgerMasterSid: src.VoucherTransaction?.LedgerMasterSid,
+                    CurrencyCode: src.CurrencyCode,
+                    ExchangeRate: src.ExchangeRate ?? src.MatchingExRate,
+                    DrCr: src.DrCr,
+                    Amount: src.remainingAmount,
+                    LocalAmount: src.remainingLocalAmount,
+                    MatchingType: 'Source',
+                });
+                voucherMatchingPayload.push({
+                    CreatedBy: postedBy, Status: 'A', CompanyMasterSid, BranchMasterSid,
+                    VoucherMatchingHeaderSid,
+                    VoucherHeaderSid: exchangeJVData.partyTransaction.VoucherHeaderSid,
+                    VoucherDetailSid: exchangeJVData.partyTransaction.VoucherDetailSid,
+                    VoucherTransactionSid: exchangeJVData.partyTransaction.VoucherTransactionSid,
+                    MatchingTransactionSid: src.VoucherTransactionSid,
+                    VoucherMatchingDate: voucherMatchingHeader.VoucherMatchingDate,
+                    VoucherType: exchangeJVData.partyTransaction.VoucherTypeMasterSid,
+                    Sno: pairSno,
+                    COAMasterSid: exchangeJVData.partyTransaction.COAMasterSid,
+                    LedgerMasterSid: exchangeJVData.partyTransaction.LedgerMasterSid,
+                    CurrencyCode: src.CurrencyCode,
+                    ExchangeRate: toNumber(exchangeJVData.partyTransaction.ExchangeRate) || 1,
+                    DrCr: exchangeJVData.partyTransaction.DrCr,
+                    Amount: 0,
+                    LocalAmount: src.remainingLocalAmount,
+                    MatchingType: 'Object',
+                });
+                pairSno++;
+            }
+
+            // Remaining Object ↔ Exchange JV as Source (symmetric case)
+            for (const obj of remainingObjects) {
+                voucherMatchingPayload.push({
+                    CreatedBy: postedBy, Status: 'A', CompanyMasterSid, BranchMasterSid,
+                    VoucherMatchingHeaderSid,
+                    VoucherHeaderSid: exchangeJVData.partyTransaction.VoucherHeaderSid,
+                    VoucherDetailSid: exchangeJVData.partyTransaction.VoucherDetailSid,
+                    VoucherTransactionSid: exchangeJVData.partyTransaction.VoucherTransactionSid,
+                    MatchingTransactionSid: obj.VoucherTransactionSid,
+                    VoucherMatchingDate: voucherMatchingHeader.VoucherMatchingDate,
+                    VoucherType: exchangeJVData.partyTransaction.VoucherTypeMasterSid,
+                    Sno: pairSno,
+                    COAMasterSid: exchangeJVData.partyTransaction.COAMasterSid,
+                    LedgerMasterSid: exchangeJVData.partyTransaction.LedgerMasterSid,
+                    CurrencyCode: obj.CurrencyCode,
+                    ExchangeRate: toNumber(exchangeJVData.partyTransaction.ExchangeRate) || 1,
+                    DrCr: exchangeJVData.partyTransaction.DrCr,
+                    Amount: 0,
+                    LocalAmount: obj.remainingLocalAmount,
+                    MatchingType: 'Source',
+                });
+                voucherMatchingPayload.push({
+                    CreatedBy: postedBy, Status: 'A', CompanyMasterSid, BranchMasterSid,
+                    VoucherMatchingHeaderSid,
+                    VoucherHeaderSid: obj.VoucherHeaderSid,
+                    VoucherDetailSid: obj.VoucherDetailSid,
+                    VoucherTransactionSid: obj.VoucherTransactionSid,
+                    MatchingTransactionSid: exchangeJVData.partyTransaction.VoucherTransactionSid,
+                    VoucherMatchingDate: voucherMatchingHeader.VoucherMatchingDate,
+                    VoucherType: obj.VoucherTransaction?.VoucherTypeMasterSid,
+                    Sno: pairSno,
+                    COAMasterSid: obj.VoucherTransaction?.COAMasterSid,
+                    LedgerMasterSid: obj.VoucherTransaction?.LedgerMasterSid,
+                    CurrencyCode: obj.CurrencyCode,
+                    ExchangeRate: obj.ExchangeRate ?? obj.MatchingExRate,
+                    DrCr: obj.DrCr,
+                    Amount: obj.remainingAmount,
+                    LocalAmount: obj.remainingLocalAmount,
+                    MatchingType: 'Object',
+                });
+                pairSno++;
+            }
+        }
+
         const allVoucherMatchings = await tx.voucherMatching.createManyAndReturn({
             data: voucherMatchingPayload
         });
@@ -1191,7 +1259,7 @@ export class VoucherMatchingService {
             PostStatus: 'P',
             PostDate: current_date,
             VoucherMatching: allVoucherMatchings,
-            ...(exchangeJVHeader ? { ExchangeJV: exchangeJVHeader } : {}),
+            ...(exchangeJVData?.jvHeader ? { ExchangeJV: exchangeJVData.jvHeader } : {}),
         }
 
     }
@@ -1383,7 +1451,7 @@ export class VoucherMatchingService {
             });
         }
 
-        // 8. Attach the Exchange JV party transaction to VoucherMatching
+        // 8. Fetch the Exchange JV party transaction (to be paired in FIFO logic)
         const partyTransaction = await tx.voucherTransaction.findFirst({
             where: {
                 VoucherHeaderSid: jvHeader.VoucherHeaderSid,
@@ -1391,35 +1459,6 @@ export class VoucherMatchingService {
             },
         });
 
-        const isSourceExJv = params.LedgerType === 'Sy Dr' && (params.sumOfLocalDebits > params.sumOfLocalCredits);
-        if (partyTransaction) {
-            await tx.voucherMatching.create({
-                data: {
-                    CreatedBy: params.postedBy,
-                    Status: 'A',
-                    CompanyMasterSid: params.CompanyMasterSid,
-                    BranchMasterSid: params.BranchMasterSid,
-                    VoucherMatchingHeaderSid: params.voucherMatchingHeaderSid,
-                    VoucherHeaderSid: jvHeader.VoucherHeaderSid,
-                    VoucherDetailSid: partyDetail.VoucherDetailSid,
-                    VoucherTransactionSid: partyTransaction.VoucherTransactionSid,
-                    MatchingTransactionSid: partyTransaction.VoucherTransactionSid,
-                    VoucherMatchingDate: matchingDate,
-                    VoucherType: jvVoucherType.VoucherTypeMasterSid,
-                    Sno: 0,
-                    COAMasterSid: params.partyLedgerSid,
-                    LedgerMasterSid: params.partySubledgerSid || 0,
-                    CurrencyCode: params.PartyCurrencyCode,
-                    ExchangeRate: 1,
-                    DrCr: partyDrCr,
-                    Amount: 0,
-                    LocalAmount: diff,
-                    PartyAmount: 0,
-                    MatchingType: isSourceExJv ? 'Source' : 'Object',
-                },
-            });
-        }
-
-        return jvHeader;
+        return { jvHeader, partyTransaction };
     }
 }

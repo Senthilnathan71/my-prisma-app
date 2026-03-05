@@ -191,12 +191,51 @@ export class ShipmentMilestoneSafeInsertDTO {
 
     @IsNotEmpty({ message: 'Shipment No is required' })
     @IsString()
-    @MaxLength(20)
+    @MaxLength(50)
     ShipmentNo: string;
+
+    @IsOptional()
+    @Type(() => Date)
+    @IsDate()
+    MilestoneDate?: Date;
 
     @IsOptional()
     @IsString()
     @MaxLength(200)
     Remarks?: string | null;
 
+}
+
+export class ShipmentMilestoneInsertByMasterJobDTO {
+    @IsNotEmpty({ message: 'MasterJobSid is required' })
+    @IsInt()
+    MasterJobSid: number;
+
+    @IsNotEmpty({ message: 'CompanyMasterSid is required' })
+    @IsInt()
+    CompanyMasterSid: number;
+
+    @IsNotEmpty({ message: 'BranchMasterSid is required' })
+    @IsInt()
+    BranchMasterSid: number;
+
+    @IsNotEmpty({ message: 'Milestone Code is required' })
+    @IsString()
+    @MaxLength(30)
+    MilestoneCode: string;
+
+    @IsOptional()
+    @Type(() => Date)
+    @IsDate()
+    MilestoneDate?: Date;
+
+    @IsNotEmpty({ message: 'createdBy is required' })
+    @IsString()
+    @MaxLength(100)
+    createdBy: string;
+
+    @IsOptional()
+    @IsString()
+    @MaxLength(200)
+    Remarks?: string | null;
 }
