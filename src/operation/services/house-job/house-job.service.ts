@@ -1924,7 +1924,7 @@ export class HouseJobService {
                 where,
                 skip,
                 take: pageSize,
-                orderBy: { HouseJobSid: 'desc' },
+                orderBy: { HBLDate: 'desc' },
                 include: {
                     departmentMaster: {
                         select: { departmentType: true, departmentName: true },
