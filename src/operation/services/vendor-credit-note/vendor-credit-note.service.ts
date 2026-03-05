@@ -683,9 +683,10 @@ if (payload.VoucherDetail && Array.isArray(payload.VoucherDetail)) {
                     subledgerMaster: true,
                     currencyMaster: true
                 },
-                orderBy: {
-                    VoucherHeaderSid: 'desc'
-                },
+                orderBy: [
+                    { VoucherDate: 'desc' },
+                    { VoucherNumber: 'desc' }
+                ],
                 skip,
                 take
             }),

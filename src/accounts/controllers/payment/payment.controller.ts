@@ -70,7 +70,9 @@ export class PaymentController {
       const payment = await this.paymentService.createNewPayment(payload);
       this.logger.log(`Payment voucher created successfully: ${payment.voucherHeader?.VoucherNumber}`);
       resp.data = payment;
-      resp.message = "Payment voucher created successfully";
+      resp.message = payment.isAutoPosted
+        ? 'New payment is created and posted successfully'
+        : 'New payment is created successfully';
     } catch (error) {
       this.logger.error(`Failed to create payment voucher: ${error.message}`, error.stack);
       resp.status = false;
