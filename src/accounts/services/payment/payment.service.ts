@@ -512,12 +512,28 @@ export class PaymentService {
                     data: matchingDetails
                 });
 
+                if (voucherType.IsAutoPosting === 'Y') {
+                    const postResult = await this.executePostPayment({
+                        voucherHeaderSid: voucherHeader.VoucherHeaderSid,
+                        companyMasterSid: payload.CompanyMasterSid,
+                        branchMasterSid: payload.BranchMasterSid,
+                        yearMasterSid: payload.YearMasterSid,
+                        localCurrencyMasterSid: payload.LocalCurrencyMasterSid,
+                        localCurrencyCode: payload.LocalCurrencyCode,
+                        current_date: payload.current_date,
+                        postedBy: payload.CreatedBy,
+                        taxDetails: payload.TaxDetails,
+                    }, prisma);
+                    return { voucherHeader: postResult, isAutoPosted: true };
+                }
+
                 return {
                     voucherHeader,
                     createdDetails,
-                    finalMatchingDetails
+                    finalMatchingDetails,
+                    isAutoPosted: false,
                 };
-            });
+            }, { timeout: 60000 });
         } catch (error) {
             throw error;
         }
@@ -799,7 +815,7 @@ export class PaymentService {
         }
     }
 
-    async postPayment(
+    private async executePostPayment(
         payload: {
             voucherHeaderSid: number,
             companyMasterSid: number,
@@ -816,10 +832,10 @@ export class PaymentService {
                 EffectiveFrom: Date,
                 TaxType: 'Input' | 'Output',
             }
-        }
+        },
+        tx: Prisma.TransactionClient
     ) {
-        try {
-            return await this._db.$transaction(async (tx) => {
+        {
                 const voucher = await tx.voucherHeader.findUnique({
                     where: {
                         VoucherHeaderSid: payload.voucherHeaderSid,
@@ -1200,8 +1216,32 @@ export class PaymentService {
                     voucherDetail: allCompleteDetails,
                     voucherMatchings: newVoucherMatchings
                 }
+        }
+    }
 
-            }, {timeout : 60000 });
+    async postPayment(
+        payload: {
+            voucherHeaderSid: number,
+            companyMasterSid: number,
+            branchMasterSid: number,
+            yearMasterSid: number,
+            localCurrencyMasterSid: number,
+            localCurrencyCode: string,
+            current_date ?: Date | string,
+            postedBy: string,
+            taxDetails: {
+                CountryMasterSid: number,
+                countryCode: string,
+                TaxCategory: 'Inter' | 'Intra',
+                EffectiveFrom: Date,
+                TaxType: 'Input' | 'Output',
+            }
+        }
+    ) {
+        try {
+            return await this._db.$transaction(async (tx) => {
+                return this.executePostPayment(payload, tx);
+            }, { timeout: 60000 });
         } catch (error) {
             throw error;
         }

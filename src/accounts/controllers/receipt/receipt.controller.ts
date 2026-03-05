@@ -81,7 +81,9 @@ export class ReceiptController {
       this.logger.log(`Creating receipt for customer ${payload.LedgerMasterSid}`);
       const receipt = await this.receiptService.createNewReceipt(payload);
       resp.data = receipt;
-      resp.message = 'Receipt created successfully';
+      resp.message = receipt.isAutoPosted
+        ? 'New receipt is created and posted successfully'
+        : 'New receipt is created successfully';
     } catch (error) {
       resp.status = false;
       this.logger.warn(`Error creating receipt: ${JSON.stringify(error),error}`);

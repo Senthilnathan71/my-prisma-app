@@ -563,12 +563,29 @@ export class ReceiptService {
           data: matchingDetails
         });
 
+        // If the voucher type is configured for auto-posting, post within the same transaction
+        if (voucherType.IsAutoPosting === 'Y') {
+          const postResult = await this.executePostReceipt({
+            voucherHeaderSid: voucherHeader.VoucherHeaderSid,
+            companyMasterSid: payload.CompanyMasterSid,
+            branchMasterSid: payload.BranchMasterSid,
+            yearMasterSid: payload.YearMasterSid,
+            localCurrencyMasterSid: payload.LocalCurrencyMasterSid,
+            localCurrencyCode: payload.LocalCurrencyCode,
+            current_date: payload.current_date,
+            postedBy: payload.CreatedBy,
+            taxDetails: payload.TaxDetails,
+          }, prisma);
+          return { voucherHeader: postResult, isAutoPosted: true };
+        }
+
         return {
           voucherHeader,
           createdDetails,
-          finalMatchingDetails
+          finalMatchingDetails,
+          isAutoPosted: false,
         };
-      });
+      }, { timeout: 60000 });
     } catch (error) {
       throw error;
     }
@@ -850,7 +867,11 @@ export class ReceiptService {
     }
   }
 
-  async postReceipt(
+  /**
+   * Executes the post-receipt logic within a provided transaction client.
+   * Called by both postReceipt (own transaction) and createNewReceipt (same transaction, AutoPost).
+   */
+  private async executePostReceipt(
     payload: {
       voucherHeaderSid: number,
       companyMasterSid: number,
@@ -858,7 +879,7 @@ export class ReceiptService {
       yearMasterSid: number,
       localCurrencyMasterSid: number,
       localCurrencyCode: string,
-      current_date ?: Date | string,
+      current_date?: Date | string,
       postedBy: string,
       taxDetails: {
         CountryMasterSid: number,
@@ -867,10 +888,9 @@ export class ReceiptService {
         EffectiveFrom: Date,
         TaxType: 'Input' | 'Output',
       }
-    }
+    },
+    tx: Prisma.TransactionClient
   ) {
-    try {
-      return await this._db.$transaction(async (tx) => {
         const voucher = await tx.voucherHeader.findUnique({
           where: {
             VoucherHeaderSid: payload.voucherHeaderSid,
@@ -1254,8 +1274,31 @@ export class ReceiptService {
           voucherDetail: allCompleteDetails,
           voucherMatchings: newVoucherMatchings
         }
+  }
 
-      }, {timeout : 60000 });
+  async postReceipt(
+    payload: {
+      voucherHeaderSid: number,
+      companyMasterSid: number,
+      branchMasterSid: number,
+      yearMasterSid: number,
+      localCurrencyMasterSid: number,
+      localCurrencyCode: string,
+      current_date?: Date | string,
+      postedBy: string,
+      taxDetails: {
+        CountryMasterSid: number,
+        countryCode: string,
+        TaxCategory: 'Inter' | 'Intra',
+        EffectiveFrom: Date,
+        TaxType: 'Input' | 'Output',
+      }
+    }
+  ) {
+    try {
+      return await this._db.$transaction(async (tx) => {
+        return this.executePostReceipt(payload, tx);
+      }, { timeout: 60000 });
     } catch (error) {
       throw error;
     }
