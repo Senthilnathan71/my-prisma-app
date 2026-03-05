@@ -699,6 +699,39 @@ export class ReverseVoucherService {
                 );
             }
 
+            if (voucher.ReversalVoucher) {
+                       // Checking if any other credit note is created against this vendor invoice
+                       const reversalVoucher = await this._db.voucherHeader.findFirst({
+                         where: {
+                           AND: [
+                             { VoucherHeaderSid: voucher.ReversalVoucher },
+                             { PostStatus: 'P' },
+                           ]
+                         },
+                         select: {
+                           VoucherHeaderSid: true,
+                           VoucherNumber: true,
+                           VoucherDetail: {
+                             select: {
+                               VoucherDetailSid: true,
+                               Rate: true,
+                               CostRevenueChargesSid: true
+                             }
+                           }
+                         }
+                       })
+            
+                       // If no reversal voucher found, return original vendor credit note
+                       if (!reversalVoucher) {
+                         return voucher;
+                       }
+            
+                       return {
+                         ...voucher,
+                         reversalVoucher
+                       }
+                     }
+
             return voucher;
         } catch (error) {
             this.logger.error(`Error fetching vouchers by ID: ${error.message}`);
