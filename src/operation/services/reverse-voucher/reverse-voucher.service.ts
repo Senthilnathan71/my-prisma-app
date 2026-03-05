@@ -230,7 +230,6 @@ export class ReverseVoucherService {
                             currencyMaster: true
                         }
                     },
-                    
                     VoucherOthers: {
                         where: { Status: 'A' }
                     },
@@ -247,39 +246,6 @@ export class ReverseVoucherService {
             if (!reverseVoucher) {
                 throw new NotFoundException(`Reverse Voucher with ID ${VoucherHeaderSid} not found`);
             }
-
-            if (reverseVoucher.ReversalVoucher) {
-                       // Checking if any other credit note is created against this vendor invoice
-                       const reversalVoucher = await this._db.voucherHeader.findFirst({
-                         where: {
-                           AND: [
-                             { VoucherHeaderSid: reverseVoucher.ReversalVoucher },
-                             { PostStatus: 'P' },
-                           ]
-                         },
-                         select: {
-                           VoucherHeaderSid: true,
-                           VoucherNumber: true,
-                           VoucherDetail: {
-                             select: {
-                               VoucherDetailSid: true,
-                               Rate: true,
-                               CostRevenueChargesSid: true
-                             }
-                           }
-                         }
-                       })
-            
-                       // If no reversal voucher found, return original vendor credit note
-                       if (!reversalVoucher) {
-                         return reverseVoucher;
-                       }
-            
-                       return {
-                         ...reverseVoucher,
-                         reversalVoucher
-                       }
-                     }
 
             return reverseVoucher;
         } catch (error) {
@@ -678,7 +644,20 @@ export class ReverseVoucherService {
                     VoucherNumber: { contains: VoucherNumber, mode: 'insensitive' },
                     CompanyMasterSid,
                     BranchMasterSid,
+                    PostStatus: 'P',
                     Status: 'A',
+                    voucherMatchings: {
+                        none: {}
+                    },
+                    voucherTypeMaster: {
+                        DocumentTypeCode: {
+                            in: [
+                                DOC_TYPE_CODE.RECEIPT,
+                                DOC_TYPE_CODE.PAYMENT,
+                                DOC_TYPE_CODE.JOURNAL_VOUCHER
+                            ]
+                        }
+                    }
                 },
                 include: {
                     VoucherOthers: {
@@ -699,13 +678,31 @@ export class ReverseVoucherService {
             });
 
             if (!voucher) {
-                throw new NotFoundException(`Voucher not found`);
+                throw new BadRequestException(`Voucher not found`);
+            }
+
+            const alreadyReversed = await db.voucherHeader.findFirst({
+                where: {
+                    ReversalVoucher: voucher.VoucherHeaderSid,
+                    PostStatus: 'P',
+                    Status: 'A'
+                },
+                select: {
+                    VoucherHeaderSid: true,
+                    VoucherNumber: true
+                }
+            });
+
+            if (alreadyReversed) {
+                throw new BadRequestException(
+                    `Voucher ${voucher.VoucherNumber} is already reversed by ${alreadyReversed.VoucherNumber}`
+                );
             }
 
             return voucher;
         } catch (error) {
             this.logger.error(`Error fetching vouchers by ID: ${error.message}`);
-            if (error instanceof NotFoundException) {
+            if (error instanceof BadRequestException) {
                 throw error;
             }
             throw new InternalServerErrorException('Failed to fetch vouchers');
