@@ -1322,9 +1322,10 @@ export class PaymentService {
                             }
                         }
                     },
-                    orderBy: {
-                        VoucherHeaderSid: 'desc'
-                    },
+                    orderBy: [
+                        { VoucherDate: 'desc' },
+                        { VoucherNumber: 'desc' }
+                    ],
                     skip,
                     take
                 }),

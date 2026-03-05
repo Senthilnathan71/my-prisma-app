@@ -2771,6 +2771,8 @@ export class VoucherService {
                 data : {
                     CreatedBy : payload.createdBy,
                     Status : 'A',
+                    PostStatus : 'P',
+                    PostDate : new Date(),
                     CompanyMasterSid : payload.CompanyMasterSid,
                     BranchMasterSid : payload.BranchMasterSid,
                     VoucherHeaderSid : payload.VoucherHeaderSid,

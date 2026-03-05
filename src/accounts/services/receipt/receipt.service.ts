@@ -1376,9 +1376,10 @@ export class ReceiptService {
               }
             }
           },
-          orderBy : {
-            VoucherHeaderSid : 'desc'
-          },
+          orderBy : [
+           { VoucherDate : 'desc'},
+           { VoucherNumber : 'desc'}
+          ],
           skip,
           take
         }),

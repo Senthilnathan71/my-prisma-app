@@ -737,7 +737,10 @@ export class CreditNoteService {
              },
              
            },
-           orderBy: { VoucherHeaderSid: 'desc' }
+           orderBy: [
+           { VoucherDate : 'desc'},
+           { VoucherNumber : 'desc'}
+          ]
          }),
          this._db.voucherHeader.count({ where }),
        ]);

@@ -584,7 +584,10 @@ if (payload.VoucherDetail && Array.isArray(payload.VoucherDetail)) {
                         voucherTypeMaster: true
                     },
 
-                    orderBy: { VoucherHeaderSid: 'desc' },
+                    orderBy: [
+                        { VoucherDate: 'desc' },
+                        { VoucherNumber: 'desc' }
+                    ],
                     skip,
                     take
                 }),
