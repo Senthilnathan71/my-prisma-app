@@ -264,7 +264,7 @@ export class CustomerService {
                     const branchName = branch.BranchName || 'Unknown';
 
                     // Resolve StateMasterSid from StateName if not provided
-                    let stateSid = branch.StateMasterSid;
+                    let stateSid:any = branch.StateMasterSid;
                     if (!stateSid && branch.StateName) {
                         stateSid = await this.resolveStateMasterSid(branch.StateName);
                         if (!stateSid) {
@@ -278,7 +278,7 @@ export class CustomerService {
                     }
 
                     // Resolve CityMasterSid from CityName if not provided
-                    let citySid = branch.CityMasterSid;
+                    let citySid:any = branch.CityMasterSid;
                     if (!citySid && branch.CityName) {
                         citySid = await this.resolveCityMasterSid(branch.CityName, stateSid);
                         if (!citySid) {
