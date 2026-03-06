@@ -212,7 +212,7 @@ export class JournalVoucherController {
       if (!body.PostedBy) {
         throw new BadRequestException('Posted By is required');
       }
-      const finalOutput = await this.journalVoucherService.postJournalVoucher({
+      const finalOutput = await this.journalVoucherService.postJournalInternal({
         voucherHeaderSid: Number(body.VoucherHeaderSid),
         companyMasterSid: Number(body.CompanyMasterSid),
         branchMasterSid: Number(body.BranchMasterSid),

@@ -5,7 +5,7 @@ import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 import { VoucherService } from '../voucher/voucher.service';
 import { VoucherPeriodService } from 'src/masters/services/voucher-period/voucher-period.service';
 import { PullVoucherDTO } from 'src/accounts/dto/voucher.dto';
-import { roundAmount, toNumber } from 'src/common/helper';
+import { roundAmount, statusWhereClause, toNumber } from 'src/common/helper';
 import { DOC_TYPE_CODE } from 'src/common/config/voucher-type.config';
 
 @Injectable()
@@ -675,7 +675,7 @@ export class CreditNoteService {
          voucherTypeMaster: {
             DocumentTypeCode : DOC_TYPE_CODE.CREDIT_NOTE
         },
-         Status: 'A',
+         Status: statusWhereClause,
         }
          if(search) {
           const matchingOriginalVouchers = 

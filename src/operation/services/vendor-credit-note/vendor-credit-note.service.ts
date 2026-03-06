@@ -4,7 +4,7 @@ import { Prisma } from '@prisma/client';
 import { VoucherService } from '../voucher/voucher.service';
 import { VoucherPeriodService } from 'src/masters/services/voucher-period/voucher-period.service';
 import { PullVoucherDTO, VoucherHeaderDto } from 'src/accounts/dto/voucher.dto';
-import { roundAmount, toNumber } from 'src/common/helper';
+import { roundAmount, statusWhereClause, toNumber } from 'src/common/helper';
 import { DOC_TYPE_CODE } from 'src/common/config/voucher-type.config';
 
 @Injectable()
@@ -633,7 +633,7 @@ if (payload.VoucherDetail && Array.isArray(payload.VoucherDetail)) {
         const where: Prisma.VoucherHeaderWhereInput = {
             CompanyMasterSid: activeCompanyId,
             BranchMasterSid: activeBranchId,
-            Status: 'A',
+            Status: statusWhereClause,
             voucherTypeMaster: {
                 DocumentTypeCode: DOC_TYPE_CODE.VENDOR_CREDIT_NOTE
             }

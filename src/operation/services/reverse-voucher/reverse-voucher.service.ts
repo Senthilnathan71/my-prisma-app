@@ -5,7 +5,7 @@ import { Prisma } from '@prisma/client';
 import { DOC_TYPE_CODE } from 'src/common/config/voucher-type.config';
 import { PullVoucherDTO } from 'src/accounts/dto/voucher.dto';
 import { VoucherPeriodService } from 'src/masters/services/voucher-period/voucher-period.service';
-import { toNumber } from 'src/common/helper';
+import { statusWhereClause, toNumber } from 'src/common/helper';
 
 @Injectable()
 export class ReverseVoucherService {
@@ -541,7 +541,7 @@ export class ReverseVoucherService {
             const where: Prisma.VoucherHeaderWhereInput = {
                 CompanyMasterSid: activeCompanyId,
                 BranchMasterSid: activeBranchId,
-                Status: 'A',
+                Status: statusWhereClause,
                 voucherTypeMaster: {
                     DocumentTypeCode: DOC_TYPE_CODE.REVERSAL_JOURNAL_VOUCHER
                 },
@@ -755,7 +755,7 @@ export class ReverseVoucherService {
         postedBy: string,
         taxDetails: {
             CountryMasterSid: number,
-            countryName: string,
+            countryCode: string,
             TaxCategory: 'Inter' | 'Intra',
             EffectiveFrom: Date,
             TaxType: 'Input' | 'Output',
@@ -786,7 +786,7 @@ export class ReverseVoucherService {
             postedBy: string,
             taxDetails: {
                 CountryMasterSid: number,
-                countryName: string,
+                countryCode: string,
                 TaxCategory: 'Inter' | 'Intra',
                 EffectiveFrom: Date,
                 TaxType: 'Input' | 'Output',
