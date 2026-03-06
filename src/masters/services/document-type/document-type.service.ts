@@ -27,6 +27,17 @@ export class DocumentTypeService {
 
     async createNewDocType(payload) {
         try {
+            const duplicate = await this._db.voucherTypeMaster.findFirst({
+                where: {
+                    CompanyMasterSid: payload.CompanyMasterSid,
+                    DocumentTypeCode: payload.DocumentTypeCode,
+                    Type: payload.Type,
+                    status: statusWhereClause,
+                }
+            });
+            if (duplicate) {
+                throw new BadRequestException('Document type with this combination of Company, DocumentTypeCode and Type already exists');
+            }
             const createdDocType = await this._db.voucherTypeMaster.create({
                 data: {
                     ...payload,
@@ -63,6 +74,18 @@ export class DocumentTypeService {
             })
             if (!exist) {
                 throw new BadRequestException(`DocType with Id : ${VoucherTypeMasterSid} not exists`);
+            }
+            const duplicate = await this._db.voucherTypeMaster.findFirst({
+                where: {
+                    CompanyMasterSid: payload.CompanyMasterSid ?? exist.CompanyMasterSid,
+                    DocumentTypeCode: payload.DocumentTypeCode ?? exist.DocumentTypeCode,
+                    Type: payload.Type ?? exist.Type,
+                    status: statusWhereClause,
+                    VoucherTypeMasterSid: { not: VoucherTypeMasterSid },
+                }
+            });
+            if (duplicate) {
+                throw new BadRequestException('Document type with this combination of Company, DocumentTypeCode and Type already exists');
             }
             const updatedDocType = this._db.voucherTypeMaster.update({
                 where: {
