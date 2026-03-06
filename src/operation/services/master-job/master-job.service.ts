@@ -5848,17 +5848,27 @@ console.log('Created product:', createdProduct);
             });
             for (const hjSid of houseJobSids) {
                 const hjOther = othersCheck.find(o => o.HouseJobSid === hjSid);
-                if (!hjOther || !hjOther.SIConfirmationDate) return false;
+                if (!hjOther || !hjOther.SIConfirmationDate) {
+                    this.logger.warn(`SI_CONFIRMED check failed: HouseJobSid ${hjSid} has no SIConfirmationDate`);
+                    return false;
+                }
             }
             return true;
         });
 
         checkRunners.set('CARGO_ARRIVAL_NOTICE', async () => {
             if (!hasHouses) return false;
+            const shipmentNos = (await this._db.houseJob.findMany({
+                where: { HouseJobSid: { in: houseJobSids } },
+                select: { ShipmentNo: true }
+            })).map(h => h.ShipmentNo).filter(Boolean);
             const milestones = await this._db.shipmentMilestone.findMany({
                 where: {
-                    HouseJobSid: { in: houseJobSids },
-                    MilestoneName: { contains: 'Cargo Arrival Notice' },
+                    OR: [
+                        { HouseJobSid: { in: houseJobSids } },
+                        ...(shipmentNos.length > 0 ? [{ ShipmentNo: { in: shipmentNos as string[] } }] : [])
+                    ],
+                    MilestoneName: { contains: 'Cargo Arrival Notice', mode: 'insensitive' as const },
                     Status: 'A'
                 }
             });
@@ -5882,10 +5892,17 @@ console.log('Created product:', createdProduct);
 
         checkRunners.set('PRE_ALERT', async () => {
             if (!hasHouses) return false;
+            const shipmentNos = (await this._db.houseJob.findMany({
+                where: { HouseJobSid: { in: houseJobSids } },
+                select: { ShipmentNo: true }
+            })).map(h => h.ShipmentNo).filter(Boolean);
             const milestones = await this._db.shipmentMilestone.findMany({
                 where: {
-                    HouseJobSid: { in: houseJobSids },
-                    MilestoneName: { contains: 'Pre Alert' },
+                    OR: [
+                        { HouseJobSid: { in: houseJobSids } },
+                        ...(shipmentNos.length > 0 ? [{ ShipmentNo: { in: shipmentNos as string[] } }] : [])
+                    ],
+                    MilestoneName: { contains: 'Pre Alert', mode: 'insensitive' as const },
                     Status: 'A'
                 }
             });
@@ -6160,29 +6177,36 @@ console.log('Created product:', createdProduct);
 
             // Validate each closer being set to "Closed"
             if (DocCloseStatus === 'Closed') {
-                const allDocPassed = milestoneChecks.documentation.every(m => m.passed);
-                if (!allDocPassed) {
-                    throw new BadRequestException('Documentation milestones not met');
+                const failed = milestoneChecks.documentation.filter(m => !m.passed);
+                if (failed.length > 0) {
+                    throw new BadRequestException(
+                        `Documentation milestones not met: ${failed.map(m => m.label).join(', ')}`
+                    );
                 }
             }
             if (OpsCloseStatus === 'Closed') {
-                const allOpsPassed = milestoneChecks.operation.every(m => m.passed);
-                if (!allOpsPassed) {
-                    throw new BadRequestException('Operation milestones not met');
+                const failed = milestoneChecks.operation.filter(m => !m.passed);
+                if (failed.length > 0) {
+                    throw new BadRequestException(
+                        `Operation milestones not met: ${failed.map(m => m.label).join(', ')}`
+                    );
                 }
             }
             if (AccCloseStatus === 'Closed') {
-                const allAccPassed = milestoneChecks.accounts.every(m => m.passed);
-                if (!allAccPassed) {
-                    throw new BadRequestException('Accounts milestones not met');
+                const failed = milestoneChecks.accounts.filter(m => !m.passed);
+                if (failed.length > 0) {
+                    throw new BadRequestException(
+                        `Accounts milestones not met: ${failed.map(m => m.label).join(', ')}`
+                    );
                 }
             }
             if (JobCloseStatus === 'Closed') {
-                const allJobPassed = milestoneChecks.jobClose
-                    .filter(m => !m.nonBlocking)
-                    .every(m => m.passed);
-                if (!allJobPassed) {
-                    throw new BadRequestException('Job Close milestones not met. All previous closers must be done.');
+                const failed = milestoneChecks.jobClose
+                    .filter(m => !m.nonBlocking && !m.passed);
+                if (failed.length > 0) {
+                    throw new BadRequestException(
+                        `Job Close milestones not met: ${failed.map(m => m.label).join(', ')}`
+                    );
                 }
             }
 

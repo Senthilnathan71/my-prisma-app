@@ -4,7 +4,7 @@ import { statusWhereClause } from 'src/common/helper';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
-import { CreateUpdateCustomerDto } from 'src/masters/DTO/customer.dto';
+import { CreateUpdateCustomerDto, BulkCreateUpdateCustomerDto } from 'src/masters/DTO/customer.dto';
 
 @Injectable()
 export class CustomerService {
@@ -223,7 +223,30 @@ export class CustomerService {
         });
     }
 
-    async createBulkCustomers(payload: { customers: CreateUpdateCustomerDto[] }, user: any) {
+    private async resolveStateMasterSid(stateName: string): Promise<number | null> {
+        const state = await this._db.stateMaster.findFirst({
+            where: {
+                stateName: { equals: stateName.trim(), mode: 'insensitive' },
+                status: 'A'
+            },
+            select: { StateMasterSid: true }
+        });
+        return state?.StateMasterSid ?? null;
+    }
+
+    private async resolveCityMasterSid(cityName: string, stateMasterSid: number): Promise<number | null> {
+        const city = await this._db.cityMaster.findFirst({
+            where: {
+                cityName: { equals: cityName.trim(), mode: 'insensitive' },
+                StateMasterSid: stateMasterSid,
+                status: 'A'
+            },
+            select: { CityMasterSid: true }
+        });
+        return city?.CityMasterSid ?? null;
+    }
+
+    async createBulkCustomers(payload: { customers: BulkCreateUpdateCustomerDto[] }, user: any) {
         this.logger.log(`createBulkCustomers: ${payload.customers.length} customers`);
 
         const results: { success: any[]; failed: any[] } = {
@@ -233,14 +256,81 @@ export class CustomerService {
 
         for (const customerPayload of payload.customers) {
             try {
-                const customer = await this.createCustomer(customerPayload, user);
+                // Resolve state/city names to IDs for each branch
+                const resolvedBranches: any[] = [];
+                let resolutionError: string | null = null;
+
+                for (const branch of customerPayload.customerBranches) {
+                    const branchName = branch.BranchName || 'Unknown';
+
+                    // Resolve StateMasterSid from StateName if not provided
+                    let stateSid:any = branch.StateMasterSid;
+                    if (!stateSid && branch.StateName) {
+                        stateSid = await this.resolveStateMasterSid(branch.StateName);
+                        if (!stateSid) {
+                            resolutionError = `State '${branch.StateName}' not found (Branch: ${branchName})`;
+                            break;
+                        }
+                    }
+                    if (!stateSid) {
+                        resolutionError = `State is required (Branch: ${branchName})`;
+                        break;
+                    }
+
+                    // Resolve CityMasterSid from CityName if not provided
+                    let citySid:any = branch.CityMasterSid;
+                    if (!citySid && branch.CityName) {
+                        citySid = await this.resolveCityMasterSid(branch.CityName, stateSid);
+                        if (!citySid) {
+                            resolutionError = `City '${branch.CityName}' not found in state '${branch.StateName || stateSid}' (Branch: ${branchName})`;
+                            break;
+                        }
+                    }
+                    if (!citySid) {
+                        resolutionError = `City is required (Branch: ${branchName})`;
+                        break;
+                    }
+
+                    // Build resolved branch (strip StateName/CityName, set resolved IDs)
+                    const { StateName, CityName, ...branchFields } = branch as any;
+                    resolvedBranches.push({
+                        ...branchFields,
+                        StateMasterSid: stateSid,
+                        CityMasterSid: citySid,
+                    });
+                }
+
+                if (resolutionError) {
+                    // Get original names from first branch for error display
+                    const firstBranch = customerPayload.customerBranches[0];
+                    results.failed.push({
+                        CustomerName: customerPayload.customer.CustomerName,
+                        BranchName: firstBranch?.BranchName || '',
+                        StateName: firstBranch?.StateName || '',
+                        CityName: firstBranch?.CityName || '',
+                        error: resolutionError
+                    });
+                    continue;
+                }
+
+                // Build a proper CreateUpdateCustomerDto-shaped object with resolved IDs
+                const resolvedPayload: CreateUpdateCustomerDto = {
+                    customer: customerPayload.customer,
+                    customerBranches: resolvedBranches
+                };
+
+                const customer = await this.createCustomer(resolvedPayload, user);
                 results.success.push({
                     CustomerName: customerPayload.customer.CustomerName,
                     CustomerMasterSid: customer.CustomerMasterSid
                 });
             } catch (error: any) {
+                const firstBranch = customerPayload.customerBranches[0];
                 results.failed.push({
                     CustomerName: customerPayload.customer.CustomerName,
+                    BranchName: firstBranch?.BranchName || '',
+                    StateName: firstBranch?.StateName || '',
+                    CityName: firstBranch?.CityName || '',
                     error: error.message || 'Failed to create'
                 });
             }
