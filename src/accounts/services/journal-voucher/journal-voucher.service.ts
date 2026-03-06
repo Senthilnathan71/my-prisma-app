@@ -10,6 +10,7 @@ import { PostVoucherResponseDto, VoucherDetailDto } from 'src/accounts/dto/vouch
 import { TaxVoucherType, DOC_TYPE_CODE } from 'src/common/config/voucher-type.config';
 import { statusWhereClause, toNumber } from 'src/common/helper';
 import { DatabaseService } from 'src/database/database.service';
+import { Prisma } from '@prisma/client';
 import { VoucherService } from 'src/operation/services/voucher/voucher.service';
 
 @Injectable()
@@ -219,6 +220,18 @@ export class JournalVoucherService {
                 // Fetch complete journal voucher with relations
                 const completeJournalVoucher = await this.fetchJournalVoucherById(voucherHeader.VoucherHeaderSid, tx);
 
+                if (voucherTypeMaster.IsAutoPosting === 'Y') {
+                    const postResult = await this.postJournalInternal({
+                        voucherHeaderSid: voucherHeader.VoucherHeaderSid,
+                        companyMasterSid: voucherHeader.CompanyMasterSid,
+                        branchMasterSid: voucherHeader.BranchMasterSid,
+                        yearMasterSid: payload.YearMasterSid,
+                        localCurrencyMasterSid: Number(payload?.PostingInfo?.LocalCurrencyMasterSid),
+                        localCurrencyCode: String(payload?.PostingInfo?.LocalCurrencyCode),
+                        postedBy: payload.CreatedBy,
+                        taxDetails: payload?.PostingInfo?.TaxDetails,
+                    }, tx);
+                }
                 return {
                     newVoucher: completeJournalVoucher,
                     VoucherHeaderSid: voucherHeader.VoucherHeaderSid,
@@ -606,6 +619,35 @@ if (payload.VoucherDetail && Array.isArray(payload.VoucherDetail)) {
         }
     }
 
+    async postJournalInternal(payload: {
+            voucherHeaderSid: number,
+            companyMasterSid: number,
+            branchMasterSid: number,
+            yearMasterSid: number,
+            localCurrencyMasterSid: number,
+            localCurrencyCode: string,
+            postedBy: string,
+            taxDetails: {
+                CountryMasterSid: number,
+                countryCode: string,
+                TaxCategory: 'Inter' | 'Intra',
+                EffectiveFrom: Date,
+                TaxType: 'Input' | 'Output',
+            }
+        }, tx?: Prisma.TransactionClient) {
+            try {
+                const result = await (tx
+                    ? this.postJournalVoucher(payload, tx)
+                    : this._db.$transaction((newTx) =>
+                        this.postJournalVoucher(payload, newTx), { timeout: 60000 }
+                    )
+                );
+                return result;
+    
+            } catch (error) {
+                throw error;
+            }
+        }
     /**
      * Post journal voucher
      */
@@ -625,10 +667,9 @@ if (payload.VoucherDetail && Array.isArray(payload.VoucherDetail)) {
                 EffectiveFrom: Date,
                 TaxType: 'Input' | 'Output',
             }
-        }
+        }, tx: Prisma.TransactionClient
     ): Promise<PostVoucherResponseDto> {
         try {
-            return await this._db.$transaction(async (tx) => {
                 // Check if voucher exists
                 const { voucherHeaderSid, companyMasterSid, branchMasterSid, postedBy, taxDetails } = payload;
 
@@ -864,7 +905,6 @@ if (payload.VoucherDetail && Array.isArray(payload.VoucherDetail)) {
                     errors: [],
                     message: 'Voucher posted successfully'
                 };
-            });
         } catch (error) {
             this.logger.error(`Error posting journal voucher: ${error.message}`);
             if (error instanceof NotFoundException || error instanceof BadRequestException) {
@@ -894,9 +934,9 @@ if (payload.VoucherDetail && Array.isArray(payload.VoucherDetail)) {
             return sum + localAmount + taxAmount1;
         }, 0);
 
-        const difference = Math.abs(debitTotal - creditTotal);
+        const difference = Number(Math.abs(debitTotal - creditTotal).toFixed(2));
 
-        if (difference > 0.01) {
+        if (difference > 0) {
             throw new BadRequestException(
                 `Debit and Credit totals must be equal. Debit: ${debitTotal}, Credit: ${creditTotal}, Difference: ${difference}`
             );

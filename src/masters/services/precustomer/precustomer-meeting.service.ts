@@ -48,24 +48,24 @@ export class PreCustomerMeetingService {
         return result;
     }
 
-     async searchOpportunity(params: filterDto) {
-        const { search = '',page = 1, pageSize = 10, activeCompanyId, activeBranchId} = params;
+    async searchOpportunity(params: filterDto) {
+        const { search = '', page = 1, pageSize = 10, activeCompanyId, activeBranchId } = params;
         const skip = (page - 1) * pageSize;
 
         const where: Prisma.PreCustomerMasterWhereInput = {
             status: statusWhereClause,
             leadStatus: {
-                    in: ["MeetingScheduled", "EnquiryGenerated", "QuotationConfirmed", "MeetingCompleted", "QuotationCreated", "Qualify"]
+                in: ["MeetingScheduled", "EnquiryGenerated", "QuotationConfirmed", "MeetingCompleted", "QuotationCreated", "Qualify"]
             },
             CompanyMasterSid: activeCompanyId,
             BranchMasterSid: activeBranchId,
             ...(search
                 ? {
                     OR: [
-                        { preCustomerName: {contains: search, mode: 'insensitive'}},
-                        { cityMaster: { cityName: { contains: search, mode: 'insensitive'}}},
-                        { contactPerson: {contains: search,  mode: 'insensitive'}},
-                        { phone: { contains: search, mode: 'insensitive'}},
+                        { preCustomerName: { contains: search, mode: 'insensitive' } },
+                        { cityMaster: { cityName: { contains: search, mode: 'insensitive' } } },
+                        { contactPerson: { contains: search, mode: 'insensitive' } },
+                        { phone: { contains: search, mode: 'insensitive' } },
                     ],
                 } : {}
             ),
@@ -75,21 +75,21 @@ export class PreCustomerMeetingService {
                 where,
                 skip,
                 take: pageSize,
-                orderBy: { PreCustomerMasterSid: 'desc'},
+                orderBy: { PreCustomerMasterSid: 'desc' },
                 include: {
                     preCustomerMeeting: true, // Include if needed for debugging, otherwise remove,
                     cityMaster: true,
                 }
             }),
-            this._db.preCustomerMaster.count({where}),
+            this._db.preCustomerMaster.count({ where }),
         ]);
 
-        return { items, totalCount}
+        return { items, totalCount }
     }
 
 
 
-    async CreateAndUpdatePreCustomerMeeting(user,params: any) {
+    async CreateAndUpdatePreCustomerMeeting(user, params: any) {
         try {
             let output;
             const payload: any = {
@@ -97,7 +97,7 @@ export class PreCustomerMeetingService {
                 leadAssignTo: Number(params.leadAssignTo),
                 meetingStatus: params.meetingStatus,
                 customerProfile: params.customerProfile,
-                meetingNote: params.meetingNote ||'',
+                meetingNote: params.meetingNote || '',
                 followUpNote: params.followUpNote,
                 createdBy: params.createdBy,
                 status: params.status || "A",
@@ -224,13 +224,18 @@ export class PreCustomerMeetingService {
             }
             let mes;
             if (newMeeting) {
-                const updateLeadStatus = await this._db.preCustomerMaster.update({
-                    where: {
-                        PreCustomerMasterSid: params.PreCustomerMasterSid
-                    }, data: {
-                        leadStatus: LeadStatus.MeetingScheduled
-                    }
-                }).catch(err => { throw err })
+
+                if (params.LeadOrCustomer === 'L' && params.PreCustomerMasterSid) {
+                    await this._db.preCustomerMaster.update({
+                        where: {
+                            PreCustomerMasterSid: Number(params.PreCustomerMasterSid)
+                        },
+                        data: {
+                            leadStatus: LeadStatus.MeetingScheduled
+                        }
+                    });
+                }
+
                 mes = 'Meeting created successfully'
                 output = newMeeting
             } else {
@@ -408,114 +413,114 @@ export class PreCustomerMeetingService {
         const local = new Date(localDateTime);
         return new Date(local.getTime() - local.getTimezoneOffset() * 60000).toISOString();
     }
- async searchPreCustomerMeeting(params: filterDto, user: any) {
-    const { search = '', page = 1, pageSize = 10, activeCompanyId, activeBranchId } = params;
-    const skip = (page - 1) * pageSize;
-    const parsedDate = parseDateFromString(search);
+    async searchPreCustomerMeeting(params: filterDto, user: any) {
+        const { search = '', page = 1, pageSize = 10, activeCompanyId, activeBranchId } = params;
+        const skip = (page - 1) * pageSize;
+        const parsedDate = parseDateFromString(search);
 
-    let salesmanIds: number[] = [];
+        let salesmanIds: number[] = [];
 
-    if (search) {
-       
-        const users = await this._db.userMaster.findMany({
-            where: { 
-                userName: { contains: search, mode: 'insensitive' }, 
-                status: 'A' 
+        if (search) {
+
+            const users = await this._db.userMaster.findMany({
+                where: {
+                    userName: { contains: search, mode: 'insensitive' },
+                    status: 'A'
+                },
+                select: { UserMasterSid: true },
+            });
+            salesmanIds = users.map(u => u.UserMasterSid);
+        }
+
+        const where: Prisma.PreCustomerMeetingWhereInput = {
+            status: statusWhereClause,
+            leadAssignTo: user.UserMasterSid,
+            meetingStatus: {
+                in: ['Scheduled', 'In Progress', 'On Hold'],
             },
-            select: { UserMasterSid: true },
-        });
-        salesmanIds = users.map(u => u.UserMasterSid);
-    }
+            CompanyMasterSid: activeCompanyId,
+            BranchMasterSid: activeBranchId,
+            ...(search ? {
+                OR: [
+                    { meetingType: { contains: search, mode: 'insensitive' } },
+                    { meetingStatus: { contains: search, mode: 'insensitive' } },
+                    { meetingNote: { contains: search, mode: 'insensitive' } },
+                    { remarks: { contains: search, mode: 'insensitive' } },
 
-    const where: Prisma.PreCustomerMeetingWhereInput = {
-        status: statusWhereClause,
-        leadAssignTo: user.UserMasterSid,
-        meetingStatus: {
-            in: ['Scheduled', 'In Progress', 'On Hold'],
-        },
-        CompanyMasterSid: activeCompanyId,
-        BranchMasterSid: activeBranchId,
-        ...(search ? {
-            OR: [
-                { meetingType: { contains: search, mode: 'insensitive' } },
-                { meetingStatus: { contains: search, mode: 'insensitive' } },
-                { meetingNote: { contains: search, mode: 'insensitive' } },
-                { remarks: { contains: search, mode: 'insensitive' } },
-               
-                { 
-                    preCustomerMaster: { 
-                        preCustomerName: { contains: search, mode: 'insensitive' } 
+                    {
+                        preCustomerMaster: {
+                            preCustomerName: { contains: search, mode: 'insensitive' }
+                        }
+                    },
+
+                    ...(salesmanIds.length > 0 ? [{ leadAssignTo: { in: salesmanIds } }] : []),
+
+                    ...(!isNaN(Number(search)) ? [{ leadAssignTo: Number(search) }] : []),
+
+                    ...(parsedDate ? [
+                        { meetingDate: { equals: parsedDate } },
+                        { followUpDate: { equals: parsedDate } },
+                    ] : []),
+                ],
+            } : {})
+        };
+
+        let items;
+        let totalCount;
+        [items, totalCount] = await this._db.$transaction([
+            this._db.preCustomerMeeting.findMany({
+                where,
+                skip,
+                take: pageSize,
+                orderBy: {
+                    preCustomerMaster: {
+                        preCustomerName: 'asc'
                     }
                 },
-                
-                ...(salesmanIds.length > 0 ? [{ leadAssignTo: { in: salesmanIds } }] : []),
-               
-                ...(!isNaN(Number(search)) ? [{ leadAssignTo: Number(search) }] : []),
-                
-                ...(parsedDate ? [
-                    { meetingDate: { equals: parsedDate } },
-                    { followUpDate: { equals: parsedDate } },
-                ] : []),
-            ],
-        } : {})
-    };
+                include: {
+                    branchMaster: true,
+                    companyMaster: true,
+                    preCustomerMaster: true,
+                },
+            }),
+            this._db.preCustomerMeeting.count({ where }),
+        ]);
 
-    let items;
-    let totalCount;
-    [items, totalCount] = await this._db.$transaction([
-        this._db.preCustomerMeeting.findMany({
-            where,
-            skip,
-            take: pageSize,
-            orderBy: { 
-                preCustomerMaster: {
-                    preCustomerName: 'asc'
-                }
-            },     
-            include: {
-                branchMaster: true,
-                companyMaster: true,
-                preCustomerMaster: true,
+
+        const allSalesPersonIds: number[] = [...new Set(items.map(item => item.leadAssignTo))].filter(id => id !== null && id !== undefined) as number[];
+
+        const salesPersons = allSalesPersonIds.length > 0 ? await this._db.userMaster.findMany({
+            where: {
+                UserMasterSid: { in: allSalesPersonIds }
             },
-        }),
-        this._db.preCustomerMeeting.count({ where }),
-    ]);
+            select: {
+                UserMasterSid: true,
+                userName: true
+            }
+        }) : [];
 
-  
-    const allSalesPersonIds: number[] = [...new Set(items.map(item => item.leadAssignTo))].filter(id => id !== null && id !== undefined) as number[];
-    
-    const salesPersons = allSalesPersonIds.length > 0 ? await this._db.userMaster.findMany({
-        where: {
-            UserMasterSid: { in: allSalesPersonIds }
-        },
-        select: {
-            UserMasterSid: true,
-            userName: true
-        }
-    }) : [];
+        const salesPersonMap = new Map(salesPersons.map(sp => [sp.UserMasterSid, sp]));
 
-    const salesPersonMap = new Map(salesPersons.map(sp => [sp.UserMasterSid, sp]));
+        const enrichedItems = items.map(item => ({
+            ...item,
+            salesPerson: salesPersonMap.get(item.leadAssignTo) || { UserMasterSid: item.leadAssignTo, userName: 'N/A' }
+        }));
 
-    const enrichedItems = items.map(item => ({
-        ...item,
-        salesPerson: salesPersonMap.get(item.leadAssignTo) || { UserMasterSid: item.leadAssignTo, userName: 'N/A' }
-    }));
-
-    return {
-        items: enrichedItems,
-        totalCount,
-    };
-}
-    async getSalesmanOfPreCustomer(PreCustomerMasterSid:number){
+        return {
+            items: enrichedItems,
+            totalCount,
+        };
+    }
+    async getSalesmanOfPreCustomer(PreCustomerMasterSid: number) {
         try {
             const customerMeeting = await this._db.preCustomerMeeting.findMany({
                 where: {
                     PreCustomerMasterSid: PreCustomerMasterSid,
-                    status : "A",
-                    customerMaster : {}
+                    status: "A",
+                    customerMaster: {}
                 }
             })
-            if(customerMeeting.length === 0){
+            if (customerMeeting.length === 0) {
                 return null;
             }
             const salesPersonId = customerMeeting[0].leadAssignTo;
@@ -531,8 +536,8 @@ export class PreCustomerMeetingService {
                 where: {
                     PreCustomerMeetingSid: PreCustomerMeetingSid
                 },
-                data : {
-                    status : 'D'
+                data: {
+                    status: 'D'
                 }
             })
         } catch (error) {
