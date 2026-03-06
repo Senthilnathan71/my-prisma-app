@@ -861,7 +861,7 @@ export class HouseJobService {
                         CarrierName: payload.CarrierName || '',
                         Coload: payload.Coload || '',
                         GeneralNote: payload.GeneralNote || '',
-                        HBLNo: isAgentMasterAirWaybill ? null : (payload.HBLNo || ''),
+                        HBLNo: isAgentMasterAirWaybill ? ""+HouseJobSid : (payload.HBLNo || ''),
                         InternalNote: payload.InternalNote || '',
                         MBLDate: payload.MBLDate || null,
                         MBLNo: payload.MBLNo || '',
@@ -1869,6 +1869,7 @@ export class HouseJobService {
             CompanyMasterSid: activeCompanyId,
             BranchMasterSid: activeBranchId,
             IsServiceJob : { not : 'Y' },
+            JobType: { not: 'Agent' },
 
             // ✅ Correct department filter
             ...(departmentType
@@ -2012,3 +2013,5 @@ private async recalculateMasterJobTotals(
 }
 
 }
+
+

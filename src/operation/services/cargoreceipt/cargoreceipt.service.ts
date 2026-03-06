@@ -205,7 +205,7 @@ export class CargoreceiptService {
     // First, get all bookings that match the basic criteria
     const allBookings = await this._db.bookingHeader.findMany({
       where,
-      orderBy: { BookingHeaderSid: 'asc' },
+      orderBy: { BookingDateTime: 'desc' },
       select: {
         BookingHeaderSid: true,
         BookingNo: true,
