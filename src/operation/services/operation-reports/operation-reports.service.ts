@@ -2582,8 +2582,17 @@ export class OperationReportsService {
                 Status: 'A',
                 CostVoucherHeaderSid: null,
               },
+             },
+             houseJob:{
+              select:{
+                masterJob:{
+                  select:{
+                    MBLNo:true
+                  }
+                }
+              }
+             }
             },
-          },
           orderBy: { BookingDateTime: 'asc' },
         });
 
@@ -2691,6 +2700,7 @@ export class OperationReportsService {
             dept: bookingDept,
             bookingNo: b.BookingNo,
             HBLno: b.HBLNo,
+            MBLno:b.houseJob?.masterJob?.MBLNo,
             FreightTerm: b.FreightTerms,
 
             branchName:
@@ -2948,6 +2958,15 @@ export class OperationReportsService {
                 RevenueVoucherHeaderSid: null,
               },
             },
+            houseJob:{
+              select:{
+                masterJob:{
+                  select:{
+                    MBLNo:true
+                  }
+                }
+              }
+            }
           },
           orderBy: { BookingDateTime: 'asc' },
         });
@@ -3059,7 +3078,7 @@ export class OperationReportsService {
             bookingNo: b.BookingNo,
             HBLno: b.HBLNo,
             FreightTerm: b.FreightTerms,
-
+            MBLno:b.houseJob?.masterJob?.MBLNo,
             branchName:
               branches.find((br) => br.BranchMasterSid === b.BranchMasterSid)
                 ?.branchName || '',
