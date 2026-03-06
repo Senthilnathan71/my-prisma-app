@@ -3670,6 +3670,9 @@ export class AccountsReportsService {
             gte: fromDate,
             lte: toDate,
           },
+          PostStatus:{
+            in:['P' , 'U']
+          },
           voucherTypeMaster: {
             DocumentTypeCode: DOC_TYPE_CODE.PAYMENT,
           },
