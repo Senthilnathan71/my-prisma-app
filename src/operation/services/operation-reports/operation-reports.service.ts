@@ -636,6 +636,45 @@ export class OperationReportsService {
       const resolvedDeptIds = departments.map((d) => d.DepartmentMasterSid);
       const resolvedDeptNames = departments.map((d) => d.departmentName);
 
+      const profitabilityMenus = await this._db.menuMaster.findMany({
+        where: {
+          status: 'A',
+          OR: [
+            { MenuName: { equals: 'Master Job', mode: 'insensitive' } },
+            { MenuName: { contains: 'Master Air Way', mode: 'insensitive' } },
+            { MenuName: { equals: 'House Job', mode: 'insensitive' } },
+            { MenuName: { contains: 'House Air Way', mode: 'insensitive' } },
+            {
+              MenuName: {
+                contains: 'Agent Master Air Way',
+                mode: 'insensitive',
+              },
+            },
+          ],
+        },
+        select: { MenuMasterSid: true, MenuName: true },
+      });
+
+      const allMasterMenuSids = profitabilityMenus
+        .filter((m) => {
+          const menuName = m.MenuName.toLowerCase();
+          return (
+            menuName === 'master job' || menuName.includes('master air way')
+          );
+        })
+        .map((m) => m.MenuMasterSid);
+
+      const allHouseMenuSids = profitabilityMenus
+        .filter((m) => {
+          const menuName = m.MenuName.toLowerCase();
+          return (
+            menuName === 'house job' ||
+            menuName.includes('house air way') ||
+            menuName.includes('agent master air way') 
+          );
+        })
+        .map((m) => m.MenuMasterSid);
+
       // Load container type master (ID → Size Map)
       const containerTypesMaster = await this._db.containerTypeMaster.findMany({
         select: {
@@ -671,6 +710,7 @@ export class OperationReportsService {
               HouseJobSid: true,
               HouseNo: true,
               HBLNo: true,
+              MenuMasterSid: true,
             },
             where: { status: 'A' },
           },
@@ -704,12 +744,22 @@ export class OperationReportsService {
       // Map each master job to its CostRevenueCharges
       const data = await Promise.all(
         masterJobs.map(async (job) => {
+          const masterMenuSids = Array.from(
+            new Set(
+              [job.MenuMasterSid, ...allMasterMenuSids].filter(
+                (sid): sid is number => typeof sid === 'number',
+              ),
+            ),
+          );
+
           // Fetch cost & revenue charges for all master jobs
           const relatedCR = await this._db.costRevenueCharges.findMany({
             where: {
-              MenuMasterSid: job.MenuMasterSid!,
               TransactionSid: job.MasterJobSid,
               status: 'A',
+              ...(masterMenuSids.length > 0
+                ? { MenuMasterSid: { in: masterMenuSids } }
+                : {}),
             },
             select: {
               MenuMasterSid: true,
@@ -742,38 +792,43 @@ export class OperationReportsService {
 
           const houseRateMap: Map<number, any[]> = new Map([]);
 
-          const houseJobIds = new Set(houseJobs.map((hj) => hj.HouseJobSid));
           const houseJobIdArr = houseJobs.map((hj) => hj.HouseJobSid);
-          const houseJobMenu = await this._db.menuMaster.findFirst({
-            where: { MenuName: 'House Job' },
-            select: { MenuMasterSid: true },
-          });
+          const houseMenuSids = Array.from(
+            new Set(
+              [
+                ...allHouseMenuSids,
+                ...houseJobs
+                  .map((hj) => hj.MenuMasterSid)
+                  .filter((sid): sid is number => typeof sid === 'number'),
+              ].filter((sid): sid is number => typeof sid === 'number'),
+            ),
+          );
 
-          if (!houseJobMenu) {
-            throw new BadRequestException('House Job is found in menuMaster.');
-          }
-
-          const allHouseCR = await this._db.costRevenueCharges.findMany({
-            where: {
-              MenuMasterSid: houseJobMenu.MenuMasterSid,
-              TransactionSid: { in: houseJobIdArr },
-              status: 'A',
-            },
-            select: {
-              TransactionSid: true,
-              MenuMasterSid: true,
-              CostLocalAmount: true,
-              RevenueLocalAmount: true,
-              ChargeDescription: true,
-              ChargeMasterSid: true,
-              CostAgentMasterSid: true,
-              RevenueCustomerMasterSid: true,
-              CostDrCr: true,
-              RevenueDrCr: true,
-              CostVoucherHeaderSid: true,
-              RevenueVoucherHeaderSid: true,
-            },
-          });
+          const allHouseCR = houseJobIdArr.length
+            ? await this._db.costRevenueCharges.findMany({
+                where: {
+                  TransactionSid: { in: houseJobIdArr },
+                  status: 'A',
+                  ...(houseMenuSids.length > 0
+                    ? { MenuMasterSid: { in: houseMenuSids } }
+                    : {}),
+                },
+                select: {
+                  TransactionSid: true,
+                  MenuMasterSid: true,
+                  CostLocalAmount: true,
+                  RevenueLocalAmount: true,
+                  ChargeDescription: true,
+                  ChargeMasterSid: true,
+                  CostAgentMasterSid: true,
+                  RevenueCustomerMasterSid: true,
+                  CostDrCr: true,
+                  RevenueDrCr: true,
+                  CostVoucherHeaderSid: true,
+                  RevenueVoucherHeaderSid: true,
+                },
+              })
+            : [];
 
           allHouseCR.forEach((hcr) => {
             const key = hcr.TransactionSid!;
@@ -926,6 +981,7 @@ export class OperationReportsService {
             Mbl: job.MBLNo,
             POL: job.POL,
             POD: job.POD,
+            dept: departments.find(d=>d.DepartmentMasterSid === job.DepartmentMasterSid)?.departmentName,
             chargeable: job?.ChargeableWeight,
             Vol: job?.Volume,
             noOfShipment: job.houseJob?.length,
@@ -1517,20 +1573,58 @@ export class OperationReportsService {
         orderBy: { HBLDate: 'asc' },
       });
 
-      const houseJobMenu = await this._db.menuMaster.findFirst({
-        where: { MenuName: 'House Job' },
-        select: { MenuMasterSid: true },
+      const profitabilityMenus = await this._db.menuMaster.findMany({
+        where: {
+          status: 'A',
+          OR: [
+            { MenuName: { equals: 'Master Job', mode: 'insensitive' } },
+            { MenuName: { contains: 'Master Air Way', mode: 'insensitive' } },
+            { MenuName: { equals: 'House Job', mode: 'insensitive' } },
+            { MenuName: { contains: 'House Air Way', mode: 'insensitive' } },
+            {
+              MenuName: {
+                contains: 'Agent Master Air Way',
+                mode: 'insensitive',
+              },
+            },
+            {
+              MenuName: { contains: 'AgentMaster Air Way', mode: 'insensitive' },
+            },
+          ],
+        },
+        select: { MenuMasterSid: true, MenuName: true },
       });
 
-      if (!houseJobMenu) {
-        throw new BadRequestException('House Job menu not found');
+      const allMasterMenuSids = profitabilityMenus
+        .filter((m) => {
+          const menuName = m.MenuName.toLowerCase();
+          return (
+            menuName === 'master job' || menuName.includes('master air way')
+          );
+        })
+        .map((m) => m.MenuMasterSid);
+
+      const allHouseMenuSids = profitabilityMenus
+        .filter((m) => {
+          const menuName = m.MenuName.toLowerCase();
+          return (
+            menuName === 'house job' ||
+            menuName.includes('house air way') ||
+            menuName.includes('agent master air way') ||
+            menuName.includes('agentmaster air way')
+          );
+        })
+        .map((m) => m.MenuMasterSid);
+
+      if (!allHouseMenuSids.length || !allMasterMenuSids.length) {
+        throw new BadRequestException('Required menus not found');
       }
 
       const houseJobIds = houseData.map((h) => h.HouseJobSid);
 
       const houseCR = await this._db.costRevenueCharges.findMany({
         where: {
-          MenuMasterSid: houseJobMenu.MenuMasterSid,
+          MenuMasterSid: { in: allHouseMenuSids },
           TransactionSid: { in: houseJobIds },
           status: 'A',
         },
@@ -2503,18 +2597,52 @@ export class OperationReportsService {
         }
       });
 
-      const houseJobMenu = await this._db.menuMaster.findFirst({
-        where: { MenuName: 'House Job' },
-        select: { MenuMasterSid: true },
+      const unbilledCostMenus = await this._db.menuMaster.findMany({
+        where: {
+          status: 'A',
+          OR: [
+            { MenuName: { equals: 'Master Job', mode: 'insensitive' } },
+            { MenuName: { contains: 'Master Air Way', mode: 'insensitive' } },
+            { MenuName: { equals: 'House Job', mode: 'insensitive' } },
+            { MenuName: { contains: 'House Air Way', mode: 'insensitive' } },
+            {
+              MenuName: {
+                contains: 'Agent Master Air Way',
+                mode: 'insensitive',
+              },
+            },
+          ],
+        },
+        select: { MenuMasterSid: true, MenuName: true },
       });
 
-      if (!houseJobMenu) {
-        throw new BadRequestException('House Job menu not found');
+      const allMasterMenuSids = unbilledCostMenus
+        .filter((m) => {
+          const menuName = m.MenuName.toLowerCase();
+          return (
+            menuName === 'master job' || menuName.includes('master air way')
+          );
+        })
+        .map((m) => m.MenuMasterSid);
+
+      const allHouseMenuSids = unbilledCostMenus
+        .filter((m) => {
+          const menuName = m.MenuName.toLowerCase();
+          return (
+            menuName === 'house job' ||
+            menuName.includes('house air way') ||
+            menuName.includes('agent master air way')
+          );
+        })
+        .map((m) => m.MenuMasterSid);
+
+      if (!allHouseMenuSids.length || !allMasterMenuSids.length) {
+        throw new BadRequestException('Required menus not found');
       }
 
       const allHouseCR = await this._db.costRevenueCharges.findMany({
         where: {
-          MenuMasterSid: houseJobMenu.MenuMasterSid,
+          MenuMasterSid: { in: allHouseMenuSids },
           TransactionSid: { in: houseJobIds },
           status: 'A',
           OR: [{ CostVoucherHeaderSid: null }],
@@ -2537,18 +2665,9 @@ export class OperationReportsService {
         }
       });
 
-      const masterJobMenu = await this._db.menuMaster.findFirst({
-        where: { MenuName: 'Master Job' },
-        select: { MenuMasterSid: true },
-      });
-
-      if (!masterJobMenu) {
-        throw new BadRequestException('Master Job menu not found');
-      }
-
       const allMasterCR = await this._db.costRevenueCharges.findMany({
         where: {
-          MenuMasterSid: masterJobMenu.MenuMasterSid,
+          MenuMasterSid: { in: allMasterMenuSids },
           TransactionSid: { in: masterJobIds },
           status: 'A',
           OR: [{ CostVoucherHeaderSid: null }],
@@ -2596,6 +2715,14 @@ export class OperationReportsService {
           orderBy: { BookingDateTime: 'asc' },
         });
 
+      const menuNameById = new Map(
+        unbilledCostMenus.map((m) => [m.MenuMasterSid, m.MenuName]),
+      );
+      const resolveScreenName = (
+        menuSid: number | null | undefined,
+        fallback: string,
+      ) => (menuSid ? (menuNameById.get(menuSid) ?? fallback) : fallback);
+
       //  house job map function
       const housedata = houseJobs.map((house) => {
         const houseDepartment =
@@ -2612,6 +2739,11 @@ export class OperationReportsService {
           HouseNo: house.HouseNo,
           HBLNo: house.HBLNo,
           MBLNo: house.masterJob?.MBLNo,
+          houseScreen: resolveScreenName(house.MenuMasterSid, 'House Job'),
+          masterScreen: resolveScreenName(
+            house.masterJob?.MenuMasterSid,
+            'Master Job',
+          ),
           houseDept: houseDepartment,
           houseStatus: house.HouseStatus,
           bookingNo: house.BookingNo,
@@ -2658,6 +2790,7 @@ export class OperationReportsService {
 
         return {
           MasterJobSid: m.MasterJobSid,
+          masterScreen: resolveScreenName(m.MenuMasterSid, 'Master Job'),
           masterDept: masterDept,
           MBLNo: m.MBLNo,
           branchName:
@@ -2878,18 +3011,52 @@ export class OperationReportsService {
         }
       });
 
-      const houseJobMenu = await this._db.menuMaster.findFirst({
-        where: { MenuName: 'House Job' },
-        select: { MenuMasterSid: true },
+      const unbilledRevenueMenus = await this._db.menuMaster.findMany({
+        where: {
+          status: 'A',
+          OR: [
+            { MenuName: { equals: 'Master Job', mode: 'insensitive' } },
+            { MenuName: { contains: 'Master Air Way', mode: 'insensitive' } },
+            { MenuName: { equals: 'House Job', mode: 'insensitive' } },
+            { MenuName: { contains: 'House Air Way', mode: 'insensitive' } },
+            {
+              MenuName: {
+                contains: 'Agent Master Air Way',
+                mode: 'insensitive',
+              },
+            },
+          ],
+        },
+        select: { MenuMasterSid: true, MenuName: true },
       });
 
-      if (!houseJobMenu) {
-        throw new BadRequestException('House Job menu not found');
+      const allMasterMenuSids = unbilledRevenueMenus
+        .filter((m) => {
+          const menuName = m.MenuName.toLowerCase();
+          return (
+            menuName === 'master job' || menuName.includes('master air way')
+          );
+        })
+        .map((m) => m.MenuMasterSid);
+
+      const allHouseMenuSids = unbilledRevenueMenus
+        .filter((m) => {
+          const menuName = m.MenuName.toLowerCase();
+          return (
+            menuName === 'house job' ||
+            menuName.includes('house air way') ||
+            menuName.includes('agent master air way') 
+          );
+        })
+        .map((m) => m.MenuMasterSid);
+
+      if (!allHouseMenuSids.length || !allMasterMenuSids.length) {
+        throw new BadRequestException('Required menus not found');
       }
 
       const allHouseCR = await this._db.costRevenueCharges.findMany({
         where: {
-          MenuMasterSid: houseJobMenu.MenuMasterSid,
+          MenuMasterSid: { in: allHouseMenuSids },
           TransactionSid: { in: houseJobIds },
           status: 'A',
           OR: [{ RevenueVoucherHeaderSid: null }],
@@ -2912,18 +3079,9 @@ export class OperationReportsService {
         }
       });
 
-      const masterJobMenu = await this._db.menuMaster.findFirst({
-        where: { MenuName: 'Master Job' },
-        select: { MenuMasterSid: true },
-      });
-
-      if (!masterJobMenu) {
-        throw new BadRequestException('Master Job menu not found');
-      }
-
       const allMasterCR = await this._db.costRevenueCharges.findMany({
         where: {
-          MenuMasterSid: masterJobMenu.MenuMasterSid,
+          MenuMasterSid: { in: allMasterMenuSids },
           TransactionSid: { in: masterJobIds },
           status: 'A',
           OR: [{ RevenueVoucherHeaderSid: null }],
@@ -3215,6 +3373,7 @@ export class OperationReportsService {
           HouseNo: true,
           HBLNo: true,
           MBLNo: true,
+          MenuMasterSid: true,
           HBLDate: true,
           DepartmentMasterSid: true,
           HouseStatus: true,
@@ -3240,18 +3399,42 @@ export class OperationReportsService {
 
       const houseJobIds = houseJobs.map((h) => h.HouseJobSid);
 
-      const houseJobMenu = await this._db.menuMaster.findFirst({
-        where: { MenuName: 'House Job' },
-        select: { MenuMasterSid: true },
+      const houseJobLossMenus = await this._db.menuMaster.findMany({
+        where: {
+          status: 'A',
+          OR: [
+            { MenuName: { equals: 'House Job', mode: 'insensitive' } },
+            { MenuName: { contains: 'House Air Way', mode: 'insensitive' } },
+            {
+              MenuName: {
+                contains: 'Agent Master Air Way',
+                mode: 'insensitive',
+              },
+            },
+            {
+              MenuName: { contains: 'AgentMaster Air Way', mode: 'insensitive' },
+            },
+          ],
+        },
+        select: { MenuMasterSid: true, MenuName: true },
       });
 
-      if (!houseJobMenu) {
+      const allHouseMenuSids = Array.from(
+        new Set([
+          ...houseJobLossMenus.map((m) => m.MenuMasterSid),
+          ...houseJobs
+            .map((h) => h.MenuMasterSid)
+            .filter((sid): sid is number => typeof sid === 'number'),
+        ]),
+      );
+
+      if (!allHouseMenuSids.length) {
         throw new BadRequestException('House Job menu not found');
       }
 
       const allHouseCR = await this._db.costRevenueCharges.findMany({
         where: {
-          MenuMasterSid: houseJobMenu.MenuMasterSid,
+          MenuMasterSid: { in: allHouseMenuSids },
           TransactionSid: { in: houseJobIds },
           status: 'A',
           OR: [
@@ -3381,19 +3564,11 @@ export class OperationReportsService {
         branchId && branchId.length > 0
           ? allBranches.map((b) => b.branchName).join(', ')
           : 'All Branches';
-      const [departments, masterJobMenu, houseJobMenu, customer, user] =
+      const [departments, customer, user] =
         await Promise.all([
           this._db.departmentMaster.findMany({
             where: { DepartmentMasterSid: { in: dept } },
             select: { DepartmentMasterSid: true, departmentName: true },
-          }),
-          this._db.menuMaster.findFirst({
-            where: { MenuName: 'Master Job' },
-            select: { MenuMasterSid: true },
-          }),
-          this._db.menuMaster.findFirst({
-            where: { MenuName: 'House Job' },
-            select: { MenuMasterSid: true },
           }),
           this._db.customerMaster.findMany({
             select: { CustomerMasterSid: true, CustomerName: true },
@@ -3402,8 +3577,50 @@ export class OperationReportsService {
             select: { UserMasterSid: true, userName: true },
           }),
         ]);
+      const profitSummaryMenus = await this._db.menuMaster.findMany({
+        where: {
+          status: 'A',
+          OR: [
+            { MenuName: { equals: 'Master Job', mode: 'insensitive' } },
+            { MenuName: { contains: 'Master Air Way', mode: 'insensitive' } },
+            { MenuName: { equals: 'House Job', mode: 'insensitive' } },
+            { MenuName: { contains: 'House Air Way', mode: 'insensitive' } },
+            {
+              MenuName: {
+                contains: 'Agent Master Air Way',
+                mode: 'insensitive',
+              },
+            },
+            {
+              MenuName: { contains: 'AgentMaster Air Way', mode: 'insensitive' },
+            },
+          ],
+        },
+        select: { MenuMasterSid: true, MenuName: true },
+      });
 
-      if (!masterJobMenu || !houseJobMenu) {
+      const allMasterMenuSids = profitSummaryMenus
+        .filter((m) => {
+          const menuName = m.MenuName.toLowerCase();
+          return (
+            menuName === 'master job' || menuName.includes('master air way')
+          );
+        })
+        .map((m) => m.MenuMasterSid);
+
+      const allHouseMenuSids = profitSummaryMenus
+        .filter((m) => {
+          const menuName = m.MenuName.toLowerCase();
+          return (
+            menuName === 'house job' ||
+            menuName.includes('house air way') ||
+            menuName.includes('agent master air way') ||
+            menuName.includes('agentmaster air way')
+          );
+        })
+        .map((m) => m.MenuMasterSid);
+
+      if (!allMasterMenuSids.length || !allHouseMenuSids.length) {
         throw new BadRequestException('Menu not found');
       }
 
@@ -3444,40 +3661,72 @@ export class OperationReportsService {
         };
       }
 
+      // ================= COST REVENUE LOAD =================
+
+      // Collect all MasterJob and HouseJob IDs
+      const masterJobIds = masterJob.map((mj) => mj.MasterJobSid);
+      const houseJobIds = masterJob.flatMap((mj) =>
+        mj.houseJob.map((hj) => hj.HouseJobSid),
+      );
+
+      // Fetch all CostRevenueCharges once
+      const allCR = await this._db.costRevenueCharges.findMany({
+        where: {
+          status: 'A',
+          OR: [
+            {
+              MenuMasterSid: { in: allMasterMenuSids },
+              TransactionSid: { in: masterJobIds },
+            },
+            {
+              MenuMasterSid: { in: allHouseMenuSids },
+              TransactionSid: { in: houseJobIds },
+            },
+          ],
+        },
+        select: {
+          TransactionSid: true,
+          MenuMasterSid: true,
+          CostRevenueChargesSid: true,
+          RevenueVoucherHeaderSid: true,
+          RevenueDrCr: true,
+          RevenueLocalAmount: true,
+          CostVoucherHeaderSid: true,
+          CostDrCr: true,
+          CostLocalAmount: true,
+        },
+      });
+
+      // Create Maps for quick lookup
+      const masterCRMap = new Map<number, any[]>();
+      const houseCRMap = new Map<number, any[]>();
+      const masterMenuSet = new Set(allMasterMenuSids);
+      const houseMenuSet = new Set(allHouseMenuSids);
+
+      allCR.forEach((cr) => {
+        const key = cr.TransactionSid!;
+        if (masterMenuSet.has(cr.MenuMasterSid!)) {
+          if (!masterCRMap.has(key)) masterCRMap.set(key, []);
+          masterCRMap.get(key)!.push(cr);
+        }
+
+        if (houseMenuSet.has(cr.MenuMasterSid!)) {
+          if (!houseCRMap.has(key)) houseCRMap.set(key, []);
+          houseCRMap.get(key)!.push(cr);
+        }
+      });
+
       const getDepartmentName = (deptId: number) =>
         departments.find((d) => d.DepartmentMasterSid === deptId)
           ?.departmentName || '';
 
-      const getCostRevenues = async (
-        MenuMasterSid: number,
-        TransactionSid: number,
-      ) => {
-        return this._db.costRevenueCharges.findMany({
-          where: {
-            TransactionSid,
-            MenuMasterSid,
-            status: 'A',
-          },
-          select: {
-            CostRevenueChargesSid: true,
-            RevenueVoucherHeaderSid: true,
-            RevenueDrCr: true,
-            RevenueLocalAmount: true,
-            CostVoucherHeaderSid: true,
-            CostDrCr: true,
-            CostLocalAmount: true,
-          },
-        });
-      };
+  
 
       /* ===================== FINAL DATA ===================== */
 
       const data = await Promise.all(
         masterJob.map(async (mj) => {
-          const masterCR = await getCostRevenues(
-            masterJobMenu.MenuMasterSid,
-            mj.MasterJobSid,
-          );
+        const masterCR = masterCRMap.get(mj.MasterJobSid) || [];
 
           const linkedRev = masterCR.filter((cr) => cr.RevenueVoucherHeaderSid);
           const linkedCost = masterCR.filter((cr) => cr.CostVoucherHeaderSid);
@@ -3501,10 +3750,7 @@ export class OperationReportsService {
 
           const houseWithCR = await Promise.all(
             mj.houseJob.map(async (hj) => {
-              const houseCR = await getCostRevenues(
-                houseJobMenu.MenuMasterSid,
-                hj.HouseJobSid,
-              );
+             const houseCR = houseCRMap.get(hj.HouseJobSid) || [];
 
               const linkedRevH = houseCR.filter(
                 (cr) => cr.RevenueVoucherHeaderSid,
@@ -4769,16 +5015,42 @@ export class OperationReportsService {
         };
       }
       const houseJobIds = houseJobData.map((h) => h.HouseJobSid);
-      const houseJobMenu = await this._db.menuMaster.findFirst({
-        where: { MenuName: 'House Job' },
-        select: { MenuMasterSid: true },
+      const notBookedMenus = await this._db.menuMaster.findMany({
+        where: {
+          status: 'A',
+          OR: [
+            { MenuName: { equals: 'Master Job', mode: 'insensitive' } },
+            { MenuName: { contains: 'Master Air Way', mode: 'insensitive' } },
+            { MenuName: { equals: 'House Job', mode: 'insensitive' } },
+            { MenuName: { contains: 'House Air Way', mode: 'insensitive' } },
+            {
+              MenuName: {
+                contains: 'Agent Master Air Way',
+                mode: 'insensitive',
+              },
+            },
+          ],
+        },
+        select: { MenuMasterSid: true, MenuName: true },
       });
-      if (!houseJobMenu) {
-        throw new BadRequestException('House Job menu not found');
+
+      const allHouseMenuSids = notBookedMenus
+        .filter((m) => {
+          const menuName = m.MenuName.toLowerCase();
+          return (
+            menuName === 'house job' ||
+            menuName.includes('house air way') ||
+            menuName.includes('agent master air way') 
+          );
+        })
+        .map((m) => m.MenuMasterSid);
+
+      if (!allHouseMenuSids.length) {
+        throw new BadRequestException('House menus not found');
       }
       const allHouseCR = await this._db.costRevenueCharges.findMany({
         where: {
-          MenuMasterSid: houseJobMenu.MenuMasterSid,
+          MenuMasterSid: { in: allHouseMenuSids },
           TransactionSid: { in: houseJobIds },
           status: 'A',
         },
@@ -5001,12 +5273,6 @@ export class OperationReportsService {
           ? await this._db.departmentMaster.findMany({
               where: {
                 DepartmentMasterSid: { in: deptId },
-                NOT: {
-                  departmentName: {
-                    contains: 'AIR',
-                    mode: 'insensitive',
-                  },
-                },
               },
               select: { DepartmentMasterSid: true, departmentName: true },
             })
