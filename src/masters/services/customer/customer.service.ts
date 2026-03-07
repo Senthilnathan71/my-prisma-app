@@ -1467,7 +1467,7 @@ export class CustomerService {
                 where,
                 skip,
                 take: pageSize,
-                orderBy: { CustomerMasterSid: 'asc' },
+                orderBy: { CustomerMasterSid: 'desc' },
             }),
             this._db.customerMaster.count({ where }),
         ]);

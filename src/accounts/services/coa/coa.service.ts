@@ -150,7 +150,7 @@ export class CoaService {
 
    
     private async checkForDuplicates(payload: any, existingCoaSid?: number): Promise<void> {
-        const { 
+        let { 
             Category, 
             LedgerCategory, 
             GroupName, 
@@ -160,12 +160,16 @@ export class CoaService {
             CompanyMasterSid 
         } = payload;
 
+        GroupName = GroupName?.trim();
+    SubGroupName = SubGroupName?.trim();
+    LedgerName = LedgerName?.trim();
+    LedgerCode = LedgerCode?.trim();
         // Base where clause excluding current record and deleted records
         const baseWhere: any = {
-            Status: { in: ['A', 'S'] }, 
-            CompanyMasterSid: CompanyMasterSid,
-            NOT: existingCoaSid ? { COAMasterSid: existingCoaSid } : undefined
-        };
+    Status: { in: ['A', 'S'] }, 
+    CompanyMasterSid: CompanyMasterSid,
+    ...(existingCoaSid ? { NOT: { COAMasterSid: existingCoaSid } } : {})
+};
 
         // 1. Check duplicate ledger code
         if (LedgerCode) {
@@ -273,6 +277,10 @@ export class CoaService {
 
     async createNewCoa(payload: any) {
         try {
+            payload.GroupName = payload.GroupName?.trim();
+        payload.SubGroupName = payload.SubGroupName?.trim();
+        payload.LedgerName = payload.LedgerName?.trim();
+        payload.LedgerCode = payload.LedgerCode?.trim();
             // Validate based on LedgerCategory
             if (payload.LedgerCategory === 'Group') {
                 // For Group, SubGroupName should be empty
@@ -379,6 +387,10 @@ export class CoaService {
             if (!exist) {
                 throw new BadRequestException(`Coa with Id : ${COAMasterSid} not exists`);
             }
+            payload.GroupName = payload.GroupName?.trim();
+        payload.SubGroupName = payload.SubGroupName?.trim();
+        payload.LedgerName = payload.LedgerName?.trim();
+        payload.LedgerCode = payload.LedgerCode?.trim();
 
             // Check for duplicates before update (excluding current record)
             await this.checkForDuplicates(

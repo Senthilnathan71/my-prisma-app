@@ -1021,17 +1021,22 @@ export class QuotationService {
 
 
         const ports = await this._db.portMaster.findMany({
-            where: {
-                PortCode: { contains: search, mode: 'insensitive' },
-                PortName: { contains: search, mode: 'insensitive' },
-                status: 'A'
-            },
+              where: {
+    status: 'A',
+    OR: [
+      { PortCode: { contains: search, mode: 'insensitive' } },
+      { PortName: { contains: search, mode: 'insensitive' } }
+    ]
+  },
             select: {
                 PortMasterSid: true,
             }
         });
 
         const portWithSearchOnlyIds = ports.map(p => p.PortMasterSid);
+        const approvalStatus = search
+  ? search.charAt(0).toUpperCase() + search.slice(1).toLowerCase()
+  : null;
 
 
         const where: Prisma.QuoteHeaderWhereInput = {
@@ -1051,6 +1056,7 @@ export class QuotationService {
                         { quoteRoute: { some: { PODSid: { in : portWithSearchOnlyIds } } } },
                         { bookingHeader : { BookingNo : { contains: search, mode: 'insensitive' } } },
                         { status: {contains: search, mode: 'insensitive'}},
+                        { quoteRoute: { some: { quoteCarrier: { some : { ApprovalStatus : { equals: approvalStatus as any  } } } } } },
                     ],
                 }
                 : {}),
@@ -1062,7 +1068,7 @@ export class QuotationService {
                 where,
                 skip,
                 take: pageSize,
-                orderBy: { QuoteHeaderSid: 'desc' },
+                orderBy: { QuoteDate: 'desc' },
                 include: {
                     bookingHeader : {
                         select : {

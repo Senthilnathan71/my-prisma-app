@@ -481,6 +481,7 @@ export class PreCustomerMeetingService {
                     branchMaster: true,
                     companyMaster: true,
                     preCustomerMaster: true,
+                    customerMaster: true
                 },
             }),
             this._db.preCustomerMeeting.count({ where }),

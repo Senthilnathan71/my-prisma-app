@@ -169,7 +169,7 @@ export class JournalVoucherService {
                         MasterNumber: payload.MasterNumber,
                         HouseNumber: payload.HouseNumber,
                         Remarks: payload.Remarks,
-                        Status: payload.status || 'A',
+                        Status: payload.Status,
                         CreatedBy: payload.CreatedBy || 'System'
                     }
                 });
@@ -390,7 +390,7 @@ export class JournalVoucherService {
                         MasterNumber: payload.MasterNumber,
                         HouseNumber: payload.HouseNumber,
                         Remarks: payload.Remarks,
-                        Status: payload.status,
+                        Status: payload.Status,
                         UpdatedBy: payload.UpdatedBy || 'System',
                         UpdatedOn: new Date()
                     }
