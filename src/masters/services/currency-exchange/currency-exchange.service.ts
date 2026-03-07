@@ -139,7 +139,7 @@ export class CurrencyExchangeService {
                 where,
                 skip,
                 take: pageSize,
-                orderBy: { CurrencyExchangeSid: 'desc' },
+                orderBy: { EffectiveFrom: 'desc' },
             }),
             this._db.currencyExchange.count({ where }),
         ]);

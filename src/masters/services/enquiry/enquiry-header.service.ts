@@ -575,6 +575,20 @@ export class EnquiryHeaderService {
         const skip = (page - 1) * pageSize;
         const parsedDate = parseDateFromString(search);
         console.log(parsedDate);
+        const ports = await this._db.portMaster.findMany({
+              where: {
+    status: 'A',
+    OR: [
+      { PortCode: { contains: search, mode: 'insensitive' } },
+      { PortName: { contains: search, mode: 'insensitive' } }
+    ]
+  },
+            select: {
+                PortMasterSid: true,
+            }
+        });
+
+        const portWithSearchOnlyIds = ports.map(p => p.PortMasterSid);
         const where: Prisma.EnquiryHeaderWhereInput = {
             status: statusWhereClause,
             CompanyMasterSid: activeCompanyId,
@@ -586,6 +600,8 @@ export class EnquiryHeaderService {
                         { quoteHeader: { is: { QuoteNumber: { contains: search, mode: 'insensitive' } } } },
                         { CustomerName: { contains: search, mode: 'insensitive' } },
                         { ShipmentType: { contains: search, mode: 'insensitive' } },
+                        { enquiryRoute :{ some : { POLSid : { in : portWithSearchOnlyIds } } } },
+                        { enquiryRoute :{ some : { PODSid : { in : portWithSearchOnlyIds } } } },
                         { status: { contains: search, mode: 'insensitive' } },
                         ...(parsedDate
                             ? [{ ShipmentExpectedDate: { equals: parsedDate } }]
