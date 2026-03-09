@@ -1,5 +1,6 @@
 import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, Post, UnauthorizedException } from '@nestjs/common';
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
+import { UserData } from 'src/common/decorators/user.decorator';
 import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { TermsAndConditionsService } from 'src/masters/services/terms-and-conditions/terms-and-conditions.service';
@@ -233,5 +234,58 @@ export class TermsAndConditionsController {
         }
         return resp;
     }
+
+    @ApiOperation({ summary: 'Get Terms and Conditions by Different Conditions' })
+    @ApiCreatedResponse({
+        description: 'Get Terms and Conditions by Different Conditions',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Post('fetchByNCondition')
+    async getTermsAndConditionsByNCondition(@Body() payload: any) {
+        let resp = new ResponseData();
+        try {
+            this.logger.log(`Getting Terms and Conditions by conditions : ${JSON.stringify(payload)}`);
+            let res = await this.termsAndConditionsServ.getTandCByNCondition(payload);
+            this.logger.debug(`Fetched Terms and Conditions : ${JSON.stringify(res)}`);
+            resp.data = res;
+            resp.message = `Terms and Conditions with conditions is successfully fetched`;
+        } catch (error) {
+            this.logger.warn(`Get Terms and Conditions by Condition Error : ${JSON.stringify(error), error}`);
+            resp.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                resp.message = error.message;
+            } else {
+                resp.message = "Internal Server Error";
+            }
+        }
+        return resp;
+    }
+
+    @ApiOperation({ summary: 'Get All Menus' })
+        @ApiCreatedResponse({
+            description: 'Get All Menus',
+            type: ResponseData
+        })
+        @HttpCode(HttpStatus.OK)
+        @Get('menu')
+        async getAllMenus() {
+            let output = new ResponseData;
+            try {
+                let menuData = await this.termsAndConditionsServ.getAllMenus();
+                this.logger.log(`getAllmenus: ${JSON.stringify(menuData)}`)
+                output.data = menuData;
+                output.message = "All Menu are successfully fetched";
+            } catch (error) {
+                this.logger.warn(`getAllmenus: ${JSON.stringify(error)}`)
+                output.status = false;
+                if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                    output.message = error.message;
+                } else {
+                    output.message = 'Internal Server Error';
+                }
+            }
+            return output
+        }
 
 }
