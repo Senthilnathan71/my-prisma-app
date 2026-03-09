@@ -6093,16 +6093,16 @@ console.log('Created product:', createdProduct);
         });
 
         // Helper to run enabled checks for a category
-        const runCategory = async (category: MilestoneCategory): Promise<{ code: MilestoneCode; label: string; passed: boolean; nonBlocking?: boolean }[]> => {
+        const runCategory = async (category: MilestoneCategory): Promise<{ code: MilestoneCode; label: string; failedLabel: string; passed: boolean; nonBlocking?: boolean }[]> => {
             const codes = enabledMilestones[category];
-            const results: { code: MilestoneCode; label: string; passed: boolean; nonBlocking?: boolean }[] = [];
+            const results: { code: MilestoneCode; label: string; failedLabel: string; passed: boolean; nonBlocking?: boolean }[] = [];
             for (const code of codes) {
                 const def = getMilestoneByCode(code);
                 const runner = checkRunners.get(code);
                 if (!def || !runner) continue;
                 const passed = await runner();
-                const item: { code: MilestoneCode; label: string; passed: boolean; nonBlocking?: boolean } = {
-                    code, label: def.label, passed
+                const item: { code: MilestoneCode; label: string; failedLabel: string; passed: boolean; nonBlocking?: boolean } = {
+                    code, label: def.label, failedLabel: def.failedLabel, passed
                 };
                 if (def.nonBlocking) item.nonBlocking = true;
                 results.push(item);
