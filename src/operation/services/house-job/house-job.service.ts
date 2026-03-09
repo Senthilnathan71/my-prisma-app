@@ -296,6 +296,21 @@ export class HouseJobService {
                                 MarksAndNumber: product.MarksAndNumber
                             }
                         });
+                        if (
+                            String(product.IsHaz || '').toUpperCase() === 'Y' &&
+                            product.MasterJobContainerSid
+                        ) {
+                            await prisma.masterJobContainer.updateMany({
+                                where: {
+                                    MasterJobContainerSid: Number(product.MasterJobContainerSid),
+                                    Status: 'A',
+                                },
+                                data: {
+                                    IsHaz: 'Y',
+                                    UpdatedBy: payload.updatedBy || payload.createdBy || null,
+                                },
+                            });
+                        }
                         finalHouseJobProduct.push(createdProduct);
                     }
                 }
@@ -1085,6 +1100,21 @@ export class HouseJobService {
                                 MarksAndNumber: product.MarksAndNumber
                             }
                         })
+                        if (
+                            String(product.IsHaz || '').toUpperCase() === 'Y' &&
+                            product.MasterJobContainerSid
+                        ) {
+                            await this._db.masterJobContainer.updateMany({
+                                where: {
+                                    MasterJobContainerSid: Number(product.MasterJobContainerSid),
+                                    Status: 'A',
+                                },
+                                data: {
+                                    IsHaz: 'Y',
+                                    UpdatedBy: payload.updatedBy || null,
+                                },
+                            });
+                        }
                     } else {
                         createdProduct = await this._db.houseJobProduct.create({
                             data: {
@@ -1125,6 +1155,21 @@ export class HouseJobService {
                                 MarksAndNumber: product.MarksAndNumber
                             }
                         })
+                        if (
+                            String(product.IsHaz || '').toUpperCase() === 'Y' &&
+                            product.MasterJobContainerSid
+                        ) {
+                            await this._db.masterJobContainer.updateMany({
+                                where: {
+                                    MasterJobContainerSid: Number(product.MasterJobContainerSid),
+                                    Status: 'A',
+                                },
+                                data: {
+                                    IsHaz: 'Y',
+                                    UpdatedBy: payload.updatedBy || null,
+                                },
+                            });
+                        }
                     }
                     finalHouseJobProduct.push(updatedProduct || createdProduct);
                 }

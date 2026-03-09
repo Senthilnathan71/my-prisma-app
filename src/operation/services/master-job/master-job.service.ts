@@ -375,7 +375,8 @@ export class MasterJobService {
                         NetWeight: item.NetWeight ? Number(item.NetWeight) : null,
                         ChargeableWeight: item.ChargeableWeight ? Number(item.ChargeableWeight) : null,
                         Volume: item.Volume ? Number(item.Volume) : null,
-                        IsSoc: item.IsSoc
+                        IsSoc: item.IsSoc,
+                        IsHaz: item.IsHaz,
                     }))
 
                     createdContainers = await prisma.masterJobContainer.createMany({
@@ -1874,6 +1875,7 @@ private getWeightInFromUnitSid(weightUnitSid: number): string {
                                 ChargeableWeight: item.ChargeableWeight ? Number(item.ChargeableWeight) : null,
                                 Volume: item.Volume ? Number(item.Volume) : null,
                                 IsSoc: item.IsSoc,
+                                IsHaz: item.IsHaz,
                                 UpdatedBy : payload.updatedBy,
                                 UpdatedOn : new Date()
                             }
@@ -1901,7 +1903,8 @@ private getWeightInFromUnitSid(weightUnitSid: number): string {
                                 NetWeight: item.NetWeight ? Number(item.NetWeight) : null,
                                 ChargeableWeight: item.ChargeableWeight ? Number(item.ChargeableWeight) : null,
                                 Volume: item.Volume ? Number(item.Volume) : null,
-                                IsSoc: item.IsSoc
+                                IsSoc: item.IsSoc,
+                                IsHaz: item.IsHaz,
                             }
                             createdContainer = await prisma.masterJobContainer.create({
                                 data: containerPayload
@@ -3827,6 +3830,7 @@ private async updateMasterJobTotals(masterJobSid: number): Promise<void> {
                                 ChargeableWeight: container.ChargeableWeight,
                                 Volume: container.Volume,
                                 IsSoc: container.IsSoc,
+                                IsHaz: container.IsHaz,
                                 CreatedBy: createdBy,
                                 Status: 'A'
                             }
@@ -5558,6 +5562,18 @@ if (product.UomMasterSid) {
                 const createdProduct = await prisma.houseJobProduct.create({
                     data: productData
                 });
+                if (createdProduct.IsHaz === 'Y' && createdProduct.MasterJobContainerSid) {
+                    await prisma.masterJobContainer.updateMany({
+                        where: {
+                            MasterJobContainerSid: createdProduct.MasterJobContainerSid,
+                            Status: 'A',
+                        },
+                        data: {
+                            IsHaz: 'Y',
+                            UpdatedBy: createdBy || null,
+                        },
+                    });
+                }
 console.log('Created product:', createdProduct);
                 createdProducts.push(createdProduct);
             }
