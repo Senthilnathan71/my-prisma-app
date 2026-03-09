@@ -2678,7 +2678,7 @@ model MasterJob {
   VoucherHeader              VoucherHeader[]
   VoucherTransaction         VoucherTransaction[]
 
-  @@unique([CompanyMasterSid,MasterJobNumber], name: "uq_jobnumber_company")
+  @@unique([CompanyMasterSid, MasterJobNumber], name: "uq_jobnumber_company")
 }
 
 model MasterJobVoyage {
@@ -2766,6 +2766,7 @@ model MasterJobContainer {
   Volume                Decimal?             @db.Decimal(8, 3)
   IsSoc                 String?              @db.Char(1)
   MarksandNumber        String?              @db.VarChar(200)
+  IsHaz                 String?              @default("N") @db.Char(1)
   houseJobProduct       HouseJobProduct[]
   containerType         ContainerTypeMaster? @relation(fields: [ContainerType], references: [ContainerTypeMasterSid])
   masterJob             MasterJob            @relation(fields: [MasterJobSid], references: [MasterJobSid])
@@ -3166,7 +3167,7 @@ model VoucherHeader {
   VoucherTDS                VoucherTDS[]
   VoucherTransaction        VoucherTransaction[]
 
-  @@unique([CompanyMasterSid,VoucherNumber], name: "uq_voucher_company")
+  @@unique([CompanyMasterSid, VoucherNumber], name: "uq_voucher_company")
 }
 
 model VoucherDetail {
@@ -3425,7 +3426,7 @@ model MatchingDetail {
   MatchingTDSAmount        Decimal?               @db.Decimal(15, 3)
   MatchingType             String?                @db.VarChar(10)
   currencyMaster           CurrencyMaster?        @relation(fields: [MatchingCurrency], references: [CurrencyMasterSid])
-  SourceVoucherHeader      VoucherHeader?          @relation("SourceVoucherHeader", fields: [SourceVoucherHeaderSid], references: [VoucherHeaderSid])
+  SourceVoucherHeader      VoucherHeader?         @relation("SourceVoucherHeader", fields: [SourceVoucherHeaderSid], references: [VoucherHeaderSid])
   VoucherHeader            VoucherHeader          @relation("VoucherHeader", fields: [VoucherHeaderSid], references: [VoucherHeaderSid])
   VoucherMatchingHeader    VoucherMatchingHeader? @relation(fields: [VoucherMatchingHeaderSid], references: [VoucherMatchingHeaderSid])
   VoucherTransaction       VoucherTransaction     @relation(fields: [VoucherTransactionSid], references: [VoucherTransactionSid])
