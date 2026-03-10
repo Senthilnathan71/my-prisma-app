@@ -560,4 +560,78 @@ export class CreditRequestController {
     }
     return output;
   }
+
+  @ApiOperation({ summary: 'Delete credit request by ID' })
+  @ApiCreatedResponse({
+    description: 'Credit request deleted successfully',
+    type: ResponseData,
+  })
+  @HttpCode(HttpStatus.OK)
+  @Delete('delete-credit-request/:CustomerCreditRequestSid')
+  async deleteCustomerCreditRequest(
+    @Param('CustomerCreditRequestSid', ParseIntPipe)
+    CustomerCreditRequestSid: number,
+  ) {
+    const output = new ResponseData();
+    this.logger.log(
+      `deleteCustomerCreditRequest: ${CustomerCreditRequestSid}`,
+    );
+    try {
+      const result =
+        await this.creditRequestService.deleteCustomerCreditRequest(
+          CustomerCreditRequestSid,
+        );
+      output.data = result;
+      output.message = 'Credit request deleted successfully';
+    } catch (error) {
+      this.logger.warn(
+        `deleteCustomerCreditRequest: ${JSON.stringify(error)}, ${error}`,
+      );
+      output.status = false;
+      if (
+        error instanceof BadRequestException ||
+        error instanceof UnauthorizedException
+      ) {
+        output.message = error.message;
+      } else {
+        output.message = error.message || 'Internal Server Error';
+      }
+    }
+    return output;
+  }
+
+  @ApiOperation({ summary: 'Delete customer KYC by ID' })
+  @ApiCreatedResponse({
+    description: 'Customer KYC deleted successfully',
+    type: ResponseData,
+  })
+  @HttpCode(HttpStatus.OK)
+  @Delete('delete-kyc/:CustomerKycSid')
+  async deleteCustomerKyc(
+    @Param('CustomerKycSid', ParseIntPipe) CustomerKycSid: number,
+  ) {
+    const output = new ResponseData();
+    this.logger.log(`deleteCustomerKyc: ${CustomerKycSid}`);
+    try {
+      const result = await this.creditRequestService.deleteCustomerKyc(
+        CustomerKycSid,
+      );
+      output.data = result;
+      output.message = 'Customer KYC deleted successfully';
+    } catch (error) {
+      this.logger.warn(
+        `deleteCustomerKyc: ${JSON.stringify(error)}, ${error}`,
+      );
+      output.status = false;
+      if (
+        error instanceof BadRequestException ||
+        error instanceof UnauthorizedException
+      ) {
+        output.message = error.message;
+      } else {
+        output.message = error.message || 'Internal Server Error';
+      }
+    }
+    return output;
+  }
 }

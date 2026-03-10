@@ -244,6 +244,9 @@ export class CreditRequestService {
             CustomerBranch: {
                 where: {
                     status: 'A',
+                },
+                include:{
+                  CustomerSalesTeam:true
                 }
             },
           customerCreditRequest : {
@@ -342,6 +345,56 @@ export class CreditRequestService {
       this.logger.error(`Error creating customer KYC: ${error.message}`);
       throw error;
     }
+  }
+
+  /**
+   * Soft delete a customer credit request
+   * @param CustomerCreditRequestSid - Credit request SID
+   * @returns Updated credit request
+   */
+  async deleteCustomerCreditRequest(CustomerCreditRequestSid: number) {
+    const existing = await this._db.customerCreditRequest.findUnique({
+      where: { CustomerCreditRequestSid },
+    });
+
+    if (!existing) {
+      throw new NotFoundException(
+        `Credit request with ID ${CustomerCreditRequestSid} not found`,
+      );
+    }
+
+    if (existing.Status === 'D') {
+      throw new BadRequestException(
+        `Credit request with ID ${CustomerCreditRequestSid} is already deleted`,
+      );
+    }
+
+    return this._db.customerCreditRequest.update({
+      where: { CustomerCreditRequestSid },
+      data: { Status: 'D' },
+    });
+  }
+
+  /**
+   * Delete a single customer KYC record
+   * @param CustomerKycSid - Customer KYC SID
+   * @returns Deleted KYC record
+   */
+  async deleteCustomerKyc(CustomerKycSid: number) {
+    const existing = await this._db.customerKyc.findUnique({
+      where: { CustomerKycSid },
+    });
+
+    if (!existing) {
+      throw new NotFoundException(
+        `Customer KYC with ID ${CustomerKycSid} not found`,
+      );
+    }
+
+    return this._db.customerKyc.delete({
+      where: { CustomerKycSid },
+      
+    });
   }
 
     /**
@@ -646,7 +699,7 @@ export class CreditRequestService {
    */
   async getCreditLimit(dto: CreditLimitDto): Promise<CreditLimitResult> {
     try {
-      const currentDate = new Date();
+      const currentDate = new Date(); 
       
       // Build where clause
       const whereClause: any = {
@@ -657,6 +710,9 @@ export class CreditRequestService {
         EffectiveFrom: { lte: currentDate },
         EffectiveTo: { gte: currentDate },
       };
+      if (dto.customerBranchSid) {
+        whereClause.CustomerBranchSid = dto.customerBranchSid;
+      }
 
       // First try department-specific credit if department is provided
       if (dto.departmentMasterSid) {
@@ -1180,7 +1236,7 @@ export class CreditRequestService {
       publishedLimit: credit.PublishedLimit,
       publishedDays: credit.PublishedDays,
       departmentMasterSid: credit.DepartmentMasterSid,
-      branchMasterSid: credit.CompanyMasterSid,
+      branchMasterSid: credit.CustomerBranchSid,
       effectiveFrom: credit.EffectiveFrom,
       effectiveTo: credit.EffectiveTo,
       approvalStatus: credit.ApprovalStatus,
