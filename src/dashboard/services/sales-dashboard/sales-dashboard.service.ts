@@ -122,13 +122,11 @@ export class SalesDashboardService {
       FROM "PreCustomerMaster" pcm
       LEFT JOIN "PreCustomerMeeting" pcmm
         ON pcm."PreCustomerMasterSid" = pcmm."PreCustomerMasterSid"
-        AND pcmm."status" IN ('A', 'S')
       LEFT JOIN "UserMaster" um
         ON pcm."leadAssignTo" = um."UserMasterSid"
       WHERE
         pcmm."PreCustomerMeetingSid" IS NULL
-        AND pcm."status" IN ('A', 'S')
-        AND pcm."leadStatus"::text NOT IN ('DealWon', 'DealLost')
+        AND pcm."status" = 'A'
         AND pcm."CompanyMasterSid" = $1
         AND pcm."BranchMasterSid" = $2
         AND ($3::int IS NULL OR pcm."leadAssignTo" = $3)
@@ -175,13 +173,13 @@ export class SalesDashboardService {
       LEFT JOIN "UserMaster" um
         ON pcmm."leadAssignTo" = um."UserMasterSid"
       WHERE
-        pcmm."status" IN ('A', 'S')
+        pcmm."status" = 'A'
         AND pcmm."meetingDate" IS NOT NULL
         AND pcmm."CompanyMasterSid" = $1
         AND pcmm."BranchMasterSid" = $2
         AND ($3::int IS NULL OR pcmm."leadAssignTo" = $3)
-        AND ($4::timestamptz IS NULL OR pcmm."meetingDate" >= $4::timestamptz)
-        AND ($5::timestamptz IS NULL OR pcmm."meetingDate" <= $5::timestamptz)
+        AND ($4::timestamptz IS NULL OR pcmm."createdOn" >= $4::timestamptz)
+        AND ($5::timestamptz IS NULL OR pcmm."createdOn" <= $5::timestamptz)
       ORDER BY pcmm."meetingDate" ASC`,
       companyMasterSid,
       branchMasterSid,
@@ -241,12 +239,13 @@ export class SalesDashboardService {
         ON pcmm."leadAssignTo" = um."UserMasterSid"
       WHERE
         pcmm."followUpDate" IS NOT NULL
-        AND pcmm."status" IN ('A', 'S')
+        AND pcmm."status"= 'A'
         AND pcmm."CompanyMasterSid" = $1
         AND pcmm."BranchMasterSid" = $2
         AND ($3::int IS NULL OR pcmm."leadAssignTo" = $3)
         AND ($4::timestamptz IS NULL OR pcmm."followUpDate" >= $4::timestamptz)
         AND ($5::timestamptz IS NULL OR pcmm."followUpDate" <= $5::timestamptz)
+        AND pcmm."meetingStatus" <> 'Completed'
       ORDER BY pcmm."followUpDate" ASC`,
       companyMasterSid,
       branchMasterSid,
