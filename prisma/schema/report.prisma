@@ -21,6 +21,7 @@ model ReportMaster {
   ReportExcludedCompany Json?
   menuMaster            MenuMaster           @relation(fields: [ReportMenuSid], references: [MenuMasterSid])
   ReportMasterDetail    ReportMasterDetail[]
+  reportSchedules       ReportSchedule[]
 
   @@index([ReportMenuSid])
   @@index([ReportName])
