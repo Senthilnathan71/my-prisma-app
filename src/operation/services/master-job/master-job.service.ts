@@ -56,6 +56,7 @@ export class MasterJobService {
             let resolvedJobDate: Date = payload.MasterJobDate
                 ? new Date(payload.MasterJobDate)
                 : new Date();
+            let firstBookingDetails: { BookingDateTime: Date | null; POO: string | null; FPD: string | null } | null = null;
 
             if (payload?.shipmentList?.length) {
                 const bookingIds = payload.shipmentList
@@ -63,13 +64,13 @@ export class MasterJobService {
                     .filter(Boolean);
 
                 if (bookingIds.length > 0) {
-                    const firstBooking = await this._db.bookingHeader.findFirst({
+                    firstBookingDetails = await this._db.bookingHeader.findFirst({
                         where: { BookingHeaderSid: { in: bookingIds } },
-                        select: { BookingDateTime: true }
+                        select: { BookingDateTime: true, POO: true, FPD: true }
                     }); 
 
-                    if (firstBooking?.BookingDateTime) {
-                        resolvedJobDate = new Date(firstBooking.BookingDateTime);
+                    if (firstBookingDetails?.BookingDateTime) {
+                        resolvedJobDate = new Date(firstBookingDetails.BookingDateTime);
                     }
                 }
             }
@@ -229,6 +230,15 @@ export class MasterJobService {
                 }
 
 
+                const payloadPOO = String(payload.POO ?? '').trim();
+                const payloadFPD = String((payload.FPD ?? payload.FDC) ?? '').trim();
+                const resolvedPOO = payloadPOO && payloadPOO.toLowerCase() !== 'null' && payloadPOO.toLowerCase() !== 'undefined'
+                    ? payloadPOO
+                    : String(firstBookingDetails?.POO ?? '').trim();
+                const resolvedFPD = payloadFPD && payloadFPD.toLowerCase() !== 'null' && payloadFPD.toLowerCase() !== 'undefined'
+                    ? payloadFPD
+                    : String(firstBookingDetails?.FPD ?? '').trim();
+
                 const headerPayload = {
                     MasterJobNumber: generatedMasterJobNumber,
                     MasterJobDate: resolvedJobDate,
@@ -247,10 +257,10 @@ export class MasterJobService {
                     BLReleaseType: payload.BLReleaseType,
                     NoofOriginal: Number(payload.NoofOriginal) || 3,
                     OriginAgent: Number(payload.OriginAgent),
-                    POO: payload.POO || '',
+                    POO: resolvedPOO || '',
                     POL: payload.POL,
                     POD: payload.POD,
-                    FPD: payload.FPD || '',
+                    FPD: resolvedFPD || '',
                     POLTerminal: payload.POLTerminal?.substring(0, 20) || '',
                     PODTerminal: payload.PODTerminal?.substring(0, 20) || '',
                     MovementType: payload.MovementType,
@@ -375,7 +385,8 @@ export class MasterJobService {
                         NetWeight: item.NetWeight ? Number(item.NetWeight) : null,
                         ChargeableWeight: item.ChargeableWeight ? Number(item.ChargeableWeight) : null,
                         Volume: item.Volume ? Number(item.Volume) : null,
-                        IsSoc: item.IsSoc
+                        IsSoc: item.IsSoc,
+                        IsHaz: item.IsHaz,
                     }))
 
                     createdContainers = await prisma.masterJobContainer.createMany({
@@ -1874,6 +1885,7 @@ private getWeightInFromUnitSid(weightUnitSid: number): string {
                                 ChargeableWeight: item.ChargeableWeight ? Number(item.ChargeableWeight) : null,
                                 Volume: item.Volume ? Number(item.Volume) : null,
                                 IsSoc: item.IsSoc,
+                                IsHaz: item.IsHaz,
                                 UpdatedBy : payload.updatedBy,
                                 UpdatedOn : new Date()
                             }
@@ -1901,7 +1913,8 @@ private getWeightInFromUnitSid(weightUnitSid: number): string {
                                 NetWeight: item.NetWeight ? Number(item.NetWeight) : null,
                                 ChargeableWeight: item.ChargeableWeight ? Number(item.ChargeableWeight) : null,
                                 Volume: item.Volume ? Number(item.Volume) : null,
-                                IsSoc: item.IsSoc
+                                IsSoc: item.IsSoc,
+                                IsHaz: item.IsHaz,
                             }
                             createdContainer = await prisma.masterJobContainer.create({
                                 data: containerPayload
@@ -3827,6 +3840,7 @@ private async updateMasterJobTotals(masterJobSid: number): Promise<void> {
                                 ChargeableWeight: container.ChargeableWeight,
                                 Volume: container.Volume,
                                 IsSoc: container.IsSoc,
+                                IsHaz: container.IsHaz,
                                 CreatedBy: createdBy,
                                 Status: 'A'
                             }
@@ -5558,6 +5572,18 @@ if (product.UomMasterSid) {
                 const createdProduct = await prisma.houseJobProduct.create({
                     data: productData
                 });
+                if (createdProduct.IsHaz === 'Y' && createdProduct.MasterJobContainerSid) {
+                    await prisma.masterJobContainer.updateMany({
+                        where: {
+                            MasterJobContainerSid: createdProduct.MasterJobContainerSid,
+                            Status: 'A',
+                        },
+                        data: {
+                            IsHaz: 'Y',
+                            UpdatedBy: createdBy || null,
+                        },
+                    });
+                }
 console.log('Created product:', createdProduct);
                 createdProducts.push(createdProduct);
             }
