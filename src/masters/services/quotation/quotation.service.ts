@@ -256,7 +256,8 @@ export class QuotationService {
                             IsHaz: product.IsHaz ? "Y" : "N",
                             ImcoClass: product.ImcoClass || null,
                             PkgGroup: Number(product.PkgGroup) || null,
-                            Remarks: product.Remarks
+                            Remarks: product.Remarks,
+                            Volumetric: Number(product.Volumetric ?? product.volumetric) || 0 
                         }))
                     });
 
@@ -843,6 +844,7 @@ export class QuotationService {
                         ImcoClass: payload.ImcoClass,
                         PkgGroup: Number(payload.PkgGroup) || null,
                         Remarks: payload.Remarks,
+                        Volumetric: Number(payload.Volumetric ?? payload.volumetric) || 0, 
                     }
                 });
             } else {
@@ -873,6 +875,7 @@ export class QuotationService {
                         ImcoClass: payload.ImcoClass || null,
                         PkgGroup: Number(payload.PkgGroup) || null,
                         Remarks: payload.Remarks,
+                        Volumetric: Number(payload.Volumetric ?? payload.volumetric) || 0, 
                     }
                 });
             }
