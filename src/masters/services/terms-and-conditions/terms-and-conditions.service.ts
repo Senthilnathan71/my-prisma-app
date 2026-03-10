@@ -591,73 +591,104 @@ export class TermsAndConditionsService {
 
     
     async createTandCTransaction(payload: any) {
-        const {
-            CompanyMasterSid,
-            BranchMasterSid,
-            MenuMasterSid,
-            createdBy,
-            TandC,
-            IsDefaut,
-            POL,
-            POD,
-            Carrier,
-            DepartmentMasterSid,
-            DocumentSid
-        } = payload;
 
-        if (!CompanyMasterSid || !BranchMasterSid || !MenuMasterSid || !createdBy || !TandC) {
-            throw new BadRequestException('Missing required fields');
+    const {
+        CompanyMasterSid,
+        BranchMasterSid,
+        MenuMasterSid,
+        createdBy,
+        TandC,
+        IsDefaut,
+        POL,
+        POD,
+        Carrier,
+        DepartmentMasterSid,
+        DocumentSid
+    } = payload;
+
+    if (!CompanyMasterSid || !BranchMasterSid || !MenuMasterSid || !createdBy || !TandC) {
+        throw new BadRequestException('Missing required fields');
+    }
+
+    return await this._db.$transaction(async (tx) => {
+
+        // ✅ Normalize POL/POD (handles string or array)
+        const formattedPOL = Array.isArray(POL)
+            ? POL.map(String).sort()
+            : POL ? [String(POL)] : [];
+
+        const formattedPOD = Array.isArray(POD)
+            ? POD.map(String).sort()
+            : POD ? [String(POD)] : [];
+
+        // ✅ Normalize department
+        const inputDepartments = DepartmentMasterSid
+            ? [Number(DepartmentMasterSid)]
+            : [];
+
+        // 🔎 Find matching masters
+        const existingMasters = await tx.termsAndConditionsMaster.findMany({
+            where: {
+                OR: [
+   { CompanyMasterSid: Number(CompanyMasterSid) },
+   { CompanyMasterSid: null }
+],
+                BranchMasterSid: Number(BranchMasterSid),
+                MenuMasterSid: Number(MenuMasterSid),
+                Carrier: Carrier ?? null,
+                status: 'A',
+                POL: { equals: formattedPOL },
+                POD: { equals: formattedPOD }
+            },
+            include: {
+                departments: {
+                    where: { status: 'A' }
+                }
+            }
+        });
+
+        let master: any = null;
+
+        for (const record of existingMasters) {
+
+            const existingDeptIds = record.departments
+                .map(d => Number(d.departmentId))
+                .sort((a, b) => a - b);
+
+            const inputDeptIds = inputDepartments
+                .map(d => Number(d))
+                .sort((a, b) => a - b);
+
+            const isSameDepartments =
+                existingDeptIds.length === inputDeptIds.length &&
+                existingDeptIds.every((val, index) => val === inputDeptIds[index]);
+
+            if (isSameDepartments) {
+                master = record;
+                break;
+            }
         }
 
-        return await this._db.$transaction(async (tx) => {
+        // -------------------------
+        // CREATE MASTER IF NOT FOUND
+        // -------------------------
+        if (!master) {
 
-            // 🔎 Build strict duplicate check condition
-            const duplicateWhere: any = {
-                CompanyMasterSid,
-                BranchMasterSid,
-                MenuMasterSid,
-                status: 'A',
-                Carrier: Carrier ?? null,
-                POL: POL ? { equals: [POL] } : { equals: [] },
-                POD: POD ? { equals: [POD] } : { equals: [] },
-            };
-
-            if (DepartmentMasterSid != null) {
-                duplicateWhere.departments = {
-                    some: {
-                        departmentId: DepartmentMasterSid,
-                        status: 'A'
-                    }
-                };
-            }
-
-            // 🚫 Check duplicate master
-            const existingMaster = await tx.termsAndConditionsMaster.findFirst({
-                where: duplicateWhere
-            });
-
-            if (existingMaster) {
-                throw new BadRequestException(
-                    'Terms & Conditions already exists for the same Department, POL, POD and Carrier combination'
-                );
-            }
-
-            // 🆕 Create Master
-            const newMaster = await tx.termsAndConditionsMaster.create({
+            master = await tx.termsAndConditionsMaster.create({
                 data: {
-                    CompanyMasterSid,
-                    BranchMasterSid,
-                    MenuMasterSid,
+                    CompanyMasterSid: Number(CompanyMasterSid),
+                    BranchMasterSid: Number(BranchMasterSid),
+                    MenuMasterSid: Number(MenuMasterSid),
                     Carrier: Carrier ?? null,
-                    POL: POL ? { set: [POL] } : { set: [] },
-                    POD: POD ? { set: [POD] } : { set: [] },
+                    POL: formattedPOL,
+                    POD: formattedPOD,
                     createdBy,
                     status: 'A',
 
-                    ...(DepartmentMasterSid != null && {
+                    ...(DepartmentMasterSid && {
                         departments: {
                             create: {
-                                departmentId: DepartmentMasterSid,
+                                departmentId: Number(DepartmentMasterSid),
                                 status: 'A'
                             }
                         }
@@ -665,240 +696,218 @@ export class TermsAndConditionsService {
                 }
             });
 
-            // ✅ Create Detail
-            const newDetail = await tx.termsAndConditionsDetail.create({
-                data: {
-                    TermsAndConditionsMasterSid:
-                        newMaster.TermsAndConditionsMasterSid,
-                    TandC,
-                    IsDefaut,
-                    createdBy,
-                    status: 'A',
-                },
-            });
+        }
 
-            // ✅ Transaction record
-            await tx.tandCTransaction.create({
-                data: {
-                    CompanyMasterSid,
-                    TandCMasterSid: newMaster.TermsAndConditionsMasterSid,
-                    TandCDetailSid: newDetail.TermsAndConditionsDetailSid,
-                    Terms: TandC,
-                    DocumentSid,
-                    createdBy,
-                    status: 'A',
-                },
-            });
-
-            return newDetail;
+        // -------------------------
+        // CREATE DETAIL
+        // -------------------------
+        const newDetail = await tx.termsAndConditionsDetail.create({
+            data: {
+                TermsAndConditionsMasterSid:
+                    master.TermsAndConditionsMasterSid,
+                TandC,
+                IsDefaut,
+                createdBy,
+                status: 'A'
+            }
         });
-    }
+
+        // -------------------------
+        // CREATE TRANSACTION
+        // -------------------------
+        await tx.tandCTransaction.create({
+            data: {
+                CompanyMasterSid: Number(CompanyMasterSid),
+                TandCMasterSid: master.TermsAndConditionsMasterSid,
+                TandCDetailSid: newDetail.TermsAndConditionsDetailSid,
+                Terms: TandC,
+                DocumentSid,
+                createdBy,
+                status: 'A'
+            }
+        });
+
+        return newDetail;
+    });
+}
 
     async getTandCByCondition(payload: TandCPayload) {
-        try {
-            if (!payload.MenuMasterSid) {
-                throw new Error('MenuMasterSid is required');
-            }
+  try {
 
-            // Build filtered condition
-            const filteredWhere: any = {
-                MenuMasterSid: payload.MenuMasterSid,
-                status: 'A'
-            };
-
-            if (payload.BranchMasterSid) {
-                filteredWhere.BranchMasterSid = payload.BranchMasterSid;
-            }
-
-            if (payload.POL) {
-                filteredWhere.AND = filteredWhere.AND || [];
-                filteredWhere.AND.push({
-                    OR: [
-                        { POL: { has: payload.POL } },
-                        { POL: { equals: [] } }   // ✅ global POL
-                    ]
-                });
-            }
-
-            if (payload.POD) {
-                filteredWhere.AND = filteredWhere.AND || [];
-                filteredWhere.AND.push({
-                    OR: [
-                        { POD: { has: payload.POD } },
-                        { POD: { equals: [] } }   // ✅ global POD
-                    ]
-                });
-            }
-
-            if (payload.Carrier !== undefined) {
-                filteredWhere.AND = filteredWhere.AND || [];
-
-                filteredWhere.AND.push({
-                    OR: [
-                        { Carrier: payload.Carrier },  // exact match
-                        { Carrier: null }              // ✅ global carrier
-                    ]
-                });
-            }
-
-
-            if (payload.DepartmentMasterSid) {
-                filteredWhere.departments = {
-                    some: { departmentId: payload.DepartmentMasterSid }
-                };
-            }
-
-            const gatheredTandC = await this._db.termsAndConditionsMaster.findMany({
-                where: {
-                    OR: [
-                        // ✅ Normal filtered records
-                        filteredWhere,
-
-                        // ✅ Default records of same menu
-                        {
-                            MenuMasterSid: payload.MenuMasterSid,
-                            status: 'A',
-                            termsAndConditionsDetail: {
-                                some: {
-                                    IsDefaut: 'S',
-                                    status: 'A'
-                                }
-                            }
-                        }
-                    ]
-                },
-                include: {
-                    termsAndConditionsDetail: {
-                        where: {
-                            OR: [
-                                { IsDefaut: 'S', status: 'A' }
-                            ]
-                        }
-                    }
-                }
-            });
-
-            // Flatten details
-            const allDetails = gatheredTandC.flatMap(
-                tandc => tandc.termsAndConditionsDetail
-            );
-
-            // Remove duplicate details
-            const unique = new Map();
-            allDetails.forEach(detail => {
-                unique.set(detail.TermsAndConditionsDetailSid, detail);
-            });
-
-            return Array.from(unique.values());
-
-        } catch (error) {
-            console.error('Error fetching terms and conditions:', error);
-            throw new Error(`Failed to fetch terms and conditions: ${error.message}`);
-        }
+    if (!payload.MenuMasterSid) {
+      throw new Error('MenuMasterSid is required');
     }
+
+    const andConditions: any[] = [];
+
+    if (payload.POL) {
+      andConditions.push({
+        OR: [
+          { POL: { has: payload.POL } },
+          { POL: { equals: [] } },
+          { POL: null }
+        ]
+      });
+    }
+
+    if (payload.POD) {
+      andConditions.push({
+        OR: [
+          { POD: { has: payload.POD } },
+          { POD: { equals: [] } },
+          { POD: null }
+        ]
+      });
+    }
+
+    if (payload.Carrier !== undefined) {
+      andConditions.push({
+        OR: [
+          { Carrier: payload.Carrier },
+          { Carrier: null }
+        ]
+      });
+    }
+
+    if (payload.DepartmentMasterSid) {
+      andConditions.push({
+        OR: [
+          {
+            departments: {
+              some: { departmentId: payload.DepartmentMasterSid }
+            }
+          },
+          {
+            departments: {
+              none: {}
+            }
+          }
+        ]
+      });
+    }
+
+    const whereCondition: any = {
+      MenuMasterSid: payload.MenuMasterSid,
+      status: 'A',
+      ...(payload.BranchMasterSid && { BranchMasterSid: payload.BranchMasterSid }),
+      ...(andConditions.length && { AND: andConditions })
+    };
+
+    const gatheredTandC = await this._db.termsAndConditionsMaster.findMany({
+      where: whereCondition,
+      include: {
+        termsAndConditionsDetail: {
+          where: {
+            IsDefaut: 'S',
+            status: 'A'
+          }
+        }
+      }
+    });
+
+    const allDetails = gatheredTandC.flatMap(t => t.termsAndConditionsDetail);
+
+    const unique = new Map();
+    allDetails.forEach(detail => {
+      unique.set(detail.TermsAndConditionsDetailSid, detail);
+    });
+
+    return Array.from(unique.values());
+
+  } catch (error) {
+    console.error('Error fetching terms and conditions:', error);
+    throw new Error(`Failed to fetch terms and conditions: ${error.message}`);
+  }
+}
 
     async getTandCByNCondition(payload: TandCPayload) {
-        try {
-            if (!payload.MenuMasterSid) {
-                throw new Error('MenuMasterSid is required');
-            }
+  try {
 
-            // Build filtered condition
-            const filteredWhere: any = {
-                MenuMasterSid: payload.MenuMasterSid,
-                status: 'A'
-            };
-
-            if (payload.BranchMasterSid) {
-                filteredWhere.BranchMasterSid = payload.BranchMasterSid;
-            }
-
-            if (payload.POL) {
-                filteredWhere.AND = filteredWhere.AND || [];
-                filteredWhere.AND.push({
-                    OR: [
-                        { POL: { has: payload.POL } },
-                        { POL: { equals: [] } }   // ✅ global POL
-                    ]
-                });
-            }
-
-            if (payload.POD) {
-                filteredWhere.AND = filteredWhere.AND || [];
-                filteredWhere.AND.push({
-                    OR: [
-                        { POD: { has: payload.POD } },
-                        { POD: { equals: [] } }   // ✅ global POD
-                    ]
-                });
-            }
-
-            if (payload.Carrier !== undefined) {
-                filteredWhere.AND = filteredWhere.AND || [];
-
-                filteredWhere.AND.push({
-                    OR: [
-                        { Carrier: payload.Carrier },  // exact match
-                        { Carrier: null }              // ✅ global carrier
-                    ]
-                });
-            }
-
-
-            if (payload.DepartmentMasterSid) {
-                filteredWhere.departments = {
-                    some: { departmentId: payload.DepartmentMasterSid }
-                };
-            }
-
-            const gatheredTandC = await this._db.termsAndConditionsMaster.findMany({
-                where: {
-                    OR: [
-                        // ✅ Normal filtered records
-                        filteredWhere,
-
-                        // ✅ Default records of same menu
-                        {
-                            MenuMasterSid: payload.MenuMasterSid,
-                            status: 'A',
-                            termsAndConditionsDetail: {
-                                some: {
-                                    IsDefaut: 'N',
-                                    status: 'A'
-                                }
-                            }
-                        }
-                    ]
-                },
-                include: {
-                    termsAndConditionsDetail: {
-                        where: {
-                            OR: [
-                                { IsDefaut: 'N', status: 'A' }
-                            ]
-                        }
-                    }
-                }
-            });
-
-            // Flatten details
-            const allDetails = gatheredTandC.flatMap(
-                tandc => tandc.termsAndConditionsDetail
-            );
-
-            // Remove duplicate details
-            const unique = new Map();
-            allDetails.forEach(detail => {
-                unique.set(detail.TermsAndConditionsDetailSid, detail);
-            });
-
-            return Array.from(unique.values());
-
-        } catch (error) {
-            console.error('Error fetching terms and conditions:', error);
-            throw new Error(`Failed to fetch terms and conditions: ${error.message}`);
-        }
+    if (!payload.MenuMasterSid) {
+      throw new Error('MenuMasterSid is required');
     }
+
+    const andConditions: any[] = [];
+
+    if (payload.POL) {
+      andConditions.push({
+        OR: [
+          { POL: { has: payload.POL } },
+          { POL: { equals: [] } },
+          { POL: null }
+        ]
+      });
+    }
+
+    if (payload.POD) {
+      andConditions.push({
+        OR: [
+          { POD: { has: payload.POD } },
+          { POD: { equals: [] } },
+          { POD: null }
+        ]
+      });
+    }
+
+    if (payload.Carrier !== undefined) {
+      andConditions.push({
+        OR: [
+          { Carrier: payload.Carrier },
+          { Carrier: null }
+        ]
+      });
+    }
+
+    if (payload.DepartmentMasterSid) {
+      andConditions.push({
+        OR: [
+          {
+            departments: {
+              some: { departmentId: payload.DepartmentMasterSid }
+            }
+          },
+          {
+            departments: {
+              none: {}
+            }
+          }
+        ]
+      });
+    }
+
+    const whereCondition: any = {
+      MenuMasterSid: payload.MenuMasterSid,
+      status: 'A',
+      ...(payload.BranchMasterSid && { BranchMasterSid: payload.BranchMasterSid }),
+      ...(andConditions.length && { AND: andConditions })
+    };
+
+    const gatheredTandC = await this._db.termsAndConditionsMaster.findMany({
+      where: whereCondition,
+      include: {
+        termsAndConditionsDetail: {
+          where: {
+            IsDefaut: 'N',
+            status: 'A'
+          }
+        }
+      }
+    });
+
+    const allDetails = gatheredTandC.flatMap(t => t.termsAndConditionsDetail);
+
+    const unique = new Map();
+    allDetails.forEach(detail => {
+      unique.set(detail.TermsAndConditionsDetailSid, detail);
+    });
+
+    return Array.from(unique.values());
+
+  } catch (error) {
+    console.error('Error fetching terms and conditions:', error);
+    throw new Error(`Failed to fetch terms and conditions: ${error.message}`);
+  }
+}
 
     async getAllMenus() {
     try {
