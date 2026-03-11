@@ -745,7 +745,6 @@ export class TermsAndConditionsService {
         OR: [
           { POL: { has: payload.POL } },
           { POL: { equals: [] } },
-          { POL: null }
         ]
       });
     }
@@ -755,7 +754,6 @@ export class TermsAndConditionsService {
         OR: [
           { POD: { has: payload.POD } },
           { POD: { equals: [] } },
-          { POD: null }
         ]
       });
     }
@@ -834,7 +832,6 @@ export class TermsAndConditionsService {
         OR: [
           { POL: { has: payload.POL } },
           { POL: { equals: [] } },
-          { POL: null }
         ]
       });
     }
@@ -844,7 +841,6 @@ export class TermsAndConditionsService {
         OR: [
           { POD: { has: payload.POD } },
           { POD: { equals: [] } },
-          { POD: null }
         ]
       });
     }
