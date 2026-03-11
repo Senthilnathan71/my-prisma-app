@@ -16,6 +16,7 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { SettingsModule } from './settings/settings.module';
 import { OcrModule } from './ocr/ocr.module';
 import { DashboardModule } from './dashboard/dashboard.module';
+import { ReportScheduleModule } from './report-schedule/report-schedule.module';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { DashboardModule } from './dashboard/dashboard.module';
     SettingsModule,
     OcrModule,
     DashboardModule,
+    ReportScheduleModule,
     ScheduleModule.forRoot(),
   ],
   controllers: [AppController],

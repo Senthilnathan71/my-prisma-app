@@ -125,6 +125,7 @@ model CompanyMaster {
   numberSeriesConfig         NumberSeriesConfig[]
   numberSeriesCounter        NumberSeriesCounter[]
   VoucherPeriod              VoucherPeriod[]
+  reportSchedules            ReportSchedule[]
 }
 
 model BranchMaster {
@@ -2463,6 +2464,7 @@ model SubledgerMaster {
   VoucherHeader       VoucherHeader[]
   voucherMatching     VoucherMatching[]
   VoucherTransaction  VoucherTransaction[]
+  reportSchedules     ReportSchedule[]
 }
 
 model SupplierTdsMapping {

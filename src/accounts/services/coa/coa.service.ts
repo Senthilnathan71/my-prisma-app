@@ -187,21 +187,21 @@ export class CoaService {
             }
         }
 
-        // 2. Check duplicate ledger name
-        if (LedgerName) {
-            const duplicateName = await this._db.cOAMaster.findFirst({
-                where: {
-                    ...baseWhere,
-                    LedgerName: LedgerName
-                }
-            });
+        // // 2. Check duplicate ledger name
+        // if (LedgerName) {
+        //     const duplicateName = await this._db.cOAMaster.findFirst({
+        //         where: {
+        //             ...baseWhere,
+        //             LedgerName: LedgerName
+        //         }
+        //     });
 
-            if (duplicateName) {
-                throw new BadRequestException(
-                    `Ledger Name '${LedgerName}' already exists with code ${duplicateName.LedgerCode}`
-                );
-            }
-        }
+        //     if (duplicateName) {
+        //         throw new BadRequestException(
+        //             `Ledger Name '${LedgerName}' already exists with code ${duplicateName.LedgerCode}`
+        //         );
+        //     }
+        // }
 
         // 3. Check combinations based on LedgerCategory
         if (LedgerCategory === 'Group') {
