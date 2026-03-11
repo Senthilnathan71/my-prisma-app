@@ -19,6 +19,14 @@ export class SalesDashboardController {
   }
 
   @Auth()
+  @Get('sales-dashboard/counts')
+  async getSalesDashboardCounts(@Query() query: SalesDashboardQueryDto) {
+    const resp = new ResponseData();
+    resp.data = await this.salesDashboardService.getSalesDashboardCounts(query);
+    return resp;
+  }
+
+  @Auth()
   @Get('sales-dashboard/section/:sectionNumber')
   async getSalesDashboardSection(
     @Query() query: SalesDashboardQueryDto,

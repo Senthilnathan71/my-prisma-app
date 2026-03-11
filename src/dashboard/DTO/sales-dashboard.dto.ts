@@ -1,4 +1,4 @@
-import { IsOptional, IsNumber, IsDateString } from 'class-validator';
+import { IsOptional, IsNumber, IsDateString, IsString } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
 
@@ -18,6 +18,11 @@ export class SalesDashboardQueryDto {
   @IsNumber()
   @Type(() => Number)
   salespersonId?: number;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  salespersonEmail?: string;
 
   @ApiProperty({ required: false })
   @IsOptional()

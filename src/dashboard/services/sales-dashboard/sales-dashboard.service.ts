@@ -89,6 +89,205 @@ export class SalesDashboardService {
     }
   }
 
+  async getSalesDashboardCounts(query: SalesDashboardQueryDto) {
+    const { companyMasterSid, branchMasterSid, salespersonId, salespersonEmail, dateFrom, dateTo } = this.normalizeParams(query);
+
+    const [
+      leadsNoMeetingCount,
+      meetingsScheduledCounts,
+      followUpsPendingCount,
+      meetingsNotConvertedCount,
+      customersNoQuoteCount,
+      quotesNotApprovedCount,
+      quotesNoBookingCount,
+      summaryKpis,
+      leadStatusDistribution,
+    ] = await Promise.all([
+      // Section 1: Leads No Meeting count
+      this.db.$queryRawUnsafe(
+        `SELECT COUNT(*) AS "count"
+        FROM "PreCustomerMaster" pcm
+        LEFT JOIN "PreCustomerMeeting" pcmm
+          ON pcm."PreCustomerMasterSid" = pcmm."PreCustomerMasterSid"
+        WHERE
+          pcmm."PreCustomerMeetingSid" IS NULL
+          AND pcm."status" = 'A'
+          AND pcm."CompanyMasterSid" = $1
+          AND pcm."BranchMasterSid" = $2
+          AND ($3::int IS NULL OR pcm."leadAssignTo" = $3)
+          AND ($6::text IS NULL OR pcm."createdBy" = $6)`,
+        companyMasterSid, branchMasterSid, salespersonId, dateFrom, dateTo, salespersonEmail,
+      ),
+      // Section 2: Meetings Scheduled — split by overdue/today/future
+      this.db.$queryRawUnsafe(
+        `SELECT
+          COUNT(*) FILTER (WHERE pcmm."meetingDate"::date < CURRENT_DATE) AS "overdue",
+          COUNT(*) FILTER (WHERE pcmm."meetingDate"::date = CURRENT_DATE) AS "today",
+          COUNT(*) FILTER (WHERE pcmm."meetingDate"::date > CURRENT_DATE) AS "future"
+        FROM "PreCustomerMeeting" pcmm
+        WHERE
+          pcmm."status" = 'A'
+          AND pcmm."meetingDate" IS NOT NULL
+          AND pcmm."CompanyMasterSid" = $1
+          AND pcmm."BranchMasterSid" = $2
+          AND ($3::int IS NULL OR pcmm."leadAssignTo" = $3)
+          AND ($4::timestamptz IS NULL OR pcmm."createdOn" >= $4::timestamptz)
+          AND ($5::timestamptz IS NULL OR pcmm."createdOn" <= $5::timestamptz)`,
+        companyMasterSid, branchMasterSid, salespersonId, dateFrom, dateTo,
+      ),
+      // Section 3: Follow-Ups Pending count
+      this.db.$queryRawUnsafe(
+        `SELECT COUNT(*) AS "count"
+        FROM "PreCustomerMeeting" pcmm
+        WHERE
+          pcmm."followUpDate" IS NOT NULL
+          AND pcmm."status" = 'A'
+          AND pcmm."CompanyMasterSid" = $1
+          AND pcmm."BranchMasterSid" = $2
+          AND ($3::int IS NULL OR pcmm."leadAssignTo" = $3)
+          AND ($4::timestamptz IS NULL OR pcmm."followUpDate" >= $4::timestamptz)
+          AND ($5::timestamptz IS NULL OR pcmm."followUpDate" <= $5::timestamptz)
+          AND pcmm."meetingStatus" <> 'Completed'`,
+        companyMasterSid, branchMasterSid, salespersonId, dateFrom, dateTo,
+      ),
+      // Section 4: Meetings Not Converted count
+      this.db.$queryRawUnsafe(
+        `SELECT COUNT(DISTINCT pcm."PreCustomerMasterSid") AS "count"
+        FROM "PreCustomerMaster" pcm
+        INNER JOIN "PreCustomerMeeting" pcmm
+          ON pcm."PreCustomerMasterSid" = pcmm."PreCustomerMasterSid"
+        WHERE
+          pcm."status" = 'A'
+          AND pcm."leadStatus"::text NOT IN ('DealWon', 'ContractSigned')
+          AND NOT EXISTS (
+            SELECT 1 FROM "CustomerMaster" cm
+            WHERE cm."PreCustomerMasterSid" = pcm."PreCustomerMasterSid"
+            AND cm."status" = 'A'
+          )
+          AND pcm."CompanyMasterSid" = $1
+          AND pcm."BranchMasterSid" = $2
+          AND ($3::int IS NULL OR pcm."leadAssignTo" = $3)
+          AND ($4::timestamptz IS NULL OR pcmm."meetingDate" >= $4::timestamptz)
+          AND ($5::timestamptz IS NULL OR pcmm."meetingDate" <= $5::timestamptz)`,
+        companyMasterSid, branchMasterSid, salespersonId, dateFrom, dateTo,
+      ),
+      // Section 5: Customers No Quote count
+      this.db.$queryRawUnsafe(
+        `SELECT COUNT(*) AS "count"
+        FROM "CustomerMaster" cm
+        LEFT JOIN "QuoteHeader" qh
+          ON cm."CustomerMasterSid" = qh."CustomerMasterSid" AND qh."status" = 'A'
+        LEFT JOIN "BookingHeader" bh
+          ON cm."CustomerMasterSid" = bh."CustomerMasterSid" AND bh."status" = 'A'
+        LEFT JOIN "PreCustomerMaster" pcm
+          ON cm."PreCustomerMasterSid" = pcm."PreCustomerMasterSid"
+        WHERE
+          qh."QuoteHeaderSid" IS NULL
+          AND bh."BookingHeaderSid" IS NULL
+          AND cm."PreCustomerMasterSid" IS NOT NULL
+          AND cm."status" = 'A'
+          AND cm."CompanyMasterSid" = $1
+          AND ($2::int IS NULL OR pcm."BranchMasterSid" = $2)
+          AND ($3::int IS NULL OR pcm."leadAssignTo" = $3)
+          AND ($4::timestamptz IS NULL OR cm."createdOn" >= $4::timestamptz)
+          AND ($5::timestamptz IS NULL OR cm."createdOn" <= $5::timestamptz)`,
+        companyMasterSid, branchMasterSid, salespersonId, dateFrom, dateTo,
+      ),
+      // Section 6: Quotes Not Approved count
+      this.db.$queryRawUnsafe(
+        `SELECT COUNT(*) AS "count"
+        FROM "QuoteHeader" qh
+        WHERE
+          qh."status" = 'A'
+          AND qh."CompanyMasterSid" = $1
+          AND qh."BranchMasterSid" = $2
+          AND ($3::int IS NULL OR qh."SalesmanSid" = $3)
+          AND ($4::date IS NULL OR qh."QuoteDate" >= $4::date)
+          AND ($5::date IS NULL OR qh."QuoteDate" <= $5::date)
+          AND EXISTS (
+            SELECT 1 FROM "QuoteCarrier" qc
+            WHERE qc."QuoteHeaderSid" = qh."QuoteHeaderSid"
+            AND COALESCE(qc."status", 'A') = 'A'
+          )
+          AND NOT EXISTS (
+            SELECT 1 FROM "QuoteCarrier" qc
+            WHERE qc."QuoteHeaderSid" = qh."QuoteHeaderSid"
+            AND COALESCE(qc."status", 'A') = 'A'
+            AND qc."ApprovalStatus"::text = 'Approved'
+          )
+          AND EXISTS (
+            SELECT 1 FROM "QuoteCarrier" qc
+            WHERE qc."QuoteHeaderSid" = qh."QuoteHeaderSid"
+            AND COALESCE(qc."status", 'A') = 'A'
+            AND COALESCE(qc."ApprovalStatus"::text, '') <> 'Rejected'
+          )`,
+        companyMasterSid, branchMasterSid, salespersonId, dateFrom, dateTo,
+      ),
+      // Section 7: Quotes No Booking count
+      this.db.$queryRawUnsafe(
+        `SELECT COUNT(*) AS "count"
+        FROM "QuoteHeader" qh
+        WHERE
+          qh."status" = 'A'
+          AND qh."BookingHeaderSid" IS NULL
+          AND qh."CompanyMasterSid" = $1
+          AND qh."BranchMasterSid" = $2
+          AND ($3::int IS NULL OR qh."SalesmanSid" = $3)
+          AND ($4::date IS NULL OR qh."QuoteDate" >= $4::date)
+          AND ($5::date IS NULL OR qh."QuoteDate" <= $5::date)
+          AND EXISTS (
+            SELECT 1 FROM "QuoteCarrier" qc
+            WHERE qc."QuoteHeaderSid" = qh."QuoteHeaderSid"
+            AND COALESCE(qc."status", 'A') = 'A'
+            AND qc."ApprovalStatus"::text = 'Approved'
+          )
+          AND NOT EXISTS (
+            SELECT 1 FROM "BookingHeader" bh
+            WHERE bh."QuotationHeaderSid" = qh."QuoteHeaderSid"
+            AND bh."status" = 'A'
+          )`,
+        companyMasterSid, branchMasterSid, salespersonId, dateFrom, dateTo,
+      ),
+      // Summary KPIs (reuse existing)
+      this.getSummaryKpis(query),
+      // Lead Status Distribution (reuse existing)
+      this.getLeadStatusDistribution(query),
+    ]);
+
+    const s1 = (leadsNoMeetingCount as any[])[0] || {};
+    const s2 = (meetingsScheduledCounts as any[])[0] || {};
+    const s3 = (followUpsPendingCount as any[])[0] || {};
+    const s4 = (meetingsNotConvertedCount as any[])[0] || {};
+    const s5 = (customersNoQuoteCount as any[])[0] || {};
+    const s6 = (quotesNotApprovedCount as any[])[0] || {};
+    const s7 = (quotesNoBookingCount as any[])[0] || {};
+
+    const counts = {
+      leadsNoMeeting: Number(s1.count) || 0,
+      meetingsScheduled: (Number(s2.overdue) || 0) + (Number(s2.today) || 0) + (Number(s2.future) || 0),
+      followUpsPending: Number(s3.count) || 0,
+      meetingsNotConverted: Number(s4.count) || 0,
+      customersNoQuote: Number(s5.count) || 0,
+      quotesNotApproved: Number(s6.count) || 0,
+      quotesNoBooking: Number(s7.count) || 0,
+      totalBookings: summaryKpis.bookings.totalBookings,
+    };
+
+    return {
+      counts,
+      summaryKpis,
+      charts: {
+        funnelCounts: counts,
+        meetingsBoardCounts: {
+          overdue: Number(s2.overdue) || 0,
+          today: Number(s2.today) || 0,
+          future: Number(s2.future) || 0,
+        },
+        leadStatusDistribution,
+      },
+    };
+  }
+
   // ── Normalize query params (query string values arrive as strings) ──
 
   private normalizeParams(query: SalesDashboardQueryDto) {
@@ -96,6 +295,7 @@ export class SalesDashboardService {
       companyMasterSid: Number(query.companyMasterSid),
       branchMasterSid: Number(query.branchMasterSid),
       salespersonId: query.salespersonId ? Number(query.salespersonId) : null,
+      salespersonEmail: query.salespersonEmail || null,
       dateFrom: query.dateFrom || null,
       dateTo: query.dateTo || null,
     };
@@ -104,7 +304,7 @@ export class SalesDashboardService {
   // ── Section 1: Leads Created/Assigned — No Meeting Scheduled ──
 
   private async getLeadsNoMeeting(query: SalesDashboardQueryDto) {
-    const { companyMasterSid, branchMasterSid, salespersonId, dateFrom, dateTo } = this.normalizeParams(query);
+    const { companyMasterSid, branchMasterSid, salespersonId, salespersonEmail, dateFrom, dateTo } = this.normalizeParams(query);
 
     const results: any[] = await this.db.$queryRawUnsafe(
       `SELECT
@@ -129,15 +329,14 @@ export class SalesDashboardService {
         AND pcm."status" = 'A'
         AND pcm."CompanyMasterSid" = $1
         AND pcm."BranchMasterSid" = $2
-        AND ($3::int IS NULL OR pcm."leadAssignTo" = $3)
-        AND ($4::timestamptz IS NULL OR pcm."createdOn" >= $4::timestamptz)
-        AND ($5::timestamptz IS NULL OR pcm."createdOn" <= $5::timestamptz)
+        AND ($6::text IS NULL OR pcm."createdBy" = $6)
       ORDER BY pcm."createdOn" DESC`,
       companyMasterSid,
       branchMasterSid,
       salespersonId,
       dateFrom,
       dateTo,
+      salespersonEmail,
     );
 
     return results;
@@ -278,16 +477,15 @@ export class SalesDashboardService {
       FROM "PreCustomerMaster" pcm
       INNER JOIN "PreCustomerMeeting" pcmm
         ON pcm."PreCustomerMasterSid" = pcmm."PreCustomerMasterSid"
-        AND pcmm."status" IN ('A', 'S')
       LEFT JOIN "UserMaster" um
         ON pcm."leadAssignTo" = um."UserMasterSid"
       WHERE
-        pcm."status" IN ('A', 'S')
+        pcm."status" = 'A'
         AND pcm."leadStatus"::text NOT IN ('DealWon', 'ContractSigned')
         AND NOT EXISTS (
           SELECT 1 FROM "CustomerMaster" cm
           WHERE cm."PreCustomerMasterSid" = pcm."PreCustomerMasterSid"
-          AND cm."status" IN ('A', 'S')
+          AND cm."status" = 'A'
         )
         AND pcm."CompanyMasterSid" = $1
         AND pcm."BranchMasterSid" = $2
@@ -336,10 +534,10 @@ export class SalesDashboardService {
       FROM "CustomerMaster" cm
       LEFT JOIN "QuoteHeader" qh
         ON cm."CustomerMasterSid" = qh."CustomerMasterSid"
-        AND qh."status" IN ('A', 'S')
+        AND qh."status" = 'A'
       LEFT JOIN "BookingHeader" bh
         ON cm."CustomerMasterSid" = bh."CustomerMasterSid"
-        AND bh."status" IN ('A', 'S')
+        AND bh."status" = 'A'
       LEFT JOIN "PreCustomerMaster" pcm
         ON cm."PreCustomerMasterSid" = pcm."PreCustomerMasterSid"
       LEFT JOIN "UserMaster" um
@@ -348,7 +546,7 @@ export class SalesDashboardService {
         qh."QuoteHeaderSid" IS NULL
         AND bh."BookingHeaderSid" IS NULL
         AND cm."PreCustomerMasterSid" IS NOT NULL
-        AND cm."status" IN ('A', 'S')
+        AND cm."status" = 'A'
         AND cm."CompanyMasterSid" = $1
         AND ($2::int IS NULL OR pcm."BranchMasterSid" = $2)
         AND ($3::int IS NULL OR pcm."leadAssignTo" = $3)
@@ -394,13 +592,32 @@ export class SalesDashboardService {
       LEFT JOIN "UserMaster" um
         ON qh."SalesmanSid" = um."UserMasterSid"
       WHERE
-        qh."authorizerStatus"::text IN ('Pending', 'WaitingForFinalApproval', 'WaitingForCustomerApproval', 'Counter', 'Open')
-        AND qh."status" IN ('A', 'S')
+        qh."status" = 'A'
         AND qh."CompanyMasterSid" = $1
         AND qh."BranchMasterSid" = $2
         AND ($3::int IS NULL OR qh."SalesmanSid" = $3)
         AND ($4::date IS NULL OR qh."QuoteDate" >= $4::date)
         AND ($5::date IS NULL OR qh."QuoteDate" <= $5::date)
+        AND EXISTS (
+	        SELECT 1
+	        FROM "QuoteCarrier" qc
+	        WHERE qc."QuoteHeaderSid" = qh."QuoteHeaderSid"
+	        AND COALESCE(qc."status", 'A') = 'A'
+        )
+        AND NOT EXISTS (
+	        SELECT 1
+	        FROM "QuoteCarrier" qc
+	        WHERE qc."QuoteHeaderSid" = qh."QuoteHeaderSid"
+	        AND COALESCE(qc."status", 'A') = 'A'
+	        AND qc."ApprovalStatus"::text = 'Approved'
+        )
+        AND EXISTS (
+	        SELECT 1
+	        FROM "QuoteCarrier" qc
+	        WHERE qc."QuoteHeaderSid" = qh."QuoteHeaderSid"
+	        AND COALESCE(qc."status", 'A') = 'A'
+	        AND COALESCE(qc."ApprovalStatus"::text, '') <> 'Rejected'
+        )
       ORDER BY qh."QuoteDate" DESC`,
       companyMasterSid,
       branchMasterSid,
@@ -422,10 +639,6 @@ export class SalesDashboardService {
         qh."QuoteHeaderSid",
         qh."QuoteNumber",
         qh."QuoteDate",
-        qh."CustomerApprovedBy",
-        qh."CustomerApprovedOn",
-        qh."InternalApprovedBy",
-        qh."InternalApprovedOn",
         qh."SalesmanSid",
         qh."LeadOrCustomer",
         qh."PreCustomerMasterSid",
@@ -436,24 +649,32 @@ export class SalesDashboardService {
         pcm."preCustomerName",
         um."userName" AS "salespersonName"
       FROM "QuoteHeader" qh
-      LEFT JOIN "BookingHeader" bh
-        ON qh."QuoteHeaderSid" = bh."QuotationHeaderSid"
-        AND bh."status" IN ('A', 'S')
       LEFT JOIN "PreCustomerMaster" pcm
         ON qh."PreCustomerMasterSid" = pcm."PreCustomerMasterSid"
       LEFT JOIN "UserMaster" um
         ON qh."SalesmanSid" = um."UserMasterSid"
       WHERE
-        qh."authorizerStatus"::text = 'Approved'
-        AND bh."BookingHeaderSid" IS NULL
+        qh."status" = 'A'
         AND qh."BookingHeaderSid" IS NULL
-        AND qh."status" IN ('A', 'S')
         AND qh."CompanyMasterSid" = $1
         AND qh."BranchMasterSid" = $2
         AND ($3::int IS NULL OR qh."SalesmanSid" = $3)
         AND ($4::date IS NULL OR qh."QuoteDate" >= $4::date)
         AND ($5::date IS NULL OR qh."QuoteDate" <= $5::date)
-      ORDER BY qh."InternalApprovedOn" DESC NULLS LAST, qh."QuoteDate" DESC`,
+        AND EXISTS (
+          SELECT 1
+          FROM "QuoteCarrier" qc
+          WHERE qc."QuoteHeaderSid" = qh."QuoteHeaderSid"
+          AND COALESCE(qc."status", 'A') = 'A'
+          AND qc."ApprovalStatus"::text = 'Approved'
+        )
+        AND NOT EXISTS (
+          SELECT 1
+          FROM "BookingHeader" bh
+          WHERE bh."QuotationHeaderSid" = qh."QuoteHeaderSid"
+          AND bh."status" = 'A'
+        )
+      ORDER BY qh."QuoteDate" DESC`,
       companyMasterSid,
       branchMasterSid,
       salespersonId,
