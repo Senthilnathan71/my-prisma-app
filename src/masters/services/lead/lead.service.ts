@@ -122,6 +122,7 @@ async getAllCustomer(user,CompanyMasterSid:number) {
         // Step 3: Check for duplicate lead
         // Define duplicate criteria based on your business logic
         const duplicateConditions: any = {
+            status:'A',
             OR: []
         };
 
@@ -129,7 +130,7 @@ async getAllCustomer(user,CompanyMasterSid:number) {
             duplicateConditions.OR.push({
                 preCustomerName: { 
                     equals: payload.preCustomerName.trim(), 
-                    mode: 'insensitive' 
+                    mode: 'insensitive',
                 }
             });
         }
