@@ -1159,6 +1159,7 @@ export class CreditRequestService {
       }
 
       const outstandingReport = await this.getBLDOOutstandingReport(dto, currentDate);
+      console.log(dto , outstandingReport);
       const totalOutstandingLocal = Number(outstandingReport.totalOutstandingLocal || 0);
       const remainingCreditLimit = creditLimit - totalOutstandingLocal;
 
@@ -1405,7 +1406,7 @@ export class CreditRequestService {
       return branchCreditRequest;
     }
 
-    return this._db.customerCreditRequest.findFirst({
+    const commonCreditRequest = await this._db.customerCreditRequest.findFirst({
       where: {
         ...baseWhere,
         CustomerBranchSid: null,
@@ -1414,6 +1415,65 @@ export class CreditRequestService {
         CustomerCreditRequestSid: 'desc',
       },
     });
+
+    if (commonCreditRequest) {
+      return commonCreditRequest;
+    }
+
+    throw new BadRequestException(
+      await this.buildBLDOCreditRequestMessage(dto, documentDate),
+    );
+  }
+
+  private async buildBLDOCreditRequestMessage(
+    dto: ValidateBLDODto,
+    documentDate: Date,
+  ): Promise<string> {
+    const scopedRequests = await this._db.customerCreditRequest.findMany({
+      where: {
+        CompanyMasterSid: dto.CompanyMasterSid,
+        CustomerMasterSid: dto.CustomerMasterSid,
+        Status: 'A',
+        OR: [
+          { CustomerBranchSid: dto.CustomerBranchSid ?? null },
+          { CustomerBranchSid: null },
+        ],
+      },
+      select: {
+        CustomerCreditRequestSid: true,
+        ApprovalStatus: true,
+        EffectiveFrom: true,
+        EffectiveTo: true,
+      },
+      orderBy: {
+        CustomerCreditRequestSid: 'desc',
+      },
+      take: 10,
+    });
+
+    if (!scopedRequests.length) {
+      return 'No credit request is configured for this customer.';
+    }
+
+    const matchingDateRequest = scopedRequests.find(
+      (item) =>
+        new Date(item.EffectiveFrom) <= documentDate &&
+        new Date(item.EffectiveTo) >= documentDate,
+    );
+
+    if (matchingDateRequest && matchingDateRequest.ApprovalStatus !== ApprovalStatus.Approved) {
+      return `Credit request is ${matchingDateRequest.ApprovalStatus} for this customer. Approval is required before BL/DO validation can pass.`;
+    }
+
+    const approvedRequest = scopedRequests.find(
+      (item) => item.ApprovalStatus === ApprovalStatus.Approved,
+    );
+
+    if (approvedRequest) {
+      return 'No approved credit request is active for this customer on the selected document date.';
+    }
+
+    return 'Credit request exists for this customer, but it is not approved yet.';
   }
 
   private async getBLDOOutstandingReport(
@@ -1426,7 +1486,7 @@ export class CreditRequestService {
     );
 
     const reportPayload: OutstandingReportQueryDto = {
-      ToDate: currentDate.toISOString().split('T')[0],
+      ToDate: currentDate.toISOString(),
       Ledger: customerDebtorMapping.COAMasterSid,
       Subledger: customerDebtorMapping.SubledgerMasterSid,
       companyId: dto.CompanyMasterSid,

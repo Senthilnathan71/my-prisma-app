@@ -914,8 +914,8 @@ export class AccountsReportsService {
             localAmt: localAmt,
           });
 
-          totalOutstandingCurrency += outstandingCurrencyAmount;
-          totalOutstandingLocal += outstandingLocalAmount;
+          totalOutstandingCurrency += signedOriginalCurrency;
+          totalOutstandingLocal += signedOutstandingLocal;
         }
         ageingSummary.totalOutstanding = roundAmount(
           ageingSummary.totalOutstanding,
