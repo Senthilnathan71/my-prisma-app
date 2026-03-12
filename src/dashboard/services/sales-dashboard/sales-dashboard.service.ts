@@ -2,8 +2,40 @@ import { Injectable } from '@nestjs/common';
 import { DatabaseService } from 'src/database/database.service';
 import { SalesDashboardQueryDto } from '../../DTO/sales-dashboard.dto';
 
+type SectionBucket = 'overdue' | 'today' | 'future';
+
+interface NormalizedParams {
+  companyMasterSid: number;
+  branchMasterSid: number;
+  salespersonId: number | null;
+  salespersonEmail: string | null;
+  dateFrom: string | null;
+  dateTo: string | null;
+  page: number;
+  pageSize: number;
+  search: string | null;
+  bucket: SectionBucket | null;
+}
+
+interface PagedResult<T> {
+  items: T[];
+  page: number;
+  pageSize: number;
+  totalCount: number;
+  hasMore: boolean;
+}
+
+interface BucketedPagedResult<T> {
+  overdue: PagedResult<T>;
+  today: PagedResult<T>;
+  future: PagedResult<T>;
+}
+
 @Injectable()
 export class SalesDashboardService {
+  private readonly defaultPageSize = 10;
+  private readonly maxPageSize = 50;
+
   constructor(private readonly db: DatabaseService) {}
 
   async getSalesDashboardData(query: SalesDashboardQueryDto) {
@@ -18,28 +50,28 @@ export class SalesDashboardService {
       summaryKpis,
       leadStatusDistribution,
     ] = await Promise.all([
-      this.getLeadsNoMeeting(query),
-      this.getMeetingsScheduled(query),
-      this.getMeetingsWithFollowup(query),
-      this.getMeetingsNotConverted(query),
-      this.getCustomersNoQuote(query),
-      this.getQuotesNotApproved(query),
-      this.getQuotesNoBooking(query),
+      this.getLeadsNoMeetingPage(query),
+      this.getMeetingsScheduledSectionData(query),
+      this.getMeetingsWithFollowupPage(query),
+      this.getMeetingsNotConvertedPage(query),
+      this.getCustomersNoQuotePage(query),
+      this.getQuotesNotApprovedPage(query),
+      this.getQuotesNoBookingPage(query),
       this.getSummaryKpis(query),
       this.getLeadStatusDistribution(query),
     ]);
 
     const funnelCounts = {
-      leadsNoMeeting: leadsNoMeeting.length,
+      leadsNoMeeting: leadsNoMeeting.totalCount,
       meetingsScheduled:
-        meetingsScheduled.overdue.length +
-        meetingsScheduled.today.length +
-        meetingsScheduled.future.length,
-      followUpsPending: meetingsWithFollowup.length,
-      meetingsNotConverted: meetingsNotConverted.length,
-      customersNoQuote: customersNoQuote.length,
-      quotesNotApproved: quotesNotApproved.length,
-      quotesNoBooking: quotesNoBooking.length,
+        meetingsScheduled.overdue.totalCount +
+        meetingsScheduled.today.totalCount +
+        meetingsScheduled.future.totalCount,
+      followUpsPending: meetingsWithFollowup.totalCount,
+      meetingsNotConverted: meetingsNotConverted.totalCount,
+      customersNoQuote: customersNoQuote.totalCount,
+      quotesNotApproved: quotesNotApproved.totalCount,
+      quotesNoBooking: quotesNoBooking.totalCount,
       totalBookings: summaryKpis.bookings.totalBookings,
     };
 
@@ -57,9 +89,9 @@ export class SalesDashboardService {
       charts: {
         funnelCounts,
         meetingsBoardCounts: {
-          overdue: meetingsScheduled.overdue.length,
-          today: meetingsScheduled.today.length,
-          future: meetingsScheduled.future.length,
+          overdue: meetingsScheduled.overdue.totalCount,
+          today: meetingsScheduled.today.totalCount,
+          future: meetingsScheduled.future.totalCount,
         },
         leadStatusDistribution,
       },
@@ -69,19 +101,22 @@ export class SalesDashboardService {
   async getSectionData(sectionNumber: number, query: SalesDashboardQueryDto) {
     switch (sectionNumber) {
       case 1:
-        return this.getLeadsNoMeeting(query);
+        return this.getLeadsNoMeetingPage(query);
       case 2:
-        return this.getMeetingsScheduled(query);
+        if (query.bucket) {
+          return this.getMeetingsScheduledBucket(query, query.bucket);
+        }
+        return this.getMeetingsScheduledSectionData(query);
       case 3:
-        return this.getMeetingsWithFollowup(query);
+        return this.getMeetingsWithFollowupPage(query);
       case 4:
-        return this.getMeetingsNotConverted(query);
+        return this.getMeetingsNotConvertedPage(query);
       case 5:
-        return this.getCustomersNoQuote(query);
+        return this.getCustomersNoQuotePage(query);
       case 6:
-        return this.getQuotesNotApproved(query);
+        return this.getQuotesNotApprovedPage(query);
       case 7:
-        return this.getQuotesNoBooking(query);
+        return this.getQuotesNoBookingPage(query);
       case 8:
         return this.getSummaryKpis(query);
       default:
@@ -90,7 +125,14 @@ export class SalesDashboardService {
   }
 
   async getSalesDashboardCounts(query: SalesDashboardQueryDto) {
-    const { companyMasterSid, branchMasterSid, salespersonId, salespersonEmail, dateFrom, dateTo } = this.normalizeParams(query);
+    const {
+      companyMasterSid,
+      branchMasterSid,
+      salespersonId,
+      salespersonEmail,
+      dateFrom,
+      dateTo,
+    } = this.normalizeParams(query);
 
     const [
       leadsNoMeetingCount,
@@ -103,7 +145,6 @@ export class SalesDashboardService {
       summaryKpis,
       leadStatusDistribution,
     ] = await Promise.all([
-      // Section 1: Leads No Meeting count
       this.db.$queryRawUnsafe(
         `SELECT COUNT(*) AS "count"
         FROM "PreCustomerMaster" pcm
@@ -114,11 +155,16 @@ export class SalesDashboardService {
           AND pcm."status" = 'A'
           AND pcm."CompanyMasterSid" = $1
           AND pcm."BranchMasterSid" = $2
-          AND ($3::int IS NULL OR pcm."leadAssignTo" = $3)
+          AND ($4::timestamptz IS NULL OR pcm."createdOn" >= $4::timestamptz)
+          AND ($5::timestamptz IS NULL OR pcm."createdOn" <= $5::timestamptz)
           AND ($6::text IS NULL OR pcm."createdBy" = $6)`,
-        companyMasterSid, branchMasterSid, salespersonId, dateFrom, dateTo, salespersonEmail,
+        companyMasterSid,
+        branchMasterSid,
+        salespersonId,
+        dateFrom,
+        dateTo,
+        salespersonEmail,
       ),
-      // Section 2: Meetings Scheduled — split by overdue/today/future
       this.db.$queryRawUnsafe(
         `SELECT
           COUNT(*) FILTER (WHERE pcmm."meetingDate"::date < CURRENT_DATE) AS "overdue",
@@ -131,11 +177,11 @@ export class SalesDashboardService {
           AND pcmm."CompanyMasterSid" = $1
           AND pcmm."BranchMasterSid" = $2
           AND ($3::int IS NULL OR pcmm."leadAssignTo" = $3)
-          AND ($4::timestamptz IS NULL OR pcmm."createdOn" >= $4::timestamptz)
-          AND ($5::timestamptz IS NULL OR pcmm."createdOn" <= $5::timestamptz)`,
-        companyMasterSid, branchMasterSid, salespersonId, dateFrom, dateTo,
+          `,
+        companyMasterSid,
+        branchMasterSid,
+        salespersonId,
       ),
-      // Section 3: Follow-Ups Pending count
       this.db.$queryRawUnsafe(
         `SELECT COUNT(*) AS "count"
         FROM "PreCustomerMeeting" pcmm
@@ -147,10 +193,13 @@ export class SalesDashboardService {
           AND ($3::int IS NULL OR pcmm."leadAssignTo" = $3)
           AND ($4::timestamptz IS NULL OR pcmm."followUpDate" >= $4::timestamptz)
           AND ($5::timestamptz IS NULL OR pcmm."followUpDate" <= $5::timestamptz)
-          AND pcmm."meetingStatus" <> 'Completed'`,
-        companyMasterSid, branchMasterSid, salespersonId, dateFrom, dateTo,
+          AND pcmm."meetingStatus" NOT IN ('Completed', 'Confirmed')`,
+        companyMasterSid,
+        branchMasterSid,
+        salespersonId,
+        dateFrom,
+        dateTo,
       ),
-      // Section 4: Meetings Not Converted count
       this.db.$queryRawUnsafe(
         `SELECT COUNT(DISTINCT pcm."PreCustomerMasterSid") AS "count"
         FROM "PreCustomerMaster" pcm
@@ -158,7 +207,6 @@ export class SalesDashboardService {
           ON pcm."PreCustomerMasterSid" = pcmm."PreCustomerMasterSid"
         WHERE
           pcm."status" = 'A'
-          AND pcm."leadStatus"::text NOT IN ('DealWon', 'ContractSigned')
           AND NOT EXISTS (
             SELECT 1 FROM "CustomerMaster" cm
             WHERE cm."PreCustomerMasterSid" = pcm."PreCustomerMasterSid"
@@ -169,16 +217,19 @@ export class SalesDashboardService {
           AND ($3::int IS NULL OR pcm."leadAssignTo" = $3)
           AND ($4::timestamptz IS NULL OR pcmm."meetingDate" >= $4::timestamptz)
           AND ($5::timestamptz IS NULL OR pcmm."meetingDate" <= $5::timestamptz)`,
-        companyMasterSid, branchMasterSid, salespersonId, dateFrom, dateTo,
+        companyMasterSid,
+        branchMasterSid,
+        salespersonId,
+        dateFrom,
+        dateTo,
       ),
-      // Section 5: Customers No Quote count
       this.db.$queryRawUnsafe(
         `SELECT COUNT(*) AS "count"
         FROM "CustomerMaster" cm
         LEFT JOIN "QuoteHeader" qh
-          ON cm."CustomerMasterSid" = qh."CustomerMasterSid" AND qh."status" = 'A'
+          ON cm."CustomerMasterSid" = qh."CustomerMasterSid"
         LEFT JOIN "BookingHeader" bh
-          ON cm."CustomerMasterSid" = bh."CustomerMasterSid" AND bh."status" = 'A'
+          ON cm."CustomerMasterSid" = bh."CustomerMasterSid"
         LEFT JOIN "PreCustomerMaster" pcm
           ON cm."PreCustomerMasterSid" = pcm."PreCustomerMasterSid"
         WHERE
@@ -191,9 +242,12 @@ export class SalesDashboardService {
           AND ($3::int IS NULL OR pcm."leadAssignTo" = $3)
           AND ($4::timestamptz IS NULL OR cm."createdOn" >= $4::timestamptz)
           AND ($5::timestamptz IS NULL OR cm."createdOn" <= $5::timestamptz)`,
-        companyMasterSid, branchMasterSid, salespersonId, dateFrom, dateTo,
+        companyMasterSid,
+        branchMasterSid,
+        salespersonId,
+        dateFrom,
+        dateTo,
       ),
-      // Section 6: Quotes Not Approved count
       this.db.$queryRawUnsafe(
         `SELECT COUNT(*) AS "count"
         FROM "QuoteHeader" qh
@@ -221,9 +275,12 @@ export class SalesDashboardService {
             AND COALESCE(qc."status", 'A') = 'A'
             AND COALESCE(qc."ApprovalStatus"::text, '') <> 'Rejected'
           )`,
-        companyMasterSid, branchMasterSid, salespersonId, dateFrom, dateTo,
+        companyMasterSid,
+        branchMasterSid,
+        salespersonId,
+        dateFrom,
+        dateTo,
       ),
-      // Section 7: Quotes No Booking count
       this.db.$queryRawUnsafe(
         `SELECT COUNT(*) AS "count"
         FROM "QuoteHeader" qh
@@ -246,11 +303,13 @@ export class SalesDashboardService {
             WHERE bh."QuotationHeaderSid" = qh."QuoteHeaderSid"
             AND bh."status" = 'A'
           )`,
-        companyMasterSid, branchMasterSid, salespersonId, dateFrom, dateTo,
+        companyMasterSid,
+        branchMasterSid,
+        salespersonId,
+        dateFrom,
+        dateTo,
       ),
-      // Summary KPIs (reuse existing)
       this.getSummaryKpis(query),
-      // Lead Status Distribution (reuse existing)
       this.getLeadStatusDistribution(query),
     ]);
 
@@ -264,7 +323,10 @@ export class SalesDashboardService {
 
     const counts = {
       leadsNoMeeting: Number(s1.count) || 0,
-      meetingsScheduled: (Number(s2.overdue) || 0) + (Number(s2.today) || 0) + (Number(s2.future) || 0),
+      meetingsScheduled:
+        (Number(s2.overdue) || 0) +
+        (Number(s2.today) || 0) +
+        (Number(s2.future) || 0),
       followUpsPending: Number(s3.count) || 0,
       meetingsNotConverted: Number(s4.count) || 0,
       customersNoQuote: Number(s5.count) || 0,
@@ -288,9 +350,10 @@ export class SalesDashboardService {
     };
   }
 
-  // ── Normalize query params (query string values arrive as strings) ──
+  private normalizeParams(query: SalesDashboardQueryDto): NormalizedParams {
+    const page = Number(query.page) || 1;
+    const pageSize = Number(query.pageSize) || this.defaultPageSize;
 
-  private normalizeParams(query: SalesDashboardQueryDto) {
     return {
       companyMasterSid: Number(query.companyMasterSid),
       branchMasterSid: Number(query.branchMasterSid),
@@ -298,16 +361,89 @@ export class SalesDashboardService {
       salespersonEmail: query.salespersonEmail || null,
       dateFrom: query.dateFrom || null,
       dateTo: query.dateTo || null,
+      page: page > 0 ? page : 1,
+      pageSize: Math.min(Math.max(pageSize, 1), this.maxPageSize),
+      search: query.search?.trim() || null,
+      bucket: query.bucket || null,
     };
   }
 
-  // ── Section 1: Leads Created/Assigned — No Meeting Scheduled ──
+  private buildSearchClause(search: string | null, columns: string[], startIndex: number) {
+    if (!search) {
+      return { clause: '', params: [] as any[] };
+    }
 
-  private async getLeadsNoMeeting(query: SalesDashboardQueryDto) {
-    const { companyMasterSid, branchMasterSid, salespersonId, salespersonEmail, dateFrom, dateTo } = this.normalizeParams(query);
+    const predicate = columns
+      .map((column) => `COALESCE(${column}::text, '') ILIKE $${startIndex}`)
+      .join(' OR ');
 
-    const results: any[] = await this.db.$queryRawUnsafe(
-      `SELECT
+    return {
+      clause: ` AND (${predicate})`,
+      params: [`%${search}%`],
+    };
+  }
+
+  private toPagedResult<T>(rows: T[], page: number, pageSize: number, totalCount: number): PagedResult<T> {
+    return {
+      items: rows,
+      page,
+      pageSize,
+      totalCount,
+      hasMore: page * pageSize < totalCount,
+    };
+  }
+
+  private async executePagedQuery<T>(
+    dataSql: string,
+    countSql: string,
+    dataParams: any[],
+    countParams: any[],
+    page: number,
+    pageSize: number,
+    mapFn?: (row: any) => T,
+  ): Promise<PagedResult<T>> {
+    const offset = (page - 1) * pageSize;
+    const [rows, countResult] = await Promise.all([
+      this.db.$queryRawUnsafe(
+        `${dataSql} LIMIT $${dataParams.length + 1} OFFSET $${dataParams.length + 2}`,
+        ...dataParams,
+        pageSize,
+        offset,
+      ),
+      this.db.$queryRawUnsafe(countSql, ...countParams),
+    ]);
+
+    const totalCount = Number((countResult as any[])[0]?.count) || 0;
+    const items = mapFn ? (rows as any[]).map(mapFn) : ((rows as unknown) as T[]);
+
+    return this.toPagedResult(items, page, pageSize, totalCount);
+  }
+
+  private async getLeadsNoMeetingPage(query: SalesDashboardQueryDto): Promise<PagedResult<any>> {
+    const params = this.normalizeParams(query);
+    const baseParams: any[] = [
+      params.companyMasterSid,
+      params.branchMasterSid,
+      params.dateFrom,
+      params.dateTo,
+      params.salespersonEmail,
+    ];
+    const search = this.buildSearchClause(
+      params.search,
+      [
+        `pcm."preCustomerName"`,
+        `pcm."contactPerson"`,
+        `pcm."phone"`,
+        `pcm."email"`,
+        `pcm."leadStatus"`,
+        `pcm."leadFrom"`,
+        `um."userName"`,
+      ],
+      baseParams.length + 1,
+    );
+
+    const dataSql = `
+      SELECT
         pcm."PreCustomerMasterSid",
         pcm."preCustomerName",
         pcm."contactPerson",
@@ -329,26 +465,87 @@ export class SalesDashboardService {
         AND pcm."status" = 'A'
         AND pcm."CompanyMasterSid" = $1
         AND pcm."BranchMasterSid" = $2
-        AND ($6::text IS NULL OR pcm."createdBy" = $6)
-      ORDER BY pcm."createdOn" DESC`,
-      companyMasterSid,
-      branchMasterSid,
-      salespersonId,
-      dateFrom,
-      dateTo,
-      salespersonEmail,
-    );
+        AND ($3::timestamptz IS NULL OR pcm."createdOn" >= $3::timestamptz)
+        AND ($4::timestamptz IS NULL OR pcm."createdOn" <= $4::timestamptz)
+        AND ($5::text IS NULL OR pcm."createdBy" = $5)
+        ${search.clause}
+      ORDER BY pcm."createdOn" DESC`;
 
-    return results;
+    const countSql = `
+      SELECT COUNT(*) AS "count"
+      FROM "PreCustomerMaster" pcm
+      LEFT JOIN "PreCustomerMeeting" pcmm
+        ON pcm."PreCustomerMasterSid" = pcmm."PreCustomerMasterSid"
+      LEFT JOIN "UserMaster" um
+        ON pcm."leadAssignTo" = um."UserMasterSid"
+      WHERE
+        pcmm."PreCustomerMeetingSid" IS NULL
+        AND pcm."status" = 'A'
+        AND pcm."CompanyMasterSid" = $1
+        AND pcm."BranchMasterSid" = $2
+        AND ($3::timestamptz IS NULL OR pcm."createdOn" >= $3::timestamptz)
+        AND ($4::timestamptz IS NULL OR pcm."createdOn" <= $4::timestamptz)
+        AND ($5::text IS NULL OR pcm."createdBy" = $5)
+        ${search.clause}`;
+
+    return this.executePagedQuery<any>(
+      dataSql,
+      countSql,
+      [...baseParams, ...search.params],
+      [...baseParams, ...search.params],
+      params.page,
+      params.pageSize,
+    );
   }
 
-  // ── Section 2: Meetings Scheduled — Overdue / Today / Future ──
+  private async getMeetingsScheduledSectionData(
+    query: SalesDashboardQueryDto,
+  ): Promise<BucketedPagedResult<any>> {
+    const [overdue, today, future] = await Promise.all([
+      this.getMeetingsScheduledBucket(query, 'overdue'),
+      this.getMeetingsScheduledBucket(query, 'today'),
+      this.getMeetingsScheduledBucket(query, 'future'),
+    ]);
 
-  private async getMeetingsScheduled(query: SalesDashboardQueryDto) {
-    const { companyMasterSid, branchMasterSid, salespersonId, dateFrom, dateTo } = this.normalizeParams(query);
+    return { overdue, today, future };
+  }
 
-    const results: any[] = await this.db.$queryRawUnsafe(
-      `SELECT
+  private getMeetingBucketClause(bucket: SectionBucket) {
+    if (bucket === 'overdue') {
+      return `pcmm."meetingDate"::date < CURRENT_DATE`;
+    }
+    if (bucket === 'today') {
+      return `pcmm."meetingDate"::date = CURRENT_DATE`;
+    }
+    return `pcmm."meetingDate"::date > CURRENT_DATE`;
+  }
+
+  private async getMeetingsScheduledBucket(
+    query: SalesDashboardQueryDto,
+    bucket: SectionBucket,
+  ): Promise<PagedResult<any>> {
+    const params = this.normalizeParams(query);
+    const baseParams: any[] = [
+      params.companyMasterSid,
+      params.branchMasterSid,
+      params.salespersonId,
+    ];
+    const search = this.buildSearchClause(
+      params.search,
+      [
+        `pcm."preCustomerName"`,
+        `pcm."contactPerson"`,
+        `pcm."phone"`,
+        `cm."CustomerName"`,
+        `pcmm."meetingType"`,
+        `um."userName"`,
+      ],
+      baseParams.length + 1,
+    );
+    const bucketClause = this.getMeetingBucketClause(bucket);
+
+    const dataSql = `
+      SELECT
         pcmm."PreCustomerMeetingSid",
         pcmm."meetingDate",
         pcmm."meetingType",
@@ -377,38 +574,61 @@ export class SalesDashboardService {
         AND pcmm."CompanyMasterSid" = $1
         AND pcmm."BranchMasterSid" = $2
         AND ($3::int IS NULL OR pcmm."leadAssignTo" = $3)
-        AND ($4::timestamptz IS NULL OR pcmm."createdOn" >= $4::timestamptz)
-        AND ($5::timestamptz IS NULL OR pcmm."createdOn" <= $5::timestamptz)
-      ORDER BY pcmm."meetingDate" ASC`,
-      companyMasterSid,
-      branchMasterSid,
-      salespersonId,
-      dateFrom,
-      dateTo,
+        AND ${bucketClause}
+        ${search.clause}
+      ORDER BY pcmm."meetingDate" ASC`;
+
+    const countSql = `
+      SELECT COUNT(*) AS "count"
+      FROM "PreCustomerMeeting" pcmm
+      LEFT JOIN "PreCustomerMaster" pcm
+        ON pcmm."PreCustomerMasterSid" = pcm."PreCustomerMasterSid"
+      LEFT JOIN "CustomerMaster" cm
+        ON pcmm."CustomerMasterSid" = cm."CustomerMasterSid"
+      LEFT JOIN "UserMaster" um
+        ON pcmm."leadAssignTo" = um."UserMasterSid"
+      WHERE
+        pcmm."status" = 'A'
+        AND pcmm."meetingDate" IS NOT NULL
+        AND pcmm."CompanyMasterSid" = $1
+        AND pcmm."BranchMasterSid" = $2
+        AND ($3::int IS NULL OR pcmm."leadAssignTo" = $3)
+        AND ${bucketClause}
+        ${search.clause}`;
+
+    return this.executePagedQuery<any>(
+      dataSql,
+      countSql,
+      [...baseParams, ...search.params],
+      [...baseParams, ...search.params],
+      params.page,
+      params.pageSize,
     );
-
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-
-    const overdue = results.filter((m) => new Date(m.meetingDate) < today);
-    const todayArr = results.filter((m) => {
-      const d = new Date(m.meetingDate);
-      return d >= today && d < tomorrow;
-    });
-    const future = results.filter((m) => new Date(m.meetingDate) >= tomorrow);
-
-    return { overdue, today: todayArr, future };
   }
 
-  // ── Section 3: Meetings with Follow-Up ──
+  private async getMeetingsWithFollowupPage(query: SalesDashboardQueryDto): Promise<PagedResult<any>> {
+    const params = this.normalizeParams(query);
+    const baseParams: any[] = [
+      params.companyMasterSid,
+      params.branchMasterSid,
+      params.salespersonId,
+      params.dateFrom,
+      params.dateTo,
+    ];
+    const search = this.buildSearchClause(
+      params.search,
+      [
+        `pcm."preCustomerName"`,
+        `cm."CustomerName"`,
+        `pcmm."meetingType"`,
+        `pcmm."followUpNote"`,
+        `um."userName"`,
+      ],
+      baseParams.length + 1,
+    );
 
-  private async getMeetingsWithFollowup(query: SalesDashboardQueryDto) {
-    const { companyMasterSid, branchMasterSid, salespersonId, dateFrom, dateTo } = this.normalizeParams(query);
-
-    const results: any[] = await this.db.$queryRawUnsafe(
-      `SELECT
+    const dataSql = `
+      SELECT
         pcmm."PreCustomerMeetingSid",
         pcmm."meetingDate",
         pcmm."meetingType",
@@ -438,31 +658,70 @@ export class SalesDashboardService {
         ON pcmm."leadAssignTo" = um."UserMasterSid"
       WHERE
         pcmm."followUpDate" IS NOT NULL
-        AND pcmm."status"= 'A'
+        AND pcmm."status" = 'A'
         AND pcmm."CompanyMasterSid" = $1
         AND pcmm."BranchMasterSid" = $2
         AND ($3::int IS NULL OR pcmm."leadAssignTo" = $3)
         AND ($4::timestamptz IS NULL OR pcmm."followUpDate" >= $4::timestamptz)
         AND ($5::timestamptz IS NULL OR pcmm."followUpDate" <= $5::timestamptz)
-        AND pcmm."meetingStatus" <> 'Completed'
-      ORDER BY pcmm."followUpDate" ASC`,
-      companyMasterSid,
-      branchMasterSid,
-      salespersonId,
-      dateFrom,
-      dateTo,
-    );
+        AND pcmm."meetingStatus" NOT IN ('Completed', 'Confirmed')
+        ${search.clause}
+      ORDER BY pcmm."followUpDate" ASC`;
 
-    return results;
+    const countSql = `
+      SELECT COUNT(*) AS "count"
+      FROM "PreCustomerMeeting" pcmm
+      LEFT JOIN "PreCustomerMaster" pcm
+        ON pcmm."PreCustomerMasterSid" = pcm."PreCustomerMasterSid"
+      LEFT JOIN "CustomerMaster" cm
+        ON pcmm."CustomerMasterSid" = cm."CustomerMasterSid"
+      LEFT JOIN "UserMaster" um
+        ON pcmm."leadAssignTo" = um."UserMasterSid"
+      WHERE
+        pcmm."followUpDate" IS NOT NULL
+        AND pcmm."status" = 'A'
+        AND pcmm."CompanyMasterSid" = $1
+        AND pcmm."BranchMasterSid" = $2
+        AND ($3::int IS NULL OR pcmm."leadAssignTo" = $3)
+        AND ($4::timestamptz IS NULL OR pcmm."followUpDate" >= $4::timestamptz)
+        AND ($5::timestamptz IS NULL OR pcmm."followUpDate" <= $5::timestamptz)
+        AND pcmm."meetingStatus" NOT IN ('Completed', 'Confirmed')
+        ${search.clause}`;
+
+    return this.executePagedQuery<any>(
+      dataSql,
+      countSql,
+      [...baseParams, ...search.params],
+      [...baseParams, ...search.params],
+      params.page,
+      params.pageSize,
+    );
   }
 
-  // ── Section 4: Meeting Conducted but Lead Not Converted ──
+  private async getMeetingsNotConvertedPage(query: SalesDashboardQueryDto): Promise<PagedResult<any>> {
+    const params = this.normalizeParams(query);
+    const baseParams: any[] = [
+      params.companyMasterSid,
+      params.branchMasterSid,
+      params.salespersonId,
+      params.dateFrom,
+      params.dateTo,
+    ];
+    const search = this.buildSearchClause(
+      params.search,
+      [
+        `pcm."preCustomerName"`,
+        `pcm."contactPerson"`,
+        `pcm."phone"`,
+        `pcm."email"`,
+        `pcm."leadStatus"`,
+        `um."userName"`,
+      ],
+      baseParams.length + 1,
+    );
 
-  private async getMeetingsNotConverted(query: SalesDashboardQueryDto) {
-    const { companyMasterSid, branchMasterSid, salespersonId, dateFrom, dateTo } = this.normalizeParams(query);
-
-    const results: any[] = await this.db.$queryRawUnsafe(
-      `SELECT
+    const dataSql = `
+      SELECT
         pcm."PreCustomerMasterSid",
         pcm."preCustomerName",
         pcm."contactPerson",
@@ -481,7 +740,6 @@ export class SalesDashboardService {
         ON pcm."leadAssignTo" = um."UserMasterSid"
       WHERE
         pcm."status" = 'A'
-        AND pcm."leadStatus"::text NOT IN ('DealWon', 'ContractSigned')
         AND NOT EXISTS (
           SELECT 1 FROM "CustomerMaster" cm
           WHERE cm."PreCustomerMasterSid" = pcm."PreCustomerMasterSid"
@@ -492,6 +750,7 @@ export class SalesDashboardService {
         AND ($3::int IS NULL OR pcm."leadAssignTo" = $3)
         AND ($4::timestamptz IS NULL OR pcmm."meetingDate" >= $4::timestamptz)
         AND ($5::timestamptz IS NULL OR pcmm."meetingDate" <= $5::timestamptz)
+        ${search.clause}
       GROUP BY
         pcm."PreCustomerMasterSid",
         pcm."preCustomerName",
@@ -502,27 +761,69 @@ export class SalesDashboardService {
         pcm."leadAssignTo",
         pcm."createdOn",
         um."userName"
-      ORDER BY MAX(pcmm."meetingDate") DESC`,
-      companyMasterSid,
-      branchMasterSid,
-      salespersonId,
-      dateFrom,
-      dateTo,
-    );
+      ORDER BY MAX(pcmm."meetingDate") DESC`;
 
-    return results.map((r) => ({
-      ...r,
-      meetingCount: Number(r.meetingCount),
-    }));
+    const countSql = `
+      SELECT COUNT(*) AS "count"
+      FROM (
+        SELECT pcm."PreCustomerMasterSid"
+        FROM "PreCustomerMaster" pcm
+        INNER JOIN "PreCustomerMeeting" pcmm
+          ON pcm."PreCustomerMasterSid" = pcmm."PreCustomerMasterSid"
+        LEFT JOIN "UserMaster" um
+          ON pcm."leadAssignTo" = um."UserMasterSid"
+        WHERE
+          pcm."status" = 'A'
+          AND NOT EXISTS (
+            SELECT 1 FROM "CustomerMaster" cm
+            WHERE cm."PreCustomerMasterSid" = pcm."PreCustomerMasterSid"
+            AND cm."status" = 'A'
+          )
+          AND pcm."CompanyMasterSid" = $1
+          AND pcm."BranchMasterSid" = $2
+          AND ($3::int IS NULL OR pcm."leadAssignTo" = $3)
+          AND ($4::timestamptz IS NULL OR pcmm."meetingDate" >= $4::timestamptz)
+          AND ($5::timestamptz IS NULL OR pcmm."meetingDate" <= $5::timestamptz)
+          ${search.clause}
+        GROUP BY pcm."PreCustomerMasterSid"
+      ) t`;
+
+    return this.executePagedQuery<any>(
+      dataSql,
+      countSql,
+      [...baseParams, ...search.params],
+      [...baseParams, ...search.params],
+      params.page,
+      params.pageSize,
+      (row) => ({
+        ...row,
+        meetingCount: Number(row.meetingCount),
+      }),
+    );
   }
 
-  // ── Section 5: Lead Converted to Customer — No Quote or Booking ──
+  private async getCustomersNoQuotePage(query: SalesDashboardQueryDto): Promise<PagedResult<any>> {
+    const params = this.normalizeParams(query);
+    const baseParams: any[] = [
+      params.companyMasterSid,
+      params.branchMasterSid,
+      params.salespersonId,
+      params.dateFrom,
+      params.dateTo,
+    ];
+    const search = this.buildSearchClause(
+      params.search,
+      [
+        `cm."CustomerName"`,
+        `cm."CustomerAddress1"`,
+        `pcm."preCustomerName"`,
+        `um."userName"`,
+      ],
+      baseParams.length + 1,
+    );
 
-  private async getCustomersNoQuote(query: SalesDashboardQueryDto) {
-    const { companyMasterSid, branchMasterSid, salespersonId, dateFrom, dateTo } = this.normalizeParams(query);
-
-    const results: any[] = await this.db.$queryRawUnsafe(
-      `SELECT
+    const dataSql = `
+      SELECT
         cm."CustomerMasterSid",
         cm."CustomerName",
         cm."CustomerAddress1",
@@ -534,10 +835,8 @@ export class SalesDashboardService {
       FROM "CustomerMaster" cm
       LEFT JOIN "QuoteHeader" qh
         ON cm."CustomerMasterSid" = qh."CustomerMasterSid"
-        AND qh."status" = 'A'
       LEFT JOIN "BookingHeader" bh
         ON cm."CustomerMasterSid" = bh."CustomerMasterSid"
-        AND bh."status" = 'A'
       LEFT JOIN "PreCustomerMaster" pcm
         ON cm."PreCustomerMasterSid" = pcm."PreCustomerMasterSid"
       LEFT JOIN "UserMaster" um
@@ -552,24 +851,67 @@ export class SalesDashboardService {
         AND ($3::int IS NULL OR pcm."leadAssignTo" = $3)
         AND ($4::timestamptz IS NULL OR cm."createdOn" >= $4::timestamptz)
         AND ($5::timestamptz IS NULL OR cm."createdOn" <= $5::timestamptz)
-      ORDER BY cm."createdOn" DESC`,
-      companyMasterSid,
-      branchMasterSid,
-      salespersonId,
-      dateFrom,
-      dateTo,
-    );
+        ${search.clause}
+      ORDER BY cm."createdOn" DESC`;
 
-    return results;
+    const countSql = `
+      SELECT COUNT(*) AS "count"
+      FROM "CustomerMaster" cm
+      LEFT JOIN "QuoteHeader" qh
+        ON cm."CustomerMasterSid" = qh."CustomerMasterSid"
+      LEFT JOIN "BookingHeader" bh
+        ON cm."CustomerMasterSid" = bh."CustomerMasterSid"
+      LEFT JOIN "PreCustomerMaster" pcm
+        ON cm."PreCustomerMasterSid" = pcm."PreCustomerMasterSid"
+      LEFT JOIN "UserMaster" um
+        ON pcm."leadAssignTo" = um."UserMasterSid"
+      WHERE
+        qh."QuoteHeaderSid" IS NULL
+        AND bh."BookingHeaderSid" IS NULL
+        AND cm."PreCustomerMasterSid" IS NOT NULL
+        AND cm."status" = 'A'
+        AND cm."CompanyMasterSid" = $1
+        AND ($2::int IS NULL OR pcm."BranchMasterSid" = $2)
+        AND ($3::int IS NULL OR pcm."leadAssignTo" = $3)
+        AND ($4::timestamptz IS NULL OR cm."createdOn" >= $4::timestamptz)
+        AND ($5::timestamptz IS NULL OR cm."createdOn" <= $5::timestamptz)
+        ${search.clause}`;
+
+    return this.executePagedQuery<any>(
+      dataSql,
+      countSql,
+      [...baseParams, ...search.params],
+      [...baseParams, ...search.params],
+      params.page,
+      params.pageSize,
+    );
   }
 
-  // ── Section 6: Quote Given but Not Approved ──
+  private async getQuotesNotApprovedPage(query: SalesDashboardQueryDto): Promise<PagedResult<any>> {
+    const params = this.normalizeParams(query);
+    const baseParams: any[] = [
+      params.companyMasterSid,
+      params.branchMasterSid,
+      params.salespersonId,
+      params.dateFrom,
+      params.dateTo,
+    ];
+    const search = this.buildSearchClause(
+      params.search,
+      [
+        `qh."QuoteNumber"`,
+        `qh."CustomerName"`,
+        `pcm."preCustomerName"`,
+        `qh."authorizerStatus"`,
+        `qh."TransportType"`,
+        `qh."FreightPPCC"`,
+        `um."userName"`,
+      ],
+      baseParams.length + 1,
+    );
 
-  private async getQuotesNotApproved(query: SalesDashboardQueryDto) {
-    const { companyMasterSid, branchMasterSid, salespersonId, dateFrom, dateTo } = this.normalizeParams(query);
-
-    const results: any[] = await this.db.$queryRawUnsafe(
-      `SELECT
+    const dataSql = `
+      SELECT
         qh."QuoteHeaderSid",
         qh."QuoteNumber",
         qh."QuoteDate",
@@ -599,46 +941,106 @@ export class SalesDashboardService {
         AND ($4::date IS NULL OR qh."QuoteDate" >= $4::date)
         AND ($5::date IS NULL OR qh."QuoteDate" <= $5::date)
         AND EXISTS (
-	        SELECT 1
-	        FROM "QuoteCarrier" qc
-	        WHERE qc."QuoteHeaderSid" = qh."QuoteHeaderSid"
-	        AND COALESCE(qc."status", 'A') = 'A'
+          SELECT 1
+          FROM "QuoteCarrier" qc
+          WHERE qc."QuoteHeaderSid" = qh."QuoteHeaderSid"
+          AND COALESCE(qc."status", 'A') = 'A'
         )
         AND NOT EXISTS (
-	        SELECT 1
-	        FROM "QuoteCarrier" qc
-	        WHERE qc."QuoteHeaderSid" = qh."QuoteHeaderSid"
-	        AND COALESCE(qc."status", 'A') = 'A'
-	        AND qc."ApprovalStatus"::text = 'Approved'
+          SELECT 1
+          FROM "QuoteCarrier" qc
+          WHERE qc."QuoteHeaderSid" = qh."QuoteHeaderSid"
+          AND COALESCE(qc."status", 'A') = 'A'
+          AND qc."ApprovalStatus"::text = 'Approved'
         )
         AND EXISTS (
-	        SELECT 1
-	        FROM "QuoteCarrier" qc
-	        WHERE qc."QuoteHeaderSid" = qh."QuoteHeaderSid"
-	        AND COALESCE(qc."status", 'A') = 'A'
-	        AND COALESCE(qc."ApprovalStatus"::text, '') <> 'Rejected'
+          SELECT 1
+          FROM "QuoteCarrier" qc
+          WHERE qc."QuoteHeaderSid" = qh."QuoteHeaderSid"
+          AND COALESCE(qc."status", 'A') = 'A'
+          AND COALESCE(qc."ApprovalStatus"::text, '') <> 'Rejected'
         )
-      ORDER BY qh."QuoteDate" DESC`,
-      companyMasterSid,
-      branchMasterSid,
-      salespersonId,
-      dateFrom,
-      dateTo,
-    );
+        ${search.clause}
+      ORDER BY qh."QuoteDate" DESC`;
 
-    return results;
+    const countSql = `
+      SELECT COUNT(*) AS "count"
+      FROM "QuoteHeader" qh
+      LEFT JOIN "PreCustomerMaster" pcm
+        ON qh."PreCustomerMasterSid" = pcm."PreCustomerMasterSid"
+      LEFT JOIN "UserMaster" um
+        ON qh."SalesmanSid" = um."UserMasterSid"
+      WHERE
+        qh."status" = 'A'
+        AND qh."CompanyMasterSid" = $1
+        AND qh."BranchMasterSid" = $2
+        AND ($3::int IS NULL OR qh."SalesmanSid" = $3)
+        AND ($4::date IS NULL OR qh."QuoteDate" >= $4::date)
+        AND ($5::date IS NULL OR qh."QuoteDate" <= $5::date)
+        AND EXISTS (
+          SELECT 1
+          FROM "QuoteCarrier" qc
+          WHERE qc."QuoteHeaderSid" = qh."QuoteHeaderSid"
+          AND COALESCE(qc."status", 'A') = 'A'
+        )
+        AND NOT EXISTS (
+          SELECT 1
+          FROM "QuoteCarrier" qc
+          WHERE qc."QuoteHeaderSid" = qh."QuoteHeaderSid"
+          AND COALESCE(qc."status", 'A') = 'A'
+          AND qc."ApprovalStatus"::text = 'Approved'
+        )
+        AND EXISTS (
+          SELECT 1
+          FROM "QuoteCarrier" qc
+          WHERE qc."QuoteHeaderSid" = qh."QuoteHeaderSid"
+          AND COALESCE(qc."status", 'A') = 'A'
+          AND COALESCE(qc."ApprovalStatus"::text, '') <> 'Rejected'
+        )
+        ${search.clause}`;
+
+    return this.executePagedQuery<any>(
+      dataSql,
+      countSql,
+      [...baseParams, ...search.params],
+      [...baseParams, ...search.params],
+      params.page,
+      params.pageSize,
+    );
   }
 
-  // ── Section 7: Quote Approved but Booking Not Created ──
+  private async getQuotesNoBookingPage(query: SalesDashboardQueryDto): Promise<PagedResult<any>> {
+    const params = this.normalizeParams(query);
+    const baseParams: any[] = [
+      params.companyMasterSid,
+      params.branchMasterSid,
+      params.salespersonId,
+      params.dateFrom,
+      params.dateTo,
+    ];
+    const search = this.buildSearchClause(
+      params.search,
+      [
+        `qh."QuoteNumber"`,
+        `qh."CustomerName"`,
+        `pcm."preCustomerName"`,
+        `qh."TransportType"`,
+        `qh."FreightPPCC"`,
+        `salesperson."userName"`,
+        `approvedBy."userName"`,
+      ],
+      baseParams.length + 1,
+    );
 
-  private async getQuotesNoBooking(query: SalesDashboardQueryDto) {
-    const { companyMasterSid, branchMasterSid, salespersonId, dateFrom, dateTo } = this.normalizeParams(query);
-
-    const results: any[] = await this.db.$queryRawUnsafe(
-      `SELECT
+    const dataSql = `
+      SELECT
         qh."QuoteHeaderSid",
         qh."QuoteNumber",
         qh."QuoteDate",
+        qh."CustomerApprovedBy",
+        qh."CustomerApprovedOn",
+        qh."InternalApprovedBy",
+        qh."InternalApprovedOn",
         qh."SalesmanSid",
         qh."LeadOrCustomer",
         qh."PreCustomerMasterSid",
@@ -647,12 +1049,15 @@ export class SalesDashboardService {
         qh."TransportType",
         qh."FreightPPCC",
         pcm."preCustomerName",
-        um."userName" AS "salespersonName"
+        salesperson."userName" AS "salespersonName",
+        approvedBy."userName" AS "internalApprovedByName"
       FROM "QuoteHeader" qh
       LEFT JOIN "PreCustomerMaster" pcm
         ON qh."PreCustomerMasterSid" = pcm."PreCustomerMasterSid"
-      LEFT JOIN "UserMaster" um
-        ON qh."SalesmanSid" = um."UserMasterSid"
+      LEFT JOIN "UserMaster" salesperson
+        ON qh."SalesmanSid" = salesperson."UserMasterSid"
+      LEFT JOIN "UserMaster" approvedBy
+        ON qh."InternalApprovedBy" = approvedBy."UserMasterSid"
       WHERE
         qh."status" = 'A'
         AND qh."BookingHeaderSid" IS NULL
@@ -674,21 +1079,59 @@ export class SalesDashboardService {
           WHERE bh."QuotationHeaderSid" = qh."QuoteHeaderSid"
           AND bh."status" = 'A'
         )
-      ORDER BY qh."QuoteDate" DESC`,
+        ${search.clause}
+      ORDER BY qh."QuoteDate" DESC`;
+
+    const countSql = `
+      SELECT COUNT(*) AS "count"
+      FROM "QuoteHeader" qh
+      LEFT JOIN "PreCustomerMaster" pcm
+        ON qh."PreCustomerMasterSid" = pcm."PreCustomerMasterSid"
+      LEFT JOIN "UserMaster" salesperson
+        ON qh."SalesmanSid" = salesperson."UserMasterSid"
+      LEFT JOIN "UserMaster" approvedBy
+        ON qh."InternalApprovedBy" = approvedBy."UserMasterSid"
+      WHERE
+        qh."status" = 'A'
+        AND qh."BookingHeaderSid" IS NULL
+        AND qh."CompanyMasterSid" = $1
+        AND qh."BranchMasterSid" = $2
+        AND ($3::int IS NULL OR qh."SalesmanSid" = $3)
+        AND ($4::date IS NULL OR qh."QuoteDate" >= $4::date)
+        AND ($5::date IS NULL OR qh."QuoteDate" <= $5::date)
+        AND EXISTS (
+          SELECT 1
+          FROM "QuoteCarrier" qc
+          WHERE qc."QuoteHeaderSid" = qh."QuoteHeaderSid"
+          AND COALESCE(qc."status", 'A') = 'A'
+          AND qc."ApprovalStatus"::text = 'Approved'
+        )
+        AND NOT EXISTS (
+          SELECT 1
+          FROM "BookingHeader" bh
+          WHERE bh."QuotationHeaderSid" = qh."QuoteHeaderSid"
+          AND bh."status" = 'A'
+        )
+        ${search.clause}`;
+
+    return this.executePagedQuery<any>(
+      dataSql,
+      countSql,
+      [...baseParams, ...search.params],
+      [...baseParams, ...search.params],
+      params.page,
+      params.pageSize,
+    );
+  }
+
+  private async getSummaryKpis(query: SalesDashboardQueryDto) {
+    const {
       companyMasterSid,
       branchMasterSid,
       salespersonId,
       dateFrom,
       dateTo,
-    );
-
-    return results;
-  }
-
-  // ── Section 8: Summary — Quotation vs Booking KPIs ──
-
-  private async getSummaryKpis(query: SalesDashboardQueryDto) {
-    const { companyMasterSid, branchMasterSid, salespersonId, dateFrom, dateTo } = this.normalizeParams(query);
+    } = this.normalizeParams(query);
 
     const [quoteResults, bookingResults] = await Promise.all([
       this.db.$queryRawUnsafe(
@@ -760,10 +1203,14 @@ export class SalesDashboardService {
     };
   }
 
-  // ── Chart: Lead Status Distribution ──
-
   private async getLeadStatusDistribution(query: SalesDashboardQueryDto) {
-    const { companyMasterSid, branchMasterSid, salespersonId, dateFrom, dateTo } = this.normalizeParams(query);
+    const {
+      companyMasterSid,
+      branchMasterSid,
+      salespersonEmail,
+      dateFrom,
+      dateTo,
+    } = this.normalizeParams(query);
 
     const results: any[] = await this.db.$queryRawUnsafe(
       `SELECT
@@ -774,21 +1221,21 @@ export class SalesDashboardService {
         pcm."status" IN ('A', 'S')
         AND pcm."CompanyMasterSid" = $1
         AND pcm."BranchMasterSid" = $2
-        AND ($3::int IS NULL OR pcm."leadAssignTo" = $3)
+        AND ($3::text IS NULL OR pcm."createdBy" = $3)
         AND ($4::timestamptz IS NULL OR pcm."createdOn" >= $4::timestamptz)
         AND ($5::timestamptz IS NULL OR pcm."createdOn" <= $5::timestamptz)
       GROUP BY pcm."leadStatus"
       ORDER BY "count" DESC`,
       companyMasterSid,
       branchMasterSid,
-      salespersonId,
+      salespersonEmail,
       dateFrom,
       dateTo,
     );
 
-    return results.map((r) => ({
-      status: r.status,
-      count: Number(r.count),
+    return results.map((row) => ({
+      status: row.status,
+      count: Number(row.count),
     }));
   }
 }

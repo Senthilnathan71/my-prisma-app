@@ -1,4 +1,4 @@
-import { Controller, Get, Query, Param } from '@nestjs/common';
+import { Controller, Get, Query, Param, ParseIntPipe } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { Auth } from 'src/common/decorators/auth.decorator';
 import { ResponseData } from 'src/common/response-data';
@@ -30,11 +30,11 @@ export class SalesDashboardController {
   @Get('sales-dashboard/section/:sectionNumber')
   async getSalesDashboardSection(
     @Query() query: SalesDashboardQueryDto,
-    @Param('sectionNumber') sectionNumber: number,
+    @Param('sectionNumber', ParseIntPipe) sectionNumber: number,
   ) {
     const resp = new ResponseData();
     resp.data = await this.salesDashboardService.getSectionData(
-      +sectionNumber,
+      sectionNumber,
       query,
     );
     return resp;
