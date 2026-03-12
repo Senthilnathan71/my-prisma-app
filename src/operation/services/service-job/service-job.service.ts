@@ -262,6 +262,8 @@ export class ServiceJobService {
                         Qty: Number(houseJobCargo.Qty) || 0,
                         StuffingAt: houseJobCargo.StuffingAt || 'Dock',
                         WeightUnitSid: houseJobCargo.WeightUnitSid || null,
+                        CommodityDescription : houseJobCargo.CommodityDescription || null,
+                        MarksAndNumber : houseJobCargo.MarksAndNumber || null,
                         createdBy: payload.createdBy,
                         status: 'A',
                     },
@@ -359,7 +361,7 @@ export class ServiceJobService {
                         // ✅ THIS WAS MISSING
                         ExternalNote: houseJobOthers.ExternalNote || null,
                         InternalNote: houseJobOthers.InternalNote || null,
-
+     
                         BlClause: houseJobOthers.BlClause || [],
 
                         createdBy: payload.createdBy,
@@ -530,6 +532,8 @@ export class ServiceJobService {
                     Qty: Number(houseJobCargo.Qty) || 0,
                     StuffingAt: houseJobCargo.StuffingAt || 'Dock',
                     WeightUnitSid: houseJobCargo.WeightUnitSid || null,
+                    CommodityDescription : houseJobCargo.CommodityDescription || null,
+                    MarksAndNumber : houseJobCargo.MarksAndNumber || null,
                     updatedBy: payload.updatedBy,
                     status: 'A',
                 };
