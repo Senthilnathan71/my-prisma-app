@@ -372,34 +372,34 @@ export class CreditRequestController {
     return output;
   }
 
-  @ApiOperation({ summary: 'Calculate outstanding amount for a customer' })
-  @ApiCreatedResponse({
-    description: 'Outstanding calculated successfully',
-    type: ResponseData,
-  })
-  @HttpCode(HttpStatus.OK)
-  @Post('outstanding')
-  async getOutstanding(@Body() body: OutstandingDto) {
-    const output = new ResponseData();
-    try {
-      const outstanding = await this.creditRequestService.getOutstanding(body);
-      output.data = outstanding;
-      output.message = 'Outstanding calculated successfully';
-      this.logger.log(`getOutstanding: ${JSON.stringify(outstanding)}`);
-    } catch (error) {
-      this.logger.warn(`getOutstanding: ${JSON.stringify(error)}, ${error}`);
-      output.status = false;
-      if (
-        error instanceof BadRequestException ||
-        error instanceof UnauthorizedException
-      ) {
-        output.message = error.message;
-      } else {
-        output.message = error.message || 'Internal Server Error';
-      }
-    }
-    return output;
-  }
+  // @ApiOperation({ summary: 'Calculate outstanding amount for a customer' })
+  // @ApiCreatedResponse({
+  //   description: 'Outstanding calculated successfully',
+  //   type: ResponseData,
+  // })
+  // @HttpCode(HttpStatus.OK)
+  // @Post('outstanding')
+  // async getOutstanding(@Body() body: OutstandingDto) {
+  //   const output = new ResponseData();
+  //   try {
+  //     const outstanding = await this.creditRequestService.getOutstanding(body);
+  //     output.data = outstanding;
+  //     output.message = 'Outstanding calculated successfully';
+  //     this.logger.log(`getOutstanding: ${JSON.stringify(outstanding)}`);
+  //   } catch (error) {
+  //     this.logger.warn(`getOutstanding: ${JSON.stringify(error)}, ${error}`);
+  //     output.status = false;
+  //     if (
+  //       error instanceof BadRequestException ||
+  //       error instanceof UnauthorizedException
+  //     ) {
+  //       output.message = error.message;
+  //     } else {
+  //       output.message = error.message || 'Internal Server Error';
+  //     }
+  //   }
+  //   return output;
+  // }
 
   @ApiOperation({ summary: 'Get outstanding breakdown by job' })
   @ApiCreatedResponse({
@@ -450,7 +450,9 @@ export class CreditRequestController {
         output.message = 'Credit validation passed';
       } else {
         output.status = false;
-        output.message = 'Credit validation failed';
+        output.message = validation.errors?.length
+          ? validation.errors.join('\n')
+          : 'Credit validation failed';
       }
       
       this.logger.log(`validateCredit: ${JSON.stringify(validation)}`);

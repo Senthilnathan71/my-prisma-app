@@ -49,6 +49,13 @@ export class OutstandingDto {
   @Type(() => Number)
   companyMasterSid: number;
 
+  @ApiPropertyOptional({ example: 5, description: 'Branch Master SID' })
+  @IsOptional()
+  @IsInt()
+  @IsPositive()
+  @Type(() => Number)
+  branchMasterSid?: number;
+
   @ApiPropertyOptional({ example: 456, description: 'Master Job SID' })
   @IsOptional()
   @IsInt()
@@ -100,6 +107,13 @@ export class ValidateCreditDto {
   @IsPositive()
   departmentMasterSid?: number;
 
+  @ApiPropertyOptional({ example: 2, description: 'Customer Branch SID' })
+  @IsOptional()
+  @IsInt()
+  @IsPositive()
+  @Type(() => Number)
+  customerBranchSid?: number;
+
   @ApiPropertyOptional({ example: 456, description: 'Master Job SID' })
   @IsOptional()
   @IsInt()
@@ -111,6 +125,11 @@ export class ValidateCreditDto {
   @IsInt()
   @IsPositive()
   houseJobSid?: number;
+
+  // @ApiPropertyOptional({ example: '2026-03-30', description: 'Document/Job date for credit request period lookup' })
+  // @IsOptional()
+  // @Type(() => Date)
+  // documentDate?: Date;
 }
 
 export class CreditSummaryDto {
