@@ -67,9 +67,10 @@ import { AgentMasterAirWaybillService } from './services/agent-master-air-waybil
 import { AgentMasterAirWaybillController } from './controllers/agent-master-air-waybill/agent-master-air-waybill.controller';
 import { ProRateService } from './services/pro-rate/pro-rate.service';
 import { ProRateController } from './controllers/pro-rate/pro-rate.controller';
+import { AccountsModule } from 'src/accounts/accounts.module';
 
 @Module({
-        imports: [CommonModule, SettingsModule],
+        imports: [CommonModule, SettingsModule, AccountsModule],
         providers: [
                 Logger,
                 EmailService,

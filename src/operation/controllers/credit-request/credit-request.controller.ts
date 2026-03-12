@@ -2,7 +2,7 @@ import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatu
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
 import { UserData } from 'src/common/decorators/user.decorator';
 import { ResponseData } from 'src/common/response-data';
-import { CreditLimitDto, OutstandingDto, OutstandingByJobDto, ValidateCreditDto, CreditSummaryDto, CustomerTypeDto, PaymentStatusDto } from 'src/masters/DTO/credit-limit.dto';
+import { CreditLimitDto, OutstandingDto, OutstandingByJobDto, ValidateCreditDto, CreditSummaryDto, CustomerTypeDto, PaymentStatusDto, ValidateBLDODto } from 'src/masters/DTO/credit-limit.dto';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 import { CreditRequestService, CustomerCreditRequestInterface, CustomerCreditRequestWithKycInterface, CustomerKycInterface } from 'src/operation/services/credit-request/credit-request.service';
 
@@ -458,6 +458,42 @@ export class CreditRequestController {
       this.logger.log(`validateCredit: ${JSON.stringify(validation)}`);
     } catch (error) {
       this.logger.warn(`validateCredit: ${JSON.stringify(error)}, ${error}`);
+      output.status = false;
+      if (
+        error instanceof BadRequestException ||
+        error instanceof UnauthorizedException
+      ) {
+        output.message = error.message;
+      } else {
+        output.message = error.message || 'Internal Server Error';
+      }
+    }
+    return output;
+  }
+
+  @ApiOperation({ summary: 'Validate BL/DO release credit rules' })
+  @ApiCreatedResponse({
+    description: 'BL/DO credit validation performed successfully',
+    type: ResponseData,
+  })
+  @HttpCode(HttpStatus.OK)
+  @Post('validate-bldo')
+  async validateBlDo(@Body() body: ValidateBLDODto) {
+    const output = new ResponseData();
+    try {
+      const validation = await this.creditRequestService.validateBLDORelease(body);
+      output.data = validation;
+
+      if (validation.IsValid) {
+        output.message = 'BL/DO credit validation passed';
+      } else {
+        output.status = false;
+        output.message = 'BL/DO credit validation failed';
+      }
+
+      this.logger.log(`validateBlDo: ${JSON.stringify(validation)}`);
+    } catch (error) {
+      this.logger.warn(`validateBlDo: ${JSON.stringify(error)}, ${error}`);
       output.status = false;
       if (
         error instanceof BadRequestException ||

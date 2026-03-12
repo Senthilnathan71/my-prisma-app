@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsInt, IsOptional, IsPositive } from 'class-validator';
+import { IsDateString, IsInt, IsOptional, IsPositive } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class CreditLimitDto {
@@ -174,4 +174,37 @@ export class PaymentStatusDto {
   @IsInt()
   @IsPositive()
   houseJobSid?: number;
+}
+
+export class ValidateBLDODto {
+  @ApiProperty({ example: 1, description: 'Company Master SID' })
+  @IsInt()
+  @IsPositive()
+  @Type(() => Number)
+  CompanyMasterSid: number;
+
+  @ApiProperty({ example: 5, description: 'Branch Master SID' })
+  @IsInt()
+  @IsPositive()
+  @Type(() => Number)
+  BranchMasterSid: number;
+
+  @ApiProperty({ example: 123, description: 'Customer Master SID' })
+  @IsInt()
+  @IsPositive()
+  @Type(() => Number)
+  CustomerMasterSid: number;
+
+  @ApiProperty({ example: 2, description: 'Customer Branch SID' })
+  @IsInt()
+  @IsPositive()
+  @Type(() => Number)
+  CustomerBranchSid: number;
+
+  @ApiProperty({
+    example: '2026-03-30',
+    description: 'Document date used for picking the active credit request',
+  })
+  @IsDateString()
+  DocumentDate: string;
 }

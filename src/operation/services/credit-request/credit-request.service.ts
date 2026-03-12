@@ -1,12 +1,14 @@
 import { BadRequestException, Injectable, InternalServerErrorException, Logger, NotFoundException } from '@nestjs/common';
 import { ApprovalStatus, Prisma, PrismaClient } from '@prisma/client';
+import { OutstandingReportQueryDto } from 'src/accounts/dto/accounts-reports.dto';
 import { OutstandingService } from 'src/accounts/services/outstanding/outstanding.service';
+import { AccountsReportsService } from 'src/accounts/services/accounts-reports/accounts-reports.service';
 import { CustomerOutstandingResponseDto } from 'src/accounts/dto/outstanding.dto';
 import { GlobalConfigService } from 'src/common/config/master-config.service';
 import { DOC_TYPE_CODE } from 'src/common/config/voucher-type.config';
 import { addDaysCalendar, statusWhereClause } from 'src/common/helper';
 import { DatabaseService } from 'src/database/database.service';
-import { CreditLimitDto, CreditSummaryDto, OutstandingDto, ValidateCreditDto } from 'src/masters/DTO/credit-limit.dto';
+import { CreditLimitDto, CreditSummaryDto, OutstandingDto, ValidateBLDODto, ValidateCreditDto } from 'src/masters/DTO/credit-limit.dto';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 enum CustomerType {
   CASH = 'CASH',
@@ -66,6 +68,25 @@ interface ValidationResult {
   };
 }
 
+interface BLDOViolatingVoucher {
+  VoucherNumber: string;
+  VoucherDate: Date;
+  OutstandingLocalAmount: number;
+  AgeingDays: number;
+}
+
+interface BLDOValidationResult {
+  IsValid: boolean;
+  Errors: string[];
+  CustomerType: CustomerType;
+  CreditLimit: number;
+  CreditDays: number;
+  RemainingCreditLimit: number | null;
+  TotalOutstandingLocal: number;
+  SelectedCreditRequestSid: number | null;
+  ViolatingVouchers: BLDOViolatingVoucher[];
+}
+
 export interface CustomerCreditRequestInterface {
   CustomerCreditRequestSid?: number;
   CustomerMasterSid: number;
@@ -109,6 +130,7 @@ export class CreditRequestService {
       private logger: Logger,
       private globalConfigService: GlobalConfigService,
       private outstandingService: OutstandingService,
+      private accountsReportsService: AccountsReportsService,
     ) { }
 
     async searchCreditCustomer(params: filterDto) {
@@ -1103,6 +1125,90 @@ export class CreditRequestService {
     }
   }
 
+  async validateBLDORelease(
+    dto: ValidateBLDODto,
+  ): Promise<BLDOValidationResult> {
+    try {
+      const customerType = await this.getCustomerType(dto.CustomerMasterSid);
+      const currentDate = new Date();
+      const errors: string[] = [];
+      let creditLimit = 0;
+      let creditDays = 0;
+      let selectedCreditRequestSid: number | null = null;
+
+      if (customerType === CustomerType.CREDIT) {
+        const creditRequest = await this.getBLDOCreditRequest(dto);
+
+        if (!creditRequest) {
+          return {
+            IsValid: false,
+            Errors: ['No credit request found'],
+            CustomerType: customerType,
+            CreditLimit: 0,
+            CreditDays: 0,
+            RemainingCreditLimit: null,
+            TotalOutstandingLocal: 0,
+            SelectedCreditRequestSid: null,
+            ViolatingVouchers: [],
+          };
+        }
+
+        creditLimit = Number(creditRequest.CreditLimit || 0);
+        creditDays = Number(creditRequest.CreditDays || 0);
+        selectedCreditRequestSid = creditRequest.CustomerCreditRequestSid;
+      }
+
+      const outstandingReport = await this.getBLDOOutstandingReport(dto, currentDate);
+      const totalOutstandingLocal = Number(outstandingReport.totalOutstandingLocal || 0);
+      const remainingCreditLimit = creditLimit - totalOutstandingLocal;
+
+      if (totalOutstandingLocal > creditLimit) {
+        errors.push(
+          `Outstanding amount (${totalOutstandingLocal.toFixed(2)}) exceeds credit limit (${creditLimit.toFixed(2)}). Remaining credit limit: ${remainingCreditLimit.toFixed(2)}`,
+        );
+      }
+
+      const violatingVouchers =
+        customerType === CustomerType.CREDIT
+          ? (outstandingReport.transactions || [])
+              .filter((transaction) => Number(transaction.outstandingLocalAmount || 0) > 0)
+              .map((transaction) => {
+                const voucherDate = new Date(transaction.voucherDate);
+                const ageingDays = this.calculateDaysDifference(voucherDate, currentDate);
+
+                return {
+                  VoucherNumber: transaction.voucherNumber,
+                  VoucherDate: voucherDate,
+                  OutstandingLocalAmount: Number(transaction.outstandingLocalAmount || 0),
+                  AgeingDays: ageingDays,
+                };
+              })
+              .filter((transaction) => transaction.AgeingDays > creditDays)
+          : [];
+
+      violatingVouchers.forEach((voucher) => {
+        errors.push(
+          `Voucher ${voucher.VoucherNumber} is ${voucher.AgeingDays} days old, exceeding allowed credit days of ${creditDays}`,
+        );
+      });
+
+      return {
+        IsValid: errors.length === 0,
+        Errors: errors,
+        CustomerType: customerType,
+        CreditLimit: creditLimit,
+        CreditDays: creditDays,
+        RemainingCreditLimit: remainingCreditLimit,
+        TotalOutstandingLocal: totalOutstandingLocal,
+        SelectedCreditRequestSid: selectedCreditRequestSid,
+        ViolatingVouchers: violatingVouchers,
+      };
+    } catch (error) {
+      this.logger.error(`BL/DO credit validation error: ${error.message}`);
+      throw error;
+    }
+  }
+
   /**
    * Get customer type (CASH or CREDIT)
    */
@@ -1272,6 +1378,95 @@ export class CreditRequestService {
   private calculateDaysDifference(startDate: Date, endDate: Date): number {
     const diffTime = Math.abs(endDate.getTime() - new Date(startDate).getTime());
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  }
+
+  private async getBLDOCreditRequest(dto: ValidateBLDODto) {
+    const documentDate = new Date(dto.DocumentDate);
+    const baseWhere: Prisma.CustomerCreditRequestWhereInput = {
+      CompanyMasterSid: dto.CompanyMasterSid,
+      CustomerMasterSid: dto.CustomerMasterSid,
+      Status: 'A',
+      ApprovalStatus: ApprovalStatus.Approved,
+      EffectiveFrom: { lte: documentDate },
+      EffectiveTo: { gte: documentDate },
+    };
+
+    const branchCreditRequest = await this._db.customerCreditRequest.findFirst({
+      where: {
+        ...baseWhere,
+        CustomerBranchSid: dto.CustomerBranchSid,
+      },
+      orderBy: {
+        CustomerCreditRequestSid: 'desc',
+      },
+    });
+
+    if (branchCreditRequest) {
+      return branchCreditRequest;
+    }
+
+    return this._db.customerCreditRequest.findFirst({
+      where: {
+        ...baseWhere,
+        CustomerBranchSid: null,
+      },
+      orderBy: {
+        CustomerCreditRequestSid: 'desc',
+      },
+    });
+  }
+
+  private async getBLDOOutstandingReport(
+    dto: ValidateBLDODto,
+    currentDate: Date,
+  ) {
+    const customerDebtorMapping = await this.resolveCustomerDebtorMapping(
+      dto.CompanyMasterSid,
+      dto.CustomerMasterSid,
+    );
+
+    const reportPayload: OutstandingReportQueryDto = {
+      ToDate: currentDate.toISOString().split('T')[0],
+      Ledger: customerDebtorMapping.COAMasterSid,
+      Subledger: customerDebtorMapping.SubledgerMasterSid,
+      companyId: dto.CompanyMasterSid,
+      Branch: [dto.BranchMasterSid],
+    };
+
+    return this.accountsReportsService.generateOutstandingReport(reportPayload);
+  }
+
+  private async resolveCustomerDebtorMapping(
+    companyMasterSid: number,
+    customerMasterSid: number,
+  ): Promise<{ COAMasterSid: number; SubledgerMasterSid: number }> {
+    const customerDebtorMapping = await this._db.subledgerMaster.findFirst({
+      where: {
+        CompanyMasterSid: companyMasterSid,
+        Status: 'A',
+        SubledgerType: 'Customer',
+        SubledgerMappingSid: customerMasterSid,
+        DrCOAMasterSid: { not: null },
+      },
+      select: {
+        DrCOAMasterSid: true,
+        SubledgerMasterSid: true,
+      },
+      orderBy: {
+        SubledgerMasterSid: 'desc',
+      },
+    });
+
+    if (!customerDebtorMapping?.DrCOAMasterSid) {
+      throw new NotFoundException(
+        `Customer debtor mapping not found for customer ${customerMasterSid}`,
+      );
+    }
+
+    return {
+      COAMasterSid: customerDebtorMapping.DrCOAMasterSid,
+      SubledgerMasterSid: customerDebtorMapping.SubledgerMasterSid,
+    };
   }
 
   private performValidation(
