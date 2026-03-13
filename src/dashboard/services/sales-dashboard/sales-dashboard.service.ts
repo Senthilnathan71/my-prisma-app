@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { DatabaseService } from 'src/database/database.service';
+import { MenuService } from 'src/masters/services/menu/menu.service';
 import { SalesDashboardQueryDto } from '../../DTO/sales-dashboard.dto';
 
 type SectionBucket = 'overdue' | 'today' | 'future';
@@ -37,8 +38,12 @@ interface BucketedPagedResult<T> {
 export class SalesDashboardService {
   private readonly defaultPageSize = 10;
   private readonly maxPageSize = 50;
+  private quotationMenuSid: number | null | undefined;
 
-  constructor(private readonly db: DatabaseService) {}
+  constructor(
+    private readonly db: DatabaseService,
+    private readonly menuService: MenuService,
+  ) {}
 
   async getSalesDashboardData(query: SalesDashboardQueryDto) {
     const [
@@ -47,6 +52,8 @@ export class SalesDashboardService {
       meetingsWithFollowup,
       meetingsNotConverted,
       customersNoQuote,
+      enquiryCounts,
+      enquiriesNoQuotation,
       quotesNotApproved,
       quotesNoBooking,
       summaryKpis,
@@ -57,6 +64,8 @@ export class SalesDashboardService {
       this.getMeetingsWithFollowupPage(query),
       this.getMeetingsNotConvertedPage(query),
       this.getCustomersNoQuotePage(query),
+      this.getEnquiryCounts(query),
+      this.getEnquiriesNoQuotationPage(query),
       this.getQuotesNotApprovedPage(query),
       this.getQuotesNoBookingPage(query),
       this.getSummaryKpis(query),
@@ -72,6 +81,9 @@ export class SalesDashboardService {
       followUpsPending: meetingsWithFollowup.totalCount,
       meetingsNotConverted: meetingsNotConverted.totalCount,
       customersNoQuote: customersNoQuote.totalCount,
+      enquiryCreated: enquiryCounts.enquiryCreated,
+      enquiryConvertedToQuotation: enquiryCounts.enquiryConvertedToQuotation,
+      enquiriesNoQuotation: enquiryCounts.enquiriesNoQuotation,
       quotesNotApproved: quotesNotApproved.totalCount,
       quotesNoBooking: quotesNoBooking.totalCount,
       totalBookings: summaryKpis.bookings.totalBookings,
@@ -84,6 +96,7 @@ export class SalesDashboardService {
         meetingsWithFollowup,
         meetingsNotConverted,
         customersNoQuote,
+        enquiriesNoQuotation,
         quotesNotApproved,
         quotesNoBooking,
         summaryKpis,
@@ -116,10 +129,12 @@ export class SalesDashboardService {
       case 5:
         return this.getCustomersNoQuotePage(query);
       case 6:
-        return this.getQuotesNotApprovedPage(query);
+        return this.getEnquiriesNoQuotationPage(query);
       case 7:
-        return this.getQuotesNoBookingPage(query);
+        return this.getQuotesNotApprovedPage(query);
       case 8:
+        return this.getQuotesNoBookingPage(query);
+      case 9:
         return this.getSummaryKpis(query);
       default:
         throw new Error(`Invalid section number: ${sectionNumber}`);
@@ -144,6 +159,7 @@ export class SalesDashboardService {
       followUpsPendingCount,
       meetingsNotConvertedCount,
       customersNoQuoteCount,
+      enquiryCounts,
       quotesNotApprovedCount,
       quotesNoBookingCount,
       summaryKpis,
@@ -277,6 +293,25 @@ export class SalesDashboardService {
         salespersonEmail,
       ),
       this.db.$queryRawUnsafe(
+        `SELECT
+          COUNT(*) AS "enquiryCreated",
+          COUNT(*) FILTER (WHERE eh."QuoteHeaderSid" IS NOT NULL) AS "enquiryConvertedToQuotation",
+          COUNT(*) FILTER (WHERE eh."QuoteHeaderSid" IS NULL) AS "enquiriesNoQuotation"
+        FROM "EnquiryHeader" eh
+        WHERE
+          COALESCE(eh."status", 'A') = 'A'
+          AND eh."CompanyMasterSid" = $1
+          AND eh."BranchMasterSid" = $2
+          AND ($3::int IS NULL OR eh."UserMasterSid" = $3)
+          AND ($4::date IS NULL OR eh."EnquiryDate" >= $4::date)
+          AND ($5::date IS NULL OR eh."EnquiryDate" <= $5::date)`,
+        companyMasterSid,
+        branchMasterSid,
+        salespersonId,
+        dateFrom,
+        dateTo,
+      ),
+      this.db.$queryRawUnsafe(
         `SELECT COUNT(*) AS "count"
         FROM "QuoteHeader" qh
         WHERE
@@ -346,8 +381,9 @@ export class SalesDashboardService {
     const s3 = (followUpsPendingCount as any[])[0] || {};
     const s4 = (meetingsNotConvertedCount as any[])[0] || {};
     const s5 = (customersNoQuoteCount as any[])[0] || {};
-    const s6 = (quotesNotApprovedCount as any[])[0] || {};
-    const s7 = (quotesNoBookingCount as any[])[0] || {};
+    const s6 = (enquiryCounts as any[])[0] || {};
+    const s7 = (quotesNotApprovedCount as any[])[0] || {};
+    const s8 = (quotesNoBookingCount as any[])[0] || {};
 
     const counts = {
       leadsNoMeeting: Number(s1.count) || 0,
@@ -358,8 +394,11 @@ export class SalesDashboardService {
       followUpsPending: Number(s3.count) || 0,
       meetingsNotConverted: Number(s4.count) || 0,
       customersNoQuote: Number(s5.count) || 0,
-      quotesNotApproved: Number(s6.count) || 0,
-      quotesNoBooking: Number(s7.count) || 0,
+      enquiryCreated: Number(s6.enquiryCreated) || 0,
+      enquiryConvertedToQuotation: Number(s6.enquiryConvertedToQuotation) || 0,
+      enquiriesNoQuotation: Number(s6.enquiriesNoQuotation) || 0,
+      quotesNotApproved: Number(s7.count) || 0,
+      quotesNoBooking: Number(s8.count) || 0,
       totalBookings: summaryKpis.bookings.totalBookings,
     };
 
@@ -564,8 +603,6 @@ export class SalesDashboardService {
       params.search,
       [
         `pcm."preCustomerName"`,
-        `pcm."contactPerson"`,
-        `pcm."phone"`,
         `cm."CustomerName"`,
         `pcmm."meetingType"`,
         `um."userName"`,
@@ -573,6 +610,7 @@ export class SalesDashboardService {
       baseParams.length + 1,
     );
     const bucketClause = this.getMeetingBucketClause(bucket);
+    const orderDir = bucket === 'overdue' ? 'DESC' : 'ASC';
 
     const dataSql = `
       SELECT
@@ -584,12 +622,12 @@ export class SalesDashboardService {
         pcmm."meetingDuration",
         pcmm."leadAssignTo",
         pcmm."LeadOrCustomer",
+        CASE
+          WHEN pcmm."LeadOrCustomer" = 'L' THEN pcm."preCustomerName"
+          ELSE cm."CustomerName"
+        END AS "name",
         pcm."PreCustomerMasterSid",
-        pcm."preCustomerName",
-        pcm."contactPerson",
-        pcm."phone",
         cm."CustomerMasterSid",
-        cm."CustomerName",
         um."userName" AS "salespersonName"
       FROM "PreCustomerMeeting" pcmm
       LEFT JOIN "PreCustomerMaster" pcm
@@ -606,7 +644,7 @@ export class SalesDashboardService {
         AND ($3::int IS NULL OR pcmm."leadAssignTo" = $3)
         AND ${bucketClause}
         ${search.clause}
-      ORDER BY pcmm."meetingDate" ASC`;
+      ORDER BY pcmm."meetingDate" ${orderDir}`;
 
     const countSql = `
       SELECT COUNT(*) AS "count"
@@ -980,6 +1018,135 @@ export class SalesDashboardService {
     );
   }
 
+  private async getEnquiryCounts(query: SalesDashboardQueryDto) {
+    const { companyMasterSid, branchMasterSid, salespersonId, dateFrom, dateTo } =
+      this.normalizeParams(query);
+
+    const results = await this.db.$queryRawUnsafe(
+      `SELECT
+        COUNT(*) AS "enquiryCreated",
+        COUNT(*) FILTER (WHERE eh."QuoteHeaderSid" IS NOT NULL) AS "enquiryConvertedToQuotation",
+        COUNT(*) FILTER (WHERE eh."QuoteHeaderSid" IS NULL) AS "enquiriesNoQuotation"
+      FROM "EnquiryHeader" eh
+      WHERE
+        COALESCE(eh."status", 'A') = 'A'
+        AND eh."CompanyMasterSid" = $1
+        AND eh."BranchMasterSid" = $2
+        AND ($3::int IS NULL OR eh."UserMasterSid" = $3)
+        AND ($4::date IS NULL OR eh."EnquiryDate" >= $4::date)
+        AND ($5::date IS NULL OR eh."EnquiryDate" <= $5::date)`,
+      companyMasterSid,
+      branchMasterSid,
+      salespersonId,
+      dateFrom,
+      dateTo,
+    );
+
+    const row = (results as any[])[0] || {};
+
+    return {
+      enquiryCreated: Number(row.enquiryCreated) || 0,
+      enquiryConvertedToQuotation: Number(row.enquiryConvertedToQuotation) || 0,
+      enquiriesNoQuotation: Number(row.enquiriesNoQuotation) || 0,
+    };
+  }
+
+  private async getEnquiriesNoQuotationPage(query: SalesDashboardQueryDto): Promise<PagedResult<any>> {
+    const params = this.normalizeParams(query);
+    const baseParams: any[] = [
+      params.companyMasterSid,
+      params.branchMasterSid,
+      params.salespersonId,
+      params.dateFrom,
+      params.dateTo,
+    ];
+    const search = this.buildSearchClause(
+      params.search,
+      [
+        `eh."EnquiryNumber"`,
+        `eh."CustomerName"`,
+        `eh."authorizerStatus"`,
+        `dm."departmentName"`,
+        `pol."PortCode"`,
+        `pod."PortCode"`,
+      ],
+      baseParams.length + 1,
+    );
+
+    const dataSql = `
+      SELECT
+        eh."EnquiryHeaderSid",
+        eh."EnquiryNumber",
+        eh."EnquiryDate",
+        eh."CustomerName",
+        eh."authorizerStatus",
+        eh."LeadOrCustomer",
+        dm."departmentName",
+        pol."PortCode" AS "polCode",
+        pod."PortCode" AS "podCode"
+      FROM "EnquiryHeader" eh
+      LEFT JOIN LATERAL (
+        SELECT er."DepartmentMasterSid", er."POLSid", er."PODSid"
+        FROM "EnquiryRoute" er
+        WHERE er."EnquiryHeaderSid" = eh."EnquiryHeaderSid"
+          AND COALESCE(er."status", 'A') = 'A'
+        ORDER BY er."EnquiryRouteSid" ASC
+        LIMIT 1
+      ) fer ON true
+      LEFT JOIN "DepartmentMaster" dm
+        ON COALESCE(fer."DepartmentMasterSid", eh."DepartmentMasterSid") = dm."DepartmentMasterSid"
+      LEFT JOIN "PortMaster" pol
+        ON fer."POLSid" = pol."PortMasterSid"
+      LEFT JOIN "PortMaster" pod
+        ON fer."PODSid" = pod."PortMasterSid"
+      WHERE
+        COALESCE(eh."status", 'A') = 'A'
+        AND eh."QuoteHeaderSid" IS NULL
+        AND eh."CompanyMasterSid" = $1
+        AND eh."BranchMasterSid" = $2
+        AND ($3::int IS NULL OR eh."UserMasterSid" = $3)
+        AND ($4::date IS NULL OR eh."EnquiryDate" >= $4::date)
+        AND ($5::date IS NULL OR eh."EnquiryDate" <= $5::date)
+        ${search.clause}
+      ORDER BY eh."EnquiryDate" DESC, eh."EnquiryHeaderSid" DESC`;
+
+    const countSql = `
+      SELECT COUNT(*) AS "count"
+      FROM "EnquiryHeader" eh
+      LEFT JOIN LATERAL (
+        SELECT er."DepartmentMasterSid", er."POLSid", er."PODSid"
+        FROM "EnquiryRoute" er
+        WHERE er."EnquiryHeaderSid" = eh."EnquiryHeaderSid"
+          AND COALESCE(er."status", 'A') = 'A'
+        ORDER BY er."EnquiryRouteSid" ASC
+        LIMIT 1
+      ) fer ON true
+      LEFT JOIN "DepartmentMaster" dm
+        ON COALESCE(fer."DepartmentMasterSid", eh."DepartmentMasterSid") = dm."DepartmentMasterSid"
+      LEFT JOIN "PortMaster" pol
+        ON fer."POLSid" = pol."PortMasterSid"
+      LEFT JOIN "PortMaster" pod
+        ON fer."PODSid" = pod."PortMasterSid"
+      WHERE
+        COALESCE(eh."status", 'A') = 'A'
+        AND eh."QuoteHeaderSid" IS NULL
+        AND eh."CompanyMasterSid" = $1
+        AND eh."BranchMasterSid" = $2
+        AND ($3::int IS NULL OR eh."UserMasterSid" = $3)
+        AND ($4::date IS NULL OR eh."EnquiryDate" >= $4::date)
+        AND ($5::date IS NULL OR eh."EnquiryDate" <= $5::date)
+        ${search.clause}`;
+
+    return this.executePagedQuery<any>(
+      dataSql,
+      countSql,
+      [...baseParams, ...search.params],
+      [...baseParams, ...search.params],
+      params.page,
+      params.pageSize,
+    );
+  }
+
   private async getQuotesNotApprovedPage(query: SalesDashboardQueryDto): Promise<PagedResult<any>> {
     const params = this.normalizeParams(query);
     const baseParams: any[] = [
@@ -995,10 +1162,9 @@ export class SalesDashboardService {
         `qh."QuoteNumber"`,
         `qh."CustomerName"`,
         `pcm."preCustomerName"`,
-        `qh."authorizerStatus"`,
-        `qh."TransportType"`,
-        `qh."FreightPPCC"`,
-        `um."userName"`,
+        `dm."departmentName"`,
+        `pol."PortCode"`,
+        `pod."PortCode"`,
       ],
       baseParams.length + 1,
     );
@@ -1017,15 +1183,30 @@ export class SalesDashboardService {
         qh."PreCustomerMasterSid",
         qh."CustomerMasterSid",
         qh."CustomerName",
-        qh."FreightPPCC",
-        qh."TransportType",
         pcm."preCustomerName",
-        um."userName" AS "salespersonName"
+        um."userName" AS "salespersonName",
+        dm."departmentName",
+        pol."PortCode" AS "polCode",
+        pod."PortCode" AS "podCode"
       FROM "QuoteHeader" qh
       LEFT JOIN "PreCustomerMaster" pcm
         ON qh."PreCustomerMasterSid" = pcm."PreCustomerMasterSid"
       LEFT JOIN "UserMaster" um
         ON qh."SalesmanSid" = um."UserMasterSid"
+      LEFT JOIN LATERAL (
+        SELECT qr."DepartmentMasterSid", qr."POLSid", qr."PODSid"
+        FROM "QuoteRoute" qr
+        WHERE qr."QuoteHeaderSid" = qh."QuoteHeaderSid"
+          AND COALESCE(qr."status", 'A') = 'A'
+        ORDER BY qr."QuoteRouteSid" ASC
+        LIMIT 1
+      ) fr ON true
+      LEFT JOIN "DepartmentMaster" dm
+        ON fr."DepartmentMasterSid" = dm."DepartmentMasterSid"
+      LEFT JOIN "PortMaster" pol
+        ON fr."POLSid" = pol."PortMasterSid"
+      LEFT JOIN "PortMaster" pod
+        ON fr."PODSid" = pod."PortMasterSid"
       WHERE
         qh."status" = 'A'
         AND qh."CompanyMasterSid" = $1
@@ -1063,6 +1244,20 @@ export class SalesDashboardService {
         ON qh."PreCustomerMasterSid" = pcm."PreCustomerMasterSid"
       LEFT JOIN "UserMaster" um
         ON qh."SalesmanSid" = um."UserMasterSid"
+      LEFT JOIN LATERAL (
+        SELECT qr."DepartmentMasterSid", qr."POLSid", qr."PODSid"
+        FROM "QuoteRoute" qr
+        WHERE qr."QuoteHeaderSid" = qh."QuoteHeaderSid"
+          AND COALESCE(qr."status", 'A') = 'A'
+        ORDER BY qr."QuoteRouteSid" ASC
+        LIMIT 1
+      ) fr ON true
+      LEFT JOIN "DepartmentMaster" dm
+        ON fr."DepartmentMasterSid" = dm."DepartmentMasterSid"
+      LEFT JOIN "PortMaster" pol
+        ON fr."POLSid" = pol."PortMasterSid"
+      LEFT JOIN "PortMaster" pod
+        ON fr."PODSid" = pod."PortMasterSid"
       WHERE
         qh."status" = 'A'
         AND qh."CompanyMasterSid" = $1
@@ -1104,12 +1299,14 @@ export class SalesDashboardService {
 
   private async getQuotesNoBookingPage(query: SalesDashboardQueryDto): Promise<PagedResult<any>> {
     const params = this.normalizeParams(query);
+    const quotationMenuSid = await this.getQuotationMenuSid();
     const baseParams: any[] = [
       params.companyMasterSid,
       params.branchMasterSid,
       params.salespersonId,
       params.dateFrom,
       params.dateTo,
+      quotationMenuSid,
     ];
     const search = this.buildSearchClause(
       params.search,
@@ -1117,10 +1314,10 @@ export class SalesDashboardService {
         `qh."QuoteNumber"`,
         `qh."CustomerName"`,
         `pcm."preCustomerName"`,
-        `qh."TransportType"`,
-        `qh."FreightPPCC"`,
-        `salesperson."userName"`,
-        `approvedBy."userName"`,
+        `dm."departmentName"`,
+        `pol."PortCode"`,
+        `pod."PortCode"`,
+        `ac."ApprovedBy"`,
       ],
       baseParams.length + 1,
     );
@@ -1130,27 +1327,56 @@ export class SalesDashboardService {
         qh."QuoteHeaderSid",
         qh."QuoteNumber",
         qh."QuoteDate",
-        qh."CustomerApprovedBy",
-        qh."CustomerApprovedOn",
-        qh."InternalApprovedBy",
-        qh."InternalApprovedOn",
         qh."SalesmanSid",
         qh."LeadOrCustomer",
         qh."PreCustomerMasterSid",
         qh."CustomerMasterSid",
         qh."CustomerName",
-        qh."TransportType",
-        qh."FreightPPCC",
         pcm."preCustomerName",
         salesperson."userName" AS "salespersonName",
-        approvedBy."userName" AS "internalApprovedByName"
+        ac."ApprovedBy" AS "approvedBy",
+        COALESCE(auth."AuthorisedDate", ac."updatedOn") AS "approvedOn",
+        dm."departmentName",
+        pol."PortCode" AS "polCode",
+        pod."PortCode" AS "podCode"
       FROM "QuoteHeader" qh
       LEFT JOIN "PreCustomerMaster" pcm
         ON qh."PreCustomerMasterSid" = pcm."PreCustomerMasterSid"
       LEFT JOIN "UserMaster" salesperson
         ON qh."SalesmanSid" = salesperson."UserMasterSid"
-      LEFT JOIN "UserMaster" approvedBy
-        ON qh."InternalApprovedBy" = approvedBy."UserMasterSid"
+      LEFT JOIN LATERAL (
+        SELECT qc."ApprovedBy", qc."QuoteRouteSid", qc."updatedOn"
+        FROM "QuoteCarrier" qc
+        WHERE qc."QuoteHeaderSid" = qh."QuoteHeaderSid"
+          AND COALESCE(qc."status", 'A') = 'A'
+          AND qc."ApprovalStatus"::text = 'Approved'
+        ORDER BY qc."QuoteCarrierSid" ASC
+        LIMIT 1
+      ) ac ON true
+      LEFT JOIN "QuoteRoute" qr
+        ON ac."QuoteRouteSid" = qr."QuoteRouteSid"
+      LEFT JOIN "DepartmentMaster" dm
+        ON qr."DepartmentMasterSid" = dm."DepartmentMasterSid"
+      LEFT JOIN "PortMaster" pol
+        ON qr."POLSid" = pol."PortMasterSid"
+      LEFT JOIN "PortMaster" pod
+        ON qr."PODSid" = pod."PortMasterSid"
+      LEFT JOIN LATERAL (
+        SELECT al."AuthorisedDate"
+        FROM "AuthorityLog" al
+        INNER JOIN "AuthorityDetail" ad
+          ON al."AuthorityDetailSid" = ad."AuthorityDetailSid"
+        INNER JOIN "AuthorityMaster" am
+          ON ad."AuthorityMasterSid" = am."AuthorityMasterSid"
+        WHERE al."DocumentSid" = qh."QuoteHeaderSid"
+          AND al."CompanyMasterSid" = $1
+          AND al."BranchMasterSid" = $2
+          AND COALESCE(al."Status", 'A') = 'A'
+          AND al."ApprovalStatus" = 'Approved'
+          AND ($6::int IS NULL OR am."MenuMaster" = $6)
+        ORDER BY al."AuthorisedDate" DESC
+        LIMIT 1
+      ) auth ON true
       WHERE
         qh."status" = 'A'
         AND qh."BookingHeaderSid" IS NULL
@@ -1182,8 +1408,23 @@ export class SalesDashboardService {
         ON qh."PreCustomerMasterSid" = pcm."PreCustomerMasterSid"
       LEFT JOIN "UserMaster" salesperson
         ON qh."SalesmanSid" = salesperson."UserMasterSid"
-      LEFT JOIN "UserMaster" approvedBy
-        ON qh."InternalApprovedBy" = approvedBy."UserMasterSid"
+      LEFT JOIN LATERAL (
+        SELECT qc."ApprovedBy", qc."QuoteRouteSid", qc."updatedOn"
+        FROM "QuoteCarrier" qc
+        WHERE qc."QuoteHeaderSid" = qh."QuoteHeaderSid"
+          AND COALESCE(qc."status", 'A') = 'A'
+          AND qc."ApprovalStatus"::text = 'Approved'
+        ORDER BY qc."QuoteCarrierSid" ASC
+        LIMIT 1
+      ) ac ON true
+      LEFT JOIN "QuoteRoute" qr
+        ON ac."QuoteRouteSid" = qr."QuoteRouteSid"
+      LEFT JOIN "DepartmentMaster" dm
+        ON qr."DepartmentMasterSid" = dm."DepartmentMasterSid"
+      LEFT JOIN "PortMaster" pol
+        ON qr."POLSid" = pol."PortMasterSid"
+      LEFT JOIN "PortMaster" pod
+        ON qr."PODSid" = pod."PortMasterSid"
       WHERE
         qh."status" = 'A'
         AND qh."BookingHeaderSid" IS NULL
@@ -1215,6 +1456,20 @@ export class SalesDashboardService {
       params.page,
       params.pageSize,
     );
+  }
+
+  private async getQuotationMenuSid(): Promise<number | null> {
+    if (this.quotationMenuSid !== undefined) {
+      return this.quotationMenuSid;
+    }
+
+    try {
+      this.quotationMenuSid = await this.menuService.getMenuSidByName('Quotation');
+    } catch {
+      this.quotationMenuSid = null;
+    }
+
+    return this.quotationMenuSid;
   }
 
   private async getSummaryKpis(query: SalesDashboardQueryDto) {
