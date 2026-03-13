@@ -286,16 +286,20 @@ export class OperationReportsService {
   ) {
     const {
       companyId: CompanyMasterSid,
-      ToJobDt,
-      FromJobDt,
+      ToHblDt,
+      FromHblDt,
       Branch: branchId,
       Dept: deptId,
-      JobGenerated = true,
+      HouseStatus,
     } = params;
 
+    const selectedHouseStatus =
+  HouseStatus !== undefined && HouseStatus !== null && HouseStatus !== ''
+    ? HouseStatus.trim()
+    : null;
     try {
       this.logger.log(
-        `Getting shipment summary report for CompanySid=${CompanyMasterSid}, From=${FromJobDt}, To=${ToJobDt}`,
+        `Getting shipment summary report for CompanySid=${CompanyMasterSid}, From=${FromHblDt}, To=${ToHblDt}`,
       );
 
       const branches =
@@ -348,25 +352,36 @@ export class OperationReportsService {
         },
       });
 
+      const usermaster = await this._db.userMaster.findMany({ 
+        where:{status:'A'},
+        select:{
+          UserMasterSid:true,
+          userName:true
+        }
+      });
+
       const houseJobData = await this._db.houseJob.findMany({
         where: {
           CompanyMasterSid,
-          AND: [{ HBLDate: { gte: FromJobDt } }, { HBLDate: { lte: ToJobDt } }],
+          AND: [{ HBLDate: { gte: FromHblDt } }, { HBLDate: { lte: ToHblDt } }],
           status: 'A',
           BranchMasterSid: { in: resolvedBranchIds },
           DepartmentMasterSid: { in: resolvedDeptIds },
-          ...(JobGenerated
-            ? {
-                MasterJobSid: { not: null },
-                HouseStatus: { in: ['Job Generated'] },
-              }
-            : {}),
+        ...(selectedHouseStatus && selectedHouseStatus.toLowerCase() !== 'all'
+          ? {
+              HouseStatus: {
+                equals: selectedHouseStatus,
+                mode: 'insensitive',
+              },
+            }
+          : {}),
         },
         include: {
           Cargo: true,
           Products: {
             where: { status: 'A' },
           },
+          Others: true,
           masterJob: {
             include: {
               containers: {
@@ -511,6 +526,7 @@ export class OperationReportsService {
             departments.find(
               (d) => d.DepartmentMasterSid === mj.DepartmentMasterSid,
             )?.departmentName || '',
+          CustomerName:agentMaster.find(c=>c.CustomerMasterSid === mj.CustomerMasterSid)?.CustomerName || '',
           mblNo: mj.masterJob?.MBLNo || '',
           vesselName: mj?.VesselName || '',
           voyageNo: mj?.VoyageNo || '',
@@ -526,9 +542,14 @@ export class OperationReportsService {
           destinationPortName: fpdName,
           carrier: mj?.CarrierName || '',
           weight: mj.Cargo?.[0]?.GrossWeight || 0,
+          NoofPkg: mj.Cargo?.[0]?.NoOfPackage || 0,
           volume: mj.Cargo?.[0]?.Volume || 0,
+          Volumetric: mj.Cargo?.[0]?.Volumetric || 0,
           chargeable: mj.Cargo?.[0]?.ChargeableWeight || 0,
           shipper: mj?.ShipperName || '',
+          Consignee: mj?.ConsigneeName || '',
+          Notify: mj?.Notify || '',
+          Forwarder:mj?.Others?.[0]?.Forwarder,
           containerNoList: mj?.Products?.map((c: any) => c.ContainerNo).join(
             ', ',
           ),
@@ -566,6 +587,10 @@ export class OperationReportsService {
           localShipmentVol,
           transhipmentVol,
           houseStatus: mj?.HouseStatus,
+          Salesman: usermaster.find((d) => d.UserMasterSid === mj.SalesmanSid)?.userName || '',
+          ShipmentTerms:mj.Cargo?.[0]?.ShipmentTerms,
+          IncoTerms:mj.IncoTerms,
+          PPCC : mj.FreightTerms,
         };
       });
 
