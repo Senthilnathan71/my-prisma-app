@@ -127,7 +127,7 @@ export class PreCustomerMeetingService {
                 }
                 payload.updatedOn = new Date(); // Only update UpdatedOn
                 payload.updatedBy = params.createdBy
-                payload.followUpDate = params.followUpDate ? toUTCISO(params.followUpDate) : null,
+                payload.followUpDate = params.followUpDate || null,
                     payload.meetingDate = params.meetingDate
 
                 updatePreCustomer = await this._db.preCustomerMeeting.update({
@@ -161,7 +161,7 @@ export class PreCustomerMeetingService {
                     remarks: params.remarks,
                     meetingDuration: params.meetingDuration,
                     status: params.status,
-                    followUpDate: params.followUpDate ? toUTCISO(params.followUpDate) : null,
+                    followUpDate: params.followUpDate || null,
                     followUpNote: params.followUpNote,
                     meetingNote: params.meetingNote,
                     leadAssignTo: Number(params.leadAssignTo) || 0,
@@ -192,7 +192,7 @@ export class PreCustomerMeetingService {
                             branchMaster: { connect: { BranchMasterSid: existingLead?.BranchMasterSid ? existingLead?.BranchMasterSid : params.BranchMasterSid } },
                             DepartmentMasterSid: params.DepartmentMasterSid,
                             OpportunitySector: params.OpportunitySector,
-                            FollowupDate: params.followUpDate ? toUTCISO(params.followUpDate) : "",
+                            FollowupDate: params.followUpDate || "",
                             FollowupNote: params.followUpNote,
                             MeetingNote: params.meetingNote,
                             Remarks: params.remarks ?? null,
@@ -212,7 +212,7 @@ export class PreCustomerMeetingService {
                             branchMaster: { connect: { BranchMasterSid: existingLead?.BranchMasterSid ? existingLead?.BranchMasterSid : params.BranchMasterSid } },
                             DepartmentMasterSid: params.DepartmentMasterSid,
                             OpportunitySector: params.OpportunitySector,
-                            FollowupDate: params.followUpDate ? toUTCISO(params.followUpDate) : "",
+                            FollowupDate: params.followUpDate || "",
                             FollowupNote: params.followUpNote,
                             MeetingNote: params.meetingNote,
                             Remarks: params.remarks ?? null,
@@ -243,6 +243,72 @@ export class PreCustomerMeetingService {
                 output = updatePreCustomer
             }
 
+            // Create customer if meeting confirmed
+            // Create customer if meeting confirmed
+            let createdCustomer;
+
+            const meetingData = newMeeting || updatePreCustomer;
+
+            if (
+                meetingData &&
+                meetingData.meetingStatus?.toLowerCase() === "confirmed" &&
+                meetingData.LeadOrCustomer === "L" &&
+                meetingData.PreCustomerMasterSid
+            ) {
+
+                const leadData = await this._db.preCustomerMaster.findUnique({
+                    where: {
+                        PreCustomerMasterSid: meetingData.PreCustomerMasterSid
+                    }
+                });
+
+                if (leadData) {
+
+                    // ✅ Check if customer already exists
+                    const existingCustomer = await this._db.customerMaster.findFirst({
+                        where: {
+                            PreCustomerMasterSid: leadData.PreCustomerMasterSid
+                        }
+                    });
+
+                    if (!existingCustomer) {
+
+                        createdCustomer = await this._db.customerMaster.create({
+                            data: {
+                                CompanyMasterSid: params.CompanyMasterSid,
+                                PreCustomerMasterSid: leadData.PreCustomerMasterSid,
+                                CustomerName: leadData.preCustomerName || '',
+                                CountryMasterSid: leadData.CountryMasterSid,
+                                CustomerAddress1: leadData.preCustomerAddress1,
+                                createdBy: user.userEmail 
+                            }
+                        });
+
+                        // update meeting to Customer
+                        await this._db.preCustomerMeeting.update({
+                            where: {
+                                PreCustomerMeetingSid: meetingData.PreCustomerMeetingSid
+                            },
+                            data: {
+                                LeadOrCustomer: "C",
+                                CustomerMasterSid: createdCustomer.CustomerMasterSid
+                            }
+                        });
+
+                    }
+
+                    // update lead status
+                    await this._db.preCustomerMaster.update({
+                        where: {
+                            PreCustomerMasterSid: leadData.PreCustomerMasterSid
+                        },
+                        data: {
+                            leadStatus: LeadStatus.CustomerCreated
+                        }
+                    });
+
+                }
+            }
             return { message: mes, data: output };
 
         } catch (error) {

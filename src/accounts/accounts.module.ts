@@ -57,6 +57,7 @@ import { CompanyConfigService } from 'src/masters/services/company/company-confi
         Logger,
         VoucherService,
         CompanyConfigService
-    ]
+    ],
+    exports: [AccountsReportsService]
 })
 export class AccountsModule { }

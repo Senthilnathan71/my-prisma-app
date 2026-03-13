@@ -1,9 +1,14 @@
 import { BadRequestException, Injectable, InternalServerErrorException, Logger, NotFoundException } from '@nestjs/common';
 import { ApprovalStatus, Prisma, PrismaClient } from '@prisma/client';
+import { OutstandingReportQueryDto } from 'src/accounts/dto/accounts-reports.dto';
+import { OutstandingService } from 'src/accounts/services/outstanding/outstanding.service';
+import { AccountsReportsService } from 'src/accounts/services/accounts-reports/accounts-reports.service';
+import { CustomerOutstandingResponseDto } from 'src/accounts/dto/outstanding.dto';
 import { GlobalConfigService } from 'src/common/config/master-config.service';
+import { DOC_TYPE_CODE } from 'src/common/config/voucher-type.config';
 import { addDaysCalendar, statusWhereClause } from 'src/common/helper';
 import { DatabaseService } from 'src/database/database.service';
-import { CreditLimitDto, CreditSummaryDto, OutstandingDto, ValidateCreditDto } from 'src/masters/DTO/credit-limit.dto';
+import { CreditLimitDto, CreditSummaryDto, OutstandingDto, ValidateBLDODto, ValidateCreditDto } from 'src/masters/DTO/credit-limit.dto';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 enum CustomerType {
   CASH = 'CASH',
@@ -40,6 +45,15 @@ interface OutstandingResult {
   outstandingInvoices: OutstandingInvoice[];
 }
 
+interface OutstandingComputationOptions {
+  customerMasterSid: number;
+  companyMasterSid: number;
+  branchMasterSid?: number;
+  masterJobSid?: number;
+  houseJobSid?: number;
+  scopeByJob?: boolean;
+}
+
 interface ValidationResult {
   isValid: boolean;
   errors: string[];
@@ -52,6 +66,25 @@ interface ValidationResult {
     availableCredit: number;
     utilizationPercentage: number;
   };
+}
+
+interface BLDOViolatingVoucher {
+  VoucherNumber: string;
+  VoucherDate: Date;
+  OutstandingLocalAmount: number;
+  AgeingDays: number;
+}
+
+interface BLDOValidationResult {
+  IsValid: boolean;
+  Errors: string[];
+  CustomerType: CustomerType;
+  CreditLimit: number;
+  CreditDays: number;
+  RemainingCreditLimit: number | null;
+  TotalOutstandingLocal: number;
+  SelectedCreditRequestSid: number | null;
+  ViolatingVouchers: BLDOViolatingVoucher[];
 }
 
 export interface CustomerCreditRequestInterface {
@@ -92,7 +125,13 @@ export interface CustomerCreditRequestWithKycInterface extends CustomerCreditReq
 }
 @Injectable()
 export class CreditRequestService {
-    constructor(private _db: DatabaseService, private logger: Logger,private globalConfigService: GlobalConfigService) { }
+    constructor(
+      private _db: DatabaseService,
+      private logger: Logger,
+      private globalConfigService: GlobalConfigService,
+      private outstandingService: OutstandingService,
+      private accountsReportsService: AccountsReportsService,
+    ) { }
 
     async searchCreditCustomer(params: filterDto) {
         const { search = '', page =1, pageSize = 15, activeCompanyId } = params;
@@ -695,14 +734,17 @@ export class CreditRequestService {
 
   /**
    * Get credit limit for a customer
-   * Priority: Department-wise > Branch-wise
+   * Priority:
+   * 1) Customer + Branch + Department (if both provided)
+   * 2) Customer + Branch (if branch provided)
+   * 3) Customer-only (if branch not provided)
    */
   async getCreditLimit(dto: CreditLimitDto): Promise<CreditLimitResult> {
     try {
       const currentDate = new Date(); 
       
-      // Build where clause
-      const whereClause: any = {
+      // Base where clause
+      const baseWhere: any = {
         CustomerMasterSid: dto.customerMasterSid,
         CompanyMasterSid: dto.companyMasterSid,
         Status: 'A',
@@ -710,16 +752,17 @@ export class CreditRequestService {
         EffectiveFrom: { lte: currentDate },
         EffectiveTo: { gte: currentDate },
       };
-      if (dto.customerBranchSid) {
-        whereClause.CustomerBranchSid = dto.customerBranchSid;
-      }
+      const hasBranch = !!dto.customerBranchSid;
+      const hasDept = !!dto.departmentMasterSid;
 
-      // First try department-specific credit if department is provided
-      if (dto.departmentMasterSid) {
-        whereClause.DepartmentMasterSid = dto.departmentMasterSid;
-        
+      // 1) Customer + Branch + Department
+      if (hasBranch && hasDept) {
         const deptCredit = await this._db.customerCreditRequest.findFirst({
-          where: whereClause,
+          where: {
+            ...baseWhere,
+            CustomerBranchSid: dto.customerBranchSid,
+            DepartmentMasterSid: dto.departmentMasterSid,
+          },
           orderBy: { CustomerCreditRequestSid: 'desc' },
         });
 
@@ -728,22 +771,39 @@ export class CreditRequestService {
         }
       }
 
-      // If no department credit found, try branch-level credit
-      delete whereClause.DepartmentMasterSid;
-      whereClause.DepartmentMasterSid = null;
+      // 2) Customer + Branch only
+      if (hasBranch) {
+        const branchCredit = await this._db.customerCreditRequest.findFirst({
+          where: {
+            ...baseWhere,
+            CustomerBranchSid: dto.customerBranchSid,
+            DepartmentMasterSid: null,
+          },
+          orderBy: { CustomerCreditRequestSid: 'desc' },
+        });
 
-      const branchCredit = await this._db.customerCreditRequest.findFirst({
-        where: whereClause,
+        if (branchCredit) {
+          return this.mapCreditLimitResponse(branchCredit);
+        }
+      }
+
+      // 3) Customer only (fallback for any case)
+      const customerCredit = await this._db.customerCreditRequest.findFirst({
+        where: {
+          ...baseWhere,
+          CustomerBranchSid: null,
+          DepartmentMasterSid: null,
+        },
         orderBy: { CustomerCreditRequestSid: 'desc' },
       });
 
-      if (!branchCredit) {
-        throw new NotFoundException(
-          'No approved credit limit found for this customer',
-        );
+      if (customerCredit) {
+        return this.mapCreditLimitResponse(customerCredit);
       }
 
-      return this.mapCreditLimitResponse(branchCredit);
+      throw new NotFoundException(
+        'No approved credit limit found for this customer',
+      );
     } catch (error) {
       this.logger.error(`Error fetching credit limit: ${error.message}`);
       throw error;
@@ -756,95 +816,14 @@ export class CreditRequestService {
    */
   async getOutstanding(dto: OutstandingDto): Promise<OutstandingResult> {
     try {
-      // First, get the VoucherType SID for Invoice from VoucherTypeMaster
-      const invoiceType = await this._db.voucherTypeMaster.findFirst({
-        where: {
-          Type: { contains: 'Invoice', mode: 'insensitive' },
-          status: 'A',
-        },
-        select: { VoucherTypeMasterSid: true },
+      return this.computeOutstanding({
+        customerMasterSid: dto.customerMasterSid,
+        companyMasterSid: dto.companyMasterSid,
+        branchMasterSid: dto.branchMasterSid,
+        masterJobSid: dto.masterJobSid,
+        houseJobSid: dto.houseJobSid,
+        scopeByJob: Boolean(dto.masterJobSid || dto.houseJobSid),
       });
-
-      if (!invoiceType) {
-        throw new NotFoundException('Invoice voucher type not found');
-      }
-
-      // Build where clause for invoices
-      const whereClause: any = {
-        PartyMasterSid: dto.customerMasterSid,
-        CompanyMasterSid: dto.companyMasterSid,
-        Status: 'A',
-        VoucherTypeMasterSid: invoiceType.VoucherTypeMasterSid,
-      };
-
-      if (dto.masterJobSid) {
-        whereClause.MasterJobSid = dto.masterJobSid;
-      }
-
-      if (dto.houseJobSid) {
-        whereClause.HouseJobSid = dto.houseJobSid;
-      }
-
-      // Get all invoices with their transactions
-      const invoices = await this._db.voucherHeader.findMany({
-        where: whereClause,
-        include: {
-          VoucherTransaction: {
-            where: { Status: 'A' },
-            select: {
-              Amount: true,
-              DrCr: true,
-              VoucherTransactionSid: true,
-            },
-          },
-        },
-        orderBy: { VoucherDate: 'asc' },
-      });
-
-      // Get payment vouchers for this customer
-      const paymentType = await this._db.voucherTypeMaster.findFirst({
-        where: {
-          Type: { contains: 'Receipt', mode: 'insensitive' },
-          status: 'A',
-        },
-        select: { VoucherTypeMasterSid: true },
-      });
-
-      let payments: any[] = [];
-      if (paymentType) {
-        payments = await this._db.voucherHeader.findMany({
-          where: {
-            PartyMasterSid: dto.customerMasterSid,
-            CompanyMasterSid: dto.companyMasterSid,
-            Status: 'A',
-            VoucherTypeMasterSid: paymentType.VoucherTypeMasterSid,
-          },
-          include: {
-            VoucherTransaction: {
-              where: { Status: 'A' },
-              select: {
-                Amount: true,
-                DrCr: true,
-                HouseJobSid: true,
-                MasterJobSid: true,
-              },
-            },
-          },
-        });
-      }
-
-      const outstandingInvoices = this.processInvoicesWithPayments(invoices, payments);
-      const totalOutstanding = outstandingInvoices.reduce(
-        (sum, inv) => sum + inv.outstandingAmount,
-        0,
-      );
-      const oldestDays = this.calculateOldestDays(outstandingInvoices);
-
-      return {
-        totalOutstanding,
-        oldestOutstandingDays: oldestDays,
-        outstandingInvoices,
-      };
     } catch (error) {
       this.logger.error(`Error calculating outstanding: ${error.message}`);
       throw error;
@@ -859,9 +838,15 @@ export class CreditRequestService {
     companyMasterSid: number,
   ) {
     try {
+      const customerLedgerMasterSid = await this.resolveCustomerLedgerMasterSid(
+        companyMasterSid,
+        customerMasterSid,
+      );
+
       // Get invoice voucher type
       const invoiceType = await this._db.voucherTypeMaster.findFirst({
         where: {
+          CompanyMasterSid: companyMasterSid,
           Type: { contains: 'Invoice', mode: 'insensitive' },
           status: 'A',
         },
@@ -874,7 +859,7 @@ export class CreditRequestService {
 
       const invoices:any = await this._db.voucherHeader.findMany({
         where: {
-          PartyMasterSid: customerMasterSid,
+          PartyMasterSid: customerLedgerMasterSid,
           CompanyMasterSid: companyMasterSid,
           Status: 'A',
           VoucherTypeMasterSid: invoiceType.VoucherTypeMasterSid,
@@ -902,6 +887,7 @@ export class CreditRequestService {
       // Get payments
       const paymentType = await this._db.voucherTypeMaster.findFirst({
         where: {
+          CompanyMasterSid: companyMasterSid,
           Type: { contains: 'Receipt', mode: 'insensitive' },
           status: 'A',
         },
@@ -909,14 +895,14 @@ export class CreditRequestService {
       });
 
       let payments: any[] = [];
-      if (paymentType) {
-        payments = await this._db.voucherHeader.findMany({
-          where: {
-            PartyMasterSid: customerMasterSid,
-            CompanyMasterSid: companyMasterSid,
-            Status: 'A',
-            VoucherTypeMasterSid: paymentType.VoucherTypeMasterSid,
-          },
+        if (paymentType) {
+          payments = await this._db.voucherHeader.findMany({
+            where: {
+              PartyMasterSid: customerLedgerMasterSid,
+              CompanyMasterSid: companyMasterSid,
+              Status: 'A',
+              VoucherTypeMasterSid: paymentType.VoucherTypeMasterSid,
+            },
           include: {
             VoucherTransaction: {
               where: { Status: 'A' },
@@ -931,51 +917,79 @@ export class CreditRequestService {
         });
       }
 
-      // Group by job
-      const jobGroups = new Map();
-
+      const groupedInvoices = new Map<any, any[]>();
       for (const invoice of invoices) {
-        const invoiceAmount = this.calculateInvoiceAmount(invoice.VoucherTransaction);
-        const paidAmount = this.calculatePaidAmountForJob(
-          payments,
-          invoice.MasterJobSid,
-          invoice.HouseJobSid,
+        const key = invoice.MasterJobSid || invoice.HouseJobSid || 'no-job';
+        if (!groupedInvoices.has(key)) {
+          groupedInvoices.set(key, []);
+        }
+        const grouped = groupedInvoices.get(key);
+        if (grouped) {
+          grouped.push(invoice);
+        }
+      }
+
+      const jobGroups: any[] = [];
+      for (const [jobKey, jobInvoices] of groupedInvoices.entries()) {
+        const sampleInvoice = jobInvoices[0];
+        const jobPayments = payments.filter((payment) =>
+          payment.VoucherTransaction.some((txn: any) => {
+            if (sampleInvoice.MasterJobSid && txn.MasterJobSid === sampleInvoice.MasterJobSid) return true;
+            if (sampleInvoice.HouseJobSid && txn.HouseJobSid === sampleInvoice.HouseJobSid) return true;
+            return false;
+          }),
         );
-        const outstanding = invoiceAmount - paidAmount;
 
-        if (outstanding > 0) {
-          const jobKey = invoice.MasterJobSid || invoice.HouseJobSid || 'no-job';
+        let availablePayment = jobPayments.reduce((sum, payment) => {
+          return sum + this.calculatePaymentAmount(payment.VoucherTransaction || []);
+        }, 0);
 
-          if (!jobGroups.has(jobKey)) {
-            jobGroups.set(jobKey, {
-              jobType: invoice.MasterJobSid
-                ? 'Master'
-                : invoice.HouseJobSid
-                ? 'House'
-                : 'None',
-              jobSid: invoice.MasterJobSid || invoice.HouseJobSid,
-              jobNumber:
-                invoice.masterJob?.MasterJobNumber || invoice.houseJob?.BookingNo,
-              totalOutstanding: 0,
-              invoiceCount: 0,
-              invoices: [],
-            });
+        const sortedJobInvoices = [...jobInvoices].sort(
+          (a, b) => new Date(a.VoucherDate).getTime() - new Date(b.VoucherDate).getTime(),
+        );
+
+        const invoiceBreakdown: any[] = [];
+        let totalOutstanding = 0;
+        for (const invoice of sortedJobInvoices) {
+          const invoiceAmount = this.calculateInvoiceAmount(invoice.VoucherTransaction || []);
+          if (invoiceAmount <= 0) {
+            continue;
           }
 
-          const group = jobGroups.get(jobKey);
-          group.totalOutstanding += outstanding;
-          group.invoiceCount += 1;
-          group.invoices.push({
-            voucherNumber: invoice.VoucherNumber,
-            voucherDate: invoice.VoucherDate,
-            invoiceAmount,
-            paidAmount,
-            outstanding,
+          const paidAmount = Math.min(availablePayment, invoiceAmount);
+          const outstanding = Math.max(invoiceAmount - paidAmount, 0);
+          availablePayment = Math.max(availablePayment - paidAmount, 0);
+
+          if (outstanding > 0) {
+            totalOutstanding += outstanding;
+            invoiceBreakdown.push({
+              voucherNumber: invoice.VoucherNumber,
+              voucherDate: invoice.VoucherDate,
+              invoiceAmount,
+              paidAmount,
+              outstanding,
+            });
+          }
+        }
+
+        if (totalOutstanding > 0) {
+          jobGroups.push({
+            jobType: sampleInvoice.MasterJobSid
+              ? 'Master'
+              : sampleInvoice.HouseJobSid
+              ? 'House'
+              : 'None',
+            jobSid: sampleInvoice.MasterJobSid || sampleInvoice.HouseJobSid,
+            jobNumber:
+              sampleInvoice.masterJob?.MasterJobNumber || sampleInvoice.houseJob?.BookingNo,
+            totalOutstanding,
+            invoiceCount: invoiceBreakdown.length,
+            invoices: invoiceBreakdown,
           });
         }
       }
 
-      return Array.from(jobGroups.values());
+      return jobGroups;
     } catch (error) {
       this.logger.error(`Error getting outstanding by job: ${error.message}`);
       throw error;
@@ -993,48 +1007,57 @@ export class CreditRequestService {
       const customerType = await this.getCustomerType(dto.customerMasterSid);
 
       if (customerType === CustomerType.CASH) {
-        // For cash customers, check if payment is received
-        if (dto.masterJobSid || dto.houseJobSid) {
-          const isPaid = await this.checkInvoicePaymentStatus(
-            dto.masterJobSid,
-            dto.houseJobSid,
-          );
-
-          if (!isPaid) {
-            return {
-              isValid: false,
-              errors: ['Payment required before issuing BL/DO for cash customer'],
-              warnings: [],
-              creditInfo: {
-                creditLimit: 0,
-                creditDays: 0,
-                totalOutstanding: 0,
-                oldestOutstandingDays: 0,
-                availableCredit: 0,
-                utilizationPercentage: 0,
-              },
-            };
-          }
-        }
-
-        return this.createSuccessResult();
+        return this.getCashCustomerValidation(dto);
       }
 
       // Step 2: Get credit limit
-      const creditLimit = await this.getCreditLimit({
-        companyMasterSid: dto.companyMasterSid,
-        customerMasterSid: dto.customerMasterSid,
-        branchMasterSid: dto.branchMasterSid,
-        departmentMasterSid: dto.departmentMasterSid,
-      });
+      let creditLimit: CreditLimitResult | null = null;
+      try {
+        creditLimit = await this.getCreditLimit({
+          companyMasterSid: dto.companyMasterSid,
+          customerMasterSid: dto.customerMasterSid,
+          branchMasterSid: dto.branchMasterSid,
+          departmentMasterSid: dto.departmentMasterSid,
+          customerBranchSid: dto.customerBranchSid,
+        });
+      } catch (error) {
+        if (!(error instanceof NotFoundException)) {
+          throw error;
+        }
+      }
+
+      // Credit customer with no active approved credit request is treated as CASH.
+      if (!creditLimit) {
+        return {
+          isValid: false,
+          errors: ['Credit request is not approved. Payment required before BL/DO/MAWB/HAWB release.'],
+          warnings: [],
+          creditInfo: {
+            creditLimit: 0,
+            creditDays: 0,
+            totalOutstanding: 0,
+            oldestOutstandingDays: 0,
+            availableCredit: 0,
+            utilizationPercentage: 0,
+          },
+        };
+      }
 
       // Step 3: Get outstanding
-      const outstanding = await this.getOutstanding({
-        customerMasterSid: dto.customerMasterSid,
-        companyMasterSid: dto.companyMasterSid,
-        masterJobSid: dto.masterJobSid,
-        houseJobSid: dto.houseJobSid,
-      });
+      // For credit control we check customer-level outstanding, not only current job.
+      const customerLedgerMasterSid = await this.resolveCustomerLedgerMasterSid(
+        dto.companyMasterSid,
+        dto.customerMasterSid,
+      );
+
+      const customerOutstanding = await this.outstandingService.getCustomerOutstanding(
+        dto.companyMasterSid,
+        customerLedgerMasterSid,
+        undefined,
+        dto.branchMasterSid,
+      );
+
+      const outstanding = this.mapCustomerOutstandingToResult(customerOutstanding);
 
       // Step 4: Perform validation
       return this.performValidation(creditLimit, outstanding);
@@ -1076,6 +1099,7 @@ export class CreditRequestService {
         this.getOutstanding({
           customerMasterSid: dto.customerMasterSid,
           companyMasterSid: dto.companyMasterSid,
+          branchMasterSid: dto.branchMasterSid,
         }),
       ]);
 
@@ -1097,6 +1121,91 @@ export class CreditRequestService {
       };
     } catch (error) {
       this.logger.error(`Error getting credit summary: ${error.message}`);
+      throw error;
+    }
+  }
+
+  async validateBLDORelease(
+    dto: ValidateBLDODto,
+  ): Promise<BLDOValidationResult> {
+    try {
+      const customerType = await this.getCustomerType(dto.CustomerMasterSid);
+      const currentDate = new Date();
+      const errors: string[] = [];
+      let creditLimit = 0;
+      let creditDays = 0;
+      let selectedCreditRequestSid: number | null = null;
+
+      if (customerType === CustomerType.CREDIT) {
+        const creditRequest = await this.getBLDOCreditRequest(dto);
+
+        if (!creditRequest) {
+          return {
+            IsValid: false,
+            Errors: ['No credit request found'],
+            CustomerType: customerType,
+            CreditLimit: 0,
+            CreditDays: 0,
+            RemainingCreditLimit: null,
+            TotalOutstandingLocal: 0,
+            SelectedCreditRequestSid: null,
+            ViolatingVouchers: [],
+          };
+        }
+
+        creditLimit = Number(creditRequest.CreditLimit || 0);
+        creditDays = Number(creditRequest.CreditDays || 0);
+        selectedCreditRequestSid = creditRequest.CustomerCreditRequestSid;
+      }
+
+      const outstandingReport = await this.getBLDOOutstandingReport(dto, currentDate);
+      console.log(dto , outstandingReport);
+      const totalOutstandingLocal = Number(outstandingReport.totalOutstandingLocal || 0);
+      const remainingCreditLimit = creditLimit - totalOutstandingLocal;
+
+      if (totalOutstandingLocal > creditLimit) {
+        errors.push(
+          `Outstanding amount (${totalOutstandingLocal.toFixed(2)}) exceeds credit limit (${creditLimit.toFixed(2)}). Remaining credit limit: ${remainingCreditLimit.toFixed(2)}`,
+        );
+      }
+
+      const violatingVouchers =
+        customerType === CustomerType.CREDIT
+          ? (outstandingReport.transactions || [])
+              .filter((transaction) => Number(transaction.outstandingLocalAmount || 0) > 0)
+              .map((transaction) => {
+                const voucherDate = new Date(transaction.voucherDate);
+                const ageingDays = this.calculateDaysDifference(voucherDate, currentDate);
+
+                return {
+                  VoucherNumber: transaction.voucherNumber,
+                  VoucherDate: voucherDate,
+                  OutstandingLocalAmount: Number(transaction.outstandingLocalAmount || 0),
+                  AgeingDays: ageingDays,
+                };
+              })
+              .filter((transaction) => transaction.AgeingDays > creditDays)
+          : [];
+
+      violatingVouchers.forEach((voucher) => {
+        errors.push(
+          `Voucher ${voucher.VoucherNumber} is ${voucher.AgeingDays} days old, exceeding allowed credit days of ${creditDays}`,
+        );
+      });
+
+      return {
+        IsValid: errors.length === 0,
+        Errors: errors,
+        CustomerType: customerType,
+        CreditLimit: creditLimit,
+        CreditDays: creditDays,
+        RemainingCreditLimit: remainingCreditLimit,
+        TotalOutstandingLocal: totalOutstandingLocal,
+        SelectedCreditRequestSid: selectedCreditRequestSid,
+        ViolatingVouchers: violatingVouchers,
+      };
+    } catch (error) {
+      this.logger.error(`BL/DO credit validation error: ${error.message}`);
       throw error;
     }
   }
@@ -1132,93 +1241,47 @@ export class CreditRequestService {
     houseJobSid?: number,
   ): Promise<boolean> {
     try {
-      // Get invoice voucher type
-      const invoiceType = await this._db.voucherTypeMaster.findFirst({
-        where: {
-          Type: { contains: 'Invoice', mode: 'insensitive' },
-          status: 'A',
-        },
-        select: { VoucherTypeMasterSid: true },
-      });
-
-      if (!invoiceType) {
+      if (!masterJobSid && !houseJobSid) {
         return false;
       }
 
-      const whereClause: any = {
-        Status: 'A',
-        VoucherTypeMasterSid: invoiceType.VoucherTypeMasterSid,
-      };
-
-      if (masterJobSid) {
-        whereClause.MasterJobSid = masterJobSid;
-      }
-
-      if (houseJobSid) {
-        whereClause.HouseJobSid = houseJobSid;
-      }
-
       const invoice = await this._db.voucherHeader.findFirst({
-        where: whereClause,
-        include: {
-          VoucherTransaction: {
-            where: { Status: 'A' },
-            select: { Amount: true, DrCr: true },
+        where: {
+          Status: 'A',
+          ...(masterJobSid ? { MasterJobSid: masterJobSid } : {}),
+          ...(houseJobSid ? { HouseJobSid: houseJobSid } : {}),
+          voucherTypeMaster: {
+            status: 'A',
+            OR: [
+              { DocumentTypeCode: DOC_TYPE_CODE.INVOICE },
+              { Type: { contains: 'Invoice', mode: 'insensitive' } },
+            ],
           },
+        },
+        select: {
+          PartyMasterSid: true,
+          CompanyMasterSid: true,
+          BranchMasterSid: true,
         },
       });
 
       if (!invoice) {
-        return false; // No invoice found
+        return true;
       }
-
-      // Get payment vouchers for this job
-      const paymentType = await this._db.voucherHeader.findFirst({
-        where: {
-          voucherTypeMaster: {
-            Type: { contains: 'Receipt', mode: 'insensitive' },
-            status: 'A',
-          },
-          Status: 'A',
-        },
-        select: { VoucherTypeMasterSid: true },
-      });
-
-
-      if (!paymentType) {
+      if (invoice.PartyMasterSid == null) {
         return false;
       }
 
-      const paymentWhereClause: any = {
-        Status: 'A',
-        VoucherTypeMasterSid: paymentType.VoucherTypeMasterSid,
-        PartyMasterSid: invoice.PartyMasterSid,
-      };
-
-      if (masterJobSid) {
-        paymentWhereClause.MasterJobSid = masterJobSid;
-      }
-
-      if (houseJobSid) {
-        paymentWhereClause.HouseJobSid = houseJobSid;
-      }
-
-      const payments = await this._db.voucherHeader.findMany({
-        where: paymentWhereClause,
-        include: {
-          VoucherTransaction: {
-            where: { Status: 'A' },
-            select: { Amount: true, DrCr: true },
-          },
-        },
+      const outstanding = await this.computeOutstanding({
+        customerMasterSid: invoice.PartyMasterSid,
+        companyMasterSid: invoice.CompanyMasterSid,
+        branchMasterSid: invoice.BranchMasterSid ?? undefined,
+        masterJobSid,
+        houseJobSid,
+        scopeByJob: true,
       });
 
-      const invoiceAmount = this.calculateInvoiceAmount(invoice.VoucherTransaction);
-      const paidAmount = payments.reduce((sum, payment) => {
-        return sum + this.calculatePaymentAmount(payment.VoucherTransaction);
-      }, 0);
-
-      return paidAmount >= invoiceAmount;
+      return outstanding.totalOutstanding <= 0;
     } catch (error) {
       this.logger.error(`Error checking payment status: ${error.message}`);
       return false;
@@ -1244,30 +1307,40 @@ export class CreditRequestService {
   }
 
   private processInvoicesWithPayments(invoices: any[], payments: any[]): OutstandingInvoice[] {
-    return invoices
-      .map((invoice) => {
-        const invoiceAmount = this.calculateInvoiceAmount(invoice.VoucherTransaction);
-        const paidAmount = this.calculatePaidAmountForJob(
-          payments,
-          invoice.MasterJobSid,
-          invoice.HouseJobSid,
-        );
-        const outstandingAmount = invoiceAmount - paidAmount;
-        const ageDays = this.calculateDaysDifference(invoice.VoucherDate, new Date());
+    const sortedInvoices = [...invoices].sort(
+      (a, b) => new Date(a.VoucherDate).getTime() - new Date(b.VoucherDate).getTime(),
+    );
+    let availablePayment = payments.reduce((sum, payment) => {
+      return sum + this.calculatePaymentAmount(payment.VoucherTransaction || []);
+    }, 0);
 
-        return {
+    const outstandingInvoices: OutstandingInvoice[] = [];
+    for (const invoice of sortedInvoices) {
+      const invoiceAmount = this.calculateInvoiceAmount(invoice.VoucherTransaction || []);
+      if (invoiceAmount <= 0) {
+        continue;
+      }
+
+      const paidAmount = Math.min(availablePayment, invoiceAmount);
+      const outstandingAmount = Math.max(invoiceAmount - paidAmount, 0);
+      availablePayment = Math.max(availablePayment - paidAmount, 0);
+
+      if (outstandingAmount > 0) {
+        outstandingInvoices.push({
           voucherHeaderSid: invoice.VoucherHeaderSid,
           voucherNo: invoice.VoucherNumber,
           voucherDate: invoice.VoucherDate,
           invoiceAmount,
           paidAmount,
           outstandingAmount,
-          ageDays,
+          ageDays: this.calculateDaysDifference(invoice.VoucherDate, new Date()),
           masterJobSid: invoice.MasterJobSid,
           houseJobSid: invoice.HouseJobSid,
-        };
-      })
-      .filter((inv) => inv.outstandingAmount > 0);
+        });
+      }
+    }
+
+    return outstandingInvoices;
   }
 
   private calculateInvoiceAmount(transactions: any[]): number {
@@ -1298,26 +1371,6 @@ export class CreditRequestService {
     }, 0);
   }
 
-  private calculatePaidAmountForJob(
-    payments: any[],
-    masterJobSid?: number,
-    houseJobSid?: number,
-  ): number {
-    // Filter payments for this specific job
-    const jobPayments = payments.filter((payment) => {
-      const hasMatchingJob = payment.VoucherTransaction.some((txn: any) => {
-        if (masterJobSid && txn.MasterJobSid === masterJobSid) return true;
-        if (houseJobSid && txn.HouseJobSid === houseJobSid) return true;
-        return false;
-      });
-      return hasMatchingJob;
-    });
-
-    return jobPayments.reduce((sum, payment) => {
-      return sum + this.calculatePaymentAmount(payment.VoucherTransaction);
-    }, 0);
-  }
-
   private calculateOldestDays(invoices: OutstandingInvoice[]): number {
     if (invoices.length === 0) return 0;
     return Math.max(...invoices.map((inv) => inv.ageDays));
@@ -1328,9 +1381,157 @@ export class CreditRequestService {
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   }
 
+  private async getBLDOCreditRequest(dto: ValidateBLDODto) {
+    const documentDate = new Date(dto.DocumentDate);
+    const baseWhere: Prisma.CustomerCreditRequestWhereInput = {
+      CompanyMasterSid: dto.CompanyMasterSid,
+      CustomerMasterSid: dto.CustomerMasterSid,
+      Status: 'A',
+      ApprovalStatus: ApprovalStatus.Approved,
+      EffectiveFrom: { lte: documentDate },
+      EffectiveTo: { gte: documentDate },
+    };
+
+    const branchCreditRequest = await this._db.customerCreditRequest.findFirst({
+      where: {
+        ...baseWhere,
+        CustomerBranchSid: dto.CustomerBranchSid,
+      },
+      orderBy: {
+        CustomerCreditRequestSid: 'desc',
+      },
+    });
+
+    if (branchCreditRequest) {
+      return branchCreditRequest;
+    }
+
+    const commonCreditRequest = await this._db.customerCreditRequest.findFirst({
+      where: {
+        ...baseWhere,
+        CustomerBranchSid: null,
+      },
+      orderBy: {
+        CustomerCreditRequestSid: 'desc',
+      },
+    });
+
+    if (commonCreditRequest) {
+      return commonCreditRequest;
+    }
+
+    throw new BadRequestException(
+      await this.buildBLDOCreditRequestMessage(dto, documentDate),
+    );
+  }
+
+  private async buildBLDOCreditRequestMessage(
+    dto: ValidateBLDODto,
+    documentDate: Date,
+  ): Promise<string> {
+    const scopedRequests = await this._db.customerCreditRequest.findMany({
+      where: {
+        CompanyMasterSid: dto.CompanyMasterSid,
+        CustomerMasterSid: dto.CustomerMasterSid,
+        Status: 'A',
+        OR: [
+          { CustomerBranchSid: dto.CustomerBranchSid ?? null },
+          { CustomerBranchSid: null },
+        ],
+      },
+      select: {
+        CustomerCreditRequestSid: true,
+        ApprovalStatus: true,
+        EffectiveFrom: true,
+        EffectiveTo: true,
+      },
+      orderBy: {
+        CustomerCreditRequestSid: 'desc',
+      },
+      take: 10,
+    });
+
+    if (!scopedRequests.length) {
+      return 'No credit request is configured for this customer.';
+    }
+
+    const matchingDateRequest = scopedRequests.find(
+      (item) =>
+        new Date(item.EffectiveFrom) <= documentDate &&
+        new Date(item.EffectiveTo) >= documentDate,
+    );
+
+    if (matchingDateRequest && matchingDateRequest.ApprovalStatus !== ApprovalStatus.Approved) {
+      return `Credit request is ${matchingDateRequest.ApprovalStatus} for this customer. Approval is required before BL/DO validation can pass.`;
+    }
+
+    const approvedRequest = scopedRequests.find(
+      (item) => item.ApprovalStatus === ApprovalStatus.Approved,
+    );
+
+    if (approvedRequest) {
+      return 'No approved credit request is active for this customer on the selected document date.';
+    }
+
+    return 'Credit request exists for this customer, but it is not approved yet.';
+  }
+
+  private async getBLDOOutstandingReport(
+    dto: ValidateBLDODto,
+    currentDate: Date,
+  ) {
+    const customerDebtorMapping = await this.resolveCustomerDebtorMapping(
+      dto.CompanyMasterSid,
+      dto.CustomerMasterSid,
+    );
+
+    const reportPayload: OutstandingReportQueryDto = {
+      ToDate: currentDate.toISOString(),
+      Ledger: customerDebtorMapping.COAMasterSid,
+      Subledger: customerDebtorMapping.SubledgerMasterSid,
+      companyId: dto.CompanyMasterSid,
+      Branch: [dto.BranchMasterSid],
+    };
+
+    return this.accountsReportsService.generateOutstandingReport(reportPayload);
+  }
+
+  private async resolveCustomerDebtorMapping(
+    companyMasterSid: number,
+    customerMasterSid: number,
+  ): Promise<{ COAMasterSid: number; SubledgerMasterSid: number }> {
+    const customerDebtorMapping = await this._db.subledgerMaster.findFirst({
+      where: {
+        CompanyMasterSid: companyMasterSid,
+        Status: 'A',
+        SubledgerType: 'Customer',
+        SubledgerMappingSid: customerMasterSid,
+        DrCOAMasterSid: { not: null },
+      },
+      select: {
+        DrCOAMasterSid: true,
+        SubledgerMasterSid: true,
+      },
+      orderBy: {
+        SubledgerMasterSid: 'desc',
+      },
+    });
+
+    if (!customerDebtorMapping?.DrCOAMasterSid) {
+      throw new NotFoundException(
+        `Customer debtor mapping not found for customer ${customerMasterSid}`,
+      );
+    }
+
+    return {
+      COAMasterSid: customerDebtorMapping.DrCOAMasterSid,
+      SubledgerMasterSid: customerDebtorMapping.SubledgerMasterSid,
+    };
+  }
+
   private performValidation(
     creditLimit: CreditLimitResult,
-    outstanding: OutstandingResult,
+    outstanding: OutstandingResult
   ): ValidationResult {
     const errors: string[] = [];
     const warnings: string[] = [];
@@ -1341,10 +1542,10 @@ export class CreditRequestService {
     // Validation 1: Check outstanding vs limit
     if (outstanding.totalOutstanding > creditLimit.creditLimit) {
       errors.push(
-        `Outstanding amount (₹${outstanding.totalOutstanding.toLocaleString('en-IN', {
+        `Outstanding amount (Rs ${outstanding.totalOutstanding.toLocaleString('en-IN', {
           minimumFractionDigits: 2,
           maximumFractionDigits: 2,
-        })}) exceeds credit limit (₹${creditLimit.creditLimit.toLocaleString('en-IN', {
+        })}) exceeds credit limit (Rs ${creditLimit.creditLimit.toLocaleString('en-IN', {
           minimumFractionDigits: 2,
           maximumFractionDigits: 2,
         })})`,
@@ -1363,7 +1564,7 @@ export class CreditRequestService {
     if (utilizationPercentage > 80 && utilizationPercentage <= 100) {
       warnings.push(
         `Credit utilization is at ${utilizationPercentage.toFixed(1)}%. ` +
-        `Available credit: ₹${availableCredit.toLocaleString('en-IN', {
+        `Available credit: Rs ${availableCredit.toLocaleString('en-IN', {
           minimumFractionDigits: 2,
           maximumFractionDigits: 2,
         })}`,
@@ -1420,4 +1621,183 @@ export class CreditRequestService {
     };
   }
 
+  private async getCashCustomerValidation(dto: ValidateCreditDto): Promise<ValidationResult> {
+    const jobOutstanding = await this.computeOutstanding({
+      customerMasterSid: dto.customerMasterSid,
+      companyMasterSid: dto.companyMasterSid,
+      branchMasterSid: dto.branchMasterSid,
+      masterJobSid: dto.masterJobSid,
+      houseJobSid: dto.houseJobSid,
+      scopeByJob: true,
+    });
+
+    if (jobOutstanding.outstandingInvoices.length === 0) {
+      return this.createSuccessResult();
+    }
+
+    if (jobOutstanding.totalOutstanding > 0) {
+      return {
+        isValid: false,
+        errors: [
+          `Outstanding amount (Rs ${jobOutstanding.totalOutstanding.toLocaleString('en-IN', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          })}) pending for this job invoice. Payment required before issuing BL/DO/MAWB/HAWB.`,
+        ],
+        warnings: [],
+        creditInfo: {
+          creditLimit: 0,
+          creditDays: 0,
+          totalOutstanding: jobOutstanding.totalOutstanding,
+          oldestOutstandingDays: jobOutstanding.oldestOutstandingDays,
+          availableCredit: -jobOutstanding.totalOutstanding,
+          utilizationPercentage: 0,
+        },
+      };
+    }
+
+    return this.createSuccessResult();
+  }
+
+  private async computeOutstanding(
+    options: OutstandingComputationOptions,
+  ): Promise<OutstandingResult> {
+    const customerLedgerMasterSid = await this.resolveCustomerLedgerMasterSid(
+      options.companyMasterSid,
+      options.customerMasterSid,
+    );
+
+    if (!options.scopeByJob) {
+      const outstanding = await this.outstandingService.getCustomerOutstanding(
+        options.companyMasterSid,
+        customerLedgerMasterSid,
+        undefined,
+        options.branchMasterSid,
+      );
+
+      return this.mapCustomerOutstandingToResult(outstanding);
+    }
+
+    const voucherTransactions = await this._db.voucherTransaction.findMany({
+      where: {
+        CompanyMasterSid: options.companyMasterSid,
+        ...(options.branchMasterSid ? { BranchMasterSid: options.branchMasterSid } : {}),
+        LedgerMasterSid: customerLedgerMasterSid,
+        Status: 'A',
+        DrCr: 'D',
+        ...(options.masterJobSid ? { MasterJobSid: options.masterJobSid } : {}),
+        ...(options.houseJobSid ? { HouseJobSid: options.houseJobSid } : {}),
+        VoucherHeader: { PostStatus: 'P', Status: 'A' },
+        subledgerMaster: {
+          SubledgerType: 'Customer',
+        },
+        voucherTypeMaster: {
+          DocumentTypeCode: DOC_TYPE_CODE.INVOICE,
+        },
+      },
+      include: {
+        VoucherHeader: true,
+        voucherMatchings: {
+          where: {
+            Status: 'A',
+          },
+        },
+      },
+      orderBy: {
+        VoucherDate: 'asc',
+      },
+    });
+
+    const outstandingInvoices: OutstandingInvoice[] = voucherTransactions
+      .map((vt) => {
+        const invoiceAmount = Number(vt.LocalAmount || 0);
+        const paidAmount = vt.voucherMatchings.reduce(
+          (sum, match) => sum + Number(match.LocalAmount || 0),
+          0,
+        );
+        const outstandingAmount = Math.max(invoiceAmount - paidAmount, 0);
+
+        return {
+          voucherHeaderSid: vt.VoucherHeaderSid,
+          voucherNo: vt.VoucherNumber,
+          voucherDate: vt.VoucherDate,
+          invoiceAmount,
+          paidAmount,
+          outstandingAmount,
+          ageDays: this.calculateDaysDifference(vt.VoucherDate, new Date()),
+          masterJobSid: vt.MasterJobSid ?? undefined,
+          houseJobSid: vt.HouseJobSid ?? undefined,
+        };
+      })
+      .filter((invoice) => invoice.outstandingAmount > 0);
+
+    const totalOutstanding = outstandingInvoices.reduce(
+      (sum, invoice) => sum + invoice.outstandingAmount,
+      0,
+    );
+
+    return {
+      totalOutstanding,
+      oldestOutstandingDays: this.calculateOldestDays(outstandingInvoices),
+      outstandingInvoices,
+    };
+  }
+
+  private async resolveCustomerLedgerMasterSid(
+    companyMasterSid: number,
+    customerMasterSid: number,
+  ): Promise<number> {
+    const customerSubledger = await this._db.subledgerMaster.findFirst({
+      where: {
+        CompanyMasterSid: companyMasterSid,
+        Status: 'A',
+        SubledgerType: 'Customer',
+        SubledgerMappingSid: customerMasterSid,
+      },
+      select: {
+        SubledgerMasterSid: true,
+      },
+      orderBy: {
+        SubledgerMasterSid: 'desc',
+      },
+    });
+
+    if (!customerSubledger) {
+      throw new NotFoundException(
+        `Customer subledger not found for customer ${customerMasterSid}`,
+      );
+    }
+
+    return customerSubledger.SubledgerMasterSid;
+  }
+
+  private mapCustomerOutstandingToResult(
+    outstanding: CustomerOutstandingResponseDto,
+  ): OutstandingResult {
+    const outstandingInvoices = outstanding.transactions
+      .filter(
+        (transaction) =>
+          transaction.voucherTypeCode === DOC_TYPE_CODE.INVOICE &&
+          transaction.drCr === 'D' &&
+          transaction.outstandingLocalAmount > 0,
+      )
+      .map((transaction) => ({
+        voucherHeaderSid: transaction.voucherHeaderSid,
+        voucherNo: transaction.voucherNumber,
+        voucherDate: transaction.voucherDate,
+        invoiceAmount: transaction.originalLocalAmount,
+        paidAmount: transaction.matchedLocalAmount,
+        outstandingAmount: transaction.outstandingLocalAmount,
+        ageDays: this.calculateDaysDifference(transaction.voucherDate, new Date()),
+      }));
+
+    return {
+      totalOutstanding: outstanding.totalOutstandingLocal,
+      oldestOutstandingDays: this.calculateOldestDays(outstandingInvoices),
+      outstandingInvoices,
+    };
+  }
+
 }
+
+

@@ -631,7 +631,7 @@ export class AccountsReportsService {
     }
   }
 
-  private async generateOutstandingReport(params: OutstandingReportQueryDto) {
+  async generateOutstandingReport(params: OutstandingReportQueryDto) {
     const {
       ToDate,
       Subledger: ledgerMasterSid,
@@ -914,8 +914,8 @@ export class AccountsReportsService {
             localAmt: localAmt,
           });
 
-          totalOutstandingCurrency += outstandingCurrencyAmount;
-          totalOutstandingLocal += outstandingLocalAmount;
+          totalOutstandingCurrency += signedOriginalCurrency;
+          totalOutstandingLocal += signedOutstandingLocal;
         }
         ageingSummary.totalOutstanding = roundAmount(
           ageingSummary.totalOutstanding,
