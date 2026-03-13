@@ -11,6 +11,8 @@ interface NormalizedParams {
   salespersonEmail: string | null;
   dateFrom: string | null;
   dateTo: string | null;
+  naiveDateFrom: string | null;
+  naiveDateTo: string | null;
   page: number;
   pageSize: number;
   search: string | null;
@@ -132,6 +134,8 @@ export class SalesDashboardService {
       salespersonEmail,
       dateFrom,
       dateTo,
+      naiveDateFrom,
+      naiveDateTo,
     } = this.normalizeParams(query);
 
     const [
@@ -191,14 +195,14 @@ export class SalesDashboardService {
           AND pcmm."CompanyMasterSid" = $1
           AND pcmm."BranchMasterSid" = $2
           AND ($3::int IS NULL OR pcmm."leadAssignTo" = $3)
-          AND ($4::timestamptz IS NULL OR pcmm."followUpDate" >= $4::timestamptz)
-          AND ($5::timestamptz IS NULL OR pcmm."followUpDate" <= $5::timestamptz)
+          AND ($4::timestamp IS NULL OR pcmm."followUpDate" >= $4::timestamp)
+          AND ($5::timestamp IS NULL OR pcmm."followUpDate" <= $5::timestamp)
           AND pcmm."meetingStatus" NOT IN ('Completed', 'Confirmed')`,
         companyMasterSid,
         branchMasterSid,
         salespersonId,
-        dateFrom,
-        dateTo,
+        naiveDateFrom,
+        naiveDateTo,
       ),
       this.db.$queryRawUnsafe(
         `SELECT COUNT(DISTINCT pcm."PreCustomerMasterSid") AS "count"
@@ -207,6 +211,11 @@ export class SalesDashboardService {
           ON pcm."PreCustomerMasterSid" = pcmm."PreCustomerMasterSid"
         WHERE
           pcm."status" = 'A'
+          AND EXISTS (
+            SELECT 1 FROM "PreCustomerMeeting" pcmm3
+            WHERE pcmm3."PreCustomerMasterSid" = pcm."PreCustomerMasterSid"
+            AND pcmm3."meetingStatus" IN ('Completed', 'Confirmed')
+          )
           AND NOT EXISTS (
             SELECT 1 FROM "CustomerMaster" cm
             WHERE cm."PreCustomerMasterSid" = pcm."PreCustomerMasterSid"
@@ -214,32 +223,50 @@ export class SalesDashboardService {
           )
           AND pcm."CompanyMasterSid" = $1
           AND pcm."BranchMasterSid" = $2
-          AND ($3::int IS NULL OR pcm."leadAssignTo" = $3)
-          AND ($4::timestamptz IS NULL OR pcmm."meetingDate" >= $4::timestamptz)
-          AND ($5::timestamptz IS NULL OR pcmm."meetingDate" <= $5::timestamptz)`,
+          AND (
+            ($3::int IS NULL AND $6::text IS NULL)
+            OR pcm."createdBy" = $6
+            OR EXISTS (
+              SELECT 1 FROM "PreCustomerMeeting" pcmm4
+              WHERE pcmm4."PreCustomerMasterSid" = pcm."PreCustomerMasterSid"
+              AND pcmm4."leadAssignTo" = $3
+            )
+          )
+          AND ($4::timestamp IS NULL OR pcmm."meetingDate" >= $4::timestamp)
+          AND ($5::timestamp IS NULL OR pcmm."meetingDate" <= $5::timestamp)`,
         companyMasterSid,
         branchMasterSid,
         salespersonId,
-        dateFrom,
-        dateTo,
+        naiveDateFrom,
+        naiveDateTo,
+        salespersonEmail,
       ),
       this.db.$queryRawUnsafe(
         `SELECT COUNT(*) AS "count"
         FROM "CustomerMaster" cm
-        LEFT JOIN "QuoteHeader" qh
-          ON cm."CustomerMasterSid" = qh."CustomerMasterSid"
-        LEFT JOIN "BookingHeader" bh
-          ON cm."CustomerMasterSid" = bh."CustomerMasterSid"
-        LEFT JOIN "PreCustomerMaster" pcm
+        INNER JOIN "PreCustomerMaster" pcm
           ON cm."PreCustomerMasterSid" = pcm."PreCustomerMasterSid"
         WHERE
-          qh."QuoteHeaderSid" IS NULL
-          AND bh."BookingHeaderSid" IS NULL
-          AND cm."PreCustomerMasterSid" IS NOT NULL
-          AND cm."status" = 'A'
+          cm."status" = 'A'
           AND cm."CompanyMasterSid" = $1
           AND ($2::int IS NULL OR pcm."BranchMasterSid" = $2)
-          AND ($3::int IS NULL OR pcm."leadAssignTo" = $3)
+          AND NOT EXISTS (
+            SELECT 1 FROM "QuoteHeader" qh
+            WHERE qh."CustomerMasterSid" = cm."CustomerMasterSid"
+          )
+          AND NOT EXISTS (
+            SELECT 1 FROM "BookingHeader" bh
+            WHERE bh."CustomerMasterSid" = cm."CustomerMasterSid"
+          )
+          AND (
+            ($3::int IS NULL AND $6::text IS NULL)
+            OR pcm."createdBy" = $6
+            OR EXISTS (
+              SELECT 1 FROM "PreCustomerMeeting" pcmm
+              WHERE pcmm."PreCustomerMasterSid" = pcm."PreCustomerMasterSid"
+              AND pcmm."leadAssignTo" = $3
+            )
+          )
           AND ($4::timestamptz IS NULL OR cm."createdOn" >= $4::timestamptz)
           AND ($5::timestamptz IS NULL OR cm."createdOn" <= $5::timestamptz)`,
         companyMasterSid,
@@ -247,6 +274,7 @@ export class SalesDashboardService {
         salespersonId,
         dateFrom,
         dateTo,
+        salespersonEmail,
       ),
       this.db.$queryRawUnsafe(
         `SELECT COUNT(*) AS "count"
@@ -361,6 +389,8 @@ export class SalesDashboardService {
       salespersonEmail: query.salespersonEmail || null,
       dateFrom: query.dateFrom || null,
       dateTo: query.dateTo || null,
+      naiveDateFrom: query.naiveDateFrom || null,
+      naiveDateTo: query.naiveDateTo || null,
       page: page > 0 ? page : 1,
       pageSize: Math.min(Math.max(pageSize, 1), this.maxPageSize),
       search: query.search?.trim() || null,
@@ -612,8 +642,8 @@ export class SalesDashboardService {
       params.companyMasterSid,
       params.branchMasterSid,
       params.salespersonId,
-      params.dateFrom,
-      params.dateTo,
+      params.naiveDateFrom,
+      params.naiveDateTo,
     ];
     const search = this.buildSearchClause(
       params.search,
@@ -662,8 +692,8 @@ export class SalesDashboardService {
         AND pcmm."CompanyMasterSid" = $1
         AND pcmm."BranchMasterSid" = $2
         AND ($3::int IS NULL OR pcmm."leadAssignTo" = $3)
-        AND ($4::timestamptz IS NULL OR pcmm."followUpDate" >= $4::timestamptz)
-        AND ($5::timestamptz IS NULL OR pcmm."followUpDate" <= $5::timestamptz)
+        AND ($4::timestamp IS NULL OR pcmm."followUpDate" >= $4::timestamp)
+        AND ($5::timestamp IS NULL OR pcmm."followUpDate" <= $5::timestamp)
         AND pcmm."meetingStatus" NOT IN ('Completed', 'Confirmed')
         ${search.clause}
       ORDER BY pcmm."followUpDate" ASC`;
@@ -683,8 +713,8 @@ export class SalesDashboardService {
         AND pcmm."CompanyMasterSid" = $1
         AND pcmm."BranchMasterSid" = $2
         AND ($3::int IS NULL OR pcmm."leadAssignTo" = $3)
-        AND ($4::timestamptz IS NULL OR pcmm."followUpDate" >= $4::timestamptz)
-        AND ($5::timestamptz IS NULL OR pcmm."followUpDate" <= $5::timestamptz)
+        AND ($4::timestamp IS NULL OR pcmm."followUpDate" >= $4::timestamp)
+        AND ($5::timestamp IS NULL OR pcmm."followUpDate" <= $5::timestamp)
         AND pcmm."meetingStatus" NOT IN ('Completed', 'Confirmed')
         ${search.clause}`;
 
@@ -704,8 +734,9 @@ export class SalesDashboardService {
       params.companyMasterSid,
       params.branchMasterSid,
       params.salespersonId,
-      params.dateFrom,
-      params.dateTo,
+      params.naiveDateFrom,
+      params.naiveDateTo,
+      params.salespersonEmail,
     ];
     const search = this.buildSearchClause(
       params.search,
@@ -715,7 +746,6 @@ export class SalesDashboardService {
         `pcm."phone"`,
         `pcm."email"`,
         `pcm."leadStatus"`,
-        `um."userName"`,
       ],
       baseParams.length + 1,
     );
@@ -728,28 +758,51 @@ export class SalesDashboardService {
         pcm."phone",
         pcm."email",
         pcm."leadStatus",
-        pcm."leadAssignTo",
+        pcm."createdBy" AS "leadCreatedBy",
         pcm."createdOn" AS "leadCreatedOn",
         COUNT(pcmm."PreCustomerMeetingSid") AS "meetingCount",
         MAX(pcmm."meetingDate") AS "lastMeetingDate",
-        um."userName" AS "salespersonName"
+        CASE
+          WHEN pcm."createdBy" = $6 AND EXISTS (
+            SELECT 1 FROM "PreCustomerMeeting" pcmm2
+            WHERE pcmm2."PreCustomerMasterSid" = pcm."PreCustomerMasterSid"
+            AND pcmm2."leadAssignTo" = $3
+          ) THEN 'Created & Assigned to you'
+          WHEN pcm."createdBy" = $6 THEN 'Created by you'
+          WHEN EXISTS (
+            SELECT 1 FROM "PreCustomerMeeting" pcmm2
+            WHERE pcmm2."PreCustomerMasterSid" = pcm."PreCustomerMasterSid"
+            AND pcmm2."leadAssignTo" = $3
+          ) THEN 'Assigned to you'
+        END AS "matchedVia"
       FROM "PreCustomerMaster" pcm
       INNER JOIN "PreCustomerMeeting" pcmm
         ON pcm."PreCustomerMasterSid" = pcmm."PreCustomerMasterSid"
-      LEFT JOIN "UserMaster" um
-        ON pcm."leadAssignTo" = um."UserMasterSid"
       WHERE
         pcm."status" = 'A'
+        AND pcm."CompanyMasterSid" = $1
+        AND pcm."BranchMasterSid" = $2
+        AND EXISTS (
+          SELECT 1 FROM "PreCustomerMeeting" pcmm3
+          WHERE pcmm3."PreCustomerMasterSid" = pcm."PreCustomerMasterSid"
+          AND pcmm3."meetingStatus" IN ('Completed', 'Confirmed')
+        )
         AND NOT EXISTS (
           SELECT 1 FROM "CustomerMaster" cm
           WHERE cm."PreCustomerMasterSid" = pcm."PreCustomerMasterSid"
           AND cm."status" = 'A'
         )
-        AND pcm."CompanyMasterSid" = $1
-        AND pcm."BranchMasterSid" = $2
-        AND ($3::int IS NULL OR pcm."leadAssignTo" = $3)
-        AND ($4::timestamptz IS NULL OR pcmm."meetingDate" >= $4::timestamptz)
-        AND ($5::timestamptz IS NULL OR pcmm."meetingDate" <= $5::timestamptz)
+        AND (
+          ($3::int IS NULL AND $6::text IS NULL)
+          OR pcm."createdBy" = $6
+          OR EXISTS (
+            SELECT 1 FROM "PreCustomerMeeting" pcmm4
+            WHERE pcmm4."PreCustomerMasterSid" = pcm."PreCustomerMasterSid"
+            AND pcmm4."leadAssignTo" = $3
+          )
+        )
+        AND ($4::timestamp IS NULL OR pcmm."meetingDate" >= $4::timestamp)
+        AND ($5::timestamp IS NULL OR pcmm."meetingDate" <= $5::timestamp)
         ${search.clause}
       GROUP BY
         pcm."PreCustomerMasterSid",
@@ -758,9 +811,8 @@ export class SalesDashboardService {
         pcm."phone",
         pcm."email",
         pcm."leadStatus",
-        pcm."leadAssignTo",
-        pcm."createdOn",
-        um."userName"
+        pcm."createdBy",
+        pcm."createdOn"
       ORDER BY MAX(pcmm."meetingDate") DESC`;
 
     const countSql = `
@@ -770,20 +822,31 @@ export class SalesDashboardService {
         FROM "PreCustomerMaster" pcm
         INNER JOIN "PreCustomerMeeting" pcmm
           ON pcm."PreCustomerMasterSid" = pcmm."PreCustomerMasterSid"
-        LEFT JOIN "UserMaster" um
-          ON pcm."leadAssignTo" = um."UserMasterSid"
         WHERE
           pcm."status" = 'A'
+          AND pcm."CompanyMasterSid" = $1
+          AND pcm."BranchMasterSid" = $2
+          AND EXISTS (
+            SELECT 1 FROM "PreCustomerMeeting" pcmm3
+            WHERE pcmm3."PreCustomerMasterSid" = pcm."PreCustomerMasterSid"
+            AND pcmm3."meetingStatus" IN ('Completed', 'Confirmed')
+          )
           AND NOT EXISTS (
             SELECT 1 FROM "CustomerMaster" cm
             WHERE cm."PreCustomerMasterSid" = pcm."PreCustomerMasterSid"
             AND cm."status" = 'A'
           )
-          AND pcm."CompanyMasterSid" = $1
-          AND pcm."BranchMasterSid" = $2
-          AND ($3::int IS NULL OR pcm."leadAssignTo" = $3)
-          AND ($4::timestamptz IS NULL OR pcmm."meetingDate" >= $4::timestamptz)
-          AND ($5::timestamptz IS NULL OR pcmm."meetingDate" <= $5::timestamptz)
+          AND (
+            ($3::int IS NULL AND $6::text IS NULL)
+            OR pcm."createdBy" = $6
+            OR EXISTS (
+              SELECT 1 FROM "PreCustomerMeeting" pcmm4
+              WHERE pcmm4."PreCustomerMasterSid" = pcm."PreCustomerMasterSid"
+              AND pcmm4."leadAssignTo" = $3
+            )
+          )
+          AND ($4::timestamp IS NULL OR pcmm."meetingDate" >= $4::timestamp)
+          AND ($5::timestamp IS NULL OR pcmm."meetingDate" <= $5::timestamp)
           ${search.clause}
         GROUP BY pcm."PreCustomerMasterSid"
       ) t`;
@@ -810,6 +873,7 @@ export class SalesDashboardService {
       params.salespersonId,
       params.dateFrom,
       params.dateTo,
+      params.salespersonEmail,
     ];
     const search = this.buildSearchClause(
       params.search,
@@ -817,7 +881,7 @@ export class SalesDashboardService {
         `cm."CustomerName"`,
         `cm."CustomerAddress1"`,
         `pcm."preCustomerName"`,
-        `um."userName"`,
+        `pcm."contactPerson"`,
       ],
       baseParams.length + 1,
     );
@@ -830,25 +894,47 @@ export class SalesDashboardService {
         cm."PreCustomerMasterSid",
         cm."createdOn" AS "customerCreatedOn",
         pcm."preCustomerName",
-        pcm."leadAssignTo",
-        um."userName" AS "salespersonName"
+        pcm."contactPerson",
+        pcm."phone",
+        pcm."email",
+        pcm."createdBy" AS "leadCreatedBy",
+        CASE
+          WHEN pcm."createdBy" = $6 AND EXISTS (
+            SELECT 1 FROM "PreCustomerMeeting" pcmm2
+            WHERE pcmm2."PreCustomerMasterSid" = pcm."PreCustomerMasterSid"
+            AND pcmm2."leadAssignTo" = $3
+          ) THEN 'Created & Assigned to you'
+          WHEN pcm."createdBy" = $6 THEN 'Created by you'
+          WHEN EXISTS (
+            SELECT 1 FROM "PreCustomerMeeting" pcmm2
+            WHERE pcmm2."PreCustomerMasterSid" = pcm."PreCustomerMasterSid"
+            AND pcmm2."leadAssignTo" = $3
+          ) THEN 'Assigned to you'
+        END AS "matchedVia"
       FROM "CustomerMaster" cm
-      LEFT JOIN "QuoteHeader" qh
-        ON cm."CustomerMasterSid" = qh."CustomerMasterSid"
-      LEFT JOIN "BookingHeader" bh
-        ON cm."CustomerMasterSid" = bh."CustomerMasterSid"
-      LEFT JOIN "PreCustomerMaster" pcm
+      INNER JOIN "PreCustomerMaster" pcm
         ON cm."PreCustomerMasterSid" = pcm."PreCustomerMasterSid"
-      LEFT JOIN "UserMaster" um
-        ON pcm."leadAssignTo" = um."UserMasterSid"
       WHERE
-        qh."QuoteHeaderSid" IS NULL
-        AND bh."BookingHeaderSid" IS NULL
-        AND cm."PreCustomerMasterSid" IS NOT NULL
-        AND cm."status" = 'A'
+        cm."status" = 'A'
         AND cm."CompanyMasterSid" = $1
         AND ($2::int IS NULL OR pcm."BranchMasterSid" = $2)
-        AND ($3::int IS NULL OR pcm."leadAssignTo" = $3)
+        AND NOT EXISTS (
+          SELECT 1 FROM "QuoteHeader" qh
+          WHERE qh."CustomerMasterSid" = cm."CustomerMasterSid"
+        )
+        AND NOT EXISTS (
+          SELECT 1 FROM "BookingHeader" bh
+          WHERE bh."CustomerMasterSid" = cm."CustomerMasterSid"
+        )
+        AND (
+          ($3::int IS NULL AND $6::text IS NULL)
+          OR pcm."createdBy" = $6
+          OR EXISTS (
+            SELECT 1 FROM "PreCustomerMeeting" pcmm
+            WHERE pcmm."PreCustomerMasterSid" = pcm."PreCustomerMasterSid"
+            AND pcmm."leadAssignTo" = $3
+          )
+        )
         AND ($4::timestamptz IS NULL OR cm."createdOn" >= $4::timestamptz)
         AND ($5::timestamptz IS NULL OR cm."createdOn" <= $5::timestamptz)
         ${search.clause}
@@ -857,22 +943,29 @@ export class SalesDashboardService {
     const countSql = `
       SELECT COUNT(*) AS "count"
       FROM "CustomerMaster" cm
-      LEFT JOIN "QuoteHeader" qh
-        ON cm."CustomerMasterSid" = qh."CustomerMasterSid"
-      LEFT JOIN "BookingHeader" bh
-        ON cm."CustomerMasterSid" = bh."CustomerMasterSid"
-      LEFT JOIN "PreCustomerMaster" pcm
+      INNER JOIN "PreCustomerMaster" pcm
         ON cm."PreCustomerMasterSid" = pcm."PreCustomerMasterSid"
-      LEFT JOIN "UserMaster" um
-        ON pcm."leadAssignTo" = um."UserMasterSid"
       WHERE
-        qh."QuoteHeaderSid" IS NULL
-        AND bh."BookingHeaderSid" IS NULL
-        AND cm."PreCustomerMasterSid" IS NOT NULL
-        AND cm."status" = 'A'
+        cm."status" = 'A'
         AND cm."CompanyMasterSid" = $1
         AND ($2::int IS NULL OR pcm."BranchMasterSid" = $2)
-        AND ($3::int IS NULL OR pcm."leadAssignTo" = $3)
+        AND NOT EXISTS (
+          SELECT 1 FROM "QuoteHeader" qh
+          WHERE qh."CustomerMasterSid" = cm."CustomerMasterSid"
+        )
+        AND NOT EXISTS (
+          SELECT 1 FROM "BookingHeader" bh
+          WHERE bh."CustomerMasterSid" = cm."CustomerMasterSid"
+        )
+        AND (
+          ($3::int IS NULL AND $6::text IS NULL)
+          OR pcm."createdBy" = $6
+          OR EXISTS (
+            SELECT 1 FROM "PreCustomerMeeting" pcmm
+            WHERE pcmm."PreCustomerMasterSid" = pcm."PreCustomerMasterSid"
+            AND pcmm."leadAssignTo" = $3
+          )
+        )
         AND ($4::timestamptz IS NULL OR cm."createdOn" >= $4::timestamptz)
         AND ($5::timestamptz IS NULL OR cm."createdOn" <= $5::timestamptz)
         ${search.clause}`;

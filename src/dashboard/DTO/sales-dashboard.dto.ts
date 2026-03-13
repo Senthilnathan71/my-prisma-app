@@ -34,6 +34,16 @@ export class SalesDashboardQueryDto {
   @IsDateString()
   dateTo?: string;
 
+  @ApiProperty({ required: false, description: 'Date boundary for timestamp-without-tz columns (meetingDate, followUpDate)' })
+  @IsOptional()
+  @IsDateString()
+  naiveDateFrom?: string;
+
+  @ApiProperty({ required: false, description: 'Date boundary for timestamp-without-tz columns (meetingDate, followUpDate)' })
+  @IsOptional()
+  @IsDateString()
+  naiveDateTo?: string;
+
   @ApiProperty({ required: false, default: 1 })
   @IsOptional()
   @IsNumber()
