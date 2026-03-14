@@ -80,12 +80,12 @@ export class ShipmentSummaryReportQueryDto {
   @ApiProperty()
   @IsNotEmpty()
   @IsDateString()
-  FromJobDt: string;
+  FromHblDt: string;
 
   @ApiProperty()
   @IsNotEmpty()
   @IsDateString()
-  ToJobDt: string;
+  ToHblDt: string;
 
   @ApiProperty({ enum: ShipmentStatusEnum })
   @IsNotEmpty()
@@ -115,6 +115,11 @@ export class ShipmentSummaryReportQueryDto {
   @ApiProperty()
   @IsNotEmpty()
   JobGenerated: Boolean;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  HouseStatus?: string;
 }
 
 // Containerwise Details Report DTOs
