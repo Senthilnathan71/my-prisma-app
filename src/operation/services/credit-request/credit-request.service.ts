@@ -1028,19 +1028,7 @@ export class CreditRequestService {
 
       // Credit customer with no active approved credit request is treated as CASH.
       if (!creditLimit) {
-        return {
-          isValid: false,
-          errors: ['Credit request is not approved. Payment required before BL/DO/MAWB/HAWB release.'],
-          warnings: [],
-          creditInfo: {
-            creditLimit: 0,
-            creditDays: 0,
-            totalOutstanding: 0,
-            oldestOutstandingDays: 0,
-            availableCredit: 0,
-            utilizationPercentage: 0,
-          },
-        };
+        return this.getCashCustomerValidation(dto);
       }
 
       // Step 3: Get outstanding
@@ -1130,6 +1118,7 @@ export class CreditRequestService {
   ): Promise<BLDOValidationResult> {
     try {
       const customerType = await this.getCustomerType(dto.CustomerMasterSid);
+      let effectiveCustomerType = customerType;
       const currentDate = new Date();
       const errors: string[] = [];
       let creditLimit = 0;
@@ -1137,40 +1126,48 @@ export class CreditRequestService {
       let selectedCreditRequestSid: number | null = null;
 
       if (customerType === CustomerType.CREDIT) {
-        const creditRequest = await this.getBLDOCreditRequest(dto);
+        try {
+          const creditRequest = await this.getBLDOCreditRequest(dto);
 
-        if (!creditRequest) {
-          return {
-            IsValid: false,
-            Errors: ['No credit request found'],
-            CustomerType: customerType,
-            CreditLimit: 0,
-            CreditDays: 0,
-            RemainingCreditLimit: null,
-            TotalOutstandingLocal: 0,
-            SelectedCreditRequestSid: null,
-            ViolatingVouchers: [],
-          };
+          if (creditRequest) {
+            creditLimit = Number(creditRequest.CreditLimit || 0);
+            creditDays = Number(creditRequest.CreditDays || 0);
+            selectedCreditRequestSid = creditRequest.CustomerCreditRequestSid;
+          } else {
+            effectiveCustomerType = CustomerType.CASH;
+          }
+        } catch (error) {
+          if (error instanceof BadRequestException) {
+            effectiveCustomerType = CustomerType.CASH;
+          } else {
+            throw error;
+          }
         }
-
-        creditLimit = Number(creditRequest.CreditLimit || 0);
-        creditDays = Number(creditRequest.CreditDays || 0);
-        selectedCreditRequestSid = creditRequest.CustomerCreditRequestSid;
       }
 
       const outstandingReport = await this.getBLDOOutstandingReport(dto, currentDate);
       console.log(dto , outstandingReport);
       const totalOutstandingLocal = Number(outstandingReport.totalOutstandingLocal || 0);
-      const remainingCreditLimit = creditLimit - totalOutstandingLocal;
+      const remainingCreditLimit =
+        effectiveCustomerType === CustomerType.CREDIT ? creditLimit - totalOutstandingLocal : null;
 
-      if (totalOutstandingLocal > creditLimit) {
+      if (effectiveCustomerType === CustomerType.CASH) {
+        if (totalOutstandingLocal > 0) {
+          errors.push(
+            `Outstanding amount (Rs ${totalOutstandingLocal.toLocaleString('en-IN', {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            })}) pending for this customer. Payment required before BL/DO/MAWB/HAWB release.`,
+          );
+        }
+      } else if (totalOutstandingLocal > creditLimit) {
         errors.push(
-          `Outstanding amount (${totalOutstandingLocal.toFixed(2)}) exceeds credit limit (${creditLimit.toFixed(2)}). Remaining credit limit: ${remainingCreditLimit.toFixed(2)}`,
+          `Outstanding amount (${totalOutstandingLocal.toFixed(2)}) exceeds credit limit (${creditLimit.toFixed(2)}). Remaining credit limit: ${remainingCreditLimit?.toFixed(2)}`,
         );
       }
 
       const violatingVouchers =
-        customerType === CustomerType.CREDIT
+        effectiveCustomerType === CustomerType.CREDIT
           ? (outstandingReport.transactions || [])
               .filter((transaction) => Number(transaction.outstandingLocalAmount || 0) > 0)
               .map((transaction) => {
@@ -1196,7 +1193,7 @@ export class CreditRequestService {
       return {
         IsValid: errors.length === 0,
         Errors: errors,
-        CustomerType: customerType,
+        CustomerType: effectiveCustomerType,
         CreditLimit: creditLimit,
         CreditDays: creditDays,
         RemainingCreditLimit: remainingCreditLimit,
