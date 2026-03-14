@@ -1,6 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
 import * as ExcelJS from 'exceljs';
 import * as PDFDocument from 'pdfkit';
+import { PdfmakeNodeService } from './report-generators/pdfmake-node.service';
+import { GenericReportPdfData } from './report-generators/generic-report-pdf.generator';
+import { ComplexReportExportConfig } from './report-generators/report-interfaces';
+import { PdfCompanyInfo, PdfBranchInfo, PdfUserInfo } from './report-generators/pdf-base.interface';
 
 export interface ExcelExportConfig {
   reportName: string;
@@ -41,9 +45,47 @@ export interface PDFColumnConfig {
   width?: number;
 }
 
+// ─── Styled report interfaces (matching frontend ComplexReportExportConfig) ──
+
+export interface StyledReportCell {
+  value: string | number;
+  colspan?: number;
+}
+
+export interface StyledReportRow {
+  cells: StyledReportCell[];
+  style?: 'header' | 'data' | 'total' | 'section' | 'grandTotal';
+}
+
+export interface ReportHeaderConfig {
+  companyName: string;
+  branchName?: string;
+  address?: string;
+  phone?: string;
+  reportTitle: string;
+  additionalInfo?: { label: string; value: string }[];
+}
+
+export interface StyledReportConfig {
+  reportName: string;
+  reportHeader: ReportHeaderConfig;
+  tableHeaders: { key: string; label: string }[];
+  rows: StyledReportRow[];
+  columnWidths?: number[];
+  summaryTable?: {
+    title?: string;
+    headers: string[];
+    rows: StyledReportRow[];
+    columnWidths?: number[];
+  };
+}
+
 @Injectable()
 export class ReportExportService {
-  constructor(private logger: Logger) {}
+  constructor(
+    private logger: Logger,
+    private pdfmakeNodeService: PdfmakeNodeService,
+  ) {}
 
   /**
    * Export data to Excel format
@@ -278,6 +320,87 @@ export class ReportExportService {
       this.logger.error(`exportToPDF error: ${error}`);
       throw error;
     }
+  }
+
+  // ─── Styled Excel export — delegates to PdfmakeNodeService (frontend-identical logic) ──
+
+  async exportStyledExcel(config: StyledReportConfig): Promise<Buffer> {
+    try {
+      const exportConfig = this.toComplexReportConfig(config);
+      return this.pdfmakeNodeService.generateExcelBuffer(exportConfig);
+    } catch (error) {
+      this.logger.error(`exportStyledExcel error: ${error}`);
+      throw error;
+    }
+  }
+
+  // ─── Styled PDF export — delegates to PdfmakeNodeService (frontend-identical pdfmake) ──
+
+  async exportStyledPDF(config: StyledReportConfig): Promise<Buffer> {
+    try {
+      const data = this.toGenericReportData(config);
+      return this.pdfmakeNodeService.generatePdfBuffer(data);
+    } catch (error) {
+      this.logger.error(`exportStyledPDF error: ${error}`);
+      throw error;
+    }
+  }
+
+  // ─── Adapter: StyledReportConfig → GenericReportPdfData ──
+
+  private toGenericReportData(config: StyledReportConfig): GenericReportPdfData {
+    const company: PdfCompanyInfo = {
+      companyName: config.reportHeader.companyName,
+      addressLine1: config.reportHeader.address,
+      phoneNumber: config.reportHeader.phone,
+    };
+
+    const branch: PdfBranchInfo = {
+      branchName: config.reportHeader.branchName || '',
+      addressLine1: config.reportHeader.address,
+    };
+
+    const userData: PdfUserInfo = {
+      userName: 'System',
+    };
+
+    const exportConfig = this.toComplexReportConfig(config);
+
+    return {
+      exportConfig,
+      company,
+      branch,
+      userData,
+      orientation: 'landscape',
+    };
+  }
+
+  // ─── Adapter: StyledReportConfig → ComplexReportExportConfig ──
+
+  private toComplexReportConfig(config: StyledReportConfig): ComplexReportExportConfig {
+    return {
+      fileName: config.reportName,
+      reportHeader: {
+        companyName: config.reportHeader.companyName,
+        reportTitle: config.reportHeader.reportTitle,
+        additionalInfo: config.reportHeader.additionalInfo,
+      },
+      tableHeaders: config.tableHeaders.map(h => ({ key: h.key, label: h.label })),
+      rows: config.rows.map(r => ({
+        cells: r.cells.map(c => ({ value: c.value, colspan: c.colspan })),
+        style: r.style,
+      })),
+      columnWidths: config.columnWidths,
+      summaryTable: config.summaryTable ? {
+        title: config.summaryTable.title,
+        headers: config.summaryTable.headers,
+        rows: config.summaryTable.rows.map(r => ({
+          cells: r.cells.map(c => ({ value: c.value, colspan: c.colspan })),
+          style: r.style,
+        })),
+        columnWidths: config.summaryTable.columnWidths,
+      } : undefined,
+    };
   }
 
   /**
