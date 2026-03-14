@@ -288,4 +288,57 @@ export class TermsAndConditionsController {
             return output
         }
 
+        @ApiOperation({ summary: 'Delete Terms'})
+        @ApiCreatedResponse({
+            description: 'Delete Terms',
+            type: ResponseData
+        })
+        @HttpCode(HttpStatus.OK)
+        @Delete('delete/terms/:TandCTransactionSid')
+        async deleteTerms(@Param('TandCTransactionSid', ParseIntPipe) TandCTransactionSid: number,@Body() payload: any) {
+            let resp = new ResponseData();
+            try {
+                this.logger.log(`Deleting Terms with id : ${TandCTransactionSid}`);
+                let res = await this.termsAndConditionsServ.deleteTerms(TandCTransactionSid, payload);
+                this.logger.debug(`Deleted Terms: ${JSON.stringify(res)}`);
+                resp.data = res;
+                resp.message = `Terms with id: ${TandCTransactionSid} is successfully deleted`;
+            } catch (error) {
+                this.logger.warn(`Terms Deletion Error: ${JSON.stringify(error), error}`);
+                resp.status = false;
+                if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                    resp.message = error.message;
+                } else {
+                    resp.message = "Internal Server Error";
+                }
+            }
+            return resp;
+        }
+
+        @ApiOperation({ summary: 'Update Terms'})
+        @ApiCreatedResponse({
+            description: 'Update Terms',
+            type: ResponseData
+        })
+        @HttpCode(HttpStatus.OK)
+        @Patch('update/terms/:TandCTransactionSid')
+        async updateTerms(@Param('TandCTransactionSid', ParseIntPipe) TandCTransactionSid: number, @Body() payload:any) {
+            let resp = new ResponseData();
+            try {
+                this.logger.log(`Updating Terms with id: ${TandCTransactionSid}`);
+                let res = await this.termsAndConditionsServ.updateTerms(TandCTransactionSid, payload);
+                this.logger.debug(`Updated Terms: ${JSON.stringify(res)}`);
+                resp.data = res;
+                resp.message = `Terms with id: ${TandCTransactionSid} is successfully updated`;
+            } catch (error) {
+                this.logger.warn(`Terms Updation Error: ${JSON.stringify(error), error}`);
+                resp.status = false;
+                if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                    resp.message = error.message;
+                } else {
+                    resp.message = "Internal Server Error";
+                }
+            }
+            return resp;
+        }
 }

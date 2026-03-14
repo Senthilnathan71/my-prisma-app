@@ -590,150 +590,149 @@ export class TermsAndConditionsService {
     }
 
     
-    async createTandCTransaction(payload: any) {
+     async createTandCTransaction(payload: any) {
 
-    const {
-        CompanyMasterSid,
-        BranchMasterSid,
-        MenuMasterSid,
-        createdBy,
-        TandC,
-        IsDefaut,
-        POL,
-        POD,
-        Carrier,
-        DepartmentMasterSid,
-        DocumentSid
-    } = payload;
+        const {
+            CompanyMasterSid,
+            BranchMasterSid,
+            MenuMasterSid,
+            createdBy,
+            TandC,
+            IsDefaut,
+            POL,
+            POD,
+            Carrier,
+            DepartmentMasterSid,
+            DocumentSid
+        } = payload;
 
-    if (!CompanyMasterSid || !BranchMasterSid || !MenuMasterSid || !createdBy || !TandC) {
-        throw new BadRequestException('Missing required fields');
-    }
-
-    return await this._db.$transaction(async (tx) => {
-
-        // ✅ Normalize POL/POD (handles string or array)
-        const formattedPOL = Array.isArray(POL)
-            ? POL.map(String).sort()
-            : POL ? [String(POL)] : [];
-
-        const formattedPOD = Array.isArray(POD)
-            ? POD.map(String).sort()
-            : POD ? [String(POD)] : [];
-
-        // ✅ Normalize department
-        const inputDepartments = DepartmentMasterSid
-            ? [Number(DepartmentMasterSid)]
-            : [];
-
-        // 🔎 Find matching masters
-        const existingMasters = await tx.termsAndConditionsMaster.findMany({
-            where: {
-                OR: [
-   { CompanyMasterSid: Number(CompanyMasterSid) },
-   { CompanyMasterSid: null }
-],
-                BranchMasterSid: Number(BranchMasterSid),
-                MenuMasterSid: Number(MenuMasterSid),
-                Carrier: Carrier ?? null,
-                status: 'A',
-                POL: { equals: formattedPOL },
-                POD: { equals: formattedPOD }
-            },
-            include: {
-                departments: {
-                    where: { status: 'A' }
-                }
-            }
-        });
-
-        let master: any = null;
-
-        for (const record of existingMasters) {
-
-            const existingDeptIds = record.departments
-                .map(d => Number(d.departmentId))
-                .sort((a, b) => a - b);
-
-            const inputDeptIds = inputDepartments
-                .map(d => Number(d))
-                .sort((a, b) => a - b);
-
-            const isSameDepartments =
-                existingDeptIds.length === inputDeptIds.length &&
-                existingDeptIds.every((val, index) => val === inputDeptIds[index]);
-
-            if (isSameDepartments) {
-                master = record;
-                break;
-            }
+        if (!CompanyMasterSid || !BranchMasterSid || !MenuMasterSid || !createdBy || !TandC) {
+            throw new BadRequestException('Missing required fields');
         }
 
-        // -------------------------
-        // CREATE MASTER IF NOT FOUND
-        // -------------------------
-        if (!master) {
+        return await this._db.$transaction(async (tx) => {
 
-            master = await tx.termsAndConditionsMaster.create({
-                data: {
-                    CompanyMasterSid: Number(CompanyMasterSid),
+            // ✅ Normalize POL/POD (handles string or array)
+            const formattedPOL = Array.isArray(POL)
+                ? POL.map(String).sort()
+                : POL ? [String(POL)] : [];
+
+            const formattedPOD = Array.isArray(POD)
+                ? POD.map(String).sort()
+                : POD ? [String(POD)] : [];
+
+            // ✅ Normalize department
+            const inputDepartments = DepartmentMasterSid
+                ? [Number(DepartmentMasterSid)]
+                : [];
+
+            // 🔎 Find matching masters
+            const existingMasters = await tx.termsAndConditionsMaster.findMany({
+                where: {
+                    OR: [
+                        { CompanyMasterSid: Number(CompanyMasterSid) },
+                        { CompanyMasterSid: null }
+                    ],
                     BranchMasterSid: Number(BranchMasterSid),
                     MenuMasterSid: Number(MenuMasterSid),
                     Carrier: Carrier ?? null,
-                    POL: formattedPOL,
-                    POD: formattedPOD,
-                    createdBy,
                     status: 'A',
-
-                    ...(DepartmentMasterSid && {
-                        departments: {
-                            create: {
-                                departmentId: Number(DepartmentMasterSid),
-                                status: 'A'
-                            }
-                        }
-                    })
+                    POL: { equals: formattedPOL },
+                    POD: { equals: formattedPOD }
+                },
+                include: {
+                    departments: {
+                        where: { status: 'A' }
+                    }
                 }
             });
 
-        }
+            let master: any = null;
 
-        // -------------------------
-        // CREATE DETAIL
-        // -------------------------
-        const newDetail = await tx.termsAndConditionsDetail.create({
-            data: {
-                TermsAndConditionsMasterSid:
-                    master.TermsAndConditionsMasterSid,
-                TandC,
-                IsDefaut,
-                createdBy,
-                status: 'A'
+            for (const record of existingMasters) {
+
+                const existingDeptIds = record.departments
+                    .map(d => Number(d.departmentId))
+                    .sort((a, b) => a - b);
+
+                const inputDeptIds = inputDepartments
+                    .map(d => Number(d))
+                    .sort((a, b) => a - b);
+
+                const isSameDepartments =
+                    existingDeptIds.length === inputDeptIds.length &&
+                    existingDeptIds.every((val, index) => val === inputDeptIds[index]);
+
+                if (isSameDepartments) {
+                    master = record;
+                    break;
+                }
             }
-        });
 
-        // -------------------------
-        // CREATE TRANSACTION
-        // -------------------------
-        await tx.tandCTransaction.create({
-            data: {
-                CompanyMasterSid: Number(CompanyMasterSid),
-                TandCMasterSid: master.TermsAndConditionsMasterSid,
-                TandCDetailSid: newDetail.TermsAndConditionsDetailSid,
-                Terms: TandC,
-                DocumentSid,
-                createdBy,
-                status: 'A'
+            // -------------------------
+            // CREATE MASTER IF NOT FOUND
+            // -------------------------
+            if (!master) {
+
+                master = await tx.termsAndConditionsMaster.create({
+                    data: {
+                        CompanyMasterSid: Number(CompanyMasterSid),
+                        BranchMasterSid: Number(BranchMasterSid),
+                        MenuMasterSid: Number(MenuMasterSid),
+                        Carrier: Carrier ?? null,
+                        POL: formattedPOL,
+                        POD: formattedPOD,
+                        createdBy,
+                        status: 'A',
+
+                        ...(DepartmentMasterSid && {
+                            departments: {
+                                create: {
+                                    departmentId: Number(DepartmentMasterSid),
+                                    status: 'A'
+                                }
+                            }
+                        })
+                    }
+                });
+
             }
-        });
 
-        return newDetail;
-    });
-}
+            // -------------------------
+            // CREATE DETAIL
+            // -------------------------
+            const newDetail = await tx.termsAndConditionsDetail.create({
+                data: {
+                    TermsAndConditionsMasterSid:
+                        master.TermsAndConditionsMasterSid,
+                    TandC,
+                    IsDefaut,
+                    createdBy,
+                    status: 'A'
+                }
+            });
+
+            // -------------------------
+            // CREATE TRANSACTION
+            // -------------------------
+            await tx.tandCTransaction.create({
+                data: {
+                    CompanyMasterSid: Number(CompanyMasterSid),
+                    TandCMasterSid: master.TermsAndConditionsMasterSid,
+                    TandCDetailSid: newDetail.TermsAndConditionsDetailSid,
+                    Terms: TandC,
+                    DocumentSid: DocumentSid,
+                    createdBy,
+                    status: 'A'
+                }
+            });
+
+            return newDetail;
+        });
+    }
 
     async getTandCByCondition(payload: TandCPayload) {
   try {
-
     if (!payload.MenuMasterSid) {
       throw new Error('MenuMasterSid is required');
     }
@@ -745,7 +744,7 @@ export class TermsAndConditionsService {
         OR: [
           { POL: { has: payload.POL } },
           { POL: { equals: [] } },
-        ]
+        ],
       });
     }
 
@@ -754,7 +753,7 @@ export class TermsAndConditionsService {
         OR: [
           { POD: { has: payload.POD } },
           { POD: { equals: [] } },
-        ]
+        ],
       });
     }
 
@@ -762,8 +761,8 @@ export class TermsAndConditionsService {
       andConditions.push({
         OR: [
           { Carrier: payload.Carrier },
-          { Carrier: null }
-        ]
+          { Carrier: null },
+        ],
       });
     }
 
@@ -772,15 +771,13 @@ export class TermsAndConditionsService {
         OR: [
           {
             departments: {
-              some: { departmentId: payload.DepartmentMasterSid }
-            }
+              some: { departmentId: payload.DepartmentMasterSid },
+            },
           },
           {
-            departments: {
-              none: {}
-            }
-          }
-        ]
+            departments: { none: {} },
+          },
+        ],
       });
     }
 
@@ -788,7 +785,7 @@ export class TermsAndConditionsService {
       MenuMasterSid: payload.MenuMasterSid,
       status: 'A',
       ...(payload.BranchMasterSid && { BranchMasterSid: payload.BranchMasterSid }),
-      ...(andConditions.length && { AND: andConditions })
+      ...(andConditions.length && { AND: andConditions }),
     };
 
     const gatheredTandC = await this._db.termsAndConditionsMaster.findMany({
@@ -797,21 +794,59 @@ export class TermsAndConditionsService {
         termsAndConditionsDetail: {
           where: {
             IsDefaut: 'S',
-            status: 'A'
-          }
-        }
-      }
+            status: 'A',
+          },
+        },
+        tandCTransaction: {
+          where: {
+            DocumentSid: payload.DocumentSid,
+          },
+        },
+      },
     });
 
-    const allDetails = gatheredTandC.flatMap(t => t.termsAndConditionsDetail);
+    const allDetails: any[] = [];
 
+    for (const master of gatheredTandC) {
+      for (const detail of master.termsAndConditionsDetail) {
+        // Consider all transactions including deleted
+        let transaction = master.tandCTransaction.find(
+          t => t.TandCDetailSid === detail.TermsAndConditionsDetailSid
+        );
+
+        // Create new if no transaction exists at all
+        if (!transaction && payload.DocumentSid) {
+          transaction = await this._db.tandCTransaction.create({
+            data: {
+              CompanyMasterSid: master.CompanyMasterSid ?? 0,
+              TandCMasterSid: master.TermsAndConditionsMasterSid,
+              TandCDetailSid: detail.TermsAndConditionsDetailSid,
+              Terms: detail.TandC,
+              DocumentSid: payload.DocumentSid,
+              createdBy: 'system',
+              status: 'A',
+            },
+          });
+        }
+
+        // Push detail but do not include deleted transactions in response
+        if (transaction && transaction.status === 'A') {
+          allDetails.push({
+            ...detail,
+            TandC: transaction?.Terms ?? detail.TandC,
+            TandCTransactionSid: transaction?.TandCTransactionSid ?? null,
+          });
+        }
+      }
+    }
+
+    // Ensure uniqueness
     const unique = new Map();
     allDetails.forEach(detail => {
       unique.set(detail.TermsAndConditionsDetailSid, detail);
     });
 
     return Array.from(unique.values());
-
   } catch (error) {
     console.error('Error fetching terms and conditions:', error);
     throw new Error(`Failed to fetch terms and conditions: ${error.message}`);
@@ -820,7 +855,6 @@ export class TermsAndConditionsService {
 
     async getTandCByNCondition(payload: TandCPayload) {
   try {
-
     if (!payload.MenuMasterSid) {
       throw new Error('MenuMasterSid is required');
     }
@@ -832,7 +866,7 @@ export class TermsAndConditionsService {
         OR: [
           { POL: { has: payload.POL } },
           { POL: { equals: [] } },
-        ]
+        ],
       });
     }
 
@@ -841,7 +875,7 @@ export class TermsAndConditionsService {
         OR: [
           { POD: { has: payload.POD } },
           { POD: { equals: [] } },
-        ]
+        ],
       });
     }
 
@@ -849,8 +883,8 @@ export class TermsAndConditionsService {
       andConditions.push({
         OR: [
           { Carrier: payload.Carrier },
-          { Carrier: null }
-        ]
+          { Carrier: null },
+        ],
       });
     }
 
@@ -859,15 +893,13 @@ export class TermsAndConditionsService {
         OR: [
           {
             departments: {
-              some: { departmentId: payload.DepartmentMasterSid }
-            }
+              some: { departmentId: payload.DepartmentMasterSid },
+            },
           },
           {
-            departments: {
-              none: {}
-            }
-          }
-        ]
+            departments: { none: {} },
+          },
+        ],
       });
     }
 
@@ -875,7 +907,7 @@ export class TermsAndConditionsService {
       MenuMasterSid: payload.MenuMasterSid,
       status: 'A',
       ...(payload.BranchMasterSid && { BranchMasterSid: payload.BranchMasterSid }),
-      ...(andConditions.length && { AND: andConditions })
+      ...(andConditions.length && { AND: andConditions }),
     };
 
     const gatheredTandC = await this._db.termsAndConditionsMaster.findMany({
@@ -884,21 +916,59 @@ export class TermsAndConditionsService {
         termsAndConditionsDetail: {
           where: {
             IsDefaut: 'N',
-            status: 'A'
-          }
-        }
-      }
+            status: 'A',
+          },
+        },
+        tandCTransaction: {
+          where: {
+            DocumentSid: payload.DocumentSid,
+          },
+        },
+      },
     });
 
-    const allDetails = gatheredTandC.flatMap(t => t.termsAndConditionsDetail);
+    const allDetails: any[] = [];
 
+    for (const master of gatheredTandC) {
+      for (const detail of master.termsAndConditionsDetail) {
+        // Consider all transactions including deleted
+        let transaction = master.tandCTransaction.find(
+          t => t.TandCDetailSid === detail.TermsAndConditionsDetailSid
+        );
+
+        // Create new if no transaction exists at all
+        if (!transaction && payload.DocumentSid) {
+          transaction = await this._db.tandCTransaction.create({
+            data: {
+              CompanyMasterSid: master.CompanyMasterSid ?? 0,
+              TandCMasterSid: master.TermsAndConditionsMasterSid,
+              TandCDetailSid: detail.TermsAndConditionsDetailSid,
+              Terms: detail.TandC,
+              DocumentSid: payload.DocumentSid,
+              createdBy: 'system',
+              status: 'A',
+            },
+          });
+        }
+
+        // Push detail but do not include deleted transactions in response
+        if (transaction && transaction.status === 'A') {
+          allDetails.push({
+            ...detail,
+            TandC: transaction?.Terms ?? detail.TandC,
+            TandCTransactionSid: transaction?.TandCTransactionSid ?? null,
+          });
+        }
+      }
+    }
+
+    // Ensure uniqueness
     const unique = new Map();
     allDetails.forEach(detail => {
       unique.set(detail.TermsAndConditionsDetailSid, detail);
     });
 
     return Array.from(unique.values());
-
   } catch (error) {
     console.error('Error fetching terms and conditions:', error);
     throw new Error(`Failed to fetch terms and conditions: ${error.message}`);
@@ -906,29 +976,90 @@ export class TermsAndConditionsService {
 }
 
     async getAllMenus() {
-    try {
+        try {
 
-        const allowedMenuCodes = [
-            'BKN','AMA','RET','HBL','JV','PA','HJB','MA1','MA2',
-            'RV','CN','SC2','VI','VCN','RAT','QUA'
-        ];
+            const allowedMenuCodes = [
+                'BKN', 'AMA', 'RET', 'HBL', 'JV', 'PA', 'HJB', 'MA1', 'MA2',
+                'RV', 'CN', 'SC2', 'VI', 'VCN', 'RAT', 'QUA'
+            ];
 
-       
 
-        const menuList = await this._db.menuMaster.findMany({
-            where: {
-                status: 'A',
-                MenuCode: { in: allowedMenuCodes },
-            }
-        });
 
-        return menuList;
+            const menuList = await this._db.menuMaster.findMany({
+                where: {
+                    status: 'A',
+                    MenuCode: { in: allowedMenuCodes },
+                }
+            });
 
-    } catch (error) {
-        console.error('getAllMenus error:', error);
-        throw error;
+            return menuList;
+        } catch (error) {
+            console.error('getAllMenus error:', error);
+            throw error;
+        }
     }
-}
+
+    async deleteTerms(TandCTransactionSid: number, payload: any) {
+        try {
+            console.log("Delete params:", TandCTransactionSid, payload);
+            const exist = await this._db.tandCTransaction.findFirst({
+                where: {
+                    TandCTransactionSid: TandCTransactionSid,
+                    status: 'A',
+                    DocumentSid: payload.DocumentSid
+                }
+            });
+
+            if (!exist) {
+                throw new BadRequestException(`Terms with Id : ${TandCTransactionSid} not exists`);
+            }
+
+            if (exist.status === 'D') {
+                throw new BadRequestException(`Terms with Id : ${TandCTransactionSid} is already deleted`);
+            }
+
+            return await this._db.$transaction(async (tx) => {
+                const deletedTerms = await tx.tandCTransaction.update({
+                    where: {
+                        TandCTransactionSid: TandCTransactionSid
+                    },
+                    data: {
+                        status: 'D'
+                    }
+                });
+
+                return deletedTerms;
+            });
+        } catch (error) {
+            throw new Error(`Error deleting terms: ${error.message}`);
+        }
+    }
+
+    async updateTerms(TandCTransactionSid: number, payload) {
+        try {
+            const exist = await this._db.tandCTransaction.findUnique({
+                where: {
+                    TandCTransactionSid: TandCTransactionSid,
+                    status: 'A',
+                    DocumentSid: payload.DocumentSid
+                }
+            })
+            if (!exist) {
+                throw new BadRequestException(`Terms with Id : ${TandCTransactionSid} not exists`);
+            }
+            const updatedTerms = await this._db.tandCTransaction.update({
+                where: {
+                    TandCTransactionSid: TandCTransactionSid
+                },
+                data: {
+                    Terms: payload.Terms
+                }
+            })
+            return updatedTerms;
+        } catch (error) {
+            throw error;
+        }
+    }
 }
 
 interface TandCPayload {
@@ -938,4 +1069,5 @@ interface TandCPayload {
     POD?: string;
     Carrier?: number;
     DepartmentMasterSid?: number;
+    DocumentSid?: number;
 }
