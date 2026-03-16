@@ -220,7 +220,9 @@ export class PaymentService {
                         Sno : 'asc'
                     }
                 },
-                SourceMatchingDetail : true,
+                SourceMatchingDetail : {
+                    orderBy : { Sno : 'asc' }
+                },
                 voucherMatchingHeader : {
                     select : {
                         VoucherMatchingHeaderSid : true,
@@ -851,7 +853,9 @@ export class PaymentService {
                         subledgerMaster : {
                             select : {SubledgerName : true}
                         },
-                        SourceMatchingDetail: true,
+                        SourceMatchingDetail: {
+                            orderBy: { Sno: 'asc' }
+                        },
                         voucherTypeMaster: true
                     }
                 })
@@ -894,13 +898,6 @@ export class PaymentService {
 
                 // Taking party amount from detail
                 const allPartyDetails = VoucherDetail.filter(d => d.LedgerMasterSid === voucher.PartyMasterSid);
-                const detailPartyAmount = toNumber((allPartyDetails || []).reduce((sum, detail) => {
-                    if (detail.DrCr === 'D') {
-                        return sum + Number(detail.PartyAmount);
-                    }
-                    return sum - Number(detail.PartyAmount);
-                },
-                    0).toFixed(2));
 
                 // Taking total party amount from matching
                 const billMatchingPartyAmount = toNumber((SourceMatchingDetail || []).reduce((sum, matching) => {
@@ -910,9 +907,6 @@ export class PaymentService {
                     return sum - Number(matching.PartyAmount);
                 }, 0).toFixed(2));
 
-                const detailLocalAmount = toNumber(allPartyDetails.reduce((sum, detail) => {
-                    return detail.DrCr === 'D' ? sum + toNumber(detail.LocalAmount) : sum - toNumber(detail.LocalAmount);
-                },0).toFixed(2));
 
                 const billMatchingLocalAmount = toNumber((SourceMatchingDetail || []).reduce((sum, matching) => {
                     if(matching.DrCr === 'C'){
@@ -921,16 +915,18 @@ export class PaymentService {
                     return sum - Number(matching.MatchingLocalAmount);
                 }, 0).toFixed(2));
 
+                // Proportional local amount for matched currency at payment's exchange rate
+                const matchedLocalAmount = toNumber((billMatchingPartyAmount * toNumber(voucher.ExchangeRate || 1)).toFixed(2));
 
                 const allDetails = [...VoucherDetail];
 
                 let partyExchangeJvDetail : any = null;
 
-                if(detailPartyAmount && billMatchingPartyAmount && detailPartyAmount === billMatchingPartyAmount){
-                    if(billMatchingLocalAmount !== detailLocalAmount){
+                if(billMatchingPartyAmount > 0){
+                    if(billMatchingLocalAmount !== matchedLocalAmount){
                         // Exchange gain or loss exists
-                        const difference = Math.abs(billMatchingLocalAmount - detailLocalAmount);
-                        const isGain = billMatchingLocalAmount < detailLocalAmount;
+                        const difference = Math.abs(billMatchingLocalAmount - matchedLocalAmount);
+                        const isGain = billMatchingLocalAmount < matchedLocalAmount;
                         const coaMasterSid = toNumber(await this.companyConfigService.getConfigurationValue(payload.companyMasterSid, 'ExchangeJVCOA'));
 
                         if(!coaMasterSid){
@@ -1080,10 +1076,9 @@ export class PaymentService {
 
                 await tx.matchingDetail.deleteMany({
                     where: {
-                        AND: [
-                            { MatchingAmount: { equals: 0 } },
-                            { MatchingLocalAmount: { equals: 0 } },
-                        ]
+                        SourceVoucherHeaderSid: voucher.VoucherHeaderSid,
+                        MatchingAmount: { equals: 0 },
+                        MatchingLocalAmount: { equals: 0 },
                     }
                 })
 
@@ -1119,6 +1114,7 @@ export class PaymentService {
                             Amount: matching.MatchingAmount,
                             LocalAmount: matching.MatchingLocalAmount,
                             PartyAmount : matching.PartyAmount,
+                            MatchingCurrency: matching.MatchingCurrency,
                         }
                     })
                 );
@@ -1127,11 +1123,32 @@ export class PaymentService {
 
                     // Adjust Party Detail Amount
                     partyDetail.Amount = billMatchingPartyAmount;
-                    partyDetail.LocalAmount = billMatchingLocalAmount;
+                    partyDetail.LocalAmount = matchedLocalAmount;
                     const allSourceDetails = [partyDetail];
                     const partyRowFromExJv = (allCompleteDetails || []).find(d => d.VoucherDetailSid === partyExchangeJvDetail?.VoucherDetailSid);
-                    if(partyRowFromExJv){
-                        allSourceDetails.push(partyRowFromExJv);
+                    if (partyRowFromExJv) {
+                        if (partyRowFromExJv.DrCr === partyDetail.DrCr) {
+                            // Same DrCr as party → stays on Source side
+                            allSourceDetails.push(partyRowFromExJv);
+                        } else {
+                            // Different DrCr → move to Object side
+                            allValidMatchings.push({
+                                MatchingDetailSid: 0,
+                                VoucherHeaderSid: voucher.VoucherHeaderSid,
+                                VoucherDetailSid: partyRowFromExJv.VoucherDetailSid,
+                                VoucherTransactionSid: partyRowFromExJv.VoucherTransactionSid,
+                                VoucherType: voucherTypeMaster.VoucherTypeMasterSid,
+                                COAMasterSid: partyRowFromExJv.COAMasterSid,
+                                LedgerMasterSid: partyRowFromExJv.LedgerMasterSid,
+                                CurrencyCode: partyRowFromExJv.CurrencyCode,
+                                ExchangeRate: partyRowFromExJv.ExchangeRate,
+                                DrCr: partyRowFromExJv.DrCr,
+                                Amount: partyRowFromExJv.Amount,
+                                LocalAmount: partyRowFromExJv.LocalAmount,
+                                PartyAmount: partyRowFromExJv.PartyAmount,
+                                MatchingCurrency: null,
+                            });
+                        }
                     }
 
                     newVoucherMatchings = await this.voucherService.createVoucherMatching({
@@ -1150,11 +1167,20 @@ export class PaymentService {
                         partyVoucherDetail: allSourceDetails,
                         BillMatchingCurrencyAmount: billMatchingPartyAmount,
                         BillMatchingLocalAmount: billMatchingLocalAmount,
-
+                        LocalCurrencyMasterSid: payload.localCurrencyMasterSid,
                     }, tx);
+
+                    // Fix 5: Link MatchingDetail to new VoucherMatchingHeaderSid
+                    if (newVoucherMatchings?.VoucherMatchingHeaderSid) {
+                        const matchingDetailSids = filteredDetails.map(d => d.MatchingDetailSid);
+                        await tx.matchingDetail.updateMany({
+                            where: { MatchingDetailSid: { in: matchingDetailSids } },
+                            data: { VoucherMatchingHeaderSid: newVoucherMatchings.VoucherMatchingHeaderSid }
+                        });
+                    }
                 } else if(billMatchingPartyAmount === 0) {
-                    //NOTE - if a receipt is matched with another receipt 
-                    // Scenerio 1. Receipt in matching - 200 USD , Invoice in matching - 200 USD  // Here net will be 0
+                    //NOTE - if a payment is matched with another payment
+                    // Scenerio 1. Payment in matching - 200 USD , Invoice in matching - 200 USD  // Here net will be 0
                     // But still we need to create a matching record
                     if (allValidMatchings.length > 0 ) {
                         // Adjust Party Detail Amount
@@ -1164,7 +1190,26 @@ export class PaymentService {
                             const allSourceDetails = [partyDetail];
                             const partyRowFromExJv = (allCompleteDetails || []).find(d => d.VoucherDetailSid === partyExchangeJvDetail?.VoucherDetailSid);
                             if (partyRowFromExJv) {
-                                allSourceDetails.push(partyRowFromExJv);
+                                if (partyRowFromExJv.DrCr === partyDetail.DrCr) {
+                                    allSourceDetails.push(partyRowFromExJv);
+                                } else {
+                                    allValidMatchings.push({
+                                        MatchingDetailSid: 0,
+                                        VoucherHeaderSid: voucher.VoucherHeaderSid,
+                                        VoucherDetailSid: partyRowFromExJv.VoucherDetailSid,
+                                        VoucherTransactionSid: partyRowFromExJv.VoucherTransactionSid,
+                                        VoucherType: voucherTypeMaster.VoucherTypeMasterSid,
+                                        COAMasterSid: partyRowFromExJv.COAMasterSid,
+                                        LedgerMasterSid: partyRowFromExJv.LedgerMasterSid,
+                                        CurrencyCode: partyRowFromExJv.CurrencyCode,
+                                        ExchangeRate: partyRowFromExJv.ExchangeRate,
+                                        DrCr: partyRowFromExJv.DrCr,
+                                        Amount: partyRowFromExJv.Amount,
+                                        LocalAmount: partyRowFromExJv.LocalAmount,
+                                        PartyAmount: partyRowFromExJv.PartyAmount,
+                                        MatchingCurrency: null,
+                                    });
+                                }
                             }
                             newVoucherMatchings = await this.voucherService.createVoucherMatching({
                                 CompanyMasterSid: payload.companyMasterSid,
@@ -1182,7 +1227,17 @@ export class PaymentService {
                                 partyVoucherDetail: allSourceDetails,
                                 BillMatchingCurrencyAmount: billMatchingPartyAmount,
                                 BillMatchingLocalAmount: billMatchingLocalAmount,
+                                LocalCurrencyMasterSid: payload.localCurrencyMasterSid,
                             }, tx);
+
+                            // Fix 5: Link MatchingDetail to new VoucherMatchingHeaderSid
+                            if (newVoucherMatchings?.VoucherMatchingHeaderSid) {
+                                const matchingDetailSids = filteredDetails.map(d => d.MatchingDetailSid);
+                                await tx.matchingDetail.updateMany({
+                                    where: { MatchingDetailSid: { in: matchingDetailSids } },
+                                    data: { VoucherMatchingHeaderSid: newVoucherMatchings.VoucherMatchingHeaderSid }
+                                });
+                            }
                         } else {
                             throw new BadRequestException('Please make sure the net bill matching local amount is 0');
                         }
