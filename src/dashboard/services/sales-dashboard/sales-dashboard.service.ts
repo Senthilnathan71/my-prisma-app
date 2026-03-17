@@ -1479,19 +1479,41 @@ export class SalesDashboardService {
       dateFrom,
       dateTo,
     } = this.normalizeParams(query);
-
     const [quoteResults, bookingResults] = await Promise.all([
       this.db.$queryRawUnsafe(
         `SELECT
           COUNT(*) AS "totalQuotes",
-          COUNT(*) FILTER (WHERE qh."authorizerStatus"::text = 'Approved') AS "approvedQuotes",
-          COUNT(*) FILTER (WHERE qh."authorizerStatus"::text = 'Pending') AS "pendingQuotes",
-          COUNT(*) FILTER (WHERE qh."authorizerStatus"::text = 'Rejected') AS "rejectedQuotes",
-          COUNT(*) FILTER (WHERE qh."authorizerStatus"::text IN ('WaitingForFinalApproval', 'WaitingForCustomerApproval')) AS "waitingQuotes",
+          COUNT(*) FILTER (WHERE qs."quoteStatus" = 'Approved') AS "approvedQuotes",
+          COUNT(*) FILTER (WHERE qs."quoteStatus" = 'Open') AS "openQuotes",
+          COUNT(*) FILTER (WHERE qs."quoteStatus" = 'Pending') AS "pendingQuotes",
+          COUNT(*) FILTER (WHERE qs."quoteStatus" = 'Rejected') AS "rejectedQuotes",
+          COUNT(*) FILTER (WHERE qs."quoteStatus" = 'Waiting') AS "waitingQuotes",
+          COUNT(*) FILTER (WHERE qs."quoteStatus" = 'Other') AS "otherQuotes",
           COUNT(*) FILTER (WHERE qh."BookingHeaderSid" IS NOT NULL) AS "quotesWithBooking",
           COUNT(*) FILTER (WHERE qh."EnquirySid" IS NOT NULL) AS "quotesFromEnquiry",
           COUNT(*) FILTER (WHERE qh."EnquirySid" IS NULL) AS "directQuotes"
         FROM "QuoteHeader" qh
+        LEFT JOIN LATERAL (
+          SELECT CASE
+            WHEN carrier_flags."hasApproved" THEN 'Approved'
+            WHEN carrier_flags."allRejected" THEN 'Rejected'
+            WHEN carrier_flags."hasOpen" THEN 'Open'
+            WHEN carrier_flags."hasWaiting" THEN 'Waiting'
+            WHEN carrier_flags."hasPending" THEN 'Pending'
+            ELSE 'Other'
+          END AS "quoteStatus"
+          FROM (
+            SELECT
+              BOOL_OR(qc."ApprovalStatus"::text = 'Approved') AS "hasApproved",
+              BOOL_OR(qc."ApprovalStatus"::text = 'Open') AS "hasOpen",
+              BOOL_OR(qc."ApprovalStatus"::text = 'Pending') AS "hasPending",
+              BOOL_OR(qc."ApprovalStatus"::text IN ('WaitingForFinalApproval', 'WaitingForCustomerApproval')) AS "hasWaiting",
+              COUNT(*) > 0 AND BOOL_AND(qc."ApprovalStatus"::text = 'Rejected') AS "allRejected"
+            FROM "QuoteCarrier" qc
+            WHERE qc."QuoteHeaderSid" = qh."QuoteHeaderSid"
+              AND COALESCE(qc."status", 'A') = 'A'
+          ) carrier_flags
+        ) qs ON true
         WHERE
           qh."status" = 'A'
           AND qh."CompanyMasterSid" = $1
@@ -1510,10 +1532,27 @@ export class SalesDashboardService {
           COUNT(*) AS "totalBookings",
           COUNT(*) FILTER (WHERE bh."QuotationHeaderSid" IS NOT NULL) AS "bookingsFromQuote",
           COUNT(*) FILTER (WHERE bh."QuotationHeaderSid" IS NULL) AS "directBookings",
-          COUNT(*) FILTER (WHERE bh."ShipmentType" = 'FCL') AS "fclBookings",
-          COUNT(*) FILTER (WHERE bh."ShipmentType" = 'LCL') AS "lclBookings",
-          COUNT(*) FILTER (WHERE bh."ShipmentType" = 'AIR') AS "airBookings"
+          COUNT(*) FILTER (
+            WHERE CASE
+              WHEN UPPER(COALESCE(dm."departmentType", '')) = 'AIR' THEN 'AIR'
+              ELSE UPPER(COALESCE(dm."FCLLCL", ''))
+            END = 'FCL'
+          ) AS "fclBookings",
+          COUNT(*) FILTER (
+            WHERE CASE
+              WHEN UPPER(COALESCE(dm."departmentType", '')) = 'AIR' THEN 'AIR'
+              ELSE UPPER(COALESCE(dm."FCLLCL", ''))
+            END = 'LCL'
+          ) AS "lclBookings",
+          COUNT(*) FILTER (
+            WHERE CASE
+              WHEN UPPER(COALESCE(dm."departmentType", '')) = 'AIR' THEN 'AIR'
+              ELSE UPPER(COALESCE(dm."FCLLCL", ''))
+            END = 'AIR'
+          ) AS "airBookings"
         FROM "BookingHeader" bh
+        LEFT JOIN "DepartmentMaster" dm
+          ON bh."DepartmentMasterSid" = dm."DepartmentMasterSid"
         WHERE
           bh."status" = 'A'
           AND bh."CompanyMasterSid" = $1
@@ -1536,9 +1575,11 @@ export class SalesDashboardService {
       quotes: {
         totalQuotes: Number(quotes.totalQuotes) || 0,
         approvedQuotes: Number(quotes.approvedQuotes) || 0,
+        openQuotes: Number(quotes.openQuotes) || 0,
         pendingQuotes: Number(quotes.pendingQuotes) || 0,
         rejectedQuotes: Number(quotes.rejectedQuotes) || 0,
         waitingQuotes: Number(quotes.waitingQuotes) || 0,
+        otherQuotes: Number(quotes.otherQuotes) || 0,
         quotesWithBooking: Number(quotes.quotesWithBooking) || 0,
         quotesFromEnquiry: Number(quotes.quotesFromEnquiry) || 0,
         directQuotes: Number(quotes.directQuotes) || 0,
