@@ -1017,7 +1017,9 @@ export class ReceiptService {
           if(billMatchingLocalAmount !== matchedLocalAmount){
             // Exchange gain or loss exists
             const difference = Math.abs(billMatchingLocalAmount - matchedLocalAmount);
-            const isGain = billMatchingLocalAmount < matchedLocalAmount;
+            const isFreightForwarderGain = matchedLocalAmount > billMatchingLocalAmount;
+            const exchangeJvNarrationType = isFreightForwarderGain ? 'Gain' : 'Loss';
+            const partyNarrationType = isFreightForwarderGain ? 'Loss' : 'Gain';
             const coaMasterSid = toNumber(await this.companyConfigService.getConfigurationValue(payload.companyMasterSid, 'ExchangeJVCOA'));
 
             if(!coaMasterSid){
@@ -1040,7 +1042,7 @@ export class ReceiptService {
                 DepartmentMasterSid: voucher.DepartmentMasterSid,
                 HouseJobSid: voucher.HouseJobSid,
                 MasterJobSid: voucher.MasterJobSid,
-                CostRevenue: isGain ? 'Cost' : 'Revenue',
+                CostRevenue: isFreightForwarderGain ? 'Cost' : 'Revenue',
                 CurrencyMasterSid: payload.localCurrencyMasterSid,
                 CurrencyCode: payload.localCurrencyCode,
                 NumberOfUnit: 1,
@@ -1049,8 +1051,8 @@ export class ReceiptService {
                 Amount: difference,
                 LocalAmount: difference,
                 TaxableAmount: 0,
-                DrCr: isGain ? 'C' : 'D',
-                Narration: `Exchange ${isGain ? 'Gain' : 'Loss'} adjustment for receipt ${voucher.VoucherNumber}`,
+                DrCr: isFreightForwarderGain ? 'C' : 'D',
+                Narration: `Exchange ${exchangeJvNarrationType} adjustment for receipt ${voucher.VoucherNumber}`,
                 TaxPercentage1: 0,
                 TaxAmount1: 0,
                 TaxPercentage2: 0,
@@ -1077,7 +1079,7 @@ export class ReceiptService {
                 DepartmentMasterSid: voucher.DepartmentMasterSid ?? null,
                 HouseJobSid: voucher.HouseJobSid ?? null,
                 MasterJobSid: voucher.MasterJobSid ?? null,
-                CostRevenue: isGain ? 'Cost' : 'Revenue',
+                CostRevenue: isFreightForwarderGain ? 'Cost' : 'Revenue',
                 CurrencyMasterSid : voucher.CurrencyMasterSid!,
                 CurrencyCode : voucher.CurrencyCode!,
                 NumberOfUnit : 1,
@@ -1086,8 +1088,8 @@ export class ReceiptService {
                 Amount : 0,
                 LocalAmount : difference,
                 TaxableAmount : 0,
-                DrCr : isGain ? 'D' : 'C',
-                Narration : `Exchange ${isGain ? 'Gain' : 'Loss'} adjustment for party ${voucher.PartyName}`,
+                DrCr : isFreightForwarderGain ? 'D' : 'C',
+                Narration : `Exchange ${partyNarrationType} adjustment for party ${voucher.PartyName}`,
                 TaxPercentage1 : 0,
                 TaxAmount1 : 0,
                 TaxPercentage2 : 0,

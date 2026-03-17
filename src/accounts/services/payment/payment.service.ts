@@ -956,6 +956,8 @@ export class PaymentService {
                         // Exchange gain or loss exists
                         const difference = Math.abs(billMatchingLocalAmount - matchedLocalAmount);
                         const isGain = billMatchingLocalAmount < matchedLocalAmount;
+                        const exchangeJvNarrationType = isGain ? 'Loss' : 'Gain';
+                        const partyNarrationType = isGain ? 'Gain' : 'Loss';
                         const coaMasterSid = toNumber(await this.companyConfigService.getConfigurationValue(payload.companyMasterSid, 'ExchangeJVCOA'));
 
                         if(!coaMasterSid){
@@ -988,7 +990,7 @@ export class PaymentService {
                                 LocalAmount: difference,
                                 TaxableAmount: 0,
                                 DrCr: isGain ? 'D' : 'C',
-                                Narration: `Exchange ${isGain ? 'Loss' : 'Gain'} adjustment for receipt ${voucher.VoucherNumber}`,
+                                Narration: `Exchange ${exchangeJvNarrationType} adjustment for payment ${voucher.VoucherNumber}`,
                                 TaxPercentage1: 0,
                                 TaxAmount1: 0,
                                 TaxPercentage2: 0,
@@ -1025,7 +1027,7 @@ export class PaymentService {
                                 LocalAmount : difference,
                                 TaxableAmount : 0,
                                 DrCr : isGain ? 'C' : 'D',
-                                Narration : `Exchange ${isGain ? 'Loss' : 'Gain'} adjustment for party ${voucher.PartyName}`,
+                                Narration : `Exchange ${partyNarrationType} adjustment for party ${voucher.PartyName}`,
                                 TaxPercentage1 : 0,
                                 TaxAmount1 : 0,
                                 TaxPercentage2 : 0,
