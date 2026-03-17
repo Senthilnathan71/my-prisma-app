@@ -15,6 +15,7 @@ import { OperationModule } from './operation/operation.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { SettingsModule } from './settings/settings.module';
 import { OcrModule } from './ocr/ocr.module';
+import { DashboardModule } from './dashboard/dashboard.module';
 import { ReportScheduleModule } from './report-schedule/report-schedule.module';
 
 @Module({
@@ -31,6 +32,7 @@ import { ReportScheduleModule } from './report-schedule/report-schedule.module';
     OperationModule,
     SettingsModule,
     OcrModule,
+    DashboardModule,
     ReportScheduleModule,
     ScheduleModule.forRoot(),
   ],
