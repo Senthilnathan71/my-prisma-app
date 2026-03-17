@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import * as moment from 'moment-timezone';
 import { statusWhereClause } from 'src/common/helper';
@@ -14,6 +14,7 @@ export class AgentMasterAirWaybillService {
     private readonly houseJobService: HouseJobService,
     private readonly menuService: MenuService,
     private readonly numberSeriesService: NumberSeriesService,
+    private logger: Logger
   ) {}
 
   private async getAgentMasterAirWaybillMenuSid() {
@@ -267,4 +268,160 @@ export class AgentMasterAirWaybillService {
       return deleted;
     });
   }
+
+  async getAuditLogs(tableName: string, recordId?: string) {
+  try {
+    let conditions: any[] = [];
+
+    // HOUSE JOB LOG
+    if (tableName === 'HouseJob' && recordId) {
+      const houseJobSid = Number(recordId);
+
+      const houseJob = await this._db.houseJob.findUnique({
+        where: { HouseJobSid: houseJobSid },
+        select: {
+          HouseJobSid: true,
+          MasterJobSid: true,
+          JobType: true,
+        },
+      });
+
+      if (!houseJob || String(houseJob.JobType || '').toLowerCase() !== 'agent') {
+        throw new NotFoundException(`Agent Master Air Waybill with ID ${houseJobSid} not found.`);
+      }
+
+      const [
+        cargo,
+        product,
+        connection,
+        others,
+        boe,
+        vehicle,
+        customs,
+        charges,
+      ] = await Promise.all([
+        this._db.houseJobCargo.findMany({
+          where: { HouseJobSid: houseJobSid },
+          select: { HouseJobCargoSid: true }
+        }),
+
+        this._db.houseJobProduct.findMany({
+          where: { HouseJobSid: houseJobSid },
+          select: { HouseJobProductSid: true }
+        }),
+
+        this._db.houseJobConnection.findMany({
+          where: { HouseJobSid: houseJobSid },
+          select: { HouseJobConnectionSid: true }
+        }),
+
+        this._db.houseJobOthers.findMany({
+          where: { HouseJobSid: houseJobSid },
+          select: { HouseJobOthersSid: true }
+        }),
+
+        this._db.houseJobBOE.findMany({
+          where: { HouseJobSid: houseJobSid },
+          select: { HouseJobBOESid: true }
+        }),
+
+        this._db.houseJobVehicle.findMany({
+          where: { HouseJobSid: houseJobSid },
+          select: { HouseJobVehicleSid: true }
+        }),
+
+        this._db.houseJobCustoms.findMany({
+          where: { HouseJobSid: houseJobSid },
+          select: { HouseJobCustomsSid: true }
+        }),
+
+        this._db.costRevenueCharges.findMany({
+          where: { TransactionSid: houseJobSid },
+          select: { CostRevenueChargesSid: true }
+        })
+      ]);
+
+      conditions = [
+        {
+          tableName: 'HouseJob',
+          recordId: recordId
+        },
+
+        ...(houseJob.MasterJobSid
+          ? [{
+              tableName: 'MasterJob',
+              recordId: houseJob.MasterJobSid.toString()
+            }]
+          : []),
+
+        ...(cargo.length
+          ? [{
+              tableName: 'HouseJobCargo',
+              recordId: { in: cargo.map(x => x.HouseJobCargoSid.toString()) }
+            }]
+          : []),
+
+        ...(product.length
+          ? [{
+              tableName: 'HouseJobProduct',
+              recordId: { in: product.map(x => x.HouseJobProductSid.toString()) }
+            }]
+          : []),
+        ...(connection.length
+          ? [{
+              tableName: 'HouseJobConnection',
+              recordId: { in: connection.map(x => x.HouseJobConnectionSid.toString()) }
+            }]
+          : []),
+        ...(others.length
+          ? [{
+              tableName: 'HouseJobOthers',
+              recordId: { in: others.map(x => x.HouseJobOthersSid.toString()) }
+            }]
+          : []),
+        ...(boe.length
+          ? [{
+              tableName: 'HouseJobBOE',
+              recordId: { in: boe.map(x => x.HouseJobBOESid.toString()) }
+            }]
+          : []),
+        ...(vehicle.length
+          ? [{
+              tableName: 'HouseJobVehicle',
+              recordId: { in: vehicle.map(x => x.HouseJobVehicleSid.toString()) }
+            }]
+          : []),
+        ...(customs.length
+          ? [{
+              tableName: 'HouseJobCustoms',
+              recordId: { in: customs.map(x => x.HouseJobCustomsSid.toString()) }
+            }]
+          : []),
+        ...(charges.length
+          ? [{
+              tableName: 'CostRevenueCharges',
+              recordId: { in: charges.map(x => x.CostRevenueChargesSid.toString()) }
+            }]
+          : [])
+      ];
+    } else {
+      conditions = [{
+        tableName,
+        ...(recordId && { recordId })
+      }];
+    }
+    const logs = await this._db.auditLog.findMany({
+      where: {
+        OR: conditions
+      },
+      orderBy: {
+        changedAt: 'desc'
+      }
+    });
+    return logs;
+  } catch (error) {
+    this.logger.warn(`getAuditLogsError: ${error}`);
+    throw new Error(`Error fetching audit logs: ${error.message}`);
+  }
+}
 }

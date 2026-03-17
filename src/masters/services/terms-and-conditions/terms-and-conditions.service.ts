@@ -980,7 +980,7 @@ export class TermsAndConditionsService {
 
             const allowedMenuCodes = [
                 'BKN', 'AMA', 'RET', 'HBL', 'JV', 'PA', 'HJB', 'MA1', 'MA2',
-                'RV', 'CN', 'SC2', 'VI', 'VCN', 'RAT', 'QUA'
+                'RV', 'CN', 'SC2', 'VI', 'VCN', 'RAT', 'QUA', '25'
             ];
 
 

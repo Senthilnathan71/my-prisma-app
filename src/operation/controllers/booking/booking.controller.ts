@@ -502,7 +502,7 @@ export class BookingController {
         try {
           if (!tableName) throw new Error('tableName query parameter is required');
     
-          const logs = await this.bookingService.getAuditLogs(tableName, recordId);
+          const logs = await this.bookingService.getAuditLogsBooking(tableName, recordId);
     
           // Remove updatedOn from oldVal and newVal
           resp.data = logs.map((log: any) => {
