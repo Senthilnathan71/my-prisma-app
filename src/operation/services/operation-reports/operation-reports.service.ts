@@ -375,10 +375,6 @@ export class OperationReportsService {
               },
             }
           : {}),
-          IsServiceJob: { not: 'Y' },
-          JobType:{
-            not:'Agent'
-          }
         },
         include: {
           Cargo: true,
@@ -727,11 +723,6 @@ export class OperationReportsService {
           Status: 'A',
           BranchMasterSid: { in: resolvedBranchIds },
           DepartmentMasterSid: { in: resolvedDeptIds },
-          houseJob:{
-            some:{
-              JobType:{not:'Agent'}
-            }
-          }
         },
         include: {
           houseJob: {
@@ -1553,9 +1544,6 @@ export class OperationReportsService {
           status: 'A',
           BranchMasterSid: { in: resolvedBranchIds },
           DepartmentMasterSid: { in: resolvedDeptIds },
-          IsServiceJob:{
-            not:'Y'
-          }
         },
         include: {
           masterJob: {
@@ -1699,9 +1687,13 @@ export class OperationReportsService {
 
         const product = data.Products;
         const containerSid = product?.map((pr) => pr.MasterJobContainerSid);
-        const containerInfo = product
-          ?.map((pr) => pr.masterJobContainer?.containerType?.ContainerName)
-          .join(',');
+        const containerInfo = [
+          ...new Set(
+            (product || [])
+              .map(pr => pr.masterJobContainer?.containerType?.ContainerName)
+              .filter(Boolean)
+          )
+        ].join(', ');
         const totalVolume = (data.Products || []).reduce(
           (sum, p) => sum + toNumber(p.Volume),
           0,
@@ -1739,7 +1731,6 @@ export class OperationReportsService {
         let countryMasterSid: number | null = null;
         let countryName: string | null = null;
         const fpd = data?.FPD;
-
         if (fpd) {
           const fpdUpper = fpd.toUpperCase().trim();
 
@@ -1765,11 +1756,13 @@ export class OperationReportsService {
         return {
           bookingNo: data?.bookingHeader?.BookingNo,
           vesselName: data?.VesselName,
+          voyageNo : data?.VoyageNo,
           MBL: data?.masterJob?.MBLNo,
           HBL: data?.HBLNo,
           shipmentType: data?.Cargo?.[0]?.ShipmentTerms,
           consigneeName: data?.ConsigneeName,
           fnalDestination: fpd,
+          postofOrigin:data?.POO,
           countryMasterSid,
           countryName,
           portofDischarge: data?.POD,
@@ -1777,7 +1770,7 @@ export class OperationReportsService {
           ETD: data?.ETD,
           freightTerms: data?.FreightTerms,
           bookingDate: data?.bookingHeader?.BookingDateTime,
-          containerNo: data?.Products.map((c) => c.ContainerNo).join(', '),
+          containerNo: [...new Set(data?.Products.map(c => c.ContainerNo))].join(', '),
           containerInfo,
           containerSid: containerSid,
           vol: totalVolume,
@@ -1906,7 +1899,7 @@ export class OperationReportsService {
       }
 
       const data = houseJobData
-        .filter((hj) => !hj.Others?.[0]?.DONo)
+        .filter((hj) => hj.Others?.[0]?.DONo)
         .map((hj) => ({
           HBLDate: hj.HBLDate,
           HBLNo: hj.HBLNo,
@@ -2058,10 +2051,6 @@ export class OperationReportsService {
         status: 'A',
         BranchMasterSid: { in: resolvedBranchIds },
         DepartmentMasterSid: { in: resolvedDeptIds },
-        IsServiceJob: { not: 'Y' },
-        JobType:{
-            not:'Agent'
-          }
       };
 
       if (SalePerson && SalePerson.length > 0) {
@@ -2577,11 +2566,6 @@ export class OperationReportsService {
             { MBLDate: { lte: new Date(ToDt) } },
           ],
           Status: 'A',
-          houseJob:{
-            some:{
-              JobType:{not:'Agent'}
-            }
-          }
         },
         include: {
           houseJob: {
@@ -2622,7 +2606,6 @@ export class OperationReportsService {
             { HBLDate: { lte: new Date(ToDt) } },
           ],
           status: 'A',
-          JobType:{not:'Agent'}
         },
         orderBy: { HBLDate: 'asc' },
         include: { masterJob: true },
@@ -2993,11 +2976,6 @@ export class OperationReportsService {
             { MBLDate: { lte: new Date(ToDt) } },
           ],
           Status: 'A',
-          houseJob:{
-            some:{
-              JobType:'Agent'
-            }
-          }
         },
         include: {
           houseJob: {
@@ -3037,7 +3015,6 @@ export class OperationReportsService {
           status: 'A',
           BranchMasterSid: { in: resolvedBranchIds },
           DepartmentMasterSid: { in: resolvedDeptIds },
-          JobType:{not:'Agent'}
         },
         include: {
           masterJob: {
@@ -3686,12 +3663,6 @@ export class OperationReportsService {
           AND: [{ MBLDate: { gte: FromJobDt } }, { MBLDate: { lte: ToJobDt } }],
           Status: 'A',
           DepartmentMasterSid: { in: dept },
-          houseJob:{
-            some:{
-              JobType:{not:'Agent'},
-              IsServiceJob:{not:'Y'}
-            }
-          }
         },
         include: {
           voyages: {
@@ -4100,8 +4071,6 @@ export class OperationReportsService {
         status: 'A',
         BranchMasterSid: { in: resolvedBranchIds },
         DepartmentMasterSid: { in: resolvedDeptIds },
-        IsServiceJob: { not: 'Y' },
-        JobType:{ not:'Agent'}
       };
 
       if (SalePerson && SalePerson.length > 0) {
@@ -6381,7 +6350,6 @@ ports.forEach((p) => {
           MenuMasterSid: { notIn: excludedMenuId },
           AND: [{ HBLDate: { gte: FromDate } }, { HBLDate: { lte: ToDate } }],
           status: 'A',
-          IsServiceJob:{not:'Y'}
         },
         include: {
           Cargo: true,

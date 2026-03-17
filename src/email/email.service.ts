@@ -516,7 +516,8 @@ export class EmailService {
      * Create report email template
      */
     private createReportEmailTemplate(reportName: string, message: string, reportDetails?: any): string {
-        const companyName = reportDetails?.companyName || 'Dofi-Infosys';
+        const companyName = reportDetails?.companyName || '';
+        const branchName = reportDetails?.branchName || '';
         const generatedDate = new Date().toLocaleString();
         const parameters = reportDetails?.parameters || {};
 
@@ -535,7 +536,7 @@ export class EmailService {
             padding: 20px;
         }
         .header {
-            background-color: #007bff;
+            background-color: #05608d;
             color: white;
             padding: 20px;
             text-align: center;
@@ -550,11 +551,11 @@ export class EmailService {
             background-color: white;
             padding: 15px;
             margin: 15px 0;
-            border-left: 4px solid #007bff;
+            border-left: 4px solid #05608d;
         }
         .report-details h3 {
             margin-top: 0;
-            color: #007bff;
+            color: #05608d;
         }
         .message {
             background-color: white;
@@ -587,12 +588,11 @@ export class EmailService {
 <body>
     <div class="header">
         <h2>${companyName}</h2>
-        <p>Generated Report</p>
+        <p>${branchName}</p>
     </div>
 
     <div class="content">
         <div class="report-details">
-            <h3>Report Information</h3>
             <table>
                 <tr>
                     <td>Report Name:</td>
@@ -615,7 +615,7 @@ export class EmailService {
             ${message}
         </div>
 
-        <p>Please find the attached report file for your reference.</p>
+        <p>Please find the attached ${reportName} file for your reference.</p>
 
         <p>If you have any questions or need assistance, please don't hesitate to contact us.</p>
     </div>
