@@ -301,4 +301,57 @@ export class CargoreceiptService {
       totalCount,
     };
   }
+
+  async getAuditLogs(tableName: string, recordId?: string) {
+  try {
+    if (tableName === 'BookingHeader' && recordId) {
+      const bookingHeaderSid = Number(recordId);
+
+      const products = await this._db.bookingProduct.findMany({
+        where: {
+          BookingHeaderSid: bookingHeaderSid,
+          status: 'A'
+        },
+        select: {
+          BookingProductSid: true
+        }
+      });
+
+      const productIds = products.map(p => p.BookingProductSid.toString());
+
+      if (!productIds.length) {
+        return [];
+      }
+
+      const logs = await this._db.auditLog.findMany({
+        where: {
+          tableName: 'BookingProduct',
+          recordId: {
+            in: productIds
+          }
+        },
+        orderBy: {
+          changedAt: 'desc'
+        }
+      });
+
+      return logs;
+    }
+
+    const logs = await this._db.auditLog.findMany({
+      where: {
+        tableName,
+        ...(recordId ? { recordId: recordId.toString() } : {})
+      },
+      orderBy: {
+        changedAt: 'desc'
+      }
+    });
+
+    return logs;
+  } catch (error) {
+    this.logger.warn(`getAuditLogsError: ${error}`);
+    throw new Error(`Error fetching audit logs: ${error.message}`);
+  }
+}
 }
