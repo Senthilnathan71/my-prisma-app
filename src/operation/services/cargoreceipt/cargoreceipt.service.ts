@@ -168,12 +168,39 @@ export class CargoreceiptService {
    async search(params: filterDto) {
     const { search = '', page = 1, pageSize = 15, activeCompanyId, activeBranchId } = params;
     const skip = (page - 1) * pageSize;
+    const dateFromRaw = (params as any).dateFrom ?? (params as any).DateFrom;
+    const dateToRaw = (params as any).dateTo ?? (params as any).DateTo;
+    const dateFieldRaw = (params as any).dateField ?? (params as any).DateField ?? 'BookingDateTime';
+    const allowedDateFields = new Set(['BookingDateTime', 'MBLDate', 'ETD', 'ETA', 'HBLDate']);
+    const dateField = allowedDateFields.has(dateFieldRaw) ? dateFieldRaw : 'BookingDateTime';
+    const customerMasterSid = (params as any).CustomerMasterSid ?? (params as any).customerMasterSid ?? null;
+    const departmentMasterSid = (params as any).DepartmentMasterSid ?? (params as any).departmentMasterSid ?? null;
+    const pol = (params as any).POL ?? (params as any).pol ?? null;
+    const pod = (params as any).POD ?? (params as any).pod ?? null;
+    const dateRange: Prisma.DateTimeFilter = {};
+    if (dateFromRaw) {
+      const parsedFrom = new Date(dateFromRaw);
+      if (!Number.isNaN(parsedFrom.getTime())) {
+        dateRange.gte = parsedFrom;
+      }
+    }
+    if (dateToRaw) {
+      const parsedTo = new Date(dateToRaw);
+      if (!Number.isNaN(parsedTo.getTime())) {
+        dateRange.lte = parsedTo;
+      }
+    }
 
     const where: Prisma.BookingHeaderWhereInput = {
     CompanyMasterSid: activeCompanyId,
     BranchMasterSid: activeBranchId,
       status: 'A',
       HBLNo: null,
+      ...(customerMasterSid ? { CustomerMasterSid: Number(customerMasterSid) } : {}),
+      ...(departmentMasterSid ? { DepartmentMasterSid: Number(departmentMasterSid) } : {}),
+      ...(pol ? { POL: String(pol) } : {}),
+      ...(pod ? { POD: String(pod) } : {}),
+      ...(Object.keys(dateRange).length ? { [dateField]: dateRange } : {}),
       departmentMaster: {
         ExportImport: 'Export',
         FCLLCL: 'LCL',

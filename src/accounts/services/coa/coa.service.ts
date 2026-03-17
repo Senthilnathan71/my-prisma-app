@@ -484,11 +484,28 @@ export class CoaService {
     }
 
     async searchCoa(params: filterDto) {
-        const { search = '', page = 1, pageSize = 10, activeCompanyId } = params;
+        const {
+            search = '',
+            page = 1,
+            pageSize = 10,
+            activeCompanyId,
+            Category,
+            category,
+            GroupName,
+            groupName,
+            SubGroupName,
+            subGroupName
+        } = params as any;
         const skip = (page - 1) * pageSize;
+        const normalizedCategory = (Category ?? category ?? '').toString().trim();
+        const normalizedGroupName = (GroupName ?? groupName ?? '').toString().trim();
+        const normalizedSubGroupName = (SubGroupName ?? subGroupName ?? '').toString().trim();
         const where: Prisma.COAMasterWhereInput = {
             Status: statusWhereClause,
             CompanyMasterSid: activeCompanyId,
+            ...(normalizedCategory && { Category: normalizedCategory }),
+            ...(normalizedGroupName && { GroupName: normalizedGroupName }),
+            ...(normalizedSubGroupName && { SubGroupName: normalizedSubGroupName }),
             ...(search
                 ? {
                     OR: [

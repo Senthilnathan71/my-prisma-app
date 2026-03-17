@@ -1908,6 +1908,28 @@ export class HouseJobService {
         } = params;
 
         const skip = (page - 1) * pageSize;
+        const dateFromRaw = dateFrom ?? (params as any).DateFrom ?? (params as any).dateFrom;
+        const dateToRaw = dateTo ?? (params as any).DateTo ?? (params as any).dateTo;
+        const dateFieldRaw = dateField ?? (params as any).DateField ?? (params as any).dateField ?? 'HBLDate';
+        const allowedDateFields = new Set(['BookingDateTime', 'ETD', 'ETA', 'HBLDate', 'MBLDate']);
+        const normalizedDateField = allowedDateFields.has(dateFieldRaw) ? dateFieldRaw : 'HBLDate';
+        const customerMasterSid = (params as any).CustomerMasterSid ?? (params as any).customerMasterSid ?? null;
+        const departmentMasterSid = (params as any).DepartmentMasterSid ?? (params as any).departmentMasterSid ?? null;
+        const pol = (params as any).POL ?? (params as any).pol ?? null;
+        const pod = (params as any).POD ?? (params as any).pod ?? null;
+        const dateRange: Prisma.DateTimeFilter = {};
+        if (dateFromRaw) {
+            const parsedFrom = new Date(dateFromRaw);
+            if (!Number.isNaN(parsedFrom.getTime())) {
+                dateRange.gte = parsedFrom;
+            }
+        }
+        if (dateToRaw) {
+            const parsedTo = new Date(dateToRaw);
+            if (!Number.isNaN(parsedTo.getTime())) {
+                dateRange.lte = parsedTo;
+            }
+        }
 
         const where: Prisma.HouseJobWhereInput = {
             status: statusWhereClause,
@@ -1915,6 +1937,11 @@ export class HouseJobService {
             BranchMasterSid: activeBranchId,
             IsServiceJob : { not : 'Y' },
             JobType: { not: 'Agent' },
+            ...(customerMasterSid ? { CustomerMasterSid: Number(customerMasterSid) } : {}),
+            ...(departmentMasterSid ? { DepartmentMasterSid: Number(departmentMasterSid) } : {}),
+            ...(pol ? { POL: String(pol) } : {}),
+            ...(pod ? { POD: String(pod) } : {}),
+            ...(Object.keys(dateRange).length ? { [normalizedDateField]: dateRange } : {}),
 
             // ✅ Correct department filter
             ...(departmentType
@@ -1944,17 +1971,7 @@ export class HouseJobService {
         };
 
         // Date range filter
-        const allowedDateFields = ['BookingDateTime', 'ETD', 'ETA', 'HBLDate', 'MBLDate'];
-        if (dateField && allowedDateFields.includes(dateField) && (dateFrom || dateTo)) {
-            const dateFilter: any = {};
-            if (dateFrom) dateFilter.gte = new Date(dateFrom);
-            if (dateTo) {
-                const end = new Date(dateTo);
-                end.setDate(end.getDate() + 1);
-                dateFilter.lt = end;
-            }
-            where[dateField] = dateFilter;
-        }
+        // Date range filter moved to normalizedDateField above for consistent payload handling.
 
         // Party filter
         if (partyType === 'CustomerMasterSid' && partyId) {

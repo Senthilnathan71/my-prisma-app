@@ -526,7 +526,17 @@ export class ReverseVoucherService {
                 pageSize = 10,
                 activeCompanyId, activeBranchId,
                 sortColumn = 'VoucherDate',
-                sortDirection = 'desc'
+                sortDirection = 'desc',
+                dateFrom,
+                DateFrom,
+                dateTo,
+                DateTo,
+                dateField,
+                DateField,
+                VendorName,
+                vendorName,
+                PostStatus,
+                postStatus
             } = params;
 
             const skip = (page - 1) * pageSize;
@@ -538,6 +548,21 @@ export class ReverseVoucherService {
             //     },
             //     Status: 'A'
             // };
+            const resolvedDateFrom = dateFrom ?? DateFrom;
+            const resolvedDateTo = dateTo ?? DateTo;
+            const rawDateField = (dateField ?? DateField ?? '').toString();
+            const dateFieldMap: Record<string, string> = {
+                VoucherDate: 'VoucherDate',
+                BillDate: 'DocumentDate'
+            };
+            const selectedDateField = dateFieldMap[rawDateField] ?? 'VoucherDate';
+            const parsedDateFrom = resolvedDateFrom ? new Date(resolvedDateFrom) : null;
+            const parsedDateTo = resolvedDateTo ? new Date(resolvedDateTo) : null;
+            const normalizedDateFrom = parsedDateFrom && !Number.isNaN(parsedDateFrom.getTime()) ? parsedDateFrom : null;
+            const normalizedDateTo = parsedDateTo && !Number.isNaN(parsedDateTo.getTime()) ? parsedDateTo : null;
+            const normalizedVendorName = (VendorName ?? vendorName ?? '').toString().trim();
+            const normalizedPostStatus = (PostStatus ?? postStatus ?? '').toString().trim();
+
             const where: Prisma.VoucherHeaderWhereInput = {
                 CompanyMasterSid: activeCompanyId,
                 BranchMasterSid: activeBranchId,
@@ -545,6 +570,14 @@ export class ReverseVoucherService {
                 voucherTypeMaster: {
                     DocumentTypeCode: DOC_TYPE_CODE.REVERSAL_JOURNAL_VOUCHER
                 },
+                ...(normalizedVendorName && { PartyName: { contains: normalizedVendorName, mode: 'insensitive' } }),
+                ...(normalizedPostStatus && { PostStatus: normalizedPostStatus }),
+                ...((normalizedDateFrom || normalizedDateTo) && {
+                    [selectedDateField]: {
+                        ...(normalizedDateFrom && { gte: normalizedDateFrom }),
+                        ...(normalizedDateTo && { lte: normalizedDateTo })
+                    }
+                })
             }
             // Add search filter
             if (search) {
