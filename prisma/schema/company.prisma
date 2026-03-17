@@ -2743,6 +2743,7 @@ model MasterJobOthers {
   JobCloseStatus        String?   @default("Open") @db.VarChar(10)
   JobClosedDate         DateTime? @db.Timestamptz(6)
   JobClosedBy           String?   @db.VarChar(100)
+  JobtoSubjob           String?   @db.VarChar(5)
   masterJob             MasterJob @relation(fields: [MasterJobSid], references: [MasterJobSid])
 }
 
