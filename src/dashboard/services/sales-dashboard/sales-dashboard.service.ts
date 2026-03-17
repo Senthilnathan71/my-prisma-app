@@ -1943,6 +1943,8 @@ export class SalesDashboardService {
       companyMasterSid,
       branchMasterSid,
       salespersonEmail,
+      dateFrom,
+      dateTo,
     } = this.normalizeParams(query);
 
     const results: any[] = await this.db.$queryRawUnsafe(
@@ -1959,6 +1961,8 @@ export class SalesDashboardService {
         AND pcm."CompanyMasterSid" = $1
         AND pcm."BranchMasterSid" = $2
         AND ($3::text IS NULL OR pcm."createdBy" = $3)
+        AND ($4::timestamptz IS NULL OR pcm."createdOn" >= $4::timestamptz)
+        AND ($5::timestamptz IS NULL OR pcm."createdOn" <= $5::timestamptz)
         AND NOT EXISTS (
           SELECT 1 FROM "CustomerMaster" cm
           WHERE cm."PreCustomerMasterSid" = pcm."PreCustomerMasterSid"
@@ -1967,6 +1971,8 @@ export class SalesDashboardService {
       companyMasterSid,
       branchMasterSid,
       salespersonEmail,
+      dateFrom,
+      dateTo,
     );
 
     const row = results[0] || {};
