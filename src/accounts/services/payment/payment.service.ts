@@ -19,6 +19,32 @@ export class PaymentService {
         private readonly companyConfigService : CompanyConfigService
     ) { }
 
+    private ensureLocalDebitCreditBalance(
+        rows: Array<{ DrCr?: string | null; LocalAmount?: number | string | Prisma.Decimal | null }>,
+        context: string,
+    ) {
+        let totalLocalDebits = 0;
+        let totalLocalCredits = 0;
+
+        (rows || []).forEach((row) => {
+            const localAmount = toNumber(row?.LocalAmount ?? 0);
+            if (String(row?.DrCr || '').toUpperCase() === 'D') {
+                totalLocalDebits += localAmount;
+            } else if (String(row?.DrCr || '').toUpperCase() === 'C') {
+                totalLocalCredits += localAmount;
+            }
+        });
+
+        const debitTotal = toNumber(totalLocalDebits.toFixed(2));
+        const creditTotal = toNumber(totalLocalCredits.toFixed(2));
+
+        if (debitTotal !== creditTotal) {
+            throw new BadRequestException(
+                `${context}: total local debit and credit must be equal. Debit: ${debitTotal}, Credit: ${creditTotal}`
+            );
+        }
+    }
+
     /**
      * Search outstanding invoices using existing OutstandingService
      * REUSES the existing service as per user requirement
@@ -741,15 +767,18 @@ export class PaymentService {
 
                 const updatedCreatedDetails = await Promise.all(detailOperations);
 
-                // Soft-delete detail rows that were removed from the payload (not present in incoming list)
-                const incomingDetailSids = (detailItems || [])
-                    .map((d: any) => Number(d.VoucherDetailSid))
+                const keptDetailSids = updatedCreatedDetails
+                    .map((detail: any) => Number(detail?.VoucherDetailSid))
                     .filter((sid: number) => sid > 0);
+
+                if ((detailItems || []).length > 0 && keptDetailSids.length === 0) {
+                    throw new BadRequestException('Failed to determine saved payment detail rows during update');
+                }
 
                 await prisma.voucherDetail.updateMany({
                     where: {
                         VoucherHeaderSid,
-                        ...(incomingDetailSids.length > 0 ? { VoucherDetailSid: { notIn: incomingDetailSids } } : {}),
+                        ...(keptDetailSids.length > 0 ? { VoucherDetailSid: { notIn: keptDetailSids } } : {}),
                         Status: 'A',
                     },
                     data: {
@@ -1054,6 +1083,8 @@ export class PaymentService {
                 const allTransactions = await tx.voucherTransaction.createManyAndReturn({
                     data: voucherTransactionsPayload,
                 });
+
+                this.ensureLocalDebitCreditBalance(allTransactions, 'Payment posting validation failed');
 
 
                 const allCompleteDetails: any[] = [];
