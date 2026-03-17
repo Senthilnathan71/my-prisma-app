@@ -57,7 +57,7 @@ export class SalesDashboardService {
       quotesNotApproved,
       quotesNoBooking,
       summaryKpis,
-      leadStatusDistribution,
+      leadSourceDistribution,
       leadSourceEffectiveness,
       leadAgeCohorts,
       funnelCounts,
@@ -72,7 +72,7 @@ export class SalesDashboardService {
       this.getQuotesNotApprovedPage(query),
       this.getQuotesNoBookingPage(query),
       this.getSummaryKpis(query),
-      this.getLeadStatusDistribution(query),
+      this.getLeadSourceDistribution(query),
       this.getLeadSourceEffectiveness(query),
       this.getLeadAgeCohorts(query),
       this.getLeadMilestoneFunnelCounts(query),
@@ -97,7 +97,7 @@ export class SalesDashboardService {
           today: meetingsScheduled.today.totalCount,
           future: meetingsScheduled.future.totalCount,
         },
-        leadStatusDistribution,
+        leadSourceDistribution,
         leadSourceEffectiveness,
         leadAgeCohorts,
       },
@@ -154,7 +154,7 @@ export class SalesDashboardService {
       quotesNotApprovedCount,
       quotesNoBookingCount,
       summaryKpis,
-      leadStatusDistribution,
+      leadSourceDistribution,
       leadSourceEffectiveness,
       leadAgeCohorts,
       funnelCounts,
@@ -367,7 +367,7 @@ export class SalesDashboardService {
         dateTo,
       ),
       this.getSummaryKpis(query),
-      this.getLeadStatusDistribution(query),
+      this.getLeadSourceDistribution(query),
       this.getLeadSourceEffectiveness(query),
       this.getLeadAgeCohorts(query),
       this.getLeadMilestoneFunnelCounts(query),
@@ -409,7 +409,7 @@ export class SalesDashboardService {
           today: Number(s2.today) || 0,
           future: Number(s2.future) || 0,
         },
-        leadStatusDistribution,
+        leadSourceDistribution,
         leadSourceEffectiveness,
         leadAgeCohorts,
       },
@@ -504,7 +504,7 @@ export class SalesDashboardService {
         `pcm."phone"`,
         `pcm."email"`,
         `pcm."leadStatus"`,
-        `pcm."leadFrom"`,
+        `pcm."leadReferredBy"`,
         `um."userName"`,
       ],
       baseParams.length + 1,
@@ -518,7 +518,7 @@ export class SalesDashboardService {
         pcm."phone",
         pcm."email",
         pcm."leadStatus",
-        pcm."leadFrom",
+        pcm."leadReferredBy" AS "leadFrom",
         pcm."customerType",
         pcm."leadAssignTo",
         pcm."createdOn",
@@ -1554,38 +1554,59 @@ export class SalesDashboardService {
     };
   }
 
-  private async getLeadStatusDistribution(query: SalesDashboardQueryDto) {
+  private async getLeadSourceDistribution(query: SalesDashboardQueryDto) {
     const {
       companyMasterSid,
       branchMasterSid,
+      salespersonId,
       salespersonEmail,
       dateFrom,
       dateTo,
     } = this.normalizeParams(query);
 
     const results: any[] = await this.db.$queryRawUnsafe(
-      `SELECT
-        pcm."leadStatus"::text AS "status",
+      `WITH scoped_leads AS (
+        SELECT
+          pcm."PreCustomerMasterSid",
+          CASE
+            WHEN pcm."createdBy" = $4 THEN COALESCE(NULLIF(TRIM(pcm."leadReferredBy"), ''), 'Unknown')
+            ELSE 'Assigned'
+          END AS "source"
+        FROM "PreCustomerMaster" pcm
+        WHERE
+          pcm."status" = 'A'
+          AND pcm."CompanyMasterSid" = $1
+          AND pcm."BranchMasterSid" = $2
+          AND ($5::timestamptz IS NULL OR pcm."createdOn" >= $5::timestamptz)
+          AND ($6::timestamptz IS NULL OR pcm."createdOn" <= $6::timestamptz)
+          AND (
+            ($3::int IS NULL AND $4::text IS NULL)
+            OR pcm."createdBy" = $4
+            OR EXISTS (
+              SELECT 1
+              FROM "PreCustomerMeeting" pcmm_scope
+              WHERE pcmm_scope."PreCustomerMasterSid" = pcm."PreCustomerMasterSid"
+                AND COALESCE(pcmm_scope."status", 'A') = 'A'
+                AND pcmm_scope."leadAssignTo" = $3
+            )
+          )
+      )
+      SELECT
+        "source",
         COUNT(*) AS "count"
-      FROM "PreCustomerMaster" pcm
-      WHERE
-        pcm."status" = 'A'
-        AND pcm."CompanyMasterSid" = $1
-        AND pcm."BranchMasterSid" = $2
-        AND ($3::text IS NULL OR pcm."createdBy" = $3)
-        AND ($4::timestamptz IS NULL OR pcm."createdOn" >= $4::timestamptz)
-        AND ($5::timestamptz IS NULL OR pcm."createdOn" <= $5::timestamptz)
-      GROUP BY pcm."leadStatus"
+      FROM scoped_leads
+      GROUP BY "source"
       ORDER BY "count" DESC`,
       companyMasterSid,
       branchMasterSid,
+      salespersonId,
       salespersonEmail,
       dateFrom,
       dateTo,
     );
 
     return results.map((row) => ({
-      status: row.status,
+      source: row.source,
       count: Number(row.count),
     }));
   }
@@ -1879,7 +1900,7 @@ export class SalesDashboardService {
 
     const results: any[] = await this.db.$queryRawUnsafe(
       `SELECT
-        pcm."leadFrom" AS "source",
+        COALESCE(NULLIF(TRIM(pcm."leadReferredBy"), ''), 'Unknown') AS "source",
         COUNT(*) AS "totalLeads",
         COUNT(cm."CustomerMasterSid") AS "convertedLeads"
       FROM "PreCustomerMaster" pcm
@@ -1893,7 +1914,7 @@ export class SalesDashboardService {
         AND ($3::text IS NULL OR pcm."createdBy" = $3)
         AND ($4::timestamptz IS NULL OR pcm."createdOn" >= $4::timestamptz)
         AND ($5::timestamptz IS NULL OR pcm."createdOn" <= $5::timestamptz)
-      GROUP BY pcm."leadFrom"
+      GROUP BY COALESCE(NULLIF(TRIM(pcm."leadReferredBy"), ''), 'Unknown')
       ORDER BY COUNT(*) DESC
       LIMIT 10`,
       companyMasterSid,
