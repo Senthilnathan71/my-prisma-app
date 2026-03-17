@@ -778,6 +778,26 @@ if (detail.CostRevenueChargesSid) {
   async searchVoucherHeader(params: filterDto) {
     const { search = '', page = 1, pageSize = 15, activeCompanyId, activeBranchId } = params;
     const skip = (page - 1) * pageSize;
+    const dateFromRaw = (params as any).dateFrom ?? (params as any).DateFrom;
+    const dateToRaw = (params as any).dateTo ?? (params as any).DateTo;
+    const dateFieldRaw = (params as any).dateField ?? (params as any).DateField ?? 'VoucherDate';
+    const allowedDateFields = new Set(['VoucherDate', 'DocumentDate']);
+    const dateField = allowedDateFields.has(dateFieldRaw) ? dateFieldRaw : 'VoucherDate';
+    const partyMasterSid = (params as any).PartyMasterSid ?? (params as any).partyMasterSid ?? (params as any).CustomerMasterSid ?? (params as any).customerMasterSid ?? null;
+    const currencyCode = (params as any).CurrencyCode ?? (params as any).currencyCode ?? null;
+    const dateRange: Prisma.DateTimeFilter = {};
+    if (dateFromRaw) {
+      const parsedFrom = new Date(dateFromRaw);
+      if (!Number.isNaN(parsedFrom.getTime())) {
+        dateRange.gte = parsedFrom;
+      }
+    }
+    if (dateToRaw) {
+      const parsedTo = new Date(dateToRaw);
+      if (!Number.isNaN(parsedTo.getTime())) {
+        dateRange.lte = parsedTo;
+      }
+    }
 
     const where: Prisma.VoucherHeaderWhereInput = {
       CompanyMasterSid: activeCompanyId,
@@ -786,6 +806,9 @@ if (detail.CostRevenueChargesSid) {
       voucherTypeMaster: {
       DocumentTypeCode: DOC_TYPE_CODE.INVOICE
     },
+      ...(partyMasterSid ? { PartyMasterSid: Number(partyMasterSid) } : {}),
+      ...(currencyCode ? { CurrencyCode: String(currencyCode) } : {}),
+      ...(Object.keys(dateRange).length ? { [dateField]: dateRange } : {}),
       ...(search && {
         OR: [
           { VoucherNumber: { contains: search, mode: 'insensitive' } },

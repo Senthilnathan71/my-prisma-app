@@ -154,11 +154,39 @@ export class AgentMasterAirWaybillService {
       throw new BadRequestException('activeCompanyId and activeBranchId are required');
     }
 
+    const dateFromRaw = payload?.dateFrom ?? payload?.DateFrom;
+    const dateToRaw = payload?.dateTo ?? payload?.DateTo;
+    const dateFieldRaw = payload?.dateField ?? payload?.DateField ?? 'MBLDate';
+    const allowedDateFields = new Set(['MBLDate', 'ETD', 'ETA', 'HBLDate']);
+    const dateField = allowedDateFields.has(dateFieldRaw) ? dateFieldRaw : 'MBLDate';
+    const customerMasterSid = payload?.CustomerMasterSid ?? payload?.customerMasterSid ?? null;
+    const departmentMasterSid = payload?.DepartmentMasterSid ?? payload?.departmentMasterSid ?? null;
+    const pol = payload?.POL ?? payload?.pol ?? null;
+    const pod = payload?.POD ?? payload?.pod ?? null;
+    const dateRange: Prisma.DateTimeFilter = {};
+    if (dateFromRaw) {
+      const parsedFrom = new Date(dateFromRaw);
+      if (!Number.isNaN(parsedFrom.getTime())) {
+        dateRange.gte = parsedFrom;
+      }
+    }
+    if (dateToRaw) {
+      const parsedTo = new Date(dateToRaw);
+      if (!Number.isNaN(parsedTo.getTime())) {
+        dateRange.lte = parsedTo;
+      }
+    }
+
     const where: Prisma.HouseJobWhereInput = {
       CompanyMasterSid: activeCompanyId,
       BranchMasterSid: activeBranchId,
       JobType: { equals: 'Agent', mode: 'insensitive' },
       status: statusWhereClause,
+      ...(customerMasterSid ? { CustomerMasterSid: Number(customerMasterSid) } : {}),
+      ...(departmentMasterSid ? { DepartmentMasterSid: Number(departmentMasterSid) } : {}),
+      ...(pol ? { POL: String(pol) } : {}),
+      ...(pod ? { POD: String(pod) } : {}),
+      ...(Object.keys(dateRange).length ? { [dateField]: dateRange } : {}),
       ...(departmentType
         ? {
             departmentMaster: {

@@ -2840,6 +2840,16 @@ if (houseJobsForBookingSync.length > 0) {
 
     async searchMasterJobList(params: searchMasterJob) {
         const { search = '', page = 1, pageSize = 15, activeCompanyId, activeBranchId, MenuMasterSid, departmentType } = params;
+        const dateFromRaw = (params as any).dateFrom ?? (params as any).DateFrom;
+        const dateToRaw = (params as any).dateTo ?? (params as any).DateTo;
+        const dateFieldRaw = (params as any).dateField ?? (params as any).DateField ?? 'MasterJobDate';
+        const allowedDateFields = new Set(['MasterJobDate', 'MBLDate']);
+        const dateField = allowedDateFields.has(dateFieldRaw) ? dateFieldRaw : 'MasterJobDate';
+        const departmentMasterSid = (params as any).DepartmentMasterSid ?? (params as any).departmentMasterSid ?? null;
+        const pol = (params as any).POL ?? (params as any).pol ?? null;
+        const pod = (params as any).POD ?? (params as any).pod ?? null;
+        const parsedFrom = dateFromRaw ? new Date(dateFromRaw) : null;
+        const parsedTo = dateToRaw ? new Date(dateToRaw) : null;
 
         // Ensure numeric values
         const pageNum = Number(page);
@@ -2866,6 +2876,36 @@ if (houseJobsForBookingSync.length > 0) {
             paramIndex++;
         } else {
             whereConditions.push(`dm."departmentType" != 'Air'`);
+        }
+
+        if (departmentMasterSid) {
+            whereConditions.push(`mj."DepartmentMasterSid" = $${paramIndex}`);
+            params_array.push(Number(departmentMasterSid));
+            paramIndex++;
+        }
+
+        if (pol) {
+            whereConditions.push(`mj."POL" = $${paramIndex}`);
+            params_array.push(String(pol));
+            paramIndex++;
+        }
+
+        if (pod) {
+            whereConditions.push(`mj."POD" = $${paramIndex}`);
+            params_array.push(String(pod));
+            paramIndex++;
+        }
+
+        if (parsedFrom && !isNaN(parsedFrom.getTime())) {
+            whereConditions.push(`mj."${dateField}" >= $${paramIndex}`);
+            params_array.push(parsedFrom);
+            paramIndex++;
+        }
+
+        if (parsedTo && !isNaN(parsedTo.getTime())) {
+            whereConditions.push(`mj."${dateField}" <= $${paramIndex}`);
+            params_array.push(parsedTo);
+            paramIndex++;
         }
 
         // Search conditions

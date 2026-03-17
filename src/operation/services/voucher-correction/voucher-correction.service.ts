@@ -9,8 +9,41 @@ export class VoucherCorrectionService {
   constructor(private _db: DatabaseService, private logger: Logger) { }
 
   async searchVoucher(params: filterDto) {
-    const { search = '', page = 1, pageSize = 10, activeCompanyId, activeBranchId } = params;
+    const {
+      search = '',
+      page = 1,
+      pageSize = 10,
+      activeCompanyId,
+      activeBranchId,
+      dateFrom,
+      DateFrom,
+      dateTo,
+      DateTo,
+      dateField,
+      DateField,
+      VoucherTypeMasterSid,
+      voucherTypeMasterSid,
+      PartyName,
+      partyName,
+      CurrencyCode,
+      currencyCode,
+      CashOrBank,
+      cashOrBank
+    } = params as any;
     const skip = (page - 1) * pageSize;
+    const resolvedDateFrom = dateFrom ?? DateFrom;
+    const resolvedDateTo = dateTo ?? DateTo;
+    const rawDateField = (dateField ?? DateField ?? '').toString();
+    const allowedDateFields = ['VoucherDate', 'PostDate'];
+    const selectedDateField = allowedDateFields.includes(rawDateField) ? rawDateField : 'VoucherDate';
+    const parsedDateFrom = resolvedDateFrom ? new Date(resolvedDateFrom) : null;
+    const parsedDateTo = resolvedDateTo ? new Date(resolvedDateTo) : null;
+    const normalizedDateFrom = parsedDateFrom && !Number.isNaN(parsedDateFrom.getTime()) ? parsedDateFrom : null;
+    const normalizedDateTo = parsedDateTo && !Number.isNaN(parsedDateTo.getTime()) ? parsedDateTo : null;
+    const normalizedVoucherTypeSid = Number(VoucherTypeMasterSid ?? voucherTypeMasterSid ?? 0) || null;
+    const normalizedPartyName = (PartyName ?? partyName ?? '').toString().trim();
+    const normalizedCurrencyCode = (CurrencyCode ?? currencyCode ?? '').toString().trim();
+    const normalizedCashOrBank = (CashOrBank ?? cashOrBank ?? '').toString().trim();
     let normalizedCashBank = "";
     if (String(search).trim() === 'cash' || String(search).trim() === 'Cash') {
       normalizedCashBank = "C";
@@ -24,10 +57,20 @@ export class VoucherCorrectionService {
       Status: statusWhereClause,
       PostStatus: 'P',
       voucherTypeMaster: {
-    DocumentTypeCode: {
-      not: 'RJV'
-    }
-  },
+        DocumentTypeCode: {
+          not: 'RJV'
+        }
+      },
+      ...(normalizedVoucherTypeSid && { VoucherTypeMasterSid: normalizedVoucherTypeSid }),
+      ...(normalizedPartyName && { PartyName: { contains: normalizedPartyName, mode: 'insensitive' } }),
+      ...(normalizedCurrencyCode && { CurrencyCode: normalizedCurrencyCode }),
+      ...(normalizedCashOrBank && { CashOrBank: normalizedCashOrBank }),
+      ...((normalizedDateFrom || normalizedDateTo) && {
+        [selectedDateField]: {
+          ...(normalizedDateFrom && { gte: normalizedDateFrom }),
+          ...(normalizedDateTo && { lte: normalizedDateTo })
+        }
+      }),
       ...(search
         ? {
           OR: [

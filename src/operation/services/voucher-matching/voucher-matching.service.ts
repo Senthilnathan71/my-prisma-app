@@ -20,12 +20,42 @@ export class VoucherMatchingService {
     ) { }
 
     async searchVoucherMatching(params: filterDto) {
-        const { search = '', page = 1, pageSize = 10, activeCompanyId } = params;
+        const {
+            search = '',
+            page = 1,
+            pageSize = 10,
+            activeCompanyId,
+            dateFrom,
+            DateFrom,
+            dateTo,
+            DateTo,
+            dateField,
+            DateField,
+            SubledgerName,
+            subledgerName
+        } = params;
         const skip = (page - 1) * pageSize;
+        const resolvedDateFrom = dateFrom ?? DateFrom;
+        const resolvedDateTo = dateTo ?? DateTo;
+        const rawDateField = (dateField ?? DateField ?? '').toString();
+        const allowedDateFields = ['VoucherMatchingDate'];
+        const selectedDateField = allowedDateFields.includes(rawDateField) ? rawDateField : 'VoucherMatchingDate';
+        const parsedDateFrom = resolvedDateFrom ? new Date(resolvedDateFrom) : null;
+        const parsedDateTo = resolvedDateTo ? new Date(resolvedDateTo) : null;
+        const normalizedDateFrom = parsedDateFrom && !Number.isNaN(parsedDateFrom.getTime()) ? parsedDateFrom : null;
+        const normalizedDateTo = parsedDateTo && !Number.isNaN(parsedDateTo.getTime()) ? parsedDateTo : null;
+        const normalizedSubledgerName = (SubledgerName ?? subledgerName ?? '').toString().trim();
 
         const where: Prisma.VoucherMatchingHeaderWhereInput = {
             Status: statusWhereClause,
             CompanyMasterSid: activeCompanyId,
+            ...(normalizedSubledgerName && { SubledgerName: { contains: normalizedSubledgerName, mode: 'insensitive' } }),
+            ...((normalizedDateFrom || normalizedDateTo) && {
+                [selectedDateField]: {
+                    ...(normalizedDateFrom && { gte: normalizedDateFrom }),
+                    ...(normalizedDateTo && { lte: normalizedDateTo })
+                }
+            }),
             ...(search
                 ? {
                     OR: [

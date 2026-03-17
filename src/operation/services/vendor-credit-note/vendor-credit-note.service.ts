@@ -624,11 +624,40 @@ if (payload.VoucherDetail && Array.isArray(payload.VoucherDetail)) {
             activeCompanyId,
             activeBranchId,
             sortColumn = 'VoucherDate',
-            sortDirection = 'desc'
+            sortDirection = 'desc',
+            dateFrom,
+            DateFrom,
+            dateTo,
+            DateTo,
+            dateField,
+            DateField,
+            PartyMasterSid,
+            partyMasterSid,
+            CustomerMasterSid,
+            customerMasterSid,
+            CurrencyCode,
+            currencyCode
         } = params;
 
         const skip = (page - 1) * pageSize;
         const take = Number(pageSize);
+
+        const resolvedDateFrom = dateFrom ?? DateFrom;
+        const resolvedDateTo = dateTo ?? DateTo;
+        const rawDateField = (dateField ?? DateField ?? '').toString();
+        const dateFieldMap: Record<string, string> = {
+            VoucherDate: 'VoucherDate',
+            BillDate: 'DocumentDate'
+        };
+        const selectedDateField = dateFieldMap[rawDateField] ?? 'VoucherDate';
+        const parsedDateFrom = resolvedDateFrom ? new Date(resolvedDateFrom) : null;
+        const parsedDateTo = resolvedDateTo ? new Date(resolvedDateTo) : null;
+        const normalizedDateFrom = parsedDateFrom && !Number.isNaN(parsedDateFrom.getTime()) ? parsedDateFrom : null;
+        const normalizedDateTo = parsedDateTo && !Number.isNaN(parsedDateTo.getTime()) ? parsedDateTo : null;
+        const normalizedPartySid = Number(
+            PartyMasterSid ?? partyMasterSid ?? CustomerMasterSid ?? customerMasterSid ?? 0
+        ) || null;
+        const normalizedCurrencyCode = (CurrencyCode ?? currencyCode ?? '').toString().trim();
 
         const where: Prisma.VoucherHeaderWhereInput = {
             CompanyMasterSid: activeCompanyId,
@@ -636,7 +665,15 @@ if (payload.VoucherDetail && Array.isArray(payload.VoucherDetail)) {
             Status: statusWhereClause,
             voucherTypeMaster: {
                 DocumentTypeCode: DOC_TYPE_CODE.VENDOR_CREDIT_NOTE
-            }
+            },
+            ...(normalizedPartySid && { PartyMasterSid: normalizedPartySid }),
+            ...(normalizedCurrencyCode && { CurrencyCode: normalizedCurrencyCode }),
+            ...((normalizedDateFrom || normalizedDateTo) && {
+                [selectedDateField]: {
+                    ...(normalizedDateFrom && { gte: normalizedDateFrom }),
+                    ...(normalizedDateTo && { lte: normalizedDateTo })
+                }
+            })
         };
 
         if (search) {

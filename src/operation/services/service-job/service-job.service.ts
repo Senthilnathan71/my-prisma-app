@@ -665,14 +665,58 @@ export class ServiceJobService {
      * Searches for Service Jobs
      */
     async searchServiceJob(searchParams: filterDto) {
-        const { search = '', page = 1, pageSize = 15, activeCompanyId, activeBranchId } = searchParams;
+        const {
+            search = '',
+            page = 1,
+            pageSize = 15,
+            activeCompanyId,
+            activeBranchId,
+            dateFrom,
+            DateFrom,
+            dateTo,
+            DateTo,
+            dateField,
+            DateField,
+            CustomerMasterSid,
+            customerMasterSid,
+            DepartmentMasterSid,
+            departmentMasterSid,
+            POL,
+            pol,
+            POD,
+            pod,
+        } = searchParams as any;
         const skip = (page - 1) * pageSize;
+        const resolvedDateFrom = dateFrom ?? DateFrom;
+        const resolvedDateTo = dateTo ?? DateTo;
+        const rawDateField = (dateField ?? DateField ?? '').toString();
+        const allowedDateFields = ['MBLDate', 'HBLDate'];
+        const selectedDateField = allowedDateFields.includes(rawDateField) ? rawDateField : 'MBLDate';
+
+        const parsedDateFrom = resolvedDateFrom ? new Date(resolvedDateFrom) : null;
+        const parsedDateTo = resolvedDateTo ? new Date(resolvedDateTo) : null;
+        const normalizedDateFrom = parsedDateFrom && !Number.isNaN(parsedDateFrom.getTime()) ? parsedDateFrom : null;
+        const normalizedDateTo = parsedDateTo && !Number.isNaN(parsedDateTo.getTime()) ? parsedDateTo : null;
+        const normalizedCustomerSid = Number(CustomerMasterSid ?? customerMasterSid ?? 0) || null;
+        const normalizedDepartmentSid = Number(DepartmentMasterSid ?? departmentMasterSid ?? 0) || null;
+        const normalizedPOL = (POL ?? pol ?? '').toString().trim();
+        const normalizedPOD = (POD ?? pod ?? '').toString().trim();
 
         const where: Prisma.HouseJobWhereInput = {
             CompanyMasterSid: activeCompanyId,
             BranchMasterSid: activeBranchId,
             IsServiceJob: 'Y',
             status: statusWhereClause,
+            ...(normalizedCustomerSid && { CustomerMasterSid: normalizedCustomerSid }),
+            ...(normalizedDepartmentSid && { DepartmentMasterSid: normalizedDepartmentSid }),
+            ...(normalizedPOL && { POL: normalizedPOL }),
+            ...(normalizedPOD && { POD: normalizedPOD }),
+            ...((normalizedDateFrom || normalizedDateTo) && {
+                [selectedDateField]: {
+                    ...(normalizedDateFrom && { gte: normalizedDateFrom }),
+                    ...(normalizedDateTo && { lte: normalizedDateTo }),
+                }
+            }),
             ...(search && {
                 OR: [
                     { HBLNo: { contains: search, mode: 'insensitive' } },

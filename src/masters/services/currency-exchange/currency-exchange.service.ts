@@ -111,13 +111,48 @@ export class CurrencyExchangeService {
 
     async searchCurrencyExchange(params: filterDto) {
 
-        const { search = '', page = 1, pageSize = 15, activeCompanyId, activeBranchId } = params;
+        const {
+            search = '',
+            page = 1,
+            pageSize = 15,
+            activeCompanyId,
+            activeBranchId,
+            dateFrom,
+            DateFrom,
+            dateTo,
+            DateTo,
+            dateField,
+            DateField,
+            FromCurrency,
+            fromCurrency,
+            ToCurrency,
+            toCurrency
+        } = params as any;
         const skip = (page - 1) * pageSize;
+        const resolvedDateFrom = dateFrom ?? DateFrom;
+        const resolvedDateTo = dateTo ?? DateTo;
+        const rawDateField = (dateField ?? DateField ?? '').toString();
+        const allowedDateFields = ['EffectiveFrom'];
+        const selectedDateField = allowedDateFields.includes(rawDateField) ? rawDateField : 'EffectiveFrom';
+        const parsedDateFrom = resolvedDateFrom ? new Date(resolvedDateFrom) : null;
+        const parsedDateTo = resolvedDateTo ? new Date(resolvedDateTo) : null;
+        const normalizedDateFrom = parsedDateFrom && !Number.isNaN(parsedDateFrom.getTime()) ? parsedDateFrom : null;
+        const normalizedDateTo = parsedDateTo && !Number.isNaN(parsedDateTo.getTime()) ? parsedDateTo : null;
+        const normalizedFromCurrency = (FromCurrency ?? fromCurrency ?? '').toString().trim();
+        const normalizedToCurrency = (ToCurrency ?? toCurrency ?? '').toString().trim();
 
         const where: Prisma.CurrencyExchangeWhereInput = {
             status: statusWhereClause,
             CompanyMasterSid: activeCompanyId,
             BranchMasterSid: activeBranchId,
+            ...(normalizedFromCurrency && { FromCurrency: normalizedFromCurrency }),
+            ...(normalizedToCurrency && { ToCurrency: normalizedToCurrency }),
+            ...((normalizedDateFrom || normalizedDateTo) && {
+                [selectedDateField]: {
+                    ...(normalizedDateFrom && { gte: normalizedDateFrom }),
+                    ...(normalizedDateTo && { lte: normalizedDateTo })
+                }
+            }),
             ...(search
                 ? {
                     OR: [

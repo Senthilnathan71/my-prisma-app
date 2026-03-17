@@ -644,7 +644,19 @@ export class VendorInvoiceService {
                 pageSize = 10,
                 activeCompanyId, activeBranchId,
                 sortColumn = 'VoucherDate',
-                sortDirection = 'desc'
+                sortDirection = 'desc',
+                dateFrom,
+                DateFrom,
+                dateTo,
+                DateTo,
+                dateField,
+                DateField,
+                PartyMasterSid,
+                partyMasterSid,
+                CustomerMasterSid,
+                customerMasterSid,
+                CurrencyCode,
+                currencyCode
             } = params;
 
             const skip = (page - 1) * pageSize;
@@ -656,6 +668,23 @@ export class VendorInvoiceService {
             //     },
             //     Status: statusWhereClause
             // };
+            const resolvedDateFrom = dateFrom ?? DateFrom;
+            const resolvedDateTo = dateTo ?? DateTo;
+            const rawDateField = (dateField ?? DateField ?? '').toString();
+            const dateFieldMap: Record<string, string> = {
+                VoucherDate: 'VoucherDate',
+                BillDate: 'DocumentDate'
+            };
+            const selectedDateField = dateFieldMap[rawDateField] ?? 'VoucherDate';
+            const parsedDateFrom = resolvedDateFrom ? new Date(resolvedDateFrom) : null;
+            const parsedDateTo = resolvedDateTo ? new Date(resolvedDateTo) : null;
+            const normalizedDateFrom = parsedDateFrom && !Number.isNaN(parsedDateFrom.getTime()) ? parsedDateFrom : null;
+            const normalizedDateTo = parsedDateTo && !Number.isNaN(parsedDateTo.getTime()) ? parsedDateTo : null;
+            const normalizedPartySid = Number(
+                PartyMasterSid ?? partyMasterSid ?? CustomerMasterSid ?? customerMasterSid ?? 0
+            ) || null;
+            const normalizedCurrencyCode = (CurrencyCode ?? currencyCode ?? '').toString().trim();
+
             const where: Prisma.VoucherHeaderWhereInput = {
                 CompanyMasterSid: activeCompanyId,
                 BranchMasterSid: activeBranchId,
@@ -664,6 +693,14 @@ export class VendorInvoiceService {
                     DocumentTypeCode: DOC_TYPE_CODE.VENDOR_INVOICE,
                     status: 'A'
                 },
+                ...(normalizedPartySid && { PartyMasterSid: normalizedPartySid }),
+                ...(normalizedCurrencyCode && { CurrencyCode: normalizedCurrencyCode }),
+                ...((normalizedDateFrom || normalizedDateTo) && {
+                    [selectedDateField]: {
+                        ...(normalizedDateFrom && { gte: normalizedDateFrom }),
+                        ...(normalizedDateTo && { lte: normalizedDateTo })
+                    }
+                })
             }
 
             // Add search filter
@@ -944,6 +981,9 @@ async searchPendingCosts(searchCriteria: {
     // }
     if (menuName === 'Vendor' && vendorSid) {
       whereClause.CostAgentMasterSid = vendorSid;
+    }
+    if (menuName === 'Vendor' && vendorBranchSid) {
+      whereClause.CostAgentBranchSid = vendorBranchSid;
     }
 
     // // Add vendor filter if provided

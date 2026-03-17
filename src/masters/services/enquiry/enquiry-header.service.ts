@@ -571,7 +571,25 @@ export class EnquiryHeaderService {
 
 
     async searchEnquiry(params: filterDto) {
-        const { search = '', page = 1, pageSize = 10, activeCompanyId, activeBranchId } = params;
+        const {
+            search = '',
+            page = 1,
+            pageSize = 10,
+            activeCompanyId,
+            activeBranchId,
+            CustomerMasterSid,
+            customerMasterSid,
+            DepartmentMasterSid,
+            departmentMasterSid,
+            POLSid,
+            polSid,
+            PODSid,
+            podSid,
+            POL,
+            pol,
+            POD,
+            pod
+        } = params;
         const skip = (page - 1) * pageSize;
         const parsedDate = parseDateFromString(search);
         console.log(parsedDate);
@@ -589,10 +607,27 @@ export class EnquiryHeaderService {
         });
 
         const portWithSearchOnlyIds = ports.map(p => p.PortMasterSid);
+        const normalizedCustomerSid = Number(CustomerMasterSid ?? customerMasterSid ?? 0) || null;
+        const normalizedDepartmentSid = Number(DepartmentMasterSid ?? departmentMasterSid ?? 0) || null;
+        const normalizedPolSid = Number(POLSid ?? polSid ?? 0) || null;
+        const normalizedPodSid = Number(PODSid ?? podSid ?? 0) || null;
+        const normalizedPolCode = (POL ?? pol ?? '').toString().trim();
+        const normalizedPodCode = (POD ?? pod ?? '').toString().trim();
+
         const where: Prisma.EnquiryHeaderWhereInput = {
             status: statusWhereClause,
             CompanyMasterSid: activeCompanyId,
             BranchMasterSid: activeBranchId,
+            ...(normalizedCustomerSid && { CustomerMasterSid: normalizedCustomerSid }),
+            ...(normalizedDepartmentSid && { DepartmentMasterSid: normalizedDepartmentSid }),
+            ...((normalizedPolSid || normalizedPodSid) && {
+                enquiryRoute: {
+                    some: {
+                        ...(normalizedPolSid && { POLSid: normalizedPolSid }),
+                        ...(normalizedPodSid && { PODSid: normalizedPodSid })
+                    }
+                }
+            }),
             ...(search ?
                 {
                     OR: [

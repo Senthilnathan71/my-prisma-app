@@ -559,11 +559,30 @@ if (payload.VoucherDetail && Array.isArray(payload.VoucherDetail)) {
                 sortColumn = 'VoucherDate',
                 sortDirection = 'desc',
                 activeCompanyId, 
-                activeBranchId
+                activeBranchId,
+                dateFrom,
+                DateFrom,
+                dateTo,
+                DateTo,
+                dateField,
+                DateField,
+                PostStatus,
+                postStatus
             } = params;
 
             const skip = (page - 1) * pageSize;
             const take = Number(pageSize);
+
+            const resolvedDateFrom = dateFrom ?? DateFrom;
+            const resolvedDateTo = dateTo ?? DateTo;
+            const rawDateField = (dateField ?? DateField ?? '').toString();
+            const allowedDateFields = ['VoucherDate', 'PostDate'];
+            const selectedDateField = allowedDateFields.includes(rawDateField) ? rawDateField : 'VoucherDate';
+            const parsedDateFrom = resolvedDateFrom ? new Date(resolvedDateFrom) : null;
+            const parsedDateTo = resolvedDateTo ? new Date(resolvedDateTo) : null;
+            const normalizedDateFrom = parsedDateFrom && !Number.isNaN(parsedDateFrom.getTime()) ? parsedDateFrom : null;
+            const normalizedDateTo = parsedDateTo && !Number.isNaN(parsedDateTo.getTime()) ? parsedDateTo : null;
+            const normalizedPostStatus = (PostStatus ?? postStatus ?? '').toString().trim();
 
             const where: any = {
                 CompanyMasterSid: activeCompanyId,
@@ -571,7 +590,14 @@ if (payload.VoucherDetail && Array.isArray(payload.VoucherDetail)) {
                 voucherTypeMaster: {
                     DocumentTypeCode: DOC_TYPE_CODE.JOURNAL_VOUCHER
                 },
-                Status: statusWhereClause
+                Status: statusWhereClause,
+                ...(normalizedPostStatus && { PostStatus: normalizedPostStatus }),
+                ...((normalizedDateFrom || normalizedDateTo) && {
+                    [selectedDateField]: {
+                        ...(normalizedDateFrom && { gte: normalizedDateFrom }),
+                        ...(normalizedDateTo && { lte: normalizedDateTo })
+                    }
+                })
             };
 
             // Add search filter

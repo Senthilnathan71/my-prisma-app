@@ -1410,7 +1410,25 @@ export class ReceiptService {
         page = 1,
         pageSize = 10,
         sortColumn = 'VoucherNumber',
-        sortDirection = 'desc'
+        sortDirection = 'desc',
+        dateFrom,
+        DateFrom,
+        dateTo,
+        DateTo,
+        dateField,
+        DateField,
+        PartyMasterSid,
+        partyMasterSid,
+        CustomerMasterSid,
+        customerMasterSid,
+        CustomerName,
+        customerName,
+        PartyName,
+        partyName,
+        CurrencyCode,
+        currencyCode,
+        PostStatus,
+        postStatus
       } = params;
 
       const skip = (page - 1) * pageSize;
@@ -1425,13 +1443,37 @@ export class ReceiptService {
         normalizedCashBank = "D";
       }
 
+      const resolvedDateFrom = dateFrom ?? DateFrom;
+      const resolvedDateTo = dateTo ?? DateTo;
+      const rawDateField = (dateField ?? DateField ?? '').toString();
+      const allowedDateFields = ['VoucherDate', 'PostDate'];
+      const selectedDateField = allowedDateFields.includes(rawDateField) ? rawDateField : 'VoucherDate';
+      const parsedDateFrom = resolvedDateFrom ? new Date(resolvedDateFrom) : null;
+      const parsedDateTo = resolvedDateTo ? new Date(resolvedDateTo) : null;
+      const normalizedDateFrom = parsedDateFrom && !Number.isNaN(parsedDateFrom.getTime()) ? parsedDateFrom : null;
+      const normalizedDateTo = parsedDateTo && !Number.isNaN(parsedDateTo.getTime()) ? parsedDateTo : null;
+      const normalizedPartySid = Number(PartyMasterSid ?? partyMasterSid ?? CustomerMasterSid ?? customerMasterSid ?? 0) || null;
+      const normalizedPartyName = (PartyName ?? partyName ?? CustomerName ?? customerName ?? '').toString().trim();
+      const normalizedCurrencyCode = (CurrencyCode ?? currencyCode ?? '').toString().trim();
+      const normalizedPostStatus = (PostStatus ?? postStatus ?? '').toString().trim();
+
       const where: Prisma.VoucherHeaderWhereInput = {
         CompanyMasterSid: activeCompanyId,
         BranchMasterSid: activeBranchId,
         voucherTypeMaster: {
           DocumentTypeCode : DOC_TYPE_CODE.RECEIPT
         },
-        Status: statusWhereClause
+        Status: statusWhereClause,
+        ...(normalizedPartySid && { PartyMasterSid: normalizedPartySid }),
+        ...(normalizedPartyName && { PartyName: { contains: normalizedPartyName, mode: 'insensitive' } }),
+        ...(normalizedCurrencyCode && { CurrencyCode: normalizedCurrencyCode }),
+        ...(normalizedPostStatus && { PostStatus: normalizedPostStatus }),
+        ...((normalizedDateFrom || normalizedDateTo) && {
+          [selectedDateField]: {
+            ...(normalizedDateFrom && { gte: normalizedDateFrom }),
+            ...(normalizedDateTo && { lte: normalizedDateTo })
+          }
+        })
       };
 
       // Add search filter

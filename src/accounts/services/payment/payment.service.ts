@@ -1347,7 +1347,19 @@ export class PaymentService {
                 page = 1,
                 pageSize = 10,
                 sortColumn = 'VoucherNumber',
-                sortDirection = 'desc'
+                sortDirection = 'desc',
+                dateFrom,
+                DateFrom,
+                dateTo,
+                DateTo,
+                dateField,
+                DateField,
+                PartyName,
+                partyName,
+                CurrencyCode,
+                currencyCode,
+                CashOrBank,
+                cashOrBank
             } = params;
 
             const skip = (page - 1) * pageSize;
@@ -1363,13 +1375,35 @@ export class PaymentService {
                 normalizedCashBank = "B";
             }
 
+            const resolvedDateFrom = dateFrom ?? DateFrom;
+            const resolvedDateTo = dateTo ?? DateTo;
+            const rawDateField = (dateField ?? DateField ?? '').toString();
+            const allowedDateFields = ['VoucherDate', 'PostDate'];
+            const selectedDateField = allowedDateFields.includes(rawDateField) ? rawDateField : 'VoucherDate';
+            const parsedDateFrom = resolvedDateFrom ? new Date(resolvedDateFrom) : null;
+            const parsedDateTo = resolvedDateTo ? new Date(resolvedDateTo) : null;
+            const normalizedDateFrom = parsedDateFrom && !Number.isNaN(parsedDateFrom.getTime()) ? parsedDateFrom : null;
+            const normalizedDateTo = parsedDateTo && !Number.isNaN(parsedDateTo.getTime()) ? parsedDateTo : null;
+            const normalizedPartyName = (PartyName ?? partyName ?? '').toString().trim();
+            const normalizedCurrencyCode = (CurrencyCode ?? currencyCode ?? '').toString().trim();
+            const normalizedCashOrBank = (CashOrBank ?? cashOrBank ?? '').toString().trim();
+
             const where: Prisma.VoucherHeaderWhereInput = {
                 CompanyMasterSid: activeCompanyId,
                 BranchMasterSid: activeBranchId,
                 voucherTypeMaster: {
                     DocumentTypeCode : DOC_TYPE_CODE.PAYMENT
                 },
-                Status: statusWhereClause
+                Status: statusWhereClause,
+                ...(normalizedPartyName && { PartyName: { contains: normalizedPartyName, mode: 'insensitive' } }),
+                ...(normalizedCurrencyCode && { CurrencyCode: normalizedCurrencyCode }),
+                ...(normalizedCashOrBank && { CashOrBank: normalizedCashOrBank }),
+                ...((normalizedDateFrom || normalizedDateTo) && {
+                    [selectedDateField]: {
+                        ...(normalizedDateFrom && { gte: normalizedDateFrom }),
+                        ...(normalizedDateTo && { lte: normalizedDateTo })
+                    }
+                })
             };
 
             // Add search filter

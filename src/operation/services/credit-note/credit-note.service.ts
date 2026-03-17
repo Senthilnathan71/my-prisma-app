@@ -666,6 +666,26 @@ export class CreditNoteService {
         activeCompanyId, 
         activeBranchId 
     } = params;
+       const dateFromRaw = params?.dateFrom ?? params?.DateFrom;
+       const dateToRaw = params?.dateTo ?? params?.DateTo;
+       const dateFieldRaw = params?.dateField ?? params?.DateField ?? 'VoucherDate';
+       const allowedDateFields = new Set(['VoucherDate', 'DocumentDate']);
+       const dateField = allowedDateFields.has(dateFieldRaw) ? dateFieldRaw : 'VoucherDate';
+       const partyMasterSid = params?.PartyMasterSid ?? params?.partyMasterSid ?? params?.CustomerMasterSid ?? params?.customerMasterSid ?? null;
+       const currencyCode = params?.CurrencyCode ?? params?.currencyCode ?? null;
+       const dateRange: Prisma.DateTimeFilter = {};
+       if (dateFromRaw) {
+         const parsedFrom = new Date(dateFromRaw);
+         if (!Number.isNaN(parsedFrom.getTime())) {
+           dateRange.gte = parsedFrom;
+         }
+       }
+       if (dateToRaw) {
+         const parsedTo = new Date(dateToRaw);
+         if (!Number.isNaN(parsedTo.getTime())) {
+           dateRange.lte = parsedTo;
+         }
+       }
        const skip = (page - 1) * pageSize;
        const take = Number(pageSize);
    
@@ -676,6 +696,9 @@ export class CreditNoteService {
             DocumentTypeCode : DOC_TYPE_CODE.CREDIT_NOTE
         },
          Status: statusWhereClause,
+         ...(partyMasterSid ? { PartyMasterSid: Number(partyMasterSid) } : {}),
+         ...(currencyCode ? { CurrencyCode: String(currencyCode) } : {}),
+         ...(Object.keys(dateRange).length ? { [dateField]: dateRange } : {}),
         }
          if(search) {
           const matchingOriginalVouchers = 
