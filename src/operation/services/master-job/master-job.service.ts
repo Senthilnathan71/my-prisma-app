@@ -356,9 +356,11 @@ export class MasterJobService {
                         CoLoader: otherFormValue?.CoLoader,
                         ExportDoNo: otherFormValue?.ExportDoNo,
                         CarrierRef: otherFormValue?.CarrierRef,
+                        JobtoSubjob: otherFormValue?.JobtoSubjob,
                         AgentRef: otherFormValue?.AgentRef,
                         ExportDoDate: otherFormValue?.ExportDoDate ? new Date(otherFormValue?.ExportDoDate) : null,
                         SOBDate: otherFormValue?.SOBDate ? new Date(otherFormValue?.SOBDate) : null,
+
                     }
 
                     createdOther = await prisma.masterJobOthers.create({
@@ -1856,6 +1858,7 @@ private getWeightInFromUnitSid(weightUnitSid: number): string {
                         AgentRef: otherFormValue?.AgentRef,
                         ExportDoDate: otherFormValue?.ExportDoDate ? new Date(otherFormValue?.ExportDoDate) : null,
                         SOBDate: otherFormValue?.SOBDate ? new Date(otherFormValue?.SOBDate) : null,
+                        JobtoSubjob: otherFormValue?.JobtoSubjob,
                         CreatedBy : payload.updatedBy,
                         CreatedOn : new Date(),
                     }
@@ -3895,7 +3898,8 @@ private async updateMasterJobTotals(masterJobSid: number): Promise<void> {
                             AgentExchangeRate: others.AgentExchangeRate,
                             Coload: others.Coload,
                             CoLoader: others.CoLoader,
-                            ExportDoNo: others.ExportDoNo
+                            ExportDoNo: others.ExportDoNo,
+                            JobtoSubjob: others.JobtoSubjob
                         }
                     });
                 }
