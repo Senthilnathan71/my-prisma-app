@@ -138,7 +138,7 @@ export class PreCustomerMeetingService {
                     }
                 })
 
-                if (updatePreCustomer && (payload.meetingStatus === 'confirmed' || payload.meetingStatus === 'completed')) {
+                if (updatePreCustomer && (payload.meetingStatus === 'Confirmed' || payload.meetingStatus === 'Completed')) {
                     await this._db.preCustomerMaster.update({
                         where: {
                             PreCustomerMasterSid: updatePreCustomer.preCustomerMaster?.PreCustomerMasterSid
