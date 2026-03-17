@@ -498,4 +498,8 @@ export class VoucherMatchingPayload {
    */
   BillMatchingLocalAmount ?: number;
 
+  @IsOptional()
+  @IsNumber()
+  LocalCurrencyMasterSid?: number;
+
 }

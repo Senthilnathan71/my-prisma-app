@@ -375,6 +375,10 @@ export class OperationReportsService {
               },
             }
           : {}),
+          IsServiceJob: { not: 'Y' },
+          JobType:{
+            not:'Agent'
+          }
         },
         include: {
           Cargo: true,
@@ -723,6 +727,11 @@ export class OperationReportsService {
           Status: 'A',
           BranchMasterSid: { in: resolvedBranchIds },
           DepartmentMasterSid: { in: resolvedDeptIds },
+          houseJob:{
+            some:{
+              JobType:{not:'Agent'}
+            }
+          }
         },
         include: {
           houseJob: {
@@ -1544,6 +1553,9 @@ export class OperationReportsService {
           status: 'A',
           BranchMasterSid: { in: resolvedBranchIds },
           DepartmentMasterSid: { in: resolvedDeptIds },
+          IsServiceJob:{
+            not:'Y'
+          }
         },
         include: {
           masterJob: {
@@ -2046,6 +2058,10 @@ export class OperationReportsService {
         status: 'A',
         BranchMasterSid: { in: resolvedBranchIds },
         DepartmentMasterSid: { in: resolvedDeptIds },
+        IsServiceJob: { not: 'Y' },
+        JobType:{
+            not:'Agent'
+          }
       };
 
       if (SalePerson && SalePerson.length > 0) {
@@ -2561,6 +2577,11 @@ export class OperationReportsService {
             { MBLDate: { lte: new Date(ToDt) } },
           ],
           Status: 'A',
+          houseJob:{
+            some:{
+              JobType:{not:'Agent'}
+            }
+          }
         },
         include: {
           houseJob: {
@@ -2601,6 +2622,7 @@ export class OperationReportsService {
             { HBLDate: { lte: new Date(ToDt) } },
           ],
           status: 'A',
+          JobType:{not:'Agent'}
         },
         orderBy: { HBLDate: 'asc' },
         include: { masterJob: true },
@@ -2971,6 +2993,11 @@ export class OperationReportsService {
             { MBLDate: { lte: new Date(ToDt) } },
           ],
           Status: 'A',
+          houseJob:{
+            some:{
+              JobType:'Agent'
+            }
+          }
         },
         include: {
           houseJob: {
@@ -3010,6 +3037,7 @@ export class OperationReportsService {
           status: 'A',
           BranchMasterSid: { in: resolvedBranchIds },
           DepartmentMasterSid: { in: resolvedDeptIds },
+          JobType:{not:'Agent'}
         },
         include: {
           masterJob: {
@@ -3658,6 +3686,12 @@ export class OperationReportsService {
           AND: [{ MBLDate: { gte: FromJobDt } }, { MBLDate: { lte: ToJobDt } }],
           Status: 'A',
           DepartmentMasterSid: { in: dept },
+          houseJob:{
+            some:{
+              JobType:{not:'Agent'},
+              IsServiceJob:{not:'Y'}
+            }
+          }
         },
         include: {
           voyages: {
@@ -4066,6 +4100,8 @@ export class OperationReportsService {
         status: 'A',
         BranchMasterSid: { in: resolvedBranchIds },
         DepartmentMasterSid: { in: resolvedDeptIds },
+        IsServiceJob: { not: 'Y' },
+        JobType:{ not:'Agent'}
       };
 
       if (SalePerson && SalePerson.length > 0) {
@@ -6345,6 +6381,7 @@ ports.forEach((p) => {
           MenuMasterSid: { notIn: excludedMenuId },
           AND: [{ HBLDate: { gte: FromDate } }, { HBLDate: { lte: ToDate } }],
           status: 'A',
+          IsServiceJob:{not:'Y'}
         },
         include: {
           Cargo: true,

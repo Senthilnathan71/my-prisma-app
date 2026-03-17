@@ -22,6 +22,7 @@ import { ManagementReportsController } from './controllers/management-reports/ma
 import { ManagementReportsService } from './services/management-reports/management-reports.service';
 import { GlobalConfigService } from 'src/common/config/master-config.service';
 import { ReportExportService } from 'src/common/services/report-export.service';
+import { PdfmakeNodeService } from 'src/common/services/report-generators/pdfmake-node.service';
 import { VoucherService } from 'src/operation/services/voucher/voucher.service';
 import { PaymentService } from './services/payment/payment.service';
 import { CompanyConfigService } from 'src/masters/services/company/company-config.service';
@@ -54,6 +55,7 @@ import { CompanyConfigService } from 'src/masters/services/company/company-confi
         AccountsReportsService,
         ManagementReportsService,
         ReportExportService,
+        PdfmakeNodeService,
         Logger,
         VoucherService,
         CompanyConfigService

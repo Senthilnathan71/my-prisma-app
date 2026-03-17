@@ -2784,71 +2784,155 @@ export class VoucherService {
                 }
             })
 
-            const allMatchingDetails : any[] = [];
+            // --- FIFO pairing algorithm ---
             const partyDetails = payload.partyVoucherDetail || [];
-            const partyPayload = partyDetails.map(detail => {
-                return {
-                    CreatedBy : payload.createdBy,
-                    Status : 'A',
-                    CompanyMasterSid : payload.CompanyMasterSid,
-                    BranchMasterSid : payload.BranchMasterSid,
-                    VoucherMatchingHeaderSid : createdVoucherHeader.VoucherMatchingHeaderSid,
-                    VoucherHeaderSid : payload.VoucherHeaderSid,
-                    VoucherDetailSid : detail.VoucherDetailSid,
-                    VoucherTransactionSid : detail.VoucherTransactionSid!,
-                    MatchingTransactionSid : detail.VoucherTransactionSid, // receiptId,
-                    VoucherMatchingDate : payload.PostDate,
-                    VoucherType : payload.VoucherTypeMasterSid,
-                    Sno : detail.Sno,
-                    COAMasterSid : detail.COAMasterSid,
-                    LedgerMasterSid : detail.LedgerMasterSid!,
-                    CurrencyCode : detail.CurrencyCode,
-                    ExchangeRate : detail.ExchangeRate,
-                    DrCr : detail.DrCr! || getPartyDrCr(payload.VoucherTypeCode)!,
-                    Amount : this.toNumber(detail.Amount),
-                    LocalAmount : this.toNumber(detail.LocalAmount),
-                    PartyAmount : this.toNumber(detail.PartyAmount),
-                    MatchingType : 'Source'
-                }
-            });
-            const partyMatchingDetail = await prisma.voucherMatching.createManyAndReturn({
-                data : partyPayload
-            })
-            allMatchingDetails.push(partyMatchingDetail);
-
             const matchings = payload.voucherMatching;
-            let index = 1;
-            for (const matching of matchings) {
-                const matchingDetail = await prisma.voucherMatching.create({
-                    data: {
-                        CreatedBy: payload.createdBy,
-                        Status: 'A',
-                        CompanyMasterSid: payload.CompanyMasterSid,
-                        BranchMasterSid: payload.BranchMasterSid,
-                        VoucherMatchingHeaderSid: createdVoucherHeader.VoucherMatchingHeaderSid,
-                        VoucherHeaderSid: matching.VoucherHeaderSid,
-                        VoucherDetailSid: matching.VoucherDetailSid,
-                        VoucherTransactionSid: matching.VoucherTransactionSid,
-                        MatchingTransactionSid: partyMatchingDetail[0].VoucherTransactionSid,
-                        VoucherMatchingDate: payload.PostDate,
-                        VoucherType: parseInt(matching.VoucherType) || parseInt(matching.VoucherTypeMasterSid) || 0,
-                        Sno: index++,
-                        COAMasterSid: matching.COAMasterSid,
-                        LedgerMasterSid: matching.LedgerMasterSid,
-                        CurrencyCode: matching.CurrencyCode,
-                        ExchangeRate: matching.ExchangeRate,
-                        DrCr: String(matching.DrCr).charAt(0),
-                        Amount: matching.Amount || matching.PartyAmount,
-                        LocalAmount: matching.LocalAmount,
-                        PartyAmount : matching.PartyAmount,
-                        MatchingType: 'Object'
-                    }
-                })
-                allMatchingDetails.push(matchingDetail);
+
+            // Step A: Currency decimal precision for rounding
+            const localCurrencyMasterSid = payload.LocalCurrencyMasterSid;
+            const allCurrencySids = new Set<number>();
+            if (localCurrencyMasterSid) allCurrencySids.add(localCurrencyMasterSid);
+            for (const d of partyDetails) { if (d.CurrencyMasterSid) allCurrencySids.add(this.toNumber(d.CurrencyMasterSid)); }
+            for (const m of matchings) { if (m.MatchingCurrency) allCurrencySids.add(this.toNumber(m.MatchingCurrency)); }
+
+            const currencyRecords = await prisma.currencyMaster.findMany({
+                where: { CurrencyMasterSid: { in: Array.from(allCurrencySids) } },
+                select: { CurrencyMasterSid: true, amountDecimal: true },
+            });
+            const currencyDecimalMap = new Map<number, number>();
+            for (const cr of currencyRecords) currencyDecimalMap.set(cr.CurrencyMasterSid, cr.amountDecimal ?? 2);
+            const localDecimal = localCurrencyMasterSid ? (currencyDecimalMap.get(localCurrencyMasterSid) ?? 3) : 3;
+
+            const roundByCurrency = (value: number, currSid: number | null | undefined): number => {
+                const decimals = currSid ? (currencyDecimalMap.get(this.toNumber(currSid)) ?? 3) : 3;
+                return Number(value.toFixed(decimals));
+            };
+
+            // Step B: Build Source queue (receipt/payment party details) and Object queue (matched invoices)
+            const sourceQueue = partyDetails.map(detail => ({
+                VoucherHeaderSid: payload.VoucherHeaderSid,
+                VoucherDetailSid: detail.VoucherDetailSid,
+                VoucherTransactionSid: detail.VoucherTransactionSid!,
+                VoucherTypeMasterSid: payload.VoucherTypeMasterSid,
+                COAMasterSid: detail.COAMasterSid,
+                LedgerMasterSid: detail.LedgerMasterSid!,
+                CurrencyCode: detail.CurrencyCode,
+                CurrencyMasterSid: detail.CurrencyMasterSid,
+                ExchangeRate: this.toNumber(detail.ExchangeRate) || 1,
+                DrCr: detail.DrCr! || getPartyDrCr(payload.VoucherTypeCode)!,
+                Sno: detail.Sno,
+                remainingAmount: this.toNumber(detail.Amount),
+                remainingLocalAmount: this.toNumber(detail.LocalAmount),
+            }));
+
+            const objectQueue = matchings.map((m, idx) => ({
+                VoucherHeaderSid: m.VoucherHeaderSid,
+                VoucherDetailSid: m.VoucherDetailSid,
+                VoucherTransactionSid: m.VoucherTransactionSid,
+                VoucherTypeMasterSid: parseInt(m.VoucherType) || parseInt(m.VoucherTypeMasterSid) || 0,
+                COAMasterSid: m.COAMasterSid,
+                LedgerMasterSid: m.LedgerMasterSid,
+                CurrencyCode: m.CurrencyCode,
+                CurrencyMasterSid: m.MatchingCurrency,
+                ExchangeRate: this.toNumber(m.ExchangeRate) || 1,
+                DrCr: String(m.DrCr).charAt(0),
+                Sno: idx + 1,
+                remainingAmount: this.toNumber(m.Amount || m.PartyAmount),
+                remainingLocalAmount: this.toNumber(m.LocalAmount),
+            }));
+
+            // Step C: FIFO pairing by LocalAmount
+            const pairs: { pairSno: number; source: typeof sourceQueue[0]; object: typeof objectQueue[0]; sourceAmount: number; objectAmount: number; matchedLocal: number }[] = [];
+            let pairSno = 1, srcIdx = 0, objIdx = 0;
+
+            while (srcIdx < sourceQueue.length && objIdx < objectQueue.length) {
+                const src = sourceQueue[srcIdx];
+                const obj = objectQueue[objIdx];
+                if (src.remainingLocalAmount <= 0) { srcIdx++; continue; }
+                if (obj.remainingLocalAmount <= 0) { objIdx++; continue; }
+
+                const matchedLocal = roundByCurrency(
+                    Math.min(src.remainingLocalAmount, obj.remainingLocalAmount), localCurrencyMasterSid
+                );
+                if (matchedLocal <= 0) { srcIdx++; continue; }
+
+                const srcExRate = src.ExchangeRate || 1;
+                const objExRate = obj.ExchangeRate || 1;
+
+                const sourceAmount = Math.abs(src.remainingLocalAmount - matchedLocal) < Math.pow(10, -localDecimal)
+                    ? src.remainingAmount
+                    : roundByCurrency(matchedLocal / srcExRate, src.CurrencyMasterSid);
+                const objectAmount = Math.abs(obj.remainingLocalAmount - matchedLocal) < Math.pow(10, -localDecimal)
+                    ? obj.remainingAmount
+                    : roundByCurrency(matchedLocal / objExRate, obj.CurrencyMasterSid);
+
+                pairs.push({ pairSno, source: src, object: obj, sourceAmount, objectAmount, matchedLocal });
+
+                src.remainingLocalAmount = roundByCurrency(src.remainingLocalAmount - matchedLocal, localCurrencyMasterSid);
+                src.remainingAmount = roundByCurrency(src.remainingAmount - sourceAmount, src.CurrencyMasterSid);
+                obj.remainingLocalAmount = roundByCurrency(obj.remainingLocalAmount - matchedLocal, localCurrencyMasterSid);
+                obj.remainingAmount = roundByCurrency(obj.remainingAmount - objectAmount, obj.CurrencyMasterSid);
+
+                pairSno++;
+                if (src.remainingLocalAmount <= 0) srcIdx++;
+                if (obj.remainingLocalAmount <= 0) objIdx++;
             }
+
+            // Step D: Build VoucherMatching rows — 2 per pair with cross-referencing
+            const voucherMatchingPayload: any[] = [];
+            for (const pair of pairs) {
+                const { source, object } = pair;
+                // Source row → MatchingTransactionSid = Object's transaction
+                voucherMatchingPayload.push({
+                    CreatedBy: payload.createdBy, Status: 'A',
+                    CompanyMasterSid: payload.CompanyMasterSid, 
+                    BranchMasterSid: payload.BranchMasterSid,
+                    VoucherMatchingHeaderSid: createdVoucherHeader.VoucherMatchingHeaderSid,
+                    VoucherHeaderSid: source.VoucherHeaderSid, 
+                    VoucherDetailSid: source.VoucherDetailSid,
+                    VoucherTransactionSid: source.VoucherTransactionSid,
+                    MatchingTransactionSid: object.VoucherTransactionSid,
+                    VoucherMatchingDate: payload.PostDate, 
+                    VoucherType: source.VoucherTypeMasterSid,
+                    Sno: pair.pairSno, 
+                    COAMasterSid: source.COAMasterSid, 
+                    LedgerMasterSid: source.LedgerMasterSid,
+                    CurrencyCode: source.CurrencyCode, 
+                    ExchangeRate: source.ExchangeRate,
+                    DrCr: source.DrCr, 
+                    Amount: pair.sourceAmount, 
+                    LocalAmount: pair.matchedLocal,
+                    MatchingType: 'Source',
+                });
+                // Object row → MatchingTransactionSid = Source's transaction
+                voucherMatchingPayload.push({
+                    CreatedBy: payload.createdBy, Status: 'A',
+                    CompanyMasterSid: payload.CompanyMasterSid, 
+                    BranchMasterSid: payload.BranchMasterSid,
+                    VoucherMatchingHeaderSid: createdVoucherHeader.VoucherMatchingHeaderSid,
+                    VoucherHeaderSid: object.VoucherHeaderSid, 
+                    VoucherDetailSid: object.VoucherDetailSid,
+                    VoucherTransactionSid: object.VoucherTransactionSid,
+                    MatchingTransactionSid: source.VoucherTransactionSid,
+                    VoucherMatchingDate: payload.PostDate, 
+                    VoucherType: object.VoucherTypeMasterSid,
+                    Sno: pair.pairSno, 
+                    COAMasterSid: object.COAMasterSid, 
+                    LedgerMasterSid: object.LedgerMasterSid,
+                    CurrencyCode: object.CurrencyCode, 
+                    ExchangeRate: object.ExchangeRate,
+                    DrCr: object.DrCr, 
+                    Amount: pair.objectAmount, 
+                    LocalAmount: pair.matchedLocal,
+                    MatchingType: 'Object',
+                });
+            }
+
+            const allMatchingDetails = await prisma.voucherMatching.createManyAndReturn({ data: voucherMatchingPayload });
+
             return {
                 ...createdVoucherHeader,
-                voucherMatchingDetails : allMatchingDetails
+                voucherMatchingDetails: allMatchingDetails,
             }
         } catch (error) {
             throw error;

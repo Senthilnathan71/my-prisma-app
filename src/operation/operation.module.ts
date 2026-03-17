@@ -42,6 +42,7 @@ import { DocVendorInvoiceController } from './controllers/document/doc-vendorinv
 import { OperationReportsController } from './controllers/operation-reports/operation-reports.controller';
 import { OperationReportsService } from './services/operation-reports/operation-reports.service';
 import { ReportExportService } from 'src/common/services/report-export.service';
+import { PdfmakeNodeService } from 'src/common/services/report-generators/pdfmake-node.service';
 import { BoeController } from './controllers/boe/boe.controller';
 import { BoeService } from './services/boe/boe.service';
 import { VendorCreditNoteService } from './services/vendor-credit-note/vendor-credit-note.service';
@@ -97,6 +98,7 @@ import { AccountsModule } from 'src/accounts/accounts.module';
                 DocVendorInvoiceService,
                 OperationReportsService,
                 ReportExportService,
+                PdfmakeNodeService,
                 BoeService,
                 VendorCreditNoteService,
                 VehicleService,
