@@ -18,6 +18,7 @@ interface CargoAgg {
 }
 
 interface ProRateChargeRow {
+  chargeMasterSid: number | null;
   chargeCode: string;
   chargeName: string;
   unitQty: string;
@@ -133,6 +134,37 @@ export class ProRateService {
     );
   }
 
+  async getHouseProrateStatus(payload: ProRateHouseDto) {
+    const houseJob = await this._db.houseJob.findUnique({
+      where: { HouseJobSid: payload.HouseJobSid },
+      select: {
+        HouseJobSid: true,
+        MasterJobSid: true,
+        masterJob: {
+          select: {
+            others: {
+              where: { Status: 'A' },
+              select: {
+                JobtoSubjob: true,
+              },
+              take: 1,
+            },
+          },
+        },
+      },
+    });
+
+    if (!houseJob) {
+      throw new Error('House Job not found');
+    }
+
+    return {
+      HouseJobSid: houseJob.HouseJobSid,
+      MasterJobSid: houseJob.MasterJobSid,
+      JobtoSubjob: houseJob.masterJob?.others?.[0]?.JobtoSubjob || 'N',
+    };
+  }
+
   private async buildProRateResponse(
     payload: ProRateCalculateDto,
     selectedHouseJobSid?: number,
@@ -193,14 +225,16 @@ export class ProRateService {
         status: 'A',
         CompanyMasterSid,
         BranchMasterSid,
-        ...(selectedHouseJobSid ? { HouseJobSid: selectedHouseJobSid } : {}),
       },
       include: {
         Cargo: { where: { status: 'A' } },
       },
     });
 
-    if (selectedHouseJobSid && houseJobs.length === 0) {
+    if (
+      selectedHouseJobSid &&
+      !houseJobs.some((house) => house.HouseJobSid === selectedHouseJobSid)
+    ) {
       throw new Error('House Job not found for this master job');
     }
 
@@ -452,6 +486,7 @@ export class ProRateService {
         }
 
         house.proratedCharges.push({
+          chargeMasterSid: masterCharge.ChargeMasterSid,
           chargeCode: masterCharge.chargeMaster.chargeCode,
           chargeName: masterCharge.chargeMaster.chargeName,
           unitQty,
@@ -475,6 +510,10 @@ export class ProRateService {
       }
     }
 
+    const outputHouses = selectedHouseJobSid
+      ? houses.filter((house) => house.houseJob.HouseJobSid === selectedHouseJobSid)
+      : houses;
+
     return {
       masterJob: {
         MasterJobSid: masterJob.MasterJobSid,
@@ -490,7 +529,7 @@ export class ProRateService {
       containers,
       totalHouses: houseJobs.length,
       masterCharges,
-      houses,
+      houses: outputHouses,
       currencies: Array.from(currencySet.values()),
       warnings,
     };

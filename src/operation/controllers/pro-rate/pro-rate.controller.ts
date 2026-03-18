@@ -51,4 +51,17 @@ export class ProRateController {
     }
     return output;
   }
+
+  @Post('house-status')
+  @UsePipes(new ValidationPipe({ transform: true }))
+  async getHouseProrateStatus(@Body() body: ProRateHouseDto) {
+    const output = new ResponseData();
+    try {
+      output.data = await this.proRateService.getHouseProrateStatus(body);
+    } catch (error) {
+      output.status = false;
+      output.message = error.message || 'Internal Server Error';
+    }
+    return output;
+  }
 }
