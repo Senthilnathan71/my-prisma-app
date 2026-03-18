@@ -47,6 +47,7 @@ export class MasterJobService {
         prisma: Prisma.TransactionClient,
         payload: any,
         generatedMasterJobNumber: string,
+        allocationMode: 'customer-first' | 'carrier-only' = 'customer-first',
     ): Promise<string> {
         let bookingCustomerId: number | null = null;
         let bookingCustomerName = '';
@@ -93,7 +94,7 @@ export class MasterJobService {
 
         let availableMawb: MawbStock | null = null;
 
-        if (bookingCustomerId) {
+        if (allocationMode === 'customer-first' && bookingCustomerId) {
             availableMawb = await prisma.mawbStock.findFirst({
                 where: {
                     CompanyMasterSid: payload.CompanyMasterSid,
@@ -333,13 +334,19 @@ export class MasterJobService {
                     );
 
                     if (departmentExportImport === 'Export') {
+                        const isBookingCreate = String(payload?.sourceScreen ?? '').toUpperCase() === 'BOOKING';
+
                         if (mblValue && mblValue.toLowerCase() !== 'null' && mblValue.toLowerCase() !== 'undefined') {
                             assignedMBLNo = mblValue;
                         } else if (isMawbAutoAllocationEnabled) {
                             try {
-                                assignedMBLNo = await this.allocateMawbFromStock(prisma, payload, generatedMasterJobNumber);
+                                assignedMBLNo = await this.allocateMawbFromStock(
+                                    prisma,
+                                    payload,
+                                    generatedMasterJobNumber,
+                                    isBookingCreate ? 'carrier-only' : 'customer-first',
+                                );
                             } catch (error) {
-                                const isBookingCreate = String(payload?.sourceScreen ?? '').toUpperCase() === 'BOOKING';
                                 const errorMessage = error instanceof Error ? error.message : String(error ?? '');
 
                                 if (isBookingCreate && errorMessage.includes('No MAWB stock available for auto allocation')) {
