@@ -161,15 +161,20 @@ export class MailConfigurationService {
                 }
             }
 
+            const { CompanyMasterSid, MenuMasterSid, UpdateFields, ...updateData } = dto as any;
+
             const updatedRecord = await this._db.mailConfigurationMaster.update({
                 where: {
                     MailConfigurationMasterSid: id,
                 },
                 data: {
-                    ...dto,
+                    ...updateData,
                     MailName: dto.MailName?.trim(),
                     UpdatedBy: userEmail,
                     UpdatedOn: new Date(),
+                    ...(MenuMasterSid && {
+                        MenuMaster: { connect: { MenuMasterSid: Number(MenuMasterSid) } },
+                    }),
                 },
             });
 
