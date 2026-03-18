@@ -770,6 +770,95 @@ export class ServiceJobService {
         }
     }
 
+    async getAuditLogs(tableName: string, recordId?: string) {
+        try {
+            let conditions: any[] = [];
+
+            // SERVICE JOB (HouseJob) LOG
+            if (tableName === 'HouseJob' && recordId) {
+                const houseJobSid = Number(recordId);
+
+                const houseJob = await this._db.houseJob.findUnique({
+                    where: { HouseJobSid: houseJobSid },
+                    select: {
+                        HouseJobSid: true,
+                        MasterJobSid: true,
+                        IsServiceJob: true,
+                    },
+                });
+
+                if (!houseJob || houseJob.IsServiceJob !== 'Y') {
+                    throw new NotFoundException(`Service job with ID ${houseJobSid} not found.`);
+                }
+
+                const [cargo, others, charges] = await Promise.all([
+                    this._db.houseJobCargo.findMany({
+                        where: { HouseJobSid: houseJobSid },
+                        select: { HouseJobCargoSid: true }
+                    }),
+                    this._db.houseJobOthers.findMany({
+                        where: { HouseJobSid: houseJobSid },
+                        select: { HouseJobOthersSid: true }
+                    }),
+                    this._db.costRevenueCharges.findMany({
+                        where: { TransactionSid: houseJobSid },
+                        select: { CostRevenueChargesSid: true }
+                    })
+                ]);
+
+                conditions = [
+                    {
+                        tableName: 'HouseJob',
+                        recordId: recordId
+                    },
+                    ...(houseJob.MasterJobSid
+                        ? [{
+                            tableName: 'MasterJob',
+                            recordId: houseJob.MasterJobSid.toString()
+                        }]
+                        : []),
+                    ...(cargo.length
+                        ? [{
+                            tableName: 'HouseJobCargo',
+                            recordId: { in: cargo.map(x => x.HouseJobCargoSid.toString()) }
+                        }]
+                        : []),
+                    ...(others.length
+                        ? [{
+                            tableName: 'HouseJobOthers',
+                            recordId: { in: others.map(x => x.HouseJobOthersSid.toString()) }
+                        }]
+                        : []),
+                    ...(charges.length
+                        ? [{
+                            tableName: 'CostRevenueCharges',
+                            recordId: { in: charges.map(x => x.CostRevenueChargesSid.toString()) }
+                        }]
+                        : []),
+                ];
+            } else {
+                conditions = [{
+                    tableName,
+                    ...(recordId && { recordId })
+                }];
+            }
+
+            const logs = await this._db.auditLog.findMany({
+                where: {
+                    OR: conditions
+                },
+                orderBy: {
+                    changedAt: 'desc'
+                }
+            });
+
+            return logs;
+        } catch (error) {
+            this.logger.warn(`getAuditLogsError: ${error}`);
+            throw new Error(`Error fetching audit logs: ${error.message}`);
+        }
+    }
+
     async checkDuplicateServiceJob(payload: DuplicateCheckDTO) {
         const existingRecord = await this._db.houseJob.findFirst({
             where: {

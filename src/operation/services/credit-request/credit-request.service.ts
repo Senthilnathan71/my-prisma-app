@@ -1795,6 +1795,80 @@ export class CreditRequestService {
     };
   }
 
+  async getAuditLogs(tableName: string, recordId?: string) {
+  try {
+    let conditions: any[] = [];
+
+    if (tableName === 'CustomerMaster' && recordId) {
+      const customerMasterSid = Number(recordId);
+
+      const customer = await this._db.customerMaster.findUnique({
+        where: { CustomerMasterSid: customerMasterSid },
+        select: { CustomerMasterSid: true }
+      });
+
+      if (!customer) {
+        throw new NotFoundException(`Customer with ID ${customerMasterSid} not found.`);
+      }
+
+      const creditRequests = await this._db.customerCreditRequest.findMany({
+        where: { CustomerMasterSid: customerMasterSid },
+        select: { CustomerCreditRequestSid: true }
+      });
+
+      const creditRequestIds = creditRequests.map(x => x.CustomerCreditRequestSid);
+
+      const customerKycs = creditRequestIds.length
+        ? await this._db.customerKyc.findMany({
+            where: {
+              CustomerCreditRequestSid: { in: creditRequestIds }
+            },
+            select: { CustomerKycSid: true }
+          })
+        : [];
+
+      conditions = [
+        ...(creditRequestIds.length
+          ? [{
+              tableName: 'CustomerCreditRequest',
+              recordId: { in: creditRequestIds.map(x => x.toString()) }
+            }]
+          : []),
+
+        ...(customerKycs.length
+          ? [{
+              tableName: 'CustomerKyc',
+              recordId: { in: customerKycs.map(x => x.CustomerKycSid.toString()) }
+            }]
+          : [])
+      ];
+    } else {
+      conditions = [{
+        tableName,
+        ...(recordId && { recordId })
+      }];
+    }
+
+    if (!conditions.length) {
+      return [];
+    }
+
+    const logs = await this._db.auditLog.findMany({
+      where: {
+        OR: conditions
+      },
+      orderBy: {
+        changedAt: 'desc'
+      }
+    });
+
+    return logs;
+  } catch (error) {
+    this.logger.warn(`getAuditLogsError: ${error}`);
+    throw new Error(`Error fetching audit logs: ${error.message}`);
+  }
+}
+
 }
 
 

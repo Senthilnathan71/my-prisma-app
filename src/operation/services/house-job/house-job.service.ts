@@ -2011,11 +2011,72 @@ export class HouseJobService {
 
     async getAuditLogs(tableName: string, recordId?: string) {
         try {
-            const whereClause: any = { tableName };
-            if (recordId) whereClause.recordId = recordId;
+            let conditions: any[] = [];
+
+            // HEADER LOG
+            if (tableName === 'HouseJob' && recordId) {
+                const houseJobSid = Number(recordId);
+
+                const [
+                    cargo,
+                    product,
+                    connection,
+                    others,
+                    boe,
+                    vehicle,
+                    customs
+                ] = await Promise.all([
+                    this._db.houseJobCargo.findMany({
+                        where: { HouseJobSid: houseJobSid },
+                        select: { HouseJobCargoSid: true }
+                    }),
+                    this._db.houseJobProduct.findMany({
+                        where: { HouseJobSid: houseJobSid },
+                        select: { HouseJobProductSid: true }
+                    }),
+                    this._db.houseJobConnection.findMany({
+                        where: { HouseJobSid: houseJobSid },
+                        select: { HouseJobConnectionSid: true }
+                    }),
+                    this._db.houseJobOthers.findMany({
+                        where: { HouseJobSid: houseJobSid },
+                        select: { HouseJobOthersSid: true }
+                    }),
+                    this._db.houseJobBOE.findMany({
+                        where: { HouseJobSid: houseJobSid },
+                        select: { HouseJobBOESid: true }
+                    }),
+                    this._db.houseJobVehicle.findMany({
+                        where: { HouseJobSid: houseJobSid },
+                        select: { HouseJobVehicleSid: true }
+                    }),
+                    this._db.houseJobCustoms.findMany({
+                        where: { HouseJobSid: houseJobSid },
+                        select: { HouseJobCustomsSid: true }
+                    })
+                ]);
+
+                conditions = [
+                    { tableName: 'HouseJob', recordId: recordId },
+                    { tableName: 'HouseJobCargo', recordId: { in: cargo.map(x => x.HouseJobCargoSid.toString()) } },
+                    { tableName: 'HouseJobProduct', recordId: { in: product.map(x => x.HouseJobProductSid.toString()) } },
+                    { tableName: 'HouseJobConnection', recordId: { in: connection.map(x => x.HouseJobConnectionSid.toString()) } },
+                    { tableName: 'HouseJobOthers', recordId: { in: others.map(x => x.HouseJobOthersSid.toString()) } },
+                    { tableName: 'HouseJobBOE', recordId: { in: boe.map(x => x.HouseJobBOESid.toString()) } },
+                    { tableName: 'HouseJobVehicle', recordId: { in: vehicle.map(x => x.HouseJobVehicleSid.toString()) } },
+                    { tableName: 'HouseJobCustoms', recordId: { in: customs.map(x => x.HouseJobCustomsSid.toString()) } }
+                ];
+            } else {
+                conditions = [{
+                    tableName,
+                    ...(recordId && { recordId })
+                }];
+            }
 
             const logs = await this._db.auditLog.findMany({
-                where: whereClause,
+                where: {
+                    OR: conditions
+                },
                 orderBy: { changedAt: 'desc' },
             });
 

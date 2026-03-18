@@ -3342,11 +3342,61 @@ if (houseJobsForBookingSync.length > 0) {
     }
     async getAuditLogs(tableName: string, recordId?: string) {
         try {
-            const whereClause: any = { tableName };
-            if (recordId) whereClause.recordId = recordId;
+            let conditions: any[] = [];
+
+            // HEADER LOG
+            if (tableName === 'MasterJob' && recordId) {
+                const masterJobSid = Number(recordId);
+
+                const [
+                    connections,
+                    others,
+                    containers,
+                    containerActivities,
+                    voyages,
+                ] = await Promise.all([
+                    this._db.masterJobConnection.findMany({
+                        where: { MasterJobSid: masterJobSid },
+                        select: { MasterJobConnectionSid: true }
+                    }),
+                    this._db.masterJobOthers.findMany({
+                        where: { MasterJobSid: masterJobSid },
+                        select: { MasterJobOthersSid: true }
+                    }),
+                    this._db.masterJobContainer.findMany({
+                        where: { MasterJobSid: masterJobSid },
+                        select: { MasterJobContainerSid: true }
+                    }),
+                    this._db.containerActivity.findMany({
+                        where: { JobMasterSid: masterJobSid },
+                        select: { ContainerActivitySid: true }
+                    }),
+                    this._db.masterJobVoyage.findMany({
+                        where: { MasterJobSid: masterJobSid },
+                        select: { MasterJobVoyageSid: true }
+                    }),
+                    
+                ]);
+
+                conditions = [
+                    { tableName: 'MasterJob', recordId: recordId },
+                    { tableName: 'MasterJobConnection', recordId: { in: connections.map(x => x.MasterJobConnectionSid.toString()) } },
+                    { tableName: 'MasterJobOthers', recordId: { in: others.map(x => x.MasterJobOthersSid.toString()) } },
+                    { tableName: 'MasterJobContainer', recordId: { in: containers.map(x => x.MasterJobContainerSid.toString()) } },
+                    { tableName: 'ContainerActivity', recordId: { in: containerActivities.map(x => x.ContainerActivitySid.toString()) } },
+                    { tableName: 'MasterJobVoyage', recordId: { in: voyages.map(x => x.MasterJobVoyageSid.toString()) } },
+                ];
+            } else {
+                conditions = [{
+                    tableName,
+                    ...(recordId && { recordId })
+                }];
+            }
 
             const logs = await this._db.auditLog.findMany({
-                where: whereClause,
+                where: {
+                    OR: conditions
+                },
                 orderBy: { changedAt: 'desc' },
             });
 
