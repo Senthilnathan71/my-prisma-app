@@ -3,7 +3,7 @@ model AuditLog {
   tableName   String
   recordId    String?
   operation   String
-  changedAt   DateTime @default(now())
+  changedAt   DateTime @default(now()) @db.Timestamptz(6)
   changedBy   String?
   changes     Json?
   newVal      Json?

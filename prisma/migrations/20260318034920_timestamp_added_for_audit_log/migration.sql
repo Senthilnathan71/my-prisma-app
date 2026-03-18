@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "AuditLog" ALTER COLUMN "changedAt" SET DATA TYPE TIMESTAMPTZ(6);
