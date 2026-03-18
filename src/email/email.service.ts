@@ -517,7 +517,6 @@ export class EmailService {
      */
     private createReportEmailTemplate(reportName: string, message: string, reportDetails?: any): string {
         const companyName = reportDetails?.companyName || '';
-        const branchName = reportDetails?.branchName || '';
         const generatedDate = new Date().toLocaleString();
         const parameters = reportDetails?.parameters || {};
 
@@ -537,8 +536,8 @@ export class EmailService {
         }
         .header {
             background-color: #05608d;
-            color: white;
-            padding: 20px;
+            color: #f9f9f9;
+            padding: 10px;
             text-align: center;
             border-radius: 5px 5px 0 0;
         }
@@ -567,7 +566,7 @@ export class EmailService {
             background-color: #333;
             color: white;
             text-align: center;
-            padding: 15px;
+            padding: 10px;
             border-radius: 0 0 5px 5px;
             font-size: 12px;
         }
@@ -588,7 +587,6 @@ export class EmailService {
 <body>
     <div class="header">
         <h2>${companyName}</h2>
-        <p>${branchName}</p>
     </div>
 
     <div class="content">

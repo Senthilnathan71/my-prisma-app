@@ -81,6 +81,9 @@ export class ReportScheduleExecutorService {
         reportBuffer,
         filename,
         format,
+        reportDetails : {
+          companyName : schedule.CompanyMaster?.companyName,
+        }
       });
 
       // 8. Update last run status
