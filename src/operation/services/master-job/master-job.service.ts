@@ -11,6 +11,7 @@ import { OperationCommonService } from '../operation-common/operation-common.ser
 import { catchError, of } from 'rxjs';
 import { NumberSeriesService } from 'src/settings/services/number-series/number-series.service';
 import { MilestoneCode, MilestoneCategory, getDefaultMilestoneCodes, getMilestoneByCode } from './milestone-registry';
+import { CompanyConfigService } from 'src/masters/services/company/company-config.service';
 
 interface searchMasterJob {
     search: string,
@@ -30,7 +31,125 @@ export class MasterJobService {
         private menuMasterService: MenuService,
         private commonService: OperationCommonService,
         private numberSeriesService: NumberSeriesService,
+        private companyConfigService: CompanyConfigService,
     ) { }
+
+    private parseConfigBoolean(value: any): boolean {
+        if (value === true || value === false) {
+            return value;
+        }
+
+        const normalized = String(value ?? '').trim().toUpperCase();
+        return ['Y', 'YES', 'TRUE', '1'].includes(normalized);
+    }
+
+    private async allocateMawbFromStock(
+        prisma: Prisma.TransactionClient,
+        payload: any,
+        generatedMasterJobNumber: string,
+    ): Promise<string> {
+        let bookingCustomerId: number | null = null;
+        let bookingCustomerName = '';
+        const selectedCarrierName = String(payload?.voyages?.[0]?.CarrierName ?? payload?.CarrierName ?? '').trim();
+        const selectedAirlineName = String(payload?.voyages?.[0]?.VesselName ?? payload?.VesselName ?? '').trim();
+        const airlineLookupName = selectedAirlineName || selectedCarrierName;
+
+        if (payload?.shipmentList?.length) {
+            const firstBooking = await prisma.bookingHeader.findFirst({
+                where: {
+                    BookingHeaderSid: {
+                        in: payload.shipmentList.map(s => s.BookingHeaderSid).filter(Boolean)
+                    }
+                },
+                select: {
+                    CustomerMasterSid: true,
+                    CustomerName: true,
+                }
+            });
+
+            bookingCustomerId = firstBooking?.CustomerMasterSid || null;
+            bookingCustomerName = String(firstBooking?.CustomerName ?? '').trim();
+        }
+
+        let airlineId: number | null = null;
+        if (airlineLookupName) {
+            const airline = await prisma.customerMaster.findFirst({
+                where: {
+                    CustomerName: {
+                        equals: airlineLookupName,
+                        mode: 'insensitive'
+                    },
+                    CompanyMasterSid: payload.CompanyMasterSid,
+                    status: 'A'
+                },
+                select: {
+                    CustomerMasterSid: true,
+                    CustomerName: true,
+                }
+            });
+
+            airlineId = airline?.CustomerMasterSid || null;
+        }
+
+        let availableMawb: MawbStock | null = null;
+
+        if (bookingCustomerId) {
+            availableMawb = await prisma.mawbStock.findFirst({
+                where: {
+                    CompanyMasterSid: payload.CompanyMasterSid,
+                    BranchMasterSid: payload.BranchMasterSid,
+                    AirwayBillType: 'Airline',
+                    StockStatus: 'Free',
+                    AvailableStatus: 'Allocated',
+                    Customer: bookingCustomerId,
+                    status: 'A'
+                },
+                orderBy: { MasterBillNumber: 'asc' }
+            });
+        }
+
+        if (!availableMawb && airlineId) {
+            availableMawb = await prisma.mawbStock.findFirst({
+                where: {
+                    CompanyMasterSid: payload.CompanyMasterSid,
+                    BranchMasterSid: payload.BranchMasterSid,
+                    AirwayBillType: 'Airline',
+                    Agent: airlineId,
+                    StockStatus: 'Free',
+                    AvailableStatus: 'Available',
+                    status: 'A'
+                },
+                orderBy: { MasterBillNumber: 'asc' }
+            });
+        }
+
+        if (!availableMawb) {
+            const stockContext: string[] = [];
+            if (bookingCustomerName) {
+                stockContext.push(`Customer: ${bookingCustomerName}`);
+            }
+            if (selectedCarrierName || airlineLookupName) {
+                stockContext.push(`Carrier: ${selectedCarrierName || airlineLookupName}`);
+            }
+
+            const contextMessage = stockContext.length > 0
+                ? ` for ${stockContext.join(', ')}`
+                : '';
+
+            throw new BadRequestException(`No MAWB stock available for auto allocation${contextMessage}. Please enter MAWB manually.`);
+        }
+
+        await prisma.mawbStock.update({
+            where: { MawbStockSid: availableMawb.MawbStockSid },
+            data: {
+                StockStatus: 'Utilised',
+                updatedBy: payload.createdBy,
+                updatedOn: new Date()
+            }
+        });
+
+        return availableMawb.MasterBillNumber;
+    }
 
     async createNewMasterJob(payload: any) {
         try {
@@ -188,7 +307,7 @@ export class MasterJobService {
 
                 //                 // block MAWB
                 //                 await prisma.mawbStock.update({
-                //                     where: { MasterBillNumber: availableMawb.MasterBillNumber },
+                //                     where: { MawbStockSid: availableMawb.MawbStockSid },
                 //                     data: {
                 //                         StockStatus: 'Utilised',
                 //                         updatedBy: payload.createdBy,
@@ -202,16 +321,40 @@ export class MasterJobService {
                 //     }
                 // }
                 
-                // AIR → ALWAYS TAKE FROM FRONTEND (NO AUTO ALLOCATION)
-                
+                const mblValue = String(payload.MBLNo ?? '').trim();
+
                 if (departmentType === 'Air') {
+                    const isMawbAutoAllocationEnabled = this.parseConfigBoolean(
+                        await this.companyConfigService.getConfigurationValue(
+                            payload.CompanyMasterSid,
+                            'MawbStockAllocation',
+                            prisma
+                        )
+                    );
 
-                    const mblValue = String(payload.MBLNo ?? '').trim();
+                    if (departmentExportImport === 'Export') {
+                        if (mblValue && mblValue.toLowerCase() !== 'null' && mblValue.toLowerCase() !== 'undefined') {
+                            assignedMBLNo = mblValue;
+                        } else if (isMawbAutoAllocationEnabled) {
+                            try {
+                                assignedMBLNo = await this.allocateMawbFromStock(prisma, payload, generatedMasterJobNumber);
+                            } catch (error) {
+                                const isBookingCreate = String(payload?.sourceScreen ?? '').toUpperCase() === 'BOOKING';
+                                const errorMessage = error instanceof Error ? error.message : String(error ?? '');
 
-                    if (!mblValue || mblValue.toLowerCase() === 'null' || mblValue.toLowerCase() === 'undefined') {
-                        assignedMBLNo = ""; 
+                                if (isBookingCreate && errorMessage.includes('No MAWB stock available for auto allocation')) {
+                                    assignedMBLNo = '';
+                                } else {
+                                    throw error;
+                                }
+                            }
+                        } else {
+                            assignedMBLNo = '';
+                        }
                     } else {
-                        assignedMBLNo = mblValue;
+                        assignedMBLNo = (!mblValue || mblValue.toLowerCase() === 'null' || mblValue.toLowerCase() === 'undefined')
+                            ? ''
+                            : mblValue;
                     }
 
                 }
@@ -219,8 +362,6 @@ export class MasterJobService {
                     if (departmentExportImport === 'Export') {
                         assignedMBLNo = generatedMasterJobNumber || "";
                     } else {
-                        const mblValue = String(payload.MBLNo ?? '').trim();
-
                         if (!mblValue || mblValue.toLowerCase() === 'null' || mblValue.toLowerCase() === 'undefined') {
                             assignedMBLNo = generatedMasterJobNumber || "";
                         } else {
@@ -228,8 +369,6 @@ export class MasterJobService {
                         }
                     }
                 }
-
-
                 const payloadPOO = String(payload.POO ?? '').trim();
                 const payloadFPD = String((payload.FPD ?? payload.FDC) ?? '').trim();
                 const resolvedPOO = payloadPOO && payloadPOO.toLowerCase() !== 'null' && payloadPOO.toLowerCase() !== 'undefined'
@@ -6328,4 +6467,14 @@ console.log('Created product:', createdProduct);
         }
     }
 }
+
+
+
+
+
+
+
+
+
+
 
