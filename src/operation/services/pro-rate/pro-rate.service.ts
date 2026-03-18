@@ -1,8 +1,12 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { DatabaseService } from 'src/database/database.service';
 import { MenuService } from 'src/masters/services/menu/menu.service';
-import { toNumber, roundAmount } from 'src/common/helper';
-import { ProRateCalculateDto } from '../../DTO/pro-rate.dto';
+import { roundAmount, toNumber } from 'src/common/helper';
+import {
+  ProRateApplyDto,
+  ProRateCalculateDto,
+  ProRateHouseDto,
+} from '../../DTO/pro-rate.dto';
 
 interface CargoAgg {
   totalPkg: number;
@@ -11,6 +15,28 @@ interface CargoAgg {
   cbm: number;
   chargeableWeight: number;
   noOfContainers: number;
+}
+
+interface ProRateChargeRow {
+  chargeMasterSid: number | null;
+  chargeCode: string;
+  chargeName: string;
+  unitQty: string;
+  noOfUnit: number;
+  costCurrencyMasterSid: number | null;
+  costCurrencyCode: string;
+  costRate: number;
+  costAmount: number;
+  costLocalAmount: number;
+  costExchangeRate: number;
+  costDrCr: string | null;
+  revenueCurrencyMasterSid: number | null;
+  revenueCurrencyCode: string;
+  revenueRate: number;
+  revenueAmount: number;
+  revenueLocalAmount: number;
+  revenueExchangeRate: number;
+  revenueDrCr: string | null;
 }
 
 @Injectable()
@@ -23,10 +49,129 @@ export class ProRateService {
   ) {}
 
   async calculateProRate(payload: ProRateCalculateDto) {
+    return this.buildProRateResponse(payload);
+  }
+
+  async applyProRate(payload: ProRateApplyDto) {
+    const proRateData = await this.buildProRateResponse(payload);
+
+    if (proRateData.totalHouses === 0) {
+      throw new Error('No active house jobs found for this master job');
+    }
+
+    if (proRateData.masterCharges.length === 0) {
+      throw new Error('No master-level charges found for this master job');
+    }
+
+    const masterJobOthers = await this._db.masterJobOthers.findFirst({
+      where: {
+        MasterJobSid: payload.MasterJobSid,
+        Status: 'A',
+      },
+    });
+
+    if (!masterJobOthers) {
+      throw new Error('Master Job Others record not found');
+    }
+
+    const updatedOthers = await this._db.masterJobOthers.update({
+      where: { MasterJobOthersSid: masterJobOthers.MasterJobOthersSid },
+      data: {
+        JobtoSubjob: 'Y',
+      },
+      select: {
+        MasterJobSid: true,
+        JobtoSubjob: true,
+      },
+    });
+
+    return updatedOthers;
+  }
+
+  async getHouseProratedCharges(payload: ProRateHouseDto) {
+    const houseJob = await this._db.houseJob.findUnique({
+      where: { HouseJobSid: payload.HouseJobSid },
+      select: {
+        HouseJobSid: true,
+        MasterJobSid: true,
+        CompanyMasterSid: true,
+        BranchMasterSid: true,
+        HBLNo: true,
+        ShipmentNo: true,
+      },
+    });
+
+    if (!houseJob) {
+      throw new Error('House Job not found');
+    }
+
+    if (
+      houseJob.CompanyMasterSid == null ||
+      houseJob.BranchMasterSid == null ||
+      houseJob.MasterJobSid == null
+    ) {
+      throw new Error('House Job is missing company, branch, or master job details');
+    }
+
+    const proRateData = await this.buildProRateResponse(
+      {
+        CompanyMasterSid: houseJob.CompanyMasterSid,
+        BranchMasterSid: houseJob.BranchMasterSid,
+        MasterJobSid: houseJob.MasterJobSid,
+      },
+      houseJob.HouseJobSid,
+    );
+
+    return (
+      proRateData.houses[0] || {
+        houseJob: {
+          HouseJobSid: houseJob.HouseJobSid,
+          HBLNo: houseJob.HBLNo,
+          ShipmentNo: houseJob.ShipmentNo,
+        },
+        proratedCharges: [],
+      }
+    );
+  }
+
+  async getHouseProrateStatus(payload: ProRateHouseDto) {
+    const houseJob = await this._db.houseJob.findUnique({
+      where: { HouseJobSid: payload.HouseJobSid },
+      select: {
+        HouseJobSid: true,
+        MasterJobSid: true,
+        masterJob: {
+          select: {
+            others: {
+              where: { Status: 'A' },
+              select: {
+                JobtoSubjob: true,
+              },
+              take: 1,
+            },
+          },
+        },
+      },
+    });
+
+    if (!houseJob) {
+      throw new Error('House Job not found');
+    }
+
+    return {
+      HouseJobSid: houseJob.HouseJobSid,
+      MasterJobSid: houseJob.MasterJobSid,
+      JobtoSubjob: houseJob.masterJob?.others?.[0]?.JobtoSubjob || 'N',
+    };
+  }
+
+  private async buildProRateResponse(
+    payload: ProRateCalculateDto,
+    selectedHouseJobSid?: number,
+  ) {
     const { CompanyMasterSid, BranchMasterSid, MasterJobSid } = payload;
     const warnings: string[] = [];
 
-    // 1. Fetch MasterJob with containers
     const masterJob = await this._db.masterJob.findUnique({
       where: { MasterJobSid },
       include: {
@@ -41,7 +186,13 @@ export class ProRateService {
       throw new Error('Master Job not found');
     }
 
-    // 2. Fetch DepartmentMaster
+    if (
+      masterJob.CompanyMasterSid !== CompanyMasterSid ||
+      masterJob.BranchMasterSid !== BranchMasterSid
+    ) {
+      throw new Error('Master Job does not belong to the selected company and branch');
+    }
+
     const department = await this._db.departmentMaster.findUnique({
       where: { DepartmentMasterSid: masterJob.DepartmentMasterSid },
     });
@@ -50,7 +201,16 @@ export class ProRateService {
       throw new Error('Department not found');
     }
 
-    // 3. Resolve MenuMasterSids
+    const masterJobOthers = await this._db.masterJobOthers.findFirst({
+      where: {
+        MasterJobSid,
+        Status: 'A',
+      },
+      select: {
+        JobtoSubjob: true,
+      },
+    });
+
     const isAir = department.departmentType?.toUpperCase() === 'AIR';
     const masterMenuSid = await this.menuService.getMenuSidByName(
       isAir ? 'Master Air Waybill' : 'Master Job',
@@ -59,7 +219,6 @@ export class ProRateService {
       isAir ? 'House Air Waybill' : 'House Job',
     );
 
-    // 4. Fetch HouseJobs with Cargo
     const houseJobs = await this._db.houseJob.findMany({
       where: {
         MasterJobSid,
@@ -72,6 +231,20 @@ export class ProRateService {
       },
     });
 
+    if (
+      selectedHouseJobSid &&
+      !houseJobs.some((house) => house.HouseJobSid === selectedHouseJobSid)
+    ) {
+      throw new Error('House Job not found for this master job');
+    }
+
+    const containers = masterJob.containers.map((container) => ({
+      ContainerNumber: container.ContainerNumber,
+      containerTypeName: container.containerType?.ContainerName || '',
+      GrossWeight: toNumber(container.GrossWeight),
+      Volume: toNumber(container.Volume),
+    }));
+
     if (houseJobs.length === 0) {
       warnings.push('No active house jobs found for this master job');
       return {
@@ -80,17 +253,13 @@ export class ProRateService {
           MasterJobNumber: masterJob.MasterJobNumber,
           MasterJobDate: masterJob.MasterJobDate,
           JobStatus: masterJob.JobStatus,
+          JobtoSubjob: masterJobOthers?.JobtoSubjob || 'N',
           department: {
             departmentName: department.departmentName,
             departmentType: department.departmentType,
           },
         },
-        containers: masterJob.containers.map((c) => ({
-          ContainerNumber: c.ContainerNumber,
-          containerTypeName: c.containerType?.ContainerName || '',
-          GrossWeight: toNumber(c.GrossWeight),
-          Volume: toNumber(c.Volume),
-        })),
+        containers,
         totalHouses: 0,
         masterCharges: [],
         houses: [],
@@ -99,10 +268,9 @@ export class ProRateService {
       };
     }
 
-    // 5. Aggregate cargo per house
     const houseCargoMap = new Map<number, CargoAgg>();
     for (const house of houseJobs) {
-      const agg: CargoAgg = {
+      const aggregate: CargoAgg = {
         totalPkg: 0,
         grossWeight: 0,
         netWeight: 0,
@@ -110,18 +278,19 @@ export class ProRateService {
         chargeableWeight: 0,
         noOfContainers: 0,
       };
+
       for (const cargo of house.Cargo) {
-        agg.totalPkg += toNumber(cargo.NoOfPackage);
-        agg.grossWeight += toNumber(cargo.GrossWeight);
-        agg.netWeight += toNumber(cargo.NetWeight);
-        agg.cbm += toNumber(cargo.Volume);
-        agg.chargeableWeight += toNumber(cargo.ChargeableWeight);
-        agg.noOfContainers += toNumber(cargo.NoofContainers);
+        aggregate.totalPkg += toNumber(cargo.NoOfPackage);
+        aggregate.grossWeight += toNumber(cargo.GrossWeight);
+        aggregate.netWeight += toNumber(cargo.NetWeight);
+        aggregate.cbm += toNumber(cargo.Volume);
+        aggregate.chargeableWeight += toNumber(cargo.ChargeableWeight);
+        aggregate.noOfContainers += toNumber(cargo.NoofContainers);
       }
-      houseCargoMap.set(house.HouseJobSid, agg);
+
+      houseCargoMap.set(house.HouseJobSid, aggregate);
     }
 
-    // 6. Fetch master-level CostRevenueCharges
     const masterCharges = await this._db.costRevenueCharges.findMany({
       where: {
         TransactionSid: MasterJobSid,
@@ -142,8 +311,7 @@ export class ProRateService {
       orderBy: { SerialNumber: 'asc' },
     });
 
-    // 7. Fetch house-level CostRevenueCharges
-    const houseJobSids = houseJobs.map((h) => h.HouseJobSid);
+    const houseJobSids = houseJobs.map((house) => house.HouseJobSid);
     const houseChargesAll = await this._db.costRevenueCharges.findMany({
       where: {
         TransactionSid: { in: houseJobSids },
@@ -162,38 +330,86 @@ export class ProRateService {
       orderBy: { SerialNumber: 'asc' },
     });
 
-    // Group house charges by TransactionSid (HouseJobSid)
     const houseChargesMap = new Map<number, any[]>();
     for (const charge of houseChargesAll) {
       const sid = charge.TransactionSid;
-      if (sid == null) continue;
+      if (sid == null) {
+        continue;
+      }
+
       if (!houseChargesMap.has(sid)) {
         houseChargesMap.set(sid, []);
       }
+
       houseChargesMap.get(sid)!.push(charge);
     }
 
-    // 8. Pro-rate algorithm
-    const currencySet = new Map<number, { CurrencyMasterSid: number; currencyCode: string; amountDecimal: number }>();
+    const currencySet = new Map<
+      number,
+      { CurrencyMasterSid: number; currencyCode: string; amountDecimal: number }
+    >();
 
-    const houses = houseJobs.map((house) => {
-      const cargo = houseCargoMap.get(house.HouseJobSid);
-      return {
-        houseJob: {
-          HouseJobSid: house.HouseJobSid,
-          HBLNo: house.HBLNo,
-          ShipmentNo: house.ShipmentNo,
-        },
-        cargo,
-        existingCharges: houseChargesMap.get(house.HouseJobSid) || [],
-        proratedCharges: [] as any[],
-      };
-    });
+    const addCurrency = (
+      currencyMasterSid: number | null | undefined,
+      currency: { currencyCode: string; amountDecimal: number } | null | undefined,
+    ) => {
+      if (!currencyMasterSid || !currency) {
+        return;
+      }
+
+      currencySet.set(currencyMasterSid, {
+        CurrencyMasterSid: currencyMasterSid,
+        currencyCode: currency.currencyCode,
+        amountDecimal: currency.amountDecimal,
+      });
+    };
+
+    for (const masterCharge of masterCharges) {
+      addCurrency(
+        masterCharge.CostCurrencyMasterSid,
+        masterCharge.costCurrencyMaster,
+      );
+      addCurrency(
+        masterCharge.RevenueCurrencyMasterSid,
+        masterCharge.revenueCurrencyMaster,
+      );
+    }
+
+    for (const houseCharge of houseChargesAll) {
+      addCurrency(
+        houseCharge.CostCurrencyMasterSid,
+        houseCharge.costCurrencyMaster,
+      );
+      addCurrency(
+        houseCharge.RevenueCurrencyMasterSid,
+        houseCharge.revenueCurrencyMaster,
+      );
+    }
+
+    const houses = houseJobs.map((house) => ({
+      houseJob: {
+        HouseJobSid: house.HouseJobSid,
+        HBLNo: house.HBLNo,
+        ShipmentNo: house.ShipmentNo,
+      },
+      cargo: houseCargoMap.get(house.HouseJobSid),
+      existingCharges: houseChargesMap.get(house.HouseJobSid) || [],
+      proratedCharges: [] as ProRateChargeRow[],
+    }));
+
+    const defaultCargo: CargoAgg = {
+      totalPkg: 0,
+      grossWeight: 0,
+      netWeight: 0,
+      cbm: 0,
+      chargeableWeight: 0,
+      noOfContainers: 0,
+    };
 
     for (const masterCharge of masterCharges) {
       if (!masterCharge.chargeMaster) {
         warnings.push(
-          `Charge SID ${masterCharge.CostRevenueChargesSid} has no ChargeMaster — skipped proration`,
+          `Charge SID ${masterCharge.CostRevenueChargesSid} has no ChargeMaster - skipped proration`,
         );
         continue;
       }
@@ -201,35 +417,15 @@ export class ProRateService {
       const unitQty = masterCharge.chargeMaster.UnitQty || 'Per Shipment';
       const costDecimal = masterCharge.costCurrencyMaster?.amountDecimal ?? 2;
       const revenueDecimal = masterCharge.revenueCurrencyMaster?.amountDecimal ?? 2;
-
-      // Collect currencies
-      if (masterCharge.CostCurrencyMasterSid && masterCharge.costCurrencyMaster) {
-        currencySet.set(masterCharge.CostCurrencyMasterSid, {
-          CurrencyMasterSid: masterCharge.CostCurrencyMasterSid,
-          currencyCode: masterCharge.costCurrencyMaster.currencyCode,
-          amountDecimal: costDecimal,
-        });
-      }
-      if (masterCharge.RevenueCurrencyMasterSid && masterCharge.revenueCurrencyMaster) {
-        currencySet.set(masterCharge.RevenueCurrencyMasterSid, {
-          CurrencyMasterSid: masterCharge.RevenueCurrencyMasterSid,
-          currencyCode: masterCharge.revenueCurrencyMaster.currencyCode,
-          amountDecimal: revenueDecimal,
-        });
-      }
-
-      // Get basis values for each house
-      const defaultCargo: CargoAgg = { totalPkg: 0, grossWeight: 0, netWeight: 0, cbm: 0, chargeableWeight: 0, noOfContainers: 0 };
-      const basisValues = houses.map((h) => ({
-        house: h,
-        basis: this.getHouseBasisValue(h.cargo || defaultCargo, unitQty),
+      const basisValues = houses.map((house) => ({
+        house,
+        basis: this.getHouseBasisValue(house.cargo || defaultCargo, unitQty),
       }));
-
-      const totalBasis = basisValues.reduce((sum, b) => sum + b.basis, 0);
+      const totalBasis = basisValues.reduce((sum, current) => sum + current.basis, 0);
 
       if (totalBasis === 0) {
         warnings.push(
-          `Charge "${masterCharge.chargeMaster.chargeName}" (${unitQty}): total basis is 0 — skipped`,
+          `Charge "${masterCharge.chargeMaster.chargeName}" (${unitQty}): total basis is 0 - skipped`,
         );
         continue;
       }
@@ -244,9 +440,9 @@ export class ProRateService {
       let sumRevenueAmount = 0;
       let sumRevenueLocalAmount = 0;
 
-      for (let i = 0; i < basisValues.length; i++) {
-        const { house, basis } = basisValues[i];
-        const isLast = i === basisValues.length - 1;
+      for (let index = 0; index < basisValues.length; index++) {
+        const { house, basis } = basisValues[index];
+        const isLast = index === basisValues.length - 1;
 
         let costAmount: number;
         let costLocalAmount: number;
@@ -254,17 +450,34 @@ export class ProRateService {
         let revenueLocalAmount: number;
 
         if (isLast) {
-          // Last house absorbs remainder
           costAmount = roundAmount(masterCostAmount - sumCostAmount, costDecimal);
-          costLocalAmount = roundAmount(masterCostLocalAmount - sumCostLocalAmount, costDecimal);
-          revenueAmount = roundAmount(masterRevenueAmount - sumRevenueAmount, revenueDecimal);
-          revenueLocalAmount = roundAmount(masterRevenueLocalAmount - sumRevenueLocalAmount, revenueDecimal);
+          costLocalAmount = roundAmount(
+            masterCostLocalAmount - sumCostLocalAmount,
+            costDecimal,
+          );
+          revenueAmount = roundAmount(
+            masterRevenueAmount - sumRevenueAmount,
+            revenueDecimal,
+          );
+          revenueLocalAmount = roundAmount(
+            masterRevenueLocalAmount - sumRevenueLocalAmount,
+            revenueDecimal,
+          );
         } else {
           const proportion = basis / totalBasis;
           costAmount = roundAmount(masterCostAmount * proportion, costDecimal);
-          costLocalAmount = roundAmount(masterCostLocalAmount * proportion, costDecimal);
-          revenueAmount = roundAmount(masterRevenueAmount * proportion, revenueDecimal);
-          revenueLocalAmount = roundAmount(masterRevenueLocalAmount * proportion, revenueDecimal);
+          costLocalAmount = roundAmount(
+            masterCostLocalAmount * proportion,
+            costDecimal,
+          );
+          revenueAmount = roundAmount(
+            masterRevenueAmount * proportion,
+            revenueDecimal,
+          );
+          revenueLocalAmount = roundAmount(
+            masterRevenueLocalAmount * proportion,
+            revenueDecimal,
+          );
 
           sumCostAmount += costAmount;
           sumCostLocalAmount += costLocalAmount;
@@ -273,6 +486,7 @@ export class ProRateService {
         }
 
         house.proratedCharges.push({
+          chargeMasterSid: masterCharge.ChargeMasterSid,
           chargeCode: masterCharge.chargeMaster.chargeCode,
           chargeName: masterCharge.chargeMaster.chargeName,
           unitQty,
@@ -285,7 +499,8 @@ export class ProRateService {
           costExchangeRate: toNumber(masterCharge.CostExchangeRate),
           costDrCr: masterCharge.CostDrCr,
           revenueCurrencyMasterSid: masterCharge.RevenueCurrencyMasterSid,
-          revenueCurrencyCode: masterCharge.revenueCurrencyMaster?.currencyCode || '',
+          revenueCurrencyCode:
+            masterCharge.revenueCurrencyMaster?.currencyCode || '',
           revenueRate: toNumber(masterCharge.RevenueRate),
           revenueAmount,
           revenueLocalAmount,
@@ -295,26 +510,26 @@ export class ProRateService {
       }
     }
 
+    const outputHouses = selectedHouseJobSid
+      ? houses.filter((house) => house.houseJob.HouseJobSid === selectedHouseJobSid)
+      : houses;
+
     return {
       masterJob: {
         MasterJobSid: masterJob.MasterJobSid,
         MasterJobNumber: masterJob.MasterJobNumber,
         MasterJobDate: masterJob.MasterJobDate,
         JobStatus: masterJob.JobStatus,
+        JobtoSubjob: masterJobOthers?.JobtoSubjob || 'N',
         department: {
           departmentName: department.departmentName,
           departmentType: department.departmentType,
         },
       },
-      containers: masterJob.containers.map((c) => ({
-        ContainerNumber: c.ContainerNumber,
-        containerTypeName: c.containerType?.ContainerName || '',
-        GrossWeight: toNumber(c.GrossWeight),
-        Volume: toNumber(c.Volume),
-      })),
+      containers,
       totalHouses: houseJobs.length,
       masterCharges,
-      houses,
+      houses: outputHouses,
       currencies: Array.from(currencySet.values()),
       warnings,
     };
