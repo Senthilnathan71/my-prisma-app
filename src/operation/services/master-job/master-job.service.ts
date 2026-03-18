@@ -5693,6 +5693,7 @@ console.log('Created product:', createdProduct);
                     JobCloseStatus: true,
                     JobClosedDate: true,
                     JobClosedBy: true,
+                    JobtoSubjob:true
                 }
             });
 
@@ -6130,7 +6131,7 @@ console.log('Created product:', createdProduct);
 
         // --- Job Close checks ---
 
-        checkRunners.set('JOB_TO_SUBJOB', async () => hasHouses);
+        checkRunners.set('JOB_TO_SUBJOB', async () => masterJobOthers?.JobtoSubjob === 'Y');
 
         checkRunners.set('ALL_PREVIOUS_CLOSED', async () => {
             return masterJobOthers?.DocCloseStatus === 'Closed' &&
