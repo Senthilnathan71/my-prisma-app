@@ -2368,7 +2368,7 @@ private getWeightInFromUnitSid(weightUnitSid: number): string {
             // SHIPMENT PART
 
             const allShipments = payload.shipmentList || [];
-            const recordToCreateShipment = allShipments.filter(shipment =>shipment.BookingHeader && !shipment.HouseJobSid);
+            const recordToCreateShipment = allShipments.filter(shipment =>shipment.BookingHeaderSid && !shipment.HouseJobSid);
             const recordToUpdateShipment = allShipments.filter(shipment => shipment.HouseJobSid);
             const manualHouseShipments = allShipments.filter(s => !s.BookingHeaderSid && !s.HouseJobSid && s.HBLNo);
 
