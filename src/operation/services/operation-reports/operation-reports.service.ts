@@ -2888,7 +2888,7 @@ export class OperationReportsService {
 
             partyName:
               customerMaster.find(
-                (c) => c.CustomerMasterSid === rate.CustomerMasterSid,
+                (c) => c.CustomerMasterSid === rate.AgentMasterSid,
               )?.CustomerName || '',
           }));
         });
