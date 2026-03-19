@@ -19,6 +19,7 @@ import {
   unbilledcostReportQueryDto,
   unbilledrevenueReportQueryDto,
 } from 'src/operation/DTO/operation-reports.dto';
+import { ProRateService } from 'src/operation/services/pro-rate/pro-rate.service';
 import { toNumber } from 'src/common/helper';
 
 @Injectable()
@@ -26,6 +27,7 @@ export class OperationReportsService {
   constructor(
     private _db: DatabaseService,
     private logger: Logger,
+    private readonly proRateService: ProRateService,
   ) {}
 
   async getAvailableReports(companyId: number) {
@@ -3403,6 +3405,9 @@ export class OperationReportsService {
           HouseNo: true,
           HBLNo: true,
           MBLNo: true,
+          CompanyMasterSid: true,
+          BranchMasterSid: true,
+          MasterJobSid: true,
           MenuMasterSid: true,
           HBLDate: true,
           DepartmentMasterSid: true,
@@ -3462,7 +3467,7 @@ export class OperationReportsService {
         throw new BadRequestException('House Job menu not found');
       }
 
-      const allHouseCR = await this._db.costRevenueCharges.findMany({
+      const directHouseCR = await this._db.costRevenueCharges.findMany({
         where: {
           MenuMasterSid: { in: allHouseMenuSids },
           TransactionSid: { in: houseJobIds },
@@ -3479,6 +3484,63 @@ export class OperationReportsService {
         },
       });
 
+      const masterJobIds = Array.from(
+        new Set(
+          houseJobs
+            .map((house) => house.MasterJobSid)
+            .filter((sid): sid is number => typeof sid === 'number'),
+        ),
+      );
+
+      const jobToSubjobMasters = await this._db.masterJobOthers.findMany({
+        where: {
+          MasterJobSid: { in: masterJobIds },
+          Status: 'A',
+          JobtoSubjob: 'Y',
+        },
+        select: {
+          MasterJobSid: true,
+        },
+      });
+
+      const proratedHouseCR: Array<{
+        TransactionSid: number;
+        CostLocalAmount: number;
+        RevenueLocalAmount: number;
+      }> = [];
+
+      for (const { MasterJobSid } of jobToSubjobMasters) {
+        const anyHouse = houseJobs.find((house) => house.MasterJobSid === MasterJobSid);
+
+        if (!anyHouse?.CompanyMasterSid || !anyHouse?.BranchMasterSid) {
+          continue;
+        }
+
+        const proRateData = await this.proRateService.calculateProRate({
+          CompanyMasterSid: anyHouse.CompanyMasterSid,
+          BranchMasterSid: anyHouse.BranchMasterSid,
+          MasterJobSid,
+        });
+
+        for (const proratedHouse of proRateData.houses || []) {
+          const houseJobSid = proratedHouse.houseJob?.HouseJobSid;
+
+          if (!houseJobSid) {
+            continue;
+          }
+
+          for (const charge of proratedHouse.proratedCharges || []) {
+            proratedHouseCR.push({
+              TransactionSid: houseJobSid,
+              CostLocalAmount: Number(charge.costLocalAmount || 0),
+              RevenueLocalAmount: Number(charge.revenueLocalAmount || 0),
+            });
+          }
+        }
+      }
+
+      const allHouseCR = [...directHouseCR, ...proratedHouseCR];
+
       const houseRateMap = new Map<number, any[]>();
       allHouseCR.forEach((cr) => {
         if (!houseRateMap.has(cr.TransactionSid!)) {
@@ -3494,9 +3556,7 @@ export class OperationReportsService {
               (d) => d.DepartmentMasterSid === house.DepartmentMasterSid,
             )?.departmentName || '';
 
-          const houseCR = allHouseCR.filter(
-            (cr) => cr.TransactionSid === house.HouseJobSid,
-          );
+          const houseCR = houseRateMap.get(house.HouseJobSid) || [];
 
           const { totalRevenue, totalCost } = houseCR.reduce(
             (acc, cr) => {

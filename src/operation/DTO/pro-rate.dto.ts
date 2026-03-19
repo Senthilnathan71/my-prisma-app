@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsInt } from 'class-validator';
+import { IsInt, IsNotEmpty } from 'class-validator';
 
 export class ProRateCalculateDto {
   @IsNotEmpty()
@@ -20,4 +20,12 @@ export class ProRateHouseDto {
   @IsNotEmpty()
   @IsInt()
   HouseJobSid: number;
+
+  @IsNotEmpty()
+  @IsInt()
+  CompanyMasterSid: number;
+
+  @IsNotEmpty()
+  @IsInt()
+  BranchMasterSid: number;
 }

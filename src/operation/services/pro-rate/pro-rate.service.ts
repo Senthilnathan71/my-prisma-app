@@ -89,8 +89,13 @@ export class ProRateService {
   }
 
   async getHouseProratedCharges(payload: ProRateHouseDto) {
-    const houseJob = await this._db.houseJob.findUnique({
-      where: { HouseJobSid: payload.HouseJobSid },
+    const houseJob = await this._db.houseJob.findFirst({
+      where: {
+        HouseJobSid: payload.HouseJobSid,
+        CompanyMasterSid: payload.CompanyMasterSid,
+        BranchMasterSid: payload.BranchMasterSid,
+        status: 'A',
+      },
       select: {
         HouseJobSid: true,
         MasterJobSid: true,
@@ -135,8 +140,13 @@ export class ProRateService {
   }
 
   async getHouseProrateStatus(payload: ProRateHouseDto) {
-    const houseJob = await this._db.houseJob.findUnique({
-      where: { HouseJobSid: payload.HouseJobSid },
+    const houseJob = await this._db.houseJob.findFirst({
+      where: {
+        HouseJobSid: payload.HouseJobSid,
+        CompanyMasterSid: payload.CompanyMasterSid,
+        BranchMasterSid: payload.BranchMasterSid,
+        status: 'A',
+      },
       select: {
         HouseJobSid: true,
         MasterJobSid: true,
