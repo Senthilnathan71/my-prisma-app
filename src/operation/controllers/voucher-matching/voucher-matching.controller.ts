@@ -3,7 +3,7 @@ import { ApiOperation, ApiCreatedResponse } from '@nestjs/swagger';
 import { ResponseData } from 'src/common/response-data';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 import { VoucherMatchingService } from 'src/operation/services/voucher-matching/voucher-matching.service';
-import { SearchPostedVouchersDto, CreateStandaloneVoucherMatchingDto, UpdateStandaloneVoucherMatchingDto, FetchVoucherMatchingByIdDto, PostVoucherMatchingDto, FetchOutstandingVouchers } from 'src/accounts/dto/voucher-matching.dto';
+import { SearchPostedVouchersDto, CreateStandaloneVoucherMatchingDto, UpdateStandaloneVoucherMatchingDto, FetchVoucherMatchingByIdDto, PostVoucherMatchingDto, FetchOutstandingVouchers, CancelVoucherMatchingDto } from 'src/accounts/dto/voucher-matching.dto';
 
 @Controller('voucher-matching')
 export class VoucherMatchingController {
@@ -56,7 +56,7 @@ export class VoucherMatchingController {
       output.data = finalOutput;
       output.message = "Voucher Matching data fetched successfully by ID";
     } catch (error) {
-      this.logger.warn('getVoucherMatchingById error', (error as any)?.stack || (error as any)?.message || error);
+      this.logger.warn(`getVoucherMatchingById error :  ${JSON.stringify(error),error.message}`);
       output.status = false;
       if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
         output.message = (error as any).message || 'Bad request';
@@ -228,7 +228,7 @@ export class VoucherMatchingController {
       resp.data = res;
       resp.message = 'Voucher matching fetched successfully';
     } catch (error) {
-      this.logger.warn(`fetchVoucherMatchingById Error: ${error}`);
+      this.logger.warn(`fetchVoucherMatchingById Error: ${JSON.stringify(error),error.message}`);
       resp.status = false;
       if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
         resp.message = error.message;
@@ -259,6 +259,36 @@ export class VoucherMatchingController {
       resp.message = 'Voucher matching posted successfully';
     } catch (error) {
       this.logger.warn(`postVoucherMatching Error: ${error}`);
+      resp.status = false;
+      if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+        resp.message = error.message;
+      } else {
+        resp.message = 'Internal Server Error';
+      }
+    }
+    return resp;
+  }
+
+  @ApiOperation({ summary: 'Cancel voucher matching' })
+  @ApiCreatedResponse({
+    description: 'Voucher matching cancelled successfully',
+    type: ResponseData,
+  })
+  @HttpCode(HttpStatus.OK)
+  @Post('cancel')
+  @UsePipes(new ValidationPipe({
+    whitelist: true,
+    transform: true,
+    forbidNonWhitelisted: true
+  }))
+  async cancelVoucherMatching(@Body() dto: CancelVoucherMatchingDto) {
+    const resp = new ResponseData();
+    try {
+      const res = await this.voucherMatchingService.cancelVoucherMatching(dto);
+      resp.data = res;
+      resp.message = 'Voucher matching cancelled successfully';
+    } catch (error) {
+      this.logger.warn(`cancelVoucherMatching Error: ${error}`);
       resp.status = false;
       if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
         resp.message = error.message;
