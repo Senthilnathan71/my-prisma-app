@@ -146,6 +146,9 @@ export class EmailLogService {
 
             console.log(emailData);
 
+            const fullMailBody = emailData.Mailbody || '';
+            const logMailBody = this.buildEmailLogBody(fullMailBody);
+
             const emailLog = await this._db.emailLog.create({
                 data: {
                     CompanyMasterSid: emailData.CompanyMasterSid,
@@ -154,7 +157,7 @@ export class EmailLogService {
                     EmailTo : emailData.EmailTo,
                     EmailCC : emailData.EmailCC,
                     Subject : emailData.Subject,
-                    Mailbody : emailData.Mailbody,
+                    Mailbody : logMailBody,
                     Status : 'A'
                 }
             });
@@ -164,7 +167,7 @@ export class EmailLogService {
                 cc: emailData.EmailCC,
                 bcc: emailData.EmailBCC,
                 subject: emailData.Subject,
-                html: emailData.Mailbody,
+                html: fullMailBody,
                 attachments: files || []
             });
 
@@ -176,6 +179,23 @@ export class EmailLogService {
         } catch (error) {
             throw new Error(`Error creating emailLog: ${error.message}`);
         }
+    }
+
+    private buildEmailLogBody(mailBody: string): string {
+        const plainTextBody = mailBody
+            .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+            .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+            .replace(/<br\s*\/?>/gi, '\n')
+            .replace(/<\/p>/gi, '\n')
+            .replace(/<[^>]*>/g, ' ')
+            .replace(/&nbsp;/gi, ' ')
+            .replace(/&amp;/gi, '&')
+            .replace(/\s+\n/g, '\n')
+            .replace(/\n\s+/g, '\n')
+            .replace(/[ \t]{2,}/g, ' ')
+            .trim();
+
+        return plainTextBody.slice(0, 1900);
     }
 
 }
