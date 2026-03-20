@@ -759,6 +759,7 @@ export class CustomerService {
                 select: {
                     CustomerMasterSid: true,
                     CustomerName: true,
+                    CurrencyMasterSid: true,
                     CustomerBranch: {
                         where: {
                             status: 'A'
@@ -774,6 +775,29 @@ export class CustomerService {
                     }
                 }
             });
+            const currencyMasterSids = Array.from(
+                new Set(
+                    customerList
+                        .map(customer => customer.CurrencyMasterSid)
+                        .filter((currencyMasterSid): currencyMasterSid is number => Boolean(currencyMasterSid))
+                )
+            );
+            const currencies = currencyMasterSids.length
+                ? await this._db.currencyMaster.findMany({
+                    where: {
+                        CurrencyMasterSid: {
+                            in: currencyMasterSids,
+                        },
+                    },
+                    select: {
+                        CurrencyMasterSid: true,
+                        currencyCode: true,
+                    },
+                })
+                : [];
+            const currencyCodeMap = new Map(
+                currencies.map(currency => [currency.CurrencyMasterSid, currency.currencyCode ?? ''])
+            );
             const formattedCustomerList = customerList.flatMap(customer => {
                 const cusBranches = customer.CustomerBranch.map(branch => ({
                     CustomerMasterSid: customer.CustomerMasterSid,
@@ -783,7 +807,11 @@ export class CustomerService {
                     Address: branch.Address,
                     Email: branch.Email,
                     ContactPerson : branch.Contact_Person,
-                    ContactNumber : branch.ContactNo
+                    ContactNumber : branch.ContactNo,
+                    CurrencyMasterSid: customer.CurrencyMasterSid,
+                    CurrencyCode: customer.CurrencyMasterSid
+                        ? currencyCodeMap.get(customer.CurrencyMasterSid) ?? ''
+                        : ''
                 }))
                 return cusBranches;
             })
