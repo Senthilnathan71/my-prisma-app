@@ -1,4 +1,4 @@
-import { Injectable, Logger, OnModuleInit, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit, NotFoundException, BadRequestException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { DatabaseService } from 'src/database/database.service';
 import { SchedulerService } from 'src/common/services/scheduler/scheduler.service';
@@ -127,6 +127,20 @@ export class ReportScheduleService implements OnModuleInit {
    * Create a new schedule and register its cron job.
    */
   async create(dto: CreateReportScheduleDto, username: string) {
+      const existing = await this.db.reportSchedule.findFirst({
+      where: {
+        CompanyMasterSid: dto.CompanyMasterSid,
+        ScheduleName: {
+          equals: dto.ScheduleName.trim(),
+          mode: 'insensitive',
+        },
+      },
+    });
+
+    if (existing) {
+      throw new BadRequestException('Schedule name already exists');
+    }
+
     const schedule = await this.db.reportSchedule.create({
       data: {
         CompanyMasterSid: dto.CompanyMasterSid,
@@ -173,6 +187,24 @@ export class ReportScheduleService implements OnModuleInit {
     if (!existing) {
       throw new NotFoundException(`Report schedule #${id} not found`);
     }
+
+    if (dto.ScheduleName?.trim()) {
+    const duplicate = await this.db.reportSchedule.findFirst({
+      where: {
+        CompanyMasterSid: existing.CompanyMasterSid,
+        ScheduleName: {
+          equals: dto.ScheduleName.trim(),
+          mode: 'insensitive',
+        },
+        NOT: {
+          ReportScheduleSid: id,
+        },
+      },
+    });
+
+    if (duplicate) {
+      throw new BadRequestException('Schedule name already exists');
+    }}
 
     // Remove old cron job
     this.removeCronJobSafe(id);

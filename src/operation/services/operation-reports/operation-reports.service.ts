@@ -989,10 +989,12 @@ export class OperationReportsService {
 
           const actualCost = actualCostMaster + actualCostHouse;
           const actualRevenue = actualRevenueMaster + actualRevenueHouse;
+          const actualbaseAmt = Math.max(actualRevenue, actualCost);
           const actualGp = actualRevenue - actualCost;
-          const profit = (Number(actualGp) * 100) / Number(actualRevenue);
+          const profit = (Number(actualGp) * 100) / Number(actualbaseAmt);
+          const provbaseAmt = Math.max(totalRevenueWithHouse, totalCostWithHouse);
           const proveprofit =
-            (Number(GP) * 100) / Number(totalRevenueWithHouse);
+            (Number(GP) * 100) / Number(provbaseAmt);
           let totalMaxVolumeFromJobContainers = 0;
           job.containers.forEach((container) => {
             if (container.containerType) {
@@ -4900,18 +4902,43 @@ export class OperationReportsService {
       });
 
       const houseJobIds = networkData.map((h) => h.HouseJobSid);
-      const houseJobMenu = await this._db.menuMaster.findFirst({
-        where: { MenuName: 'House Job' },
-        select: { MenuMasterSid: true },
+      const notBookedMenus = await this._db.menuMaster.findMany({
+        where: {
+          status: 'A',
+          OR: [
+            { MenuName: { equals: 'Master Job', mode: 'insensitive' } },
+            { MenuName: { contains: 'Master Air Way', mode: 'insensitive' } },
+            { MenuName: { equals: 'House Job', mode: 'insensitive' } },
+            { MenuName: { contains: 'House Air Way', mode: 'insensitive' } },
+            {
+              MenuName: {
+                contains: 'Agent Master Air Way',
+                mode: 'insensitive',
+              },
+            },
+          ],
+        },
+        select: { MenuMasterSid: true, MenuName: true },
       });
 
-      if (!houseJobMenu) {
-        throw new BadRequestException('House Job menu not found');
+      const allHouseMenuSids = notBookedMenus
+        .filter((m) => {
+          const menuName = m.MenuName.toLowerCase();
+          return (
+            menuName === 'house job' ||
+            menuName.includes('house air way') ||
+            menuName.includes('agent master air way')
+          );
+        })
+        .map((m) => m.MenuMasterSid);
+
+      if (!allHouseMenuSids.length) {
+        throw new BadRequestException('House menus not found');
       }
 
-      const allHouseCR = await this._db.costRevenueCharges.findMany({
+      const directHouseCR = await this._db.costRevenueCharges.findMany({
         where: {
-          MenuMasterSid: houseJobMenu.MenuMasterSid,
+          MenuMasterSid: { in: allHouseMenuSids },
           TransactionSid: { in: houseJobIds },
           status: 'A',
           OR: [
@@ -4925,6 +4952,65 @@ export class OperationReportsService {
           RevenueLocalAmount: true,
         },
       });
+
+      const masterJobIds = Array.from(
+        new Set(
+          networkData
+            .map((house) => house.MasterJobSid)
+            .filter((sid): sid is number => typeof sid === 'number'),
+        ),
+      );
+
+      const jobToSubjobMasters = await this._db.masterJobOthers.findMany({
+        where: {
+          MasterJobSid: { in: masterJobIds },
+          Status: 'A',
+          JobtoSubjob: 'Y',
+        },
+        select: {
+          MasterJobSid: true,
+        },
+      });
+
+      const proratedHouseCR: Array<{
+        TransactionSid: number;
+        CostLocalAmount: number;
+        RevenueLocalAmount: number;
+      }> = [];
+
+      for (const { MasterJobSid } of jobToSubjobMasters) {
+        const anyHouse = networkData.find(
+          (house) => house.MasterJobSid === MasterJobSid,
+        );
+
+        if (!anyHouse?.CompanyMasterSid || !anyHouse?.BranchMasterSid) {
+          continue;
+        }
+
+        const proRateData = await this.proRateService.calculateProRate({
+          CompanyMasterSid: anyHouse.CompanyMasterSid,
+          BranchMasterSid: anyHouse.BranchMasterSid,
+          MasterJobSid,
+        });
+
+        for (const proratedHouse of proRateData.houses || []) {
+          const houseJobSid = proratedHouse.houseJob?.HouseJobSid;
+
+          if (!houseJobSid) {
+            continue;
+          }
+
+          for (const charge of proratedHouse.proratedCharges || []) {
+            proratedHouseCR.push({
+              TransactionSid: houseJobSid,
+              CostLocalAmount: Number(charge.costLocalAmount || 0),
+              RevenueLocalAmount: Number(charge.revenueLocalAmount || 0),
+            });
+          }
+        }
+      }
+
+      const allHouseCR = [...directHouseCR, ...proratedHouseCR];
 
       const houseRateMap = new Map<number, any[]>();
       allHouseCR.forEach((cr) => {
@@ -4947,9 +5033,7 @@ export class OperationReportsService {
         const originAgent = organizationMaster.find(
           (c) => c.CustomerName === b.AgentName,
         );
-        const houseCR = allHouseCR.filter(
-          (cr) => cr.TransactionSid === b.HouseJobSid,
-        );
+        const houseCR = houseRateMap.get(b.HouseJobSid) || [];
         const { totalRevenue, totalCost } = houseCR.reduce(
           (acc, cr) => {
             acc.totalRevenue += cr.RevenueLocalAmount
@@ -4963,7 +5047,9 @@ export class OperationReportsService {
           { totalRevenue: 0, totalCost: 0 },
         );
         const profit = totalRevenue - totalCost;
-
+        const baseAmount = Math.max(totalRevenue, totalCost);
+        const totalGP =
+            baseAmount !== 0 ? (profit / baseAmount) * 100 : 0;
         const allContainers = b?.masterJob?.containers || [];
 
         let totalNoOfTEU = 0;
@@ -5001,6 +5087,7 @@ export class OperationReportsService {
           totalRevenue,
           totalCost,
           profit,
+          totalGP,
           grossWt: b.Cargo?.[0]?.GrossWeight,
           netWt: b.Cargo?.[0]?.NetWeight,
           totalNoOfTEU,
