@@ -477,6 +477,8 @@ model ShippingInstruction {
   Remarks                String?       @db.VarChar(200)
   branchMaster           BranchMaster  @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
   companyMaster          CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+  houseJob          HouseJob @relation(fields: [HouseJobSid], references: [HouseJobSid])
+
 }
 
 model ActivityResourceAllocation {

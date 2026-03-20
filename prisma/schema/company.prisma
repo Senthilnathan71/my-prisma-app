@@ -2878,6 +2878,7 @@ model HouseJob {
   VoucherDetail              VoucherDetail[]
   VoucherHeader              VoucherHeader[]
   VoucherTransaction         VoucherTransaction[]
+  ShippingInstruction        ShippingInstruction[]
 }
 
 model HouseJobCargo {
