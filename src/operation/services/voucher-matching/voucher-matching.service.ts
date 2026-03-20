@@ -4,7 +4,7 @@ import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 import { Prisma, VoucherHeader } from '@prisma/client';
 import { statusWhereClause, toNumber } from 'src/common/helper';
 import { VoucherService } from '../voucher/voucher.service';
-import { SearchPostedVouchersDto, CreateStandaloneVoucherMatchingDto, UpdateStandaloneVoucherMatchingDto, FetchVoucherMatchingByIdDto, PostVoucherMatchingDto, CreateVoucherMatchingResponse, FetchVoucherMatchingResponse, PostVoucherMatchingResponse, FetchOutstandingVouchers } from 'src/accounts/dto/voucher-matching.dto';
+import { SearchPostedVouchersDto, CreateStandaloneVoucherMatchingDto, UpdateStandaloneVoucherMatchingDto, FetchVoucherMatchingByIdDto, PostVoucherMatchingDto, CreateVoucherMatchingResponse, FetchVoucherMatchingResponse, PostVoucherMatchingResponse, FetchOutstandingVouchers, CancelVoucherMatchingDto } from 'src/accounts/dto/voucher-matching.dto';
 import { DOC_TYPE_CODE } from 'src/common/config/voucher-type.config';
 import { OutstandingService } from 'src/accounts/services/outstanding/outstanding.service';
 import { CompanyConfigService } from 'src/masters/services/company/company-config.service';
@@ -88,7 +88,7 @@ export class VoucherMatchingService {
             const voucherMatching = await this._db.voucherMatchingHeader.findUnique({
                 where: {
                     VoucherMatchingHeaderSid: VoucherMatchingHeaderSid,
-                    Status: 'A'
+                    Status: statusWhereClause
                 } as any,
                 include: {
                     voucherMatchings: {
@@ -570,7 +570,7 @@ export class VoucherMatchingService {
                     VoucherMatchingHeaderSid: payload.VoucherMatchingHeaderSid,
                     CompanyMasterSid: payload.CompanyMasterSid,
                     BranchMasterSid: payload.BranchMasterSid,
-                    Status: 'A'
+                    Status: statusWhereClause
                 }
             });
 
@@ -948,6 +948,18 @@ export class VoucherMatchingService {
                         voucherMatchingNo: voucherMatchingHeader.VoucherMatchingNo,
                         matchingDate: current_date,
                         postedBy,
+                    });
+
+                    // Persist Exchange JV <-> VoucherMatchingHeader link
+                    await tx.voucherMatchingExchangeJV.create({
+                        data: {
+                            CompanyMasterSid,
+                            BranchMasterSid,
+                            VoucherMatchingHeaderSid,
+                            ExchangeJVHeaderSid: exchangeJVData.jvHeader.VoucherHeaderSid,
+                            CreatedBy: postedBy,
+                            UpdatedOn: new Date(),
+                        }
                     });
                 }
             }
@@ -1492,5 +1504,356 @@ export class VoucherMatchingService {
         });
 
         return { jvHeader, partyTransaction };
+    }
+
+    /**
+     * Creates a reversal JV for an Exchange JV, then creates & posts a Voucher Matching
+     * between the original and reversal JVs to zero out the exchange difference.
+     */
+    private async reverseExchangeJV(
+        tx: Prisma.TransactionClient,
+        params: {
+            originalJVHeaderSid: number;
+            CompanyMasterSid: number;
+            BranchMasterSid: number;
+            YearMasterSid: number;
+            LocalCurrencyMasterSid: number;
+            LocalCurrencyCode: string;
+            cancelledBy: string;
+        },
+    ) {
+        // Step A — Create Reversal JV
+
+        // A.1 Fetch original Exchange JV header + details
+        const originalJV = await tx.voucherHeader.findUnique({
+            where: { VoucherHeaderSid: params.originalJVHeaderSid },
+        });
+        if (!originalJV) {
+            throw new BadRequestException(`Exchange JV header ${params.originalJVHeaderSid} not found.`);
+        }
+
+        const originalDetails = await tx.voucherDetail.findMany({
+            where: { VoucherHeaderSid: params.originalJVHeaderSid, Status: 'A' },
+        });
+
+        // A.2 Get JV VoucherTypeMaster
+        const jvVoucherType = await tx.voucherTypeMaster.findFirst({
+            where: {
+                DocumentTypeCode: DOC_TYPE_CODE.JOURNAL_VOUCHER,
+                CompanyMasterSid: params.CompanyMasterSid,
+                BranchMasterSid: params.BranchMasterSid,
+                status: 'A',
+            },
+        });
+        if (!jvVoucherType) {
+            throw new BadRequestException('Journal Voucher type not found for this company/branch.');
+        }
+
+        // A.3 Generate reversal JV number
+        const now = new Date();
+        const reversalJVNumber = await this.voucherService.generateVoucherNumberFromConfig(
+            jvVoucherType, params.CompanyMasterSid, params.BranchMasterSid,
+            params.YearMasterSid, tx, now,
+        );
+
+        // A.4 Create reversal VoucherHeader
+        const reversalHeader = await tx.voucherHeader.create({
+            data: {
+                VoucherNumber: reversalJVNumber,
+                VoucherDate: now,
+                PostDate: now,
+                VoucherType: jvVoucherType.VoucherTypeMasterSid,
+                Narration: `Reversal of ${originalJV.VoucherNumber}`,
+                CompanyMasterSid: params.CompanyMasterSid,
+                BranchMasterSid: params.BranchMasterSid,
+                VoucherTypeMasterSid: jvVoucherType.VoucherTypeMasterSid,
+                PostStatus: 'P',
+                Amount: toNumber(originalJV.Amount),
+                LocalAmount: toNumber(originalJV.LocalAmount),
+                NetAmount: toNumber(originalJV.NetAmount),
+                PartyMasterSid: originalJV.PartyMasterSid,
+                COAMasterSid: originalJV.COAMasterSid,
+                CurrencyMasterSid: originalJV.CurrencyMasterSid,
+                CurrencyCode: originalJV.CurrencyCode,
+                ExchangeRate: toNumber(originalJV.ExchangeRate) || 1,
+                ReversalVoucher: params.originalJVHeaderSid,
+                Status: 'A',
+                UpdatedOn: now,
+                CreatedBy: params.cancelledBy,
+            },
+        });
+
+        // A.5 Create mirrored VoucherDetail rows with flipped DrCr
+        const reversalDetails: any[] = [];
+        for (const detail of originalDetails) {
+            const flippedDrCr = detail.DrCr === 'D' ? 'C' : 'D';
+            const reversalDetail = await tx.voucherDetail.create({
+                data: {
+                    CompanyMasterSid: params.CompanyMasterSid,
+                    BranchMasterSid: params.BranchMasterSid,
+                    VoucherHeaderSid: reversalHeader.VoucherHeaderSid,
+                    Sno: detail.Sno,
+                    ChargeDescription: detail.ChargeDescription,
+                    COAMasterSid: detail.COAMasterSid,
+                    LedgerMasterSid: detail.LedgerMasterSid,
+                    CurrencyMasterSid: detail.CurrencyMasterSid,
+                    CurrencyCode: detail.CurrencyCode,
+                    ExchangeRate: toNumber(detail.ExchangeRate) || 1,
+                    Rate: toNumber(detail.Rate) || 0,
+                    NumberOfUnit: toNumber(detail.NumberOfUnit) || 1,
+                    Narration: `Reversal of ${originalJV.VoucherNumber}`,
+                    DrCr: flippedDrCr,
+                    Amount: toNumber(detail.Amount) || 0,
+                    LocalAmount: toNumber(detail.LocalAmount) || 0,
+                    PartyAmount: toNumber(detail.PartyAmount) || 0,
+                    TaxableAmount: toNumber(detail.TaxableAmount) || 0,
+                    YearMasterSid: params.YearMasterSid,
+                    CreatedBy: params.cancelledBy,
+                    Status: 'A',
+                },
+            });
+            reversalDetails.push(reversalDetail);
+        }
+
+        // A.6 Create VoucherTransaction for each reversal detail
+        for (const detail of reversalDetails) {
+            await tx.voucherTransaction.create({
+                data: {
+                    CompanyMasterSid: params.CompanyMasterSid,
+                    BranchMasterSid: params.BranchMasterSid,
+                    VoucherHeaderSid: reversalHeader.VoucherHeaderSid,
+                    VoucherDetailSid: detail.VoucherDetailSid,
+                    VoucherNumber: reversalJVNumber,
+                    VoucherType: jvVoucherType.VoucherTypeMasterSid,
+                    VoucherDate: now,
+                    GST_VAT: '',
+                    Rate: toNumber(detail.Rate) || toNumber(detail.LocalAmount) || 0,
+                    NumberOfUnit: 1,
+                    PostDate: now,
+                    Sno: detail.Sno,
+                    ChargeDescription: detail.ChargeDescription || '',
+                    LedgerMasterSid: detail.LedgerMasterSid!,
+                    COAMasterSid: detail.COAMasterSid!,
+                    CurrencyCode: detail.CurrencyCode,
+                    ExchangeRate: toNumber(detail.ExchangeRate) || 1,
+                    Narration: detail.Narration,
+                    DrCr: detail.DrCr,
+                    TaxableAmount: 0,
+                    Amount: toNumber(detail.Amount) || 0,
+                    LocalAmount: toNumber(detail.LocalAmount) || 0,
+                    VoucherTypeMasterSid: jvVoucherType.VoucherTypeMasterSid,
+                    YearMasterSid: params.YearMasterSid,
+                    Status: 'A',
+                    CreatedBy: params.cancelledBy,
+                    CreatedOn: now,
+                },
+            });
+        }
+
+        // A.7 Fetch the reversal party transaction (subledger line)
+        const reversalPartyTx = await tx.voucherTransaction.findFirst({
+            where: {
+                VoucherHeaderSid: reversalHeader.VoucherHeaderSid,
+                LedgerMasterSid: originalJV.PartyMasterSid,
+            },
+        });
+
+        // Step B — Create & Post Voucher Matching between Original and Reversal JVs
+
+        // B.1 Get VM VoucherTypeMaster
+        const vmVoucherType = await tx.voucherTypeMaster.findFirst({
+            where: {
+                DocumentTypeCode: DOC_TYPE_CODE.VOUCHER_MATCHING,
+                CompanyMasterSid: params.CompanyMasterSid,
+                BranchMasterSid: params.BranchMasterSid,
+                status: 'A',
+            },
+        });
+        if (!vmVoucherType) {
+            throw new BadRequestException('Voucher Matching type not found for this company/branch.');
+        }
+
+        // B.2 Generate matching number
+        const vmNumber = await this.voucherService.generateVoucherMatchingNumber(
+            vmVoucherType, params.CompanyMasterSid, params.BranchMasterSid,
+            params.YearMasterSid, tx, now,
+        );
+
+        // B.3 Get subledger name for the header
+        let subledgerName = '';
+        if (originalJV.PartyMasterSid) {
+            const subledger = await tx.subledgerMaster.findUnique({
+                where: { SubledgerMasterSid: originalJV.PartyMasterSid },
+                select: { SubledgerName: true },
+            });
+            subledgerName = subledger?.SubledgerName || '';
+        }
+
+        // B.4 Create VoucherMatchingHeader
+        const vmHeader = await tx.voucherMatchingHeader.create({
+            data: {
+                VoucherMatchingNo: vmNumber,
+                VoucherMatchingDate: now,
+                CompanyMasterSid: params.CompanyMasterSid,
+                BranchMasterSid: params.BranchMasterSid,
+                PostStatus: 'U',
+                Status: 'A',
+                SubledgerName: subledgerName,
+                Narration: `Reversal matching for ${originalJV.VoucherNumber}`,
+                CreatedBy: params.cancelledBy,
+                UpdatedOn: now,
+            },
+        });
+
+        // B.5 Get party VoucherTransaction from original Exchange JV
+        const originalPartyTx = await tx.voucherTransaction.findFirst({
+            where: {
+                VoucherHeaderSid: originalJV.VoucherHeaderSid,
+                LedgerMasterSid: originalJV.PartyMasterSid,
+            },
+        });
+
+        if (!originalPartyTx || !reversalPartyTx) {
+            throw new BadRequestException('Party transaction not found on Exchange JV.');
+        }
+
+        // B.6 Determine Source (Debit side) and Object (Credit side)
+        const debitTx = originalPartyTx.DrCr === 'D' ? originalPartyTx : reversalPartyTx;
+        const creditTx = originalPartyTx.DrCr === 'C' ? originalPartyTx : reversalPartyTx;
+        const debitDetail = originalPartyTx.DrCr === 'D'
+            ? originalDetails.find(d => d.LedgerMasterSid === originalJV.PartyMasterSid)
+            : reversalDetails.find(d => d.LedgerMasterSid === originalJV.PartyMasterSid);
+        const creditDetail = originalPartyTx.DrCr === 'C'
+            ? originalDetails.find(d => d.LedgerMasterSid === originalJV.PartyMasterSid)
+            : reversalDetails.find(d => d.LedgerMasterSid === originalJV.PartyMasterSid);
+
+        const diff = toNumber(debitTx.LocalAmount) || 0;
+
+        // Create Source MatchingDetail (Debit side)
+        await tx.matchingDetail.create({
+            data: {
+                VoucherMatchingHeaderSid: vmHeader.VoucherMatchingHeaderSid,
+                VoucherHeaderSid: debitTx.VoucherHeaderSid,
+                VoucherDetailSid: debitDetail?.VoucherDetailSid || debitTx.VoucherDetailSid,
+                VoucherTransactionSid: debitTx.VoucherTransactionSid,
+                VoucherType: String(jvVoucherType.VoucherTypeMasterSid),
+                Sno: 1,
+                CurrencyCode: debitTx.CurrencyCode,
+                ExchangeRate: toNumber(debitTx.ExchangeRate) || 1,
+                DrCr: 'D',
+                Amount: toNumber(debitTx.Amount) || 0,
+                LocalAmount: diff,
+                MatchingAmount: 0,
+                MatchingLocalAmount: diff,
+                MatchingCurrency: params.LocalCurrencyMasterSid,
+                MatchingExRate: 1,
+                MatchingType: 'Source',
+            },
+        });
+
+        // Create Object MatchingDetail (Credit side)
+        await tx.matchingDetail.create({
+            data: {
+                VoucherMatchingHeaderSid: vmHeader.VoucherMatchingHeaderSid,
+                VoucherHeaderSid: creditTx.VoucherHeaderSid,
+                VoucherDetailSid: creditDetail?.VoucherDetailSid || creditTx.VoucherDetailSid,
+                VoucherTransactionSid: creditTx.VoucherTransactionSid,
+                VoucherType: String(jvVoucherType.VoucherTypeMasterSid),
+                Sno: 2,
+                CurrencyCode: creditTx.CurrencyCode,
+                ExchangeRate: toNumber(creditTx.ExchangeRate) || 1,
+                DrCr: 'C',
+                Amount: toNumber(creditTx.Amount) || 0,
+                LocalAmount: diff,
+                MatchingAmount: 0,
+                MatchingLocalAmount: diff,
+                MatchingCurrency: params.LocalCurrencyMasterSid,
+                MatchingExRate: 1,
+                MatchingType: 'Object',
+            },
+        });
+
+        // B.7 Post the reversal matching
+        await this.postVoucherMatching({
+            VoucherMatchingHeaderSid: vmHeader.VoucherMatchingHeaderSid,
+            CompanyMasterSid: params.CompanyMasterSid,
+            BranchMasterSid: params.BranchMasterSid,
+            YearMasterSid: params.YearMasterSid,
+            LocalCurrencyMasterSid: params.LocalCurrencyMasterSid,
+            LocalCurrencyCode: params.LocalCurrencyCode,
+            current_date: now,
+            postedBy: params.cancelledBy,
+        }, tx);
+    }
+
+    async cancelVoucherMatching(dto: CancelVoucherMatchingDto) {
+        const { VoucherMatchingHeaderSid, cancelledBy } = dto;
+
+        // 1. Validate header exists, is Active, and is Posted
+        const header = await this._db.voucherMatchingHeader.findUnique({
+            where: { VoucherMatchingHeaderSid },
+        });
+
+        if (!header) {
+            throw new BadRequestException('Voucher Matching Header not found');
+        }
+        if (header.Status !== 'A') {
+            throw new BadRequestException('Voucher Matching is not in Active status');
+        }
+        if (header.PostStatus !== 'P') {
+            throw new BadRequestException('Voucher Matching is not Posted');
+        }
+
+        // 2. Wrap in transaction
+        const result = await this._db.$transaction(async (tx) => {
+            // 2a. Delete VoucherMatching rows (detail lines)
+            await tx.voucherMatching.deleteMany({
+                where: { VoucherMatchingHeaderSid },
+            });
+
+            // 2b. Delete MatchingDetail rows
+            await tx.matchingDetail.deleteMany({
+                where: { VoucherMatchingHeaderSid },
+            });
+
+            // 2c. Reverse any Exchange JVs linked to this matching
+            const exchangeJVLinks = await tx.voucherMatchingExchangeJV.findMany({
+                where: { VoucherMatchingHeaderSid, Status: 'A' },
+            });
+
+            for (const link of exchangeJVLinks) {
+                await this.reverseExchangeJV(tx, {
+                    originalJVHeaderSid: link.ExchangeJVHeaderSid,
+                    CompanyMasterSid: dto.CompanyMasterSid,
+                    BranchMasterSid: dto.BranchMasterSid,
+                    YearMasterSid: dto.YearMasterSid,
+                    LocalCurrencyMasterSid: dto.LocalCurrencyMasterSid,
+                    LocalCurrencyCode: dto.LocalCurrencyCode,
+                    cancelledBy,
+                });
+
+                // Suspend the link record
+                await tx.voucherMatchingExchangeJV.update({
+                    where: { VoucherMatchingExchangeJVSid: link.VoucherMatchingExchangeJVSid },
+                    data: { Status: 'S', UpdatedBy: cancelledBy, UpdatedOn: new Date() },
+                });
+            }
+
+            // 2d. Update VoucherMatchingHeader: Status = 'S' (Suspended)
+            const updatedHeader = await tx.voucherMatchingHeader.update({
+                where: { VoucherMatchingHeaderSid },
+                data: {
+                    Status: 'S',
+                    UpdatedBy: cancelledBy,
+                    UpdatedOn: new Date(),
+                },
+            });
+
+            return updatedHeader;
+        }, {
+            timeout: 60000,
+        });
+
+        return result;
     }
 }

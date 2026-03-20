@@ -677,9 +677,6 @@ export class ReverseVoucherService {
                 where: {
                     CompanyMasterSid: CompanyMasterSid,
                     BranchMasterSid: BranchMasterSid,
-                    voucherMatchings: {
-                        none: {}
-                    },
                     Status: 'A',
                     PostStatus: 'P',
                     VoucherDetail: {}
@@ -717,9 +714,6 @@ export class ReverseVoucherService {
                     BranchMasterSid,
                     PostStatus: 'P',
                     Status: 'A',
-                    voucherMatchings: {
-                        none: {}
-                    },
                     voucherTypeMaster: {
                         DocumentTypeCode: {
                             in: [
@@ -769,6 +763,46 @@ export class ReverseVoucherService {
                     `Voucher ${voucher.VoucherNumber} is already reversed by ${alreadyReversed.VoucherNumber}`
                 );
             }
+
+            // Check for active voucher matchings
+            const activeMatchingHeaders = await db.voucherMatching.findMany({
+                where: {
+                    VoucherHeaderSid: voucher.VoucherHeaderSid,
+                    Status: 'A',
+                    header: { Status: 'A', PostStatus: 'P' },
+                },
+                select: {
+                    header: {
+                        select: { VoucherMatchingHeaderSid: true, VoucherMatchingNo: true }
+                    }
+                },
+                distinct: ['VoucherMatchingHeaderSid']
+            });
+            const uniqueActive = [...new Map(activeMatchingHeaders.map(r => [r.header.VoucherMatchingHeaderSid, r.header])).values()];
+
+            if (uniqueActive.length > 0) {
+                const nos = uniqueActive.map(h => h.VoucherMatchingNo).join(', ');
+                throw new BadRequestException(
+                    JSON.stringify({
+                        type: 'VOUCHER_MATCHING_EXISTS',
+                        message: `Receipt is having voucher matching. Please cancel ${nos} on Voucher Matching Header.`,
+                        matchingHeaders: uniqueActive,
+                    })
+                );
+            }
+
+            // Check for suspended matching headers (already cancelled)
+            const suspendedHeaders = await db.voucherMatching.findMany({
+                where: {
+                    VoucherHeaderSid: voucher.VoucherHeaderSid,
+                    header: { Status: 'S' },
+                },
+                select: {
+                    header: { select: { VoucherMatchingHeaderSid: true, VoucherMatchingNo: true } }
+                },
+                distinct: ['VoucherMatchingHeaderSid']
+            });
+            voucher['suspendedMatchings'] = [...new Map(suspendedHeaders.map(r => [r.header.VoucherMatchingHeaderSid, r.header])).values()];
 
             return voucher;
         } catch (error) {
@@ -971,8 +1005,8 @@ export class ReverseVoucherService {
                 allCompleteDetails.push(completeDetail);
             }
             
-            // Find reversal voucher customer entry
-            const object = await tx.voucherTransaction.findFirst({
+            // Find reversal voucher customer entries (may include write-off party lines)
+            const objects = await tx.voucherTransaction.findMany({
                 where: {
                     VoucherHeaderSid: voucher.ReversalVoucher!,
                     Status: 'A',
@@ -992,7 +1026,7 @@ export class ReverseVoucherService {
 
             // Matching: Party details
             const partyDetailForMatching = allCompleteDetails.filter(
-                vd => vd.subledgerMaster?.SubledgerType === 'Customer' && vd.LedgerMasterSid === object?.LedgerMasterSid
+                vd => vd.subledgerMaster?.SubledgerType === 'Customer' && vd.LedgerMasterSid === objects[0]?.LedgerMasterSid
             );
 
             const billMatchingCurrencyAmount = partyDetailForMatching.reduce(
@@ -1011,23 +1045,20 @@ export class ReverseVoucherService {
             // Create voucher matching
             let newVoucherMatchings: any;
 
-            if (partyDetailForMatching && object && (billMatchingCurrencyAmount > 0 || billMatchingLocalAmount > 0)) {
-                partyDetailForMatching['Amount'] = billMatchingCurrencyAmount;
-                partyDetailForMatching['PartyAmount'] = billMatchingCurrencyAmount;
-                partyDetailForMatching['LocalAmount'] = billMatchingLocalAmount;
+            if (partyDetailForMatching.length > 0 && objects.length > 0 && (billMatchingCurrencyAmount > 0 || billMatchingLocalAmount > 0)) {
                 newVoucherMatchings = await this.voucherService.createVoucherMatching({
                     CompanyMasterSid: payload.companyMasterSid,
                     BranchMasterSid: payload.branchMasterSid,
                     VoucherHeaderSid: payload.voucherHeaderSid,
                     VoucherTypeCode: voucher.voucherTypeMaster.DocumentTypeCode,
                     VoucherTypeMasterSid: voucher.voucherTypeMaster.VoucherTypeMasterSid,
-                    SubledgerName: voucher.subledgerMaster?.SubledgerName || object.subledgerMaster?.SubledgerName || '',
+                    SubledgerName: voucher.subledgerMaster?.SubledgerName || objects[0]?.subledgerMaster?.SubledgerName || '',
                     VoucherMatchingDate: now,
                     PostDate: now,
                     YearMasterSid: payload.yearMasterSid,
-                    Narration: `${voucher.VoucherNumber} ${voucher.VoucherDate.toISOString().split('T')[0]} ${voucher.CurrencyCode || object.CurrencyCode} ${voucher.Amount || object.Amount}`,
+                    Narration: `${voucher.VoucherNumber} ${voucher.VoucherDate.toISOString().split('T')[0]} ${voucher.CurrencyCode || objects[0]?.CurrencyCode} ${voucher.Amount || objects[0]?.Amount}`,
                     createdBy: payload.postedBy,
-                    voucherMatching: [object],
+                    voucherMatching: objects,
                     partyVoucherDetail: partyDetailForMatching,
                     BillMatchingCurrencyAmount: billMatchingCurrencyAmount,
                     BillMatchingLocalAmount: billMatchingLocalAmount

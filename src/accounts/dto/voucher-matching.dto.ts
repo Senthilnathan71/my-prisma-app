@@ -360,6 +360,45 @@ export interface MatchingDetail {
   MatchingType: string;
 }
 
+export class CancelVoucherMatchingDto {
+  @IsNotEmpty()
+  @IsInt()
+  VoucherMatchingHeaderSid: number;
+
+  @IsNotEmpty()
+  @IsInt()
+  CompanyMasterSid: number;
+
+  @IsNotEmpty()
+  @IsInt()
+  BranchMasterSid: number;
+
+  @IsNotEmpty()
+  @IsInt()
+  YearMasterSid: number;
+
+  @IsNotEmpty()
+  @IsInt()
+  LocalCurrencyMasterSid: number;
+
+  @IsNotEmpty()
+  @IsString()
+  LocalCurrencyCode: string;
+
+  @IsNotEmpty()
+  @IsString()
+  cancelledBy: string;
+
+  @IsOptional()
+  taxDetails?: {
+    CountryMasterSid: number;
+    countryCode: string;
+    TaxCategory: 'Inter' | 'Intra';
+    EffectiveFrom: Date;
+    TaxType: 'Input' | 'Output';
+  };
+}
+
 export interface PostVoucherMatchingResponse {
   VoucherMatchingHeaderSid: number;
   CompanyMasterSid: number;
