@@ -71,6 +71,8 @@ import { ProRateController } from './controllers/pro-rate/pro-rate.controller';
 import { ShippingInstructionService } from './services/shipping-instruction/shipping-instruction.service';
 import { ShippingInstructionController } from './controllers/shipping-instruction/shipping-instruction.controller';
 import { AccountsModule } from 'src/accounts/accounts.module';
+import { AuditLogService } from './services/audit-log/audit-log.service';
+import { AuditLogController } from './controllers/audit-log/audit-log.controller';
 
 @Module({
         imports: [CommonModule, SettingsModule, AccountsModule],
@@ -116,6 +118,7 @@ import { AccountsModule } from 'src/accounts/accounts.module';
                 AgentMasterAirWaybillService,
                 ProRateService,
                 ShippingInstructionService,
+                AuditLogService
         ],
         controllers: [
                 BookingController,
@@ -147,6 +150,7 @@ import { AccountsModule } from 'src/accounts/accounts.module';
                 AgentMasterAirWaybillController,
                 ProRateController,
                 ShippingInstructionController,
+                AuditLogController
         ]
 })
 export class OperationModule { }
