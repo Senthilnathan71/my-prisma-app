@@ -202,20 +202,24 @@ export class EmailService {
 
     async sendEmailWithFullContent(data: any): Promise<boolean> {
         try {
+            const inlineImageResult = this.extractInlineBase64Images(data.html || '');
             const mailOptions: any = {
                 from: '"Dofi-Infosys" <noreply@dofi.co>',
                 to: data.email,
                 cc: data.cc || '',
                 bcc: data.bcc || '',
                 subject: data.subject,
-                html: data.html,
-                attachments: (data.attachments || []).map((file: Express.Multer.File) => {
-                    return {
-                    filename: file.originalname,
-                    path: file.path,
-                    contentType: file.mimetype,
-                    }
-                })
+                html: inlineImageResult.html,
+                attachments: [
+                    ...((data.attachments || []).map((file: Express.Multer.File) => {
+                        return {
+                            filename: file.originalname,
+                            path: file.path,
+                            contentType: file.mimetype,
+                        }
+                    })),
+                    ...inlineImageResult.attachments
+                ]
             };
             const info = await this.transporter.sendMail(mailOptions);
             this.logger.log(`Email sent successfully: ${info.messageId}`);
@@ -227,6 +231,48 @@ export class EmailService {
                 HttpStatus.EXPECTATION_FAILED
             );
         }
+    }
+
+    private extractInlineBase64Images(html: string): {
+        html: string;
+        attachments: Array<{
+            filename: string;
+            content: Buffer;
+            contentType: string;
+            cid: string;
+            disposition: 'inline';
+        }>;
+    } {
+        const attachments: Array<{
+            filename: string;
+            content: Buffer;
+            contentType: string;
+            cid: string;
+            disposition: 'inline';
+        }> = [];
+
+        let imageIndex = 0;
+        const updatedHtml = html.replace(
+            /src=(["'])(data:image\/([a-zA-Z0-9.+-]+);base64,([^"']+))\1/gi,
+            (_match, quote, _fullDataUrl, extension, base64Data) => {
+                const cid = `inline-image-${Date.now()}-${imageIndex++}`;
+                const normalizedExtension = extension === 'svg+xml' ? 'svg' : extension;
+                attachments.push({
+                    filename: `inline-image-${imageIndex}.${normalizedExtension}`,
+                    content: Buffer.from(base64Data, 'base64'),
+                    contentType: `image/${extension}`,
+                    cid,
+                    disposition: 'inline',
+                });
+
+                return `src=${quote}cid:${cid}${quote}`;
+            }
+        );
+
+        return {
+            html: updatedHtml,
+            attachments,
+        };
     }
 
     async sendInvoiceEmail(data: {

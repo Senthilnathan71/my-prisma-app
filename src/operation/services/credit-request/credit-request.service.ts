@@ -1005,9 +1005,10 @@ export class CreditRequestService {
     try {
       // Step 1: Check customer type
       const customerType = await this.getCustomerType(dto.customerMasterSid);
+      const customerCurrencyCode = await this.getCustomerCurrencyCode(dto.customerMasterSid);
 
       if (customerType === CustomerType.CASH) {
-        return this.getCashCustomerValidation(dto);
+        return this.getCashCustomerValidation(dto, customerCurrencyCode);
       }
 
       // Step 2: Get credit limit
@@ -1028,7 +1029,7 @@ export class CreditRequestService {
 
       // Credit customer with no active approved credit request is treated as CASH.
       if (!creditLimit) {
-        return this.getCashCustomerValidation(dto);
+        return this.getCashCustomerValidation(dto, customerCurrencyCode);
       }
 
       // Step 3: Get outstanding
@@ -1048,7 +1049,7 @@ export class CreditRequestService {
       const outstanding = this.mapCustomerOutstandingToResult(customerOutstanding);
 
       // Step 4: Perform validation
-      return this.performValidation(creditLimit, outstanding);
+      return this.performValidation(creditLimit, outstanding, customerCurrencyCode);
     } catch (error) {
       this.logger.error(`Credit validation error: ${error.message}`);
       
@@ -1118,6 +1119,7 @@ export class CreditRequestService {
   ): Promise<BLDOValidationResult> {
     try {
       const customerType = await this.getCustomerType(dto.CustomerMasterSid);
+      const customerCurrencyCode = await this.getCustomerCurrencyCode(dto.CustomerMasterSid);
       let effectiveCustomerType = customerType;
       const currentDate = new Date();
       const errors: string[] = [];
@@ -1154,15 +1156,12 @@ export class CreditRequestService {
       if (effectiveCustomerType === CustomerType.CASH) {
         if (totalOutstandingLocal > 0) {
           errors.push(
-            `Outstanding amount (Rs ${totalOutstandingLocal.toLocaleString('en-IN', {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 2,
-            })}) pending for this customer. Payment required before BL/DO/MAWB/HAWB release.`,
+            `Outstanding amount (${this.formatAmountWithCurrency(totalOutstandingLocal, customerCurrencyCode)}) pending for this customer. Payment required before BL/DO/MAWB/HAWB release.`,
           );
         }
       } else if (totalOutstandingLocal > creditLimit) {
         errors.push(
-          `Outstanding amount (${totalOutstandingLocal.toFixed(2)}) exceeds credit limit (${creditLimit.toFixed(2)}). Remaining credit limit: ${remainingCreditLimit?.toFixed(2)}`,
+          `Outstanding amount (${this.formatAmountWithCurrency(totalOutstandingLocal, customerCurrencyCode)}) exceeds credit limit (${this.formatAmountWithCurrency(creditLimit, customerCurrencyCode)}). Remaining credit limit: ${this.formatAmountWithCurrency(remainingCreditLimit ?? 0, customerCurrencyCode)}`,
         );
       }
 
@@ -1528,7 +1527,8 @@ export class CreditRequestService {
 
   private performValidation(
     creditLimit: CreditLimitResult,
-    outstanding: OutstandingResult
+    outstanding: OutstandingResult,
+    customerCurrencyCode: string,
   ): ValidationResult {
     const errors: string[] = [];
     const warnings: string[] = [];
@@ -1539,13 +1539,7 @@ export class CreditRequestService {
     // Validation 1: Check outstanding vs limit
     if (outstanding.totalOutstanding > creditLimit.creditLimit) {
       errors.push(
-        `Outstanding amount (Rs ${outstanding.totalOutstanding.toLocaleString('en-IN', {
-          minimumFractionDigits: 2,
-          maximumFractionDigits: 2,
-        })}) exceeds credit limit (Rs ${creditLimit.creditLimit.toLocaleString('en-IN', {
-          minimumFractionDigits: 2,
-          maximumFractionDigits: 2,
-        })})`,
+        `Outstanding amount (${this.formatAmountWithCurrency(outstanding.totalOutstanding, customerCurrencyCode)}) exceeds credit limit (${this.formatAmountWithCurrency(creditLimit.creditLimit, customerCurrencyCode)})`,
       );
     }
 
@@ -1561,10 +1555,7 @@ export class CreditRequestService {
     if (utilizationPercentage > 80 && utilizationPercentage <= 100) {
       warnings.push(
         `Credit utilization is at ${utilizationPercentage.toFixed(1)}%. ` +
-        `Available credit: Rs ${availableCredit.toLocaleString('en-IN', {
-          minimumFractionDigits: 2,
-          maximumFractionDigits: 2,
-        })}`,
+        `Available credit: ${this.formatAmountWithCurrency(availableCredit, customerCurrencyCode)}`,
       );
     }
 
@@ -1618,7 +1609,10 @@ export class CreditRequestService {
     };
   }
 
-  private async getCashCustomerValidation(dto: ValidateCreditDto): Promise<ValidationResult> {
+  private async getCashCustomerValidation(
+    dto: ValidateCreditDto,
+    customerCurrencyCode: string,
+  ): Promise<ValidationResult> {
     const jobOutstanding = await this.computeOutstanding({
       customerMasterSid: dto.customerMasterSid,
       companyMasterSid: dto.companyMasterSid,
@@ -1636,10 +1630,7 @@ export class CreditRequestService {
       return {
         isValid: false,
         errors: [
-          `Outstanding amount (Rs ${jobOutstanding.totalOutstanding.toLocaleString('en-IN', {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
-          })}) pending for this job invoice. Payment required before issuing BL/DO/MAWB/HAWB.`,
+          `Outstanding amount (${this.formatAmountWithCurrency(jobOutstanding.totalOutstanding, customerCurrencyCode)}) is pending for this customer.`,
         ],
         warnings: [],
         creditInfo: {
@@ -1654,6 +1645,32 @@ export class CreditRequestService {
     }
 
     return this.createSuccessResult();
+  }
+
+  private formatAmountWithCurrency(amount: number, currencyCode?: string): string {
+    const resolvedCurrencyCode = (currencyCode || 'Rs').trim();
+    return `${resolvedCurrencyCode} ${Number(amount || 0).toLocaleString('en-IN', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`;
+  }
+
+  private async getCustomerCurrencyCode(customerMasterSid: number): Promise<string> {
+    const customer = await this._db.customerMaster.findUnique({
+      where: { CustomerMasterSid: customerMasterSid },
+      select: { CurrencyMasterSid: true },
+    });
+
+    if (!customer?.CurrencyMasterSid) {
+      return 'Rs';
+    }
+
+    const currency = await this._db.currencyMaster.findUnique({
+      where: { CurrencyMasterSid: customer.CurrencyMasterSid },
+      select: { currencyCode: true },
+    });
+
+    return currency?.currencyCode?.trim() || 'Rs';
   }
 
   private async computeOutstanding(
