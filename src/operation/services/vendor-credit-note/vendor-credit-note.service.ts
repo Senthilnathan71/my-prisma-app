@@ -77,6 +77,8 @@ export class VendorCreditNoteService {
                             VoucherNumber: VoucherNumber,
                             VoucherDate: payload.VoucherDate ? new Date(payload.VoucherDate) : new Date(),
                             PostDate: null,
+                            //TODO - need to remove
+                            UpdatedOn : new Date(),
                             VoucherType: voucherTypeMaster.VoucherTypeMasterSid,
                             Narration: payload.Narration || '',
                             COAMasterSid: payload.COAMasterSid,

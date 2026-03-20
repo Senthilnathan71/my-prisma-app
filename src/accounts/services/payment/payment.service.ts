@@ -463,6 +463,8 @@ export class PaymentService {
                         CreditNoteReason: payload.CreditNoteReason || "",
                         VoucherTypeMasterSid: voucherType.VoucherTypeMasterSid,
                         PostStatus: "U",
+                        //TODO - need to remove
+                        UpdatedOn : new Date()
                     }
                 });
 

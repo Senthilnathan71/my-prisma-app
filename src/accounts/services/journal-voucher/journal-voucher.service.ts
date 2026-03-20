@@ -170,7 +170,9 @@ export class JournalVoucherService {
                         HouseNumber: payload.HouseNumber,
                         Remarks: payload.Remarks,
                         Status: payload.Status,
-                        CreatedBy: payload.CreatedBy || 'System'
+                        CreatedBy: payload.CreatedBy || 'System',
+                        //TODO - need to remove
+                        UpdatedOn : new Date()
                     }
                 });
 

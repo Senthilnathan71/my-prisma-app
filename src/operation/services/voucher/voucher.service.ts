@@ -1007,6 +1007,8 @@ export class VoucherService {
                 const createdVoucherHeader = await prisma.voucherHeader.create({
                     data : {
                         CreatedBy : payload.CreatedBy,
+                        //TODO - need to remove
+                        UpdatedOn : new Date(),
                         Status : 'A',
                         CompanyMasterSid : payload.CompanyMasterSid,
                         BranchMasterSid : payload.BranchMasterSid,
@@ -2769,6 +2771,8 @@ export class VoucherService {
 
             const createdVoucherHeader = await prisma.voucherMatchingHeader.create({
                 data : {
+                    //TODO - need to remove
+                    UpdatedOn : new Date(),
                     CreatedBy : payload.createdBy,
                     Status : 'A',
                     PostStatus : 'P',

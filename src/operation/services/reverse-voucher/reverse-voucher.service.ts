@@ -88,6 +88,8 @@ export class ReverseVoucherService {
                         Status: payload.status || 'A',
                         CreatedBy: payload.CreatedBy || 'System',
                         ReversalVoucher: payload.ReversalVoucher || null,
+                        //TODO - need to remove
+                        UpdatedOn : new Date()
                     }
                 });
 
