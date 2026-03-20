@@ -1756,64 +1756,103 @@ export class HouseJobService {
     } 
 
 
-    async getHouseJobByBookingNo(BookingNumber: string) {
-        try {
-            const ourBooking = await this._db.houseJob.findFirst({
+    private readonly houseJobInclude = {
+        Cargo: { where: { status: 'A' } },
+        Products: { where: { status: 'A' } },
+        Others: { where: { status: 'A' } },
+        Connections: { where: { status: 'A' } }
+    };
+
+    private async enrichWithVoyageDetails(houseJob: any) {
+        let voyageDetails;
+        if (houseJob.VoyageMasterSid) {
+            const data = await this._db.voyageMasterHeader.findUnique({
                 where: {
-                    ShipmentNo: BookingNumber
+                    VoyageMasterHeaderSid: houseJob.VoyageMasterSid
                 },
                 include: {
-                    Cargo: { where: { status: 'A' } },
-                    Products: { where: { status: 'A' } },
-                    Others: { where: { status: 'A' } },
-                    Connections: { where: { status: 'A' } }
+                    voyageMasterDetail: {
+                        where: {
+                            status: 'A'
+                        },
+                        select: {
+                            ETA: true,
+                            ETD: true,
+                            PortCutoff: true,
+                            portMasterPOL: {
+                                select: {
+                                    PortCode: true
+                                }
+                            }
+                        },
+                    }
                 }
             })
+            const POL = data?.voyageMasterDetail.find(vd => vd.portMasterPOL?.PortCode === houseJob.POL);
+            const POD = data?.voyageMasterDetail.find(vd => vd.portMasterPOL?.PortCode === houseJob.POD);
+            voyageDetails = {
+                POLETA: POL?.ETA,
+                POLETD: POL?.ETD,
+                PODETA: POD?.ETA,
+                PODETD: POD?.ETD,
+                POLCutOffDate: POL?.PortCutoff,
+                PODCutOffDate: POD?.PortCutoff
+            }
+        }
+        return { ...houseJob, voyageDetails };
+    }
 
-            if (!ourBooking) {
-                throw new BadRequestException('Error fetching booking record.');
+    async getHouseJobByBookingNo(BookingNumber: string) {
+        try {
+            // 1. Try ShipmentNo match
+            let ourBooking = await this._db.houseJob.findFirst({
+                where: { ShipmentNo: BookingNumber, status: 'A' },
+                include: this.houseJobInclude
+            });
+
+            if (ourBooking) {
+                const enriched = await this.enrichWithVoyageDetails(ourBooking);
+                return { data: enriched, multiple: false };
             }
 
-            let voyageDetails;
-            if (ourBooking.VoyageMasterSid) {
-                const data = await this._db.voyageMasterHeader.findUnique({
-                    where: {
-                        VoyageMasterHeaderSid: ourBooking.VoyageMasterSid
-                    },
-                    include: {
-                        voyageMasterDetail: {
-                            where: {
-                                status: 'A'
-                            },
-                            select: {
-                                ETA: true,
-                                ETD: true,
-                                PortCutoff: true,
-                                portMasterPOL: {
-                                    select: {
-                                        PortCode: true
-                                    }
-                                }
-                            },
-                        }
-                    }
-                })
-                const POL = data?.voyageMasterDetail.find(vd => vd.portMasterPOL?.PortCode === ourBooking.POL);
-                const POD = data?.voyageMasterDetail.find(vd => vd.portMasterPOL?.PortCode === ourBooking.POD);
-                voyageDetails = {
-                    POLETA: POL?.ETA,
-                    POLETD: POL?.ETD,
-                    PODETA: POD?.ETA,
-                    PODETD: POD?.ETD,
-                    POLCutOffDate: POL?.PortCutoff,
-                    PODCutOffDate: POD?.PortCutoff
+            // 2. Try HBLNo match
+            ourBooking = await this._db.houseJob.findFirst({
+                where: { HBLNo: BookingNumber, status: 'A' },
+                include: this.houseJobInclude
+            });
+
+            if (ourBooking) {
+                const enriched = await this.enrichWithVoyageDetails(ourBooking);
+                return { data: enriched, multiple: false };
+            }
+
+            // 3. Try MBLNo on MasterJob — return all associated HouseJobs
+            const masterJob = await this._db.masterJob.findFirst({
+                where: { MBLNo: BookingNumber, Status: 'A' }
+            });
+
+            if (masterJob) {
+                const houseJobs = await this._db.houseJob.findMany({
+                    where: { MasterJobSid: masterJob.MasterJobSid, status: 'A' },
+                    include: this.houseJobInclude
+                });
+
+                if (houseJobs.length === 0) {
+                    throw new BadRequestException('No house jobs found for this MBL number.');
                 }
+
+                const enrichedJobs = await Promise.all(
+                    houseJobs.map(hj => this.enrichWithVoyageDetails(hj))
+                );
+
+                if (enrichedJobs.length === 1) {
+                    return { data: enrichedJobs[0], multiple: false };
+                }
+
+                return { data: enrichedJobs, multiple: true };
             }
 
-            return {
-                ...ourBooking,
-                voyageDetails
-            }
+            throw new BadRequestException('No record found for the given Shipment No / HBL No / MBL No.');
         } catch (error) {
             throw error;
         }

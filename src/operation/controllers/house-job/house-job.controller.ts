@@ -168,8 +168,8 @@ async createHouseJob(@Body() payload: any) {
     type: ResponseData
   })
   @HttpCode(HttpStatus.OK)
-  @Get('shiping_Ins/fetch/:bookingNumber')
-  async getBookingByBookingNumber(@Param('bookingNumber') bookingNumber: string) {
+  @Get('shiping_Ins/fetch')
+  async getBookingByBookingNumber(@Query('bookingNumber') bookingNumber: string) {
     let output = new ResponseData();
     try {
       const booking = await this.houseJobService.getHouseJobByBookingNo(bookingNumber)

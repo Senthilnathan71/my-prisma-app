@@ -68,6 +68,8 @@ import { AgentMasterAirWaybillService } from './services/agent-master-air-waybil
 import { AgentMasterAirWaybillController } from './controllers/agent-master-air-waybill/agent-master-air-waybill.controller';
 import { ProRateService } from './services/pro-rate/pro-rate.service';
 import { ProRateController } from './controllers/pro-rate/pro-rate.controller';
+import { ShippingInstructionService } from './services/shipping-instruction/shipping-instruction.service';
+import { ShippingInstructionController } from './controllers/shipping-instruction/shipping-instruction.controller';
 import { AccountsModule } from 'src/accounts/accounts.module';
 
 @Module({
@@ -113,6 +115,7 @@ import { AccountsModule } from 'src/accounts/accounts.module';
                 VoucherCorrectionService,
                 AgentMasterAirWaybillService,
                 ProRateService,
+                ShippingInstructionService,
         ],
         controllers: [
                 BookingController,
@@ -143,6 +146,7 @@ import { AccountsModule } from 'src/accounts/accounts.module';
                 VoucherCorrectionController,
                 AgentMasterAirWaybillController,
                 ProRateController,
+                ShippingInstructionController,
         ]
 })
 export class OperationModule { }
