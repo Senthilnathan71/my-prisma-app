@@ -359,6 +359,7 @@ export class VoucherMatchingService {
                         SubledgerName: payload.SubledgerName,
                         CreatedBy: payload.userEmail,
                         PostStatus: 'U',
+                        UpdatedOn : new Date(),
                         PostDate: null,
                     }
                 })
@@ -1386,6 +1387,7 @@ export class VoucherMatchingService {
                 CurrencyCode: params.LocalCurrencyCode,
                 ExchangeRate: 1,
                 Status: 'A',
+                UpdatedOn : new Date(),
                 CreatedBy: params.postedBy,
             },
         });

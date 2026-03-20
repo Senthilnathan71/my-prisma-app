@@ -306,6 +306,8 @@ export class CreditNoteService {
           data: {
             VoucherNumber: VoucherNumber,
             VoucherDate: payload.VoucherDate ? new Date(payload.VoucherDate) : new Date(),
+            // TODO - need to remove
+            UpdatedOn : new Date(),
             PostDate: null,
             VoucherType: voucherTypeMaster.VoucherTypeMasterSid,
             Narration: payload.Narration || '',

@@ -110,7 +110,9 @@ export class VendorInvoiceService {
                         Remarks: payload.Remarks,
                         CashOrBank : payload.CashOrBank || 'N',
                         Status: payload.Status || 'A',
-                        CreatedBy: payload.CreatedBy || 'System'
+                        CreatedBy: payload.CreatedBy || 'System',
+                        //TODO - need to remove
+                        UpdatedOn : new Date()
                     }
                 });
 
