@@ -18,6 +18,7 @@ export class ShippingInstructionService {
         HouseJobSid: number;
         Remarks?: string;
         CreatedBy: string;
+        SIStatus?: string;
     }) {
         try {
             const result = await this._db.$transaction(async (prisma) => {
@@ -39,6 +40,7 @@ export class ShippingInstructionService {
                         },
                         data: {
                             Remarks: payload.Remarks || '',
+                            SIStatus: payload.SIStatus || 'Confirmed',
                             UpdatedBy: payload.CreatedBy,
                             UpdatedOn: new Date()
                         }
@@ -63,6 +65,7 @@ export class ShippingInstructionService {
                             BranchMasterSid: payload.BranchMasterSid,
                             HouseJobSid: payload.HouseJobSid,
                             Remarks: payload.Remarks || '',
+                            SIStatus: payload.SIStatus || 'Confirmed',
                             CreatedBy: payload.CreatedBy
                         }
                     });
