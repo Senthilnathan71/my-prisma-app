@@ -1221,15 +1221,20 @@ export class QuotationService {
 
     async getCustomerBranchEmail(CustomerBranchSid) {
         try {
-            const cusBranchEmail = await this._db.customerBranch.findFirst({
+            const brEmail = await this._db.customerBrEmail.findFirst({
                 where: {
-                    CustomerBranchSid: CustomerBranchSid
+                    CustomerBranchSid: CustomerBranchSid,
+                    status: 'A'
                 },
                 select: {
-                    Email: true
+                    Toemail: true
                 }
-            })
-            return cusBranchEmail;
+            });
+            if (brEmail?.Toemail) {
+                return { Email: brEmail.Toemail };
+            }
+
+            throw new BadRequestException('To email is not available. Please configure in Customer Branch Email.');
         } catch (error) {
             throw error;
         }

@@ -475,6 +475,7 @@ model ShippingInstruction {
   Status                 String?       @default("A") @db.Char(1)
   HouseJobSid            Int
   Remarks                String?       @db.VarChar(200)
+  SIStatus               String?
   branchMaster           BranchMaster  @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
   companyMaster          CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
   houseJob          HouseJob @relation(fields: [HouseJobSid], references: [HouseJobSid])
