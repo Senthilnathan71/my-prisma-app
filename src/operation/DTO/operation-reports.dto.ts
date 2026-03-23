@@ -509,6 +509,10 @@ export class ProfitSummaryReportQueryDto {
   @IsInt()
   Dept?: number[];
 
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  WithProrate?: boolean;
 }
 
 
@@ -639,6 +643,11 @@ export class tradelaneProfitabilityReportQueryDto {
   @IsOptional()
   @IsInt()
   POD?: String;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  WithProrate?: boolean;
 }
 
 

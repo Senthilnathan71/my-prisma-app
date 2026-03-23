@@ -1,4 +1,4 @@
-import { Logger, Module } from '@nestjs/common';
+import { forwardRef, Logger, Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { jwtConstants } from 'src/auth/auth/constants';
 import { BookingController } from './controllers/booking/booking.controller';
@@ -80,7 +80,7 @@ import { AuditLogController } from './controllers/audit-log/audit-log.controller
         imports: [
                 CommonModule,
                 SettingsModule,
-                AccountsModule,
+                forwardRef(() => AccountsModule),
                 JwtModule.register({
                         secret: jwtConstants.secret,
                         signOptions: { expiresIn: '7d' }
@@ -161,6 +161,7 @@ import { AuditLogController } from './controllers/audit-log/audit-log.controller
                 ProRateController,
                 ShippingInstructionController,
                 AuditLogController
-        ]
+        ],
+        exports : [ProRateService]
 })
 export class OperationModule { }

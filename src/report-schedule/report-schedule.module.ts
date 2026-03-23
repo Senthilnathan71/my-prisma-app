@@ -10,8 +10,10 @@ import { EmailService } from 'src/email/email.service';
 import { GlobalConfigService } from 'src/common/config/master-config.service';
 import { VoucherService } from 'src/operation/services/voucher/voucher.service';
 import { CompanyConfigService } from 'src/masters/services/company/company-config.service';
+import { OperationModule } from 'src/operation/operation.module';
 
 @Module({
+  imports : [ OperationModule ],
   controllers: [ReportScheduleController],
   providers: [
     Logger,

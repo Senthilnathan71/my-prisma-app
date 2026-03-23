@@ -1,4 +1,4 @@
-import { Logger, Module } from '@nestjs/common';
+import { forwardRef, Logger, Module } from '@nestjs/common';
 import { CoaController } from './controllers/coa/coa.controller';
 import { CoaService } from './services/coa/coa.service';
 import { SupplierTdsMappingController } from './controllers/supplier-tds-mapping/supplier-tds-mapping.controller';
@@ -26,8 +26,12 @@ import { PdfmakeNodeService } from 'src/common/services/report-generators/pdfmak
 import { VoucherService } from 'src/operation/services/voucher/voucher.service';
 import { PaymentService } from './services/payment/payment.service';
 import { CompanyConfigService } from 'src/masters/services/company/company-config.service';
+import { OperationModule } from 'src/operation/operation.module';
 
 @Module({
+    imports : [
+        forwardRef(() => OperationModule)
+    ],
     controllers: [
         CoaController,
         SupplierTdsMappingController,

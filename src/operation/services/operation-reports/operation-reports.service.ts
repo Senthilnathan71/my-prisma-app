@@ -3640,7 +3640,14 @@ export class OperationReportsService {
         FromJobDt,
         Branch: branchId,
         Dept: dept,
+        WithProrate,
       } = params;
+      const prorateEnabled =
+        WithProrate ??
+        (params as any).withProrate ??
+        (params as any)['With Pro Rate'] ??
+        (params as any).WithProRate ??
+        false;
 
       this.logger.log(
         `Getting Profit Summary Report for CompanySid=${CompanyMasterSid}, From=${FromJobDt}, To=${ToJobDt}`,
@@ -3808,6 +3815,62 @@ export class OperationReportsService {
         }
       });
 
+      const houseProrateMap = new Map<
+        number,
+        { totalRevenue: number; totalCost: number; count: number }
+      >();
+
+      if (prorateEnabled && masterJobIds.length > 0) {
+        const jobToSubjobMasters = await this._db.masterJobOthers.findMany({
+          where: {
+            MasterJobSid: { in: masterJobIds },
+            Status: 'A',
+            JobtoSubjob: 'Y',
+          },
+          select: {
+            MasterJobSid: true,
+          },
+        });
+
+        const masterJobMap = new Map(
+          masterJob.map((mj) => [mj.MasterJobSid, mj]),
+        );
+
+        for (const { MasterJobSid } of jobToSubjobMasters) {
+          const selectedMaster = masterJobMap.get(MasterJobSid);
+
+          if (!selectedMaster?.CompanyMasterSid || !selectedMaster?.BranchMasterSid) {
+            continue;
+          }
+
+          const proRateData = await this.proRateService.calculateProRate({
+            CompanyMasterSid: selectedMaster.CompanyMasterSid,
+            BranchMasterSid: selectedMaster.BranchMasterSid,
+            MasterJobSid,
+          });
+
+          for (const proratedHouse of proRateData.houses || []) {
+            const houseJobSid = proratedHouse.houseJob?.HouseJobSid;
+
+            if (!houseJobSid) {
+              continue;
+            }
+
+            for (const charge of proratedHouse.proratedCharges || []) {
+              const current = houseProrateMap.get(houseJobSid) || {
+                totalRevenue: 0,
+                totalCost: 0,
+                count: 0,
+              };
+              current.totalRevenue += Number(charge.revenueLocalAmount || 0);
+              current.totalCost += Number(charge.costLocalAmount || 0);
+              current.count += 1;
+              houseProrateMap.set(houseJobSid, current);
+            }
+          }
+        }
+      }
+
       const getDepartmentName = (deptId: number) =>
         departments.find((d) => d.DepartmentMasterSid === deptId)
           ?.departmentName || '';
@@ -3826,13 +3889,9 @@ export class OperationReportsService {
           const calc = (arr: any[], type: 'R' | 'C') =>
             arr.reduce((sum, cr) => {
               if (type === 'R') {
-                return cr.RevenueDrCr === 'C'
-                  ? sum + Number(cr.RevenueLocalAmount || 0)
-                  : sum - Number(cr.RevenueLocalAmount || 0);
+                return sum + Number(cr.RevenueLocalAmount || 0);
               }
-              return cr.CostDrCr === 'D'
-                ? sum + Number(cr.CostLocalAmount || 0)
-                : sum - Number(cr.CostLocalAmount || 0);
+              return sum + Number(cr.CostLocalAmount || 0);
             }, 0);
 
           const pSale = calc(masterCR, 'R');
@@ -3842,7 +3901,12 @@ export class OperationReportsService {
 
           const houseWithCR = await Promise.all(
             mj.houseJob.map(async (hj) => {
-             const houseCR = houseCRMap.get(hj.HouseJobSid) || [];
+              const houseCR = houseCRMap.get(hj.HouseJobSid) || [];
+              const houseProrate = houseProrateMap.get(hj.HouseJobSid) || {
+                totalRevenue: 0,
+                totalCost: 0,
+                count: 0,
+              };
 
               const linkedRevH = houseCR.filter(
                 (cr) => cr.RevenueVoucherHeaderSid,
@@ -3851,8 +3915,8 @@ export class OperationReportsService {
                 (cr) => cr.CostVoucherHeaderSid,
               );
 
-              const hpSale = calc(houseCR, 'R');
-              const hpCost = calc(houseCR, 'C');
+              const hpSale = calc(houseCR, 'R') + houseProrate.totalRevenue;
+              const hpCost = calc(houseCR, 'C') + houseProrate.totalCost;
               const haSale = calc(linkedRevH, 'R');
               const haCost = calc(linkedCostH, 'C');
 
@@ -3876,7 +3940,7 @@ export class OperationReportsService {
                 POO: hj.POO,
                 FPD: hj.FPD,
                 costRevenues: {
-                  totalNoOfCostRevenues: houseCR.length,
+                  totalNoOfCostRevenues: houseCR.length + houseProrate.count,
                   linkedRevenueRecords: linkedRevH.map(
                     (cr) => cr.CostRevenueChargesSid,
                   ),
@@ -6388,7 +6452,14 @@ export class OperationReportsService {
       companyId: CompanyMasterSid,
       POL,
       POD,
+      WithProrate
     } = params;
+    const prorateEnabled =
+      WithProrate ??
+      (params as any).withProrate ??
+      (params as any)['With Pro Rate'] ??
+      (params as any).WithProRate ??
+      false;
 
     try {
       let polCode: string | undefined;
@@ -6537,6 +6608,63 @@ ports.forEach((p) => {
         }
         houseRateMap.get(cr.TransactionSid!)!.push(cr);
       });
+
+      if (prorateEnabled) {
+        const houseMasterJobIds = Array.from(
+          new Set(
+            houseJob
+              .map((h) => h.MasterJobSid)
+              .filter((sid): sid is number => typeof sid === 'number'),
+          ),
+        );
+
+        if (houseMasterJobIds.length > 0) {
+          const jobToSubjobMasters = await this._db.masterJobOthers.findMany({
+            where: {
+              MasterJobSid: { in: houseMasterJobIds },
+              Status: 'A',
+              JobtoSubjob: 'Y',
+            },
+            select: {
+              MasterJobSid: true,
+            },
+          });
+
+          for (const { MasterJobSid } of jobToSubjobMasters) {
+            const anyHouse = houseJob.find((h) => h.MasterJobSid === MasterJobSid);
+
+            if (!anyHouse?.CompanyMasterSid || !anyHouse?.BranchMasterSid) {
+              continue;
+            }
+
+            const proRateData = await this.proRateService.calculateProRate({
+              CompanyMasterSid: anyHouse.CompanyMasterSid,
+              BranchMasterSid: anyHouse.BranchMasterSid,
+              MasterJobSid,
+            });
+
+            for (const proratedHouse of proRateData.houses || []) {
+              const houseJobSid = proratedHouse.houseJob?.HouseJobSid;
+
+              if (!houseJobSid) {
+                continue;
+              }
+
+              if (!houseRateMap.has(houseJobSid)) {
+                houseRateMap.set(houseJobSid, []);
+              }
+
+              for (const charge of proratedHouse.proratedCharges || []) {
+                houseRateMap.get(houseJobSid)!.push({
+                  TransactionSid: houseJobSid,
+                  RevenueLocalAmount: Number(charge.revenueLocalAmount || 0),
+                  CostLocalAmount: Number(charge.costLocalAmount || 0),
+                });
+              }
+            }
+          }
+        }
+      }
 
       //  master job
       const masterJob = await this._db.masterJob.findMany({
