@@ -19,12 +19,42 @@ const statusMap: Record<string, LeadStatus> = {
     "Deal Won": LeadStatus.DealWon,
     "Deal Lost": LeadStatus.DealLost,
 };
+
+const toCamelCase = (value: string): string =>
+    value
+        .replace(/[^a-zA-Z0-9 ]/g, '')
+        .replace(/\s+(.)/g, (_, c) => c.toUpperCase())
+        .replace(/\s/g, '')
+        .replace(/^./, (c) => c.toLowerCase());
 @Injectable()
 export class PreCustomerMeetingService {
     constructor(
         private _db: DatabaseService,
         private logger: Logger
     ) { }
+
+    private buildCustomerTypePayload(preCustomerType?: string | null) {
+        if (!preCustomerType?.trim()) {
+            return { customer: 'isTrue' };
+        }
+
+        const customerTypes: Record<string, string> = {};
+
+        preCustomerType
+            .split(',')
+            .map((type) => type.trim())
+            .filter(Boolean)
+            .forEach((type) => {
+                const customerTypeKey = toCamelCase(type);
+                if (customerTypeKey) {
+                    customerTypes[customerTypeKey] = 'isTrue';
+                }
+            });
+
+        return Object.keys(customerTypes).length
+            ? customerTypes
+            : { customer: 'isTrue' };
+    }
 
 
     async getPreCustomerMastersWithoutMeetings(CompanyMasterSid: number, BranchMasterSid: number) {
@@ -278,6 +308,7 @@ export class PreCustomerMeetingService {
                                 CompanyMasterSid: params.CompanyMasterSid,
                                 PreCustomerMasterSid: leadData.PreCustomerMasterSid,
                                 CustomerName: leadData.preCustomerName || '',
+                                CustomerType: this.buildCustomerTypePayload(leadData.preCustomerType),
                                 CountryMasterSid: leadData.CountryMasterSid,
                                 CustomerAddress1: leadData.preCustomerAddress1,
                                 createdBy: user.userEmail 

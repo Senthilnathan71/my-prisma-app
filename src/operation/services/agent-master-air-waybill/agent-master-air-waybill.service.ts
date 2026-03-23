@@ -91,6 +91,21 @@ export class AgentMasterAirWaybillService {
       });
     }
 
+    if (!availableMawb && airlineId) {
+      availableMawb = await prisma.mawbStock.findFirst({
+        where: {
+          CompanyMasterSid: payload.CompanyMasterSid,
+          BranchMasterSid: payload.BranchMasterSid,
+          AirwayBillType: 'Other',
+          Agent: airlineId,
+          StockStatus: 'Free',
+          AvailableStatus: 'Available',
+          status: 'A'
+        },
+        orderBy: { MasterBillNumber: 'asc' }
+      });
+    }
+
     if (!availableMawb) {
       const stockContext: string[] = [];
       if (customerName) {

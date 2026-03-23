@@ -9,6 +9,77 @@ import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 export class MawbStockService {
     constructor(private _db: DatabaseService, private globalConfigService: GlobalConfigService, private logger: Logger) { }
 
+    private calculateAwbCheckDigit(serial: string): number {
+        return Number(serial) % 7;
+    }
+
+    private buildAwbNumber(prefix: string, serialNumber: number): string {
+        const serial = serialNumber.toString().padStart(7, '0');
+        const checkDigit = this.calculateAwbCheckDigit(serial);
+        return `${prefix}${serial}${checkDigit}`;
+    }
+
+    private async getUniqueGeneratedAwbList(payload: any): Promise<{ awbList: string[]; skippedDuplicates: string[] }> {
+        const requestedCount = Number(payload.NumberofMAWB);
+        const prefix = String(payload.MasterBillNumber ?? '').trim();
+        const startingSerial = Number(payload.MAWBSerial);
+
+        if (!requestedCount || requestedCount < 1) {
+            throw new BadRequestException('NumberofMAWB must be greater than zero');
+        }
+
+        if (!prefix) {
+            throw new BadRequestException('MasterBillNumber is required');
+        }
+
+        if (!Number.isInteger(startingSerial) || startingSerial < 0) {
+            throw new BadRequestException('MAWBSerial must be a valid starting serial number');
+        }
+
+        const existingStocks = await this._db.mawbStock.findMany({
+            where: {
+                CompanyMasterSid: payload.CompanyMasterSid,
+                BranchMasterSid: payload.BranchMasterSid,
+                status: { not: 'D' },
+                MasterBillNumber: {
+                    startsWith: prefix
+                }
+            },
+            select: {
+                MasterBillNumber: true
+            }
+        });
+
+        const existingNumbers = new Set(existingStocks.map(stock => String(stock.MasterBillNumber).trim()));
+        const generatedNumbers = new Set<string>();
+        const awbList: string[] = [];
+        const skippedDuplicates: string[] = [];
+
+        let currentSerial = startingSerial;
+        let attempts = 0;
+        const maxAttempts = requestedCount + existingNumbers.size + 5000;
+
+        while (awbList.length < requestedCount) {
+            if (attempts > maxAttempts) {
+                throw new BadRequestException('Unable to generate unique MAWB stock numbers. Please change the serial range.');
+            }
+
+            const candidate = this.buildAwbNumber(prefix, currentSerial);
+            currentSerial += 1;
+            attempts += 1;
+
+            if (existingNumbers.has(candidate) || generatedNumbers.has(candidate)) {
+                skippedDuplicates.push(candidate);
+                continue;
+            }
+
+            generatedNumbers.add(candidate);
+            awbList.push(candidate);
+        }
+
+        return { awbList, skippedDuplicates };
+    }
+
     async getAllMawbStocks(CompanyMasterSid: number, BranchMasterSid: number) {
         try {
             const allMawbStocks = await this._db.mawbStock.findMany({
@@ -31,14 +102,7 @@ export class MawbStockService {
 
     async createNewMawbStock(payload: any) {
         try {
-            // Parse AWBList from frontend payload
-            //   const awbList = payload.AWBList ? JSON.parse(payload.AWBList) : [];
-            const awbList = payload.AWBList || [];
-            if (!Array.isArray(awbList) || awbList.length === 0) {
-                throw new BadRequestException(
-                    'AWB list is required to create MAWB stocks',
-                );
-            }
+            const { awbList, skippedDuplicates } = await this.getUniqueGeneratedAwbList(payload);
 
             const createdRecords: any[] = [];
 
@@ -76,8 +140,11 @@ export class MawbStockService {
             }
 
             return {
-                message: `${createdRecords.length} MAWB stock record(s) created successfully.`,
+                message: skippedDuplicates.length > 0
+                    ? `${createdRecords.length} MAWB stock record(s) created successfully. ${skippedDuplicates.length} duplicate number(s) were skipped automatically.`
+                    : `${createdRecords.length} MAWB stock record(s) created successfully.`,
                 data: createdRecords,
+                skippedDuplicates,
             };
         } catch (error) {
             console.error('Error creating MAWB Stock:', error);
@@ -435,6 +502,25 @@ export class MawbStockService {
   }
 
   /** STEP 3 — NOTHING AVAILABLE */
+  if (payload.airlineId) {
+    const other = await this._db.mawbStock.findMany({
+      where: {
+        CompanyMasterSid: payload.companyId,
+        BranchMasterSid: payload.branchId,
+        AirwayBillType: 'Other',
+        Agent: payload.airlineId,
+        StockStatus: 'Free',
+        AvailableStatus: 'Available',
+        status: 'A'
+      },
+      orderBy: { MasterBillNumber: 'asc' }
+    });
+
+    if (other.length > 0) {
+      return { stockSource: 'OTHER', data: other };
+    }
+  }
+
   return { stockSource: 'NONE', data: [] };
 }
 
