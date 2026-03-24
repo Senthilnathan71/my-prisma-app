@@ -5995,7 +5995,7 @@ console.log('Created product:', createdProduct);
             });
 
             // 6. Compute milestone checks
-            const milestoneChecks = await this.computeMilestoneChecks(MasterJobSid, houseJobSids, exportImport, masterJobOthers, masterJob.CompanyMasterSid, departmentType);
+            const milestoneChecks = await this.computeMilestoneChecks(MasterJobSid, masterJob.MasterJobNumber!, houseJobSids, exportImport, masterJobOthers, masterJob.CompanyMasterSid, departmentType);
 
             return {
                 masterJob: {
@@ -6083,6 +6083,7 @@ console.log('Created product:', createdProduct);
 
     private async computeMilestoneChecks(
         MasterJobSid: number,
+        masterJobNumber: string,
         houseJobSids: number[],
         exportImport: string,
         masterJobOthers: any,
@@ -6208,7 +6209,6 @@ console.log('Created product:', createdProduct);
         });
 
         checkRunners.set('CARGO_MANIFEST', async () => {
-            if (!hasHouses) return false;
             const customs = await this._db.houseJobCustoms.findMany({
                 where: { MasterJobSid, Status: 'A', ManifestSequence: { not: '' } }
             });
@@ -6252,36 +6252,37 @@ console.log('Created product:', createdProduct);
         });
 
         checkRunners.set('VENDOR_INVOICE', async () => {
-            if (!hasHouses) return false;
-            const shipmentNos = (await this._db.houseJob.findMany({
-                where: { HouseJobSid: { in: houseJobSids } },
-                select: { ShipmentNo: true }
-            })).map(h => h.ShipmentNo).filter(Boolean);
-            if (shipmentNos.length === 0) return false;
             const costCharges = await this._db.costRevenueCharges.findMany({
                 where: {
-                    ShipmentNo: { in: shipmentNos as string[] },
+                    MasterJobNo: masterJobNumber,
                     status: 'A',
-                    CostVoucherHeaderSid: { not: null }
+                    CostAmount: { gt: 0 }
+                },
+                include: {
+                    costVoucherHeader: {
+                        select: { VoucherNumber: true }
+                    }
                 }
             });
-            return costCharges.length > 0;
+            if (costCharges.length === 0) return true;
+            return costCharges.some(c => !!c.costVoucherHeader?.VoucherNumber);
         });
 
         checkRunners.set('REVENUE_ALL_HBL', async () => {
-            if (!hasHouses) return false;
-            const houseJobsWithShipment = await this._db.houseJob.findMany({
-                where: { HouseJobSid: { in: houseJobSids } },
-                select: { HouseJobSid: true, ShipmentNo: true }
+            const revCharges = await this._db.costRevenueCharges.findMany({
+                where: {
+                    MasterJobNo: masterJobNumber,
+                    status: 'A',
+                    RevenueAmount: { gt: 0 }
+                },
+                include: {
+                    revenueVoucherHeader: {
+                        select: { VoucherNumber: true }
+                    }
+                }
             });
-            for (const hj of houseJobsWithShipment) {
-                if (!hj.ShipmentNo) return false;
-                const revCharges = await this._db.costRevenueCharges.findMany({
-                    where: { ShipmentNo: hj.ShipmentNo, status: 'A', RevenueAmount: { gt: 0 } }
-                });
-                if (revCharges.length === 0) return false;
-            }
-            return true;
+            if (revCharges.length === 0) return true;
+            return revCharges.some(c => !!c.revenueVoucherHeader?.VoucherNumber);
         });
 
         checkRunners.set('JOB_PROFITABLE', async () => {
@@ -6420,6 +6421,7 @@ console.log('Created product:', createdProduct);
                 where: { MasterJobSid },
                 select: {
                     MasterJobSid: true,
+                    MasterJobNumber: true,
                     DepartmentMasterSid: true,
                     CompanyMasterSid: true,
                 }
@@ -6453,7 +6455,7 @@ console.log('Created product:', createdProduct);
             const houseJobSids = houseJobs.map(h => h.HouseJobSid);
 
             const milestoneChecks = await this.computeMilestoneChecks(
-                MasterJobSid, houseJobSids, department?.ExportImport || '', masterJobOthers,
+                MasterJobSid, masterJob.MasterJobNumber!, houseJobSids, department?.ExportImport || '', masterJobOthers,
                 masterJob.CompanyMasterSid, department?.departmentType || ''
             );
 
