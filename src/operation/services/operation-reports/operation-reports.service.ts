@@ -3768,20 +3768,11 @@ export class OperationReportsService {
         mj.houseJob.map((hj) => hj.HouseJobSid),
       );
 
-      // Fetch all CostRevenueCharges once
-      const allCR = await this._db.costRevenueCharges.findMany({
+      const allMasterCR = await this._db.costRevenueCharges.findMany({
         where: {
           status: 'A',
-          OR: [
-            {
-              MenuMasterSid: { in: allMasterMenuSids },
-              TransactionSid: { in: masterJobIds },
-            },
-            {
-              MenuMasterSid: { in: allHouseMenuSids },
-              TransactionSid: { in: houseJobIds },
-            },
-          ],
+          MenuMasterSid: { in: allMasterMenuSids },
+          TransactionSid: { in: masterJobIds },
         },
         select: {
           TransactionSid: true,
@@ -3800,19 +3791,49 @@ export class OperationReportsService {
       const masterCRMap = new Map<number, any[]>();
       const houseCRMap = new Map<number, any[]>();
       const masterMenuSet = new Set(allMasterMenuSids);
-      const houseMenuSet = new Set(allHouseMenuSids);
 
-      allCR.forEach((cr) => {
+      allMasterCR.forEach((cr) => {
         const key = cr.TransactionSid!;
         if (masterMenuSet.has(cr.MenuMasterSid!)) {
           if (!masterCRMap.has(key)) masterCRMap.set(key, []);
           masterCRMap.get(key)!.push(cr);
         }
+      });
 
-        if (houseMenuSet.has(cr.MenuMasterSid!)) {
-          if (!houseCRMap.has(key)) houseCRMap.set(key, []);
-          houseCRMap.get(key)!.push(cr);
+      const houseJobMenu = await this._db.menuMaster.findFirst({
+        where: { MenuName: 'House Job', status: 'A' },
+        select: { MenuMasterSid: true },
+      });
+
+      if (!houseJobMenu) {
+        throw new BadRequestException('House Job menu not found');
+      }
+
+      const allHouseCR = await this._db.costRevenueCharges.findMany({
+        where: {
+          status: 'A',
+          MenuMasterSid: houseJobMenu.MenuMasterSid,
+          TransactionSid: { in: houseJobIds },
+        },
+        select: {
+          TransactionSid: true,
+          MenuMasterSid: true,
+          CostRevenueChargesSid: true,
+          RevenueVoucherHeaderSid: true,
+          RevenueDrCr: true,
+          RevenueLocalAmount: true,
+          CostVoucherHeaderSid: true,
+          CostDrCr: true,
+          CostLocalAmount: true,
+        },
+      });
+
+      allHouseCR.forEach((cr) => {
+        const key = cr.TransactionSid!;
+        if (!houseCRMap.has(key)) {
+          houseCRMap.set(key, []);
         }
+        houseCRMap.get(key)!.push(cr);
       });
 
       const houseProrateMap = new Map<
