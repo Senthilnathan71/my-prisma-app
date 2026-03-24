@@ -6540,15 +6540,353 @@ console.log('Created product:', createdProduct);
             throw error;
         }
     }
+
+    async pullMasterJobToImportBranch(payload: {
+        MasterJobSid: number;
+        DestinationBranchMasterSid: number;
+        SourceBranchMasterSid?: number;
+        CompanyMasterSid?: number;
+        CreatedBy?: string;
+    }) {
+        const { MasterJobSid, DestinationBranchMasterSid, CreatedBy } = payload || {};
+
+        if (!MasterJobSid) {
+            throw new BadRequestException('MasterJobSid is required');
+        }
+
+        if (!DestinationBranchMasterSid) {
+            throw new BadRequestException('DestinationBranchMasterSid is required');
+        }
+
+        const omitFields = (record: any, fields: string[]) => {
+            const cloned = { ...(record || {}) };
+            fields.forEach((field) => delete cloned[field]);
+            return cloned;
+        };
+
+        const sourceMasterJob = await this._db.masterJob.findUnique({
+            where: {
+                MasterJobSid,
+            },
+            include: {
+                voyages: { where: { Status: 'A' } },
+                masterJobConnection: { where: { Status: 'A' } },
+                containers: { where: { Status: 'A' } },
+                others: { where: { Status: 'A' } },
+                houseJob: {
+                    where: { status: 'A' },
+                    include: {
+                        Cargo: { where: { status: 'A' } },
+                        Products: { where: { status: 'A' } },
+                        Others: { where: { status: 'A' } },
+                        Connections: { where: { status: 'A' } },
+                    }
+                }
+            }
+        });
+
+        if (!sourceMasterJob) {
+            throw new NotFoundException('Source Master Job not found');
+        }
+
+        if (sourceMasterJob.BranchMasterSid === DestinationBranchMasterSid) {
+            throw new BadRequestException('Destination branch must be different from source branch');
+        }
+
+        const sourceDepartment = await this._db.departmentMaster.findFirst({
+            where: {
+                DepartmentMasterSid: sourceMasterJob.DepartmentMasterSid,
+            },
+            select: {
+                DepartmentMasterSid: true,
+                departmentName: true,
+                departmentType: true,
+                ExportImport: true,
+                FCLLCL: true,
+            }
+        });
+
+        if (!sourceDepartment) {
+            throw new BadRequestException('Source department not found');
+        }
+
+        if ((sourceDepartment.ExportImport || '').toUpperCase() !== 'EXPORT') {
+            throw new BadRequestException('Only export master jobs can be pulled to an import branch');
+        }
+
+        const destinationDepartment = await this._db.departmentMaster.findFirst({
+            where: {
+                departmentType: sourceDepartment.departmentType,
+                ExportImport: 'Import',
+                ...(sourceDepartment.departmentType?.toUpperCase() === 'SEA'
+                    ? { FCLLCL: sourceDepartment.FCLLCL }
+                    : {}),
+            },
+            orderBy: {
+                DepartmentMasterSid: 'asc',
+            }
+        });
+
+        if (!destinationDepartment) {
+            throw new BadRequestException(`Import department not found for ${sourceDepartment.departmentName || 'selected department'}`);
+        }
+
+        const masterMenuName = sourceDepartment.departmentType?.toUpperCase() === 'AIR' ? 'Master Air Waybill' : 'Master Job';
+        const houseMenuName = sourceDepartment.departmentType?.toUpperCase() === 'AIR' ? 'House Air Waybill' : 'House Job';
+        const masterMenuSid = await this.menuMasterService.getMenuSidByName(masterMenuName);
+        const houseMenuSid = await this.menuMasterService.getMenuSidByName(houseMenuName);
+        const createdBy = CreatedBy || 'system';
+
+        return this._db.$transaction(async (prisma) => {
+            const sourceJobDate = sourceMasterJob.MasterJobDate ? new Date(sourceMasterJob.MasterJobDate) : new Date();
+            let generatedMasterJobNumber = await this.numberSeriesService.generateNextNumber(
+                sourceMasterJob.CompanyMasterSid,
+                DestinationBranchMasterSid,
+                masterMenuSid,
+                destinationDepartment.DepartmentMasterSid,
+                sourceJobDate
+            );
+
+            if (!generatedMasterJobNumber) {
+                const dateString = moment(sourceJobDate).format('YYYYMMDD');
+                const count = await prisma.masterJob.count({
+                    where: { MasterJobNumber: { contains: dateString } }
+                });
+                generatedMasterJobNumber = `MASTER-${dateString}-${(count + 1).toString().padStart(3, '0')}`;
+            }
+
+            const createdMasterJob = await prisma.masterJob.create({
+                data: {
+                    MasterJobNumber: generatedMasterJobNumber,
+                    MasterJobDate: sourceJobDate,
+                    FreightPPCC: sourceMasterJob.FreightPPCC,
+                    DestinationAgent: sourceMasterJob.DestinationAgent,
+                    DestinationAgentName: sourceMasterJob.DestinationAgentName || '',
+                    DestinationAgentAddress: sourceMasterJob.DestinationAgentAddress || '',
+                    MBLNo: sourceMasterJob.MBLNo || '',
+                    MBLDate: sourceMasterJob.MBLDate,
+                    BLReleaseType: sourceMasterJob.BLReleaseType,
+                    NoofOriginal: sourceMasterJob.NoofOriginal,
+                    OriginAgent: sourceMasterJob.OriginAgent,
+                    POO: sourceMasterJob.POO || '',
+                    POL: sourceMasterJob.POL || '',
+                    POD: sourceMasterJob.POD || '',
+                    FPD: sourceMasterJob.FPD || '',
+                    POLTerminal: sourceMasterJob.POLTerminal || '',
+                    PODTerminal: sourceMasterJob.PODTerminal || '',
+                    MovementType: sourceMasterJob.MovementType || '',
+                    ShipmentTerms: sourceMasterJob.ShipmentTerms || '',
+                    PkgType: sourceMasterJob.PkgType,
+                    NoOfPkg: sourceMasterJob.NoOfPkg,
+                    WeightIn: sourceMasterJob.WeightIn,
+                    GrossWeight: sourceMasterJob.GrossWeight,
+                    NetWeight: sourceMasterJob.NetWeight,
+                    ChargeableWeight: sourceMasterJob.ChargeableWeight,
+                    Volume: sourceMasterJob.Volume,
+                    Haz: sourceMasterJob.Haz,
+                    JobStatus: 'Job Generated',
+                    DGBookingDate: sourceMasterJob.DGBookingDate,
+                    DGApprovedDate: sourceMasterJob.DGApprovedDate,
+                    SiCutoffDate: sourceMasterJob.SiCutoffDate,
+                    PortCutoffDate: sourceMasterJob.PortCutoffDate,
+                    CommodityDescription: sourceMasterJob.CommodityDescription || '',
+                    MarksandNumber: sourceMasterJob.MarksandNumber || '',
+                    TsPortSid: sourceMasterJob.TsPortSid,
+                    Status: 'A',
+                    CreatedBy: createdBy,
+                    CompanyMasterSid: sourceMasterJob.CompanyMasterSid,
+                    BranchMasterSid: DestinationBranchMasterSid,
+                    DepartmentMasterSid: destinationDepartment.DepartmentMasterSid,
+                    MenuMasterSid: masterMenuSid,
+                }
+            });
+
+            const containerSidMap = new Map<number, number>();
+            for (const container of sourceMasterJob.containers || []) {
+                const containerData = omitFields(container, [
+                    'MasterJobContainerSid', 'MasterJobSid', 'CreatedBy', 'UpdatedBy', 'DeletedBy', 'DeletedAt', 'CreatedOn', 'UpdatedOn', 'Status'
+                ]);
+                const createdContainer = await prisma.masterJobContainer.create({
+                    data: {
+                        ...containerData,
+                        MasterJobSid: createdMasterJob.MasterJobSid,
+                        CreatedBy: createdBy,
+                        Status: 'A',
+                    }
+                });
+                containerSidMap.set(container.MasterJobContainerSid, createdContainer.MasterJobContainerSid);
+            }
+
+            for (const voyage of sourceMasterJob.voyages || []) {
+                const voyageData = omitFields(voyage, [
+                    'MasterJobVoyageSid', 'MasterJobSid', 'CreatedBy', 'UpdatedBy', 'DeletedBy', 'DeletedAt', 'CreatedOn', 'UpdatedOn', 'Status'
+                ]);
+                await prisma.masterJobVoyage.create({
+                    data: {
+                        ...voyageData,
+                        MasterJobSid: createdMasterJob.MasterJobSid,
+                        Status: 'A',
+                    }
+                });
+            }
+
+            for (const connection of sourceMasterJob.masterJobConnection || []) {
+                const connectionData = omitFields(connection, [
+                    'MasterJobConnectionSid', 'MasterJobSid', 'CreatedBy', 'UpdatedBy', 'DeletedBy', 'DeletedAt', 'CreatedOn', 'UpdatedOn', 'Status'
+                ]);
+                await prisma.masterJobConnection.create({
+                    data: {
+                        ...connectionData,
+                        MasterJobSid: createdMasterJob.MasterJobSid,
+                        CreatedBy: createdBy,
+                        CreatedOn: new Date(),
+                        Status: 'A',
+                    }
+                });
+            }
+
+            for (const other of sourceMasterJob.others || []) {
+                const otherData = omitFields(other, [
+                    'MasterJobOthersSid', 'MasterJobSid', 'CreatedBy', 'UpdatedBy', 'DeletedBy', 'DeletedAt', 'CreatedOn', 'UpdatedOn', 'Status'
+                ]);
+                await prisma.masterJobOthers.create({
+                    data: {
+                        ...otherData,
+                        MasterJobSid: createdMasterJob.MasterJobSid,
+                        CreatedBy: createdBy,
+                        Status: 'A',
+                    }
+                });
+            }
+
+            const createdHouseJobs: any[] = [];
+            let shipmentSerial = 0;
+
+            for (const sourceHouseJob of sourceMasterJob.houseJob || []) {
+                shipmentSerial += 1;
+                const shipmentDate = sourceHouseJob.HBLDate ? new Date(sourceHouseJob.HBLDate) : sourceJobDate;
+                let generatedShipmentNo = await this.numberSeriesService.generateNextNumber(
+                    sourceMasterJob.CompanyMasterSid,
+                    DestinationBranchMasterSid,
+                    houseMenuSid,
+                    destinationDepartment.DepartmentMasterSid,
+                    shipmentDate
+                );
+
+                if (!generatedShipmentNo) {
+                    const shipmentDateString = moment(shipmentDate).format('YYYYMMDD');
+                    const houseCount = await prisma.houseJob.count({
+                        where: { ShipmentNo: { contains: shipmentDateString } }
+                    });
+                    generatedShipmentNo = `HOUSE-${shipmentDateString}-${(houseCount + shipmentSerial).toString().padStart(3, '0')}`;
+                }
+                const destinationCustomerBranchSid = sourceHouseJob.CustomerBranchSid || null;
+
+                const houseJobData = omitFields(sourceHouseJob, [
+                    'HouseJobSid', 'MasterJobSid', 'BookingHeaderSid', 'QuotationHeaderSid', 'EnquiryHeaderSid', 'MenuMasterSid',
+                    'DepartmentMasterSid', 'BranchMasterSid', 'CompanyMasterSid', 'CustomerBranchSid', 'createdBy', 'updatedBy',
+                    'deletedBy', 'deletedAt', 'createdOn', 'updatedOn', 'status', 'Cargo', 'Products', 'Others', 'Connections'
+                ]);
+
+                const createdHouseJob = await prisma.houseJob.create({
+                    data: {
+                        ...houseJobData,
+                        MasterJobSid: createdMasterJob.MasterJobSid,
+                        BookingHeaderSid: null,
+                        QuotationHeaderSid: null,
+                        EnquiryHeaderSid: null,
+                        CompanyMasterSid: sourceMasterJob.CompanyMasterSid,
+                        BranchMasterSid: DestinationBranchMasterSid,
+                        DepartmentMasterSid: destinationDepartment.DepartmentMasterSid,
+                        CustomerBranchSid: destinationCustomerBranchSid,
+                        MenuMasterSid: houseMenuSid,
+                        ShipmentNo: generatedShipmentNo,
+                        BookingNo: sourceHouseJob.BookingNo || generatedShipmentNo,
+                        HBLNo: sourceHouseJob.HBLNo || generatedShipmentNo,
+                        MBLNo: sourceMasterJob.MBLNo || sourceHouseJob.MBLNo || '',
+                        MBLDate: sourceMasterJob.MBLDate || sourceHouseJob.MBLDate || null,
+                        HBLDate: shipmentDate,
+                        createdBy: createdBy,
+                        createdOn: new Date(),
+                        status: 'A',
+                    }
+                });
+
+                for (const cargo of sourceHouseJob.Cargo || []) {
+                    const cargoData = omitFields(cargo, [
+                        'HouseJobCargoSid', 'HouseJobSid', 'BranchMasterSid', 'CompanyMasterSid', 'createdBy', 'updatedBy', 'deletedBy', 'deletedAt', 'createdOn', 'updatedOn', 'status'
+                    ]);
+                    await prisma.houseJobCargo.create({
+                        data: {
+                            ...cargoData,
+                            HouseJobSid: createdHouseJob.HouseJobSid,
+                            CompanyMasterSid: sourceMasterJob.CompanyMasterSid,
+                            BranchMasterSid: DestinationBranchMasterSid,
+                            createdBy: createdBy,
+                            status: 'A',
+                        }
+                    });
+                }
+
+                for (const product of sourceHouseJob.Products || []) {
+                    const productData = omitFields(product, [
+                        'HouseJobProductSid', 'HouseJobSid', 'createdBy', 'updatedBy', 'deletedBy', 'deletedAt', 'createdOn', 'updatedOn', 'status'
+                    ]);
+                    await prisma.houseJobProduct.create({
+                        data: {
+                            ...productData,
+                            HouseJobSid: createdHouseJob.HouseJobSid,
+                            MasterJobContainerSid: product.MasterJobContainerSid ? containerSidMap.get(product.MasterJobContainerSid) || null : null,
+                            createdBy: createdBy,
+                            status: 'A',
+                        }
+                    });
+                }
+
+                for (const connection of sourceHouseJob.Connections || []) {
+                    const houseConnectionData = omitFields(connection, [
+                        'HouseJobConnectionSid', 'HouseJobSid', 'createdBy', 'updatedBy', 'deletedBy', 'deletedAt', 'createdOn', 'updatedOn', 'status'
+                    ]);
+                    await prisma.houseJobConnection.create({
+                        data: {
+                            ...houseConnectionData,
+                            HouseJobSid: createdHouseJob.HouseJobSid,
+                            createdBy: createdBy,
+                            status: 'A',
+                        }
+                    });
+                }
+
+                for (const other of sourceHouseJob.Others || []) {
+                    const houseOtherData = omitFields(other, [
+                        'HouseJobOthersSid', 'HouseJobSid', 'createdBy', 'updatedBy', 'deletedBy', 'deletedAt', 'createdOn', 'updatedOn', 'status'
+                    ]);
+                    await prisma.houseJobOthers.create({
+                        data: {
+                            ...houseOtherData,
+                            HouseJobSid: createdHouseJob.HouseJobSid,
+                            createdBy: createdBy,
+                            status: 'A',
+                        }
+                    });
+                }
+
+                createdHouseJobs.push({
+                    HouseJobSid: createdHouseJob.HouseJobSid,
+                    ShipmentNo: createdHouseJob.ShipmentNo,
+                    HBLNo: createdHouseJob.HBLNo,
+                });
+            }
+
+            return {
+                masterJobSid: createdMasterJob.MasterJobSid,
+                masterJobNumber: createdMasterJob.MasterJobNumber,
+                destinationDepartmentName: destinationDepartment.departmentName,
+                copiedHouseJobs: createdHouseJobs,
+            };
+        });
+    }
 }
-
-
-
-
-
-
-
-
 
 
 
