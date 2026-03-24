@@ -19,6 +19,24 @@ export class MawbStockService {
         return `${prefix}${serial}${checkDigit}`;
     }
 
+    private async getExistingStockNumbersByPrefix(payload: any, prefix: string): Promise<string[]> {
+        const existingStocks = await this._db.mawbStock.findMany({
+            where: {
+                CompanyMasterSid: payload.CompanyMasterSid,
+                BranchMasterSid: payload.BranchMasterSid,
+                status: { not: 'D' },
+                MasterBillNumber: {
+                    startsWith: prefix
+                }
+            },
+            select: {
+                MasterBillNumber: true
+            }
+        });
+
+        return existingStocks.map(stock => String(stock.MasterBillNumber).trim());
+    }
+
     private async getUniqueGeneratedAwbList(payload: any): Promise<{ awbList: string[]; skippedDuplicates: string[] }> {
         const requestedCount = Number(payload.NumberofMAWB);
         const prefix = String(payload.MasterBillNumber ?? '').trim();
@@ -36,21 +54,13 @@ export class MawbStockService {
             throw new BadRequestException('MAWBSerial must be a valid starting serial number');
         }
 
-        const existingStocks = await this._db.mawbStock.findMany({
-            where: {
-                CompanyMasterSid: payload.CompanyMasterSid,
-                BranchMasterSid: payload.BranchMasterSid,
-                status: { not: 'D' },
-                MasterBillNumber: {
-                    startsWith: prefix
-                }
-            },
-            select: {
-                MasterBillNumber: true
-            }
-        });
+        const existingStockNumbers = await this.getExistingStockNumbersByPrefix(payload, prefix);
 
-        const existingNumbers = new Set(existingStocks.map(stock => String(stock.MasterBillNumber).trim()));
+        if (existingStockNumbers.length > 0) {
+            throw new BadRequestException('Airline No already exists for this company and branch.');
+        }
+
+        const existingNumbers = new Set(existingStockNumbers);
         const generatedNumbers = new Set<string>();
         const awbList: string[] = [];
         const skippedDuplicates: string[] = [];
@@ -526,3 +536,5 @@ export class MawbStockService {
 
 
 }
+
+

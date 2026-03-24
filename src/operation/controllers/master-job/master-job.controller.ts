@@ -171,6 +171,33 @@ export class MasterJobController {
         return resp;
     }
 
+    @ApiOperation({ summary: 'Pull export Master Job and House Jobs to destination import branch' })
+    @ApiCreatedResponse({
+        description: 'Create destination import Master Job from source export Master Job',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.CREATED)
+    @Post('pull-to-import-branch')
+    async pullMasterJobToImportBranch(@Body() payload:any){
+        let resp = new ResponseData();
+        try {
+            this.logger.log('Pulling Master Job to import branch : ' + JSON.stringify(payload));
+            const result = await this.masterJobService.pullMasterJobToImportBranch(payload);
+            this.logger.debug('Pulled Master Job to import branch : ' + JSON.stringify(result));
+            resp.data = result;
+            resp.message = 'Master Job pulled to import branch successfully';
+        } catch (error) {
+            resp.status = false;
+            this.logger.warn('Error in pulling Master Job to import branch : ' + JSON.stringify(error), error as any);
+            if(error instanceof BadRequestException || error instanceof UnauthorizedException){
+                resp.message = error.message;
+            } else {
+                resp.message = 'Internal Server Error';
+            }
+        }
+        return resp;
+    }
+
     @ApiOperation({ summary: 'Delete Master Job by MasterJobSid' })
     @ApiCreatedResponse({
         description: 'Delete Master Job by MasterJobSid',
@@ -446,7 +473,7 @@ export class MasterJobController {
               resp.message = error.message || 'Internal Server Error';
             }
             return resp;
-          }
+    }
 
     @ApiOperation({ summary: 'Create House Job with Booking' })
     @ApiCreatedResponse({
@@ -814,8 +841,7 @@ export class MasterJobController {
         return resp;
     }
 
-
-      @ApiOperation({
+    @ApiOperation({
         summary: 'Get House Job by HouseJobSid',
     })
     @ApiCreatedResponse({
@@ -843,7 +869,6 @@ export class MasterJobController {
         }
         return resp;
     }
-
 
     @ApiOperation({ summary: 'Download Container Excel template' })
 @ApiCreatedResponse({
@@ -928,10 +953,9 @@ async parseContainerExcelFile(@UploadedFile() file: Express.Multer.File) {
         }
     }
     return resp;
-}
+    }
 
-
-@ApiOperation({ summary: 'Process container bulk upload' })
+    @ApiOperation({ summary: 'Process container bulk upload' })
 @ApiCreatedResponse({
     description: 'Process and validate container data from Excel',
     type: ResponseData
@@ -1089,3 +1113,7 @@ async processProductUpload(@Body() payload: any) {
     }
 }
 }
+
+
+
+
