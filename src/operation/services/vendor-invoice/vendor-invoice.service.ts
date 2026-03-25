@@ -343,18 +343,78 @@ export class VendorInvoiceService {
                         }
                     },
                     currencyMaster: true,
-                    masterJob: true,
-                    houseJob: true,
+                    masterJob: {
+                        where:{Status:'A'},
+                        include:{
+                            voyages:{
+                                where:{
+                                    Status:'A'
+                                }
+                            }
+                        }
+                    },
+                    houseJob: {
+                        where: { status: 'A' },
+                        include : {
+                        Cargo : {
+                            select : {
+                            NoOfPackage : true,
+                            GrossWeight : true,
+                            Volume : true,
+                            ChargeableWeight:true,
+                            CommodityDescription:true
+                            }
+                        },
+                        Others : {
+                            select : {
+                            YardCFS : true,
+                            CustomerRefNo:true,
+                            }
+                        },
+                        Products:{
+                            select:{
+                            ShippingBillNo:true,
+                            }
+                        }
+                        }
+                    },
                     departmentMaster : {
                         select : {
                             departmentName : true,
                             departmentType : true,
                         }
                     },
-                    BookingHeader : {
-                        select : {
-                            BookingHeaderSid : true,
-                            BookingNo : true
+                   BookingHeader: {
+                        select: {
+                        BookingHeaderSid: true,
+                        BookingNo: true,
+                        VesselName: true,
+                        VoyageNo: true,
+                        POL: true,
+                        POD: true,
+                        FPD: true,
+                        ETD: true,
+                        ETA: true,
+                        FreightTerms: true,
+                        ShipperName: true,
+                        ShipperAddress: true,
+                        ConsigneeName: true,
+                        ConsigneeAddress: true,
+                        CustomerName: true,
+                        CustomerAddress: true,
+                        SalesmanSid : true,
+                        DepartmentMasterSid:true,
+                        bookingCargo : {
+                            where : {
+                            status : 'A'
+                            },
+                            select : {
+                            NoOfPackage : true,
+                            GrossWeight : true,
+                            Volume : true,
+                            ChargeableWeight:true
+                            }
+                        }
                         }
                     },
                     voucherTypeMaster: true,
@@ -1001,7 +1061,7 @@ async searchPendingCosts(searchCriteria: {
     // }
 
     // Step 3: Fetch pending costs
-    console.log(whereClause);
+   
     const pendingCosts = await this._db.costRevenueCharges.findMany({
       where: whereClause,
       include: {

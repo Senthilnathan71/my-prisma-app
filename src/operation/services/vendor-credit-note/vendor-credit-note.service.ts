@@ -339,8 +339,9 @@ export class VendorCreditNoteService {
                             }
                         },
                         currencyMaster: true,
-                        masterJob: true,
-                        houseJob: true,
+                        masterJob: {where:{Status:'A'}},
+                        houseJob: {where:{status:'A'},include:{Cargo:true}},
+                        BookingHeader:{where:{status:'A'},include:{bookingCargo:true}},
                         voucherTypeMaster: true,
                         
                     }
