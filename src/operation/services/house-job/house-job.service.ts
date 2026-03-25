@@ -1511,7 +1511,7 @@ export class HouseJobService {
                                 AckDate: boe.AckDate ? new Date(boe.AckDate) : null,
                                 AckStatus: boe.AckStatus || '',
                                 Remarks: boe.Remarks || '',
-                                UpdatedBy: payload.UpdatedBy,
+                                UpdatedBy: payload.updatedBy || payload.createdBy || null,
                                 Status: 'A'
                             }
                         });
@@ -1535,7 +1535,7 @@ export class HouseJobService {
                                 AckDate: boe.AckDate ? new Date(boe.AckDate) : null,
                                 AckStatus: boe.AckStatus || '',
                                 Remarks: boe.Remarks || '',
-                                CreatedBy: payload.updatedBy,
+                                CreatedBy: payload.updatedBy || payload.createdBy || null,
                                 Status: 'A'
                             }
                         });

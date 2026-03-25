@@ -1121,7 +1121,8 @@ export class VoucherService {
                                 },
                                 data: {
                                     RevenueVoucherHeaderSid : createdVoucherHeader.VoucherHeaderSid,
-                                    RevenueVoucherTypeMasterSid : voucherTypeMaster.VoucherTypeMasterSid
+                                    RevenueVoucherTypeMasterSid : voucherTypeMaster.VoucherTypeMasterSid,
+                                    UpdatedBy: createdVoucherHeader.CreatedBy  || createdVoucherHeader.UpdatedBy
                                 }
                             })
                         } else {
@@ -1131,7 +1132,8 @@ export class VoucherService {
                                 },
                                 data: {
                                     CostVoucherHeaderSid : createdVoucherHeader.VoucherHeaderSid,
-                                    CostVoucherTypeMasterSid : voucherTypeMaster.VoucherTypeMasterSid
+                                    CostVoucherTypeMasterSid : voucherTypeMaster.VoucherTypeMasterSid,
+                                    UpdatedBy: createdVoucherHeader.CreatedBy  || createdVoucherHeader.UpdatedBy
                                 }
                             })
                         }
@@ -1144,7 +1146,8 @@ export class VoucherService {
                                 },
                                 data: {
                                     RevenueVoucherHeaderSid : createdVoucherHeader.VoucherHeaderSid,
-                                    RevenueVoucherTypeMasterSid : voucherTypeMaster.VoucherTypeMasterSid
+                                    RevenueVoucherTypeMasterSid : voucherTypeMaster.VoucherTypeMasterSid,
+                                    updatedBy: createdVoucherHeader.CreatedBy  || createdVoucherHeader.UpdatedBy
                                 }
                             })
                         } else {
@@ -1154,7 +1157,8 @@ export class VoucherService {
                                 },
                                 data: {
                                     CostVoucherHeaderSid : createdVoucherHeader.VoucherHeaderSid,
-                                    CostVoucherTypeMasterSid : voucherTypeMaster.VoucherTypeMasterSid
+                                    CostVoucherTypeMasterSid : voucherTypeMaster.VoucherTypeMasterSid,
+                                    updatedBy: createdVoucherHeader.CreatedBy  || createdVoucherHeader.UpdatedBy
                                 }
                             })
                         }

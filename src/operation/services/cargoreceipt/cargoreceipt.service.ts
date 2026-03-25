@@ -91,14 +91,15 @@ export class CargoreceiptService {
         const cargoRecDate = productData.CargoRecDate ? new Date(productData.CargoRecDate) : null;
 
         const updateData = {
-  GrossWeight: productData.GrossWeight != null ? productData.GrossWeight.toString() : null,
-  NetWeight: productData.NetWeight != null ? productData.NetWeight.toString() : null,
-  ExternlQty: productData.ExternlQty != null ? productData.ExternlQty.toString() : null,
-  Volume: productData.Volume != null ? productData.Volume.toString() : null,
-  CargoRecDate: productData.CargoRecDate ? new Date(productData.CargoRecDate) : null,
-  CFS: productData.CFS,
-  RecdPack: productData.RecdPack != null ? productData.RecdPack.toString() : null,
-};
+          GrossWeight: productData.GrossWeight != null ? productData.GrossWeight.toString() : null,
+          NetWeight: productData.NetWeight != null ? productData.NetWeight.toString() : null,
+          ExternlQty: productData.ExternlQty != null ? productData.ExternlQty.toString() : null,
+          Volume: productData.Volume != null ? productData.Volume.toString() : null,
+          CargoRecDate: productData.CargoRecDate ? new Date(productData.CargoRecDate) : null,
+          CFS: productData.CFS,
+          RecdPack: productData.RecdPack != null ? productData.RecdPack.toString() : null,
+          updatedBy: productData.updatedBy ?? null,
+        };
 
         const updateResult = await this._db.bookingProduct.updateMany({
           where: {
@@ -140,12 +141,15 @@ export class CargoreceiptService {
         RecdPack: Number(p.RecdPack),
       }));
 
+      const headerUpdatedBy = productsData?.[0]?.updatedBy ?? null;
+
       const statusUpdatedBooking = await this._db.bookingHeader.update({
         where: {
           BookingHeaderSid: BookingHeaderSid
         },
         data: {
-          BookingStatus: 'Cargo Received'
+          BookingStatus: 'Cargo Received',
+          updatedBy: headerUpdatedBy
         }
       })
 
@@ -301,57 +305,4 @@ export class CargoreceiptService {
       totalCount,
     };
   }
-
-  async getAuditLogs(tableName: string, recordId?: string) {
-  try {
-    if (tableName === 'BookingHeader' && recordId) {
-      const bookingHeaderSid = Number(recordId);
-
-      const products = await this._db.bookingProduct.findMany({
-        where: {
-          BookingHeaderSid: bookingHeaderSid,
-          status: 'A'
-        },
-        select: {
-          BookingProductSid: true
-        }
-      });
-
-      const productIds = products.map(p => p.BookingProductSid.toString());
-
-      if (!productIds.length) {
-        return [];
-      }
-
-      const logs = await this._db.auditLog.findMany({
-        where: {
-          tableName: 'BookingProduct',
-          recordId: {
-            in: productIds
-          }
-        },
-        orderBy: {
-          changedAt: 'desc'
-        }
-      });
-
-      return logs;
-    }
-
-    const logs = await this._db.auditLog.findMany({
-      where: {
-        tableName,
-        ...(recordId ? { recordId: recordId.toString() } : {})
-      },
-      orderBy: {
-        changedAt: 'desc'
-      }
-    });
-
-    return logs;
-  } catch (error) {
-    this.logger.warn(`getAuditLogsError: ${error}`);
-    throw new Error(`Error fetching audit logs: ${error.message}`);
-  }
-}
 }
