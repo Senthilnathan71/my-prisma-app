@@ -335,7 +335,13 @@ export class VendorInvoiceService {
                         where: { Status: 'A' }
                     },
                     subledgerMaster: true,
-                    customerBranch: true,
+                    customerBranch: {
+                        include: {
+                            stateMaster: {
+                                select: { StateMasterSid: true, stateName: true, IsUnionTerritory: true }
+                            }
+                        }
+                    },
                     currencyMaster: true,
                     masterJob: true,
                     houseJob: true,
@@ -479,6 +485,7 @@ export class VendorInvoiceService {
                     COAMasterSid: detail.COAMasterSid,
                     MasterJobSid: detail.MasterJobSid || payload.MasterJobSid,
                     HouseJobSid: detail.HouseJobSid || payload.HouseJobSid,
+                    CostRevenueChargesSid: detail.CostRevenueChargesSid || null,
                     UpdatedBy: payload.UpdatedBy || 'System',
                     Narration : detail.Narration || "",
                     Status: 'A'
@@ -517,7 +524,7 @@ export class VendorInvoiceService {
                     YearMasterSid : detail.YearMasterSid || payload.YearMasterSid,
                     MasterJobSid: detail.MasterJobSid || payload.MasterJobSid,
                     HouseJobSid: detail.HouseJobSid || payload.HouseJobSid,
-                    CostRevenueChargesSid : detail.CostRevenueChargeSid || null,
+                    CostRevenueChargesSid : detail.CostRevenueChargesSid || null,
                     CreatedBy: payload.UpdatedBy || 'System',
                     Status: 'A'
                 }

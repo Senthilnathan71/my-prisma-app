@@ -57,7 +57,14 @@ export class CustomerBranchService {
                 include : {
                     stateMaster : {
                         select : {
-                            stateName : true
+                            StateMasterSid : true,
+                            stateName : true,
+                            IsUnionTerritory : true
+                        }
+                    },
+                    customerMaster : {
+                        select : {
+                            PanType : true
                         }
                     }
                 }

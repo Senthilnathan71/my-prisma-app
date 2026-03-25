@@ -132,7 +132,13 @@ export class CreditNoteService {
             houseJob: { where: { status: 'A' } },
             currencyMaster: true,
             subledgerMaster: true,
-            customerBranch: true,
+            customerBranch: {
+                include: {
+                    stateMaster: {
+                        select: { StateMasterSid: true, stateName: true, IsUnionTerritory: true }
+                    }
+                }
+            },
             departmentMaster: true,
             voucherTypeMaster: true,
             VoucherTransaction: {

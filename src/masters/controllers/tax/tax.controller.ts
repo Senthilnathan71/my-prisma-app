@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, Post, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, Post, Query, UnauthorizedException } from '@nestjs/common';
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
 import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
@@ -65,6 +65,35 @@ export class TaxController {
         return resp;
     }
 
+
+
+    @ApiOperation({ summary: 'Get Tax filtered by Country and TaxType' })
+    @ApiCreatedResponse({
+        description: 'Get Tax filtered by Country and TaxType',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Get('filter')
+    async getTaxByCountryAndType(
+        @Query('CountryMasterSid', ParseIntPipe) countryMasterSid: number,
+        @Query('TaxType') taxType: string
+    ) {
+        let resp = new ResponseData();
+        try {
+            let res = await this.taxService.getTaxByCountryAndType(countryMasterSid, taxType);
+            resp.data = res;
+            resp.message = "Tax records filtered successfully";
+        } catch (error) {
+            this.logger.warn(`Tax Filter Error : ${JSON.stringify(error), error}`);
+            resp.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                resp.message = error.message;
+            } else {
+                resp.message = "Internal Server Error";
+            }
+        }
+        return resp;
+    }
 
 
     @ApiOperation({ summary: 'Get Tax by Id' })

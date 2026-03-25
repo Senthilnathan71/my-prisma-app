@@ -227,7 +227,13 @@ export class InvoiceService {
           },
           currencyMaster: true,
           subledgerMaster: true,
-          customerBranch: true,
+          customerBranch: {
+            include: {
+              stateMaster: {
+                select: { StateMasterSid: true, stateName: true, IsUnionTerritory: true }
+              }
+            }
+          },
           departmentMaster: true,
           voucherTypeMaster: true
         }
@@ -411,6 +417,8 @@ export class InvoiceService {
                 ProfitCenter: detail.ProfitCenter ? Number(detail.ProfitCenter) : null,
                 Remarks: detail.Remarks,
                 YearMasterSid: detail.YearMasterSid ? Number(detail.YearMasterSid) : null,
+                BookingRatesSid: detail.BookingRatesSid ? Number(detail.BookingRatesSid) : detail.BookingRateSid ? Number(detail.BookingRateSid) : null,
+                CostRevenueChargesSid: detail.CostRevenueChargesSid ? Number(detail.CostRevenueChargesSid) : null,
               };
             })
           );
@@ -418,6 +426,44 @@ export class InvoiceService {
           await prisma.voucherDetail.createMany({
             data: voucherDetailsPayload
           });
+
+          // Update CostRevenueCharges to link them to this invoice
+          const patchedCostRevenueIds = payload.VoucherDetail
+            .filter((d: any) => d.CostRevenueChargesSid)
+            .map((d: any) => Number(d.CostRevenueChargesSid));
+
+          if (patchedCostRevenueIds.length > 0) {
+            await prisma.costRevenueCharges.updateMany({
+              where: {
+                CostRevenueChargesSid: { in: patchedCostRevenueIds }
+              },
+              data: {
+                RevenueVoucherHeaderSid: voucherHeader.VoucherHeaderSid,
+                RevenueVoucherTypeMasterSid: voucherTypeMaster.VoucherTypeMasterSid,
+                updatedOn: new Date(),
+                updatedBy: payload.CreatedBy
+              }
+            });
+          }
+
+          // Update BookingRates to link them to this invoice
+          const patchedBookingRateIds = payload.VoucherDetail
+            .filter((d: any) => d.BookingRateSid)
+            .map((d: any) => Number(d.BookingRateSid));
+
+          if (patchedBookingRateIds.length > 0) {
+            await prisma.bookingRates.updateMany({
+              where: {
+                BookingRatesSid: { in: patchedBookingRateIds }
+              },
+              data: {
+                RevenueVoucherHeaderSid: voucherHeader.VoucherHeaderSid,
+                RevenueVoucherTypeMasterSid: voucherTypeMaster.VoucherTypeMasterSid,
+                UpdatedOn: new Date(),
+                UpdatedBy: payload.CreatedBy
+              }
+            });
+          }
         }
 
         // Create VoucherOthers if provided
@@ -535,8 +581,6 @@ export class InvoiceService {
 // -------------------------------
 
 if (payload.VoucherDetail && Array.isArray(payload.VoucherDetail)) {
-console.log('DEBUG - Processing voucher details:', payload.VoucherDetail.length, 'items');
-Debug.log('DEBUG - Processing voucher details:', payload.VoucherDetail.length, 'items');
   // 1️⃣ Collect incoming detail IDs
   const incomingIds = payload.VoucherDetail
     .filter(d => d.VoucherDetailSid)
@@ -551,6 +595,7 @@ Debug.log('DEBUG - Processing voucher details:', payload.VoucherDetail.length, '
     data: { Status: 'D' }
   });
   const patchedCostRevenueIds: number[] = [];
+  const patchedBookingRateIds: number[] = [];
   // 3️⃣ Create / Update details
   let sno = 1;
 
@@ -562,6 +607,9 @@ Debug.log('DEBUG - Processing voucher details:', payload.VoucherDetail.length, '
       : await this.getCurrencyMasterIdByCode(detail.CurrencyCode, prisma);
 if (detail.CostRevenueChargesSid) {
             patchedCostRevenueIds.push(Number(detail.CostRevenueChargesSid));
+          }
+          if (detail.BookingRateSid) {
+            patchedBookingRateIds.push(Number(detail.BookingRateSid));
           }
     if (detail.VoucherDetailSid) {
       // -------------------------------
@@ -581,7 +629,7 @@ if (detail.CostRevenueChargesSid) {
           MasterJobSid: detail.MasterJobSid || payload.MasterJobSid,
           CostRevenue: detail.CostRevenue,
           ChargeUOMSid: detail.ChargeUOMSid || null,
-          CurrencyMasterSid: detail.CurrencyMasterSid || payload.CurrencyMasterSid || null,
+          CurrencyMasterSid: currencyMasterSid || payload.CurrencyMasterSid || null,
           CurrencyCode: detail.CurrencyCode || payload.CurrencyCode,
           ExchangeRate: toNumber(detail.ExchangeRate),
           Rate: toNumber(detail.Rate),
@@ -599,6 +647,8 @@ if (detail.CostRevenueChargesSid) {
           InvoiceType: detail.InvoiceType,
           CostCenter: detail.CostCenter || null,
           ProfitCenter: detail.ProfitCenter || null,
+          BookingRatesSid: detail.BookingRatesSid || detail.BookingRateSid || null,
+          CostRevenueChargesSid: detail.CostRevenueChargesSid || null,
           Remarks: detail.Remarks,
           UpdatedBy: payload.UpdatedBy,
           Status: 'A'
@@ -626,7 +676,7 @@ if (detail.CostRevenueChargesSid) {
           MasterJobSid: detail.MasterJobSid || payload.MasterJobSid,
           CostRevenue: detail.CostRevenue,
           ChargeUOMSid: detail.ChargeUOMSid || null,
-          CurrencyMasterSid: detail.CurrencyMasterSid,
+          CurrencyMasterSid: currencyMasterSid || payload.CurrencyMasterSid || null,
           CurrencyCode: detail.CurrencyCode || payload.CurrencyCode,
           ExchangeRate: detail.ExchangeRate || payload.ExchangeRate || 1,
           Rate: detail.Rate || 0,
@@ -645,6 +695,8 @@ if (detail.CostRevenueChargesSid) {
           InvoiceType: detail.InvoiceType,
           CostCenter: detail.CostCenter || null,
           ProfitCenter: detail.ProfitCenter || null,
+          BookingRatesSid: detail.BookingRatesSid || detail.BookingRateSid || null,
+          CostRevenueChargesSid: detail.CostRevenueChargesSid || null,
           Remarks: detail.Remarks,
 
           CreatedBy: payload.UpdatedBy,
@@ -679,7 +731,27 @@ if (detail.CostRevenueChargesSid) {
 
           console.log(`Updated ${patchedCostRevenueIds.length} CostRevenueCharges records`);
         }
-      
+
+        // 6️⃣ Update BookingRates if patched booking rates exist
+        if (patchedBookingRateIds.length > 0) {
+          const voucherTypeMasterForBooking = await prisma.voucherTypeMaster.findFirst({
+            where: {
+              VoucherTypeMasterSid: existingVoucher.VoucherTypeMasterSid
+            }
+          });
+
+          await prisma.bookingRates.updateMany({
+            where: {
+              BookingRatesSid: { in: patchedBookingRateIds }
+            },
+            data: {
+              RevenueVoucherHeaderSid: VoucherHeaderSid,
+              RevenueVoucherTypeMasterSid: voucherTypeMasterForBooking?.VoucherTypeMasterSid,
+              UpdatedOn: new Date(),
+              UpdatedBy: payload.UpdatedBy
+            }
+          });
+        }
 
 }
 

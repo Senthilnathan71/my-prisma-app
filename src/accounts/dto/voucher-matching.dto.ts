@@ -332,6 +332,27 @@ export interface FetchVoucherMatchingResponse {
   PostStatus: string;
   Status: string;
   MatchingDetail: MatchingDetail[];
+  cancellationWarnings?: VoucherMatchingCancellationWarnings;
+}
+
+export interface VoucherMatchingCancellationWarningVoucher {
+  voucherHeaderSid: number;
+  voucherNumber: string;
+  voucherType: string;
+  reason: string;
+}
+
+export interface VoucherMatchingCancellationExchangeJV {
+  voucherHeaderSid: number;
+  voucherNumber: string;
+  voucherType: string;
+}
+
+export interface VoucherMatchingCancellationWarnings {
+  hasWarning: boolean;
+  documentTypeName: string | null;
+  affectedVouchers: VoucherMatchingCancellationWarningVoucher[];
+  exchangeJVs: VoucherMatchingCancellationExchangeJV[];
 }
 
 export interface MatchingDetail {
