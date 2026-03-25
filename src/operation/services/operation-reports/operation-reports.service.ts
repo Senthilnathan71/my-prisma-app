@@ -677,6 +677,9 @@ export class OperationReportsService {
                 mode: 'insensitive',
               },
             },
+            {
+              MenuName: { contains: 'AgentMaster Air Way', mode: 'insensitive' },
+            },
           ],
         },
         select: { MenuMasterSid: true, MenuName: true },
@@ -697,7 +700,8 @@ export class OperationReportsService {
           return (
             menuName === 'house job' ||
             menuName.includes('house air way') ||
-            menuName.includes('agent master air way') 
+            menuName.includes('agent master air way') ||
+            menuName.includes('agentmaster air way')
           );
         })
         .map((m) => m.MenuMasterSid);
@@ -768,40 +772,84 @@ export class OperationReportsService {
         };
       }
 
+      // Collect all MasterJob and HouseJob IDs
+      const masterJobIds = masterJobs.map((mj) => mj.MasterJobSid);
+      const houseJobIds = masterJobs.flatMap((mj) =>
+        mj.houseJob.map((hj) => hj.HouseJobSid),
+      );
+
+      const allMasterCR = await this._db.costRevenueCharges.findMany({
+        where: {
+          status: 'A',
+          MenuMasterSid: { in: allMasterMenuSids },
+          TransactionSid: { in: masterJobIds },
+        },
+        select: {
+          TransactionSid: true,
+          MenuMasterSid: true,
+          CostRevenueChargesSid: true,
+          RevenueVoucherHeaderSid: true,
+          RevenueDrCr: true,
+          RevenueLocalAmount: true,
+          CostVoucherHeaderSid: true,
+          CostDrCr: true,
+          CostLocalAmount: true,
+        },
+      });
+
+      // Create Maps for quick lookup
+      const masterCRMap = new Map<number, any[]>();
+      const houseCRMap = new Map<number, any[]>();
+      const masterMenuSet = new Set(allMasterMenuSids);
+
+      allMasterCR.forEach((cr) => {
+        const key = cr.TransactionSid!;
+        if (masterMenuSet.has(cr.MenuMasterSid!)) {
+          if (!masterCRMap.has(key)) masterCRMap.set(key, []);
+          masterCRMap.get(key)!.push(cr);
+        }
+      });
+
+      const houseJobMenu = await this._db.menuMaster.findFirst({
+        where: { MenuName: 'House Job', status: 'A' },
+        select: { MenuMasterSid: true },
+      });
+
+      if (!houseJobMenu) {
+        throw new BadRequestException('House Job menu not found');
+      }
+
+      const allHouseCR = await this._db.costRevenueCharges.findMany({
+        where: {
+          status: 'A',
+          MenuMasterSid: houseJobMenu.MenuMasterSid,
+          TransactionSid: { in: houseJobIds },
+        },
+        select: {
+          TransactionSid: true,
+          MenuMasterSid: true,
+          CostRevenueChargesSid: true,
+          RevenueVoucherHeaderSid: true,
+          RevenueDrCr: true,
+          RevenueLocalAmount: true,
+          CostVoucherHeaderSid: true,
+          CostDrCr: true,
+          CostLocalAmount: true,
+        },
+      });
+
+      allHouseCR.forEach((cr) => {
+        const key = cr.TransactionSid!;
+        if (!houseCRMap.has(key)) {
+          houseCRMap.set(key, []);
+        }
+        houseCRMap.get(key)!.push(cr);
+      });
+
       // Map each master job to its CostRevenueCharges
       const data = await Promise.all(
         masterJobs.map(async (job) => {
-          const masterMenuSids = Array.from(
-            new Set(
-              [job.MenuMasterSid, ...allMasterMenuSids].filter(
-                (sid): sid is number => typeof sid === 'number',
-              ),
-            ),
-          );
-
-          // Fetch cost & revenue charges for all master jobs
-          const relatedCR = await this._db.costRevenueCharges.findMany({
-            where: {
-              TransactionSid: job.MasterJobSid,
-              status: 'A',
-              ...(masterMenuSids.length > 0
-                ? { MenuMasterSid: { in: masterMenuSids } }
-                : {}),
-            },
-            select: {
-              MenuMasterSid: true,
-              CostLocalAmount: true,
-              RevenueLocalAmount: true,
-              ChargeDescription: true,
-              ChargeMasterSid: true,
-              CostAgentMasterSid: true,
-              RevenueCustomerMasterSid: true,
-              CostDrCr: true,
-              RevenueDrCr: true,
-              CostVoucherHeaderSid: true,
-              RevenueVoucherHeaderSid: true,
-            },
-          });
+          const relatedCR = masterCRMap.get(job.MasterJobSid) || [];
 
           const totalCost = relatedCR.reduce((sum, cr) => {
             return cr.CostDrCr === 'D'
@@ -817,54 +865,13 @@ export class OperationReportsService {
 
           const houseJobs = job.houseJob || [];
 
-          const houseRateMap: Map<number, any[]> = new Map([]);
+          const houseRateMap: Map<number, any[]> = new Map();
 
-          const houseJobIdArr = houseJobs.map((hj) => hj.HouseJobSid);
-          const houseMenuSids = Array.from(
-            new Set(
-              [
-                ...allHouseMenuSids,
-                ...houseJobs
-                  .map((hj) => hj.MenuMasterSid)
-                  .filter((sid): sid is number => typeof sid === 'number'),
-              ].filter((sid): sid is number => typeof sid === 'number'),
-            ),
-          );
-
-          const allHouseCR = houseJobIdArr.length
-            ? await this._db.costRevenueCharges.findMany({
-                where: {
-                  TransactionSid: { in: houseJobIdArr },
-                  status: 'A',
-                  ...(houseMenuSids.length > 0
-                    ? { MenuMasterSid: { in: houseMenuSids } }
-                    : {}),
-                },
-                select: {
-                  TransactionSid: true,
-                  MenuMasterSid: true,
-                  CostLocalAmount: true,
-                  RevenueLocalAmount: true,
-                  ChargeDescription: true,
-                  ChargeMasterSid: true,
-                  CostAgentMasterSid: true,
-                  RevenueCustomerMasterSid: true,
-                  CostDrCr: true,
-                  RevenueDrCr: true,
-                  CostVoucherHeaderSid: true,
-                  RevenueVoucherHeaderSid: true,
-                },
-              })
-            : [];
-
-          allHouseCR.forEach((hcr) => {
-            const key = hcr.TransactionSid!;
-            if (houseRateMap.has(key)) {
-              const prev = houseRateMap.get(key) || [];
-              houseRateMap.set(key, [...prev, hcr]);
-            } else {
-              houseRateMap.set(key, [hcr]);
-            }
+          houseJobs.forEach((hj) => {
+            houseRateMap.set(
+              hj.HouseJobSid,
+              houseCRMap.get(hj.HouseJobSid) || [],
+            );
           });
 
           // Count containers by size
