@@ -429,6 +429,7 @@ model StateMaster {
   Remarks           String?             @db.VarChar(100)
   region            String?             @db.VarChar(100)
   ZoneMasterSid     Int?
+  IsUnionTerritory  String              @default("N") @db.Char(1)
   branchMaster      BranchMaster[]
   cityMaster        CityMaster[]
   companyMaster     CompanyMaster[]
@@ -2750,6 +2751,7 @@ model MasterJobOthers {
   JobClosedDate         DateTime? @db.Timestamptz(6)
   JobClosedBy           String?   @db.VarChar(100)
   JobtoSubjob           String?   @db.VarChar(5)
+  ExportToImport        String    @default("N") @db.Char(1)
   masterJob             MasterJob @relation(fields: [MasterJobSid], references: [MasterJobSid])
 }
 
