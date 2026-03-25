@@ -6062,7 +6062,7 @@ console.log('Created product:', createdProduct);
                             code => getMilestoneByCode(code) != null
                         ) as MilestoneCode[];
                     } else {
-                        // Category not in config — fall back to defaults
+                        // Category not in config � fall back to defaults
                         result[cat] = getDefaultMilestoneCodes(cat, exportImport);
                     }
                 }
@@ -6072,7 +6072,7 @@ console.log('Created product:', createdProduct);
             this.logger.warn(`getEnabledMilestones config lookup failed, using defaults: ${e}`);
         }
 
-        // No config found — return defaults for all categories
+        // No config found � return defaults for all categories
         return {
             documentation: getDefaultMilestoneCodes('documentation', exportImport),
             operation: getDefaultMilestoneCodes('operation', exportImport),
@@ -6589,6 +6589,11 @@ console.log('Created product:', createdProduct);
             throw new NotFoundException('Source Master Job not found');
         }
 
+        const sourceMasterJobOther = (sourceMasterJob.others?.[0] as any) || null;
+        if (sourceMasterJobOther?.ExportToImport === 'Y') {
+            throw new BadRequestException('Pull To Import already completed for this master job');
+        }
+
         if (sourceMasterJob.BranchMasterSid === DestinationBranchMasterSid) {
             throw new BadRequestException('Destination branch must be different from source branch');
         }
@@ -6596,6 +6601,8 @@ console.log('Created product:', createdProduct);
         const sourceDepartment = await this._db.departmentMaster.findFirst({
             where: {
                 DepartmentMasterSid: sourceMasterJob.DepartmentMasterSid,
+                CompanyMasterSid: sourceMasterJob.CompanyMasterSid,
+                Status: 'A',
             },
             select: {
                 DepartmentMasterSid: true,
@@ -6616,6 +6623,8 @@ console.log('Created product:', createdProduct);
 
         const destinationDepartment = await this._db.departmentMaster.findFirst({
             where: {
+                CompanyMasterSid: sourceMasterJob.CompanyMasterSid,
+                Status: 'A',
                 departmentType: sourceDepartment.departmentType,
                 ExportImport: 'Import',
                 ...(sourceDepartment.departmentType?.toUpperCase() === 'SEA'
@@ -6752,6 +6761,7 @@ console.log('Created product:', createdProduct);
                 await prisma.masterJobOthers.create({
                     data: {
                         ...otherData,
+                        InternalNote: sourceMasterJob.MasterJobNumber ? (sourceMasterJob.MasterJobNumber + (otherData.InternalNote ? ' + ' + otherData.InternalNote : '')) : (otherData.InternalNote || ''),
                         MasterJobSid: createdMasterJob.MasterJobSid,
                         CreatedBy: createdBy,
                         Status: 'A',
@@ -6780,35 +6790,77 @@ console.log('Created product:', createdProduct);
                     });
                     generatedShipmentNo = `HOUSE-${shipmentDateString}-${(houseCount + shipmentSerial).toString().padStart(3, '0')}`;
                 }
-                const destinationCustomerBranchSid = sourceHouseJob.CustomerBranchSid || null;
-
-                const houseJobData = omitFields(sourceHouseJob, [
-                    'HouseJobSid', 'MasterJobSid', 'BookingHeaderSid', 'QuotationHeaderSid', 'EnquiryHeaderSid', 'MenuMasterSid',
-                    'DepartmentMasterSid', 'BranchMasterSid', 'CompanyMasterSid', 'CustomerBranchSid', 'createdBy', 'updatedBy',
-                    'deletedBy', 'deletedAt', 'createdOn', 'updatedOn', 'status', 'Cargo', 'Products', 'Others', 'Connections'
-                ]);
-
-                const createdHouseJob = await prisma.houseJob.create({
+                const destinationCustomerBranchSid = sourceHouseJob.CustomerBranchSid || null;                const createdHouseJob = await prisma.houseJob.create({
                     data: {
-                        ...houseJobData,
                         MasterJobSid: createdMasterJob.MasterJobSid,
                         BookingHeaderSid: null,
-                        QuotationHeaderSid: null,
-                        EnquiryHeaderSid: null,
+                        ColoadedBy: sourceHouseJob.ColoadedBy || '',
+                        BookingNo: '',
+                        BookingDateTime: null,
                         CompanyMasterSid: sourceMasterJob.CompanyMasterSid,
                         BranchMasterSid: DestinationBranchMasterSid,
+                        CustomerMasterSid: sourceHouseJob.CustomerMasterSid,
+                        CustomerName: sourceHouseJob.CustomerName || '',
+                        CustomerAddress: sourceHouseJob.CustomerAddress || '',
+                        SalesmanSid: sourceHouseJob.SalesmanSid || null,
+                        CargoExpectedon: sourceHouseJob.CargoExpectedon || null,
+                        FreightTerms: sourceHouseJob.FreightTerms || '',
+                        POO: sourceHouseJob.POO || '',
+                        POL: sourceHouseJob.POL || '',
+                        POD: sourceHouseJob.POD || '',
+                        FPD: sourceHouseJob.FPD || '',
+                        TsPortSid: sourceHouseJob.TsPortSid || null,
+                        POLTerminal: sourceHouseJob.POLTerminal || '',
+                        VoyageMasterSid: sourceHouseJob.VoyageMasterSid || null,
+                        VesselName: sourceHouseJob.VesselName || '',
+                        VoyageNo: sourceHouseJob.VoyageNo || '',
+                        HBLDate: shipmentDate,
+                        ETD: sourceHouseJob.ETD ? new Date(sourceHouseJob.ETD) : null,
+                        ETA: sourceHouseJob.ETA ? new Date(sourceHouseJob.ETA) : null,
+                        IncoTerms: sourceHouseJob.IncoTerms || '',
+                        BLLocation: sourceHouseJob.BLLocation || null,
+                        ShipperName: sourceHouseJob.ShipperName || '',
+                        ShipperAddress: sourceHouseJob.ShipperAddress || '',
+                        ConsigneeName: sourceHouseJob.ConsigneeName || '',
+                        ConsigneeAddress: sourceHouseJob.ConsigneeAddress || '',
+                        ClearanceRequire: sourceHouseJob.ClearanceRequire || '',
+                        ShipmentType: sourceHouseJob.ShipmentType || '',
+                        DestinationAgent: sourceHouseJob.DestinationAgent,
+                        AgentName: sourceHouseJob.AgentName || '',
+                        AgentAddress: sourceHouseJob.AgentAddress || '',
+                        HouseNo: sourceHouseJob.HouseNo || '',
+                        QuotationHeaderSid: null,
+                        EnquiryHeaderSid: null,
+                        MovementType: sourceHouseJob.MovementType || '',
+                        DoValid: sourceHouseJob.DoValid || null,
+                        IsServiceJob: sourceHouseJob.IsServiceJob || '',
+                        createdBy: createdBy,
+                        updatedBy: null,
+                        status: 'A',
+                        HouseStatus: 'Job Generated',
+                        HBLCount: sourceHouseJob.HBLCount || 0,
+                        BookingStatus: sourceHouseJob.BookingStatus || '',
                         DepartmentMasterSid: destinationDepartment.DepartmentMasterSid,
                         CustomerBranchSid: destinationCustomerBranchSid,
+                        AuthorizerRemarks: sourceHouseJob.AuthorizerRemarks || '',
+                        authorizerStatus: sourceHouseJob.authorizerStatus || null,
                         MenuMasterSid: houseMenuSid,
-                        ShipmentNo: generatedShipmentNo,
-                        BookingNo: sourceHouseJob.BookingNo || generatedShipmentNo,
+                        CarrierSid: sourceHouseJob.CarrierSid || null,
+                        CarrierName: sourceHouseJob.CarrierName || '',
+                        Coload: sourceHouseJob.Coload || '',
+                        GeneralNote: sourceHouseJob.GeneralNote || '',
                         HBLNo: sourceHouseJob.HBLNo || generatedShipmentNo,
-                        MBLNo: sourceMasterJob.MBLNo || sourceHouseJob.MBLNo || '',
+                        InternalNote: sourceHouseJob.InternalNote || '',
                         MBLDate: sourceMasterJob.MBLDate || sourceHouseJob.MBLDate || null,
-                        HBLDate: shipmentDate,
-                        createdBy: createdBy,
-                        createdOn: new Date(),
-                        status: 'A',
+                        MBLNo: sourceMasterJob.MBLNo || sourceHouseJob.MBLNo || '',
+                        Nominated: sourceHouseJob.Nominated || '',
+                        NominatedBy: sourceHouseJob.NominatedBy || '',
+                        Notify: sourceHouseJob.Notify || '',
+                        NotifyAddress: sourceHouseJob.NotifyAddress || '',
+                        PODTerminal: sourceHouseJob.PODTerminal || '',
+                        ShipmentNo: generatedShipmentNo,
+                        OriginAgent: sourceHouseJob.OriginAgent || '',
+                        JobType: sourceHouseJob.JobType || 'Import',
                     }
                 });
 
@@ -6878,6 +6930,26 @@ console.log('Created product:', createdProduct);
                 });
             }
 
+            if (sourceMasterJobOther?.MasterJobOthersSid) {
+                await prisma.masterJobOthers.update({
+                    where: { MasterJobOthersSid: sourceMasterJobOther.MasterJobOthersSid },
+                    data: {
+                        ExportToImport: 'Y',
+                        UpdatedBy: createdBy,
+                        UpdatedOn: new Date(),
+                    }
+                });
+            } else {
+                await prisma.masterJobOthers.create({
+                    data: {
+                        MasterJobSid: sourceMasterJob.MasterJobSid,
+                        CreatedBy: createdBy,
+                        Status: 'A',
+                        ExportToImport: 'Y',
+                    }
+                });
+            }
+
             return {
                 masterJobSid: createdMasterJob.MasterJobSid,
                 masterJobNumber: createdMasterJob.MasterJobNumber,
@@ -6887,6 +6959,22 @@ console.log('Created product:', createdProduct);
         });
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
