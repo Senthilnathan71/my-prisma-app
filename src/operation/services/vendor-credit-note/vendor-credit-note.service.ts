@@ -331,10 +331,17 @@ export class VendorCreditNoteService {
                             where: { Status: 'A' }
                         },
                         subledgerMaster: true,
-                        customerBranch: true,
+                        customerBranch: {
+                            include: {
+                                stateMaster: {
+                                    select: { StateMasterSid: true, stateName: true, IsUnionTerritory: true }
+                                }
+                            }
+                        },
                         currencyMaster: true,
-                        masterJob: true,
-                        houseJob: true,
+                        masterJob: {where:{Status:'A'}},
+                        houseJob: {where:{status:'A'},include:{Cargo:true}},
+                        BookingHeader:{where:{status:'A'},include:{bookingCargo:true}},
                         voucherTypeMaster: true,
                         
                     }

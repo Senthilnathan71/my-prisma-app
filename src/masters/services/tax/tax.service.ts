@@ -24,6 +24,12 @@ export class TaxService {
         }
     }
 
+    async getTaxByCountryAndType(countryMasterSid: number, taxType: string) {
+        return this._db.taxMaster.findMany({
+            where: { Status: 'A', CountryMasterSid: countryMasterSid, TaxType: taxType }
+        });
+    }
+
     async createNewTax(payload) {
 
         const existing = await this._db.taxMaster.findFirst({

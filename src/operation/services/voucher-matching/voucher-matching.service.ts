@@ -4,7 +4,7 @@ import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 import { Prisma, VoucherHeader } from '@prisma/client';
 import { statusWhereClause, toNumber } from 'src/common/helper';
 import { VoucherService } from '../voucher/voucher.service';
-import { SearchPostedVouchersDto, CreateStandaloneVoucherMatchingDto, UpdateStandaloneVoucherMatchingDto, FetchVoucherMatchingByIdDto, PostVoucherMatchingDto, CreateVoucherMatchingResponse, FetchVoucherMatchingResponse, PostVoucherMatchingResponse, FetchOutstandingVouchers, CancelVoucherMatchingDto } from 'src/accounts/dto/voucher-matching.dto';
+import { SearchPostedVouchersDto, CreateStandaloneVoucherMatchingDto, UpdateStandaloneVoucherMatchingDto, FetchVoucherMatchingByIdDto, PostVoucherMatchingDto, CreateVoucherMatchingResponse, FetchVoucherMatchingResponse, PostVoucherMatchingResponse, FetchOutstandingVouchers, CancelVoucherMatchingDto, VoucherMatchingCancellationWarnings } from 'src/accounts/dto/voucher-matching.dto';
 import { DOC_TYPE_CODE } from 'src/common/config/voucher-type.config';
 import { OutstandingService } from 'src/accounts/services/outstanding/outstanding.service';
 import { CompanyConfigService } from 'src/masters/services/company/company-config.service';
@@ -698,6 +698,104 @@ export class VoucherMatchingService {
                 if (record) ledgerRecord = record;
             }
 
+            const voucherTypeAliases: Record<string, string> = {
+                RPT: 'Receipt',
+                RECEIPT: 'Receipt',
+                PMT: 'Payment',
+                PAYMENT: 'Payment',
+            };
+            const exchangeRateLedgerSid = toNumber(
+                await this.companyConfigService.getConfigurationValue(payload.CompanyMasterSid, 'ExchangeJVCOA')
+            );
+            const receiptOrPaymentVouchers = Array.from(
+                new Map(
+                    enrichedDetails
+                        .map((detail) => {
+                            const normalizedType = String(detail?.VoucherType ?? '').trim().toUpperCase();
+                            const voucherHeaderSid = toNumber(detail?.VoucherHeaderSid);
+                            const voucherNumber = String(detail?.VoucherNumber ?? '').trim();
+                            const voucherType = voucherTypeAliases[normalizedType];
+                            if (!voucherType || !voucherHeaderSid || !voucherNumber) {
+                                return null;
+                            }
+                            return [voucherHeaderSid, {
+                                voucherHeaderSid,
+                                voucherNumber,
+                                voucherType,
+                            }] as const;
+                        })
+                        .filter((entry): entry is readonly [number, { voucherHeaderSid: number; voucherNumber: string; voucherType: string; }] => !!entry)
+                ).values()
+            );
+
+            let affectedVouchers: VoucherMatchingCancellationWarnings['affectedVouchers'] = [];
+            if (exchangeRateLedgerSid && receiptOrPaymentVouchers.length > 0) {
+                const voucherHeadersWithExchangeRows = await this._db.voucherDetail.findMany({
+                    where: {
+                        VoucherHeaderSid: { in: receiptOrPaymentVouchers.map((item) => item.voucherHeaderSid) },
+                        COAMasterSid: exchangeRateLedgerSid,
+                        Status: 'A',
+                    },
+                    select: {
+                        VoucherHeaderSid: true,
+                    },
+                    distinct: ['VoucherHeaderSid'],
+                });
+
+                const affectedVoucherHeaderSids = new Set(voucherHeadersWithExchangeRows.map((item) => item.VoucherHeaderSid));
+                affectedVouchers = receiptOrPaymentVouchers
+                    .filter((item) => affectedVoucherHeaderSids.has(item.voucherHeaderSid))
+                    .map((item) => ({
+                        ...item,
+                        reason: 'WRITE_OFF_OR_EXCHANGE_JV',
+                    }));
+            }
+
+            const exchangeJVLinks = await this._db.voucherMatchingExchangeJV.findMany({
+                where: {
+                    VoucherMatchingHeaderSid: payload.VoucherMatchingHeaderSid,
+                    Status: 'A',
+                },
+                include: {
+                    exchangeJVVoucherHeader: {
+                        select: {
+                            VoucherNumber: true,
+                        }
+                    }
+                }
+            });
+
+            // Fetch DocumentTypeName from VoucherTypeMaster via the first source voucher
+            let documentTypeName: string | null = null;
+            const firstSourceVoucherHeaderSid = receiptOrPaymentVouchers[0]?.voucherHeaderSid;
+            if (firstSourceVoucherHeaderSid) {
+                const voucherHeader = await this._db.voucherHeader.findUnique({
+                    where: { VoucherHeaderSid: firstSourceVoucherHeaderSid },
+                    select: { voucherTypeMaster: { select: { DocumentTypeName: true } } },
+                });
+                documentTypeName = voucherHeader?.voucherTypeMaster?.DocumentTypeName?.trim() || null;
+            }
+
+            const cancellationWarnings: VoucherMatchingCancellationWarnings = {
+                hasWarning: affectedVouchers.length > 0 || exchangeJVLinks.length > 0,
+                documentTypeName,
+                affectedVouchers,
+                exchangeJVs: exchangeJVLinks
+                    .map((item) => {
+                        const voucherHeaderSid = toNumber(item.ExchangeJVHeaderSid);
+                        const voucherNumber = String(item.exchangeJVVoucherHeader?.VoucherNumber ?? '').trim();
+                        if (!voucherHeaderSid || !voucherNumber) {
+                            return null;
+                        }
+                        return {
+                            voucherHeaderSid,
+                            voucherNumber,
+                            voucherType: 'Journal Voucher',
+                        };
+                    })
+                    .filter((item): item is VoucherMatchingCancellationWarnings['exchangeJVs'][number] => !!item),
+            };
+
             return {
                 ...voucherMatchingHeader,
                 COAMasterSid: ledgerIdInvolved!,
@@ -705,6 +803,7 @@ export class VoucherMatchingService {
                 LedgerType: ledgerRecord?.LedgerType,
                 SubledgerMasterSid: subledgerInvolved!,
                 MatchingDetail: enrichedDetails,
+                cancellationWarnings,
             };
 
         } catch (error) {

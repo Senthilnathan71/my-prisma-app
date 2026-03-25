@@ -30,6 +30,7 @@ export class DocumentTypeService {
             const duplicate = await this._db.voucherTypeMaster.findFirst({
                 where: {
                     CompanyMasterSid: payload.CompanyMasterSid,
+                    BranchMasterSid : payload.BranchMasterSid,
                     DocumentTypeCode: payload.DocumentTypeCode,
                     Type: payload.Type,
                     status: statusWhereClause,
@@ -78,6 +79,7 @@ export class DocumentTypeService {
             const duplicate = await this._db.voucherTypeMaster.findFirst({
                 where: {
                     CompanyMasterSid: payload.CompanyMasterSid ?? exist.CompanyMasterSid,
+                    BranchMasterSid : payload.BranchMasterSid ?? exist.BranchMasterSid,
                     DocumentTypeCode: payload.DocumentTypeCode ?? exist.DocumentTypeCode,
                     Type: payload.Type ?? exist.Type,
                     status: statusWhereClause,
