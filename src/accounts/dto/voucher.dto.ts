@@ -564,6 +564,14 @@ export class TaxDetailForPostingDTO {
   @IsNotEmpty({ message: 'Tax Type is required' })
   @IsIn(['Input', 'Output'])
   TaxType: 'Input' | 'Output';
+
+  @IsOptional()
+  @IsBoolean()
+  IsUnionTerritory?: boolean;
+
+  @IsOptional()
+  @IsString()
+  CustomerGstType?: string;
 }
 
 export class CreateVoucherPayload extends VoucherHeaderDto {
