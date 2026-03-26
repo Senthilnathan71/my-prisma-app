@@ -1036,10 +1036,18 @@ export class QuotationService {
             }
         });
 
+        const normalizedSearch = search.trim();
         const portWithSearchOnlyIds = ports.map(p => p.PortMasterSid);
-        const approvalStatus = search
-  ? search.charAt(0).toUpperCase() + search.slice(1).toLowerCase()
-  : null;
+        const validApprovalStatuses = new Set(Object.values(ApprovalStatus));
+        const approvalStatus = validApprovalStatuses.has(normalizedSearch as ApprovalStatus)
+            ? (normalizedSearch as ApprovalStatus)
+            : null;
+        const isDateSearch =
+            /^\d{4}-\d{2}-\d{2}$/.test(normalizedSearch) ||
+            /^\d{2}[/-]\d{2}[/-]\d{4}$/.test(normalizedSearch) ||
+            /^\d{4}[/-]\d{2}[/-]\d{2}$/.test(normalizedSearch);
+        const parsedSearchDate = isDateSearch ? new Date(normalizedSearch) : null;
+        const isValidSearchDate = parsedSearchDate instanceof Date && !isNaN(parsedSearchDate.getTime());
 
 
         const where: Prisma.QuoteHeaderWhereInput = {
@@ -1049,17 +1057,19 @@ export class QuotationService {
             ...(search
                 ? {
                     OR: [
-                        { QuoteNumber: { contains: search, mode: 'insensitive' } },
-                        ...(!isNaN(new Date(search).getTime())
-                            ? [{ QuoteDate: new Date(search) }]
+                        { QuoteNumber: { contains: normalizedSearch, mode: 'insensitive' } },
+                        ...(isValidSearchDate
+                            ? [{ QuoteDate: parsedSearchDate as Date }]
                             : []),
-                        { CustomerName: { contains: search, mode: 'insensitive' } },
-                        { quoteRoute : {some : {departmentMaster : {departmentName : {contains: search, mode: 'insensitive'}}}}},
+                        { CustomerName: { contains: normalizedSearch, mode: 'insensitive' } },
+                        { quoteRoute : {some : {departmentMaster : {departmentName : {contains: normalizedSearch, mode: 'insensitive'}}}}},
                         { quoteRoute: { some: { POLSid: { in : portWithSearchOnlyIds } } } },
                         { quoteRoute: { some: { PODSid: { in : portWithSearchOnlyIds } } } },
-                        { bookingHeader : { BookingNo : { contains: search, mode: 'insensitive' } } },
-                        { status: {contains: search, mode: 'insensitive'}},
-                        { quoteRoute: { some: { quoteCarrier: { some : { ApprovalStatus : { equals: approvalStatus as any  } } } } } },
+                        { bookingHeader : { BookingNo : { contains: normalizedSearch, mode: 'insensitive' } } },
+                        { status: {contains: normalizedSearch, mode: 'insensitive'}},
+                        ...(approvalStatus
+                            ? [{ quoteRoute: { some: { quoteCarrier: { some : { ApprovalStatus : { equals: approvalStatus } } } } } }]
+                            : []),
                     ],
                 }
                 : {}),
