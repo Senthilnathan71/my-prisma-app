@@ -294,6 +294,12 @@ export class ShippingInstructionService {
             };
         }
 
-        return { ...houseJob, voyageDetails };
+        // Fetch SIStatus from ShippingInstruction
+        const si = await this._db.shippingInstruction.findFirst({
+            where: { HouseJobSid, Status: 'A' },
+            select: { SIStatus: true }
+        });
+
+        return { ...houseJob, voyageDetails, SIStatus: si?.SIStatus || null };
     }
 }
