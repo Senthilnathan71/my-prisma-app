@@ -447,6 +447,7 @@ export class SubledgermasterService {
                         Address: true,
                         Email: true,
                         GSTNo: true,
+                        CustomerGstType : true,
                         stateMaster:{
                             select:{
                                 StateMasterSid : true,
@@ -478,7 +479,8 @@ export class SubledgermasterService {
                     SubledgerName: 'Y',
                     JobNoRequire : mapping?.JobNoRequire,
                     StateMasterSid : branch.stateMaster?.StateMasterSid,
-                    currencyMaster : deptor.currencyMaster
+                    currencyMaster : deptor.currencyMaster,
+                    CustomerGstType : branch.CustomerGstType
                 }
             })
         });
@@ -558,6 +560,7 @@ export class SubledgermasterService {
                             Address : true,
                             Email : true,
                             GSTNo : true,
+                            CustomerGstType : true,
                             stateMaster:{
                                 select: {
                                     StateMasterSid: true,
@@ -587,7 +590,8 @@ export class SubledgermasterService {
                         SubledgerName: 'Y',
                         JobNoRequire : COAMappedId?.JobNoRequire,
                         StateMasterSid : branch.stateMaster?.StateMasterSid,
-                        currencyMaster : deptor.currencyMaster
+                        currencyMaster : deptor.currencyMaster,
+                        CustomerGstType : branch.CustomerGstType
                     }
                 })
             });

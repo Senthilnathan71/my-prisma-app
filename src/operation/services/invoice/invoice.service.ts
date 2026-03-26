@@ -1001,10 +1001,12 @@ async getUninvoicedRevenueCharges(payload: {
             GSTNo: true,
             Registered: true,
             Zip_PostBox: true,
+            CustomerGstType: true,
             stateMaster: {
               select: {
                 StateMasterSid: true,
-                stateName: true
+                stateName: true,
+                IsUnionTerritory: true
               }
             },
             cityMaster: {

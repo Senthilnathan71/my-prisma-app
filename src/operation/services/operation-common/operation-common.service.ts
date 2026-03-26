@@ -226,12 +226,13 @@ export class OperationCommonService {
                             CustomerBranchSid : true,
                             Address : true,
                             stateMaster : {
-                                select : { stateName : true},
+                                select : { StateMasterSid: true, stateName : true, IsUnionTerritory: true },
                             },
                             cityMaster : {select : {cityName : true}},
                             Zip_PostBox : true,
                             GSTNo : true,
                             Registered : true,
+                            CustomerGstType : true,
                         }
                     },
                     costCustomerMaster : {
@@ -257,10 +258,12 @@ export class OperationCommonService {
                             StateMasterSid : true,
                             GSTNo : true,
                             Registered : true,
+                            CustomerGstType : true,
                             stateMaster : {
                                 select : {
                                     StateMasterSid : true,
                                     stateName : true,
+                                    IsUnionTerritory: true,
                                 }
                             }
                         }

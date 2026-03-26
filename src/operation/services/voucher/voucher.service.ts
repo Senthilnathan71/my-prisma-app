@@ -1815,6 +1815,8 @@ export class VoucherService {
                 TaxCategory: 'Inter' | 'Intra',
                 EffectiveFrom: Date,
                 TaxType: 'Input' | 'Output',
+                IsUnionTerritory?: boolean,
+                CustomerGstType?: string,
             }
         },
         tx?: Prisma.TransactionClient
@@ -1898,13 +1900,21 @@ export class VoucherService {
             // --- TAX SUMMARIZATION & AUTO DETAIL CREATION ---
             let createdTaxRows: VoucherDetailDto[] = [];
 
-            const taxSummaries = await this.summarizeTaxes(
-                chargeLineItems,
-                voucherType as TaxVoucherType,
-                taxDetails,
-                voucher.CompanyMasterSid,
-                tx
-            );
+            // Export Without Payment or Bill of Supply: no tax rows at all
+            const isExportWithoutPayment = voucher.GSTType === 'EXPWOP' || voucher.InvoiceType === 'BOS';
+            // Zero-rated (Non GST/Zero): tax rows with 0 amounts
+            const isZeroRated = voucher.InvoiceType === 'NONGST';
+
+            const taxSummaries = isExportWithoutPayment
+                ? []
+                : await this.summarizeTaxes(
+                    chargeLineItems,
+                    voucherType as TaxVoucherType,
+                    taxDetails,
+                    voucher.CompanyMasterSid,
+                    tx,
+                    isZeroRated
+                );
 
             let currentSno = chargeLineItems.length + 1;
 
@@ -2377,9 +2387,12 @@ export class VoucherService {
             TaxCategory: 'Inter' | 'Intra',
             EffectiveFrom: Date,
             TaxType: 'Input' | 'Output',
+            IsUnionTerritory?: boolean,
+            CustomerGstType?: string,
         },
         companyMasterSid: number,
-        tx?: PrismaClient | Prisma.TransactionClient
+        tx?: PrismaClient | Prisma.TransactionClient,
+        isZeroRated: boolean = false
     ): Promise<TaxSummaryDto[]> {
         try {
             this.logger.log('Summarizing taxes by HS/SAC code');
@@ -2418,13 +2431,17 @@ export class VoucherService {
                 }
 
                 // Step 3: Fetch tax masters separately with proper filtering
+                // Union territory uses same TaxCategory as same-state (Inter) for DB queries
+                const effectiveTaxCategory = (taxDetails.IsUnionTerritory && taxDetails.countryCode === 'in')
+                    ? 'Inter' : taxDetails.TaxCategory;
+
                 const voucherThatDoesntHaveInpOut : DocTypeCode[] = [DOC_TYPE_CODE.RECEIPT, DOC_TYPE_CODE.JOURNAL_VOUCHER, DOC_TYPE_CODE.PAYMENT];
                 const isExemption = voucherThatDoesntHaveInpOut.includes(voucherType);
                 const whereClause : Prisma.TaxMasterWhereInput = {
                     TaxGroupSid: hsSacMaster.taxGroup.TaxGroupSid,
                     Status: 'A',
                     CountryMasterSid: taxDetails.CountryMasterSid,
-                    TaxCategory: taxDetails.TaxCategory,
+                    TaxCategory: effectiveTaxCategory,
                     EffectiveFrom: {
                         lte: taxDetails.EffectiveFrom
                     }
@@ -2459,7 +2476,7 @@ export class VoucherService {
                     throw new BadRequestException(
                         `No active tax masters found for HS/SAC: ${hsSacMaster.HSSACCode}, ` +
                         `TaxGroup: ${hsSacMaster.taxGroup.TaxGroup}, ` +
-                        `Country: ${taxDetails.countryCode}, Category: ${taxDetails.TaxCategory}`
+                        `Country: ${taxDetails.countryCode}, Category: ${effectiveTaxCategory}`
                     );
                 }
 
@@ -2475,41 +2492,43 @@ export class VoucherService {
                 }> = [];
 
                 if (taxDetails.countryCode === "in") {
-                    if (taxDetails.TaxCategory === "Inter") {
-                        // Intra-state: CGST + SGST
+                    if (effectiveTaxCategory === "Inter") {
+                        // Same state: CGST + SGST, or Union Territory: CGST + UGST
                         const cgstTax = taxMasters.find(t => t.TaxCode === 'CGST');
-                        const sgstTax = taxMasters.find(t => t.TaxCode === 'SGST');
+                        const secondTax = taxDetails.IsUnionTerritory
+                            ? taxMasters.find(t => t.TaxCode === 'UGST')
+                            : taxMasters.find(t => t.TaxCode === 'SGST');
 
-                        if (cgstTax && detail.TaxPercentage1 && detail.TaxAmount1) {
+                        if (cgstTax && (isZeroRated || (detail.TaxPercentage1 && detail.TaxAmount1))) {
                             taxesToApply.push({
                                 taxName : cgstTax.TaxName,
                                 taxCode: 'CGST',
                                 taxMasterSid: cgstTax.TaxMasterSid,
-                                taxPercentage: this.toNumber(detail.TaxPercentage1),
-                                taxAmount: this.toNumber(detail.TaxAmount1)
+                                taxPercentage: isZeroRated ? 0 : this.toNumber(detail.TaxPercentage1),
+                                taxAmount: isZeroRated ? 0 : this.toNumber(detail.TaxAmount1)
                             });
                         }
 
-                        if (sgstTax && detail.TaxPercentage2 && detail.TaxAmount2) {
+                        if (secondTax && (isZeroRated || (detail.TaxPercentage2 && detail.TaxAmount2))) {
                             taxesToApply.push({
-                                taxName : sgstTax.TaxName,
-                                taxCode: 'SGST',
-                                taxMasterSid: sgstTax.TaxMasterSid,
-                                taxPercentage: this.toNumber(detail.TaxPercentage2),
-                                taxAmount: this.toNumber(detail.TaxAmount2)
+                                taxName : secondTax.TaxName,
+                                taxCode: secondTax.TaxCode,
+                                taxMasterSid: secondTax.TaxMasterSid,
+                                taxPercentage: isZeroRated ? 0 : this.toNumber(detail.TaxPercentage2),
+                                taxAmount: isZeroRated ? 0 : this.toNumber(detail.TaxAmount2)
                             });
                         }
-                    } else if (taxDetails.TaxCategory === "Intra") {
+                    } else if (effectiveTaxCategory === "Intra") {
                         // Inter-state: IGST
                         const igstTax = taxMasters.find(t => t.TaxCode === 'IGST');
 
-                        if (igstTax && detail.TaxPercentage1 && detail.TaxAmount1) {
+                        if (igstTax && (isZeroRated || (detail.TaxPercentage1 && detail.TaxAmount1))) {
                             taxesToApply.push({
                                 taxName : igstTax.TaxName,
                                 taxCode: 'IGST',
                                 taxMasterSid: igstTax.TaxMasterSid,
-                                taxPercentage: this.toNumber(detail.TaxPercentage1),
-                                taxAmount: this.toNumber(detail.TaxAmount1)
+                                taxPercentage: isZeroRated ? 0 : this.toNumber(detail.TaxPercentage1),
+                                taxAmount: isZeroRated ? 0 : this.toNumber(detail.TaxAmount1)
                             });
                         }
                     }
@@ -2518,13 +2537,13 @@ export class VoucherService {
                         // UAE: VAT
                         const vatTax = taxMasters.find(t => t.TaxCode === 'VAT');
 
-                        if (vatTax && detail.TaxPercentage1 && detail.TaxAmount1) {
+                        if (vatTax && (isZeroRated || (detail.TaxPercentage1 && detail.TaxAmount1))) {
                             taxesToApply.push({
                                 taxName : vatTax.TaxName,
                                 taxCode: 'VAT',
                                 taxMasterSid: vatTax.TaxMasterSid,
-                                taxPercentage: this.toNumber(detail.TaxPercentage1),
-                                taxAmount: this.toNumber(detail.TaxAmount1)
+                                taxPercentage: isZeroRated ? 0 : this.toNumber(detail.TaxPercentage1),
+                                taxAmount: isZeroRated ? 0 : this.toNumber(detail.TaxAmount1)
                             });
                         }
                     }

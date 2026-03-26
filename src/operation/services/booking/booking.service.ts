@@ -1766,6 +1766,7 @@ if (!croPayload?.BookingCroSid) {
                             Zip_PostBox : true,
                             GSTNo : true,
                             Registered : true,
+                            CustomerGstType : true,
                         }
                     },
                     costVoucherHeader: {
@@ -1810,7 +1811,7 @@ if (!croPayload?.BookingCroSid) {
                 if (rate.customerBranch?.StateMasterSid) {
                     const state = await this._db.stateMaster.findUnique({
                         where: { StateMasterSid: rate.customerBranch.StateMasterSid },
-                        select: { stateName: true }
+                        select: { StateMasterSid: true, stateName: true, IsUnionTerritory: true }
                     });
                     const city = await this._db.cityMaster.findUnique({
                         where: { CityMasterSid: rate.customerBranch.CityMasterSid },
@@ -1923,10 +1924,12 @@ if (!croPayload?.BookingCroSid) {
                                     Zip_PostBox: true,
                                     GSTNo: true,
                                     Registered: true,
+                                    CustomerGstType: true,
                                     stateMaster: {
                                         select: {
                                             StateMasterSid: true,
                                             stateName: true,
+                                            IsUnionTerritory: true,
                                         }
                                     }
                                 }
