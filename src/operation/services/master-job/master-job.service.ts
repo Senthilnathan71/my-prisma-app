@@ -6209,10 +6209,22 @@ console.log('Created product:', createdProduct);
         });
 
         checkRunners.set('CARGO_MANIFEST', async () => {
-            const customs = await this._db.houseJobCustoms.findMany({
-                where: { MasterJobSid, Status: 'A', ManifestSequence: { not: '' } }
+            if (!hasHouses) return false;
+            const shipmentNos = (await this._db.houseJob.findMany({
+                where: { HouseJobSid: { in: houseJobSids } },
+                select: { ShipmentNo: true }
+            })).map(h => h.ShipmentNo).filter(Boolean);
+            const milestones = await this._db.shipmentMilestone.findMany({
+                where: {
+                    OR: [
+                        { HouseJobSid: { in: houseJobSids } },
+                        ...(shipmentNos.length > 0 ? [{ ShipmentNo: { in: shipmentNos as string[] } }] : [])
+                    ],
+                    MilestoneName: { contains: 'Manifest', mode: 'insensitive' as const },
+                    Status: 'A'
+                }
             });
-            return customs.length > 0;
+            return milestones.length > 0;
         });
 
         checkRunners.set('DO_ISSUED', async () => {
@@ -6285,25 +6297,26 @@ console.log('Created product:', createdProduct);
             return revCharges.some(c => !!c.revenueVoucherHeader?.VoucherNumber);
         });
 
-        checkRunners.set('JOB_PROFITABLE', async () => {
-            if (!hasHouses) return false;
-            const shipmentNos = (await this._db.houseJob.findMany({
-                where: { HouseJobSid: { in: houseJobSids } },
-                select: { ShipmentNo: true }
-            })).map(h => h.ShipmentNo).filter(Boolean);
-            if (shipmentNos.length === 0) return false;
-            const profitCheck = await this._db.$queryRawUnsafe(`
-                SELECT
-                    COALESCE(SUM("RevenueLocalAmount"), 0) AS "TotalRevenue",
-                    COALESCE(SUM("CostLocalAmount"), 0) AS "TotalCost"
-                FROM "CostRevenueCharges"
-                WHERE "ShipmentNo" = ANY($1::varchar[])
-                AND status = 'A'
-            `, shipmentNos) as any[];
-            const result = profitCheck.length > 0 && Number(profitCheck[0].TotalRevenue) >= Number(profitCheck[0].TotalCost);
-            jobProfitable = result;
-            return result;
-        });
+        // JOB_PROFITABLE commented out — will revisit later
+        // checkRunners.set('JOB_PROFITABLE', async () => {
+        //     if (!hasHouses) return false;
+        //     const shipmentNos = (await this._db.houseJob.findMany({
+        //         where: { HouseJobSid: { in: houseJobSids } },
+        //         select: { ShipmentNo: true }
+        //     })).map(h => h.ShipmentNo).filter(Boolean);
+        //     if (shipmentNos.length === 0) return false;
+        //     const profitCheck = await this._db.$queryRawUnsafe(`
+        //         SELECT
+        //             COALESCE(SUM("RevenueLocalAmount"), 0) AS "TotalRevenue",
+        //             COALESCE(SUM("CostLocalAmount"), 0) AS "TotalCost"
+        //         FROM "CostRevenueCharges"
+        //         WHERE "ShipmentNo" = ANY($1::varchar[])
+        //         AND status = 'A'
+        //     `, shipmentNos) as any[];
+        //     const result = profitCheck.length > 0 && Number(profitCheck[0].TotalRevenue) >= Number(profitCheck[0].TotalCost);
+        //     jobProfitable = result;
+        //     return result;
+        // });
 
         checkRunners.set('UNBOOKED_COST', async () => {
             if (!hasHouses) return true;
