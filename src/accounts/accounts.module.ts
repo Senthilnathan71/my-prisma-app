@@ -25,8 +25,10 @@ import { ReportExportService } from 'src/common/services/report-export.service';
 import { PdfmakeNodeService } from 'src/common/services/report-generators/pdfmake-node.service';
 import { VoucherService } from 'src/operation/services/voucher/voucher.service';
 import { PaymentService } from './services/payment/payment.service';
+import { BankReconciliationService } from './services/bank-reconciliation/bank-reconciliation.service';
 import { CompanyConfigService } from 'src/masters/services/company/company-config.service';
 import { OperationModule } from 'src/operation/operation.module';
+import { BankReconciliationController } from './controllers/bank-reconciliation/bank-reconciliation.controller';
 
 @Module({
     imports : [
@@ -43,7 +45,8 @@ import { OperationModule } from 'src/operation/operation.module';
         TrialBalanceController,
         AccountsReportsController,
         ManagementReportsController,
-        PaymentController
+        PaymentController,
+        BankReconciliationController
     ],
     providers: [
         GlobalConfigService,
@@ -53,6 +56,7 @@ import { OperationModule } from 'src/operation/operation.module';
         OutstandingService,
         ReceiptService,
         PaymentService,
+        BankReconciliationService,
         VoucherPostingService,
         JournalVoucherService,
         TrialBalanceService,
@@ -67,3 +71,4 @@ import { OperationModule } from 'src/operation/operation.module';
     exports: [AccountsReportsService]
 })
 export class AccountsModule { }
+
