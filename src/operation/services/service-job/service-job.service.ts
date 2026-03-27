@@ -24,6 +24,10 @@ export class CreateServiceJobDto {
     CustomerMasterSid: number;
     CustomerName: string;
     CustomerAddress: string;
+    ShipperName: string;
+    ShipperAddress: string;
+    ConsigneeName: string;    
+    ConsigneeAddress: string;
     CustomerBranchSid: number;
 
     // Related entities
@@ -57,6 +61,10 @@ export class UpdateServiceJobDto {
     CustomerBranchSid: number;
     CustomerName: string;
     CustomerAddress: string;
+    ShipperName: string;
+    ShipperAddress: string;
+    ConsigneeName: string;
+    ConsigneeAddress: string;
     FreightPPCC: string;
     POL: string;
     POD: string;
@@ -224,6 +232,10 @@ export class ServiceJobService {
                     CustomerBranchSid: mainPayload.CustomerBranchSid || null,
                     CustomerName: mainPayload.CustomerName,
                     CustomerAddress: mainPayload.CustomerAddress,
+                    ShipperName: mainPayload.ShipperName,
+                    ShipperAddress: mainPayload.ShipperAddress,
+                    ConsigneeName: mainPayload.ConsigneeName,
+                    ConsigneeAddress: mainPayload.ConsigneeAddress,
                     JobType: mainPayload.JobType || null,
                     HBLDate: mainPayload.HBLDate || null,
                     HBLNo: finalHBLNo,
@@ -488,6 +500,10 @@ export class ServiceJobService {
                 CustomerBranchSid: mainPayload.CustomerBranchSid || null,
                 CustomerName: mainPayload.CustomerName,
                 CustomerAddress: mainPayload.CustomerAddress,
+                ShipperName: mainPayload.ShipperName,
+                ShipperAddress: mainPayload.ShipperAddress,
+                ConsigneeName: mainPayload.ConsigneeName,                
+                ConsigneeAddress: mainPayload.ConsigneeAddress,
                 POL: mainPayload.POL || "",
                 POD: mainPayload.POD || "",
                 FreightTerms: mainPayload.FreightPPCC || "Prepaid",
@@ -722,6 +738,8 @@ export class ServiceJobService {
                     { HBLNo: { contains: search, mode: 'insensitive' } },
                     { ShipmentNo: { contains: search, mode: 'insensitive' } },
                     { CustomerName: { contains: search, mode: 'insensitive' } },
+                    { ShipperName: { contains: search, mode: 'insensitive' } },
+                    { ConsigneeName: { contains: search, mode: 'insensitive' } },
                     { departmentMaster: { departmentName: { contains: search, mode: 'insensitive' } } },
                     { POL: { contains: search, mode: 'insensitive' } },
                     { POD: { contains: search, mode: 'insensitive' } },
@@ -738,6 +756,8 @@ export class ServiceJobService {
                     select: {
                         HouseJobSid: true,
                         CustomerName: true,
+                        ShipperName: true,
+                        ConsigneeName: true,
                         departmentMaster: {
                             select: { departmentName: true },
                         },
