@@ -43,12 +43,12 @@ export const getPartyDrCr = (voucherType: VoucherType | string): DrCrType | unde
 // - Input Tax (on Vendor Invoice) → Debit (asset)
 // - For Receipts/Payments, depends on nature of underlying transaction
 export const TAX_VTYPE_DRCR_MAP = {
-  "INV": { DrCr: "C" , Tax_Type : "Input" ,Ledger : 'Creditor'},
-  "VIN": { DrCr: "D", Tax_Type : "Output" , Ledger : "Debtor" },
+  "INV": { DrCr: "C" , Tax_Type : "Output" ,Ledger : 'Creditor'},
+  "VIN": { DrCr: "D", Tax_Type : "Input" , Ledger : "Debtor" },
   "RPT": { DrCr: "C" , Tax_Type : null , Ledger : null },
   "PMT": { DrCr: "D" , Tax_Type : null , Ledger : null },
-  "CRN": { DrCr: "D", Tax_Type : "Input" , Ledger : 'Creditor' },
-  "VRN": { DrCr: "C", Tax_Type : "Output" , Ledger : 'Debtor' },
+  "CRN": { DrCr: "D", Tax_Type : "Output" , Ledger : 'Creditor' },
+  "VRN": { DrCr: "C", Tax_Type : "Input" , Ledger : 'Debtor' },
   "JV":  { DrCr: null, Tax_Type : null , Ledger : null }, // Handled by Ledger Type of that particular detail's ledger
 } as const;
 

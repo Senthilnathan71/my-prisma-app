@@ -2431,9 +2431,9 @@ export class VoucherService {
                 }
 
                 // Step 3: Fetch tax masters separately with proper filtering
-                // Union territory uses same TaxCategory as same-state (Inter) for DB queries
+                // Union territory uses same TaxCategory as same-state (Intra) for DB queries
                 const effectiveTaxCategory = (taxDetails.IsUnionTerritory && taxDetails.countryCode === 'in')
-                    ? 'Inter' : taxDetails.TaxCategory;
+                    ? 'Intra' : taxDetails.TaxCategory;
 
                 const voucherThatDoesntHaveInpOut : DocTypeCode[] = [DOC_TYPE_CODE.RECEIPT, DOC_TYPE_CODE.JOURNAL_VOUCHER, DOC_TYPE_CODE.PAYMENT];
                 const isExemption = voucherThatDoesntHaveInpOut.includes(voucherType);
@@ -2465,7 +2465,7 @@ export class VoucherService {
                             `Ledger not found for Charge: ${detail.ChargeDescription}.`
                         )
                     }
-                    whereClause.TaxType = ledger.LedgerType === 'Cost' ? "Output" : "Input";
+                    whereClause.TaxType = ledger.LedgerType === 'Cost' ? "Input" : "Output";
                 }
                 const taxMasters = await db.taxMaster.findMany({
                     where: whereClause
@@ -2492,7 +2492,7 @@ export class VoucherService {
                 }> = [];
 
                 if (taxDetails.countryCode === "in") {
-                    if (effectiveTaxCategory === "Inter") {
+                    if (effectiveTaxCategory === "Intra") {
                         // Same state: CGST + SGST, or Union Territory: CGST + UGST
                         const cgstTax = taxMasters.find(t => t.TaxCode === 'CGST');
                         const secondTax = taxDetails.IsUnionTerritory
@@ -2518,7 +2518,7 @@ export class VoucherService {
                                 taxAmount: isZeroRated ? 0 : this.toNumber(detail.TaxAmount2)
                             });
                         }
-                    } else if (effectiveTaxCategory === "Intra") {
+                    } else if (effectiveTaxCategory === "Inter") {
                         // Inter-state: IGST
                         const igstTax = taxMasters.find(t => t.TaxCode === 'IGST');
 
@@ -2573,7 +2573,7 @@ export class VoucherService {
                                 `Ledger not found for Charge: ${detail.ChargeDescription}.`
                             )
                         }
-                        inputOutput = ledger.LedgerType === 'Cost' ? "Output" : "Input";
+                        inputOutput = ledger.LedgerType === 'Cost' ? "Input" : "Output";
                     }
                     const key = `${hsSacMasterSid}_${detail.DrCr}_${tax.taxCode}_${tax.taxPercentage}_${inputOutput}`;
 
@@ -2600,7 +2600,7 @@ export class VoucherService {
                             )
                         }
 
-                        const isCreditCOA = isExemption ? inputOutput === 'Input' : getTaxLedger(voucherType) === 'Creditor';
+                        const isCreditCOA = isExemption ? inputOutput === 'Output' : getTaxLedger(voucherType) === 'Creditor';
                         let finalLedger =
                             isCreditCOA ? subledgerMapping.CrCOAMasterSid : subledgerMapping.DrCOAMasterSid;
 
