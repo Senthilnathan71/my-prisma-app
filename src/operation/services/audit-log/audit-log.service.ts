@@ -30,6 +30,8 @@ export class AuditLogService {
                     return this.getAgentMasterAirWaybillLogs(recordId);
                 case 'HouseJob':
                     return this.getAgentMasterAirWaybillLogs(recordId);
+                case 'Invoice':
+                    return this.getCreditNoteLogs(recordId);
             }
         } catch (error) {
             this.logger.warn(`getAuditLog Error: ${error.message}`);
@@ -1105,6 +1107,13 @@ export class AuditLogService {
                 U: 'Unposted'
             }
 
+            const invoiceList = {
+                REG: 'Regular',
+                REIMB: 'Reimbursement',
+                BOS: 'Bill of Supply',
+                NONGST: 'Non GST/Zero'
+            }
+
             const ignoredFields = [
                 'UpdatedBy', 'UpdatedOn', 'CreatedBy', 'CreatedOn', 'VoucherTransactionSid'
             ]
@@ -1121,7 +1130,10 @@ export class AuditLogService {
                 this.replaceAndRename(newVal, 'ChargeMasterSid', 'Charge', chargeMap);
 
                 this.replaceValueFromMap(oldVal, 'PostStatus', PostStatus);
-                this.replaceValueFromMap(newVal, 'PostStatus', PostStatus)
+                this.replaceValueFromMap(newVal, 'PostStatus', PostStatus);
+
+                this.replaceValueFromMap(oldVal, 'InvoiceType', invoiceList);
+                this.replaceValueFromMap(newVal, 'InvoiceType', invoiceList);
 
                 this.removeIgnoredFields(oldVal, ignoredFields);
                 this.removeIgnoredFields(newVal, ignoredFields);

@@ -154,10 +154,11 @@ export class BookingController {
         type: ResponseData
     })
     @Delete('deleteBooking/:BookingHeaderSid')
-    async deleteBooking(@Param('BookingHeaderSid', ParseIntPipe) BookingHeaderSid: number) {
+    async deleteBooking(@Param('BookingHeaderSid', ParseIntPipe) BookingHeaderSid: number,
+    @Body('updatedBy') updatedBy: string) {
         let output = new ResponseData
         try {
-            let booking = await this.bookingService.deleteBooking(BookingHeaderSid);
+            let booking = await this.bookingService.deleteBooking(BookingHeaderSid,updatedBy);
             this.logger.debug(`deleteBooking: ${JSON.stringify(BookingHeaderSid)}`)
             output.data = booking;
             output.message = "Booking deleted successfully";
@@ -206,10 +207,11 @@ export class BookingController {
         type: ResponseData
     })
     @Delete('product/:BookingProductSid')
-    async deleteBookingProduct(@Param('BookingProductSid', ParseIntPipe) BookingProductSid: number) {
+    async deleteBookingProduct(@Param('BookingProductSid', ParseIntPipe) BookingProductSid: number,
+    @Body('updatedBy') updatedBy: string) {
         let output = new ResponseData
         try {
-            let bookingProduct = await this.bookingService.softDeleteBookingProduct(BookingProductSid);
+            let bookingProduct = await this.bookingService.softDeleteBookingProduct(BookingProductSid,updatedBy);
             this.logger.debug(`deleteBookingProduct: ${JSON.stringify(bookingProduct)}`)
             output.data = bookingProduct;
             output.message = "Booking Product deleted successfully";
@@ -232,10 +234,11 @@ export class BookingController {
         type: ResponseData
     })
     @Delete('connection/:BookingConnectionSid')
-    async deleteBookingConnection(@Param('BookingConnectionSid', ParseIntPipe) BookingConnectionSid: number) {
+    async deleteBookingConnection(@Param('BookingConnectionSid', ParseIntPipe) BookingConnectionSid: number,
+    @Body('updatedBy') updatedBy: string) {
         let output = new ResponseData
         try {
-            let bookingConnection = await this.bookingService.softDeleteBookingConnection(BookingConnectionSid);
+            let bookingConnection = await this.bookingService.softDeleteBookingConnection(BookingConnectionSid,updatedBy);
             this.logger.debug(`deleteBookingConnection: ${JSON.stringify(bookingConnection)}`)
             output.data = bookingConnection;
             output.message = "Booking Connection deleted successfully";
@@ -258,10 +261,11 @@ export class BookingController {
         type: ResponseData
     })
     @Delete('rates/:BookingRatesSid')
-    async deleteBookingRate(@Param('BookingRatesSid', ParseIntPipe) BookingRatesSid: number) {
+    async deleteBookingRate(@Param('BookingRatesSid', ParseIntPipe) BookingRatesSid: number,
+    @Body('updatedBy') updatedBy: string) {
         let output = new ResponseData
         try {
-            let bookingConnection = await this.bookingService.softDeleteBookingRates(BookingRatesSid);
+            let bookingConnection = await this.bookingService.softDeleteBookingRates(BookingRatesSid,updatedBy);
             this.logger.debug(`deleteBookingRates: ${JSON.stringify(bookingConnection)}`)
             output.data = bookingConnection;
             output.message = "Booking Rates deleted successfully";
