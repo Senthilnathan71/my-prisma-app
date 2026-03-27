@@ -1929,6 +1929,21 @@ export class HouseJobService {
         }
     }
 
+    async softDeleteHouseJobConnection(HouseJobConnectionSid: number) {
+        try {
+            return this._db.houseJobConnection.update({
+                where: {
+                    HouseJobConnectionSid: HouseJobConnectionSid
+                },
+                data: {
+                    status: "D"
+                }
+            })
+        } catch (error) {
+            throw error;
+        }
+    }
+
 
     async searchHouseJob(params: searchHouseJob) {
         const {
