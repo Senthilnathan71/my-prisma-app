@@ -1237,7 +1237,7 @@ if (!croPayload?.BookingCroSid) {
         }
     }
 
-    async deleteBooking(BookingHeaderSid: number) {
+    async deleteBooking(BookingHeaderSid: number, updatedBy: string) {
         try {
             const existing = await this._db.bookingHeader.findUnique({
                 where: {
@@ -1254,25 +1254,25 @@ if (!croPayload?.BookingCroSid) {
             const result = await this._db.$transaction(async (prisma) => {
                 const deletedBooking = await prisma.bookingHeader.update({
                     where: { BookingHeaderSid: BookingHeaderSid },
-                    data: { status: 'D' }
+                    data: { status: 'D' , updatedBy: updatedBy, updatedOn: new Date()}
                 })
 
                 const deletedCargos = await prisma.bookingCargo.updateMany({
                     where: { BookingHeaderSid: BookingHeaderSid },
-                    data: { status: 'D' }
+                    data: { status: 'D' , updatedBy: updatedBy, updatedOn: new Date()}
                 })
                 const deletedProducts = await prisma.bookingProduct.updateMany({
                     where: { BookingHeaderSid: BookingHeaderSid },
-                    data: { status: 'D' }
+                    data: { status: 'D' , updatedBy: updatedBy, updatedOn: new Date()}
                 })
                 const deletedOthers = await prisma.bookingOthers.updateMany({
                     where: { BookingHeaderSid: BookingHeaderSid },
-                    data: { status: 'D' }
+                    data: { status: 'D' , updatedBy: updatedBy, updatedOn: new Date()}
                 })
                 const deletedCro = await prisma.bookingCro.updateMany({
                     where: { BookingHeaderSid: BookingHeaderSid },
                     data: {
-                        UpdatedBy: 'system',
+                        UpdatedBy: updatedBy,
                         UpdatedOn: new Date()
                        
                     }
@@ -1280,11 +1280,11 @@ if (!croPayload?.BookingCroSid) {
                 
                 const deletedConnections = await prisma.bookingConnection.updateMany({
                     where: { BookingHeaderSid: BookingHeaderSid },
-                    data: { status: 'D' }
+                    data: { status: 'D' , updatedBy: updatedBy, updatedOn: new Date()}
                 })
                 const deletedRates = await prisma.bookingRates.updateMany({
                     where: { BookingHeaderSid: BookingHeaderSid },
-                    data: { Status: 'D' }
+                    data: { Status: 'D' , UpdatedBy: updatedBy, UpdatedOn: new Date()}
                 })
 
                 return {
@@ -1292,6 +1292,7 @@ if (!croPayload?.BookingCroSid) {
                     deletedCargos,
                     deletedProducts,
                     deletedOthers,
+                    deletedCro,
                     deletedConnections,
                     deletedRates
                 }
@@ -1475,11 +1476,11 @@ if (!croPayload?.BookingCroSid) {
         return { items: formattedItems, totalCount };
     }
 
-    async softDeleteBookingProduct(BookingProductSid: number) {
+    async softDeleteBookingProduct(BookingProductSid: number, updatedBy: string) {
         try {
             const deletedBookingProducts = await this._db.bookingProduct.update({
                 where: { BookingProductSid },
-                data: { status: 'D' }
+                data: { status: 'D' , updatedBy: updatedBy, updatedOn: new Date()}
             })
             return deletedBookingProducts;
         } catch (error) {
@@ -1487,11 +1488,11 @@ if (!croPayload?.BookingCroSid) {
         }
     }
 
-    async softDeleteBookingConnection(BookingConnectionSid: number) {
+    async softDeleteBookingConnection(BookingConnectionSid: number, updatedBy: string) {
         try {
             const deletedBookingConnection = await this._db.bookingConnection.update({
                 where: { BookingConnectionSid: BookingConnectionSid },
-                data: { status: 'D' }
+                data: { status: 'D' , updatedBy: updatedBy, updatedOn: new Date()}
             })
             return deletedBookingConnection;
         } catch (error) {
@@ -1499,7 +1500,7 @@ if (!croPayload?.BookingCroSid) {
         }
     }
 
-    async softDeleteBookingRates(BookingRateSid: number) {
+    async softDeleteBookingRates(BookingRateSid: number, updatedBy: string) {
         try {
             // Check if voucher exists before allowing delete
             const existingRate = await this._db.bookingRates.findUnique({
@@ -1520,7 +1521,7 @@ if (!croPayload?.BookingCroSid) {
 
             const deletedBookingConnection = await this._db.bookingRates.update({
                 where: { BookingRatesSid: BookingRateSid },
-                data: { Status: 'D' }
+                data: { Status: 'D' , UpdatedBy: updatedBy, UpdatedOn: new Date()}
             })
             return deletedBookingConnection;
         } catch (error) {
