@@ -161,7 +161,7 @@ export class MailConfigurationService {
                 }
             }
 
-            const { CompanyMasterSid, MenuMasterSid, UpdateFields, ...updateData } = dto as any;
+            const { CompanyMasterSid, MenuMasterSid, ...updateData } = dto as any;
 
             const updatedRecord = await this._db.mailConfigurationMaster.update({
                 where: {

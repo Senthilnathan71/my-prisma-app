@@ -3733,6 +3733,7 @@ model MailConfigurationMaster {
   AutoPopup                  String        @default("P") @db.Char(1)
   Action                     String        @db.VarChar(200)
   Trigger                    String        @db.VarChar(50)
+  UpdateFields  String[]  @default([])
   CompanyMaster              CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
   MenuMaster                 MenuMaster    @relation(fields: [MenuMasterSid], references: [MenuMasterSid])
 
