@@ -6746,6 +6746,42 @@ console.log('Created product:', createdProduct);
             });
             return fallbackDestinationBranch?.CustomerBranchSid || null;
         };
+        const resolveImportCustomerMapping = async (sourceHouseJob: any): Promise<{
+            customerMasterSid: number;
+            customerName: string;
+            customerAddress: string;
+        }> => {
+            const notifyName = String(sourceHouseJob?.Notify || '').trim();
+            const consigneeName = String(sourceHouseJob?.ConsigneeName || '').trim();
+
+            if (notifyName) {
+                const notifyCustomerSid = await resolveDestinationCustomerSidByName(notifyName);
+                if (!notifyCustomerSid) {
+                    throw new BadRequestException(`Notify "${notifyName}" not found in destination company customer master`);
+                }
+
+                return {
+                    customerMasterSid: notifyCustomerSid,
+                    customerName: notifyName,
+                    customerAddress: sourceHouseJob?.NotifyAddress || '',
+                };
+            }
+
+            if (consigneeName) {
+                const consigneeCustomerSid = await resolveDestinationCustomerSidByName(consigneeName);
+                if (!consigneeCustomerSid) {
+                    throw new BadRequestException(`Consignee "${consigneeName}" not found in destination company customer master`);
+                }
+
+                return {
+                    customerMasterSid: consigneeCustomerSid,
+                    customerName: consigneeName,
+                    customerAddress: sourceHouseJob?.ConsigneeAddress || '',
+                };
+            }
+
+            throw new BadRequestException('Notify and Consignee Name are blank. Unable to map import customer.');
+        };
         return this._db.$transaction(async (prisma) => {
             const sourceJobDate = sourceMasterJob.MasterJobDate ? new Date(sourceMasterJob.MasterJobDate) : new Date();
             let generatedMasterJobNumber = await this.numberSeriesService.generateNextNumber(
@@ -6890,11 +6926,9 @@ console.log('Created product:', createdProduct);
                     });
                     generatedShipmentNo = `HOUSE-${shipmentDateString}-${(houseCount + shipmentSerial).toString().padStart(3, '0')}`;
                 }
-                                const destinationCustomerMasterSid = await resolveDestinationCustomerSidByName(sourceHouseJob.CustomerName || '');
-                if (!destinationCustomerMasterSid) {
-                    throw new BadRequestException(`Customer "${sourceHouseJob.CustomerName || 'Unknown'}" not found in destination company`);
-                }
-                const destinationCustomerBranchSid = await resolveDestinationCustomerBranchSid(destinationCustomerMasterSid, sourceHouseJob.CustomerBranchSid || null);
+                                const importCustomerMapping = await resolveImportCustomerMapping(sourceHouseJob);
+                const destinationCustomerMasterSid = importCustomerMapping.customerMasterSid;
+                const destinationCustomerBranchSid = await resolveDestinationCustomerBranchSid(destinationCustomerMasterSid, null);
                 const destinationHouseAgentSid = await resolveDestinationCustomerSidByName(sourceHouseJob.AgentName || '');
 
                 const createdHouseJob = await prisma.houseJob.create({
@@ -6907,8 +6941,8 @@ console.log('Created product:', createdProduct);
                         CompanyMasterSid: destinationCompanyMasterSid,
                         BranchMasterSid: DestinationBranchMasterSid,
                         CustomerMasterSid: destinationCustomerMasterSid,
-                        CustomerName: sourceHouseJob.CustomerName || '',
-                        CustomerAddress: sourceHouseJob.CustomerAddress || '',
+                        CustomerName: importCustomerMapping.customerName,
+                        CustomerAddress: importCustomerMapping.customerAddress,
                         SalesmanSid: null,
                         CargoExpectedon: sourceHouseJob.CargoExpectedon || null,
                         FreightTerms: sourceHouseJob.FreightTerms || '',
@@ -7066,6 +7100,8 @@ console.log('Created product:', createdProduct);
         });
     }
 }
+
+
 
 
 
