@@ -104,6 +104,24 @@ export class UnmatchBankReconciliationDto extends BankReconciliationFilterDto {
   CreatedBy?: string;
 }
 
+export class UpdateClearanceBankReconciliationDto extends BankReconciliationFilterDto {
+  @IsArray()
+  @IsNumber({}, { each: true })
+  VoucherHeaderSids: number[];
+
+  @IsOptional()
+  @IsNumber()
+  VoucherTransactionSid?: number;
+
+  @IsNotEmpty()
+  @IsDateString()
+  ClearanceDate: string;
+
+  @IsOptional()
+  @IsString()
+  CreatedBy?: string;
+}
+
 export class BankReconciliationReportDto extends BankReconciliationFilterDto {
   @IsOptional()
   @IsNumber()
