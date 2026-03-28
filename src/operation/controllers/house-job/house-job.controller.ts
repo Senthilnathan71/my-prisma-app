@@ -293,6 +293,32 @@ async createHouseJob(@Body() payload: any) {
     }
     return output
   }
+
+  @ApiOperation({ summary: 'Delete House Job Connection By ID' })
+  @ApiCreatedResponse({
+    description: 'House Job Connection deleted successfully',
+    type: ResponseData
+  })
+  @Delete(['connection/:HouseJobConnectionSid', 'connection/delete/:HouseJobConnectionSid'])
+  async deleteHouseJobConnection(@Param('HouseJobConnectionSid', ParseIntPipe) HouseJobConnectionSid: number) {
+    let output = new ResponseData
+    try {
+      const houseJobConnection = await this.houseJobService.softDeleteHouseJobConnection(HouseJobConnectionSid);
+      this.logger.debug(`deleteHouseJobConnection: ${JSON.stringify(houseJobConnection)}`)
+      output.data = houseJobConnection;
+      output.message = "House Job Connection deleted successfully";
+    } catch (error) {
+      this.logger.warn(`deleteHouseJobConnection: ${JSON.stringify(error), error}`)
+      output.status = false;
+      if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+        output.message = error.message;
+      } else {
+        output.message = error;
+      }
+    }
+    return output
+  }
+
 @ApiOperation({ summary: 'Search house job or HAWBill Search'})
 @ApiCreatedResponse({
   description: 'House Job or HAWBill Search',
