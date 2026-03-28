@@ -1,7 +1,7 @@
 ﻿import { BadRequestException, Body, Controller, HttpCode, HttpStatus, Logger, Post, UnauthorizedException } from '@nestjs/common';
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
 import { ResponseData } from 'src/common/response-data';
-import { AutoMatchBankReconciliationDto, BankReconciliationFilterDto, BankReconciliationReportDto, ManualMatchBankReconciliationDto, UnmatchBankReconciliationDto } from '../../dto/bank-reconciliation.dto';
+import { AutoMatchBankReconciliationDto, BankReconciliationFilterDto, BankReconciliationReportDto, ManualMatchBankReconciliationDto, UnmatchBankReconciliationDto, UpdateClearanceBankReconciliationDto } from '../../dto/bank-reconciliation.dto';
 import { BankReconciliationService } from '../../services/bank-reconciliation/bank-reconciliation.service';
 
 @Controller('accounts/bank-reconciliation')
@@ -72,6 +72,23 @@ export class BankReconciliationController {
       resp.message = 'Unmatch completed successfully';
     } catch (error) {
       this.logger.warn(`unmatch error: ${(error as any)?.message || error}`);
+      resp.status = false;
+      resp.message = error instanceof BadRequestException || error instanceof UnauthorizedException ? (error as any).message || 'Bad request' : 'Internal Server Error';
+    }
+    return resp;
+  }
+
+  @ApiOperation({ summary: 'Directly update voucher clearance date' })
+  @ApiCreatedResponse({ description: 'Clearance date updated', type: ResponseData })
+  @HttpCode(HttpStatus.OK)
+  @Post('update-clearance')
+  async updateClearance(@Body() payload: UpdateClearanceBankReconciliationDto) {
+    const resp = new ResponseData();
+    try {
+      resp.data = await this.bankReconciliationService.updateClearance(payload);
+      resp.message = 'Clearance date updated successfully';
+    } catch (error) {
+      this.logger.warn(`updateClearance error: ${(error as any)?.message || error}`);
       resp.status = false;
       resp.message = error instanceof BadRequestException || error instanceof UnauthorizedException ? (error as any).message || 'Bad request' : 'Internal Server Error';
     }

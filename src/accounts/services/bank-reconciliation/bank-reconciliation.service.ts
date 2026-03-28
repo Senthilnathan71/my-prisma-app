@@ -2,7 +2,7 @@ import { BadRequestException, Injectable, Logger, NotFoundException } from '@nes
 import { Prisma } from '@prisma/client';
 import { DatabaseService } from 'src/database/database.service';
 import { roundAmount, statusWhereClause, toNumber } from 'src/common/helper';
-import { AutoMatchBankReconciliationDto, BankReconciliationFilterDto, BankReconciliationReportDto, BankStatementRowDto, ManualMatchBankReconciliationDto, UnmatchBankReconciliationDto } from '../../dto/bank-reconciliation.dto';
+import { AutoMatchBankReconciliationDto, BankReconciliationFilterDto, BankReconciliationReportDto, BankStatementRowDto, ManualMatchBankReconciliationDto, UnmatchBankReconciliationDto, UpdateClearanceBankReconciliationDto } from '../../dto/bank-reconciliation.dto';
 
 type ReconStatus = 'Reconciled' | 'Unreconciled';
 
@@ -108,6 +108,66 @@ export class BankReconciliationService {
     return { status: 'Unreconciled', voucherHeaderSid: updated.VoucherHeaderSid, voucherNumber: updated.VoucherNumber };
   }
 
+  async updateClearance(payload: UpdateClearanceBankReconciliationDto) {
+    if (!payload.VoucherHeaderSids?.length) {
+      throw new BadRequestException('Please select at least one voucher row');
+    }
+
+    const clearanceDate = new Date(payload.ClearanceDate);
+    if (Number.isNaN(clearanceDate.getTime())) {
+      throw new BadRequestException('Invalid clearance date');
+    }
+
+    const voucherHeaderSids = Array.from(new Set(payload.VoucherHeaderSids.map((id) => Number(id)).filter((id) => Number.isFinite(id) && id > 0)));
+    if (!voucherHeaderSids.length) {
+      throw new BadRequestException('Please select at least one valid voucher row');
+    }
+
+    const updated = await this._db.$transaction(async (tx) => {
+      const items = await tx.voucherHeader.findMany({
+        where: {
+          VoucherHeaderSid: { in: voucherHeaderSids },
+          CompanyMasterSid: payload.CompanyMasterSid,
+          BranchMasterSid: payload.BranchMasterSid,
+          Status: statusWhereClause,
+        },
+      });
+
+      if (!items.length) {
+        throw new NotFoundException('Selected voucher row(s) not found');
+      }
+
+      const updatedItems: Array<{
+        voucherHeaderSid: number;
+        voucherNumber: string;
+        clearanceDate: Date | null;
+      }> = [];
+      for (const voucher of items) {
+        const result = await tx.voucherHeader.update({
+          where: { VoucherHeaderSid: voucher.VoucherHeaderSid },
+          data: {
+            ClearanceDate: clearanceDate,
+            UpdatedOn: new Date(),
+            UpdatedBy: payload.CreatedBy || 'System',
+          },
+        });
+        updatedItems.push({
+          voucherHeaderSid: result.VoucherHeaderSid,
+          voucherNumber: result.VoucherNumber,
+          clearanceDate: result.ClearanceDate,
+        });
+      }
+      return updatedItems;
+    });
+
+    return {
+      status: 'Cleared',
+      updatedCount: updated.length,
+      items: updated,
+      clearanceDate: payload.ClearanceDate,
+    };
+  }
+
   async generateReport(payload: BankReconciliationReportDto) {
     const bookRows = await this.loadBookTransactions(payload);
     const bankRows = (payload.BankTransactions || []).map((row) => this.mapBankStatementRow(row));
@@ -192,7 +252,9 @@ export class BankReconciliationService {
       }))
       .filter((row) => {
         if (!normalizedSearch) return true;
-        return [row.VoucherNumber, row.ReferenceNumber, row.Narration, row.LedgerName, row.PartyName].filter(Boolean).some((value) => String(value).toUpperCase().includes(normalizedSearch));
+        return [row.VoucherNumber, row.ReferenceNumber, row.Narration]
+          .filter(Boolean)
+          .some((value) => String(value).toUpperCase().includes(normalizedSearch));
       })
       .filter((row) => {
         if (filter.ClearanceFilter === 'WITH') return !!row.ClearanceDate;
