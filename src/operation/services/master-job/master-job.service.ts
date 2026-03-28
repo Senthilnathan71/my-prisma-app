@@ -4009,7 +4009,7 @@ private async updateMasterJobTotals(masterJobSid: number): Promise<void> {
                     MasterJobNumber: masterJobNumber,
                     MasterJobDate: parseDate(masterJobData.MasterJobDate) || new Date(),
                     CreatedBy: createdBy,
-                    Status: 'A',
+                    status: 'A',
                     CompanyMasterSid: companyMasterSid,
                     BranchMasterSid: branchMasterSid,
                     DepartmentMasterSid: masterJobData.DepartmentMasterSid,
@@ -4846,7 +4846,7 @@ private async updateMasterJobTotals(masterJobSid: number): Promise<void> {
                 MasterJobNumber: { not: null },
                 CompanyMasterSid,
                 BranchMasterSid,
-                Status: 'A',
+                status: 'A',
                 ...(DepartmentMasterSid && { DepartmentMasterSid }),
                 ...(SearchText && {
                     MasterJobNumber: { contains: SearchText, mode: 'insensitive' },
@@ -6557,11 +6557,12 @@ console.log('Created product:', createdProduct);
     async pullMasterJobToImportBranch(payload: {
         MasterJobSid: number;
         DestinationBranchMasterSid: number;
+        DestinationCompanyMasterSid?: number;
         SourceBranchMasterSid?: number;
         CompanyMasterSid?: number;
         CreatedBy?: string;
     }) {
-        const { MasterJobSid, DestinationBranchMasterSid, CreatedBy } = payload || {};
+        const { MasterJobSid, DestinationBranchMasterSid, DestinationCompanyMasterSid, CreatedBy } = payload || {};
 
         if (!MasterJobSid) {
             throw new BadRequestException('MasterJobSid is required');
@@ -6602,13 +6603,32 @@ console.log('Created product:', createdProduct);
             throw new NotFoundException('Source Master Job not found');
         }
 
+        const destinationCompanyMasterSid = Number(DestinationCompanyMasterSid || sourceMasterJob.CompanyMasterSid);
+
         const sourceMasterJobOther = (sourceMasterJob.others?.[0] as any) || null;
         if (sourceMasterJobOther?.ExportToImport === 'Y') {
             throw new BadRequestException('Pull To Import already completed for this master job');
         }
 
-        if (sourceMasterJob.BranchMasterSid === DestinationBranchMasterSid) {
+        if (sourceMasterJob.CompanyMasterSid === destinationCompanyMasterSid && sourceMasterJob.BranchMasterSid === DestinationBranchMasterSid) {
             throw new BadRequestException('Destination branch must be different from source branch');
+        }
+
+        const destinationBranch = await this._db.branchMaster.findFirst({
+            where: {
+                BranchMasterSid: DestinationBranchMasterSid,
+                CompanyMasterSid: destinationCompanyMasterSid,
+                status: 'A',
+            },
+            select: {
+                BranchMasterSid: true,
+                branchName: true,
+                CompanyMasterSid: true,
+            }
+        });
+
+        if (!destinationBranch) {
+            throw new BadRequestException('Destination branch not found in the selected destination company');
         }
 
         const sourceDepartment = await this._db.departmentMaster.findFirst({
@@ -6636,7 +6656,7 @@ console.log('Created product:', createdProduct);
 
         const destinationDepartment = await this._db.departmentMaster.findFirst({
             where: {
-                CompanyMasterSid: sourceMasterJob.CompanyMasterSid,
+                CompanyMasterSid: destinationCompanyMasterSid,
                 Status: 'A',
                 departmentType: sourceDepartment.departmentType,
                 ExportImport: 'Import',
@@ -6658,11 +6678,78 @@ console.log('Created product:', createdProduct);
         const masterMenuSid = await this.menuMasterService.getMenuSidByName(masterMenuName);
         const houseMenuSid = await this.menuMasterService.getMenuSidByName(houseMenuName);
         const createdBy = CreatedBy || 'system';
-
+        const resolveDestinationCustomerSidByName = async (customerName: string): Promise<number | null> => {
+            const trimmedName = (customerName || '').trim();
+            if (!trimmedName) {
+                return null;
+            }
+            const destinationCustomer = await this._db.customerMaster.findFirst({
+                where: {
+                    CompanyMasterSid: destinationCompanyMasterSid,
+                    CustomerName: trimmedName,
+                    status: 'A',
+                },
+                select: {
+                    CustomerMasterSid: true,
+                },
+            });
+            return destinationCustomer?.CustomerMasterSid || null;
+        };
+        const resolveDestinationCustomerBranchSid = async (
+            customerMasterSid: number | null,
+            sourceCustomerBranchSid: number | null,
+        ): Promise<number | null> => {
+            if (!customerMasterSid) {
+                return null;
+            }
+            let sourceBranchName = '';
+            if (sourceCustomerBranchSid) {
+                const sourceCustomerBranch = await this._db.customerBranch.findFirst({
+                    where: {
+                        CustomerBranchSid: sourceCustomerBranchSid,
+                        status: 'A',
+                    },
+                    select: {
+                        BranchName: true,
+                    },
+                });
+                sourceBranchName = sourceCustomerBranch?.BranchName || '';
+            }
+            if (sourceBranchName) {
+                const matchedDestinationBranch = await this._db.customerBranch.findFirst({
+                    where: {
+                        CustomerMasterSid: customerMasterSid,
+                        CompanyMasterSid: destinationCompanyMasterSid,
+                        BranchName: sourceBranchName,
+                        status: 'A',
+                    },
+                    select: {
+                        CustomerBranchSid: true,
+                    },
+                });
+                if (matchedDestinationBranch?.CustomerBranchSid) {
+                    return matchedDestinationBranch.CustomerBranchSid;
+                }
+            }
+            const fallbackDestinationBranch = await this._db.customerBranch.findFirst({
+                where: {
+                    CustomerMasterSid: customerMasterSid,
+                    CompanyMasterSid: destinationCompanyMasterSid,
+                    status: 'A',
+                },
+                orderBy: {
+                    CustomerBranchSid: 'asc',
+                },
+                select: {
+                    CustomerBranchSid: true,
+                },
+            });
+            return fallbackDestinationBranch?.CustomerBranchSid || null;
+        };
         return this._db.$transaction(async (prisma) => {
             const sourceJobDate = sourceMasterJob.MasterJobDate ? new Date(sourceMasterJob.MasterJobDate) : new Date();
             let generatedMasterJobNumber = await this.numberSeriesService.generateNextNumber(
-                sourceMasterJob.CompanyMasterSid,
+                destinationCompanyMasterSid,
                 DestinationBranchMasterSid,
                 masterMenuSid,
                 destinationDepartment.DepartmentMasterSid,
@@ -6682,14 +6769,14 @@ console.log('Created product:', createdProduct);
                     MasterJobNumber: generatedMasterJobNumber,
                     MasterJobDate: sourceJobDate,
                     FreightPPCC: sourceMasterJob.FreightPPCC,
-                    DestinationAgent: sourceMasterJob.DestinationAgent,
+                    DestinationAgent: await resolveDestinationCustomerSidByName(sourceMasterJob.DestinationAgentName || ''),
                     DestinationAgentName: sourceMasterJob.DestinationAgentName || '',
                     DestinationAgentAddress: sourceMasterJob.DestinationAgentAddress || '',
                     MBLNo: sourceMasterJob.MBLNo || '',
                     MBLDate: sourceMasterJob.MBLDate,
                     BLReleaseType: sourceMasterJob.BLReleaseType,
                     NoofOriginal: sourceMasterJob.NoofOriginal,
-                    OriginAgent: sourceMasterJob.OriginAgent,
+                    OriginAgent: destinationCompanyMasterSid === sourceMasterJob.CompanyMasterSid ? sourceMasterJob.OriginAgent : null,
                     POO: sourceMasterJob.POO || '',
                     POL: sourceMasterJob.POL || '',
                     POD: sourceMasterJob.POD || '',
@@ -6716,7 +6803,7 @@ console.log('Created product:', createdProduct);
                     TsPortSid: sourceMasterJob.TsPortSid,
                     Status: 'A',
                     CreatedBy: createdBy,
-                    CompanyMasterSid: sourceMasterJob.CompanyMasterSid,
+                    CompanyMasterSid: destinationCompanyMasterSid,
                     BranchMasterSid: DestinationBranchMasterSid,
                     DepartmentMasterSid: destinationDepartment.DepartmentMasterSid,
                     MenuMasterSid: masterMenuSid,
@@ -6789,7 +6876,7 @@ console.log('Created product:', createdProduct);
                 shipmentSerial += 1;
                 const shipmentDate = sourceHouseJob.HBLDate ? new Date(sourceHouseJob.HBLDate) : sourceJobDate;
                 let generatedShipmentNo = await this.numberSeriesService.generateNextNumber(
-                    sourceMasterJob.CompanyMasterSid,
+                    destinationCompanyMasterSid,
                     DestinationBranchMasterSid,
                     houseMenuSid,
                     destinationDepartment.DepartmentMasterSid,
@@ -6803,19 +6890,26 @@ console.log('Created product:', createdProduct);
                     });
                     generatedShipmentNo = `HOUSE-${shipmentDateString}-${(houseCount + shipmentSerial).toString().padStart(3, '0')}`;
                 }
-                const destinationCustomerBranchSid = sourceHouseJob.CustomerBranchSid || null;                const createdHouseJob = await prisma.houseJob.create({
+                                const destinationCustomerMasterSid = await resolveDestinationCustomerSidByName(sourceHouseJob.CustomerName || '');
+                if (!destinationCustomerMasterSid) {
+                    throw new BadRequestException(`Customer "${sourceHouseJob.CustomerName || 'Unknown'}" not found in destination company`);
+                }
+                const destinationCustomerBranchSid = await resolveDestinationCustomerBranchSid(destinationCustomerMasterSid, sourceHouseJob.CustomerBranchSid || null);
+                const destinationHouseAgentSid = await resolveDestinationCustomerSidByName(sourceHouseJob.AgentName || '');
+
+                const createdHouseJob = await prisma.houseJob.create({
                     data: {
                         MasterJobSid: createdMasterJob.MasterJobSid,
                         BookingHeaderSid: null,
                         ColoadedBy: sourceHouseJob.ColoadedBy || '',
                         BookingNo: '',
                         BookingDateTime: null,
-                        CompanyMasterSid: sourceMasterJob.CompanyMasterSid,
+                        CompanyMasterSid: destinationCompanyMasterSid,
                         BranchMasterSid: DestinationBranchMasterSid,
-                        CustomerMasterSid: sourceHouseJob.CustomerMasterSid,
+                        CustomerMasterSid: destinationCustomerMasterSid,
                         CustomerName: sourceHouseJob.CustomerName || '',
                         CustomerAddress: sourceHouseJob.CustomerAddress || '',
-                        SalesmanSid: sourceHouseJob.SalesmanSid || null,
+                        SalesmanSid: null,
                         CargoExpectedon: sourceHouseJob.CargoExpectedon || null,
                         FreightTerms: sourceHouseJob.FreightTerms || '',
                         POO: sourceHouseJob.POO || '',
@@ -6824,7 +6918,7 @@ console.log('Created product:', createdProduct);
                         FPD: sourceHouseJob.FPD || '',
                         TsPortSid: sourceHouseJob.TsPortSid || null,
                         POLTerminal: sourceHouseJob.POLTerminal || '',
-                        VoyageMasterSid: sourceHouseJob.VoyageMasterSid || null,
+                        VoyageMasterSid: null,
                         VesselName: sourceHouseJob.VesselName || '',
                         VoyageNo: sourceHouseJob.VoyageNo || '',
                         HBLDate: shipmentDate,
@@ -6838,7 +6932,7 @@ console.log('Created product:', createdProduct);
                         ConsigneeAddress: sourceHouseJob.ConsigneeAddress || '',
                         ClearanceRequire: sourceHouseJob.ClearanceRequire || '',
                         ShipmentType: sourceHouseJob.ShipmentType || '',
-                        DestinationAgent: sourceHouseJob.DestinationAgent,
+                        DestinationAgent: destinationHouseAgentSid,
                         AgentName: sourceHouseJob.AgentName || '',
                         AgentAddress: sourceHouseJob.AgentAddress || '',
                         HouseNo: sourceHouseJob.HouseNo || '',
@@ -6858,7 +6952,7 @@ console.log('Created product:', createdProduct);
                         AuthorizerRemarks: sourceHouseJob.AuthorizerRemarks || '',
                         authorizerStatus: sourceHouseJob.authorizerStatus || null,
                         MenuMasterSid: houseMenuSid,
-                        CarrierSid: sourceHouseJob.CarrierSid || null,
+                        CarrierSid: null,
                         CarrierName: sourceHouseJob.CarrierName || '',
                         Coload: sourceHouseJob.Coload || '',
                         GeneralNote: sourceHouseJob.GeneralNote || '',
@@ -6873,7 +6967,7 @@ console.log('Created product:', createdProduct);
                         PODTerminal: sourceHouseJob.PODTerminal || '',
                         ShipmentNo: generatedShipmentNo,
                         OriginAgent: sourceHouseJob.OriginAgent || '',
-                        JobType: sourceHouseJob.JobType || 'Import',
+                        JobType: 'Import',
                     }
                 });
 
@@ -6885,7 +6979,7 @@ console.log('Created product:', createdProduct);
                         data: {
                             ...cargoData,
                             HouseJobSid: createdHouseJob.HouseJobSid,
-                            CompanyMasterSid: sourceMasterJob.CompanyMasterSid,
+                            CompanyMasterSid: destinationCompanyMasterSid,
                             BranchMasterSid: DestinationBranchMasterSid,
                             createdBy: createdBy,
                             status: 'A',
@@ -6972,6 +7066,12 @@ console.log('Created product:', createdProduct);
         });
     }
 }
+
+
+
+
+
+
 
 
 
