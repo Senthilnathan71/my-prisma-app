@@ -24,6 +24,8 @@ export class AuditLogService {
                     return this.getAgentMasterAirWaybillLogs(recordId);
                 case 'CreditNote':
                     return this.getCreditNoteLogs(recordId);
+                case 'VendorCreditNote':
+                    return this.getVendorCreditNoteLogs(recordId);
                 case 'CreditRequest':
                     return this.getCreditRequestLogs(recordId);
                 case 'HouseAirwaybill':
@@ -31,7 +33,9 @@ export class AuditLogService {
                 case 'HouseJob':
                     return this.getAgentMasterAirWaybillLogs(recordId);
                 case 'Invoice':
-                    return this.getCreditNoteLogs(recordId);
+                    return this.getInvoiceLogs(recordId);
+                case 'VendorInvoice':
+                    return this.getVendorInvoiceLogs(recordId);
             }
         } catch (error) {
             this.logger.warn(`getAuditLog Error: ${error.message}`);
@@ -1020,21 +1024,25 @@ export class AuditLogService {
         }
     }
 
-    private getCreditNoteLabel(tableName: string): string {
+    private getCreditNoteLabel(tableName: string, voucherLabel = 'Credit Note'): string {
         const sectionMap: Record<string, string> = {
-            VoucherHeader: 'Credit Note',
+            VoucherHeader: voucherLabel,
             VoucherDetail: 'Detail',
             VoucherOthers: 'Others',
         };
         return sectionMap[tableName] || tableName;
     }
 
-    private async getCreditNoteLogs(recordId?: string) {
+    private async getCreditNoteLogs(recordId?: string, voucherLabel = 'Credit Note') {
         try {
             let conditions: any[] = [];
             let detailRows: any[] = [];
 
             const voucherSid = Number(recordId);
+
+            if (!voucherSid) {
+                throw new BadRequestException('Valid recordId is required');
+            }
 
             const [
                 fetchedDetails,
@@ -1042,7 +1050,11 @@ export class AuditLogService {
             ] = await Promise.all([
                 this._db.voucherDetail.findMany({
                     where: { VoucherHeaderSid: voucherSid },
-                    select: { VoucherDetailSid: true }
+                    select: {
+                        VoucherDetailSid: true,
+                        Sno: true,
+                        ChargeMasterSid: true
+                    }
                 }),
                 this._db.voucherOthers.findMany({
                     where: { VoucherHeaderSid: voucherSid },
@@ -1140,7 +1152,7 @@ export class AuditLogService {
 
                 return {
                     ...log,
-                    sectionLabel: this.getCreditNoteLabel(log.tableName),
+                    sectionLabel: this.getCreditNoteLabel(log.tableName, voucherLabel),
                     rowLabel: this.getCreditNoteRowLabel(log, rowLabelMaps, oldVal, newVal),
                     oldVal,
                     newVal
@@ -1152,6 +1164,18 @@ export class AuditLogService {
             this.logger.warn(`getAuditLogsError: ${error}`);
             throw new Error(`Error fetching audit logs: ${error.message}`);
         }
+    }
+
+    private async getVendorCreditNoteLogs(recordId?: string) {
+        return this.getCreditNoteLogs(recordId, 'Vendor Credit Note');
+    }
+
+    private async getInvoiceLogs(recordId?: string) {
+        return this.getCreditNoteLogs(recordId, 'Invoice');
+    }
+
+    private async getVendorInvoiceLogs(recordId?: string) {
+        return this.getCreditNoteLogs(recordId, 'Vendor Invoice');
     }
 
     private getCreditRequestRowLabel(
