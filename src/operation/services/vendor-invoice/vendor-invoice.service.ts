@@ -479,6 +479,7 @@ export class VendorInvoiceService {
                         PartyName: payload.PartyName,
                         PartyAddress: payload.PartyAddress,
                         PlaceOfSupply: payload.PlaceOfSupply,
+                        GSTType : payload.GSTType || 'VAT',
                         GST_VAT: payload.GSTNo || payload.GST_VAT,
                         InvoiceType: payload.InvoiceType,
                         CurrencyMasterSid: currencyMasterSid,
