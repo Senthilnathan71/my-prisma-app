@@ -1384,4 +1384,209 @@ export class ActivityAllocationService {
       generatedDate: moment().format('YYYY-MM-DD HH:mm:ss'),
     };
   }
+
+  // ─── Menu User Config ────────────────────────────────────────
+
+  async getMenuUserConfig(
+    companyMasterSid: number,
+    branchMasterSid?: number,
+  ) {
+    try {
+      const where: any = {
+        CompanyMasterSid: companyMasterSid,
+        Status: 'A',
+      };
+      if (branchMasterSid) {
+        where.BranchMasterSid = branchMasterSid;
+      }
+
+      const configs = await (this.db as any).menuUserConfig.findMany({
+        where,
+        include: {
+          branchMaster: { select: { branchName: true, BranchMasterSid: true } },
+          userMaster: { select: { userName: true, UserMasterSid: true } },
+        },
+        orderBy: { MenuUserConfigSid: 'asc' },
+      });
+
+      return configs.map((c) => ({
+        MenuUserConfigSid: c.MenuUserConfigSid,
+        BranchMasterSid: c.BranchMasterSid,
+        branchName: c.branchMaster?.branchName || '',
+        stage: c.Stage,
+        assignedRole: c.AssignedRole || null,
+        UserMasterSid: c.UserMasterSid || null,
+        userName: c.userMaster?.userName || '',
+      }));
+    } catch (error: any) {
+      this.logger.error(`Error fetching menu user config: ${error.message}`);
+      throw error;
+    }
+  }
+
+  async saveMenuUserConfig(
+    configs: {
+      MenuUserConfigSid?: number;
+      BranchMasterSid: number;
+      stage: string;
+      assignedRole: string | null;
+      UserMasterSid?: number;
+    }[],
+    companyMasterSid: number,
+    userName: string,
+  ) {
+    try {
+      const results: any[] = [];
+
+      for (const cfg of configs) {
+        if (cfg.MenuUserConfigSid) {
+          // Update existing
+          const updated = await (this.db as any).menuUserConfig.update({
+            where: { MenuUserConfigSid: cfg.MenuUserConfigSid },
+            data: {
+              AssignedRole: cfg.assignedRole,
+              UserMasterSid: cfg.UserMasterSid || null,
+              UpdatedBy: userName,
+              UpdatedOn: new Date(),
+            },
+          });
+          results.push(updated);
+        } else {
+          // Upsert: check if exists for this branch+stage
+          const existing = await (this.db as any).menuUserConfig.findFirst({
+            where: {
+              CompanyMasterSid: companyMasterSid,
+              BranchMasterSid: cfg.BranchMasterSid,
+              Stage: cfg.stage,
+              Status: 'A',
+            },
+          });
+
+          if (existing) {
+            const updated = await (this.db as any).menuUserConfig.update({
+              where: { MenuUserConfigSid: existing.MenuUserConfigSid },
+              data: {
+                AssignedRole: cfg.assignedRole,
+                UserMasterSid: cfg.UserMasterSid || null,
+                UpdatedBy: userName,
+                UpdatedOn: new Date(),
+              },
+            });
+            results.push(updated);
+          } else {
+            const created = await (this.db as any).menuUserConfig.create({
+              data: {
+                CompanyMasterSid: companyMasterSid,
+                BranchMasterSid: cfg.BranchMasterSid,
+                Stage: cfg.stage,
+                AssignedRole: cfg.assignedRole,
+                UserMasterSid: cfg.UserMasterSid || null,
+                CreatedBy: userName,
+                Status: 'A',
+              },
+            });
+            results.push(created);
+          }
+        }
+      }
+
+      return { success: true, count: results.length };
+    } catch (error: any) {
+      this.logger.error(`Error saving menu user config: ${error.message}`);
+      throw error;
+    }
+  }
+
+  // ─── CS Users ────────────────────────────────────────────────
+
+  async getCSUsers(companyMasterSid?: number) {
+    try {
+      const where: any = {
+        status: 'A',
+        department: { hasSome: ['CS', 'Customer Service', 'Documentation', 'DOC'] },
+      };
+
+      const users = await this.db.userMaster.findMany({
+        where,
+        select: {
+          UserMasterSid: true,
+          userName: true,
+          department: true,
+        },
+        orderBy: { userName: 'asc' },
+      });
+
+      return users.map((u) => ({
+        userSid: u.UserMasterSid,
+        userName: u.userName,
+      }));
+    } catch (error: any) {
+      this.logger.error(`Error fetching CS users: ${error.message}`);
+      throw error;
+    }
+  }
+
+  // ─── Update CS Person ────────────────────────────────────────
+
+  async updateCSPerson(
+    activityId: number,
+    csUserSid: number,
+    updatedBy: string,
+  ) {
+    try {
+      // Find the ActivityResourceAllocation record
+      const record = await this.db.activityResourceAllocation.findUnique({
+        where: { ActivityResourceAllocationSid: activityId },
+      });
+
+      if (!record) {
+        throw new BadRequestException(
+          `Activity allocation record ${activityId} not found`,
+        );
+      }
+
+      // Verify the CS user exists
+      const csUser = await this.db.userMaster.findUnique({
+        where: { UserMasterSid: csUserSid },
+        select: { UserMasterSid: true, userName: true },
+      });
+
+      if (!csUser) {
+        throw new BadRequestException(`CS user ${csUserSid} not found`);
+      }
+
+      // Update BookingOthers or HouseJobOthers CustomerServiceuser (stored as userName string)
+      if (record.BookingHeaderSid) {
+        await this.db.bookingOthers.updateMany({
+          where: { BookingHeaderSid: record.BookingHeaderSid },
+          data: { CustomerServiceuser: csUser.userName },
+        });
+      }
+
+      if (record.HouseJobSid) {
+        await this.db.houseJobOthers.updateMany({
+          where: { HouseJobSid: record.HouseJobSid },
+          data: { CustomerServiceuser: csUser.userName },
+        });
+      }
+
+      // Also update the allocation record's UpdatedBy/UpdatedOn
+      await this.db.activityResourceAllocation.update({
+        where: { ActivityResourceAllocationSid: activityId },
+        data: {
+          UpdatedBy: updatedBy,
+          UpdatedOn: new Date(),
+        },
+      });
+
+      return {
+        success: true,
+        message: `CS person updated to ${csUser.userName}`,
+      };
+    } catch (error: any) {
+      this.logger.error(`Error updating CS person: ${error.message}`);
+      if (error instanceof BadRequestException) throw error;
+      throw new BadRequestException('Failed to update CS person');
+    }
+  }
 }

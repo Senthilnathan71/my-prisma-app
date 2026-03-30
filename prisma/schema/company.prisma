@@ -28,6 +28,7 @@ model CompanyMaster {
   Pan                        String?                      @db.VarChar(20)
   config                     Json?
   ActivityResourceAllocation ActivityResourceAllocation[]
+  MenuUserConfig             MenuUserConfig[]
   AttachDocumentGroup        AttachDocumentGroup[]
   authorityDetail            AuthorityDetail[]
   AuthorityLog               AuthorityLog[]
@@ -177,6 +178,7 @@ model BranchMaster {
   BookingPrefix              String?                      @db.VarChar(20)
   LastBookingNo              Int?                         @default(0)
   ActivityResourceAllocation ActivityResourceAllocation[]
+  MenuUserConfig             MenuUserConfig[]
   AttachDocumentGroup        AttachDocumentGroup[]
   authorityDetail            AuthorityDetail[]
   AuthorityLog               AuthorityLog[]
@@ -269,6 +271,7 @@ model UserMaster {
   masterActivityResourceAllocation   ActivityResourceAllocation[] @relation("MASTERUSER")
   quoteActivityResourceAllocation    ActivityResourceAllocation[] @relation("QUOUSER")
   shippingActivityResourceAllocation ActivityResourceAllocation[] @relation("SIUSER")
+  menuUserConfig                     MenuUserConfig[]
   authorityDetail                    AuthorityDetail[]
   customerCreditRequest              CustomerCreditRequest[]
   CustomerSalesTeamCS                CustomerSalesTeam[]          @relation("CSPerson")

@@ -516,3 +516,20 @@ model ActivityResourceAllocation {
   quoteUser                     UserMaster?    @relation("QUOUSER", fields: [QuoteUser], references: [UserMasterSid])
   siUser                        UserMaster?    @relation("SIUSER", fields: [SIUser], references: [UserMasterSid])
 }
+
+model MenuUserConfig {
+  MenuUserConfigSid Int          @id @default(autoincrement())
+  CompanyMasterSid  Int
+  BranchMasterSid   Int
+  Stage             String       @db.VarChar(50)
+  AssignedRole      String?      @db.VarChar(10)
+  UserMasterSid     Int?
+  CreatedOn         DateTime     @default(now())
+  CreatedBy         String?      @db.VarChar(100)
+  UpdatedOn         DateTime?    @updatedAt
+  UpdatedBy         String?      @db.VarChar(100)
+  Status            String?      @default("A") @db.Char(1)
+  branchMaster      BranchMaster @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
+  companyMaster     CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+  userMaster        UserMaster?  @relation(fields: [UserMasterSid], references: [UserMasterSid])
+}

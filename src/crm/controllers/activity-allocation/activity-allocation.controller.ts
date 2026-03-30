@@ -1,6 +1,7 @@
 import {
   Controller,
   Get,
+  Post,
   Patch,
   Query,
   Param,
@@ -243,6 +244,141 @@ export class ActivityAllocationController {
   }
 
  
+  // ─── Menu User Config ────────────────────────────────────────
+
+  @ApiOperation({ summary: 'Get Menu User Configuration' })
+  @HttpCode(HttpStatus.OK)
+  @Get('menu-user-config')
+  async getMenuUserConfig(
+    @UserData() user: any,
+    @Query('branchId') branchId?: string,
+    @Query('companyId') companyId?: string,
+  ): Promise<ResponseData> {
+    const output = new ResponseData();
+    try {
+      const companyMasterSid = companyId ? Number(companyId) : 7;
+      const branchMasterSid = branchId ? Number(branchId) : undefined;
+
+      const configs = await this.activityAllocationService.getMenuUserConfig(
+        companyMasterSid,
+        branchMasterSid,
+      );
+
+      output.data = configs;
+      output.message = 'Menu user configuration fetched successfully';
+      output.status = true;
+    } catch (error: any) {
+      this.logger.warn(`Error fetching menu user config: ${error.message}`);
+      output.status = false;
+      output.message = 'Failed to fetch menu user configuration';
+    }
+    return output;
+  }
+
+  @ApiOperation({ summary: 'Save Menu User Configuration' })
+  @HttpCode(HttpStatus.OK)
+  @Post('menu-user-config')
+  async saveMenuUserConfig(
+    @Body() body: { configs: any[] },
+    @UserData() user: any,
+    @Query('companyId') companyId?: string,
+  ): Promise<ResponseData> {
+    const output = new ResponseData();
+    try {
+      if (!body.configs || !Array.isArray(body.configs)) {
+        throw new BadRequestException('configs array is required');
+      }
+
+      const companyMasterSid = companyId ? Number(companyId) : 7;
+      const userName = user?.userName || user?.email || 'system';
+
+      const result = await this.activityAllocationService.saveMenuUserConfig(
+        body.configs,
+        companyMasterSid,
+        userName,
+      );
+
+      output.data = result;
+      output.message = 'Menu user configuration saved successfully';
+      output.status = true;
+    } catch (error: any) {
+      this.logger.warn(`Error saving menu user config: ${error.message}`);
+      output.status = false;
+      output.message =
+        error instanceof BadRequestException
+          ? error.message
+          : 'Failed to save menu user configuration';
+    }
+    return output;
+  }
+
+  // ─── CS Users ────────────────────────────────────────────────
+
+  @ApiOperation({ summary: 'Get Customer Service Users' })
+  @HttpCode(HttpStatus.OK)
+  @Get('cs-users')
+  async getCSUsers(
+    @UserData() user: any,
+    @Query('companyId') companyId?: string,
+  ): Promise<ResponseData> {
+    const output = new ResponseData();
+    try {
+      const companyMasterSid = companyId ? Number(companyId) : undefined;
+
+      const users =
+        await this.activityAllocationService.getCSUsers(companyMasterSid);
+
+      output.data = users;
+      output.message = 'CS users fetched successfully';
+      output.status = true;
+    } catch (error: any) {
+      this.logger.warn(`Error fetching CS users: ${error.message}`);
+      output.status = false;
+      output.message = 'Failed to fetch CS users';
+    }
+    return output;
+  }
+
+  // ─── Update CS Person ────────────────────────────────────────
+
+  @ApiOperation({ summary: 'Update CS Person for Activity' })
+  @HttpCode(HttpStatus.OK)
+  @Patch('cs-person/:activityId')
+  async updateCSPerson(
+    @Param('activityId', ParseIntPipe) activityId: number,
+    @Body() body: { csUserSid: number },
+    @UserData() user: any,
+  ): Promise<ResponseData> {
+    const output = new ResponseData();
+    try {
+      if (!body.csUserSid) {
+        throw new BadRequestException('csUserSid is required');
+      }
+
+      const updatedBy = user?.userName || user?.email || 'system';
+
+      const result = await this.activityAllocationService.updateCSPerson(
+        activityId,
+        body.csUserSid,
+        updatedBy,
+      );
+
+      output.data = result;
+      output.message = result.message;
+      output.status = result.success;
+    } catch (error: any) {
+      this.logger.warn(`Error updating CS person: ${error.message}`);
+      output.status = false;
+      output.message =
+        error instanceof BadRequestException
+          ? error.message
+          : 'Failed to update CS person';
+    }
+    return output;
+  }
+
+  // ─── Validators ──────────────────────────────────────────────
+
   private validateMode(mode?: string): SummaryMode {
     if (!mode) return 'Pending';
 
