@@ -26,6 +26,8 @@ export class AuditLogService {
                     return this.getCreditNoteLogs(recordId);
                 case 'VendorCreditNote':
                     return this.getVendorCreditNoteLogs(recordId);
+                case 'ReverseVoucher':
+                    return this.getReverseVoucherLogs(recordId);
                 case 'CreditRequest':
                     return this.getCreditRequestLogs(recordId);
                 case 'HouseAirwaybill':
@@ -36,6 +38,14 @@ export class AuditLogService {
                     return this.getInvoiceLogs(recordId);
                 case 'VendorInvoice':
                     return this.getVendorInvoiceLogs(recordId);
+                case 'MasterJob':
+                    return this.getMasterJobLogs(recordId);
+                case 'MasterAirwayBill':
+                    return this.getMasterJobLogs(recordId);
+                case 'ServiceJob':
+                    return this.getAgentMasterAirWaybillLogs(recordId);
+                case 'Receipt':
+                    return this.getReceiptLogs(recordId);
             }
         } catch (error) {
             this.logger.warn(`getAuditLog Error: ${error.message}`);
@@ -1089,17 +1099,57 @@ export class AuditLogService {
                 }
             });
 
-            const [charges] = await Promise.all([
+            const [charges,currencies,coa, profit,cost] = await Promise.all([
                 this._db.chargeMaster.findMany({
                     select: {
                         ChargeMasterSid: true,
                         chargeCode: true
+                    }
+                }),
+                this._db.currencyMaster.findMany({
+                    select: {
+                        CurrencyMasterSid: true,
+                        currencyCode: true
+                    }
+                }),
+                this._db.cOAMaster.findMany({
+                    select: {
+                        COAMasterSid: true,
+                        LedgerName: true
+                    }
+                }),
+                this._db.profitCenterMaster.findMany({
+                    select:{
+                        ProfitCenterMasterSid: true,
+                        ProfitCenterName: true
+                    }
+                }),
+                this._db.costCenterMaster.findMany({
+                    select:{
+                        CostCenterMasterSid: true,
+                        CostCenterName: true
                     }
                 })
             ])
 
             const chargeMap = new Map<string, string>(
                 charges.map(c => [String(c.ChargeMasterSid), c.chargeCode])
+            );
+
+            const currencyMap = new Map<string, string>(
+                currencies.map(c => [String(c.CurrencyMasterSid), c.currencyCode])
+            );
+
+            const coaMap = new Map<string, string>(
+                coa.map(c => [String(c.COAMasterSid), c.LedgerName ?? ''])
+            );
+
+            const profitMap = new Map<string, string>(
+                profit.map(p => [String(p.ProfitCenterMasterSid), p.ProfitCenterName])
+            );
+
+            const costMap = new Map<string, string>(
+                cost.map(c => [String(c.CostCenterMasterSid), c.CostCenterName])
             );
 
             const detailMap = new Map<string, string>(
@@ -1141,6 +1191,18 @@ export class AuditLogService {
                 this.replaceAndRename(oldVal, 'ChargeMasterSid', 'Charge', chargeMap);
                 this.replaceAndRename(newVal, 'ChargeMasterSid', 'Charge', chargeMap);
 
+                this.replaceAndRename(oldVal, 'CurrencyMasterSid', 'Currency', currencyMap);
+                this.replaceAndRename(newVal, 'CurrencyMasterSid', 'Currency', currencyMap);
+
+                this.replaceAndRename(oldVal, 'COAMasterSid', 'Ledger', coaMap);
+                this.replaceAndRename(newVal, 'COAMasterSid', 'Ledger', coaMap);
+
+                this.replaceAndRename(oldVal, 'CostCenter', 'CostCenter', costMap);
+                this.replaceAndRename(newVal, 'CostCenter', 'CostCenter', costMap);
+
+                this.replaceAndRename(oldVal, 'ProfitCenter', 'ProfitCenter', profitMap);
+                this.replaceAndRename(newVal, 'ProfitCenter', 'ProfitCenter', profitMap);
+
                 this.replaceValueFromMap(oldVal, 'PostStatus', PostStatus);
                 this.replaceValueFromMap(newVal, 'PostStatus', PostStatus);
 
@@ -1176,6 +1238,14 @@ export class AuditLogService {
 
     private async getVendorInvoiceLogs(recordId?: string) {
         return this.getCreditNoteLogs(recordId, 'Vendor Invoice');
+    }
+
+    private async getReverseVoucherLogs(recordId?: string) {
+        return this.getCreditNoteLogs(recordId, 'Reverse Voucher')
+    }
+
+    private async getReceiptLogs(recordId?: string) {
+        return this.getCreditNoteLogs(recordId, 'Receipt')
     }
 
     private getCreditRequestRowLabel(
@@ -1389,6 +1459,484 @@ export class AuditLogService {
                 };
             });
 
+            return formattedLogs;
+        } catch (error) {
+            this.logger.warn(`getAuditLogsError: ${error}`);
+            throw new Error(`Error fetching audit logs: ${error.message}`);
+        }
+    }
+
+    private getMasterJobRowLabel(
+        log: any,
+        rowLabelMaps: {
+            containerMap: Map<string, string>;
+            connectionMap: Map<string, string>;
+            rateMap: Map<string, string>;
+            activityMap: Map<string, string>;
+        },
+        oldVal: Record<string, any>,
+        newVal: Record<string, any>
+    ): string | null {
+        const recordId = String(log.recordId ?? '');
+        switch (log.tableName) {
+            case 'MasterJobConnection':
+                return (
+                    rowLabelMaps.connectionMap.get(recordId) || 
+                    `Connection [${newVal.VesselName || oldVal.VesselName || recordId}]`
+                );
+            case 'MasterJobContainer':
+                return (
+                    rowLabelMaps.containerMap.get(recordId) ||
+                    `Container [${newVal.ContainerNumber || oldVal.ContainerNumber || recordId}]`
+                );
+            case 'CostRevenueCharges':
+                return (
+                    rowLabelMaps.rateMap.get(recordId) ||
+                    `Rate [${newVal.SerialNumber || oldVal.SerialNumber || recordId} - ${newVal.Charge || oldVal.Charge || ''}]`
+                );
+            case 'ContainerActivity':
+                return (
+                    rowLabelMaps.activityMap.get(recordId) ||
+                    `Activity [${newVal.ActivityName || oldVal.ActivityName || recordId}]`
+                );
+            default:
+                return null;
+        }
+    }
+
+    private getMasterJobLabel(tableName: string): string {
+        const sectionMap: Record<string, string> = {
+            MasterJob: 'Master',
+            MasterJobVoyage: 'Master',
+            MasterJobContainer: 'Container',
+            MasterJobOthers: 'Others',
+            MasterJobConnection: 'Connection',
+            CostRevenueCharges: 'Rates',
+            HouseJobCustoms: 'Customs',
+            ContainerActivity: 'Container Activity'
+        };
+        return sectionMap[tableName] || tableName;
+    }
+
+    private async getMasterJobLogs(recordId?: string) {
+        try {
+            let conditions: any[] = [];
+            let containerRows: any[] = [];
+            let connectionRows: any[] = [];
+            let rateRows: any[] = [];
+            let activityRows: any[] = [];
+
+            const masterJobSid = Number(recordId);
+
+            const [
+                voyage,
+                fetchedContainers,
+                others,
+                fetchedConnections,
+                fetchedRates,
+                customs,
+                fetchedactivities
+            ] = await Promise.all([
+                this._db.masterJobVoyage.findMany({
+                    where: { MasterJobSid: masterJobSid },
+                    select: { MasterJobVoyageSid: true}
+                }),
+                this._db.masterJobContainer.findMany({
+                    where: { MasterJobSid: masterJobSid },
+                    select: {
+                        MasterJobContainerSid: true,
+                        ContainerNumber: true
+                    }
+                }),
+                this._db.masterJobOthers.findMany({
+                    where: { MasterJobSid: masterJobSid},
+                    select: { MasterJobOthersSid: true}
+                }),
+                this._db.masterJobConnection.findMany({
+                    where: { MasterJobSid: masterJobSid},
+                    select: {
+                        MasterJobConnectionSid: true,
+                        VesselName: true
+                    }
+                }),
+                this._db.costRevenueCharges.findMany({
+                    where: { TransactionSid: masterJobSid },
+                    select: {
+                        CostRevenueChargesSid: true,
+                        SerialNumber: true,
+                        ChargeMasterSid: true
+                    }
+                }),
+                this._db.houseJobCustoms.findMany({
+                    where: { MasterJobSid: masterJobSid },
+                    select: { HouseJobCustomsSid: true}
+                }),
+                this._db.containerActivity.findMany({
+                    where: { JobMasterSid: masterJobSid },
+                    select: {
+                        ContainerActivitySid: true,
+                        ActivityName: true
+                    }
+                })
+            ]);
+            containerRows = fetchedContainers;
+            connectionRows = fetchedConnections;
+            rateRows = fetchedRates;
+            activityRows = fetchedactivities;
+
+            conditions = [
+                {
+                    tableName: 'MasterJob',
+                    recordId: recordId
+                },
+                {
+                    tableName: 'MasterJobVoyage',
+                    recordId: { in: voyage.map(x => x.MasterJobVoyageSid.toString())}
+                },
+                ...(containerRows.length
+                    ? [{
+                        tableName: 'MasterJobContainer',
+                        recordId: { in: containerRows.map(x => x.MasterJobContainerSid.toString())}
+                    }]
+                    : []),
+                {
+                    tableName: 'MasterJobOthers',
+                    recordId: { in: others.map(x => x.MasterJobOthersSid.toString())}
+                },
+                ...(connectionRows.length
+                    ? [{
+                        tableName: 'MasterJobConnection',
+                        recordId: { in: connectionRows.map(x => x.MasterJobConnectionSid.toString())}
+                    }]
+                    :[]),
+                ...(rateRows.length
+                    ? [{
+                        tableName: 'CostRevenueCharges',
+                        recordId: { in: rateRows.map(x => x.CostRevenueChargesSid.toString())}
+                    }]
+                    : []),
+                {
+                    tableName: 'HouseJobCustoms',
+                    recordId: { in: customs.map(x => x.HouseJobCustomsSid.toString())}
+                },
+                ...(activityRows.length
+                    ? [{
+                        tableName: 'ContainerActivity',
+                        recordId: { in: activityRows.map( x => x.ContainerActivitySid.toString())}
+                    }]
+                    : []),
+            ];
+
+            const logs = await this._db.auditLog.findMany({
+                where: {
+                    OR: conditions
+                },
+                orderBy: {
+                    changedAt: 'desc'
+                }
+            });
+
+            const [departments, charges, customers, uoms, currencies, voucher, vouchertype, container] = await Promise.all([
+                this._db.departmentMaster.findMany({
+                    select: {
+                        DepartmentMasterSid: true,
+                        departmentName: true
+                    }
+                }),
+                this._db.chargeMaster.findMany({
+                    select: {
+                        ChargeMasterSid: true,
+                        chargeCode: true
+                    }
+                }),
+                this._db.customerMaster.findMany({
+                    select: {
+                        CustomerMasterSid: true,
+                        CustomerName: true
+                    }
+                }),
+                this._db.uOMMaster.findMany({
+                    select: {
+                        UOMMasterSid: true,
+                        UOMCode: true,
+                        UOMName: true
+                    }
+                }),
+                this._db.currencyMaster.findMany({
+                    select: {
+                        CurrencyMasterSid: true,
+                        currencyCode: true
+                    }
+                }),
+                this._db.voucherHeader.findMany({
+                    select: {
+                        VoucherHeaderSid: true,
+                        VoucherNumber: true
+                    }
+                }),
+                this._db.voucherTypeMaster.findMany({
+                    select: {
+                        VoucherTypeMasterSid: true,
+                        DocumentTypeName: true
+                    }
+                }),
+                this._db.containerTypeMaster.findMany({
+                    select: {
+                        ContainerTypeMasterSid: true,
+                        ContainerName: true
+                    }
+                })
+            ]);
+
+            const departmentMap = new Map<string, string>(
+                departments.map(d => [String(d.DepartmentMasterSid), d.departmentName])
+            );
+
+            const chargeMap = new Map<string, string>(
+                charges.map(c => [String(c.ChargeMasterSid), c.chargeCode])
+            );
+
+            const customerMap = new Map<string, string>(
+                customers.map(c => [String(c.CustomerMasterSid), c.CustomerName])
+            );
+
+            const uomMap = new Map<string, string>(
+                uoms.map(c => [String(c.UOMMasterSid), c.UOMName])
+            );
+
+            const umMap = new Map<string, string>(
+                uoms.map(c => [String(c.UOMMasterSid), c.UOMCode])
+            );
+
+            const currencyMap = new Map<string, string>(
+                currencies.map(c => [String(c.CurrencyMasterSid), c.currencyCode])
+            );
+
+            const voucherMap = new Map<string, string>(
+                voucher.map(c => [String(c.VoucherHeaderSid), c.VoucherNumber])
+            );
+
+            const voucherTypeMap = new Map<string, string>(
+                vouchertype.map(c => [String(c.VoucherTypeMasterSid), c.DocumentTypeName])
+            );
+
+            const containerTypeMap = new Map<string, string>(
+                container.map(c => [String(c.ContainerTypeMasterSid), c.ContainerName])
+            );
+
+            const containerMap = new Map<string, string>(
+                containerRows.map((c) => [
+                    String(c.MasterJobContainerSid),
+                    `Container [${c.ContainerNumber?.toString().trim() || c.MasterJobContainerSid}]`
+                ])
+            );
+
+            const connectionMap = new Map<string, string>(
+                connectionRows.map((co) => [
+                    String(co.MasterJobConnectionSid),
+                    `Connection [${co.VesselName?.toString().trim() || co.MasterJobConnectionSid}]`
+                ])
+            );
+
+            const rateMap = new Map<string, string>(
+                rateRows.map((r) => {
+                    const serial = r.SerialNumber?.toString().trim() || r.CostRevenueChargesSid;
+                    const charge = chargeMap.get(String(r.ChargeMasterSid)) || r.ChargeMasterSid || '';
+                    const label = charge ? `Rate [${serial} - ${charge}]` : `Rate [${serial}]`;
+                    return [
+                        String(r.CostRevenueChargesSid),
+                        label
+                    ];
+                })
+            );
+
+            const activityMap = new Map<string, string>(
+                activityRows.map((a) => [
+                    String(a.ContainerActivitySid),
+                    `Activity [${a.ActivityName?.toString().trim() || a.ContainerActivitySid}]`
+                ])
+            );
+
+            const statusMap = {
+                A: 'Active',
+                S: 'Suspended',
+                D: 'Deleted'
+            };
+
+            const yesNoMap = {
+                Y: 'Yes',
+                N: 'No'
+            };
+
+            const custom = {
+                NCV: 'No Commercial Value',
+                DVC: 'Declared value for Customs'
+            };
+
+            const carriage = {
+                NVD: 'No value declared',
+                DVC: 'Declared value for Carriage',
+            };
+
+            const cargocode = {
+                F: 'FCL Container',
+                L: 'LCL Container',
+                M: 'Empty Container',
+                B: 'Bulk Solid',
+                Q: 'Bulk Liquid',
+                R: 'RO-RO Unit',
+                P: 'Passenger',
+                G: 'General Cargo (Break Bulk)',
+            }
+
+            const un = {
+                U: 'Used',
+                N: 'New'
+            }
+
+            const storagerequest = {
+                D: 'Direct Delivery',
+                S: 'Storage in Sheds',
+                Y: 'Storage in Yards',
+            }
+
+            const temp = {
+                F: 'Fahrenheit',
+                C: 'Celsius',
+            }
+
+            const ignoredFields = [
+                'createdOn', 'createdBy', 'updatedOn', 'updatedBy', 'UpdatedOn', 'CreatedBy', 'CreatedOn', 'UpdatedBy',
+                'VoyageMasterSid', 'CustomerBranchSid', 'CustomerMasterSid', 'CostAgentBranchSid', 'RevenueCustomerBranchSid',
+            ];
+
+            const rowLabelMaps = {
+                containerMap,
+                connectionMap,
+                rateMap,
+                activityMap
+            };
+
+            const formattedLogs = logs.map((log: any) => {
+                const oldVal = { ...(log.oldVal || {}) };
+                const newVal = { ...(log.newVal || {}) };
+
+                this.replaceAndRename(oldVal, 'DepartmentMasterSid', 'Department', departmentMap);
+                this.replaceAndRename(newVal, 'DepartmentMasterSid', 'Department', departmentMap);
+
+                this.replaceAndRename(oldVal, 'ChargeMasterSid', 'Charge', chargeMap);
+                this.replaceAndRename(newVal, 'ChargeMasterSid', 'Charge', chargeMap);
+
+                this.replaceAndRename(oldVal, 'ChargeUomSid', 'ChargeUom', umMap);
+                this.replaceAndRename(newVal, 'ChargeUomSid', 'ChargeUom', umMap);
+
+                this.replaceAndRename(oldVal, 'RevenueChargeUomSid', 'RevenueChargeUom', umMap);
+                this.replaceAndRename(newVal, 'RevenueChargeUomSid', 'RevenueChargeUom', umMap);
+
+                this.replaceAndRename(oldVal, 'CostChargeUomSid', 'CostChargeUom', umMap);
+                this.replaceAndRename(newVal, 'CostChargeUomSid', 'CostChargeUom', umMap);
+
+                this.replaceAndRename(oldVal, 'DestinationAgent', 'DestinationAgent', customerMap);
+                this.replaceAndRename(newVal, 'DestinationAgent', 'DestinationAgent', customerMap);
+
+                this.replaceAndRename(oldVal, 'CarrierSid', 'Carrier', customerMap);
+                this.replaceAndRename(newVal, 'CarrierSid', 'Carrier', customerMap);
+
+                this.replaceAndRename(oldVal, 'OriginAgent', 'OriginAgent', customerMap);
+                this.replaceAndRename(newVal, 'OriginAgent', 'OriginAgent', customerMap);
+
+                this.replaceAndRename(oldVal, 'CFS', 'CFS', customerMap);
+                this.replaceAndRename(newVal, 'CFS', 'CFS', customerMap);
+
+                this.replaceAndRename(oldVal, 'Yard', 'Yard', customerMap);
+                this.replaceAndRename(newVal, 'Yard', 'Yard', customerMap);
+
+                this.replaceAndRename(oldVal, 'ContainerType', 'ContainerType', containerTypeMap);
+                this.replaceAndRename(newVal, 'ContainerType', 'ContainerType', containerTypeMap);
+
+                this.replaceAndRename(oldVal, 'PkgType', 'PackageType', uomMap);
+                this.replaceAndRename(newVal, 'PkgType', 'PackageType', uomMap);
+
+                this.replaceAndRename(oldVal, 'RevenueCurrencyMasterSid', 'RevenueCurrency', currencyMap);
+                this.replaceAndRename(newVal, 'RevenueCurrencyMasterSid', 'RevenueCurrency', currencyMap);
+
+                this.replaceAndRename(oldVal, 'CostCurrencyMasterSid', 'CostCurrency', currencyMap);
+                this.replaceAndRename(newVal, 'CostCurrencyMasterSid', 'CostCurrency', currencyMap);
+
+                this.replaceAndRename(oldVal, 'RevenueCustomerMasterSid', 'BillingParty', customerMap);
+                this.replaceAndRename(newVal, 'RevenueCustomerMasterSid', 'BillingParty', customerMap);
+
+                this.replaceAndRename(oldVal, 'CostAgentMasterSid', 'Party', customerMap);
+                this.replaceAndRename(newVal, 'CostAgentMasterSid', 'Party', customerMap);
+
+                this.replaceAndRename(oldVal, 'RevenueVoucherHeaderSid', 'VoucherNo', voucherMap);
+                this.replaceAndRename(newVal, 'RevenueVoucherHeaderSid', 'VoucherNo', voucherMap);
+
+                this.replaceAndRename(oldVal, 'RevenueVoucherTypeMasterSid', 'Type', voucherTypeMap);
+                this.replaceAndRename(newVal, 'RevenueVoucherTypeMasterSid', 'Type', voucherTypeMap);
+
+                this.replaceAndRename(oldVal, 'CostVoucherHeaderSid', 'VoucherNo', voucherMap);
+                this.replaceAndRename(newVal, 'CostVoucherHeaderSid', 'VoucherNo', voucherMap);
+
+                this.replaceAndRename(oldVal, 'CostVoucherTypeMasterSid', 'Type', voucherTypeMap);
+                this.replaceAndRename(newVal, 'CostVoucherTypeMasterSid', 'Type', voucherTypeMap);
+
+                this.replaceValueFromMap(oldVal, 'IsHaz', yesNoMap);
+                this.replaceValueFromMap(newVal, 'IsHaz', yesNoMap);
+
+                this.replaceValueFromMap(oldVal, 'Haz', yesNoMap);
+                this.replaceValueFromMap(newVal, 'Haz', yesNoMap);
+
+                this.replaceValueFromMap(oldVal, 'IsSoc', yesNoMap);
+                this.replaceValueFromMap(newVal, 'IsSoc', yesNoMap);
+
+                this.replaceValueFromMap(oldVal, 'Coload', yesNoMap);
+                this.replaceValueFromMap(newVal, 'Coload', yesNoMap);
+
+                this.replaceValueFromMap(oldVal, 'ExportToImport', yesNoMap);
+                this.replaceValueFromMap(newVal, 'ExportToImport', yesNoMap);
+
+                this.replaceValueFromMap(oldVal, 'status', statusMap);
+                this.replaceValueFromMap(newVal, 'status', statusMap);
+
+                this.replaceValueFromMap(oldVal, 'Status', statusMap);
+                this.replaceValueFromMap(newVal, 'Status', statusMap);
+
+                this.replaceValueFromMap(oldVal, 'DeclaredValueOfCustoms', custom);
+                this.replaceValueFromMap(newVal, 'DeclaredValueOfCustoms', custom);
+
+                this.replaceValueFromMap(oldVal, 'DeclaredValueOfCarriage', carriage);
+                this.replaceValueFromMap(newVal, 'DeclaredValueOfCarriage', carriage);
+
+                this.replaceValueFromMap(oldVal, 'CargoCode', cargocode);
+                this.replaceValueFromMap(newVal, 'CargoCode', cargocode);
+
+                this.replaceValueFromMap(oldVal, 'UsedOrNew', un);
+                this.replaceValueFromMap(newVal, 'UsedOrNew', un);
+
+                this.replaceValueFromMap(oldVal, 'StorageRequest', storagerequest);
+                this.replaceValueFromMap(newVal, 'StorageRequest', storagerequest);
+
+                this.replaceValueFromMap(oldVal, 'HazStorageRequest', storagerequest);
+                this.replaceValueFromMap(newVal, 'HazStorageRequest', storagerequest);
+
+                this.replaceValueFromMap(oldVal, 'RefTemperatureUnit', temp);
+                this.replaceValueFromMap(newVal, 'RefTemperatureUnit', temp);
+
+                this.replaceValueFromMap(oldVal, 'TemperatureUnit', temp);
+                this.replaceValueFromMap(newVal, 'TemperatureUnit', temp);
+
+                this.removeIgnoredFields(oldVal, ignoredFields);
+                this.removeIgnoredFields(newVal, ignoredFields);
+
+                return {
+                    ...log,
+                    sectionLabel: this.getMasterJobLabel(log.tableName),
+                    rowLabel: this.getMasterJobRowLabel(log, rowLabelMaps, oldVal, newVal),
+                    oldVal,
+                    newVal
+                };
+            });
             return formattedLogs;
         } catch (error) {
             this.logger.warn(`getAuditLogsError: ${error}`);
