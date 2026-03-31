@@ -59,12 +59,17 @@ export class PrecustomerService {
         }
     }
 
-    async getAllPrecustomer(user) {
+    async getAllPrecustomer(CompanyMasterSid: number, BranchMasterSid: number) {
         try {
             const customer = await this._db.preCustomerMaster.findMany({
                 where: {
                     // CompanyMasterSid: user.CompanyMasterSid,
-                    BranchMasterSid: user.BranchMasterSid,
+                    status:'A',
+                    CompanyMasterSid: CompanyMasterSid,
+                    BranchMasterSid: BranchMasterSid,
+                    customerMaster:{
+                        none:{}
+                    }
                 },
                 orderBy: {
                     PreCustomerMasterSid: 'desc'
@@ -88,12 +93,14 @@ export class PrecustomerService {
                 preCustomerAddress1: params.preCustomerAddress1,
                 preCustomerAddress2: params.preCustomerAddress2,
                 contactPerson: params.contactPerson,
+                isQualify: params.isQualify,
+                leadStatus: params.leadStatus,
+                preCustomerType: params.preCustomerType,
                 email: params.email,
                 phone: params.phone,
-                leadAssignTo: params['UserMasterSid'],
                 leadFrom: params.leadFrom,
                 leadReferredBy: params.leadReferredBy,
-                createdBy: params['userEmail'],
+                createdBy: params.createdBy || params['userEmail'],
                 status: params.status || 'A',
             };
 
@@ -131,7 +138,7 @@ export class PrecustomerService {
                 }
                 payload.createdOn = new Date();
                 payload.updatedOn = new Date();
-                payload.createdBy = params['userEmail']; // Only used when creating
+                payload.createdBy = params.createdBy || params['userEmail']; // Only used when creating
                 const newLead = await this._db.preCustomerMaster.create({
                     data: payload
                 });
@@ -218,26 +225,13 @@ export class PrecustomerService {
                 skip,
                 take: pageSize,
                 orderBy: { PreCustomerMasterSid: 'desc' },
-                select:{
-                    branchMaster:{
-                        select:{
-                            BranchMasterSid:true,
-                            branchCode:true,
-                            branchName:true
-                        }
-                    },
-                    companyMaster:{
-                        select:{
-                            companyName:true,
-                            companyCode:true,
-                            CompanyMasterSid:true
-                        }
-                    },
-                    preCustomerMeeting:{
-                        select:{
-                            meetingStatus:true
-                        }
-                    }
+                include:{
+                    branchMaster:true,
+                    companyMaster:true,
+                    preCustomerMeeting:true,
+                    countryMaster:true,
+                    stateMaster:true,
+                    cityMaster:true,
                 }
             }),
             this._db.preCustomerMaster.count({ where }),

@@ -45,6 +45,10 @@ export class CreatePrecustomerDto {
     @IsString()
     leadReferredBy :string
 
+    @IsString()
+    @IsOptional()
+    leadBy: string
+
     @IsBoolean()
     isQualify: boolean
 
@@ -59,4 +63,8 @@ export class CreatePrecustomerDto {
     @IsString()
     @IsOptional()
     leadStatus:LeadStatus
+
+    @IsString()
+    @IsOptional()
+    preCustomerType?: string
 }

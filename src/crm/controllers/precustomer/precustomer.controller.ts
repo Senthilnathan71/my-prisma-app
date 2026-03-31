@@ -78,10 +78,12 @@ export class PrecustomerController {
     })
     @HttpCode(HttpStatus.OK)
     @Get()
-    async getAllPrecustomer(@UserData() UserData: any) {
+    async getAllPrecustomer(@UserData() user:any) {
         const output = new ResponseData
         try {
-            const customers = await this.precustomerSer.getAllPrecustomer(UserData.userBranchMaster[0])
+            const companyMasterSid = user?.userBranchMaster?.[0]?.CompanyMasterSid;
+            const branchMasterSid = user?.userBranchMaster?.[0]?.BranchMasterSid;
+            const customers = await this.precustomerSer.getAllPrecustomer(companyMasterSid, branchMasterSid)
             this.logger.log(`getAllPrecustomer: ${JSON.stringify(customers)}`)
             output.data = customers;
             output.message = "All Customers are successfully fetched";
