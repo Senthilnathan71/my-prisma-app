@@ -517,8 +517,8 @@ model ActivityResourceAllocation {
   siUser                        UserMaster?    @relation("SIUSER", fields: [SIUser], references: [UserMasterSid])
 }
 
-model MenuUserConfig {
-  MenuUserConfigSid Int          @id @default(autoincrement())
+model ResourceConfiguration {
+  ResourceConfigurationSid Int          @id @default(autoincrement())
   CompanyMasterSid  Int
   BranchMasterSid   Int
   Stage             String       @db.VarChar(50)

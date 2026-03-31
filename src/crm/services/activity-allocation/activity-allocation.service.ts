@@ -1400,17 +1400,17 @@ export class ActivityAllocationService {
         where.BranchMasterSid = branchMasterSid;
       }
 
-      const configs = await (this.db as any).menuUserConfig.findMany({
+      const configs = await (this.db as any).resourceConfiguration.findMany({
         where,
         include: {
           branchMaster: { select: { branchName: true, BranchMasterSid: true } },
           userMaster: { select: { userName: true, UserMasterSid: true } },
         },
-        orderBy: { MenuUserConfigSid: 'asc' },
+        orderBy: { ResourceConfigurationSid: 'asc' },
       });
 
       return configs.map((c) => ({
-        MenuUserConfigSid: c.MenuUserConfigSid,
+        ResourceConfigurationSid: c.ResourceConfigurationSid,
         BranchMasterSid: c.BranchMasterSid,
         branchName: c.branchMaster?.branchName || '',
         stage: c.Stage,
@@ -1426,7 +1426,7 @@ export class ActivityAllocationService {
 
   async saveMenuUserConfig(
     configs: {
-      MenuUserConfigSid?: number;
+      ResourceConfigurationSid?: number;
       BranchMasterSid: number;
       stage: string;
       assignedRole: string | null;
@@ -1439,10 +1439,10 @@ export class ActivityAllocationService {
       const results: any[] = [];
 
       for (const cfg of configs) {
-        if (cfg.MenuUserConfigSid) {
+        if (cfg.ResourceConfigurationSid) {
           // Update existing
-          const updated = await (this.db as any).menuUserConfig.update({
-            where: { MenuUserConfigSid: cfg.MenuUserConfigSid },
+          const updated = await (this.db as any).resourceConfiguration.update({
+            where: { ResourceConfigurationSid: cfg.ResourceConfigurationSid },
             data: {
               AssignedRole: cfg.assignedRole,
               UserMasterSid: cfg.UserMasterSid || null,
@@ -1453,7 +1453,7 @@ export class ActivityAllocationService {
           results.push(updated);
         } else {
           // Upsert: check if exists for this branch+stage
-          const existing = await (this.db as any).menuUserConfig.findFirst({
+          const existing = await (this.db as any).resourceConfiguration.findFirst({
             where: {
               CompanyMasterSid: companyMasterSid,
               BranchMasterSid: cfg.BranchMasterSid,
@@ -1463,8 +1463,8 @@ export class ActivityAllocationService {
           });
 
           if (existing) {
-            const updated = await (this.db as any).menuUserConfig.update({
-              where: { MenuUserConfigSid: existing.MenuUserConfigSid },
+            const updated = await (this.db as any).resourceConfiguration.update({
+              where: { ResourceConfigurationSid: existing.ResourceConfigurationSid },
               data: {
                 AssignedRole: cfg.assignedRole,
                 UserMasterSid: cfg.UserMasterSid || null,
@@ -1474,7 +1474,7 @@ export class ActivityAllocationService {
             });
             results.push(updated);
           } else {
-            const created = await (this.db as any).menuUserConfig.create({
+            const created = await (this.db as any).resourceConfiguration.create({
               data: {
                 CompanyMasterSid: companyMasterSid,
                 BranchMasterSid: cfg.BranchMasterSid,
