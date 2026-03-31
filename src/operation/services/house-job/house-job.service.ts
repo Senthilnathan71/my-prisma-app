@@ -406,7 +406,7 @@ export class HouseJobService {
 
                 // Create Cost Revenue Charges
                 const finalCharges: any[] = [];
-                const allCostRevenueCharges = payload?.bookingRates || [];
+                const allCostRevenueCharges = payload?.bookingRates || payload?.costRevenueCharges || [];
 
                 let itemIndex = 1;
                 for (const item of allCostRevenueCharges) {
@@ -1358,7 +1358,7 @@ export class HouseJobService {
                 })
             }
             const finalCharges: any[] = [];
-            const allCostRevenueCharges = payload?.bookingRates || [];
+            const allCostRevenueCharges = payload?.bookingRates || payload?.costRevenueCharges || [];
 
             let itemIndex = 1;
             for (const item of allCostRevenueCharges) {
