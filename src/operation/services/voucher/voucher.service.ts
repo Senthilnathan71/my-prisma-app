@@ -395,6 +395,8 @@ export class VoucherService {
                 parts.push((date.getMonth() + 1).toString().padStart(2, '0'));
             }
 
+            const displayPrefix = parts.join(separator);
+
             let queryPrefixParts = [...parts];
             if (resetValue === 'year' && voucherTypeMaster.MonthFlag === 'Y') {
                 queryPrefixParts = partsBeforeMonth;
@@ -423,12 +425,14 @@ export class VoucherService {
                 whereConditions.push(`"VoucherMatchingDate"::date <= '${fyEndDate}'::date`);
             }
 
+            const slNoLength = Number(voucherTypeMaster.DocumentSLNoLength || 5);
+
             const whereClause = whereConditions.join(' AND ');
             const query = `
                 SELECT "VoucherMatchingNo" AS "VoucherNumber"
                 FROM "VoucherMatchingHeader"
                 WHERE ${whereClause}
-                ORDER BY "VoucherMatchingNo" DESC
+                ORDER BY CAST(RIGHT("VoucherMatchingNo", ${slNoLength}) AS INTEGER) DESC
                 LIMIT 1
                 FOR UPDATE
             `;
@@ -440,13 +444,14 @@ export class VoucherService {
 
             let nextNumber = Number(voucherTypeMaster.DocumentStartingNo || 1);
             if (lastVoucher?.VoucherNumber) {
-                const match = lastVoucher.VoucherNumber.match(/(\d+)$/);
-                if (match) {
-                    nextNumber = parseInt(match[1]) + 1;
+                const prefixToStrip = displayPrefix + separator;
+                const serialPart = lastVoucher.VoucherNumber.substring(prefixToStrip.length);
+                const parsed = parseInt(serialPart, 10);
+                if (!isNaN(parsed)) {
+                    nextNumber = parsed + 1;
                 }
             }
 
-            const slNoLength = Number(voucherTypeMaster.DocumentSLNoLength || 5);
             parts.push(String(nextNumber).padStart(slNoLength, '0'));
 
             const voucherNumber = parts.join(separator);
@@ -1900,8 +1905,8 @@ export class VoucherService {
             // --- TAX SUMMARIZATION & AUTO DETAIL CREATION ---
             let createdTaxRows: VoucherDetailDto[] = [];
 
-            // Export Without Payment or Bill of Supply: no tax rows at all
-            const isExportWithoutPayment = voucher.GSTType === 'EXPWOP' || voucher.InvoiceType === 'BOS';
+            // Export Without Payment or Bill of Supply / Exempt / Out of Scope: no tax rows at all
+            const isExportWithoutPayment = voucher.GSTType === 'EXPWOP' || voucher.InvoiceType === 'BOS' || voucher.InvoiceType === 'EXE' || voucher.InvoiceType === 'OOS' || voucher.InvoiceType === 'RCM' || voucher.InvoiceType === 'REIMB';
             // Zero-rated (Non GST/Zero): tax rows with 0 amounts
             const isZeroRated = voucher.InvoiceType === 'NONGST';
 

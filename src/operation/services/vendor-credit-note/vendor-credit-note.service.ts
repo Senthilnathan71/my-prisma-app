@@ -852,6 +852,17 @@ if (payload.VoucherDetail && Array.isArray(payload.VoucherDetail)) {
                 currencyMaster: {
                     select: { amountDecimal: true, currencyCode: true },
                 },
+                customerBranch: {
+                    select: {
+                        CustomerGstType: true,
+                        stateMaster: {
+                            select: {
+                                StateMasterSid: true,
+                                IsUnionTerritory: true,
+                            },
+                        },
+                    },
+                },
             },
         });
 
