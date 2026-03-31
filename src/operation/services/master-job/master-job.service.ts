@@ -43,6 +43,18 @@ export class MasterJobService {
         return ['Y', 'YES', 'TRUE', '1'].includes(normalized);
     }
 
+    private isImportableRateRow(rate: any): boolean {
+        const normalize = (value: any) => String(value ?? '').trim().toUpperCase();
+        const costFlag = normalize(rate?.CostPrepaidCollect);
+        const revenueFlag = normalize(rate?.RevenuePrepaidCollect);
+
+        if (!costFlag && !revenueFlag) {
+            return true;
+        }
+
+        return costFlag !== 'PREPAID' || revenueFlag !== 'PREPAID';
+    }
+
     private async allocateMawbFromStock(
         prisma: Prisma.TransactionClient,
         payload: any,
@@ -6599,6 +6611,16 @@ console.log('Created product:', createdProduct);
             }
         });
 
+        const sourceMasterJobRates = await this._db.costRevenueCharges.findMany({
+            where: {
+                TransactionSid: MasterJobSid,
+                status: 'A',
+            },
+            orderBy: {
+                SerialNumber: 'asc',
+            },
+        });
+
         if (!sourceMasterJob) {
             throw new NotFoundException('Source Master Job not found');
         }
@@ -6846,6 +6868,62 @@ console.log('Created product:', createdProduct);
                 }
             });
 
+            const importableMasterJobRates = (sourceMasterJobRates || [])
+                .filter(rate => this.isImportableRateRow(rate))
+                .map((rate, index) => ({
+                    TransactionSid: createdMasterJob.MasterJobSid,
+                    MenuMasterSid: masterMenuSid,
+                    ShipmentNo: createdMasterJob.MasterJobNumber,
+                    MasterJobNo: createdMasterJob.MasterJobNumber,
+                    CompanyMasterSid: destinationCompanyMasterSid,
+                    BranchMasterSid: DestinationBranchMasterSid,
+                    SerialNumber: index + 1,
+                    ChargeMasterSid: rate.ChargeMasterSid ? Number(rate.ChargeMasterSid) : null,
+                    ChargeDescription: rate.ChargeDescription || '',
+                    ChargeUomSid: rate.ChargeUomSid ? Number(rate.ChargeUomSid) : null,
+                    RevenueChargeUomSid: Number(rate.RevenueChargeUomSid ?? rate.ChargeUomSid ?? 0),
+                    CostChargeUomSid: Number(rate.CostChargeUomSid ?? rate.ChargeUomSid ?? 0),
+                    RevenueNumberOfUnit: rate.RevenueNumberOfUnit ? Number(rate.RevenueNumberOfUnit) : null,
+                    CostNumberOfUnit: rate.CostNumberOfUnit ? Number(rate.CostNumberOfUnit) : null,
+                    RevenueCurrencyMasterSid: rate.RevenueCurrencyMasterSid ? Number(rate.RevenueCurrencyMasterSid) : null,
+                    RevenueExchangeRate: rate.RevenueExchangeRate ? Number(rate.RevenueExchangeRate) : null,
+                    RevenueRate: rate.RevenueRate ? Number(rate.RevenueRate) : null,
+                    RevenueAmount: rate.RevenueAmount ? Number(rate.RevenueAmount) : null,
+                    RevenueLocalAmount: rate.RevenueLocalAmount ? Number(rate.RevenueLocalAmount) : null,
+                    RevenueDrCr: rate.RevenueDrCr,
+                    RevenueCustomerMasterSid: rate.RevenueCustomerMasterSid ? Number(rate.RevenueCustomerMasterSid) : null,
+                    RevenueCustomerBranchSid: rate.RevenueCustomerBranchSid ? Number(rate.RevenueCustomerBranchSid) : null,
+                    RevenuePrepaidCollect: rate.RevenuePrepaidCollect || 'Collect',
+                    RevenueVoucherHeaderSid: null,
+                    RevenueVoucherTypeMasterSid: null,
+                    CostCurrencyMasterSid: rate.CostCurrencyMasterSid ? Number(rate.CostCurrencyMasterSid) : null,
+                    CostExchangeRate: rate.CostExchangeRate ? Number(rate.CostExchangeRate) : null,
+                    CostRate: rate.CostRate ? Number(rate.CostRate) : null,
+                    CostAmount: rate.CostAmount ? Number(rate.CostAmount) : null,
+                    CostLocalAmount: rate.CostLocalAmount ? Number(rate.CostLocalAmount) : null,
+                    CostDrCr: rate.CostDrCr,
+                    CostAgentMasterSid: rate.CostAgentMasterSid ? Number(rate.CostAgentMasterSid) : null,
+                    CostAgentBranchSid: rate.CostAgentBranchSid ? Number(rate.CostAgentBranchSid) : null,
+                    CostPrepaidCollect: rate.CostPrepaidCollect || 'Collect',
+                    CostVoucherHeaderSid: null,
+                    CostVoucherTypeMasterSid: null,
+                    createdBy: createdBy,
+                    status: 'A',
+                    Remarks: rate.Remarks || '',
+                    PartyCOAMasterSid: rate.PartyCOAMasterSid ? Number(rate.PartyCOAMasterSid) : null,
+                    VendorCOAMasterSid: rate.VendorCOAMasterSid ? Number(rate.VendorCOAMasterSid) : null,
+                    PartySubledgerMasterSid: rate.PartySubledgerMasterSid ? Number(rate.PartySubledgerMasterSid) : null,
+                    VendorSubledgerMasterSid: rate.VendorSubledgerMasterSid ? Number(rate.VendorSubledgerMasterSid) : null,
+                    ChargeCOAMasterSid: rate.ChargeCOAMasterSid ? Number(rate.ChargeCOAMasterSid) : null,
+                    ChargeSubledgerMasterSid: rate.ChargeSubledgerMasterSid ? Number(rate.ChargeSubledgerMasterSid) : null,
+                }));
+
+            if (importableMasterJobRates.length > 0) {
+                await prisma.costRevenueCharges.createMany({
+                    data: importableMasterJobRates,
+                });
+            }
+
             const containerSidMap = new Map<number, number>();
             for (const container of sourceMasterJob.containers || []) {
                 const containerData = omitFields(container, [
@@ -7004,6 +7082,72 @@ console.log('Created product:', createdProduct);
                         JobType: 'Import',
                     }
                 });
+
+                const sourceHouseJobRates = await prisma.costRevenueCharges.findMany({
+                    where: {
+                        TransactionSid: sourceHouseJob.HouseJobSid,
+                        status: 'A',
+                    },
+                    orderBy: {
+                        SerialNumber: 'asc',
+                    },
+                });
+
+                const importableHouseJobRates = (sourceHouseJobRates || [])
+                    .filter(rate => this.isImportableRateRow(rate))
+                    .map((rate, index) => ({
+                        TransactionSid: createdHouseJob.HouseJobSid,
+                        MenuMasterSid: houseMenuSid,
+                        ShipmentNo: createdHouseJob.ShipmentNo,
+                        MasterJobNo: createdMasterJob.MasterJobNumber,
+                        CompanyMasterSid: destinationCompanyMasterSid,
+                        BranchMasterSid: DestinationBranchMasterSid,
+                        SerialNumber: index + 1,
+                        ChargeMasterSid: rate.ChargeMasterSid ? Number(rate.ChargeMasterSid) : null,
+                        ChargeDescription: rate.ChargeDescription || '',
+                        ChargeUomSid: rate.ChargeUomSid ? Number(rate.ChargeUomSid) : null,
+                        RevenueChargeUomSid: Number(rate.RevenueChargeUomSid ?? rate.ChargeUomSid ?? 0),
+                        CostChargeUomSid: Number(rate.CostChargeUomSid ?? rate.ChargeUomSid ?? 0),
+                        RevenueNumberOfUnit: rate.RevenueNumberOfUnit ? Number(rate.RevenueNumberOfUnit) : null,
+                        CostNumberOfUnit: rate.CostNumberOfUnit ? Number(rate.CostNumberOfUnit) : null,
+                        RevenueCurrencyMasterSid: rate.RevenueCurrencyMasterSid ? Number(rate.RevenueCurrencyMasterSid) : null,
+                        RevenueExchangeRate: rate.RevenueExchangeRate ? Number(rate.RevenueExchangeRate) : null,
+                        RevenueRate: rate.RevenueRate ? Number(rate.RevenueRate) : null,
+                        RevenueAmount: rate.RevenueAmount ? Number(rate.RevenueAmount) : null,
+                        RevenueLocalAmount: rate.RevenueLocalAmount ? Number(rate.RevenueLocalAmount) : null,
+                        RevenueDrCr: rate.RevenueDrCr,
+                        RevenueCustomerMasterSid: rate.RevenueCustomerMasterSid ? Number(rate.RevenueCustomerMasterSid) : null,
+                        RevenueCustomerBranchSid: rate.RevenueCustomerBranchSid ? Number(rate.RevenueCustomerBranchSid) : null,
+                        RevenuePrepaidCollect: rate.RevenuePrepaidCollect || 'Collect',
+                        RevenueVoucherHeaderSid: null,
+                        RevenueVoucherTypeMasterSid: null,
+                        CostCurrencyMasterSid: rate.CostCurrencyMasterSid ? Number(rate.CostCurrencyMasterSid) : null,
+                        CostExchangeRate: rate.CostExchangeRate ? Number(rate.CostExchangeRate) : null,
+                        CostRate: rate.CostRate ? Number(rate.CostRate) : null,
+                        CostAmount: rate.CostAmount ? Number(rate.CostAmount) : null,
+                        CostLocalAmount: rate.CostLocalAmount ? Number(rate.CostLocalAmount) : null,
+                        CostDrCr: rate.CostDrCr,
+                        CostAgentMasterSid: rate.CostAgentMasterSid ? Number(rate.CostAgentMasterSid) : null,
+                        CostAgentBranchSid: rate.CostAgentBranchSid ? Number(rate.CostAgentBranchSid) : null,
+                        CostPrepaidCollect: rate.CostPrepaidCollect || 'Collect',
+                        CostVoucherHeaderSid: null,
+                        CostVoucherTypeMasterSid: null,
+                        createdBy: createdBy,
+                        status: 'A',
+                        Remarks: rate.Remarks || '',
+                        PartyCOAMasterSid: rate.PartyCOAMasterSid ? Number(rate.PartyCOAMasterSid) : null,
+                        VendorCOAMasterSid: rate.VendorCOAMasterSid ? Number(rate.VendorCOAMasterSid) : null,
+                        PartySubledgerMasterSid: rate.PartySubledgerMasterSid ? Number(rate.PartySubledgerMasterSid) : null,
+                        VendorSubledgerMasterSid: rate.VendorSubledgerMasterSid ? Number(rate.VendorSubledgerMasterSid) : null,
+                        ChargeCOAMasterSid: rate.ChargeCOAMasterSid ? Number(rate.ChargeCOAMasterSid) : null,
+                        ChargeSubledgerMasterSid: rate.ChargeSubledgerMasterSid ? Number(rate.ChargeSubledgerMasterSid) : null,
+                    }));
+
+                if (importableHouseJobRates.length > 0) {
+                    await prisma.costRevenueCharges.createMany({
+                        data: importableHouseJobRates,
+                    });
+                }
 
                 for (const cargo of sourceHouseJob.Cargo || []) {
                     const cargoData = omitFields(cargo, [
