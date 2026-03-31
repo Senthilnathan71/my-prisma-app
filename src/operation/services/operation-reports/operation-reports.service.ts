@@ -7246,6 +7246,51 @@ ports.forEach((p) => {
       );
       const previousMonthData = await fetchDepartmentData(prevFrom, prevTo);
 
+      // Total 
+
+     const calculateMoM = (current: number, previous: number) => {
+      if (!previous) return 0;
+      return ((current - previous) / previous) * 100;
+    };
+
+    const departmentWiseMoM = (currentMonthData as any[]).map((curr: any) => {
+      const prev = (previousMonthData as any[]).find(
+        (p: any) => p.department === curr.department
+      );
+
+      return {
+        department: curr.department,
+        shipmentCount: calculateMoM(
+          curr.totalShipment,
+          prev?.totalShipment || 0
+        ),
+        grossWt: calculateMoM(
+          curr.totalGrossWt,
+          prev?.totalGrossWt || 0
+        ),
+        vol: calculateMoM(
+          curr.totalVolume,
+          prev?.totalVolume || 0
+        ),
+        totalRevenue: calculateMoM(
+          curr.totalRevenue,
+          prev?.totalRevenue || 0
+        ),
+        totalCost: calculateMoM(
+          curr.totalCost,
+          prev?.totalCost || 0
+        ),
+        grossProfit: calculateMoM(
+          curr.grossProfit,
+          prev?.grossProfit || 0
+        ),
+        totalNoOfTEU: calculateMoM(
+          curr.totalNoOfTEU,
+          prev?.totalNoOfTEU || 0
+        ),
+      };
+    });
+
       /* ---------- RESPONSE ---------- */
 
       return {
@@ -7260,6 +7305,7 @@ ports.forEach((p) => {
           to: prevTo,
           data: previousMonthData,
         },
+        departmentWiseMoM
       };
     } catch (error) {
       throw error;

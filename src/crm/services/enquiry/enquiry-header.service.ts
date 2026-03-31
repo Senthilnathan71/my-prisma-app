@@ -33,16 +33,16 @@ export class EnquiryHeaderService {
             }
 
             // Generate enquiry number using NumberSeriesService
-            let enquiryNumber: string | null = null;
-            if (MenuMasterSid) {
-                enquiryNumber = await this.numberSeriesService.generateNextNumber(
-                    CompanyMasterSid,
-                    BranchMasterSid,
-                    MenuMasterSid,
-                    DepartmentMasterSid,
-                    undefined,
-                );
-            }
+            // let enquiryNumber: string | null = null;
+            // if (MenuMasterSid) {
+            //     enquiryNumber = await this.numberSeriesService.generateNextNumber(
+            //         CompanyMasterSid,
+            //         BranchMasterSid,
+            //         MenuMasterSid,
+            //         DepartmentMasterSid,
+            //         undefined,
+            //     );
+            // }
 
             return await this._db.$transaction(async (prisma) => {
                 // Step 1: Create Enquiry Header
@@ -57,8 +57,8 @@ export class EnquiryHeaderService {
                     BranchMasterSid: BranchMasterSid,
                     UserMasterSid: user['userBranchMaster'][0].UserMasterSid,
                     createdBy: user['userEmail'],
-                    EnquiryNumber: enquiryNumber,
-                    EnquiryDate: new Date()
+                    // EnquiryNumber: enquiryNumber,
+                    EnquiryDate: new Date(),
                 };
 
                 const enquiryHeader = await prisma.enquiryHeader.create({
