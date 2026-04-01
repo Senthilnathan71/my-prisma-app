@@ -46,6 +46,16 @@ export class AuditLogService {
                     return this.getAgentMasterAirWaybillLogs(recordId);
                 case 'Receipt':
                     return this.getReceiptLogs(recordId);
+                case 'Payment':
+                    return this.getPaymentLogs(recordId);
+                case 'JournalVoucher':
+                    return this.getJVLogs(recordId);
+                case 'Quotation':
+                    return this.getQuoteLogs(recordId);
+                case 'Enquiry':
+                    return this.getEnquiryLogs(recordId);
+                case 'VoucherMatching':
+                    return this.getVoucherMatchingLogs(recordId);
             }
         } catch (error) {
             this.logger.warn(`getAuditLog Error: ${error.message}`);
@@ -623,7 +633,7 @@ export class AuditLogService {
                 }),
                 this._db.houseJobVehicle.findMany({
                     where: { HouseJobSid: houseJobSid },
-                    select: { 
+                    select: {
                         HouseJobVehicleSid: true,
                         ChassisNo: true
                     }
@@ -681,7 +691,7 @@ export class AuditLogService {
                         tableName: 'HouseJobVehicle',
                         recordId: { in: vehicleRows.map(x => x.HouseJobVehicleSid.toString()) }
                     }]
-                    :[]),
+                    : []),
             ];
 
             const logs = await this._db.auditLog.findMany({
@@ -1099,7 +1109,7 @@ export class AuditLogService {
                 }
             });
 
-            const [charges,currencies,coa, profit,cost] = await Promise.all([
+            const [charges, currencies, coa, profit, cost, ledger, department] = await Promise.all([
                 this._db.chargeMaster.findMany({
                     select: {
                         ChargeMasterSid: true,
@@ -1119,15 +1129,27 @@ export class AuditLogService {
                     }
                 }),
                 this._db.profitCenterMaster.findMany({
-                    select:{
+                    select: {
                         ProfitCenterMasterSid: true,
                         ProfitCenterName: true
                     }
                 }),
                 this._db.costCenterMaster.findMany({
-                    select:{
+                    select: {
                         CostCenterMasterSid: true,
                         CostCenterName: true
+                    }
+                }),
+                this._db.subledgerMaster.findMany({
+                    select: {
+                        SubledgerMasterSid: true,
+                        SubledgerName: true
+                    }
+                }),
+                this._db.departmentMaster.findMany({
+                    select: {
+                        DepartmentMasterSid: true,
+                        departmentName: true
                     }
                 })
             ])
@@ -1150,6 +1172,14 @@ export class AuditLogService {
 
             const costMap = new Map<string, string>(
                 cost.map(c => [String(c.CostCenterMasterSid), c.CostCenterName])
+            );
+
+            const ledgerMap = new Map<string, string>(
+                ledger.map(l => [String(l.SubledgerMasterSid), l.SubledgerName])
+            );
+
+            const departmentMap = new Map<string, string>(
+                department.map(d => [String(d.DepartmentMasterSid), d.departmentName])
             );
 
             const detailMap = new Map<string, string>(
@@ -1196,6 +1226,15 @@ export class AuditLogService {
 
                 this.replaceAndRename(oldVal, 'COAMasterSid', 'Ledger', coaMap);
                 this.replaceAndRename(newVal, 'COAMasterSid', 'Ledger', coaMap);
+
+                this.replaceAndRename(oldVal, 'BankCOA', 'Bank/Cash', coaMap);
+                this.replaceAndRename(newVal, 'BankCOA', 'Bank/Cash', coaMap);
+
+                this.replaceAndRename(oldVal, 'LedgerMasterSid', 'Subledger', ledgerMap);
+                this.replaceAndRename(newVal, 'LedgerMasterSid', 'Subledger', ledgerMap);
+
+                this.replaceAndRename(oldVal, 'DepartmentMasterSid', 'Department', departmentMap);
+                this.replaceAndRename(newVal, 'DepartmentMasterSid', 'Department', departmentMap);
 
                 this.replaceAndRename(oldVal, 'CostCenter', 'CostCenter', costMap);
                 this.replaceAndRename(newVal, 'CostCenter', 'CostCenter', costMap);
@@ -1246,6 +1285,14 @@ export class AuditLogService {
 
     private async getReceiptLogs(recordId?: string) {
         return this.getCreditNoteLogs(recordId, 'Receipt')
+    }
+
+    private async getPaymentLogs(recordId?: string) {
+        return this.getCreditNoteLogs(recordId, 'Payment')
+    }
+
+    private async getJVLogs(recordId?: string) {
+        return this.getCreditNoteLogs(recordId, 'Journal Voucher')
     }
 
     private getCreditRequestRowLabel(
@@ -1481,7 +1528,7 @@ export class AuditLogService {
         switch (log.tableName) {
             case 'MasterJobConnection':
                 return (
-                    rowLabelMaps.connectionMap.get(recordId) || 
+                    rowLabelMaps.connectionMap.get(recordId) ||
                     `Connection [${newVal.VesselName || oldVal.VesselName || recordId}]`
                 );
             case 'MasterJobContainer':
@@ -1539,7 +1586,7 @@ export class AuditLogService {
             ] = await Promise.all([
                 this._db.masterJobVoyage.findMany({
                     where: { MasterJobSid: masterJobSid },
-                    select: { MasterJobVoyageSid: true}
+                    select: { MasterJobVoyageSid: true }
                 }),
                 this._db.masterJobContainer.findMany({
                     where: { MasterJobSid: masterJobSid },
@@ -1549,11 +1596,11 @@ export class AuditLogService {
                     }
                 }),
                 this._db.masterJobOthers.findMany({
-                    where: { MasterJobSid: masterJobSid},
-                    select: { MasterJobOthersSid: true}
+                    where: { MasterJobSid: masterJobSid },
+                    select: { MasterJobOthersSid: true }
                 }),
                 this._db.masterJobConnection.findMany({
-                    where: { MasterJobSid: masterJobSid},
+                    where: { MasterJobSid: masterJobSid },
                     select: {
                         MasterJobConnectionSid: true,
                         VesselName: true
@@ -1569,7 +1616,7 @@ export class AuditLogService {
                 }),
                 this._db.houseJobCustoms.findMany({
                     where: { MasterJobSid: masterJobSid },
-                    select: { HouseJobCustomsSid: true}
+                    select: { HouseJobCustomsSid: true }
                 }),
                 this._db.containerActivity.findMany({
                     where: { JobMasterSid: masterJobSid },
@@ -1591,38 +1638,38 @@ export class AuditLogService {
                 },
                 {
                     tableName: 'MasterJobVoyage',
-                    recordId: { in: voyage.map(x => x.MasterJobVoyageSid.toString())}
+                    recordId: { in: voyage.map(x => x.MasterJobVoyageSid.toString()) }
                 },
                 ...(containerRows.length
                     ? [{
                         tableName: 'MasterJobContainer',
-                        recordId: { in: containerRows.map(x => x.MasterJobContainerSid.toString())}
+                        recordId: { in: containerRows.map(x => x.MasterJobContainerSid.toString()) }
                     }]
                     : []),
                 {
                     tableName: 'MasterJobOthers',
-                    recordId: { in: others.map(x => x.MasterJobOthersSid.toString())}
+                    recordId: { in: others.map(x => x.MasterJobOthersSid.toString()) }
                 },
                 ...(connectionRows.length
                     ? [{
                         tableName: 'MasterJobConnection',
-                        recordId: { in: connectionRows.map(x => x.MasterJobConnectionSid.toString())}
+                        recordId: { in: connectionRows.map(x => x.MasterJobConnectionSid.toString()) }
                     }]
-                    :[]),
+                    : []),
                 ...(rateRows.length
                     ? [{
                         tableName: 'CostRevenueCharges',
-                        recordId: { in: rateRows.map(x => x.CostRevenueChargesSid.toString())}
+                        recordId: { in: rateRows.map(x => x.CostRevenueChargesSid.toString()) }
                     }]
                     : []),
                 {
                     tableName: 'HouseJobCustoms',
-                    recordId: { in: customs.map(x => x.HouseJobCustomsSid.toString())}
+                    recordId: { in: customs.map(x => x.HouseJobCustomsSid.toString()) }
                 },
                 ...(activityRows.length
                     ? [{
                         tableName: 'ContainerActivity',
-                        recordId: { in: activityRows.map( x => x.ContainerActivitySid.toString())}
+                        recordId: { in: activityRows.map(x => x.ContainerActivitySid.toString()) }
                     }]
                     : []),
             ];
@@ -1941,6 +1988,926 @@ export class AuditLogService {
         } catch (error) {
             this.logger.warn(`getAuditLogsError: ${error}`);
             throw new Error(`Error fetching audit logs: ${error.message}`);
+        }
+    }
+
+    private getQuoteRowLabel(
+        log: any,
+        rowLabelMaps: {
+            routeMap: Map<string, string>;
+            carrierMap: Map<string, string>;
+            chargeMap: Map<string, string>;
+            cargoMap: Map<string, string>;
+        },
+        oldVal: Record<string, any>,
+        newVal: Record<string, any>
+    ): string | null {
+        const recordId = String(log.recordId ?? '');
+
+        switch (log.tableName) {
+
+            case 'QuoteRoute':
+                return (
+                    rowLabelMaps.routeMap.get(recordId) ||
+                    `Route [${newVal.segmentType || oldVal.segmentType || recordId}]`
+                );
+
+            case 'QuoteCarrier':
+                return (
+                    rowLabelMaps.carrierMap.get(recordId) ||
+                    `Carrier [${newVal.CarrierName || oldVal.CarrierName || recordId}]`
+                );
+
+            case 'QuoteCharge':
+                return (
+                    rowLabelMaps.chargeMap.get(recordId) ||
+                    `Charge [${newVal.Charge || oldVal.Charge || recordId}]`
+                );
+
+            case 'QuoteCargo':
+                return (
+                    rowLabelMaps.cargoMap.get(recordId) ||
+                    `Cargo [${newVal.CargoType || oldVal.CargoType || recordId}]`
+                );
+
+            default:
+                return null;
+        }
+    }
+
+    private getQuoteLabel(tableName: string): string {
+        const sectionMap: Record<string, string> = {
+            QuoteHeader: 'Quotation',
+            QuoteRoute: 'Route Details',
+            QuoteCarrier: 'Carrier Details',
+            QuoteCargo: 'Cargo Details',
+            QuoteCharge: 'Charge Details',
+        };
+
+        return sectionMap[tableName] || tableName;
+    }
+
+    private async getQuoteLogs(recordId?: string) {
+        try {
+            let conditions: any[] = [];
+            let routeRows: any[] = [];
+            let carrierRows: any[] = [];
+            let cargoRows: any[] = [];
+            let chargeRows: any[] = [];
+
+            const quoteHeaderSid = Number(recordId);
+
+            const [
+                route,
+                carrier,
+                cargo,
+                charge,
+            ] = await Promise.all([
+                this._db.quoteRoute.findMany({
+                    where: { QuoteHeaderSid: quoteHeaderSid },
+                    select: {
+                        QuoteRouteSid: true,
+                        segmentType: true,
+                        POLSid: true,
+                        PODSid: true,
+                    }
+                }),
+                this._db.quoteCarrier.findMany({
+                    where: { QuoteHeaderSid: quoteHeaderSid },
+                    select: {
+                        QuoteCarrierSid: true,
+                        QuoteRouteSid: true,
+                        CarrierName: true,
+                    }
+                }),
+                this._db.quoteCargo.findMany({
+                    where: { QuoteHeaderSid: quoteHeaderSid },
+                    select: {
+                        QuoteCargoSid: true,
+                        QuoteRouteSid: true,
+                        CargoType: true,
+                    }
+                }),
+                this._db.quoteCharge.findMany({
+                    where: { QuoteHeaderSid: quoteHeaderSid },
+                    select: {
+                        QuoteChargeSid: true,
+                        QuoteRouteSid: true,
+                        QuoteCarrierSid: true,
+                        ChargeUomSid: true,
+                    }
+                }),
+            ]);
+
+            routeRows = route;
+            carrierRows = carrier;
+            chargeRows = charge;
+            cargoRows = cargo;
+
+            conditions = [
+                {
+                    tableName: 'QuoteHeader',
+                    recordId: recordId
+                },
+                ...(routeRows.length
+                    ? [{
+                        tableName: 'QuoteRoute',
+                        recordId: { in: routeRows.map(x => x.QuoteRouteSid.toString()) }
+                    }]
+                    : []),
+                ...(carrierRows.length
+                    ? [{
+                        tableName: 'QuoteCarrier',
+                        recordId: { in: carrierRows.map(x => x.QuoteCarrierSid.toString()) }
+                    }]
+                    : []),
+                ...(chargeRows.length
+                    ? [{
+                        tableName: 'QuoteCharge',
+                        recordId: { in: chargeRows.map(x => x.QuoteChargeSid.toString()) }
+                    }]
+                    : []),
+                ...(cargoRows.length
+                    ? [{
+                        tableName: 'QuoteCargo',
+                        recordId: { in: cargoRows.map(x => x.QuoteCargoSid.toString()) }
+                    }]
+                    : []),
+            ];
+
+            const logs = await this._db.auditLog.findMany({
+                where: {
+                    OR: conditions
+                },
+                orderBy: {
+                    changedAt: 'desc'
+                }
+            });
+
+            const [ports, customer, users, charges, uoms, currencies] = await Promise.all([
+                this._db.portMaster.findMany({
+                    select: {
+                        PortMasterSid: true,
+                        PortCode: true
+                    }
+                }),
+                this._db.customerMaster.findMany({
+                    select: {
+                        CustomerMasterSid: true,
+                        CustomerName: true
+                    }
+                }),
+                this._db.userMaster.findMany({
+                    select: {
+                        UserMasterSid: true,
+                        userName: true
+                    }
+                }),
+                this._db.chargeMaster.findMany({
+                    select: {
+                        ChargeMasterSid: true,
+                        chargeCode: true,
+                    }
+                }),
+                this._db.uOMMaster.findMany({
+                    select: {
+                        UOMMasterSid: true,
+                        UOMCode: true
+                    }
+                }),
+                this._db.currencyMaster.findMany({
+                    select: {
+                        CurrencyMasterSid: true,
+                        currencyCode: true
+                    }
+                }),
+            ]);
+
+            const portMap = new Map<string, string>(
+                ports.map(p => [String(p.PortMasterSid), p.PortCode])
+            );
+
+            const customerMap = new Map<string, string>(
+                customer.map(c => [String(c.CustomerMasterSid), c.CustomerName])
+            );
+
+            const salesmanMap = new Map<string, string>(
+                users.map(u => [String(u.UserMasterSid), u.userName])
+            );
+
+            const chargesMap = new Map<string, string>(
+                charges.map(c => [String(c.ChargeMasterSid), c.chargeCode])
+            );
+
+            const uomMap = new Map<string, string>(
+                uoms.map(c => [String(c.UOMMasterSid), c.UOMCode])
+            );
+
+            const currencyMap = new Map<string, string>(
+                currencies.map(c => [String(c.CurrencyMasterSid), c.currencyCode])
+            );
+
+            const routeMap = new Map<string, string>(
+                routeRows.map((r) => {
+                    const pol = portMap.get(String(r.POLSid)) || String(r.POLSid || '-');
+                    const pod = portMap.get(String(r.PODSid)) || String(r.PODSid || '-');
+                    const segment = r.segmentType?.toString().trim() || 'Route';
+
+                    return [
+                        String(r.QuoteRouteSid),
+                        `Route ${segment} [${pol} - ${pod}]`
+                    ];
+                })
+            );
+
+            const carrierMap = new Map<string, string>(
+                carrierRows.map((c) => {
+                    const routeLabel =
+                        routeMap.get(String(c.QuoteRouteSid)) ||
+                        `[${c.QuoteRouteSid}]`;
+                    const carrier =
+                        c.CarrierName?.toString().trim() ||
+                        customerMap.get(String(c.CarrierMasterSid)) ||
+                        String(c.QuoteCarrierSid);
+                    return [
+                        String(c.QuoteCarrierSid),
+                        `Carrier [${routeLabel} - ${carrier}]`
+                    ];
+                })
+            );
+
+            const cargoMap = new Map<string, string>(
+                cargoRows.map((c) => {
+                    const routeLabel =
+                        routeMap.get(String(c.QuoteRouteSid)) ||
+                        `[${c.QuoteRouteSid}]`;
+
+                    const cargoType =
+                        c.CargoType?.toString().trim() ||
+                        String(c.QuoteCargoSid);
+
+                    return [
+                        String(c.QuoteCargoSid),
+                        `Cargo [${routeLabel}]`
+                    ];
+                })
+            );
+
+            const chargeMap = new Map<string, string>(
+                chargeRows.map((c) => {
+                    const routeLabel =
+                        routeMap.get(String(c.QuoteRouteSid)) ||
+                        `Route [${c.QuoteRouteSid}]`;
+
+                    const carrierName = c.QuoteCarrierSid
+                        ? (
+                            carrierRows.find(x => String(x.QuoteCarrierSid) === String(c.QuoteCarrierSid))?.CarrierName?.toString().trim() ||
+                            `Carrier ${c.QuoteCarrierSid}`
+                        )
+                        : null;
+
+                    const chargeName =
+                        chargesMap.get(String(c.ChargeUomSid)) ||
+                        String(c.QuoteChargeSid);
+
+                    const label = carrierName
+                        ? `Charge [${routeLabel} - ${carrierName} - ${chargeName}]`
+                        : `Charge [${routeLabel} - ${chargeName}]`;
+
+                    return [
+                        String(c.QuoteChargeSid),
+                        label
+                    ];
+                })
+            );
+
+            const yesNoMap = {
+                Y: 'Yes',
+                N: 'No'
+            };
+
+            const statusMap = {
+                A: 'Active',
+                S: 'Suspended',
+                D: 'Deleted'
+            };
+
+            const ignoredFields = [
+                'createdOn', 'createdBy', 'updatedOn', 'updatedBy',
+                'CreatedOn', 'CreatedBy', 'UpdatedOn', 'UpdatedBy',
+                'CostAgentBranchSid', 'RevenueCustomerBranchSid'
+            ];
+
+            const rowLabelMaps = {
+                routeMap,
+                carrierMap,
+                cargoMap,
+                chargeMap,
+            };
+
+            const formattedLogs = logs.map((logs: any) => {
+                const oldVal = { ...(logs.oldVal || {}) };
+                const newVal = { ...(logs.newVal || {}) };
+
+                this.replaceAndRename(oldVal, 'SalesmanSid', 'Salesman', salesmanMap);
+                this.replaceAndRename(newVal, 'SalesmanSid', 'Salesman', salesmanMap);
+
+                this.replaceAndRename(oldVal, 'POLSid', 'POL', portMap);
+                this.replaceAndRename(newVal, 'POLSid', 'POL', portMap);
+
+                this.replaceAndRename(oldVal, 'PODSid', 'POD', portMap);
+                this.replaceAndRename(newVal, 'PODSid', 'POD', portMap);
+
+                this.replaceAndRename(oldVal, 'ChargeUomSid', 'Charge', chargesMap);
+                this.replaceAndRename(newVal, 'ChargeUomSid', 'Charge', chargesMap);
+
+                this.replaceAndRename(oldVal, 'CostChargeUomSid', 'CostChargeUom', uomMap);
+                this.replaceAndRename(newVal, 'CostChargeUomSid', 'CostChargeUom', uomMap);
+
+                this.replaceAndRename(oldVal, 'RevenueChargeUomSid', 'RevenueChargeUom', uomMap);
+                this.replaceAndRename(newVal, 'RevenueChargeUomSid', 'RevenueChargeUom', uomMap);
+
+                this.replaceAndRename(oldVal, 'CostAgentMasterSid', 'Party', customerMap);
+                this.replaceAndRename(newVal, 'CostAgentMasterSid', 'Party', customerMap);
+
+                this.replaceAndRename(oldVal, 'RevenueCustomerMasterSid', 'BillingParty', customerMap);
+                this.replaceAndRename(newVal, 'RevenueCustomerMasterSid', 'BillingParty', customerMap);
+
+                this.replaceAndRename(oldVal, 'RevenueCurrencyMasterSid', 'RevenueCurrency', currencyMap);
+                this.replaceAndRename(newVal, 'RevenueCurrencyMasterSid', 'RevenueCurrency', currencyMap);
+
+                this.replaceAndRename(oldVal, 'CostCurrencyMasterSid', 'CostCurrency', currencyMap);
+                this.replaceAndRename(newVal, 'CostCurrencyMasterSid', 'CostCurrency', currencyMap);
+
+                this.replaceValueFromMap(oldVal, 'IsContract', yesNoMap);
+                this.replaceValueFromMap(newVal, 'IsContract', yesNoMap);
+
+                this.replaceValueFromMap(oldVal, 'AgreedRate', yesNoMap);
+                this.replaceValueFromMap(newVal, 'AgreedRate', yesNoMap);
+
+                this.replaceValueFromMap(oldVal, 'RateLock', yesNoMap);
+                this.replaceValueFromMap(newVal, 'RateLock', yesNoMap);
+
+                this.replaceValueFromMap(oldVal, 'status', statusMap);
+                this.replaceValueFromMap(newVal, 'status', statusMap);
+
+                this.replaceValueFromMap(oldVal, 'Status', statusMap);
+                this.replaceValueFromMap(newVal, 'Status', statusMap);
+
+                this.removeIgnoredFields(oldVal, ignoredFields);
+                this.removeIgnoredFields(newVal, ignoredFields);
+
+                return {
+                    ...logs,
+                    sectionLabel: this.getQuoteLabel(logs.tableName),
+                    rowLabel: this.getQuoteRowLabel(logs, rowLabelMaps, oldVal, newVal),
+                    oldVal,
+                    newVal
+                };
+            });
+            return formattedLogs;
+        } catch (error) {
+            this.logger.warn(`getAuditLogsError: ${error}`);
+            throw new Error(`Error fetching audit logs: ${error.message}`);
+        }
+    }
+
+    private getEnquiryRowLabel(
+        log: any,
+        rowLabelMaps: {
+            routeMap: Map<string, string>;
+            cargoMap: Map<string, string>;
+        },
+        oldVal: Record<string, any>,
+        newVal: Record<string, any>
+    ): string | null {
+        const recordId = String(log.recordId ?? '');
+
+        switch (log.tableName) {
+            case 'EnquiryRoute':
+                return (
+                    rowLabelMaps.routeMap.get(recordId) ||
+                    `Route [${recordId}]`
+                );
+
+            case 'EnquiryCargo':
+                return (
+                    rowLabelMaps.cargoMap.get(recordId) ||
+                    `Cargo [${newVal.ProductName || oldVal.ProductName || recordId}]`
+                );
+
+            default:
+                return null;
+        }
+    }
+
+    private getEnquiryLabel(tableName: string): string {
+        const sectionMap: Record<string, string> = {
+            EnquiryHeader: 'Enquiry',
+            EnquiryRoute: 'Route Details',
+            EnquiryCargo: 'Cargo Details',
+        };
+
+        return sectionMap[tableName] || tableName;
+    }
+
+    private async getEnquiryLogs(recordId?: string) {
+        try {
+            let conditions: any[] = [];
+            let routeRows: any[] = [];
+            let cargoRows: any[] = [];
+
+            const enquiryHeaderSid = Number(recordId);
+
+            const [
+                route,
+                cargo,
+                other
+            ] = await Promise.all([
+                this._db.enquiryRoute.findMany({
+                    where: { EnquiryHeaderSid: enquiryHeaderSid },
+                    select: {
+                        EnquiryRouteSid: true,
+                        POLSid: true,
+                        PODSid: true,
+                        DepartmentMasterSid: true,
+                    }
+                }),
+                this._db.enquiryCargo.findMany({
+                    where: { EnquiryHeaderSid: enquiryHeaderSid },
+                    select: {
+                        EnquiryCargoSid: true,
+                        EnquiryRouteSid: true,
+                        ProductName: true,
+                    }
+                }),
+                this._db.enquiryOther.findMany({
+                    where: { EnquiryHeaderSid: enquiryHeaderSid },
+                    select: {
+                        EnquiryOtherSid: true,
+                    }
+                }),
+            ]);
+
+            routeRows = route;
+            cargoRows = cargo;
+
+            conditions = [
+                {
+                    tableName: 'EnquiryHeader',
+                    recordId: recordId
+                },
+                ...(routeRows.length
+                    ? [{
+                        tableName: 'EnquiryRoute',
+                        recordId: { in: routeRows.map(x => x.EnquiryRouteSid.toString()) }
+                    }]
+                    : []),
+                ...(cargoRows.length
+                    ? [{
+                        tableName: 'EnquiryCargo',
+                        recordId: { in: cargoRows.map(x => x.EnquiryCargoSid.toString()) }
+                    }]
+                    : []),
+                {
+                    tableName: 'EnquiryOther',
+                    recordId: { in: other.map(x => x.EnquiryOtherSid.toString()) }
+                }
+            ];
+
+            const logs = await this._db.auditLog.findMany({
+                where: {
+                    OR: conditions
+                },
+                orderBy: {
+                    changedAt: 'desc'
+                }
+            });
+
+            const [
+                ports,
+                customers,
+                users,
+                departments,
+                uoms,
+            ] = await Promise.all([
+                this._db.portMaster.findMany({
+                    select: {
+                        PortMasterSid: true,
+                        PortCode: true,
+                    }
+                }),
+                this._db.customerMaster.findMany({
+                    select: {
+                        CustomerMasterSid: true,
+                        CustomerName: true
+                    }
+                }),
+                this._db.userMaster.findMany({
+                    select: {
+                        UserMasterSid: true,
+                        userName: true
+                    }
+                }),
+                this._db.departmentMaster.findMany({
+                    select: {
+                        DepartmentMasterSid: true,
+                        departmentName: true
+                    }
+                }),
+                this._db.uOMMaster.findMany({
+                    select: {
+                        UOMMasterSid: true,
+                        UOMCode: true
+                    }
+                }),
+            ]);
+
+            const portMap = new Map<string, string>(
+                ports.map(p => [
+                    String(p.PortMasterSid),
+                    p.PortCode?.toString().trim() || String(p.PortMasterSid)
+                ])
+            );
+
+            const customerMap = new Map<string, string>(
+                customers.map(c => [String(c.CustomerMasterSid), c.CustomerName])
+            );
+
+            const userMap = new Map<string, string>(
+                users.map(u => [String(u.UserMasterSid), u.userName])
+            );
+
+            const departmentMap = new Map<string, string>(
+                departments.map(d => [String(d.DepartmentMasterSid), d.departmentName])
+            );
+
+            const uomMap = new Map<string, string>(
+                uoms.map(u => [String(u.UOMMasterSid), u.UOMCode])
+            );
+
+            const routeMap = new Map<string, string>(
+                routeRows.map((r) => {
+                    const pol = portMap.get(String(r.POLSid)) || String(r.POLSid || '-');
+                    const pod = portMap.get(String(r.PODSid)) || String(r.PODSid || '-');
+
+                    return [
+                        String(r.EnquiryRouteSid),
+                        `Route [${pol} - ${pod}]`
+                    ];
+                })
+            );
+
+            const cargoMap = new Map<string, string>(
+                cargoRows.map((c) => {
+                    const routeLabel =
+                        routeMap.get(String(c.EnquiryRouteSid)) ||
+                        `Route [${c.EnquiryRouteSid || '-'}]`;
+
+                    const product =
+                        c.ProductName?.toString().trim();
+
+                    const label = product
+                        ? `Cargo [${routeLabel} - ${product}]`
+                        : `Cargo [${routeLabel}]`;
+
+                    return [
+                        String(c.EnquiryCargoSid),
+                        label
+                    ];
+                })
+            );
+
+
+            const statusMap = {
+                A: 'Active',
+                S: 'Suspended',
+                D: 'Deleted'
+            };
+
+            const leadCustomerMap = {
+                L: 'Lead',
+                C: 'Customer'
+            };
+
+
+            const ignoredFields = [
+                'createdOn', 'createdBy', 'updatedOn', 'updatedBy',
+                'CreatedOn', 'CreatedBy', 'UpdatedOn', 'UpdatedBy',
+            ];
+
+            const rowLabelMaps = {
+                routeMap,
+                cargoMap,
+            };
+
+            const formattedLogs = logs.map((log: any) => {
+                const oldVal = { ...(log.oldVal || {}) };
+                const newVal = { ...(log.newVal || {}) };
+
+                this.replaceAndRename(oldVal, 'DepartmentMasterSid', 'Department', departmentMap);
+                this.replaceAndRename(newVal, 'DepartmentMasterSid', 'Department', departmentMap);
+
+                this.replaceAndRename(oldVal, 'CustomerMasterSid', 'Customer', customerMap);
+                this.replaceAndRename(newVal, 'CustomerMasterSid', 'Customer', customerMap);
+
+                this.replaceAndRename(oldVal, 'AgentMasterSid', 'Agent', customerMap);
+                this.replaceAndRename(newVal, 'AgentMasterSid', 'Agent', customerMap);
+
+                this.replaceAndRename(oldVal, 'Carrier', 'Carrier', customerMap);
+                this.replaceAndRename(newVal, 'Carrier', 'Carrier', customerMap);
+
+                this.replaceAndRename(oldVal, 'UserMasterSid', 'User', userMap);
+                this.replaceAndRename(newVal, 'UserMasterSid', 'User', userMap);
+
+                this.replaceAndRename(oldVal, 'WeightUnitSid', 'UOM', uomMap);
+                this.replaceAndRename(newVal, 'WeightUnitSid', 'UOM', uomMap);
+
+                this.replaceAndRename(oldVal, 'PORSid', 'POR', portMap);
+                this.replaceAndRename(newVal, 'PORSid', 'POR', portMap);
+
+                this.replaceAndRename(oldVal, 'POLSid', 'POL', portMap);
+                this.replaceAndRename(newVal, 'POLSid', 'POL', portMap);
+
+                this.replaceAndRename(oldVal, 'PODSid', 'POD', portMap);
+                this.replaceAndRename(newVal, 'PODSid', 'POD', portMap);
+
+                this.replaceAndRename(oldVal, 'FDPSid', 'FPOD', portMap);
+                this.replaceAndRename(newVal, 'FDPSid', 'FPOD', portMap);
+
+                this.replaceValueFromMap(oldVal, 'LeadOrCustomer', leadCustomerMap);
+                this.replaceValueFromMap(newVal, 'LeadOrCustomer', leadCustomerMap);
+
+                this.replaceValueFromMap(oldVal, 'status', statusMap);
+                this.replaceValueFromMap(newVal, 'status', statusMap);
+
+                this.replaceValueFromMap(oldVal, 'Status', statusMap);
+                this.replaceValueFromMap(newVal, 'Status', statusMap);
+
+                this.removeIgnoredFields(oldVal, ignoredFields);
+                this.removeIgnoredFields(newVal, ignoredFields);
+
+                return {
+                    ...log,
+                    sectionLabel: this.getEnquiryLabel(log.tableName),
+                    rowLabel: this.getEnquiryRowLabel(log, rowLabelMaps, oldVal, newVal),
+                    oldVal,
+                    newVal
+                };
+            });
+
+            return formattedLogs;
+        } catch (error) {
+            this.logger.warn(`getEnquiryLogsError: ${error}`);
+            throw new Error(`Error fetching enquiry audit logs: ${error.message}`);
+        }
+    }
+
+    private getVoucherMatchingRowLabel(
+        log: any,
+        rowLabelMaps: {
+            detailMap: Map<string, string>;
+        },
+        oldVal: Record<string, any>,
+        newVal: Record<string, any>
+    ): string | null {
+        const recordId = String(log.recordId ?? '');
+
+        switch (log.tableName) {
+            case 'MatchingDetail':
+                return (
+                    rowLabelMaps.detailMap.get(recordId) ||
+                    `Detail [${newVal.SourceVoucherNo || oldVal.SourceVoucherNo || recordId}]`
+                );
+
+            default:
+                return null;
+        }
+    }
+
+    private getVoucherMatchingLabel(tableName: string): string {
+        const sectionMap: Record<string, string> = {
+            VoucherMatchingHeader: 'Voucher Matching',
+            MatchingDetail: 'Matching Details',
+        };
+
+        return sectionMap[tableName] || tableName;
+    }
+
+    private async getVoucherMatchingLogs(recordId?: string) {
+        try {
+            let conditions: any[] = [];
+            let detailRows: any[] = [];
+
+            const voucherMatchingHeaderSid = Number(recordId);
+
+            const [
+                header, 
+                details
+            ] = await Promise.all([
+                this._db.voucherMatchingHeader.findUnique({
+                    where: { VoucherMatchingHeaderSid: voucherMatchingHeaderSid },
+                    select: {
+                        VoucherMatchingHeaderSid: true,
+                        VoucherHeaderSid: true,
+                    }
+                }),
+                this._db.matchingDetail.findMany({
+                    where: { VoucherMatchingHeaderSid: voucherMatchingHeaderSid },
+                    select: {
+                        MatchingDetailSid: true,
+                        VoucherMatchingHeaderSid: true,
+                        MatchingType: true,
+                        VoucherType: true,
+                        Sno: true,
+                        VoucherHeaderSid: true,
+                    }
+                }),
+            ]);
+
+            detailRows = details;
+
+            conditions = [
+                {
+                    tableName: 'VoucherMatchingHeader',
+                    recordId: String(recordId)
+                },
+                ...(detailRows.length
+                    ? [{
+                        tableName: 'MatchingDetail',
+                        recordId: { in: detailRows.map(x => String(x.MatchingDetailSid)) }
+                    }]
+                    : [])
+            ];
+
+            const logs = await this._db.auditLog.findMany({
+                where: {
+                    OR: conditions
+                },
+                orderBy: {
+                    changedAt: 'desc'
+                }
+            });
+
+            const [
+                vouchers,
+                voucherTypes,
+                currencies,
+                coaMasters,
+                subledgers
+            ] = await Promise.all([
+                this._db.voucherHeader.findMany({
+                    select: {
+                        VoucherHeaderSid: true,
+                        VoucherNumber: true
+                    }
+                }),
+                this._db.voucherTypeMaster.findMany({
+                    select: {
+                        VoucherTypeMasterSid: true,
+                        DocumentTypeName: true
+                    }
+                }),
+                this._db.currencyMaster.findMany({
+                    select: {
+                        CurrencyMasterSid: true,
+                        currencyCode: true
+                    }
+                }),
+                this._db.cOAMaster.findMany({
+                    select: {
+                        COAMasterSid: true,
+                        LedgerName: true
+                    }
+                }),
+                this._db.subledgerMaster.findMany({
+                    select: {
+                        SubledgerMasterSid: true,
+                        SubledgerName: true
+                    }
+                })
+            ]);
+
+            const voucherMap = new Map<string, string>(
+                vouchers.map(v => [String(v.VoucherHeaderSid), v.VoucherNumber])
+            );
+
+            const voucherTypeMap = new Map<string, string>(
+                voucherTypes.map((v: any) => [String(v.VoucherTypeMasterSid), v.DocumentTypeName])
+            );
+
+            const currencyMap = new Map<string, string>(
+                currencies.map(c => [String(c.CurrencyMasterSid), c.currencyCode])
+            );
+
+            const coaMap = new Map<string, string>(
+                coaMasters.map((c: any) => [String(c.COAMasterSid), c.LedgerName])
+            );
+
+            const subledgerMap = new Map<string, string>(
+                subledgers.map((s: any) => [String(s.SubledgerMasterSid), s.SubledgerName])
+            );
+
+            const detailMap = new Map<string, string>(
+                detailRows.map((d) => {
+                    const voucherNo =
+                        d.VoucherNumber?.toString().trim() ||
+                        voucherMap.get(String(d.VoucherHeaderSid)) ||
+                        String(d.MatchingDetailSid);
+
+                    const voucherType =
+                        d.VoucherType?.toString().trim() || '';
+
+                    const matchingType =
+                        d.MatchingType?.toString().trim() || '';
+
+                    const label =
+                        matchingType
+                            ? `Detail [${voucherNo} - ${voucherType} - ${matchingType}]`
+                            : voucherType
+                                ? `Detail [${voucherNo} - ${voucherType}]`
+                                : `Detail [${voucherNo}]`;
+
+                    return [String(d.MatchingDetailSid), label];
+                })
+            );
+
+            const postStatusMap = {
+                P: 'Posted',
+                U: 'Unposted'
+            };
+
+            const statusMap = {
+                A: 'Active',
+                S: 'Suspended',
+                D: 'Deleted'
+            };
+
+            const matchingTypeMap = {
+                Source: 'Source',
+                Object: 'Object'
+            };
+
+            const ignoredFields = [
+                'CreatedOn', 'CreatedBy', 'UpdatedOn', 'UpdatedBy',
+                'createdOn', 'createdBy', 'updatedOn', 'updatedBy',
+                'CompanyMasterSid', 'BranchMasterSid',
+                'VoucherMatchingHeaderSid', 'MatchingDetailSid',
+                'VoucherDetailSid', 'VoucherTransactionSid', 'VoucherHeaderSid'
+            ];
+
+            const rowLabelMaps = {
+                detailMap
+            };
+
+            const formattedLogs = logs.map((log: any) => {
+                const oldVal = { ...(log.oldVal || {}) };
+                const newVal = { ...(log.newVal || {}) };
+
+
+                this.replaceAndRename(oldVal, 'CurrencyMasterSid', 'Currency', currencyMap);
+                this.replaceAndRename(newVal, 'CurrencyMasterSid', 'Currency', currencyMap);
+
+                this.replaceAndRename(oldVal, 'MatchingCurrency', 'MatchingCurrency', currencyMap);
+                this.replaceAndRename(newVal, 'MatchingCurrency', 'MatchingCurrency', currencyMap);
+
+                this.replaceAndRename(oldVal, 'COAMasterSid', 'Ledger', coaMap);
+                this.replaceAndRename(newVal, 'COAMasterSid', 'Ledger', coaMap);
+
+                this.replaceAndRename(oldVal, 'SubledgerMasterSid', 'Subledger', subledgerMap);
+                this.replaceAndRename(newVal, 'SubledgerMasterSid', 'Subledger', subledgerMap);
+
+                this.replaceAndRename(oldVal, 'SourceVoucherHeaderSid', 'Voucher', voucherMap);
+                this.replaceAndRename(newVal, 'SourceVoucherHeaderSid', 'Voucher', voucherMap);
+
+                this.replaceValueFromMap(oldVal, 'PostStatus', postStatusMap);
+                this.replaceValueFromMap(newVal, 'PostStatus', postStatusMap);
+
+                this.replaceValueFromMap(oldVal, 'Status', statusMap);
+                this.replaceValueFromMap(newVal, 'Status', statusMap);
+
+                this.replaceValueFromMap(oldVal, 'status', statusMap);
+                this.replaceValueFromMap(newVal, 'status', statusMap);
+
+                this.replaceValueFromMap(oldVal, 'MatchingType', matchingTypeMap);
+                this.replaceValueFromMap(newVal, 'MatchingType', matchingTypeMap);
+
+                this.removeIgnoredFields(oldVal, ignoredFields);
+                this.removeIgnoredFields(newVal, ignoredFields);
+
+                return {
+                    ...log,
+                    sectionLabel: this.getVoucherMatchingLabel(log.tableName),
+                    rowLabel: this.getVoucherMatchingRowLabel(log, rowLabelMaps, oldVal, newVal),
+                    oldVal,
+                    newVal
+                };
+            });
+
+            return formattedLogs;
+        } catch (error) {
+            this.logger.warn(`getVoucherMatchingLogsError: ${error}`);
+            throw new Error(`Error fetching voucher matching audit logs: ${error.message}`);
         }
     }
 }

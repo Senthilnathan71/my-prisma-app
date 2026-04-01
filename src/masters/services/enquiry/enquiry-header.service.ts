@@ -385,6 +385,8 @@ export class EnquiryHeaderService {
                                     length: Number(cargoItem.length),
                                     width: Number(cargoItem.width),
                                     height: Number(cargoItem.height),
+                                    updatedBy: payload.updatedBy,
+                                    updatedOn: new Date(),
                                 }
                             });
                         } else {
