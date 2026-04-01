@@ -37,16 +37,16 @@ export class QuotationService {
             }
 
             // Generate quote number using NumberSeriesService
-            let quoteNumber: string | null = null;
-            if (MenuMasterSid) {
-                quoteNumber = await this.numberSeriesService.generateNextNumber(
-                    CompanyMasterSid,
-                    BranchMasterSid,
-                    MenuMasterSid,
-                    DepartmentMasterSid ?? undefined,
-                    payload.quoteDate ? new Date(payload.quoteDate) : undefined,
-                );
-            }
+            // let quoteNumber: string | null = null;
+            // if (MenuMasterSid) {
+            //     quoteNumber = await this.numberSeriesService.generateNextNumber(
+            //         CompanyMasterSid,
+            //         BranchMasterSid,
+            //         MenuMasterSid,
+            //         DepartmentMasterSid ?? undefined,
+            //         payload.quoteDate ? new Date(payload.quoteDate) : undefined,
+            //     );
+            // }
 
             return await this._db.$transaction(async (prisma) => {
                 // Step 1: Create Quote Header
@@ -59,7 +59,7 @@ export class QuotationService {
                     status: payload.status || "A",
                     CompanyMasterSid: CompanyMasterSid,
                     BranchMasterSid: BranchMasterSid,
-                    QuoteNumber: quoteNumber,
+                    // QuoteNumber: quoteNumber,
                     createdBy: user['userEmail'],
                 };
 

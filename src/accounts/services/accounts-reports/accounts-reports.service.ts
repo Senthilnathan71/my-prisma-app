@@ -190,6 +190,7 @@ export class AccountsReportsService {
       },
       select: {
         LedgerName: true,
+        LedgerType: true,
       },
     });
 
@@ -266,8 +267,26 @@ export class AccountsReportsService {
 
       const ageing =
         Math.floor(
-          (+new Date() - +new Date(v.VoucherDate)) / (1000 * 60 * 60 * 24),
+          (+toDateObj - +new Date(v.VoucherDate)) / (1000 * 60 * 60 * 24),
         ) + 1;
+
+      const outstandingCurr = toNumber(v.Amount) - Math.abs(matchCurr);
+      const outstandingLocal = toNumber(v.LocalAmount) - Math.abs(matchLocal);
+      const drCr = v.DrCr?.trim().toUpperCase();
+      let sign = 1;
+      if (
+        (coa.LedgerType?.trim() === 'Sy Cr' && drCr === 'D') ||
+        (coa.LedgerType?.trim() === 'Sy Dr' && drCr === 'C')
+      ) {
+        sign = -1;
+      }
+
+      const signedOSCurrencyAmount = sign * outstandingCurr;
+      const signedOSLocalAmount = sign * outstandingLocal;
+      const signedOnAccountCreditCurr =
+        drCr === 'C' ? sign * outstandingCurr : 0;
+      const signedOnAccountCreditLocal =
+        drCr === 'C' ? sign * outstandingLocal : 0;
 
       return {
         VoucherTransactionSid: v.VoucherTransactionSid,
@@ -280,12 +299,10 @@ export class AccountsReportsService {
         Ageing: ageing,
         OriginalCurrAmount: toNumber(v.Amount),
         OriginalLocalAmount: toNumber(v.LocalAmount),
-        OSCurrencyAmount: toNumber(v.Amount) - Math.abs(matchCurr),
-        OSLocalAmount: toNumber(v.LocalAmount) - Math.abs(matchLocal),
-        OnAccountCreditCurr:
-          v.DrCr === 'C' ? toNumber(v.Amount) - Math.abs(matchCurr) : 0,
-        OnAccountCreditLocal:
-          v.DrCr === 'C' ? toNumber(v.LocalAmount) - Math.abs(matchLocal) : 0,
+        OSCurrencyAmount: signedOSCurrencyAmount,
+        OSLocalAmount: signedOSLocalAmount,
+        OnAccountCreditCurr: signedOnAccountCreditCurr,
+        OnAccountCreditLocal: signedOnAccountCreditLocal,
       };
     });
 
@@ -384,32 +401,23 @@ export class AccountsReportsService {
         const subledger = getOrCreateSubledger(currGroup, subId, row);
 
         // Update subledger totals (currency amounts)
-        subledger.totalOutstandingCurrency +=
-          row.DrCr === 'C' ? -row.OSCurrencyAmount : row.OSCurrencyAmount;
-        subledger.totalOutstandingLocal +=
-          row.DrCr === 'C' ? -row.OSLocalAmount : row.OSLocalAmount;
-        subledger.totalOnAccountCreditCurr +=
-          row.DrCr === 'C' ? -row.OnAccountCreditCurr : 0;
-        subledger.totalOnAccountCreditLocal +=
-          row.DrCr === 'C' ? -row.OnAccountCreditLocal : 0;
+        subledger.totalOutstandingCurrency += row.OSCurrencyAmount;
+        subledger.totalOutstandingLocal += row.OSLocalAmount;
+        subledger.totalOnAccountCreditCurr += row.OnAccountCreditCurr;
+        subledger.totalOnAccountCreditLocal += row.OnAccountCreditLocal;
         // subledger.rows?.push(row);
         subledger.voucherCount += 1;
 
         // Update currency group totals
-        currGroup.totalOutstandingCurrency +=
-          row.DrCr === 'C' ? -row.OSCurrencyAmount : row.OSCurrencyAmount;
-        currGroup.totalOutstandingLocal +=
-          row.DrCr === 'C' ? -row.OSLocalAmount : row.OSLocalAmount;
-        currGroup.totalOnAccountCreditCurr +=
-          row.DrCr === 'C' ? -row.OnAccountCreditCurr : 0;
-        currGroup.totalOnAccountCreditLocal +=
-          row.DrCr === 'C' ? -row.OnAccountCreditLocal : 0;
+        currGroup.totalOutstandingCurrency += row.OSCurrencyAmount;
+        currGroup.totalOutstandingLocal += row.OSLocalAmount;
+        currGroup.totalOnAccountCreditCurr += row.OnAccountCreditCurr;
+        currGroup.totalOnAccountCreditLocal += row.OnAccountCreditLocal;
         currGroup.voucherCount += 1;
 
-        // Bucket allocation (use OSCurrencyAmount here by your requirement)
+        // Bucket allocation follows the same signed OS rule as totals.
         let placed = false;
-        const bucketAmount =
-          row.DrCr === 'C' ? -row.OSCurrencyAmount : row.OSCurrencyAmount;
+        const bucketAmount = row.OSCurrencyAmount;
         for (let i = 0; i < bucketRanges.length; i++) {
           if (row.Ageing <= bucketRanges[i]) {
             const label = bucketLabels[i];
@@ -431,48 +439,35 @@ export class AccountsReportsService {
 
         const subledger = getOrCreateSubledger(combinedGroup, subId, row);
 
-        // Update subledger totals (we still record OSCurrencyAmount & OSLocalAmount)
-        subledger.totalOutstandingCurrency += row.OSCurrencyAmount
-          ? -row.OSCurrencyAmount
-          : 0;
-        subledger.totalOutstandingLocal += row.OSLocalAmount
-          ? -row.OSLocalAmount
-          : 0;
-        subledger.totalOnAccountCreditCurr +=
-          row.DrCr === 'C' ? -row.OnAccountCreditCurr : 0;
-        subledger.totalOnAccountCreditLocal +=
-          row.DrCr === 'C' ? -row.OnAccountCreditLocal : 0;
+        // Update subledger totals using the same signed OS values.
+        subledger.totalOutstandingCurrency += row.OSCurrencyAmount;
+        subledger.totalOutstandingLocal += row.OSLocalAmount;
+        subledger.totalOnAccountCreditCurr += row.OnAccountCreditCurr;
+        subledger.totalOnAccountCreditLocal += row.OnAccountCreditLocal;
         subledger.voucherCount += 1;
 
-        combinedGroup.totalOutstandingCurrency +=
-          row.DrCr === 'C' ? -row.OSCurrencyAmount : row.OSCurrencyAmount;
-        combinedGroup.totalOutstandingLocal +=
-          row.DrCr === 'C' ? -row.OSLocalAmount : row.OSLocalAmount;
-        combinedGroup.totalOnAccountCreditCurr +=
-          row.DrCr === 'C' ? -row.OnAccountCreditCurr : 0;
-        combinedGroup.totalOnAccountCreditLocal +=
-          row.DrCr === 'C' ? -row.OnAccountCreditLocal : 0;
+        combinedGroup.totalOutstandingCurrency += row.OSCurrencyAmount;
+        combinedGroup.totalOutstandingLocal += row.OSLocalAmount;
+        combinedGroup.totalOnAccountCreditCurr += row.OnAccountCreditCurr;
+        combinedGroup.totalOnAccountCreditLocal += row.OnAccountCreditLocal;
         combinedGroup.voucherCount += 1;
 
-        // Bucket allocation (we still use OSCurrencyAmount for buckets per your previous logic)
+        // Bucket allocation follows the same signed OS rule as totals.
         let placed = false;
+        const bucketAmount = row.OSCurrencyAmount;
         for (let i = 0; i < bucketRanges.length; i++) {
           if (row.Ageing <= bucketRanges[i]) {
             const label = bucketLabels[i];
-            subledger.buckets[label] +=
-              row.DrCr === 'D' ? row.OSCurrencyAmount : 0;
-            combinedGroup.bucketTotals[label] +=
-              row.DrCr === 'D' ? row.OSCurrencyAmount : 0;
+            subledger.buckets[label] += bucketAmount;
+            combinedGroup.bucketTotals[label] += bucketAmount;
             placed = true;
             break;
           }
         }
         if (!placed) {
           const last = bucketLabels[bucketLabels.length - 1];
-          subledger.buckets[last] +=
-            row.DrCr === 'D' ? row.OSCurrencyAmount : 0;
-          combinedGroup.bucketTotals[last] +=
-            row.DrCr === 'D' ? row.OSCurrencyAmount : 0;
+          subledger.buckets[last] += bucketAmount;
+          combinedGroup.bucketTotals[last] += bucketAmount;
         }
       }
     }
@@ -1646,18 +1641,18 @@ export class AccountsReportsService {
             },
           },
         },
-        include: {
-          coaMaster: {
-            select: {
-              Category: true,
-              GroupName: true,
-              SubGroupName: true,
-              LedgerName: true,
+          include: {
+            coaMaster: {
+              select: {
+                Category: true,
+                GroupName: true,
+                SubGroupName: true,
+                LedgerName: true,
+              },
             },
-          },
-          yearMaster: {
-            select: {
-              YearCode: true,
+            yearMaster: {
+              select: {
+                YearCode: true,
             },
           },
         },
@@ -1666,30 +1661,98 @@ export class AccountsReportsService {
 
       const profitLossMap = new Map<string, any>();
 
-      for (const vt of voucherTransactions) {
-        if (!vt.coaMaster || !vt.yearMaster) continue;
+      const normalizeText = (value?: string | null) =>
+        String(value || '').trim().toLowerCase();
 
-        const { Category, GroupName, SubGroupName, LedgerName } = vt.coaMaster;
-        const yearCode = vt.yearMaster.YearCode;
+      const resolveProfitSection = (
+        category?: string | null,
+        groupName?: string | null,
+        subGroupName?: string | null,
+        ledgerName?: string | null,
+      ) => {
+        const normalizedGroupName = normalizeText(groupName);
+        const normalizedSubGroupName = normalizeText(subGroupName);
+        const normalizedLedgerName = normalizeText(ledgerName);
+        const searchText =
+          `${normalizedSubGroupName} ${normalizedGroupName} ${normalizedLedgerName}`.trim();
 
-        const amount = vt.LocalAmount.toNumber();
+        if (category === 'Income') {
+          if (
+            normalizedSubGroupName.includes('direct') ||
+            normalizedLedgerName.includes('direct')
+          ) {
+            return 'DirectIncome';
+          }
 
-        const signedAmount =
-          vt.DrCr === 'C' ? amount : vt.DrCr === 'D' ? amount * -1 : 0;
+          return 'IndirectIncome';
+        }
 
-        const key = `${Category}|${GroupName}|${SubGroupName}|${LedgerName}`;
+        if (category === 'Expense') {
+          if (
+            normalizedSubGroupName.includes('indirect') ||
+            normalizedSubGroupName.includes('administrative') ||
+            normalizedSubGroupName.includes('finance') ||
+            normalizedSubGroupName.includes('office') ||
+            normalizedSubGroupName.includes('selling') ||
+            normalizedSubGroupName.includes('general') ||
+            normalizedSubGroupName.includes('bank') ||
+            normalizedLedgerName.includes('bank charges') ||
+            normalizedLedgerName.includes('courier') ||
+            searchText.includes('indirect')
+          ) {
+            return 'IndirectExpense';
+          }
 
-        if (!profitLossMap.has(key)) {
-          profitLossMap.set(key, {
+          if (
+            normalizedSubGroupName.includes('direct') ||
+            normalizedLedgerName.includes('direct')
+          ) {
+            return 'DirectExpense';
+          }
+
+          return 'DirectExpense';
+        }
+
+        return 'Unknown';
+      };
+
+
+        for (const vt of voucherTransactions) {
+          if (!vt.coaMaster || !vt.yearMaster) continue;
+
+          const { Category, GroupName, SubGroupName, LedgerName } = vt.coaMaster;
+          const yearCode = vt.yearMaster.YearCode;
+          const ProfitSection = resolveProfitSection(
             Category,
             GroupName,
             SubGroupName,
             LedgerName,
-            amounts: {} as Record<number, number>,
-          });
-        }
-        const row = profitLossMap.get(key);
-        row.amounts[yearCode] = (row.amounts[yearCode] || 0) + signedAmount;
+          );
+
+          const amount = vt.LocalAmount.toNumber();
+          const drCr = vt.DrCr?.trim().toUpperCase();
+          let signedAmount = amount;
+
+          if (Category === 'Income') {
+            signedAmount = drCr === 'C' ? amount : -amount;
+          } else if (Category === 'Expense') {
+            signedAmount = drCr === 'D' ? amount : -amount;
+          }
+
+          const key = `${Category}|${ProfitSection}|${GroupName}|${SubGroupName}|${LedgerName}`;
+
+          if (!profitLossMap.has(key)) {
+            profitLossMap.set(key, {
+              Category,
+              ProfitSection,
+              GroupName,
+              SubGroupName,
+              LedgerName,
+              amounts: {} as Record<number, number>,
+            });
+          }
+          const row = profitLossMap.get(key);
+          row.amounts[yearCode] = (row.amounts[yearCode] || 0) + signedAmount;
       }
 
       const profitLoss = Array.from(profitLossMap.values());
