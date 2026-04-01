@@ -531,6 +531,7 @@ export class MasterJobService {
                         CarrierRef: otherFormValue?.CarrierRef,
                         JobtoSubjob: otherFormValue?.JobtoSubjob,
                         AgentRef: otherFormValue?.AgentRef,
+                        ImportMasterJobSid: otherFormValue?.ImportMasterJobSid ? Number(otherFormValue?.ImportMasterJobSid) : null,
                         ExportDoDate: otherFormValue?.ExportDoDate ? new Date(otherFormValue?.ExportDoDate) : null,
                         SOBDate: otherFormValue?.SOBDate ? new Date(otherFormValue?.SOBDate) : null,
 
@@ -1996,6 +1997,7 @@ private getWeightInFromUnitSid(weightUnitSid: number): string {
                         ExportDoNo: otherFormValue?.ExportDoNo,
                         CarrierRef: otherFormValue?.CarrierRef,
                         AgentRef: otherFormValue?.AgentRef,
+                        ImportMasterJobSid: otherFormValue?.ImportMasterJobSid ? Number(otherFormValue?.ImportMasterJobSid) : null,
                         ExportDoDate: otherFormValue?.ExportDoDate ? new Date(otherFormValue?.ExportDoDate) : null,
                         SOBDate: otherFormValue?.SOBDate ? new Date(otherFormValue?.SOBDate) : null,
                         UpdatedBy : payload.updatedBy,
@@ -2029,6 +2031,7 @@ private getWeightInFromUnitSid(weightUnitSid: number): string {
                         ExportDoNo: otherFormValue?.ExportDoNo,
                         CarrierRef: otherFormValue?.CarrierRef,
                         AgentRef: otherFormValue?.AgentRef,
+                        ImportMasterJobSid: otherFormValue?.ImportMasterJobSid ? Number(otherFormValue?.ImportMasterJobSid) : null,
                         ExportDoDate: otherFormValue?.ExportDoDate ? new Date(otherFormValue?.ExportDoDate) : null,
                         SOBDate: otherFormValue?.SOBDate ? new Date(otherFormValue?.SOBDate) : null,
                         JobtoSubjob: otherFormValue?.JobtoSubjob,
@@ -6979,6 +6982,7 @@ console.log('Created product:', createdProduct);
                         MasterJobSid: createdMasterJob.MasterJobSid,
                         CreatedBy: createdBy,
                         Status: 'A',
+                        ImportMasterJobSid: sourceMasterJob.MasterJobSid,
                     }
                 });
             }
@@ -7220,6 +7224,7 @@ console.log('Created product:', createdProduct);
                     where: { MasterJobOthersSid: sourceMasterJobOther.MasterJobOthersSid },
                     data: {
                         ExportToImport: 'Y',
+                        ImportMasterJobSid: createdMasterJob.MasterJobSid,
                         UpdatedBy: createdBy,
                         UpdatedOn: new Date(),
                     }
@@ -7231,6 +7236,7 @@ console.log('Created product:', createdProduct);
                         CreatedBy: createdBy,
                         Status: 'A',
                         ExportToImport: 'Y',
+                        ImportMasterJobSid: createdMasterJob.MasterJobSid,
                     }
                 });
             }
