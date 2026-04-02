@@ -5,6 +5,7 @@ import { VoucherMatchingPayload } from 'src/accounts/dto/receipt.dto';
 import { PostVoucherResponseDto, TaxSummaryDto, VoucherDetailDto } from 'src/accounts/dto/voucher-posting.dto';
 import { checkIfExJvApplicable, checkIfMatchingApplicable, checkIfReversalApplicable, DOC_TYPE_CODE, DocTypeCode, getPartyDrCr, getTaxInputOutput, getTaxLedger, TaxLedgerType, TaxVoucherType } from 'src/common/config/voucher-type.config';
 import { DatabaseService } from 'src/database/database.service';
+import { CompanyConfigService } from 'src/masters/services/company/company-config.service';
 import * as moment from 'moment-timezone';
 import { CheckAutoPostingDto, CreateVoucherPayload, DeleteVoucherPayload } from 'src/accounts/dto/voucher.dto';
 import { roundAmount, toNumber } from 'src/common/helper';
@@ -69,7 +70,8 @@ export class VoucherService {
     private readonly logger = new Logger(VoucherService.name);
 
     constructor(
-        private readonly _db: DatabaseService
+        private readonly _db: DatabaseService,
+        private readonly companyConfigService: CompanyConfigService,
     ) {}
 
     // /**
@@ -2359,6 +2361,47 @@ export class VoucherService {
                 UpdatedBy: postedBy
             }
         });
+
+        // --- Sync actual amounts back to CostRevenueCharges / BookingRates if configured ---
+        if (voucherType === DOC_TYPE_CODE.INVOICE || voucherType === DOC_TYPE_CODE.VENDOR_INVOICE) {
+            const cancelUpdate = await this.companyConfigService.getConfigurationValue(
+                companyMasterSid, 'DisableActualToProvisionalSync', tx
+            );
+            if (cancelUpdate !== 'Y') {
+                const isInvoice = voucherType === DOC_TYPE_CODE.INVOICE;
+                for (const detail of chargeLineItems) {
+                    if (!detail.CostRevenueChargesSid && !detail.BookingRatesSid) continue;
+
+                    const amountData = isInvoice
+                        ? {
+                            RevenueExchangeRate : this.toNumber(detail.ExchangeRate),
+                            RevenueRate: this.toNumber(detail.Rate),
+                            RevenueAmount: this.toNumber(detail.Amount),
+                            RevenueLocalAmount: this.toNumber(detail.LocalAmount),
+                          }
+                        : {
+                            CostExchangeRate : this.toNumber(detail.ExchangeRate),
+                            CostRate: this.toNumber(detail.Rate),
+                            CostAmount: this.toNumber(detail.Amount),
+                            CostLocalAmount: this.toNumber(detail.LocalAmount),
+                          };
+
+                    if (detail.CostRevenueChargesSid) {
+                        await tx.costRevenueCharges.update({
+                            where: { CostRevenueChargesSid: detail.CostRevenueChargesSid },
+                            data: { ...amountData, updatedOn: now, updatedBy: postedBy }
+                        });
+                    }
+
+                    if (detail.BookingRatesSid) {
+                        await tx.bookingRates.update({
+                            where: { BookingRatesSid: detail.BookingRatesSid },
+                            data: { ...amountData, UpdatedOn: now, UpdatedBy: postedBy }
+                        });
+                    }
+                }
+            }
+        }
 
         this.logger.log(`Successfully posted voucher ${voucherHeaderSid}: ${transactionSids.length} transactions created`);
 

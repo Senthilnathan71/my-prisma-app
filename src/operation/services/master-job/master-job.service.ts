@@ -4861,7 +4861,7 @@ private async updateMasterJobTotals(masterJobSid: number): Promise<void> {
                 MasterJobNumber: { not: null },
                 CompanyMasterSid,
                 BranchMasterSid,
-                status: 'A',
+                Status: 'A',
                 ...(DepartmentMasterSid && { DepartmentMasterSid }),
                 ...(SearchText && {
                     MasterJobNumber: { contains: SearchText, mode: 'insensitive' },

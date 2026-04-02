@@ -304,7 +304,7 @@ export class CompanyConfigService {
                 where: {
                     CompanyMasterSid: CompanyMasterSid,
                     ConfigurationName: ConfigurationName,
-                    
+                    Status : 'A'
                 }
             });
 
