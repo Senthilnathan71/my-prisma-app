@@ -6098,7 +6098,7 @@ export class OperationReportsService {
             },
           },
           voucherMatchings: {
-            where: { Status: 'A' },
+            where: { Status: 'A' , VoucherMatchingDate:{lte:toDateObj}},
           },
         },
 
@@ -6290,7 +6290,7 @@ export class OperationReportsService {
             },
           },
           voucherMatchings: {
-            where: { Status: 'A' },
+            where: { Status: 'A' , VoucherMatchingDate:{lte:toDateObj}},
           },
         },
         orderBy: { VoucherDate: 'asc' },

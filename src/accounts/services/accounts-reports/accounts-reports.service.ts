@@ -238,7 +238,7 @@ export class AccountsReportsService {
       where: whereClause,
       include: {
         subledgerMaster: true,
-        voucherMatchings: { where: { Status: 'A' } },
+        voucherMatchings: { where: { Status: 'A' , VoucherMatchingDate:{lte:toDateObj}} },
       },
       orderBy: [
         { CurrencyCode: 'asc' },
@@ -700,6 +700,9 @@ export class AccountsReportsService {
           voucherMatchings: {
             where: {
               Status: 'A',
+              VoucherMatchingDate:{
+                lte:ToDate
+              }
             },
           },
           voucherTypeMaster: {
@@ -1039,6 +1042,7 @@ export class AccountsReportsService {
           voucherMatchings: {
             where: {
               Status: 'A',
+              VoucherMatchingDate:{lte:ToDate}
             },
           },
           voucherTypeMaster: {
@@ -1436,10 +1440,15 @@ export class AccountsReportsService {
           COAMasterSid: coaMasterSid,
           subledgerName: subledger?.SubledgerName,
           ledgerName: ledger?.LedgerName,
+          ledgerType: ledger?.LedgerType,
           totalOutstandingCurrency: 0,
           totalOutstandingLocal: 0,
+          openingBalance: openingBalance,
           voucherCount: 0,
           transactions: [],
+          branchNames: resolvedBranchNames.join(', '),
+          BranchInvolved,
+          params: params,
         };
       }
 
@@ -1633,7 +1642,9 @@ export class AccountsReportsService {
           },
           Status: 'A',
 
-          ...(COAMasterSid && { coaMasterSid: COAMasterSid }),
+          ...(COAMasterSid?.length
+            ? { COAMasterSid: { in: COAMasterSid } }
+            : {}),
 
           coaMaster: {
             Category: {
@@ -1641,18 +1652,18 @@ export class AccountsReportsService {
             },
           },
         },
-          include: {
-            coaMaster: {
-              select: {
-                Category: true,
-                GroupName: true,
-                SubGroupName: true,
-                LedgerName: true,
-              },
+        include: {
+          coaMaster: {
+            select: {
+              Category: true,
+              GroupName: true,
+              SubGroupName: true,
+              LedgerName: true,
             },
-            yearMaster: {
-              select: {
-                YearCode: true,
+          },
+          yearMaster: {
+            select: {
+              YearCode: true,
             },
           },
         },
@@ -1660,6 +1671,7 @@ export class AccountsReportsService {
       });
 
       const profitLossMap = new Map<string, any>();
+      const yearKeySet = new Set<string>();
 
       const normalizeText = (value?: string | null) =>
         String(value || '').trim().toLowerCase();
@@ -1716,46 +1728,229 @@ export class AccountsReportsService {
         return 'Unknown';
       };
 
+      const getDisplayGroupName = (
+        category?: string | null,
+        groupName?: string | null,
+        subGroupName?: string | null,
+      ) => subGroupName || groupName || category || '';
 
-        for (const vt of voucherTransactions) {
-          if (!vt.coaMaster || !vt.yearMaster) continue;
+      const createAmountMap = (yearKeys: string[]) =>
+        yearKeys.reduce(
+          (acc, yearKey) => {
+            acc[yearKey] = 0;
+            return acc;
+          },
+          {} as Record<string, number>,
+        );
 
-          const { Category, GroupName, SubGroupName, LedgerName } = vt.coaMaster;
-          const yearCode = vt.yearMaster.YearCode;
-          const ProfitSection = resolveProfitSection(
+      const addAmounts = (
+        target: Record<string, number>,
+        source: Record<string, number>,
+      ) => {
+        for (const [yearKey, amount] of Object.entries(source)) {
+          target[yearKey] = roundAmount(
+            (target[yearKey] || 0) + amount,
+            2,
+          );
+        }
+      };
+
+      for (const vt of voucherTransactions) {
+        if (!vt.coaMaster || !vt.yearMaster) continue;
+
+        const { Category, GroupName, SubGroupName, LedgerName } = vt.coaMaster;
+        const yearCode = String(vt.yearMaster.YearCode);
+        yearKeySet.add(yearCode);
+
+        const profitSection = resolveProfitSection(
+          Category,
+          GroupName,
+          SubGroupName,
+          LedgerName,
+        );
+
+        const amount = vt.LocalAmount.toNumber();
+        const drCr = vt.DrCr?.trim().toUpperCase();
+        let signedAmount = amount;
+
+        if (Category === 'Income') {
+          signedAmount = drCr === 'C' ? amount : -amount;
+        } else if (Category === 'Expense') {
+          signedAmount = drCr === 'D' ? amount : -amount;
+        }
+
+        const key = [
+          Category,
+          profitSection,
+          GroupName,
+          SubGroupName,
+          LedgerName,
+        ].join('|');
+
+        if (!profitLossMap.has(key)) {
+          profitLossMap.set(key, {
             Category,
+            ProfitSection: profitSection,
             GroupName,
             SubGroupName,
-            LedgerName,
-          );
-
-          const amount = vt.LocalAmount.toNumber();
-          const drCr = vt.DrCr?.trim().toUpperCase();
-          let signedAmount = amount;
-
-          if (Category === 'Income') {
-            signedAmount = drCr === 'C' ? amount : -amount;
-          } else if (Category === 'Expense') {
-            signedAmount = drCr === 'D' ? amount : -amount;
-          }
-
-          const key = `${Category}|${ProfitSection}|${GroupName}|${SubGroupName}|${LedgerName}`;
-
-          if (!profitLossMap.has(key)) {
-            profitLossMap.set(key, {
+            DisplayGroupName: getDisplayGroupName(
               Category,
-              ProfitSection,
               GroupName,
               SubGroupName,
-              LedgerName,
-              amounts: {} as Record<number, number>,
-            });
-          }
-          const row = profitLossMap.get(key);
-          row.amounts[yearCode] = (row.amounts[yearCode] || 0) + signedAmount;
+            ),
+            LedgerName,
+            amounts: {} as Record<string, number>,
+          });
+        }
+
+        const row = profitLossMap.get(key);
+        row.amounts[yearCode] = roundAmount(
+          (row.amounts[yearCode] || 0) + signedAmount,
+          2,
+        );
       }
 
-      const profitLoss = Array.from(profitLossMap.values());
+      const yearKeys = Array.from(yearKeySet).sort((a, b) => Number(a) - Number(b));
+
+      const groupedRows = Array.from(profitLossMap.values()).sort((a, b) => {
+        if (a.ProfitSection !== b.ProfitSection) {
+          return a.ProfitSection.localeCompare(b.ProfitSection);
+        }
+
+        if (a.DisplayGroupName !== b.DisplayGroupName) {
+          return a.DisplayGroupName.localeCompare(b.DisplayGroupName);
+        }
+
+        return (a.LedgerName || '').localeCompare(b.LedgerName || '');
+      });
+
+      const bucketedRows = {
+        DirectIncome: [] as any[],
+        DirectExpense: [] as any[],
+        IndirectIncome: [] as any[],
+        IndirectExpense: [] as any[],
+      };
+
+      for (const row of groupedRows) {
+        if (row.ProfitSection in bucketedRows) {
+          bucketedRows[row.ProfitSection as keyof typeof bucketedRows].push(row);
+        }
+      }
+
+      const toDetailRows = (rows: any[]) => {
+        let previousGroupLabel = '';
+
+        return rows.map((row) => {
+          const currentGroupLabel = row.DisplayGroupName || '';
+          const groupLabel =
+            currentGroupLabel === previousGroupLabel ? '' : currentGroupLabel;
+
+          previousGroupLabel = currentGroupLabel;
+
+          return {
+            rowType: 'detail',
+            sectionLabel: '',
+            groupLabel,
+            ledgerLabel: row.LedgerName || '',
+            amounts: row.amounts,
+            Category: row.Category,
+            ProfitSection: row.ProfitSection,
+            GroupName: row.GroupName,
+            SubGroupName: row.SubGroupName,
+            LedgerName: row.LedgerName,
+          };
+        });
+      };
+
+      const buildTotalRow = (ledgerLabel: string, rows: any[]) => {
+        const amounts = createAmountMap(yearKeys);
+        for (const row of rows) {
+          addAmounts(amounts, row.amounts || {});
+        }
+
+        return {
+          rowType: 'total',
+          sectionLabel: '',
+          groupLabel: '',
+          ledgerLabel,
+          amounts,
+        };
+      };
+
+      const directIncomeRows = bucketedRows.DirectIncome;
+      const directExpenseRows = bucketedRows.DirectExpense;
+      const indirectIncomeRows = bucketedRows.IndirectIncome;
+      const indirectExpenseRows = bucketedRows.IndirectExpense;
+
+      const totalIncomeRow = buildTotalRow('Total Income', directIncomeRows);
+      const totalExpenseRow = buildTotalRow('Total Expenses', directExpenseRows);
+      const totalOtherIncomeRow = buildTotalRow(
+        'Total Other Income',
+        indirectIncomeRows,
+      );
+      const totalIndirectExpenseRow = buildTotalRow(
+        'Total Indirect Expenses',
+        indirectExpenseRows,
+      );
+
+      const grossProfitAmounts = createAmountMap(yearKeys);
+      const netProfitAmounts = createAmountMap(yearKeys);
+
+      for (const yearKey of yearKeys) {
+        grossProfitAmounts[yearKey] = roundAmount(
+          (totalIncomeRow.amounts[yearKey] || 0) -
+            (totalExpenseRow.amounts[yearKey] || 0),
+          2,
+        );
+
+        netProfitAmounts[yearKey] = roundAmount(
+          grossProfitAmounts[yearKey] +
+            (totalOtherIncomeRow.amounts[yearKey] || 0) -
+            (totalIndirectExpenseRow.amounts[yearKey] || 0),
+          2,
+        );
+      }
+
+      const grossProfitRow = {
+        rowType: 'summary',
+        sectionLabel: '',
+        groupLabel: '',
+        ledgerLabel: 'Gross Profit',
+        amounts: grossProfitAmounts,
+      };
+
+      const netProfitRow = {
+        rowType: 'summary',
+        sectionLabel: '',
+        groupLabel: '',
+        ledgerLabel: 'Net Profit',
+        amounts: netProfitAmounts,
+      };
+
+      const profitLoss: any[] = [
+        {
+          rowType: 'section',
+          sectionLabel: 'Income',
+          groupLabel: '',
+          ledgerLabel: '',
+          amounts: createAmountMap(yearKeys),
+        },
+        ...toDetailRows(directIncomeRows),
+        totalIncomeRow,
+        {
+          rowType: 'section',
+          sectionLabel: 'Expenses',
+          groupLabel: '',
+          ledgerLabel: '',
+          amounts: createAmountMap(yearKeys),
+        },
+        ...toDetailRows(directExpenseRows),
+        totalExpenseRow,
+        grossProfitRow,
+        ...toDetailRows(indirectIncomeRows),
+        ...toDetailRows(indirectExpenseRows),
+        netProfitRow,
+      ];
 
       return {
         CompanyMasterSid,
@@ -1763,8 +1958,17 @@ export class AccountsReportsService {
         BranchInvolved,
         fromDate: FromDate,
         toDate: ToDate,
+        yearKeys,
         params,
         profitLoss,
+        summary: {
+          totalIncome: totalIncomeRow.amounts,
+          totalExpenses: totalExpenseRow.amounts,
+          grossProfit: grossProfitRow.amounts,
+          totalOtherIncome: totalOtherIncomeRow.amounts,
+          totalIndirectExpenses: totalIndirectExpenseRow.amounts,
+          netProfit: netProfitRow.amounts,
+        },
       };
     } catch (error) {
       this.logger.error(
@@ -1870,15 +2074,12 @@ export class AccountsReportsService {
         if (ledger?.LedgerType?.trim() === 'Sy Cr') {
           if (drCr === 'D') signedAmt = -amt;
           if (drCr === 'C') signedAmt = +amt;
-        }
-
-        if (ledger?.LedgerType?.trim() === 'Sy Dr') {
+        } else if (ledger?.LedgerType?.trim() === 'Sy Dr') {
           if (drCr === 'C') signedAmt = -amt;
           if (drCr === 'D') signedAmt = +amt;
-        }
-        else{
-           if (drCr === 'D') signedAmt = +amt;
-           if (drCr === 'C') signedAmt = -amt;
+        } else {
+          if (drCr === 'D') signedAmt = +amt;
+          if (drCr === 'C') signedAmt = -amt;
         }
         openingBalance += signedAmt;
       }
@@ -1918,6 +2119,9 @@ export class AccountsReportsService {
           voucherMatchings: {
             where: {
               Status: 'A',
+              VoucherMatchingDate: {
+                lte: ToDate,
+              },
             },
           },
           voucherTypeMaster: {
@@ -1940,10 +2144,16 @@ export class AccountsReportsService {
           COAMasterSid: coaMasterSid || null,
           subledgerName: subledger?.SubledgerName,
           ledgerName: ledger?.LedgerName,
+          ledgerType: ledger?.LedgerType,
           totalOutstandingCurrency: 0,
           totalOutstandingLocal: 0,
+          openingBalance: openingBalance,
           voucherCount: 0,
           transactions: [],
+          branchNames: resolvedBranchNames.join(', '),
+          voucherTypeName: voucherTypeMaster?.DocumentTypeCode || 'All Vouchers',
+          branchInvolved,
+          params: params,
         };
       }
 
