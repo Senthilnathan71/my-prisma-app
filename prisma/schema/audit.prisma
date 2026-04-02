@@ -8,6 +8,8 @@ model AuditLog {
   changes     Json?
   newVal      Json?
   oldVal      Json?
+
+  @@index([tableName, recordId, changedAt], map: "idx_audit_log")
 }
 
 model TablePrimaryKeyMap {

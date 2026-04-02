@@ -72,6 +72,7 @@ model MenuMaster {
   voucherTypeMaster       VoucherTypeMaster[]
   numberSeriesConfig      NumberSeriesConfig[]
   numberSeriesCounter     NumberSeriesCounter[]
+  PrintMaster             PrintMaster[]
 }
 
 model MenuPermission {
@@ -153,6 +154,7 @@ model RoleMenuHeader {
   status            String?          @default("A") @db.Char(1)
   Remarks           String           @db.VarChar(100)
   RoleMenuDetail    RoleMenuDetail[]
+  PrintMaster       PrintMaster[]
   companyMaster     CompanyMaster?   @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
   roleMaster        RoleMaster       @relation(fields: [RoleMasterSid], references: [RoleMasterSid])
 }
@@ -167,6 +169,7 @@ model RoleMenuDetail {
   ViewRole          String?        @default("N") @db.Char(1)
   UpdateRole        String?        @default("N") @db.Char(1)
   DeleteRole        String?        @default("N") @db.Char(1)
+  PostRole          String?        @default("N") @db.Char(1)
   createdOn         DateTime       @default(now()) @db.Timestamptz(6)
   updatedOn         DateTime?      @updatedAt @db.Timestamptz(6)
   createdBy         String         @db.VarChar(100)
@@ -176,6 +179,27 @@ model RoleMenuDetail {
   companyMaster     CompanyMaster? @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
   menuMaster        MenuMaster     @relation(fields: [MenuMasterSid], references: [MenuMasterSid])
   RoleMenuHeader    RoleMenuHeader @relation(fields: [RoleMenuHeaderSid], references: [RoleMenuHeaderSid])
+}
+
+model PrintMaster {
+  PrintMasterSid    Int            @id @default(autoincrement()) @map("PrintMasterSid")
+  Name              String         @db.VarChar(50)
+  PrintMail         String         @db.VarChar(20)
+  MenuMasterSid     Int
+  RoleMenuHeaderSid Int
+  CompanyMasterSid  Int
+  Status            String?        @default("A") @db.Char(1)
+  CreatedOn         DateTime       @default(now()) @db.Timestamptz(6)
+  UpdatedOn         DateTime?      @updatedAt @db.Timestamptz(6)
+  CreatedBy         String         @db.VarChar(100)
+  UpdatedBy         String?        @db.VarChar(100)
+
+  CompanyMaster     CompanyMaster  @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+  MenuMaster        MenuMaster     @relation(fields: [MenuMasterSid], references: [MenuMasterSid])
+  RoleMenuHeader    RoleMenuHeader @relation(fields: [RoleMenuHeaderSid], references: [RoleMenuHeaderSid])
+
+  @@index([CompanyMasterSid, RoleMenuHeaderSid, MenuMasterSid, Name, Status])
+  @@index([CompanyMasterSid, PrintMail])
 }
 
 enum UserTypeCode {

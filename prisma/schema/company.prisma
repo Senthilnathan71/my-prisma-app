@@ -1,6 +1,6 @@
 model CompanyMaster {
   companyName                String                       @db.VarChar(100)
-  companyCode                String                       @db.Char(10)
+  companyCode                String                       @db.VarChar(10)
   createdBy                  String                       @db.VarChar(100)
   createdOn                  DateTime                     @default(now()) @db.Timestamptz(6)
   updatedOn                  DateTime                     @updatedAt @db.Timestamptz(6)
@@ -100,6 +100,7 @@ model CompanyMaster {
   RoleMenuDetail             RoleMenuDetail[]
   RoleMenuHeader             RoleMenuHeader[]
   roleMenuMaster             RoleMenuMaster[]
+  PrintMaster                PrintMaster[]
   routingHeader              RoutingHeader[]
   shipmentMilestone          ShipmentMilestone[]
   ShippingInstruction        ShippingInstruction[]
@@ -441,6 +442,8 @@ model StateMaster {
   PreCustomerMaster PreCustomerMaster[]
   countryMaster     CountryMaster?      @relation(fields: [CountryMasterSid], references: [CountryMasterSid])
   zoneMaster        ZoneMaster?         @relation(fields: [ZoneMasterSid], references: [ZoneMasterSid])
+
+  @@index([CountryMasterSid, status])
 }
 
 model CityMaster {
@@ -597,6 +600,8 @@ model ChargeMaster {
   StdTariffDetail      StdTariffDetail[]
   VoucherDetail        VoucherDetail[]
   VoucherTransaction   VoucherTransaction[]
+
+  @@index([CompanyMasterSid, Status])
 }
 
 model ChargeTaxMaster {
@@ -1995,6 +2000,8 @@ model UserLoginHistory {
   deletedAt          DateTime?
   status             String?    @default("A") @db.Char(1)
   user               UserMaster @relation(fields: [userId], references: [UserMasterSid])
+
+  @@index([userId, loginTime])
 }
 
 model ActiveSession {
@@ -2471,6 +2478,11 @@ model SubledgerMaster {
   voucherMatching     VoucherMatching[]
   VoucherTransaction  VoucherTransaction[]
   reportSchedules     ReportSchedule[]
+
+  @@index([CompanyMasterSid,SubledgerMappingSid,SubledgerType,CrCOAMasterSid,Status],     map: "idx_subledger_cr_coa")
+  @@index([CompanyMasterSid,SubledgerMappingSid,SubledgerType,DrCOAMasterSid,Status],     map: "idx_subledger_dr_coa")
+  @@index([CompanyMasterSid,SubledgerMappingSid,SubledgerType,AccrualCOAMasterSid,Status], map: "idx_subledger_accrual_coa")
+
 }
 
 model SupplierTdsMapping {
@@ -2786,6 +2798,8 @@ model MasterJobContainer {
   containerType         ContainerTypeMaster? @relation(fields: [ContainerType], references: [ContainerTypeMasterSid])
   masterJob             MasterJob            @relation(fields: [MasterJobSid], references: [MasterJobSid])
   UOMMaster             UOMMaster?           @relation(fields: [PkgType], references: [UOMMasterSid])
+
+  @@index([MasterJobSid, Status])
 }
 
 model HouseJob {
@@ -3253,6 +3267,9 @@ model VoucherDetail {
   yearMaster            YearMaster?         @relation(fields: [YearMasterSid], references: [YearMasterSid])
   voucherMatchings      VoucherMatching[]
   VoucherTDS            VoucherTDS[]
+
+  @@index([VoucherHeaderSid])
+  @@index([CompanyMasterSid, BranchMasterSid, VoucherHeaderSid])
 }
 
 model VoucherOthers {
@@ -3356,6 +3373,10 @@ model VoucherTransaction {
   VoucherHeader         VoucherHeader       @relation(fields: [VoucherHeaderSid], references: [VoucherHeaderSid])
   voucherTypeMaster     VoucherTypeMaster   @relation(fields: [VoucherTypeMasterSid], references: [VoucherTypeMasterSid])
   yearMaster            YearMaster?         @relation(fields: [YearMasterSid], references: [YearMasterSid])
+
+  @@index([VoucherHeaderSid])
+  @@index([VoucherDetailSid])
+  @@index([CompanyMasterSid, BranchMasterSid, VoucherHeaderSid])
 }
 
 model VoucherMatchingHeader {
@@ -3462,6 +3483,10 @@ model MatchingDetail {
   MatchingExRate           Decimal?               @db.Decimal(7, 3)
   MatchingTDSAmount        Decimal?               @db.Decimal(15, 3)
   MatchingType             String?                @db.VarChar(10)
+  CreatedOn                DateTime               @default(now()) @db.Timestamptz(6)
+  CreatedBy                String?                @db.VarChar(100)
+  UpdatedOn                DateTime?              @db.Timestamptz(6)
+  UpdatedBy                String?                @db.VarChar(100)
   currencyMaster           CurrencyMaster?        @relation(fields: [MatchingCurrency], references: [CurrencyMasterSid])
   SourceVoucherHeader      VoucherHeader?         @relation("SourceVoucherHeader", fields: [SourceVoucherHeaderSid], references: [VoucherHeaderSid])
   VoucherHeader            VoucherHeader          @relation("VoucherHeader", fields: [VoucherHeaderSid], references: [VoucherHeaderSid])
@@ -3502,6 +3527,7 @@ model PaymentRequest {
   houseJob              HouseJob?              @relation(fields: [HouseJobSid], references: [HouseJobSid])
   masterJob             MasterJob?             @relation(fields: [MasterJobSid], references: [MasterJobSid])
   customer              CustomerMaster         @relation(fields: [Party], references: [CustomerMasterSid])
+  costRevenueCharges    CostRevenueCharges[]
   paymentRequestDetails PaymentRequestDetail[]
 }
 
