@@ -152,6 +152,8 @@ export class AccountsReportsService {
           return await this.vat201(parameters);
         case 'outstanding-local':
           return await this.gernerateOustandingLocal(parameters);
+        case 'cash-flow':
+          return await this.gernerateCashFlow(parameters);
         default:
           throw new BadRequestException(`Report ${reportName} not implemented`);
       }
@@ -4133,6 +4135,572 @@ export class AccountsReportsService {
     }
   }
 
+  private async gernerateCashFlow(params: any) {
+    try {
+      const { companyId: CompanyMasterSid, FromDate, ToDate } = params;
+
+      const currentFromDate = new Date(FromDate);
+      const currentToDate = new Date(ToDate);
+      const previousFromDate = new Date(currentFromDate);
+      previousFromDate.setFullYear(previousFromDate.getFullYear() - 1);
+      const previousToDate = new Date(currentToDate);
+      previousToDate.setFullYear(previousToDate.getFullYear() - 1);
+
+      const toNumberValue = (value: any): number => {
+        const num = Number(value ?? 0);
+        return isNaN(num) ? 0 : num;
+      };
+
+      const round = (value: number, decimals = 2): number => {
+        return Number(toNumberValue(value).toFixed(decimals));
+      };
+
+      const normalizeText = (value?: string | null) =>
+        String(value ?? '')
+          .trim()
+          .toLowerCase();
+
+      const includesAny = (value: string, keywords: string[]) =>
+        keywords.some((keyword) => value.includes(keyword));
+
+      const formatYearLabel = (date: Date) => {
+        const year = date.getFullYear();
+        const financialYearStart = date.getMonth() >= 3 ? year : year - 1;
+        return `${financialYearStart} - ${String((financialYearStart + 1) % 100).padStart(2, '0')}`;
+      };
+
+      const yearKeys = [formatYearLabel(currentToDate), formatYearLabel(previousToDate)];
+
+      const buildEmptyReport = () => ({
+        data: {
+          operatingActivities: [],
+          investingActivities: [],
+          financingActivities: [],
+          workingCapitalBreakup: {
+            receivables: [],
+            otherCurrentAssets: [],
+            currentLiabilities: [],
+          },
+          cashAndCashEquivalents: [],
+          fixedAssetsBreakup: [],
+          financingBreakup: [],
+          profitBreakup: {
+            incomeTotal: 0,
+            expenseTotal: 0,
+            depreciation: 0,
+            netProfit: 0,
+          },
+        },
+        summary: {
+          netProfit: 0,
+          depreciation: 0,
+          receivablesChange: 0,
+          otherCurrentAssetsChange: 0,
+          currentLiabilitiesChange: 0,
+          netCashFromOperatingActivities: 0,
+          netCashFromInvestingActivities: 0,
+          netCashFromFinancingActivities: 0,
+          netIncreaseInCashAndCashEquivalents: 0,
+          openingCashAndCashEquivalents: 0,
+          closingCashAndCashEquivalents: 0,
+          changeInCashAndCashEquivalents: 0,
+          isReconciled: true,
+        },
+      });
+
+      const ledgers = await this._db.cOAMaster.findMany({
+        where: {
+          CompanyMasterSid,
+          Status: 'A',
+          LedgerCategory: 'Ledger',
+        },
+        select: {
+          COAMasterSid: true,
+          LedgerCode: true,
+          LedgerName: true,
+          Category: true,
+          GroupName: true,
+          SubGroupName: true,
+          LedgerType: true,
+        },
+      });
+
+      if (!ledgers.length) {
+        const emptyReport = buildEmptyReport();
+        return {
+          params,
+          method: 'Indirect',
+          source: 'Trial Balance Based',
+          yearKeys,
+          reportSubTitle: `For the year ${currentToDate.toLocaleDateString('en-US', {
+            month: 'long',
+            day: 'numeric',
+            year: 'numeric',
+          })}`,
+          ...emptyReport,
+        };
+      }
+
+      const maxToDate = currentToDate > previousToDate ? currentToDate : previousToDate;
+
+      const transactions = await this._db.voucherTransaction.findMany({
+        where: {
+          CompanyMasterSid,
+          Status: 'A',
+          VoucherDate: {
+            lte: maxToDate,
+          },
+        },
+        select: {
+          COAMasterSid: true,
+          VoucherDate: true,
+          DrCr: true,
+          LocalAmount: true,
+        },
+        orderBy: { VoucherDate: 'asc' },
+      });
+
+      const transactionMap = new Map<number, typeof transactions>();
+
+      for (const txn of transactions) {
+        if (txn.COAMasterSid == null) continue;
+
+        if (!transactionMap.has(txn.COAMasterSid)) {
+          transactionMap.set(txn.COAMasterSid, []);
+        }
+
+        transactionMap.get(txn.COAMasterSid)!.push(txn);
+      }
+
+      const isIncomeLedger = (ledger: any) => {
+        const category = normalizeText(ledger.Category);
+        const group = normalizeText(ledger.GroupName);
+        const subGroup = normalizeText(ledger.SubGroupName);
+        const name = normalizeText(ledger.LedgerName);
+
+        return (
+          includesAny(category, ['income', 'revenue']) ||
+          includesAny(group, ['income', 'revenue']) ||
+          includesAny(subGroup, ['income', 'revenue']) ||
+          includesAny(name, ['income', 'sales', 'revenue'])
+        );
+      };
+
+      const isExpenseLedger = (ledger: any) => {
+        const category = normalizeText(ledger.Category);
+        const group = normalizeText(ledger.GroupName);
+        const subGroup = normalizeText(ledger.SubGroupName);
+        const name = normalizeText(ledger.LedgerName);
+
+        return (
+          includesAny(category, ['expense', 'expenses']) ||
+          includesAny(group, ['expense', 'expenses']) ||
+          includesAny(subGroup, ['expense', 'expenses']) ||
+          includesAny(name, ['expense', 'charges', 'cost'])
+        );
+      };
+
+      const isReceivableLedger = (ledger: any) => {
+        const group = normalizeText(ledger.GroupName);
+        const subGroup = normalizeText(ledger.SubGroupName);
+        const name = normalizeText(ledger.LedgerName);
+
+        return (
+          includesAny(group, ['debtor', 'receivable']) ||
+          includesAny(subGroup, ['debtor', 'receivable']) ||
+          includesAny(name, ['debtor', 'receivable'])
+        );
+      };
+
+      const isCashAndBankLedger = (ledger: any) => {
+        const group = normalizeText(ledger.GroupName);
+        const subGroup = normalizeText(ledger.SubGroupName);
+        const name = normalizeText(ledger.LedgerName);
+        const type = normalizeText(ledger.LedgerType);
+
+        return (
+          includesAny(group, ['cash', 'bank']) ||
+          includesAny(subGroup, ['cash', 'bank']) ||
+          includesAny(name, ['cash', 'bank', 'petty cash']) ||
+          includesAny(type, ['cash', 'bank'])
+        );
+      };
+
+      const isOtherCurrentAssetLedger = (ledger: any) => {
+        const category = normalizeText(ledger.Category);
+        const group = normalizeText(ledger.GroupName);
+        const subGroup = normalizeText(ledger.SubGroupName);
+        const name = normalizeText(ledger.LedgerName);
+
+        return (
+          (
+            includesAny(category, ['current asset']) &&
+            !isReceivableLedger(ledger) &&
+            !isCashAndBankLedger(ledger)
+          ) ||
+          includesAny(group, ['tax receivable', 'prepaid', 'advance', 'deposit']) ||
+          includesAny(subGroup, ['tax receivable', 'prepaid', 'advance', 'deposit']) ||
+          includesAny(name, ['vat receivable', 'tax receivable', 'prepaid', 'advance', 'deposit'])
+        );
+      };
+
+      const isCurrentLiabilityLedger = (ledger: any) => {
+        const category = normalizeText(ledger.Category);
+        const group = normalizeText(ledger.GroupName);
+        const subGroup = normalizeText(ledger.SubGroupName);
+        const name = normalizeText(ledger.LedgerName);
+
+        return (
+          includesAny(category, ['current liability']) ||
+          includesAny(group, ['creditor', 'payable', 'tax', 'accrued', 'outstanding']) ||
+          includesAny(subGroup, ['creditor', 'payable', 'tax', 'accrued', 'outstanding']) ||
+          includesAny(name, ['creditor', 'payable', 'vat payable', 'accrued', 'outstanding'])
+        );
+      };
+
+      const isDepreciationLedger = (ledger: any) => {
+        const name = normalizeText(ledger.LedgerName);
+        const subGroup = normalizeText(ledger.SubGroupName);
+        return (
+          includesAny(name, ['depreciation', 'amortization']) ||
+          includesAny(subGroup, ['depreciation', 'amortization'])
+        );
+      };
+
+      const isFixedAssetLedger = (ledger: any) => {
+        const category = normalizeText(ledger.Category);
+        const group = normalizeText(ledger.GroupName);
+        const subGroup = normalizeText(ledger.SubGroupName);
+        const name = normalizeText(ledger.LedgerName);
+
+        return (
+          (
+            includesAny(category, ['non current asset', 'fixed asset']) ||
+            includesAny(group, ['fixed asset', 'property plant', 'equipment']) ||
+            includesAny(subGroup, ['fixed asset', 'property plant', 'equipment']) ||
+            includesAny(name, [
+              'vehicle',
+              'furniture',
+              'equipment',
+              'computer',
+              'building',
+              'office equipment',
+              'fixed asset',
+            ])
+          ) && !includesAny(name, ['depreciation', 'accumulated depreciation'])
+        );
+      };
+
+      const isFinancingLedger = (ledger: any) => {
+        const category = normalizeText(ledger.Category);
+        const group = normalizeText(ledger.GroupName);
+        const subGroup = normalizeText(ledger.SubGroupName);
+        const name = normalizeText(ledger.LedgerName);
+
+        return (
+          includesAny(category, ['equity', 'liability']) &&
+          (
+            includesAny(group, ['loan', 'capital', 'borrowing', 'drawing', 'dividend']) ||
+            includesAny(subGroup, ['loan', 'capital', 'borrowing', 'drawing', 'dividend']) ||
+            includesAny(name, ['loan', 'capital', 'borrowing', 'drawing', 'dividend'])
+          )
+        );
+      };
+
+      const buildPeriodReport = (periodFrom: Date, periodTo: Date) => {
+        const ledgerBalances = ledgers.map((ledger) => {
+          const ledgerTransactions = transactionMap.get(ledger.COAMasterSid) ?? [];
+
+          let openingDebit = 0;
+          let openingCredit = 0;
+          let currentDebit = 0;
+          let currentCredit = 0;
+
+          for (const txn of ledgerTransactions) {
+            const voucherDate = new Date(txn.VoucherDate);
+            const amount = toNumberValue(txn.LocalAmount);
+
+            if (voucherDate < periodFrom) {
+              if (txn.DrCr === 'D') {
+                openingDebit += amount;
+              } else if (txn.DrCr === 'C') {
+                openingCredit += amount;
+              }
+            } else if (voucherDate >= periodFrom && voucherDate <= periodTo) {
+              if (txn.DrCr === 'D') {
+                currentDebit += amount;
+              } else if (txn.DrCr === 'C') {
+                currentCredit += amount;
+              }
+            }
+          }
+
+          const closingDebit = openingDebit + currentDebit;
+          const closingCredit = openingCredit + currentCredit;
+
+          return {
+            ...ledger,
+            OpeningDebit: round(openingDebit),
+            OpeningCredit: round(openingCredit),
+            CurrentDebit: round(currentDebit),
+            CurrentCredit: round(currentCredit),
+            ClosingDebit: round(closingDebit),
+            ClosingCredit: round(closingCredit),
+          };
+        });
+
+        const getOpeningBalance = (ledger: any) => {
+          const category = normalizeText(ledger.Category);
+
+          if (includesAny(category, ['income', 'liability', 'equity', 'capital'])) {
+            return round(ledger.OpeningCredit - ledger.OpeningDebit);
+          }
+
+          return round(ledger.OpeningDebit - ledger.OpeningCredit);
+        };
+
+        const getClosingBalance = (ledger: any) => {
+          const category = normalizeText(ledger.Category);
+
+          if (includesAny(category, ['income', 'liability', 'equity', 'capital'])) {
+            return round(ledger.ClosingCredit - ledger.ClosingDebit);
+          }
+
+          return round(ledger.ClosingDebit - ledger.ClosingCredit);
+        };
+
+        const createBreakupRows = (items: any[]) =>
+          items.map((ledger) => {
+            const openingBalance = getOpeningBalance(ledger);
+            const closingBalance = getClosingBalance(ledger);
+            const change = round(closingBalance - openingBalance);
+
+            return {
+              COAMasterSid: ledger.COAMasterSid,
+              LedgerCode: ledger.LedgerCode,
+              LedgerName: ledger.LedgerName,
+              Category: ledger.Category,
+              GroupName: ledger.GroupName,
+              SubGroupName: ledger.SubGroupName,
+              LedgerType: ledger.LedgerType,
+              OpeningDebit: ledger.OpeningDebit,
+              OpeningCredit: ledger.OpeningCredit,
+              CurrentDebit: ledger.CurrentDebit,
+              CurrentCredit: ledger.CurrentCredit,
+              ClosingDebit: ledger.ClosingDebit,
+              ClosingCredit: ledger.ClosingCredit,
+              OpeningBalance: openingBalance,
+              ClosingBalance: closingBalance,
+              Change: change,
+            };
+          });
+
+        const incomeLedgers = ledgerBalances.filter(isIncomeLedger);
+        const expenseLedgers = ledgerBalances.filter(isExpenseLedger);
+        const receivableLedgers = ledgerBalances.filter(isReceivableLedger);
+        const otherCurrentAssetLedgers = ledgerBalances.filter(isOtherCurrentAssetLedger);
+        const currentLiabilityLedgers = ledgerBalances.filter(isCurrentLiabilityLedger);
+        const cashAndBankLedgers = ledgerBalances.filter(isCashAndBankLedger);
+        const depreciationLedgers = ledgerBalances.filter(isDepreciationLedger);
+        const fixedAssetLedgers = ledgerBalances.filter(isFixedAssetLedger);
+        const financingLedgers = ledgerBalances.filter(isFinancingLedger);
+
+        const incomeTotal = round(
+          incomeLedgers.reduce((sum, ledger) => sum + (ledger.CurrentCredit - ledger.CurrentDebit), 0),
+        );
+
+        const expenseTotal = round(
+          expenseLedgers.reduce((sum, ledger) => sum + (ledger.CurrentDebit - ledger.CurrentCredit), 0),
+        );
+
+        const depreciation = round(
+          depreciationLedgers.reduce((sum, ledger) => sum + (ledger.CurrentDebit - ledger.CurrentCredit), 0),
+        );
+
+        const netProfit = round(incomeTotal - expenseTotal);
+
+        const receivablesBreakup = createBreakupRows(receivableLedgers);
+        const otherCurrentAssetsBreakup = createBreakupRows(otherCurrentAssetLedgers);
+        const currentLiabilitiesBreakup = createBreakupRows(currentLiabilityLedgers);
+        const cashAndCashEquivalentsBreakup = createBreakupRows(cashAndBankLedgers);
+        const fixedAssetsBreakup = createBreakupRows(fixedAssetLedgers);
+        const financingBreakup = createBreakupRows(financingLedgers);
+
+        const receivablesChange = round(receivablesBreakup.reduce((sum, row) => sum + row.Change, 0));
+        const otherCurrentAssetsChange = round(otherCurrentAssetsBreakup.reduce((sum, row) => sum + row.Change, 0));
+        const currentLiabilitiesChange = round(currentLiabilitiesBreakup.reduce((sum, row) => sum + row.Change, 0));
+        const openingCashAndCashEquivalents = round(cashAndCashEquivalentsBreakup.reduce((sum, row) => sum + row.OpeningBalance, 0));
+        const closingCashAndCashEquivalents = round(cashAndCashEquivalentsBreakup.reduce((sum, row) => sum + row.ClosingBalance, 0));
+        const fixedAssetChange = round(fixedAssetsBreakup.reduce((sum, row) => sum + row.Change, 0));
+        const netCashFromInvestingActivities = round(-fixedAssetChange);
+        const financingChange = round(financingBreakup.reduce((sum, row) => sum + row.Change, 0));
+        const netCashFromFinancingActivities = round(financingChange);
+        const netCashFromOperatingActivities = round(
+          netProfit + depreciation - receivablesChange - otherCurrentAssetsChange + currentLiabilitiesChange,
+        );
+        const netIncreaseInCashAndCashEquivalents = round(
+          netCashFromOperatingActivities + netCashFromInvestingActivities + netCashFromFinancingActivities,
+        );
+        const changeInCashAndCashEquivalents = round(
+          closingCashAndCashEquivalents - openingCashAndCashEquivalents,
+        );
+
+        return {
+          data: {
+            operatingActivities: [
+              { label: 'Net Profit for the period', amount: netProfit },
+              { label: 'Depreciation / Non-cash adjustments', amount: depreciation },
+              { label: '(Increase) / Decrease in Trade & Other Receivables', amount: round(-receivablesChange) },
+              { label: '(Increase) / Decrease in Other Current Assets', amount: round(-otherCurrentAssetsChange) },
+              { label: 'Increase / (Decrease) in Other Current Liabilities', amount: currentLiabilitiesChange },
+              { label: 'Net cash generated from operating activities (A)', amount: netCashFromOperatingActivities },
+            ],
+            investingActivities: [
+              { label: 'Net cash generated from investing activities (B)', amount: netCashFromInvestingActivities },
+            ],
+            financingActivities: [
+              { label: 'Net cash generated from financing activities (C)', amount: netCashFromFinancingActivities },
+            ],
+            workingCapitalBreakup: {
+              receivables: receivablesBreakup,
+              otherCurrentAssets: otherCurrentAssetsBreakup,
+              currentLiabilities: currentLiabilitiesBreakup,
+            },
+            cashAndCashEquivalents: cashAndCashEquivalentsBreakup,
+            fixedAssetsBreakup,
+            financingBreakup,
+            profitBreakup: {
+              incomeTotal,
+              expenseTotal,
+              depreciation,
+              netProfit,
+            },
+          },
+          summary: {
+            netProfit,
+            depreciation,
+            receivablesChange,
+            otherCurrentAssetsChange,
+            currentLiabilitiesChange,
+            netCashFromOperatingActivities,
+            netCashFromInvestingActivities,
+            netCashFromFinancingActivities,
+            netIncreaseInCashAndCashEquivalents,
+            openingCashAndCashEquivalents,
+            closingCashAndCashEquivalents,
+            changeInCashAndCashEquivalents,
+            isReconciled: round(netIncreaseInCashAndCashEquivalents - changeInCashAndCashEquivalents) === 0,
+          },
+        };
+      };
+
+      const currentReport = buildPeriodReport(currentFromDate, currentToDate);
+      const previousReport = buildPeriodReport(previousFromDate, previousToDate);
+
+      const mergeRowsByLabel = (currentRows: any[] = [], previousRows: any[] = []) => {
+        const order = [
+          ...new Set([
+            ...currentRows.map((row) => row.label),
+            ...previousRows.map((row) => row.label),
+          ]),
+        ];
+
+        return order.map((label) => {
+          const currentRow = currentRows.find((row) => row.label === label);
+          const previousRow = previousRows.find((row) => row.label === label);
+
+          return {
+            label,
+            values: {
+              [yearKeys[0]]: currentRow?.amount ?? 0,
+              [yearKeys[1]]: previousRow?.amount ?? 0,
+            },
+            rowType:
+              currentRow?.rowType ||
+              previousRow?.rowType ||
+              (String(label).toLowerCase().includes('net cash') ? 'summary' : 'detail'),
+          };
+        });
+      };
+
+      const mergeBreakupRows = (currentRows: any[] = [], previousRows: any[] = []) => {
+        const getLabel = (row: any) =>
+          row?.LedgerName || row?.SubGroupName || row?.GroupName || 'Cash / Bank';
+
+        const order = [
+          ...new Set([
+            ...currentRows.map((row) => getLabel(row)),
+            ...previousRows.map((row) => getLabel(row)),
+          ]),
+        ];
+
+        return order.map((label) => {
+          const currentRow = currentRows.find((row) => getLabel(row) === label);
+          const previousRow = previousRows.find((row) => getLabel(row) === label);
+
+          return {
+            label,
+            values: {
+              [yearKeys[0]]: currentRow?.ClosingBalance ?? 0,
+              [yearKeys[1]]: previousRow?.ClosingBalance ?? 0,
+            },
+            rowType: 'detail',
+          };
+        });
+      };
+
+      return {
+        params,
+        method: 'Indirect',
+        source: 'Trial Balance Based',
+        yearKeys,
+        reportSubTitle: `For the year ${currentToDate.toLocaleDateString('en-US', {
+          month: 'long',
+          day: 'numeric',
+          year: 'numeric',
+        })}`,
+        data: {
+          operatingActivities: mergeRowsByLabel(
+            currentReport.data.operatingActivities,
+            previousReport.data.operatingActivities,
+          ),
+          investingActivities: mergeRowsByLabel(
+            currentReport.data.investingActivities,
+            previousReport.data.investingActivities,
+          ),
+          financingActivities: mergeRowsByLabel(
+            currentReport.data.financingActivities,
+            previousReport.data.financingActivities,
+          ),
+          cashAndCashEquivalents: mergeBreakupRows(
+            currentReport.data.cashAndCashEquivalents,
+            previousReport.data.cashAndCashEquivalents,
+          ),
+        },
+        summary: {
+          netIncreaseInCashAndCashEquivalents: {
+            [yearKeys[0]]: currentReport.summary.netIncreaseInCashAndCashEquivalents,
+            [yearKeys[1]]: previousReport.summary.netIncreaseInCashAndCashEquivalents,
+          },
+          openingCashAndCashEquivalents: {
+            [yearKeys[0]]: currentReport.summary.openingCashAndCashEquivalents,
+            [yearKeys[1]]: previousReport.summary.openingCashAndCashEquivalents,
+          },
+          closingCashAndCashEquivalents: {
+            [yearKeys[0]]: currentReport.summary.closingCashAndCashEquivalents,
+            [yearKeys[1]]: previousReport.summary.closingCashAndCashEquivalents,
+          },
+        },
+        comparisonSummary: {
+          current: currentReport.summary,
+          previous: previousReport.summary,
+        },
+      };
+    } catch (error) {
+      throw error;
+    }
+  }
+
   async getBranchNames(
     companyMasterSid: number,
     branchIds?: number[],
@@ -4349,3 +4917,4 @@ export class AccountsReportsService {
     }
   }
 }
+
