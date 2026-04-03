@@ -291,6 +291,7 @@ model BookingRates {
   VendorSubledgerMasterSid    Int?
   ChargeCOAMasterSid          Int?
   ChargeSubledgerMasterSid    Int?
+  PaymentRequestSid           Int?
   customerMasterAG            CustomerMaster?      @relation("Agent", fields: [AgentMasterSid], references: [CustomerMasterSid])
   BookingHeader               BookingHeader        @relation(fields: [BookingHeaderSid], references: [BookingHeaderSid])
   BranchMaster                BranchMaster         @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
@@ -308,6 +309,7 @@ model BookingRates {
   revenueChargeUOMMaster      UOMMaster?           @relation("REVENUE", fields: [RevenueChargeUomSid], references: [UOMMasterSid])
   revenueVoucherHeader        VoucherHeader?       @relation("REVENUE", fields: [RevenueVoucherHeaderSid], references: [VoucherHeaderSid])
   revenueVoucherTypeMaster    VoucherTypeMaster?   @relation("REVENUE", fields: [RevenueVoucherTypeMasterSid], references: [VoucherTypeMasterSid])
+  PaymentRequest              PaymentRequest?      @relation(fields: [PaymentRequestSid], references: [PaymentRequestSid])
   tariffDetail                TariffDetail?        @relation(fields: [TariffDetailSid], references: [TariffDetailSid])
   vendorCOAMaster             COAMaster?           @relation("VendorLedger", fields: [VendorCOAMasterSid], references: [COAMasterSid])
   vendorSubledgerMaster       SubledgerMaster?     @relation("VendorSubledger", fields: [VendorSubledgerMasterSid], references: [SubledgerMasterSid])

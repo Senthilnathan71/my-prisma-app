@@ -99,6 +99,7 @@ model CompanyMaster {
   roleMaster                 RoleMaster[]
   RoleMenuDetail             RoleMenuDetail[]
   RoleMenuHeader             RoleMenuHeader[]
+  RoleMenuPrint              RoleMenuPrint[]
   roleMenuMaster             RoleMenuMaster[]
   PrintMaster                PrintMaster[]
   routingHeader              RoutingHeader[]
@@ -288,6 +289,9 @@ model UserMaster {
   userType                           UserType?                    @relation(fields: [userTypeId], references: [UserTypeSid])
   userRoleMaster                     UserRoleMaster[]
   activeSession                      ActiveSession?
+
+  @@index([userEmail])
+  @@index([isSalesperson])
 }
 
 model UserBranchMaster {
@@ -674,6 +678,9 @@ model PreCustomerMaster {
   stateMaster          StateMaster          @relation(fields: [StateMasterSid], references: [StateMasterSid])
   preCustomerMeeting   PreCustomerMeeting[]
   quoteHeader          QuoteHeader[]
+
+  @@index([CompanyMasterSid, BranchMasterSid])
+  @@index([CompanyMasterSid, preCustomerName])
 }
 
 model PreCustomerMeeting {
@@ -2260,6 +2267,8 @@ model AttachDocumentGroup {
   companyMaster          CompanyMaster    @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
   menuMaster             MenuMaster?      @relation(fields: [MenuMasterSid], references: [MenuMasterSid])
   customerKYC            CustomerKyc[]
+
+  @@index([MenuMasterSid, DocumentSid])
 }
 
 model AttachDocument {
@@ -3527,6 +3536,7 @@ model PaymentRequest {
   houseJob              HouseJob?              @relation(fields: [HouseJobSid], references: [HouseJobSid])
   masterJob             MasterJob?             @relation(fields: [MasterJobSid], references: [MasterJobSid])
   customer              CustomerMaster         @relation(fields: [Party], references: [CustomerMasterSid])
+  bookingRates          BookingRates[]
   costRevenueCharges    CostRevenueCharges[]
   paymentRequestDetails PaymentRequestDetail[]
 }
