@@ -24,20 +24,38 @@ export class AttachDocumentService {
     ) {
         const basePath = this.configService.get('UPLOAD_EDOC_PATH');
         const folderPath = path.join(basePath, menuName, String(uploadDto.DocumentSid));
-        const savedFiles: string[] = []; // Track saved files for rollback
+        const savedFiles: string[] = [];
 
+        // Validate required fields first
+        if (!uploadDto.CompanyMasterSid || !uploadDto.BranchMasterSid || !uploadDto.MenuMasterSid || !uploadDto.DocumentSid) {
+            throw new BadRequestException('Missing required fields: CompanyMasterSid, BranchMasterSid, MenuMasterSid, or DocumentSid');
+        }
+
+        if (!fs.existsSync(folderPath)) {
+            fs.mkdirSync(folderPath, { recursive: true });
+        }
+
+        // Write files to disk BEFORE opening the transaction so disk I/O never holds a DB lock
         try {
-            // Validate required fields first
-            if (!uploadDto.CompanyMasterSid || !uploadDto.BranchMasterSid || !uploadDto.MenuMasterSid || !uploadDto.DocumentSid) {
-                throw new BadRequestException('Missing required fields: CompanyMasterSid, BranchMasterSid, MenuMasterSid, or DocumentSid');
+            for (const file of files) {
+                const filePath = path.join(folderPath, file.originalname);
+                fs.writeFileSync(filePath, file.buffer);
+                savedFiles.push(filePath);
+                console.log('✅ File saved:', file.originalname);
             }
-
-            // Ensure folder exists BEFORE transaction
-            if (!fs.existsSync(folderPath)) {
-                fs.mkdirSync(folderPath, { recursive: true });
+        } catch (error) {
+            for (const filePath of savedFiles) {
+                try {
+                    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+                } catch (unlinkError) {
+                    console.error('Failed to delete file during rollback:', filePath, unlinkError);
+                }
             }
+            throw error;
+        }
 
-            // Use transaction for ALL database operations
+        // Transaction contains only fast DB writes — no I/O
+        try {
             return await this._db.$transaction(async (tx) => {
                 // 1️⃣ Create AttachDocumentGroup
                 const group = await tx.attachDocumentGroup.create({
@@ -60,13 +78,6 @@ export class AttachDocumentService {
                 for (const file of files) {
                     const filePath = path.join(folderPath, file.originalname);
 
-                    // Save file to disk
-                    fs.writeFileSync(filePath, file.buffer);
-                    savedFiles.push(filePath); // Track for potential rollback
-
-                    console.log('✅ File saved:', file.originalname);
-
-                    // Create database record
                     const record = await tx.attachDocument.create({
                         data: {
                             AttachDocumentGroupSid: group.AttachDocumentGroupSid,
@@ -192,31 +203,68 @@ export class AttachDocumentService {
         const UPLOAD_EDOC_PATH = this.configService.get('UPLOAD_EDOC_PATH');
         const savedFiles: string[] = [];
 
+        // 1️⃣ Fetch existing document OUTSIDE transaction (read-only)
+        const exist: any = await this._db.attachDocument.findUnique({
+            where: { AttachDocumentSid },
+            include: { attachGroup: true },
+        });
+
+        if (!exist) {
+            throw new BadRequestException(`Attach Document with id ${AttachDocumentSid} not found`);
+        }
+
+        console.log('✅ Found existing document:', AttachDocumentSid);
+
+        const folderPath = path.join(
+            UPLOAD_EDOC_PATH,
+            exist.attachGroup.MenuName,
+            String(exist.attachGroup.DocumentSid)
+        );
+
+        if (!fs.existsSync(folderPath)) {
+            fs.mkdirSync(folderPath, { recursive: true });
+        }
+
+        // 2️⃣ Determine which uploaded files are new (duplicate check OUTSIDE transaction)
+        const newFiles: { file: Express.Multer.File; filePath: string }[] = [];
+        if (files && files.length > 0) {
+            for (const file of files) {
+                const existingFile = await this._db.attachDocument.findFirst({
+                    where: {
+                        FileName: file.originalname,
+                        AttachDocumentGroupSid: exist.AttachDocumentGroupSid,
+                    },
+                });
+                if (!existingFile) {
+                    newFiles.push({ file, filePath: path.join(folderPath, file.originalname) });
+                } else {
+                    console.log('⚠️ File already exists, skipping:', file.originalname);
+                }
+            }
+        }
+
+        // 3️⃣ Write new files to disk BEFORE opening transaction so disk I/O never holds a DB lock
+        try {
+            for (const { file, filePath } of newFiles) {
+                fs.writeFileSync(filePath, file.buffer);
+                savedFiles.push(filePath);
+                console.log('✅ New file saved:', file.originalname);
+            }
+        } catch (error) {
+            for (const filePath of savedFiles) {
+                try {
+                    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+                } catch (unlinkError) {
+                    console.error('Failed to delete file during rollback:', filePath, unlinkError);
+                }
+            }
+            throw error;
+        }
+
+        // 4️⃣ Transaction contains only fast DB writes — no I/O
         try {
             return await this._db.$transaction(async (tx) => {
-                // 1️⃣ Fetch existing document + group
-                const exist: any = await tx.attachDocument.findUnique({
-                    where: { AttachDocumentSid },
-                    include: { attachGroup: true },
-                });
-
-                if (!exist) {
-                    throw new BadRequestException(`Attach Document with id ${AttachDocumentSid} not found`);
-                }
-
-                console.log('✅ Found existing document:', AttachDocumentSid);
-
-                const folderPath = path.join(
-                    UPLOAD_EDOC_PATH,
-                    exist.attachGroup.MenuName,
-                    String(exist.attachGroup.DocumentSid)
-                );
-
-                if (!fs.existsSync(folderPath)) {
-                    fs.mkdirSync(folderPath, { recursive: true });
-                }
-
-                // 2️⃣ Update existing document fields
+                // Update existing document fields
                 const updatedDoc = await tx.attachDocument.update({
                     where: { AttachDocumentSid },
                     data: {
@@ -232,47 +280,30 @@ export class AttachDocumentService {
 
                 console.log('✅ Document updated:', AttachDocumentSid);
 
-                // 3️⃣ Save new files if uploaded, without duplicates
-                if (files && files.length > 0) {
-                    for (const file of files) {
-                        const filePath = path.join(folderPath, file.originalname);
-                        const existingFile = await tx.attachDocument.findFirst({
-                            where: {
-                                FileName: file.originalname,
-                                AttachDocumentGroupSid: exist.AttachDocumentGroupSid
-                            },
-                        });
+                // Insert records for new files (already written to disk above)
+                for (const { file, filePath } of newFiles) {
+                    await tx.attachDocument.create({
+                        data: {
+                            AttachDocumentGroupSid: exist.AttachDocumentGroupSid,
+                            FileName: file.originalname,
+                            FilePath: filePath,
+                            DocumentType: path.extname(file.originalname).substring(1),
+                            AttachDocmentNo: exist.AttachDocmentNo,
+                            DocumentDate: payload.DocumentDate ? new Date(payload.DocumentDate) : exist.DocumentDate,
+                            ReceivedDate: payload.ReceivedDate ? new Date(payload.ReceivedDate) : exist.ReceivedDate,
+                            SentDate: payload.SentDate ? new Date(payload.SentDate) : exist.SentDate,
+                            FollowupRequire: payload.FollowupRequired || exist.FollowupRequire,
+                            FollowupDate: payload.FollowupDate ? new Date(payload.FollowupDate) : exist.FollowupDate,
+                            Public: payload.Public || exist.Public,
+                            status: 'A',
+                            createdBy: payload.updatedBy || 'system',
+                        },
+                    });
 
-                        if (!existingFile) {
-                            fs.writeFileSync(filePath, file.buffer);
-                            savedFiles.push(filePath);
-
-                            await tx.attachDocument.create({
-                                data: {
-                                    AttachDocumentGroupSid: exist.AttachDocumentGroupSid,
-                                    FileName: file.originalname,
-                                    FilePath: filePath,
-                                    DocumentType: path.extname(file.originalname).substring(1),
-                                    AttachDocmentNo: exist.AttachDocmentNo,
-                                    DocumentDate: payload.DocumentDate ? new Date(payload.DocumentDate) : exist.DocumentDate,
-                                    ReceivedDate: payload.ReceivedDate ? new Date(payload.ReceivedDate) : exist.ReceivedDate,
-                                    SentDate: payload.SentDate ? new Date(payload.SentDate) : exist.SentDate,
-                                    FollowupRequire: payload.FollowupRequired || exist.FollowupRequire,
-                                    FollowupDate: payload.FollowupDate ? new Date(payload.FollowupDate) : exist.FollowupDate,
-                                    Public: payload.Public || exist.Public,
-                                    status: 'A',
-                                    createdBy: payload.updatedBy || 'system',
-                                },
-                            });
-
-                            console.log('✅ New file added:', file.originalname);
-                        } else {
-                            console.log('⚠️ File already exists, skipping:', file.originalname);
-                        }
-                    }
+                    console.log('✅ New file record created:', file.originalname);
                 }
 
-                // 4️⃣ Follow-up logic
+                // Follow-up logic
                 if (payload.FollowupRequired === 'Y') {
                     const existingFollowup = await tx.followup.findFirst({
                         where: { AttachDocmentNo: exist.AttachDocmentNo },
