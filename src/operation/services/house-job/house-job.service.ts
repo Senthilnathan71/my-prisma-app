@@ -452,6 +452,7 @@ export class HouseJobService {
                         CostAgentBranchSid: item.CostAgentBranchSid ? Number(item.CostAgentBranchSid) : null,
                         CostPrepaidCollect: item.CostPrepaidCollect,
                         CostVoucherHeaderSid: item.CostVoucherHeaderSid ? Number(item.CostVoucherHeaderSid) : null,
+                        PaymentRequestSid: item.PaymentRequestSid ? Number(item.PaymentRequestSid) : null,
                         CostVoucherTypeMasterSid: item.CostVoucherTypeSid ? Number(item.CostVoucherTypeSid) : null,
 
                         createdBy: payload.createdBy,
@@ -1416,6 +1417,7 @@ export class HouseJobService {
                         CostAgentBranchSid: item.CostAgentBranchSid ? Number(item.CostAgentBranchSid) : null,
                         CostPrepaidCollect: item.CostPrepaidCollect,
                         CostVoucherHeaderSid: item.CostVoucherHeaderSid ? Number(item.CostVoucherHeaderSid) : null,
+                        PaymentRequestSid: item.PaymentRequestSid ? Number(item.PaymentRequestSid) : null,
                         CostVoucherTypeMasterSid: item.CostVoucherTypeSid ? Number(item.CostVoucherTypeSid) : null,
 
                     }
@@ -1469,6 +1471,7 @@ export class HouseJobService {
                         CostAgentBranchSid: item.CostAgentBranchSid ? Number(item.CostAgentBranchSid) : null,
                         CostPrepaidCollect: item.CostPrepaidCollect,
                         CostVoucherHeaderSid: item.CostVoucherHeaderSid ? Number(item.CostVoucherHeaderSid) : null,
+                        PaymentRequestSid: item.PaymentRequestSid ? Number(item.PaymentRequestSid) : null,
                         CostVoucherTypeMasterSid: item.CostVoucherTypeSid ? Number(item.CostVoucherTypeSid) : null,
 
                         createdBy: payload.updatedBy,
