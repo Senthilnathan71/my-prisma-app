@@ -86,6 +86,10 @@ export class RoleMenuDetailDto {
     DeleteRole?: string;
 
     @IsOptional()
+    @IsString()
+    PostRole?: string;
+
+    @IsOptional()
     @IsBoolean()
     isDeleted?: boolean;
 

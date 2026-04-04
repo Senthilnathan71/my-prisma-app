@@ -46,6 +46,7 @@ export class RoleMenuService {
                     ViewRole: detail.ViewRole || "N",
                     UpdateRole: detail.UpdateRole || "N",
                     DeleteRole: detail.DeleteRole || "N",
+                    PostRole: detail.PostRole || "N",
                     createdBy: payload.createdBy || "",
                     status: 'A',
                     ModuleAndMenus: {}
@@ -85,6 +86,7 @@ export class RoleMenuService {
                                 ViewRole: true,
                                 UpdateRole: true,
                                 DeleteRole: true,
+                                PostRole: true,
                                 menuMaster: {
                                     select: {
                                         MenuName: true,
@@ -120,6 +122,7 @@ export class RoleMenuService {
                         ViewRole : detail.ViewRole || 'N',
                         UpdateRole : detail.UpdateRole || 'N',
                         DeleteRole : detail.DeleteRole || 'N',
+                        PostRole : detail.PostRole || 'N',
                         menuPermission : detail.menuMaster?.menuPermission?.map(permission => permission.permissionCode!)
                     }
                 }));
@@ -188,6 +191,7 @@ export class RoleMenuService {
                         ViewRole: detail.ViewRole || "N",
                         UpdateRole: detail.UpdateRole || "N",
                         DeleteRole: detail.DeleteRole || "N",
+                        PostRole: detail.PostRole || "N",
                         createdBy: payload.createdBy || "",
                         status: 'A',
                         ModuleAndMenus: {}
@@ -216,6 +220,7 @@ export class RoleMenuService {
                                     ViewRole: detail.ViewRole || 'N',
                                     UpdateRole: detail.UpdateRole || 'N',
                                     DeleteRole: detail.DeleteRole || 'N',
+                                    PostRole: detail.PostRole || 'N',
                                     updatedBy: payload.updatedBy || '',
                                     status: 'A',
                                     ModuleAndMenus: {}
@@ -345,6 +350,7 @@ export class RoleMenuService {
                             ViewRole: true,
                             UpdateRole: true,
                             DeleteRole: true,
+                            PostRole: true,
                             menuMaster: {
                                 select: {
                                     MenuName: true,
@@ -370,7 +376,8 @@ export class RoleMenuService {
                 InsertRole: false,
                 ViewRole: false,
                 UpdateRole: false,
-                DeleteRole: false
+                DeleteRole: false,
+                PostRole: false
             };
 
             // Collect all role names
@@ -402,11 +409,12 @@ export class RoleMenuService {
                 if (detail.ViewRole === "Y") mergedPermissions.ViewRole = true;
                 if (detail.UpdateRole === "Y") mergedPermissions.UpdateRole = true;
                 if (detail.DeleteRole === "Y") mergedPermissions.DeleteRole = true;
+                if (detail.PostRole === "Y") mergedPermissions.PostRole = true;
 
                 // Merge extra permissions (OR logic)
                 (detail.menuMaster?.menuPermission ?? []).forEach(p => {
                     const code = p.permissionCode?.toLowerCase();
-                    if (code && !['add', 'view', 'edit', 'delete'].includes(code)) {
+                    if (code && !['add', 'view', 'edit', 'delete', 'post'].includes(code)) {
                         mergedPermissions[code] = true;
                     }
                 });
