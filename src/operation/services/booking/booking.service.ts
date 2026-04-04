@@ -1160,6 +1160,7 @@ if (!croPayload?.BookingCroSid) {
                                 AgentBranchSid: rate.CostAgentBranchSid || null,
                                 CostPrepaidCollect: rate.CostPrepaidCollect || 'Prepaid',
                                 CostVoucherHeaderSid: rate.CostVoucherHeaderSid || null,
+                                PaymentRequestSid: rate.PaymentRequestSid || null,
                                 CostVoucherTypeMasterSid: rate.CostVoucherTypeSid || null,
 
 
