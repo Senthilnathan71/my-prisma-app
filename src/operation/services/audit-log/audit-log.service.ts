@@ -56,6 +56,10 @@ export class AuditLogService {
                     return this.getEnquiryLogs(recordId);
                 case 'VoucherMatching':
                     return this.getVoucherMatchingLogs(recordId);
+                case 'DocType':
+                    return this.getdoctypeLogs(recordId);
+                case 'NumberSeriesConfig':
+                    return this.getnumberseriesLogs(recordId);
             }
         } catch (error) {
             this.logger.warn(`getAuditLog Error: ${error.message}`);
@@ -2908,6 +2912,158 @@ export class AuditLogService {
         } catch (error) {
             this.logger.warn(`getVoucherMatchingLogsError: ${error}`);
             throw new Error(`Error fetching voucher matching audit logs: ${error.message}`);
+        }
+    }
+
+    private async getdoctypeLogs(recordId?: string) {
+        try{
+            let conditions: any[] = [];
+
+            conditions = [
+                {
+                    tableName: 'VoucherTypeMaster',
+                    recordId: recordId
+                }
+            ];
+
+            const logs = await this._db.auditLog.findMany({
+                where: {
+                    OR: conditions
+                },
+                orderBy:{
+                    changedAt: 'desc'
+                }
+            });
+
+            const ignoredFields = [
+                'createdOn', 'createdBy', 'updatedOn', 'updatedBy',
+            ];
+
+            const yesNoMap = {
+                Y: 'Yes',
+                N: 'No'
+            };
+
+            const statusMap = {
+                A: 'Active',
+                S: 'Suspended',
+                D: 'Deleted'
+            };
+
+            const formattedLogs = logs.map((log:any) => {
+                const oldVal = { ...(log.oldVal || {})};
+                const newVal = { ...(log.newVal || {})};
+
+                this.replaceValueFromMap(oldVal, 'BranchFlag', yesNoMap);
+                this.replaceValueFromMap(newVal, 'BranchFlag', yesNoMap);
+
+                this.replaceValueFromMap(oldVal, 'CompanyFlag', yesNoMap);
+                this.replaceValueFromMap(newVal, 'CompanyFlag', yesNoMap);
+
+                this.replaceValueFromMap(oldVal, 'DocumentFlag', yesNoMap);
+                this.replaceValueFromMap(newVal, 'DocumentFlag', yesNoMap);
+
+                this.replaceValueFromMap(oldVal, 'MonthFlag', yesNoMap);
+                this.replaceValueFromMap(newVal, 'MonthFlag', yesNoMap);
+
+                this.replaceValueFromMap(oldVal, 'YearFlag', yesNoMap);
+                this.replaceValueFromMap(newVal, 'YearFlag', yesNoMap);
+
+                this.replaceValueFromMap(oldVal, 'IsAutoPosting', yesNoMap);
+                this.replaceValueFromMap(newVal, 'IsAutoPosting', yesNoMap);
+
+                this.replaceValueFromMap(oldVal, 'status', statusMap);
+                this.replaceValueFromMap(newVal, 'status', statusMap);
+
+                this.removeIgnoredFields(oldVal, ignoredFields);
+                this.removeIgnoredFields(newVal, ignoredFields);
+
+                return {
+                    ...log,
+                    oldVal,
+                    newVal
+                };
+            });
+            return formattedLogs;
+        } catch (error) {
+            this.logger.warn(`getdoctypeLogsError: ${error}`);
+            throw new Error(`Error fetching audit logs: ${error.message}`);
+        }
+    }
+
+    private async getnumberseriesLogs(recordId?: string) {
+        try{
+            let conditions: any[] = [];
+
+            conditions = [
+                {
+                    tableName: 'NumberSeriesConfig',
+                    recordId: recordId
+                }
+            ];
+
+            const logs = await this._db.auditLog.findMany({
+                where: {
+                    OR: conditions
+                },
+                orderBy:{
+                    changedAt: 'desc'
+                }
+            });
+
+            const ignoredFields = [
+                'CreatedOn', 'CreatedBy', 'UpdatedOn', 'UpdatedBy',
+            ];
+
+            const yesNoMap = {
+                Y: 'Yes',
+                N: 'No'
+            };
+
+            const statusMap = {
+                A: 'Active',
+                S: 'Suspended',
+                D: 'Deleted'
+            };
+
+            const formattedLogs = logs.map((log:any) => {
+                const oldVal = { ...(log.oldVal || {})};
+                const newVal = { ...(log.newVal || {})};
+
+                this.replaceValueFromMap(oldVal, 'CompanyFlagRequired', yesNoMap);
+                this.replaceValueFromMap(newVal, 'CompanyFlagRequired', yesNoMap);
+
+                this.replaceValueFromMap(oldVal, 'BranchFlagRequired', yesNoMap);
+                this.replaceValueFromMap(newVal, 'BranchFlagRequired', yesNoMap);
+
+                this.replaceValueFromMap(oldVal, 'DepartmentCodeRequired', yesNoMap);
+                this.replaceValueFromMap(newVal, 'DepartmentCodeRequired', yesNoMap);
+
+                this.replaceValueFromMap(oldVal, 'MonthFlagRequired', yesNoMap);
+                this.replaceValueFromMap(newVal, 'MonthFlagRequired', yesNoMap);
+
+                this.replaceValueFromMap(oldVal, 'YearFlagRequired', yesNoMap);
+                this.replaceValueFromMap(newVal, 'YearFlagRequired', yesNoMap);
+
+                this.replaceValueFromMap(oldVal, 'DepartmentWiseCounter', yesNoMap);
+                this.replaceValueFromMap(newVal, 'DepartmentWiseCounter', yesNoMap);
+
+                this.replaceValueFromMap(oldVal, 'status', statusMap);
+                this.replaceValueFromMap(newVal, 'status', statusMap);
+
+                this.removeIgnoredFields(oldVal, ignoredFields);
+                this.removeIgnoredFields(newVal, ignoredFields);
+
+                return {
+                    ...log,
+                    oldVal,
+                    newVal
+                };
+            });
+            return formattedLogs;
+        } catch (error) {
+            this.logger.warn(`getLogsError: ${error}`);
+            throw new Error(`Error fetching audit logs: ${error.message}`);
         }
     }
 }
