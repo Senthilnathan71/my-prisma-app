@@ -387,7 +387,9 @@ export class VoucherMatchingService {
                         MatchingAmount: detail.MatchedCurrencyAmount,
                         MatchingLocalAmount: detail.MatchedLocalAmount,
                         MatchingTDSAmount: detail.MatchingTDSAmount,
-                        MatchingType: detail.MatchingType
+                        MatchingType: detail.MatchingType,
+                        CreatedBy: payload.userEmail,
+                        CreatedOn: new Date()
                     }));
 
                 // const isSingleCurrencyInvolved = new Set(matchingDetailPayload.map(md => md.MatchingCurrency)).size > 1;
@@ -516,6 +518,8 @@ export class VoucherMatchingService {
                                 MatchingLocalAmount: detail.MatchedLocalAmount,
                                 MatchingTDSAmount: detail.MatchingTDSAmount,
                                 MatchingType: detail.MatchingType,
+                                UpdatedBy: payload.userEmail,
+                                UpdatedOn: new Date()
                             }
                         });
                         allMatchingDetails.push(updated);

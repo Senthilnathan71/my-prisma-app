@@ -1375,7 +1375,7 @@ export class CustomerService {
                     status: 'A'
                 },
                 data: {
-                    status: 'D'
+                    status: 'S'
                 }
             })
 
@@ -1394,7 +1394,7 @@ export class CustomerService {
                             status: 'A'
                         },
                         data: {
-                            status: 'D'
+                            status: 'S'
                         }
                     })
 
@@ -1404,7 +1404,7 @@ export class CustomerService {
                             status: 'A'
                         },
                         data: {
-                            status: 'D'
+                            status: 'S'
                         }
                     })
 
@@ -1414,7 +1414,7 @@ export class CustomerService {
                             status: 'A'
                         },
                         data: {
-                            status: 'D'
+                            status: 'S'
                         }
                     })
 
@@ -1424,7 +1424,7 @@ export class CustomerService {
                             status: 'A'
                         },
                         data: {
-                            status: 'D'
+                            status: 'S'
                         }
                     })
 
@@ -1434,7 +1434,7 @@ export class CustomerService {
                             status: 'A'
                         },
                         data: {
-                            status: 'D'
+                            status: 'S'
                         }
                     })
 
@@ -1444,7 +1444,7 @@ export class CustomerService {
                             Status: 'A'
                         },
                         data: {
-                            Status: 'D'
+                            Status: 'S'
                         }
                     })
 
