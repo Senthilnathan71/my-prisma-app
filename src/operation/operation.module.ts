@@ -75,6 +75,8 @@ import { ShippingInstructionController } from './controllers/shipping-instructio
 import { AccountsModule } from 'src/accounts/accounts.module';
 import { AuditLogService } from './services/audit-log/audit-log.service';
 import { AuditLogController } from './controllers/audit-log/audit-log.controller';
+import { PaymentRequestController } from './controllers/payment-request/payment-request.controller';
+import { PaymentRequestService } from './services/payment-request/payment-request.service';
 
 @Module({
         imports: [
@@ -128,7 +130,8 @@ import { AuditLogController } from './controllers/audit-log/audit-log.controller
                 AgentMasterAirWaybillService,
                 ProRateService,
                 ShippingInstructionService,
-                AuditLogService
+                AuditLogService,
+                PaymentRequestService
         ],
         controllers: [
                 BookingController,
@@ -160,7 +163,8 @@ import { AuditLogController } from './controllers/audit-log/audit-log.controller
                 AgentMasterAirWaybillController,
                 ProRateController,
                 ShippingInstructionController,
-                AuditLogController
+                AuditLogController,
+                PaymentRequestController
         ],
         exports : [ProRateService]
 })

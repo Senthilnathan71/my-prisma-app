@@ -616,6 +616,7 @@ export class MasterJobService {
                         CostAgentBranchSid: item.CostAgentBranchSid ? Number(item.CostAgentBranchSid) : null,
                         CostPrepaidCollect: item.CostPrepaidCollect,
                         CostVoucherHeaderSid: item.CostVoucherHeaderSid ? Number(item.CostVoucherHeaderSid) : null,
+                        PaymentRequestSid: item.PaymentRequestSid ? Number(item.PaymentRequestSid) : null,
                         CostVoucherTypeMasterSid: item.CostVoucherTypeSid ? Number(item.CostVoucherTypeSid) : null,
 
                         createdBy: payload.createdBy,
@@ -2162,6 +2163,7 @@ private getWeightInFromUnitSid(weightUnitSid: number): string {
                             CostAgentBranchSid: item.CostAgentBranchSid ? Number(item.CostAgentBranchSid) : null,
                             CostPrepaidCollect: item.CostPrepaidCollect,
                             CostVoucherHeaderSid: item.CostVoucherHeaderSid ? Number(item.CostVoucherHeaderSid) : null,
+                            PaymentRequestSid: item.PaymentRequestSid ? Number(item.PaymentRequestSid) : null,
                             CostVoucherTypeMasterSid: item.CostVoucherTypeSid ? Number(item.CostVoucherTypeSid) : null,
 
                         }
@@ -2215,6 +2217,7 @@ private getWeightInFromUnitSid(weightUnitSid: number): string {
                             CostAgentBranchSid: item.CostAgentBranchSid ? Number(item.CostAgentBranchSid) : null,
                             CostPrepaidCollect: item.CostPrepaidCollect,
                             CostVoucherHeaderSid: item.CostVoucherHeaderSid ? Number(item.CostVoucherHeaderSid) : null,
+                            PaymentRequestSid: item.PaymentRequestSid ? Number(item.PaymentRequestSid) : null,
                             CostVoucherTypeMasterSid: item.CostVoucherTypeSid ? Number(item.CostVoucherTypeSid) : null,
 
                             createdBy: payload.updatedBy,
