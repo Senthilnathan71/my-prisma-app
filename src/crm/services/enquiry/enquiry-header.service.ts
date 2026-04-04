@@ -52,6 +52,8 @@ export class EnquiryHeaderService {
                     CustomerMasterSid: Number(payload.CustomerMasterSid),
                     ShipmentExpectedDate: payload.shipmentDate,
                     ShipmentType: payload.Segment,
+                    IncoTerms: payload.IncoTerms,
+                    CustomerRef: payload.CustomerRef,
                     status: payload.status || "A",
                     CompanyMasterSid: CompanyMasterSid,
                     BranchMasterSid: BranchMasterSid,
@@ -183,6 +185,8 @@ export class EnquiryHeaderService {
                     CustomerName: payload.CustomerName,
                     ShipmentExpectedDate: payload.shipmentDate,
                     ShipmentType: payload.Segment,
+                    IncoTerms: payload.IncoTerms,
+                    CustomerRef: payload.CustomerRef,
                     status: statusUpdate,
                     updatedBy: user['userEmail'],
                     updatedOn: new Date()

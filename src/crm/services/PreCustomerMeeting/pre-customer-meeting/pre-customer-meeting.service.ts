@@ -38,10 +38,19 @@ export class PreCustomerMeetingService {
 
     async createNewPreCustomerMeeting(payload: any) {
         try {
+            const {
+                customerName,
+                userEmail,
+                createdBy,
+                PreCustomerMeetingid,
+                followUp,
+                ...prismaData
+            } = payload;
+
             const createdMeeting = await this._db.preCustomerMeeting.create({
                 data: {
-                    ...payload,
-                    
+                    ...prismaData,
+                    createdBy: createdBy || userEmail || 'system',
                 },
                 include: {
                     branchMaster: true,
@@ -86,12 +95,24 @@ export class PreCustomerMeetingService {
             if (!exist) {
                 throw new BadRequestException(`PreCustomerMeeting with Id : ${PreCustomerMeetingSid} does not exist`);
             }
+
+            const {
+                customerName,
+                userEmail,
+                createdBy,
+                PreCustomerMeetingid,
+                followUp,
+                PreCustomerMeetingSid: _,
+                ...prismaData
+            } = payload;
+
             const updatedMeeting = await this._db.preCustomerMeeting.update({
                 where: {
                     PreCustomerMeetingSid: PreCustomerMeetingSid
                 },
                 data: {
-                    ...payload
+                    ...prismaData,
+                    updatedBy: payload.updatedBy || userEmail || createdBy || exist.updatedBy || exist.createdBy || 'system'
                 },
                 include: {
                     branchMaster: true,
@@ -262,3 +283,7 @@ export class PreCustomerMeetingService {
         }
     }
 }
+
+
+
+
