@@ -2,7 +2,7 @@ import { BadRequestException, Injectable, Logger, Module, NotFoundException } fr
 import { Prisma } from '@prisma/client';
 import { statusWhereClause } from 'src/common/helper';
 import { DatabaseService } from 'src/database/database.service';
-import { RoleMenuDetailDto, RoleMenuFetchPayload, RoleMenuItemDto, RoleMenuPayload, RoleMenuPermissionDto } from 'src/masters/DTO/role-menu.dto';
+import { RoleMenuDetailDto, RoleMenuFetchPayload, RoleMenuItemDto, RoleMenuPayload, RoleMenuPermissionDto, SaveRoleMenuPrintDto } from 'src/masters/DTO/role-menu.dto';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 
 @Injectable()
@@ -339,6 +339,7 @@ export class RoleMenuService {
                         where: { MenuMasterSid, status: 'A' },
                         take: 1,
                         select: {
+                            RoleMenuDetailSid: true,
                             MenuMasterSid: true,
                             InsertRole: true,
                             ViewRole: true,
@@ -414,6 +415,30 @@ export class RoleMenuService {
             console.log('✅ Merged permissions:', mergedPermissions);
             console.log('👥 Role names:', roleNames);
 
+            // Collect RoleMenuDetail SIDs to resolve print permissions
+            const detailSids = roleMenus
+                .flatMap(rm => rm.RoleMenuDetail)
+                .map(d => d.RoleMenuDetailSid)
+                .filter(Boolean) as number[];
+
+            let printPermissions: { PrintMasterSid: number; Name: string; PrintMail: string }[] = [];
+            if (detailSids.length > 0) {
+                const roleMenuPrints = await this._db.roleMenuPrint.findMany({
+                    where: { RoleMenuDetailSid: { in: detailSids }, Status: 'A' },
+                    select: { PrintMasterSid: true },
+                    distinct: ['PrintMasterSid']
+                });
+                if (roleMenuPrints.length > 0) {
+                    printPermissions = await this._db.printMaster.findMany({
+                        where: {
+                            PrintMasterSid: { in: roleMenuPrints.map(r => r.PrintMasterSid) },
+                            Status: 'A'
+                        },
+                        select: { PrintMasterSid: true, Name: true, PrintMail: true }
+                    });
+                }
+            }
+
             // Concatenate role names
             const concatenatedRoleNames = roleNames.length > 0
                 ? roleNames.join(', ')
@@ -424,7 +449,8 @@ export class RoleMenuService {
                 MenuMasterSid: menuMasterSid,
                 MenuName: menuName || '',
                 RoleIds : Roles,
-                UserRoleName: concatenatedRoleNames
+                UserRoleName: concatenatedRoleNames,
+                PrintPermissions: printPermissions
             };
 
         } catch (error) {
@@ -434,6 +460,71 @@ export class RoleMenuService {
     }
 
 
+
+    async getRoleMenuPrintPermissions(CompanyMasterSid: number, RoleMenuDetailSid: number) {
+        try {
+            return await this._db.roleMenuPrint.findMany({
+                where: {
+                    CompanyMasterSid,
+                    RoleMenuDetailSid,
+                    Status: 'A'
+                },
+                select: { RoleMenuPrintSid: true, PrintMasterSid: true }
+            });
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    async saveRoleMenuPrintPermissions(dto: SaveRoleMenuPrintDto) {
+        try {
+            const { CompanyMasterSid, RoleMenuHeaderSid, RoleMenuDetailSid, changes, UpdatedBy } = dto;
+
+            await this._db.$transaction(async (prisma) => {
+                for (const change of changes) {
+                    const existing = await prisma.roleMenuPrint.findFirst({
+                        where: { CompanyMasterSid, RoleMenuDetailSid, PrintMasterSid: change.PrintMasterSid }
+                    });
+
+                    if (change.grantAccess) {
+                        if (!existing) {
+                            await prisma.roleMenuPrint.create({
+                                data: {
+                                    CompanyMasterSid,
+                                    RoleMenuHeaderSid,
+                                    RoleMenuDetailSid,
+                                    PrintMasterSid: change.PrintMasterSid,
+                                    GiveAccess: 'Y',
+                                    Status: 'A',
+                                    CreatedBy: UpdatedBy,
+                                    UpdatedBy,
+                                    UpdatedOn: new Date()
+                                }
+                            });
+                        } else if (existing.Status === 'D') {
+                            await prisma.roleMenuPrint.update({
+                                where: { RoleMenuPrintSid: existing.RoleMenuPrintSid },
+                                data: { Status: 'A', UpdatedBy, UpdatedOn: new Date() }
+                            });
+                        }
+                        // Status already 'A' — skip
+                    } else {
+                        if (existing && existing.Status === 'A') {
+                            await prisma.roleMenuPrint.update({
+                                where: { RoleMenuPrintSid: existing.RoleMenuPrintSid },
+                                data: { Status: 'D', UpdatedBy, UpdatedOn: new Date() }
+                            });
+                        }
+                        // No row or already 'D' — skip
+                    }
+                }
+            });
+
+            return { saved: true };
+        } catch (error) {
+            throw error;
+        }
+    }
 
     /**
      * Helper Section

@@ -1,7 +1,7 @@
 import { BadRequestException, Body, Controller, Get, HttpCode, HttpStatus, Logger, NotFoundException, Param, ParseIntPipe, Patch, Post, UnauthorizedException, UsePipes, ValidationPipe } from '@nestjs/common';
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
 import { ResponseData } from 'src/common/response-data';
-import { RoleMenuPayload } from 'src/masters/DTO/role-menu.dto';
+import { RoleMenuPayload, SaveRoleMenuPrintDto } from 'src/masters/DTO/role-menu.dto';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 import { RoleMenuService } from 'src/masters/services/role-menu/role-menu.service';
 
@@ -190,6 +190,45 @@ export class RoleMenuController {
             } else {
                 resp.message = "Internal Server Error";
             }
+        }
+        return resp;
+    }
+
+    @ApiOperation({ summary: 'Get Print Permissions for a RoleMenuDetail' })
+    @ApiCreatedResponse({ description: 'Get Print Permissions for a RoleMenuDetail', type: ResponseData })
+    @HttpCode(HttpStatus.OK)
+    @Get('print-permissions/:CompanyMasterSid/:RoleMenuDetailSid')
+    async getRoleMenuPrintPermissions(
+        @Param('CompanyMasterSid', ParseIntPipe) CompanyMasterSid: number,
+        @Param('RoleMenuDetailSid', ParseIntPipe) RoleMenuDetailSid: number
+    ) {
+        const resp = new ResponseData();
+        try {
+            resp.data = await this.roleMenuService.getRoleMenuPrintPermissions(CompanyMasterSid, RoleMenuDetailSid);
+            resp.message = 'Print permissions fetched successfully.';
+        } catch (error) {
+            this.logger.warn(`getRoleMenuPrintPermissions error: ${error}`);
+            resp.status = false;
+            resp.message = error instanceof BadRequestException || error instanceof UnauthorizedException
+                ? error.message : 'Internal Server Error';
+        }
+        return resp;
+    }
+
+    @ApiOperation({ summary: 'Save Print Permissions for a RoleMenuDetail' })
+    @ApiCreatedResponse({ description: 'Save Print Permissions for a RoleMenuDetail', type: ResponseData })
+    @HttpCode(HttpStatus.OK)
+    @Post('save-print-permissions')
+    async saveRoleMenuPrintPermissions(@Body() dto: SaveRoleMenuPrintDto) {
+        const resp = new ResponseData();
+        try {
+            resp.data = await this.roleMenuService.saveRoleMenuPrintPermissions(dto);
+            resp.message = 'Print permissions saved successfully.';
+        } catch (error) {
+            this.logger.warn(`saveRoleMenuPrintPermissions error: ${error}`);
+            resp.status = false;
+            resp.message = error instanceof BadRequestException || error instanceof UnauthorizedException
+                ? error.message : 'Internal Server Error';
         }
         return resp;
     }

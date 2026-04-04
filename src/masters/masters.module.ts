@@ -153,6 +153,8 @@ import { VoucherPeriodService } from './services/voucher-period/voucher-period.s
 import { VoucherPeriodController } from './controllers/voucher-period/voucher-period.controller';
 import { StandardChargeController } from './controllers/standard-charge/standard-charge.controller';
 import { StandardChargeService } from './services/standard-charge/standard-charge.service';
+import { PrintMasterController } from './controllers/print-master/print-master.controller';
+import { PrintMasterService } from './services/print-master/print-master.service';
 
 @Module({
   providers: [
@@ -233,7 +235,8 @@ import { StandardChargeService } from './services/standard-charge/standard-charg
     CompanyConfigService,
     MailConfigurationService,
     VoucherPeriodService,
-    StandardChargeService
+    StandardChargeService,
+    PrintMasterService
   ],
   controllers: [
     LeadController,
@@ -310,7 +313,8 @@ import { StandardChargeService } from './services/standard-charge/standard-charg
     CompanyConfigController,
     MailConfigurationController,
     VoucherPeriodController,
-    StandardChargeController
+    StandardChargeController,
+    PrintMasterController
   ],
   exports: [UserService,MenuService]
 })

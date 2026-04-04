@@ -139,3 +139,34 @@ export interface MenuModuleMap {
     [key: string]: string;
     value : any
 }
+
+export class RoleMenuPrintChangeDto {
+    @IsInt()
+    PrintMasterSid: number;
+
+    @IsBoolean()
+    grantAccess: boolean;
+}
+
+export class SaveRoleMenuPrintDto {
+    @IsNotEmpty()
+    @IsInt()
+    CompanyMasterSid: number;
+
+    @IsNotEmpty()
+    @IsInt()
+    RoleMenuHeaderSid: number;
+
+    @IsNotEmpty()
+    @IsInt()
+    RoleMenuDetailSid: number;
+
+    @IsArray()
+    @ValidateNested({ each: true })
+    @Type(() => RoleMenuPrintChangeDto)
+    changes: RoleMenuPrintChangeDto[];
+
+    @IsNotEmpty()
+    @IsString()
+    UpdatedBy: string;
+}
