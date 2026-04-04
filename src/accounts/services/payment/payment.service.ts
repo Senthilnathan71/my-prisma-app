@@ -378,6 +378,24 @@ export class PaymentService {
                     throw new BadRequestException('Payment Voucher Type not found. Please configure VoucherTypeMaster for this company/branch.');
                 }
 
+                if (payload.PaymentRequestSid) {
+                    const paymentRequest = await prisma.paymentRequest.findUnique({
+                        where: { PaymentRequestSid: Number(payload.PaymentRequestSid) },
+                    });
+
+                    if (!paymentRequest) {
+                        throw new BadRequestException('Payment request not found');
+                    }
+
+                    if (paymentRequest.PaymentRequestStatus !== 'Approved') {
+                        throw new BadRequestException('Payment request is not approved yet');
+                    }
+
+                    if (paymentRequest.VoucherSid) {
+                        throw new BadRequestException('Payment voucher already created for this payment request');
+                    }
+                }
+
                 // 2. Generate voucher number using config-based approach
                 const voucherNumber = await this.voucherService.generateVoucherNumberFromConfig(
                     voucherType,
@@ -543,6 +561,15 @@ export class PaymentService {
                 });
 
                 if (voucherType.IsAutoPosting === 'Y') {
+                    if (payload.PaymentRequestSid) {
+                        await prisma.paymentRequest.update({
+                            where: { PaymentRequestSid: Number(payload.PaymentRequestSid) },
+                            data: {
+                                VoucherSid: voucherHeader.VoucherHeaderSid,
+                                UpdatedBy: payload.CreatedBy,
+                            },
+                        });
+                    }
                     const postResult = await this.executePostPayment({
                         voucherHeaderSid: voucherHeader.VoucherHeaderSid,
                         companyMasterSid: payload.CompanyMasterSid,
@@ -555,6 +582,16 @@ export class PaymentService {
                         taxDetails: payload.TaxDetails,
                     }, prisma);
                     return { voucherHeader: postResult, isAutoPosted: true };
+                }
+
+                if (payload.PaymentRequestSid) {
+                    await prisma.paymentRequest.update({
+                        where: { PaymentRequestSid: Number(payload.PaymentRequestSid) },
+                        data: {
+                            VoucherSid: voucherHeader.VoucherHeaderSid,
+                            UpdatedBy: payload.CreatedBy,
+                        },
+                    });
                 }
 
                 return {

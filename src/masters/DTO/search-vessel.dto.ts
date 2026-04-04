@@ -93,6 +93,14 @@ export class filterDto {
 
   @IsOptional()
   @IsString()
+  sortColumn?: string;
+
+  @IsOptional()
+  @IsString()
+  sortDirection?: string;
+
+  @IsOptional()
+  @IsString()
   CurrencyCode?: string;
 
   @IsOptional()

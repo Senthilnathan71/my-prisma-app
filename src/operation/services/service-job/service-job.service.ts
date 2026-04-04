@@ -331,6 +331,7 @@ export class ServiceJobService {
                             CostAgentBranchSid: charge.CostAgentBranchSid ? Number(charge.CostAgentBranchSid) : null,
                             CostPrepaidCollect: charge.CostPrepaidCollect,
                             CostVoucherHeaderSid: charge.CostVoucherHeaderSid ? Number(charge.CostVoucherHeaderSid) : null,
+                            PaymentRequestSid: charge.PaymentRequestSid ? Number(charge.PaymentRequestSid) : null,
                             CostVoucherTypeMasterSid: charge.CostVoucherTypeSid ? Number(charge.CostVoucherTypeSid) : null,
                         }
                     });
@@ -610,6 +611,7 @@ export class ServiceJobService {
                         CostAgentBranchSid: charge.CostAgentBranchSid ? Number(charge.CostAgentBranchSid) : null,
                         CostPrepaidCollect: charge.CostPrepaidCollect,
                         CostVoucherHeaderSid: charge.CostVoucherHeaderSid ? Number(charge.CostVoucherHeaderSid) : null,
+                        PaymentRequestSid: charge.PaymentRequestSid ? Number(charge.PaymentRequestSid) : null,
                         CostVoucherTypeMasterSid: charge.CostVoucherTypeSid ? Number(charge.CostVoucherTypeSid) : null,
                     };
 
