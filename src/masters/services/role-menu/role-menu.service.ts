@@ -429,21 +429,28 @@ export class RoleMenuService {
                 .map(d => d.RoleMenuDetailSid)
                 .filter(Boolean) as number[];
 
-            let printPermissions: { PrintMasterSid: number; Name: string; PrintMail: string }[] = [];
+            // Default: all prints for this menu are visible (no record = allowed)
+            const allPrintMasters = await this._db.printMaster.findMany({
+                where: { MenuMasterSid, Status: 'A' },
+                select: { PrintMasterSid: true, Name: true, PrintMail: true }
+            });
+
+            let printPermissions: { PrintMasterSid: number; Name: string; PrintMail: string }[] = allPrintMasters;
+
             if (detailSids.length > 0) {
-                const roleMenuPrints = await this._db.roleMenuPrint.findMany({
-                    where: { RoleMenuDetailSid: { in: detailSids }, Status: 'A' },
+                // Only hide prints that are explicitly denied (GiveAccess = 'N')
+                const deniedPrints = await this._db.roleMenuPrint.findMany({
+                    where: {
+                        RoleMenuDetailSid: { in: detailSids },
+                        GiveAccess: 'N',
+                        Status: 'A'
+                    },
                     select: { PrintMasterSid: true },
                     distinct: ['PrintMasterSid']
                 });
-                if (roleMenuPrints.length > 0) {
-                    printPermissions = await this._db.printMaster.findMany({
-                        where: {
-                            PrintMasterSid: { in: roleMenuPrints.map(r => r.PrintMasterSid) },
-                            Status: 'A'
-                        },
-                        select: { PrintMasterSid: true, Name: true, PrintMail: true }
-                    });
+                if (deniedPrints.length > 0) {
+                    const deniedSids = new Set(deniedPrints.map(r => r.PrintMasterSid));
+                    printPermissions = allPrintMasters.filter(p => !deniedSids.has(p.PrintMasterSid));
                 }
             }
 
@@ -471,10 +478,13 @@ export class RoleMenuService {
 
     async getRoleMenuPrintPermissions(CompanyMasterSid: number, RoleMenuDetailSid: number) {
         try {
+            // Returns only explicitly denied prints (GiveAccess = 'N')
+            // No record = allowed by default
             return await this._db.roleMenuPrint.findMany({
                 where: {
                     CompanyMasterSid,
                     RoleMenuDetailSid,
+                    GiveAccess: 'N',
                     Status: 'A'
                 },
                 select: { RoleMenuPrintSid: true, PrintMasterSid: true }
@@ -495,6 +505,16 @@ export class RoleMenuService {
                     });
 
                     if (change.grantAccess) {
+                        // Granting access = remove the deny record (no record = allowed by default)
+                        if (existing && existing.Status === 'A') {
+                            await prisma.roleMenuPrint.update({
+                                where: { RoleMenuPrintSid: existing.RoleMenuPrintSid },
+                                data: { Status: 'D', UpdatedBy, UpdatedOn: new Date() }
+                            });
+                        }
+                        // No record or already soft-deleted — nothing to do
+                    } else {
+                        // Denying access = create or reactivate a deny record (GiveAccess = 'N')
                         if (!existing) {
                             await prisma.roleMenuPrint.create({
                                 data: {
@@ -502,7 +522,7 @@ export class RoleMenuService {
                                     RoleMenuHeaderSid,
                                     RoleMenuDetailSid,
                                     PrintMasterSid: change.PrintMasterSid,
-                                    GiveAccess: 'Y',
+                                    GiveAccess: 'N',
                                     Status: 'A',
                                     CreatedBy: UpdatedBy,
                                     UpdatedBy,
@@ -512,18 +532,10 @@ export class RoleMenuService {
                         } else if (existing.Status === 'D') {
                             await prisma.roleMenuPrint.update({
                                 where: { RoleMenuPrintSid: existing.RoleMenuPrintSid },
-                                data: { Status: 'A', UpdatedBy, UpdatedOn: new Date() }
+                                data: { GiveAccess: 'N', Status: 'A', UpdatedBy, UpdatedOn: new Date() }
                             });
                         }
-                        // Status already 'A' — skip
-                    } else {
-                        if (existing && existing.Status === 'A') {
-                            await prisma.roleMenuPrint.update({
-                                where: { RoleMenuPrintSid: existing.RoleMenuPrintSid },
-                                data: { Status: 'D', UpdatedBy, UpdatedOn: new Date() }
-                            });
-                        }
-                        // No row or already 'D' — skip
+                        // Already a deny record with Status='A' — skip
                     }
                 }
             });
