@@ -21,7 +21,7 @@ export class MenuUserConfigService {
         where.BranchMasterSid = branchMasterSid;
       }
 
-      const configs = await (this._db as any).menuUserConfig.findMany({
+      const configs = await this._db.resourceConfiguration.findMany({
         where,
         include: {
           branchMaster: {
@@ -31,11 +31,11 @@ export class MenuUserConfigService {
             select: { userName: true, UserMasterSid: true },
           },
         },
-        orderBy: { MenuUserConfigSid: 'asc' },
+        orderBy: { ResourceConfigurationSid: 'asc' },
       });
 
       return configs.map((c: any) => ({
-        MenuUserConfigSid: c.MenuUserConfigSid,
+        ResourceConfigurationSid: c.ResourceConfigurationSid,
         BranchMasterSid: c.BranchMasterSid,
         branchName: c.branchMaster?.branchName || '',
         stage: c.Stage,
@@ -51,7 +51,7 @@ export class MenuUserConfigService {
 
   async saveMenuUserConfig(
     configs: {
-      MenuUserConfigSid?: number;
+      ResourceConfigurationSid?: number;
       BranchMasterSid: number;
       stage: string;
       assignedRole: string | null;
@@ -64,9 +64,9 @@ export class MenuUserConfigService {
       const results: any[] = [];
 
       for (const cfg of configs) {
-        if (cfg.MenuUserConfigSid) {
-          const updated = await (this._db as any).menuUserConfig.update({
-            where: { MenuUserConfigSid: cfg.MenuUserConfigSid },
+        if (cfg.ResourceConfigurationSid) {
+          const updated = await this._db.resourceConfiguration.update({
+            where: { ResourceConfigurationSid: cfg.ResourceConfigurationSid },
             data: {
               AssignedRole: cfg.assignedRole,
               UserMasterSid: cfg.UserMasterSid || null,
@@ -76,7 +76,7 @@ export class MenuUserConfigService {
           });
           results.push(updated);
         } else {
-          const existing = await (this._db as any).menuUserConfig.findFirst({
+          const existing = await this._db.resourceConfiguration.findFirst({
             where: {
               CompanyMasterSid: companyMasterSid,
               BranchMasterSid: cfg.BranchMasterSid,
@@ -86,8 +86,8 @@ export class MenuUserConfigService {
           });
 
           if (existing) {
-            const updated = await (this._db as any).menuUserConfig.update({
-              where: { MenuUserConfigSid: existing.MenuUserConfigSid },
+            const updated = await this._db.resourceConfiguration.update({
+              where: { ResourceConfigurationSid: existing.ResourceConfigurationSid },
               data: {
                 AssignedRole: cfg.assignedRole,
                 UserMasterSid: cfg.UserMasterSid || null,
@@ -97,7 +97,7 @@ export class MenuUserConfigService {
             });
             results.push(updated);
           } else {
-            const created = await (this._db as any).menuUserConfig.create({
+            const created = await this._db.resourceConfiguration.create({
               data: {
                 CompanyMasterSid: companyMasterSid,
                 BranchMasterSid: cfg.BranchMasterSid,
@@ -115,6 +115,7 @@ export class MenuUserConfigService {
 
       return { success: true, count: results.length };
     } catch (error: any) {
+      console.log(error.stack)
       this.logger.error(`Error saving menu user config: ${error.message}`);
       throw error;
     }

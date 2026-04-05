@@ -1,9 +1,7 @@
 import {
   Controller,
-  Get,
   Post,
   Body,
-  Query,
   UseGuards,
 } from '@nestjs/common';
 import { JwtAuthGuard } from 'src/common/decorators/jwt-auth.guard';
@@ -19,24 +17,24 @@ export class MenuUserConfigController {
 
   /**
    * Get menu-wise user configuration
-   * GET /menu-user-config?branchId=X&companyId=Y
+   * POST /menu-user-config/get
    */
-  @Get()
+  @Post('get')
   async getMenuUserConfig(
+    @Body() body: { companyId: number; branchId?: number },
     @UserData() user: any,
-    @Query('branchId') branchId?: string,
-    @Query('companyId') companyId?: string,
   ) {
     try {
-      const companyMasterSid = companyId ? Number(companyId) : 7;
-      const branchMasterSid = branchId ? Number(branchId) : undefined;
+      if (!body.companyId) {
+        return { status: false, message: 'companyId is required' };
+      }
 
       const data = await this.menuUserConfigService.getMenuUserConfig(
-        companyMasterSid,
-        branchMasterSid,
+        body.companyId,
+        body.branchId,
       );
       return { status: true, data };
-    } catch (error) {
+    } catch (error: any) {
       return { status: false, message: error.message };
     }
   }
@@ -47,16 +45,18 @@ export class MenuUserConfigController {
    */
   @Post()
   async saveMenuUserConfig(
-    @Body() body: { configs: any[] },
+    @Body() body: { configs: any[]; CompanyMasterSid?: number },
     @UserData() user: any,
-    @Query('companyId') companyId?: string,
   ) {
     try {
       if (!body.configs || !Array.isArray(body.configs)) {
         return { status: false, message: 'configs array is required' };
       }
 
-      const companyMasterSid = companyId ? Number(companyId) : 7;
+      if (!body.CompanyMasterSid) {
+        return { status: false, message: 'CompanyMasterSid is required' };
+      }
+      const companyMasterSid = body.CompanyMasterSid;
       const userName = user?.userName || user?.email || 'system';
 
       const data = await this.menuUserConfigService.saveMenuUserConfig(
@@ -65,7 +65,7 @@ export class MenuUserConfigController {
         userName,
       );
       return { status: true, data, message: 'Configuration saved successfully' };
-    } catch (error) {
+    } catch (error: any) {
       return { status: false, message: error.message };
     }
   }
