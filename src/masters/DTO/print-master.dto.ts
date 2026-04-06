@@ -14,10 +14,6 @@ export class CreatePrintMasterDto {
     MenuMasterSid: number;
 
     @IsNotEmpty()
-    @IsInt()
-    CompanyMasterSid: number;
-
-    @IsNotEmpty()
     @IsString()
     CreatedBy: string;
 }
@@ -56,10 +52,6 @@ export class PrintMasterSearchDto {
     @IsOptional()
     @IsInt()
     pageSize?: number;
-
-    @IsNotEmpty()
-    @IsInt()
-    activeCompanyId: number;
 
     @IsOptional()
     @IsInt()

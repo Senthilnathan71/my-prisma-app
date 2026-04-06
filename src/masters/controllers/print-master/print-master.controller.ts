@@ -88,14 +88,13 @@ export class PrintMasterController {
     @ApiOperation({ summary: 'Get Print Masters by Menu' })
     @ApiCreatedResponse({ description: 'Get Print Masters by Menu', type: ResponseData })
     @HttpCode(HttpStatus.OK)
-    @Get('by-menu/:CompanyMasterSid/:MenuMasterSid')
+    @Get('by-menu/:MenuMasterSid')
     async getByMenu(
-        @Param('CompanyMasterSid', ParseIntPipe) CompanyMasterSid: number,
         @Param('MenuMasterSid', ParseIntPipe) MenuMasterSid: number
     ) {
         const resp = new ResponseData();
         try {
-            resp.data = await this.printMasterService.getByMenu(CompanyMasterSid, MenuMasterSid);
+            resp.data = await this.printMasterService.getByMenu(MenuMasterSid);
             resp.message = 'Print Masters fetched successfully.';
         } catch (error) {
             this.logger.warn(`PrintMaster getByMenu error: ${error}`);

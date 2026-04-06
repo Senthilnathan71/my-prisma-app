@@ -14,7 +14,6 @@ export class PrintMasterService {
                     Name: dto.Name,
                     PrintMail: dto.PrintMail,
                     MenuMasterSid: dto.MenuMasterSid,
-                    CompanyMasterSid: dto.CompanyMasterSid,
                     Status: 'A'
                 }
             });
@@ -28,7 +27,6 @@ export class PrintMasterService {
                     Name: dto.Name,
                     PrintMail: dto.PrintMail,
                     MenuMasterSid: dto.MenuMasterSid,
-                    CompanyMasterSid: dto.CompanyMasterSid,
                     Status: 'A',
                     CreatedBy: dto.CreatedBy,
                     UpdatedBy: dto.CreatedBy,
@@ -42,12 +40,11 @@ export class PrintMasterService {
 
     async searchList(dto: PrintMasterSearchDto) {
         try {
-            const { search = '', page = 1, pageSize = 10, activeCompanyId, MenuMasterSid } = dto;
+            const { search = '', page = 1, pageSize = 10, MenuMasterSid } = dto;
             const skip = (page - 1) * pageSize;
 
             const where: Prisma.PrintMasterWhereInput = {
                 Status: { in: ['A', 'S'] },
-                CompanyMasterSid: activeCompanyId,
                 ...(MenuMasterSid ? { MenuMasterSid } : {}),
                 ...(search ? {
                     OR: [
@@ -78,7 +75,6 @@ export class PrintMasterService {
                     PrintMail: item.PrintMail,
                     MenuMasterSid: item.MenuMasterSid,
                     MenuName: item.MenuMaster?.MenuName,
-                    CompanyMasterSid: item.CompanyMasterSid,
                     Status: item.Status
                 })),
                 totalCount
@@ -115,7 +111,6 @@ export class PrintMasterService {
                     Name: nameToCheck,
                     PrintMail: printMailToCheck,
                     MenuMasterSid: menuToCheck,
-                    CompanyMasterSid: record.CompanyMasterSid,
                     Status: 'A',
                     NOT: { PrintMasterSid }
                 }
@@ -142,11 +137,10 @@ export class PrintMasterService {
         }
     }
 
-    async getByMenu(CompanyMasterSid: number, MenuMasterSid: number) {
+    async getByMenu(MenuMasterSid: number) {
         try {
             return await this._db.printMaster.findMany({
                 where: {
-                    CompanyMasterSid,
                     MenuMasterSid,
                     Status: 'A'
                 },
