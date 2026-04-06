@@ -5347,7 +5347,7 @@ export class OperationReportsService {
         if (chargeName === 'Freight') return false;
 
         // NOT REVENUE
-        if (CalculationType === 'Not Revenue') {
+        if (CalculationType === 'Revenue') {
           return (
             Number(cr.CostLocalAmount || 0) > 0 &&
             Number(cr.RevenueLocalAmount || 0) === 0
@@ -5355,7 +5355,7 @@ export class OperationReportsService {
         }
 
         // NOT COST
-        if (CalculationType === 'Not Cost') {
+        if (CalculationType === 'Cost') {
           return (
             Number(cr.RevenueLocalAmount || 0) > 0 &&
             Number(cr.CostLocalAmount || 0) === 0
@@ -5421,7 +5421,7 @@ export class OperationReportsService {
 
       finalData = [...mappedJobsWithCR];
 
-      if (CalculationType === 'Not Revenue') {
+      if (CalculationType === 'Revenue') {
         const noRateData = houseJobsWithoutCR.map((hj) => ({
           HouseJobSid: hj.HouseJobSid,
           BookingNo: hj.bookingHeader?.BookingNo,
