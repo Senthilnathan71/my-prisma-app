@@ -211,19 +211,17 @@ model PrintMaster {
   Name              String         @db.VarChar(50)
   PrintMail         String         @db.VarChar(20)
   MenuMasterSid     Int
-  CompanyMasterSid  Int
   Status            String?        @default("A") @db.Char(1)
   CreatedOn         DateTime       @default(now()) @db.Timestamptz(6)
   UpdatedOn         DateTime?      @db.Timestamptz(6)
   CreatedBy         String         @db.VarChar(100)
   UpdatedBy         String?        @db.VarChar(100)
 
-  CompanyMaster     CompanyMaster  @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
   MenuMaster        MenuMaster     @relation(fields: [MenuMasterSid], references: [MenuMasterSid])
   RoleMenuPrint     RoleMenuPrint[]
 
-  @@index([CompanyMasterSid, MenuMasterSid, Name, Status])
-  @@index([CompanyMasterSid, PrintMail])
+  @@index([MenuMasterSid, Name, Status])
+  @@index([PrintMail])
 }
 
 enum UserTypeCode {

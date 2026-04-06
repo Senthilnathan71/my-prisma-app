@@ -101,7 +101,6 @@ model CompanyMaster {
   RoleMenuHeader             RoleMenuHeader[]
   RoleMenuPrint              RoleMenuPrint[]
   roleMenuMaster             RoleMenuMaster[]
-  PrintMaster                PrintMaster[]
   routingHeader              RoutingHeader[]
   shipmentMilestone          ShipmentMilestone[]
   ShippingInstruction        ShippingInstruction[]
@@ -2154,6 +2153,10 @@ model YearMaster {
   companyMaster       CompanyMaster         @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
   numberSeriesCounter NumberSeriesCounter[]
   VoucherPeriod       VoucherPeriod[]
+
+  @@index([CompanyMasterSid, status])
+  @@index([CompanyMasterSid, CurrentYear])
+  @@index([CompanyMasterSid, StartDate, EndDate])
 }
 
 model TandCTransaction {
@@ -2488,10 +2491,9 @@ model SubledgerMaster {
   VoucherTransaction  VoucherTransaction[]
   reportSchedules     ReportSchedule[]
 
-  @@index([CompanyMasterSid,SubledgerMappingSid,SubledgerType,CrCOAMasterSid,Status],     map: "idx_subledger_cr_coa")
-  @@index([CompanyMasterSid,SubledgerMappingSid,SubledgerType,DrCOAMasterSid,Status],     map: "idx_subledger_dr_coa")
-  @@index([CompanyMasterSid,SubledgerMappingSid,SubledgerType,AccrualCOAMasterSid,Status], map: "idx_subledger_accrual_coa")
-
+  @@index([CompanyMasterSid, SubledgerMappingSid, SubledgerType, CrCOAMasterSid, Status], map: "idx_subledger_cr_coa")
+  @@index([CompanyMasterSid, SubledgerMappingSid, SubledgerType, DrCOAMasterSid, Status], map: "idx_subledger_dr_coa")
+  @@index([CompanyMasterSid, SubledgerMappingSid, SubledgerType, AccrualCOAMasterSid, Status], map: "idx_subledger_accrual_coa")
 }
 
 model SupplierTdsMapping {
@@ -3392,7 +3394,7 @@ model VoucherMatchingHeader {
   VoucherMatchingHeaderSid Int                         @id @default(autoincrement())
   CreatedOn                DateTime                    @default(now()) @db.Timestamptz(6)
   CreatedBy                String                      @db.VarChar(100)
-  UpdatedOn                DateTime                    @db.Timestamptz(6)
+  UpdatedOn                DateTime?                   @db.Timestamptz(6)
   UpdatedBy                String?                     @db.VarChar(100)
   Status                   String                      @default("A") @db.Char(1)
   CompanyMasterSid         Int
