@@ -553,6 +553,8 @@ export class PaymentService {
                         PartyAmount : matching.PartyAmount,
                         MatchingTDSAmount : matching.MatchingTDSAmount,
                         SourceVoucherHeaderSid: voucherHeader.VoucherHeaderSid, // SourceVoucherHeaderSid(payment)
+                        CreatedBy: payload.createdBy,
+                        CreatedOn: new Date()
                     }
                 });
 
@@ -613,11 +615,12 @@ export class PaymentService {
                     CompanyMasterSid,
                     BranchMasterSid,
                     YearMasterSid,
-                    UpdatedBy :  updatedBy,
                     VoucherDate,
                     detailItems = [],
                     voucherMatching = [],
                 } = payload;
+                
+                const updatedBy = payload.UpdatedBy ?? payload.updatedBy;
 
                 if (!VoucherHeaderSid) {
                     throw new BadRequestException('VoucherHeaderSid is required for update');
@@ -856,13 +859,19 @@ export class PaymentService {
                         // Update existing matching
                         return prisma.matchingDetail.update({
                             where: { MatchingDetailSid: matching.MatchingDetailSid },
-                            data: commonMatchingData,
+                            data: {
+                                ...commonMatchingData,
+                                UpdatedBy: updatedBy,
+                                UpdatedOn: new Date()
+                            },
                         });
                     } else {
                         // Create new matching
                         return prisma.matchingDetail.create({
                             data: {
                                 ...commonMatchingData,
+                                CreatedBy: updatedBy,
+                                CreatedOn: new Date()
                             },
                         });
                     }

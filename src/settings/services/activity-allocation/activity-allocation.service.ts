@@ -7,11 +7,7 @@ export type Stage =
   | 'Quotation'
   | 'Booking'
   | 'LoadPlan'
-  | 'MasterJob'
-  | 'Job'
-  | 'BL'
-  | 'SI'
-  | 'Invoice';
+  | 'MasterJob';
 
 export type SummaryMode = 'All' | 'Pending' | 'Processed';
 
@@ -23,10 +19,6 @@ export interface SummaryRow {
   bookingCount: number;
   loadPlanCount: number;
   masterJobCount: number;
-  jobCount: number;
-  blCount: number;
-  siCount: number;
-  invoiceCount: number;
 }
 
 export interface WorkloadRow {
@@ -120,7 +112,9 @@ export class ActivityAllocationService {
   ): Promise<{ data: SummaryRow[]; total: number }> {
     const startTime = Date.now();
 
-    if (!companyMasterSid) companyMasterSid = 7;
+    if (!companyMasterSid) {
+      throw new BadRequestException('companyMasterSid is required');
+    }
 
     const summary = await this.buildSummaryOptimized(
       companyMasterSid,
@@ -136,11 +130,7 @@ export class ActivityAllocationService {
         r.quotationCount +
         r.bookingCount +
         r.loadPlanCount +
-        r.masterJobCount +
-        r.jobCount +
-        r.blCount +
-        r.siCount +
-        r.invoiceCount,
+        r.masterJobCount,
       0,
     );
 
@@ -176,107 +166,146 @@ export class ActivityAllocationService {
     search?: string,
   ): Promise<SummaryRow[]> {
     try {
-      
-      let users = await this.db.userMaster.findMany({
-        where: { status: 'A' },
-        select: { UserMasterSid: true, userName: true, userEmail: true },
-        orderBy: { UserMasterSid: 'desc' },
-      });
+      const branchFilter = branchMasterSid
+        ? `AND "BranchMasterSid" = ${branchMasterSid}`
+        : '';
 
-      
-      const seenNames = new Map<string, typeof users[0]>();
-      users = users.filter((u) => {
-        const key = u.userName.toLowerCase().trim();
-        if (seenNames.has(key)) {
-          this.logger.warn(
-            `⚠️ Duplicate user skipped: ${u.userName} (Sid: ${u.UserMasterSid})`,
-          );
-          return false;
+      // Run 5 aggregate queries in parallel (one per stage) instead of N*9 per-user queries
+      const [
+        enquiryCounts,
+        quotationCounts,
+        bookingCounts,
+        loadPlanCounts,
+        masterJobCounts,
+      ] = await Promise.all([
+        // Enquiry (RateRequest) — grouped by UserMasterSid
+        this.db.$queryRawUnsafe<{ user_sid: number; cnt: bigint }[]>(`
+          SELECT "UserMasterSid" as user_sid, COUNT(*) as cnt
+          FROM "EnquiryHeader"
+          WHERE "CompanyMasterSid" = ${companyMasterSid}
+            AND "status" = 'A'
+            ${branchFilter}
+            ${mode === 'Pending' ? 'AND "QuoteHeaderSid" IS NULL' : ''}
+            ${mode === 'Processed' ? 'AND "QuoteHeaderSid" IS NOT NULL' : ''}
+          GROUP BY "UserMasterSid"
+        `),
+
+        // Quotation — grouped by CreatedBy (email), join to get UserMasterSid
+        this.db.$queryRawUnsafe<{ user_sid: number; cnt: bigint }[]>(`
+          SELECT u."UserMasterSid" as user_sid, COUNT(*) as cnt
+          FROM "QuoteHeader" q
+          JOIN "UserMaster" u ON u."userEmail" = q."createdBy"
+          WHERE q."CompanyMasterSid" = ${companyMasterSid}
+            AND q."status" = 'A'
+            ${branchMasterSid ? `AND q."BranchMasterSid" = ${branchMasterSid}` : ''}
+            ${mode === 'Pending' ? 'AND q."BookingHeaderSid" IS NULL' : ''}
+            ${mode === 'Processed' ? 'AND q."BookingHeaderSid" IS NOT NULL' : ''}
+          GROUP BY u."UserMasterSid"
+        `),
+
+        // Booking — grouped by SalesmanSid
+        this.db.$queryRawUnsafe<{ user_sid: number; cnt: bigint }[]>(`
+          SELECT "SalesmanSid" as user_sid, COUNT(*) as cnt
+          FROM "BookingHeader"
+          WHERE "CompanyMasterSid" = ${companyMasterSid}
+            AND "status" = 'A'
+            ${branchFilter}
+            ${mode === 'Pending' ? `AND "BookingStatus" IN ('Pending', 'Hold')` : ''}
+            ${mode === 'Processed' ? `AND "BookingStatus" NOT IN ('Pending', 'Hold')` : ''}
+          GROUP BY "SalesmanSid"
+        `),
+
+        // LoadPlan — grouped by SalesmanSid
+        this.db.$queryRawUnsafe<{ user_sid: number; cnt: bigint }[]>(`
+          SELECT "SalesmanSid" as user_sid, COUNT(*) as cnt
+          FROM "BookingHeader"
+          WHERE "CompanyMasterSid" = ${companyMasterSid}
+            AND "status" = 'A'
+            AND "MBLNo" IS NULL
+            AND "MasterNoSid" IS NULL
+            AND "BookingStatus" IN ('Booked', 'Cargo Received')
+            ${branchFilter}
+          GROUP BY "SalesmanSid"
+        `),
+
+        // MasterJob — grouped by CreatedBy (email), join to get UserMasterSid
+        this.db.$queryRawUnsafe<{ user_sid: number; cnt: bigint }[]>(`
+          SELECT u."UserMasterSid" as user_sid, COUNT(*) as cnt
+          FROM "MasterJob" m
+          JOIN "UserMaster" u ON u."userEmail" = m."CreatedBy"
+          WHERE m."CompanyMasterSid" = ${companyMasterSid}
+            AND m."Status" = 'A'
+            ${branchMasterSid ? `AND m."BranchMasterSid" = ${branchMasterSid}` : ''}
+          GROUP BY u."UserMasterSid"
+        `),
+      ]);
+
+      // Build lookup maps from query results
+      const toMap = (rows: { user_sid: number; cnt: bigint }[]) => {
+        const m = new Map<number, number>();
+        for (const r of rows) {
+          if (r.user_sid) m.set(r.user_sid, Number(r.cnt));
         }
-        seenNames.set(key, u);
-        return true;
+        return m;
+      };
+
+      const enquiryMap = toMap(enquiryCounts);
+      const quotationMap = toMap(quotationCounts);
+      const bookingMap = toMap(bookingCounts);
+      const loadPlanMap = toMap(loadPlanCounts);
+      const masterJobMap = toMap(masterJobCounts);
+
+      // Collect all user IDs that have at least one count
+      const allUserSids = new Set<number>();
+      [enquiryMap, quotationMap, bookingMap, loadPlanMap, masterJobMap].forEach(m => {
+        for (const sid of m.keys()) allUserSids.add(sid);
       });
 
-      
+      if (allUserSids.size === 0) return [];
+
+      // Fetch user names for those IDs
+      const users = await this.db.userMaster.findMany({
+        where: { UserMasterSid: { in: [...allUserSids] }, status: 'A' },
+        select: { UserMasterSid: true, userName: true },
+      });
+
+      const userMap = new Map(users.map(u => [u.UserMasterSid, u.userName]));
+
+      // Build summary rows
+      let rows: SummaryRow[] = [];
+      for (const sid of allUserSids) {
+        const userName = userMap.get(sid);
+        if (!userName) continue;
+
+        const rateRequestCount = enquiryMap.get(sid) || 0;
+        const quotationCount = quotationMap.get(sid) || 0;
+        const bookingCount = bookingMap.get(sid) || 0;
+        const loadPlanCount = loadPlanMap.get(sid) || 0;
+        const masterJobCount = masterJobMap.get(sid) || 0;
+
+        if (rateRequestCount + quotationCount + bookingCount + loadPlanCount + masterJobCount === 0) continue;
+
+        rows.push({
+          userSid: sid,
+          userName,
+          rateRequestCount,
+          quotationCount,
+          bookingCount,
+          loadPlanCount,
+          masterJobCount,
+        });
+      }
+
+      // Apply search filter
       if (search && search.trim()) {
         const q = search.toLowerCase().trim();
-        users = users.filter((u) => u.userName.toLowerCase().includes(q));
+        rows = rows.filter(r => r.userName.toLowerCase().includes(q));
       }
 
-      this.logger.log(`📊 Processing ${users.length} unique users for summary`);
+      // Sort by userName
+      rows.sort((a, b) => a.userName.localeCompare(b.userName));
 
-      
-      const results: { user: typeof users[0]; counts: any }[] = [];
-      const chunkSize = 10;
-
-      for (let i = 0; i < users.length; i += chunkSize) {
-        const chunk = users.slice(i, i + chunkSize);
-
-        const chunkResults = await Promise.all(
-          chunk.map((u) =>
-            this.getCountsForUser(
-              u.UserMasterSid,
-              u.userEmail,
-              u.userName,
-              companyMasterSid,
-              branchMasterSid,
-              mode,
-            )
-              .then((counts) => ({ user: u, counts }))
-              .catch((error) => {
-                this.logger.error(
-                  `❌ Error getting counts for ${u.userName}: ${error.message}`,
-                );
-                return {
-                  user: u,
-                  counts: {
-                    RateRequest: 0,
-                    Quotation: 0,
-                    Booking: 0,
-                    LoadPlan: 0,
-                    MasterJob: 0,
-                    Job: 0,
-                    BL: 0,
-                    SI: 0,
-                    Invoice: 0,
-                  },
-                };
-              }),
-          ),
-        );
-
-        results.push(...chunkResults);
-      }
-
-      
-      const rows: SummaryRow[] = results
-        .filter(
-          ({ counts }) =>
-            counts.RateRequest > 0 ||
-            counts.Quotation > 0 ||
-            counts.Booking > 0 ||
-            counts.LoadPlan > 0 ||
-            counts.MasterJob > 0 ||
-            counts.Job > 0 ||
-            counts.BL > 0 ||
-            counts.SI > 0 ||
-            counts.Invoice > 0,
-        )
-        .map(({ user: u, counts }) => ({
-          userSid: u.UserMasterSid,
-          userName: u.userName,
-          rateRequestCount: counts.RateRequest,
-          quotationCount: counts.Quotation,
-          bookingCount: counts.Booking,
-          loadPlanCount: counts.LoadPlan,
-          masterJobCount: counts.MasterJob,
-          jobCount: counts.Job,
-          blCount: counts.BL,
-          siCount: counts.SI,
-          invoiceCount: counts.Invoice,
-        }));
-
-      this.clearExpiredCache();
+      this.logger.log(`📊 Summary built for ${rows.length} users with ${allUserSids.size} active user IDs`);
 
       return rows;
     } catch (error: any) {
@@ -299,10 +328,6 @@ export class ActivityAllocationService {
     Booking: number;
     LoadPlan: number;
     MasterJob: number;
-    Job: number;
-    BL: number;
-    SI: number;
-    Invoice: number;
   }> {
     const baseWhere: any = {
       CompanyMasterSid: companyMasterSid,
@@ -312,19 +337,13 @@ export class ActivityAllocationService {
       baseWhere.BranchMasterSid = branchMasterSid;
     }
 
-    
     const [
       rateRequestCount,
       quotationCount,
       bookingCount,
       loadPlanCount,
       masterJobCount,
-      jobCount,
-      blCount,
-      siCount,
-      invoiceCount,
     ] = await Promise.all([
-      
       this.dbQueue.run(() =>
         this.db.enquiryHeader
           .count({
@@ -335,10 +354,7 @@ export class ActivityAllocationService {
               ...(mode === 'Pending' && { QuoteHeaderSid: null }),
             },
           })
-          .catch((err) => {
-            this.logger.error(`RateRequest count error for ${userName}: ${err.message}`);
-            return 0;
-          }),
+          .catch(() => 0),
       ),
 
       this.dbQueue.run(() =>
@@ -351,13 +367,9 @@ export class ActivityAllocationService {
               ...(mode === 'Pending' && { BookingHeaderSid: null }),
             },
           })
-          .catch((err) => {
-            this.logger.error(`Quotation count error for ${userName}: ${err.message}`);
-            return 0;
-          }),
+          .catch(() => 0),
       ),
 
-      
       this.dbQueue.run(() =>
         this.db.bookingHeader
           .count({
@@ -372,13 +384,9 @@ export class ActivityAllocationService {
               }),
             },
           })
-          .catch((err) => {
-            this.logger.error(`Booking count error for ${userName}: ${err.message}`);
-            return 0;
-          }),
+          .catch(() => 0),
       ),
 
-      
       this.dbQueue.run(() =>
         this.db.bookingHeader
           .count({
@@ -390,13 +398,9 @@ export class ActivityAllocationService {
               BookingStatus: { in: ['Booked', 'Cargo Received'] },
             },
           })
-          .catch((err) => {
-            this.logger.error(`LoadPlan count error for ${userName}: ${err.message}`);
-            return 0;
-          }),
+          .catch(() => 0),
       ),
 
-      
       this.dbQueue.run(() =>
         this.db.masterJob
           .count({
@@ -407,95 +411,7 @@ export class ActivityAllocationService {
               CreatedBy: userEmail,
             },
           })
-          .catch((err) => {
-            this.logger.error(`MasterJob count error for ${userName}: ${err.message}`);
-            return 0;
-          }),
-      ),
-
-      
-      this.dbQueue.run(() =>
-        this.db.houseJob
-          .count({
-            where: {
-              CompanyMasterSid: companyMasterSid,
-              status: 'A',
-              ...(branchMasterSid ? { BranchMasterSid: branchMasterSid } : {}),
-              Others: {
-                some: {
-                  CustomerServiceuser: userName,
-                },
-              },
-            },
-          })
-          .catch((err) => {
-            this.logger.error(`Job count error for ${userName}: ${err.message}`);
-            return 0;
-          }),
-      ),
-
-      
-      this.dbQueue.run(() =>
-        this.db.houseJob
-          .count({
-            where: {
-              CompanyMasterSid: companyMasterSid,
-              status: 'A',
-              HBLNo: { not: null },
-              ...(branchMasterSid ? { BranchMasterSid: branchMasterSid } : {}),
-              Others: {
-                some: {
-                  DocumentationUser: userName,
-                },
-              },
-            },
-          })
-          .catch((err) => {
-            this.logger.error(`BL count error for ${userName}: ${err.message}`);
-            return 0;
-          }),
-      ),
-
-      
-      this.dbQueue.run(() =>
-        this.db.houseJob
-          .count({
-            where: {
-              CompanyMasterSid: companyMasterSid,
-              status: 'A',
-              ...(branchMasterSid ? { BranchMasterSid: branchMasterSid } : {}),
-              Others: {
-                some: {
-                  DocumentationUser: userName,
-                },
-              },
-            },
-          })
-          .catch((err) => {
-            this.logger.error(`SI count error for ${userName}: ${err.message}`);
-            return 0;
-          }),
-      ),
-
-      this.dbQueue.run(() =>
-        this.db.voucherHeader
-          .count({
-            where: {
-              CompanyMasterSid: companyMasterSid,
-              Status: 'A',
-              CreatedBy: userEmail,
-              voucherTypeMaster: {
-                DocumentTypeName: 'Invoice',
-              },
-              ...(branchMasterSid ? { BranchMasterSid: branchMasterSid } : {}),
-              ...(mode === 'Pending' && { PostStatus: { not: 'Posted' } }),
-              ...(mode === 'Processed' && { PostStatus: 'Posted' }),
-            },
-          })
-          .catch((err) => {
-            this.logger.error(`Invoice count error for ${userName}: ${err.message}`);
-            return 0;
-          }),
+          .catch(() => 0),
       ),
     ]);
 
@@ -505,10 +421,6 @@ export class ActivityAllocationService {
       Booking: bookingCount,
       LoadPlan: loadPlanCount,
       MasterJob: masterJobCount,
-      Job: jobCount,
-      BL: blCount,
-      SI: siCount,
-      Invoice: invoiceCount,
     };
   }
 
@@ -560,7 +472,9 @@ export class ActivityAllocationService {
     page: number = 1,
     limit: number = 100,
   ): Promise<WorkloadDetailResponse> {
-    if (!companyMasterSid) companyMasterSid = 7;
+    if (!companyMasterSid) {
+      throw new BadRequestException('companyMasterSid is required');
+    }
 
     this.logger.log(`🔍 getWorkloadDetails: ${stage} for user ${userSid} (mode: ${mode})`);
 
@@ -597,8 +511,9 @@ export class ActivityAllocationService {
       this.logger.error(
         `❌ Error fetching ${stage} workload: ${error.message}`,
       );
+      this.logger.error(`   Stack: ${error.stack}`);
       throw new BadRequestException(
-        `Failed to fetch ${stage} workload details`,
+        `Failed to fetch ${stage} workload details: ${error.message}`,
       );
     }
 
@@ -627,10 +542,6 @@ export class ActivityAllocationService {
       Booking: this.getBookingWorkload.bind(this),
       LoadPlan: this.getLoadPlanWorkload.bind(this),
       MasterJob: this.getMasterJobWorkload.bind(this),
-      Job: this.getJobWorkload.bind(this),
-      BL: this.getBLWorkload.bind(this),
-      SI: this.getSIWorkload.bind(this),
-      Invoice: this.getInvoiceWorkload.bind(this),
     };
     return methods[stage];
   }
@@ -1362,20 +1273,12 @@ export class ActivityAllocationService {
       Booking: r.bookingCount,
       LoadPlan: r.loadPlanCount,
       MasterJob: r.masterJobCount,
-      Job: r.jobCount,
-      BL: r.blCount,
-      SI: r.siCount,
-      Invoice: r.invoiceCount,
       Total:
         r.rateRequestCount +
         r.quotationCount +
         r.bookingCount +
         r.loadPlanCount +
-        r.masterJobCount +
-        r.jobCount +
-        r.blCount +
-        r.siCount +
-        r.invoiceCount,
+        r.masterJobCount,
     }));
 
     return {
@@ -1385,166 +1288,15 @@ export class ActivityAllocationService {
     };
   }
 
-  // ─── Menu User Config ────────────────────────────────────────
-
-  async getMenuUserConfig(
-    companyMasterSid: number,
-    branchMasterSid?: number,
-  ) {
-    try {
-      const where: any = {
-        CompanyMasterSid: companyMasterSid,
-        Status: 'A',
-      };
-      if (branchMasterSid) {
-        where.BranchMasterSid = branchMasterSid;
-      }
-
-      const configs = await (this.db as any).resourceConfiguration.findMany({
-        where,
-        include: {
-          branchMaster: { select: { branchName: true, BranchMasterSid: true } },
-          userMaster: { select: { userName: true, UserMasterSid: true } },
-        },
-        orderBy: { ResourceConfigurationSid: 'asc' },
-      });
-
-      return configs.map((c) => ({
-        ResourceConfigurationSid: c.ResourceConfigurationSid,
-        BranchMasterSid: c.BranchMasterSid,
-        branchName: c.branchMaster?.branchName || '',
-        stage: c.Stage,
-        assignedRole: c.AssignedRole || null,
-        UserMasterSid: c.UserMasterSid || null,
-        userName: c.userMaster?.userName || '',
-      }));
-    } catch (error: any) {
-      this.logger.error(`Error fetching menu user config: ${error.message}`);
-      throw error;
-    }
-  }
-
-  async saveMenuUserConfig(
-    configs: {
-      ResourceConfigurationSid?: number;
-      BranchMasterSid: number;
-      stage: string;
-      assignedRole: string | null;
-      UserMasterSid?: number;
-    }[],
-    companyMasterSid: number,
-    userName: string,
-  ) {
-    try {
-      const results: any[] = [];
-
-      for (const cfg of configs) {
-        if (cfg.ResourceConfigurationSid) {
-          // Update existing
-          const updated = await (this.db as any).resourceConfiguration.update({
-            where: { ResourceConfigurationSid: cfg.ResourceConfigurationSid },
-            data: {
-              AssignedRole: cfg.assignedRole,
-              UserMasterSid: cfg.UserMasterSid || null,
-              UpdatedBy: userName,
-              UpdatedOn: new Date(),
-            },
-          });
-          results.push(updated);
-        } else {
-          // Upsert: check if exists for this branch+stage
-          const existing = await (this.db as any).resourceConfiguration.findFirst({
-            where: {
-              CompanyMasterSid: companyMasterSid,
-              BranchMasterSid: cfg.BranchMasterSid,
-              Stage: cfg.stage,
-              Status: 'A',
-            },
-          });
-
-          if (existing) {
-            const updated = await (this.db as any).resourceConfiguration.update({
-              where: { ResourceConfigurationSid: existing.ResourceConfigurationSid },
-              data: {
-                AssignedRole: cfg.assignedRole,
-                UserMasterSid: cfg.UserMasterSid || null,
-                UpdatedBy: userName,
-                UpdatedOn: new Date(),
-              },
-            });
-            results.push(updated);
-          } else {
-            const created = await (this.db as any).resourceConfiguration.create({
-              data: {
-                CompanyMasterSid: companyMasterSid,
-                BranchMasterSid: cfg.BranchMasterSid,
-                Stage: cfg.stage,
-                AssignedRole: cfg.assignedRole,
-                UserMasterSid: cfg.UserMasterSid || null,
-                CreatedBy: userName,
-                Status: 'A',
-              },
-            });
-            results.push(created);
-          }
-        }
-      }
-
-      return { success: true, count: results.length };
-    } catch (error: any) {
-      this.logger.error(`Error saving menu user config: ${error.message}`);
-      throw error;
-    }
-  }
-
-  // ─── CS Users ────────────────────────────────────────────────
-
-  async getCSUsers(companyMasterSid?: number) {
-    try {
-      const where: any = {
-        status: 'A',
-        department: { hasSome: ['CS', 'Customer Service', 'Documentation', 'DOC'] },
-      };
-
-      const users = await this.db.userMaster.findMany({
-        where,
-        select: {
-          UserMasterSid: true,
-          userName: true,
-          department: true,
-        },
-        orderBy: { userName: 'asc' },
-      });
-
-      return users.map((u) => ({
-        userSid: u.UserMasterSid,
-        userName: u.userName,
-      }));
-    } catch (error: any) {
-      this.logger.error(`Error fetching CS users: ${error.message}`);
-      throw error;
-    }
-  }
-
   // ─── Update CS Person ────────────────────────────────────────
 
   async updateCSPerson(
     activityId: number,
     csUserSid: number,
+    stage: string,
     updatedBy: string,
   ) {
     try {
-      // Find the ActivityResourceAllocation record
-      const record = await this.db.activityResourceAllocation.findUnique({
-        where: { ActivityResourceAllocationSid: activityId },
-      });
-
-      if (!record) {
-        throw new BadRequestException(
-          `Activity allocation record ${activityId} not found`,
-        );
-      }
-
       // Verify the CS user exists
       const csUser = await this.db.userMaster.findUnique({
         where: { UserMasterSid: csUserSid },
@@ -1555,29 +1307,72 @@ export class ActivityAllocationService {
         throw new BadRequestException(`CS user ${csUserSid} not found`);
       }
 
-      // Update BookingOthers or HouseJobOthers CustomerServiceuser (stored as userName string)
-      if (record.BookingHeaderSid) {
-        await this.db.bookingOthers.updateMany({
-          where: { BookingHeaderSid: record.BookingHeaderSid },
-          data: { CustomerServiceuser: csUser.userName },
-        });
-      }
+      // activityId is the stage record's PK (e.g. EnquiryHeaderSid, BookingHeaderSid, etc.)
+      // Update the CS person based on the stage
+      switch (stage) {
+        case 'RateRequest': {
+          // EnquiryOther doesn't have CustomerServiceuser — update via CustomerSalesTeam
+          const enquiry = await this.db.enquiryHeader.findUnique({
+            where: { EnquiryHeaderSid: activityId },
+            select: { CustomerMasterSid: true, CompanyMasterSid: true },
+          });
+          if (enquiry?.CustomerMasterSid) {
+            await this.db.customerSalesTeam.updateMany({
+              where: {
+                CustomerMasterSid: enquiry.CustomerMasterSid,
+                CompanyMasterSid: enquiry.CompanyMasterSid,
+                status: 'A',
+              },
+              data: { CSPerson: csUserSid },
+            });
+          }
+          break;
+        }
 
-      if (record.HouseJobSid) {
-        await this.db.houseJobOthers.updateMany({
-          where: { HouseJobSid: record.HouseJobSid },
-          data: { CustomerServiceuser: csUser.userName },
-        });
-      }
+        case 'Quotation':
+          // QuoteHeader doesn't have a separate "others" table — update via ActivityResourceAllocation if exists
+          const quotaAlloc = await this.db.activityResourceAllocation.findFirst({
+            where: { QuoteHeaderSid: activityId },
+          });
+          if (quotaAlloc) {
+            await this.db.activityResourceAllocation.update({
+              where: { ActivityResourceAllocationSid: quotaAlloc.ActivityResourceAllocationSid },
+              data: { EnquiryUser: csUserSid, UpdatedBy: updatedBy, UpdatedOn: new Date() },
+            });
+          }
+          break;
 
-      // Also update the allocation record's UpdatedBy/UpdatedOn
-      await this.db.activityResourceAllocation.update({
-        where: { ActivityResourceAllocationSid: activityId },
-        data: {
-          UpdatedBy: updatedBy,
-          UpdatedOn: new Date(),
-        },
-      });
+        case 'Booking':
+          await this.db.bookingOthers.updateMany({
+            where: { BookingHeaderSid: activityId },
+            data: { CustomerServiceuser: csUser.userName },
+          });
+          break;
+
+        case 'LoadPlan':
+          await this.db.bookingOthers.updateMany({
+            where: { BookingHeaderSid: activityId },
+            data: { CustomerServiceuser: csUser.userName },
+          });
+          break;
+
+        case 'MasterJob':
+          // MasterJob uses HouseJobOthers through related house jobs
+          const houseJobs = await this.db.houseJob.findMany({
+            where: { MasterJobSid: activityId },
+            select: { HouseJobSid: true },
+          });
+          if (houseJobs.length > 0) {
+            await this.db.houseJobOthers.updateMany({
+              where: { HouseJobSid: { in: houseJobs.map(h => h.HouseJobSid) } },
+              data: { CustomerServiceuser: csUser.userName },
+            });
+          }
+          break;
+
+        default:
+          throw new BadRequestException(`Invalid stage: ${stage}`);
+      }
 
       return {
         success: true,

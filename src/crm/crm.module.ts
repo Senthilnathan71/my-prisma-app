@@ -9,8 +9,6 @@ import { QuotationController } from './controllers/quotation/quotation.controlle
 import { QuotationService } from './services/quotation/quotation.service';
 import { PrecustomerController } from './controllers/precustomer/precustomer.controller';
 import { PrecustomerService } from './services/precustomer/precustomer.service';
-import { ActivityAllocationService } from './services/activity-allocation/activity-allocation.service';
-import { ActivityAllocationController } from './controllers/activity-allocation/activity-allocation.controller';
 import { SettingsModule } from 'src/settings/settings.module';
 
 @Module({
@@ -22,7 +20,6 @@ import { SettingsModule } from 'src/settings/settings.module';
         PreCustomerMeetingService,
         BookingService,
         QuotationService,
-         ActivityAllocationService,
     ],
     controllers : [
         PrecustomerController,
@@ -30,7 +27,6 @@ import { SettingsModule } from 'src/settings/settings.module';
         PreCustomerMeetingController,
         BookingController,
         QuotationController,
-        ActivityAllocationController,
     ],
 })
 export class CrmModule {}

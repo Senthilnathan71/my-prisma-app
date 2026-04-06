@@ -15,6 +15,11 @@ export class QuotationService {
         try {
             const CompanyMasterSid = user['userBranchMaster'][0].CompanyMasterSid;
             const BranchMasterSid = user['userBranchMaster'][0].BranchMasterSid;
+            const SalesmanSid =
+                user?.['UserMasterSid']
+                ?? user?.['userBranchMaster']?.[0]?.UserMasterSid
+                ?? user?.['userCompanyMaster']?.[0]?.UserMasterSid
+                ?? null;
             // Get DepartmentMasterSid from the first route (if available)
             const DepartmentMasterSid = payload.routes?.[0]?.DepartmentMasterSid
                 ? Number(payload.routes[0].DepartmentMasterSid)
@@ -55,6 +60,10 @@ export class QuotationService {
                     CustomerName: payload.CustomerName,
                     CustomerMasterSid: Number(payload.CustomerMasterSid),
                     QuoteDate: quoteDate,
+                    CustomerRef: payload.CustomerRef,
+                    SalesmanSid: SalesmanSid,
+                    AgreedRate: payload.AgreedRate || "N",
+                    IsContract: payload.IsContract || "N",
                     CustomerAddress: payload.CustomerAddress,
                     status: payload.status || "A",
                     CompanyMasterSid: CompanyMasterSid,
@@ -80,6 +89,7 @@ export class QuotationService {
                                 QuoteHeaderSid: quoteHeader.QuoteHeaderSid,
                                 CarrierName: route.Carrier,
                                 CarrierMasterSid: route.CarrierMasterSid,
+                                ServiceLevel: route.ServiceLevel || null,
                                 segmentType: route.segmentType,
                                 effDate: new Date(route.effDate),
                                 expdate: new Date(route.expDate),
@@ -203,12 +213,21 @@ export class QuotationService {
             // Step 1: Update Enquiry Header
             const statusUpdate = payload.status === "Active" ? "A" : "S";
             const quoteDate = payload.quoteDate ? new Date(payload.quoteDate) : new Date();
+            const SalesmanSid =
+                user?.['UserMasterSid']
+                ?? user?.['userBranchMaster']?.[0]?.UserMasterSid
+                ?? user?.['userCompanyMaster']?.[0]?.UserMasterSid
+                ?? null;
 
             const updatedQuoteHeader = await this._db.quoteHeader.update({
                 where: { QuoteHeaderSid: QuoteHeaderSid },
                 data: {
                     CustomerName: payload.CustomerName,
                     QuoteDate: quoteDate,
+                    CustomerRef: payload.CustomerRef,
+                    SalesmanSid: SalesmanSid,
+                    AgreedRate: payload.AgreedRate || "N",
+                    IsContract: payload.IsContract || "N",
                     status: statusUpdate,
                     updatedBy: user['userEmail'],
                     updatedOn: new Date()
@@ -232,6 +251,7 @@ export class QuotationService {
                             FDPSid: Number(route.FPOD),
                             CarrierName: route.Carrier,
                             CarrierMasterSid: route.CarrierMasterSid,
+                            ServiceLevel: route.ServiceLevel || null,
                             effDate: new Date(route.effDate),
                             expdate: new Date(route.expDate),
                             twentyft: Number(route.twentyft) || null,
@@ -251,6 +271,7 @@ export class QuotationService {
                             FDPSid: Number(route.FPOD),
                             CarrierName: route.Carrier,
                             CarrierMasterSid: route.CarrierMasterSid,
+                            ServiceLevel: route.ServiceLevel || null,
                             effDate: new Date(route.effDate),
                             expdate: new Date(route.expDate),
                             twentyft: Number(route.twentyft) || null,

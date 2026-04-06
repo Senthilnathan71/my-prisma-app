@@ -1,9 +1,7 @@
 import {
   Controller,
-  Get,
   Post,
   Patch,
-  Query,
   Param,
   Body,
   HttpCode,
@@ -17,12 +15,12 @@ import {
   ActivityAllocationService,
   SummaryMode,
   Stage,
-} from 'src/crm/services/activity-allocation/activity-allocation.service';
+} from '../../services/activity-allocation/activity-allocation.service';
 import { ResponseData } from 'src/common/response-data';
 import { Auth } from 'src/common/decorators/auth.decorator';
 import { UserData } from 'src/common/decorators/user.decorator';
 
-@Controller('crm/activity-allocation')
+@Controller('activity-allocation')
 @Auth()
 export class ActivityAllocationController {
   private logger = new Logger(ActivityAllocationController.name);
@@ -31,27 +29,20 @@ export class ActivityAllocationController {
 
   @ApiOperation({ summary: 'Get Activity Summary (All Stages)' })
   @HttpCode(HttpStatus.OK)
-  @Get('summary')
+  @Post('summary')
   async getSummary(
-    @Query('mode') mode: string = 'Pending',
-    @Query('search') search: string = '',
+    @Body() body: { mode?: string; search?: string; companyId?: number; branchId?: number },
     @UserData() user: any,
-    @Query('companyId') companyId?: string,
-    @Query('branchId') branchId?: string,
   ): Promise<ResponseData> {
     const output = new ResponseData();
     try {
-      const companyMasterSid = companyId ? Number(companyId) : undefined;
-      const branchMasterSid = branchId ? Number(branchId) : undefined;
-
-      
-      const validMode = this.validateMode(mode);
+      const validMode = this.validateMode(body.mode);
 
       const summary = await this.activityAllocationService.getSummary(
         validMode,
-        search,
-        companyMasterSid,
-        branchMasterSid,
+        body.search || '',
+        body.companyId,
+        body.branchId,
       );
 
       output.data = summary.data;
@@ -70,37 +61,33 @@ export class ActivityAllocationController {
 
   @ApiOperation({ summary: 'Get Workload Details with Pagination' })
   @HttpCode(HttpStatus.OK)
-  @Get('workload-details')
+  @Post('workload-details')
   async getWorkloadDetails(
-    @Query('userSid', ParseIntPipe) userSid: number,
-    @Query('stage') stage: string,
-    @Query('mode') mode: string = 'Pending',
+    @Body() body: {
+      userSid: number;
+      stage: string;
+      mode?: string;
+      page?: number;
+      limit?: number;
+      companyId?: number;
+      branchId?: number;
+    },
     @UserData() user: any,
-    @Query('page') page?: string,
-    @Query('limit') limit?: string,
-    @Query('companyId') companyId?: string,
-    @Query('branchId') branchId?: string,
   ): Promise<ResponseData> {
     const output = new ResponseData();
 
     this.logger.log('🔍 [Controller] getWorkloadDetails called with:', {
-      userSid,
-      stage,
-      mode,
-      page,
-      limit,
-      companyId,
-      branchId,
+      ...body,
       loggedInUser: user?.email || user?.userName || 'unknown',
     });
 
     try {
-      if (!userSid || !stage) {
+      if (!body.userSid || !body.stage) {
         throw new BadRequestException('userSid and stage are required');
       }
 
-      const pageNum = page ? Number(page) : 1;
-      const limitNum = limit ? Number(limit) : 100;
+      const pageNum = body.page || 1;
+      const limitNum = body.limit || 100;
 
       if (pageNum < 1) {
         throw new BadRequestException('page must be >= 1');
@@ -109,25 +96,14 @@ export class ActivityAllocationController {
         throw new BadRequestException('limit must be between 1 and 500');
       }
 
-      const companyMasterSid = companyId ? Number(companyId) : 7;
-      const branchMasterSid = branchId ? Number(branchId) : undefined;
+      const companyMasterSid = body.companyId || undefined;
+      const branchMasterSid = body.branchId || undefined;
 
-      
-      const validStage = this.validateStage(stage);
-      const validMode = this.validateMode(mode);
-
-      this.logger.log('📊 [Controller] Calling service with:', {
-        userSid,
-        stage: validStage,
-        mode: validMode,
-        companyMasterSid,
-        branchMasterSid,
-        pageNum,
-        limitNum,
-      });
+      const validStage = this.validateStage(body.stage);
+      const validMode = this.validateMode(body.mode);
 
       const details = await this.activityAllocationService.getWorkloadDetails(
-        userSid,
+        body.userSid,
         validStage,
         validMode,
         companyMasterSid,
@@ -144,14 +120,6 @@ export class ActivityAllocationController {
         availableUsersCount: details.availableUsers?.length || 0,
       });
 
-      if (details.total === 0) {
-        this.logger.warn('⚠️ [Controller] No records found. Check:');
-        this.logger.warn(`  - UserSid ${userSid} exists in UserMaster?`);
-        this.logger.warn(`  - Records exist in ${stage} table for this user?`);
-        this.logger.warn(`  - CompanyMasterSid ${companyMasterSid} is correct?`);
-        this.logger.warn(`  - Mode filter (${mode}) matches data status?`);
-      }
-
       output.data = details;
       output.message = 'Workload details fetched successfully';
       output.status = true;
@@ -159,8 +127,6 @@ export class ActivityAllocationController {
       this.logger.error(
         `❌ [Controller] Error fetching workload details: ${error.message}`,
       );
-      this.logger.error(`   Stack: ${error.stack}`);
-
       output.status = false;
       output.message =
         error instanceof BadRequestException
@@ -176,14 +142,12 @@ export class ActivityAllocationController {
   @Patch('allocation/:activityId')
   async updateActivityAllocation(
     @Param('activityId', ParseIntPipe) activityId: number,
-    @Query('stage') stage: string,
-    @Body() body: { userSid?: number; status?: string },
+    @Body() body: { userSid?: number; status?: string; stage: string },
     @UserData() user: any,
   ): Promise<ResponseData> {
     const output = new ResponseData();
     try {
-      
-      const validStage = this.validateStage(stage);
+      const validStage = this.validateStage(body.stage);
 
       const result =
         await this.activityAllocationService.updateActivityAllocation(
@@ -208,25 +172,19 @@ export class ActivityAllocationController {
 
   @ApiOperation({ summary: 'Generate Activity Allocation Report' })
   @HttpCode(HttpStatus.OK)
-  @Get('report')
+  @Post('report')
   async generateReport(
-    @Query('mode') mode: string = 'Pending',
+    @Body() body: { mode?: string; companyId?: number; branchId?: number },
     @UserData() user: any,
-    @Query('companyId') companyId?: string,
-    @Query('branchId') branchId?: string,
   ): Promise<ResponseData> {
     const output = new ResponseData();
     try {
-      const companyMasterSid = companyId ? Number(companyId) : undefined;
-      const branchMasterSid = branchId ? Number(branchId) : undefined;
-
-      
-      const validMode = this.validateMode(mode);
+      const validMode = this.validateMode(body.mode);
 
       const report = await this.activityAllocationService.generateReport(
         validMode,
-        companyMasterSid,
-        branchMasterSid,
+        body.companyId,
+        body.branchId,
       );
 
       output.data = report;
@@ -243,102 +201,6 @@ export class ActivityAllocationController {
     return output;
   }
 
- 
-  // ─── Menu User Config ────────────────────────────────────────
-
-  @ApiOperation({ summary: 'Get Menu User Configuration' })
-  @HttpCode(HttpStatus.OK)
-  @Get('menu-user-config')
-  async getMenuUserConfig(
-    @UserData() user: any,
-    @Query('branchId') branchId?: string,
-    @Query('companyId') companyId?: string,
-  ): Promise<ResponseData> {
-    const output = new ResponseData();
-    try {
-      const companyMasterSid = companyId ? Number(companyId) : 7;
-      const branchMasterSid = branchId ? Number(branchId) : undefined;
-
-      const configs = await this.activityAllocationService.getMenuUserConfig(
-        companyMasterSid,
-        branchMasterSid,
-      );
-
-      output.data = configs;
-      output.message = 'Menu user configuration fetched successfully';
-      output.status = true;
-    } catch (error: any) {
-      this.logger.warn(`Error fetching menu user config: ${error.message}`);
-      output.status = false;
-      output.message = 'Failed to fetch menu user configuration';
-    }
-    return output;
-  }
-
-  @ApiOperation({ summary: 'Save Menu User Configuration' })
-  @HttpCode(HttpStatus.OK)
-  @Post('menu-user-config')
-  async saveMenuUserConfig(
-    @Body() body: { configs: any[] },
-    @UserData() user: any,
-    @Query('companyId') companyId?: string,
-  ): Promise<ResponseData> {
-    const output = new ResponseData();
-    try {
-      if (!body.configs || !Array.isArray(body.configs)) {
-        throw new BadRequestException('configs array is required');
-      }
-
-      const companyMasterSid = companyId ? Number(companyId) : 7;
-      const userName = user?.userName || user?.email || 'system';
-
-      const result = await this.activityAllocationService.saveMenuUserConfig(
-        body.configs,
-        companyMasterSid,
-        userName,
-      );
-
-      output.data = result;
-      output.message = 'Menu user configuration saved successfully';
-      output.status = true;
-    } catch (error: any) {
-      this.logger.warn(`Error saving menu user config: ${error.message}`);
-      output.status = false;
-      output.message =
-        error instanceof BadRequestException
-          ? error.message
-          : 'Failed to save menu user configuration';
-    }
-    return output;
-  }
-
-  // ─── CS Users ────────────────────────────────────────────────
-
-  @ApiOperation({ summary: 'Get Customer Service Users' })
-  @HttpCode(HttpStatus.OK)
-  @Get('cs-users')
-  async getCSUsers(
-    @UserData() user: any,
-    @Query('companyId') companyId?: string,
-  ): Promise<ResponseData> {
-    const output = new ResponseData();
-    try {
-      const companyMasterSid = companyId ? Number(companyId) : undefined;
-
-      const users =
-        await this.activityAllocationService.getCSUsers(companyMasterSid);
-
-      output.data = users;
-      output.message = 'CS users fetched successfully';
-      output.status = true;
-    } catch (error: any) {
-      this.logger.warn(`Error fetching CS users: ${error.message}`);
-      output.status = false;
-      output.message = 'Failed to fetch CS users';
-    }
-    return output;
-  }
-
   // ─── Update CS Person ────────────────────────────────────────
 
   @ApiOperation({ summary: 'Update CS Person for Activity' })
@@ -346,7 +208,7 @@ export class ActivityAllocationController {
   @Patch('cs-person/:activityId')
   async updateCSPerson(
     @Param('activityId', ParseIntPipe) activityId: number,
-    @Body() body: { csUserSid: number },
+    @Body() body: { csUserSid: number; stage: string },
     @UserData() user: any,
   ): Promise<ResponseData> {
     const output = new ResponseData();
@@ -354,12 +216,16 @@ export class ActivityAllocationController {
       if (!body.csUserSid) {
         throw new BadRequestException('csUserSid is required');
       }
+      if (!body.stage) {
+        throw new BadRequestException('stage is required');
+      }
 
       const updatedBy = user?.userName || user?.email || 'system';
 
       const result = await this.activityAllocationService.updateCSPerson(
         activityId,
         body.csUserSid,
+        body.stage,
         updatedBy,
       );
 
@@ -392,7 +258,6 @@ export class ActivityAllocationController {
     return 'Pending';
   }
 
-  
   private validateStage(stage?: string): Stage {
     if (!stage) {
       throw new BadRequestException('Stage parameter is required');
@@ -404,10 +269,6 @@ export class ActivityAllocationController {
       'Booking',
       'LoadPlan',
       'MasterJob',
-      'Job',
-      'BL',
-      'SI',
-      'Invoice',
     ];
 
     if (validStages.includes(stage as Stage)) {
