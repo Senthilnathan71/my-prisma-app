@@ -431,7 +431,7 @@ export class RoleMenuService {
 
             // Default: all prints for this menu are visible (no record = allowed)
             const allPrintMasters = await this._db.printMaster.findMany({
-                where: { MenuMasterSid, Status: 'A' },
+                where: { CompanyMasterSid, MenuMasterSid, Status: 'A' },
                 select: { PrintMasterSid: true, Name: true, PrintMail: true }
             });
 
