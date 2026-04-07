@@ -1758,10 +1758,12 @@ export class AccountsReportsService {
       };
 
       for (const vt of voucherTransactions) {
-        if (!vt.coaMaster || !vt.yearMaster) continue;
+        if (!vt.coaMaster) continue;
 
         const { Category, GroupName, SubGroupName, LedgerName } = vt.coaMaster;
-        const yearCode = String(vt.yearMaster.YearCode);
+        const yearCode = String(
+          vt.yearMaster?.YearCode ?? new Date(vt.VoucherDate).getFullYear(),
+        );
         yearKeySet.add(yearCode);
 
         const profitSection = resolveProfitSection(
