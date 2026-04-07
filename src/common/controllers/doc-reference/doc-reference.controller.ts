@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -11,6 +12,7 @@ import {
   Patch,
   Post,
   Query,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { ApiBody, ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
 import { Auth } from 'src/common/decorators/auth.decorator';
@@ -20,158 +22,142 @@ import { DocReferenceService } from 'src/common/services/doc-reference/doc-refer
 import { CreateDocReferenceDto, UpdateDocReferenceDto } from './dto/create-doc-reference.dto';
 
 @Controller('doc-reference')
-@Auth()
 export class DocReferenceController {
   constructor(
     private docReferenceService: DocReferenceService,
     private logger: Logger,
   ) {}
 
-  @ApiOperation({ summary: 'Create or Update Document Reference' })
+  @ApiOperation({ summary: 'Create new Doc Reference'})
   @ApiCreatedResponse({
-    description: 'Document Reference Creation/Update',
-    type: ResponseData,
+    description: 'Create new Doc Refernce',
+    type: ResponseData
   })
-  @ApiBody({ type: CreateDocReferenceDto })
-  @HttpCode(HttpStatus.CREATED)
+  @HttpCode(HttpStatus.OK)
   @Post('create')
-  async create(@Body() body: CreateDocReferenceDto, @UserData() user: any) {
-    const output = new ResponseData();
-    this.logger.log(`📝 createDocReference body: ${JSON.stringify(body)}`);
-
+  async createDocReference(@Body() newData:any) {
+    let resp = new ResponseData();
     try {
-      // DTO validation handles these checks automatically via class-validator
-      const result = await this.docReferenceService.create(body, user);
-
-      if (result && result.data) {
-        output.status = result.Status ?? true;
-        output.data = result.data;
-        output.message = result.message || 'Document Reference created successfully';
+      let res = await this.docReferenceService.createDocReference(newData);
+      this.logger.log(`New Doc Reference Created: ${JSON.stringify(res)}`);
+      resp.data = res;
+      resp.message = "New Doc Reference is successflly created"
+    } catch (error) {
+      this.logger.warn(`Doc Reference Creation Error: ${JSON.stringify(error),error}`);
+      resp.status = false;
+      if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+        resp.message = error.message;
       } else {
-        output.status = false;
-        output.message = 'Failed to create document reference';
-        output.data = null;
+        resp.message = "Internal Server Error";
       }
-    } catch (error: any) {
-      this.logger.error(`❌ createDocReference error: ${error.message}`);
-      output.status = false;
-      output.message = error.message || 'Internal Server Error';
-      output.data = null;
     }
-
-    return output;
+    return resp;
   }
 
-  @ApiOperation({ summary: 'Get All Document References' })
+  @ApiOperation({ summary: 'Get All Doc Reference' })
+  @ApiCreatedResponse({
+    description: 'Get All Doc Reference',
+    type: ResponseData
+  })
   @HttpCode(HttpStatus.OK)
-  @Get('list')
-  async findAll(@Query() filter: any) {
-    const output = new ResponseData();
-
+  @Post()
+  async getAllDocReference(@Body() body: any) {
+    let resp = new ResponseData();
     try {
-      const parsedFilter: any = {};
-
-      if (filter.CompanyMasterSid) {
-        parsedFilter.CompanyMasterSid = parseInt(filter.CompanyMasterSid, 10);
+      let res = await this.docReferenceService.getAllDocReference(body);
+      this.logger.log(`All Doc Reference Fetched: ${JSON.stringify(res)}`);
+      resp.data = res;
+      resp.message = "All Doc Reference are successfully fetched";
+    } catch (error) {
+      this.logger.warn(`Doc Reference Fetch Error: ${JSON.stringify(error), error}`);
+      resp.status = false;
+      if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+        resp.message = error.message;
+      } else {
+        resp.message = "Internal Server Error";
       }
-
-      if (filter.BranchMasterSid) {
-        parsedFilter.BranchMasterSid = parseInt(filter.BranchMasterSid, 10);
-      }
-
-      if (filter.Status) {
-        parsedFilter.Status = filter.Status;
-      }
-
-      if (filter.search) parsedFilter.search = filter.search;
-      if (filter.RefDocumentNo) parsedFilter.RefDocumentNo = filter.RefDocumentNo;
-      if (filter.Remarks) parsedFilter.Remarks = filter.Remarks;
-      if (filter.searchTerm) parsedFilter.searchTerm = filter.searchTerm;
-
-      this.logger.log(`📤 list filter: ${JSON.stringify(parsedFilter)}`);
-
-      const result = await this.docReferenceService.findAll(parsedFilter);
-
-      output.status = result.Status ?? true;
-      output.data = result.data || [];
-      output.message = result.message || `Found ${result.data?.length || 0} documents`;
-    } catch (error: any) {
-      this.logger.error(`❌ findAll error: ${error.message}`);
-      output.status = false;
-      output.message = error.message || 'Internal Server Error';
-      output.data = [];
     }
-
-    return output;
+    return resp;
   }
 
-  @ApiOperation({ summary: 'Get Document Reference By Id' })
+  @ApiOperation({ summary: 'Get Doc Reference by Id' })
+  @ApiCreatedResponse({
+    description: 'Get Doc Reference by Id',
+    type: ResponseData
+  })
   @HttpCode(HttpStatus.OK)
-  @Get('fetch/:id')
-  async findOne(@Param('id', ParseIntPipe) id: number) {
-    const output = new ResponseData();
-
+  @Get('fetch/:RefDocumentSid')
+  async getDocReferenceById(@Param('RefDocumentSid', ParseIntPipe) RefDocumentSid: number) {
+    let resp = new ResponseData();
     try {
-      const result = await this.docReferenceService.findOne(id);
-      output.status = result.Status ?? true;
-      output.data = result.data || null;
-      output.message = result.message || 'Document found';
-    } catch (error: any) {
-      this.logger.error(`❌ findOne error: ${error.message}`);
-      output.status = false;
-      output.message = error.message || 'Internal Server Error';
-      output.data = null;
+      this.logger.log(`Getting Doc Reference with id: ${RefDocumentSid}`);
+      let res = await this.docReferenceService.fetchDocReferenceById(RefDocumentSid);
+      this.logger.debug(`Fetched Doc Reference: ${JSON.stringify(res)}`);
+      resp.data = res;
+      resp.message = `Doc Reference with id: ${RefDocumentSid} is successfully fetched`;
+    } catch (error) {
+      this.logger.warn(`Get Doc Reference by Id Error: ${JSON.stringify(error), error}`);
+      resp.status =false;
+      if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+        resp.message = error.message;
+      } else {
+        resp.message = "Internal Server Error";
+      }
     }
-
-    return output;
+    return resp;
   }
 
-  @ApiOperation({ summary: 'Update Document Reference' })
-  @ApiBody({ type: UpdateDocReferenceDto })
+  @ApiOperation({ summary: 'Update Doc Reference' })
+  @ApiCreatedResponse({
+    description: 'Update Doc Reference',
+    type: ResponseData
+  })
   @HttpCode(HttpStatus.OK)
-  @Patch('update/:id')
-  async update(
-    @Param('id', ParseIntPipe) id: number,
-    @Body() body: UpdateDocReferenceDto,
-    @UserData() user: any,
-  ) {
-    const output = new ResponseData();
-    this.logger.log(`🔄 updateDocReference id=${id} body=${JSON.stringify(body)}`);
-
+  @Patch('update/:RefDocumentSid')
+  async updateDocReference(@Param('RefDocumentSid', ParseIntPipe) RefDocumentSid: number, @Body() payload: any, @UserData() user:any) {
+    let resp = new ResponseData();
     try {
-      const result = await this.docReferenceService.update(id, body, user);
-      output.status = result.Status ?? true;
-      output.data = result.data || null;
-      output.message = result.message || 'Document Reference updated successfully';
-    } catch (error: any) {
-      this.logger.error(`❌ update error: ${error.message}`);
-      output.status = false;
-      output.message = error.message || 'Internal Server Error';
-      output.data = null;
+      this.logger.log(`Updating Doc Reference with id : ${RefDocumentSid}`);
+      let res = await this.docReferenceService.updateDocReferenceById(RefDocumentSid, payload);
+      this.logger.debug(`Updated Doc Reference : ${JSON.stringify(res)}`);
+      resp.data = res;
+      resp.message = `Doc Reference with id: ${RefDocumentSid} is successfully updated`;
+    }  catch (error) {
+      this.logger.warn(`Doc Reference Updation Error : ${JSON.stringify(error), error}`);
+      resp.status = false;
+      if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+        resp.message = error.message;
+      } else {
+        resp.message = "Internal Server Error";
+      }
     }
-
-    return output;
+    return resp;
   }
 
-  @ApiOperation({ summary: 'Delete Document Reference' })
+  @ApiOperation({ summary: 'Delete Doc Reference by Id' })
+  @ApiCreatedResponse({
+    description: 'Delete Doc Reference by Id',
+    type: ResponseData
+  })
   @HttpCode(HttpStatus.OK)
-  @Delete('delete/:id')
-  async delete(@Param('id', ParseIntPipe) id: number) {
-    const output = new ResponseData();
-    this.logger.log(`🗑️ deleteDocReference id=${id}`);
-
+  @Delete('delete/:RefDocumentSid')
+  async deleteDocReference(@Param('RefDocumentSid', ParseIntPipe) RefDocumentSid: number) {
+    let resp = new ResponseData();
     try {
-      const result = await this.docReferenceService.softDelete(id);
-      output.status = result.Status ?? true;
-      output.data = result.data || null;
-      output.message = result.message || 'Document Reference deleted successfully';
-    } catch (error: any) {
-      this.logger.error(`❌ delete error: ${error.message}`);
-      output.status = false;
-      output.message = error.message || 'Internal Server Error';
-      output.data = null;
+      this.logger.log(`Deleting Doc Reference with id : ${RefDocumentSid}`);
+      let res = await this.docReferenceService.deleteDocReference(RefDocumentSid);
+      this.logger.debug(`Deleted Doc Reference: ${JSON.stringify(res)}`);
+      resp.data = res;
+      resp.message = `Doc Reference with id: ${RefDocumentSid} is successfully deleted`;
+    } catch (error) {
+      this.logger.warn(`Doc Reference Deletion Error: ${JSON.stringify(error), error}`);
+      resp.status = false;
+      if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+        resp.message = error.message;
+      } else {
+        resp.message = "Internal Server Error";
+      }
     }
-
-    return output;
+    return resp;
   }
 }

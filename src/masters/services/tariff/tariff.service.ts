@@ -1,5 +1,5 @@
 //Tariff.service.ts//
-import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, InternalServerErrorException, Logger, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { GlobalConfigService } from 'src/common/config/master-config.service';
 import { statusWhereClause } from 'src/common/helper';
@@ -18,7 +18,7 @@ export class TariffService {
         // Define all possible fields for duplication check
         const possibleFields = [
             'DepartmentMasterSid',
-            'POLSid', 
+            'POLSid',
             'PODSid',
             'Carrier',
             'FDCSid',
@@ -28,16 +28,16 @@ export class TariffService {
         ];
 
         // Filter only fields that have values (not null/undefined)
-        const filledFields = possibleFields.filter(field => 
-            newData[field] !== undefined && 
-            newData[field] !== null && 
+        const filledFields = possibleFields.filter(field =>
+            newData[field] !== undefined &&
+            newData[field] !== null &&
             newData[field] !== ''
         );
 
         // Must have at least Department, POL, POD for basic duplication check
         const mandatoryFields = ['DepartmentMasterSid', 'POLSid', 'PODSid', 'CompanyMasterSid'];
         const missingMandatory = mandatoryFields.filter(field => !filledFields.includes(field));
-        
+
         if (missingMandatory.length > 0) {
             throw new BadRequestException(
                 `Missing mandatory fields for duplication check: ${missingMandatory.join(', ')}`
@@ -94,21 +94,71 @@ export class TariffService {
     }
 
     async createNewTariff(newData: any) {
-        try {
-            // Check for duplicates based on filled fields
-            await this.checkDuplicateTariff(newData);
+    try {
+        await this.checkDuplicateTariff(newData);
 
-            let createdTariff = await this._db.tariffHeader.create({
+        if (!Array.isArray(newData.tariffDetail) || newData.tariffDetail.length === 0) {
+            throw new BadRequestException('At least one tariff detail is required');
+        }
+
+        const result = await this._db.$transaction(async (prisma) => {
+            const tariffHeader = await prisma.tariffHeader.create({
                 data: {
-                    ...newData,
-                    CompanyMasterSid: newData.CompanyMasterSid
+                    POOSid: newData.POOSid,
+                    POLSid: newData.POLSid,
+                    PODSid: newData.PODSid,
+                    POLTerminal: newData.POLTerminal,
+                    PODTerminal: newData.PODTerminal,
+                    ViaPortSid: newData.ViaPortSid,
+                    FDCSid: newData.FDCSid,
+                    Carrier: newData.Carrier,
+                    StuffingAt: newData.StuffingAt,
+                    EffectiveDate: newData.EffectiveDate,
+                    AgentSid: newData.AgentSid,
+                    IncoTerms: newData.IncoTerms,
+                    Remarks: newData.Remarks,
+                    status: 'A',
+                    createdBy: newData.createdBy,
+                    CompanyMasterSid: newData.CompanyMasterSid,
+                    DepartmentMasterSid: newData.DepartmentMasterSid,
+                    MovementType: newData.MovementType,
                 }
             });
-            return createdTariff;
-        } catch (error) {
-            throw error;
-        }
+
+            const tariffDetail = newData.tariffDetail.map((detail: any) => ({
+                TariffHeaderSid: tariffHeader.TariffHeaderSid,
+                CompanyMasterSid: tariffHeader.CompanyMasterSid,
+                ChargeCode: detail.ChargeCode,
+                Description: detail.Description,
+                UOMSid: detail.UOMSid,
+                SaleCurrency: detail.SaleCurrency,
+                SalePerUnitPrice: detail.SalePerUnitPrice,
+                SlabFrom: detail.SlabFrom,
+                SlabTo: detail.SlabTo,
+                status: detail.status ?? 'A',
+                Remarks: detail.Remarks,
+                BuyCurrency: detail.BuyCurrency,
+                BuyPerUnitPrice: detail.BuyPerUnitPrice,
+                CargoType: detail.CargoType,
+                EffectiveDate: detail.EffectiveDate,
+                IsSlabApplicable: detail.IsSlabApplicable,
+                ExpiredOn: detail.ExpiredOn,
+                MinSale: detail.MinSale,
+                createdBy: detail.createdBy ?? newData.createdBy,
+            }));
+
+            await prisma.tariffDetail.createMany({
+                data: tariffDetail
+            });
+
+            return tariffHeader;
+        });
+
+        return result;
+    } catch (error) {
+        throw error;
     }
+}
 
     async getAllTariff(CompanyMasterSid: number) {
         try {
@@ -136,6 +186,13 @@ export class TariffService {
             let ourTariff = await this._db.tariffHeader.findUnique({
                 where: {
                     TariffHeaderSid: TariffHeaderSid
+                },
+                include: {
+                    tariffDetail: {
+                        where: {
+                            status: statusWhereClause
+                        }
+                    }
                 }
             });
             if (!ourTariff) {
@@ -148,34 +205,96 @@ export class TariffService {
     }
 
     async updateTariffById(TariffHeaderSid: number, updateData: any) {
-        try {
-            let exists = await this._db.tariffHeader.findUnique({
-                where: {
-                    TariffHeaderSid: TariffHeaderSid
+    try {
+        const exists = await this._db.tariffHeader.findUnique({
+            where: { TariffHeaderSid }
+        });
+
+        if (!exists) {
+            throw new BadRequestException(`Tariff with id : ${TariffHeaderSid} not exists`);
+        }
+
+        const result = await this._db.$transaction(async (prisma) => {
+            const updatedTariff = await prisma.tariffHeader.update({
+                where: { TariffHeaderSid },
+                data: {
+                    status: updateData.status ?? exists.status,
+                    updatedBy: updateData.updatedBy,
+                    updatedOn: new Date(),
                 }
             });
-            
-            if (!exists) {
-                throw new BadRequestException(`Tariff with id : ${TariffHeaderSid} not exists`);
+
+            const finalTariffDetail: any[] = [];
+
+            if (Array.isArray(updateData.tariffDetail)) {
+                for (const detail of updateData.tariffDetail) {
+                    let data;
+
+                    if (detail.TariffDetailSid) {
+                        data = await prisma.tariffDetail.update({
+                            where: { TariffDetailSid: detail.TariffDetailSid },
+                            data: {
+                                ChargeCode: detail.ChargeCode,
+                                Description: detail.Description,
+                                UOMSid: detail.UOMSid,
+                                SaleCurrency: detail.SaleCurrency,
+                                SalePerUnitPrice: detail.SalePerUnitPrice,
+                                SlabFrom: detail.SlabFrom,
+                                SlabTo: detail.SlabTo,
+                                status: detail.status,
+                                Remarks: detail.Remarks,
+                                BuyCurrency: detail.BuyCurrency,
+                                BuyPerUnitPrice: detail.BuyPerUnitPrice,
+                                CargoType: detail.CargoType,
+                                EffectiveDate: detail.EffectiveDate,
+                                IsSlabApplicable: detail.IsSlabApplicable,
+                                ExpiredOn: detail.ExpiredOn,
+                                MinSale: detail.MinSale,
+                                updatedBy: updateData.updatedBy,
+                                updatedOn: new Date()
+                            }
+                        });
+                    } else {
+                        data = await prisma.tariffDetail.create({
+                            data: {
+                                TariffHeaderSid: updatedTariff.TariffHeaderSid,
+                                CompanyMasterSid: exists.CompanyMasterSid,
+                                ChargeCode: detail.ChargeCode,
+                                Description: detail.Description,
+                                UOMSid: detail.UOMSid,
+                                SaleCurrency: detail.SaleCurrency,
+                                SalePerUnitPrice: detail.SalePerUnitPrice,
+                                SlabFrom: detail.SlabFrom,
+                                SlabTo: detail.SlabTo,
+                                status: detail.status ?? 'A',
+                                Remarks: detail.Remarks,
+                                BuyCurrency: detail.BuyCurrency,
+                                BuyPerUnitPrice: detail.BuyPerUnitPrice,
+                                CargoType: detail.CargoType,
+                                EffectiveDate: detail.EffectiveDate,
+                                IsSlabApplicable: detail.IsSlabApplicable,
+                                ExpiredOn: detail.ExpiredOn,
+                                MinSale: detail.MinSale,
+                                createdBy: updateData.updatedBy,
+                            }
+                        });
+                    }
+
+                    finalTariffDetail.push(data);
+                }
             }
 
-            // Merge existing data with update data
-            const mergedData = { ...exists, ...updateData };
-            
-            // Check for duplicates based on filled fields, excluding current record
-            await this.checkDuplicateTariff(mergedData, TariffHeaderSid);
+            return {
+                updatedTariff,
+                finalTariffDetail
+            };
+        });
 
-            let updatedTariff = await this._db.tariffHeader.update({
-                where: {
-                    TariffHeaderSid: TariffHeaderSid
-                },
-                data: updateData
-            });
-            return updatedTariff;
-        } catch (error) {
-            throw error;
-        }
+        return result;
+    } catch (error) {
+        throw error;
     }
+}
 
     async deleteTariffById(TariffHeaderSid: number) {
         try {
@@ -211,7 +330,7 @@ export class TariffService {
                 })
                 return {
                     deletedTariff,
-                    tariffDetail: deletedTariffDetail
+                    deletedTariffDetail
                 }
             })
             return result;
