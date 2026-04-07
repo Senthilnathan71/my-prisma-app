@@ -9,12 +9,135 @@ import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 export class ReportMasterService {
   constructor(private _db: DatabaseService, private logger: Logger) { }
 
+  private getAuditUser(payload: any, fallback?: string | null) {
+    return payload?.UpdatedBy || payload?.CreatedBy || payload?.updatedBy || payload?.createdBy || fallback || null;
+  }
+
+  private sanitizeReportDetail(detail: any) {
+    return {
+      ReportMasterDetailSid: detail?.ReportMasterDetailSid || null,
+      Status: detail?.Status || 'A',
+      ParameterName: detail?.ParameterName?.trim(),
+      ParameterFieldType: detail?.ParameterFieldType || null,
+      DropDownValue: detail?.DropDownValue ?? null,
+      ParameterQuery: detail?.ParameterQuery?.trim() || null,
+    };
+  }
+
+  private validateDuplicateDetails(details: any[]) {
+    const seen = new Set<string>();
+
+    for (const detail of details) {
+      const key = [
+        (detail.ParameterName || '').toLowerCase(),
+        detail.ParameterFieldType || '',
+        JSON.stringify(detail.DropDownValue ?? null),
+        detail.ParameterQuery || '',
+      ].join('|');
+
+      if (seen.has(key)) {
+        throw new BadRequestException(`Duplicate parameter found for "${detail.ParameterName}"`);
+      }
+
+      seen.add(key);
+    }
+  }
+
+  private async syncReportDetails(prisma: any, reportId: number, reportDetails: any[], auditUser: string) {
+    const sanitizedDetails = (reportDetails || [])
+      .map((detail) => this.sanitizeReportDetail(detail))
+      .filter((detail) => detail.ParameterName && detail.ParameterFieldType);
+
+    this.validateDuplicateDetails(sanitizedDetails);
+
+    const existingDetails = await prisma.reportMasterDetail.findMany({
+      where: { ReportMasterSid: reportId },
+      orderBy: { ReportMasterDetailSid: 'asc' },
+    });
+
+    const existingById = new Map(
+      existingDetails.map((detail) => [detail.ReportMasterDetailSid, detail]),
+    );
+
+    const retainedIds = new Set<number>();
+
+    for (const detail of sanitizedDetails) {
+      const detailData = {
+        Status: detail.Status,
+        ParameterName: detail.ParameterName,
+        ParameterFieldType: detail.ParameterFieldType,
+        DropDownValue: detail.DropDownValue,
+        ParameterQuery: detail.ParameterQuery,
+      };
+
+      if (detail.ReportMasterDetailSid && existingById.has(detail.ReportMasterDetailSid)) {
+        retainedIds.add(detail.ReportMasterDetailSid);
+
+        await prisma.reportMasterDetail.update({
+          where: { ReportMasterDetailSid: detail.ReportMasterDetailSid },
+          data: {
+            ...detailData,
+            UpdatedBy: auditUser,
+          },
+        });
+        continue;
+      }
+
+      const alreadyExisting = existingDetails.find((existingDetail) =>
+        !retainedIds.has(existingDetail.ReportMasterDetailSid)
+        && existingDetail.ParameterName === detail.ParameterName
+        && existingDetail.ParameterFieldType === detail.ParameterFieldType
+        && JSON.stringify(existingDetail.DropDownValue ?? null) === JSON.stringify(detail.DropDownValue ?? null)
+        && (existingDetail.ParameterQuery || null) === detail.ParameterQuery,
+      );
+
+      if (alreadyExisting) {
+        retainedIds.add(alreadyExisting.ReportMasterDetailSid);
+
+        await prisma.reportMasterDetail.update({
+          where: { ReportMasterDetailSid: alreadyExisting.ReportMasterDetailSid },
+          data: {
+            ...detailData,
+            UpdatedBy: auditUser,
+            Status: detail.Status || alreadyExisting.Status,
+          },
+        });
+        continue;
+      }
+
+      const createdDetail = await prisma.reportMasterDetail.create({
+        data: {
+          ...detailData,
+          CreatedBy: auditUser,
+          ReportMasterSid: reportId,
+        },
+      });
+
+      retainedIds.add(createdDetail.ReportMasterDetailSid);
+    }
+
+    await prisma.reportMasterDetail.deleteMany({
+      where: {
+        ReportMasterSid: reportId,
+        ...(retainedIds.size
+          ? { ReportMasterDetailSid: { notIn: Array.from(retainedIds) } }
+          : {}),
+      },
+    });
+  }
+
   async createReportMaster(payload: any) {
     try {
+      const auditUser = this.getAuditUser(payload);
+
+      if (!auditUser) {
+        throw new BadRequestException('CreatedBy is required');
+      }
+
       const createdReport = await this._db.$transaction(async (prisma) => {
-        return await prisma.reportMaster.create({
+        const report = await prisma.reportMaster.create({
           data: {
-            CreatedBy: payload.CreatedBy,
+            CreatedBy: auditUser,
             Status: payload.Status,
             ReportName: payload.ReportName,
             ReportDisplayName: payload.ReportDisplayName,
@@ -22,26 +145,13 @@ export class ReportMasterService {
             ReportType: payload.ReportType,
             ReportFormat: payload.ReportFormat,
             ReportExcludedCompany: payload.ReportExcludedCompany,
-
           }
-        })
-      })
-      const allDetails = payload.reportDetails || [];
-      const allFormattedDetails = allDetails.map(detail => {
-        const enrichedDetail = {
-          CreatedBy: payload.createdBy,
-          Status: detail.Status,
-          ParameterName: detail.ParameterName,
-          ParameterFieldType: detail.ParameterFieldType,
-          DropDownValue: detail.DropDownValue,
-          ParameterQuery: detail.ParameterQuery,
-          ReportMasterSid: createdReport.ReportMasterSid
-        }
-        return enrichedDetail;
-      })
-      await this._db.reportMasterDetail.createMany({
-        data: allFormattedDetails
-      })
+        });
+
+        await this.syncReportDetails(prisma, report.ReportMasterSid, payload.reportDetails || [], auditUser);
+
+        return report;
+      });
 
       return createdReport;
     } catch (error) {
@@ -78,63 +188,45 @@ export class ReportMasterService {
     }
   }
 
- async editReportMasterById(id: number, newData: any) {
-  try {
-    const existing = await this._db.reportMaster.findUnique({
-      where: { ReportMasterSid: id },
-    });
-
-    if (!existing) {
-      throw new BadRequestException(`Report Master with id : ${id} does not exist`);
-    }
-
-    // Use a transaction for safe update
-    const updatedReport = await this._db.$transaction(async (prisma) => {
-      // 1. Update main reportMaster
-      const updatedMaster = await prisma.reportMaster.update({
+  async editReportMasterById(id: number, newData: any) {
+    try {
+      const existing = await this._db.reportMaster.findUnique({
         where: { ReportMasterSid: id },
-        data: {
-          CreatedBy: newData.CreatedBy,
-          Status: newData.Status,
-          ReportName: newData.ReportName,
-          ReportDisplayName: newData.ReportDisplayName,
-          ReportMenuSid: newData.ReportMenuSid,
-          ReportType: newData.ReportType,
-          ReportFormat: newData.ReportFormat,
-          ReportExcludedCompany: newData.ReportExcludedCompany,
-        },
       });
 
-      // 2. Handle detail records if passed
-      if (newData.reportDetails && Array.isArray(newData.reportDetails)) {
-        // Optionally delete old details before inserting new ones
-        await prisma.reportMasterDetail.deleteMany({
-          where: { ReportMasterSid: id },
-        });
-
-        const enrichedDetails = newData.reportDetails.map((detail) => ({
-          CreatedBy: newData.CreatedBy,
-          Status: detail.Status,
-          ParameterName: detail.ParameterName,
-          ParameterFieldType: detail.ParameterFieldType,
-          DropDownValue: detail.DropDownValue,
-          ParameterQuery: detail.ParameterQuery,
-          ReportMasterSid: id
-        }));
-
-        await prisma.reportMasterDetail.createMany({
-          data: enrichedDetails,
-        });
+      if (!existing) {
+        throw new BadRequestException(`Report Master with id : ${id} does not exist`);
       }
 
-      return updatedMaster;
-    });
+      const auditUser = this.getAuditUser(newData, existing.UpdatedBy || existing.CreatedBy);
 
-    return updatedReport;
-  } catch (error) {
-    throw error;
+      const updatedReport = await this._db.$transaction(async (prisma) => {
+        const updatedMaster = await prisma.reportMaster.update({
+          where: { ReportMasterSid: id },
+          data: {
+            UpdatedBy: auditUser,
+            Status: newData.Status,
+            ReportName: newData.ReportName,
+            ReportDisplayName: newData.ReportDisplayName,
+            ReportMenuSid: newData.ReportMenuSid,
+            ReportType: newData.ReportType,
+            ReportFormat: newData.ReportFormat,
+            ReportExcludedCompany: newData.ReportExcludedCompany,
+          },
+        });
+
+        if (Array.isArray(newData.reportDetails)) {
+          await this.syncReportDetails(prisma, id, newData.reportDetails, auditUser);
+        }
+
+        return updatedMaster;
+      });
+
+      return updatedReport;
+    } catch (error) {
+      throw error;
+    }
   }
-}
 
 
   async softDeleteReportMaster(id: number) {
@@ -265,9 +357,11 @@ export class ReportMasterService {
         throw new BadRequestException(`Report with id: ${reportId} not found`);
       }
 
+      const auditUser = this.getAuditUser(parameterData, report.CreatedBy);
+
       const parameter = await this._db.reportMasterDetail.create({
         data: {
-          CreatedBy: parameterData.CreatedBy,
+          CreatedBy: auditUser,
           Status: parameterData.Status || "A",
           ParameterName: parameterData.ParameterName,
           ParameterFieldType: parameterData.ParameterFieldType,
@@ -296,7 +390,7 @@ export class ReportMasterService {
       const updated = await this._db.reportMasterDetail.update({
         where: { ReportMasterDetailSid: parameterId },
         data: {
-          UpdatedBy: parameterData.UpdatedBy,
+          UpdatedBy: this.getAuditUser(parameterData, existing.UpdatedBy || existing.CreatedBy),
           Status: parameterData.Status,
           ParameterName: parameterData.ParameterName,
           ParameterFieldType: parameterData.ParameterFieldType,
