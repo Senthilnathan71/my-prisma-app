@@ -3066,4 +3066,31 @@ export class AuditLogService {
             throw new Error(`Error fetching audit logs: ${error.message}`);
         }
     }
+
+    async createManualAuditLog(payload: {
+        tableName: string;
+        recordId?: string;
+        operation: string;
+        changedBy?: string;
+        changes?: any;
+        oldVal?: any;
+        newVal?: any;
+    }) {
+        try {
+            return await this._db.auditLog.create({
+                data: {
+                    tableName: payload.tableName,
+                    recordId: payload.recordId,
+                    operation: payload.operation,
+                    changedBy: payload.changedBy,
+                    changes: payload.changes ?? null,
+                    oldVal: payload.oldVal ?? null,
+                    newVal: payload.newVal ?? null,
+                },
+            });
+        } catch (error) {
+            this.logger.warn(`createManualAuditLog error: ${error.message}`);
+            throw error;
+        }
+    }
 }

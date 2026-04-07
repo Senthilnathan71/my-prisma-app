@@ -212,7 +212,7 @@ export class TariffController {
         } catch (error) {
             this.logger.warn(`getAuditLogsError: ${error}`);
             resp.status = false;
-            resp.message = error.message || 'Internal Server Error';
+            resp.message = 'Internal Server Error';
         }
         return resp;
     }

@@ -1,4 +1,4 @@
-import { Controller, Get, HttpCode, HttpStatus, Logger, Query } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, HttpCode, HttpStatus, Logger, Post, Query, UnauthorizedException } from '@nestjs/common';
 import { ApiOperation, ApiCreatedResponse } from '@nestjs/swagger';
 import { ResponseData } from 'src/common/response-data';
 import { AuditLogService } from 'src/operation/services/audit-log/audit-log.service';
@@ -34,4 +34,30 @@ export class AuditLogController {
         }
         return resp;
     }
+
+    @ApiOperation({ summary: 'Create AuditLog'})
+      @ApiCreatedResponse({
+        description: 'Create AuditLog',
+        type: ResponseData
+      })
+      @HttpCode(HttpStatus.OK)
+      @Post('create')
+      async createAuditLog(@Body() body:any) {
+        let resp = new ResponseData();
+        try {
+          let res = await this.auditLogService.createManualAuditLog(body);
+          this.logger.log(`New AuditLog Created: ${JSON.stringify(res)}`);
+          resp.data = res;
+          resp.message = "New AuditLog is successflly created"
+        } catch (error) {
+          this.logger.warn(`AuditLog Creation Error: ${JSON.stringify(error),error}`);
+          resp.status = false;
+          if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+            resp.message = error.message;
+          } else {
+            resp.message = "Internal Server Error";
+          }
+        }
+        return resp;
+      }
 }
