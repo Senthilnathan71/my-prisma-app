@@ -1908,7 +1908,7 @@ export class VoucherService {
             let createdTaxRows: VoucherDetailDto[] = [];
 
             // Export Without Payment or Bill of Supply / Exempt / Out of Scope: no tax rows at all
-            const isExportWithoutPayment = voucher.GSTType === 'EXPWOP' || voucher.InvoiceType === 'BOS' || voucher.InvoiceType === 'EXE' || voucher.InvoiceType === 'OOS' || voucher.InvoiceType === 'RCM' || voucher.InvoiceType === 'REIMB';
+            const isExportWithoutPayment = voucher.GSTType === 'EXPWOP' || voucher.InvoiceType === 'BOS' || voucher.InvoiceType === 'EXE' || voucher.InvoiceType === 'OOS' || voucher.InvoiceType === 'REIMB';
             // Zero-rated (Non GST/Zero): tax rows with 0 amounts
             const isZeroRated = voucher.InvoiceType === 'NONGST';
 
@@ -1920,7 +1920,8 @@ export class VoucherService {
                     taxDetails,
                     voucher.CompanyMasterSid,
                     tx,
-                    isZeroRated
+                    isZeroRated,
+                    voucher.InvoiceType ?? ''
                 );
 
             let currentSno = chargeLineItems.length + 1;
@@ -2440,7 +2441,8 @@ export class VoucherService {
         },
         companyMasterSid: number,
         tx?: PrismaClient | Prisma.TransactionClient,
-        isZeroRated: boolean = false
+        isZeroRated: boolean = false,
+        invoiceType: string = ''
     ): Promise<TaxSummaryDto[]> {
         try {
             this.logger.log('Summarizing taxes by HS/SAC code');
@@ -2514,6 +2516,15 @@ export class VoucherService {
                         )
                     }
                     whereClause.TaxType = ledger.LedgerType === 'Cost' ? "Input" : "Output";
+                }
+                if (invoiceType === 'RCM') {
+                    whereClause.InvoiceType = 'RCM';
+                } else {
+                    whereClause.OR = [
+                        { InvoiceType: null },
+                        { InvoiceType: '' },
+                        { InvoiceType: 'REG' }
+                    ];
                 }
                 const taxMasters = await db.taxMaster.findMany({
                     where: whereClause

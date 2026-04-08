@@ -119,6 +119,8 @@ export class CoaService {
                     JobNoRequire : true,
                     LedgerType: true,
                     LedgerCurrency: true,
+                    HSNRequire: true,
+                    Category: true,
                 },
                 orderBy: {
                     LedgerName: 'asc'
