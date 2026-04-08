@@ -101,8 +101,7 @@ export class SubledgermasterService {
         try {
             const whereClause : Prisma.SubledgerMasterWhereInput = {
                 Status: "A",
-                CompanyMasterSid : CompanyMasterSid,
-                SubledgerType : "Customer"
+                CompanyMasterSid : CompanyMasterSid
             }
 
             if(DrCr === "D"){
@@ -452,7 +451,8 @@ export class SubledgermasterService {
                             select:{
                                 StateMasterSid : true,
                                 stateName : true,
-                                stateCode : true
+                                stateCode : true,
+                                IsUnionTerritory : true
                             }
                         }
                     }
@@ -480,7 +480,7 @@ export class SubledgermasterService {
                     JobNoRequire : mapping?.JobNoRequire,
                     StateMasterSid : branch.stateMaster?.StateMasterSid,
                     currencyMaster : deptor.currencyMaster,
-                    CustomerGstType : branch.CustomerGstType
+                    CustomerGstType : branch.CustomerGstType,
                 }
             })
         });
@@ -565,7 +565,8 @@ export class SubledgermasterService {
                                 select: {
                                     StateMasterSid: true,
                                     stateName: true,
-                                    stateCode: true
+                                    stateCode: true,
+                                    IsUnionTerritory : true
                                 }
                             }
                         }
@@ -585,6 +586,7 @@ export class SubledgermasterService {
                         CustomerName : deptor.CustomerName,
                         Address : branch.Address,
                         Email : branch.Email,
+                        stateMaster : branch.stateMaster,
                         COAMappedId : COAMappedId?.DrCOAMasterSid,
                         SubledgerMasterSid: COAMappedId?.SubledgerMasterSid,
                         SubledgerName: 'Y',

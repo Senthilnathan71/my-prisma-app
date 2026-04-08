@@ -69,14 +69,7 @@ export class PrintMasterService {
             ]);
 
             return {
-                items: items.map(item => ({
-                    PrintMasterSid: item.PrintMasterSid,
-                    Name: item.Name,
-                    PrintMail: item.PrintMail,
-                    MenuMasterSid: item.MenuMasterSid,
-                    MenuName: item.MenuMaster?.MenuName,
-                    Status: item.Status
-                })),
+                items,
                 totalCount
             };
         } catch (error) {
