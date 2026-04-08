@@ -7092,7 +7092,7 @@ ports.forEach((p) => {
           AND: [
             { MasterJobDate: { gte: from } },
             { MasterJobDate: { lte: to } },
-          ],
+          ]
         };
 
         if (DepartmentMasterSid) {
@@ -7102,11 +7102,63 @@ ports.forEach((p) => {
         const departments = await this._db.departmentMaster.findMany({
           select: { DepartmentMasterSid: true, departmentName: true },
         });
+        const departmentMap = new Map(
+          departments.map((department) => [
+            department.DepartmentMasterSid,
+            department.departmentName,
+          ]),
+        );
+
+        const houseJobData = await this._db.houseJob.findMany({
+          where: {
+            CompanyMasterSid,
+            BranchMasterSid,
+            status: 'A',
+            AND: [{ HBLDate: { gte: from } }, { HBLDate: { lte: to } }],
+            ...(DepartmentMasterSid
+              ? { DepartmentMasterSid }
+              : {}),
+          },
+          select: {
+            HouseJobSid: true,
+            DepartmentMasterSid: true,
+          },
+        });
+
+        const shipmentCountByDepartment = houseJobData.reduce(
+          (acc, houseJob) => {
+            const departmentSid = houseJob.DepartmentMasterSid;
+            const departmentName = departmentSid
+              ? departmentMap.get(departmentSid) || ''
+              : '';
+
+            if (!departmentSid || !departmentName) {
+              return acc;
+            }
+
+            acc[departmentSid] = {
+              departmentSid,
+              departmentName,
+              totalShipment: (acc[departmentSid]?.totalShipment || 0) + 1,
+            };
+            return acc;
+          },
+          {} as Record<
+            number,
+            {
+              departmentSid: number;
+              departmentName: string;
+              totalShipment: number;
+            }
+          >,
+        );
 
         const masterJobData = await this._db.masterJob.findMany({
           where: baseWhere,
           include: {
-            houseJob: true,
+            houseJob: {
+              where: { status: 'A' },
+            },
             containers: {
               where: { Status: 'A' },
               include: {
@@ -7119,17 +7171,53 @@ ports.forEach((p) => {
           },
         });
 
-        if (!masterJobData.length) return [];
+        if (!masterJobData.length && !houseJobData.length) return [];
 
-        const masterJobMenu = await this._db.menuMaster.findFirst({
-          where: { MenuName: 'Master Job' },
-          select: { MenuMasterSid: true },
+        const freightMomMenus = await this._db.menuMaster.findMany({
+          where: {
+            status: 'A',
+            OR: [
+              { MenuName: { equals: 'Master Job', mode: 'insensitive' } },
+              { MenuName: { contains: 'Master Air Way', mode: 'insensitive' } },
+              { MenuName: { equals: 'House Job', mode: 'insensitive' } },
+              { MenuName: { contains: 'House Air Way', mode: 'insensitive' } },
+              {
+                MenuName: {
+                  contains: 'Agent Master Air Way',
+                  mode: 'insensitive',
+                },
+              },
+              {
+                MenuName: {
+                  contains: 'AgentMaster Air Way',
+                  mode: 'insensitive',
+                },
+              },
+            ],
+          },
+          select: { MenuMasterSid: true, MenuName: true },
         });
 
-        const houseJobMenu = await this._db.menuMaster.findFirst({
-          where: { MenuName: 'House Job' },
-          select: { MenuMasterSid: true },
-        });
+        const allMasterMenuSids = freightMomMenus
+          .filter((m) => {
+            const menuName = m.MenuName.toLowerCase();
+            return (
+              menuName === 'master job' || menuName.includes('master air way')
+            );
+          })
+          .map((m) => m.MenuMasterSid);
+
+        const allHouseMenuSids = freightMomMenus
+          .filter((m) => {
+            const menuName = m.MenuName.toLowerCase();
+            return (
+              menuName === 'house job' ||
+              menuName.includes('house air way') ||
+              menuName.includes('agent master air way') ||
+              menuName.includes('agentmaster air way')
+            );
+          })
+          .map((m) => m.MenuMasterSid);
 
         const masterJobIds = masterJobData.map((m) => m.MasterJobSid);
 
@@ -7140,7 +7228,7 @@ ports.forEach((p) => {
 
         const masterCR = await this._db.costRevenueCharges.findMany({
           where: {
-            MenuMasterSid: masterJobMenu?.MenuMasterSid,
+            MenuMasterSid: { in: allMasterMenuSids },
             TransactionSid: { in: masterJobIds },
             status: 'A',
           },
@@ -7148,7 +7236,7 @@ ports.forEach((p) => {
 
         const houseCR = await this._db.costRevenueCharges.findMany({
           where: {
-            MenuMasterSid: houseJobMenu?.MenuMasterSid,
+            MenuMasterSid: { in: allHouseMenuSids },
             TransactionSid: { in: houseJobIds },
             status: 'A',
           },
@@ -7190,11 +7278,11 @@ ports.forEach((p) => {
           );
 
           return {
-            department:
-              departments.find(
-                (d) => d.DepartmentMasterSid === m.DepartmentMasterSid,
-              )?.departmentName || '',
-            shipmentCount: m.houseJob.length,
+            departmentSid: m.DepartmentMasterSid,
+            department: m.DepartmentMasterSid
+              ? departmentMap.get(m.DepartmentMasterSid) || ''
+              : '',
+            shipmentCount: 0,
             grossWt: totalGrossWt,
             vol: totalVol,
             totalRevenue,
@@ -7204,35 +7292,61 @@ ports.forEach((p) => {
           };
         });
 
-        const departmentWise = Object.values(
-          jobRows.reduce((acc: any, row) => {
-            if (row.department.toLowerCase().includes('air')) return acc;
-
-            if (!acc[row.department]) {
-              acc[row.department] = {
-                department: row.department,
-                totalShipment: 0,
-                totalGrossWt: 0,
-                totalVolume: 0,
-                totalRevenue: 0,
-                totalCost: 0,
-                grossProfit: 0,
-                totalNoOfTEU: 0,
-                jobCount: 0,
-              };
-            }
-
-            acc[row.department].totalShipment += row.shipmentCount;
-            acc[row.department].totalGrossWt += row.grossWt;
-            acc[row.department].totalVolume += row.vol;
-            acc[row.department].totalRevenue += row.totalRevenue;
-            acc[row.department].totalCost += row.totalCost;
-            acc[row.department].grossProfit += row.grossProfit;
-            acc[row.department].totalNoOfTEU += row.totalNoOfTEU;
-            acc[row.department].jobCount += 1;
-
+        const departmentWiseMap = jobRows.reduce((acc: any, row) => {
+          if (!row.departmentSid || !row.department) {
             return acc;
-          }, {}),
+          }
+
+          if (!acc[row.departmentSid]) {
+            acc[row.departmentSid] = {
+              departmentSid: row.departmentSid,
+              department: row.department,
+              totalShipment: 0,
+              totalGrossWt: 0,
+              totalVolume: 0,
+              totalRevenue: 0,
+              totalCost: 0,
+              grossProfit: 0,
+              totalNoOfTEU: 0,
+              jobCount: 0,
+            };
+          }
+
+          acc[row.departmentSid].totalGrossWt += row.grossWt;
+          acc[row.departmentSid].totalVolume += row.vol;
+          acc[row.departmentSid].totalRevenue += row.totalRevenue;
+          acc[row.departmentSid].totalCost += row.totalCost;
+          acc[row.departmentSid].grossProfit += row.grossProfit;
+          acc[row.departmentSid].totalNoOfTEU += row.totalNoOfTEU;
+          acc[row.departmentSid].jobCount += 1;
+
+          return acc;
+        }, {});
+
+        for (const [departmentSid, shipmentData] of Object.entries(
+          shipmentCountByDepartment,
+        )) {
+          if (!departmentWiseMap[departmentSid]) {
+            departmentWiseMap[departmentSid] = {
+              departmentSid: Number(departmentSid),
+              department: shipmentData.departmentName,
+              totalShipment: 0,
+              totalGrossWt: 0,
+              totalVolume: 0,
+              totalRevenue: 0,
+              totalCost: 0,
+              grossProfit: 0,
+              totalNoOfTEU: 0,
+              jobCount: 0,
+            };
+          }
+
+          departmentWiseMap[departmentSid].totalShipment =
+            shipmentData.totalShipment;
+        }
+
+        const departmentWise = Object.values(
+          departmentWiseMap,
         );
 
         return departmentWise;
@@ -7255,10 +7369,11 @@ ports.forEach((p) => {
 
     const departmentWiseMoM = (currentMonthData as any[]).map((curr: any) => {
       const prev = (previousMonthData as any[]).find(
-        (p: any) => p.department === curr.department
+        (p: any) => p.departmentSid === curr.departmentSid
       );
 
       return {
+        departmentSid: curr.departmentSid,
         department: curr.department,
         shipmentCount: calculateMoM(
           curr.totalShipment,

@@ -213,7 +213,7 @@ export class GlobalDocumentSearchService {
                 documentNumber: h.HBLNo || '',
                 documentType: 'HOUSE_JOB',
                 displayType: isSeaJob ? 'HBL' : 'HAWB',
-                path: `/operation/house-job/entry/${h.HouseJobSid}`,
+                path: isSeaJob ? `/operation/house-job/entry/${h.HouseJobSid}` : `/operation/hawb-bill/entry/${h.HouseJobSid}`,
                 title: `${isSeaJob ? 'HBL' : 'HAWB'}: ${h.HBLNo}`,
                 }
             });

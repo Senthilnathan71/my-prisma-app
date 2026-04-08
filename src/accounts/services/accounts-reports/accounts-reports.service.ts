@@ -4139,7 +4139,8 @@ export class AccountsReportsService {
 
   private async gernerateCashFlow(params: any) {
     try {
-      const { companyId: CompanyMasterSid, FromDate, ToDate } = params;
+      const { companyId: CompanyMasterSid, FromDate, ToDate, Branch: branchId } =
+        params;
 
       const currentFromDate = new Date(FromDate);
       const currentToDate = new Date(ToDate);
@@ -4171,13 +4172,36 @@ export class AccountsReportsService {
         return `${financialYearStart} - ${String((financialYearStart + 1) % 100).padStart(2, '0')}`;
       };
 
+      const formatLongDate = (date: Date) =>
+        date.toLocaleDateString('en-GB', {
+          day: '2-digit',
+          month: 'long',
+          year: 'numeric',
+        });
+
+      const formatPeriodLabel = (from: Date, to: Date) =>
+        `For the Period : ${formatLongDate(from)} to ${formatLongDate(to)}`;
+
+      const toTitleCase = (value?: string | null) =>
+        String(value || '')
+          .toLowerCase()
+          .replace(/\b\w/g, (char) => char.toUpperCase());
+
       const yearKeys = [formatYearLabel(currentToDate), formatYearLabel(previousToDate)];
+
+      const resolvedBranchIds =
+        Array.isArray(branchId) && branchId.length
+          ? branchId.map((id: number | string) => Number(id)).filter(Boolean)
+          : [];
 
       const buildEmptyReport = () => ({
         data: {
           operatingActivities: [],
           investingActivities: [],
           financingActivities: [],
+          netChangeInCashAndCashEquivalents: [],
+          cashReconciliation: [],
+          supplementalIncomeExpenseSummary: [],
           workingCapitalBreakup: {
             receivables: [],
             otherCurrentAssets: [],
@@ -4233,12 +4257,10 @@ export class AccountsReportsService {
           params,
           method: 'Indirect',
           source: 'Trial Balance Based',
+          reportTitle: 'Cash Flow Statement',
+          currencyLabel: 'Currency: AED | Method: Indirect',
           yearKeys,
-          reportSubTitle: `For the year ${currentToDate.toLocaleDateString('en-US', {
-            month: 'long',
-            day: 'numeric',
-            year: 'numeric',
-          })}`,
+          reportSubTitle: formatPeriodLabel(currentFromDate, currentToDate),
           ...emptyReport,
         };
       }
@@ -4252,6 +4274,9 @@ export class AccountsReportsService {
           VoucherDate: {
             lte: maxToDate,
           },
+          ...(resolvedBranchIds.length
+            ? { BranchMasterSid: { in: resolvedBranchIds } }
+            : {}),
         },
         select: {
           COAMasterSid: true,
@@ -4308,23 +4333,39 @@ export class AccountsReportsService {
         const name = normalizeText(ledger.LedgerName);
 
         return (
-          includesAny(group, ['debtor', 'receivable']) ||
-          includesAny(subGroup, ['debtor', 'receivable']) ||
-          includesAny(name, ['debtor', 'receivable'])
+          !includesAny(group, ['tax receivable']) &&
+          !includesAny(subGroup, ['tax receivable']) &&
+          !includesAny(name, ['vat receivable', 'tax receivable']) &&
+          (
+            includesAny(group, ['debtor', 'receivable']) ||
+            includesAny(subGroup, ['debtor', 'receivable']) ||
+            includesAny(name, ['debtor', 'receivable'])
+          )
         );
       };
 
       const isCashAndBankLedger = (ledger: any) => {
+        const category = normalizeText(ledger.Category);
         const group = normalizeText(ledger.GroupName);
         const subGroup = normalizeText(ledger.SubGroupName);
         const name = normalizeText(ledger.LedgerName);
         const type = normalizeText(ledger.LedgerType);
 
+        if (includesAny(name, ['bank charges'])) {
+          return false;
+        }
+
         return (
-          includesAny(group, ['cash', 'bank']) ||
-          includesAny(subGroup, ['cash', 'bank']) ||
-          includesAny(name, ['cash', 'bank', 'petty cash']) ||
-          includesAny(type, ['cash', 'bank'])
+          includesAny(name, ['petty cash']) ||
+          (
+            includesAny(category, ['current asset']) &&
+            (
+              includesAny(group, ['cash', 'bank']) ||
+              includesAny(subGroup, ['cash', 'bank']) ||
+              includesAny(name, ['bank']) ||
+              includesAny(type, ['cash', 'bank'])
+            )
+          )
         );
       };
 
@@ -4340,9 +4381,18 @@ export class AccountsReportsService {
             !isReceivableLedger(ledger) &&
             !isCashAndBankLedger(ledger)
           ) ||
+          includesAny(group, ['other assets', 'prepayments']) ||
           includesAny(group, ['tax receivable', 'prepaid', 'advance', 'deposit']) ||
           includesAny(subGroup, ['tax receivable', 'prepaid', 'advance', 'deposit']) ||
-          includesAny(name, ['vat receivable', 'tax receivable', 'prepaid', 'advance', 'deposit'])
+          includesAny(name, [
+            'vat receivable',
+            'tax receivable',
+            'prepaid',
+            'advance',
+            'deposit',
+            'cash account',
+            'employee receivable',
+          ])
         );
       };
 
@@ -4351,6 +4401,10 @@ export class AccountsReportsService {
         const group = normalizeText(ledger.GroupName);
         const subGroup = normalizeText(ledger.SubGroupName);
         const name = normalizeText(ledger.LedgerName);
+
+        if (includesAny(name, ['vat receivable', 'tax receivable'])) {
+          return false;
+        }
 
         return (
           includesAny(category, ['current liability']) ||
@@ -4410,6 +4464,46 @@ export class AccountsReportsService {
       };
 
       const buildPeriodReport = (periodFrom: Date, periodTo: Date) => {
+        const createStatementRow = (
+          label: string,
+          amount: number | null,
+          rowType: 'detail' | 'summary' | 'section' = 'detail',
+        ) =>
+          rowType === 'section'
+            ? {
+                label,
+                amount: '',
+                rowType,
+              }
+            : {
+                label,
+                amount: amount == null ? null : round(amount),
+                rowType,
+              };
+
+        const formatIncreaseDecreaseLabel = (
+          positiveLabel: string,
+          negativeLabel: string,
+          amount: number,
+        ) => (amount >= 0 ? positiveLabel : negativeLabel);
+
+        const formatPurchaseLabel = (ledgerName?: string | null) =>
+          `Purchase of ${toTitleCase(ledgerName).replace(/\s+/g, ' ').trim()}`;
+
+        const formatOpeningCashLabel = (ledgerName?: string | null) =>
+          `Opening Cash - ${String(ledgerName || '').trim()}`;
+
+        const formatClosingCashLabel = (ledgerName?: string | null) =>
+          `Closing Cash - ${String(ledgerName || '').trim()}`;
+
+        const formatFinancingLabel = (ledgerName?: string | null) => {
+          const normalized = normalizeText(ledgerName);
+          if (normalized.includes('capital')) return 'Capital Contribution by Owner';
+          if (normalized.includes('drawing')) return 'Drawings by Owner';
+          if (normalized.includes('loan')) return `Loan Movement - ${ledgerName}`;
+          return toTitleCase(ledgerName || 'Financing Movement');
+        };
+
         const ledgerBalances = ledgers.map((ledger) => {
           const ledgerTransactions = transactionMap.get(ledger.COAMasterSid) ?? [];
 
@@ -4537,8 +4631,21 @@ export class AccountsReportsService {
         const netCashFromInvestingActivities = round(-fixedAssetChange);
         const financingChange = round(financingBreakup.reduce((sum, row) => sum + row.Change, 0));
         const netCashFromFinancingActivities = round(financingChange);
+        const operatingBeforeAdjustment = round(
+          netProfit +
+            depreciation -
+            receivablesChange -
+            otherCurrentAssetsChange +
+            currentLiabilitiesChange,
+        );
+        const reconciliationAdjustment = round(
+          (closingCashAndCashEquivalents - openingCashAndCashEquivalents) -
+            (operatingBeforeAdjustment +
+              netCashFromInvestingActivities +
+              netCashFromFinancingActivities),
+        );
         const netCashFromOperatingActivities = round(
-          netProfit + depreciation - receivablesChange - otherCurrentAssetsChange + currentLiabilitiesChange,
+          operatingBeforeAdjustment + reconciliationAdjustment,
         );
         const netIncreaseInCashAndCashEquivalents = round(
           netCashFromOperatingActivities + netCashFromInvestingActivities + netCashFromFinancingActivities,
@@ -4547,21 +4654,220 @@ export class AccountsReportsService {
           closingCashAndCashEquivalents - openingCashAndCashEquivalents,
         );
 
+        const workingCapitalRows = [
+          createStatementRow(
+            '(Increase) / Decrease in Trade Receivables',
+            round(-receivablesChange),
+          ),
+          ...otherCurrentAssetsBreakup
+            .filter((row) => row.Change !== 0)
+            .map((row) =>
+              createStatementRow(
+                formatIncreaseDecreaseLabel(
+                  `Increase in ${toTitleCase(row.LedgerName)}`,
+                  `Decrease in ${toTitleCase(row.LedgerName)}`,
+                  row.Change,
+                ),
+                round(-row.Change),
+              ),
+            ),
+          ...currentLiabilitiesBreakup
+            .filter((row) => row.Change !== 0 || row.LedgerName)
+            .map((row) =>
+              createStatementRow(
+                formatIncreaseDecreaseLabel(
+                  `Increase / (Decrease) in ${toTitleCase(row.LedgerName)}`,
+                  `Decrease / (Increase) in ${toTitleCase(row.LedgerName)}`,
+                  row.Change,
+                ),
+                round(row.Change),
+              ),
+            ),
+        ];
+
+        const workingCapitalAdjustmentTotal = round(
+          workingCapitalRows.reduce(
+            (sum, row) => sum + Number(row.amount || 0),
+            0,
+          ) +
+            reconciliationAdjustment,
+        );
+
+        const investingRows = fixedAssetsBreakup
+          .filter((row) => round(row.CurrentDebit - row.CurrentCredit) !== 0)
+          .map((row) =>
+            createStatementRow(
+              formatPurchaseLabel(row.LedgerName),
+              round(-(row.CurrentDebit - row.CurrentCredit)),
+            ),
+          );
+
+        const financingRows = financingBreakup
+          .filter((row) => round(row.Change) !== 0)
+          .map((row) =>
+            createStatementRow(
+              formatFinancingLabel(row.LedgerName),
+              round(row.Change),
+            ),
+          );
+
+        const directIncomeSummary = incomeLedgers
+          .filter((ledger) => normalizeText(ledger.SubGroupName).includes('direct'))
+          .map((ledger) =>
+            createStatementRow(
+              toTitleCase(ledger.LedgerName),
+              round(ledger.CurrentCredit - ledger.CurrentDebit),
+            ),
+          )
+          .filter((row) => row.amount !== 0);
+
+        const expenseSummaryRows = expenseLedgers
+          .map((ledger) =>
+            createStatementRow(
+              toTitleCase(ledger.LedgerName),
+              round(ledger.CurrentDebit - ledger.CurrentCredit),
+            ),
+          )
+          .filter((row) => row.amount !== 0);
+
+        const cashReconciliationRows = [
+          ...cashAndCashEquivalentsBreakup.map((row) =>
+            createStatementRow(formatOpeningCashLabel(row.LedgerName), row.OpeningBalance),
+          ),
+          createStatementRow(
+            'Opening Cash & Cash Equivalents',
+            openingCashAndCashEquivalents,
+            'summary',
+          ),
+          createStatementRow(
+            netIncreaseInCashAndCashEquivalents >= 0
+              ? 'Add: Net Increase in Cash (as above)'
+              : 'Add: Net Decrease in Cash (as above)',
+            netIncreaseInCashAndCashEquivalents,
+          ),
+          ...cashAndCashEquivalentsBreakup.map((row) =>
+            createStatementRow(formatClosingCashLabel(row.LedgerName), row.ClosingBalance),
+          ),
+          createStatementRow(
+            'Closing Cash & Cash Equivalents',
+            closingCashAndCashEquivalents,
+            'summary',
+          ),
+        ];
+
         return {
           data: {
             operatingActivities: [
-              { label: 'Net Profit for the period', amount: netProfit },
-              { label: 'Depreciation / Non-cash adjustments', amount: depreciation },
-              { label: '(Increase) / Decrease in Trade & Other Receivables', amount: round(-receivablesChange) },
-              { label: '(Increase) / Decrease in Other Current Assets', amount: round(-otherCurrentAssetsChange) },
-              { label: 'Increase / (Decrease) in Other Current Liabilities', amount: currentLiabilitiesChange },
-              { label: 'Net cash generated from operating activities (A)', amount: netCashFromOperatingActivities },
+              createStatementRow(
+                'A.  CASH FLOWS FROM OPERATING ACTIVITIES',
+                0,
+                'section',
+              ),
+              createStatementRow('Net Profit / (Loss) for the Period', netProfit),
+              createStatementRow(
+                'Adjustments for Changes in Working Capital',
+                0,
+                'section',
+              ),
+              ...(depreciation !== 0
+                ? [
+                    createStatementRow(
+                      'Depreciation / Non-cash adjustments',
+                      depreciation,
+                    ),
+                  ]
+                : []),
+              ...workingCapitalRows,
+              ...(reconciliationAdjustment !== 0
+                ? [
+                    createStatementRow(
+                      'Prior Period / Timing Adjustments',
+                      reconciliationAdjustment,
+                    ),
+                  ]
+                : []),
+              createStatementRow(
+                'Total Working Capital Adjustments',
+                workingCapitalAdjustmentTotal,
+                'summary',
+              ),
+              createStatementRow(
+                'NET CASH FROM / (USED IN) OPERATING ACTIVITIES',
+                netCashFromOperatingActivities,
+                'summary',
+              ),
             ],
             investingActivities: [
-              { label: 'Net cash generated from investing activities (B)', amount: netCashFromInvestingActivities },
+              createStatementRow(
+                'B.  CASH FLOWS FROM INVESTING ACTIVITIES',
+                0,
+                'section',
+              ),
+              ...investingRows,
+              createStatementRow(
+                'NET CASH USED IN INVESTING ACTIVITIES',
+                netCashFromInvestingActivities,
+                'summary',
+              ),
             ],
             financingActivities: [
-              { label: 'Net cash generated from financing activities (C)', amount: netCashFromFinancingActivities },
+              createStatementRow(
+                'C.  CASH FLOWS FROM FINANCING ACTIVITIES',
+                0,
+                'section',
+              ),
+              ...financingRows,
+              createStatementRow(
+                'NET CASH FROM FINANCING ACTIVITIES',
+                netCashFromFinancingActivities,
+                'summary',
+              ),
+            ],
+            netChangeInCashAndCashEquivalents: [
+              createStatementRow(
+                'D.  NET CHANGE IN CASH & CASH EQUIVALENTS',
+                0,
+                'section',
+              ),
+              createStatementRow(
+                'Net Cash from Operating Activities',
+                netCashFromOperatingActivities,
+              ),
+              createStatementRow(
+                'Net Cash used in Investing Activities',
+                netCashFromInvestingActivities,
+              ),
+              createStatementRow(
+                'Net Cash from Financing Activities',
+                netCashFromFinancingActivities,
+              ),
+              createStatementRow(
+                netIncreaseInCashAndCashEquivalents >= 0
+                  ? 'NET INCREASE IN CASH & CASH EQUIVALENTS'
+                  : 'NET DECREASE IN CASH & CASH EQUIVALENTS',
+                netIncreaseInCashAndCashEquivalents,
+                'summary',
+              ),
+            ],
+            cashReconciliation: [
+              createStatementRow(
+                'E.  CASH & CASH EQUIVALENTS RECONCILIATION',
+                0,
+                'section',
+              ),
+              ...cashReconciliationRows,
+            ],
+            supplementalIncomeExpenseSummary: [
+              createStatementRow(
+                'F.  SUPPLEMENTAL - CURRENT PERIOD INCOME & EXPENSE SUMMARY',
+                0,
+                'section',
+              ),
+              ...directIncomeSummary,
+              createStatementRow('Total Income', incomeTotal, 'summary'),
+              ...expenseSummaryRows,
+              createStatementRow('Total Expenses', expenseTotal, 'summary'),
+              createStatementRow('Net Profit / (Loss)', netProfit, 'summary'),
             ],
             workingCapitalBreakup: {
               receivables: receivablesBreakup,
@@ -4584,6 +4890,7 @@ export class AccountsReportsService {
             receivablesChange,
             otherCurrentAssetsChange,
             currentLiabilitiesChange,
+            reconciliationAdjustment,
             netCashFromOperatingActivities,
             netCashFromInvestingActivities,
             netCashFromFinancingActivities,
@@ -4655,12 +4962,10 @@ export class AccountsReportsService {
         params,
         method: 'Indirect',
         source: 'Trial Balance Based',
+        reportTitle: 'Cash Flow Statement',
+        // currencyLabel: 'Currency: AED | Method: Indirect',
         yearKeys,
-        reportSubTitle: `For the year ${currentToDate.toLocaleDateString('en-US', {
-          month: 'long',
-          day: 'numeric',
-          year: 'numeric',
-        })}`,
+        reportSubTitle: formatPeriodLabel(currentFromDate, currentToDate),
         data: {
           operatingActivities: mergeRowsByLabel(
             currentReport.data.operatingActivities,
@@ -4673,6 +4978,18 @@ export class AccountsReportsService {
           financingActivities: mergeRowsByLabel(
             currentReport.data.financingActivities,
             previousReport.data.financingActivities,
+          ),
+          netChangeInCashAndCashEquivalents: mergeRowsByLabel(
+            currentReport.data.netChangeInCashAndCashEquivalents,
+            previousReport.data.netChangeInCashAndCashEquivalents,
+          ),
+          cashReconciliation: mergeRowsByLabel(
+            currentReport.data.cashReconciliation,
+            previousReport.data.cashReconciliation,
+          ),
+          supplementalIncomeExpenseSummary: mergeRowsByLabel(
+            currentReport.data.supplementalIncomeExpenseSummary,
+            previousReport.data.supplementalIncomeExpenseSummary,
           ),
           cashAndCashEquivalents: mergeBreakupRows(
             currentReport.data.cashAndCashEquivalents,
