@@ -2,14 +2,15 @@ import { BadRequestException, Injectable, Logger, NotFoundException } from '@nes
 import { ApprovalStatus, Prisma } from '@prisma/client';
 import { DatabaseService } from 'src/database/database.service';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
-import { NumberSeriesService } from 'src/settings/services/number-series/number-series.service';
+import { VoucherService } from 'src/operation/services/voucher/voucher.service';
+import { DOC_TYPE_CODE } from 'src/common/config/voucher-type.config';
 
 @Injectable()
 export class PaymentRequestService {
   constructor(
     private readonly db: DatabaseService,
     private readonly logger: Logger,
-    private readonly numberSeriesService: NumberSeriesService,
+    private readonly voucherService: VoucherService,
   ) {}
 
   async createPaymentRequest(payload: any) {
@@ -26,7 +27,8 @@ export class PaymentRequestService {
       const paymentRequestNumber = await this.generatePaymentRequestNumber(
         payload.CompanyMasterSid,
         payload.BranchMasterSid,
-        payload.DepartmentMasterSid,
+        new Date(payload.PaymentRequestDate || payload.RequestDate || new Date()),
+        tx,
       );
 
       const header = await tx.paymentRequest.create({
@@ -204,6 +206,33 @@ export class PaymentRequestService {
     } = params;
 
     const skip = (Number(page) - 1) * Number(pageSize);
+    const sortDirectionValue = sortDirection === 'asc' ? 'asc' : 'desc';
+    const validRootSortColumns = new Set([
+      'PaymentRequestNumber',
+      'PaymentRequestDate',
+      'CashBank',
+      'PayableTo',
+      'PaymentRequestStatus',
+      'Status',
+    ]);
+
+    const orderByMap: Record<string, any> = {
+      PaymentRequestNumber: { PaymentRequestNumber: sortDirectionValue },
+      PaymentRequestDate: { PaymentRequestDate: sortDirectionValue },
+      CashBank: { CashBank: sortDirectionValue },
+      PayableTo: { PayableTo: sortDirectionValue },
+      PaymentRequestStatus: { PaymentRequestStatus: sortDirectionValue },
+      Status: { Status: sortDirectionValue },
+      PartyName: { customer: { CustomerName: sortDirectionValue } },
+      DepartmentName: { dept: { departmentName: sortDirectionValue } },
+    };
+
+    const resolvedSortColumn = validRootSortColumns.has(sortColumn)
+      ? sortColumn
+      : (orderByMap[sortColumn] ? sortColumn : 'PaymentRequestDate');
+
+    const orderBy = orderByMap[resolvedSortColumn] || { PaymentRequestDate: sortDirectionValue };
+
     const where: Prisma.PaymentRequestWhereInput = {
       CompanyMasterSid: Number(activeCompanyId),
       ...(activeBranchId ? { BranchMasterSid: Number(activeBranchId) } : {}),
@@ -224,18 +253,21 @@ export class PaymentRequestService {
         include: {
           customer: true,
           dept: true,
-          paymentRequestDetails: true,
+          paymentRequestDetails: {
+            include: {
+              currency: true,
+            },
+          },
         },
         skip,
         take: Number(pageSize),
-        orderBy: { [sortColumn]: sortDirection },
+        orderBy,
       }),
       this.db.paymentRequest.count({ where }),
     ]);
 
     return { items, totalCount };
   }
-
   async getApprovedPendingForPayment(companyMasterSid: number, branchMasterSid: number) {
     return this.db.paymentRequest.findMany({
       where: {
@@ -246,10 +278,14 @@ export class PaymentRequestService {
         Status: 'A',
       },
       include: {
-        customer: true,
-        dept: true,
-        paymentRequestDetails: true,
-      },
+          customer: true,
+          dept: true,
+          paymentRequestDetails: {
+            include: {
+              currency: true,
+            },
+          },
+        },
       orderBy: { PaymentRequestDate: 'desc' },
     });
   }
@@ -302,36 +338,64 @@ export class PaymentRequestService {
     });
   }
 
-  private async generatePaymentRequestNumber(
-    companyMasterSid: number,
-    branchMasterSid: number,
-    departmentMasterSid?: number,
-  ) {
-    try {
-      const menu = await this.db.menuMaster.findFirst({
-        where: {
-          path: { equals: '/operation/payment-request/list', mode: 'insensitive' },
-          status: 'A',
-        },
-      });
+private async generatePaymentRequestNumber(
+  companyMasterSid: number,
+  branchMasterSid: number,
+  paymentDate: Date,
+  tx: any,
+) {
+  try {
+    const voucherTypeMaster = await tx.voucherTypeMaster.findFirst({
+      where: {
+        CompanyMasterSid: companyMasterSid,
+        BranchMasterSid: branchMasterSid,
+        DocumentTypeCode: 'PRQ',
+        status: 'A',
+      },
+    });
 
-      if (menu?.MenuMasterSid) {
-        return await this.numberSeriesService.generateNextNumber(
-          companyMasterSid,
-          branchMasterSid,
-          menu.MenuMasterSid,
-          departmentMasterSid ?? undefined,
-        );
-      }
-    } catch (error) {
-      this.logger.warn(`Payment request number series fallback used: ${error?.message}`);
+    if (!voucherTypeMaster?.MenuMasterSid) {
+      throw new BadRequestException('Payment request document type is not configured with a menu');
     }
 
-    const count = await this.db.paymentRequest.count({
-      where: { CompanyMasterSid: companyMasterSid, BranchMasterSid: branchMasterSid },
+    const currentYear = await tx.yearMaster.findFirst({
+      where: {
+        CompanyMasterSid: companyMasterSid,
+        status: 'A',
+        StartDate: { lte: paymentDate },
+        EndDate: { gte: paymentDate },
+      },
+      select: { YearMasterSid: true },
     });
-    return `PRQ-${branchMasterSid}-${String(count + 1).padStart(5, '0')}`;
+
+    const yearMasterSid = currentYear?.YearMasterSid || (await tx.yearMaster.findFirst({
+      where: { CompanyMasterSid: companyMasterSid, CurrentYear: 'Y', status: 'A' },
+      select: { YearMasterSid: true },
+    }))?.YearMasterSid;
+
+    if (!yearMasterSid) {
+      throw new BadRequestException('Financial year not found');
+    }
+
+    return await this.voucherService.generateVoucherNumberFromConfig(
+      voucherTypeMaster,
+      companyMasterSid,
+      branchMasterSid,
+      yearMasterSid,
+      tx,
+      paymentDate,
+    );
+  } catch (error) {
+    this.logger.warn(`Payment request number series fallback used: ${error?.message}`);
   }
+
+  const count = await tx.paymentRequest.count({
+    where: { CompanyMasterSid: companyMasterSid, BranchMasterSid: branchMasterSid },
+  });
+
+  return `PRQ-${branchMasterSid}-${String(count + 1).padStart(5, '0')}`;
+}
+
 
   private async findSourceCharge(header: any, detail: any, tx: any) {
     const directSourceId =
@@ -501,3 +565,7 @@ export class PaymentRequestService {
     return new Prisma.Decimal(value);
   }
 }
+
+
+
+
