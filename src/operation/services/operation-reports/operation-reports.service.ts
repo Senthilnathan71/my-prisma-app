@@ -7045,8 +7045,6 @@ ports.forEach((p) => {
       FromDate,
       ToDate,
       companyId: CompanyMasterSid,
-      Branch: BranchMasterSid,
-      DeptId: DepartmentMasterSid,
     } = params;
 
     try {
@@ -7088,18 +7086,14 @@ ports.forEach((p) => {
       const fetchDepartmentData = async (from: Date, to: Date) => {
         const baseWhere: any = {
           CompanyMasterSid,
-          BranchMasterSid,
           AND: [
             { MasterJobDate: { gte: from } },
             { MasterJobDate: { lte: to } },
           ]
         };
 
-        if (DepartmentMasterSid) {
-          baseWhere.DepartmentMasterSid = DepartmentMasterSid;
-        }
-
         const departments = await this._db.departmentMaster.findMany({
+          where: { CompanyMasterSid },
           select: { DepartmentMasterSid: true, departmentName: true },
         });
         const departmentMap = new Map(
@@ -7112,12 +7106,8 @@ ports.forEach((p) => {
         const houseJobData = await this._db.houseJob.findMany({
           where: {
             CompanyMasterSid,
-            BranchMasterSid,
             status: 'A',
             AND: [{ HBLDate: { gte: from } }, { HBLDate: { lte: to } }],
-            ...(DepartmentMasterSid
-              ? { DepartmentMasterSid }
-              : {}),
           },
           select: {
             HouseJobSid: true,

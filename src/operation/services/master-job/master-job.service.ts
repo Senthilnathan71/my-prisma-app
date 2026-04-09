@@ -1505,6 +1505,7 @@ export class MasterJobService {
                             MenuMasterSid: true,
                             CompanyMasterSid: true,
                             BranchMasterSid: true,
+                            GeneralNote:true
                         },
                     }
                 }
