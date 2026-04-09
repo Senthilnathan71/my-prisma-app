@@ -1021,25 +1021,68 @@ export class QuotationService {
     async searchQuotation(params: filterDto) {
         const { search = '', page = 1, pageSize = 15, activeCompanyId, activeBranchId } = params;
         const skip = (page - 1) * pageSize;
+        const dateFromRaw = (params as any).dateFrom ?? (params as any).DateFrom;
+        const dateToRaw = (params as any).dateTo ?? (params as any).DateTo;
+        const dateFieldRaw = (params as any).dateField ?? (params as any).DateField ?? 'QuoteDate';
+        const allowedDateFields = new Set(['QuoteDate']);
+        const dateField = allowedDateFields.has(dateFieldRaw) ? dateFieldRaw : 'QuoteDate';
+        const customerMasterSid = (params as any).CustomerMasterSid ?? (params as any).customerMasterSid ?? null;
+        const departmentMasterSid = (params as any).DepartmentMasterSid ?? (params as any).departmentMasterSid ?? null;
+        const pol = (params as any).POL ?? (params as any).pol ?? null;
+        const pod = (params as any).POD ?? (params as any).pod ?? null;
+        const approvalStatusRaw = (params as any).ApprovalStatus ?? (params as any).approvalStatus ?? null;
+        const validApprovalStatuses = new Set(Object.values(ApprovalStatus));
+        const selectedApprovalStatus = approvalStatusRaw && validApprovalStatuses.has(String(approvalStatusRaw) as ApprovalStatus)
+            ? String(approvalStatusRaw) as ApprovalStatus
+            : null;
 
-
-        const ports = await this._db.portMaster.findMany({
-              where: {
-    status: 'A',
-    OR: [
-      { PortCode: { contains: search, mode: 'insensitive' } },
-      { PortName: { contains: search, mode: 'insensitive' } }
-    ]
-  },
-            select: {
-                PortMasterSid: true,
+        const dateRange: Prisma.DateTimeFilter = {};
+        if (dateFromRaw) {
+            const parsedFrom = new Date(dateFromRaw);
+            if (!Number.isNaN(parsedFrom.getTime())) {
+                dateRange.gte = parsedFrom;
             }
-        });
+        }
+        if (dateToRaw) {
+            const parsedTo = new Date(dateToRaw);
+            if (!Number.isNaN(parsedTo.getTime())) {
+                dateRange.lte = parsedTo;
+            }
+        }
+
+        const [searchPorts, polPorts, podPorts] = await Promise.all([
+            search
+                ? this._db.portMaster.findMany({
+                    where: {
+                        status: 'A',
+                        OR: [
+                            { PortCode: { contains: search, mode: 'insensitive' } },
+                            { PortName: { contains: search, mode: 'insensitive' } }
+                        ]
+                    },
+                    select: { PortMasterSid: true }
+                })
+                : Promise.resolve([]),
+            pol
+                ? this._db.portMaster.findMany({
+                    where: { status: 'A', PortCode: String(pol) },
+                    select: { PortMasterSid: true }
+                })
+                : Promise.resolve([]),
+            pod
+                ? this._db.portMaster.findMany({
+                    where: { status: 'A', PortCode: String(pod) },
+                    select: { PortMasterSid: true }
+                })
+                : Promise.resolve([])
+        ]);
 
         const normalizedSearch = search.trim();
-        const portWithSearchOnlyIds = ports.map(p => p.PortMasterSid);
-        const validApprovalStatuses = new Set(Object.values(ApprovalStatus));
-        const approvalStatus = validApprovalStatuses.has(normalizedSearch as ApprovalStatus)
+        const portWithSearchOnlyIds = searchPorts.map(p => p.PortMasterSid);
+        const polPortIds = polPorts.map(p => p.PortMasterSid);
+        const podPortIds = podPorts.map(p => p.PortMasterSid);
+        const validSearchApprovalStatuses = new Set(Object.values(ApprovalStatus));
+        const approvalStatus = validSearchApprovalStatuses.has(normalizedSearch as ApprovalStatus)
             ? (normalizedSearch as ApprovalStatus)
             : null;
         const isDateSearch =
@@ -1049,31 +1092,60 @@ export class QuotationService {
         const parsedSearchDate = isDateSearch ? new Date(normalizedSearch) : null;
         const isValidSearchDate = parsedSearchDate instanceof Date && !isNaN(parsedSearchDate.getTime());
 
+        const andFilters: Prisma.QuoteHeaderWhereInput[] = [];
+
+        if (customerMasterSid) {
+            andFilters.push({ CustomerMasterSid: Number(customerMasterSid) });
+        }
+        if (departmentMasterSid) {
+            andFilters.push({ quoteRoute: { some: { DepartmentMasterSid: Number(departmentMasterSid) } } });
+        }
+        if (polPortIds.length) {
+            andFilters.push({ quoteRoute: { some: { POLSid: { in: polPortIds } } } });
+        }
+        if (podPortIds.length) {
+            andFilters.push({ quoteRoute: { some: { PODSid: { in: podPortIds } } } });
+        }
+        if (Object.keys(dateRange).length) {
+            andFilters.push({ [dateField]: dateRange } as any);
+        }
+        if (selectedApprovalStatus) {
+            andFilters.push({
+                quoteRoute: {
+                    some: {
+                        quoteCarrier: {
+                            some: {
+                                ApprovalStatus: selectedApprovalStatus
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        const searchFilter: Prisma.QuoteHeaderWhereInput = search ? {
+            OR: [
+                { QuoteNumber: { contains: normalizedSearch, mode: 'insensitive' } },
+                ...(isValidSearchDate ? [{ QuoteDate: parsedSearchDate as Date }] : []),
+                { CustomerName: { contains: normalizedSearch, mode: 'insensitive' } },
+                { quoteRoute: { some: { departmentMaster: { departmentName: { contains: normalizedSearch, mode: 'insensitive' } } } } },
+                { quoteRoute: { some: { POLSid: { in: portWithSearchOnlyIds } } } },
+                { quoteRoute: { some: { PODSid: { in: portWithSearchOnlyIds } } } },
+                { bookingHeader: { BookingNo: { contains: normalizedSearch, mode: 'insensitive' } } },
+                { status: { contains: normalizedSearch, mode: 'insensitive' } },
+                ...(approvalStatus
+                    ? [{ quoteRoute: { some: { quoteCarrier: { some: { ApprovalStatus: approvalStatus } } } } }]
+                    : []),
+            ]
+        } : {};
 
         const where: Prisma.QuoteHeaderWhereInput = {
             status: statusWhereClause,
             CompanyMasterSid: activeCompanyId,
             BranchMasterSid: activeBranchId,
-            ...(search
-                ? {
-                    OR: [
-                        { QuoteNumber: { contains: normalizedSearch, mode: 'insensitive' } },
-                        ...(isValidSearchDate
-                            ? [{ QuoteDate: parsedSearchDate as Date }]
-                            : []),
-                        { CustomerName: { contains: normalizedSearch, mode: 'insensitive' } },
-                        { quoteRoute : {some : {departmentMaster : {departmentName : {contains: normalizedSearch, mode: 'insensitive'}}}}},
-                        { quoteRoute: { some: { POLSid: { in : portWithSearchOnlyIds } } } },
-                        { quoteRoute: { some: { PODSid: { in : portWithSearchOnlyIds } } } },
-                        { bookingHeader : { BookingNo : { contains: normalizedSearch, mode: 'insensitive' } } },
-                        { status: {contains: normalizedSearch, mode: 'insensitive'}},
-                        ...(approvalStatus
-                            ? [{ quoteRoute: { some: { quoteCarrier: { some : { ApprovalStatus : { equals: approvalStatus } } } } } }]
-                            : []),
-                    ],
-                }
-                : {}),
+            ...(andFilters.length ? { AND: [...andFilters, ...(search ? [searchFilter] : [])] } : (search ? searchFilter : {}))
         };
+
         let items;
         let totalCount;
         [items, totalCount] = await this._db.$transaction([
@@ -1083,10 +1155,10 @@ export class QuotationService {
                 take: pageSize,
                 orderBy: { QuoteDate: 'desc' },
                 include: {
-                    bookingHeader : {
-                        select : {
-                            BookingHeaderSid : true,
-                            BookingNo : true
+                    bookingHeader: {
+                        select: {
+                            BookingHeaderSid: true,
+                            BookingNo: true
                         }
                     },
                     quoteRoute: {
@@ -1099,17 +1171,17 @@ export class QuotationService {
                                     departmentName: true
                                 }
                             },
-                            quoteCarrier : { 
-                                where : { status : statusWhereClause},
-                                include : { quoteCharge : { where : { status : statusWhereClause}} ,
-                            
-                            }
+                            quoteCarrier: {
+                                where: { status: statusWhereClause },
+                                include: {
+                                    quoteCharge: { where: { status: statusWhereClause } }
+                                }
                             },
                             quoteCargo: {
                                 where: { Status: statusWhereClause },
                                 include: {
                                     uomMaster: { select: { UOMCode: true } },
-                                    quoteProduct : {where : { Status : statusWhereClause}}
+                                    quoteProduct: { where: { Status: statusWhereClause } }
                                 }
                             }
                         }
@@ -1534,3 +1606,4 @@ export class QuotationService {
 //         });
 //     }
 // }
+

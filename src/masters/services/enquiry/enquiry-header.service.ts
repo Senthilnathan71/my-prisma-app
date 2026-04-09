@@ -701,54 +701,132 @@ export class EnquiryHeaderService {
     }
 
     async searchPendingEnquiry(params: filterDto) {
-        const { search = '', page = 1, pageSize = 10, activeCompanyId, activeBranchId } = params;
+        const {
+            search = '',
+            page = 1,
+            pageSize = 10,
+            activeCompanyId,
+            activeBranchId,
+            CustomerMasterSid,
+            customerMasterSid,
+            DepartmentMasterSid,
+            departmentMasterSid,
+            POLSid,
+            polSid,
+            PODSid,
+            podSid,
+            POL,
+            pol,
+            POD,
+            pod,
+            dateFrom,
+            DateFrom,
+            dateTo,
+            DateTo,
+            dateField,
+            DateField
+        } = params;
         const skip = (page - 1) * pageSize;
         const parsedDate = parseDateFromString(search);
+        const normalizedCustomerSid = Number(CustomerMasterSid ?? customerMasterSid ?? 0) || null;
+        const normalizedDepartmentSid = Number(DepartmentMasterSid ?? departmentMasterSid ?? 0) || null;
+        const normalizedPolSid = Number(POLSid ?? polSid ?? 0) || null;
+        const normalizedPodSid = Number(PODSid ?? podSid ?? 0) || null;
+        const normalizedPolCode = (POL ?? pol ?? '').toString().trim();
+        const normalizedPodCode = (POD ?? pod ?? '').toString().trim();
+        const normalizedDateField = (dateField ?? DateField ?? 'EnquiryDate').toString();
+        const allowedDateFields = new Set(['EnquiryDate']);
+        const selectedDateField = allowedDateFields.has(normalizedDateField) ? normalizedDateField : 'EnquiryDate';
+        const dateRange: Prisma.DateTimeFilter = {};
 
-        const allDepartmentWithName = await this._db.departmentMaster.findMany({
-            where: {
-                departmentName: { contains: search, mode: 'insensitive' },
-                Status: 'A',
-            },
-            select: {
-                DepartmentMasterSid: true,
+        const fromRaw = dateFrom ?? DateFrom;
+        const toRaw = dateTo ?? DateTo;
+        if (fromRaw) {
+            const parsedFrom = new Date(fromRaw);
+            if (!Number.isNaN(parsedFrom.getTime())) {
+                dateRange.gte = parsedFrom;
             }
-        });
-
-        const filteredDepartmentIds = allDepartmentWithName.map(dep => dep.DepartmentMasterSid);
-
-        const ports = await this._db.portMaster.findMany({
-            where: {
-                PortCode: { contains: search, mode: 'insensitive' },
-                PortName: { contains: search, mode: 'insensitive' },
-                status: 'A'
-            },
-            select: {
-                PortMasterSid: true,
+        }
+        if (toRaw) {
+            const parsedTo = new Date(toRaw);
+            if (!Number.isNaN(parsedTo.getTime())) {
+                dateRange.lte = parsedTo;
             }
-        });
+        }
 
-        const portWithSearchOnlyIds = ports.map(p => p.PortMasterSid);
+        const [departmentMatches, searchPorts, polPorts, podPorts] = await Promise.all([
+            search || normalizedDepartmentSid ? this._db.departmentMaster.findMany({
+                where: search
+                    ? {
+                        departmentName: { contains: search, mode: 'insensitive' },
+                        Status: 'A',
+                    }
+                    : normalizedDepartmentSid
+                        ? { DepartmentMasterSid: normalizedDepartmentSid, Status: 'A' }
+                        : { Status: 'A' },
+                select: { DepartmentMasterSid: true },
+            }) : Promise.resolve([]),
+            search
+                ? this._db.portMaster.findMany({
+                    where: {
+                        status: 'A',
+                        OR: [
+                            { PortCode: { contains: search, mode: 'insensitive' } },
+                            { PortName: { contains: search, mode: 'insensitive' } }
+                        ]
+                    },
+                    select: { PortMasterSid: true }
+                })
+                : Promise.resolve([]),
+            normalizedPolCode
+                ? this._db.portMaster.findMany({
+                    where: { status: 'A', PortCode: normalizedPolCode },
+                    select: { PortMasterSid: true }
+                })
+                : Promise.resolve([]),
+            normalizedPodCode
+                ? this._db.portMaster.findMany({
+                    where: { status: 'A', PortCode: normalizedPodCode },
+                    select: { PortMasterSid: true }
+                })
+                : Promise.resolve([])
+        ]);
+
+        const filteredDepartmentIds = departmentMatches.map(dep => dep.DepartmentMasterSid);
+        const portWithSearchOnlyIds = searchPorts.map(p => p.PortMasterSid);
+        const polPortIds = polPorts.map(p => p.PortMasterSid);
+        const podPortIds = podPorts.map(p => p.PortMasterSid);
 
         const where: Prisma.EnquiryHeaderWhereInput = {
             status: statusWhereClause,
             authorizerStatus: ApprovalStatus.Approved,
-            QuoteHeaderSid : null,
+            QuoteHeaderSid: null,
             CompanyMasterSid: activeCompanyId,
             BranchMasterSid: activeBranchId,
+            ...(normalizedCustomerSid && { CustomerMasterSid: normalizedCustomerSid }),
+            ...(normalizedDepartmentSid && { DepartmentMasterSid: normalizedDepartmentSid }),
+            ...(polPortIds.length || podPortIds.length
+                ? {
+                    enquiryRoute: {
+                        some: {
+                            ...(polPortIds.length ? { POLSid: { in: polPortIds } } : normalizedPolSid ? { POLSid: normalizedPolSid } : {}),
+                            ...(podPortIds.length ? { PODSid: { in: podPortIds } } : normalizedPodSid ? { PODSid: normalizedPodSid } : {})
+                        }
+                    }
+                }
+                : {}),
+            ...(Object.keys(dateRange).length ? { [selectedDateField]: dateRange } as any : {}),
             ...(search ?
                 {
                     OR: [
                         { EnquiryNumber: { contains: search, mode: 'insensitive' } },
                         { CustomerName: { contains: search, mode: 'insensitive' } },
-                        { DepartmentMasterSid: { in: filteredDepartmentIds } },
+                        ...(filteredDepartmentIds.length ? [{ DepartmentMasterSid: { in: filteredDepartmentIds } }] : []),
                         { enquiryRoute: { some: { POLSid: { in: portWithSearchOnlyIds } } } },
                         { enquiryRoute: { some: { PODSid: { in: portWithSearchOnlyIds } } } },
                         { status: { contains: search, mode: 'insensitive' } },
                         ...(parsedDate
-                            ? [
-                                { EnquiryDate: { equals: parsedDate } },
-                            ]
+                            ? [{ EnquiryDate: { equals: parsedDate } }]
                             : []),
                     ],
                 } : {}
@@ -821,7 +899,7 @@ export class EnquiryHeaderService {
         };
     }
 
-    async getAuditLogs(tableName: string, recordId?: string) {
+    async getAuditLogs('tableName: string, recordId?: string) {
         try {
             const whereClause: any = { tableName };
             if (recordId) whereClause.recordId = recordId;
@@ -866,3 +944,4 @@ export class EnquiryHeaderService {
 }
 
 }
+
