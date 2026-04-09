@@ -97,7 +97,7 @@ export class SubledgermasterService {
         }
     }
 
-    async getAllMappedLedgerByCOAId(COAMasterSid : number, CompanyMasterSid : number,DrCr : string){
+    async getAllMappedLedgerByCOAId(COAMasterSid : number, CompanyMasterSid : number, DrCr ?: string){
         try {
             const whereClause : Prisma.SubledgerMasterWhereInput = {
                 Status: "A",
@@ -109,15 +109,20 @@ export class SubledgermasterService {
             } else if(DrCr === "C"){
                 whereClause.CrCOAMasterSid = COAMasterSid
             } else {
-                throw new Error("Invalid DrCr")
+                whereClause.OR = [
+                    { DrCOAMasterSid : COAMasterSid },
+                    { CrCOAMasterSid : COAMasterSid }
+                ]
             }
+            // No DrCr → return all subledgers for the company
 
             const subledgerWithCOA = await this._db.subledgerMaster.findMany({
                 where: whereClause,
                 select : {
                     SubledgerMasterSid : true,
                     SubledgerName : true,
-                }
+                },
+                orderBy: { SubledgerName: 'asc' }
             })
             return subledgerWithCOA;
         } catch (error) {

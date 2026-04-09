@@ -2485,7 +2485,7 @@ export class VoucherService {
                 const effectiveTaxCategory = (taxDetails.IsUnionTerritory && taxDetails.countryCode === 'in')
                     ? 'Intra' : taxDetails.TaxCategory;
 
-                const voucherThatDoesntHaveInpOut : DocTypeCode[] = [DOC_TYPE_CODE.RECEIPT, DOC_TYPE_CODE.JOURNAL_VOUCHER, DOC_TYPE_CODE.PAYMENT];
+                const voucherThatDoesntHaveInpOut : DocTypeCode[] = [DOC_TYPE_CODE.RECEIPT, DOC_TYPE_CODE.JOURNAL_VOUCHER];
                 const isExemption = voucherThatDoesntHaveInpOut.includes(voucherType);
                 const whereClause : Prisma.TaxMasterWhereInput = {
                     TaxGroupSid: hsSacMaster.taxGroup.TaxGroupSid,

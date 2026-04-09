@@ -2,6 +2,7 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { statusWhereClause } from 'src/common/helper';
+import { getAllowedLedgerTypes } from 'src/common/config/voucher-type.config';
 import { DatabaseService } from 'src/database/database.service';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 
@@ -103,13 +104,16 @@ export class CoaService {
      * 1. Receipt detail part
      * 
      */
-    async getCOAByLedgerCategory(ledgerCategory: string, CompanyMasterSid: number , filterNonJob ?: boolean) {
+    async getCOAByLedgerCategory(ledgerCategory: string, CompanyMasterSid: number , filterNonJob ?: boolean, voucherType ?: string) {
         try {
+            const allowedLedgerTypes = voucherType ? getAllowedLedgerTypes(voucherType) : [];
             const allCoaWithSpecificLedgerCategory = await this._db.cOAMaster.findMany({
                 where: {
-                    LedgerCategory: ledgerCategory,
                     Status: 'A',
                     CompanyMasterSid: CompanyMasterSid,
+                    ...(allowedLedgerTypes.length > 0
+                        ? { LedgerType: { in: allowedLedgerTypes } }
+                        : { LedgerCategory: ledgerCategory }),
                     ...(filterNonJob ? { JobNoRequire : 'N' } : {})
                 },
                 select: {

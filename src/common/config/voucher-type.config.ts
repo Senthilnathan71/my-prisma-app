@@ -46,7 +46,7 @@ export const TAX_VTYPE_DRCR_MAP = {
   "INV": { DrCr: "C" , Tax_Type : "Output" ,Ledger : 'Creditor'},
   "VIN": { DrCr: "D", Tax_Type : "Input" , Ledger : "Debtor" },
   "RPT": { DrCr: "C" , Tax_Type : null , Ledger : null },
-  "PMT": { DrCr: "D" , Tax_Type : null , Ledger : null },
+  "PMT": { DrCr: "D" , Tax_Type : "Input" , Ledger : "Debtor" },
   "CRN": { DrCr: "D", Tax_Type : "Output" , Ledger : 'Creditor' },
   "VRN": { DrCr: "C", Tax_Type : "Input" , Ledger : 'Debtor' },
   "JV":  { DrCr: null, Tax_Type : null , Ledger : null }, // Handled by Ledger Type of that particular detail's ledger
@@ -70,6 +70,18 @@ export const getTaxLedger = (voucherType: TaxVoucherType): TaxLedgerType | undef
   return TAX_VTYPE_DRCR_MAP[voucherType]?.Ledger;
 };
 
+
+// ==============================
+// Ledger Types allowed per Voucher Type (for COA dropdown filtering)
+// ==============================
+export const VOUCHER_LEDGER_TYPE_MAP: Record<string, string[]> = {
+  PMT: ['Other Cost', 'Expenses GST', 'Imprest', 'Income Tax Payable', 'Input Tax', 'Sy Cr','Cash','Bank'],
+  RPT: ['Other Revenue', 'Income GST', 'Output Tax', 'Sy Dr','Cash','Bank'],
+};
+
+export const getAllowedLedgerTypes = (voucherType: string): string[] => {
+  return VOUCHER_LEDGER_TYPE_MAP[voucherType] ?? [];
+};
 
 /**
  * Voucher Type those can have exchange rate jv

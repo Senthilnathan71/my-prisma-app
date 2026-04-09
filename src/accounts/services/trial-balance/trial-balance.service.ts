@@ -450,6 +450,7 @@ private async calculateWithSubledger(
       BranchMasterSid,
       undefined,
       from,
+      true
     );
 
     // Calculate current period transactions (fromDate to toDate)
@@ -493,6 +494,7 @@ private async calculateWithSubledger(
     BranchMasterSid: number[] | undefined,
     fromDate?: Date,
     toDate?: Date,
+    isOpening ?: boolean
   ): Promise<BalanceCalculation> {
     const transactions = await this.databaseService.voucherTransaction.findMany({
       where: {
@@ -505,7 +507,8 @@ private async calculateWithSubledger(
           }),
         VoucherDate: {
           ...(fromDate && { gte: fromDate }),
-          ...(toDate && { lte: toDate }),
+          ...(toDate && !isOpening && { lte: toDate }),
+          ...(toDate && isOpening && { lt : toDate }),
         },
       },
       select: {
