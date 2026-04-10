@@ -1210,6 +1210,12 @@ export class AuditLogService {
                 NONGST: 'Non GST/Zero'
             }
 
+            const statusMap = {
+                A: 'Active',
+                S: 'Suspended',
+                D: 'Deleted'
+            };
+
             const ignoredFields = [
                 'UpdatedBy', 'UpdatedOn', 'CreatedBy', 'CreatedOn', 'VoucherTransactionSid'
             ]
@@ -1251,6 +1257,9 @@ export class AuditLogService {
 
                 this.replaceValueFromMap(oldVal, 'InvoiceType', invoiceList);
                 this.replaceValueFromMap(newVal, 'InvoiceType', invoiceList);
+
+                this.replaceValueFromMap(oldVal, 'Status', statusMap);
+                this.replaceValueFromMap(newVal, 'Status', statusMap);
 
                 this.removeIgnoredFields(oldVal, ignoredFields);
                 this.removeIgnoredFields(newVal, ignoredFields);
