@@ -146,6 +146,8 @@ export class AccountsReportsService {
           return await this.generateTopNCustomerReport(parameters);
         case 'ledger-report':
           return await this.generateLedgerReport(parameters);
+            case 'ledger-report-currenecy':
+          return await this.generateLedgerCurrencyReport(parameters);
         case 'unposted-voucher-list':
           return await this.generateUnpostedVoucherList(parameters);
         case 'vat-report':
@@ -960,10 +962,6 @@ export class AccountsReportsService {
 
       return response;
     } catch (error) {
-      this.logger.error(
-        `Error getting customer outstanding for ${ledgerMasterSid}: ${error.message}`,
-        error.stack,
-      );
       throw error;
     }
   }
@@ -1661,6 +1659,7 @@ export class AccountsReportsService {
               GroupName: true,
               SubGroupName: true,
               LedgerName: true,
+              LedgerType: true,
             },
           },
           yearMaster: {
@@ -1678,53 +1677,44 @@ export class AccountsReportsService {
       const normalizeText = (value?: string | null) =>
         String(value || '').trim().toLowerCase();
 
+      const hasDirectKeyword = (value?: string | null) =>
+        /\bdirect\b/.test(normalizeText(value));
+
       const resolveProfitSection = (
         category?: string | null,
         groupName?: string | null,
         subGroupName?: string | null,
         ledgerName?: string | null,
+        ledgerType?: string | null,
       ) => {
-        const normalizedGroupName = normalizeText(groupName);
-        const normalizedSubGroupName = normalizeText(subGroupName);
-        const normalizedLedgerName = normalizeText(ledgerName);
-        const searchText =
-          `${normalizedSubGroupName} ${normalizedGroupName} ${normalizedLedgerName}`.trim();
+        const normalizedLedgerType = normalizeText(ledgerType);
+
+        if (category === 'Income' && (hasDirectKeyword(subGroupName) || hasDirectKeyword(ledgerName))) {
+          return 'DirectIncome';
+        }
+
+        if (category === 'Expense' && (hasDirectKeyword(subGroupName) || hasDirectKeyword(ledgerName))) {
+          return 'DirectExpense';
+        }
+
+        // For non-direct rows, let LedgerType decide the bucket first.
+        if (normalizedLedgerType.includes('other revenue')) {
+          return 'OtherRevenue';
+        }
+
+        if (
+          normalizedLedgerType.includes('other cost') ||
+          normalizedLedgerType.includes('expense')
+        ) {
+          return 'OtherCost';
+        }
 
         if (category === 'Income') {
-          if (
-            normalizedSubGroupName.includes('direct') ||
-            normalizedLedgerName.includes('direct')
-          ) {
-            return 'DirectIncome';
-          }
-
-          return 'IndirectIncome';
+          return 'OtherRevenue';
         }
 
         if (category === 'Expense') {
-          if (
-            normalizedSubGroupName.includes('indirect') ||
-            normalizedSubGroupName.includes('administrative') ||
-            normalizedSubGroupName.includes('finance') ||
-            normalizedSubGroupName.includes('office') ||
-            normalizedSubGroupName.includes('selling') ||
-            normalizedSubGroupName.includes('general') ||
-            normalizedSubGroupName.includes('bank') ||
-            normalizedLedgerName.includes('bank charges') ||
-            normalizedLedgerName.includes('courier') ||
-            searchText.includes('indirect')
-          ) {
-            return 'IndirectExpense';
-          }
-
-          if (
-            normalizedSubGroupName.includes('direct') ||
-            normalizedLedgerName.includes('direct')
-          ) {
-            return 'DirectExpense';
-          }
-
-          return 'DirectExpense';
+          return 'OtherCost';
         }
 
         return 'Unknown';
@@ -1760,7 +1750,8 @@ export class AccountsReportsService {
       for (const vt of voucherTransactions) {
         if (!vt.coaMaster) continue;
 
-        const { Category, GroupName, SubGroupName, LedgerName } = vt.coaMaster;
+        const { Category, GroupName, SubGroupName, LedgerName, LedgerType } =
+          vt.coaMaster;
         const yearCode = String(
           vt.yearMaster?.YearCode ?? new Date(vt.VoucherDate).getFullYear(),
         );
@@ -1771,6 +1762,7 @@ export class AccountsReportsService {
           GroupName,
           SubGroupName,
           LedgerName,
+          LedgerType,
         );
 
         const amount = vt.LocalAmount.toNumber();
@@ -1803,6 +1795,7 @@ export class AccountsReportsService {
               SubGroupName,
             ),
             LedgerName,
+            LedgerType,
             amounts: {} as Record<string, number>,
           });
         }
@@ -1831,8 +1824,8 @@ export class AccountsReportsService {
       const bucketedRows = {
         DirectIncome: [] as any[],
         DirectExpense: [] as any[],
-        IndirectIncome: [] as any[],
-        IndirectExpense: [] as any[],
+        OtherRevenue: [] as any[],
+        OtherCost: [] as any[],
       };
 
       for (const row of groupedRows) {
@@ -1862,6 +1855,7 @@ export class AccountsReportsService {
             GroupName: row.GroupName,
             SubGroupName: row.SubGroupName,
             LedgerName: row.LedgerName,
+            LedgerType: row.LedgerType,
           };
         });
       };
@@ -1883,18 +1877,18 @@ export class AccountsReportsService {
 
       const directIncomeRows = bucketedRows.DirectIncome;
       const directExpenseRows = bucketedRows.DirectExpense;
-      const indirectIncomeRows = bucketedRows.IndirectIncome;
-      const indirectExpenseRows = bucketedRows.IndirectExpense;
+      const otherRevenueRows = bucketedRows.OtherRevenue;
+      const otherCostRows = bucketedRows.OtherCost;
 
       const totalIncomeRow = buildTotalRow('Total Income', directIncomeRows);
       const totalExpenseRow = buildTotalRow('Total Expenses', directExpenseRows);
-      const totalOtherIncomeRow = buildTotalRow(
-        'Total Other Income',
-        indirectIncomeRows,
+      const totalOtherRevenueRow = buildTotalRow(
+        'Total Other Revenue',
+        otherRevenueRows,
       );
-      const totalIndirectExpenseRow = buildTotalRow(
-        'Total Indirect Expenses',
-        indirectExpenseRows,
+      const totalOtherCostRow = buildTotalRow(
+        'Total Other Cost',
+        otherCostRows,
       );
 
       const grossProfitAmounts = createAmountMap(yearKeys);
@@ -1909,8 +1903,8 @@ export class AccountsReportsService {
 
         netProfitAmounts[yearKey] = roundAmount(
           grossProfitAmounts[yearKey] +
-            (totalOtherIncomeRow.amounts[yearKey] || 0) -
-            (totalIndirectExpenseRow.amounts[yearKey] || 0),
+            (totalOtherRevenueRow.amounts[yearKey] || 0) -
+            (totalOtherCostRow.amounts[yearKey] || 0),
           2,
         );
       }
@@ -1951,10 +1945,40 @@ export class AccountsReportsService {
         ...toDetailRows(directExpenseRows),
         totalExpenseRow,
         grossProfitRow,
-        ...toDetailRows(indirectIncomeRows),
-        ...toDetailRows(indirectExpenseRows),
         netProfitRow,
       ];
+
+      if (otherRevenueRows.length > 0) {
+        profitLoss.splice(
+          profitLoss.length - 1,
+          0,
+          {
+            rowType: 'section',
+            sectionLabel: 'Other Revenue',
+            groupLabel: '',
+            ledgerLabel: '',
+            amounts: createAmountMap(yearKeys),
+          },
+          ...toDetailRows(otherRevenueRows),
+          totalOtherRevenueRow,
+        );
+      }
+
+      if (otherCostRows.length > 0) {
+        profitLoss.splice(
+          profitLoss.length - 1,
+          0,
+          {
+            rowType: 'section',
+            sectionLabel: 'Other Cost',
+            groupLabel: '',
+            ledgerLabel: '',
+            amounts: createAmountMap(yearKeys),
+          },
+          ...toDetailRows(otherCostRows),
+          totalOtherCostRow,
+        );
+      }
 
       return {
         CompanyMasterSid,
@@ -1969,16 +1993,12 @@ export class AccountsReportsService {
           totalIncome: totalIncomeRow.amounts,
           totalExpenses: totalExpenseRow.amounts,
           grossProfit: grossProfitRow.amounts,
-          totalOtherIncome: totalOtherIncomeRow.amounts,
-          totalIndirectExpenses: totalIndirectExpenseRow.amounts,
+          totalOtherRevenue: totalOtherRevenueRow.amounts,
+          totalOtherCost: totalOtherCostRow.amounts,
           netProfit: netProfitRow.amounts,
         },
       };
     } catch (error) {
-      this.logger.error(
-        `Error getting customer profit and loss for ${CompanyMasterSid}: ${error.message}`,
-        error.stack,
-      );
       throw error;
     }
   }
@@ -2299,10 +2319,326 @@ export class AccountsReportsService {
 
       return response;
     } catch (error) {
-      this.logger.error(
-        `Error getting ledger for ${ledgerMasterSid}: ${error.message}`,
-        error.stack,
+      throw error;
+    }
+  }
+
+  private async generateLedgerCurrencyReport(params: LedgerReportQueryDto) {
+     const {
+      FromDate,
+      ToDate,
+      Subledger: ledgerMasterSid,
+      Ledger: coaMasterSid,
+      Branch: branchId,
+      companyId: CompanyMasterSid,
+      VoucherType: voucherType,
+    } = params;
+
+    try {
+      this.logger.log(
+        `Getting ledger report: CompanySid=${CompanyMasterSid}, LedgerMasterSid=${ledgerMasterSid}`,
       );
+
+      const branches =
+        branchId && branchId.length > 0
+          ? await this._db.branchMaster.findMany({
+              where: { BranchMasterSid: { in: branchId } },
+              select: {
+                BranchMasterSid: true,
+                branchName: true,
+              },
+            })
+          : await this._db.branchMaster.findMany({
+              where: { CompanyMasterSid },
+              select: {
+                BranchMasterSid: true,
+                branchName: true,
+              },
+            });
+
+      const resolvedBranchIds = branches.map((b) => b.BranchMasterSid);
+      const resolvedBranchNames = branches.map((b) => b.branchName);
+      const branchInvolved =
+        branchId && branchId.length > 0
+          ? branches.map((b) => b.branchName).join(', ')
+          : 'All Branches';
+      const subledger = ledgerMasterSid
+        ? await this._db.subledgerMaster.findUnique({
+            where: { SubledgerMasterSid: ledgerMasterSid },
+          })
+        : null;
+
+      const ledger = coaMasterSid
+        ? await this._db.cOAMaster.findUnique({
+            where: { COAMasterSid: coaMasterSid },
+          })
+        : null;
+
+      const userMaster = await this._db.userMaster.findMany({
+        select: {
+          UserMasterSid: true,
+          userName: true,
+        },
+      });
+
+      const voucherTypeMaster = voucherType
+        ? await this._db.voucherTypeMaster.findUnique({
+            where: { VoucherTypeMasterSid: Number(voucherType) },
+            select: {
+              VoucherTypeMasterSid: true,
+              DocumentTypeCode: true,
+            },
+          })
+        : null;
+
+      const openingTransactions = await this._db.voucherTransaction.findMany({
+        where: {
+          CompanyMasterSid,
+          BranchMasterSid: { in: resolvedBranchIds },
+          VoucherDate: { lt: FromDate },
+          ...(coaMasterSid && { COAMasterSid: coaMasterSid }),
+          ...(ledgerMasterSid && { LedgerMasterSid: ledgerMasterSid }),
+          ...(voucherType && {
+            VoucherTypeMasterSid: Number(voucherType),
+          }),
+          VoucherHeader: {
+            PostStatus: 'P',
+          },
+          Status: 'A',
+        },
+      });
+
+      let openingBalance = 0;
+
+      for (const vt of openingTransactions) {
+        // opening balance before take from date and  Amt
+        const amt = toNumber(vt.Amount);
+        const drCr = vt.DrCr?.trim().toUpperCase();
+        let signedAmt = amt;
+        if (ledger?.LedgerType?.trim() === 'Sy Cr') {
+          if (drCr === 'D') signedAmt = -amt;
+          if (drCr === 'C') signedAmt = +amt;
+        } else if (ledger?.LedgerType?.trim() === 'Sy Dr') {
+          if (drCr === 'C') signedAmt = -amt;
+          if (drCr === 'D') signedAmt = +amt;
+        } else {
+          if (drCr === 'D') signedAmt = +amt;
+          if (drCr === 'C') signedAmt = -amt;
+        }
+        openingBalance += signedAmt;
+      }
+
+      openingBalance = roundAmount(openingBalance, 2);
+
+      const voucherTransactions = await this._db.voucherTransaction.findMany({
+        where: {
+          CompanyMasterSid: CompanyMasterSid,
+          BranchMasterSid: { in: resolvedBranchIds },
+          AND: [
+            { VoucherDate: { gte: FromDate } },
+            { VoucherDate: { lte: ToDate } },
+          ],
+          ...(coaMasterSid && { COAMasterSid: coaMasterSid }),
+          ...(ledgerMasterSid && { LedgerMasterSid: ledgerMasterSid }),
+          ...(voucherType && {
+            VoucherTypeMasterSid: Number(voucherType),
+          }),
+          VoucherHeader: {
+            PostStatus: 'P',
+          },
+
+          Status: 'A',
+        },
+        include: {
+          VoucherHeader: {
+            select: {
+              PostStatus: true,
+            },
+          },
+          masterJob: true,
+          houseJob: true,
+          departmentMaster: {
+            select: { departmentName: true },
+          },
+          voucherMatchings: {
+            where: {
+              Status: 'A',
+              VoucherMatchingDate: {
+                lte: ToDate,
+              },
+            },
+          },
+          voucherTypeMaster: {
+            select: { DocumentTypeCode: true },
+          },
+        },
+        orderBy: {
+          VoucherDate: 'asc',
+        },
+      });
+
+      if (voucherTransactions.length === 0) {
+        this.logger.log(
+          `No Ledger Report found for LedgerMasterSid ${ledgerMasterSid}`,
+        );
+        return {
+          companyMasterSid: CompanyMasterSid,
+          branchMasterSid: branchId,
+          ledgerMasterSid: ledgerMasterSid || null,
+          COAMasterSid: coaMasterSid || null,
+          subledgerName: subledger?.SubledgerName,
+          ledgerName: ledger?.LedgerName,
+          ledgerType: ledger?.LedgerType,
+          totalOutstandingCurrency: 0,
+          totalOutstandingLocal: 0,
+          openingBalance: openingBalance,
+          voucherCount: 0,
+          transactions: [],
+          branchNames: resolvedBranchNames.join(', '),
+          voucherTypeName: voucherTypeMaster?.DocumentTypeCode || 'All Vouchers',
+          branchInvolved,
+          params: params,
+        };
+      }
+
+      // Calculate outstanding for each transaction
+      const transactions: any[] = [];
+      let totalOutstandingCurrency = 0;
+      let totalOutstandingLocal = 0;
+      let cumulativeTotal = openingBalance;
+      for (const vt of voucherTransactions) {
+        const originalCurrencyAmount = toNumber(vt.Amount);
+        let originalLocalAmount = toNumber(vt.LocalAmount);
+        const localAmt = toNumber(vt.LocalAmount)
+      
+        // Sum matched amounts for this transaction
+        let matchedCurrencyAmount = 0;
+        let matchedLocalAmount = 0;
+
+        if (vt.voucherMatchings && vt.voucherMatchings.length > 0) {
+          matchedCurrencyAmount = vt.voucherMatchings.reduce(
+            (sum, m) => sum + toNumber(m.Amount),
+            0,
+          );
+          matchedLocalAmount = vt.voucherMatchings.reduce(
+            (sum, m) => sum + toNumber(m.LocalAmount),
+            0,
+          );
+        }
+
+        const outstandingCurrencyAmount = roundAmount(
+          originalCurrencyAmount - matchedCurrencyAmount,
+          2,
+        );
+        const outstandingLocalAmount = roundAmount(
+          originalLocalAmount - matchedLocalAmount,
+          2,
+        );
+        const ledgerType = ledger?.LedgerType?.trim();
+        const drCrValue = vt.DrCr?.trim().toUpperCase();
+
+        const drCr = vt.DrCr?.toUpperCase();
+        let signedAmount = originalCurrencyAmount;
+        if (ledger?.LedgerType?.trim() === 'Sy Cr') {
+          if (drCr === 'C') signedAmount = +originalCurrencyAmount;
+          if (drCr === 'D') signedAmount = -originalCurrencyAmount;
+        } else if (ledger?.LedgerType?.trim() === 'Sy Dr') {
+          if (drCr === 'D') signedAmount = +originalCurrencyAmount;
+          if (drCr === 'C') signedAmount = -originalCurrencyAmount;
+        } else {
+          if (drCr === 'D') signedAmount = +originalCurrencyAmount;
+          if (drCr === 'C') signedAmount = -originalCurrencyAmount;
+        }
+
+        cumulativeTotal += signedAmount;
+        cumulativeTotal = roundAmount(cumulativeTotal, 2);
+
+        let sign = 1;
+        if (
+          (ledgerType === 'Sy Cr' && drCrValue === 'D') ||
+          (ledgerType === 'Sy Dr' && drCrValue === 'C')
+        ) {
+          sign = -1;
+        }
+        const signedOriginalCurrency = sign * originalCurrencyAmount;
+        const signedOutstandingCurrency = sign * outstandingCurrencyAmount;
+        const signedLocalAmt = sign * originalLocalAmount;
+        const signedoutstandingLocalAmount = sign * outstandingLocalAmount;
+
+        // Calculate exchange rate
+        const exchangeRate =
+          originalCurrencyAmount !== 0
+            ? roundAmount(originalLocalAmount / originalCurrencyAmount, 4)
+            : 1.0;
+
+        // Only include if there's outstanding balance
+
+        transactions.push({
+          voucherTransactionSid: vt.VoucherTransactionSid,
+          voucherHeaderSid: vt.VoucherHeaderSid,
+          voucherDetailSid: vt.VoucherDetailSid,
+          voucherNumber: vt.VoucherNumber,
+          voucherDate: vt.VoucherDate,
+          voucherTypeMasterSid: vt.VoucherTypeMasterSid,
+          ledgerMasterSid: vt.LedgerMasterSid!,
+          coaMasterSid: vt.COAMasterSid!,
+          MasterJobNumber: vt.masterJob?.MasterJobNumber,
+          HouseJobNumber: vt.houseJob?.HBLNo,
+          voucherType: vt.voucherTypeMaster?.DocumentTypeCode,
+          originalCurrencyAmount: toNumber(originalCurrencyAmount),
+          originalLocalAmount: toNumber(originalLocalAmount),
+          matchedCurrencyAmount: toNumber(matchedCurrencyAmount),
+          matchedLocalAmount: toNumber(matchedLocalAmount),
+          outstandingCurrencyAmount: outstandingCurrencyAmount,
+          outstandingLocalAmount: outstandingLocalAmount,
+          currencyCode: vt.CurrencyCode || 'USD',
+          exchangeRate: toNumber(vt.ExchangeRate || 1),
+          drCr: vt.DrCr,
+          chargeDescription: vt.ChargeDescription || '',
+          deptname:
+            vt.departmentMaster?.departmentName &&
+            !vt.departmentMaster.departmentName.toLowerCase().includes('air')
+              ? vt.departmentMaster.departmentName
+              : null,
+          salesmanSid:
+            userMaster.find((u) => u.UserMasterSid === vt.houseJob?.SalesmanSid)
+              ?.userName || '',
+          naration: vt.Narration,
+          cumulativeOutstanding: cumulativeTotal,
+          signedOriginalCurrency: toNumber(signedOriginalCurrency),
+          signedOutstandingCurrency: toNumber(signedOutstandingCurrency),
+          signedLocalAmt: toNumber(signedLocalAmt),
+          signedoutstandingLocalAmount: toNumber(signedoutstandingLocalAmount),
+        });
+
+        totalOutstandingCurrency += outstandingCurrencyAmount;
+        totalOutstandingLocal += outstandingLocalAmount;
+      }
+
+      const response = {
+        companyMasterSid: CompanyMasterSid,
+        branchMasterSid: branchId,
+        branchInvolved,
+        ledgerMasterSid: ledgerMasterSid!,
+        subledgerName: subledger?.SubledgerName,
+        ledgerName: ledger?.LedgerName,
+        ledgerType: ledger?.LedgerType,
+        totalOutstandingCurrency: roundAmount(totalOutstandingCurrency, 2),
+        totalOutstandingLocal: roundAmount(totalOutstandingLocal, 2),
+        openingBalance: openingBalance,
+        voucherCount: transactions.length,
+        transactions: transactions,
+        branchNames: resolvedBranchNames.join(', '),
+        voucherTypeName: voucherTypeMaster?.DocumentTypeCode || 'All Vouchers',
+        params: params,
+      };
+
+      this.logger.log(
+        `ledger calculated: ${transactions.length} transactions, Total=${response.totalOutstandingLocal}`,
+      );
+
+      return response;
+    } catch (error) {
       throw error;
     }
   }
@@ -3299,10 +3635,6 @@ export class AccountsReportsService {
         params,
       };
     } catch (error) {
-      this.logger.error(
-        `Error generating Profit Summary Report: ${error.message}`,
-        error.stack,
-      );
       throw error;
     }
   }
@@ -4867,7 +5199,7 @@ export class AccountsReportsService {
               createStatementRow('Total Income', incomeTotal, 'summary'),
               ...expenseSummaryRows,
               createStatementRow('Total Expenses', expenseTotal, 'summary'),
-              createStatementRow('Net Profit / (Loss)', netProfit, 'summary'),
+              // createStatementRow('Net Profit / (Loss)', netProfit, 'summary'),
             ],
             workingCapitalBreakup: {
               receivables: receivablesBreakup,

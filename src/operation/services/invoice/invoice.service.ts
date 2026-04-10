@@ -177,7 +177,12 @@ export class InvoiceService {
                 where : { Status : 'A'}
               },
               containers:{
-                where:{Status:'A'}
+                where:{
+                  Status:'A', 
+                  houseJobProduct : { 
+                    some : { status : 'A'}
+                  }
+                }
               }
             }
           },
@@ -202,6 +207,8 @@ export class InvoiceService {
               Products:{
                 select:{
                   ShippingBillNo:true,
+                  MasterJobContainerSid:true,
+                  masterJobContainer:true
                 }
               }
             }
