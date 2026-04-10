@@ -398,19 +398,21 @@ export class JournalVoucherService {
                     }
                 });
 
-                // Update VoucherDetails with proper update logic
-if (payload.VoucherDetail && Array.isArray(payload.VoucherDetail)) {
+              if (payload.VoucherDetail && Array.isArray(payload.VoucherDetail)) {
     let sno = 1;
-    
+
+    const keptDetailSids: number[] = [];
+
     for (const detail of payload.VoucherDetail) {
-        const detailData = {
+        const detailData: any = {
             Sno: sno++,
             CompanyMasterSid: existing.CompanyMasterSid,
             BranchMasterSid: existing.BranchMasterSid,
             ChargeMasterSid: detail.ChargeMasterSid,
             ChargeDescription: detail.ChargeDescription || '',
-            HSSACMasterSid: detail.HSSACMasterSid,
-            ChargeUOMSid: detail.ChargeUOMSid,
+            HSSACMasterSid: detail.HSSACMasterSid || null,
+            Narration: detail.Narration || '',
+            ChargeUOMSid: detail.ChargeUOMSid || null,
             NumberOfUnit: detail.NumberOfUnit || 1,
             Rate: detail.Rate || 0,
             Amount: detail.Amount || 0,
@@ -424,70 +426,63 @@ if (payload.VoucherDetail && Array.isArray(payload.VoucherDetail)) {
             CurrencyMasterSid: detail.CurrencyMasterSid || currencyMasterSid,
             ExchangeRate: detail.ExchangeRate || payload.ExchangeRate || 1,
             DrCr: detail.DrCr || 'D',
-            LedgerMasterSid: detail.LedgerMasterSid,
-            COAMasterSid: detail.COAMasterSid,
-            DepartmentMasterSid: detail.DepartmentMasterSid,
-            MasterJobSid: detail.MasterJobSid || payload.MasterJobSid,
-            HouseJobSid: detail.HouseJobSid || payload.HouseJobSid,
-            CostCenter: detail.CostCenterMasterSid,
-            ProfitCenter: detail.ProfitCenterMasterSid,
+            LedgerMasterSid: detail.LedgerMasterSid || null,
+            COAMasterSid: detail.COAMasterSid || null,
+            DepartmentMasterSid: detail.DepartmentMasterSid || null,
+            MasterJobSid: detail.MasterJobSid || payload.MasterJobSid || null,
+            HouseJobSid: detail.HouseJobSid || payload.HouseJobSid || null,
+            CostCenter: detail.CostCenterMasterSid || null,
+            ProfitCenter: detail.ProfitCenterMasterSid || null,
+            YearMasterSid: detail.YearMasterSid || payload.YearMasterSid || null,
             UpdatedBy: payload.UpdatedBy || 'System',
             UpdatedOn: new Date(),
             Status: 'A'
         };
 
-        // ALWAYS UPDATE existing detail - don't create new records
         if (detail.VoucherDetailSid) {
-            await tx.voucherDetail.update({
-                where: { 
-                    VoucherDetailSid: detail.VoucherDetailSid
+            const updatedDetail = await tx.voucherDetail.update({
+                where: {
+                    VoucherDetailSid: Number(detail.VoucherDetailSid)
                 },
                 data: detailData
             });
+
+            keptDetailSids.push(updatedDetail.VoucherDetailSid);
+        } else {
+            const createdDetail = await tx.voucherDetail.create({
+                data: {
+                    VoucherHeaderSid,
+                    ...detailData,
+                    CreatedBy: payload.UpdatedBy || payload.CreatedBy || 'System'
+                }
+            });
+
+            keptDetailSids.push(createdDetail.VoucherDetailSid);
         }
     }
 
-    // Handle details that are not in the payload - mark them as deleted
-    const incomingDetailSids = payload.VoucherDetail
-        .map(d => d.VoucherDetailSid)
-        .filter(sid => sid); // Remove null/undefined
-
-    if (incomingDetailSids.length > 0) {
-        await tx.voucherDetail.updateMany({
-            where: {
-                VoucherHeaderSid,
-                VoucherDetailSid: { notIn: incomingDetailSids },
-                Status: 'A'
-            },
-            data: {
-                Status: 'D',
-                UpdatedBy: payload.UpdatedBy || 'System',
-                UpdatedOn: new Date()
-            }
-        });
-    }
+    await tx.voucherDetail.updateMany({
+        where: {
+            VoucherHeaderSid,
+            Status: 'A',
+            VoucherDetailSid: { notIn: keptDetailSids }
+        },
+        data: {
+            Status: 'D',
+            UpdatedBy: payload.UpdatedBy || 'System',
+            UpdatedOn: new Date()
+        }
+    });
 }
-                // Update VoucherOthers if provided
-                if (payload.VoucherOthers) {
-                    await tx.voucherOthers.updateMany({
-                        where: { VoucherHeaderSid },
-                        data: { Status: 'D' }
-                    });
-
-                    await tx.voucherOthers.create({
-                        data: {
-                            VoucherHeaderSid,
-                            ContainerNumber: payload.VoucherOthers.ContainerNumber || '',
-                            VoucherNote: payload.VoucherOthers.VoucherNote || '',
-                            Footer: payload.VoucherOthers.Footer || '',
-                            CreatedBy: payload.UpdatedBy || 'System',
-                            Status: 'A'
-                        }
-                    });
-                }
 
                 // Fetch updated journal voucher
-                return await this.fetchJournalVoucherById(VoucherHeaderSid, tx);
+const updatedVoucher = await this.fetchJournalVoucherById(VoucherHeaderSid, tx);
+
+return {
+  newVoucher: updatedVoucher,
+  VoucherHeaderSid: updatedVoucher.VoucherHeaderSid,
+  VoucherNumber: updatedVoucher.VoucherNumber,
+};
             });
         } catch (error) {
             this.logger.error(`Error updating journal voucher: ${error.message}`);
