@@ -2,15 +2,12 @@ import { BadRequestException, Injectable, Logger, NotFoundException } from '@nes
 import { ApprovalStatus, Prisma } from '@prisma/client';
 import { DatabaseService } from 'src/database/database.service';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
-import { VoucherService } from 'src/operation/services/voucher/voucher.service';
-import { DOC_TYPE_CODE } from 'src/common/config/voucher-type.config';
 
 @Injectable()
 export class PaymentRequestService {
   constructor(
     private readonly db: DatabaseService,
     private readonly logger: Logger,
-    private readonly voucherService: VoucherService,
   ) {}
 
   async createPaymentRequest(payload: any) {
@@ -51,29 +48,24 @@ export class PaymentRequestService {
         },
       });
 
+      const paymentRequestDetails = detailRows.map((item: any, index: number) =>
+        this.mapPaymentRequestDetail(item, payload, index + 1, payload.CreatedBy || 'System'),
+      );
+
       await tx.paymentRequestDetail.createMany({
-        data: detailRows.map((item: any, index: number) => ({
+        data: paymentRequestDetails.map((item: any) => ({
+          ...item,
           PaymentRequestSid: header.PaymentRequestSid,
-          CompanyMasterSid: Number(payload.CompanyMasterSid),
-          BranchMasterSid: Number(payload.BranchMasterSid),
-          SerialNumber: index + 1,
-          ChargeMasterSid: this.toNullableNumber(item.ChargeMasterSid),
-          ChargeDescription: item.ChargeDescription || '',
-          CostChargeUomSid: this.toNullableNumber(item.CostChargeUomSid || item.ChargeUOMSid),
-          CostCurrencyMasterSid: this.toNullableNumber(item.CostCurrencyMasterSid),
-          CostExchangeRate: this.toNullableDecimal(item.CostExchangeRate),
-          CostRate: this.toNullableDecimal(item.CostRate),
-          CostNumberOfUnit: this.toNullableDecimal(item.CostNumberOfUnit),
-          CostDrCr: item.CostDrCr || 'D',
-          CostAmount: this.toNullableDecimal(item.CostAmount),
-          CostLocalAmount: this.toNullableDecimal(item.CostLocalAmount),
-          CostAgentMasterSid: this.toNullableNumber(item.CostAgentMasterSid),
-          CostAgentBranchSid: this.toNullableNumber(item.CostAgentBranchSid),
-          CreatedBy: payload.CreatedBy || 'System',
         })),
       });
 
-      await this.linkSourceCharges(detailRows, header.PaymentRequestSid, payload.UpdatedBy || payload.CreatedBy, tx);
+      await this.linkSourceCharges(
+        detailRows,
+        header.PaymentRequestSid,
+        payload.UpdatedBy || payload.CreatedBy,
+        tx,
+        payload,
+      );
 
       return this.getPaymentRequestById(header.PaymentRequestSid, tx);
     });
@@ -99,7 +91,12 @@ export class PaymentRequestService {
     }
 
     return this.db.$transaction(async (tx) => {
-      await this.unlinkExistingSourceCharges(paymentRequestSid, payload.UpdatedBy || existing.UpdatedBy || existing.CreatedBy, tx);
+      await this.unlinkExistingSourceCharges(
+        paymentRequestSid,
+        payload.UpdatedBy || existing.UpdatedBy || existing.CreatedBy,
+        tx,
+        payload,
+      );
       await this.validateSourceChargesForPaymentRequest(detailRows, payload, tx, paymentRequestSid);
 
       await tx.paymentRequest.update({
@@ -124,30 +121,30 @@ export class PaymentRequestService {
         where: { PaymentRequestSid: paymentRequestSid },
       });
 
+      const paymentRequestDetails = detailRows.map((item: any, index: number) =>
+        this.mapPaymentRequestDetail(
+          item,
+          payload,
+          index + 1,
+          payload.UpdatedBy || existing.CreatedBy || 'System',
+          payload.UpdatedBy || 'System',
+        ),
+      );
+
       await tx.paymentRequestDetail.createMany({
-        data: detailRows.map((item: any, index: number) => ({
+        data: paymentRequestDetails.map((item: any) => ({
+          ...item,
           PaymentRequestSid: paymentRequestSid,
-          CompanyMasterSid: Number(payload.CompanyMasterSid),
-          BranchMasterSid: Number(payload.BranchMasterSid),
-          SerialNumber: index + 1,
-          ChargeMasterSid: this.toNullableNumber(item.ChargeMasterSid),
-          ChargeDescription: item.ChargeDescription || '',
-          CostChargeUomSid: this.toNullableNumber(item.CostChargeUomSid || item.ChargeUOMSid),
-          CostCurrencyMasterSid: this.toNullableNumber(item.CostCurrencyMasterSid),
-          CostExchangeRate: this.toNullableDecimal(item.CostExchangeRate),
-          CostRate: this.toNullableDecimal(item.CostRate),
-          CostNumberOfUnit: this.toNullableDecimal(item.CostNumberOfUnit),
-          CostDrCr: item.CostDrCr || 'D',
-          CostAmount: this.toNullableDecimal(item.CostAmount),
-          CostLocalAmount: this.toNullableDecimal(item.CostLocalAmount),
-          CostAgentMasterSid: this.toNullableNumber(item.CostAgentMasterSid),
-          CostAgentBranchSid: this.toNullableNumber(item.CostAgentBranchSid),
-          CreatedBy: payload.UpdatedBy || existing.CreatedBy || 'System',
-          UpdatedBy: payload.UpdatedBy || 'System',
         })),
       });
 
-      await this.linkSourceCharges(detailRows, paymentRequestSid, payload.UpdatedBy || existing.CreatedBy, tx);
+      await this.linkSourceCharges(
+        detailRows,
+        paymentRequestSid,
+        payload.UpdatedBy || existing.CreatedBy,
+        tx,
+        payload,
+      );
 
       return this.getPaymentRequestById(paymentRequestSid, tx);
     });
@@ -344,56 +341,157 @@ private async generatePaymentRequestNumber(
   paymentDate: Date,
   tx: any,
 ) {
-  try {
-    const voucherTypeMaster = await tx.voucherTypeMaster.findFirst({
-      where: {
-        CompanyMasterSid: companyMasterSid,
-        BranchMasterSid: branchMasterSid,
-        DocumentTypeCode: 'PRQ',
-        status: 'A',
-      },
-    });
-
-    if (!voucherTypeMaster?.MenuMasterSid) {
-      throw new BadRequestException('Payment request document type is not configured with a menu');
-    }
-
-    const currentYear = await tx.yearMaster.findFirst({
-      where: {
-        CompanyMasterSid: companyMasterSid,
-        status: 'A',
-        StartDate: { lte: paymentDate },
-        EndDate: { gte: paymentDate },
-      },
-      select: { YearMasterSid: true },
-    });
-
-    const yearMasterSid = currentYear?.YearMasterSid || (await tx.yearMaster.findFirst({
-      where: { CompanyMasterSid: companyMasterSid, CurrentYear: 'Y', status: 'A' },
-      select: { YearMasterSid: true },
-    }))?.YearMasterSid;
-
-    if (!yearMasterSid) {
-      throw new BadRequestException('Financial year not found');
-    }
-
-    return await this.voucherService.generateVoucherNumberFromConfig(
-      voucherTypeMaster,
-      companyMasterSid,
-      branchMasterSid,
-      yearMasterSid,
-      tx,
-      paymentDate,
-    );
-  } catch (error) {
-    this.logger.warn(`Payment request number series fallback used: ${error?.message}`);
-  }
-
-  const count = await tx.paymentRequest.count({
-    where: { CompanyMasterSid: companyMasterSid, BranchMasterSid: branchMasterSid },
+  const voucherTypeMaster = await tx.voucherTypeMaster.findFirst({
+    where: {
+      CompanyMasterSid: companyMasterSid,
+      BranchMasterSid: branchMasterSid,
+      DocumentTypeCode: 'PRQ',
+      status: 'A',
+    },
   });
 
-  return `PRQ-${branchMasterSid}-${String(count + 1).padStart(5, '0')}`;
+  if (!voucherTypeMaster) {
+    throw new BadRequestException('Active VoucherTypeMaster not found for payment request');
+  }
+
+  const currentYear = await tx.yearMaster.findFirst({
+    where: {
+      CompanyMasterSid: companyMasterSid,
+      status: 'A',
+      StartDate: { lte: paymentDate },
+      EndDate: { gte: paymentDate },
+    },
+    select: { YearMasterSid: true, StartDate: true, EndDate: true },
+  });
+
+  const fallbackYear = await tx.yearMaster.findFirst({
+    where: { CompanyMasterSid: companyMasterSid, CurrentYear: 'Y', status: 'A' },
+    select: { YearMasterSid: true, StartDate: true, EndDate: true },
+  });
+
+  const financialYear = currentYear || fallbackYear;
+  if (!financialYear?.YearMasterSid) {
+    throw new BadRequestException('Financial year not found');
+  }
+
+  return this.generatePaymentRequestNumberFromConfig(
+    voucherTypeMaster,
+    companyMasterSid,
+    branchMasterSid,
+    paymentDate,
+    financialYear,
+    tx,
+  );
+}
+
+private async generatePaymentRequestNumberFromConfig(
+  voucherTypeMaster: any,
+  companyMasterSid: number,
+  branchMasterSid: number,
+  paymentDate: Date,
+  financialYear: { YearMasterSid: number; StartDate: Date; EndDate: Date },
+  tx: any,
+): Promise<string> {
+  await tx.$queryRawUnsafe(`
+    SELECT "VoucherTypeMasterSid"
+    FROM "VoucherTypeMaster"
+    WHERE "VoucherTypeMasterSid" = ${voucherTypeMaster.VoucherTypeMasterSid}
+    FOR UPDATE
+  `);
+
+  const parts: string[] = [];
+  const separatorRaw = voucherTypeMaster.DocumentSeparator?.trim() ?? '-';
+  const separator = separatorRaw === 'None' || separatorRaw === '' ? '' : separatorRaw;
+  const date = new Date(paymentDate);
+  const resetValue = voucherTypeMaster.ResetValue?.toLowerCase()?.replace(/\s+/g, '');
+
+  if (voucherTypeMaster.CompanyFlag === 'Y') {
+    const company = await tx.companyMaster.findUnique({
+      where: { CompanyMasterSid: companyMasterSid },
+      select: { companyCode: true },
+    });
+    const companyValue = (voucherTypeMaster.CompanyValue || company?.companyCode || 'CO').trim();
+    parts.push(companyValue.substring(0, 3));
+  }
+
+  if (voucherTypeMaster.BranchFlag === 'Y') {
+    const branch = await tx.branchMaster.findUnique({
+      where: { BranchMasterSid: branchMasterSid },
+      select: { branchCode: true },
+    });
+    const branchValue = (voucherTypeMaster.BranchValue || branch?.branchCode || 'BR').trim();
+    parts.push(branchValue.substring(0, 3));
+  }
+
+  if (voucherTypeMaster.DocumentFlag === 'Y') {
+    const docValue = (voucherTypeMaster.DocumentValue || voucherTypeMaster.DocumentTypeCode || 'DOC').trim();
+    parts.push(docValue.substring(0, 5));
+  }
+
+  if (voucherTypeMaster.YearFlag === 'Y') {
+    parts.push(date.getFullYear().toString().substring(2, 4));
+  }
+
+  const partsBeforeMonth = [...parts];
+
+  if (voucherTypeMaster.MonthFlag === 'Y') {
+    parts.push((date.getMonth() + 1).toString().padStart(2, '0'));
+  }
+
+  const displayPrefix = parts.join(separator);
+  let queryPrefixParts = [...parts];
+  if (resetValue === 'year' && voucherTypeMaster.MonthFlag === 'Y') {
+    queryPrefixParts = partsBeforeMonth;
+  }
+  const queryPrefix = queryPrefixParts.join(separator);
+
+  const whereConditions: string[] = [
+    `"CompanyMasterSid" = ${companyMasterSid}`,
+    `"BranchMasterSid" = ${branchMasterSid}`,
+  ];
+
+  const escapedQueryPrefix = queryPrefix.replace(/'/g, "''");
+  whereConditions.push(`"PaymentRequestNumber" LIKE '${escapedQueryPrefix}${separator}%'`);
+
+  if (resetValue === 'financialyear') {
+    const fyStartDate = new Date(financialYear.StartDate).toISOString().split('T')[0];
+    const fyEndDate = new Date(financialYear.EndDate).toISOString().split('T')[0];
+    whereConditions.push(`"PaymentRequestDate"::date >= '${fyStartDate}'::date`);
+    whereConditions.push(`"PaymentRequestDate"::date <= '${fyEndDate}'::date`);
+  }
+
+  const slNoLength = Number(voucherTypeMaster.DocumentSLNoLength || 5);
+  const whereClause = whereConditions.join(' AND ');
+  const query = `
+    SELECT "PaymentRequestNumber"
+    FROM "PaymentRequest"
+    WHERE ${whereClause}
+    ORDER BY CAST(RIGHT("PaymentRequestNumber", ${slNoLength}) AS INTEGER) DESC
+    LIMIT 1
+    FOR UPDATE
+  `;
+
+  const result: any[] = await tx.$queryRawUnsafe(query);
+  const lastPaymentRequest = result[0];
+
+  let nextNumber = Number(voucherTypeMaster.DocumentStartingNo || 1);
+  if (lastPaymentRequest?.PaymentRequestNumber) {
+    const prefixToStrip = displayPrefix + separator;
+    const serialPart = lastPaymentRequest.PaymentRequestNumber.substring(prefixToStrip.length);
+    const parsed = parseInt(serialPart, 10);
+    if (!isNaN(parsed)) {
+      nextNumber = parsed + 1;
+    }
+  }
+
+  parts.push(String(nextNumber).padStart(slNoLength, '0'));
+  const paymentRequestNumber = parts.join(separator);
+
+  if (paymentRequestNumber.length > 20) {
+    throw new BadRequestException(`Generated payment request number exceeds 20 characters: ${paymentRequestNumber}`);
+  }
+
+  return paymentRequestNumber;
 }
 
 
@@ -401,9 +499,22 @@ private async generatePaymentRequestNumber(
     const directSourceId =
       this.toNullableNumber(detail?.SourceCostRevenueChargeSid) ||
       this.toNullableNumber(detail?.sourceCostRevenueCharge?.CostRevenueChargesSid) ||
+      this.toNullableNumber(detail?.sourceCostRevenueCharge?.BookingRatesSid) ||
       this.toNullableNumber(detail?.sourceCostRevenueCharge?.RateSid);
 
+    const isBookingSource = this.isBookingPaymentRequest(header);
+
     if (directSourceId) {
+      if (isBookingSource) {
+        return tx.bookingRates.findFirst({
+          where: {
+            BookingRatesSid: directSourceId,
+            CompanyMasterSid: header.CompanyMasterSid,
+            BranchMasterSid: header.BranchMasterSid,
+          },
+        });
+      }
+
       return tx.costRevenueCharges.findFirst({
         where: {
           CostRevenueChargesSid: directSourceId,
@@ -426,6 +537,26 @@ private async generatePaymentRequestNumber(
       this.toNullableNumber(header.MasterJobSid),
       this.toNullableNumber(header.HouseJobSid),
     ].filter(Boolean) as number[];
+
+    if (isBookingSource) {
+      return tx.bookingRates.findFirst({
+        where: {
+          CompanyMasterSid: header.CompanyMasterSid,
+          BranchMasterSid: header.BranchMasterSid,
+          ...(transactionCandidates.length
+            ? { BookingHeaderSid: { in: transactionCandidates } }
+            : {}),
+          ChargeMasterSid: detail.ChargeMasterSid ?? undefined,
+          AgentMasterSid: detail.CostAgentMasterSid ?? undefined,
+          AgentBranchSid: detail.CostAgentBranchSid ?? undefined,
+          CostCurrencyMasterSid: detail.CostCurrencyMasterSid ?? undefined,
+          CostRate: detail.CostRate ?? undefined,
+          CostAmount: detail.CostAmount ?? undefined,
+          CostLocalAmount: detail.CostLocalAmount ?? undefined,
+          Status: 'A',
+        },
+      });
+    }
 
     return tx.costRevenueCharges.findFirst({
       where: {
@@ -465,20 +596,36 @@ private async generatePaymentRequestNumber(
       return;
     }
 
-    const sourceRows = await tx.costRevenueCharges.findMany({
-      where: {
-        CostRevenueChargesSid: { in: sourceChargeIds },
-        CompanyMasterSid: Number(payload.CompanyMasterSid),
-        BranchMasterSid: Number(payload.BranchMasterSid),
-      },
-      select: {
-        CostRevenueChargesSid: true,
-        CostPrepaidCollect: true,
-        CostVoucherHeaderSid: true,
-        PaymentRequestSid: true,
-        CostAmount: true,
-      },
-    });
+    const isBookingSource = this.isBookingPaymentRequest(payload);
+    const sourceRows = isBookingSource
+      ? await tx.bookingRates.findMany({
+          where: {
+            BookingRatesSid: { in: sourceChargeIds },
+            CompanyMasterSid: Number(payload.CompanyMasterSid),
+            BranchMasterSid: Number(payload.BranchMasterSid),
+          },
+          select: {
+            BookingRatesSid: true,
+            CostPrepaidCollect: true,
+            CostVoucherHeaderSid: true,
+            PaymentRequestSid: true,
+            CostAmount: true,
+          },
+        })
+      : await tx.costRevenueCharges.findMany({
+          where: {
+            CostRevenueChargesSid: { in: sourceChargeIds },
+            CompanyMasterSid: Number(payload.CompanyMasterSid),
+            BranchMasterSid: Number(payload.BranchMasterSid),
+          },
+          select: {
+            CostRevenueChargesSid: true,
+            CostPrepaidCollect: true,
+            CostVoucherHeaderSid: true,
+            PaymentRequestSid: true,
+            CostAmount: true,
+          },
+        });
 
     if (sourceRows.length !== sourceChargeIds.length) {
       throw new BadRequestException('Some source cost rows were not found');
@@ -506,25 +653,77 @@ private async generatePaymentRequestNumber(
     }
   }
 
-  private async linkSourceCharges(detailRows: any[], paymentRequestSid: number, updatedBy: string | undefined, tx: any) {
-    const sourceChargeIds = this.extractSourceChargeIds(detailRows);
-    if (!sourceChargeIds.length) {
+  private async linkSourceCharges(
+    detailRows: any[],
+    paymentRequestSid: number,
+    updatedBy: string | undefined,
+    tx: any,
+    payload?: any,
+  ) {
+    const sourceChargeItems = this.extractSourceChargeItems(detailRows);
+    if (!sourceChargeItems.length) {
       return;
     }
 
-    await tx.costRevenueCharges.updateMany({
-      where: {
-        CostRevenueChargesSid: { in: sourceChargeIds },
-      },
-      data: {
-        PaymentRequestSid: paymentRequestSid,
-        updatedBy: updatedBy || 'System',
-        updatedOn: new Date(),
-      },
-    });
+    const isBookingSource = this.isBookingPaymentRequest(payload);
+
+    await Promise.all(
+      sourceChargeItems.map((item) =>
+        isBookingSource
+          ? tx.bookingRates.update({
+              where: {
+                BookingRatesSid: item.sourceChargeId,
+              },
+              data: {
+                PaymentRequestSid: paymentRequestSid,
+                CostExchangeRate: this.toNullableDecimal(item.CostExchangeRate),
+                CostRate: this.toNullableDecimal(item.CostRate),
+                CostNumberOfUnit: this.toNullableDecimal(item.CostNumberOfUnit),
+                CostAmount: this.toNullableDecimal(item.CostAmount),
+                CostLocalAmount: this.toNullableDecimal(item.CostLocalAmount),
+                UpdatedBy: updatedBy || 'System',
+                UpdatedOn: new Date(),
+              },
+            })
+          : tx.costRevenueCharges.update({
+              where: {
+                CostRevenueChargesSid: item.sourceChargeId,
+              },
+              data: {
+                PaymentRequestSid: paymentRequestSid,
+                CostExchangeRate: this.toNullableDecimal(item.CostExchangeRate),
+                CostRate: this.toNullableDecimal(item.CostRate),
+                CostNumberOfUnit: this.toNullableDecimal(item.CostNumberOfUnit),
+                CostAmount: this.toNullableDecimal(item.CostAmount),
+                CostLocalAmount: this.toNullableDecimal(item.CostLocalAmount),
+                updatedBy: updatedBy || 'System',
+                updatedOn: new Date(),
+              },
+            }),
+      ),
+    );
   }
 
-  private async unlinkExistingSourceCharges(paymentRequestSid: number, updatedBy: string | undefined, tx: any) {
+  private async unlinkExistingSourceCharges(
+    paymentRequestSid: number,
+    updatedBy: string | undefined,
+    tx: any,
+    payload?: any,
+  ) {
+    if (this.isBookingPaymentRequest(payload)) {
+      await tx.bookingRates.updateMany({
+        where: {
+          PaymentRequestSid: paymentRequestSid,
+        },
+        data: {
+          PaymentRequestSid: null,
+          UpdatedBy: updatedBy || 'System',
+          UpdatedOn: new Date(),
+        },
+      });
+      return;
+    }
+
     await tx.costRevenueCharges.updateMany({
       where: {
         PaymentRequestSid: paymentRequestSid,
@@ -545,12 +744,61 @@ private async generatePaymentRequestNumber(
             this.toNullableNumber(
               item?.SourceCostRevenueChargeSid ||
               item?.sourceCostRevenueCharge?.CostRevenueChargesSid ||
+              item?.sourceCostRevenueCharge?.BookingRatesSid ||
               item?.CostRevenueChargesSid,
             ),
           )
           .filter((value: number | null): value is number => value !== null),
       ),
     );
+  }
+
+  private extractSourceChargeItems(detailRows: any[]) {
+    return (detailRows || [])
+      .map((item: any) => ({
+        ...item,
+        sourceChargeId: this.toNullableNumber(
+          item?.SourceCostRevenueChargeSid ||
+          item?.sourceCostRevenueCharge?.CostRevenueChargesSid ||
+          item?.sourceCostRevenueCharge?.BookingRatesSid ||
+          item?.CostRevenueChargesSid,
+        ),
+      }))
+      .filter((item: any) => item.sourceChargeId);
+  }
+
+  private isBookingPaymentRequest(payload: any) {
+    return !!this.toNullableNumber(payload?.BookingSid)
+      && !this.toNullableNumber(payload?.MasterJobSid)
+      && !this.toNullableNumber(payload?.HouseJobSid);
+  }
+
+  private mapPaymentRequestDetail(
+    item: any,
+    payload: any,
+    serialNumber: number,
+    createdBy: string,
+    updatedBy?: string,
+  ) {
+    return {
+      CompanyMasterSid: Number(payload.CompanyMasterSid),
+      BranchMasterSid: Number(payload.BranchMasterSid),
+      SerialNumber: serialNumber,
+      ChargeMasterSid: this.toNullableNumber(item.ChargeMasterSid),
+      ChargeDescription: item.ChargeDescription || '',
+      CostChargeUomSid: this.toNullableNumber(item.CostChargeUomSid || item.ChargeUOMSid),
+      CostCurrencyMasterSid: this.toNullableNumber(item.CostCurrencyMasterSid),
+      CostExchangeRate: this.toNullableDecimal(item.CostExchangeRate),
+      CostRate: this.toNullableDecimal(item.CostRate),
+      CostNumberOfUnit: this.toNullableDecimal(item.CostNumberOfUnit),
+      CostDrCr: item.CostDrCr || 'D',
+      CostAmount: this.toNullableDecimal(item.CostAmount),
+      CostLocalAmount: this.toNullableDecimal(item.CostLocalAmount),
+      CostAgentMasterSid: this.toNullableNumber(item.CostAgentMasterSid),
+      CostAgentBranchSid: this.toNullableNumber(item.CostAgentBranchSid),
+      CreatedBy: createdBy,
+      ...(updatedBy ? { UpdatedBy: updatedBy } : {}),
+    };
   }
 
   private toNullableNumber(value: any) {
