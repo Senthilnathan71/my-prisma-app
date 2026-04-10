@@ -164,6 +164,9 @@ export class InvoiceService {
             include : {
               voyages : {
                 where : { Status : 'A'}
+              },
+              containers:{
+                where:{Status:'A'}
               }
             }
           },
