@@ -10,6 +10,17 @@ import { VoucherService } from 'src/operation/services/voucher/voucher.service';
 import { VoucherPeriodService } from 'src/masters/services/voucher-period/voucher-period.service';
 import { DOC_TYPE_CODE } from 'src/common/config/voucher-type.config';
 
+export interface UninvoicedChargeForBooking {
+  CompanyMasterSid: number;
+  BranchMasterSid: number;
+  BookingHeaderSid ?: number;
+  RevenueCustomerBranchSid ?: number;
+  RevenueCustomerMasterSid ?: number;
+  transactionSid ?: number;
+  MenuMasterSid ?: number;
+  IsBooking: boolean;
+}
+
 @Injectable()
 export class InvoiceService {
   constructor(
@@ -948,42 +959,145 @@ if (detail.CostRevenueChargesSid) {
     return { items, totalCount };
   }
 
-async getUninvoicedRevenueCharges(payload: { 
-  CompanyMasterSid: number, 
-  BranchMasterSid: number,
-  transactionSid: number, 
-  MenuMasterSid: number,
-  RevenueCustomerBranchSid?: number,
-  RevenueCustomerMasterSid?: number
-}) {
+async getUninvoicedRevenueCharges(payload: UninvoicedChargeForBooking) {
   try {
     const { 
       CompanyMasterSid, 
-      BranchMasterSid, 
+      BranchMasterSid,
+      BookingHeaderSid, 
       transactionSid, 
       MenuMasterSid,
       RevenueCustomerBranchSid,
-      RevenueCustomerMasterSid 
+      RevenueCustomerMasterSid,
+      IsBooking 
     } = payload;
+
+    // Check if it is a request for booking rates
+    if(IsBooking) {
+      const whereCondition : Prisma.BookingRatesWhereInput = {
+        CompanyMasterSid : CompanyMasterSid,
+        BranchMasterSid : BranchMasterSid,
+        BookingHeaderSid : BookingHeaderSid,
+        RevenueVoucherHeaderSid: null,
+        Status: 'A',
+        CustomerMasterSid : RevenueCustomerMasterSid,
+        CustomerBranchSid : RevenueCustomerBranchSid
+      }
+
+      // Fetch booking rates
+      const charges = await this._db.bookingRates.findMany({
+        where: whereCondition,
+        include: {
+          customerMasterBP : {
+            select: {
+              CustomerMasterSid: true,
+              CustomerName: true,
+              PanType: true,
+              CustomerAddress1: true,
+              CustomerAddress2: true
+            }
+          },
+          customerBranch: {
+            select: {
+              CustomerBranchSid: true,
+              Address: true,
+              GSTNo: true,
+              Registered: true,
+              Zip_PostBox: true,
+              CustomerGstType: true,
+              stateMaster: {
+                select: {
+                  StateMasterSid: true,
+                  stateName: true,
+                  IsUnionTerritory: true
+                }
+              },
+              cityMaster: {
+                select: {
+                  cityName: true
+                }
+              }
+            },
+          },
+          revenueChargeUOMMaster: {
+            select: {
+              UOMMasterSid: true,
+              UOMCode: true,
+              UOMName: true
+            }
+          }
+        },
+        orderBy: {
+          SerialNumber: 'asc'
+        }
+      });
+
+      // Enriching booking rates with customer, currency and charge master
+      return await Promise.all(charges.map(async (charge) => {
+        const {customerMasterBP , customerBranch , revenueChargeUOMMaster,...bookingRate} = charge;
+
+        const revenueCurrencyMaster = charge.RevenueCurrencyMasterSid ? (
+          await this._db.currencyMaster.findUnique({
+            where: {
+              CurrencyMasterSid: charge.RevenueCurrencyMasterSid,
+              status: 'A'
+            },
+            select: {
+              CurrencyMasterSid: true,
+              currencyCode: true,
+              currencyName: true
+            }
+          })
+        ) : null;
+
+        const chargeMaster = charge.ChargeMasterSid ? ( 
+          await this._db.chargeMaster.findUnique({
+            where: {
+              ChargeMasterSid: charge.ChargeMasterSid,
+              Status: 'A'
+            },
+            select: {
+              ChargeMasterSid: true,
+              chargeName: true,
+              chargeCode: true,
+              UOM: true,
+              HSNSAC: true,
+              chargeTaxMaster: {
+                where: { Status: 'A' },
+                select: {
+                  ChargeTaxMasterSid: true,
+                  HSNCode: true,
+                  HSSACMasterSid: true,
+                  TaxRate: true,
+                  TaxGroup: true
+                }
+              }
+            }
+          })
+         ) : null;
+
+        return {
+          ...bookingRate,
+          revenueCustomerMaster : customerMasterBP,
+          revenueCustomerBranch : customerBranch,
+          revenueCurrencyMaster,
+          chargeMaster,
+          revenueChargeUOMMaster : revenueChargeUOMMaster,
+        }
+      }));
+    }
     
     // Build where condition
-    const whereCondition: any = {
+    const whereCondition: Prisma.CostRevenueChargesWhereInput = {
       TransactionSid: transactionSid,
       MenuMasterSid,
       CompanyMasterSid,
       BranchMasterSid,
       status: 'A',
-      RevenueVoucherHeaderSid: null
+      RevenueVoucherHeaderSid: null,
+      ...(RevenueCustomerMasterSid ? { RevenueCustomerMasterSid } : {}),
+      ...(RevenueCustomerBranchSid ? { RevenueCustomerBranchSid } : {})
     };
-
-    // Add customer filters if provided
-    if (RevenueCustomerMasterSid) {
-      whereCondition.RevenueCustomerMasterSid = RevenueCustomerMasterSid;
-    }
-    
-    if (RevenueCustomerBranchSid) {
-      whereCondition.RevenueCustomerBranchSid = RevenueCustomerBranchSid;
-    }
     
     const charges = await this._db.costRevenueCharges.findMany({
       where: whereCondition,
@@ -1026,15 +1140,6 @@ async getUninvoicedRevenueCharges(payload: {
             currencyName: true
           }
         },
-        // chargeSubledgerMaster:{
-          
-        //   select : {
-        //     SubledgerMasterSid : true,
-        //     SubledgerName : true,
-        //     CrCOAMasterSid: true,
-        //   }
-        // },
-       
         chargeMaster: {
           select: {
             ChargeMasterSid: true,
@@ -1054,7 +1159,6 @@ async getUninvoicedRevenueCharges(payload: {
             }
           }
         },
-        
         revenueChargeUOMMaster: {
           select: {
             UOMMasterSid: true,

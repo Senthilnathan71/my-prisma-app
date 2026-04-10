@@ -255,16 +255,26 @@ export class InvoiceController {
 async getUninvoicedRevenueCharges(@Body() payload: {
   CompanyMasterSid: number,
   BranchMasterSid: number,
-  transactionSid: number,
-  MenuMasterSid: number,
+  IsBooking : boolean,
+  BookingHeaderSid?: number,
+  transactionSid?: number,
+  MenuMasterSid?: number,
   RevenueCustomerBranchSid?: number,
-  RevenueCustomerMasterSid?: number
+  RevenueCustomerMasterSid?: number,
 }) {
   const output = new ResponseData();
   try {
-    if (!payload.transactionSid || !payload.MenuMasterSid) {
-      throw new BadRequestException('transactionSid and MenuMasterSid are required');
+    let data;
+    if(payload.IsBooking){
+      if(!payload.BookingHeaderSid) {
+        throw new BadRequestException('BookingHeaderSid is required');
+      }
+    } else {
+      if (!payload.transactionSid || !payload.MenuMasterSid) {
+        throw new BadRequestException('transactionSid and MenuMasterSid are required');
+      }
     }
+
     
     const charges = await this.invoiceService.getUninvoicedRevenueCharges(payload);
     
