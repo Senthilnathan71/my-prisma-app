@@ -9,6 +9,7 @@ import { DOC_TYPE_CODE } from 'src/common/config/voucher-type.config';
 import { addDaysCalendar, statusWhereClause } from 'src/common/helper';
 import { DatabaseService } from 'src/database/database.service';
 import { CreditLimitDto, CreditSummaryDto, OutstandingDto, ValidateBLDODto, ValidateCreditDto } from 'src/masters/DTO/credit-limit.dto';
+import { CompanyConfigService } from 'src/masters/services/company/company-config.service';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 enum CustomerType {
   CASH = 'CASH',
@@ -129,6 +130,7 @@ export class CreditRequestService {
       private _db: DatabaseService,
       private logger: Logger,
       private globalConfigService: GlobalConfigService,
+      private companyConfigService: CompanyConfigService,
       private outstandingService: OutstandingService,
       private accountsReportsService: AccountsReportsService,
     ) { }
@@ -1119,6 +1121,24 @@ export class CreditRequestService {
   ): Promise<BLDOValidationResult> {
     try {
       const customerType = await this.getCustomerType(dto.CustomerMasterSid);
+      const isCreditRequestCheckingEnabled = await this.isCreditRequestCheckingEnabled(
+        dto.CompanyMasterSid,
+      );
+
+      if (!isCreditRequestCheckingEnabled) {
+        return {
+          IsValid: true,
+          Errors: [],
+          CustomerType: customerType,
+          CreditLimit: 0,
+          CreditDays: 0,
+          RemainingCreditLimit: null,
+          TotalOutstandingLocal: 0,
+          SelectedCreditRequestSid: null,
+          ViolatingVouchers: [],
+        };
+      }
+
       const customerCurrencyCode = await this.getCustomerCurrencyCode(dto.CustomerMasterSid);
       let effectiveCustomerType = customerType;
       const currentDate = new Date();
@@ -1300,6 +1320,20 @@ export class CreditRequestService {
       effectiveTo: credit.EffectiveTo,
       approvalStatus: credit.ApprovalStatus,
     };
+  }
+
+  private async isCreditRequestCheckingEnabled(companyMasterSid: number): Promise<boolean> {
+    const configValue = await this.companyConfigService.getConfigurationValue(
+      companyMasterSid,
+      'CreditRequestChecking',
+    );
+
+    if (configValue === null || configValue === undefined) {
+      return false;
+    }
+
+    const normalized = String(configValue).trim().toUpperCase();
+    return ['Y', 'YES', 'TRUE', '1'].includes(normalized);
   }
 
   private processInvoicesWithPayments(invoices: any[], payments: any[]): OutstandingInvoice[] {
