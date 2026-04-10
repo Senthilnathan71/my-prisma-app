@@ -899,7 +899,7 @@ export class EnquiryHeaderService {
         };
     }
 
-    async getAuditLogs('tableName: string, recordId?: string) {
+    async getAuditLogs(tableName: string, recordId?: string) {
         try {
             const whereClause: any = { tableName };
             if (recordId) whereClause.recordId = recordId;
