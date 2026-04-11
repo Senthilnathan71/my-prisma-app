@@ -2005,7 +2005,9 @@ export class HouseJobService {
                 ? {
                     departmentMaster: {
                         departmentType: {
-                            equals: departmentType.toUpperCase(), // SEA / AIR
+                            in: Array.isArray(departmentType)
+                                ? departmentType.map((d: string) => d.toUpperCase())
+                                : [departmentType.toUpperCase()],
                             mode: 'insensitive',
                         },
                     },
