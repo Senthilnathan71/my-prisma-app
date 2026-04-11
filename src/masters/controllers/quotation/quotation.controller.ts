@@ -233,6 +233,30 @@ export class QuotationController {
         return output
     }
 
+    @Post('get-enquiry-for-quote')
+    async getEnquiryForQuoteCreation(@Body() payload: {
+        CompanyMasterSid: number,
+        BranchMasterSid: number,
+        EnquiryHeaderSid : number
+    }) {
+        const output = new ResponseData
+        try {
+            const enquiry = await this.quotationService.getEnquiryForQuoteCreation(payload);
+            this.logger.debug(`Fetching Enquiry data for Quotation Creation : ${JSON.stringify(enquiry)}`)
+            output.data = enquiry;
+            output.message = "Enquiry data for quote creation is successfully fetched";
+        } catch (error) {
+            this.logger.warn(`getEnquiryForQuoteCreation: ${JSON.stringify(error), error}`)
+            output.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                output.message = error.message;
+            } else {
+                output.message = error;
+            }
+        }
+        return output
+    }
+
 
 
     @Post('unit-currency-charge')

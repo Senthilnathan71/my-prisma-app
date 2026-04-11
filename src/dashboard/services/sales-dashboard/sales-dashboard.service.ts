@@ -58,7 +58,6 @@ export class SalesDashboardService {
       quotesNoBooking,
       summaryKpis,
       leadSourceDistribution,
-      leadSourceEffectiveness,
       leadAgeCohorts,
       funnelCounts,
     ] = await Promise.all([
@@ -73,7 +72,6 @@ export class SalesDashboardService {
       this.getQuotesNoBookingPage(query),
       this.getSummaryKpis(query),
       this.getLeadSourceDistribution(query),
-      this.getLeadSourceEffectiveness(query),
       this.getLeadAgeCohorts(query),
       this.getLeadMilestoneFunnelCounts(query),
     ]);
@@ -98,7 +96,6 @@ export class SalesDashboardService {
           future: meetingsScheduled.future.totalCount,
         },
         leadSourceDistribution,
-        leadSourceEffectiveness,
         leadAgeCohorts,
       },
     };
@@ -155,7 +152,6 @@ export class SalesDashboardService {
       quotesNoBookingCount,
       summaryKpis,
       leadSourceDistribution,
-      leadSourceEffectiveness,
       leadAgeCohorts,
       funnelCounts,
     ] = await Promise.all([
@@ -368,7 +364,6 @@ export class SalesDashboardService {
       ),
       this.getSummaryKpis(query),
       this.getLeadSourceDistribution(query),
-      this.getLeadSourceEffectiveness(query),
       this.getLeadAgeCohorts(query),
       this.getLeadMilestoneFunnelCounts(query),
     ]);
@@ -410,7 +405,6 @@ export class SalesDashboardService {
           future: Number(s2.future) || 0,
         },
         leadSourceDistribution,
-        leadSourceEffectiveness,
         leadAgeCohorts,
       },
     };
@@ -1930,54 +1924,6 @@ export class SalesDashboardService {
     };
   }
 
-  private async getLeadSourceEffectiveness(query: SalesDashboardQueryDto) {
-    const {
-      companyMasterSid,
-      branchMasterSid,
-      salespersonEmail,
-      dateFrom,
-      dateTo,
-    } = this.normalizeParams(query);
-
-    const results: any[] = await this.db.$queryRawUnsafe(
-      `SELECT
-        COALESCE(NULLIF(TRIM(pcm."leadReferredBy"), ''), 'Unknown') AS "source",
-        COUNT(*) AS "totalLeads",
-        COUNT(cm."CustomerMasterSid") AS "convertedLeads"
-      FROM "PreCustomerMaster" pcm
-      LEFT JOIN "CustomerMaster" cm
-        ON cm."PreCustomerMasterSid" = pcm."PreCustomerMasterSid"
-        AND cm."status" = 'A'
-      WHERE
-        pcm."status" = 'A'
-        AND pcm."CompanyMasterSid" = $1
-        AND pcm."BranchMasterSid" = $2
-        AND ($3::text IS NULL OR pcm."createdBy" = $3)
-        AND ($4::timestamptz IS NULL OR pcm."createdOn" >= $4::timestamptz)
-        AND ($5::timestamptz IS NULL OR pcm."createdOn" <= $5::timestamptz)
-      GROUP BY COALESCE(NULLIF(TRIM(pcm."leadReferredBy"), ''), 'Unknown')
-      ORDER BY COUNT(*) DESC
-      LIMIT 10`,
-      companyMasterSid,
-      branchMasterSid,
-      salespersonEmail,
-      dateFrom,
-      dateTo,
-    );
-
-    return results.map((row) => {
-      const totalLeads = Number(row.totalLeads) || 0;
-      const convertedLeads = Number(row.convertedLeads) || 0;
-      return {
-        source: row.source || 'Unknown',
-        totalLeads,
-        convertedLeads,
-        conversionRate: totalLeads > 0
-          ? Math.round((convertedLeads / totalLeads) * 1000) / 10
-          : 0,
-      };
-    });
-  }
 
   private async getLeadAgeCohorts(query: SalesDashboardQueryDto) {
     const {

@@ -969,6 +969,163 @@ export class QuotationService {
         });
     }
 
+
+    async getEnquiryForQuoteCreation(payload: {
+        CompanyMasterSid: number,
+        BranchMasterSid: number,
+        EnquiryHeaderSid: number
+    }) {
+        try {
+
+            /* ================= FETCH ENQUIRY ================= */
+            const enquiry = await this._db.enquiryHeader.findFirst({
+                where: {
+                    CompanyMasterSid: payload.CompanyMasterSid,
+                    BranchMasterSid: payload.BranchMasterSid,
+                    EnquiryHeaderSid: payload.EnquiryHeaderSid,
+                    status: 'A'
+                },
+                include: {
+                    departmentMaster: {
+                        select: {
+                            departmentType: true,
+                            FCLLCL: true
+                        }
+                    },
+                    enquiryRoute: {
+                        where: { status: 'A' },
+                        include: {
+                            enquiryCargo: {
+                                where: { status: 'A' }
+                            }
+                        }
+                    },
+                    enquiryOther: true
+                }
+            });
+
+            if (!enquiry) {
+                throw new BadRequestException('Enquiry not found');
+            }
+
+            /* ================= SHIPMENT TYPE ================= */
+            let selectedFCLLCL: 'FCL' | 'LCL' | 'AIR' | null = null;
+
+            if (enquiry.departmentMaster?.departmentType === 'AIR') {
+                selectedFCLLCL = 'AIR';
+            } else if (enquiry.departmentMaster?.departmentType === 'SEA') {
+                selectedFCLLCL = enquiry.departmentMaster?.FCLLCL === 'LCL' ? 'LCL' : 'FCL';
+            }
+
+            /* ================= OPTIMIZATION (CACHE LOOKUPS) ================= */
+
+            // Collect unique container + package names
+            const containerNames = new Set<string>();
+            const packageNames = new Set<string>();
+
+            enquiry.enquiryRoute.forEach(route => {
+                route.enquiryCargo?.forEach(cargo => {
+                    if (cargo.ContainerType) containerNames.add(cargo.ContainerType);
+                    if (cargo.PackageType) packageNames.add(cargo.PackageType);
+                });
+            });
+
+            // Fetch all at once
+            const [containerTypes, packageTypes] = await Promise.all([
+                this._db.containerTypeMaster.findMany({
+                    where: {
+                        ContainerName: { in: Array.from(containerNames) },
+                        status: 'A'
+                    },
+                    select: {
+                        ContainerName: true,
+                        ContainerTypeMasterSid: true
+                    }
+                }),
+                this._db.packageTypeMaster.findMany({
+                    where: {
+                        PackageName: { in: Array.from(packageNames) },
+                        status: 'A'
+                    },
+                    select: {
+                        PackageName: true,
+                        PackageTypeMasterSid: true
+                    }
+                })
+            ]);
+
+            // Convert to map for O(1) lookup
+            const containerMap = new Map(
+                containerTypes.map(c => [c.ContainerName, c.ContainerTypeMasterSid])
+            );
+
+            const packageMap = new Map(
+                packageTypes.map(p => [p.PackageName, p.PackageTypeMasterSid])
+            );
+
+            /* ================= BUILD ROUTES ================= */
+
+            const enrichedRoutes = await Promise.all(
+                enquiry.enquiryRoute.flatMap(route =>
+                    (route.enquiryCargo || []).map(async (cargo) => {
+
+                        return {
+                            PORSid: route.PORSid,
+                            POLSid: route.POLSid,
+                            PODSid: route.PODSid,
+                            FPODSid: route.FDPSid,
+                            CargoType: cargo.CargoType,
+                            GrossWeight: cargo.GrossWeight,
+                            NetWeight: cargo.NetWeight,
+                            Volume: cargo.Volume,
+                            ContainerType: cargo.ContainerType ? containerMap.get(cargo.ContainerType)  : null,
+                            ContainerQty: cargo.Qty,
+                            ChargeableWeight: cargo.ChargeableWeight,
+                            PackageQty: cargo.PackageQty,
+                            PackageType: cargo.PackageType,
+                            PackageTypeId: cargo.PackageType ?  packageMap.get(cargo.PackageType) : null,
+                            ServiceLevel: enquiry.IncoTerms,
+                            ProductName: cargo.ProductName,
+                            length: cargo.length,
+                            width: cargo.width,
+                            height: cargo.height,
+                            Volumetric: cargo.Volumetric
+                        };
+                    })
+                )
+            );
+
+            /* ================= FINAL RESPONSE ================= */
+
+            return {
+                rateRequest: true,
+                EnquirySid: enquiry.EnquiryHeaderSid,
+                EnquiryNumber: enquiry.EnquiryNumber,
+                CustomerAddress: enquiry.CustomerAddress,
+                CustomerName: enquiry.CustomerName,
+                Email: enquiry.Email,
+                CustomerRef: enquiry.CustomerRef,
+                TransportBy: enquiry.TransportBy,
+                ClearanceBy: enquiry.ClearanceBy,
+                LeadOrCustomer: enquiry.LeadOrCustomer === 'C',
+                CustomerMasterSid: enquiry.CustomerMasterSid,
+                CustomerBranchSid: enquiry.CustomerBranchSid,
+                PreCustomerMasterSid: enquiry.PreCustomerMasterSid,
+                DepartmentMasterSid: enquiry.DepartmentMasterSid,
+                ContactPerson: enquiry.ContactPerson,
+                ContactNumber: enquiry.ContactNumber,
+                SalesmanSid: enquiry.UserMasterSid,
+                FreightPPCC: enquiry.FreightPPCC,
+                status: enquiry.status,
+                ShipmentType: selectedFCLLCL,
+                quoteRoutes: enrichedRoutes
+            };
+
+        } catch (error) {
+            throw error;
+        }
+    }
+
     async getAllMasters(CompanyMasterSid: number) {
         try {
             const [charges, units, currencies] = await this._db.$transaction([
