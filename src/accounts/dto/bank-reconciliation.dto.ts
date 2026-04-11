@@ -113,7 +113,7 @@ export class UpdateClearanceBankReconciliationDto extends BankReconciliationFilt
   @IsNumber()
   VoucherTransactionSid?: number;
 
-  @IsNotEmpty()
+  @IsOptional()
   @IsDateString()
   ClearanceDate: string;
 

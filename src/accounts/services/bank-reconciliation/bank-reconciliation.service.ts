@@ -30,7 +30,7 @@ export class BankReconciliationService {
 
   async searchBookTransactions(filter: BankReconciliationFilterDto) {
     const items = await this.loadBookTransactions(filter);
-    return { items: items.map((item) => this.formatBookRow(item)), totalCount: items.length };
+      return { items: items.map((item) => this.formatBookRow(item)), totalCount: items.length };
   }
 
   async autoMatch(payload: AutoMatchBankReconciliationDto) {
@@ -39,7 +39,7 @@ export class BankReconciliationService {
     let matchedCount = 0;
 
     for (const bankTransaction of payload.BankTransactions || []) {
-      const match = this.findMatch(bookTransactions, bankTransaction);
+      const match = this.findMatch(bookTransactions, bankTransaction, { ignoreDrCr: true });
       if (match) {
         await this.applyMatch({ voucherHeaderSid: match.VoucherHeaderSid, bankTransaction, createdBy: payload.CreatedBy || 'System' });
         matchedCount += 1;
@@ -113,9 +113,13 @@ export class BankReconciliationService {
       throw new BadRequestException('Please select at least one voucher row');
     }
 
-    const clearanceDate = new Date(payload.ClearanceDate);
-    if (Number.isNaN(clearanceDate.getTime())) {
-      throw new BadRequestException('Invalid clearance date');
+    const shouldClearDate = payload.ClearanceDate !== null && payload.ClearanceDate !== undefined && String(payload.ClearanceDate).trim() !== '';
+    let clearanceDate: Date | null = null;
+    if (shouldClearDate) {
+      clearanceDate = new Date(payload.ClearanceDate);
+      if (Number.isNaN(clearanceDate.getTime())) {
+        throw new BadRequestException('Invalid clearance date');
+      }
     }
 
     const voucherHeaderSids = Array.from(new Set(payload.VoucherHeaderSids.map((id) => Number(id)).filter((id) => Number.isFinite(id) && id > 0)));
@@ -161,16 +165,18 @@ export class BankReconciliationService {
     });
 
     return {
-      status: 'Cleared',
+      status: clearanceDate ? 'Cleared' : 'Uncleared',
       updatedCount: updated.length,
       items: updated,
-      clearanceDate: payload.ClearanceDate,
+      clearanceDate: clearanceDate,
     };
   }
 
   async generateReport(payload: BankReconciliationReportDto) {
-    const bookRows = await this.loadBookTransactions(payload);
+    const bookRows = await this.loadBookTransactionsForReport(payload);
     const bankRows = (payload.BankTransactions || []).map((row) => this.mapBankStatementRow(row));
+    const openingBalance = await this.calculateOpeningBalance(payload);
+    const periodBookRows = this.filterRowsByPeriod(bookRows, payload.FromDate, payload.ToDate);
 
     const matchedBookMap = new Map<number, BankBookRow>();
     const unmatchedBankRows: ReturnType<typeof this.mapBankStatementRow>[] = [];
@@ -182,14 +188,17 @@ export class BankReconciliationService {
     }
 
     const bookEntriesNotCleared = bookRows.filter((row) => !row.ClearanceDate);
-    const bookBalance = roundAmount(bookRows.reduce((sum, row) => sum + this.signedAmount(row.Amount, row.DrCr), 0), 2);
+    const periodNetMovement = roundAmount(periodBookRows.reduce((sum, row) => sum + this.signedAmount(row.LocalAmount, row.DrCr), 0), 2);
+    const bookBalance = roundAmount(openingBalance + periodNetMovement, 2);
     const addBankEntries = roundAmount(unmatchedBankRows.reduce((sum, row) => sum + this.signedAmount(row.Amount, row.DrCr), 0), 2);
-    const lessBookEntries = roundAmount(bookEntriesNotCleared.reduce((sum, row) => sum + this.signedAmount(row.Amount, row.DrCr), 0), 2);
+    const lessBookEntries = roundAmount(bookEntriesNotCleared.reduce((sum, row) => sum + this.signedAmount(row.LocalAmount, row.DrCr), 0), 2);
     const finalBalance = roundAmount(bookBalance + addBankEntries - lessBookEntries, 2);
 
     return {
       summary: {
         bankStatementBalance: payload.BankStatementBalance ?? null,
+        openingBalance,
+        periodNetMovement,
         bookBalance,
         addBankEntriesNotInBooks: addBankEntries,
         lessBookEntriesNotClearedInBank: lessBookEntries,
@@ -263,16 +272,97 @@ export class BankReconciliationService {
       });
   }
 
-  private findMatch(bookTransactions: BankBookRow[], bankTransaction: BankStatementRowDto): BankBookRow | null {
+  private async loadBookTransactionsForReport(filter: BankReconciliationFilterDto): Promise<BankBookRow[]> {
+    const reportFilter: BankReconciliationFilterDto = {
+      ...filter,
+      FromDate: undefined,
+      ToDate: filter.ToDate,
+      ClearanceFilter: 'ALL',
+    };
+
+    return this.loadBookTransactions(reportFilter);
+  }
+
+  private async calculateOpeningBalance(filter: BankReconciliationFilterDto): Promise<number> {
+    if (!filter.FromDate) {
+      return 0;
+    }
+
+    const ledger = await this._db.cOAMaster.findUnique({
+      where: { COAMasterSid: filter.BankCOAMasterSid },
+      select: { LedgerType: true },
+    });
+
+    const rows = await this._db.voucherTransaction.findMany({
+      where: {
+        CompanyMasterSid: filter.CompanyMasterSid,
+        BranchMasterSid: filter.BranchMasterSid,
+        COAMasterSid: filter.BankCOAMasterSid,
+        VoucherDate: { lt: new Date(filter.FromDate) },
+        Status: 'A',
+        VoucherHeader: {
+          Status: statusWhereClause,
+          CompanyMasterSid: filter.CompanyMasterSid,
+          BranchMasterSid: filter.BranchMasterSid,
+          PostStatus: 'P',
+        },
+      },
+      select: {
+        LocalAmount: true,
+        DrCr: true,
+      },
+    });
+
+    const ledgerType = String(ledger?.LedgerType || '').trim();
+    const openingBalance = rows.reduce((sum, row) => {
+      const amount = roundAmount(toNumber(row.LocalAmount), 2);
+      const drCr = String(row.DrCr || '').trim().toUpperCase();
+
+      if (ledgerType === 'Sy Cr') {
+        if (drCr === 'D') return sum - amount;
+        if (drCr === 'C') return sum + amount;
+      } else if (ledgerType === 'Sy Dr') {
+        if (drCr === 'C') return sum - amount;
+        if (drCr === 'D') return sum + amount;
+      } else {
+        if (drCr === 'C') return sum - amount;
+        if (drCr === 'D') return sum + amount;
+      }
+
+      return sum;
+    }, 0);
+
+    return roundAmount(openingBalance, 2);
+  }
+
+  private filterRowsByPeriod(rows: BankBookRow[], fromDate?: string, toDate?: string): BankBookRow[] {
+    const fromTime = fromDate ? new Date(fromDate).getTime() : null;
+    const toTime = toDate ? new Date(toDate).getTime() : null;
+
+    return rows.filter((row) => {
+      const voucherTime = new Date(row.VoucherDate).getTime();
+      if (Number.isNaN(voucherTime)) return false;
+      if (fromTime !== null && voucherTime < fromTime) return false;
+      if (toTime !== null && voucherTime > toTime) return false;
+      return true;
+    });
+  }
+
+  private findMatch(
+    bookTransactions: BankBookRow[],
+    bankTransaction: BankStatementRowDto,
+    options?: { ignoreDrCr?: boolean },
+  ): BankBookRow | null {
     const bankAmount = toNumber(bankTransaction.Amount);
     const bankRef = this.normalizeRef(bankTransaction.ReferenceNumber || '');
     const bankDrCr = (bankTransaction.DrCr || this.defaultDrCr(bankAmount)).toUpperCase();
+    const ignoreDrCr = !!options?.ignoreDrCr;
 
     const candidates = bookTransactions.filter((row) => {
       if (row.ClearanceDate) return false;
       if (!this.amountMatches(bankAmount, row.LocalAmount)) return false;
       const rowDrCr = (row.DrCr || '').toUpperCase();
-      if (rowDrCr && bankDrCr && rowDrCr !== bankDrCr) return false;
+      if (!ignoreDrCr && rowDrCr && bankDrCr && rowDrCr !== bankDrCr) return false;
       if (!bankRef) return true;
       const rowRefs = [row.ReferenceNumber, row.VoucherNumber].filter(Boolean).map((ref) => this.normalizeRef(String(ref)));
       return rowRefs.includes(bankRef);
