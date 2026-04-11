@@ -2324,7 +2324,7 @@ export class AccountsReportsService {
   }
 
   private async generateLedgerCurrencyReport(params: LedgerReportQueryDto) {
-     const {
+    const {
       FromDate,
       ToDate,
       Subledger: ledgerMasterSid,
@@ -2332,6 +2332,7 @@ export class AccountsReportsService {
       Branch: branchId,
       companyId: CompanyMasterSid,
       VoucherType: voucherType,
+      Currenecy: currency,
     } = params;
 
     try {
@@ -2391,6 +2392,21 @@ export class AccountsReportsService {
           })
         : null;
 
+      let resolvedCurrencyCode: string | undefined;
+      if (currency !== undefined && currency !== null) {
+        const currencyMasterSid = Number(currency);
+        const currencyMaster = await this._db.currencyMaster.findUnique({
+          where: { CurrencyMasterSid: currencyMasterSid },
+          select: { currencyCode: true },
+        });
+
+        if (!currencyMaster?.currencyCode) {
+          throw new BadRequestException(`Invalid Currenecy: ${currency}`);
+        }
+
+        resolvedCurrencyCode = currencyMaster.currencyCode;
+      }
+
       const openingTransactions = await this._db.voucherTransaction.findMany({
         where: {
           CompanyMasterSid,
@@ -2401,6 +2417,7 @@ export class AccountsReportsService {
           ...(voucherType && {
             VoucherTypeMasterSid: Number(voucherType),
           }),
+          ...(resolvedCurrencyCode && { CurrencyCode: resolvedCurrencyCode }),
           VoucherHeader: {
             PostStatus: 'P',
           },
@@ -2443,6 +2460,7 @@ export class AccountsReportsService {
           ...(voucherType && {
             VoucherTypeMasterSid: Number(voucherType),
           }),
+          ...(resolvedCurrencyCode && { CurrencyCode: resolvedCurrencyCode }),
           VoucherHeader: {
             PostStatus: 'P',
           },
@@ -2496,6 +2514,7 @@ export class AccountsReportsService {
           transactions: [],
           branchNames: resolvedBranchNames.join(', '),
           voucherTypeName: voucherTypeMaster?.DocumentTypeCode || 'All Vouchers',
+          currencyCode: resolvedCurrencyCode || 'All Currencies',
           branchInvolved,
           params: params,
         };
@@ -2630,6 +2649,7 @@ export class AccountsReportsService {
         transactions: transactions,
         branchNames: resolvedBranchNames.join(', '),
         voucherTypeName: voucherTypeMaster?.DocumentTypeCode || 'All Vouchers',
+        currencyCode: resolvedCurrencyCode || 'All Currencies',
         params: params,
       };
 

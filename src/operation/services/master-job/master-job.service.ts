@@ -1545,6 +1545,16 @@ export class MasterJobService {
                                     VoucherTypeMasterSid: true
                                 }
                             },
+                            revenueCustomerMaster : {
+                                select : {
+                                    CustomerName : true
+                                }
+                            },
+                            costCustomerMaster : {
+                                select : {
+                                    CustomerName : true
+                                }
+                            }
                         },
                         orderBy: {
                             SerialNumber: 'asc'
