@@ -6,7 +6,7 @@ import { SearchListDto } from "src/masters/DTO/search-list.dto";
 import { filterDto } from "src/masters/DTO/search-vessel.dto";
 import { GlobalConfigService } from "src/common/config/master-config.service";
 import { contains } from "class-validator";
-import { statusWhereClause, toCamelCase } from "src/common/helper";
+import { statusWhereClause, toCamelCase, toNumber } from "src/common/helper";
 import { NumberSeriesService } from "src/settings/services/number-series/number-series.service";
 
 interface authLogDTO {
@@ -1011,9 +1011,9 @@ export class QuotationService {
             /* ================= SHIPMENT TYPE ================= */
             let selectedFCLLCL: 'FCL' | 'LCL' | 'AIR' | null = null;
 
-            if (enquiry.departmentMaster?.departmentType === 'AIR') {
+            if (enquiry.departmentMaster?.departmentType === 'Air') {
                 selectedFCLLCL = 'AIR';
-            } else if (enquiry.departmentMaster?.departmentType === 'SEA') {
+            } else if (enquiry.departmentMaster?.departmentType === 'Sea') {
                 selectedFCLLCL = enquiry.departmentMaster?.FCLLCL === 'LCL' ? 'LCL' : 'FCL';
             }
 
@@ -1031,7 +1031,7 @@ export class QuotationService {
             });
 
             // Fetch all at once
-            const [containerTypes, packageTypes] = await Promise.all([
+            const [containerTypes, uomTypes] = await Promise.all([
                 this._db.containerTypeMaster.findMany({
                     where: {
                         ContainerName: { in: Array.from(containerNames) },
@@ -1039,28 +1039,27 @@ export class QuotationService {
                     },
                     select: {
                         ContainerName: true,
-                        ContainerTypeMasterSid: true
+                        ContainerCode: true
                     }
                 }),
-                this._db.packageTypeMaster.findMany({
+                this._db.uOMMaster.findMany({
                     where: {
-                        PackageName: { in: Array.from(packageNames) },
-                        status: 'A'
+                        UOMCode: { in: Array.from(packageNames) }
                     },
                     select: {
-                        PackageName: true,
-                        PackageTypeMasterSid: true
+                        UOMCode: true,
+                        UOMMasterSid: true
                     }
                 })
             ]);
 
             // Convert to map for O(1) lookup
             const containerMap = new Map(
-                containerTypes.map(c => [c.ContainerName, c.ContainerTypeMasterSid])
+                containerTypes.map(c => [c.ContainerName, c.ContainerCode])
             );
 
             const packageMap = new Map(
-                packageTypes.map(p => [p.PackageName, p.PackageTypeMasterSid])
+                uomTypes.map(u => [u.UOMCode, u.UOMMasterSid])
             );
 
             /* ================= BUILD ROUTES ================= */
@@ -1078,7 +1077,8 @@ export class QuotationService {
                             GrossWeight: cargo.GrossWeight,
                             NetWeight: cargo.NetWeight,
                             Volume: cargo.Volume,
-                            ContainerType: cargo.ContainerType ? containerMap.get(cargo.ContainerType)  : null,
+                            ContainerType: cargo.ContainerType ? containerMap.get(cargo.ContainerType) : null,
+                            Qty: cargo.Qty,
                             ContainerQty: cargo.Qty,
                             ChargeableWeight: cargo.ChargeableWeight,
                             PackageQty: cargo.PackageQty,
@@ -1590,6 +1590,222 @@ export class QuotationService {
             })
         } catch (error) {
             throw new Error(`Error deleting quote carrier: ${error.message}`);
+        }
+    }
+
+    async getQuoteForBookingCreation(payload: {
+        CompanyMasterSid: number,
+        BranchMasterSid: number,
+        QuoteHeaderSid: number,
+        QuoteRouteSid?: number
+    }) {
+        try {
+            const quote = await this._db.quoteHeader.findFirst({
+                where: {
+                    QuoteHeaderSid: payload.QuoteHeaderSid,
+                    CompanyMasterSid: payload.CompanyMasterSid,
+                    BranchMasterSid: payload.BranchMasterSid,
+                    status: 'A'
+                },
+                include: {
+                    quoteRoute: {
+                        where: { status: 'A' },
+                        include: {
+                            departmentMaster: {
+                                select: { departmentName: true, ExportImport: true }
+                            },
+                            quoteCarrier: {
+                                where: { status: 'A' },
+                                include: { quoteCharge: { where: { status: 'A' } } }
+                            },
+                            quoteCargo: {
+                                where: { Status: 'A' },
+                                include: { quoteProduct: { where: { Status: 'A' } } }
+                            }
+                        }
+                    },
+                    EnquiryHeader: {
+                        include: {
+                            enquiryOther: {
+                                select: {
+                                    ShipperName: true,
+                                    ShipperAddress: true,
+                                    ConsigneeName: true,
+                                    ConsigneeAddress: true
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            if (!quote) throw new BadRequestException('Quotation not found');
+
+            const activeRoutes = quote.quoteRoute ?? [];
+            if (!activeRoutes.length) throw new BadRequestException('No routes found on this quotation');
+
+            /* ── Multiple routes: ask the user to pick one ── */
+            if (activeRoutes.length > 1 && !payload.QuoteRouteSid) {
+                const allSids = new Set<number>();
+                for (const r of activeRoutes) {
+                    [r.PORSid, r.POLSid, r.PODSid, r.FDPSid].forEach(s => s && allSids.add(s));
+                }
+                const allPorts = allSids.size ? await this._db.portMaster.findMany({
+                    where: { PortMasterSid: { in: Array.from(allSids) } },
+                    select: { PortMasterSid: true, PortCode: true }
+                }) : [];
+                const pm = new Map(allPorts.map(p => [p.PortMasterSid, p.PortCode]));
+
+                return {
+                    requiresSelection: true,
+                    routes: activeRoutes.map(r => ({
+                        QuoteRouteSid: r.QuoteRouteSid,
+                        POL: pm.get(r.POLSid) || null,
+                        POD: pm.get(r.PODSid) || null,
+                        departmentName: r.departmentMaster?.departmentName || null,
+                        carrier: r.quoteCarrier.find(c => c.ApprovalStatus === ApprovalStatus.Approved)?.CarrierName
+                            ?? r.quoteCarrier[0]?.CarrierName
+                            ?? null
+                    }))
+                };
+            }
+
+            /* ── Resolve the single or explicitly selected route ── */
+            const approvedRoute = payload.QuoteRouteSid
+                ? activeRoutes.find(r => r.QuoteRouteSid === payload.QuoteRouteSid)
+                : activeRoutes[0];
+            if (!approvedRoute) throw new BadRequestException('Selected route not found');
+            if (approvedRoute.BookingHeaderSid) throw new BadRequestException('A booking already exists for this quotation');
+
+            const approvedCarrier =
+                approvedRoute.quoteCarrier?.find(c => c.ApprovalStatus === ApprovalStatus.Approved)
+                ?? approvedRoute.quoteCarrier?.[0]
+                ?? null;
+
+            if (!approvedCarrier) throw new BadRequestException('Cannot find Approved Carrier.');
+
+            const cargo = approvedRoute.quoteCargo?.[0] ?? null;
+
+            // Batch-resolve port codes
+            const portSids = [approvedRoute.PORSid, approvedRoute.POLSid, approvedRoute.PODSid, approvedRoute.FDPSid].filter(Boolean) as number[];
+            const [ports, containerType] = await Promise.all([
+                portSids.length ? this._db.portMaster.findMany({
+                    where: { PortMasterSid: { in: portSids } },
+                    select: { PortMasterSid: true, PortCode: true }
+                }) : [],
+                cargo?.ContainerType ? this._db.containerTypeMaster.findFirst({
+                    where: { ContainerCode: cargo.ContainerType, status: 'A' },
+                    select: { ContainerTypeMasterSid: true }
+                }) : null
+            ]);
+
+            const portMap = new Map((ports as any[]).map(p => [p.PortMasterSid, p.PortCode]));
+            const containerTypeId = (containerType as any)?.ContainerTypeMasterSid ?? null;
+
+            // Derive JobType from department
+            let jobType = '';
+            const dept = approvedRoute.departmentMaster;
+            if (dept) {
+                const deptName = dept.departmentName?.toLowerCase() || '';
+                if (deptName.includes('fcl') || deptName.includes('lcl') || deptName.includes('air')) {
+                    if (dept.ExportImport === 'Export') jobType = 'Export';
+                    else if (dept.ExportImport === 'Import') jobType = 'Import';
+                }
+            }
+
+            const enquiryOther = quote.EnquiryHeader?.enquiryOther?.[0];
+
+            return {
+                quotation: true,
+                quotationHeader: { QuoteNumber: quote.QuoteNumber },
+                BookingHeaderSid: null,
+                DepartmentMasterSid: approvedRoute.DepartmentMasterSid || null,
+                IncoTerms: approvedRoute.ServiceLevel,
+                CustomerMasterSid: quote.CustomerMasterSid || null,
+                CustomerBranchSid: quote.CustomerBranchSid || null,
+                CustomerName: quote.CustomerName || '',
+                CustomerAddress: quote.CustomerAddress || '',
+                SalesmanSid: quote.SalesmanSid || null,
+                FreightTerms: approvedRoute.FreightPPCC || 'Prepaid',
+                QuotationHeaderSid: quote.QuoteHeaderSid,
+                QuoteRouteSid: approvedRoute.QuoteRouteSid || null,
+                CarrierName: approvedCarrier?.CarrierName || '',
+                status: 'A',
+                JobType: jobType,
+                IsContract: (quote as any).IsContract || 'N',
+                ContractExpired: (quote as any).expDate ? new Date((quote as any).expDate) < new Date() : false,
+                ShipperName: enquiryOther?.ShipperName || '',
+                ShipperAddress: enquiryOther?.ShipperAddress || '',
+                ConsigneeName: enquiryOther?.ConsigneeName || '',
+                ConsigneeAddress: enquiryOther?.ConsigneeAddress || '',
+                POO: portMap.get(approvedRoute.PORSid) || null,
+                POL: portMap.get(approvedRoute.POLSid) || null,
+                POD: portMap.get(approvedRoute.PODSid) || null,
+                FPD: portMap.get(approvedRoute.FDPSid) || null,
+                bookingCargo: cargo ? [{
+                    CargoType: cargo.CargoType || 'General',
+                    GrossWeight: toNumber(cargo.GrossWeight),
+                    NetWeight: toNumber(cargo.NetWeight),
+                    Volume: toNumber(cargo.Volume),
+                    Volumetric: toNumber((cargo as any).Volumetric),
+                    ChargeableWeight: toNumber(cargo.ChargeableWeight),
+                    ContainerType: containerTypeId,
+                    NoofContainers: toNumber(cargo.Qty),
+                    NoOfPackage: toNumber(cargo.PackageQty)
+                }] : [],
+                bookingOthers: [{ CargoCurrency: null, CargoValue: 0 }],
+                bookingProduct: (cargo?.quoteProduct || []).map(product => ({
+                    ProductName: product.ProductName,
+                    ExternaPkg: product.PackageType,
+                    ExternlQty: product.ExternalQty,
+                    GrossWeight: toNumber(product.GrossWeight),
+                    NetWeight: toNumber(product.NetWeight),
+                    Volume: toNumber(product.Volume),
+                    IsHaz: product.IsHaz,
+                    ImcoClass: product.ImcoClass,
+                    UnNo: null,
+                    PkgGroup: product.PkgGroup,
+                    Length: toNumber(product.Length),
+                    Width: toNumber(product.Width),
+                    Height: toNumber(product.Height),
+                    UomMasterSid: product.ProductUnit,
+                    Volumetric: toNumber(product.Volumetric)
+                })),
+                bookingRates: (approvedCarrier?.quoteCharge || []).map((charge, index) => ({
+                    CompanyMasterSid: charge.CompanyMasterSid,
+                    BranchMasterSid: charge.BranchMasterSid,
+                    SerialNumber: index + 1,
+                    ChargeMasterSid: charge.ChargeUomSid,
+                    ChargeDescription: charge.ChargeDisplayName,
+                    NoOfUnit: toNumber(charge.Qty) || 1,
+                    CostChargeUomSid: charge.CostChargeUomSid,
+                    CostPrepaidCollect: charge.CostPrepaidCollect || 'Prepaid',
+                    CostDrCr: charge.CostDrCr || 'D',
+                    CostCurrencyMasterSid: charge.CostCurrencyMasterSid,
+                    CostExchangeRate: toNumber(charge.CostExchangeRate) || 1,
+                    CostRate: toNumber(charge.CostRate),
+                    CostAmount: toNumber(charge.CostAmount),
+                    CostLocalAmount: toNumber(charge.CostLocalAmount),
+                    AgentMasterSid: charge.CostAgentMasterSid,
+                    CostAgentBranchSid: charge.CostAgentBranchSid,
+                    CostAgentMasterSid: charge.CostAgentMasterSid,
+                    RevenueChargeUomSid: (charge as any).RevenueChargeUomSid,
+                    RevenuePrepaidCollect: (charge as any).RevenuePrepaidCollect || 'Prepaid',
+                    RevenueDrCr: (charge as any).RevenueDrCr || 'C',
+                    RevenueCurrencyMasterSid: (charge as any).RevenueCurrencyMasterSid,
+                    RevenueExchangeRate: toNumber((charge as any).RevenueExchangeRate) || 1,
+                    RevenueRate: toNumber((charge as any).RevenueRate),
+                    RevenueAmount: toNumber((charge as any).RevenueAmount),
+                    RevenueLocalAmount: toNumber((charge as any).RevenueLocalAmount),
+                    CustomerMasterSid: (charge as any).RevenueCustomerMasterSid,
+                    RevenueCustomerMasterSid: (charge as any).RevenueCustomerMasterSid,
+                    RevenueCustomerBranchSid: (charge as any).RevenueCustomerBranchSid,
+                    QuoteChargeSid: charge.QuoteChargeSid,
+                    TariffDetailSid: (charge as any).TariffDetailSid
+                }))
+            };
+        } catch (error) {
+            throw error;
         }
     }
 

@@ -233,6 +233,30 @@ export class QuotationController {
         return output
     }
 
+    @Post('get-quote-for-booking')
+    async getQuoteForBookingCreation(@Body() payload: {
+        CompanyMasterSid: number,
+        BranchMasterSid: number,
+        QuoteHeaderSid: number,
+        QuoteRouteSid?: number
+    }) {
+        const output = new ResponseData();
+        try {
+            const result = await this.quotationService.getQuoteForBookingCreation(payload);
+            output.data = result;
+            output.message = 'Quote data for booking creation fetched successfully';
+        } catch (error) {
+            this.logger.warn(`getQuoteForBookingCreation: ${JSON.stringify(error), error}`);
+            output.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                output.message = error.message;
+            } else {
+                output.message = error;
+            }
+        }
+        return output;
+    }
+
     @Post('get-enquiry-for-quote')
     async getEnquiryForQuoteCreation(@Body() payload: {
         CompanyMasterSid: number,
