@@ -175,7 +175,7 @@ export class LedgerReportQueryDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsInt()
-  Currenecy?: number;
+  Currency?: number;
 }
 
 // Trial Balance DTOs (already exists, just import reference)
