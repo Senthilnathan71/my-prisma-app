@@ -458,8 +458,9 @@ export class MasterJobService {
                 const createdMasterJob = await prisma.masterJob.create({
                     data: headerPayload
                 })
-                
 
+                const headerCreatedBy = headerPayload.CreatedBy;
+                
                 const voyagePayload = {
                     MasterJobSid: createdMasterJob.MasterJobSid,
                     VoyageMasterSid: payload.VoyageMasterSid,
@@ -846,7 +847,7 @@ export class MasterJobService {
                                 MovementType: bookingHeader.MovementType || '',
                                 DoValid: bookingHeader.DoValid ? new Date(bookingHeader.DoValid) : null,
                                 IsServiceJob: bookingHeader.IsServiceJob || '',
-                                createdBy: payload.createdBy || '',
+                                createdBy: headerCreatedBy,
                                 status: bookingHeader.status || '',
                                 BookingStatus: bookingHeader.BookingStatus || '',
                                 DepartmentMasterSid: bookingHeader.DepartmentMasterSid,
