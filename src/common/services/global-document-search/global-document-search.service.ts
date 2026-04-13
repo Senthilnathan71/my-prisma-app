@@ -382,37 +382,40 @@ export class GlobalDocumentSearchService {
                 let basePath: string;
                 let displayType: string;
                 let documentType: string;
+                let queryString = '';
 
                 switch (voucherType) {
-                    case 'INV' :
+                    case 'INV':
                         basePath = '/operation/invoice/entry';
                         displayType = 'Invoice';
                         documentType = 'INVOICE';
                         break;
-                    case 'VIN' :
+                    case 'VIN':
                         basePath = '/operation/vendor-invoice/entry';
                         displayType = 'Vendor Invoice';
                         documentType = 'VENDOR_INVOICE';
+                        if (v.CashOrBank === 'Y') queryString = '?isNonJob=true';
                         break;
                     case 'RPT':
                         basePath = '/accounts/receipt/entry';
                         displayType = 'Receipt';
                         documentType = 'RECEIPT';
                         break;
-                    case 'PMT' :
+                    case 'PMT':
                         basePath = '/accounts/payment/entry';
                         displayType = 'Payment';
                         documentType = 'PAYMENT';
                         break;
-                    case 'CRN' :
+                    case 'CRN':
                         basePath = '/operation/credit-note/entry';
                         displayType = 'Credit Note';
                         documentType = 'CREDIT_NOTE';
                         break;
-                    case 'VRN' :
+                    case 'VRN':
                         basePath = '/operation/vendor-credit-note/entry';
                         displayType = 'Vendor Credit Note';
                         documentType = 'VENDOR_CREDIT_NOTE';
+                        if (v.CashOrBank === 'Y') queryString = '?isNonJob=true';
                         break;
                     case 'JV':
                         basePath = '/accounts/journal-voucher/entry';
@@ -425,7 +428,6 @@ export class GlobalDocumentSearchService {
                         documentType = 'REVERSAL_JOURNAL';
                         break;
                     default:
-                        // Default fallback
                         basePath = '/accounts/journal-voucher/entry';
                         displayType = voucherType;
                         documentType = voucherType.toUpperCase().replace(/\s+/g, '_');
@@ -436,7 +438,7 @@ export class GlobalDocumentSearchService {
                     documentNumber: v.VoucherNumber || '',
                     documentType: documentType,
                     displayType: displayType,
-                    path: `${basePath}/${v.VoucherHeaderSid}`,
+                    path: `${basePath}/${v.VoucherHeaderSid}${queryString}`,
                     title: `${displayType}: ${v.VoucherNumber}`,
                 };
             });
