@@ -2332,7 +2332,7 @@ export class AccountsReportsService {
       Branch: branchId,
       companyId: CompanyMasterSid,
       VoucherType: voucherType,
-      Currenecy: currency,
+      Currency: currency,
     } = params;
 
     try {
