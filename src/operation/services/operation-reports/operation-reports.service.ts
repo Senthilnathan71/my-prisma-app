@@ -5548,12 +5548,6 @@ export class OperationReportsService {
           : await this._db.departmentMaster.findMany({
               where: {
                 CompanyMasterSid,
-                NOT: {
-                  departmentName: {
-                    contains: 'AIR',
-                    mode: 'insensitive',
-                  },
-                },
               },
               select: { DepartmentMasterSid: true, departmentName: true },
             });
@@ -5599,14 +5593,35 @@ export class OperationReportsService {
       });
 
       const allBookingDetails = bookingData.map((b) => {
+        const totalGrossWt = (b.bookingCargo || []).reduce(
+          (sum, cargo) => sum + Number(cargo.GrossWeight || 0),
+          0,
+        );
+        const totalNetWt = (b.bookingCargo || []).reduce(
+          (sum, cargo) => sum + Number(cargo.NetWeight || 0),
+          0,
+        );
+        const totalVolume = (b.bookingCargo || []).reduce(
+          (sum, cargo) => sum + Number(cargo.Volume || 0),
+          0,
+        );
+        const totalRevenueLocalAmt = (b.bookingRates || []).reduce(
+          (sum, rate) => sum + Number(rate.RevenueLocalAmount || 0),
+          0,
+        );
+        const totalCostLocalAmt = (b.bookingRates || []).reduce(
+          (sum, rate) => sum + Number(rate.CostLocalAmount || 0),
+          0,
+        );
+
         return {
           bookingSid: b.BookingHeaderSid,
           dept: b.DepartmentMasterSid,
-          grossWt: b.bookingCargo?.[0]?.GrossWeight,
-          netWt: b.bookingCargo?.[0]?.NetWeight,
-          vol: b.bookingCargo?.[0]?.Volume,
-          revenueLocalAmt: b.bookingRates?.[0]?.RevenueLocalAmount,
-          costLocalAmt: b.bookingRates?.[0]?.CostLocalAmount,
+          grossWt: totalGrossWt,
+          netWt: totalNetWt,
+          vol: totalVolume,
+          revenueLocalAmt: totalRevenueLocalAmt,
+          costLocalAmt: totalCostLocalAmt,
         };
       });
 

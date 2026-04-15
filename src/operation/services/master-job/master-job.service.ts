@@ -1497,6 +1497,7 @@ export class MasterJobService {
                             CustomerName: true,
                             CustomerAddress: true,
                             FreightTerms: true,
+                            SalesmanSid:true,
                             bookingRates: true,
                             Cargo: true,
                             Products: true,
