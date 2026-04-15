@@ -22,6 +22,7 @@ model ReportMaster {
   menuMaster            MenuMaster           @relation(fields: [ReportMenuSid], references: [MenuMasterSid])
   ReportMasterDetail    ReportMasterDetail[]
   reportSchedules       ReportSchedule[]
+  RoleMenuReport        RoleMenuReport[]
 
   @@index([ReportMenuSid])
   @@index([ReportName])

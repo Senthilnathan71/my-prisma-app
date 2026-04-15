@@ -1012,37 +1012,39 @@ model TariffHeader {
 }
 
 model TariffDetail {
-  TariffDetailSid    Int            @id @default(autoincrement()) @map("TariffDetailSid")
-  ChargeCode         String         @db.VarChar(5)
-  Description        String?        @db.VarChar(100)
+  TariffDetailSid    Int                  @id @default(autoincrement()) @map("TariffDetailSid")
+  ChargeCode         String               @db.VarChar(5)
+  Description        String?              @db.VarChar(100)
   UOMSid             Int
   SaleCurrency       Int
-  SalePerUnitPrice   Decimal        @db.Decimal(10, 5)
-  SlabFrom           Decimal?       @db.Decimal(4, 0)
-  SlabTo             Decimal?       @db.Decimal(4, 0)
-  createdOn          DateTime       @default(now()) @db.Timestamptz(6)
-  updatedOn          DateTime?      @updatedAt @db.Timestamptz(6)
+  SalePerUnitPrice   Decimal              @db.Decimal(10, 5)
+  SlabFrom           Decimal?             @db.Decimal(4, 0)
+  SlabTo             Decimal?             @db.Decimal(4, 0)
+  createdOn          DateTime             @default(now()) @db.Timestamptz(6)
+  updatedOn          DateTime?            @updatedAt @db.Timestamptz(6)
   deletedAt          DateTime?
-  createdBy          String         @db.VarChar(100)
-  updatedBy          String?        @db.VarChar(100)
-  status             String?        @default("A") @db.Char(1)
-  Remarks            String?        @db.VarChar(100)
+  createdBy          String               @db.VarChar(100)
+  updatedBy          String?              @db.VarChar(100)
+  status             String?              @default("A") @db.Char(1)
+  Remarks            String?              @db.VarChar(100)
   BuyCurrency        Int
-  BuyPerUnitPrice    Decimal        @db.Decimal(10, 5)
-  CargoType          String         @db.VarChar(10)
+  BuyPerUnitPrice    Decimal              @db.Decimal(10, 5)
+  CargoType          String               @db.VarChar(10)
   CompanyMasterSid   Int?
-  EffectiveDate      DateTime?      @db.Date
-  IsSlabApplicable   String         @default("N") @db.Char(1)
+  EffectiveDate      DateTime?            @db.Date
+  IsSlabApplicable   String               @default("N") @db.Char(1)
   TariffHeaderSid    Int
-  ExpiredOn          DateTime?      @db.Date
-  MinSale            String         @db.VarChar(20)
+  ExpiredOn          DateTime?            @db.Date
+  MinSale            String               @db.VarChar(20)
+  ContainerType      Int?
   BookingRates       BookingRates[]
   QuoteCharge        QuoteCharge[]
-  currencyMasterBuy  CurrencyMaster @relation("Buy", fields: [BuyCurrency], references: [CurrencyMasterSid])
-  companyMaster      CompanyMaster? @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
-  currencyMasterSale CurrencyMaster @relation("Sale", fields: [SaleCurrency], references: [CurrencyMasterSid])
-  tariffHeader       TariffHeader   @relation(fields: [TariffHeaderSid], references: [TariffHeaderSid])
-  UOMMaster          UOMMaster      @relation(fields: [UOMSid], references: [UOMMasterSid])
+  containerType      ContainerTypeMaster? @relation(fields: [ContainerType], references: [ContainerTypeMasterSid])
+  currencyMasterBuy  CurrencyMaster       @relation("Buy", fields: [BuyCurrency], references: [CurrencyMasterSid])
+  companyMaster      CompanyMaster?       @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+  currencyMasterSale CurrencyMaster       @relation("Sale", fields: [SaleCurrency], references: [CurrencyMasterSid])
+  tariffHeader       TariffHeader         @relation(fields: [TariffHeaderSid], references: [TariffHeaderSid])
+  UOMMaster          UOMMaster            @relation(fields: [UOMSid], references: [UOMMasterSid])
 }
 
 model QuoteHeader {
@@ -1667,6 +1669,7 @@ model ContainerTypeMaster {
   houseJobCargo          HouseJobCargo[]
   MasterJobContainer     MasterJobContainer[]
   quoteRoute             QuoteRoute[]
+  tariffDetails          TariffDetail[]
 }
 
 model ZoneMaster {

@@ -182,6 +182,7 @@ model RoleMenuDetail {
   menuMaster        MenuMaster     @relation(fields: [MenuMasterSid], references: [MenuMasterSid])
   RoleMenuHeader    RoleMenuHeader @relation(fields: [RoleMenuHeaderSid], references: [RoleMenuHeaderSid])
   RoleMenuPrint     RoleMenuPrint[]
+  RoleMenuReport    RoleMenuReport[]
 }
 
 model RoleMenuPrint {
@@ -204,6 +205,24 @@ model RoleMenuPrint {
 
   @@index([CompanyMasterSid, RoleMenuHeaderSid, RoleMenuDetailSid, PrintMasterSid, Status])
   @@index([CompanyMasterSid, PrintMasterSid])
+}
+
+model RoleMenuReport {
+  RoleMenuReportSid Int            @id @default(autoincrement()) @map("RoleMenuReportSid")
+  RoleMenuDetailSid Int
+  ReportMasterSid   Int
+  ReportPermission  String?        @default("N") @db.Char(1)
+  CreatedOn         DateTime       @default(now()) @db.Timestamptz(6)
+  UpdatedOn         DateTime?      @db.Timestamptz(6)
+  CreatedBy         String         @db.VarChar(100)
+  UpdatedBy         String?        @db.VarChar(100)
+  Status            String?        @default("A") @db.Char(1)
+
+  roleMenuDetail    RoleMenuDetail @relation(fields: [RoleMenuDetailSid], references: [RoleMenuDetailSid])
+  reportMaster      ReportMaster   @relation(fields: [ReportMasterSid], references: [ReportMasterSid])
+
+  @@index([RoleMenuDetailSid, ReportMasterSid, Status])
+  @@index([ReportMasterSid])
 }
 
 model PrintMaster {
