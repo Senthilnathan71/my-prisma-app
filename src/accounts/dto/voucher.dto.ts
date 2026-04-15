@@ -77,7 +77,7 @@ export class VoucherHeaderDto {
 
     @IsOptional()
     @IsString()
-    @Length(0, 100)
+    @Length(0, 300)
     PartyAddress?: string;
 
     @IsOptional()

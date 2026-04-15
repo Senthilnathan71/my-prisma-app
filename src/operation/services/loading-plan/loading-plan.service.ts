@@ -151,11 +151,11 @@ export class LoadingPlanService {
         ETD: booking.ETD,
         ETA: booking.ETA,
 
-        NoOfPackage: booking.bookingCargo?.[0]?.NoOfPackage,
-        GrossWeight: booking.bookingCargo?.[0]?.GrossWeight,
-        NetWeight: booking.bookingCargo?.[0]?.NetWeight,
-        Volume: booking.bookingCargo?.[0]?.Volume,
-        CargoType: booking.bookingCargo?.[0]?.CargoType,
+        NoOfPackage: (booking.bookingCargo || []).reduce((sum, c) => sum + (c.NoOfPackage ?? 0), 0),
+        GrossWeight: (booking.bookingCargo || []).reduce((sum, c) => sum + (c.GrossWeight ? Number(c.GrossWeight) : 0), 0),
+        NetWeight: (booking.bookingCargo || []).reduce((sum, c) => sum + (c.NetWeight ? Number(c.NetWeight) : 0), 0),
+        Volume: (booking.bookingCargo || []).reduce((sum, c) => sum + (c.Volume ? Number(c.Volume) : 0), 0),
+        CargoType: (booking.bookingCargo || []).map(c => c.CargoType).filter(Boolean).join(', '),
 
         BookingStatus: booking.BookingStatus,
         totalCost: totalCost.toFixed(2),
@@ -201,11 +201,11 @@ export class LoadingPlanService {
       ETD: job.ETD,
       ETA: job.ETA,
 
-      NoOfPackage: job.Cargo?.[0]?.NoOfPackage,
-      GrossWeight: job.Cargo?.[0]?.GrossWeight,
-      NetWeight: job.Cargo?.[0]?.NetWeight,
-      Volume: job.Cargo?.[0]?.Volume,
-      CargoType: job.Cargo?.[0]?.CargoType,
+      NoOfPackage: (job.Cargo || []).reduce((sum, c) => sum + (c.NoOfPackage ?? 0), 0),
+      GrossWeight: (job.Cargo || []).reduce((sum, c) => sum + (c.GrossWeight ? Number(c.GrossWeight) : 0), 0),
+      NetWeight: (job.Cargo || []).reduce((sum, c) => sum + (c.NetWeight ? Number(c.NetWeight) : 0), 0),
+      Volume: (job.Cargo || []).reduce((sum, c) => sum + (c.Volume ? Number(c.Volume) : 0), 0),
+      CargoType: (job.Cargo || []).map(c => c.CargoType).filter(Boolean).join(', '),
 
       BookingStatus: "Job Created",
       totalCost: "0.00",
