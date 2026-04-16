@@ -322,50 +322,55 @@ export class RoleMenuService {
         try {
             const { CompanyMasterSid, Roles, MenuMasterSid } = payload;
 
-            console.log('🔍 getMenuPermission:', { CompanyMasterSid, Roles, MenuMasterSid });
-
-            // Find role menus for ALL provided roles
-            const roleMenus = await this._db.roleMenuHeader.findMany({
-                where: {
-                    RoleMasterSid: { in: Roles },
-                    CompanyMasterSid,
-                    status: 'A',
-                    RoleMenuDetail: {
-                        some: {
-                            MenuMasterSid,
-                            status: 'A'
+            const [roleMenus, allPrintMasters, allReportMasters] = await Promise.all([
+                this._db.roleMenuHeader.findMany({
+                    where: {
+                        RoleMasterSid: { in: Roles },
+                        CompanyMasterSid,
+                        status: 'A',
+                        RoleMenuDetail: {
+                            some: {
+                                MenuMasterSid,
+                                status: 'A'
+                            }
                         }
-                    }
-                },
-                select: {
-                    RoleMasterSid: true,
-                    roleMaster: { select: { UserRoleName: true } },
-                    RoleMenuDetail: {
-                        where: { MenuMasterSid, status: 'A' },
-                        take: 1,
-                        select: {
-                            RoleMenuDetailSid: true,
-                            MenuMasterSid: true,
-                            InsertRole: true,
-                            ViewRole: true,
-                            UpdateRole: true,
-                            DeleteRole: true,
-                            PostRole: true,
-                            menuMaster: {
-                                select: {
-                                    MenuName: true,
-                                    menuPermission: {
-                                        where: { status: 'A' },
-                                        select: { permissionCode: true }
+                    },
+                    select: {
+                        RoleMasterSid: true,
+                        roleMaster: { select: { UserRoleName: true } },
+                        RoleMenuDetail: {
+                            where: { MenuMasterSid, status: 'A' },
+                            take: 1,
+                            select: {
+                                RoleMenuDetailSid: true,
+                                MenuMasterSid: true,
+                                InsertRole: true,
+                                ViewRole: true,
+                                UpdateRole: true,
+                                DeleteRole: true,
+                                PostRole: true,
+                                menuMaster: {
+                                    select: {
+                                        MenuName: true,
+                                        menuPermission: {
+                                            where: { status: 'A' },
+                                            select: { permissionCode: true }
+                                        }
                                     }
                                 }
                             }
                         }
                     }
-                }
-            });
-
-            console.log('📋 Found roleMenus:', roleMenus.length);
+                }),
+                this._db.printMaster.findMany({
+                    where: { MenuMasterSid, Status: 'A' },
+                    select: { PrintMasterSid: true, Name: true, PrintMail: true }
+                }),
+                this._db.reportMaster.findMany({
+                    where: { ReportMenuSid: MenuMasterSid, Status: 'A' },
+                    select: { ReportMasterSid: true, ReportName: true, ReportDisplayName: true, ReportExcludedCompany: true }
+                }),
+            ]);
 
             if (!roleMenus || roleMenus.length === 0) {
                 throw new NotFoundException('No role menu permissions found for provided roles');
@@ -385,8 +390,7 @@ export class RoleMenuService {
             let menuName = '';
             let menuMasterSid = MenuMasterSid;
 
-            roleMenus.forEach((roleMenu, index) => {
-                console.log(`🎭 Processing role ${index + 1}/${roleMenus.length}:`, roleMenu.RoleMasterSid);
+            roleMenus.forEach((roleMenu) => {
 
                 // Collect role name
                 if (roleMenu.roleMaster?.UserRoleName) {
@@ -420,37 +424,46 @@ export class RoleMenuService {
                 });
             });
 
-            console.log('✅ Merged permissions:', mergedPermissions);
-            console.log('👥 Role names:', roleNames);
-
             // Collect RoleMenuDetail SIDs to resolve print permissions
             const detailSids = roleMenus
                 .flatMap(rm => rm.RoleMenuDetail)
                 .map(d => d.RoleMenuDetailSid)
                 .filter(Boolean) as number[];
 
-            // Default: all prints for this menu are visible (no record = allowed)
-            const allPrintMasters = await this._db.printMaster.findMany({
-                where: { MenuMasterSid, Status: 'A' },
-                select: { PrintMasterSid: true, Name: true, PrintMail: true }
-            });
-
+            // Default: all prints/reports for this menu are visible (no record = allowed)
             let printPermissions: { PrintMasterSid: number; Name: string; PrintMail: string }[] = allPrintMasters;
 
+            let reportPermissions: { ReportMasterSid: number; ReportName: string; ReportDisplayName: string }[] =
+                allReportMasters
+                    .filter(r => {
+                        const excluded = r.ReportExcludedCompany as number[] | null;
+                        if (!excluded || !Array.isArray(excluded)) return true;
+                        return !excluded.includes(CompanyMasterSid);
+                    })
+                    .map(r => ({ ReportMasterSid: r.ReportMasterSid, ReportName: r.ReportName, ReportDisplayName: r.ReportDisplayName }));
+
             if (detailSids.length > 0) {
-                // Only hide prints that are explicitly denied (GiveAccess = 'N')
-                const deniedPrints = await this._db.roleMenuPrint.findMany({
-                    where: {
-                        RoleMenuDetailSid: { in: detailSids },
-                        GiveAccess: 'N',
-                        Status: 'A'
-                    },
-                    select: { PrintMasterSid: true },
-                    distinct: ['PrintMasterSid']
-                });
+                // Run queries 3 and 5 in parallel — both depend only on detailSids
+                const [deniedPrints, deniedReports] = await Promise.all([
+                    this._db.roleMenuPrint.findMany({
+                        where: { RoleMenuDetailSid: { in: detailSids }, GiveAccess: 'N', Status: 'A' },
+                        select: { PrintMasterSid: true },
+                        distinct: ['PrintMasterSid']
+                    }),
+                    this._db.roleMenuReport.findMany({
+                        where: { RoleMenuDetailSid: { in: detailSids }, ReportPermission: 'N', Status: 'A' },
+                        select: { ReportMasterSid: true },
+                        distinct: ['ReportMasterSid']
+                    }),
+                ]);
+
                 if (deniedPrints.length > 0) {
                     const deniedSids = new Set(deniedPrints.map(r => r.PrintMasterSid));
                     printPermissions = allPrintMasters.filter(p => !deniedSids.has(p.PrintMasterSid));
+                }
+                if (deniedReports.length > 0) {
+                    const deniedSids = new Set(deniedReports.map(r => r.ReportMasterSid));
+                    reportPermissions = reportPermissions.filter(r => !deniedSids.has(r.ReportMasterSid));
                 }
             }
 
@@ -465,11 +478,11 @@ export class RoleMenuService {
                 MenuName: menuName || '',
                 RoleIds : Roles,
                 UserRoleName: concatenatedRoleNames,
-                PrintPermissions: printPermissions
+                PrintPermissions: printPermissions,
+                ReportPermissions: reportPermissions
             };
 
         } catch (error) {
-            console.error('💥 getMenuPermission error:', error);
             throw error;
         }
     }
@@ -533,6 +546,72 @@ export class RoleMenuService {
                             await prisma.roleMenuPrint.update({
                                 where: { RoleMenuPrintSid: existing.RoleMenuPrintSid },
                                 data: { GiveAccess: 'N', Status: 'A', UpdatedBy, UpdatedOn: new Date() }
+                            });
+                        }
+                        // Already a deny record with Status='A' — skip
+                    }
+                }
+            });
+
+            return { saved: true };
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    async getRoleMenuReportPermissions(RoleMenuDetailSid: number) {
+        try {
+            // Returns only explicitly denied reports (ReportPermission = 'N')
+            // No record = allowed by default
+            return await this._db.roleMenuReport.findMany({
+                where: {
+                    RoleMenuDetailSid,
+                    ReportPermission: 'N',
+                    Status: 'A'
+                },
+                select: { RoleMenuReportSid: true, ReportMasterSid: true }
+            });
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    async saveRoleMenuReportPermissions(dto: { RoleMenuDetailSid: number; changes: { ReportMasterSid: number; grantAccess: boolean }[]; UpdatedBy: string }) {
+        try {
+            const { RoleMenuDetailSid, changes, UpdatedBy } = dto;
+
+            await this._db.$transaction(async (prisma) => {
+                for (const change of changes) {
+                    const existing = await prisma.roleMenuReport.findFirst({
+                        where: { RoleMenuDetailSid, ReportMasterSid: change.ReportMasterSid }
+                    });
+
+                    if (change.grantAccess) {
+                        // Granting access = remove the deny record (no record = allowed by default)
+                        if (existing && existing.Status === 'A') {
+                            await prisma.roleMenuReport.update({
+                                where: { RoleMenuReportSid: existing.RoleMenuReportSid },
+                                data: { Status: 'D', UpdatedBy, UpdatedOn: new Date() }
+                            });
+                        }
+                    } else {
+                        // Denying access = create or reactivate a deny record (ReportPermission = 'N')
+                        if (!existing) {
+                            await prisma.roleMenuReport.create({
+                                data: {
+                                    RoleMenuDetailSid,
+                                    ReportMasterSid: change.ReportMasterSid,
+                                    ReportPermission: 'N',
+                                    Status: 'A',
+                                    CreatedBy: UpdatedBy,
+                                    UpdatedBy,
+                                    UpdatedOn: new Date()
+                                }
+                            });
+                        } else if (existing.Status === 'D') {
+                            await prisma.roleMenuReport.update({
+                                where: { RoleMenuReportSid: existing.RoleMenuReportSid },
+                                data: { ReportPermission: 'N', Status: 'A', UpdatedBy, UpdatedOn: new Date() }
                             });
                         }
                         // Already a deny record with Status='A' — skip

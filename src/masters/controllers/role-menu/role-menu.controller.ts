@@ -1,7 +1,7 @@
 import { BadRequestException, Body, Controller, Get, HttpCode, HttpStatus, Logger, NotFoundException, Param, ParseIntPipe, Patch, Post, UnauthorizedException, UsePipes, ValidationPipe } from '@nestjs/common';
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
 import { ResponseData } from 'src/common/response-data';
-import { RoleMenuPayload, SaveRoleMenuPrintDto } from 'src/masters/DTO/role-menu.dto';
+import { RoleMenuPayload, SaveRoleMenuPrintDto, SaveRoleMenuReportDto } from 'src/masters/DTO/role-menu.dto';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 import { RoleMenuService } from 'src/masters/services/role-menu/role-menu.service';
 
@@ -176,7 +176,6 @@ export class RoleMenuController {
         try {
             this.logger.log(`Getting Menu Permission : ${JSON.stringify(payload)}`);
             let res = await this.roleMenuService.getMenuPermission(payload);
-            this.logger.debug(`Fetched Menu Permission : ${JSON.stringify(res)}`);
             resp.data = res;
             resp.message = `Menu Permission fetched successfully.`;
         } catch (error) {
@@ -226,6 +225,45 @@ export class RoleMenuController {
             resp.message = 'Print permissions saved successfully.';
         } catch (error) {
             this.logger.warn(`saveRoleMenuPrintPermissions error: ${error}`);
+            resp.status = false;
+            resp.message = error instanceof BadRequestException || error instanceof UnauthorizedException
+                ? error.message : 'Internal Server Error';
+        }
+        return resp;
+    }
+
+    @ApiOperation({ summary: 'Get Report Permissions for a RoleMenuDetail' })
+    @ApiCreatedResponse({ description: 'Get Report Permissions for a RoleMenuDetail', type: ResponseData })
+    @HttpCode(HttpStatus.OK)
+    @Get('report-permissions/:CompanyMasterSid/:RoleMenuDetailSid')
+    async getRoleMenuReportPermissions(
+        @Param('CompanyMasterSid', ParseIntPipe) _CompanyMasterSid: number,
+        @Param('RoleMenuDetailSid', ParseIntPipe) RoleMenuDetailSid: number
+    ) {
+        const resp = new ResponseData();
+        try {
+            resp.data = await this.roleMenuService.getRoleMenuReportPermissions(RoleMenuDetailSid);
+            resp.message = 'Report permissions fetched successfully.';
+        } catch (error) {
+            this.logger.warn(`getRoleMenuReportPermissions error: ${error}`);
+            resp.status = false;
+            resp.message = error instanceof BadRequestException || error instanceof UnauthorizedException
+                ? error.message : 'Internal Server Error';
+        }
+        return resp;
+    }
+
+    @ApiOperation({ summary: 'Save Report Permissions for a RoleMenuDetail' })
+    @ApiCreatedResponse({ description: 'Save Report Permissions for a RoleMenuDetail', type: ResponseData })
+    @HttpCode(HttpStatus.OK)
+    @Post('save-report-permissions')
+    async saveRoleMenuReportPermissions(@Body() dto: SaveRoleMenuReportDto) {
+        const resp = new ResponseData();
+        try {
+            resp.data = await this.roleMenuService.saveRoleMenuReportPermissions(dto);
+            resp.message = 'Report permissions saved successfully.';
+        } catch (error) {
+            this.logger.warn(`saveRoleMenuReportPermissions error: ${error}`);
             resp.status = false;
             resp.message = error instanceof BadRequestException || error instanceof UnauthorizedException
                 ? error.message : 'Internal Server Error';

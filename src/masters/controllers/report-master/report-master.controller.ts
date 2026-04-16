@@ -285,6 +285,32 @@ export class ReportMasterController {
         return resp;
     }
 
+    @ApiOperation({ summary: 'Get Reports by Menu ID' })
+    @ApiCreatedResponse({ description: 'Get active reports for a specific menu', type: ResponseData })
+    @HttpCode(HttpStatus.OK)
+    @Get('by-menu/:menuId')
+    async getReportsByMenu(
+        @Param('menuId', ParseIntPipe) menuId: number,
+        @Query('companyId') companyId?: string,
+    ) {
+        const resp = new ResponseData();
+        try {
+            const res = await this.reportMasterService.getByMenu(
+                menuId,
+                companyId ? parseInt(companyId, 10) : undefined,
+            );
+            resp.data = res;
+            resp.message = `Reports for menu: ${menuId} fetched successfully`;
+        } catch (error) {
+            this.logger.warn(`getReportsByMenuError: ${JSON.stringify(error)}`);
+            resp.status = false;
+            resp.message = error instanceof BadRequestException || error instanceof UnauthorizedException
+                ? error.message
+                : 'Internal Server Error';
+        }
+        return resp;
+    }
+
     @ApiOperation({ summary: 'Get Reports by Company ID' })
     @ApiCreatedResponse({ description: 'Get reports filtered by company', type: ResponseData })
     @HttpCode(HttpStatus.OK)

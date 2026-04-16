@@ -314,6 +314,34 @@ export class ReportMasterService {
       totalCount,
     };
   }
+  async getByMenu(menuId: number, companyId?: number) {
+    try {
+      const reports = await this._db.reportMaster.findMany({
+        where: { ReportMenuSid: menuId, Status: 'A' },
+        select: {
+          ReportMasterSid: true,
+          ReportName: true,
+          ReportDisplayName: true,
+          ReportType: true,
+          ReportFormat: true,
+          Orientation: true,
+          ReportExcludedCompany: true,
+        },
+        orderBy: { ReportDisplayName: 'asc' },
+      });
+
+      if (!companyId) return reports;
+
+      return reports.filter((r) => {
+        const excluded = r.ReportExcludedCompany as number[] | null;
+        if (!excluded || !Array.isArray(excluded)) return true;
+        return !excluded.includes(companyId);
+      });
+    } catch (error) {
+      throw error;
+    }
+  }
+
   async getAuditLogs(tableName: string, recordId?: string) {
     try {
       const whereClause: any = { tableName };
