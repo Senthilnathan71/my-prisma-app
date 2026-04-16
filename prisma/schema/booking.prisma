@@ -126,6 +126,7 @@ model BookingCargo {
   branchMaster     BranchMaster?        @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
   companyMaster    CompanyMaster        @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
   containerType    ContainerTypeMaster? @relation(fields: [ContainerType], references: [ContainerTypeMasterSid])
+  products         BookingProduct[]
 }
 
 model BookingProduct {
@@ -163,8 +164,10 @@ model BookingProduct {
   CargoRecDate       DateTime?
   RecdPack           String?        @db.VarChar(100)
   Volumetric         Decimal?       @db.Decimal(10, 3)
+  BookingCargoSid    Int?
   bookingHeader      BookingHeader? @relation(fields: [BookingHeaderSid], references: [BookingHeaderSid])
   uomMaster          UOMMaster?     @relation(fields: [UomMasterSid], references: [UOMMasterSid])
+  bookingCargo       BookingCargo?  @relation(fields: [BookingCargoSid], references: [BookingCargoSid])
 }
 
 model BookingConnection {
@@ -480,8 +483,7 @@ model ShippingInstruction {
   SIStatus               String?
   branchMaster           BranchMaster  @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
   companyMaster          CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
-  houseJob          HouseJob @relation(fields: [HouseJobSid], references: [HouseJobSid])
-
+  houseJob               HouseJob      @relation(fields: [HouseJobSid], references: [HouseJobSid])
 }
 
 model ActivityResourceAllocation {
@@ -520,18 +522,18 @@ model ActivityResourceAllocation {
 }
 
 model ResourceConfiguration {
-  ResourceConfigurationSid Int          @id @default(autoincrement())
-  CompanyMasterSid  Int
-  BranchMasterSid   Int
-  Stage             String       @db.VarChar(50)
-  AssignedRole      String?      @db.VarChar(10)
-  UserMasterSid     Int?
-  CreatedOn         DateTime     @default(now())
-  CreatedBy         String?      @db.VarChar(100)
-  UpdatedOn         DateTime?    @updatedAt
-  UpdatedBy         String?      @db.VarChar(100)
-  Status            String?      @default("A") @db.Char(1)
-  branchMaster      BranchMaster @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
-  companyMaster     CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
-  userMaster        UserMaster?  @relation(fields: [UserMasterSid], references: [UserMasterSid])
+  ResourceConfigurationSid Int           @id @default(autoincrement())
+  CompanyMasterSid         Int
+  BranchMasterSid          Int
+  Stage                    String        @db.VarChar(50)
+  AssignedRole             String?       @db.VarChar(10)
+  UserMasterSid            Int?
+  CreatedOn                DateTime      @default(now())
+  CreatedBy                String?       @db.VarChar(100)
+  UpdatedOn                DateTime?     @updatedAt
+  UpdatedBy                String?       @db.VarChar(100)
+  Status                   String?       @default("A") @db.Char(1)
+  branchMaster             BranchMaster  @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
+  companyMaster            CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+  userMaster               UserMaster?   @relation(fields: [UserMasterSid], references: [UserMasterSid])
 }

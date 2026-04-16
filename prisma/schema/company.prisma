@@ -2958,6 +2958,7 @@ model HouseJobCargo {
   CompanyMaster        CompanyMaster        @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
   containerType        ContainerTypeMaster? @relation(fields: [ContainerType], references: [ContainerTypeMasterSid])
   HouseJob             HouseJob             @relation(fields: [HouseJobSid], references: [HouseJobSid])
+  products             HouseJobProduct[]
 }
 
 model HouseJobProduct {
@@ -3004,9 +3005,11 @@ model HouseJobProduct {
   DamageRemarks         String?             @db.VarChar(100)
   ReceivedQty           Decimal?            @db.Decimal(5, 0)
   MasterJobContainerSid Int?
+  HouseJobCargoSid      Int?
   HouseJob              HouseJob            @relation(fields: [HouseJobSid], references: [HouseJobSid])
   masterJobContainer    MasterJobContainer? @relation(fields: [MasterJobContainerSid], references: [MasterJobContainerSid])
   uomMaster             UOMMaster?          @relation(fields: [UomMasterSid], references: [UOMMasterSid])
+  houseJobCargo         HouseJobCargo?      @relation(fields: [HouseJobCargoSid], references: [HouseJobCargoSid])
 }
 
 model HouseJobConnection {
