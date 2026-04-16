@@ -174,3 +174,26 @@ export class SaveRoleMenuPrintDto {
     @IsString()
     UpdatedBy: string;
 }
+
+export class RoleMenuReportChangeDto {
+    @IsInt()
+    ReportMasterSid: number;
+
+    @IsBoolean()
+    grantAccess: boolean;
+}
+
+export class SaveRoleMenuReportDto {
+    @IsNotEmpty()
+    @IsInt()
+    RoleMenuDetailSid: number;
+
+    @IsArray()
+    @ValidateNested({ each: true })
+    @Type(() => RoleMenuReportChangeDto)
+    changes: RoleMenuReportChangeDto[];
+
+    @IsNotEmpty()
+    @IsString()
+    UpdatedBy: string;
+}
