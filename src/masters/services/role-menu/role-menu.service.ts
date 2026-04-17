@@ -13,11 +13,15 @@ export class RoleMenuService {
 
     async createRoleMenu(payload: RoleMenuPayload) {
         try {
+            const selectedCompanySid = payload.CompanyMasterSid;
+            if (!selectedCompanySid) {
+                throw new BadRequestException('CompanyMasterSid is required');
+            }
             const roleMenu = await this._db.$transaction(async (prisma) => {
                 const existing = await prisma.roleMenuHeader.findFirst({
                     where: {
                         RoleMasterSid: payload.RoleMasterSid,
-                        CompanyMasterSid : payload.CompanyMasterSid,
+                        CompanyMasterSid : selectedCompanySid,
                         status: statusWhereClause
                     }
                 });
@@ -29,7 +33,7 @@ export class RoleMenuService {
                 const header = await prisma.roleMenuHeader.create({
                     data : {
                         RoleMasterSid: payload.RoleMasterSid,
-                        CompanyMasterSid: payload.CompanyMasterSid || null,
+                        CompanyMasterSid: selectedCompanySid,
                         createdBy: payload.createdBy || "",
                         updatedOn : new Date(),
                         Remarks: payload.Remarks || "",
@@ -41,7 +45,7 @@ export class RoleMenuService {
                     RoleMenuHeaderSid: header.RoleMenuHeaderSid,
                     MenuMasterSid: detail.MenuMasterSid,
                     DisplayName: detail.DisplayName || "",
-                    CompanyMasterSid: payload.CompanyMasterSid || null,
+                    CompanyMasterSid: detail.CompanyMasterSid ?? selectedCompanySid,
                     InsertRole: detail.InsertRole || "N",
                     ViewRole: detail.ViewRole || "N",
                     UpdateRole: detail.UpdateRole || "N",
@@ -87,6 +91,7 @@ export class RoleMenuService {
                                 UpdateRole: true,
                                 DeleteRole: true,
                                 PostRole: true,
+                                CompanyMasterSid: true,
                                 menuMaster: {
                                     select: {
                                         MenuName: true,
@@ -139,10 +144,14 @@ export class RoleMenuService {
 
     async updateRoleMenu(payload:RoleMenuPayload){
         try {
+            const selectedCompanySid = payload.CompanyMasterSid;
+            if (!selectedCompanySid) {
+                throw new BadRequestException('CompanyMasterSid is required');
+            }
             const existing = await this._db.roleMenuHeader.findFirst({
                 where: {
                     RoleMasterSid : payload.RoleMasterSid,
-                    CompanyMasterSid : payload.CompanyMasterSid,
+                    CompanyMasterSid : selectedCompanySid,
                     status : statusWhereClause,
                     RoleMenuHeaderSid : {not : payload.RoleMenuHeaderSid}
                 }
@@ -160,7 +169,7 @@ export class RoleMenuService {
                     },
                     data : {
                         RoleMasterSid: payload.RoleMasterSid,
-                        CompanyMasterSid: payload.CompanyMasterSid,
+                        CompanyMasterSid: selectedCompanySid,
                         updatedBy : payload.updatedBy,
                         updatedOn : new Date(),
                         Remarks : payload.Remarks,
@@ -186,7 +195,7 @@ export class RoleMenuService {
                         RoleMenuHeaderSid: roleMenuHeader.RoleMenuHeaderSid,
                         MenuMasterSid: detail.MenuMasterSid,
                         DisplayName: detail.DisplayName || "",
-                        CompanyMasterSid: payload.CompanyMasterSid || null,
+                        CompanyMasterSid: detail.CompanyMasterSid ?? selectedCompanySid,
                         InsertRole: detail.InsertRole || "N",
                         ViewRole: detail.ViewRole || "N",
                         UpdateRole: detail.UpdateRole || "N",
@@ -215,7 +224,7 @@ export class RoleMenuService {
                                     RoleMenuHeaderSid: detail.RoleMenuHeaderSid,
                                     MenuMasterSid: detail.MenuMasterSid,
                                     DisplayName: detail.DisplayName || '',
-                                    CompanyMasterSid: payload.CompanyMasterSid || null,
+                                    CompanyMasterSid: detail.CompanyMasterSid ?? selectedCompanySid,
                                     InsertRole: detail.InsertRole || 'N',
                                     ViewRole: detail.ViewRole || 'N',
                                     UpdateRole: detail.UpdateRole || 'N',
@@ -242,11 +251,15 @@ export class RoleMenuService {
 
     async searchRoleMenu(params: filterDto) {
         try {
-            const { search = '', page = 1, pageSize = 15 ,activeCompanyId} = params;
+            const { search = '', page = 1, pageSize = 15, activeCompanyId, CurrentCompanySid, currentCompanySid } = params;
             const skip = (page - 1) * pageSize;
+            const companySid = Number(activeCompanyId ?? CurrentCompanySid ?? currentCompanySid);
+            if (!Number.isFinite(companySid) || companySid <= 0) {
+                throw new BadRequestException('CompanyMasterSid is required');
+            }
             const where: Prisma.RoleMenuHeaderWhereInput = {
                 status: statusWhereClause,
-                CompanyMasterSid: activeCompanyId,
+                CompanyMasterSid: companySid,
                 ...(search
                     ? {
                         OR: [

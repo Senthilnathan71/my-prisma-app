@@ -21,6 +21,14 @@ export class filterDto {
 
   @IsOptional()
   @IsInt()
+  CurrentCompanySid?: number;
+
+  @IsOptional()
+  @IsInt()
+  currentCompanySid?: number;
+
+  @IsOptional()
+  @IsInt()
   activeBranchId: number;
 
   @IsOptional()

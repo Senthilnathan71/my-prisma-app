@@ -276,9 +276,20 @@ export class VoucherPeriodService {
         CompanyMasterSid: number;
         BranchMasterSid: number;
         CreatedBy: string;
+        ARGraceDays?: number;
+        APGraceDays?: number;
+        GLGraceDays?: number;
     }) {
         try {
-            const { YearMasterSid, CompanyMasterSid, BranchMasterSid, CreatedBy } = payload;
+            const {
+                YearMasterSid,
+                CompanyMasterSid,
+                BranchMasterSid,
+                CreatedBy,
+                ARGraceDays = 90,
+                APGraceDays = 90,
+                GLGraceDays = 90
+            } = payload;
 
             // 1. Get YearMaster to get start/end dates
             const yearMaster = await this._db.yearMaster.findUnique({
@@ -335,11 +346,11 @@ export class VoucherPeriodService {
                     CreatedBy,
                     Status: 'A',
                     GLClosed: 'N',
-                    GLGraceDays: 0,
+                    GLGraceDays: Number(GLGraceDays),
                     ARClosed: 'N',
-                    ARGraceDays: 0,
+                    ARGraceDays: Number(ARGraceDays),
                     APClosed: 'N',
-                    APGraceDays: 0,
+                    APGraceDays: Number(APGraceDays),
                     Remarks: 'Generated from Year',
                     CompanyMaster: { connect: { CompanyMasterSid } },
                     BranchMaster: { connect: { BranchMasterSid } },

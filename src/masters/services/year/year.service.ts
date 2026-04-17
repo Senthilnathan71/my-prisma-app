@@ -28,6 +28,9 @@ export class YearService {
     async createNewYear(payload: any) {
         try {
             const { CompanyMasterSid, ...rest } = payload;
+            if (!CompanyMasterSid) {
+                throw new BadRequestException('CompanyMasterSid is required');
+            }
 
             // Check if year name already exists for this company
             const existingYear = await this._db.yearMaster.findFirst({
@@ -166,11 +169,30 @@ export class YearService {
             if (!exist) {
                 throw new BadRequestException(`Year with Id : ${YearMasterSid} not exists`);
             }
+            const selectedCompanySid = payload.CompanyMasterSid ?? exist.CompanyMasterSid;
+            if (!selectedCompanySid) {
+                throw new BadRequestException('CompanyMasterSid is required');
+            }
+
+            const existingYear = await this._db.yearMaster.findFirst({
+                where: {
+                    YearName: payload.YearName,
+                    CompanyMasterSid: selectedCompanySid,
+                    status: { not: 'D' },
+                    YearMasterSid: { not: YearMasterSid }
+                }
+            });
+            if (existingYear) {
+                throw new BadRequestException(`Year with name '${payload.YearName}' already exists`);
+            }
             const updatedYear = await this._db.yearMaster.update({
                 where: {
                     YearMasterSid: YearMasterSid
                 },
-                data: payload,
+                data: {
+                    ...payload,
+                    CompanyMasterSid: selectedCompanySid
+                },
                 include: {
                     companyMaster: true
                 }
@@ -213,12 +235,13 @@ export class YearService {
 
 
     async searchYearNew(params: filterDto) {
-        const { search = '', page = 1, pageSize = 15, activeCompanyId } = params;
+        const { search = '', page = 1, pageSize = 15, activeCompanyId, CurrentCompanySid, currentCompanySid } = params;
         const skip = (page - 1) * pageSize;
+        const companySid = activeCompanyId ?? CurrentCompanySid ?? currentCompanySid;
 
         const where: Prisma.YearMasterWhereInput = {
             status: statusWhereClause,
-            CompanyMasterSid: activeCompanyId,
+            CompanyMasterSid: companySid,
 
             ...(search
                 ? {
