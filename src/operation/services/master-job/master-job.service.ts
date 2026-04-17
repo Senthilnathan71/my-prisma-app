@@ -3717,13 +3717,13 @@ if (houseJobsForBookingSync.length > 0) {
 
                 if (!houseJob) continue;
 
-                const cargosWithProducts = (sourceCargo || []).map((cargo: any) => ({
+                const cargosWithProducts = (bookingCargo || []).map((cargo: any) => ({
                     ...cargo,
                     products: Array.isArray((cargo as any)?.bookingProducts)
                         ? cargo.bookingProducts
                         : Array.isArray((cargo as any)?.products)
                             ? cargo.products
-                            : (sourceProducts || []).filter(
+                            : (bookingProduct || []).filter(
                                 (product) => product.BookingCargoSid === cargo.BookingCargoSid
                             )
                 }));
@@ -3791,13 +3791,11 @@ if (houseJobsForBookingSync.length > 0) {
                             });
                         }
                     }
-                } else if (sourceProducts?.length) {
+                } else if (bookingProduct?.length) {
                     await this._db.houseJobProduct.createMany({
-                        data: sourceProducts.map((product: any) => ({
+                        data: bookingProduct.map((product: any) => ({
                             HouseJobSid: houseJob.HouseJobSid,
-                            HouseJobCargoSid: product.BookingCargoSid
-                                ? sourceCargo.find((cargo: any) => cargo.BookingCargoSid === product.BookingCargoSid)?.HouseJobCargoSid || null
-                                : null,
+                            HouseJobCargoSid: null,
                             ProductName: product.ProductName || '',
                             ProductDescription: product.ProductDescription || '',
                             ShippingBillNo: product.ShippingBillNo || '',
