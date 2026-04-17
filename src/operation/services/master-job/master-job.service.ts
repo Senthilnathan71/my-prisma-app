@@ -692,6 +692,11 @@ export class MasterJobService {
                 // SHIPMENT PART
 
                 const allShipments = payload.shipmentList || [];
+                const shipmentByBookingId = new Map<number, any>(
+                    allShipments
+                        .filter((shipment: any) => shipment?.BookingHeaderSid)
+                        .map((shipment: any) => [Number(shipment.BookingHeaderSid), shipment])
+                );
                 const transhipmentRecords = allShipments.filter(
                     (s) => String(s.JobType || '').toLowerCase() === 'transhipment'
                 );
@@ -748,6 +753,13 @@ export class MasterJobService {
                     const allCreatedHouseJobs: any[] = [];
                     for (const booking of allBookings) {
                         const { bookingCargo, bookingProduct, bookingOthers, bookingConnection, bookingRates, ...bookingHeader } = booking;
+                        const shipmentOverride = shipmentByBookingId.get(Number(booking.BookingHeaderSid));
+                        const sourceCargo = Array.isArray(shipmentOverride?.bookingCargo) && shipmentOverride.bookingCargo.length
+                            ? shipmentOverride.bookingCargo
+                            : bookingCargo;
+                        const sourceProducts = Array.isArray(shipmentOverride?.bookingProducts) && shipmentOverride.bookingProducts.length
+                            ? shipmentOverride.bookingProducts
+                            : bookingProduct;
 
                         const department = await prisma.departmentMaster.findUnique({
                             where: { DepartmentMasterSid: payload.DepartmentMasterSid },
@@ -875,71 +887,75 @@ export class MasterJobService {
 
                         if (!houseJob) continue;
 
-                        if (bookingCargo?.length) {
-                            await prisma.houseJobCargo.createMany({
-                                data: bookingCargo.map((cargo) => ({
-                                    HouseJobSid: houseJob.HouseJobSid,
-                                    CompanyMasterSid: houseJob.CompanyMasterSid,
-                                    BranchMasterSid: houseJob.BranchMasterSid!,
-                                    NoOfPackage: cargo.NoOfPackage || 0,
-                                    FreightAmount: cargo.FreightAmount,
-                                    CargoType: cargo.CargoType,
-                                    WeightUnitSid: cargo.WeightUnitSid || null,
-                                    GrossWeight: cargo.GrossWeight || 0,
-                                    NetWeight: cargo.NetWeight || 0,
-                                    Volume: cargo.Volume || 0,
-                                    Volumetric: cargo.Volumetric || 0,
-                                    ChargeableWeight: cargo.ChargeableWeight || 0,
-                                    MarksAndNumber: '',
-                                    CommodityDescription: '',
-                                    ContainerType: cargo.ContainerType,
-                                    PackageType: cargo.PackageType || null,
-                                    Qty: cargo.Qty || 0,
-                                    ShipmentTerms: cargo.ShipmentTerms || '',
-                                    createdBy: payload.createdBy || '',
-                                    status: 'A',
-                                    FreightTerms: cargo.FreightTerms || '',
-                                    MovementType: cargo.MovementType || '',
-                                    ModeOfTransport: cargo.ModeOfTransport || '',
-                                    NoofContainers: cargo.NoofContainers || 0,
-                                    StuffingAt: cargo.StuffingAt || '',
-                                })
-                                ),
-                            }).catch(err => {
-                                console.error('HouseJobCargo createMany error:', err);
-                            });
-                        }
+                        if (sourceCargo?.length) {
+                            for (const cargo of sourceCargo) {
+                                const createdCargo = await prisma.houseJobCargo.create({
+                                    data: {
+                                        HouseJobSid: houseJob.HouseJobSid,
+                                        CompanyMasterSid: houseJob.CompanyMasterSid,
+                                        BranchMasterSid: houseJob.BranchMasterSid!,
+                                        NoOfPackage: cargo.NoOfPackage || 0,
+                                        FreightAmount: cargo.FreightAmount,
+                                        CargoType: cargo.CargoType,
+                                        WeightUnitSid: cargo.WeightUnitSid || null,
+                                        GrossWeight: cargo.GrossWeight || 0,
+                                        NetWeight: cargo.NetWeight || 0,
+                                        Volume: cargo.Volume || 0,
+                                        Volumetric: cargo.Volumetric || 0,
+                                        ChargeableWeight: cargo.ChargeableWeight || 0,
+                                        MarksAndNumber: '',
+                                        CommodityDescription: '',
+                                        ContainerType: cargo.ContainerType,
+                                        PackageType: cargo.PackageType || null,
+                                        Qty: cargo.Qty || 0,
+                                        ShipmentTerms: cargo.ShipmentTerms || '',
+                                        createdBy: payload.createdBy || '',
+                                        status: 'A',
+                                        FreightTerms: cargo.FreightTerms || '',
+                                        MovementType: cargo.MovementType || '',
+                                        ModeOfTransport: cargo.ModeOfTransport || '',
+                                        NoofContainers: cargo.NoofContainers || 0,
+                                        StuffingAt: cargo.StuffingAt || '',
+                                    }
+                                });
 
-                        if (bookingProduct?.length) {
-                            await prisma.houseJobProduct.createMany({
-                                data: bookingProduct.map((product) => ({
-                                    HouseJobSid: houseJob.HouseJobSid,
-                                    ProductName: product.ProductName || '',
-                                    ProductDescription: product.ProductDescription || '',
-                                    ShippingBillNo: product.ShippingBillNo || '',
-                                    ShippingBillDate: product.ShippingBillDate || null,
-                                    ExternaPkg: product.ExternaPkg || '',
-                                    ExternlQty: String(product.ExternlQty) || '',
-                                    GrossWeight: Number(product.GrossWeight) || 0,
-                                    NetWeight: Number(product.NetWeight) || 0,
-                                    Volume: Number(product.Volume) || 0,
-                                    Volumetric: Number(product.Volumetric) || 0,
-                                    CargoRecDate: product.CargoRecDate ? new Date(product.CargoRecDate) : null,
-                                    CFS: product.CFS || '',
-                                    Height: product.Height || 0,
-                                    ImcoClass: product.ImcoClass || '',
-                                    IsHaz: product.IsHaz || 'N',
-                                    Length: product.Length || 0,
-                                    PkgGroup: product.PkgGroup || '',
-                                    UnNo: product.UnNo || '',
-                                    Width: product.Width || 0,
-                                    UomMasterSid: product.UomMasterSid || null,
-                                    MarksAndNumber: '',
-                                    createdBy: payload.createdBy || '',
-                                }))
-                            }).catch(err => {
-                                console.error('HouseJobProduct createMany error:', err);
-                            });
+                                const cargoProducts = Array.isArray(cargo?.bookingProducts)
+                                    ? cargo.bookingProducts
+                                    : Array.isArray(cargo?.products)
+                                        ? cargo.products
+                                        : sourceProducts.filter((product: any) => product.BookingCargoSid === cargo.BookingCargoSid);
+
+                                for (const product of cargoProducts) {
+                                    await prisma.houseJobProduct.create({
+                                        data: {
+                                            HouseJobSid: houseJob.HouseJobSid,
+                                            HouseJobCargoSid: createdCargo.HouseJobCargoSid,
+                                            ProductName: product.ProductName || '',
+                                            ProductDescription: product.ProductDescription || '',
+                                            ShippingBillNo: product.ShippingBillNo || '',
+                                            ShippingBillDate: product.ShippingBillDate || null,
+                                            ExternaPkg: product.ExternaPkg || '',
+                                            ExternlQty: String(product.ExternlQty) || '',
+                                            GrossWeight: Number(product.GrossWeight) || 0,
+                                            NetWeight: Number(product.NetWeight) || 0,
+                                            Volume: Number(product.Volume) || 0,
+                                            Volumetric: Number(product.Volumetric) || 0,
+                                            CargoRecDate: product.CargoRecDate ? new Date(product.CargoRecDate) : null,
+                                            CFS: product.CFS || '',
+                                            Height: product.Height || 0,
+                                            ImcoClass: product.ImcoClass || '',
+                                            IsHaz: product.IsHaz || 'N',
+                                            Length: product.Length || 0,
+                                            PkgGroup: product.PkgGroup || '',
+                                            UnNo: product.UnNo || '',
+                                            Width: product.Width || 0,
+                                            UomMasterSid: product.UomMasterSid || null,
+                                            MarksAndNumber: '',
+                                            createdBy: payload.createdBy || '',
+                                        }
+                                    });
+                                }
+                            }
                         }
 
                         if (bookingConnection?.length) {
@@ -2431,11 +2447,23 @@ private getWeightInFromUnitSid(weightUnitSid: number): string {
                         bookingRates: true,
                     },
                 });
+                const shipmentByBookingId = new Map<number, any>(
+                    allShipments
+                        .filter((shipment: any) => shipment?.BookingHeaderSid)
+                        .map((shipment: any) => [Number(shipment.BookingHeaderSid), shipment])
+                );
 
 
                 const allCreatedHouseJobs: any[] = [];
                 for (const booking of allBookings) {
                     const { bookingCargo, bookingProduct, bookingOthers, bookingConnection, bookingRates, ...bookingHeader } = booking;
+                    const shipmentOverride = shipmentByBookingId.get(Number(booking.BookingHeaderSid));
+                    const sourceCargo = Array.isArray(shipmentOverride?.bookingCargo) && shipmentOverride.bookingCargo.length
+                        ? shipmentOverride.bookingCargo
+                        : bookingCargo;
+                    const sourceProducts = Array.isArray(shipmentOverride?.bookingProducts) && shipmentOverride.bookingProducts.length
+                        ? shipmentOverride.bookingProducts
+                        : bookingProduct;
 
 
                     const department = await this._db.departmentMaster.findUnique({
@@ -2541,43 +2569,81 @@ private getWeightInFromUnitSid(weightUnitSid: number): string {
 
                     if (!houseJob) continue;
 
-                    if (bookingCargo?.length) {
-                        await this._db.houseJobCargo.createMany({
-                            data: bookingCargo.map((cargo) => ({
-                                HouseJobSid: houseJob.HouseJobSid,
-                                CompanyMasterSid: houseJob.CompanyMasterSid,
-                                BranchMasterSid: houseJob.BranchMasterSid!,
-                                NoOfPackage: cargo.NoOfPackage || 0,
-                                FreightAmount: cargo.FreightAmount,
-                                CargoType: cargo.CargoType,
-                                WeightUnitSid: cargo.WeightUnitSid || null,
-                                GrossWeight: cargo.GrossWeight || 0,
-                                NetWeight: cargo.NetWeight || 0,
-                                Volume: cargo.Volume || 0,
-                                Volumetric: cargo.Volumetric || 0,
-                                ChargeableWeight: cargo.ChargeableWeight || 0,
-                                MarksAndNumber: '',
-                                CommodityDescription: '',
-                                ContainerType: cargo.ContainerType,
-                                PackageType: cargo.PackageType || null,
-                                Qty: cargo.Qty || 0,
-                                ShipmentTerms: cargo.ShipmentTerms || '',
-                                createdBy: payload.createdBy || '',
-                                updatedBy: cargo.updatedBy || null,
-                                status: 'A',
-                                FreightTerms: cargo.FreightTerms || '',
-                                MovementType: cargo.MovementType || '',
-                                ModeOfTransport: cargo.ModeOfTransport || '',
-                                NoofContainers: cargo.NoofContainers || 0,
-                                StuffingAt: cargo.StuffingAt || '',
-                            })
-                            ),
-                        }).catch(err => {
-                            console.error('HouseJobCargo createMany error:', err);
-                        });
-                    }
+                    const bookingCargoGroups = (bookingCargo || []).map((cargo: any) => ({
+                        ...cargo,
+                        products: Array.isArray((cargo as any)?.bookingProducts)
+                            ? cargo.bookingProducts
+                            : Array.isArray((cargo as any)?.products)
+                                ? cargo.products
+                                : (bookingProduct || []).filter(
+                                    (product) => product.BookingCargoSid === cargo.BookingCargoSid
+                                )
+                    }));
 
-                    if (bookingProduct?.length) {
+                    if (bookingCargoGroups.length > 0) {
+                        for (const cargo of bookingCargoGroups) {
+                            const createdCargo = await this._db.houseJobCargo.create({
+                                data: {
+                                    HouseJobSid: houseJob.HouseJobSid,
+                                    CompanyMasterSid: houseJob.CompanyMasterSid,
+                                    BranchMasterSid: houseJob.BranchMasterSid!,
+                                    NoOfPackage: cargo.NoOfPackage || 0,
+                                    FreightAmount: cargo.FreightAmount,
+                                    CargoType: cargo.CargoType,
+                                    WeightUnitSid: cargo.WeightUnitSid || null,
+                                    GrossWeight: cargo.GrossWeight || 0,
+                                    NetWeight: cargo.NetWeight || 0,
+                                    Volume: cargo.Volume || 0,
+                                    Volumetric: cargo.Volumetric || 0,
+                                    ChargeableWeight: cargo.ChargeableWeight || 0,
+                                    MarksAndNumber: '',
+                                    CommodityDescription: '',
+                                    ContainerType: cargo.ContainerType,
+                                    PackageType: cargo.PackageType || null,
+                                    Qty: cargo.Qty || 0,
+                                    ShipmentTerms: cargo.ShipmentTerms || '',
+                                    createdBy: payload.createdBy || '',
+                                    updatedBy: cargo.updatedBy || null,
+                                    status: 'A',
+                                    FreightTerms: cargo.FreightTerms || '',
+                                    MovementType: cargo.MovementType || '',
+                                    ModeOfTransport: cargo.ModeOfTransport || '',
+                                    NoofContainers: cargo.NoofContainers || 0,
+                                    StuffingAt: cargo.StuffingAt || '',
+                                }
+                            });
+
+                            for (const product of cargo.products || []) {
+                                await this._db.houseJobProduct.create({
+                                    data: {
+                                        HouseJobSid: houseJob.HouseJobSid,
+                                        HouseJobCargoSid: createdCargo.HouseJobCargoSid,
+                                        ProductName: product.ProductName || '',
+                                        ProductDescription: product.ProductDescription || '',
+                                        ShippingBillNo: product.ShippingBillNo || '',
+                                        ShippingBillDate: product.ShippingBillDate || null,
+                                        ExternaPkg: product.ExternaPkg || '',
+                                        ExternlQty: String(product.ExternlQty) || '',
+                                        GrossWeight: Number(product.GrossWeight) || 0,
+                                        NetWeight: Number(product.NetWeight) || 0,
+                                        Volume: Number(product.Volume) || 0,
+                                        CargoRecDate: product.CargoRecDate ? new Date(product.CargoRecDate) : null,
+                                        CFS: product.CFS || '',
+                                        Height: product.Height || 0,
+                                        ImcoClass: product.ImcoClass || '',
+                                        IsHaz: product.IsHaz || 'N',
+                                        Length: product.Length || 0,
+                                        PkgGroup: product.PkgGroup || '',
+                                        UnNo: product.UnNo || '',
+                                        Width: product.Width || 0,
+                                        UomMasterSid: product.UomMasterSid || null,
+                                        MarksAndNumber: '',
+                                        createdBy: payload.createdBy || '',
+                                    }
+                                });
+                            }
+                        }
+                    } else if (bookingProduct?.length) {
                         await this._db.houseJobProduct.createMany({
                             data: bookingProduct.map((product) => ({
                                 HouseJobSid: houseJob.HouseJobSid,
@@ -3651,46 +3717,87 @@ if (houseJobsForBookingSync.length > 0) {
 
                 if (!houseJob) continue;
 
-                if (bookingCargo?.length) {
-                    await this._db.houseJobCargo.createMany({
-                        data: bookingCargo.map((cargo) => ({
-                            HouseJobSid: houseJob.HouseJobSid,
-                            CompanyMasterSid: houseJob.CompanyMasterSid,
-                            BranchMasterSid: houseJob.BranchMasterSid!,
-                            NoOfPackage: cargo.NoOfPackage || 0,
-                            FreightAmount: cargo.FreightAmount,
-                            CargoType: cargo.CargoType,
-                            WeightUnitSid: cargo.WeightUnitSid || null,
-                            GrossWeight: cargo.GrossWeight || 0,
-                            NetWeight: cargo.NetWeight || 0,
-                            Volume: cargo.Volume || 0,
-                            Volumetric: cargo.Volumetric || 0,
-                            ChargeableWeight: cargo.ChargeableWeight || 0,
-                            MarksAndNumber: '',
-                            CommodityDescription: '',
-                            ContainerType: cargo.ContainerType,
-                            PackageType: cargo.PackageType || null,
-                            Qty: cargo.Qty || 0,
-                            ShipmentTerms: cargo.ShipmentTerms || '',
-                            createdBy: cargo.createdBy,
-                            updatedBy: cargo.updatedBy || null,
-                            status: 'A',
-                            FreightTerms: cargo.FreightTerms || '',
-                            MovementType: cargo.MovementType || '',
-                            ModeOfTransport: cargo.ModeOfTransport || '',
-                            NoofContainers: cargo.NoofContainers || 0,
-                            StuffingAt: cargo.StuffingAt || '',
-                        })
-                        ),
-                    }).catch(err => {
-                        console.error('HouseJobCargo createMany error:', err);
-                    });
-                }
+                const cargosWithProducts = (sourceCargo || []).map((cargo: any) => ({
+                    ...cargo,
+                    products: Array.isArray((cargo as any)?.bookingProducts)
+                        ? cargo.bookingProducts
+                        : Array.isArray((cargo as any)?.products)
+                            ? cargo.products
+                            : (sourceProducts || []).filter(
+                                (product) => product.BookingCargoSid === cargo.BookingCargoSid
+                            )
+                }));
 
-                if (bookingProduct?.length) {
+                if (cargosWithProducts.length > 0) {
+                    for (const cargo of cargosWithProducts) {
+                        const createdCargo = await this._db.houseJobCargo.create({
+                            data: {
+                                HouseJobSid: houseJob.HouseJobSid,
+                                CompanyMasterSid: houseJob.CompanyMasterSid,
+                                BranchMasterSid: houseJob.BranchMasterSid!,
+                                NoOfPackage: cargo.NoOfPackage || 0,
+                                FreightAmount: cargo.FreightAmount,
+                                CargoType: cargo.CargoType,
+                                WeightUnitSid: cargo.WeightUnitSid || null,
+                                GrossWeight: cargo.GrossWeight || 0,
+                                NetWeight: cargo.NetWeight || 0,
+                                Volume: cargo.Volume || 0,
+                                Volumetric: cargo.Volumetric || 0,
+                                ChargeableWeight: cargo.ChargeableWeight || 0,
+                                MarksAndNumber: '',
+                                CommodityDescription: '',
+                                ContainerType: cargo.ContainerType,
+                                PackageType: cargo.PackageType || null,
+                                Qty: cargo.Qty || 0,
+                                ShipmentTerms: cargo.ShipmentTerms || '',
+                                createdBy: cargo.createdBy,
+                                updatedBy: cargo.updatedBy || null,
+                                status: 'A',
+                                FreightTerms: cargo.FreightTerms || '',
+                                MovementType: cargo.MovementType || '',
+                                ModeOfTransport: cargo.ModeOfTransport || '',
+                                NoofContainers: cargo.NoofContainers || 0,
+                                StuffingAt: cargo.StuffingAt || '',
+                            }
+                        });
+
+                        for (const product of cargo.products || []) {
+                            await this._db.houseJobProduct.create({
+                                data: {
+                                    HouseJobSid: houseJob.HouseJobSid,
+                                    HouseJobCargoSid: createdCargo.HouseJobCargoSid,
+                                    ProductName: product.ProductName || '',
+                                    ProductDescription: product.ProductDescription || '',
+                                    ShippingBillNo: product.ShippingBillNo || '',
+                                    ShippingBillDate: product.ShippingBillDate ? new Date(product.ShippingBillDate) : null,
+                                    ExternaPkg: product.ExternaPkg || '',
+                                    ExternlQty: String(product.ExternlQty) || '',
+                                    GrossWeight: Number(product.GrossWeight) || 0,
+                                    NetWeight: Number(product.NetWeight) || 0,
+                                    Volume: Number(product.Volume) || 0,
+                                    CargoRecDate: product.CargoRecDate ? new Date(product.CargoRecDate) : null,
+                                    CFS: product.CFS || '',
+                                    Height: product.Height || 0,
+                                    ImcoClass: product.ImcoClass || '',
+                                    IsHaz: product.IsHaz || 'N',
+                                    Length: product.Length || 0,
+                                    PkgGroup: product.PkgGroup || '',
+                                    UnNo: product.UnNo || '',
+                                    Width: product.Width || 0,
+                                    UomMasterSid: product.UomMasterSid || null,
+                                    MarksAndNumber: '',
+                                    createdBy: product.createdBy,
+                                }
+                            });
+                        }
+                    }
+                } else if (sourceProducts?.length) {
                     await this._db.houseJobProduct.createMany({
-                        data: bookingProduct.map((product) => ({
+                        data: sourceProducts.map((product: any) => ({
                             HouseJobSid: houseJob.HouseJobSid,
+                            HouseJobCargoSid: product.BookingCargoSid
+                                ? sourceCargo.find((cargo: any) => cargo.BookingCargoSid === product.BookingCargoSid)?.HouseJobCargoSid || null
+                                : null,
                             ProductName: product.ProductName || '',
                             ProductDescription: product.ProductDescription || '',
                             ShippingBillNo: product.ShippingBillNo || '',
@@ -4250,10 +4357,17 @@ private async updateMasterJobTotals(masterJobSid: number): Promise<void> {
                         data: houseJobPayload
                     });
 
-                    // Create House Job Cargo
-                    if (houseJobData.cargo && houseJobData.cargo.length > 0) {
-                        for (const cargo of houseJobData.cargo) {
-                            await prisma.houseJobCargo.create({
+                    // Create House Job Cargo and Products
+                    const cargoGroups = Array.isArray(houseJobData.cargo)
+                        ? houseJobData.cargo
+                        : [];
+                    const flatProducts = Array.isArray(houseJobData.products)
+                        ? houseJobData.products
+                        : [];
+
+                    if (cargoGroups.length > 0) {
+                        for (const cargo of cargoGroups) {
+                            const createdCargo = await prisma.houseJobCargo.create({
                                 data: {
                                     HouseJobSid: createdHouseJob.HouseJobSid,
                                     CompanyMasterSid: companyMasterSid,
@@ -4281,12 +4395,41 @@ private async updateMasterJobTotals(masterJobSid: number): Promise<void> {
                                     status: 'A'
                                 }
                             });
-                        }
-                    }
 
-                    // Create House Job Products
-                    if (houseJobData.products && houseJobData.products.length > 0) {
-                        for (const product of houseJobData.products) {
+                            const cargoProducts = Array.isArray(cargo.products) ? cargo.products : [];
+                            for (const product of cargoProducts) {
+                                await prisma.houseJobProduct.create({
+                                    data: {
+                                        HouseJobSid: createdHouseJob.HouseJobSid,
+                                        HouseJobCargoSid: createdCargo.HouseJobCargoSid,
+                                        ProductName: product.ProductName,
+                                        ProductDescription: product.ProductDescription,
+                                        ShippingBillNo: product.ShippingBillNo,
+                                        ShippingBillDate: product.ShippingBillDate,
+                                        ExternaPkg: product.ExternaPkg,
+                                        ExternlQty: product.ExternlQty,
+                                        InternalPkg: product.InternalPkg,
+                                        InternalQty: product.InternalQty,
+                                        GrossWeight: product.GrossWeight,
+                                        NetWeight: product.NetWeight,
+                                        Volume: product.Volume,
+                                        Height: product.Height,
+                                        ImcoClass: product.ImcoClass,
+                                        IsHaz: product.IsHaz,
+                                        Length: product.Length,
+                                        PkgGroup: product.PkgGroup,
+                                        UnNo: product.UnNo,
+                                        Width: product.Width,
+                                        MarksAndNumber: product.MarksAndNumber,
+                                        ContainerNo: product.ContainerNo,
+                                        createdBy: createdBy,
+                                        status: 'A'
+                                    }
+                                });
+                            }
+                        }
+                    } else if (flatProducts.length > 0) {
+                        for (const product of flatProducts) {
                             await prisma.houseJobProduct.create({
                                 data: {
                                     HouseJobSid: createdHouseJob.HouseJobSid,
@@ -7169,11 +7312,12 @@ console.log('Created product:', createdProduct);
                     });
                 }
 
+                const cargoSidMap = new Map<number, number>();
                 for (const cargo of sourceHouseJob.Cargo || []) {
                     const cargoData = omitFields(cargo, [
-                        'HouseJobCargoSid', 'HouseJobSid', 'BranchMasterSid', 'CompanyMasterSid', 'createdBy', 'updatedBy', 'deletedBy', 'deletedAt', 'createdOn', 'updatedOn', 'status'
+                        'HouseJobCargoSid', 'HouseJobSid', 'BranchMasterSid', 'CompanyMasterSid', 'createdBy', 'updatedBy', 'deletedBy', 'deletedAt', 'createdOn', 'updatedOn', 'status', 'products'
                     ]);
-                    await prisma.houseJobCargo.create({
+                    const createdCargo = await prisma.houseJobCargo.create({
                         data: {
                             ...cargoData,
                             HouseJobSid: createdHouseJob.HouseJobSid,
@@ -7183,16 +7327,18 @@ console.log('Created product:', createdProduct);
                             status: 'A',
                         }
                     });
+                    cargoSidMap.set(cargo.HouseJobCargoSid, createdCargo.HouseJobCargoSid);
                 }
 
                 for (const product of sourceHouseJob.Products || []) {
                     const productData = omitFields(product, [
-                        'HouseJobProductSid', 'HouseJobSid', 'createdBy', 'updatedBy', 'deletedBy', 'deletedAt', 'createdOn', 'updatedOn', 'status'
+                        'HouseJobProductSid', 'HouseJobSid', 'HouseJobCargoSid', 'createdBy', 'updatedBy', 'deletedBy', 'deletedAt', 'createdOn', 'updatedOn', 'status'
                     ]);
                     await prisma.houseJobProduct.create({
                         data: {
                             ...productData,
                             HouseJobSid: createdHouseJob.HouseJobSid,
+                            HouseJobCargoSid: product.HouseJobCargoSid ? cargoSidMap.get(product.HouseJobCargoSid) || null : null,
                             MasterJobContainerSid: product.MasterJobContainerSid ? containerSidMap.get(product.MasterJobContainerSid) || null : null,
                             createdBy: createdBy,
                             status: 'A',

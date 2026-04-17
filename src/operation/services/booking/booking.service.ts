@@ -55,6 +55,85 @@ export class BookingService {
         private numberSeriesService: NumberSeriesService,
     ) { }
 
+    private getCargoPayloadList(payload: any): any[] {
+        if (Array.isArray(payload?.bookingCargo)) {
+            return payload.bookingCargo;
+        }
+
+        if (payload?.bookingCargo) {
+            return [payload.bookingCargo];
+        }
+
+        return [];
+    }
+
+    private getCargoProducts(cargo: any, fallbackProducts: any[] = []): any[] {
+        if (Array.isArray(cargo?.bookingProducts)) {
+            return cargo.bookingProducts;
+        }
+
+        if (Array.isArray(cargo?.bookingProduct)) {
+            return cargo.bookingProduct;
+        }
+
+        if (Array.isArray(cargo?.products)) {
+            return cargo.products;
+        }
+
+        return fallbackProducts;
+    }
+
+    private buildBookingCargoData(cargoPayload: any, bookingHeader: any, createdBy: string) {
+        return {
+            CompanyMasterSid: bookingHeader.CompanyMasterSid,
+            BranchMasterSid: bookingHeader.BranchMasterSid,
+            BookingHeaderSid: bookingHeader.BookingHeaderSid,
+            CargoType: cargoPayload?.CargoType || 'General',
+            ContainerType: cargoPayload?.ContainerType ?? null,
+            NoofContainers: Number(cargoPayload?.NoofContainers ?? cargoPayload?.Qty ?? 0) || 0,
+            GrossWeight: Number(cargoPayload?.GrossWeight) || 0,
+            NetWeight: Number(cargoPayload?.NetWeight) || 0,
+            Volume: Number(cargoPayload?.Volume) || 0,
+            Volumetric: Number(cargoPayload?.Volumetric) || 0,
+            ChargeableWeight: Number(cargoPayload?.ChargeableWeight) || 0,
+            NoOfPackage: Number(cargoPayload?.NoOfPackage ?? cargoPayload?.PackageQty ?? 0) || 0,
+            ShipmentTerms: cargoPayload?.ShipmentTerms ?? null,
+            MovementType: cargoPayload?.MovementType ?? null,
+            ModeOfTransport: cargoPayload?.ModeOfTransport ?? null,
+            FreightTerms: cargoPayload?.FreightTerms ?? null,
+            StuffingAt: cargoPayload?.StuffingAt ?? null,
+            createdBy,
+            status: 'A'
+        };
+    }
+
+    private buildBookingProductData(product: any, bookingHeaderSid: number, createdBy: string) {
+        return {
+            BookingHeaderSid: bookingHeaderSid,
+            ProductName: product?.ProductName || '',
+            ShippingBillNo: product?.ShippingBillNo || '',
+            ShippingBillDate: product?.ShippingBillDate ? new Date(product.ShippingBillDate) : null,
+            CargoRecDate: product?.CargoRecDate ? new Date(product.CargoRecDate) : null,
+            ExternaPkg: String(product?.ExternaPkg ?? product?.ExternalPkg ?? '') || '',
+            ExternlQty: product?.ExternlQty ?? product?.ExternalQty ?? '',
+            GrossWeight: Number(product?.GrossWeight) || 0,
+            NetWeight: Number(product?.NetWeight) || 0,
+            Volume: Number(product?.Volume) || 0,
+            IsHaz: product?.IsHaz || 'N',
+            ImcoClass: product?.ImcoClass || '',
+            UnNo: String(product?.UnNo ?? '') || '',
+            PkgGroup: product?.PkgGroup || '',
+            Length: product?.Length,
+            Width: product?.Width,
+            Height: product?.Height,
+            Volumetric: Number(product?.Volumetric) || 0,
+            UomMasterSid: product?.UomMasterSid || null,
+            createdBy,
+            status: 'A',
+            ...(product?.CargoRecDate ? { RecdPack: product?.ExternlQty ?? product?.ExternalQty ?? '' } : {})
+        };
+    }
+
     async checkDuplicateBooking(payload: DuplicateCheckDTO) {
         try {
             const whereClause: Prisma.BookingHeaderWhereInput = {
@@ -279,34 +358,17 @@ ${payload.ShipmentType?.length}, IncoTerms: ${payload.IncoTerms?.length}`);
                 |  Step 2 : Create Booking Cargos
                 |--------------------------------------------------
             */
-            const cargoPayload = payload.bookingCargo ?? {};
-            const cargoData = {
-                CompanyMasterSid: bookingHeader.CompanyMasterSid,
-                BranchMasterSid: bookingHeader.BranchMasterSid,
-                BookingHeaderSid: bookingHeader.BookingHeaderSid,
-                CargoType: cargoPayload.CargoType,
-                ContainerType: cargoPayload.ContainerType,
-                NoofContainers: Number(cargoPayload.NoofContainers),
-                GrossWeight: Number(cargoPayload.GrossWeight),
-                NetWeight: Number(cargoPayload.NetWeight),
-                Volume: Number(cargoPayload.Volume),
-                Volumetric: Number(cargoPayload.Volumetric),
-                ChargeableWeight: Number(cargoPayload.ChargeableWeight),
-                NoOfPackage: Number(cargoPayload.NoOfPackage),
-                ShipmentTerms: cargoPayload.ShipmentTerms,
-                MovementType: cargoPayload.MovementType,
-                ModeOfTransport: cargoPayload.ModeOfTransport,
-                FreightTerms: cargoPayload.FreightTerms,
-                StuffingAt: cargoPayload.StuffingAt,
-                createdBy: payload.createdBy,
-                status: 'A'
+            const cargoPayloads = this.getCargoPayloadList(payload);
+            const createdCargos: any[] = [];
+            for (const cargoPayload of cargoPayloads) {
+                const cargoData = this.buildBookingCargoData(cargoPayload, bookingHeader, payload.createdBy);
+                const createdCargo = await this._db.bookingCargo.create({
+                    data: cargoData
+                }).catch(err => {
+                    throw new InternalServerErrorException('Something went wrong while creating booking cargo', err)
+                });
+                createdCargos.push(createdCargo);
             }
-
-            let createdCargos = await this._db.bookingCargo.create({
-                data: cargoData
-            }).catch(err => {
-                throw new InternalServerErrorException('Something went wrong while creating booking cargo', err)
-            })
 
 
             /**
@@ -315,43 +377,36 @@ ${payload.ShipmentType?.length}, IncoTerms: ${payload.IncoTerms?.length}`);
                 |--------------------------------------------------
             */
 
-            const allProducts: any[] = (payload.bookingProducts || []).map(product => {
-                let productData = {
-                    BookingHeaderSid: bookingHeader.BookingHeaderSid,
-                    ProductName: product.ProductName || '',
-                    ShippingBillNo: product.ShippingBillNo || '',
-                    ShippingBillDate: product.ShippingBillDate ? new Date(product.ShippingBillDate): null,
-                    CargoRecDate: product.CargoRecDate ? new Date(product.CargoRecDate) : null,
-                    ExternaPkg: String(product.ExternaPkg) || '',
-                    ExternlQty: product.ExternlQty || '',
-                    GrossWeight: Number(product.GrossWeight) || 0,
-                    NetWeight: Number(product.NetWeight) || 0,
-                    Volume: Number(product.Volume) || 0,
-                    IsHaz: product.IsHaz || 'N',
-                    ImcoClass: product.ImcoClass || '',
-                    UnNo: String(product.UnNo) || '',
-                    PkgGroup: product.PkgGroup || '',
-                    Length: product.Length,
-                    Width: product.Width,
-                    Height: product.Height,
-                    Volumetric: Number(product.Volumetric) || 0,
-                    UomMasterSid: product.UomMasterSid || null,
-                    createdBy: payload.createdBy,
-                    status: 'A',
-                }
-                if(product.CargoRecDate){
-                    productData['RecdPack'] = product.ExternlQty;
-                }
-                return productData;
-            }) || [];
+            const createdProducts: any[] = [];
+            if (cargoPayloads.length > 0) {
+                for (let i = 0; i < cargoPayloads.length; i++) {
+                    const cargoPayload = cargoPayloads[i];
+                    const cargoRecord = createdCargos[i];
+                    const cargoProducts = this.getCargoProducts(cargoPayload, []);
 
-            let createdProducts;
-            if (allProducts.length > 0) {
-                createdProducts = await this._db.bookingProduct.createMany({
-                    data: allProducts
-                }).catch(err => {
-                    throw new InternalServerErrorException('Something went wrong while creating bookingProduct', err)
-                })
+                    for (const product of cargoProducts) {
+                        const createdProduct = await this._db.bookingProduct.create({
+                            data: {
+                                ...this.buildBookingProductData(product, bookingHeader.BookingHeaderSid, payload.createdBy),
+                                BookingCargoSid: cargoRecord?.BookingCargoSid || null
+                            }
+                        }).catch(err => {
+                            throw new InternalServerErrorException('Something went wrong while creating bookingProduct', err)
+                        });
+                        createdProducts.push(createdProduct);
+                    }
+                }
+            } else {
+                const flatProducts: any[] = payload.bookingProducts || [];
+
+                for (const product of flatProducts) {
+                    const createdProduct = await this._db.bookingProduct.create({
+                        data: this.buildBookingProductData(product, bookingHeader.BookingHeaderSid, payload.createdBy)
+                    }).catch(err => {
+                        throw new InternalServerErrorException('Something went wrong while creating bookingProduct', err)
+                    });
+                    createdProducts.push(createdProduct);
+                }
             }
 
             /**
@@ -680,9 +735,18 @@ ${payload.ShipmentType?.length}, IncoTerms: ${payload.IncoTerms?.length}`);
                     PODCutOffDate: POD?.PortCutoff
                 }
             }
+            const cargosWithProducts = ourBooking.bookingCargo.map(cargo => {
+                return {
+                    ...cargo,
+                    products: ourBooking.bookingProduct.filter(
+                        p => p.BookingCargoSid === cargo.BookingCargoSid
+                    )
+                };
+            });
 
             return {
                 ...ourBooking,
+                bookingCargo: cargosWithProducts, 
                 bookingRates: respectiveCostRevenueCharges,
                 voyageDetails
             }
@@ -757,123 +821,49 @@ ${payload.ShipmentType?.length}, IncoTerms: ${payload.IncoTerms?.length}`);
                     |--------------------------------------------------
                 */
 
-                let finalBookingCargo;
-                const cargoPayload = payload.bookingCargo;
-                if (!cargoPayload?.BookingCargoSid) {
-                    finalBookingCargo = await prisma.bookingCargo.create({
-                        data: {
-                            CompanyMasterSid: payload.CompanyMasterSid,
-                            BranchMasterSid: payload.BranchMasterSid,
-                            BookingHeaderSid: updatedBooking.BookingHeaderSid,
-                            CargoType: cargoPayload.CargoType,
-                            ContainerType: cargoPayload.ContainerType,
-                            NoofContainers: Number(cargoPayload.NoofContainers),
-                            GrossWeight: Number(cargoPayload.GrossWeight),
-                            NetWeight: Number(cargoPayload.NetWeight),
-                            Volume: Number(cargoPayload.Volume),
-                            Volumetric: Number(cargoPayload.Volumetric),
-                            ChargeableWeight: Number(cargoPayload.ChargeableWeight),
-                            NoOfPackage: Number(cargoPayload.NoOfPackage),
-                            ShipmentTerms: cargoPayload.ShipmentTerms,
-                            MovementType: cargoPayload.MovementType,
-                            FreightTerms: cargoPayload.FreightTerms,
-                            ModeOfTransport: cargoPayload.ModeOfTransport,
-                            StuffingAt: cargoPayload.StuffingAt,
-                            createdBy: payload.updatedBy,
-                            status: 'A'
-                        }
-                    })
-
-                } else {
-                    finalBookingCargo = await prisma.bookingCargo.update({
-                        where: { BookingCargoSid: cargoPayload.BookingCargoSid },
-                        data: {
-                            CargoType: cargoPayload.CargoType,
-                            ContainerType: cargoPayload.ContainerType,
-                            NoofContainers: Number(cargoPayload.NoofContainers),
-                            GrossWeight: Number(cargoPayload.GrossWeight),
-                            NetWeight: Number(cargoPayload.NetWeight),
-                            Volume: Number(cargoPayload.Volume),
-                            Volumetric: Number(cargoPayload.Volumetric),
-                            ChargeableWeight: Number(cargoPayload.ChargeableWeight),
-                            NoOfPackage: Number(cargoPayload.NoOfPackage),
-                            ShipmentTerms: cargoPayload.ShipmentTerms,
-                            MovementType: cargoPayload.MovementType,
-                            FreightTerms: cargoPayload.FreightTerms,
-                            ModeOfTransport: cargoPayload.ModeOfTransport,
-                            StuffingAt: cargoPayload.StuffingAt,
-                            updatedBy: payload.updatedBy,
-                            status: payload.status
-                        }
-                    })
-                }
-
-                /**
-                    |--------------------------------------------------
-                    |   Step 3 : Update Booking Product
-                    |--------------------------------------------------
-                */
+                const cargoPayloads = this.getCargoPayloadList(payload);
+                const finalBookingCargos: any[] = [];
                 const finalBookingProducts: any[] = [];
-                for (const product of payload.bookingProducts) {
-                    let updatedProduct;
-                    let createdProduct;
 
-                    if (product.BookingProductSid) {
-                        updatedProduct = await prisma.bookingProduct.update({
-                            where: { BookingProductSid: product.BookingProductSid },
-                            data: {
-                                ProductName: product.ProductName,
-                                ShippingBillNo: product.ShippingBillNo,
-                                ShippingBillDate: product.ShippingBillDate ? new Date(product.ShippingBillDate) : null,
-                                CargoRecDate: product.CargoRecDate ? new Date(product.CargoRecDate) : null,
-                                ExternaPkg: String(product.ExternaPkg),
-                                ExternlQty: product.ExternlQty,
-                                GrossWeight: Number(product.GrossWeight),
-                                NetWeight: Number(product.NetWeight),
-                                Volume: Number(product.Volume),
-                                IsHaz: product.IsHaz,
-                                ImcoClass: product.ImcoClass,
-                                UnNo: product.UnNo == null ? null : String(product.UnNo),
-                                PkgGroup: product.PkgGroup,
-                                Length: product.Length,
-                                Width: product.Width,
-                                Height: product.Height,
-                                Volumetric: Number(product.Volumetric),
-                                UomMasterSid: product.UomMasterSid,
-                                RecdPack : product.CargoRecDate ? product.ExternlQty : null,
-                                updatedBy: payload.updatedBy,
-                                status: product.status
-                            }
-                        })
-                    } else {
-                        createdProduct = await prisma.bookingProduct.create({
-                            data: {
-                                BookingHeaderSid: updatedBooking.BookingHeaderSid,
-                                ProductName: product.ProductName,
-                                ShippingBillNo: product.ShippingBillNo,
-                                ShippingBillDate: product.ShippingBillDate ? new Date(product.ShippingBillDate) : null,
-                                CargoRecDate: product.CargoRecDate ? new Date(product.CargoRecDate) : null,
-                                ExternaPkg: String(product.ExternaPkg),
-                                ExternlQty: product.ExternlQty,
-                                GrossWeight: Number(product.GrossWeight),
-                                NetWeight: Number(product.NetWeight),
-                                Volume: Number(product.Volume),
-                                IsHaz: product.IsHaz,
-                                ImcoClass: product.ImcoClass,
-                                UnNo: product.UnNo == null ? null : String(product.UnNo),
-                                PkgGroup: product.PkgGroup,
-                                Length: product.Length,
-                                Width: product.Width,
-                                Height: product.Height,
-                                Volumetric: Number(product.Volumetric),
-                                UomMasterSid: product.UomMasterSid,
-                                createdBy: payload.updatedBy,
-                                status: 'A'
-                            }
-                        })
+                if (cargoPayloads.length > 0) {
+                    await prisma.bookingProduct.deleteMany({
+                        where: {
+                            BookingHeaderSid: updatedBooking.BookingHeaderSid
+                        }
+                    });
+
+                    await prisma.bookingCargo.deleteMany({
+                        where: {
+                            BookingHeaderSid: updatedBooking.BookingHeaderSid
+                        }
+                    });
+
+                    for (const cargoPayload of cargoPayloads) {
+                        const cargoData = this.buildBookingCargoData(cargoPayload, updatedBooking, payload.updatedBy);
+                        const createdCargo = await prisma.bookingCargo.create({
+                            data: cargoData
+                        });
+                        finalBookingCargos.push(createdCargo);
+
+                        const cargoProducts = this.getCargoProducts(cargoPayload, []);
+                        for (const product of cargoProducts) {
+                            const createdProduct = await prisma.bookingProduct.create({
+                                data: {
+                                    ...this.buildBookingProductData(product, updatedBooking.BookingHeaderSid, payload.updatedBy),
+                                    BookingCargoSid: createdCargo.BookingCargoSid
+                                }
+                            });
+                            finalBookingProducts.push(createdProduct);
+                        }
                     }
-                    let data = updatedProduct || createdProduct;
-                    finalBookingProducts.push(data);
+                } else {
+                    const productsToCreate = payload.bookingProducts || [];
+                    for (const product of productsToCreate) {
+                        const createdProduct = await prisma.bookingProduct.create({
+                            data: this.buildBookingProductData(product, updatedBooking.BookingHeaderSid, payload.updatedBy)
+                        });
+                        finalBookingProducts.push(createdProduct);
+                    }
                 }
 
                 /**
@@ -1224,7 +1214,7 @@ if (!croPayload?.BookingCroSid) {
 
                 return {
                     updatedBooking,
-                    finalBookingCargo,
+                    finalBookingCargos,
                     finalBookingProducts,
                     finalBookingOther,
                     finalBookingConnections,
@@ -2591,4 +2581,5 @@ async getTariffByBookingDetails(payload:TariffBookingPayload) {
 
 
 }
+
 

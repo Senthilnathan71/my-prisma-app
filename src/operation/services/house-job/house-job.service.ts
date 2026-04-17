@@ -30,6 +30,343 @@ export class HouseJobService {
         private numberSeriesService: NumberSeriesService,
     ) { }
 
+    private getHouseJobCargoPayloads(payload: any): any[] {
+        const cargoPayload = payload?.houseJobCargo ?? payload?.cargo ?? payload?.Cargo;
+
+        if (Array.isArray(cargoPayload)) {
+            return cargoPayload;
+        }
+
+        if (cargoPayload && typeof cargoPayload === 'object') {
+            return [cargoPayload];
+        }
+
+        return [];
+    }
+
+    private getHouseJobCargoProducts(cargo: any, fallbackProducts: any[] = []): any[] {
+        if (Array.isArray(cargo?.bookingProducts)) {
+            return cargo.bookingProducts;
+        }
+
+        if (Array.isArray(cargo?.products)) {
+            return cargo.products;
+        }
+
+        if (Array.isArray(cargo?.houseJobProducts)) {
+            return cargo.houseJobProducts;
+        }
+
+        return fallbackProducts;
+    }
+
+    private getFlatHouseJobProducts(payload: any): any[] {
+        const flatProducts = payload?.houseJobProduct ?? payload?.products ?? payload?.bookingProducts;
+        return Array.isArray(flatProducts) ? flatProducts : [];
+    }
+
+    private buildHouseJobCargoData(cargoPayload: any, payload: any, HouseJobSid: number, createdBy: string, updatedBy?: string | null) {
+        return {
+            HouseJobSid,
+            CompanyMasterSid: payload.CompanyMasterSid ?? null,
+            BranchMasterSid: payload.BranchMasterSid ?? null,
+            NoOfPackage: Number(cargoPayload?.NoOfPackage ?? cargoPayload?.PackageQty ?? cargoPayload?.Qty ?? 0) || 0,
+            FreightAmount: String(cargoPayload?.FreightAmount ?? '0'),
+            CargoType: cargoPayload?.CargoType ?? '',
+            ContainerType: cargoPayload?.ContainerType ?? null,
+            WeightUnitSid: cargoPayload?.WeightUnitSid ?? cargoPayload?.WeightUnit ?? null,
+            GrossWeight: Number(cargoPayload?.GrossWeight) || 0,
+            NetWeight: Number(cargoPayload?.NetWeight) || 0,
+            Volume: Number(cargoPayload?.Volume) || 0,
+            Volumetric: Number(cargoPayload?.Volumetric) || 0,
+            ChargeableWeight: Number(cargoPayload?.ChargeableWeight) || 0,
+            PackageType: cargoPayload?.PackageType ?? null,
+            Qty: Number(cargoPayload?.Qty) || 0,
+            ShipmentTerms: cargoPayload?.ShipmentTerms || '',
+            FreightTerms: cargoPayload?.FreightTerms || '',
+            MovementType: cargoPayload?.MovementType || '',
+            CommodityDescription: cargoPayload?.CommodityDescription || '',
+            MarksAndNumber: cargoPayload?.MarksAndNumber || '',
+            LandedMarksandNumber: cargoPayload?.LandedMarksandNumber || '',
+            ModeOfTransport: cargoPayload?.ModeOfTransport || '',
+            NoofContainers: Number(cargoPayload?.NoofContainers) || 0,
+            StuffingAt: cargoPayload?.StuffingAt || '',
+            createdBy,
+            updatedBy: updatedBy ?? null,
+            status: cargoPayload?.status ? String(cargoPayload.status).charAt(0) : 'A',
+        };
+    }
+
+    private buildHouseJobProductData(product: any, payload: any, HouseJobSid: number, HouseJobCargoSid: number | null, createdBy: string, updatedBy?: string | null) {
+        return {
+            HouseJobSid,
+            HouseJobCargoSid,
+            ProductName: product?.ProductName || '',
+            ProductDescription: product?.ProductDescription || '',
+            ShippingBillNo: product?.ShippingBillNo || '',
+            ShippingBillDate: product?.ShippingBillDate ? new Date(product.ShippingBillDate) : null,
+            ExternaPkg: product?.ExternaPkg ?? product?.ExternalPkg ?? '',
+            ExternlQty: product?.ExternlQty ?? product?.ExternalQty ?? '',
+            InternalPkg: product?.InternalPkg ?? '',
+            InternalQty: product?.InternalQty ?? '',
+            GrossWeight: Number(product?.GrossWeight) || 0,
+            ActualGrWeight: Number(product?.ActualGrWeight ?? product?.GrossWeight) || 0,
+            NetWeight: Number(product?.NetWeight) || 0,
+            Volume: Number(product?.Volume) || 0,
+            ActualVolume: Number(product?.ActualVolume ?? product?.Volume) || 0,
+            RecdPack: product?.RecdPack || '',
+            CargoRecDate: product?.CargoRecDate ? new Date(product.CargoRecDate) : null,
+            CFS: product?.CFS || '',
+            Height: product?.Height || 0,
+            Volumetric: Number(product?.Volumetric) || 0,
+            HSCode: product?.HSCode || '',
+            ImcoClass: product?.ImcoClass || '',
+            IsHaz: product?.IsHaz || 'N',
+            Length: product?.Length || 0,
+            PkgGroup: product?.PkgGroup || '',
+            UnNo: product?.UnNo || '',
+            Width: product?.Width || 0,
+            UomMasterSid: product?.UomMasterSid || null,
+            ContainerNo: product?.ContainerNo || null,
+            MasterJobContainerSid: product?.MasterJobContainerSid || null,
+            DeliveryDate: product?.DeliveryDate ? new Date(product.DeliveryDate) : null,
+            ReceivedQty: product?.ReceivedQty || 0,
+            DamageQty: product?.DamageQty || 0,
+            DamageRemarks: product?.DamageRemarks || '',
+            DeliveredQty: product?.DeliveredQty || 0,
+            MarksAndNumber: product?.MarksAndNumber || '',
+            createdBy,
+            updatedBy: updatedBy ?? null,
+            status: product?.status ? String(product.status).charAt(0) : 'A',
+        };
+    }
+
+    private async syncHouseJobCargoTree(
+        prisma: any,
+        HouseJobSid: number,
+        payload: any,
+        createdBy: string,
+        updatedBy: string | null = null,
+        mode: 'create' | 'update' = 'create',
+    ) {
+        const cargoPayloads = this.getHouseJobCargoPayloads(payload);
+        const flatProducts = this.getFlatHouseJobProducts(payload);
+        const createdOrUpdatedCargos: any[] = [];
+        const createdOrUpdatedProducts: any[] = [];
+
+        const shouldUseCargoTree = cargoPayloads.length > 0;
+
+        if (mode === 'update') {
+            if (shouldUseCargoTree) {
+                const usedCargoIds = new Set<number>();
+                const usedProductIds = new Set<number>();
+
+                for (const cargoPayload of cargoPayloads) {
+                    const cargoId = cargoPayload?.HouseJobCargoSid ?? cargoPayload?.houseJobCargoSid ?? null;
+                    const cargoData = this.buildHouseJobCargoData(cargoPayload, payload, HouseJobSid, createdBy, updatedBy);
+                    let cargoRow;
+
+                    if (cargoId) {
+                        cargoRow = await prisma.houseJobCargo.update({
+                            where: { HouseJobCargoSid: Number(cargoId) },
+                            data: cargoData,
+                        });
+                    } else {
+                        cargoRow = await prisma.houseJobCargo.create({
+                            data: cargoData,
+                        });
+                    }
+
+                    createdOrUpdatedCargos.push(cargoRow);
+                    usedCargoIds.add(cargoRow.HouseJobCargoSid);
+
+                    const nestedProducts = this.getHouseJobCargoProducts(cargoPayload, []);
+                    for (const product of nestedProducts) {
+                        const productId = product?.HouseJobProductSid ?? product?.houseJobProductSid ?? null;
+                        const productData = this.buildHouseJobProductData(product, payload, HouseJobSid, cargoRow.HouseJobCargoSid, createdBy, updatedBy);
+                        const shouldFlagHaz = String(product?.IsHaz || '').toUpperCase() === 'Y' && product?.MasterJobContainerSid;
+
+                        if (productId) {
+                            const updatedProduct = await prisma.houseJobProduct.update({
+                                where: { HouseJobProductSid: Number(productId) },
+                                data: productData,
+                            });
+                            createdOrUpdatedProducts.push(updatedProduct);
+                            usedProductIds.add(updatedProduct.HouseJobProductSid);
+                            if (shouldFlagHaz) {
+                                await prisma.masterJobContainer.updateMany({
+                                    where: {
+                                        MasterJobContainerSid: Number(product.MasterJobContainerSid),
+                                        Status: 'A',
+                                    },
+                                    data: {
+                                        IsHaz: 'Y',
+                                        UpdatedBy: updatedBy ?? createdBy,
+                                    },
+                                });
+                            }
+                        } else {
+                            const createdProduct = await prisma.houseJobProduct.create({
+                                data: productData,
+                            });
+                            createdOrUpdatedProducts.push(createdProduct);
+                            usedProductIds.add(createdProduct.HouseJobProductSid);
+                            if (shouldFlagHaz) {
+                                await prisma.masterJobContainer.updateMany({
+                                    where: {
+                                        MasterJobContainerSid: Number(product.MasterJobContainerSid),
+                                        Status: 'A',
+                                    },
+                                    data: {
+                                        IsHaz: 'Y',
+                                        UpdatedBy: updatedBy ?? createdBy,
+                                    },
+                                });
+                            }
+                        }
+                    }
+                }
+
+                await prisma.houseJobCargo.updateMany({
+                    where: {
+                        HouseJobSid,
+                        status: 'A',
+                        HouseJobCargoSid: { notIn: Array.from(usedCargoIds) },
+                    },
+                    data: {
+                        status: 'D',
+                        updatedBy: updatedBy ?? createdBy,
+                    },
+                });
+
+                await prisma.houseJobProduct.updateMany({
+                    where: {
+                        HouseJobSid,
+                        status: 'A',
+                        HouseJobProductSid: { notIn: Array.from(usedProductIds) },
+                    },
+                    data: {
+                        status: 'D',
+                        updatedBy: updatedBy ?? createdBy,
+                    },
+                });
+            } else if (flatProducts.length > 0) {
+                const usedProductIds = new Set<number>();
+
+                for (const product of flatProducts) {
+                    const productId = product?.HouseJobProductSid ?? product?.houseJobProductSid ?? null;
+                    const cargoId = product?.HouseJobCargoSid ?? product?.houseJobCargoSid ?? null;
+                    const productData = this.buildHouseJobProductData(product, payload, HouseJobSid, cargoId ? Number(cargoId) : null, createdBy, updatedBy);
+                    const shouldFlagHaz = String(product?.IsHaz || '').toUpperCase() === 'Y' && product?.MasterJobContainerSid;
+
+                    if (productId) {
+                        const updatedProduct = await prisma.houseJobProduct.update({
+                            where: { HouseJobProductSid: Number(productId) },
+                            data: productData,
+                        });
+                        createdOrUpdatedProducts.push(updatedProduct);
+                        usedProductIds.add(updatedProduct.HouseJobProductSid);
+                        if (shouldFlagHaz) {
+                            await prisma.masterJobContainer.updateMany({
+                                where: {
+                                    MasterJobContainerSid: Number(product.MasterJobContainerSid),
+                                    Status: 'A',
+                                },
+                                data: {
+                                    IsHaz: 'Y',
+                                    UpdatedBy: updatedBy ?? createdBy,
+                                },
+                            });
+                        }
+                    } else {
+                        const createdProduct = await prisma.houseJobProduct.create({
+                            data: productData,
+                        });
+                        createdOrUpdatedProducts.push(createdProduct);
+                        usedProductIds.add(createdProduct.HouseJobProductSid);
+                        if (shouldFlagHaz) {
+                            await prisma.masterJobContainer.updateMany({
+                                where: {
+                                    MasterJobContainerSid: Number(product.MasterJobContainerSid),
+                                    Status: 'A',
+                                },
+                                data: {
+                                    IsHaz: 'Y',
+                                    UpdatedBy: updatedBy ?? createdBy,
+                                },
+                            });
+                        }
+                    }
+                }
+
+                await prisma.houseJobProduct.updateMany({
+                    where: {
+                        HouseJobSid,
+                        status: 'A',
+                        HouseJobProductSid: { notIn: Array.from(usedProductIds) },
+                    },
+                    data: {
+                        status: 'D',
+                        updatedBy: updatedBy ?? createdBy,
+                    },
+                });
+            }
+        } else {
+            if (shouldUseCargoTree) {
+                for (const cargoPayload of cargoPayloads) {
+                    const cargoData = this.buildHouseJobCargoData(cargoPayload, payload, HouseJobSid, createdBy, updatedBy);
+                    const cargoRow = await prisma.houseJobCargo.create({ data: cargoData });
+                    createdOrUpdatedCargos.push(cargoRow);
+
+                    const nestedProducts = this.getHouseJobCargoProducts(cargoPayload, []);
+                    for (const product of nestedProducts) {
+                        const productData = this.buildHouseJobProductData(product, payload, HouseJobSid, cargoRow.HouseJobCargoSid, createdBy, updatedBy);
+                        const shouldFlagHaz = String(product?.IsHaz || '').toUpperCase() === 'Y' && product?.MasterJobContainerSid;
+                        const createdProduct = await prisma.houseJobProduct.create({ data: productData });
+                        createdOrUpdatedProducts.push(createdProduct);
+                        if (shouldFlagHaz) {
+                            await prisma.masterJobContainer.updateMany({
+                                where: {
+                                    MasterJobContainerSid: Number(product.MasterJobContainerSid),
+                                    Status: 'A',
+                                },
+                                data: {
+                                    IsHaz: 'Y',
+                                    UpdatedBy: updatedBy ?? createdBy,
+                                },
+                            });
+                        }
+                    }
+                }
+            } else {
+                for (const product of flatProducts) {
+                    const cargoId = product?.HouseJobCargoSid ?? product?.houseJobCargoSid ?? null;
+                    const productData = this.buildHouseJobProductData(product, payload, HouseJobSid, cargoId ? Number(cargoId) : null, createdBy, updatedBy);
+                    const shouldFlagHaz = String(product?.IsHaz || '').toUpperCase() === 'Y' && product?.MasterJobContainerSid;
+                    const createdProduct = await prisma.houseJobProduct.create({ data: productData });
+                    createdOrUpdatedProducts.push(createdProduct);
+                    if (shouldFlagHaz) {
+                        await prisma.masterJobContainer.updateMany({
+                            where: {
+                                MasterJobContainerSid: Number(product.MasterJobContainerSid),
+                                Status: 'A',
+                            },
+                            data: {
+                                IsHaz: 'Y',
+                                UpdatedBy: updatedBy ?? createdBy,
+                            },
+                        });
+                    }
+                }
+            }
+        }
+
+        return {
+            houseJobCargo: createdOrUpdatedCargos,
+            houseJobProduct: createdOrUpdatedProducts,
+        };
+    }
+
     private async getAgentMasterAirWaybillMenuSid() {
         try {
             return await this.menuService.getMenuSidByName('Agent Master Air Waybill');
@@ -214,106 +551,17 @@ export class HouseJobService {
 
                 const HouseJobSid = houseJob.HouseJobSid;
 
-                let finalHouseJobCargo: any = null;
+                const cargoTree = await this.syncHouseJobCargoTree(
+                    prisma,
+                    HouseJobSid,
+                    payload,
+                    payload.createdBy || payload.updatedBy || '',
+                    payload.updatedBy ?? null,
+                    'create',
+                );
 
-                // Create House Job Cargo if payload exists
-                const cargoPayload = payload.houseJobCargo;
-                if (cargoPayload && Object.keys(cargoPayload).length > 0) {
-                    finalHouseJobCargo = await prisma.houseJobCargo.create({
-                        data: {
-                            HouseJobSid,
-                            CompanyMasterSid: payload.CompanyMasterSid ?? null,
-                            BranchMasterSid: payload.BranchMasterSid ?? null,
-                            NoOfPackage: Number(cargoPayload.NoOfPackage) || 0,
-                            FreightAmount: String(cargoPayload.FreightAmount ?? '0'),
-                            CargoType: cargoPayload.CargoType ?? '',
-                            ContainerType: cargoPayload.ContainerType ?? null,
-                            WeightUnitSid: cargoPayload.WeightUnit,
-                            GrossWeight: Number(cargoPayload.GrossWeight) || 0,
-                            NetWeight: Number(cargoPayload.NetWeight) || 0,
-                            Volume: Number(cargoPayload.Volume) || 0,
-                            Volumetric: Number(cargoPayload.Volumetric) || 0,
-                            ChargeableWeight: Number(cargoPayload.ChargeableWeight) || 0,
-                            PackageType: cargoPayload.PackageType,
-                            Qty: Number(cargoPayload.Qty) || 0,
-                            ShipmentTerms: cargoPayload.ShipmentTerms || '',
-                            createdBy: payload.createdBy,
-                            updatedBy: payload.updatedBy ?? null,
-                            status: 'A',
-                            FreightTerms: cargoPayload.FreightTerms || '',
-                            MovementType: cargoPayload.MovementType || '',
-                            CommodityDescription: cargoPayload.CommodityDescription || '',
-                            MarksAndNumber: cargoPayload.MarksAndNumber || '',
-                            LandedMarksandNumber: cargoPayload.LandedMarksandNumber || '',
-                            ModeOfTransport: cargoPayload.ModeOfTransport || '',
-                            NoofContainers: Number(cargoPayload.NoofContainers) || 0,
-                            StuffingAt: cargoPayload.StuffingAt || '',
-                        },
-                    });
-                }
-
-                // Create House Job Products
-                const finalHouseJobProduct: any[] = [];
-                const houseJobProductPayload = payload.houseJobProduct || [];
-                if (houseJobProductPayload.length > 0) {
-                    for (const product of houseJobProductPayload) {
-                        const createdProduct = await prisma.houseJobProduct.create({
-                            data: {
-                                HouseJobSid,
-                                ProductName: product.ProductName || '',
-                                ProductDescription: product.ProductDescription || '',
-                                ShippingBillNo: product.ShippingBillNo || '',
-                                ShippingBillDate: product.ShippingBillDate ? new Date(product.ShippingBillDate) : null,
-                                ExternaPkg: product.ExternaPkg,
-                                ExternlQty: String(product.ExternlQty) || null,
-                                GrossWeight: Number(product.GrossWeight) || 0,
-                                ActualGrWeight: Number(product.GrossWeight) || 0,
-                                NetWeight: Number(product.NetWeight) || 0,
-                                Volume: Number(product.Volume) || 0,
-                                ActualVolume: Number(product.Volume) || 0,
-                                RecdPack: product.RecdPack || '',
-                                CargoRecDate: product.CargoRecDate ? new Date(product.CargoRecDate) : null,
-                                CFS: product.CFS || '',
-                                createdBy: payload.createdBy,
-                                status: product.status ? String(product.status).charAt(0) : 'A',
-                                Height: product.Height || 0,
-                                Volumetric: Number(product.Volumetric) || 0,
-                                HSCode: product.HSCode || '',
-                                ImcoClass: product.ImcoClass || '',
-                                IsHaz: product.IsHaz || 'N',
-                                Length: product.Length || 0,
-                                PkgGroup: product.PkgGroup || '',
-                                UnNo: product.UnNo || '',
-                                Width: product.Width || 0,
-                                UomMasterSid: product.UomMasterSid || null,
-                                ContainerNo: product.ContainerNo,
-                                MasterJobContainerSid: product.MasterJobContainerSid || null,
-                                DeliveryDate: product.DeliveryDate ? new Date(product.DeliveryDate) : null,
-                                ReceivedQty: product.ReceivedQty || 0,
-                                DamageQty: product.DamageQty || 0,
-                                DamageRemarks: product.DamageRemarks || '',
-                                DeliveredQty: product.DeliveredQty || 0,
-                                MarksAndNumber: product.MarksAndNumber
-                            }
-                        });
-                        if (
-                            String(product.IsHaz || '').toUpperCase() === 'Y' &&
-                            product.MasterJobContainerSid
-                        ) {
-                            await prisma.masterJobContainer.updateMany({
-                                where: {
-                                    MasterJobContainerSid: Number(product.MasterJobContainerSid),
-                                    Status: 'A',
-                                },
-                                data: {
-                                    IsHaz: 'Y',
-                                    UpdatedBy: payload.updatedBy || payload.createdBy || null,
-                                },
-                            });
-                        }
-                        finalHouseJobProduct.push(createdProduct);
-                    }
-                }
+                const finalHouseJobCargo = cargoTree.houseJobCargo;
+                const finalHouseJobProduct = cargoTree.houseJobProduct;
 
                 // Create House Job Connections
                 const finalHouseConnections: any[] = [];
@@ -652,6 +900,20 @@ export class HouseJobService {
                     },
                     Cargo: {
                         where: { status: 'A' }
+                        ,
+                        include: {
+                            products: {
+                                where: { status: 'A' },
+                                include: {
+                                    masterJobContainer: {
+                                        select: {
+                                            MasterJobContainerSid: true,
+                                            ContainerType: true
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     },
                     Connections: {
                         where: { status: 'A' }
@@ -662,6 +924,13 @@ export class HouseJobService {
                     Products: {
                         where: { status: 'A' },
                         include: {
+                            houseJobCargo: {
+                                select: {
+                                    HouseJobCargoSid: true,
+                                    CargoType: true,
+                                    NoOfPackage: true,
+                                }
+                            },
                             masterJobContainer: {
                                 select: {
                                     MasterJobContainerSid: true,
@@ -749,6 +1018,10 @@ export class HouseJobService {
 
             return {
                 ...ourHouseJob,
+                houseJobCargo: ourHouseJob.Cargo?.map((cargo: any) => ({
+                    ...cargo,
+                    products: cargo.products || []
+                })) || [],
                 costRevenueCharges,
 
             }
@@ -891,50 +1164,28 @@ export class HouseJobService {
                         JobType: payload.JobType
                     }
                 });
-               if (payload.houseJobCargo) {
-    const cargo = payload.houseJobCargo;
+                const cargoTree = await this.syncHouseJobCargoTree(
+                    prisma,
+                    HouseJobSid,
+                    payload,
+                    payload.updatedBy || payload.createdBy || '',
+                    payload.updatedBy ?? payload.createdBy ?? null,
+                    'update',
+                );
 
-    if (cargo.HouseJobCargoSid) {
-      await prisma.houseJobCargo.update({
-        where: { HouseJobCargoSid: cargo.HouseJobCargoSid },
-        data: {
-          NoOfPackage: Number(cargo.NoOfPackage) || 0,
-          GrossWeight: Number(cargo.GrossWeight) || 0,
-          NetWeight: Number(cargo.NetWeight) || 0,
-          ChargeableWeight: Number(cargo.ChargeableWeight) || 0,
-          Volume: Number(cargo.Volume) || 0,
-          updatedBy: payload.updatedBy
-        }
-      });
-    } else {
-      await prisma.houseJobCargo.create({
-  data: {
-    HouseJobSid,
-    CompanyMasterSid: payload.CompanyMasterSid ?? null,
-    BranchMasterSid: payload.BranchMasterSid ?? null,
-    CargoType: cargo.CargoType ?? '',   // REQUIRED
-    NoOfPackage: Number(cargo.NoOfPackage) || 0,
-    GrossWeight: Number(cargo.GrossWeight) || 0,
-    NetWeight: Number(cargo.NetWeight) || 0,
-    ChargeableWeight: Number(cargo.ChargeableWeight) || 0,
-    Volume: Number(cargo.Volume) || 0,
-    status: 'A',
-    createdBy: payload.updatedBy
-  }
-});
+                // 3️⃣ ✅ NOW RECALCULATE MASTER JOB (CORRECT PLACE)
+                if (updatedHouseJob.MasterJobSid) {
+                    await this.recalculateMasterJobTotals(
+                        prisma,
+                        updatedHouseJob.MasterJobSid
+                    );
+                }
 
-    }
-  }
-
-  // 3️⃣ ✅ NOW RECALCULATE MASTER JOB (CORRECT PLACE)
-  if (updatedHouseJob.MasterJobSid) {
-    await this.recalculateMasterJobTotals(
-      prisma,
-      updatedHouseJob.MasterJobSid
-    );
-  }
-
-  return updatedHouseJob;
+                return {
+                    ...updatedHouseJob,
+                    houseJobCargo: cargoTree.houseJobCargo,
+                    houseJobProduct: cargoTree.houseJobProduct,
+                };
             });
             
             // 🔁 Sync HBL / MBL to BookingHeader (ONLY if BookingHeaderSid exists)
@@ -969,213 +1220,6 @@ export class HouseJobService {
                     });
                 }
             }
-
-            let finalHouseJobCargo;
-
-            // Only run cargo logic if we actually have a cargo payload
-            const cargoPayload = payload.houseJobCargo;
-
-            // Check if cargo payload exists and has at least one meaningful field
-            if (cargoPayload && Object.keys(cargoPayload).length > 0) {
-                const HouseJobCargoSid = cargoPayload.HouseJobCargoSid;
-
-                if (HouseJobCargoSid) {
-                    // Update existing cargo
-                    finalHouseJobCargo = await this._db.houseJobCargo.update({
-                        where: { HouseJobCargoSid },
-                        data: {
-                            HouseJobSid,
-                            CompanyMasterSid: payload.CompanyMasterSid ?? null,
-                            BranchMasterSid: payload.BranchMasterSid ?? null,
-                            NoOfPackage: Number(cargoPayload.NoOfPackage),
-                            FreightAmount: String(cargoPayload.FreightAmount ?? '0'),
-                            CargoType: cargoPayload.CargoType ?? '',
-                            ContainerType: cargoPayload.ContainerType ?? null,
-                            WeightUnitSid: cargoPayload.WeightUnit,
-                            GrossWeight: Number(cargoPayload.GrossWeight),
-                            NetWeight: Number(cargoPayload.NetWeight),
-                            Volume: Number(cargoPayload.Volume),
-                            Volumetric: Number(cargoPayload.Volumetric),
-                            ChargeableWeight: Number(cargoPayload.ChargeableWeight) || 0,
-                            PackageType: cargoPayload.PackageType,
-                            Qty: Number(cargoPayload.Qty),
-                            ShipmentTerms: cargoPayload.ShipmentTerms || '',
-                            createdBy: payload.updatedBy,          // required
-                            updatedBy: payload.updatedBy ?? null,
-                            status: 'A',
-                            FreightTerms: cargoPayload.FreightTerms || '',
-                            MovementType: cargoPayload.MovementType || '',
-                            CommodityDescription: cargoPayload.CommodityDescription || '',
-                            MarksAndNumber: cargoPayload.MarksAndNumber || '',
-                            LandedMarksandNumber: cargoPayload.LandedMarksandNumber || '',
-                            ModeOfTransport: cargoPayload.ModeOfTransport || '',
-                            NoofContainers: Number(cargoPayload.NoofContainers) || 0,
-                            StuffingAt: cargoPayload.StuffingAt || '',
-                        },
-                    });
-                } else {
-                    // Create only if explicitly required
-                    finalHouseJobCargo = await this._db.houseJobCargo.create({
-                        data: {
-                            HouseJobSid,
-                            CompanyMasterSid: payload.CompanyMasterSid ?? null,
-                            BranchMasterSid: payload.BranchMasterSid ?? null,
-                            NoOfPackage: Number(cargoPayload.NoOfPackage),
-                            FreightAmount: String(cargoPayload.FreightAmount ?? '0'),
-                            CargoType: cargoPayload.CargoType ?? '',
-                            ContainerType: cargoPayload.ContainerType ?? null,
-                            WeightUnitSid: cargoPayload.WeightUnit,
-                            GrossWeight: Number(cargoPayload.GrossWeight),
-                            NetWeight: Number(cargoPayload.NetWeight),
-                            Volume: Number(cargoPayload.Volume),
-                            Volumetric: Number(cargoPayload.Volumetric),
-                            ChargeableWeight: Number(cargoPayload.ChargeableWeight) || 0,
-                            PackageType: cargoPayload.PackageType,
-                            Qty: Number(cargoPayload.Qty),
-                            ShipmentTerms: cargoPayload.ShipmentTerms || '',
-                            createdBy: payload.updatedBy,          // required
-                            updatedBy: payload.updatedBy ?? null,
-                            status: 'A',
-                            FreightTerms: cargoPayload.FreightTerms || '',
-                            MovementType: cargoPayload.MovementType || '',
-                            CommodityDescription: cargoPayload.CommodityDescription || '',
-                            MarksAndNumber: cargoPayload.MarksAndNumber || '',
-                            LandedMarksandNumber: cargoPayload.LandedMarksandNumber || '',
-                            ModeOfTransport: cargoPayload.ModeOfTransport || '',
-                            NoofContainers: Number(cargoPayload.NoofContainers) || 0,
-                            StuffingAt: cargoPayload.StuffingAt || '',
-                        },
-                    });
-                }
-            } else {
-                // 👉 No cargo needed for this request
-                finalHouseJobCargo = null;
-            }
-
-            let finalHouseJobProduct: any[] = [];
-            const houseJobProductPayload: any = payload.houseJobProduct || [];
-            if (houseJobProductPayload.length > 0) {
-                for (const product of houseJobProductPayload) {
-                    let createdProduct;
-                    let updatedProduct;
-                    if (product.HouseJobProductSid) {
-                        updatedProduct = await this._db.houseJobProduct.update({
-                            where: {
-                                HouseJobProductSid: product.HouseJobProductSid
-                            },
-                            data: {
-                                HouseJobSid: HouseJobSid,
-                                ProductName: product.ProductName || '',
-                                ProductDescription: product.ProductDescription || '',
-                                ShippingBillNo: product.ShippingBillNo || '',
-                                ShippingBillDate: product.ShippingBillDate ? new Date(product.ShippingBillDate) : null,
-                                ExternaPkg: product.ExternaPkg,
-                                ExternlQty: String(product.ExternlQty) || null,
-                                GrossWeight: Number(product.GrossWeight) || 0,
-                                ActualGrWeight: Number(product.GrossWeight) || 0,
-                                NetWeight: Number(product.NetWeight) || 0,
-                                Volume: Number(product.Volume) || 0,
-                                ActualVolume: Number(product.Volume) || 0,
-                                RecdPack: product.RecdPack || '',
-                                CargoRecDate: product.CargoRecDate ? new Date(product.CargoRecDate) : null,
-                                CFS: product.CFS || '',
-                                updatedBy: payload.updatedBy,
-                                status: product.status ? String(product.status).charAt(0) : 'A',
-                                Height: product.Height || 0,
-                                Volumetric: Number(product.Volumetric) || 0,
-                                HSCode: product.HSCode || '',
-                                ImcoClass: product.ImcoClass || '',
-                                IsHaz: product.IsHaz || 'N',
-                                Length: product.Length || 0,
-                                PkgGroup: product.PkgGroup || '',
-                                UnNo: product.UnNo || '',
-                                Width: product.Width || 0,
-                                UomMasterSid: product.UomMasterSid || null,
-                                ContainerNo: product.ContainerNo,
-                                MasterJobContainerSid: product.MasterJobContainerSid || null,
-                                ReceivedQty: product.ReceivedQty || 0,
-                                DamageQty: product.DamageQty || 0,
-                                DamageRemarks: product.DamageRemarks || '',
-                                DeliveryDate: product.DeliveryDate ? new Date(product.DeliveryDate) : null,
-                                DeliveredQty: product.DeliveredQty || 0,
-                                MarksAndNumber: product.MarksAndNumber
-                            }
-                        })
-                        if (
-                            String(product.IsHaz || '').toUpperCase() === 'Y' &&
-                            product.MasterJobContainerSid
-                        ) {
-                            await this._db.masterJobContainer.updateMany({
-                                where: {
-                                    MasterJobContainerSid: Number(product.MasterJobContainerSid),
-                                    Status: 'A',
-                                },
-                                data: {
-                                    IsHaz: 'Y',
-                                    UpdatedBy: payload.updatedBy || null,
-                                },
-                            });
-                        }
-                    } else {
-                        createdProduct = await this._db.houseJobProduct.create({
-                            data: {
-                                HouseJobSid: HouseJobSid,
-                                ProductName: product.ProductName || '',
-                                ProductDescription: product.ProductDescription || '',
-                                ShippingBillNo: product.ShippingBillNo || '',
-                                ShippingBillDate: product.ShippingBillDate ? new Date(product.ShippingBillDate) : null,
-                                ExternaPkg: product.ExternaPkg,
-                                ExternlQty: String(product.ExternlQty) || null,
-                                GrossWeight: Number(product.GrossWeight) || 0,
-                                ActualGrWeight: Number(product.GrossWeight) || 0,
-                                NetWeight: Number(product.NetWeight) || 0,
-                                Volume: Number(product.Volume) || 0,
-                                ActualVolume: Number(product.Volume) || 0,
-                                RecdPack: product.RecdPack || '',
-                                CargoRecDate: product.CargoRecDate ? new Date(product.CargoRecDate) : null,
-                                ReceivedQty: product.ReceivedQty || 0,
-                                DamageQty: product.DamageQty || 0,
-                                DamageRemarks: product.DamageRemarks || '',
-                                CFS: product.CFS || '',
-                                createdBy: payload.updatedBy,
-                                status: product.status ? String(product.status).charAt(0) : 'A',
-                                Height: product.Height || 0,
-                                Volumetric: Number(product.Volumetric) || 0,
-                                HSCode: product.HSCode || '',
-                                ImcoClass: product.ImcoClass || '',
-                                IsHaz: product.IsHaz || 'N',
-                                Length: product.Length || 0,
-                                PkgGroup: product.PkgGroup || '',
-                                UnNo: product.UnNo || '',
-                                Width: product.Width || 0,
-                                UomMasterSid: product.UomMasterSid || null,
-                                ContainerNo: product.ContainerNo,
-                                MasterJobContainerSid: product.MasterJobContainerSid || null,
-                                DeliveryDate: product.DeliveryDate ? new Date(product.DeliveryDate) : null,
-                                DeliveredQty: product.DeliveredQty || 0,
-                                MarksAndNumber: product.MarksAndNumber
-                            }
-                        })
-                        if (
-                            String(product.IsHaz || '').toUpperCase() === 'Y' &&
-                            product.MasterJobContainerSid
-                        ) {
-                            await this._db.masterJobContainer.updateMany({
-                                where: {
-                                    MasterJobContainerSid: Number(product.MasterJobContainerSid),
-                                    Status: 'A',
-                                },
-                                data: {
-                                    IsHaz: 'Y',
-                                    UpdatedBy: payload.updatedBy || null,
-                                },
-                            });
-                        }
-                    }
-                    finalHouseJobProduct.push(updatedProduct || createdProduct);
-                }
-            }
-            console.log(finalHouseJobProduct);
 
             let finalHouseConnections: any[] = [];
             const houseConnectionPayload = payload.houseConnections || [];
@@ -1741,8 +1785,8 @@ export class HouseJobService {
 
             return {
                 houseJob: updatedHouseJob,
-                houseJobCargo: finalHouseJobCargo,
-                houseJobProduct: finalHouseJobProduct,
+                houseJobCargo: [],
+                houseJobProduct: [],
                 houseConnections: finalHouseConnections,
                 houseJobOthers: finalHouseJobOthers,
                 houseJobBOE: finalHouseJobBOE,

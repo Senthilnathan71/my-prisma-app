@@ -138,6 +138,25 @@ export class QuotationService {
 
                     if (!createdQuoteRoute) return;
 
+                    const cargoGroups = Array.isArray(route.quoteCargo) && route.quoteCargo.length > 0
+                        ? route.quoteCargo
+                        : [{
+                            QuoteCargoSid: route.QuoteCargoSid || null,
+                            CargoType: route.CargoType || '',
+                            WeightUnitSid: route.WeightUnitSid,
+                            GrossWeight: route.GrossWeight,
+                            NetWeight: route.NetWeight,
+                            Volume: route.Volume,
+                            ChargeableWeight: route.ChargeableWeight,
+                            ContainerType: route.ContainerType || '',
+                            Qty: route.Qty,
+                            ShipmentTerms: route.ShipmentTerms || '',
+                            PackageType: route.PackageType || '',
+                            PackageQty: route.PackageQty || 0,
+                            CargoDescription: route.CargoDescription || '',
+                            quoteProducts: route.quoteProducts || []
+                        }];
+
                     const allCarriers = route.quoteCarriers || [];
                     let finalCarriers: any[] = [];
                     await Promise.all(
@@ -207,59 +226,67 @@ export class QuotationService {
                         })
                     );
 
-                    const quoteCargo = await this._db.quoteCargo.create({
-                        data: {
-                            CompanyMasterSid: quoteHeader.CompanyMasterSid,
-                            BranchMasterSid: quoteHeader.BranchMasterSid,
-                            QuoteHeaderSid: quoteHeader.QuoteHeaderSid,
-                            QuoteRouteSid: createdQuoteRoute.QuoteRouteSid,
-                            CreatedBy: payload.createdBy,
-                            Status: "A",
-                            CargoType: route.CargoType || '',
-                            WeightUnitSid: route.WeightUnitSid,
-                            GrossWeight: Number(route.GrossWeight) || 0,
-                            NetWeight: Number(route.NetWeight) || 0,
-                            Volume: Number(route.Volume) || 0,
-                            ChargeableWeight: Number(route.ChargeableWeight) || 0,
-                            ContainerType: route.ContainerType || '',
-                            Qty: Number(route.Qty) || 0,
-                            ShipmentTerms: route.ShipmentTerms || '',
-                            PackageType: route.PackageType || '',
-                            PackageQty: Number(route.PackageQty) || 0,
-                            CargoDescription: route.CargoDescription || '',
-                        }
-                    })
+                    const finalCargo: any[] = [];
+                    for (const cargo of cargoGroups) {
+                        const quoteCargo = await this._db.quoteCargo.create({
+                            data: {
+                                CompanyMasterSid: quoteHeader.CompanyMasterSid,
+                                BranchMasterSid: quoteHeader.BranchMasterSid,
+                                QuoteHeaderSid: quoteHeader.QuoteHeaderSid,
+                                QuoteRouteSid: createdQuoteRoute.QuoteRouteSid,
+                                CreatedBy: payload.createdBy,
+                                Status: "A",
+                                CargoType: cargo.CargoType || '',
+                                WeightUnitSid: cargo.WeightUnitSid,
+                                GrossWeight: Number(cargo.GrossWeight) || 0,
+                                NetWeight: Number(cargo.NetWeight) || 0,
+                                Volume: Number(cargo.Volume) || 0,
+                                ChargeableWeight: Number(cargo.ChargeableWeight) || 0,
+                                ContainerType: cargo.ContainerType || '',
+                                Qty: Number(cargo.Qty) || 0,
+                                ShipmentTerms: cargo.ShipmentTerms || '',
+                                PackageType: cargo.PackageType || '',
+                                PackageQty: Number(cargo.PackageQty) || 0,
+                                CargoDescription: cargo.CargoDescription || '',
+                            }
+                        });
 
-                    const products = await this._db.quoteProduct.createMany({
-                        data: route.quoteProducts.map((product, index) => ({
-                            Sno: index + 1,
-                            ProductSid: product.ProductSid,
-                            ProductName: product.ProductName || '',
-                            PackageType: product.PackageType || '',
-                            CargoDescription: product.CargoDescription || '',
-                            ProductUnit: product.ProductUnit || 0,
-                            CompanyMasterSid: quoteHeader.CompanyMasterSid,
-                            BranchMasterSid: quoteHeader.BranchMasterSid,
-                            QuoteHeaderSid: quoteHeader.QuoteHeaderSid,
-                            QuoteCargoSid: quoteCargo.QuoteCargoSid,
-                            CreatedBy: payload.createdBy,
-                            Status: "A",
-                            ExternalPkg: product.ExternalPkg || null,
-                            ExternalQty: Number(product.ExternalQty) || 0,
-                            GrossWeight: Number(product.GrossWeight) || 0,
-                            NetWeight: Number(product.NetWeight) || 0,
-                            Volume: Number(product.Volume) || 0,
-                            Length: Number(product.Length) || 0,
-                            Width: Number(product.Width) || 0,
-                            Height: Number(product.Height) || 0,
-                            ChargeableWeight: Number(product.ChargeableWeight) || 0,
-                            IsHaz: product.IsHaz ? "Y" : "N",
-                            ImcoClass: product.ImcoClass || null,
-                            PkgGroup: Number(product.PkgGroup) || null,
-                            Remarks: product.Remarks,
-                            Volumetric: Number(product.Volumetric ?? product.volumetric) || 0 
-                        }))
-                    });
+                        const products = await this._db.quoteProduct.createMany({
+                            data: (cargo.quoteProducts || []).map((product, index) => ({
+                                Sno: index + 1,
+                                ProductSid: product.ProductSid,
+                                ProductName: product.ProductName || '',
+                                PackageType: product.PackageType || '',
+                                CargoDescription: product.CargoDescription || '',
+                                ProductUnit: product.ProductUnit || 0,
+                                CompanyMasterSid: quoteHeader.CompanyMasterSid,
+                                BranchMasterSid: quoteHeader.BranchMasterSid,
+                                QuoteHeaderSid: quoteHeader.QuoteHeaderSid,
+                                QuoteCargoSid: quoteCargo.QuoteCargoSid,
+                                CreatedBy: payload.createdBy,
+                                Status: "A",
+                                ExternalPkg: product.ExternalPkg || null,
+                                ExternalQty: Number(product.ExternalQty) || 0,
+                                GrossWeight: Number(product.GrossWeight) || 0,
+                                NetWeight: Number(product.NetWeight) || 0,
+                                Volume: Number(product.Volume) || 0,
+                                Length: Number(product.Length) || 0,
+                                Width: Number(product.Width) || 0,
+                                Height: Number(product.Height) || 0,
+                                ChargeableWeight: Number(product.ChargeableWeight) || 0,
+                                IsHaz: product.IsHaz ? "Y" : "N",
+                                ImcoClass: product.ImcoClass || null,
+                                PkgGroup: Number(product.PkgGroup) || null,
+                                Remarks: product.Remarks,
+                                Volumetric: Number(product.Volumetric ?? product.volumetric) || 0 
+                            }))
+                        });
+                        finalCargo.push({
+                            ...quoteCargo,
+                            quoteProduct: cargo.quoteProducts || [],
+                            products
+                        });
+                    }
 
                     if (quoteHeader && payload.LeadOrCustomer === "L") {
                         await this._db.preCustomerMaster.update({
@@ -285,8 +312,7 @@ export class QuotationService {
                     return {
                         createdQuoteRoute,
                         finalCarriers,
-                        quoteCargo,
-                        products
+                        quoteCargo: finalCargo
                     };
                 })
             )
@@ -532,70 +558,95 @@ export class QuotationService {
                 }
                 currentRoute.quoteCarriers = finalCarriers;
 
-                let ourCargo;
-                if(route.QuoteCargoSid) {
-                    ourCargo = await this._db.quoteCargo.update({
-                        where: { QuoteCargoSid: route.QuoteCargoSid },
-                        data: {
-                            CargoType: route.CargoType ||"",
-                            WeightUnitSid: route.WeightUnitSid,
-                            GrossWeight: Number(route.GrossWeight) || 0,
-                            NetWeight: Number(route.NetWeight) || 0,
-                            Volume: Number(route.Volume) || 0,
-                            ChargeableWeight: Number(route.ChargeableWeight) || 0,
-                            ContainerType: route.ContainerType || "",
-                            Qty: Number(route.Qty) || 0,
-                            ShipmentTerms: route.ShipmentTerms || "",
-                            PackageType: route.PackageType || "",
-                            PackageQty: Number(route.PackageQty) || 0,
-                            CargoDescription: route.CargoDescription || "",
-                            UpdatedBy: payload.updatedBy,
-                        }
-                    })
-                } else {
-                    ourCargo = await this._db.quoteCargo.create({
-                        data: {
-                            CompanyMasterSid: updatedQuoteHeader.CompanyMasterSid,
-                            BranchMasterSid: updatedQuoteHeader.BranchMasterSid,
-                            QuoteHeaderSid: updatedQuoteHeader.QuoteHeaderSid,
-                            QuoteRouteSid: currentRoute.QuoteRouteSid,
-                            CreatedBy: payload.updatedBy,
-                            Status: "A",
-                            CargoType: route.CargoType ||"",
-                            WeightUnitSid: route.WeightUnitSid,
-                            GrossWeight: Number(route.GrossWeight) || 0,
-                            NetWeight: Number(route.NetWeight) || 0,
-                            Volume: Number(route.Volume) || 0,
-                            ChargeableWeight: Number(route.ChargeableWeight) || 0,
-                            ContainerType: route.ContainerType || "",
-                            Qty: Number(route.Qty) || 0,
-                            ShipmentTerms: route.ShipmentTerms || "",
-                            PackageType: route.PackageType || "",
-                            PackageQty: Number(route.PackageQty) || 0,
-                            CargoDescription: route.CargoDescription || "",
-                        }
-                    })
-                }
-                finalRoutes.push(currentRoute);
+                const cargoGroups = Array.isArray(route.quoteCargo) && route.quoteCargo.length > 0
+                    ? route.quoteCargo
+                    : [{
+                        QuoteCargoSid: route.QuoteCargoSid || null,
+                        CargoType: route.CargoType || "",
+                        WeightUnitSid: route.WeightUnitSid,
+                        GrossWeight: route.GrossWeight,
+                        NetWeight: route.NetWeight,
+                        Volume: route.Volume,
+                        ChargeableWeight: route.ChargeableWeight,
+                        ContainerType: route.ContainerType || "",
+                        Qty: route.Qty,
+                        ShipmentTerms: route.ShipmentTerms || "",
+                        PackageType: route.PackageType || "",
+                        PackageQty: route.PackageQty || 0,
+                        CargoDescription: route.CargoDescription || "",
+                        quoteProducts: route.quoteProducts || []
+                    }];
 
-                // Route - Cargo - Product
-                const allProducts = route.quoteProducts || [];
-                let x = 0;
-                await Promise.all(
-                    allProducts.map(async (product) => {
-                        const productPayload = {
-                            ...product,
-                            Sno : ++x,
-                            CompanyMasterSid: updatedQuoteHeader.CompanyMasterSid,
-                            BranchMasterSid: updatedQuoteHeader.BranchMasterSid,
-                            QuoteHeaderSid: updatedQuoteHeader.QuoteHeaderSid,
-                            QuoteCargoSid: ourCargo.QuoteCargoSid,
-                            createdBy : payload.updatedBy,
-                            updatedBy : payload.updatedBy,
-                        }
-                        return await this.upsertProduct(productPayload);
-                    })
-                );
+                const finalCargo: any[] = [];
+                for (const cargoItem of cargoGroups) {
+                    let ourCargo;
+                    if(cargoItem.QuoteCargoSid) {
+                        ourCargo = await this._db.quoteCargo.update({
+                            where: { QuoteCargoSid: cargoItem.QuoteCargoSid },
+                            data: {
+                                CargoType: cargoItem.CargoType ||"",
+                                WeightUnitSid: cargoItem.WeightUnitSid,
+                                GrossWeight: Number(cargoItem.GrossWeight) || 0,
+                                NetWeight: Number(cargoItem.NetWeight) || 0,
+                                Volume: Number(cargoItem.Volume) || 0,
+                                ChargeableWeight: Number(cargoItem.ChargeableWeight) || 0,
+                                ContainerType: cargoItem.ContainerType || "",
+                                Qty: Number(cargoItem.Qty) || 0,
+                                ShipmentTerms: cargoItem.ShipmentTerms || "",
+                                PackageType: cargoItem.PackageType || "",
+                                PackageQty: Number(cargoItem.PackageQty) || 0,
+                                CargoDescription: cargoItem.CargoDescription || "",
+                                UpdatedBy: payload.updatedBy,
+                            }
+                        })
+                    } else {
+                        ourCargo = await this._db.quoteCargo.create({
+                            data: {
+                                CompanyMasterSid: updatedQuoteHeader.CompanyMasterSid,
+                                BranchMasterSid: updatedQuoteHeader.BranchMasterSid,
+                                QuoteHeaderSid: updatedQuoteHeader.QuoteHeaderSid,
+                                QuoteRouteSid: currentRoute.QuoteRouteSid,
+                                CreatedBy: payload.updatedBy,
+                                Status: "A",
+                                CargoType: cargoItem.CargoType ||"",
+                                WeightUnitSid: cargoItem.WeightUnitSid,
+                                GrossWeight: Number(cargoItem.GrossWeight) || 0,
+                                NetWeight: Number(cargoItem.NetWeight) || 0,
+                                Volume: Number(cargoItem.Volume) || 0,
+                                ChargeableWeight: Number(cargoItem.ChargeableWeight) || 0,
+                                ContainerType: cargoItem.ContainerType || "",
+                                Qty: Number(cargoItem.Qty) || 0,
+                                ShipmentTerms: cargoItem.ShipmentTerms || "",
+                                PackageType: cargoItem.PackageType || "",
+                                PackageQty: Number(cargoItem.PackageQty) || 0,
+                                CargoDescription: cargoItem.CargoDescription || "",
+                            }
+                        })
+                    }
+                    const allProducts = cargoItem.quoteProducts || [];
+                    let x = 0;
+                    const createdProducts = await Promise.all(
+                        allProducts.map(async (product) => {
+                            const productPayload = {
+                                ...product,
+                                Sno : ++x,
+                                CompanyMasterSid: updatedQuoteHeader.CompanyMasterSid,
+                                BranchMasterSid: updatedQuoteHeader.BranchMasterSid,
+                                QuoteHeaderSid: updatedQuoteHeader.QuoteHeaderSid,
+                                QuoteCargoSid: ourCargo.QuoteCargoSid,
+                                createdBy : payload.updatedBy,
+                                updatedBy : payload.updatedBy,
+                            }
+                            return await this.upsertProduct(productPayload);
+                        })
+                    );
+                    finalCargo.push({
+                        ...ourCargo,
+                        quoteProduct: createdProducts
+                    });
+                }
+                currentRoute.quoteCargo = finalCargo;
+                finalRoutes.push(currentRoute);
             }
 
             let createdAuthLog;
@@ -1065,34 +1116,67 @@ export class QuotationService {
             /* ================= BUILD ROUTES ================= */
 
             const enrichedRoutes = await Promise.all(
-                enquiry.enquiryRoute.flatMap(route =>
-                    (route.enquiryCargo || []).map(async (cargo) => {
+                enquiry.enquiryRoute.map(async (route: any) => {
+                    const routeItem = route as any;
+                    const quoteCargo = (route.enquiryCargo || []).map((cargo: any) => {
+                        const cargoItem = cargo as any;
+                        const mappedProduct = cargoItem.ProductName || cargoItem.ProductSid ? [{
+                            ProductSid: cargoItem.ProductSid || null,
+                            ProductName: cargoItem.ProductName || '',
+                            PackageType: cargoItem.PackageType || '',
+                            CargoDescription: cargoItem.CargoDescription || '',
+                            ExternalPkg: cargoItem.PackageTypeId || null,
+                            ExternalQty: cargoItem.PackageQty || 0,
+                            GrossWeight: cargoItem.GrossWeight || 0,
+                            NetWeight: cargoItem.NetWeight || 0,
+                            Volume: cargoItem.Volume || 0,
+                            Length: cargoItem.length || 0,
+                            Width: cargoItem.width || 0,
+                            Height: cargoItem.height || 0,
+                            ProductUnit: cargoItem.PackageTypeId || null,
+                            ChargeableWeight: cargoItem.ChargeableWeight || 0,
+                            IsHaz: cargoItem.IsHaz === 'Y' || cargoItem.IsHaz === true,
+                            ImcoClass: cargoItem.ImcoClass || null,
+                            UnNo: cargoItem.UnNo || '',
+                            PkgGroup: cargoItem.PkgGroup || '',
+                            Remarks: cargoItem.Remarks || '',
+                            Volumetric: cargoItem.Volumetric || 0
+                        }] : [];
 
                         return {
-                            PORSid: route.PORSid,
-                            POLSid: route.POLSid,
-                            PODSid: route.PODSid,
-                            FPODSid: route.FDPSid,
-                            CargoType: cargo.CargoType,
-                            GrossWeight: cargo.GrossWeight,
-                            NetWeight: cargo.NetWeight,
-                            Volume: cargo.Volume,
-                            ContainerType: cargo.ContainerType ? containerMap.get(cargo.ContainerType) : null,
-                            Qty: cargo.Qty,
-                            ContainerQty: cargo.Qty,
-                            ChargeableWeight: cargo.ChargeableWeight,
-                            PackageQty: cargo.PackageQty,
-                            PackageType: cargo.PackageType,
-                            PackageTypeId: cargo.PackageType ?  packageMap.get(cargo.PackageType) : null,
-                            ServiceLevel: enquiry.IncoTerms,
-                            ProductName: cargo.ProductName,
-                            length: cargo.length,
-                            width: cargo.width,
-                            height: cargo.height,
-                            Volumetric: cargo.Volumetric
-                        };
-                    })
-                )
+                        QuoteCargoSid: cargoItem.QuoteCargoSid,
+                        CargoType: cargoItem.CargoType,
+                        GrossWeight: cargoItem.GrossWeight,
+                        NetWeight: cargoItem.NetWeight,
+                        Volume: cargoItem.Volume,
+                        ContainerType: cargoItem.ContainerType ? containerMap.get(cargoItem.ContainerType) : null,
+                        Qty: cargoItem.Qty,
+                        ContainerQty: cargoItem.Qty,
+                        ChargeableWeight: cargoItem.ChargeableWeight,
+                        PackageQty: cargoItem.PackageQty,
+                        PackageType: cargoItem.PackageType,
+                        PackageTypeId: cargoItem.PackageType ?  packageMap.get(cargoItem.PackageType) : null,
+                        ServiceLevel: enquiry.IncoTerms,
+                        ProductName: cargoItem.ProductName,
+                        length: cargoItem.length,
+                        width: cargoItem.width,
+                        height: cargoItem.height,
+                        Volumetric: cargoItem.Volumetric,
+                        quoteProducts: mappedProduct,
+                        quoteProduct: mappedProduct,
+                        products: mappedProduct
+                    };
+                    });
+
+                    return {
+                        QuoteRouteSid: routeItem.QuoteRouteSid,
+                        PORSid: route.PORSid,
+                        POLSid: route.POLSid,
+                        PODSid: route.PODSid,
+                        FPODSid: route.FDPSid,
+                        quoteCargo
+                    };
+                })
             );
 
             /* ================= FINAL RESPONSE ================= */
@@ -1979,4 +2063,8 @@ export class QuotationService {
 //         });
 //     }
 // }
+
+
+
+
 
