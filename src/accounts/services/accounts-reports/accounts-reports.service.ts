@@ -3563,7 +3563,11 @@ export class AccountsReportsService {
                 DestinationAgent: customer.find(
                   (d) => d.CustomerMasterSid === hj.DestinationAgent,
                 )?.CustomerName,
-                ModeOfTransport: hj.Cargo?.[0]?.ModeOfTransport,
+                ModeOfTransport: mj.houseJob
+                    ?.flatMap(h => h.Cargo ?? [])
+                    .map(c => c?.ModeOfTransport)
+                    .filter(Boolean)
+                    .join(', ') || '',
                 salesPerson: user.find(
                   (u) => u.UserMasterSid === hj.SalesmanSid,
                 )?.userName,

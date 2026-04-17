@@ -543,11 +543,26 @@ export class OperationReportsService {
           destinationPort: mj.FPD || '',
           destinationPortName: fpdName,
           carrier: mj?.CarrierName || '',
-          weight: mj.Cargo?.[0]?.GrossWeight || 0,
-          NoofPkg: mj.Cargo?.[0]?.NoOfPackage || 0,
-          volume: mj.Cargo?.[0]?.Volume || 0,
-          Volumetric: mj.Cargo?.[0]?.Volumetric || 0,
-          chargeable: mj.Cargo?.[0]?.ChargeableWeight || 0,
+          weight: mj.Cargo?.reduce(
+            (sum, item) => sum + toNumber(item?.GrossWeight),
+            0
+          ) || 0,
+          NoofPkg: mj.Cargo?.reduce(
+            (sum, item) => sum + toNumber(item?.NoOfPackage),
+            0
+          ) || 0,
+          volume: mj.Cargo?.reduce(
+            (sum, item) => sum + toNumber(item?.Volume),
+            0
+          ) || 0,
+          Volumetric: mj.Cargo?.reduce(
+            (sum, item) => sum + (item?.Volumetric ? Number(item.Volumetric) : 0),
+            0
+          ) || 0,
+          chargeable: mj.Cargo?.reduce(
+            (sum, item) => sum + toNumber(item?.ChargeableWeight),
+            0
+          ) || 0,
           shipper: mj?.ShipperName || '',
           Consignee: mj?.ConsigneeName || '',
           Notify: mj?.Notify || '',
@@ -2394,7 +2409,10 @@ export class OperationReportsService {
           originCarrier:
             customerMaster.find((c) => c.CustomerMasterSid === mj.CarrierSid)
               ?.CustomerName || '',
-          pcs: mj.Cargo?.[0]?.NoOfPackage,
+          pcs: mj.Cargo?.reduce(
+          (sum, item) => sum + toNumber(item?.NoOfPackage),
+          0
+          ) || 0,
           houseStatus: mj.HouseStatus,
           serviceLevelName: mj.MovementType,
           blType: mj.Others?.[0]?.ReleaseType,
@@ -2405,10 +2423,22 @@ export class OperationReportsService {
           housecreatedBy: mj.createdBy,
           mastercreatedBy: mj.masterJob?.CreatedBy,
           addtionalRemarks: mj?.GeneralNote,
-          volume: mj.masterJob?.Volume || 0,
-          grossWeight: mj.masterJob?.GrossWeight || 0,
-          chargeable: mj.masterJob?.ChargeableWeight || 0,
-          netWeight: mj.masterJob?.NetWeight,
+          volume: mj.Cargo?.reduce(
+            (sum, item) => sum + toNumber(item?.Volume),
+            0
+          ) || 0,
+          grossWeight: mj.Cargo?.reduce(
+            (sum, item) => sum + toNumber(item?.GrossWeight),
+            0
+          ) || 0,
+          chargeable: mj.Cargo?.reduce(
+            (sum, item) => sum + toNumber(item?.ChargeableWeight),
+            0
+          ) || 0,
+          netWeight: mj.Cargo?.reduce(
+            (sum, item) => sum + toNumber(item?.NetWeight),
+            0
+          ) || 0,
           customer: mj.CustomerName,
           nofcontainer:
             numberOfTwentyFt +
@@ -2441,7 +2471,10 @@ export class OperationReportsService {
           agent: mj.AgentName,
           incoTerms: mj.IncoTerms,
           PPCC: mj.FreightTerms,
-          modeofTransport: mj.Cargo?.[0]?.ModeOfTransport,
+         modeofTransport: mj.Cargo
+          ?.map(c => c?.ModeOfTransport)
+          ?.filter(Boolean)
+          ?.join(', ') || '',
           jobType: mj.JobType,
           containerNoList:
             mj?.masterJob?.containers
@@ -3960,7 +3993,11 @@ export class OperationReportsService {
                 DestinationAgent: customer.find(
                   (d) => d.CustomerMasterSid === hj.DestinationAgent,
                 )?.CustomerName,
-                ModeOfTransport: hj.Cargo?.[0]?.ModeOfTransport,
+                ModeOfTransport: mj.houseJob
+                  ?.flatMap(h => h.Cargo ?? [])
+                  .map(c => c?.ModeOfTransport)
+                  .filter(Boolean)
+                  .join(', ') || '',
                 salesPerson: user.find(
                   (u) => u.UserMasterSid === hj.SalesmanSid,
                 )?.userName,
@@ -4007,7 +4044,11 @@ export class OperationReportsService {
             houseNo: mj.houseJob?.[0]?.HouseNo,
             HBLNo: mj.houseJob?.[0]?.HBLNo,
             houseStatus: mj.houseJob?.[0]?.HouseStatus,
-            ModeOfTransport: mj.houseJob?.[0]?.Cargo?.[0]?.ModeOfTransport,
+            ModeOfTransport: mj.houseJob
+              ?.flatMap(h => h.Cargo ?? [])
+              .map(c => c?.ModeOfTransport)
+              .filter(Boolean)
+              .join(', ') || '',
             PPCC: mj.houseJob?.[0]?.FreightTerms,
             salesPerson:
               user.find(
@@ -4548,7 +4589,10 @@ export class OperationReportsService {
           originCarrier:
             customerMaster.find((c) => c.CustomerMasterSid === mj.CarrierSid)
               ?.CustomerName || '',
-          pcs: mj.Cargo?.[0]?.NoOfPackage,
+          pcs: mj.Cargo?.reduce(
+          (sum, item) => sum + toNumber(item?.NoOfPackage),
+          0
+        ) || 0,
           houseStatus: mj.HouseStatus,
           serviceLevelName: mj.MovementType,
           blType: mj.Others?.[0]?.ReleaseType,
@@ -4559,10 +4603,22 @@ export class OperationReportsService {
           housecreatedBy: mj.createdBy,
           mastercreatedBy: mj.masterJob?.CreatedBy,
           addtionalRemarks: mj?.GeneralNote,
-          volume: mj.masterJob?.Volume || 0,
-          grossWeight: mj.masterJob?.GrossWeight || 0,
-          chargeable: mj.masterJob?.ChargeableWeight || 0,
-          netWeight: mj.masterJob?.NetWeight,
+           volume: mj.Cargo?.reduce(
+            (sum, item) => sum + toNumber(item?.Volume),
+            0
+          ) || 0,
+          grossWeight: mj.Cargo?.reduce(
+            (sum, item) => sum + toNumber(item?.GrossWeight),
+            0
+          ) || 0,
+          chargeable: mj.Cargo?.reduce(
+            (sum, item) => sum + toNumber(item?.ChargeableWeight),
+            0
+          ) || 0,
+          netWeight: mj.Cargo?.reduce(
+            (sum, item) => sum + toNumber(item?.NetWeight),
+            0
+          ) || 0,
           customer: mj.CustomerName,
           nofcontainer:
             numberOfTwentyFt +
@@ -4595,7 +4651,10 @@ export class OperationReportsService {
           agent: mj.AgentName,
           incoTerms: mj.IncoTerms,
           PPCC: mj.FreightTerms,
-          modeofTransport: mj.Cargo?.[0]?.ModeOfTransport,
+          modeofTransport: mj.Cargo
+          ?.map(c => c?.ModeOfTransport)
+          ?.filter(Boolean)
+          ?.join(', ') || '',
           jobType: mj.JobType,
           containerNoList:
             mj?.masterJob?.containers
@@ -4859,7 +4918,11 @@ export class OperationReportsService {
               (d) => d.DepartmentMasterSid === mj.DepartmentMasterSid,
             )?.departmentName || '',
           jobNo: mj.MasterJobNumber,
-          movementType: mj.houseJob?.[0]?.Cargo?.[0]?.ModeOfTransport,
+           movementType: mj.houseJob
+              ?.flatMap(h => h.Cargo ?? [])
+              .map(c => c?.ModeOfTransport)
+              .filter(Boolean)
+              .join(', ') || '',
           MBLDate: mj.MBLDate,
           ETD: mj.voyages?.[0]?.ETD,
           deliveyAgent:
@@ -5180,8 +5243,8 @@ export class OperationReportsService {
           totalCost,
           profit,
           totalGP,
-          grossWt: b.Cargo?.[0]?.GrossWeight,
-          netWt: b.Cargo?.[0]?.NetWeight,
+          grossWt: b.masterJob?.GrossWeight,
+          netWt: b.masterJob?.NetWeight,
           totalNoOfTEU,
         };
       });
