@@ -40,6 +40,7 @@ interface TariffBookingPayload {
   AgentSid?: number;                    // Agent id
   IncoTerms?: string;                  // e.g., "FOB", "CIF"
   CargoType?: string;                  // e.g., "FCL", "LCL"
+  ContainerType?: number;
 }
 
 
@@ -2443,6 +2444,10 @@ async getTariffByBookingDetails(payload:TariffBookingPayload) {
       whereWithOptionalFilters.CargoType = payload.CargoType;
       hasOptionalFilters = true;
     }
+    if (payload.ContainerType) {
+      whereWithOptionalFilters.ContainerType = payload.ContainerType;
+      hasOptionalFilters = true;
+    }
 
     const includeClause = {
       tariffHeader: true,               // to see Dept/POL/POD etc.
@@ -2479,6 +2484,7 @@ async getTariffByBookingDetails(payload:TariffBookingPayload) {
                 AgentSid: null,
                 IncoTerms: null,
             },
+            ContainerType: null,
         };
 
       allTariffDetails = await this._db.tariffDetail.findMany({
