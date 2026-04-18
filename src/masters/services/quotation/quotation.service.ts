@@ -138,24 +138,27 @@ export class QuotationService {
 
                     if (!createdQuoteRoute) return;
 
+                    const isFclRoute = String(route.segmentType || '').toUpperCase().includes('FCL');
                     const cargoGroups = Array.isArray(route.quoteCargo) && route.quoteCargo.length > 0
                         ? route.quoteCargo
-                        : [{
-                            QuoteCargoSid: route.QuoteCargoSid || null,
-                            CargoType: route.CargoType || '',
-                            WeightUnitSid: route.WeightUnitSid,
-                            GrossWeight: route.GrossWeight,
-                            NetWeight: route.NetWeight,
-                            Volume: route.Volume,
-                            ChargeableWeight: route.ChargeableWeight,
-                            ContainerType: route.ContainerType || '',
-                            Qty: route.Qty,
-                            ShipmentTerms: route.ShipmentTerms || '',
-                            PackageType: route.PackageType || '',
-                            PackageQty: route.PackageQty || 0,
-                            CargoDescription: route.CargoDescription || '',
-                            quoteProducts: route.quoteProducts || []
-                        }];
+                        : (isFclRoute
+                            ? []
+                            : [{
+                                QuoteCargoSid: route.QuoteCargoSid || null,
+                                CargoType: route.CargoType || '',
+                                WeightUnitSid: route.WeightUnitSid,
+                                GrossWeight: route.GrossWeight,
+                                NetWeight: route.NetWeight,
+                                Volume: route.Volume,
+                                ChargeableWeight: route.ChargeableWeight,
+                                ContainerType: route.ContainerType || '',
+                                Qty: route.Qty,
+                                ShipmentTerms: route.ShipmentTerms || '',
+                                PackageType: route.PackageType || '',
+                                PackageQty: route.PackageQty || 0,
+                                CargoDescription: route.CargoDescription || '',
+                                quoteProducts: route.quoteProducts || []
+                            }]);
 
                     const allCarriers = route.quoteCarriers || [];
                     let finalCarriers: any[] = [];
@@ -558,24 +561,67 @@ export class QuotationService {
                 }
                 currentRoute.quoteCarriers = finalCarriers;
 
+                const isFclRoute = String(route.segmentType || "").toUpperCase().includes("FCL");
                 const cargoGroups = Array.isArray(route.quoteCargo) && route.quoteCargo.length > 0
                     ? route.quoteCargo
-                    : [{
-                        QuoteCargoSid: route.QuoteCargoSid || null,
-                        CargoType: route.CargoType || "",
-                        WeightUnitSid: route.WeightUnitSid,
-                        GrossWeight: route.GrossWeight,
-                        NetWeight: route.NetWeight,
-                        Volume: route.Volume,
-                        ChargeableWeight: route.ChargeableWeight,
-                        ContainerType: route.ContainerType || "",
-                        Qty: route.Qty,
-                        ShipmentTerms: route.ShipmentTerms || "",
-                        PackageType: route.PackageType || "",
-                        PackageQty: route.PackageQty || 0,
-                        CargoDescription: route.CargoDescription || "",
-                        quoteProducts: route.quoteProducts || []
-                    }];
+                    : (isFclRoute
+                        ? []
+                        : [{
+                            QuoteCargoSid: route.QuoteCargoSid || null,
+                            CargoType: route.CargoType || "",
+                            WeightUnitSid: route.WeightUnitSid,
+                            GrossWeight: route.GrossWeight,
+                            NetWeight: route.NetWeight,
+                            Volume: route.Volume,
+                            ChargeableWeight: route.ChargeableWeight,
+                            ContainerType: route.ContainerType || "",
+                            Qty: route.Qty,
+                            ShipmentTerms: route.ShipmentTerms || "",
+                            PackageType: route.PackageType || "",
+                            PackageQty: route.PackageQty || 0,
+                            CargoDescription: route.CargoDescription || "",
+                            quoteProducts: route.quoteProducts || []
+                        }]);
+
+                const existingRouteCargo = await this._db.quoteCargo.findMany({
+                    where: {
+                        QuoteRouteSid: currentRoute.QuoteRouteSid,
+                        Status: "A"
+                    },
+                    select: {
+                        QuoteCargoSid: true
+                    }
+                });
+                const incomingCargoSids = cargoGroups
+                    .map((cargo: any) => Number(cargo?.QuoteCargoSid))
+                    .filter((id: number) => !!id);
+                const cargoIdsToDelete = existingRouteCargo
+                    .map((cargo: any) => cargo.QuoteCargoSid)
+                    .filter((id: number) => !incomingCargoSids.includes(id));
+
+                if (cargoIdsToDelete.length > 0) {
+                    await this._db.quoteProduct.updateMany({
+                        where: {
+                            QuoteCargoSid: { in: cargoIdsToDelete },
+                            Status: "A"
+                        },
+                        data: {
+                            Status: "D",
+                            UpdatedBy: payload.updatedBy
+                        }
+                    });
+
+                    await this._db.quoteCargo.updateMany({
+                        where: {
+                            QuoteCargoSid: { in: cargoIdsToDelete },
+                            Status: "A"
+                        },
+                        data: {
+                            Status: "D",
+                            UpdatedBy: payload.updatedBy
+                        }
+                    });
+                }
 
                 const finalCargo: any[] = [];
                 for (const cargoItem of cargoGroups) {
@@ -624,6 +670,35 @@ export class QuotationService {
                         })
                     }
                     const allProducts = cargoItem.quoteProducts || [];
+                    const existingProducts = await this._db.quoteProduct.findMany({
+                        where: {
+                            QuoteCargoSid: ourCargo.QuoteCargoSid,
+                            Status: "A"
+                        },
+                        select: {
+                            QuoteProductSid: true
+                        }
+                    });
+                    const incomingProductSids = allProducts
+                        .map((product: any) => Number(product?.QuoteProductSid))
+                        .filter((id: number) => !!id);
+                    const productIdsToDelete = existingProducts
+                        .map((product: any) => product.QuoteProductSid)
+                        .filter((id: number) => !incomingProductSids.includes(id));
+
+                    if (productIdsToDelete.length > 0) {
+                        await this._db.quoteProduct.updateMany({
+                            where: {
+                                QuoteProductSid: { in: productIdsToDelete },
+                                Status: "A"
+                            },
+                            data: {
+                                Status: "D",
+                                UpdatedBy: payload.updatedBy
+                            }
+                        });
+                    }
+
                     let x = 0;
                     const createdProducts = await Promise.all(
                         allProducts.map(async (product) => {
