@@ -2445,7 +2445,10 @@ async getTariffByBookingDetails(payload:TariffBookingPayload) {
       hasOptionalFilters = true;
     }
     if (payload.ContainerType) {
-      whereWithOptionalFilters.ContainerType = payload.ContainerType;
+      whereWithOptionalFilters.OR = [
+        { ContainerType : payload.ContainerType },
+        { ContainerType : null }
+      ]
       hasOptionalFilters = true;
     }
 
