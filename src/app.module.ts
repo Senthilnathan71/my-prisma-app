@@ -17,6 +17,7 @@ import { SettingsModule } from './settings/settings.module';
 import { OcrModule } from './ocr/ocr.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { ReportScheduleModule } from './report-schedule/report-schedule.module';
+import { ExceptionCheckScriptModule } from './exception-check-script/exception-check-script.module';
 
 @Module({
   imports: [
@@ -34,6 +35,7 @@ import { ReportScheduleModule } from './report-schedule/report-schedule.module';
     OcrModule,
     DashboardModule,
     ReportScheduleModule,
+    ExceptionCheckScriptModule,
     ScheduleModule.forRoot(),
   ],
   controllers: [AppController],
