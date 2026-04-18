@@ -49,10 +49,14 @@ export class RoleService {
 
     async getAllRoles(CompanyMasterSid: number) {
         try {
+            const selectedCompanySid = Number(CompanyMasterSid);
+            if (!Number.isFinite(selectedCompanySid) || selectedCompanySid <= 0) {
+                throw new BadRequestException('CompanyMasterSid is required');
+            }
             const roleList = await this._db.roleMaster.findMany({
                 where: {
                     status: 'A',
-                    CompanyMasterSid: CompanyMasterSid
+                    CompanyMasterSid: selectedCompanySid
                 }
             })
             return roleList;
@@ -125,12 +129,23 @@ export class RoleService {
 
 
     async searchList(params: filterDto) {
-        const { search = '', page = 1, pageSize = 15, activeCompanyId } = params;
+        const {
+            search = '',
+            page = 1,
+            pageSize = 15,
+            activeCompanyId,
+            CurrentCompanySid,
+            currentCompanySid
+        } = params;
         const skip = (page - 1) * pageSize;
+        const companySid = Number(activeCompanyId ?? CurrentCompanySid ?? currentCompanySid);
+        if (!Number.isFinite(companySid) || companySid <= 0) {
+            throw new BadRequestException('CompanyMasterSid is required');
+        }
 
         const where: Prisma.RoleMasterWhereInput = {
             status: statusWhereClause,
-            CompanyMasterSid: activeCompanyId,
+            CompanyMasterSid: companySid,
             ...(search
                 ? {
                     OR: [

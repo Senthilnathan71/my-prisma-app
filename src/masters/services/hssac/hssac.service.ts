@@ -16,30 +16,33 @@ export class HssacService {
 
         const existing = await this._db.hSSACMaster.findFirst({
             where: {
-                OR: [
+                AND: [
                     {
                         HSSACName: {
                             equals: payload.HSSACName.trim(),
                             mode: 'insensitive',
-                        }
+                        },
                     },
                     {
                         HSSACCode: {
                             equals: payload.HSSACCode.trim(),
                             mode: 'insensitive',
-                        }
+                        },
+                    },
+                    {
+                        TaxType: payload.TaxType,
+                    },
+                    {
+                        status: { not: 'D' } // ignore deleted records (optional but recommended)
                     }
-                ]
+                ],
             },
         });
 
         if (existing) {
-            if (existing.HSSACName === payload.HSSACName) {
-                throw new BadRequestException('Hssac name already exists');
-            }
-            if (existing.HSSACCode === payload.HSSACCode) {
-                throw new BadRequestException('Hssac code already exists');
-            }
+            throw new BadRequestException(
+                'HS-SAC with same Name, Code and Tax Type already exists'
+            );
         }
 
         try {
@@ -98,6 +101,41 @@ export class HssacService {
 
         if (!existing) {
             throw new Error('Hssac is not exists');
+        }
+        const existingDuplicate = await this._db.hSSACMaster.findFirst({
+            where: {
+                AND: [
+                    {
+                        HSSACName: {
+                            equals: payload.HSSACName.trim(),
+                            mode: 'insensitive',
+                        },
+                    },
+                    {
+                        HSSACCode: {
+                            equals: payload.HSSACCode.trim(),
+                            mode: 'insensitive',
+                        },
+                    },
+                    {
+                        TaxType: payload.TaxType,
+                    },
+                    {
+                        HSSACMasterSid: {
+                            not: HssacMasterSid, // ✅ IMPORTANT (exclude current record)
+                        },
+                    },
+                    {
+                        status: { not: 'D' } // optional (ignore deleted)
+                    }
+                ],
+            },
+        });
+
+        if (existingDuplicate) {
+            throw new BadRequestException(
+                'HS-SAC with same Name, Code and Tax Type already exists'
+            );
         }
 
         try {

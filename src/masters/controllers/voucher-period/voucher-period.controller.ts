@@ -221,6 +221,9 @@ export class VoucherPeriodController {
         CompanyMasterSid: number;
         BranchMasterSid: number;
         CreatedBy: string;
+        ARGraceDays?: number;
+        APGraceDays?: number;
+        GLGraceDays?: number;
     }) {
         const resp = new ResponseData();
         try {
