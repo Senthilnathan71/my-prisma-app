@@ -121,7 +121,7 @@ export class BookingService {
             NetWeight: Number(product?.NetWeight) || 0,
             Volume: Number(product?.Volume) || 0,
             IsHaz: product?.IsHaz || 'N',
-            ImcoClass: product?.ImcoClass || '',
+            ImcoClass: product?.ImcoClass === null || product?.ImcoClass === undefined || product?.ImcoClass === '' ? null : String(product.ImcoClass),
             UnNo: String(product?.UnNo ?? '') || '',
             PkgGroup: product?.PkgGroup || '',
             Length: product?.Length,
@@ -2587,5 +2587,6 @@ async getTariffByBookingDetails(payload:TariffBookingPayload) {
 
 
 }
+
 
 

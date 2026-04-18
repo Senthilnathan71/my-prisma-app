@@ -195,10 +195,17 @@ async createHouseJob(@Body() payload: any) {
   })
   @HttpCode(HttpStatus.OK)
   @Get('fetch-containers/:MasterJobSid')
-  async getMasterJobContainersByMasterJobSid(@Param('MasterJobSid', ParseIntPipe) MasterJobSid: number) {
+  async getMasterJobContainersByMasterJobSid(
+    @Param('MasterJobSid', ParseIntPipe) MasterJobSid: number,
+    @Query('ContainerType') ContainerType?: string
+  ) {
     let output = new ResponseData();
     try {
-      const masterJobContainers = await this.houseJobService.getMasterJobContainersByMasterJobSid(MasterJobSid)
+      const parsedContainerType = ContainerType ? Number(ContainerType) : undefined;
+      const masterJobContainers = await this.houseJobService.getMasterJobContainersByMasterJobSid(
+        MasterJobSid,
+        Number.isFinite(parsedContainerType) ? parsedContainerType : undefined
+      );
       if (!masterJobContainers) {
         this.logger.warn(`masterJobContainers data fetched failed:- ${masterJobContainers}`);
         throw new BadRequestException('Master Job Containers data fetch Failed');

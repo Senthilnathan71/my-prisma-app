@@ -1905,13 +1905,15 @@ export class HouseJobService {
         }
     }
 
-    async getMasterJobContainersByMasterJobSid(MasterJobSid: number) {
+    async getMasterJobContainersByMasterJobSid(MasterJobSid: number, ContainerType?: number) {
+        const hasContainerTypeFilter = typeof ContainerType === 'number' && !Number.isNaN(ContainerType);
         try {
             const ourMasterJobContainers = await this._db.masterJobContainer.findMany({
                 where: {
                     MasterJobSid: MasterJobSid,
-                    Status: 'A'
-                }
+                    Status: 'A',
+                    ...(hasContainerTypeFilter ? { ContainerType: ContainerType } : {})
+                    }
             })
             return ourMasterJobContainers;
         } catch (error) {
