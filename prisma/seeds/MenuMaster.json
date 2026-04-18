@@ -1348,5 +1348,20 @@
     "icon": "fas fa-map",
     "path": "/master/zone",
     "parentId": "129"
+  },
+  {
+    "MenuMasterSid": 192,
+    "MenuCode": "EXC",
+    "MenuName": "Exception Check",
+    "ModuleMasterSid": 1,
+    "ModuleName": "Settings",
+    "createdOn": "2026-04-18T00:00:00.000Z",
+    "updatedOn": "2026-04-18T00:00:00.000Z",
+    "createdBy": "system",
+    "updatedBy": "system",
+    "status": "A",
+    "icon": "fas fa-shield-alt",
+    "path": "/settings/exception-check-script/list",
+    "parentId": ""
   }
 ]

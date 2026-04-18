@@ -51,6 +51,7 @@ model CostRevenueCharges {
   ChargeCOAMasterSid          Int?
   ChargeSubledgerMasterSid    Int?
   PaymentRequestSid           Int?
+  TariffDetailSid             Int?
   bookingRates                BookingRates?      @relation(fields: [BookingRateSid], references: [BookingRatesSid])
   branchMaster                BranchMaster       @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
   chargeMaster                ChargeMaster?      @relation(fields: [ChargeMasterSid], references: [ChargeMasterSid])
@@ -67,6 +68,7 @@ model CostRevenueCharges {
   paymentRequest              PaymentRequest?    @relation(fields: [PaymentRequestSid], references: [PaymentRequestSid])
   partyCOAMaster              COAMaster?         @relation("PartyLedger", fields: [PartyCOAMasterSid], references: [COAMasterSid])
   partySubledgerMaster        SubledgerMaster?   @relation("PartySubledger", fields: [PartySubledgerMasterSid], references: [SubledgerMasterSid])
+  tariffDetail                TariffDetail?      @relation(fields: [TariffDetailSid], references: [TariffDetailSid])
   revenueChargeUOMMaster      UOMMaster          @relation("REVENUE", fields: [RevenueChargeUomSid], references: [UOMMasterSid])
   revenueCurrencyMaster       CurrencyMaster?    @relation("REVENUE", fields: [RevenueCurrencyMasterSid], references: [CurrencyMasterSid])
   revenueCustomerBranch       CustomerBranch?    @relation("REVENUE", fields: [RevenueCustomerBranchSid], references: [CustomerBranchSid])
