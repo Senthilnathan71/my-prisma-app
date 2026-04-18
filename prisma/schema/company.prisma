@@ -1038,6 +1038,7 @@ model TariffDetail {
   MinSale            String               @db.VarChar(20)
   ContainerType      Int?
   BookingRates       BookingRates[]
+  CostRevenueCharges CostRevenueCharges[]
   QuoteCharge        QuoteCharge[]
   containerType      ContainerTypeMaster? @relation(fields: [ContainerType], references: [ContainerTypeMasterSid])
   currencyMasterBuy  CurrencyMaster       @relation("Buy", fields: [BuyCurrency], references: [CurrencyMasterSid])
@@ -3095,6 +3096,8 @@ model HouseJobOthers {
   DeclaredValueOfCustoms  String?   @db.VarChar(3)
   DGConfirmationDate      DateTime? @db.Date
   SIConfirmationDate      DateTime? @db.Date
+  IATARate                Decimal?  @db.Decimal(13, 3)
+  PlaceOfSupply           String?   @db.VarChar(100)
   HouseJob                HouseJob  @relation(fields: [HouseJobSid], references: [HouseJobSid])
 }
 
