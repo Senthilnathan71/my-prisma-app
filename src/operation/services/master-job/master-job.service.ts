@@ -1104,6 +1104,7 @@ export class MasterJobService {
                                     CostVoucherTypeMasterSid: rate.CostVoucherTypeMasterSid,
 
                                     BookingRateSid: rate.BookingRatesSid,
+                                    TariffDetailSid : rate.TariffDetailSid,
                                 }))
                             }).catch(err => {
                                 console.error('HouseJobRates createMany error:', err);
@@ -2802,6 +2803,7 @@ private getWeightInFromUnitSid(weightUnitSid: number): string {
                                 CostVoucherTypeMasterSid: rate.CostVoucherTypeMasterSid,
 
                                 BookingRateSid: rate.BookingRatesSid,
+                                TariffDetailSid: rate.TariffDetailSid,
                             }))
                         }).catch(err => {
                             console.error('HouseJobRates createMany error:', err);

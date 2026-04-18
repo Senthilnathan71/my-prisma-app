@@ -333,6 +333,7 @@ export class ServiceJobService {
                             CostVoucherHeaderSid: charge.CostVoucherHeaderSid ? Number(charge.CostVoucherHeaderSid) : null,
                             PaymentRequestSid: charge.PaymentRequestSid ? Number(charge.PaymentRequestSid) : null,
                             CostVoucherTypeMasterSid: charge.CostVoucherTypeSid ? Number(charge.CostVoucherTypeSid) : null,
+                            TariffDetailSid: charge.TariffDetailSid ? Number(charge.TariffDetailSid) : null,
                         }
                     });
                     createdCharges.push(newCharge);
@@ -613,6 +614,7 @@ export class ServiceJobService {
                         CostVoucherHeaderSid: charge.CostVoucherHeaderSid ? Number(charge.CostVoucherHeaderSid) : null,
                         PaymentRequestSid: charge.PaymentRequestSid ? Number(charge.PaymentRequestSid) : null,
                         CostVoucherTypeMasterSid: charge.CostVoucherTypeSid ? Number(charge.CostVoucherTypeSid) : null,
+                        TariffDetailSid: charge.TariffDetailSid ? Number(charge.TariffDetailSid) : null,
                     };
 
                     await prisma.costRevenueCharges.upsert({

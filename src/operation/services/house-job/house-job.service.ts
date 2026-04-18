@@ -705,7 +705,9 @@ export class HouseJobService {
 
                         createdBy: payload.createdBy,
                         status: "A",
-                        Remarks: item.Remarks
+                        Remarks: item.Remarks,
+                        BookingRateSid : item.BookingRatesSid || null,
+                        TariffDetailSid : item.TariffDetailSid || null
                     }
 
                     const createdCharge = await prisma.costRevenueCharges.create({
@@ -1520,7 +1522,9 @@ export class HouseJobService {
 
                         createdBy: payload.updatedBy,
                         status: "A",
-                        Remarks: item.Remarks
+                        Remarks: item.Remarks,
+                        BookingRateSid : item.BookingRatesSid || null,
+                        TariffDetailSid : item.TariffDetailSid || null
                     }
 
                     createdCharge = await this._db.costRevenueCharges.create({
