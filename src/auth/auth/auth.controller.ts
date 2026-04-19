@@ -72,7 +72,7 @@ export class AuthController {
             // Session restriction: check if user is already logged in elsewhere
             const existingSession = await this.authService.getActiveSession(user.UserMasterSid);
 
-            if (existingSession && !loginData.forceLogin) {
+            if (existingSession && !loginData.forceLogin && loginData.projectType !== 'crm') {
                 const staleThreshold = 3 * 60 * 60 * 1000; // 3 hours
                 const isStale = (Date.now() - existingSession.lastActivity.getTime()) > staleThreshold;
 
