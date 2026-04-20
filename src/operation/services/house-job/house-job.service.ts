@@ -1909,17 +1909,58 @@ export class HouseJobService {
         }
     }
 
-    async getMasterJobContainersByMasterJobSid(MasterJobSid: number, ContainerType?: number) {
-        const hasContainerTypeFilter = typeof ContainerType === 'number' && !Number.isNaN(ContainerType);
+    async getMasterJobContainersByMasterJobSid(
+        MasterJobSid: number,
+        ContainerType?: number
+    ) {
+        const hasContainerTypeFilter =
+            typeof ContainerType === 'number' && !Number.isNaN(ContainerType);
+
         try {
-            const ourMasterJobContainers = await this._db.masterJobContainer.findMany({
+            const containers = await this._db.masterJobContainer.findMany({
                 where: {
                     MasterJobSid: MasterJobSid,
                     Status: 'A',
                     ...(hasContainerTypeFilter ? { ContainerType: ContainerType } : {})
-                    }
-            })
-            return ourMasterJobContainers;
+                },
+                include: {
+                    houseJobProduct: true
+                }
+            });
+
+            const result = containers.map((c: any) => {
+                const products = c.houseJobProduct || [];
+
+                const NoOfPkg = products.reduce(
+                    (sum: number, p: any) => sum + Number(p.ExternlQty || 0),
+                    0
+                );
+
+                const GrossWeight = products.reduce(
+                    (sum: number, p: any) => sum + Number(p.GrossWeight || 0),
+                    0
+                );
+
+                const NetWeight = products.reduce(
+                    (sum: number, p: any) => sum + Number(p.NetWeight || 0),
+                    0
+                );
+
+                const Volume = products.reduce(
+                    (sum: number, p: any) => sum + Number(p.Volume || 0),
+                    0
+                );
+
+                return {
+                    ...c,
+                    NoOfPkg,
+                    GrossWeight,
+                    NetWeight,
+                    Volume
+                };
+            });
+
+            return result;
         } catch (error) {
             throw error;
         }
