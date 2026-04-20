@@ -118,10 +118,12 @@ export class VendorInvoiceService {
 
                 // Create VoucherDetails
                 let totalTaxableAmount = 0;
-                const patchedCostRevenueIds: number[]=[];
+                const costRevenueRateMap = new Map<number, { Rate: number; Amount: number; LocalAmount: number }>();
+                const bookingRateMap = new Map<number, { Rate: number; Amount: number; LocalAmount: number }>();
                 if (payload.VoucherDetail && Array.isArray(payload.VoucherDetail)) {
                     let sno = 1;
                     for (const detail of payload.VoucherDetail) {
+                        const bookingRatesSid = detail.BookingRatesSid ? Number(detail.BookingRatesSid) : detail.BookingRateSid ? Number(detail.BookingRateSid) : null;
                         await tx.voucherDetail.create({
                             data: {
                                 VoucherHeaderSid: voucherHeader.VoucherHeaderSid,
@@ -152,6 +154,7 @@ export class VendorInvoiceService {
                                 MasterJobSid: detail.MasterJobSid || payload.MasterJobSid,
                                 HouseJobSid: detail.HouseJobSid || payload.HouseJobSid,
                                 DepartmentMasterSid : detail.DepartmentMasterSid || null,
+                                BookingRatesSid: bookingRatesSid,
                                 CostRevenueChargesSid : detail.CostRevenueChargesSid || null,
                                 CreatedBy: payload.CreatedBy || 'System',
                                 Narration : detail.Narration || null,
@@ -160,29 +163,94 @@ export class VendorInvoiceService {
                         });
 
                         totalTaxableAmount += Number(detail.TaxableAmount || detail.Amount || 0);
-                        if(detail.CostRevenueChargesSid){
-                            patchedCostRevenueIds.push(detail.CostRevenueChargesSid);
+                        if (detail.CostRevenueChargesSid) {
+                            costRevenueRateMap.set(Number(detail.CostRevenueChargesSid), {
+                                Rate: toNumber(detail.Rate),
+                                Amount: toNumber(detail.Amount),
+                                LocalAmount: toNumber(detail.LocalAmount),
+                            });
+                        }
+                        if (bookingRatesSid) {
+                            bookingRateMap.set(bookingRatesSid, {
+                                Rate: toNumber(detail.Rate),
+                                Amount: toNumber(detail.Amount),
+                                LocalAmount: toNumber(detail.LocalAmount),
+                            });
                         }
                     }
                 }
 
-                 if (payload.isPatching === true && patchedCostRevenueIds.length > 0) {
-                console.log('Patching CostRevenueCharges with IDs:', patchedCostRevenueIds);
-                
-                await tx.costRevenueCharges.updateMany({
-                    where: {
-                        CostRevenueChargesSid: { in: patchedCostRevenueIds }
-                    },
-                    data: {
-                        CostVoucherHeaderSid: voucherHeader.VoucherHeaderSid,
-                        CostVoucherTypeMasterSid: voucherTypeMaster.VoucherTypeMasterSid,
-                        updatedOn: new Date(),
-                        updatedBy: payload.CreatedBy || 'System'
+                // Sync rates back to CostRevenueCharges (skip when posting)
+                if (payload.PostStatus !== 'P' && costRevenueRateMap.size > 0) {
+                    const existingCharges = await tx.costRevenueCharges.findMany({
+                        where: { CostRevenueChargesSid: { in: [...costRevenueRateMap.keys()] } },
+                        select: {
+                            CostRevenueChargesSid: true,
+                            CostRate: true,
+                            CostAmount: true,
+                            CostLocalAmount: true,
+                        },
+                    });
+
+                    for (const cur of existingCharges) {
+                        const inc = costRevenueRateMap.get(cur.CostRevenueChargesSid)!;
+                        const changed =
+                            toNumber(cur.CostRate) !== inc.Rate ||
+                            toNumber(cur.CostAmount) !== inc.Amount ||
+                            toNumber(cur.CostLocalAmount) !== inc.LocalAmount;
+
+                        if (changed) {
+                            await tx.costRevenueCharges.update({
+                                where: { CostRevenueChargesSid: cur.CostRevenueChargesSid },
+                                data: {
+                                    CostVoucherHeaderSid: voucherHeader.VoucherHeaderSid,
+                                    CostVoucherTypeMasterSid: voucherTypeMaster.VoucherTypeMasterSid,
+                                    CostRate: inc.Rate,
+                                    CostAmount: inc.Amount,
+                                    CostLocalAmount: inc.LocalAmount,
+                                    updatedOn: new Date(),
+                                    updatedBy: payload.CreatedBy || 'System',
+                                },
+                            });
+                        }
                     }
-                });
-                
-                console.log(`Updated ${patchedCostRevenueIds.length} CostRevenueCharges records`);
-            }
+                }
+
+                // Sync rates back to BookingRates (skip when posting)
+                if (payload.PostStatus !== 'P' && bookingRateMap.size > 0) {
+                    const existingRates = await tx.bookingRates.findMany({
+                        where: { BookingRatesSid: { in: [...bookingRateMap.keys()] } },
+                        select: {
+                            BookingRatesSid: true,
+                            CostRate: true,
+                            CostAmount: true,
+                            CostLocalAmount: true,
+                        },
+                    });
+
+                    for (const cur of existingRates) {
+                        const inc = bookingRateMap.get(cur.BookingRatesSid)!;
+                        const changed =
+                            toNumber(cur.CostRate) !== inc.Rate ||
+                            toNumber(cur.CostAmount) !== inc.Amount ||
+                            toNumber(cur.CostLocalAmount) !== inc.LocalAmount;
+
+                        if (changed) {
+                            await tx.bookingRates.update({
+                                where: { BookingRatesSid: cur.BookingRatesSid },
+                                data: {
+                                    CostVoucherHeaderSid: voucherHeader.VoucherHeaderSid,
+                                    CostVoucherTypeMasterSid: voucherTypeMaster.VoucherTypeMasterSid,
+                                    CostRate: inc.Rate,
+                                    CostAmount: inc.Amount,
+                                    CostLocalAmount: inc.LocalAmount,
+                                    UpdatedOn: new Date(),
+                                    UpdatedBy: payload.CreatedBy || 'System',
+                                },
+                            });
+                        }
+                    }
+                }
 
                 // Create VoucherTDS if TDS data provided or fetch from vendor mapping
                 if (payload.VoucherTDS || totalTaxableAmount > 0) {
@@ -253,7 +321,7 @@ export class VendorInvoiceService {
                     newVoucher: completeVendorInvoice,
                     VoucherHeaderSid: voucherHeader.VoucherHeaderSid,
                     VoucherNumber: VoucherNumber,
-                    patchedCostRevenueCount: patchedCostRevenueIds.length
+                    patchedCostRevenueCount: costRevenueRateMap.size
                 };
             });
         } catch (error) {
@@ -514,6 +582,8 @@ export class VendorInvoiceService {
                     });
 
                     // Create new details
+                    const costRevenueRateMap = new Map<number, { Rate: number; Amount: number; LocalAmount: number }>();
+                    const bookingRateMap = new Map<number, { Rate: number; Amount: number; LocalAmount: number }>();
                     let sno = 1;
                     for (const detail of payload.VoucherDetail) {
         if (detail.VoucherDetailSid) {
@@ -546,6 +616,7 @@ export class VendorInvoiceService {
                     COAMasterSid: detail.COAMasterSid,
                     MasterJobSid: detail.MasterJobSid || payload.MasterJobSid,
                     HouseJobSid: detail.HouseJobSid || payload.HouseJobSid,
+                    BookingRatesSid: detail.BookingRatesSid ? Number(detail.BookingRatesSid) : detail.BookingRateSid ? Number(detail.BookingRateSid) : null,
                     CostRevenueChargesSid: detail.CostRevenueChargesSid || null,
                     UpdatedBy: payload.UpdatedBy || 'System',
                     Narration : detail.Narration || "",
@@ -585,13 +656,109 @@ export class VendorInvoiceService {
                     YearMasterSid : detail.YearMasterSid || payload.YearMasterSid,
                     MasterJobSid: detail.MasterJobSid || payload.MasterJobSid,
                     HouseJobSid: detail.HouseJobSid || payload.HouseJobSid,
+                    BookingRatesSid: detail.BookingRatesSid ? Number(detail.BookingRatesSid) : detail.BookingRateSid ? Number(detail.BookingRateSid) : null,
                     CostRevenueChargesSid : detail.CostRevenueChargesSid || null,
                     CreatedBy: payload.UpdatedBy || 'System',
                     Status: 'A'
                 }
             });
         }
+        if (detail.CostRevenueChargesSid) {
+            costRevenueRateMap.set(Number(detail.CostRevenueChargesSid), {
+                Rate: toNumber(detail.Rate),
+                Amount: toNumber(detail.Amount),
+                LocalAmount: toNumber(detail.LocalAmount),
+            });
+        }
+        const bookingRatesSid = detail.BookingRatesSid ? Number(detail.BookingRatesSid) : detail.BookingRateSid ? Number(detail.BookingRateSid) : null;
+        if (bookingRatesSid) {
+            bookingRateMap.set(bookingRatesSid, {
+                Rate: toNumber(detail.Rate),
+                Amount: toNumber(detail.Amount),
+                LocalAmount: toNumber(detail.LocalAmount),
+            });
+        }
     }
+
+                    // Sync rates back to CostRevenueCharges (skip when posting)
+                    if (payload.PostStatus !== 'P' && costRevenueRateMap.size > 0) {
+                        const voucherTypeMaster = await tx.voucherTypeMaster.findFirst({
+                            where: { VoucherTypeMasterSid: existing.VoucherTypeMasterSid }
+                        });
+
+                        const existingCharges = await tx.costRevenueCharges.findMany({
+                            where: { CostRevenueChargesSid: { in: [...costRevenueRateMap.keys()] } },
+                            select: {
+                                CostRevenueChargesSid: true,
+                                CostRate: true,
+                                CostAmount: true,
+                                CostLocalAmount: true,
+                            },
+                        });
+
+                        for (const cur of existingCharges) {
+                            const inc = costRevenueRateMap.get(cur.CostRevenueChargesSid)!;
+                            const changed =
+                                toNumber(cur.CostRate) !== inc.Rate ||
+                                toNumber(cur.CostAmount) !== inc.Amount ||
+                                toNumber(cur.CostLocalAmount) !== inc.LocalAmount;
+
+                            if (changed) {
+                                await tx.costRevenueCharges.update({
+                                    where: { CostRevenueChargesSid: cur.CostRevenueChargesSid },
+                                    data: {
+                                        CostVoucherHeaderSid: VoucherHeaderSid,
+                                        CostVoucherTypeMasterSid: voucherTypeMaster?.VoucherTypeMasterSid,
+                                        CostRate: inc.Rate,
+                                        CostAmount: inc.Amount,
+                                        CostLocalAmount: inc.LocalAmount,
+                                        updatedOn: new Date(),
+                                        updatedBy: payload.UpdatedBy || 'System',
+                                    },
+                                });
+                            }
+                        }
+                    }
+
+                    // Sync rates back to BookingRates (skip when posting)
+                    if (payload.PostStatus !== 'P' && bookingRateMap.size > 0) {
+                        const voucherTypeMasterForBooking = await tx.voucherTypeMaster.findFirst({
+                            where: { VoucherTypeMasterSid: existing.VoucherTypeMasterSid }
+                        });
+
+                        const existingRates = await tx.bookingRates.findMany({
+                            where: { BookingRatesSid: { in: [...bookingRateMap.keys()] } },
+                            select: {
+                                BookingRatesSid: true,
+                                CostRate: true,
+                                CostAmount: true,
+                                CostLocalAmount: true,
+                            },
+                        });
+
+                        for (const cur of existingRates) {
+                            const inc = bookingRateMap.get(cur.BookingRatesSid)!;
+                            const changed =
+                                toNumber(cur.CostRate) !== inc.Rate ||
+                                toNumber(cur.CostAmount) !== inc.Amount ||
+                                toNumber(cur.CostLocalAmount) !== inc.LocalAmount;
+
+                            if (changed) {
+                                await tx.bookingRates.update({
+                                    where: { BookingRatesSid: cur.BookingRatesSid },
+                                    data: {
+                                        CostVoucherHeaderSid: VoucherHeaderSid,
+                                        CostVoucherTypeMasterSid: voucherTypeMasterForBooking?.VoucherTypeMasterSid,
+                                        CostRate: inc.Rate,
+                                        CostAmount: inc.Amount,
+                                        CostLocalAmount: inc.LocalAmount,
+                                        UpdatedOn: new Date(),
+                                        UpdatedBy: payload.UpdatedBy || 'System',
+                                    },
+                                });
+                            }
+                        }
+                    }
 
                     // Update TDS
                     // await tx.voucherTDS.updateMany({

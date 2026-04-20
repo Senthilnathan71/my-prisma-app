@@ -2421,29 +2421,49 @@ async getTariffByBookingDetails(payload:TariffBookingPayload) {
 
     // optional filters – add only if provided in payload
     if (payload.PORSid) {
-      whereWithOptionalFilters.tariffHeader.POOSid = payload.PORSid;
-      hasOptionalFilters = true;
+        whereWithOptionalFilters.tariffHeader.POOSid = payload.PORSid;
+        hasOptionalFilters = true;
+    } else {
+        whereWithOptionalFilters.tariffHeader.POOSid = null;
+        hasOptionalFilters = true;
     }
+
     if (payload.FPODSid) {
       whereWithOptionalFilters.tariffHeader.FDCSid = payload.FPODSid;
       hasOptionalFilters = true;
+    } else {
+        whereWithOptionalFilters.tariffHeader.FDCSid = null;
+        hasOptionalFilters = true;
     }
+
     if (payload.Carrier) {
       whereWithOptionalFilters.tariffHeader.Carrier = payload.Carrier;
       hasOptionalFilters = true;
+    } else {
+        whereWithOptionalFilters.tariffHeader.Carrier = null;
+        hasOptionalFilters = true;
     }
     if (payload.AgentSid) {
       whereWithOptionalFilters.tariffHeader.AgentSid = payload.AgentSid;
       hasOptionalFilters = true;
+    } else {
+        whereWithOptionalFilters.tariffHeader.AgentSid = null;
+        hasOptionalFilters = true;
     }
+
     if (payload.IncoTerms) {
       whereWithOptionalFilters.tariffHeader.IncoTerms = payload.IncoTerms;
       hasOptionalFilters = true;
+    } else {
+        whereWithOptionalFilters.tariffHeader.IncoTerms = null;
+        hasOptionalFilters = true;
     }
+
     if (payload.CargoType) {
       whereWithOptionalFilters.CargoType = payload.CargoType;
       hasOptionalFilters = true;
     }
+    
     if (payload.ContainerType) {
       whereWithOptionalFilters.OR = [
         { ContainerType : payload.ContainerType },
@@ -2487,8 +2507,7 @@ async getTariffByBookingDetails(payload:TariffBookingPayload) {
                 Carrier: null,
                 AgentSid: null,
                 IncoTerms: null,
-            },
-            ContainerType: null,
+            }
         };
 
       allTariffDetails = await this._db.tariffDetail.findMany({
